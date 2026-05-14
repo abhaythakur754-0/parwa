@@ -20,6 +20,7 @@ Security controls:
 - C-14: OAuth tokens encrypted with Fernet before persistence
 """
 
+import asyncio
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -259,10 +260,24 @@ def authenticate_user(
             message="Invalid email or password"
         )
 
-    # L11: Progressive delay before success response
+    # L11: Progressive delay before success response (non-blocking for async)
     attempt = user.failed_login_count or 0
     if attempt > 0 and attempt < len(_LOCKOUT_DELAYS):
-        time.sleep(_LOCKOUT_DELAYS[attempt])
+        delay = _LOCKOUT_DELAYS[attempt]
+        if delay > 0:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+            if loop and loop.is_running():
+                # Async context — run delay in thread pool to avoid blocking event loop
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    loop.run_in_executor(
+                        pool, lambda: time.sleep(delay)
+                    )
+            else:
+                time.sleep(delay)
 
     # Reset failed login count on success
     user.failed_login_count = 0

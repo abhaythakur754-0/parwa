@@ -16,10 +16,13 @@ from sqlalchemy import (
     Column, String, Text, Integer, Float, Boolean,
     DateTime, ForeignKey, Index,
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 
 from database.base import Base
+
+
+def _uuid() -> str:
+    return str(uuid.uuid4())
 
 
 class OutboundEmail(Base):
@@ -31,8 +34,8 @@ class OutboundEmail(Base):
 
     __tablename__ = "outbound_emails"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    company_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(String(36), nullable=False, index=True)
 
     # Who we sent to
     recipient_email = Column(String(254), nullable=False)
@@ -52,8 +55,8 @@ class OutboundEmail(Base):
     )  # pending, sent, delivered, bounced, failed, complaint
 
     # Ticket association
-    ticket_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    ticket_message_id = Column(UUID(as_uuid=True), nullable=True)
+    ticket_id = Column(String(36), nullable=False, index=True)
+    ticket_message_id = Column(String(36), nullable=True)
 
     # AI attribution
     role = Column(String(50), nullable=False, default="ai")

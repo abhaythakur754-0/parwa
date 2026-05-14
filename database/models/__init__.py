@@ -81,3 +81,13 @@ from database.models.sms_channel import (  # noqa: F401
     SMSConversation,
     SMSChannelConfig,
 )
+from database.models.ooo_detection import (  # noqa: F401
+    OOODetectionRule,
+    OOODetectionLog,
+    OOOSenderProfile,
+)
+from database.models.email_bounces import (  # noqa: F401
+    EmailBounce,
+    CustomerEmailStatus,
+    EmailDeliverabilityAlert,
+)

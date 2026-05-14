@@ -73,6 +73,38 @@ from app.api.sms_channel import router as sms_channel_router  # Week 13 Day 5: S
 from app.api.workflow import router as workflow_router  # Week 10: Workflow API (now with LangGraph multi-agent)
 from app.api.tickets import router as tickets_router  # BUG-3 FIX: Day 26 Ticket CRUD (was dead code in api_router)
 from app.api.technique_config import router as technique_config_router  # BUG-3 FIX: SG-17 Technique Config Admin (was dead code in api_router)
+
+# ── Previously Unregistered Routers (80+ dead endpoints now live) ──
+from app.api.billing import router as billing_router  # Billing CRUD + Paddle integration
+from app.api.billing_webhooks import router as billing_webhooks_router  # Paddle webhook endpoints
+from app.api.notifications import router as notifications_router  # Notification CRUD + preferences
+from app.api.customers import router as customers_router  # Customer management
+from app.api.sla import router as sla_router  # SLA policy management
+from app.api.channels import router as channels_router  # Channel management
+from app.api.identity import router as identity_router  # Identity resolution
+from app.api.custom_fields import router as custom_fields_router  # Custom field CRUD
+from app.api.triggers import router as triggers_router  # Trigger management
+from app.api.ticket_lifecycle import router as ticket_lifecycle_router  # Ticket lifecycle (escalate, reopen, freeze)
+from app.api.ticket_lifecycle import incident_router  # Incident management
+from app.api.ticket_lifecycle import spam_router  # Spam moderation
+from app.api.ticket_messages import router as ticket_messages_router  # Ticket messages
+from app.api.ticket_notes import router as ticket_notes_router  # Internal notes
+from app.api.ticket_bulk import router as ticket_bulk_router  # Bulk ticket actions
+from app.api.ticket_merge import router as ticket_merge_router  # Ticket merging
+from app.api.ticket_search import router as ticket_search_router  # Ticket search
+from app.api.ticket_timeline import router as ticket_timeline_router  # Ticket timeline
+from app.api.ticket_assignment import router as ticket_assignment_router  # Ticket assignment
+from app.api.ticket_assignment import rules_router as assignment_rules_router  # Assignment rules
+from app.api.ticket_classification import router as ticket_classification_router  # Ticket classification
+from app.api.ticket_templates import router as ticket_templates_router  # Ticket templates
+from app.api.collisions import router as collisions_router  # Collision detection
+from app.api.classification import router as classification_router  # Text classification
+from app.api.signals import router as signals_router  # Signal extraction
+from app.api.ai_classification import router as ai_classification_router  # AI classification
+from app.api.ai_signals import router as ai_signals_router  # AI signal extraction
+from app.api.rag import router as rag_router  # RAG retrieval
+from app.api.response import router as response_api_router  # Response generation + brand voice + assignment + migration
+
 from app.api.deps import get_current_user
 from database.models.core import User
 
@@ -372,6 +404,59 @@ app.include_router(sms_channel_router)  # Week 13 Day 5: SMS channel endpoints (
 app.include_router(workflow_router)  # Week 10: Workflow API (now with LangGraph multi-agent)
 app.include_router(tickets_router, prefix="/api/v1", tags=["tickets"])  # BUG-3 FIX: Tickets at /api/v1/tickets (matches variant_check.py)
 app.include_router(technique_config_router, tags=["technique-config"])  # BUG-3 FIX: Technique Config at /api/techniques/config (router already has prefix)
+
+# ── Previously Unregistered Routers (80+ endpoints now live) ───────
+
+# Billing & Paddle
+app.include_router(billing_router, tags=["billing"])  # prefix: /api/billing
+app.include_router(billing_webhooks_router, tags=["billing-webhooks"])  # prefix: /api/v1
+
+# Notifications
+app.include_router(notifications_router, prefix="/api/v1", tags=["notifications"])  # prefix: /notifications -> /api/v1/notifications
+
+# Customer management
+app.include_router(customers_router, prefix="/api/v1", tags=["customers"])  # prefix: /customers -> /api/v1/customers
+
+# SLA management
+app.include_router(sla_router, prefix="/api/v1", tags=["sla"])  # prefix: /sla -> /api/v1/sla
+
+# Channel management
+app.include_router(channels_router, prefix="/api/v1", tags=["channels"])  # prefix: /channels -> /api/v1/channels
+
+# Identity resolution
+app.include_router(identity_router, prefix="/api/v1", tags=["identity"])  # prefix: /identity -> /api/v1/identity
+
+# Custom fields
+app.include_router(custom_fields_router, prefix="/api/v1", tags=["custom-fields"])  # prefix: /custom-fields -> /api/v1/custom-fields
+
+# Triggers
+app.include_router(triggers_router, prefix="/api/v1", tags=["triggers"])  # prefix: /triggers -> /api/v1/triggers
+
+# Ticket sub-routers (all under /api/v1 to match tickets_router prefix)
+app.include_router(ticket_lifecycle_router, prefix="/api/v1", tags=["ticket-lifecycle"])  # prefix: /tickets -> /api/v1/tickets
+app.include_router(incident_router, prefix="/api/v1", tags=["incidents"])  # prefix: /incidents -> /api/v1/incidents
+app.include_router(spam_router, prefix="/api/v1", tags=["spam"])  # prefix: /spam -> /api/v1/spam
+app.include_router(ticket_messages_router, prefix="/api/v1", tags=["ticket-messages"])  # prefix: /tickets -> /api/v1/tickets
+app.include_router(ticket_notes_router, prefix="/api/v1", tags=["ticket-notes"])  # prefix: /tickets -> /api/v1/tickets
+app.include_router(ticket_bulk_router, prefix="/api/v1", tags=["ticket-bulk"])  # prefix: /tickets/bulk -> /api/v1/tickets/bulk
+app.include_router(ticket_merge_router, prefix="/api/v1", tags=["ticket-merge"])  # prefix: /tickets/merge -> /api/v1/tickets/merge
+app.include_router(ticket_search_router, prefix="/api/v1", tags=["ticket-search"])  # prefix: /tickets -> /api/v1/tickets
+app.include_router(ticket_timeline_router, prefix="/api/v1", tags=["ticket-timeline"])  # prefix: /tickets -> /api/v1/tickets
+app.include_router(ticket_assignment_router, prefix="/api/v1", tags=["ticket-assignment"])  # prefix: /tickets -> /api/v1/tickets
+app.include_router(assignment_rules_router, prefix="/api/v1", tags=["assignment-rules"])  # prefix: /assignments/rules -> /api/v1/assignments/rules
+app.include_router(ticket_classification_router, prefix="/api/v1", tags=["ticket-classification"])  # prefix: /tickets -> /api/v1/tickets
+app.include_router(ticket_templates_router, prefix="/api/v1", tags=["ticket-templates"])  # prefix: /templates -> /api/v1/templates
+app.include_router(collisions_router, prefix="/api/v1", tags=["ticket-collisions"])  # prefix: /tickets -> /api/v1/tickets
+
+# AI & Classification
+app.include_router(classification_router, tags=["classification"])  # prefix: /api/classification
+app.include_router(signals_router, tags=["signals"])  # prefix: /api/signals
+app.include_router(ai_classification_router, tags=["ai-classification"])  # prefix: /api/ai/classification
+app.include_router(ai_signals_router, tags=["ai-signals"])  # prefix: /api/ai/signals
+app.include_router(rag_router, tags=["rag"])  # prefix: /api/rag
+
+# Response generation + brand voice + AI assignment + migration
+app.include_router(response_api_router, tags=["response"])  # combined router with sub-routers
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───

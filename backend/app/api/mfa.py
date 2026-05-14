@@ -144,7 +144,7 @@ async def _retrieve_mfa_session(token: str) -> dict | None:
         return None
 
 
-def create_mfa_session_token(
+async def create_mfa_session_token(
     user_id: str,
     company_id: str,
     email: str,
@@ -155,6 +155,11 @@ def create_mfa_session_token(
 
     C-09 FIX: Stores session in Redis with TTL. Falls back to in-memory
     dict only when Redis is unavailable in non-production.
+
+    RACE CONDITION FIX: Now awaited synchronously so the session is
+    guaranteed to be stored BEFORE the response is sent. Previously
+    used fire-and-forget ``loop.create_task()`` which could return
+    before Redis write completed.
 
     This token is issued after successful email/password verification
     but before MFA code verification. It allows the MFA verify endpoint
@@ -171,55 +176,37 @@ def create_mfa_session_token(
         Temporary MFA session token string.
     """
     token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(
+        seconds=_MFA_SESSION_TTL_SECONDS
+    )
     session_data = {
         "user_id": user_id,
         "company_id": company_id,
         "email": email,
         "role": role,
         "plan": plan,
-        "expires_at": (
-            datetime.now(timezone.utc) + timedelta(seconds=_MFA_SESSION_TTL_SECONDS)
-        ).isoformat(),
+        "expires_at": expires_at.isoformat(),
     }
 
-    # C-09: Try Redis first, fall back to in-memory
-    import asyncio
-    try:
-        loop = asyncio.get_running_loop()
-        stored_in_redis = loop.create_task(_store_mfa_session(token, session_data))
+    # C-09 + RACE FIX: Await Redis write synchronously so session
+    # is guaranteed stored before the token is returned to the caller.
+    stored = await _store_mfa_session(token, session_data)
 
-        def _on_redis_done(task):
-            if not task.result():
-                # Redis failed — store in-memory as fallback
-                _mfa_pending_sessions[token] = {
-                    "user_id": user_id,
-                    "company_id": company_id,
-                    "email": email,
-                    "role": role,
-                    "plan": plan,
-                    "expires_at": datetime.now(timezone.utc) + timedelta(
-                        seconds=_MFA_SESSION_TTL_SECONDS
-                    ),
-                }
-                logger.warning(
-                    "mfa_session_stored_in_memory_fallback token=%s... "
-                    "This is NOT safe for production",
-                    token[:8],
-                )
-
-        stored_in_redis.add_done_callback(_on_redis_done)
-    except RuntimeError:
-        # No running event loop (sync context) — store in-memory
+    if not stored:
+        # Redis failed — store in-memory as fallback (non-prod only)
         _mfa_pending_sessions[token] = {
             "user_id": user_id,
             "company_id": company_id,
             "email": email,
             "role": role,
             "plan": plan,
-            "expires_at": datetime.now(timezone.utc) + timedelta(
-                seconds=_MFA_SESSION_TTL_SECONDS
-            ),
+            "expires_at": expires_at,
         }
+        logger.warning(
+            "mfa_session_stored_in_memory_fallback token=%s... "
+            "This is NOT safe for production",
+            token[:8],
+        )
 
     return token
 

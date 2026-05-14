@@ -11,6 +11,7 @@ Business logic for MFA setup, TOTP verification, and backup codes.
 BC-011: MFA enforced, bcrypt cost 12, tokens hashed.
 """
 
+import asyncio
 import base64
 import hashlib
 import io
@@ -32,6 +33,10 @@ from database.models.core import (
     BackupCode,
     MFASecret,
     User,
+)
+from shared.utils.token_encryption import (
+    encrypt_token,
+    decrypt_token,
 )
 
 logger = get_logger("mfa_service")
@@ -149,6 +154,7 @@ def initiate_mfa_setup(
         db.add(bc)
 
     # Store temp secret in MFASecret table (not verified yet)
+    # C-14: Secret is Fernet-encrypted at rest (same as OAuth tokens)
     # Delete any existing temp secret for this user
     db.query(MFASecret).filter(
         MFASecret.user_id == user.id,
@@ -158,7 +164,7 @@ def initiate_mfa_setup(
     mfa_record = MFASecret(
         user_id=user.id,
         company_id=user.company_id,
-        secret_key=secret,
+        secret_key=encrypt_token(secret),  # C-14: Fernet-encrypted
         is_verified=False,
     )
     db.add(mfa_record)
@@ -221,14 +227,14 @@ def verify_mfa_setup(
     ).first()
 
     if mfa_record:
-        mfa_record.secret_key = temp_secret
+        mfa_record.secret_key = encrypt_token(temp_secret)  # C-14: Fernet-encrypted
         mfa_record.is_verified = True
     else:
         # Create verified record
         mfa_record = MFASecret(
             user_id=user.id,
             company_id=user.company_id,
-            secret_key=temp_secret,
+            secret_key=encrypt_token(temp_secret),  # C-14: Fernet-encrypted
             is_verified=True,
         )
         db.add(mfa_record)
@@ -301,7 +307,18 @@ def verify_mfa_login(
             message="MFA not configured"
         )
 
-    totp = pyotp.TOTP(mfa_record.secret_key)
+    # C-14: Decrypt the Fernet-encrypted secret before using with pyotp
+    decrypted_secret = decrypt_token(mfa_record.secret_key)
+    if not decrypted_secret:
+        logger.error(
+            "mfa_secret_decryption_failed",
+            user_id=user.id,
+        )
+        raise AuthenticationError(
+            message="MFA configuration error. Please re-setup MFA."
+        )
+
+    totp = pyotp.TOTP(decrypted_secret)
     valid = totp.verify(code, valid_window=1)
 
     if not valid:
@@ -328,10 +345,22 @@ def verify_mfa_login(
                 details={"locked": True},
             )
 
-        # Progressive delay
+        # Progressive delay (non-blocking for async callers)
         attempt = min(count - 1, len(_MFA_DELAYS) - 1)
         if _MFA_DELAYS[attempt] > 0:
-            time.sleep(_MFA_DELAYS[attempt])
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+            if loop and loop.is_running():
+                # We're inside an async context — schedule non-blocking delay
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    loop.run_in_executor(
+                        pool, lambda: time.sleep(_MFA_DELAYS[attempt])
+                    )
+            else:
+                time.sleep(_MFA_DELAYS[attempt])
 
         db.commit()
         raise AuthenticationError(
@@ -453,7 +482,14 @@ def regenerate_backup_codes(
             message="MFA not configured"
         )
 
-    totp = pyotp.TOTP(mfa_record.secret_key)
+    # C-14: Decrypt the Fernet-encrypted secret before using with pyotp
+    decrypted_secret = decrypt_token(mfa_record.secret_key)
+    if not decrypted_secret:
+        raise AuthenticationError(
+            message="MFA configuration error. Please re-setup MFA."
+        )
+
+    totp = pyotp.TOTP(decrypted_secret)
     if not totp.verify(mfa_code, valid_window=1):
         raise AuthenticationError(
             message="Invalid MFA code"

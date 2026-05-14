@@ -30,6 +30,15 @@ import database.models.billing_extended  # noqa: F401
 import database.models.user_details  # noqa: F401
 import database.models.variant_engine  # noqa: F401
 import database.models.technique  # noqa: F401
+import database.models.chat_widget  # noqa: F401
+import database.models.business_email_otp  # noqa: F401
+import database.models.outbound_email  # noqa: F401
+import database.models.jarvis_cc  # noqa: F401
+import database.models.email_channel  # noqa: F401
+import database.models.ooo_detection  # noqa: F401
+import database.models.email_bounces  # noqa: F401
+import database.models.sms_channel  # noqa: F401
+import database.models.email_delivery_event  # noqa: F401
 
 from database.base import Base
 

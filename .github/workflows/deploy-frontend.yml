@@ -5,12 +5,21 @@ on:
     branches:
       - main
     paths:
-      - 'frontend/**'
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+      - 'next.config.*'
       - '.github/workflows/deploy-frontend.yml'
+
+env:
+  AWS_REGION: us-east-1
+  S3_BUCKET: ${{ secrets.FRONTEND_S3_BUCKET }}
+  CF_DISTRIBUTION_ID: ${{ secrets.CF_DISTRIBUTION_ID }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: production
 
     steps:
       - name: Checkout Code
@@ -29,46 +38,63 @@ jobs:
       - name: Check Frontend Exists
         id: check-frontend
         run: |
-          if [ -f "frontend/package.json" ]; then
+          if [ -f "package.json" ]; then
             echo "frontend_exists=true" >> $GITHUB_OUTPUT
           else
             echo "frontend_exists=false" >> $GITHUB_OUTPUT
-            echo "No frontend/package.json found, skipping frontend build"
+            echo "No package.json found, skipping frontend build"
           fi
 
       - name: Install Dependencies
         if: steps.check-frontend.outputs.frontend_exists == 'true'
-        run: |
-          cd frontend
-          bun install
+        run: bun install
 
       - name: Build Static Assets
         if: steps.check-frontend.outputs.frontend_exists == 'true'
-        run: |
-          cd frontend
-          bun run build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_PADDLE_KEY: ${{ secrets.NEXT_PUBLIC_PADDLE_KEY }}
+        run: bun run build
 
-      - name: Configure AWS Credentials (Placeholder)
+      - name: Configure AWS Credentials
         if: steps.check-frontend.outputs.frontend_exists == 'true'
-        run: echo "Configuring AWS credentials..."
-        # uses: aws-actions/configure-aws-credentials@v4
-        # with:
-        #   aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        #   aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        #   aws-region: us-east-1
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Sync to S3 Bucket (Placeholder)
-        if: steps.check-frontend.outputs.frontend_exists == 'true'
-        run: |
-          echo "Syncing dist folder to S3..."
-          # aws s3 sync frontend/.next/standalone/ s3://${{ secrets.FRONTEND_BUCKET_NAME }} --delete
-
-      - name: Invalidate CloudFront Cache (Placeholder)
+      - name: Sync to S3 Bucket
         if: steps.check-frontend.outputs.frontend_exists == 'true'
         run: |
-          echo "Invalidating CloudFront CDN cache..."
-          # aws cloudfront create-invalidation --distribution-id ${{ secrets.CF_DISTRIBUTION_ID }} --paths "/*"
+          aws s3 sync .next/standalone/ s3://$S3_BUCKET/ --delete
+          # Also sync static assets with long cache
+          aws s3 sync .next/static/ s3://$S3_BUCKET/_next/static/ \
+            --cache-control "public, max-age=31536000, immutable"
+
+      - name: Invalidate CloudFront Cache
+        if: steps.check-frontend.outputs.frontend_exists == 'true'
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id $CF_DISTRIBUTION_ID \
+            --paths "/*"
+
+      - name: Verify Deployment
+        if: steps.check-frontend.outputs.frontend_exists == 'true'
+        run: |
+          # Quick smoke test on the deployed URL
+          DEPLOY_URL="${{ secrets.FRONTEND_DEPLOY_URL }}"
+          if [ -n "$DEPLOY_URL" ]; then
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$DEPLOY_URL" || echo "000")
+            if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 400 ]; then
+              echo "Frontend verified: HTTP $HTTP_STATUS"
+            else
+              echo "WARNING: Frontend returned HTTP $HTTP_STATUS"
+            fi
+          fi
 
       - name: Deployment Notification
         if: always()
-        run: echo "Frontend deployment completed with status ${{ job.status }}."
+        run: |
+          echo "Frontend deployment completed with status ${{ job.status }}."
+          echo "SHA: ${{ github.sha }}"

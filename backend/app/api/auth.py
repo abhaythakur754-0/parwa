@@ -388,16 +388,38 @@ def get_me(
 # ── Cookie Helpers (L12) ──────────────────────────────────────────
 
 
+def _should_use_secure_cookies() -> bool:
+    """Determine if cookies should use the Secure flag.
+
+    In production, Secure=True is mandatory (browsers only send
+    cookies over HTTPS). In development (HTTP), browsers silently
+    reject Secure cookies, breaking local auth flows.
+    """
+    try:
+        from app.config import get_settings
+        settings = get_settings()
+        return settings.ENVIRONMENT == "production"
+    except Exception:
+        # If settings can't be loaded, default to True for safety
+        return True
+
+
 def _set_token_cookies(
     response: Response, tokens: TokenResponse
 ) -> None:
-    """L12: Set HTTP-only, Secure, SameSite=Strict cookies."""
+    """L12: Set HTTP-only, Secure, SameSite=Strict cookies.
+
+    Secure flag is conditional on ENVIRONMENT:
+    - production: Secure=True (HTTPS required)
+    - development/test: Secure=False (HTTP local dev)
+    """
+    secure = _should_use_secure_cookies()
     response.set_cookie(
         key="parwa_access",
         value=tokens.access_token,
         max_age=tokens.expires_in,
         httponly=True,
-        secure=True,
+        secure=secure,
         samesite="strict",
         path="/",
     )
@@ -406,7 +428,7 @@ def _set_token_cookies(
         value=tokens.refresh_token,
         max_age=7 * 24 * 60 * 60,  # 7 days
         httponly=True,
-        secure=True,
+        secure=secure,
         samesite="strict",
         path="/",
     )

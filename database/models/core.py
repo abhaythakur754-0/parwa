@@ -150,6 +150,13 @@ class RefreshToken(Base):
 # ── MFA Secrets ────────────────────────────────────────────────────
 
 class MFASecret(Base):
+    """MFA TOTP secret (C-14: secret_key is Fernet-encrypted at rest).
+
+    The secret_key column stores a Fernet-encrypted TOTP secret.
+    Use shared.utils.token_encryption.encrypt_token() before writing
+    and decrypt_token() when reading. Never persist plaintext secrets.
+    """
+
     __tablename__ = "mfa_secrets"
 
     id = Column(String(36), primary_key=True, default=_uuid)
@@ -161,7 +168,8 @@ class MFASecret(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    secret_key = Column(String(255), nullable=False)
+    # C-14: Fernet-encrypted TOTP secret (never plaintext)
+    secret_key = Column(String(512), nullable=False)
     is_verified = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.utcnow())
 

@@ -175,6 +175,30 @@ TENANT_TABLES: list[str] = [
     "jarvis_awareness_snapshots",
     "jarvis_commands",
     "jarvis_proactive_alerts",
+    # SECURITY FIX: Previously missing tables with company_id
+    # These tables have company_id columns but were not covered by RLS,
+    # creating a cross-tenant data leak risk.
+    # 021 — missing_rls_tables (security patch)
+    "ai_agent_assignments",
+    "canned_responses",
+    "channels",
+    "chat_widget_configs",
+    "chat_widget_messages",
+    "chat_widget_sessions",
+    "custom_fields",
+    "jarvis_action_tickets",
+    "jarvis_knowledge_used",
+    "jarvis_messages",
+    "notification_logs",
+    "notification_preferences",
+    "paddle_reconciliation_reports",
+    "paddle_webhook_events",
+    "sms_channel_configs",
+    "sms_conversations",
+    "sms_messages",
+    "ticket_collisions",
+    "ticket_triggers",
+    "variant_limits",
 ]
 
 # ═══════════════════════════════════════════════════════════════════

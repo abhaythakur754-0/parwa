@@ -10,40 +10,79 @@ on:
       - 'database/**'
       - '.github/workflows/deploy-backend.yml'
 
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ECR_REGISTRY }}
+  ECR_REPOSITORY: parwa-backend
+  IMAGE_TAG: ${{ github.sha }}
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+    environment: production
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials (Placeholder)
-        run: echo "Configuring AWS credentials..."
-        # uses: aws-actions/configure-aws-credentials@v4
-        # with:
-        #   aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        #   aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        #   aws-region: us-east-1
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR (Placeholder)
-        run: echo "Logging into ECR..."
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, Tag, and Push Backend Image (Placeholder)
+      - name: Build, Tag, and Push Backend Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          echo "Building backend image..."
-          echo "docker build -t parwa-backend:latest -f infra/docker/backend.Dockerfile ."
-          echo "Pushing to registry..."
+          docker build \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            -f infra/docker/backend.Dockerfile .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "Pushed $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-      - name: Deploy to ECS / Kubernetes (Placeholder)
+      - name: Run Database Migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          echo "Updating service configuration..."
-          echo "Deploying new image tag..."
+          docker run --rm \
+            -e DATABASE_URL="$DATABASE_URL" \
+            $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            python -m alembic -c database/alembic.ini upgrade head
 
-      - name: Run Database Migrations (Placeholder)
+      - name: Deploy to Kubernetes
         run: |
-          echo "Running alembic upgrade head..."
+          # Update the deployment image tag
+          kubectl set image deployment/parwa-backend \
+            backend=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -n parwa
+          # Rollout status — wait up to 5 minutes
+          kubectl rollout status deployment/parwa-backend \
+            -n parwa --timeout=300s
+
+      - name: Verify Deployment Health
+        run: |
+          # Wait for pods to be ready, then hit the health endpoint
+          sleep 10
+          kubectl get pods -n parwa -l app=parwa-backend
+          # Port-forward and check health
+          kubectl port-forward svc/parwa-backend 8000:8000 -n parwa &
+          PF_PID=$!
+          sleep 5
+          curl -sf http://localhost:8000/health || (echo "Health check failed" && kill $PF_PID && exit 1)
+          kill $PF_PID 2>/dev/null || true
+          echo "Backend deployment verified healthy"
 
       - name: Deployment Notification
         if: always()
-        run: echo "Backend deployment completed with status ${{ job.status }}."
+        run: |
+          echo "Backend deployment completed with status ${{ job.status }}."
+          echo "Image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "SHA: ${{ github.sha }}"

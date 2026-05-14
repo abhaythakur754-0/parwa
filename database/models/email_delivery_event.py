@@ -18,10 +18,14 @@ from sqlalchemy import (
     Column, String, Text, Integer, Boolean,
     DateTime, ForeignKey, Index,
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from database.base import Base
+
+
+def _uuid() -> str:
+    return str(uuid.uuid4())
 
 
 class EmailDeliveryEvent(Base):
@@ -33,8 +37,8 @@ class EmailDeliveryEvent(Base):
 
     __tablename__ = "email_delivery_events"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    company_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(String(36), nullable=False, index=True)
 
     # Event identification
     event_type = Column(String(50), nullable=False, index=True)
@@ -48,8 +52,8 @@ class EmailDeliveryEvent(Base):
     # Correlation
     brevo_message_id = Column(String(255), nullable=True)
     brevo_event_id = Column(String(255), nullable=True, unique=True)
-    outbound_email_id = Column(UUID(as_uuid=True), nullable=True)
-    ticket_id = Column(UUID(as_uuid=True), nullable=True)
+    outbound_email_id = Column(String(36), nullable=True)
+    ticket_id = Column(String(36), nullable=True)
 
     # Event details
     reason = Column(Text, nullable=True)

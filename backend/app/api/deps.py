@@ -8,9 +8,9 @@ BC-001: Every authenticated request carries company_id.
 BC-011: JWT verification on every protected endpoint.
 """
 
-from typing import Optional
+from typing import Dict, Optional
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Request
 from sqlalchemy.orm import Session
 
 from app.core.auth import verify_access_token, is_token_revoked
@@ -223,3 +223,35 @@ async def optional_user(
         return await get_current_user(authorization, db)
     except AuthenticationError:
         return None
+
+
+def get_tenant_context(
+    request: Request,
+    user: User = Depends(get_current_user),
+) -> Dict:
+    """Extract tenant context from the request and authenticated user.
+
+    Returns a dict with company_id, user_id, and role for use in
+    tenant-scoped operations. Reads company_id from the request
+    state (set by TenantMiddleware) or falls back to the user's
+    company_id.
+
+    BC-001: Every request must be scoped to a single tenant.
+
+    Args:
+        request: The incoming HTTP request.
+        user: Authenticated user (from get_current_user).
+
+    Returns:
+        Dict with company_id, user_id, and role.
+    """
+    # Try request state first (set by TenantMiddleware)
+    company_id = getattr(request.state, "company_id", None)
+    if not company_id:
+        company_id = user.company_id
+
+    return {
+        "company_id": str(company_id) if company_id else None,
+        "user_id": str(user.id),
+        "role": user.role,
+    }

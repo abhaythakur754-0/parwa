@@ -36,13 +36,23 @@ if not os.environ.get("ENVIRONMENT"):
 
 _mock_db = MagicMock()
 
+# Flexible mock module that auto-creates any attribute as MagicMock
+class _FlexibleMockModule(types.ModuleType):
+    """Module that auto-creates any attribute as MagicMock on access."""
+    def __getattr__(self, name):
+        if name.startswith("_"):
+            raise AttributeError(name)
+        mock = MagicMock(name=name)
+        setattr(self, name, mock)
+        return mock
+
 # ── database layer (doesn't exist as real package) ──────────────────
 _fake_database = types.ModuleType("database")
 _fake_base = types.ModuleType("database.base")
 _fake_models = types.ModuleType("database.models")
-_fake_jarvis_models = types.ModuleType("database.models.jarvis")
+_fake_jarvis_models = _FlexibleMockModule("database.models.jarvis")
 _fake_core_models = types.ModuleType("database.models.core")
-_fake_onboarding_models = types.ModuleType("database.models.onboarding")
+_fake_onboarding_models = _FlexibleMockModule("database.models.onboarding")
 
 from unittest.mock import patch as _patch
 
@@ -61,6 +71,8 @@ _fake_base.get_db = _fake_get_db
 _fake_base.get_tenant_db = _fake_get_db
 _fake_base.init_db = MagicMock()
 _fake_base.TenantSession = MagicMock()
+_fake_base.get_db_context = MagicMock(return_value=_mock_db)
+_fake_base.get_tenant_db_context = MagicMock(return_value=_mock_db)
 _fake_core_models.__all__ = []
 _fake_onboarding_models.__all__ = []
 
@@ -69,9 +81,15 @@ _MockUser = type("User", (), {"id": None, "company_id": None, "role": None, "is_
 _MockCompany = type("Company", (), {"id": None})
 setattr(_fake_core_models, "User", _MockUser)
 setattr(_fake_core_models, "Company", _MockCompany)
-setattr(_fake_core_models, "RefreshToken", MagicMock(name="RefreshToken"))
-setattr(_fake_core_models, "OAuthAccount", MagicMock(name="OAuthAccount"))
-setattr(_fake_core_models, "PasswordResetToken", MagicMock(name="PasswordResetToken"))
+# Make core models flexible so any model import works
+_fake_core_models_flex = _FlexibleMockModule("database.models.core")
+setattr(_fake_core_models_flex, "User", _MockUser)
+setattr(_fake_core_models_flex, "Company", _MockCompany)
+setattr(_fake_core_models_flex, "RefreshToken", MagicMock(name="RefreshToken"))
+setattr(_fake_core_models_flex, "OAuthAccount", MagicMock(name="OAuthAccount"))
+setattr(_fake_core_models_flex, "PasswordResetToken", MagicMock(name="PasswordResetToken"))
+# Override the earlier simple mock with the flexible one
+sys.modules["database.models.core"] = _fake_core_models_flex
 
 for model_name in [
     "JarvisSession", "JarvisMessage", "JarvisKnowledgeUsed",
@@ -118,9 +136,10 @@ class _AttrChainer:
         return True
 
 # ── database.models.email_channel and outbound_email (Week 13) ────
-_fake_email_channel = types.ModuleType("database.models.email_channel")
-_fake_outbound_email = types.ModuleType("database.models.outbound_email")
-_fake_tickets_models = types.ModuleType("database.models.tickets")
+# Use _FlexibleMockModule so any model import works, but pre-set critical models
+_fake_tickets_models = _FlexibleMockModule("database.models.tickets")
+_fake_email_channel = _FlexibleMockModule("database.models.email_channel")
+_fake_outbound_email = _FlexibleMockModule("database.models.outbound_email")
 
 # Customer mock with optional fields used by bounce/complaint service
 _MockCustomer = type("Customer", (), {
@@ -468,6 +487,21 @@ sys.modules.setdefault("database.models.jarvis_cc", _fake_jarvis_cc_models)
 sys.modules.setdefault("database.models.core", _fake_core_models)
 sys.modules.setdefault("database.models.onboarding", _fake_onboarding_models)
 
+# Mock ALL database.models submodules so any import works
+# Using the _FlexibleMockModule defined at the top of Phase 2
+for _model_sub in [
+    "ai_pipeline", "tickets", "billing", "billing_extended",
+    "analytics", "approval", "integration", "remaining", "training",
+    "variant_engine", "technique", "webhook_event", "api_key_audit",
+    "core_rate_limit", "phone_otp", "user_details",
+    "chat_widget", "email_channel", "ooo_detection", "email_bounces",
+    "sms_channel", "outbound_email", "email_delivery_event",
+    "business_email_otp",
+]:
+    _mod_path = f"database.models.{_model_sub}"
+    if _mod_path not in sys.modules:
+        sys.modules[_mod_path] = _FlexibleMockModule(_mod_path)
+
 # ── shared layer (exists on disk but imports database.models.onboarding) ──
 _FAKE_SHARED = types.ModuleType("shared")
 _FAKE_KB = types.ModuleType("shared.knowledge_base")
@@ -486,6 +520,32 @@ _FAKE_KB_VECTOR.add_documents = MagicMock()
 for mod in [_FAKE_SHARED, _FAKE_KB, _FAKE_KB_MANAGER, _FAKE_KB_RETRIEVER,
             _FAKE_KB_VECTOR, _FAKE_KB_CHUNKER, _FAKE_KB_REINDEX]:
     sys.modules.setdefault(mod.__name__, mod)
+
+# ── shared.utils — mock for middleware/request_logger.py ──────────────
+_FAKE_SHARED_UTILS = types.ModuleType("shared.utils")
+_FAKE_SHARED_UTILS_DATETIME = types.ModuleType("shared.utils.datetime")
+_FAKE_SHARED_UTILS_DATETIME.format_duration = MagicMock(return_value="0.5s")
+_FAKE_SHARED_UTILS_PAGINATION = types.ModuleType("shared.utils.pagination")
+_FAKE_SHARED_UTILS_PAGINATION.DEFAULT_PAGE_SIZE = 20
+_FAKE_SHARED_UTILS_PAGINATION.MAX_PAGE_SIZE = 100
+_FAKE_SHARED_UTILS_PAGINATION.MAX_OFFSET = 10000
+_FAKE_SHARED_UTILS_SECURITY = types.ModuleType("shared.utils.security")
+_FAKE_SHARED_UTILS_SECURITY.hash_password = MagicMock(return_value="$2b$12$mockhash")
+_FAKE_SHARED_UTILS_SECURITY.verify_password = MagicMock(return_value=True)
+_FAKE_SHARED_UTILS_SECURITY.generate_secure_token = MagicMock(return_value="mock-token")
+_FAKE_SHARED_UTILS_SECURITY.constant_time_compare = MagicMock(return_value=True)
+_FAKE_SHARED_UTILS_SECURITY.validate_password_strength = MagicMock(return_value=True)
+_FAKE_SHARED_UTILS_VALIDATORS = types.ModuleType("shared.utils.validators")
+_FAKE_SHARED_UTILS_TOKEN_ENCRYPTION = types.ModuleType("shared.utils.token_encryption")
+_FAKE_SHARED_UTILS_TOKEN_ENCRYPTION.encrypt_token = MagicMock(return_value="encrypted-mock")
+_FAKE_SHARED_UTILS_TOKEN_ENCRYPTION.decrypt_token = MagicMock(return_value="decrypted-mock")
+
+sys.modules.setdefault("shared.utils", _FAKE_SHARED_UTILS)
+sys.modules.setdefault("shared.utils.datetime", _FAKE_SHARED_UTILS_DATETIME)
+sys.modules.setdefault("shared.utils.pagination", _FAKE_SHARED_UTILS_PAGINATION)
+sys.modules.setdefault("shared.utils.security", _FAKE_SHARED_UTILS_SECURITY)
+sys.modules.setdefault("shared.utils.validators", _FAKE_SHARED_UTILS_VALIDATORS)
+sys.modules.setdefault("shared.utils.token_encryption", _FAKE_SHARED_UTILS_TOKEN_ENCRYPTION)
 
 
 # ════════════════════════════════════════════════════════════════════════
