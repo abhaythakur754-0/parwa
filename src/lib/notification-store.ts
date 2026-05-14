@@ -100,6 +100,23 @@ const MAX_NOTIFICATIONS = 100;
 const TOAST_DURATION_MS = 5000;
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+// ── Fire-and-forget API helper ────────────────────────────────────
+// Safely calls fetch and ignores errors. Handles the case where
+// global.fetch is a jest.fn() that returns undefined (in tests).
+function fireAndForget(url: string, options: RequestInit) {
+  try {
+    const result = fetch(url, options);
+    // If fetch returns a Promise, attach a catch handler
+    if (result && typeof result.catch === 'function') {
+      result.catch(() => {
+        // Silently fail — local state is already updated
+      });
+    }
+  } catch {
+    // Synchronous error — ignore
+  }
+}
+
 // ── Store ────────────────────────────────────────────────────────────
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
@@ -163,12 +180,26 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       const unreadCount = notifications.filter((n) => !n.read).length;
       return { notifications, unreadCount };
     });
+
+    // Persist to backend (fire-and-forget)
+    fireAndForget(`${API_BASE}/api/v1/notifications/${id}/read`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    });
   },
 
   markAllAsRead: () => {
     set((state) => {
       const notifications = state.notifications.map((n) => ({ ...n, read: true }));
       return { notifications, unreadCount: 0 };
+    });
+
+    // Persist to backend (fire-and-forget)
+    fireAndForget(`${API_BASE}/api/v1/notifications/read-all`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
     });
   },
 
@@ -177,6 +208,13 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       const notifications = state.notifications.filter((n) => n.id !== id);
       const unreadCount = notifications.filter((n) => !n.read).length;
       return { notifications, unreadCount };
+    });
+
+    // Persist to backend (fire-and-forget)
+    fireAndForget(`${API_BASE}/api/v1/notifications/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
     });
   },
 

@@ -1,8 +1,9 @@
 /**
- * PARWA Day 5 Unit Tests — MFA Store
+ * PARWA MFA Store Unit Tests
  *
  * Tests the Zustand MFA store: initiateSetup, verifyAndEnroll,
- * verifyLogin, disableMfa, error handling, demo mode fallback.
+ * verifyLogin, disableMfa, error handling.
+ * No demo fallbacks — honest errors on backend failures.
  */
 
 import { useMFAStore } from '@/lib/mfa-store';
@@ -18,6 +19,7 @@ function resetStore() {
     setupData: null,
     isEnrolled: false,
     error: null,
+    isBackendUnavailable: false,
   });
 }
 
@@ -45,12 +47,16 @@ describe('MFA Store', () => {
     it('starts with no error', () => {
       expect(useMFAStore.getState().error).toBeNull();
     });
+
+    it('starts with isBackendUnavailable false', () => {
+      expect(useMFAStore.getState().isBackendUnavailable).toBe(false);
+    });
   });
 
   // ── initiateSetup ──────────────────────────────────────────────────
 
   describe('initiateSetup', () => {
-    it('sets status to enrolling', async () => {
+    it('sets status to enrolling on success', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -99,29 +105,43 @@ describe('MFA Store', () => {
       expect(data?.backupCodes).toEqual(['ee5-ff6']);
     });
 
-    it('generates demo data when backend returns 404', async () => {
+    it('shows ERROR when backend returns 404 — no fake QR code', async () => {
       mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
 
       await useMFAStore.getState().initiateSetup();
-      const data = useMFAStore.getState().setupData;
-      expect(data).not.toBeNull();
-      expect(data?.secret).toBeTruthy();
-      expect(data?.qrCodeUrl).toContain('otpauth');
-      expect(data?.backupCodes.length).toBeGreaterThan(0);
-      expect(useMFAStore.getState().status).toBe('enrolling');
+      expect(useMFAStore.getState().status).toBe('error');
+      expect(useMFAStore.getState().setupData).toBeNull();
+      expect(useMFAStore.getState().isBackendUnavailable).toBe(true);
+      expect(useMFAStore.getState().error).toContain('unavailable');
     });
 
-    it('generates demo data on network error', async () => {
+    it('shows ERROR on network error — no fake QR code', async () => {
       mockFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
 
       await useMFAStore.getState().initiateSetup();
-      const data = useMFAStore.getState().setupData;
-      expect(data).not.toBeNull();
-      expect(data?.secret).toBeTruthy();
-      expect(useMFAStore.getState().status).toBe('enrolling');
+      expect(useMFAStore.getState().status).toBe('error');
+      expect(useMFAStore.getState().setupData).toBeNull();
+      expect(useMFAStore.getState().isBackendUnavailable).toBe(true);
+      expect(useMFAStore.getState().error).toContain('Unable to reach');
     });
 
-    it('sets error on non-404 server error', async () => {
+    it('shows ERROR on 502 — no fake data', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 502 });
+
+      await useMFAStore.getState().initiateSetup();
+      expect(useMFAStore.getState().status).toBe('error');
+      expect(useMFAStore.getState().isBackendUnavailable).toBe(true);
+    });
+
+    it('shows ERROR on 503 — no fake data', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 503 });
+
+      await useMFAStore.getState().initiateSetup();
+      expect(useMFAStore.getState().status).toBe('error');
+      expect(useMFAStore.getState().isBackendUnavailable).toBe(true);
+    });
+
+    it('sets error on non-404/502/503 server error', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
@@ -131,6 +151,7 @@ describe('MFA Store', () => {
       await useMFAStore.getState().initiateSetup();
       expect(useMFAStore.getState().status).toBe('error');
       expect(useMFAStore.getState().error).toBe('Server error');
+      expect(useMFAStore.getState().isBackendUnavailable).toBe(false);
     });
 
     it('clears previous error on new setup attempt', async () => {
@@ -171,28 +192,23 @@ describe('MFA Store', () => {
       expect(useMFAStore.getState().isEnrolled).toBe(true);
     });
 
-    it('accepts 6-digit code in demo mode (404)', async () => {
+    it('REJECTS 6-digit code when backend returns 404 — no demo bypass', async () => {
       mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
 
       const result = await useMFAStore.getState().verifyAndEnroll('654321');
-      expect(result).toBe(true);
-      expect(useMFAStore.getState().isEnrolled).toBe(true);
-    });
-
-    it('rejects non-6-digit code in demo mode', async () => {
-      mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
-
-      const result = await useMFAStore.getState().verifyAndEnroll('1234');
       expect(result).toBe(false);
-      expect(useMFAStore.getState().error).toBe('Invalid verification code');
+      expect(useMFAStore.getState().isEnrolled).toBe(false);
+      expect(useMFAStore.getState().isBackendUnavailable).toBe(true);
+      expect(useMFAStore.getState().error).toContain('unavailable');
     });
 
-    it('accepts 6-digit code on network error', async () => {
+    it('REJECTS any code on network error — no demo bypass', async () => {
       mockFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
 
       const result = await useMFAStore.getState().verifyAndEnroll('111111');
-      expect(result).toBe(true);
-      expect(useMFAStore.getState().isEnrolled).toBe(true);
+      expect(result).toBe(false);
+      expect(useMFAStore.getState().isEnrolled).toBe(false);
+      expect(useMFAStore.getState().isBackendUnavailable).toBe(true);
     });
 
     it('sets error on server rejection', async () => {
@@ -238,11 +254,20 @@ describe('MFA Store', () => {
       );
     });
 
-    it('accepts valid backup code in demo mode', async () => {
+    it('REJECTS any code when backend unavailable (404) — no demo bypass', async () => {
       mockFetch.mockResolvedValueOnce({ ok: false, status: 503 });
 
+      const result = await useMFAStore.getState().verifyLogin('123456');
+      expect(result).toBe(false);
+      expect(useMFAStore.getState().isBackendUnavailable).toBe(true);
+    });
+
+    it('REJECTS backup code on network error — no demo bypass', async () => {
+      mockFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
       const result = await useMFAStore.getState().verifyLogin('abcd', true);
-      expect(result).toBe(true);
+      expect(result).toBe(false);
+      expect(useMFAStore.getState().isBackendUnavailable).toBe(true);
     });
 
     it('rejects invalid code and sets error', async () => {
@@ -255,21 +280,6 @@ describe('MFA Store', () => {
       const result = await useMFAStore.getState().verifyLogin('000000');
       expect(result).toBe(false);
       expect(useMFAStore.getState().error).toBe('Invalid code');
-    });
-
-    it('accepts 6-digit code in demo network error', async () => {
-      mockFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
-
-      const result = await useMFAStore.getState().verifyLogin('999999');
-      expect(result).toBe(true);
-    });
-
-    it('rejects wrong-length code on network error', async () => {
-      mockFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
-
-      const result = await useMFAStore.getState().verifyLogin('123');
-      expect(result).toBe(false);
-      expect(useMFAStore.getState().error).toBe('Network error — please try again');
     });
   });
 
@@ -287,16 +297,26 @@ describe('MFA Store', () => {
       expect(useMFAStore.getState().setupData).toBeNull();
     });
 
-    it('disables MFA on 404 (backend unavailable)', async () => {
+    it('does NOT silently disable MFA on 404 — backend unavailable', async () => {
       useMFAStore.setState({ isEnrolled: true });
       mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
 
       const result = await useMFAStore.getState().disableMfa('mypassword');
-      expect(result).toBe(true);
-      expect(useMFAStore.getState().isEnrolled).toBe(false);
+      expect(result).toBe(false);
+      expect(useMFAStore.getState().isEnrolled).toBe(true); // Still enrolled!
+      expect(useMFAStore.getState().isBackendUnavailable).toBe(true);
     });
 
-    it('returns false on server error', async () => {
+    it('does NOT silently disable MFA on 502', async () => {
+      useMFAStore.setState({ isEnrolled: true });
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 502 });
+
+      const result = await useMFAStore.getState().disableMfa('mypassword');
+      expect(result).toBe(false);
+      expect(useMFAStore.getState().isEnrolled).toBe(true);
+    });
+
+    it('returns false on server error (wrong password)', async () => {
       useMFAStore.setState({ isEnrolled: true });
       mockFetch.mockResolvedValueOnce({
         ok: false,
@@ -310,13 +330,14 @@ describe('MFA Store', () => {
       expect(useMFAStore.getState().isEnrolled).toBe(true);
     });
 
-    it('returns false on network error', async () => {
+    it('returns false on network error — cannot disable offline', async () => {
       useMFAStore.setState({ isEnrolled: true });
       mockFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
 
       const result = await useMFAStore.getState().disableMfa('pass');
       expect(result).toBe(false);
-      expect(useMFAStore.getState().error).toBe('Network error — cannot disable MFA offline');
+      expect(useMFAStore.getState().error).toContain('Cannot disable MFA while offline');
+      expect(useMFAStore.getState().isEnrolled).toBe(true);
     });
   });
 
@@ -337,6 +358,7 @@ describe('MFA Store', () => {
         setupData: { secret: 'X', qrCodeUrl: 'Y', backupCodes: ['Z'] },
         isEnrolled: true,
         error: 'old error',
+        isBackendUnavailable: true,
       });
 
       useMFAStore.getState().clearState();
@@ -345,6 +367,7 @@ describe('MFA Store', () => {
       expect(useMFAStore.getState().setupData).toBeNull();
       expect(useMFAStore.getState().isEnrolled).toBe(false);
       expect(useMFAStore.getState().error).toBeNull();
+      expect(useMFAStore.getState().isBackendUnavailable).toBe(false);
     });
   });
 });

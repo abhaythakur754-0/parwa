@@ -33,6 +33,9 @@ import { useVariantStore, VariantTier } from '@/lib/variant-store';
 import { useNotificationStore } from '@/lib/notification-store';
 import { useApprovalStore } from '@/lib/approval-store';
 import { useSystemHealthStore } from '@/lib/system-health-store';
+import { usePresenceStore } from '@/lib/presence-store';
+import { useTypingStore } from '@/lib/typing-store';
+import { useCollisionStore } from '@/lib/collision-store';
 
 // ── AI State Store Placeholder (Phase 5 — Real-Time Chat) ──────────
 // AI streaming state will be implemented in Phase 5 when we build
@@ -418,6 +421,15 @@ export function useRealtimeEvents(): void {
     const data = args[0] as TicketCollisionData;
     if (!data?.ticketId) return;
 
+    // Update collision store for UI banner
+    if (data.activeAgents && data.currentAgent) {
+      for (const agent of data.activeAgents) {
+        if (agent !== data.currentAgent) {
+          useCollisionStore.getState().userEntered(data.ticketId, agent, agent, 'viewing');
+        }
+      }
+    }
+
     toast(
       `⚠️ Collision detected: ${data.activeAgents?.length || 0} agent(s) viewing this ticket`,
       {
@@ -639,6 +651,84 @@ export function useRealtimeEvents(): void {
     updateLastEventTimestamp();
   }, []);
 
+  // ── Presence Event Handlers ────────────────────────────────────
+
+  const handlePresenceOnline = useCallback((...args: unknown[]) => {
+    const data = args[0] as { agent_id: string; name: string; status?: string; role?: string };
+    if (!data?.agent_id) return;
+
+    usePresenceStore.getState().setOnline(data);
+    updateLastEventTimestamp();
+  }, []);
+
+  const handlePresenceOffline = useCallback((...args: unknown[]) => {
+    const data = args[0] as { agent_id: string };
+    if (!data?.agent_id) return;
+
+    usePresenceStore.getState().setOffline(data.agent_id);
+    updateLastEventTimestamp();
+  }, []);
+
+  const handlePresenceStatus = useCallback((...args: unknown[]) => {
+    const data = args[0] as { agent_id: string; status: string };
+    if (!data?.agent_id || !data?.status) return;
+
+    usePresenceStore.getState().updateStatus(data.agent_id, data.status);
+    updateLastEventTimestamp();
+  }, []);
+
+  const handlePresenceBulk = useCallback((...args: unknown[]) => {
+    const data = args[0] as { agents: Array<{ agent_id: string; name: string; status: string; role?: string }> };
+    if (!data?.agents || !Array.isArray(data.agents)) return;
+
+    usePresenceStore.getState().setBulk(data.agents);
+    updateLastEventTimestamp();
+  }, []);
+
+  // ── Typing Event Handlers ──────────────────────────────────────
+
+  const handleTypingStart = useCallback((...args: unknown[]) => {
+    const data = args[0] as { ticket_id: string; user_id: string; user_name: string };
+    if (!data?.ticket_id || !data?.user_id) return;
+
+    useTypingStore.getState().startTyping(data.ticket_id, data.user_id, data.user_name);
+    updateLastEventTimestamp();
+  }, []);
+
+  const handleTypingStop = useCallback((...args: unknown[]) => {
+    const data = args[0] as { ticket_id: string; user_id: string };
+    if (!data?.ticket_id || !data?.user_id) return;
+
+    useTypingStore.getState().stopTyping(data.ticket_id, data.user_id);
+    updateLastEventTimestamp();
+  }, []);
+
+  // ── Collision Event Handlers ───────────────────────────────────
+
+  const handleCollisionEnter = useCallback((...args: unknown[]) => {
+    const data = args[0] as { ticket_id: string; user_id: string; user_name: string; action: string };
+    if (!data?.ticket_id || !data?.user_id) return;
+
+    useCollisionStore.getState().userEntered(data.ticket_id, data.user_id, data.user_name, data.action || 'viewing');
+    updateLastEventTimestamp();
+  }, []);
+
+  const handleCollisionLeave = useCallback((...args: unknown[]) => {
+    const data = args[0] as { ticket_id: string; user_id: string };
+    if (!data?.ticket_id || !data?.user_id) return;
+
+    useCollisionStore.getState().userLeft(data.ticket_id, data.user_id);
+    updateLastEventTimestamp();
+  }, []);
+
+  const handleCollisionUpdate = useCallback((...args: unknown[]) => {
+    const data = args[0] as { ticket_id: string; user_id: string; field: string; value: unknown };
+    if (!data?.ticket_id || !data?.user_id) return;
+
+    useCollisionStore.getState().updateField(data.ticket_id, data.user_id, data.field, data.value);
+    updateLastEventTimestamp();
+  }, []);
+
   // ── AI Event Handlers ──────────────────────────────────────────
 
   const handleAiChunk = useCallback((...args: unknown[]) => {
@@ -794,6 +884,21 @@ export function useRealtimeEvents(): void {
       ['chat:message', handleChatMessage],
       ['chat:typing', handleChatTyping],
       ['chat:read', handleChatRead],
+
+      // ── Presence events ──
+      ['presence:online', handlePresenceOnline],
+      ['presence:offline', handlePresenceOffline],
+      ['presence:status', handlePresenceStatus],
+      ['presence:bulk', handlePresenceBulk],
+
+      // ── Typing events ──
+      ['typing:start', handleTypingStart],
+      ['typing:stop', handleTypingStop],
+
+      // ── Collision events ──
+      ['collision:enter', handleCollisionEnter],
+      ['collision:leave', handleCollisionLeave],
+      ['collision:update', handleCollisionUpdate],
     ];
 
     // Register each event with the socket client

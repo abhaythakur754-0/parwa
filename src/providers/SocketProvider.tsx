@@ -26,6 +26,7 @@ import toast from 'react-hot-toast';
 import { socketClient, ConnectionState } from '@/lib/socket-client';
 import { useAuth } from '@/hooks/useAuth';
 import { useRealtimeEvents } from '@/hooks/useRealtimeEvents';
+import { usePresenceStore } from '@/lib/presence-store';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -206,6 +207,12 @@ export function SocketProvider({ children }: SocketProviderProps) {
  */
 function RealtimeEventBridge() {
   useRealtimeEvents();
+
+  // Fetch initial presence data on mount
+  React.useEffect(() => {
+    usePresenceStore.getState().fetchPresence();
+  }, []);
+
   return null;
 }
 

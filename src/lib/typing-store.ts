@@ -1,8 +1,9 @@
 /**
- * PARWA Typing Indicator Store + Component
+ * PARWA Typing Indicator Store
  *
  * Tracks who is currently typing on a ticket or conversation.
  * Auto-expires after a timeout (5s) if no further typing events.
+ * Emits Socket.io events so other users see the typing indicator.
  *
  * Socket.io events:
  *   typing:start  — { ticket_id, user_id, user_name }
@@ -29,12 +30,28 @@ interface TypingState {
   clearTyping: (ticketId: string) => void;
   getTypingUsers: (ticketId: string) => TypingUser[];
   isSomeoneTyping: (ticketId: string) => boolean;
+
+  // Socket.io emit helpers (call these from UI components)
+  emitTypingStart: (ticketId: string, userId: string, userName: string) => void;
+  emitTypingStop: (ticketId: string, userId: string) => void;
 }
 
 // ── Auto-expire timeout ──────────────────────────────────────────────
 
 const TYPING_TIMEOUT = 5000; // 5 seconds
 const expiryTimers = new Map<string, Map<string, ReturnType<typeof setTimeout>>>();
+
+// ── Lazy Socket.io import ────────────────────────────────────────────
+
+function getSocketClient() {
+  try {
+    // Dynamic require to avoid circular deps at module level
+    const { socketClient } = require('@/lib/socket-client');
+    return socketClient;
+  } catch {
+    return null;
+  }
+}
 
 // ── Store ────────────────────────────────────────────────────────────
 
@@ -65,6 +82,8 @@ export const useTypingStore = create<TypingState>((set, get) => ({
     if (ticketTimers.has(userId)) clearTimeout(ticketTimers.get(userId)!);
     ticketTimers.set(userId, setTimeout(() => {
       get().stopTyping(ticketId, userId);
+      // Also emit stop to other users
+      get().emitTypingStop(ticketId, userId);
       ticketTimers.delete(userId);
     }, TYPING_TIMEOUT));
   },
@@ -108,4 +127,28 @@ export const useTypingStore = create<TypingState>((set, get) => ({
   getTypingUsers: (ticketId) => get().typingUsers.get(ticketId) || [],
 
   isSomeoneTyping: (ticketId) => (get().typingUsers.get(ticketId)?.length || 0) > 0,
+
+  // ── Socket.io Emit Helpers ──────────────────────────────────────
+
+  emitTypingStart: (ticketId, userId, userName) => {
+    // Update local store
+    get().startTyping(ticketId, userId, userName);
+
+    // Emit to other users via Socket.io
+    const socket = getSocketClient();
+    if (socket?.isConnected()) {
+      socket.emit('typing:start', { ticket_id: ticketId, user_id: userId, user_name: userName });
+    }
+  },
+
+  emitTypingStop: (ticketId, userId) => {
+    // Update local store
+    get().stopTyping(ticketId, userId);
+
+    // Emit to other users via Socket.io
+    const socket = getSocketClient();
+    if (socket?.isConnected()) {
+      socket.emit('typing:stop', { ticket_id: ticketId, user_id: userId });
+    }
+  },
 }));

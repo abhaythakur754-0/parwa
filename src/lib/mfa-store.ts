@@ -2,7 +2,8 @@
  * PARWA MFA Store — Zustand state for Multi-Factor Authentication
  *
  * Manages MFA enrollment, login verification, and disable flows.
- * Handles API calls with graceful network failure handling.
+ * All API failures show honest error states — NO demo fallbacks.
+ * A fake MFA is worse than no MFA.
  */
 
 import { create } from 'zustand';
@@ -25,6 +26,7 @@ interface MFAState {
   setupData: MFASetupData | null;
   isEnrolled: boolean;
   error: string | null;
+  isBackendUnavailable: boolean;
 
   // Actions
   initiateSetup: () => Promise<void>;
@@ -35,16 +37,27 @@ interface MFAState {
   clearState: () => void;
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────
+
+function isBackendUnavailable(status: number): boolean {
+  return status === 404 || status === 502 || status === 503;
+}
+
+function backendUnavailableError(): string {
+  return 'MFA service is currently unavailable. Please try again later.';
+}
+
 // ── Store ────────────────────────────────────────────────────────────
 
-export const useMFAStore = create<MFAState>((set, get) => ({
+export const useMFAStore = create<MFAState>((set) => ({
   status: 'idle',
   setupData: null,
   isEnrolled: false,
   error: null,
+  isBackendUnavailable: false,
 
   initiateSetup: async () => {
-    set({ status: 'enrolling', error: null });
+    set({ status: 'enrolling', error: null, isBackendUnavailable: false });
     try {
       const res = await fetch(`${API_BASE}/api/v1/auth/mfa/setup`, {
         method: 'POST',
@@ -62,29 +75,23 @@ export const useMFAStore = create<MFAState>((set, get) => ({
           },
           status: 'enrolling', // stays enrolling until user verifies
         });
-      } else if (res.status === 404 || res.status === 502 || res.status === 503) {
-        // Backend unavailable — generate demo setup data
+      } else if (isBackendUnavailable(res.status)) {
+        // Backend unavailable — show honest error, NOT fake QR code
         set({
-          setupData: {
-            secret: 'JBSWY3DPEHPK3PXP',
-            qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=otpauth://totp/PARWA:demo@parwa.ai?secret=JBSWY3DPEHPK3PXP&issuer=PARWA`,
-            backupCodes: ['abc1-def2', 'ghi3-jkl4', 'mno5-pqr6', 'stu7-vwx8'],
-          },
-          status: 'enrolling',
+          status: 'error',
+          error: backendUnavailableError(),
+          isBackendUnavailable: true,
         });
       } else {
         const data = await res.json().catch(() => ({}));
         set({ status: 'error', error: data.detail || 'Failed to initiate MFA setup' });
       }
-    } catch (err) {
-      // Network error — generate demo data so UI still works
+    } catch {
+      // Network error — show honest error
       set({
-        setupData: {
-          secret: 'JBSWY3DPEHPK3PXP',
-          qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=otpauth://totp/PARWA:demo@parwa.ai?secret=JBSWY3DPEHPK3PXP&issuer=PARWA`,
-          backupCodes: ['abc1-def2', 'ghi3-jkl4', 'mno5-pqr6', 'stu7-vwx8'],
-        },
-        status: 'enrolling',
+        status: 'error',
+        error: 'Unable to reach MFA service. Please check your connection and try again.',
+        isBackendUnavailable: true,
       });
     }
   },
@@ -104,15 +111,15 @@ export const useMFAStore = create<MFAState>((set, get) => ({
       });
 
       if (res.ok) {
-        set({ status: 'enrolled', isEnrolled: true, error: null });
+        set({ status: 'enrolled', isEnrolled: true, error: null, isBackendUnavailable: false });
         return true;
-      } else if (res.status === 404 || res.status === 502 || res.status === 503) {
-        // Backend unavailable — accept any 6-digit code in demo mode
-        if (code.length === 6 && /^\d+$/.test(code)) {
-          set({ status: 'enrolled', isEnrolled: true, error: null });
-          return true;
-        }
-        set({ status: 'error', error: 'Invalid verification code' });
+      } else if (isBackendUnavailable(res.status)) {
+        // Backend unavailable — do NOT accept any code
+        set({
+          status: 'error',
+          error: backendUnavailableError(),
+          isBackendUnavailable: true,
+        });
         return false;
       } else {
         const data = await res.json().catch(() => ({}));
@@ -120,12 +127,12 @@ export const useMFAStore = create<MFAState>((set, get) => ({
         return false;
       }
     } catch {
-      // Network error — accept any 6-digit code in demo mode
-      if (code.length === 6 && /^\d+$/.test(code)) {
-        set({ status: 'enrolled', isEnrolled: true, error: null });
-        return true;
-      }
-      set({ status: 'error', error: 'Network error — please try again' });
+      // Network error — do NOT accept any code
+      set({
+        status: 'error',
+        error: 'Unable to reach MFA service. Please check your connection and try again.',
+        isBackendUnavailable: true,
+      });
       return false;
     }
   },
@@ -148,20 +155,15 @@ export const useMFAStore = create<MFAState>((set, get) => ({
       });
 
       if (res.ok) {
-        const data = await res.json().catch(() => ({}));
-        set({ status: 'idle', error: null });
+        set({ status: 'idle', error: null, isBackendUnavailable: false });
         return true;
-      } else if (res.status === 404 || res.status === 502 || res.status === 503) {
-        // Demo mode — accept any 6-digit code or any backup code format
-        if (!backupCode && code.length === 6 && /^\d+$/.test(code)) {
-          set({ status: 'idle', error: null });
-          return true;
-        }
-        if (backupCode && code.length >= 4) {
-          set({ status: 'idle', error: null });
-          return true;
-        }
-        set({ status: 'error', error: 'Invalid verification code' });
+      } else if (isBackendUnavailable(res.status)) {
+        // Backend unavailable — do NOT accept any code
+        set({
+          status: 'error',
+          error: backendUnavailableError(),
+          isBackendUnavailable: true,
+        });
         return false;
       } else {
         const data = await res.json().catch(() => ({}));
@@ -169,15 +171,12 @@ export const useMFAStore = create<MFAState>((set, get) => ({
         return false;
       }
     } catch {
-      if (!backupCode && code.length === 6 && /^\d+$/.test(code)) {
-        set({ status: 'idle', error: null });
-        return true;
-      }
-      if (backupCode && code.length >= 4) {
-        set({ status: 'idle', error: null });
-        return true;
-      }
-      set({ status: 'error', error: 'Network error — please try again' });
+      // Network error — do NOT accept any code
+      set({
+        status: 'error',
+        error: 'Unable to reach MFA service. Please check your connection and try again.',
+        isBackendUnavailable: true,
+      });
       return false;
     }
   },
@@ -192,21 +191,30 @@ export const useMFAStore = create<MFAState>((set, get) => ({
         body: JSON.stringify({ password }),
       });
 
-      if (res.ok || res.status === 404 || res.status === 502 || res.status === 503) {
-        set({ isEnrolled: false, status: 'idle', setupData: null, error: null });
+      if (res.ok) {
+        set({ isEnrolled: false, status: 'idle', setupData: null, error: null, isBackendUnavailable: false });
         return true;
+      } else if (isBackendUnavailable(res.status)) {
+        // Backend unavailable — do NOT silently disable
+        set({
+          error: backendUnavailableError(),
+          isBackendUnavailable: true,
+        });
+        return false;
       }
       const data = await res.json().catch(() => ({}));
       set({ error: data.detail || 'Failed to disable MFA' });
       return false;
     } catch {
-      // Network error
-      set({ error: 'Network error — cannot disable MFA offline' });
+      set({
+        error: 'Unable to reach MFA service. Cannot disable MFA while offline.',
+        isBackendUnavailable: true,
+      });
       return false;
     }
   },
 
   resetError: () => set({ error: null }),
 
-  clearState: () => set({ status: 'idle', setupData: null, isEnrolled: false, error: null }),
+  clearState: () => set({ status: 'idle', setupData: null, isEnrolled: false, error: null, isBackendUnavailable: false }),
 }));
