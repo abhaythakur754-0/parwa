@@ -145,7 +145,10 @@ export async function verifyAuth(
       issuer: "parwa:frontend",
       audience: "parwa:app",
     });
-    return payload as unknown as VerifiedUser;
+    const p = payload as unknown as VerifiedUser;
+    // Reject refresh tokens — only access tokens are valid for API calls
+    if (p.type === "refresh") return null;
+    return p;
   } catch {
     // Not a frontend token — try relaxed verification
   }

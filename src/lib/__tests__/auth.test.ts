@@ -3,6 +3,8 @@
  *
  * Tests that dashboard API routes use real JWT verification,
  * not the old fake requireAuth() that only checked header existence.
+ *
+ * Note: `jose` and `next/server` are mocked globally in jest.setup.ts
  */
 
 import { SignJWT } from 'jose';

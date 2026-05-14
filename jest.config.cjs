@@ -13,8 +13,12 @@ const config = {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/.next/'],
+  transformIgnorePatterns: [
+    'node_modules/(?!(jose|@panva|@testing-library)/)',
+  ],
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.json' }],
+    '^.+\\.(js|jsx|mjs)$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.json' }],
   },
   // Coverage configuration
   collectCoverageFrom: [
