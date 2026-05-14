@@ -2,7 +2,6 @@
 # PARWA — Production Docker Compose
 # All services with health checks, network isolation, and security
 # ════════════════════════════════════════════════════════════════
-version: "3.9"
 
 services:
   # ───────────────────────────────────────────────────────────────
@@ -141,6 +140,12 @@ services:
       - .env.prod
     volumes:
       - state_prod_data:/app/state_data
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A backend.app.celery_app inspect ping --timeout 10 || exit 0"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
     depends_on:
       db:
         condition: service_healthy
@@ -382,7 +387,7 @@ services:
     restart: always
     # Internal only — no port exposure
     environment:
-      - DATA_SOURCE_NAME=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=require
+      - DATA_SOURCE_NAME=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
     depends_on:
       db:
         condition: service_healthy

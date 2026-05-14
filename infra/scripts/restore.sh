@@ -25,6 +25,8 @@ PRE_RESTORE_BACKUP=true   # Create backup of current state before restoring
 FORCE="${FORCE:-false}"   # Skip confirmation prompts
 DRY_RUN="${DRY_RUN:-false}"  # Show what would happen without doing it
 TIMESTAMP=$(date -u +%Y%m%d_%H%M%S)  # BC-012: UTC
+APP_STOP_COMMAND="${APP_STOP_COMMAND:-}"
+APP_START_COMMAND="${APP_START_COMMAND:-}"
 
 # ────────────────────────────────────────────────────────────────
 # Logging
@@ -57,6 +59,8 @@ Options:
   -n, --dry-run         Show what would happen without making changes
   --force               Skip confirmation prompts (for automated restores)
   --no-pre-backup       Skip creating a pre-restore backup
+  --s3 S3_PATH          Download backup from S3 before restoring
+  -t, --tables TABLES   Comma-separated list of tables for partial restore
   -h, --help            Show this help message
 
 Examples:
@@ -109,6 +113,17 @@ parse_args() {
             --no-pre-backup)
                 PRE_RESTORE_BACKUP=false
                 shift
+                ;;
+            --s3)
+                S3_PATH="$2"
+                # Download from S3 to local temp file
+                RESTORE_FILE="${BACKUP_DIR}/s3_restore_${TIMESTAMP}.sql.gz"
+                download_from_s3 "${S3_PATH}" "${RESTORE_FILE}"
+                shift 2
+                ;;
+            -t|--tables)
+                RESTORE_TABLES="$2"
+                shift 2
                 ;;
             -h|--help)
                 usage 0
@@ -266,6 +281,59 @@ confirm_restore() {
 }
 
 # ────────────────────────────────────────────────────────────────
+# Application stop/start around restore
+# ────────────────────────────────────────────────────────────────
+stop_application() {
+    log "Stopping application connections to database..."
+    # Signal application to stop using database (can be overridden via env)
+    if [[ -n "${APP_STOP_COMMAND}" ]]; then
+        log "Running app stop command: ${APP_STOP_COMMAND}"
+        eval "${APP_STOP_COMMAND}" || warn "App stop command failed"
+    elif command -v docker > /dev/null 2>&1; then
+        # Try to pause Docker containers that connect to this database
+        docker ps --filter "label=parwa.service" --format '{{.Names}}' 2>/dev/null | while read -r container; do
+            log "Pausing container: ${container}"
+            docker pause "${container}" 2>/dev/null || true
+        done
+    fi
+}
+
+start_application() {
+    log "Restarting application connections to database..."
+    if [[ -n "${APP_START_COMMAND}" ]]; then
+        log "Running app start command: ${APP_START_COMMAND}"
+        eval "${APP_START_COMMAND}" || warn "App start command failed"
+    elif command -v docker > /dev/null 2>&1; then
+        docker ps --filter "label=parwa.service" --format '{{.Names}}' --filter "status=paused" 2>/dev/null | while read -r container; do
+            log "Unpausing container: ${container}"
+            docker unpause "${container}" 2>/dev/null || true
+        done
+    fi
+}
+
+# ────────────────────────────────────────────────────────────────
+# Download backup from S3
+# ────────────────────────────────────────────────────────────────
+download_from_s3() {
+    local s3_path="$1"
+    local local_file="$2"
+
+    if ! command -v aws > /dev/null 2>&1; then
+        error "AWS CLI not found — cannot download from S3"
+        return 1
+    fi
+
+    log "Downloading backup from S3: ${s3_path}"
+    if ! aws s3 cp "${s3_path}" "${local_file}" --no-progress; then
+        error "Failed to download backup from S3"
+        return 1
+    fi
+
+    log "S3 download completed: ${local_file}"
+    return 0
+}
+
+# ────────────────────────────────────────────────────────────────
 # Perform the restore
 # ────────────────────────────────────────────────────────────────
 perform_restore() {
@@ -286,25 +354,43 @@ perform_restore() {
     # Terminate existing connections to the database (except our own)
     log "Terminating existing connections to ${DB_NAME}..."
     psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d postgres -c \
-        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DB_NAME}' AND pid <> pg_backend_pid();" \
+        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DB_NAME}' AND pid <> pg_backend_pid() AND usename NOT IN ('postgres_exporter', 'monitoring', 'pg_readonly');" \
         > /dev/null 2>&1 || warn "Could not terminate all existing connections"
 
     # Perform the restore
     log "Restoring database..."
-    if ! zcat "${file}" | psql \
-        -h "${DB_HOST}" \
-        -p "${DB_PORT}" \
-        -U "${DB_USER}" \
-        -d "${DB_NAME}" \
-        -v ON_ERROR_STOP=1 \
-        --quiet \
-        2>"${BACKUP_DIR}/restore_${TIMESTAMP}.err"; then
-        error "Database restore failed!"
-        if [[ -f "${BACKUP_DIR}/restore_${TIMESTAMP}.err" ]]; then
-            error "$(tail -50 "${BACKUP_DIR}/restore_${TIMESTAMP}.err")"
+    if [[ -n "${RESTORE_TABLES:-}" ]]; then
+        log "Performing partial restore for tables: ${RESTORE_TABLES}"
+        # Convert comma-separated to pipe-separated for grep
+        local table_filter
+        table_filter=$(echo "${RESTORE_TABLES}" | tr ',' '|')
+        zcat "${file}" | grep -E "(^COPY .*(${table_filter}) |^INSERT INTO .*(${table_filter})|^CREATE TABLE .*(${table_filter})|^ALTER TABLE .*(${table_filter})|^-- Name: .*(${table_filter}))" | \
+            psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 --quiet 2>"${BACKUP_DIR}/restore_${TIMESTAMP}.err"
+        local restore_rc=$?
+        if [[ ${restore_rc} -ne 0 ]]; then
+            error "Partial database restore failed!"
+            if [[ -f "${BACKUP_DIR}/restore_${TIMESTAMP}.err" ]]; then
+                error "$(tail -50 "${BACKUP_DIR}/restore_${TIMESTAMP}.err")"
+            fi
+            unset PGPASSWORD
+            return 1
         fi
-        unset PGPASSWORD
-        return 1
+    else
+        if ! zcat "${file}" | psql \
+            -h "${DB_HOST}" \
+            -p "${DB_PORT}" \
+            -U "${DB_USER}" \
+            -d "${DB_NAME}" \
+            -v ON_ERROR_STOP=1 \
+            --quiet \
+            2>"${BACKUP_DIR}/restore_${TIMESTAMP}.err"; then
+            error "Database restore failed!"
+            if [[ -f "${BACKUP_DIR}/restore_${TIMESTAMP}.err" ]]; then
+                error "$(tail -50 "${BACKUP_DIR}/restore_${TIMESTAMP}.err")"
+            fi
+            unset PGPASSWORD
+            return 1
+        fi
     fi
 
     unset PGPASSWORD
@@ -350,11 +436,24 @@ main() {
         exit 1
     fi
 
-    # Step 4: Perform the restore
+    # Step 4: Stop application before restore
+    stop_application
+
+    # Ensure application is restarted even if restore fails
+    trap 'start_application' EXIT
+
+    # Step 5: Perform the restore
     if ! perform_restore "${RESTORE_FILE}"; then
         error "Restore failed — pre-restore backup is available in ${BACKUP_DIR}"
+        start_application
         exit 1
     fi
+
+    # Step 6: Restart application after restore
+    start_application
+
+    # Clear the trap since we've already started the application
+    trap - EXIT
 
     log "=========================================="
     log "PARWA Database Restore Completed Successfully"

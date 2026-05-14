@@ -25,7 +25,7 @@ cd "$SCRIPT_DIR"
 PORT="${1:-8000}"
 
 # Python interpreter
-PYTHON="${PYTHON:-/home/z/.venv/bin/python3}"
+PYTHON="${PYTHON:-$(command -v python3 || echo python3)}"
 
 # Ensure we're in the repo root (contains .env, backend/, database/)
 if [ ! -f ".env" ]; then
@@ -60,7 +60,7 @@ export REDIS_URL=""
 
 # Load .env file (overriding only vars not already set)
 set -a
-source <(grep -v '^#' .env | grep -v '^$' | grep -v '^REDIS_URL=' | grep -v '^DEBUG=' | grep -v '^DATABASE_URL=' | grep -v '^ENVIRONMENT=')
+source .env
 set +a
 
 # Re-apply our overrides (they take precedence)
@@ -71,6 +71,6 @@ export REDIS_URL=""
 
 # Start uvicorn (no --reload to avoid double-process issues)
 exec "$PYTHON" -m uvicorn backend.app.main:app \
-    --host 0.0.0.0 \
+    --host 127.0.0.1 \
     --port "$PORT" \
     --log-level info

@@ -21,6 +21,12 @@ spec:
         target:
           type: Utilization
           averageUtilization: 70
+    - type: Resource                    # #73: added memory metric
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
     - type: Pods
       pods:
         metric:

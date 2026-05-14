@@ -64,6 +64,8 @@ coverage/
 docs/
 *.md
 !README.md
+!docs/knowledge-base/**
+!docs/api/**
 
 # Docker
 Dockerfile*

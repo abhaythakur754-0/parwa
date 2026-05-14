@@ -13,6 +13,20 @@ data:
       scrape_interval: 15s
       evaluation_interval: 15s
       scrape_timeout: 10s
+      external_labels:
+        cluster: 'parwa-prod'
+        environment: 'production'
+
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets:
+                - alertmanager-svc:9093
+          timeout: 10s
+          api_version: v2
+
+    rule_files:
+      - /etc/prometheus/rules/*.yml
 
     scrape_configs:
       - job_name: 'parwa-backend'
@@ -33,6 +47,16 @@ data:
             target_label: __address__
             regex: (.+)
             replacement: ${1}:8000
+        metric_relabel_configs:
+          - source_labels: [__name__]
+            regex: 'go_.*'
+            action: drop
+          - source_labels: [__name__]
+            regex: 'promhttp_.*'
+            action: drop
+          - source_labels: [handler]
+            regex: '/debug/.*'
+            action: drop
 
       - job_name: 'parwa-postgres'
         static_configs:
@@ -42,6 +66,73 @@ data:
         static_configs:
           - targets: ['redis-exporter:9121']
 
+      - job_name: 'parwa-frontend'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - parwa
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: keep
+            regex: frontend
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_container_port_number]
+            action: keep
+            regex: "3000"
+
+      - job_name: 'parwa-worker'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - parwa
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: keep
+            regex: worker
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            target_label: __address__
+            regex: (.+)
+            replacement: ${1}:8000
+
+      - job_name: 'parwa-mcp'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - parwa
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: keep
+            regex: mcp
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            target_label: __address__
+            regex: (.+)
+            replacement: ${1}:8080
+
+      - job_name: 'prometheus-self'
+        static_configs:
+          - targets: ['localhost:9090']
+
+      - job_name: 'grafana'
+        static_configs:
+          - targets: ['grafana-svc:3000']
+
+      - job_name: 'nginx-exporter'
+        static_configs:
+          - targets: ['nginx-exporter:9113']
+
       - job_name: 'kubernetes-nodes'
         kubernetes_sd_configs:
           - role: node
@@ -49,6 +140,3 @@ data:
         tls_config:
           ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
         bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-
-    rule_files:
-      - /etc/prometheus/rules/*.yml

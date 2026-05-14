@@ -21,9 +21,10 @@ STAGING="${STAGING:-false}"            # Use Let's Encrypt staging (for testing)
 SSL_DIR="${SSL_DIR:-/etc/nginx/ssl}"
 CERTBOT_DIR="${CERTBOT_DIR:-/var/www/certbot}"
 DH_PARAMS_FILE="${SSL_DIR}/dhparam.pem"
-DH_PARAMS_BITS="${DH_PARAMS_BITS:-2048}"
+DH_PARAMS_BITS="${DH_PARAMS_BITS:-4096}"   # #141: increased from 2048 to 4096
 NGINX_CONF_DIR="${NGINX_CONF_DIR:-/etc/nginx}"
-WEBROOT_MODE="${WEBROOT_MODE:-true}"   # true = webroot, false = DNS/DNS-01
+WEBROOT_MODE="${WEBROOT_MODE:-true}"   # true = webroot, false = DNS-01
+DNS_PLUGIN="${DNS_PLUGIN:-}"          # #140: Set to 'cloudflare' or 'route53' for automated DNS
 
 # Additional domains (SANs)
 EXTRA_DOMAINS="${EXTRA_DOMAINS:-}"
@@ -140,8 +141,18 @@ obtain_certificate() {
     # Authentication method
     if [[ "${WEBROOT_MODE}" == "true" ]]; then
         certbot_args+=("--webroot" "--webroot-path" "${CERTBOT_DIR}")
+    elif [[ "${DNS_PLUGIN}" == "cloudflare" ]]; then
+        # #140: Use --dns-cloudflare plugin (requires python3-certbot-dns-cloudflare)
+        certbot_args+=("--dns-cloudflare" "--dns-cloudflare-credentials" "/etc/letsencrypt/dns-cloudflare.ini")
+    elif [[ "${DNS_PLUGIN}" == "route53" ]]; then
+        # AWS Route53 DNS plugin (requires python3-certbot-dns-route53)
+        certbot_args+=("--dns-route53")
     else
-        certbot_args+=("--dns-nginx" "--dns-nginx-credentials" "/etc/letsencrypt/dns-nginx.ini")
+        # #140: Replaced --dns-nginx (non-existent) with --manual DNS challenge
+        log "WARNING: No DNS plugin specified. Using manual DNS challenge."
+        log "Set DNS_PLUGIN=cloudflare or DNS_PLUGIN=route53 for automated DNS validation."
+        certbot_args+=("--manual" "--preferred-challenges" "dns")
+        certbot_args+=("--manual-auth-hook" "/etc/letsencrypt/dns-auth-hook.sh")
     fi
 
     # Run certbot
@@ -191,10 +202,23 @@ configure_nginx() {
         warn "Current nginx configuration has errors — proceeding with SSL setup"
     fi
 
+    # #142: Support Docker container — detect if running in Docker
+    local nginx_reload_cmd="nginx -s reload"
+    if [[ -f /.dockerenv ]] || grep -q docker /proc/1/cgroup 2>/dev/null; then
+        log "Detected Docker environment — using docker exec for nginx reload"
+        local container_id
+        container_id=$(docker ps --filter "ancestor=parwa-nginx" --format '{{.ID}}' 2>/dev/null | head -1 || true)
+        if [[ -n "${container_id}" ]]; then
+            nginx_reload_cmd="docker exec ${container_id} nginx -s reload"
+        else
+            warn "Could not find nginx container — manual reload required"
+        fi
+    fi
+
     # Reload nginx to pick up changes
     if nginx -t 2>/dev/null; then
         log "Reloading nginx with SSL configuration..."
-        nginx -s reload 2>/dev/null || true
+        eval "${nginx_reload_cmd}" 2>/dev/null || true
     else
         error "nginx configuration test failed after SSL setup — manual intervention required"
         return 1
@@ -220,14 +244,18 @@ setup_auto_renewal() {
     fi
 
     # Fall back to cron job
-    local cron_marker="# PARWA SSL Auto-Renewal"
-    local cron_cmd="0 0,12 * * * root certbot renew --quiet --deploy-hook \"cp -L /etc/letsencrypt/live/${DOMAIN}/fullchain.pem ${SSL_DIR}/fullchain.pem && cp -L /etc/letsencrypt/live/${DOMAIN}/privkey.pem ${SSL_DIR}/privkey.pem && chmod 600 ${SSL_DIR}/privkey.pem && nginx -s reload\" ${cron_marker}"
+    # #143: Fix cron line escaping — use heredoc for clean multi-line
+    local cron_file="/etc/cron.d/parwa-ssl-renewal"
 
     if [[ -f /etc/cron.d/certbot ]]; then
         log "certbot cron already exists at /etc/cron.d/certbot"
     else
-        echo "${cron_cmd}" > /etc/cron.d/parwa-ssl-renewal
-        log "SSL auto-renewal cron job created: /etc/cron.d/parwa-ssl-renewal"
+        cat > "${cron_file}" <<CRON_EOF
+# PARWA SSL Auto-Renewal
+0 0,12 * * * root certbot renew --quiet --deploy-hook "${SSL_DIR}/renewal-hook.sh"
+CRON_EOF
+        chmod 644 "${cron_file}"
+        log "SSL auto-renewal cron job created: ${cron_file}"
     fi
 
     # Also create a renewal hook script for nginx reload

@@ -11,22 +11,26 @@ metadata:
     # TLS configuration
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-    
+
     # Rate limiting
     nginx.ingress.kubernetes.io/limit-connections: "20"
     nginx.ingress.kubernetes.io/limit-rps: "10"
     nginx.ingress.kubernetes.io/limit-burst: "20"
-    
+
     # Proxy configuration
-    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    # #48: lowered from 50m to 10m
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
-    
+
     # WebSocket support
     nginx.ingress.kubernetes.io/websocket-services: "backend-svc"
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
-    
+
+    # #50: www → non-www redirect
+    nginx.ingress.kubernetes.io/from-to-www-redirect: "true"
+
     # Security headers
     nginx.ingress.kubernetes.io/configuration-snippet: |
       more_set_headers "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload";
@@ -35,8 +39,19 @@ metadata:
       more_set_headers "X-XSS-Protection: 1; mode=block";
       more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
       more_set_headers "Permissions-Policy: camera=(), microphone=(), geolocation=()";
-    
-    # Cert-manager (if using cert-manager for TLS)
+
+    # #49: Block sensitive files
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location ~* /\.(env|git) {
+        deny all;
+        return 403;
+      }
+      location ~* /(wp-admin|wp-login|xmlrpc\.php) {
+        deny all;
+        return 403;
+      }
+
+    # Cert-manager
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     cert-manager.io/acme-challenge-type: "http01"
 spec:
@@ -46,26 +61,15 @@ spec:
         - parwa.ai
         - www.parwa.ai
       secretName: parwa-tls-secret
+    - hosts:                            # #46: monitoring TLS
+        - monitoring.parwa.ai
+      secretName: monitoring-tls-secret
   rules:
     - host: parwa.ai
       http:
         paths:
           - path: /api
             pathType: Prefix
-            backend:
-              service:
-                name: backend-svc
-                port:
-                  number: 8000
-          - path: /docs
-            pathType: Prefix
-            backend:
-              service:
-                name: backend-svc
-                port:
-                  number: 8000
-          - path: /openapi.json
-            pathType: Exact
             backend:
               service:
                 name: backend-svc
@@ -102,3 +106,62 @@ spec:
                 name: frontend-svc
                 port:
                   number: 3000
+    # #46: Monitoring ingress with basic auth
+    - host: monitoring.parwa.ai
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana-svc
+                port:
+                  number: 3000
+          - path: /alertmanager
+            pathType: Prefix
+            backend:
+              service:
+                name: alertmanager-svc
+                port:
+                  number: 9093
+---
+# #46: Separate monitoring ingress with auth
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: monitoring-ingress
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: monitoring-ingress
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: parwa-platform
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: monitoring-basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: "PARWA Monitoring — Authentication Required"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - monitoring.parwa.ai
+      secretName: monitoring-tls-secret
+  rules:
+    - host: monitoring.parwa.ai
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana-svc
+                port:
+                  number: 3000
+          - path: /alertmanager
+            pathType: Prefix
+            backend:
+              service:
+                name: alertmanager-svc
+                port:
+                  number: 9093

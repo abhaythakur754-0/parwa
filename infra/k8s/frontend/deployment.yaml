@@ -21,6 +21,7 @@ spec:
         app.kubernetes.io/component: web
         app.kubernetes.io/part-of: parwa-platform
     spec:
+      serviceAccountName: parwa-frontend   # #75: added ServiceAccount
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -31,7 +32,7 @@ spec:
       containers:
         - name: frontend
           image: parwa/frontend:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 3000
@@ -40,12 +41,12 @@ spec:
             - name: NEXT_PUBLIC_API_URL
               valueFrom:
                 configMapKeyRef:
-                  name: parwa-config
+                  name: frontend-config
                   key: NEXT_PUBLIC_API_URL
             - name: NEXT_PUBLIC_ENV
               valueFrom:
                 configMapKeyRef:
-                  name: parwa-config
+                  name: frontend-config
                   key: NEXT_PUBLIC_ENV
           resources:
             requests:
@@ -54,9 +55,15 @@ spec:
             limits:
               cpu: 500m
               memory: 256Mi
+          startupProbe:                    # #68: allow slow start
+            httpGet:
+              path: /api/health             # #77: use /api/health
+              port: http
+            failureThreshold: 30
+            periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /
+              path: /api/health             # #77: use /api/health
               port: http
             initialDelaySeconds: 30
             periodSeconds: 15
@@ -64,7 +71,7 @@ spec:
             failureThreshold: 3
           readinessProbe:
             httpGet:
-              path: /
+              path: /api/health
               port: http
             initialDelaySeconds: 10
             periodSeconds: 10
@@ -92,6 +99,18 @@ spec:
                 topologyKey: kubernetes.io/hostname
       nodeSelector:
         workload-type: frontend
+      tolerations:                        # #76: added tolerations
+        - key: "workload-type"
+          operator: "Equal"
+          value: "frontend"
+          effect: "NoSchedule"
+      topologySpreadConstraints:          # #70: spread across zones
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: frontend
       volumes:
         - name: tmp
           emptyDir: {}

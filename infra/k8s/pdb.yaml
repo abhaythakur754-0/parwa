@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/component: api
     app.kubernetes.io/part-of: parwa-platform
 spec:
-  minAvailable: 1
+  maxUnavailable: 1                    # #59: changed from minAvailable to maxUnavailable
   selector:
     matchLabels:
       app.kubernetes.io/name: backend
@@ -23,7 +23,7 @@ metadata:
     app.kubernetes.io/component: background-jobs
     app.kubernetes.io/part-of: parwa-platform
 spec:
-  minAvailable: 1
+  maxUnavailable: 1                    # #59: changed from minAvailable to maxUnavailable
   selector:
     matchLabels:
       app.kubernetes.io/name: worker
@@ -38,7 +38,52 @@ metadata:
     app.kubernetes.io/component: web
     app.kubernetes.io/part-of: parwa-platform
 spec:
-  minAvailable: 1
+  maxUnavailable: 1                    # #59: changed from minAvailable to maxUnavailable
   selector:
     matchLabels:
       app.kubernetes.io/name: frontend
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mcp-pdb                        # #57: added PDB for MCP
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: mcp
+    app.kubernetes.io/component: ai-tools
+    app.kubernetes.io/part-of: parwa-platform
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mcp
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgres-pdb                   # #58: added PDB for PostgreSQL
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: parwa-platform
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis-pdb                      # #58: added PDB for Redis
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/component: cache
+    app.kubernetes.io/part-of: parwa-platform
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis

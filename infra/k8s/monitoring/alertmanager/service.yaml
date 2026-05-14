@@ -10,9 +10,8 @@ metadata:
 spec:
   type: ClusterIP
   selector:
-    matchLabels:
-      app.kubernetes.io/name: alertmanager
-      app.kubernetes.io/component: monitoring
+    app.kubernetes.io/name: alertmanager
+    app.kubernetes.io/component: monitoring
   ports:
     - name: http
       port: 9093

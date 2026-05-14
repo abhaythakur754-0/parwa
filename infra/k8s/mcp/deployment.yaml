@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/part-of: parwa-platform
     app.kubernetes.io/managed-by: kustomize
 spec:
-  replicas: 1
+  replicas: 2                          # #84: scaled from 1 to 2
   selector:
     matchLabels:
       app.kubernetes.io/name: mcp
@@ -20,7 +20,12 @@ spec:
         app.kubernetes.io/name: mcp
         app.kubernetes.io/component: ai-tools
         app.kubernetes.io/part-of: parwa-platform
+      annotations:
+        prometheus.io/scrape: "true"        # #69: scrape annotations
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
     spec:
+      serviceAccountName: parwa-mcp       # #83: added ServiceAccount
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -31,7 +36,7 @@ spec:
       containers:
         - name: mcp
           image: parwa/mcp:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 8080
@@ -69,6 +74,12 @@ spec:
             limits:
               cpu: "1"
               memory: 512Mi
+          startupProbe:                    # #68: allow slow start
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 30
+            periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /health
@@ -105,6 +116,18 @@ spec:
                 topologyKey: kubernetes.io/hostname
       nodeSelector:
         workload-type: api
+      tolerations:                        # #84: added tolerations
+        - key: "workload-type"
+          operator: "Equal"
+          value: "api"
+          effect: "NoSchedule"
+      topologySpreadConstraints:          # #70: spread across zones
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: mcp
       volumes:
         - name: tmp
           emptyDir: {}

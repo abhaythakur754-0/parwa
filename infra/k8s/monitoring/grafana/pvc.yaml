@@ -1,16 +1,17 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: redis-pvc
+  name: grafana-data
   namespace: parwa
   labels:
-    app.kubernetes.io/name: redis
-    app.kubernetes.io/component: cache
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/component: monitoring
     app.kubernetes.io/part-of: parwa-platform
+    app.kubernetes.io/managed-by: kustomize
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: standard
+  storageClassName: gp3
   resources:
     requests:
       storage: 5Gi

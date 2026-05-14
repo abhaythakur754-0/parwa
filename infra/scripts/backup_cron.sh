@@ -83,12 +83,14 @@ run_backup() {
         fi
 
         # Run the backup script, capturing output
-        if bash "${BACKUP_SCRIPT}" 2>&1; then
+        local backup_output
+        backup_output=$(bash "${BACKUP_SCRIPT}" 2>&1) && local backup_rc=0 || local backup_rc=$?
+        if [[ ${backup_rc} -eq 0 ]]; then
             log "Backup attempt ${attempt} succeeded"
             return 0
         else
-            last_error="Backup script exited with code $?"
-            log "Backup attempt ${attempt} failed: ${last_error}"
+            last_error="${backup_output}"
+            log "Backup attempt ${attempt} failed (exit code ${backup_rc}): ${last_error}"
         fi
     done
 
@@ -101,20 +103,11 @@ run_backup() {
 # Lock management (prevent overlapping cron runs)
 # ────────────────────────────────────────────────────────────────
 acquire_lock() {
-    if [[ -f "${LOCK_FILE}" ]]; then
-        local lock_age
-        lock_age=$(( $(date +%s) - $(stat -c %Y "${LOCK_FILE}" 2>/dev/null || echo 0) ))
-        # If lock is older than 2 hours, it's stale
-        if [[ ${lock_age} -gt 7200 ]]; then
-            log "Stale cron lock file detected (${lock_age}s old), removing"
-            rm -f "${LOCK_FILE}"
-        else
-            log "Another backup cron is already running, exiting"
-            exit 0
-        fi
+    exec 201>"${LOCK_FILE}"
+    if ! flock -w 0 201; then
+        log "Another backup cron is already running, exiting"
+        exit 0
     fi
-    echo $$ > "${LOCK_FILE}"
-    trap 'rm -f "${LOCK_FILE}"' EXIT
 }
 
 # ────────────────────────────────────────────────────────────────
@@ -138,6 +131,17 @@ main() {
         chmod +x "${BACKUP_SCRIPT}"
     fi
 
+    # Log rotation
+    LOG_MAX_SIZE="${LOG_MAX_SIZE:-10485760}"  # 10MB default
+    if [[ -f "${LOG_FILE}" ]]; then
+        local log_size
+        log_size=$(stat -c %s "${LOG_FILE}" 2>/dev/null || echo 0)
+        if [[ ${log_size} -gt ${LOG_MAX_SIZE} ]]; then
+            mv "${LOG_FILE}" "${LOG_FILE}.old" 2>/dev/null || true
+            log "Log file rotated (was ${log_size} bytes)"
+        fi
+    fi
+
     # Acquire lock
     acquire_lock
 
@@ -146,13 +150,11 @@ main() {
         log "=========================================="
         log "PARWA Backup Cron Completed Successfully"
         log "=========================================="
-        rm -f "${LOCK_FILE}"
         exit 0
     else
         log "=========================================="
         log "PARWA Backup Cron FAILED — all retries exhausted"
         log "=========================================="
-        rm -f "${LOCK_FILE}"
         exit 1
     fi
 }

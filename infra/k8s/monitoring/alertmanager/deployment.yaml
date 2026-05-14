@@ -68,7 +68,15 @@ spec:
             capabilities:
               drop:
                 - ALL
+          env:
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: SLACK_WEBHOOK
           volumeMounts:
+            - name: alertmanager-config
+              mountPath: /etc/alertmanager
             - name: alertmanager-data
               mountPath: /alertmanager
       affinity:
@@ -81,5 +89,9 @@ spec:
                     app.kubernetes.io/name: alertmanager
                 topologyKey: kubernetes.io/hostname
       volumes:
+        - name: alertmanager-config
+          configMap:
+            name: alertmanager-config
         - name: alertmanager-data
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: alertmanager-data

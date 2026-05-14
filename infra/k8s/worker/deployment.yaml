@@ -25,6 +25,7 @@ spec:
         prometheus.io/port: "8000"
         prometheus.io/path: "/metrics"
     spec:
+      serviceAccountName: parwa-worker     # #83: added ServiceAccount
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -35,7 +36,7 @@ spec:
       containers:
         - name: worker
           image: parwa/worker:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           env:
             - name: ENVIRONMENT
               valueFrom:
@@ -92,6 +93,8 @@ spec:
                 secretKeyRef:
                   name: parwa-secrets
                   key: CELERY_RESULT_BACKEND
+            - name: CELERY_QUEUES           # #79: added Celery queue list
+              value: "celery,email_queue,sms_queue,voice_queue,chat_queue,ai_queue,report_queue,maintenance_queue"
           resources:
             requests:
               cpu: 200m
@@ -99,6 +102,14 @@ spec:
             limits:
               cpu: "1"
               memory: 512Mi
+          startupProbe:                    # #68: allow slow start
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - celery -A backend.app.tasks.celery_app inspect ping --timeout 30
+            failureThreshold: 30
+            periodSeconds: 10
           livenessProbe:
             exec:
               command:
@@ -146,6 +157,13 @@ spec:
           operator: "Equal"
           value: "worker"
           effect: "NoSchedule"
+      topologySpreadConstraints:          # #70: spread across zones
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: worker
       volumes:
         - name: tmp
           emptyDir: {}

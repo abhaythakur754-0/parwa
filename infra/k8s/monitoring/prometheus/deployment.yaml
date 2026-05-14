@@ -77,6 +77,8 @@ spec:
               mountPath: /etc/prometheus
             - name: prometheus-data
               mountPath: /prometheus
+            - name: rules
+              mountPath: /etc/prometheus/rules
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -91,4 +93,8 @@ spec:
           configMap:
             name: prometheus-config
         - name: prometheus-data
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: prometheus-data
+        - name: rules
+          configMap:
+            name: prometheus-rules

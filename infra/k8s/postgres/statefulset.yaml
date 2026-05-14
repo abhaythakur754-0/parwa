@@ -23,6 +23,8 @@ spec:
         app.kubernetes.io/part-of: parwa-platform
     spec:
       securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
         fsGroup: 999
         seccompProfile:
           type: RuntimeDefault
@@ -113,7 +115,7 @@ spec:
       spec:
         accessModes:
           - ReadWriteOnce
-        storageClassName: standard
+        storageClassName: gp3
         resources:
           requests:
             storage: 20Gi

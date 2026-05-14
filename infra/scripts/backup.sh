@@ -23,6 +23,7 @@ S3_BUCKET="${S3_BUCKET:-}"       # Optional: s3://bucket-name/path
 RETENTION_DAYS="${RETENTION_DAYS:-7}"
 SLACK_WEBHOOK="${SLACK_WEBHOOK:-}"  # Optional: Slack webhook URL
 EMAIL_NOTIFY="${EMAIL_NOTIFY:-}"    # Optional: email address for notifications
+NOTIFY_ON_SUCCESS="${NOTIFY_ON_SUCCESS:-true}"
 
 TIMESTAMP=$(date -u +%Y%m%d_%H%M%S)  # BC-012: UTC timestamp
 BACKUP_FILE="${BACKUP_DIR}/parwa_${TIMESTAMP}.sql.gz"
@@ -118,22 +119,16 @@ EOF
 # Lock management (prevent concurrent backups)
 # ────────────────────────────────────────────────────────────────
 acquire_lock() {
-    if [[ -f "${LOCK_FILE}" ]]; then
-        local lock_age
-        lock_age=$(( $(date +%s) - $(stat -c %Y "${LOCK_FILE}" 2>/dev/null || echo 0) ))
-        if [[ ${lock_age} -gt ${LOCK_TIMEOUT} ]]; then
-            warn "Stale lock file detected (${lock_age}s old), removing"
-            rm -f "${LOCK_FILE}"
-        else
-            error "Another backup is already running (lock file: ${LOCK_FILE})"
-            exit 1
-        fi
+    exec 200>"${LOCK_FILE}"
+    if ! flock -w ${LOCK_TIMEOUT} 200; then
+        error "Another backup is already running (lock file: ${LOCK_FILE})"
+        exit 1
     fi
-    echo $$ > "${LOCK_FILE}"
-    trap 'rm -f "${LOCK_FILE}"' EXIT
+    log "Lock acquired: ${LOCK_FILE}"
 }
 
 release_lock() {
+    flock -u 200 2>/dev/null || true
     rm -f "${LOCK_FILE}"
 }
 
@@ -225,6 +220,15 @@ upload_to_s3() {
 
     log "S3 upload completed successfully"
 
+    # Verify S3 SSE encryption
+    local sse_status
+    sse_status=$(aws s3api head-object --bucket "$(echo "${S3_BUCKET}" | sed 's|s3://||' | cut -d'/' -f1)" --key "$(echo "${S3_BUCKET}" | sed 's|s3://[^/]*/||')/parwa_${TIMESTAMP}.sql.gz" --query 'ServerSideEncryption' --output text 2>/dev/null || echo "unknown")
+    if [[ "${sse_status}" == "AES256" ]] || [[ "${sse_status}" == "aws:kms" ]]; then
+        log "S3 SSE encryption verified: ${sse_status}"
+    else
+        warn "S3 SSE encryption not confirmed (status: ${sse_status}) — verify bucket encryption settings"
+    fi
+
     # Cleanup old S3 backups
     local s3_retention_date
     s3_retention_date=$(date -u -d "-${RETENTION_DAYS} days" +%Y%m%d 2>/dev/null || \
@@ -235,7 +239,7 @@ upload_to_s3() {
         aws s3 ls "${S3_BUCKET}/parwa_" --recursive 2>/dev/null | while read -r _ _ _ key; do
             # Extract date from filename parwa_YYYYMMDD_HHMMSS.sql.gz
             local file_date
-            file_date=$(echo "${key}" | grep -oP 'parwa_\K\d{8}' || true)
+            file_date=$(echo "${key}" | awk -F'_' '{gsub(/[^0-9].*/,"",$2); print $2}' || true)
             if [[ -n "${file_date}" ]] && [[ "${file_date}" < "${s3_retention_date}" ]]; then
                 aws s3 rm "s3://${key}" > /dev/null 2>&1 || true
                 log "Deleted old S3 backup: ${key}"
@@ -286,7 +290,7 @@ main() {
         --no-acl \
         --clean \
         --if-exists \
-        --serializable-deferrable \
+        --repeatable-read \
         --quote-all-identifiers \
         2>"${BACKUP_FILE}.err" | gzip -9 > "${BACKUP_FILE}"; then
         error "pg_dump failed. Error output:"
@@ -331,7 +335,9 @@ main() {
     log "=========================================="
 
     # Send success notification
-    notify_success
+    if [[ "${NOTIFY_ON_SUCCESS}" == "true" ]]; then
+        notify_success
+    fi
 }
 
 # Run main function with error handling

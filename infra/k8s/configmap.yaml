@@ -62,7 +62,7 @@ data:
     timezone = 'UTC'
     log_min_duration_statement = 1000
     log_checkpoints = on
-    log_connections = on
+    log_connections = off
     log_disconnections = on
     log_lock_waits = on
 ---

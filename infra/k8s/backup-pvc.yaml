@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backup-pvc
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa-backup
+    app.kubernetes.io/component: backup
+    app.kubernetes.io/part-of: parwa-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 20Gi

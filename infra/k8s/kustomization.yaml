@@ -3,9 +3,23 @@ kind: Kustomization
 
 namespace: parwa
 
-commonLabels:
-  app.kubernetes.io/part-of: parwa-platform
-  app.kubernetes.io/managed-by: kustomize
+# #60: Replace deprecated commonLabels with labels + includeSelectors
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: parwa-platform
+      app.kubernetes.io/managed-by: kustomize
+    includeSelectors: true
+
+# #61: Pin image tags (replaces :latest)
+images:
+  - name: parwa/backend
+    newTag: v1.0.0
+  - name: parwa/frontend
+    newTag: v1.0.0
+  - name: parwa/worker
+    newTag: v1.0.0
+  - name: parwa/mcp
+    newTag: v1.0.0
 
 resources:
   # Namespace
@@ -14,16 +28,20 @@ resources:
   # Configuration
   - configmap.yaml
   - secrets.yaml
+  - limitrange.yaml                    # #37: namespace resource limits
+  - resourcequota.yaml                 # #38: namespace resource quotas
+  - backup-cronjob.yaml               # #88, #89, #99: backup CronJob
+  - backup-pvc.yaml                   # #88, #89, #99: backup PVC
 
   # Database
   - postgres/statefulset.yaml
   - postgres/service.yaml
-  - postgres/pvc.yaml
+  # #63, #94: Removed orphaned postgres/pvc.yaml (StatefulSet uses volumeClaimTemplates)
 
   # Cache
   - redis/statefulset.yaml
   - redis/service.yaml
-  - redis/pvc.yaml
+  # #63, #94: Removed orphaned redis/pvc.yaml (StatefulSet uses volumeClaimTemplates)
 
   # Application
   - backend/deployment.yaml
@@ -33,17 +51,36 @@ resources:
   - worker/hpa.yaml
   - frontend/deployment.yaml
   - frontend/service.yaml
+  - frontend/configmap.yaml            # #71: frontend-specific ConfigMap
   - mcp/deployment.yaml
   - mcp/service.yaml
+  - mcp/hpa.yaml                       # #81: MCP HPA
 
   # Monitoring
   - monitoring/prometheus/deployment.yaml
   - monitoring/prometheus/service.yaml
   - monitoring/prometheus/configmap.yaml
+  - monitoring/prometheus/pvc.yaml
+  - monitoring/prometheus/rules-configmap.yaml
   - monitoring/grafana/deployment.yaml
   - monitoring/grafana/service.yaml
+  - monitoring/grafana/pvc.yaml
+  - monitoring/grafana/datasource-configmap.yaml
+  - monitoring/grafana/dashboard-configmap.yaml
+  - monitoring/grafana/dashboards/redis-dashboard-configmap.yaml
+  - monitoring/grafana/dashboards/postgres-dashboard-configmap.yaml
+  - monitoring/grafana/dashboards/nginx-dashboard-configmap.yaml
   - monitoring/alertmanager/deployment.yaml
   - monitoring/alertmanager/service.yaml
+  - monitoring/alertmanager/pvc.yaml
+  - monitoring/alertmanager/configmap.yaml
+
+  # Exporters
+  - exporters/postgres-exporter-deployment.yaml
+  - exporters/postgres-exporter-service.yaml
+  - exporters/postgres-exporter-configmap.yaml
+  - exporters/redis-exporter-deployment.yaml
+  - exporters/redis-exporter-service.yaml
 
   # Networking
   - ingress.yaml

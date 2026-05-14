@@ -47,6 +47,17 @@ spec:
           protocol: UDP
         - port: 53
           protocol: TCP
+    # Allow external HTTPS egress (Paddle, Twilio, Slack, AI APIs)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP
     # Allow to PostgreSQL
     - to:
         - podSelector:
@@ -147,6 +158,17 @@ spec:
           protocol: UDP
         - port: 53
           protocol: TCP
+    # Allow external HTTPS egress (Paddle, Twilio, Slack APIs)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP
     # Allow to PostgreSQL
     - to:
         - podSelector:
@@ -204,6 +226,17 @@ spec:
         - port: 53
           protocol: UDP
         - port: 53
+          protocol: TCP
+    # Allow external HTTPS egress (LLM/AI APIs — OpenAI, Anthropic, Google, OpenRouter)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
           protocol: TCP
     # Allow to PostgreSQL
     - to:

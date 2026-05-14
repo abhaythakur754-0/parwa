@@ -10,9 +10,8 @@ metadata:
 spec:
   type: ClusterIP
   selector:
-    matchLabels:
-      app.kubernetes.io/name: backend
-      app.kubernetes.io/component: api
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/component: api
   ports:
     - name: http
       port: 8000

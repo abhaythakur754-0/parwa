@@ -20,7 +20,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Copy package files first for better caching
-COPY frontend/package.json frontend/package-lock.json* frontend/yarn.lock* frontend/bun.lock* ./
+COPY package.json package-lock.json* yarn.lock* bun.lock* ./
 
 # Install dependencies
 RUN npm ci --legacy-peer-deps 2>/dev/null || npm install --legacy-peer-deps
@@ -36,7 +36,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 
 # Copy frontend source (context is project root)
-COPY frontend/ ./
+COPY . ./
 
 # Build arguments — these are BAKED INTO the build
 # NOT available at runtime in the container
@@ -78,16 +78,8 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# If standalone not available, copy full .next directory
-RUN if [ ! -f "server.js" ]; then \
-    cp -r /app/.next ./.next 2>/dev/null || true; \
-    fi
-
 # Copy package.json for version info
 COPY --from=builder /app/package.json ./package.json
-
-# Copy node_modules for next start fallback
-COPY --from=deps /app/node_modules ./node_modules
 
 # Switch to non-root user
 USER nextjs
@@ -104,4 +96,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
 # Start the application — shell form allows fallback logic
-CMD node server.js || npx next start
+CMD ["node", "server.js"]

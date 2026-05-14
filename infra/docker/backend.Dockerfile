@@ -78,9 +78,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run FastAPI server via Uvicorn with production settings
-CMD ["uvicorn", "backend.app.main:app", \
-     "--host", "0.0.0.0", \
-     "--port", "8000", \
-     "--workers", "2", \
-     "--loop", "uvloop", \
-     "--no-access-log"]
+# Workers configurable via UVICORN_WORKERS env var (default: 2)
+CMD ["sh", "-c", "uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS:-2} --loop uvloop"]

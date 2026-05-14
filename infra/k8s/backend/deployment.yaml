@@ -33,10 +33,28 @@ spec:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        - name: db-migration
+          image: parwa/backend:v1.0.0
+          imagePullPolicy: Always
+          command: ["alembic", "upgrade", "head"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: DATABASE_URL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
       containers:
         - name: backend
           image: parwa/backend:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 8000
@@ -97,9 +115,6 @@ spec:
                 secretKeyRef:
                   name: parwa-secrets
                   key: DATA_ENCRYPTION_KEY
-          envFrom:
-            - configMapRef:
-                name: parwa-config
           resources:
             requests:
               cpu: 250m
@@ -107,6 +122,12 @@ spec:
             limits:
               cpu: "1"
               memory: 512Mi
+          startupProbe:                    # #68: allow slow start
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 30
+            periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /health
@@ -150,6 +171,13 @@ spec:
           operator: "Equal"
           value: "api"
           effect: "NoSchedule"
+      topologySpreadConstraints:        # #70: spread across zones
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: backend
       volumes:
         - name: tmp
           emptyDir: {}
