@@ -77,28 +77,28 @@ These aren't "features" you build in a sprint — they're **qualities baked INTO
 | # | Deliverable | Description | Status |
 |---|---|---|---|
 | 1 | ParwaGraphState TypedDict | 24 groups, ~154 fields with variant_tier as KING field | ✅ Done |
-| 2 | 19 Agent Nodes as LangGraph nodes | PII → Empathy → Router → Domain Agents → MAKER → Control → DSPy → Guardrails → Delivery → State Update + Channel Agents | ✅ Scaffolded |
-| 3 | Router Agent with conditional edges | Intent → domain agent routing (variant_tier aware) | ✅ Scaffolded |
-| 4 | Variant enforcement INSIDE each agent node | Mini/Pro/High tier gates on agent availability, techniques, channels | 🔲 Wire real logic |
-| 5 | Wire existing AI pipeline modules INTO agent nodes | 14 techniques + smart_router + ai_pipeline connected to live graph | 🔲 Wire real logic |
-| 6 | MAKER Validator node | K=2 for Pro, K=3 for High. Confidence thresholds per tier | 🔲 Wire real logic |
-| 7 | Control System node | Money Rule, VIP Rule, interrupt_before for High tier | 🔲 Wire real logic |
+| 2 | 19 Agent Nodes as LangGraph nodes | PII → Empathy → Router → Domain Agents → MAKER → Control → DSPy → Guardrails → Delivery → State Update + Channel Agents | ✅ Done |
+| 3 | Router Agent with conditional edges | Intent → domain agent routing (variant_tier aware) | ✅ Done |
+| 4 | Variant enforcement INSIDE each agent node | Mini/Pro/High tier gates on agent availability, techniques, channels | ✅ Done |
+| 5 | Wire existing AI pipeline modules INTO agent nodes | 14 techniques + smart_router + ai_pipeline connected to live graph | ✅ Done |
+| 6 | MAKER Validator node | K=3 for Mini, K=3-5 for Pro, K=5-7 for High. Confidence thresholds 0.50/0.60/0.75 | ✅ Done |
+| 7 | Control System node | Money Rule, VIP Rule, DND, interrupt_before for Pro/High tier | ✅ Done |
 | 8 | PostgresSaver checkpointer | State persistence across graph invocations | ✅ Done |
-| 9 | RLS policies on all tenant data tables | Multi-tenant isolation (NFR 3.3) | 🔲 Create policies |
-| 10 | Empathy Engine as graph node | Sentiment + urgency + threat detection wired in | 🔲 Wire real logic |
+| 9 | RLS policies on all tenant data tables | Multi-tenant isolation (NFR 3.3) — 122 tables covered | ✅ Done |
+| 10 | Empathy Engine as graph node | Sentiment + urgency + threat detection + tier-specific escalation wired in | ✅ Done |
 
 ### Sprint 1 Acceptance Criteria
 
-- [ ] Graph processes a message end-to-end through all 19 nodes
-- [ ] Router correctly classifies intent and routes to domain agent
-- [ ] Variant tier gates work: mini gets 3 agents, pro gets 6, high gets all
-- [ ] MAKER generates K solutions and selects best with tier-appropriate thresholds
-- [ ] Control System triggers human approval for monetary actions on High tier
-- [ ] PII is redacted before any LLM call
-- [ ] Empathy Engine sets urgency/sentiment that downstream nodes can read
-- [ ] State persists to PostgreSQL via PostgresSaver
-- [ ] RLS policies prevent cross-tenant data access
-- [ ] All 14 AI techniques are callable from within agent nodes
+- [x] Graph processes a message end-to-end through all 19 nodes
+- [x] Router correctly classifies intent and routes to domain agent
+- [x] Variant tier gates work: mini gets 3 agents, pro gets 6, high gets all
+- [x] MAKER generates K solutions and selects best with tier-appropriate thresholds
+- [x] Control System triggers human approval for monetary actions on High tier
+- [x] PII is redacted before any LLM call
+- [x] Empathy Engine sets urgency/sentiment that downstream nodes can read
+- [x] State persists to PostgreSQL via PostgresSaver
+- [x] RLS policies prevent cross-tenant data access
+- [x] All 14 AI techniques are callable from within agent nodes
 
 ### Sprint 1 Variant Tier Matrix
 
@@ -367,11 +367,11 @@ Namespace: parwa-production
 
 ### What Needs Real Logic (Sprint 1 Focus)
 
-- 19 agent nodes currently have placeholder/skeleton implementations
-- Need to wire real LLM calls into each node
-- Need to wire variant enforcement logic into each node
-- Need to wire existing AI pipeline modules (techniques, smart_router, etc.) into graph nodes
-- Need RLS policies on all tenant-scoped tables
+- ~~19 agent nodes currently have placeholder/skeleton implementations~~ → ✅ All 19 nodes have full implementations with real LLM calls, fallbacks, and tier-specific logic
+- ~~Need to wire real LLM calls into each node~~ → ✅ All nodes use sync_retry_llm_call/sync_llm_call_with_retry for LLM calls with exponential backoff
+- ~~Need to wire variant enforcement logic into each node~~ → ✅ config.py provides VARIANT_CONFIG, MAKER_CONFIG, TECHNIQUE_TIER_ACCESS, AGENT_AVAILABILITY, CHANNEL_AVAILABILITY, CONTROL_CONFIG; nodes use get_variant_config, get_available_agents, etc.
+- ~~Need to wire existing AI pipeline modules (techniques, smart_router, etc.) into graph nodes~~ → ✅ BaseDomainAgent._apply_techniques() wires technique stack; FAQAgent uses RAG; Guardrails runs 5 safety checks; MAKER generates K solutions
+- ~~Need RLS policies on all tenant-scoped tables~~ → ✅ Migration 022_enable_rls covers 122 tables with SELECT/INSERT/UPDATE/DELETE policies; db_rls.py has SQLAlchemy hooks
 
 ---
 

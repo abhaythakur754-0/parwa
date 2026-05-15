@@ -37,9 +37,7 @@ class TestS08AsyncDbHelper:
         def sync_func(x, y):
             return x + y
 
-        result = asyncio.get_event_loop().run_until_complete(
-            run_sync_db(sync_func, 3, 4)
-        )
+        result = asyncio.run(run_sync_db(sync_func, 3, 4))
         assert result == 7
 
     def test_run_sync_db_propagates_exceptions(self):
@@ -50,9 +48,7 @@ class TestS08AsyncDbHelper:
             raise ValueError("test error")
 
         with pytest.raises(ValueError, match="test error"):
-            asyncio.get_event_loop().run_until_complete(
-                run_sync_db(failing_func)
-            )
+            asyncio.run(run_sync_db(failing_func))
 
     def test_run_sync_db_passes_kwargs(self):
         """run_sync_db should forward keyword arguments."""
@@ -61,9 +57,7 @@ class TestS08AsyncDbHelper:
         def kwarg_func(name="default", value=0):
             return f"{name}:{value}"
 
-        result = asyncio.get_event_loop().run_until_complete(
-            run_sync_db(kwarg_func, name="test", value=42)
-        )
+        result = asyncio.run(run_sync_db(kwarg_func, name="test", value=42))
         assert result == "test:42"
 
 
