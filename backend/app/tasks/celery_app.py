@@ -34,7 +34,7 @@ import logging
 import json
 
 from celery import Celery
-from celery import Queue, Exchange
+from kombu import Queue, Exchange
 from celery.signals import before_task_publish
 
 # M-32: Maximum allowed task payload size in bytes (1 MB)

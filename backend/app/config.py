@@ -459,6 +459,17 @@ class Settings(BaseSettings):
     # Webhook payload max size for status/retry responses
     WEBHOOK_STATUS_INCLUDE_PAYLOAD: bool = False
 
+    # ── Email Channel Tuning (CH-02) ──────────────────────────────
+    # Previously hardcoded MAX_REPLY_DEPTH = 20 in email_channel_service.py
+    # Now configurable per-tenant via environment variable.
+    EMAIL_MAX_REPLY_DEPTH: int = 20
+
+    # ── Email Circuit Breaker Tuning (CH-03) ─────────────────────
+    # Previously hardcoded as global _cb_state in email_service.py
+    # Now configurable so ops can tune thresholds without code changes.
+    EMAIL_CB_FAILURE_THRESHOLD: int = 3
+    EMAIL_CB_RESET_SECONDS: int = 60
+
     # ── Properties ───────────────────────────────────────────────
     @property
     def is_production(self) -> bool:

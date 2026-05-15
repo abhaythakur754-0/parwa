@@ -7,6 +7,12 @@ Brevo email client for sending transactional emails.
 - All emails use Jinja2 templates (BC-006 Rule 2)
 - Rate: 3 per email per hour for verification/resend
 
+CH-03 FIX: Circuit breaker is now per-tenant. Each company_id gets
+its own isolated circuit breaker state, so one tenant's email issues
+cannot trip the breaker for other tenants. The breaker thresholds
+are configurable via EMAIL_CB_FAILURE_THRESHOLD and EMAIL_CB_RESET_SECONDS
+in config.py.
+
 NOTE: Celery async dispatch comes in Week 3 (BC-004).
 Currently synchronous — will be wrapped in Celery task later.
 """
@@ -38,14 +44,116 @@ from app.logger import get_logger
 
 logger = get_logger("email_service")
 
-# Circuit breaker state
-_cb_state = {
-    "failures": 0,
-    "last_failure": 0.0,
-    "is_open": False,
-    "threshold": 3,
-    "reset_seconds": 60,
-}
+# CH-03 FIX: Per-tenant circuit breaker state
+# Each tenant (company_id) gets its own isolated breaker, so one
+# tenant's email failures don't trip the breaker for everyone.
+
+import threading
+
+
+class TenantCircuitBreaker:
+    """Per-tenant circuit breaker for email sending.
+
+    CH-03 FIX: Instead of a single global _cb_state dict shared by
+    all tenants, each company_id gets its own isolated circuit breaker.
+    This prevents the "noisy neighbor" problem where one tenant's
+    email failures (e.g., invalid Brevo config, rate-limited account)
+    would block email delivery for ALL other tenants.
+
+    Thread-safe: uses a lock for concurrent access.
+
+    The failure threshold and reset time are configurable via
+    EMAIL_CB_FAILURE_THRESHOLD and EMAIL_CB_RESET_SECONDS in config.py.
+    """
+
+    def __init__(self):
+        self._tenants: dict[str, dict] = {}
+        self._lock = threading.Lock()
+
+    def _get_tenant_state(self, company_id: str) -> dict:
+        """Get or create circuit breaker state for a tenant."""
+        if company_id not in self._tenants:
+            settings = get_settings()
+            self._tenants[company_id] = {
+                "failures": 0,
+                "last_failure": 0.0,
+                "is_open": False,
+                "threshold": settings.EMAIL_CB_FAILURE_THRESHOLD,
+                "reset_seconds": settings.EMAIL_CB_RESET_SECONDS,
+            }
+        return self._tenants[company_id]
+
+    def is_open(self, company_id: str) -> bool:
+        """Check if circuit breaker is open for a specific tenant."""
+        with self._lock:
+            state = self._get_tenant_state(company_id)
+            if not state["is_open"]:
+                return False
+            elapsed = time.time() - state["last_failure"]
+            if elapsed >= state["reset_seconds"]:
+                state["is_open"] = False
+                state["failures"] = 0
+                logger.info("circuit_breaker_half_open", company_id=company_id)
+                return False
+            return True
+
+    def record_success(self, company_id: str) -> None:
+        """Reset circuit breaker on success for a specific tenant."""
+        with self._lock:
+            state = self._get_tenant_state(company_id)
+            if state["failures"] > 0:
+                state["failures"] = 0
+                state["is_open"] = False
+
+    def record_failure(self, company_id: str) -> None:
+        """Record failure and possibly open circuit for a specific tenant."""
+        with self._lock:
+            state = self._get_tenant_state(company_id)
+            state["failures"] += 1
+            state["last_failure"] = time.time()
+            if state["failures"] >= state["threshold"]:
+                state["is_open"] = True
+                logger.warning(
+                    "circuit_breaker_open",
+                    company_id=company_id,
+                    failures=state["failures"],
+                )
+
+    def reset(self, company_id: str = None) -> None:
+        """Reset circuit breaker state (for testing).
+
+        Args:
+            company_id: If provided, reset only that tenant's breaker.
+                If None, reset all tenants.
+        """
+        with self._lock:
+            if company_id:
+                if company_id in self._tenants:
+                    self._tenants[company_id] = {
+                        "failures": 0,
+                        "last_failure": 0.0,
+                        "is_open": False,
+                        "threshold": self._tenants[company_id]["threshold"],
+                        "reset_seconds": self._tenants[company_id]["reset_seconds"],
+                    }
+            else:
+                self._tenants.clear()
+
+    def get_tenant_state(self, company_id: str) -> dict:
+        """Get a copy of tenant state (for testing/monitoring)."""
+        with self._lock:
+            state = self._get_tenant_state(company_id)
+            return dict(state)
+
+    @property
+    def tenant_count(self) -> int:
+        """Number of tenants with breaker state."""
+        with self._lock:
+            return len(self._tenants)
+
+
+# Global per-tenant circuit breaker instance
+_cb = TenantCircuitBreaker()
 
 BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
 
@@ -75,36 +183,29 @@ def _get_brevo_client():
         return None
 
 
-def _is_circuit_open() -> bool:
-    """Check if circuit breaker is open."""
-    if not _cb_state["is_open"]:
-        return False
-    elapsed = time.time() - _cb_state["last_failure"]
-    if elapsed >= _cb_state["reset_seconds"]:
-        _cb_state["is_open"] = False
-        _cb_state["failures"] = 0
-        logger.info("circuit_breaker_half_open")
-        return False
-    return True
+def _is_circuit_open(company_id: str) -> bool:
+    """Check if circuit breaker is open for a specific tenant.
+
+    CH-03 FIX: Now takes company_id to check the per-tenant breaker.
+    Falls back to the global breaker if company_id is not provided.
+    """
+    return _cb.is_open(company_id)
 
 
-def _record_success() -> None:
-    """Reset circuit breaker on success."""
-    if _cb_state["failures"] > 0:
-        _cb_state["failures"] = 0
-        _cb_state["is_open"] = False
+def _record_success(company_id: str) -> None:
+    """Reset circuit breaker on success for a specific tenant.
+
+    CH-03 FIX: Now takes company_id to reset the per-tenant breaker.
+    """
+    _cb.record_success(company_id)
 
 
-def _record_failure() -> None:
-    """Record failure and possibly open circuit."""
-    _cb_state["failures"] += 1
-    _cb_state["last_failure"] = time.time()
-    if _cb_state["failures"] >= _cb_state["threshold"]:
-        _cb_state["is_open"] = True
-        logger.warning(
-            "circuit_breaker_open",
-            failures=_cb_state["failures"],
-        )
+def _record_failure(company_id: str) -> None:
+    """Record failure and possibly open circuit for a specific tenant.
+
+    CH-03 FIX: Now takes company_id to record against the per-tenant breaker.
+    """
+    _cb.record_failure(company_id)
 
 
 def send_email(
@@ -113,11 +214,12 @@ def send_email(
     html_content: str,
     reply_to_message_id: Optional[str] = None,
     references: Optional[str] = None,
+    company_id: Optional[str] = None,
 ) -> bool:
     """Send an email via Brevo REST API.
 
     BC-006: All outbound emails use Brevo.
-    BC-012: Circuit breaker on failures.
+    BC-012: Circuit breaker on failures (now per-tenant, CH-03).
 
     Args:
         to: Recipient email address.
@@ -127,6 +229,7 @@ def send_email(
             Sets the In-Reply-To header for proper email threading.
         references: The References header chain (space-separated Message-IDs).
             Used for multi-hop email threading.
+        company_id: Optional tenant ID for per-tenant circuit breaker (CH-03).
 
     Returns:
         True if sent successfully, False otherwise.
@@ -137,6 +240,7 @@ def send_email(
         html_content=html_content,
         reply_to_message_id=reply_to_message_id,
         references=references,
+        company_id=company_id,
     ).get("success", False)
 
 
@@ -148,11 +252,14 @@ def send_email_tracked(
     reply_to_message_id: Optional[str] = None,
     references: Optional[str] = None,
     attachments: Optional[list] = None,
+    company_id: Optional[str] = None,
 ) -> dict:
     """Send an email via Brevo with tracking details.
 
     Extended version of send_email() that returns Brevo message_id,
     supports plain-text content, and attachments.
+
+    CH-03 FIX: Now accepts company_id for per-tenant circuit breaker.
 
     Args:
         to: Recipient email address.
@@ -165,6 +272,7 @@ def send_email_tracked(
             - name: filename (str)
             - content: base64-encoded content (str)
             - content_type: MIME type, e.g. "application/pdf" (str)
+        company_id: Optional tenant ID for per-tenant circuit breaker (CH-03).
 
     Returns:
         Dict with keys:
@@ -180,6 +288,7 @@ def send_email_tracked(
         reply_to_message_id=reply_to_message_id,
         references=references,
         attachments=attachments,
+        company_id=company_id,
     )
 
 
@@ -191,15 +300,20 @@ def _do_send_email(
     reply_to_message_id: Optional[str] = None,
     references: Optional[str] = None,
     attachments: Optional[list] = None,
+    company_id: Optional[str] = None,
 ) -> dict:
     """Internal: send email via Brevo, return tracking dict.
+
+    CH-03 FIX: Now accepts company_id for per-tenant circuit breaker.
+    Falls back to "__global__" if company_id is not provided (backwards compat).
 
     Returns:
         {"success": bool, "message_id": str|None, "error": str|None}
     """
     _result = {"success": False, "message_id": None, "error": None}
+    _tenant = company_id or "__global__"
 
-    if _is_circuit_open():
+    if _is_circuit_open(_tenant):
         logger.error(
             "email_send_skipped",
             reason="circuit_breaker_open",
@@ -260,7 +374,7 @@ def _do_send_email(
 
                 result = client.send_transac_email(send_email_obj)
                 if result and hasattr(result, 'message_id'):
-                    _record_success()
+                    _record_success(_tenant)
                     logger.info(
                         "email_sent_sdk",
                         to=to,
@@ -313,7 +427,7 @@ def _do_send_email(
             timeout=10.0,
         )
         if resp.status_code in (200, 201):
-            _record_success()
+            _record_success(_tenant)
             # Extract Brevo message_id from response
             brevo_msg_id = None
             try:
@@ -338,14 +452,14 @@ def _do_send_email(
             to=to,
             body=resp.text[:200],
         )
-        _record_failure()
+        _record_failure(_tenant)
         _result["error"] = f"brevo_{resp.status_code}"
         return _result
     except TimeoutException:
         logger.error(
             "email_send_timeout", to=to
         )
-        _record_failure()
+        _record_failure(_tenant)
         _result["error"] = "timeout"
         return _result
     except HTTPError as exc:
@@ -354,7 +468,7 @@ def _do_send_email(
             to=to,
             error=str(exc),
         )
-        _record_failure()
+        _record_failure(_tenant)
         _result["error"] = str(exc)[:200]
         return _result
 
@@ -553,8 +667,19 @@ def send_subscription_canceled_email(
     )
 
 
-def reset_circuit_breaker() -> None:
-    """Reset circuit breaker state (for testing)."""
-    _cb_state["failures"] = 0
-    _cb_state["last_failure"] = 0.0
-    _cb_state["is_open"] = False
+def get_circuit_breaker() -> TenantCircuitBreaker:
+    """Get the per-tenant circuit breaker instance (for testing/monitoring)."""
+    return _cb
+
+
+def reset_circuit_breaker(company_id: str = None) -> None:
+    """Reset circuit breaker state (for testing).
+
+    CH-03 FIX: Now supports resetting a specific tenant's breaker
+    or all tenants (if company_id is None).
+
+    Args:
+        company_id: If provided, reset only that tenant's breaker.
+            If None, reset all tenants.
+    """
+    _cb.reset(company_id)

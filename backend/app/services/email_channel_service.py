@@ -17,6 +17,12 @@ Building Codes:
 - BC-003: Idempotent webhook processing (same Message-ID → skip)
 - BC-006: Email communication
 - BC-010: Data lifecycle (raw emails retained for audit)
+
+CH-02 FIX: MAX_REPLY_DEPTH is now configurable per-tenant via
+EMAIL_MAX_REPLY_DEPTH in config.py (default: 20). The detect_email_loop
+method accepts an optional max_reply_depth parameter, defaulting to
+the global setting. This allows different tenants to have different
+loop detection thresholds without affecting others.
 """
 
 import json
@@ -28,6 +34,7 @@ from typing import Optional
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.schemas.email_channel import AutoReplyDetection, EmailLoopDetection
 from database.models.email_channel import EmailThread, InboundEmail
 from database.models.tickets import Ticket, TicketMessage
@@ -36,8 +43,8 @@ logger = logging.getLogger("parwa.email_channel")
 
 # ── Loop Detection Constants ────────────────────────────────────
 
-# Maximum allowed In-Reply-To chain depth to prevent infinite loops
-MAX_REPLY_DEPTH = 20
+# Default maximum In-Reply-To chain depth (CH-02: configurable via EMAIL_MAX_REPLY_DEPTH)
+MAX_REPLY_DEPTH = 20  # Default; overridden by get_settings().EMAIL_MAX_REPLY_DEPTH
 
 # BC-006: Maximum email replies per thread per 24 hours
 BC006_MAX_REPLIES_PER_THREAD_24H = 5
@@ -326,6 +333,7 @@ class EmailChannelService:
         self,
         company_id: str,
         email_data: dict,
+        max_reply_depth: Optional[int] = None,
     ) -> EmailLoopDetection:
         """Detect if an inbound email is part of a mail loop.
 
@@ -335,10 +343,17 @@ class EmailChannelService:
         3. Message-ID already processed (duplicate)
         4. Excessive In-Reply-To chain depth
 
+        CH-02 FIX: The max reply depth is now configurable per-tenant.
+        If max_reply_depth is not provided, it defaults to the global
+        EMAIL_MAX_REPLY_DEPTH from config.py. This prevents one tenant's
+        loop threshold from affecting other tenants.
+
         Args:
             company_id: Tenant company ID.
             email_data: Email data dict with sender_email, message_id,
                 in_reply_to, headers_json.
+            max_reply_depth: Optional per-tenant override for max reply
+                chain depth. Defaults to EMAIL_MAX_REPLY_DEPTH from config.
 
         Returns:
             EmailLoopDetection with is_loop and reason.
@@ -386,13 +401,14 @@ class EmailChannelService:
                     loop_type="already_processed",
                 )
 
-        # Check 4: Excessive reply depth
+        # Check 4: Excessive reply depth (CH-02: configurable per-tenant)
+        effective_max_depth = max_reply_depth if max_reply_depth is not None else get_settings().EMAIL_MAX_REPLY_DEPTH
         if in_reply_to:
-            depth = self._count_reply_depth(company_id, in_reply_to)
-            if depth >= MAX_REPLY_DEPTH:
+            depth = self._count_reply_depth(company_id, in_reply_to, effective_max_depth)
+            if depth >= effective_max_depth:
                 return EmailLoopDetection(
                     is_loop=True,
-                    reason=f"Reply chain depth ({depth}) exceeds max ({MAX_REPLY_DEPTH})",
+                    reason=f"Reply chain depth ({depth}) exceeds max ({effective_max_depth})",
                     loop_type="depth_exceeded",
                 )
 
@@ -663,23 +679,29 @@ class EmailChannelService:
             .first()
         )
 
-    def _count_reply_depth(self, company_id: str, in_reply_to: str) -> int:
+    def _count_reply_depth(self, company_id: str, in_reply_to: str, max_depth: Optional[int] = None) -> int:
         """Count how deep the reply chain is.
 
         Traverses the email thread chain to count depth.
 
+        CH-02 FIX: Uses the configurable max_depth instead of the
+        global MAX_REPLY_DEPTH constant.
+
         Args:
             company_id: Tenant company ID.
             in_reply_to: The In-Reply-To Message-ID to start from.
+            max_depth: Maximum depth to traverse (CH-02). Defaults to
+                EMAIL_MAX_REPLY_DEPTH from config.
 
         Returns:
             Integer depth count.
         """
+        effective_max = max_depth if max_depth is not None else get_settings().EMAIL_MAX_REPLY_DEPTH
         depth = 0
         current_id = in_reply_to.strip()
         visited = set()
 
-        while current_id and current_id not in visited and depth < MAX_REPLY_DEPTH + 5:
+        while current_id and current_id not in visited and depth < effective_max + 5:
             visited.add(current_id)
             thread = (
                 self.db.query(EmailThread)
