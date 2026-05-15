@@ -110,6 +110,8 @@ __all__ = [
     "run_awareness_tick",
     # State collection
     "collect_awareness_state",
+    # Live LangGraph state
+    "get_live_graph_state",
     # Snapshots
     "get_latest_snapshot",
     "get_snapshot_history",
@@ -183,7 +185,13 @@ def run_awareness_tick(
     if override_state:
         current_state = override_state
     else:
-        current_state = collect_awareness_state(db, company_id, session_id)
+        # JV-02 FIX: Try to read live LangGraph state first, then merge
+        # with DB-collected data. Live state takes precedence.
+        live_state = get_live_graph_state(company_id, session_id)
+        current_state = collect_awareness_state(
+            db, company_id, session_id,
+            live_graph_state=live_state,
+        )
 
     # ── Step 3: Get previous snapshot for delta ──
     previous_snapshot = get_latest_snapshot(db, session_id, company_id)
@@ -360,6 +368,7 @@ def collect_awareness_state(
     db: Session,
     company_id: str,
     session_id: str,
+    live_graph_state: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Collect current awareness state from all 7 monitoring domains.
 
@@ -367,10 +376,20 @@ def collect_awareness_state(
     If a collector fails, its fields are set to safe defaults and
     the engine continues with the other domains.
 
+    JV-02 FIX: The awareness engine previously ONLY read from the database,
+    which could be stale compared to the live LangGraph state. Now it accepts
+    an optional ``live_graph_state`` parameter containing the current
+    ParwaGraphState. When provided, the live state is merged with the DB
+    data, with live state taking precedence for fields that are more recent.
+    This ensures awareness decisions are based on the freshest available data.
+
     Args:
         db: SQLAlchemy session.
         company_id: Company ID for BC-001.
         session_id: CC session ID for context lookup.
+        live_graph_state: Optional live ParwaGraphState dict from LangGraph.
+            When provided, its GROUP 14 fields are merged with DB data,
+            with live values taking precedence.
 
     Returns:
         Dict with all GROUP 14 fields populated from real-time data.
@@ -401,7 +420,147 @@ def collect_awareness_state(
     # Domain 7: Errors
     state.update(_collect_errors(db, company_id))
 
+    # ── JV-02: Merge live LangGraph state (takes precedence over DB) ──
+    if live_graph_state and isinstance(live_graph_state, dict):
+        state = _merge_live_graph_state(state, live_graph_state)
+
     return state
+
+
+def _merge_live_graph_state(
+    db_state: Dict[str, Any],
+    live_state: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Merge live LangGraph ParwaGraphState into DB-collected state.
+
+    JV-02 FIX: Live LangGraph state reflects in-flight graph executions
+    that haven't been persisted to DB yet. This function merges the live
+    state into the DB state, with live values taking precedence for all
+    GROUP 14 awareness fields.
+
+    Mapping from ParwaGraphState GROUP 14 fields to awareness state keys:
+      - jarvis_system_health       → system_health
+      - jarvis_channel_health      → channel_health
+      - jarvis_active_alerts       → active_alerts
+      - jarvis_ticket_volume_today → ticket_volume_today
+      - jarvis_ticket_volume_avg   → ticket_volume_avg
+      - jarvis_ticket_volume_spike → ticket_volume_spike
+      - jarvis_active_agents       → active_agents
+      - jarvis_agent_pool_capacity → agent_pool_capacity
+      - jarvis_agent_pool_utilization → agent_pool_utilization
+      - jarvis_training_running    → training_running
+      - jarvis_training_mistake_count → training_mistake_count
+      - jarvis_training_model_version → training_model_version
+      - jarvis_drift_status        → drift_status
+      - jarvis_drift_score         → drift_score
+      - jarvis_quality_score       → quality_score
+      - jarvis_quality_alerts      → quality_alerts
+      - jarvis_last_5_errors       → last_5_errors
+      - jarvis_subscription_status → subscription_status
+      - jarvis_current_plan        → current_plan
+      - jarvis_plan_usage_today    → plan_usage_today
+      - jarvis_days_until_renewal  → days_until_renewal
+
+    Args:
+        db_state: State collected from DB queries.
+        live_state: Live ParwaGraphState from LangGraph.
+
+    Returns:
+        Merged state dict with live values taking precedence.
+    """
+    # Mapping: ParwaGraphState key → awareness state key
+    field_map = {
+        "jarvis_system_health": "system_health",
+        "jarvis_channel_health": "channel_health",
+        "jarvis_active_alerts": "active_alerts",
+        "jarvis_ticket_volume_today": "ticket_volume_today",
+        "jarvis_ticket_volume_avg": "ticket_volume_avg",
+        "jarvis_ticket_volume_spike": "ticket_volume_spike",
+        "jarvis_active_agents": "active_agents",
+        "jarvis_agent_pool_capacity": "agent_pool_capacity",
+        "jarvis_agent_pool_utilization": "agent_pool_utilization",
+        "jarvis_training_running": "training_running",
+        "jarvis_training_mistake_count": "training_mistake_count",
+        "jarvis_training_model_version": "training_model_version",
+        "jarvis_drift_status": "drift_status",
+        "jarvis_drift_score": "drift_score",
+        "jarvis_quality_score": "quality_score",
+        "jarvis_quality_alerts": "quality_alerts",
+        "jarvis_last_5_errors": "last_5_errors",
+        "jarvis_subscription_status": "subscription_status",
+        "jarvis_current_plan": "current_plan",
+        "jarvis_plan_usage_today": "plan_usage_today",
+        "jarvis_days_until_renewal": "days_until_renewal",
+    }
+
+    merged = dict(db_state)
+    merged["_live_state_merged"] = False
+    merged["_live_state_keys"] = []
+
+    for lg_key, awareness_key in field_map.items():
+        if lg_key in live_state and live_state[lg_key] is not None:
+            merged[awareness_key] = live_state[lg_key]
+            merged["_live_state_merged"] = True
+            merged["_live_state_keys"].append(awareness_key)
+
+    if merged["_live_state_merged"]:
+        logger.info(
+            "live_state_merged: keys=%s, live_overrides=%d",
+            merged["_live_state_keys"],
+            len(merged["_live_state_keys"]),
+        )
+
+    return merged
+
+
+def get_live_graph_state(
+    company_id: str,
+    session_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Retrieve the current live LangGraph ParwaGraphState for a session.
+
+    JV-02 FIX: This function reads from the LangGraph checkpointer to get
+    the most recent graph state for a session. This is the "live" state that
+    may contain more recent data than what has been persisted to the DB.
+
+    If the LangGraph graph or checkpointer is not available, returns None
+    and the awareness engine will fall back to DB-only data.
+
+    Args:
+        company_id: Company ID for BC-001.
+        session_id: CC session ID.
+
+    Returns:
+        Dict with live ParwaGraphState fields, or None if unavailable.
+    """
+    try:
+        from app.core.langgraph.graph import get_compiled_graph
+
+        graph = get_compiled_graph()
+        if graph is None:
+            return None
+
+        # Read from checkpointer using thread_id = session_id
+        config = {"configurable": {"thread_id": session_id}}
+        state_snapshot = graph.get_state(config)
+
+        if state_snapshot and state_snapshot.values:
+            live_state = dict(state_snapshot.values)
+            logger.debug(
+                "live_graph_state_retrieved: session=%s, keys=%d",
+                session_id, len(live_state),
+            )
+            return live_state
+
+    except ImportError:
+        logger.debug("langgraph_not_available: skipping live state read")
+    except Exception as e:
+        logger.debug(
+            "live_graph_state_failed: session=%s, error=%s",
+            session_id, str(e)[:200],
+        )
+
+    return None
 
 
 # ══════════════════════════════════════════════════════════════════

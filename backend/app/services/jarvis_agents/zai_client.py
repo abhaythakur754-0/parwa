@@ -171,9 +171,25 @@ class ZAIClient:
         return cls._instance
 
     def _ensure_sdk(self) -> bool:
-        """Lazy-initialize the ZAI SDK. Returns True if available."""
-        if self._initialized:
-            return self._sdk is not None
+        """Lazy-initialize the ZAI SDK synchronously. Returns True if available.
+
+        This method only initializes the SDK when called from a synchronous
+        context (no running event loop). When called from inside an async
+        context (FastAPI), it marks initialization as needed but defers the
+        actual async init to ``_ensure_sdk_async`` which is called from
+        ``chat_async``.
+
+        JV-01 FIX: Previously, ``loop.is_running()`` set ``self._sdk = None``
+        and ``self._initialized = True``, which permanently prevented SDK
+        initialization inside FastAPI. The SDK was NEVER created in the
+        primary async code path, causing all agent decisions to use hardcoded
+        rules only.
+
+        Now we set ``self._initialized = False`` when inside a running loop,
+        so ``chat_async`` will detect the need and call ``_ensure_sdk_async``.
+        """
+        if self._initialized and self._sdk is not None:
+            return True
 
         try:
             import asyncio
@@ -183,14 +199,17 @@ class ZAIClient:
                 zai = await ZAI.create()
                 return zai
 
-            # Try to initialize the SDK
+            # Try to initialize the SDK synchronously
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
-                    # We're in an async context, can't await here
-                    # Will initialize on first chat call
-                    self._sdk = None
-                    self._initialized = True
+                    # JV-01 FIX: We're in an async context — can't call
+                    # run_until_complete here. Mark that we still need init
+                    # so chat_async will handle it via _ensure_sdk_async.
+                    self._initialized = False
+                    logger.debug(
+                        "zai_sdk_deferred: running_loop, will_init_in_chat_async",
+                    )
                     return False
                 self._sdk = loop.run_until_complete(_init())
             except RuntimeError:
@@ -206,6 +225,33 @@ class ZAIClient:
         except Exception as e:
             logger.warning(
                 "zai_sdk_init_failed: error=%s, will_use_fallback", str(e)[:200],
+            )
+            self._initialized = True
+            self._sdk = None
+            return False
+
+    async def _ensure_sdk_async(self) -> bool:
+        """Async SDK initialization — called from chat_async when needed.
+
+        JV-01 FIX: This method properly initializes the ZAI SDK from within
+        an async context (FastAPI's event loop). Previously, ``_ensure_sdk``
+        would give up when ``loop.is_running()`` was True, leaving the SDK
+        as None permanently. Now this async path handles that case.
+        """
+        if self._sdk is not None and self._initialized:
+            return True
+
+        try:
+            from z_ai_web_dev_sdk import ZAI
+            zai = await ZAI.create()
+            self._sdk = zai
+            self._initialized = True
+            logger.info("zai_sdk_async_initialized: success=%s", self._sdk is not None)
+            return self._sdk is not None
+        except Exception as e:
+            logger.warning(
+                "zai_sdk_async_init_failed: error=%s, will_use_fallback",
+                str(e)[:200],
             )
             self._initialized = True
             self._sdk = None
@@ -244,9 +290,11 @@ class ZAIClient:
 
         for attempt in range(max_retries):
             try:
-                # Try ZAI SDK
+                # JV-01 FIX: Use async SDK init when inside an event loop.
+                # Previously _ensure_sdk() gave up when loop.is_running(),
+                # so self._sdk stayed None and we always fell back to rules.
                 if self._sdk is None:
-                    self._ensure_sdk()
+                    await self._ensure_sdk_async()
 
                 if self._sdk is not None:
                     completion = await self._sdk.chat.completions.create(
