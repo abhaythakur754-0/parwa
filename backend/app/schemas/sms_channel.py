@@ -171,3 +171,23 @@ class SMSConsentRecord(BaseModel):
     is_opted_out: bool
     opt_out_keyword: Optional[str]
     opt_out_at: Optional[str]
+
+
+# ── SMS Channel API Response Schemas ──────────────────────────────────
+
+
+class SMSConsentStatusResponse(BaseModel):
+    """Response for TCPA consent status check."""
+
+    is_opted_out: bool
+    customer_number: str
+    opt_out_keyword: Optional[str] = None
+    opt_out_at: Optional[str] = None
+
+
+class SMSWebhookStatusResponse(BaseModel):
+    """Response for Twilio webhook status callback."""
+
+    status: Optional[str] = None
+    message_sid: Optional[str] = None
+    delivery_status: Optional[str] = None

@@ -12,8 +12,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from database.models.core import User
 from app.exceptions import NotFoundError, ValidationError
 from app.services.channel_service import ChannelService
+from app.schemas.channel import (
+    ChannelConfigUpdateResponse,
+    ChannelTestResponse,
+    ChannelFormatMessageResponse,
+    ChannelFileValidationResponse,
+)
 
 
 router = APIRouter(prefix="/channels", tags=["channels"])
@@ -21,14 +28,15 @@ router = APIRouter(prefix="/channels", tags=["channels"])
 
 @router.get(
     "",
+    response_model=List[Dict[str, Any]],
     summary="List available channels",
 )
 async def list_channels(
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """List all available system channels."""
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = ChannelService(db, company_id)
 
@@ -37,14 +45,15 @@ async def list_channels(
 
 @router.get(
     "/config",
+    response_model=Dict[str, Any],
     summary="Get company channel configuration",
 )
 async def get_channel_config(
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Get company's channel configuration."""
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = ChannelService(db, company_id)
 
@@ -53,16 +62,17 @@ async def get_channel_config(
 
 @router.put(
     "/config/{channel_type}",
+    response_model=ChannelConfigUpdateResponse,
     summary="Update channel configuration",
 )
 async def update_channel_config(
     channel_type: str,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Update configuration for a specific channel."""
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     body = await request.json()
 
@@ -99,16 +109,17 @@ async def update_channel_config(
 
 @router.post(
     "/config/{channel_type}/test",
+    response_model=ChannelTestResponse,
     summary="Test channel connectivity",
 )
 async def test_channel(
     channel_type: str,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Test connectivity for a channel configuration."""
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     body = await request.json() if await request.body() else {}
     test_config = body.get("test_config")
@@ -120,15 +131,16 @@ async def test_channel(
 
 @router.post(
     "/format-message",
+    response_model=ChannelFormatMessageResponse,
     summary="Format message for channel",
 )
 async def format_message(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Format a message for a specific channel."""
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     body = await request.json()
     content = body.get("content", "")
@@ -153,15 +165,16 @@ async def format_message(
 
 @router.post(
     "/validate-file",
+    response_model=ChannelFileValidationResponse,
     summary="Validate file for channel",
 )
 async def validate_file(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Validate a file for a specific channel."""
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     body = await request.json()
     filename = body.get("filename", "")
@@ -186,14 +199,15 @@ async def validate_file(
 
 @router.get(
     "/variant-retry",
+    response_model=Dict[str, Any],
     summary="Check variant retry tickets",
 )
 async def check_variant_retry(
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """PS13: Check for tickets needing variant retry or human fallback."""
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = ChannelService(db, company_id)
 
@@ -202,16 +216,17 @@ async def check_variant_retry(
 
 @router.post(
     "/variant-retry/{ticket_id}",
+    response_model=Dict[str, Any],
     summary="Process variant retry",
 )
 async def process_variant_retry(
     ticket_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """PS13: Process a variant retry attempt."""
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     body = await request.json()
     success = body.get("success", False)
@@ -230,16 +245,17 @@ async def process_variant_retry(
 
 @router.post(
     "/escalate/{ticket_id}",
+    response_model=Dict[str, Any],
     summary="Escalate to human",
 )
 async def escalate_to_human(
     ticket_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """PS13: Escalate queued ticket to human agent."""
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     body = await request.json() if await request.body() else {}
     reason = body.get("reason", "variant_unavailable")

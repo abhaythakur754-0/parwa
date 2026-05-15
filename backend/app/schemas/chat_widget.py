@@ -203,3 +203,68 @@ class CannedResponseResponse(BaseModel):
     shortcut: Optional[str]
     sort_order: int
     is_active: bool
+
+
+# ── Chat Widget API Response Schemas ────────────────────────────────
+
+
+class ChatSessionCreateResponse(BaseModel):
+    """Response after creating a chat session."""
+
+    session_id: Optional[str] = None
+    visitor_token: Optional[str] = None
+    status: Optional[str] = None
+    company_id: Optional[str] = None
+
+
+class ChatAssignResponse(BaseModel):
+    """Response after assigning an agent to a session."""
+
+    session_id: Optional[str] = None
+    assigned_agent_id: Optional[str] = None
+    status: Optional[str] = None
+
+
+class ChatCloseResponse(BaseModel):
+    """Response after closing a chat session."""
+
+    session_id: Optional[str] = None
+    status: Optional[str] = None
+    closed_at: Optional[str] = None
+
+
+class ChatMessageSendResponse(BaseModel):
+    """Response after sending a chat message."""
+
+    message_id: Optional[str] = None
+    session_id: Optional[str] = None
+    status: Optional[str] = None
+
+
+class ChatTypingResponse(BaseModel):
+    """Response after sending a typing indicator."""
+
+    session_id: Optional[str] = None
+    status: Optional[str] = None
+
+
+class ChatMarkReadResponse(BaseModel):
+    """Response after marking messages as read."""
+
+    status: str
+    count: int
+
+
+class ChatCSATResponse(BaseModel):
+    """Response after submitting a CSAT rating."""
+
+    session_id: Optional[str] = None
+    rating: Optional[int] = None
+    status: Optional[str] = None
+
+
+class CannedResponseListResponse(BaseModel):
+    """List of canned responses."""
+
+    items: List[CannedResponseResponse]
+    total: int

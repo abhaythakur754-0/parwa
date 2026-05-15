@@ -21,10 +21,14 @@ from app.api.deps import (
 )
 from app.exceptions import NotFoundError
 from app.schemas.admin import (
+    CompanyProfileResponse,
     CompanyProfileUpdate,
+    CompanySettingsResponse,
     CompanySettingsUpdate,
     MessageResponse,
     PasswordChangeRequest,
+    TeamListResponse,
+    TeamMemberResponse,
     TeamMemberUpdate,
 )
 from app.services import company_service
@@ -137,7 +141,7 @@ def _serialize_user(user: User) -> dict:
 # ── Profile Endpoints ──────────────────────────────────────────────
 
 
-@router.get("/profile")
+@router.get("/profile", response_model=CompanyProfileResponse)
 def get_profile(
     company: Company = Depends(get_current_company),
 ) -> dict:
@@ -148,7 +152,7 @@ def get_profile(
     return _serialize_company(company)
 
 
-@router.put("/profile")
+@router.put("/profile", response_model=CompanyProfileResponse)
 def update_profile(
     body: CompanyProfileUpdate,
     user: User = Depends(get_current_user),
@@ -186,7 +190,7 @@ def update_profile(
 # ── Settings Endpoints ─────────────────────────────────────────────
 
 
-@router.get("/settings")
+@router.get("/settings", response_model=CompanySettingsResponse)
 def get_settings(
     company: Company = Depends(get_current_company),
     db: Session = Depends(get_db),
@@ -202,7 +206,7 @@ def get_settings(
     return _serialize_settings(settings)
 
 
-@router.put("/settings")
+@router.put("/settings", response_model=CompanySettingsResponse)
 def update_settings(
     body: CompanySettingsUpdate,
     user: User = Depends(get_current_user),
@@ -245,7 +249,7 @@ def update_settings(
 # ── Password Change ────────────────────────────────────────────────
 
 
-@router.put("/password")
+@router.put("/password", response_model=MessageResponse)
 def change_password(
     body: PasswordChangeRequest,
     user: User = Depends(get_current_user),
@@ -280,7 +284,7 @@ def change_password(
 # ── Team Management ────────────────────────────────────────────────
 
 
-@router.get("/team")
+@router.get("/team", response_model=TeamListResponse)
 def get_team(
     user: User = Depends(
         require_roles("owner", "admin"),
@@ -313,7 +317,7 @@ def get_team(
     }
 
 
-@router.put("/team/{user_id}")
+@router.put("/team/{user_id}", response_model=TeamMemberResponse)
 def update_team_member(
     user_id: str,
     body: TeamMemberUpdate,
@@ -363,7 +367,7 @@ def update_team_member(
     return _serialize_user(updated)
 
 
-@router.delete("/team/{user_id}")
+@router.delete("/team/{user_id}", response_model=MessageResponse)
 def remove_team_member(
     user_id: str,
     user: User = Depends(

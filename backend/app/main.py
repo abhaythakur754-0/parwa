@@ -277,7 +277,7 @@ async def lifespan(app: FastAPI):
     logger.info(
         "parwa_startup",
         environment=settings.ENVIRONMENT,
-        version="0.1.0",
+        version=settings.APP_VERSION,
     )
     yield
 
@@ -315,7 +315,7 @@ except Exception:
 app = FastAPI(
     title="PARWA API",
     description="AI-Powered Customer Support Platform",
-    version="0.1.0",
+    version=_init_settings.APP_VERSION,  # R-05: Single source of truth from config
     lifespan=lifespan,
     docs_url=_docs_url,
     redoc_url=_redoc_url,

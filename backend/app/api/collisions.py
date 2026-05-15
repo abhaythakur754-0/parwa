@@ -41,6 +41,22 @@ class CollisionStatusResponse(BaseModel):
     viewer_count: int
 
 
+class ViewerListResponse(BaseModel):
+    """Response for listing ticket viewers."""
+    ticket_id: str
+    viewers: list
+    viewer_count: int
+
+
+class CollisionHistoryResponse(BaseModel):
+    """Response for collision history listing."""
+    ticket_id: str
+    collisions: list
+    total: int
+    page: int
+    page_size: int
+
+
 # ── Endpoints ──────────────────────────────────────────────────────────────
 
 
@@ -99,7 +115,7 @@ def stop_viewing(
     )
 
 
-@router.get("/{ticket_id}/viewers")
+@router.get("/{ticket_id}/viewers", response_model=ViewerListResponse)
 def get_viewers(
     ticket_id: str,
     db: Session = Depends(get_db),
@@ -113,7 +129,7 @@ def get_viewers(
     return result
 
 
-@router.post("/{ticket_id}/viewing/heartbeat")
+@router.post("/{ticket_id}/viewing/heartbeat", response_model=CollisionStatusResponse)
 def heartbeat(
     ticket_id: str,
     db: Session = Depends(get_db),
@@ -133,7 +149,7 @@ def heartbeat(
     return result
 
 
-@router.get("/{ticket_id}/collisions/history")
+@router.get("/{ticket_id}/collisions/history", response_model=CollisionHistoryResponse)
 def get_collision_history(
     ticket_id: str,
     page: int = Query(1, ge=1),

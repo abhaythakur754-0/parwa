@@ -270,3 +270,31 @@ class SubscriptionUpdateRequest(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+
+# ── Additional Response Schemas (R-06) ─────────────────────────────
+
+
+class AdminHealthResponse(BaseModel):
+    """Response for admin health endpoint."""
+
+    status: str
+    message: str
+
+
+class APIProviderListResponse(BaseModel):
+    """Response for listing API providers."""
+
+    items: List[APIProviderResponse]
+
+
+class TeamListResponse(PaginatedResponse[TeamMemberResponse]):
+    """Paginated team member list response."""
+
+    pass
+
+
+class ClientListResponse(PaginatedResponse[AdminClientResponse]):
+    """Paginated client list response for admin."""
+
+    pass

@@ -314,3 +314,116 @@ class CustomerChannelResponse(BaseModel):
     created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+# ── Customer List / Paginated Response Schemas ────────────────────────────────
+
+
+class CustomerListResponse(BaseModel):
+    """Paginated list of customers."""
+
+    items: List[CustomerResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class CustomerDeleteResponse(BaseModel):
+    """Response after deleting a customer."""
+
+    deleted: bool
+    customer_id: str
+
+
+class CustomerTicketItem(BaseModel):
+    """Summary of a ticket associated with a customer."""
+
+    id: str
+    subject: Optional[str] = None
+    status: Optional[str] = None
+    priority: Optional[str] = None
+    channel: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class CustomerTicketListResponse(BaseModel):
+    """Paginated list of tickets for a customer."""
+
+    items: List[CustomerTicketItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class CustomerChannelLinkResponse(BaseModel):
+    """Response after linking a channel to a customer."""
+
+    id: str
+    customer_id: str
+    channel_type: str
+    external_id: str
+    is_verified: bool
+    created_at: Optional[str] = None
+
+
+class CustomerUnlinkResponse(BaseModel):
+    """Response after unlinking a channel from a customer."""
+
+    unlinked: bool
+    channel_id: str
+
+
+class CustomerMergeResponse(BaseModel):
+    """Response after merging customers."""
+
+    id: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    name: Optional[str] = None
+    merged_count: int
+
+
+# ── Identity Resolution Response Schemas ──────────────────────────────────────
+
+
+class IdentityDuplicatesResponse(BaseModel):
+    """Response for potential duplicate customers."""
+
+    duplicates: List[Dict[str, Any]]
+    total: int
+
+
+class IdentityMatchLogItem(BaseModel):
+    """Single identity match log entry."""
+
+    id: str
+    input_email: Optional[str] = None
+    input_phone: Optional[str] = None
+    matched_customer_id: Optional[str] = None
+    match_method: Optional[str] = None
+    confidence_score: Optional[float] = None
+    action_taken: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class IdentityMatchLogResponse(BaseModel):
+    """Paginated list of identity match logs."""
+
+    items: List[IdentityMatchLogItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class IdentityGrandfatheredResponse(BaseModel):
+    """Response for grandfathered tickets."""
+
+    items: List[Dict[str, Any]]
+    total: int
+
+
+class IdentityBatchResolveResponse(BaseModel):
+    """Response for batch identity resolution."""
+
+    results: List[Dict[str, Any]]
+    total: int

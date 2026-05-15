@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_current_user, get_company_id
+from database.models.core import User
 from app.services.internal_note_service import InternalNoteService
 from app.exceptions import NotFoundError, ValidationError, AuthorizationError
 from app.core.event_emitter import emit_event
@@ -76,7 +77,7 @@ async def create_note(
     request: NoteCreate,
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Create an internal note on a ticket.
 
@@ -88,7 +89,7 @@ async def create_note(
     try:
         note = service.create_note(
             ticket_id=ticket_id,
-            author_id=current_user.get("id"),
+            author_id=str(current_user.id),
             content=request.content,
             is_pinned=request.is_pinned,
         )
@@ -128,7 +129,7 @@ async def list_notes(
     order: str = Query(default="desc", regex="^(asc|desc)$"),
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """List internal notes for a ticket.
 
@@ -173,7 +174,7 @@ async def get_note(
     note_id: str,
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Get a single internal note by ID."""
     service = InternalNoteService(db, company_id)
@@ -202,7 +203,7 @@ async def update_note(
     force: bool = Query(default=False),
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Edit an internal note.
 
@@ -216,7 +217,7 @@ async def update_note(
             ticket_id=ticket_id,
             note_id=note_id,
             content=request.content,
-            user_id=current_user.get("id"),
+            user_id=str(current_user.id),
             force=force,
         )
 
@@ -244,7 +245,7 @@ async def delete_note(
     force: bool = Query(default=False),
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Delete an internal note.
 
@@ -257,7 +258,7 @@ async def delete_note(
         service.delete_note(
             ticket_id=ticket_id,
             note_id=note_id,
-            user_id=current_user.get("id"),
+            user_id=str(current_user.id),
             force=force,
         )
 
@@ -273,7 +274,7 @@ async def toggle_pin_note(
     note_id: str,
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Toggle pin status of an internal note.
 
@@ -286,7 +287,7 @@ async def toggle_pin_note(
         note = service.toggle_pin(
             ticket_id=ticket_id,
             note_id=note_id,
-            user_id=current_user.get("id"),
+            user_id=str(current_user.id),
         )
 
         return NoteResponse(
@@ -310,7 +311,7 @@ async def pin_note(
     note_id: str,
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Pin an internal note."""
     service = InternalNoteService(db, company_id)
@@ -319,7 +320,7 @@ async def pin_note(
         note = service.pin_note(
             ticket_id=ticket_id,
             note_id=note_id,
-            user_id=current_user.get("id"),
+            user_id=str(current_user.id),
         )
 
         return NoteResponse(
@@ -343,7 +344,7 @@ async def unpin_note(
     note_id: str,
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Unpin an internal note."""
     service = InternalNoteService(db, company_id)
@@ -352,7 +353,7 @@ async def unpin_note(
         note = service.unpin_note(
             ticket_id=ticket_id,
             note_id=note_id,
-            user_id=current_user.get("id"),
+            user_id=str(current_user.id),
         )
 
         return NoteResponse(

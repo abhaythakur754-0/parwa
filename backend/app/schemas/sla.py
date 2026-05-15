@@ -10,7 +10,7 @@ Pydantic models for SLA (Service Level Agreement) management.
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator, computed_field, model_validator
 
@@ -271,3 +271,68 @@ class SLAStats(BaseModel):
     )
 
     model_config = {"from_attributes": True}
+
+
+# ── SLA Additional Response Schemas ──────────────────────────────────────
+
+
+class SLADeleteResponse(BaseModel):
+    """Response after deleting an SLA policy."""
+
+    deleted: bool
+    policy_id: str
+
+
+class SLASeedPolicyItem(BaseModel):
+    """Summary of a seeded SLA policy."""
+
+    id: str
+    plan_tier: str
+    priority: str
+    first_response_minutes: int
+    resolution_minutes: int
+
+
+class SLASeedResponse(BaseModel):
+    """Response after seeding default SLA policies."""
+
+    seeded: int
+    policies: List[SLASeedPolicyItem]
+
+
+class SLABreachedTicketItem(BaseModel):
+    """Summary of a ticket with breached SLA."""
+
+    id: str
+    subject: Optional[str] = None
+    status: Optional[str] = None
+    priority: Optional[str] = None
+    assigned_to: Optional[str] = None
+    created_at: Optional[datetime] = None
+    sla_breached: Optional[bool] = None
+
+
+class SLABreachedTicketsResponse(BaseModel):
+    """Response listing breached SLA tickets."""
+
+    items: List[SLABreachedTicketItem]
+    total: int
+
+
+class SLAApproachingTicketItem(BaseModel):
+    """Summary of a ticket approaching SLA breach."""
+
+    ticket_id: str
+    subject: Optional[str] = None
+    status: Optional[str] = None
+    priority: Optional[str] = None
+    assigned_to: Optional[str] = None
+    percentage_elapsed: Optional[float] = None
+    created_at: Optional[datetime] = None
+
+
+class SLAApproachingTicketsResponse(BaseModel):
+    """Response listing tickets approaching SLA breach."""
+
+    items: List[SLAApproachingTicketItem]
+    total: int

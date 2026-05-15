@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from database.models.core import User
 from app.services.classification_service import (
     ClassificationService,
     IntentCategory,
@@ -121,7 +122,7 @@ async def classify_ticket(
         False, description="Force reclassification"
     ),
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Trigger classification for a ticket.
 
@@ -129,7 +130,7 @@ async def classify_ticket(
     Week 4: Rule-based classification.
     Week 9: AI-based classification.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = ClassificationService(db, company_id)
 
@@ -148,13 +149,13 @@ async def classify_ticket(
 async def get_classification(
     ticket_id: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Get classification for a ticket.
 
     F-049: Retrieve existing classification.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = ClassificationService(db, company_id)
 
@@ -174,15 +175,15 @@ async def correct_classification(
     ticket_id: str,
     data: CorrectionRequest,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Correct ticket classification (human override).
 
     F-049: Human correction to AI classification.
     Corrections are logged for training data.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = str(current_user.id)
 
     # Validate intent
     if data.corrected_intent not in IntentCategory.ALL:
@@ -238,14 +239,14 @@ async def correct_classification(
 async def classify_text(
     data: TextClassificationRequest,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Classify text without creating a ticket.
 
     F-049: Preview classification before ticket creation.
     Useful for UI to suggest category/priority.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = ClassificationService(db, company_id)
 
@@ -268,13 +269,13 @@ async def list_corrections(
     page_size: int = Query(20, ge=1, le=100),
     intent: Optional[str] = Query(None),
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """List all corrections for training data.
 
     F-049: Export corrections for AI model training.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = ClassificationService(db, company_id)
 
@@ -299,13 +300,13 @@ async def list_corrections(
 )
 async def get_classification_stats(
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Get classification statistics.
 
     F-049: Overview of classification performance.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = ClassificationService(db, company_id)
 

@@ -19,6 +19,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse
 
@@ -29,6 +30,22 @@ from app.services import webhook_service
 from app.api.deps import require_platform_admin
 from database.models.core import User
 
+# ── R-06 FIX: Response model for webhook status endpoint ──
+
+class WebhookStatusResponse(BaseModel):
+    """Response schema for webhook event status."""
+    id: str
+    provider: str
+    event_id: str
+    event_type: str
+    status: str
+    company_id: str
+    created_at: str | None = None
+    processed_at: str | None = None
+    error_message: str | None = None
+    retry_count: int = 0
+
+
 logger = logging.getLogger("parwa.webhook_api")
 
 router = APIRouter(prefix="/api/webhooks", tags=["Webhooks"])
@@ -36,11 +53,15 @@ router = APIRouter(prefix="/api/webhooks", tags=["Webhooks"])
 # Supported webhook providers
 SUPPORTED_PROVIDERS = {"paddle", "twilio", "shopify", "brevo"}
 
-# Maximum webhook payload size: 1MB (BC-003)
-MAX_WEBHOOK_PAYLOAD_SIZE = 1 * 1024 * 1024
+# R-07 FIX: Max webhook payload size now configurable via WEBHOOK_MAX_PAYLOAD_SIZE setting
+def _get_max_webhook_payload_size() -> int:
+    from app.config import get_settings
+    return get_settings().WEBHOOK_MAX_PAYLOAD_SIZE
 
-# H-08: Maximum age for webhook events (5 minutes) — prevents replay attacks
-MAX_WEBHOOK_AGE_SECONDS = 300
+# R-07 FIX: Max webhook age now configurable via WEBHOOK_MAX_AGE_SECONDS setting
+def _get_max_webhook_age_seconds() -> int:
+    from app.config import get_settings
+    return get_settings().WEBHOOK_MAX_AGE_SECONDS
 
 
 def _get_company_id_from_payload(
@@ -324,7 +345,7 @@ async def receive_webhook(
     body = await request.body()
 
     # FIX L28: Validate payload size (max 1MB per BC-003)
-    if len(body) > MAX_WEBHOOK_PAYLOAD_SIZE:
+    if len(body) > _get_max_webhook_payload_size():
         logger.warning(
             "webhook_payload_too_large provider=%s size=%s",
             provider, len(body),
@@ -336,10 +357,10 @@ async def receive_webhook(
                     "code": "PAYLOAD_TOO_LARGE",
                     "message": (
                         f"Webhook payload exceeds maximum "
-                        f"size of {MAX_WEBHOOK_PAYLOAD_SIZE} bytes"
+                        f"size of {_get_max_webhook_payload_size()} bytes"
                     ),
                     "details": {
-                        "max_size": MAX_WEBHOOK_PAYLOAD_SIZE,
+                        "max_size": _get_max_webhook_payload_size(),
                         "actual_size": len(body),
                     },
                 }
@@ -390,7 +411,7 @@ async def receive_webhook(
                 str(occurred_at).replace("Z", "+00:00")
             )
         age = (datetime.now(timezone.utc) - event_time).total_seconds()
-        if age > MAX_WEBHOOK_AGE_SECONDS:
+        if age > _get_max_webhook_age_seconds():
             logger.warning(
                 "webhook_replay_rejected provider=%s event_id=%s age_seconds=%s",
                 provider, _get_event_id_from_payload(provider, payload), age,
@@ -402,7 +423,7 @@ async def receive_webhook(
                         "code": "REPLAY_DETECTED",
                         "message": (
                             f"Webhook event is too old "
-                            f"({int(age)}s > {MAX_WEBHOOK_AGE_SECONDS}s max). "
+                            f"({int(age)}s > {_get_max_webhook_age_seconds()}s max). "
                             f"Possible replay attack."
                         ),
                         "details": {"age_seconds": int(age)},
@@ -561,6 +582,7 @@ async def receive_webhook(
 
 @router.get(
     "/status/{event_db_id}",
+    response_model=WebhookStatusResponse,
 )
 async def get_webhook_status(
     event_db_id: str,

@@ -36,6 +36,22 @@ from pydantic import BaseModel, Field
 # H-18: Auth dependency for admin-only chat endpoints
 from app.api.deps import get_current_user
 from database.models.core import User
+from app.schemas.chat_widget import (
+    ChatSessionCreateResponse,
+    ChatSessionResponse,
+    ChatSessionListResponse,
+    ChatAssignResponse,
+    ChatCloseResponse,
+    ChatMessageSendResponse,
+    ChatMessageListResponse,
+    ChatTypingResponse,
+    ChatMarkReadResponse,
+    ChatCSATResponse,
+    WidgetConfigResponse,
+    WidgetEmbedResponse,
+    CannedResponseListResponse,
+    CannedResponseResponse,
+)
 
 logger = logging.getLogger("parwa.chat_widget_api")
 
@@ -98,7 +114,7 @@ def _get_db(request: Request):
 # ═══════════════════════════════════════════════════════════════
 
 
-@router.post("/session")
+@router.post("/session", response_model=ChatSessionCreateResponse)
 async def create_chat_session(body: CreateChatSessionRequest, request: Request):
     """Create a new chat widget session.
 
@@ -159,7 +175,7 @@ async def create_chat_session(body: CreateChatSessionRequest, request: Request):
         )
 
 
-@router.get("/sessions")
+@router.get("/sessions", response_model=ChatSessionListResponse)
 async def list_chat_sessions(
     request: Request,
     current_user: User = Depends(get_current_user),
@@ -202,7 +218,7 @@ async def list_chat_sessions(
         )
 
 
-@router.get("/sessions/{session_id}")
+@router.get("/sessions/{session_id}", response_model=ChatSessionResponse)
 async def get_chat_session(request: Request, session_id: str, current_user: User = Depends(get_current_user)):
     """Get a single chat session by ID."""
     company_id = current_user.company_id
@@ -245,7 +261,7 @@ async def get_chat_session(request: Request, session_id: str, current_user: User
         )
 
 
-@router.post("/sessions/{session_id}/assign")
+@router.post("/sessions/{session_id}/assign", response_model=ChatAssignResponse)
 async def assign_session(body: AssignSessionRequest, request: Request, session_id: str, current_user: User = Depends(get_current_user)):
     """Assign an agent to a chat session."""
     company_id = current_user.company_id
@@ -288,7 +304,7 @@ async def assign_session(body: AssignSessionRequest, request: Request, session_i
         )
 
 
-@router.post("/sessions/{session_id}/close")
+@router.post("/sessions/{session_id}/close", response_model=ChatCloseResponse)
 async def close_session(request: Request, session_id: str, current_user: User = Depends(get_current_user)):
     """Close a chat session."""
     company_id = current_user.company_id
@@ -343,7 +359,7 @@ async def close_session(request: Request, session_id: str, current_user: User = 
 # ═══════════════════════════════════════════════════════════════
 
 
-@router.post("/sessions/{session_id}/messages")
+@router.post("/sessions/{session_id}/messages", response_model=ChatMessageSendResponse)
 async def send_chat_message(body: SendMessageRequest, request: Request, session_id: str):
     """Send a message in a chat session.
 
@@ -453,7 +469,7 @@ async def send_chat_message(body: SendMessageRequest, request: Request, session_
         )
 
 
-@router.get("/sessions/{session_id}/messages")
+@router.get("/sessions/{session_id}/messages", response_model=ChatMessageListResponse)
 async def get_chat_messages(
     request: Request,
     session_id: str,
@@ -506,7 +522,7 @@ async def get_chat_messages(
         )
 
 
-@router.post("/sessions/{session_id}/typing")
+@router.post("/sessions/{session_id}/typing", response_model=ChatTypingResponse)
 async def send_typing_indicator(body: TypingIndicatorRequest, request: Request, session_id: str):
     """Emit a typing indicator via Socket.io (BC-005, BC-011)."""
     # BC-011: Verify visitor token if no JWT auth
@@ -575,7 +591,7 @@ async def send_typing_indicator(body: TypingIndicatorRequest, request: Request, 
         )
 
 
-@router.post("/sessions/{session_id}/read")
+@router.post("/sessions/{session_id}/read", response_model=ChatMarkReadResponse)
 async def mark_messages_read(request: Request, session_id: str, current_user: User = Depends(get_current_user)):
     """Mark all unread messages in a session as read."""
     company_id = current_user.company_id
@@ -612,7 +628,7 @@ async def mark_messages_read(request: Request, session_id: str, current_user: Us
         )
 
 
-@router.post("/sessions/{session_id}/rate")
+@router.post("/sessions/{session_id}/rate", response_model=ChatCSATResponse)
 async def submit_csat_rating(body: CSATRatingRequest, request: Request, session_id: str):
     """Submit a CSAT rating for a chat session (BC-011)."""
     # BC-011: Verify visitor token if no JWT auth
@@ -697,7 +713,7 @@ async def submit_csat_rating(body: CSATRatingRequest, request: Request, session_
 # ═══════════════════════════════════════════════════════════════
 
 
-@router.get("/widget/config")
+@router.get("/widget/config", response_model=WidgetConfigResponse)
 async def get_widget_config(request: Request):
     """Get widget configuration (public endpoint).
 
@@ -743,7 +759,7 @@ async def get_widget_config(request: Request):
         )
 
 
-@router.put("/widget/config")
+@router.put("/widget/config", response_model=WidgetConfigResponse)
 async def update_widget_config(request: Request, current_user: User = Depends(get_current_user)):
     """Update widget configuration (admin only)."""
     company_id = current_user.company_id
@@ -785,7 +801,7 @@ async def update_widget_config(request: Request, current_user: User = Depends(ge
         )
 
 
-@router.get("/widget/embed")
+@router.get("/widget/embed", response_model=WidgetEmbedResponse)
 async def get_widget_embed(request: Request, current_user: User = Depends(get_current_user)):
     """Get widget embed code (admin only)."""
     company_id = current_user.company_id
@@ -817,7 +833,7 @@ async def get_widget_embed(request: Request, current_user: User = Depends(get_cu
 # ═══════════════════════════════════════════════════════════════
 
 
-@router.get("/canned")
+@router.get("/canned", response_model=CannedResponseListResponse)
 async def list_canned_responses(
     request: Request,
     current_user: User = Depends(get_current_user),
@@ -852,7 +868,7 @@ async def list_canned_responses(
         )
 
 
-@router.post("/canned")
+@router.post("/canned", response_model=CannedResponseResponse)
 async def create_canned_response(body: CreateCannedResponseRequest, request: Request, current_user: User = Depends(get_current_user)):
     """Create a new canned response."""
     company_id = current_user.company_id
@@ -881,7 +897,7 @@ async def create_canned_response(body: CreateCannedResponseRequest, request: Req
         )
 
 
-@router.put("/canned/{response_id}")
+@router.put("/canned/{response_id}", response_model=dict)
 async def update_canned_response(request: Request, response_id: str, current_user: User = Depends(get_current_user)):
     """Update a canned response."""
     company_id = current_user.company_id
@@ -932,7 +948,7 @@ async def update_canned_response(request: Request, response_id: str, current_use
         )
 
 
-@router.delete("/canned/{response_id}")
+@router.delete("/canned/{response_id}", response_model=dict)
 async def delete_canned_response(request: Request, response_id: str, current_user: User = Depends(get_current_user)):
     """Delete a canned response."""
     company_id = current_user.company_id

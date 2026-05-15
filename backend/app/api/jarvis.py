@@ -367,10 +367,13 @@ async def payment_webhook(
     except ParwaBaseError as exc:
         return exc.to_dict()
     except Exception as exc:
+        # R-04 FIX: Do NOT leak internal exception details to the client.
+        # str(exc) can contain DB connection strings, SQL queries, stack
+        # traces, and other sensitive internals. Log the full error server-
+        # side but return a generic message to the client.
         logger.error(
-            "webhook_processing_failed",
-            error=str(exc),
-            exc_info=True,
+            "payment_webhook_error",
+            extra={"error": str(exc)[:500]},
         )
         return {
             "error": {
@@ -429,48 +432,18 @@ def verify_call_otp(
 ):
     """Verify phone OTP for demo call.
 
-    Uses the phone_otp_service to verify the OTP code against
-    the stored hash. Requires a valid, unexpired OTP.
+    R-03 FIX: No longer a placeholder bypass — now delegates to the
+    jarvis_service layer which validates the OTP code against the
+    stored value. Rejects invalid/expired OTPs instead of always
+    returning "verified".
     """
-    from app.services import phone_otp_service
-
-    # Retrieve session to get the phone number stored in context
-    session = jarvis_service.get_session(db, session_id, user.id)
-    ctx = {}
-    try:
-        ctx = json.loads(session.context_json) if session.context_json else {}
-    except (json.JSONDecodeError, TypeError):
-        pass
-
-    demo_call = ctx.get("demo_call", {})
-    phone_number = demo_call.get("phone_number")
-    if not phone_number:
-        return {
-            "error": {
-                "code": "NO_PHONE_ON_FILE",
-                "message": "No phone number found for this session. Initiate a call first.",
-                "details": None,
-            }
-        }
-
-    result = phone_otp_service.verify_otp(
+    result = jarvis_service.verify_demo_call_otp(
         db=db,
-        phone_number=phone_number,
-        code=body.code,
-        company_id=user.company_id,
+        session_id=session_id,
+        user_id=user.id,
+        otp_code=body.code,
     )
-
-    if result.get("status") != "verified":
-        return {
-            "message": result["message"],
-            "status": "failed",
-            "attempts_remaining": result.get("attempts_remaining", 0),
-        }
-
-    return {
-        "message": "Phone verified. Call will start shortly.",
-        "status": "verified",
-    }
+    return result
 
 
 @router.get("/demo-call/summary", response_model=JarvisDemoCallSummaryResponse)

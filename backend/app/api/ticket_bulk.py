@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from database.models.core import User
 from app.schemas.bulk_action import (
     BulkActionRequest,
     BulkActionResponse,
@@ -47,7 +48,7 @@ router = APIRouter(prefix="/tickets/bulk", tags=["bulk-actions"])
 async def execute_bulk_action(
     data: BulkActionRequest,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Execute a bulk action on multiple tickets.
@@ -62,8 +63,8 @@ async def execute_bulk_action(
     Max 500 tickets per bulk action.
     Undo available within 24 hours.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = str(current_user.id)
     
     service = BulkActionService(db)
     
@@ -105,15 +106,15 @@ async def bulk_status_change(
     new_status: str,
     reason: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Bulk change ticket status.
     
     Convenience endpoint for status changes.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = str(current_user.id)
     
     service = BulkActionService(db)
     
@@ -154,15 +155,15 @@ async def bulk_assign(
     assignee_type: str = "human",
     reason: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Bulk assign tickets to an agent.
     
     Convenience endpoint for reassignment.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = str(current_user.id)
     
     service = BulkActionService(db)
     
@@ -206,7 +207,7 @@ async def bulk_tags(
     tags: List[str],
     tag_action: str = "add",  # add, remove, replace
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Bulk add/remove/replace tags on tickets.
@@ -216,8 +217,8 @@ async def bulk_tags(
     - remove: Remove specified tags
     - replace: Replace all tags with new ones
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = str(current_user.id)
     
     service = BulkActionService(db)
     
@@ -256,13 +257,13 @@ async def bulk_priority(
     ticket_ids: List[str],
     priority: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Bulk change ticket priority.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = str(current_user.id)
     
     service = BulkActionService(db)
     
@@ -301,13 +302,13 @@ async def bulk_close(
     ticket_ids: List[str],
     reason: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Bulk close tickets.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = str(current_user.id)
     
     service = BulkActionService(db)
     
@@ -343,14 +344,14 @@ async def bulk_close(
 async def undo_bulk_action(
     undo_token: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Undo a bulk action within 24 hours.
     
     Uses the undo_token from the original bulk action response.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
     
     service = BulkActionService(db)
     
@@ -392,13 +393,13 @@ async def list_bulk_actions(
     offset: int = Query(0, ge=0),
     action_type: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     List bulk action history for the company.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = str(current_user.id)
     
     service = BulkActionService(db)
     
@@ -434,12 +435,12 @@ async def list_bulk_actions(
 async def get_bulk_action(
     bulk_action_id: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Get detailed information about a bulk action including failures.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
     
     service = BulkActionService(db)
     

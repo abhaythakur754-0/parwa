@@ -41,9 +41,13 @@ from app.schemas.auth import (
     UserResponse,
 )
 from app.schemas.email import (
+    EmailVerifyResponse,
     ForgotPasswordRequest,
+    ForgotPasswordResponse,
     ResendVerificationRequest,
+    ResendVerificationResponse,
     ResetPasswordRequest,
+    ResetPasswordResponse,
 )
 from app.schemas.phone_otp import (
     SendOTPRequest,
@@ -260,7 +264,7 @@ def phone_verify_otp(
 # ── F-012: Email Verification ──────────────────────────────────────
 
 
-@router.get("/verify")
+@router.get("/verify", response_model=EmailVerifyResponse)
 def verify_email_endpoint(
     token: str = Query(
         ..., min_length=32, max_length=64,
@@ -277,7 +281,7 @@ def verify_email_endpoint(
     return verify_email(db=db, token=token)
 
 
-@router.post("/resend-verification")
+@router.post("/resend-verification", response_model=ResendVerificationResponse)
 def resend_verification(
     body: ResendVerificationRequest,
     db: Session = Depends(get_db),
@@ -295,7 +299,7 @@ def resend_verification(
 # ── F-014: Password Reset ──────────────────────────────────────────
 
 
-@router.post("/forgot-password")
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
 def forgot_password(
     body: ForgotPasswordRequest,
     db: Session = Depends(get_db),
@@ -310,7 +314,7 @@ def forgot_password(
     )
 
 
-@router.post("/reset-password")
+@router.post("/reset-password", response_model=ResetPasswordResponse)
 def reset_password_endpoint(
     body: ResetPasswordRequest,
     db: Session = Depends(get_db),

@@ -10,7 +10,8 @@ Provides tenant-level OOO detection management:
 - GET /api/v1/email/ooo/stats — Get detection statistics
 - GET /api/v1/email/ooo/status/{email} — Check customer OOO status
 
-BC-001: All endpoints scoped to company_id (via middleware).
+BC-001: All endpoints scoped to company_id.
+BC-011: JWT verification on every endpoint (R-01 fix).
 BC-012: Structured JSON error responses.
 """
 
@@ -52,8 +53,7 @@ async def check_ooo(
 ):
     """Check if an email is an out-of-office or auto-reply.
 
-    Analyzes email headers, subject, and body content against
-    OOO detection patterns and custom tenant rules.
+    R-01: Now requires JWT authentication via get_current_user.
     """
     company_id = current_user.company_id
 
@@ -110,8 +110,7 @@ async def list_ooo_rules(
 ):
     """List OOO detection rules for the tenant.
 
-    Returns both tenant-specific custom rules and the count of
-    global rules available to all tenants.
+    R-01: Now requires JWT authentication via get_current_user.
     """
     company_id = current_user.company_id
 
@@ -147,8 +146,7 @@ async def create_ooo_rule(
 ):
     """Create a custom OOO detection rule for the tenant.
 
-    Rules are evaluated in order after built-in patterns.
-    Supported pattern types: regex, substring, contains.
+    R-01: Now requires JWT authentication via get_current_user.
     """
     company_id = current_user.company_id
 
@@ -204,7 +202,10 @@ async def update_ooo_rule(
     body: OOORuleUpdate,
     current_user: User = Depends(get_current_user),
 ):
-    """Update an existing OOO detection rule."""
+    """Update an existing OOO detection rule.
+
+    R-01: Now requires JWT authentication via get_current_user.
+    """
     company_id = current_user.company_id
 
     try:
@@ -255,7 +256,10 @@ async def delete_ooo_rule(
     rule_id: str,
     current_user: User = Depends(get_current_user),
 ):
-    """Delete a custom OOO detection rule."""
+    """Delete a custom OOO detection rule.
+
+    R-01: Now requires JWT authentication via get_current_user.
+    """
     company_id = current_user.company_id
 
     try:
@@ -306,7 +310,7 @@ async def get_ooo_stats(
 ):
     """Get OOO detection statistics for the tenant.
 
-    Returns detection counts, breakdown by type, and top senders.
+    R-01: Now requires JWT authentication via get_current_user.
     """
     company_id = current_user.company_id
 
@@ -342,7 +346,7 @@ async def check_sender_ooo_status(
 ):
     """Check if a customer currently has an active OOO status.
 
-    Returns the OOO profile details if active, or null if not.
+    R-01: Now requires JWT authentication via get_current_user.
     """
     company_id = current_user.company_id
 

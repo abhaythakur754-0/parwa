@@ -24,9 +24,14 @@ from app.api.deps import (
 )
 from app.exceptions import NotFoundError
 from app.schemas.admin import (
+    AdminClientResponse,
     AdminClientUpdate,
+    AdminHealthResponse,
     APIProviderCreate,
+    APIProviderListResponse,
+    APIProviderResponse,
     APIProviderUpdate,
+    ClientListResponse,
     MessageResponse,
     SubscriptionUpdateRequest,
 )
@@ -94,7 +99,7 @@ def _serialize_provider(provider) -> dict:
 # ── Client Management ──────────────────────────────────────────────
 
 
-@router.get("/clients")
+@router.get("/clients", response_model=ClientListResponse)
 def list_clients(
     user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
@@ -146,7 +151,7 @@ def list_clients(
     }
 
 
-@router.get("/clients/{company_id}")
+@router.get("/clients/{company_id}", response_model=AdminClientResponse)
 def get_client_detail(
     company_id: str,
     user: User = Depends(require_platform_admin),
@@ -172,7 +177,7 @@ def get_client_detail(
     return _serialize_company_with_count(company)
 
 
-@router.put("/clients/{company_id}")
+@router.put("/clients/{company_id}", response_model=AdminClientResponse)
 def update_client(
     company_id: str,
     body: AdminClientUpdate,
@@ -220,7 +225,7 @@ def update_client(
     return _serialize_company_with_count(company)
 
 
-@router.put("/clients/{company_id}/subscription")
+@router.put("/clients/{company_id}/subscription", response_model=AdminClientResponse)
 def update_subscription(
     company_id: str,
     body: SubscriptionUpdateRequest,
@@ -270,7 +275,7 @@ def update_subscription(
 # ── Health ──────────────────────────────────────────────────────────
 
 
-@router.get("/health")
+@router.get("/health", response_model=AdminHealthResponse)
 def admin_health(
     # C-10 FIX: Require platform admin auth on admin health endpoint
     user: User = Depends(require_platform_admin),
@@ -289,7 +294,7 @@ def admin_health(
 # ── API Provider Management ────────────────────────────────────────
 
 
-@router.get("/api-providers")
+@router.get("/api-providers", response_model=APIProviderListResponse)
 def list_api_providers(
     user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
@@ -303,7 +308,7 @@ def list_api_providers(
     }
 
 
-@router.post("/api-providers")
+@router.post("/api-providers", response_model=APIProviderResponse)
 def create_api_provider(
     body: APIProviderCreate,
     user: User = Depends(require_platform_admin),
@@ -343,7 +348,7 @@ def create_api_provider(
     return _serialize_provider(provider)
 
 
-@router.put("/api-providers/{provider_id}")
+@router.put("/api-providers/{provider_id}", response_model=APIProviderResponse)
 def update_api_provider(
     provider_id: str,
     body: APIProviderUpdate,
@@ -387,7 +392,7 @@ def update_api_provider(
     return _serialize_provider(provider)
 
 
-@router.delete("/api-providers/{provider_id}")
+@router.delete("/api-providers/{provider_id}", response_model=MessageResponse)
 def delete_api_provider(
     provider_id: str,
     user: User = Depends(require_platform_admin),

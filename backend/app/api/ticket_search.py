@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from database.models.core import User
 from app.services.ticket_search_service import TicketSearchService
 
 
@@ -95,6 +96,20 @@ class RecentSearchesResponse(BaseModel):
     searches: List[RecentSearchItem]
 
 
+class ClearSearchesResponse(BaseModel):
+    """Response after clearing recent searches."""
+    cleared: bool
+
+
+class SimilarTicketsResponse(BaseModel):
+    """Response for similar tickets search."""
+    similar_tickets: List[Dict[str, Any]] = Field(
+        default_factory=list, description="List of similar tickets"
+    )
+    query_text: str = Field(description="Query text used for search")
+    threshold: float = Field(description="Similarity threshold used")
+
+
 # ── ENDPOINTS ──────────────────────────────────────────────────────────────
 
 @router.get(
@@ -123,7 +138,7 @@ async def search_tickets(
     include_snippets: bool = Query(True),
     fuzzy: bool = Query(True),
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Full-text search across tickets.
 
@@ -141,8 +156,8 @@ async def search_tickets(
     - Sort by relevance, created_at, updated_at, priority
     - Highlighted snippets showing match context
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = str(current_user.id)
 
     service = TicketSearchService(db, company_id)
 
@@ -186,15 +201,15 @@ async def search_tickets(
 async def search_tickets_post(
     data: SearchRequest,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Full-text search across tickets (POST version).
 
     F-048: Search with filters and fuzzy matching.
     Use POST for complex queries with many filters.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = str(current_user.id)
 
     service = TicketSearchService(db, company_id)
 
@@ -239,14 +254,14 @@ async def get_search_suggestions(
     partial: str = Query(..., min_length=2, max_length=100),
     limit: int = Query(5, ge=1, le=20),
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Get auto-complete suggestions for search.
 
     F-048: Auto-complete suggestions from ticket subjects
     and customer names/emails.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = TicketSearchService(db, company_id)
 
@@ -265,14 +280,14 @@ async def get_search_suggestions(
 )
 async def get_recent_searches(
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Get recent searches for current user.
 
     F-048: Recent searches stored in Redis per user.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = str(current_user.id)
 
     service = TicketSearchService(db, company_id)
 
@@ -285,18 +300,19 @@ async def get_recent_searches(
 
 @router.delete(
     "/search/recent",
+    response_model=ClearSearchesResponse,
     summary="Clear recent searches",
 )
 async def clear_recent_searches(
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Dict[str, bool]:
     """Clear recent searches for current user.
 
     F-048: Clear recent searches from Redis.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = str(current_user.id)
 
     service = TicketSearchService(db, company_id)
 
@@ -307,6 +323,7 @@ async def clear_recent_searches(
 
 @router.get(
     "/search/similar",
+    response_model=SimilarTicketsResponse,
     summary="Find similar tickets",
 )
 async def find_similar_tickets(
@@ -314,14 +331,14 @@ async def find_similar_tickets(
     threshold: float = Query(0.85, ge=0.5, le=1.0),
     limit: int = Query(10, ge=1, le=50),
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Find tickets similar to given text.
 
     F-048: Similarity search for duplicate detection
     and related tickets.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = TicketSearchService(db, company_id)
 

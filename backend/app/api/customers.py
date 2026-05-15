@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from database.models.core import User
 from app.exceptions import NotFoundError, ValidationError
 from app.services.customer_service import CustomerService
 from app.schemas.customer import (
@@ -21,6 +22,12 @@ from app.schemas.customer import (
     CustomerMergeRequest,
     CustomerChannelCreate,
     CustomerChannelResponse,
+    CustomerListResponse,
+    CustomerDeleteResponse,
+    CustomerTicketListResponse,
+    CustomerChannelLinkResponse,
+    CustomerUnlinkResponse,
+    CustomerMergeResponse,
 )
 
 
@@ -61,10 +68,10 @@ def _customer_to_response(customer: Any) -> Dict[str, Any]:
 async def create_customer(
     data: CustomerCreate,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Create a new customer."""
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = CustomerService(db, company_id)
 
@@ -87,6 +94,7 @@ async def create_customer(
 
 @router.get(
     "",
+    response_model=CustomerListResponse,
     summary="List customers",
 )
 async def list_customers(
@@ -98,10 +106,10 @@ async def list_customers(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """List customers with filters and pagination."""
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = CustomerService(db, company_id)
 
@@ -131,10 +139,10 @@ async def list_customers(
 async def get_customer(
     customer_id: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Get customer by ID."""
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = CustomerService(db, company_id)
 
@@ -158,10 +166,10 @@ async def update_customer(
     customer_id: str,
     data: CustomerUpdate,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Update customer fields."""
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = CustomerService(db, company_id)
 
@@ -190,15 +198,16 @@ async def update_customer(
 
 @router.delete(
     "/{customer_id}",
+    response_model=CustomerDeleteResponse,
     summary="Delete customer",
 )
 async def delete_customer(
     customer_id: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Delete a customer (anonymizes data)."""
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = CustomerService(db, company_id)
 
@@ -220,6 +229,7 @@ async def delete_customer(
 
 @router.get(
     "/{customer_id}/tickets",
+    response_model=CustomerTicketListResponse,
     summary="Get customer tickets",
 )
 async def get_customer_tickets(
@@ -228,10 +238,10 @@ async def get_customer_tickets(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Get tickets for a customer."""
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = CustomerService(db, company_id)
 
@@ -269,15 +279,16 @@ async def get_customer_tickets(
 
 @router.get(
     "/{customer_id}/channels",
+    response_model=List[CustomerChannelResponse],
     summary="Get customer channels",
 )
 async def get_customer_channels(
     customer_id: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Get channels linked to a customer."""
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = CustomerService(db, company_id)
 
@@ -306,6 +317,7 @@ async def get_customer_channels(
 
 @router.post(
     "/{customer_id}/channels",
+    response_model=CustomerChannelLinkResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Link channel to customer",
 )
@@ -313,10 +325,10 @@ async def link_channel(
     customer_id: str,
     data: CustomerChannelCreate,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Link a communication channel to a customer."""
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = CustomerService(db, company_id)
 
@@ -351,16 +363,17 @@ async def link_channel(
 
 @router.delete(
     "/{customer_id}/channels/{channel_id}",
+    response_model=CustomerUnlinkResponse,
     summary="Unlink channel from customer",
 )
 async def unlink_channel(
     customer_id: str,
     channel_id: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Unlink a channel from a customer."""
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = CustomerService(db, company_id)
 
@@ -377,16 +390,17 @@ async def unlink_channel(
 
 @router.post(
     "/merge",
+    response_model=CustomerMergeResponse,
     summary="Merge customers",
 )
 async def merge_customers(
     data: CustomerMergeRequest,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Merge multiple customers into one."""
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = str(current_user.id)
 
     service = CustomerService(db, company_id)
 

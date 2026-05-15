@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from database.models.core import User
 from app.schemas.sla import (
     SLAPolicyCreate,
     SLAPolicyUpdate,
@@ -27,6 +28,10 @@ from app.schemas.sla import (
     SLAStats,
     Priority,
     PlanTier,
+    SLADeleteResponse,
+    SLASeedResponse,
+    SLABreachedTicketsResponse,
+    SLAApproachingTicketsResponse,
 )
 from app.services.sla_service import (
     SLAService,
@@ -50,14 +55,14 @@ router = APIRouter(prefix="/sla", tags=["sla"])
 async def create_policy(
     data: SLAPolicyCreate,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Create a new SLA policy for a plan tier and priority combination.
     
     Each plan_tier × priority combination can have one active policy.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
     
     service = SLAService(db)
     
@@ -107,12 +112,12 @@ async def list_policies(
     priority: Optional[str] = None,
     is_active: Optional[bool] = None,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     List SLA policies with optional filters.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
     
     service = SLAService(db)
     
@@ -148,12 +153,12 @@ async def list_policies(
 async def get_policy(
     policy_id: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Get an SLA policy by ID.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
     
     service = SLAService(db)
     
@@ -188,12 +193,12 @@ async def update_policy(
     policy_id: str,
     data: SLAPolicyUpdate,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Update an SLA policy.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
     
     service = SLAService(db)
     
@@ -226,18 +231,19 @@ async def update_policy(
 
 @router.delete(
     "/policies/{policy_id}",
+    response_model=SLADeleteResponse,
     status_code=status.HTTP_200_OK,
     summary="Delete SLA policy",
 )
 async def delete_policy(
     policy_id: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Delete an SLA policy.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
     
     service = SLAService(db)
     
@@ -254,13 +260,14 @@ async def delete_policy(
 
 @router.post(
     "/policies/seed",
+    response_model=SLASeedResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Seed default SLA policies",
 )
 async def seed_default_policies(
     plan_tier: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Seed default SLA policies for the company.
@@ -270,7 +277,7 @@ async def seed_default_policies(
     - Growth: Half of Starter times
     - High: Half of Growth times
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
     
     service = SLAService(db)
     
@@ -301,14 +308,14 @@ async def seed_default_policies(
 async def get_ticket_sla(
     ticket_id: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Get SLA timer status for a ticket.
     
     Returns time remaining, breach status, and approaching status.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
     
     service = SLAService(db)
     
@@ -342,19 +349,20 @@ async def get_ticket_sla(
 
 @router.get(
     "/breached",
+    response_model=SLABreachedTicketsResponse,
     summary="List breached SLA tickets (PS11)",
 )
 async def list_breached_tickets(
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     List all tickets with breached SLA.
     
     PS11: Breached tickets should be escalated.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
     
     service = SLAService(db)
     
@@ -379,19 +387,20 @@ async def list_breached_tickets(
 
 @router.get(
     "/approaching",
+    response_model=SLAApproachingTicketsResponse,
     summary="List tickets approaching SLA breach (PS17)",
 )
 async def list_approaching_tickets(
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     List tickets approaching SLA breach (75% threshold).
     
     PS17: Send warning notifications for these tickets.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
     
     service = SLAService(db)
     
@@ -425,14 +434,14 @@ async def get_sla_stats(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Get SLA performance statistics for the company.
     
     Returns compliance rate, average times, and counts.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
     
     service = SLAService(db)
     

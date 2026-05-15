@@ -67,6 +67,33 @@ class TicketFieldsValidationRequest(BaseModel):
     field_values: Dict[str, Any]
 
 
+class CustomFieldDeleteResponse(BaseModel):
+    """Response after deleting a custom field."""
+    success: bool
+    message: str
+
+
+class FieldValidationResponse(BaseModel):
+    """Response for single field validation."""
+    field_key: str
+    is_valid: bool
+    error: Optional[str] = None
+
+
+class TicketFieldsValidationResponse(BaseModel):
+    """Response for ticket fields validation."""
+    is_valid: bool
+    errors: Optional[Dict[str, str]] = None
+
+
+class CustomFieldListResponse(BaseModel):
+    """Response for listing custom fields."""
+    fields: List[CustomFieldResponse]
+    total: int
+    page: int
+    page_size: int
+
+
 import json
 
 
@@ -110,7 +137,7 @@ def create_custom_field(
     )
 
 
-@router.get("", response_model=Dict[str, Any])
+@router.get("", response_model=CustomFieldListResponse)
 def list_custom_fields(
     category: Optional[str] = Query(None),
     is_active: Optional[bool] = Query(None),
@@ -220,7 +247,7 @@ def update_custom_field(
     )
 
 
-@router.delete("/{field_id}")
+@router.delete("/{field_id}", response_model=CustomFieldDeleteResponse)
 def delete_custom_field(
     field_id: str,
     db: Session = Depends(get_db),
@@ -237,7 +264,7 @@ def delete_custom_field(
     return {"success": True, "message": "Custom field deleted"}
 
 
-@router.post("/validate")
+@router.post("/validate", response_model=FieldValidationResponse)
 def validate_field_value(
     data: FieldValidationRequest,
     db: Session = Depends(get_db),
@@ -255,7 +282,7 @@ def validate_field_value(
     }
 
 
-@router.post("/validate-ticket")
+@router.post("/validate-ticket", response_model=TicketFieldsValidationResponse)
 def validate_ticket_fields(
     data: TicketFieldsValidationRequest,
     db: Session = Depends(get_db),

@@ -15,6 +15,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Query
 from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel
 
 from app.core.health import (
     HealthStatus,
@@ -31,7 +32,9 @@ router = APIRouter(tags=["Health"])
 
 # Track app start time for uptime calculation
 _start_time = time.monotonic()
-APP_VERSION = "0.3.0"
+# R-05 FIX: Single source of truth — version comes from config.py Settings
+from app.config import get_settings as _get_health_settings
+APP_VERSION = _get_health_settings().APP_VERSION
 
 
 def _get_uptime_seconds() -> float:
@@ -137,7 +140,48 @@ def _get_sentry_status() -> dict:
         return {"initialized": False, "status": "unknown"}
 
 
-@router.get("/health")
+# ── R-06 FIX: Response models for OpenAPI docs + runtime validation ──
+
+class HealthResponse(BaseModel):
+    """Response schema for /health endpoint."""
+    status: str
+    timestamp: str
+    version: str
+    uptime_seconds: float
+    subsystems: dict
+    checks_total: int
+    checks_healthy: int
+    checks_degraded: int
+    checks_unhealthy: int
+    cached: bool
+    circuit_breakers: dict = {}
+    self_healing: dict = {}
+    sentry: dict = {}
+
+class HealthDetailResponse(BaseModel):
+    """Response schema for /health/detail endpoint."""
+    status: str
+    timestamp: str
+    version: str
+    uptime_seconds: float
+    subsystems: dict
+    checks_total: int
+    checks_healthy: int
+    checks_degraded: int
+    checks_unhealthy: int
+    circuit_breakers: dict = {}
+    self_healing: dict = {}
+    sentry: dict = {}
+
+class ReadinessResponse(BaseModel):
+    """Response schema for /ready endpoint."""
+    status: str
+    timestamp: str
+    uptime_seconds: float
+    subsystems: dict
+
+
+@router.get("/health", response_model=HealthResponse)
 async def health_endpoint():
     """Liveness probe — returns aggregate health status.
 
@@ -185,7 +229,7 @@ async def health_endpoint():
     return response_data
 
 
-@router.get("/health/detail")
+@router.get("/health/detail", response_model=HealthDetailResponse)
 async def health_detail_endpoint():
     """Detailed health probe — full subsystem breakdown.
 
@@ -234,7 +278,7 @@ async def health_detail_endpoint():
     return response_data
 
 
-@router.get("/ready")
+@router.get("/ready", response_model=ReadinessResponse)
 async def readiness_endpoint():
     """Readiness probe — 200 if ALL critical subsystems healthy.
 

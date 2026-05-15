@@ -26,6 +26,7 @@ from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from database.models.core import User
 from database.base import get_db
 from database.models.core import User
 from app.exceptions import NotFoundError, AuthorizationError, ValidationError
@@ -48,6 +49,11 @@ from app.schemas.ticket import (
     TicketBulkStatusUpdate,
     TicketBulkAssign,
     TicketBulkOperationResponse,
+    PriorityDetectionResponse,
+    CategoryDetectionResponse,
+    PIIScanResponse,
+    TicketDeleteResponse,
+    TicketAttachmentResponse,
 )
 
 
@@ -77,7 +83,7 @@ async def create_ticket(
     BL05: Rate limiting.
     """
     company_id = current_user.company_id
-    user_id = current_user.id
+    user_id = str(current_user.id)
 
     service = TicketService(db, company_id)
 
@@ -183,7 +189,7 @@ async def bulk_status_update(
     F-051: Bulk operations.
     """
     company_id = current_user.company_id
-    user_id = current_user.id
+    user_id = str(current_user.id)
 
     service = TicketService(db, company_id)
 
@@ -217,7 +223,7 @@ async def bulk_assign(
     F-051: Bulk operations.
     """
     company_id = current_user.company_id
-    user_id = current_user.id
+    user_id = str(current_user.id)
 
     service = TicketService(db, company_id)
 
@@ -241,6 +247,7 @@ async def bulk_assign(
 
 @router.post(
     "/detect-priority",
+    response_model=PriorityDetectionResponse,
     summary="Detect priority from text",
 )
 async def detect_priority(
@@ -269,6 +276,7 @@ async def detect_priority(
 
 @router.post(
     "/detect-category",
+    response_model=CategoryDetectionResponse,
     summary="Detect category from text",
 )
 async def detect_category(
@@ -305,6 +313,7 @@ async def detect_category(
 
 @router.post(
     "/scan-pii",
+    response_model=PIIScanResponse,
     summary="Scan text for PII",
 )
 async def scan_pii(
@@ -377,7 +386,7 @@ async def update_ticket(
     F-046: Ticket update.
     """
     company_id = current_user.company_id
-    user_id = current_user.id
+    user_id = str(current_user.id)
 
     service = TicketService(db, company_id)
 
@@ -409,6 +418,7 @@ async def update_ticket(
 
 @router.delete(
     "/{ticket_id}",
+    response_model=TicketDeleteResponse,
     status_code=status.HTTP_200_OK,
     summary="Delete ticket",
 )
@@ -423,7 +433,7 @@ async def delete_ticket(
     PS12: Soft delete preserves metadata for audit.
     """
     company_id = current_user.company_id
-    user_id = current_user.id
+    user_id = str(current_user.id)
 
     service = TicketService(db, company_id)
 
@@ -460,7 +470,7 @@ async def update_ticket_status(
     F-046: Status update with validation.
     """
     company_id = current_user.company_id
-    user_id = current_user.id
+    user_id = str(current_user.id)
 
     service = TicketService(db, company_id)
 
@@ -514,7 +524,7 @@ async def assign_ticket(
     F-046: Ticket assignment.
     """
     company_id = current_user.company_id
-    user_id = current_user.id
+    user_id = str(current_user.id)
 
     service = TicketService(db, company_id)
 
@@ -613,6 +623,7 @@ async def remove_tag(
 
 @router.post(
     "/{ticket_id}/attachments",
+    response_model=TicketAttachmentResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Upload attachment",
 )
@@ -628,8 +639,8 @@ async def upload_attachment(
     PS09: File size limits.
     """
     company_id = current_user.company_id
-    user_id = current_user.id
-    plan_tier = getattr(current_user, 'plan_tier', 'starter')
+    user_id = str(current_user.id)
+    plan_tier = getattr(current_user, "plan_tier", "starter")
 
     # Get file from request
     form = await request.form()
@@ -673,6 +684,7 @@ async def upload_attachment(
 
 @router.get(
     "/{ticket_id}/attachments",
+    response_model=List[TicketAttachmentResponse],
     summary="List attachments",
 )
 async def list_attachments(

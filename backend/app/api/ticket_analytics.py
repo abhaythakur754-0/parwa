@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from database.models.core import User
 from app.services.ticket_analytics_service import (
     TicketAnalyticsService,
     DateRange,
@@ -124,11 +125,13 @@ def parse_date_range(
         return DateRange.last_n_days(default_days)
 
 
-def get_company_id_from_user(current_user) -> str:
-    """Extract company_id from current user."""
-    if isinstance(current_user, dict):
-        return current_user.get("company_id")
-    return getattr(current_user, "company_id", None)
+def get_company_id_from_user(current_user: User) -> str:
+    """Extract company_id from current user.
+
+    R-02 FIX: Since get_current_user now returns a User ORM object
+    (not a dict), this helper no longer needs the isinstance check.
+    """
+    return current_user.company_id
 
 
 # ── API Endpoints ────────────────────────────────────────────────────────────
@@ -142,7 +145,7 @@ async def get_ticket_summary(
     start_date: Optional[datetime] = Query(None, description="Start date for range"),
     end_date: Optional[datetime] = Query(None, description="End date for range"),
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Get summary statistics for tickets.
@@ -202,7 +205,7 @@ async def get_ticket_trends(
     start_date: Optional[datetime] = Query(None, description="Start date for range"),
     end_date: Optional[datetime] = Query(None, description="End date for range"),
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Get ticket volume trends over time.
@@ -249,7 +252,7 @@ async def get_category_distribution(
     start_date: Optional[datetime] = Query(None, description="Start date for range"),
     end_date: Optional[datetime] = Query(None, description="End date for range"),
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Get distribution of tickets by category.
@@ -290,7 +293,7 @@ async def get_sla_metrics(
     start_date: Optional[datetime] = Query(None, description="Start date for range"),
     end_date: Optional[datetime] = Query(None, description="End date for range"),
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Get SLA performance metrics.
@@ -343,7 +346,7 @@ async def get_agent_metrics(
     end_date: Optional[datetime] = Query(None, description="End date for range"),
     limit: int = Query(50, ge=1, le=200, description="Max results to return"),
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Get per-agent performance metrics.
@@ -399,7 +402,7 @@ async def get_analytics_dashboard(
     start_date: Optional[datetime] = Query(None, description="Start date for range"),
     end_date: Optional[datetime] = Query(None, description="End date for range"),
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Get combined analytics data for dashboard display.

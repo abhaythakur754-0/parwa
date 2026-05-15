@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from database.models.core import User
 from app.services.assignment_service import AssignmentService, AssigneeType
 from app.exceptions import NotFoundError, ValidationError
 
@@ -157,7 +158,7 @@ class RuleListResponse(BaseModel):
 async def get_assignment_scores(
     ticket_id: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Get assignment scores for all candidates.
 
@@ -165,7 +166,7 @@ async def get_assignment_scores(
     Week 4: Rule-based scoring.
     Week 9: AI-based scoring.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = AssignmentService(db, company_id)
 
@@ -195,14 +196,14 @@ async def get_assignment_scores(
 async def auto_assign_ticket(
     ticket_id: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Auto-assign ticket based on rules.
 
     F-050: Automatic assignment using rules engine.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = str(current_user.id)
 
     service = AssignmentService(db, company_id)
 
@@ -222,14 +223,14 @@ async def manually_assign_ticket(
     ticket_id: str,
     data: ManualAssignRequest,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Manually assign ticket to a specific user.
 
     F-050: Manual assignment override.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = str(current_user.id)
 
     service = AssignmentService(db, company_id)
 
@@ -254,14 +255,14 @@ async def unassign_ticket(
     ticket_id: str,
     reason: Optional[str] = Query(None),
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Unassign a ticket.
 
     F-050: Remove assignment from ticket.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = str(current_user.id)
 
     service = AssignmentService(db, company_id)
 
@@ -284,13 +285,13 @@ async def unassign_ticket(
 async def get_assignment_history(
     ticket_id: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Get assignment history for a ticket.
 
     F-050: Full history of all assignments.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = AssignmentService(db, company_id)
 
@@ -312,13 +313,13 @@ async def get_assignment_history(
 async def list_assignment_rules(
     include_inactive: bool = Query(False),
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """List all assignment rules.
 
     F-050: View assignment rules configuration.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = AssignmentService(db, company_id)
 
@@ -339,14 +340,14 @@ async def list_assignment_rules(
 async def create_assignment_rule(
     data: CreateRuleRequest,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Create an assignment rule.
 
     F-050: Add custom assignment rule.
     Rules are evaluated in priority_order (lower = higher priority).
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = AssignmentService(db, company_id)
 
@@ -390,13 +391,13 @@ async def update_assignment_rule(
     rule_id: str,
     data: UpdateRuleRequest,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Update an assignment rule.
 
     F-050: Modify existing assignment rule.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = AssignmentService(db, company_id)
 
@@ -441,13 +442,13 @@ async def update_assignment_rule(
 async def delete_assignment_rule(
     rule_id: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Dict[str, bool]:
     """Delete an assignment rule.
 
     F-050: Remove assignment rule.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = AssignmentService(db, company_id)
 

@@ -18,10 +18,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from database.models.core import User
 from app.schemas.bulk_action import (
     TicketMergeRequest,
     TicketUnmergeRequest,
     TicketMergeResponse,
+    TicketUnmergeResponse,
+    MergeHistoryResponse,
+    MergeCheckResponse,
+    MergeDetailResponse,
 )
 from app.services.ticket_merge_service import (
     TicketMergeService,
@@ -45,7 +50,7 @@ router = APIRouter(prefix="/tickets/merge", tags=["ticket-merge"])
 async def merge_tickets(
     data: TicketMergeRequest,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Merge multiple tickets into a primary ticket.
@@ -55,8 +60,8 @@ async def merge_tickets(
     
     An undo_token is returned for unmerge capability within 24 hours.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = str(current_user.id)
     
     service = TicketMergeService(db)
     
@@ -102,12 +107,13 @@ async def merge_tickets(
 
 @router.post(
     "/unmerge/{merge_id}",
+    response_model=TicketUnmergeResponse,
     summary="Unmerge tickets (PS26)",
 )
 async def unmerge_tickets(
     merge_id: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Unmerge previously merged tickets.
@@ -115,7 +121,7 @@ async def unmerge_tickets(
     PS26: Unmerge preserves message history.
     Restores merged tickets to reopened status.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
     
     service = TicketMergeService(db)
     
@@ -151,19 +157,20 @@ async def unmerge_tickets(
 
 @router.get(
     "/history/{ticket_id}",
+    response_model=MergeHistoryResponse,
     summary="Get merge history for a ticket",
 )
 async def get_merge_history(
     ticket_id: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Get all merge operations involving a ticket.
     
     Returns both merges where ticket is primary and where it was merged.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
     
     service = TicketMergeService(db)
     
@@ -191,19 +198,20 @@ async def get_merge_history(
 
 @router.post(
     "/check",
+    response_model=MergeCheckResponse,
     summary="Check if tickets can be merged",
 )
 async def check_merge_eligibility(
     ticket_ids: List[str],
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Check if a set of tickets can be merged.
     
     Returns list of any issues that would prevent merging.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
     
     service = TicketMergeService(db)
     
@@ -217,17 +225,18 @@ async def check_merge_eligibility(
 
 @router.get(
     "/{merge_id}",
+    response_model=MergeDetailResponse,
     summary="Get merge details",
 )
 async def get_merge_details(
     merge_id: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
     Get detailed information about a merge operation.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
     
     service = TicketMergeService(db)
     

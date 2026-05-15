@@ -13,12 +13,13 @@ Provides:
 - POST /api/v1/sms/consent/opt-out — Manual opt-out (BC-010)
 - POST /api/v1/sms/consent/opt-in — Manual opt-in (BC-010)
 - GET /api/v1/sms/consent/{phone} — Get consent status (BC-010)
+- POST /api/v1/sms/webhook/status — Twilio status callback (NO JWT — uses HMAC)
 
 BC-001: All endpoints scoped to company_id.
 BC-003: Idempotent processing (Twilio MessageSid).
 BC-006: Rate limiting on outbound SMS.
 BC-010: TCPA opt-out/opt-in compliance.
-BC-011: Credentials encrypted at rest.
+BC-011: Credentials encrypted at rest. JWT verification on all non-webhook endpoints (R-01 fix).
 BC-012: Structured JSON error responses.
 """
 
@@ -30,6 +31,14 @@ from fastapi.responses import JSONResponse
 
 from app.api.deps import get_current_user
 from database.models.core import User
+from app.schemas.sms_channel import (
+    SMSSendResponse,
+    SMSConversationListResponse,
+    SMSConversationResponse,
+    SMSMessageListResponse,
+    SMSConfigResponse,
+    SMSConsentStatusResponse,
+)
 
 logger = logging.getLogger("parwa.sms_channel_api")
 
@@ -51,26 +60,19 @@ def _get_db(request: Request):
 # ═══════════════════════════════════════════════════════════════
 
 
-@router.post("/send")
-async def send_sms(request: Request, current_user: User = Depends(get_current_user)):
+@router.post("/send", response_model=SMSSendResponse)
+async def send_sms(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
     """Send an outbound SMS message.
 
     Validates opt-out status (BC-010), rate limits (BC-006),
     and sends via Twilio API.
-    Requires JWT authentication.
+
+    R-01: Now requires JWT authentication via get_current_user.
     """
     company_id = current_user.company_id
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
 
     try:
         body = await request.json()
@@ -150,7 +152,7 @@ async def send_sms(request: Request, current_user: User = Depends(get_current_us
 # ═══════════════════════════════════════════════════════════════
 
 
-@router.get("/conversations")
+@router.get("/conversations", response_model=SMSConversationListResponse)
 async def list_sms_conversations(
     request: Request,
     current_user: User = Depends(get_current_user),
@@ -158,19 +160,11 @@ async def list_sms_conversations(
     page_size: int = Query(50, ge=1, le=200),
     is_opted_out: Optional[bool] = Query(None),
 ):
-    """List SMS conversations with pagination."""
+    """List SMS conversations with pagination.
+
+    R-01: Now requires JWT authentication via get_current_user.
+    """
     company_id = current_user.company_id
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
 
     try:
         db = _get_db(request)
@@ -199,21 +193,17 @@ async def list_sms_conversations(
         )
 
 
-@router.get("/conversations/{conversation_id}")
-async def get_sms_conversation(request: Request, conversation_id: str, current_user: User = Depends(get_current_user)):
-    """Get a single SMS conversation by ID."""
+@router.get("/conversations/{conversation_id}", response_model=SMSConversationResponse)
+async def get_sms_conversation(
+    request: Request,
+    conversation_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Get a single SMS conversation by ID.
+
+    R-01: Now requires JWT authentication via get_current_user.
+    """
     company_id = current_user.company_id
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
 
     try:
         db = _get_db(request)
@@ -253,7 +243,7 @@ async def get_sms_conversation(request: Request, conversation_id: str, current_u
         )
 
 
-@router.get("/conversations/{conversation_id}/messages")
+@router.get("/conversations/{conversation_id}/messages", response_model=SMSMessageListResponse)
 async def get_sms_messages(
     request: Request,
     conversation_id: str,
@@ -261,19 +251,11 @@ async def get_sms_messages(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ):
-    """Get messages for an SMS conversation."""
+    """Get messages for an SMS conversation.
+
+    R-01: Now requires JWT authentication via get_current_user.
+    """
     company_id = current_user.company_id
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
 
     try:
         db = _get_db(request)
@@ -311,21 +293,16 @@ async def get_sms_messages(
 # ═══════════════════════════════════════════════════════════════
 
 
-@router.get("/config")
-async def get_sms_config(request: Request, current_user: User = Depends(get_current_user)):
-    """Get SMS channel configuration (secrets redacted)."""
+@router.get("/config", response_model=SMSConfigResponse)
+async def get_sms_config(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
+    """Get SMS channel configuration (secrets redacted).
+
+    R-01: Now requires JWT authentication via get_current_user.
+    """
     company_id = current_user.company_id
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
 
     try:
         db = _get_db(request)
@@ -361,24 +338,19 @@ async def get_sms_config(request: Request, current_user: User = Depends(get_curr
         )
 
 
-@router.post("/config")
-async def create_sms_config(request: Request, current_user: User = Depends(get_current_user)):
+@router.post("/config", response_model=SMSConfigResponse)
+async def create_sms_config(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
     """Create SMS channel configuration.
 
     Twilio credentials are encrypted at rest (BC-011).
+
+    R-01: Now requires JWT authentication via get_current_user.
     """
     company_id = current_user.company_id
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
+
 
     try:
         body = await request.json()
@@ -442,21 +414,16 @@ async def create_sms_config(request: Request, current_user: User = Depends(get_c
         )
 
 
-@router.put("/config")
-async def update_sms_config(request: Request, current_user: User = Depends(get_current_user)):
-    """Update SMS channel configuration (partial update)."""
+@router.put("/config", response_model=SMSConfigResponse)
+async def update_sms_config(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
+    """Update SMS channel configuration (partial update).
+
+    R-01: Now requires JWT authentication via get_current_user.
+    """
     company_id = current_user.company_id
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
 
     try:
         body = await request.json()
@@ -497,21 +464,16 @@ async def update_sms_config(request: Request, current_user: User = Depends(get_c
         )
 
 
-@router.delete("/config")
-async def delete_sms_config(request: Request, current_user: User = Depends(get_current_user)):
-    """Delete SMS channel configuration."""
+@router.delete("/config", response_model=dict)
+async def delete_sms_config(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
+    """Delete SMS channel configuration.
+
+    R-01: Now requires JWT authentication via get_current_user.
+    """
     company_id = current_user.company_id
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
 
     try:
         db = _get_db(request)
@@ -552,21 +514,16 @@ async def delete_sms_config(request: Request, current_user: User = Depends(get_c
 # ═══════════════════════════════════════════════════════════════
 
 
-@router.post("/consent/opt-out")
-async def manual_opt_out(request: Request, current_user: User = Depends(get_current_user)):
-    """Manually opt out a phone number from SMS (BC-010 TCPA)."""
+@router.post("/consent/opt-out", response_model=SMSConsentStatusResponse)
+async def manual_opt_out(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
+    """Manually opt out a phone number from SMS (BC-010 TCPA).
+
+    R-01: Now requires JWT authentication via get_current_user.
+    """
     company_id = current_user.company_id
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
 
     try:
         body = await request.json()
@@ -624,21 +581,16 @@ async def manual_opt_out(request: Request, current_user: User = Depends(get_curr
         )
 
 
-@router.post("/consent/opt-in")
-async def manual_opt_in(request: Request, current_user: User = Depends(get_current_user)):
-    """Manually opt in a phone number back to SMS (BC-010 TCPA)."""
+@router.post("/consent/opt-in", response_model=SMSConsentStatusResponse)
+async def manual_opt_in(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
+    """Manually opt in a phone number back to SMS (BC-010 TCPA).
+
+    R-01: Now requires JWT authentication via get_current_user.
+    """
     company_id = current_user.company_id
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
 
     try:
         body = await request.json()
@@ -695,21 +647,17 @@ async def manual_opt_in(request: Request, current_user: User = Depends(get_curre
         )
 
 
-@router.get("/consent/{customer_number}")
-async def get_consent_status(request: Request, customer_number: str, current_user: User = Depends(get_current_user)):
-    """Get TCPA consent status for a phone number (BC-010)."""
+@router.get("/consent/{customer_number}", response_model=SMSConsentStatusResponse)
+async def get_consent_status(
+    request: Request,
+    customer_number: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Get TCPA consent status for a phone number (BC-010).
+
+    R-01: Now requires JWT authentication via get_current_user.
+    """
     company_id = current_user.company_id
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
 
     try:
         db = _get_db(request)
@@ -741,25 +689,28 @@ async def get_consent_status(request: Request, customer_number: str, current_use
 
 # ═══════════════════════════════════════════════════════════════
 # Twilio Webhook Receiver (Status Callback)
+# NOTE: NO JWT auth — uses Twilio HMAC signature verification (M-16)
 # ═══════════════════════════════════════════════════════════════
 
 
-@router.post("/webhook/status")
+@router.post("/webhook/status", response_model=dict)
 async def twilio_status_callback(request: Request):
     """Receive Twilio SMS delivery status callback.
 
     Updates message delivery status in the database.
-    
+
     M-16 FIX: Verifies Twilio webhook signature before processing.
-    Previously this endpoint accepted callbacks from any source.
+    R-01 NOTE: This endpoint intentionally does NOT use JWT auth —
+    it receives callbacks from Twilio, which uses HMAC signature
+    verification instead. See M-16 fix for signature check.
     """
     # M-16: Verify Twilio signature before processing
     from app.security.hmac_verification import verify_twilio_signature
     from app.config import get_settings
-    
+
     settings = get_settings()
     twilio_signature = request.headers.get("x-twilio-signature", "")
-    
+
     if not settings.TWILIO_AUTH_TOKEN:
         logger.error("sms_status_callback_no_auth_token_configured")
         return JSONResponse(
@@ -772,7 +723,7 @@ async def twilio_status_callback(request: Request):
                 }
             },
         )
-    
+
     try:
         form_data = await request.form()
         payload = dict(form_data)
@@ -781,7 +732,7 @@ async def twilio_status_callback(request: Request):
             payload = await request.json()
         except Exception:
             payload = {}
-    
+
     if not verify_twilio_signature(
         str(request.url),
         payload,

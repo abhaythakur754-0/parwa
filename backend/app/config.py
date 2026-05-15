@@ -46,6 +46,7 @@ class Settings(BaseSettings):
 
     # ── Application ──────────────────────────────────────────────
     ENVIRONMENT: str = "development"
+    APP_VERSION: str = "0.3.0"
 
     @field_validator("ENVIRONMENT")
     @classmethod
@@ -410,6 +411,33 @@ class Settings(BaseSettings):
 
     # ── IP Allowlist (BC-012) ──────────────────────────────────
     IP_ALLOWLIST_ENABLED: bool = False
+
+    # ── Operational Tuning (R-07) ──────────────────────────────────
+    # Previously hardcoded in individual routers — now configurable
+    # via environment variables so ops teams can tune without code changes.
+
+    # Pricing token validity (was hardcoded 3600 in pricing.py)
+    PRICING_TOKEN_TTL_SECONDS: int = 3600
+
+    # Pricing max quantity per variant (was hardcoded 10 in pricing.py)
+    PRICING_MAX_VARIANT_QUANTITY: int = 10
+
+    # Pricing input sanitization max length (was hardcoded 100 in pricing.py)
+    PRICING_INPUT_MAX_LENGTH: int = 100
+
+    # MFA session TTL (was hardcoded 300 in mfa.py)
+    MFA_SESSION_TTL_SECONDS: int = 300
+
+    # Knowledge Base file upload limits (was hardcoded in knowledge_base.py)
+    KB_MAX_FILE_SIZE: int = 52428800  # 50 MB
+    KB_MAX_RETRY_COUNT: int = 3
+
+    # Webhook limits (was hardcoded in webhooks.py)
+    WEBHOOK_MAX_PAYLOAD_SIZE: int = 1048576  # 1 MB
+    WEBHOOK_MAX_AGE_SECONDS: int = 300  # 5 minutes
+
+    # Webhook payload max size for status/retry responses
+    WEBHOOK_STATUS_INCLUDE_PAYLOAD: bool = False
 
     # ── Properties ───────────────────────────────────────────────
     @property

@@ -10,11 +10,12 @@ Based on ONBOARDING_SPEC.md v2.0 Section 2.3
 
 from fastapi import APIRouter
 from typing import List, Dict, Any
+from app.schemas.public import FeatureItem, PublicStatsResponse, IndustryItem
 
 router = APIRouter(prefix="/public", tags=["public"])
 
 
-@router.get("/features")
+@router.get("/features", response_model=List[FeatureItem])
 async def get_features() -> List[Dict[str, Any]]:
     """
     Get feature highlights for landing page carousel.
@@ -73,7 +74,7 @@ async def get_features() -> List[Dict[str, Any]]:
     ]
 
 
-@router.get("/stats")
+@router.get("/stats", response_model=PublicStatsResponse)
 async def get_public_stats() -> Dict[str, Any]:
     """
     Get public statistics for landing page.
@@ -93,7 +94,7 @@ async def get_public_stats() -> Dict[str, Any]:
     }
 
 
-@router.get("/industries")
+@router.get("/industries", response_model=List[IndustryItem])
 async def get_industries() -> List[Dict[str, Any]]:
     """
     Get available industry options.

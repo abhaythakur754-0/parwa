@@ -1777,6 +1777,79 @@ def initiate_demo_call(
     }
 
 
+def verify_demo_call_otp(
+    db: Session,
+    session_id: str,
+    user_id: str,
+    otp_code: str,
+) -> Dict[str, Any]:
+    """Verify the phone OTP for a demo call.
+
+    R-03 FIX: Actually validates the OTP code instead of always
+    returning "verified". Checks the stored OTP against the
+    provided code, and rejects invalid or expired OTPs.
+
+    In production this would call Twilio's verification API.
+    For now, validates against the OTP stored in the session
+    context (set during initiate_demo_call).
+    """
+    session = get_session(db, session_id, user_id)
+
+    ctx = _parse_context(session.context_json)
+    demo_call = ctx.get("demo_call", {})
+
+    # If no demo call was initiated, reject
+    if not demo_call:
+        return {
+            "message": "No demo call initiated for this session",
+            "status": "error",
+        }
+
+    stored_otp = demo_call.get("otp_code")
+
+    # If an OTP was stored (production flow), verify against it
+    if stored_otp:
+        if stored_otp != otp_code:
+            return {
+                "message": "Invalid OTP code",
+                "status": "rejected",
+            }
+
+        # Check OTP expiry (10 minutes)
+        import datetime
+        otp_created = demo_call.get("otp_created_at")
+        if otp_created:
+            try:
+                created_time = datetime.datetime.fromisoformat(otp_created)
+                if (datetime.datetime.now(datetime.timezone.utc) - created_time).total_seconds() > 600:
+                    return {
+                        "message": "OTP has expired. Please request a new one.",
+                        "status": "expired",
+                    }
+            except (ValueError, TypeError):
+                pass  # If we can't parse the time, don't block
+
+        # Mark as verified in context
+        demo_call["otp_verified"] = True
+        ctx["demo_call"] = demo_call
+        session.context_json = json.dumps(ctx)
+        db.commit()
+
+        return {
+            "message": "Phone verified. Call will start shortly.",
+            "status": "verified",
+        }
+
+    # Development/staging fallback: if no OTP was stored (no Twilio Verify
+    # integration yet), reject rather than bypass. In a real production
+    # deployment, Twilio Verify would have set the OTP during initiation.
+    return {
+        "message": "OTP verification is not configured for this session. "
+                   "Please ensure Twilio Verify is enabled.",
+        "status": "error",
+    }
+
+
 def get_call_summary(
     db: Session,
     session_id: str,

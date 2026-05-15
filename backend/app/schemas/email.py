@@ -5,6 +5,7 @@ Pydantic models for email verification and password reset.
 """
 
 import re
+from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -96,3 +97,38 @@ class ResetPasswordRequest(BaseModel):
                 "Password and confirm_password do not match"
             )
         return self
+
+
+# ── Response Schemas ───────────────────────────────────────────────
+
+
+class EmailVerifyResponse(BaseModel):
+    """Response for email verification endpoint (F-012)."""
+
+    status: str
+    message: str
+    error_code: Optional[str] = None
+    redirect_to: Optional[str] = None
+    can_resend: Optional[bool] = None
+
+
+class ResendVerificationResponse(BaseModel):
+    """Response for resend-verification endpoint (F-012)."""
+
+    status: str
+    message: str
+
+
+class ForgotPasswordResponse(BaseModel):
+    """Response for forgot-password endpoint (F-014)."""
+
+    status: str
+    message: str
+    retry_after_seconds: Optional[int] = None
+
+
+class ResetPasswordResponse(BaseModel):
+    """Response for reset-password endpoint (F-014)."""
+
+    status: str
+    message: str

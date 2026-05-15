@@ -23,6 +23,22 @@ from app.services.incident_service import IncidentService, Incident
 from app.services.spam_detection_service import SpamDetectionService
 from database.models.core import User
 from database.models.tickets import Ticket, TicketStatus
+from app.schemas.ticket_lifecycle import (
+    TicketEscalateResponse,
+    TicketReopenResponse,
+    TicketFreezeResponse,
+    TicketThawResponse,
+    TicketSpamMarkResponse,
+    TicketSpamUnmarkResponse,
+    TicketTransitionsResponse,
+    StaleTicketsResponse,
+    IncidentResponse,
+    IncidentDetailResponse,
+    IncidentListResponse,
+    IncidentNotifyResponse,
+    SpamQueueResponse,
+    SpamAnalyzeResponse,
+)
 
 
 router = APIRouter(prefix="/tickets", tags=["Ticket Lifecycle"])
@@ -93,7 +109,7 @@ class AddAffectedCustomersRequest(BaseModel):
 
 # ── Ticket Lifecycle Endpoints ─────────────────────────────────────────────────
 
-@router.post("/{ticket_id}/escalate")
+@router.post("/{ticket_id}/escalate", response_model=TicketEscalateResponse)
 async def escalate_ticket(
     ticket_id: str,
     request: EscalateRequest,
@@ -137,7 +153,7 @@ async def escalate_ticket(
     }
 
 
-@router.post("/{ticket_id}/reopen")
+@router.post("/{ticket_id}/reopen", response_model=TicketReopenResponse)
 async def reopen_ticket(
     ticket_id: str,
     request: ReopenRequest,
@@ -186,7 +202,7 @@ async def reopen_ticket(
         )
 
 
-@router.post("/{ticket_id}/freeze")
+@router.post("/{ticket_id}/freeze", response_model=TicketFreezeResponse)
 async def freeze_ticket(
     ticket_id: str,
     request: FreezeRequest,
@@ -237,7 +253,7 @@ async def freeze_ticket(
         )
 
 
-@router.post("/{ticket_id}/thaw")
+@router.post("/{ticket_id}/thaw", response_model=TicketThawResponse)
 async def thaw_ticket(
     ticket_id: str,
     db: Session = Depends(get_db),
@@ -287,7 +303,7 @@ async def thaw_ticket(
         )
 
 
-@router.post("/{ticket_id}/spam")
+@router.post("/{ticket_id}/spam", response_model=TicketSpamMarkResponse)
 async def mark_as_spam(
     ticket_id: str,
     request: SpamMarkRequest,
@@ -318,7 +334,7 @@ async def mark_as_spam(
         )
 
 
-@router.delete("/{ticket_id}/spam")
+@router.delete("/{ticket_id}/spam", response_model=TicketSpamUnmarkResponse)
 async def unmark_as_spam(
     ticket_id: str,
     request: SpamUnmarkRequest,
@@ -349,7 +365,7 @@ async def unmark_as_spam(
         )
 
 
-@router.get("/{ticket_id}/transitions")
+@router.get("/{ticket_id}/transitions", response_model=TicketTransitionsResponse)
 async def get_valid_transitions(
     ticket_id: str,
     db: Session = Depends(get_db),
@@ -381,7 +397,7 @@ async def get_valid_transitions(
 
 # ── Stale Ticket Endpoints ───────────────────────────────────────────────────
 
-@router.get("/stale")
+@router.get("/stale", response_model=StaleTicketsResponse)
 async def get_stale_tickets(
     limit: int = Query(50, le=200),
     offset: int = Query(0, ge=0),
@@ -406,7 +422,7 @@ async def get_stale_tickets(
 incident_router = APIRouter(prefix="/incidents", tags=["Incidents"])
 
 
-@incident_router.post("")
+@incident_router.post("", response_model=IncidentResponse)
 async def create_incident(
     request: IncidentCreateRequest,
     db: Session = Depends(get_db),
@@ -434,7 +450,7 @@ async def create_incident(
         )
 
 
-@incident_router.get("")
+@incident_router.get("", response_model=IncidentListResponse)
 async def list_incidents(
     include_resolved: bool = Query(False),
     db: Session = Depends(get_db),
@@ -453,7 +469,7 @@ async def list_incidents(
     }
 
 
-@incident_router.get("/{incident_id}")
+@incident_router.get("/{incident_id}", response_model=IncidentDetailResponse)
 async def get_incident(
     incident_id: str,
     db: Session = Depends(get_db),
@@ -487,7 +503,7 @@ async def get_incident(
         )
 
 
-@incident_router.put("/{incident_id}/status")
+@incident_router.put("/{incident_id}/status", response_model=IncidentResponse)
 async def update_incident_status(
     incident_id: str,
     request: IncidentUpdateRequest,
@@ -514,7 +530,7 @@ async def update_incident_status(
         )
 
 
-@incident_router.post("/{incident_id}/resolve")
+@incident_router.post("/{incident_id}/resolve", response_model=IncidentResponse)
 async def resolve_incident(
     incident_id: str,
     request: IncidentResolveRequest,
@@ -540,7 +556,7 @@ async def resolve_incident(
         )
 
 
-@incident_router.post("/{incident_id}/notify")
+@incident_router.post("/{incident_id}/notify", response_model=IncidentNotifyResponse)
 async def notify_incident_customers(
     incident_id: str,
     request: IncidentNotifyRequest,
@@ -565,7 +581,7 @@ async def notify_incident_customers(
         )
 
 
-@incident_router.post("/{incident_id}/link-ticket")
+@incident_router.post("/{incident_id}/link-ticket", response_model=IncidentResponse)
 async def link_ticket_to_incident(
     incident_id: str,
     request: LinkTicketRequest,
@@ -590,7 +606,7 @@ async def link_ticket_to_incident(
         )
 
 
-@incident_router.post("/{incident_id}/affected-customers")
+@incident_router.post("/{incident_id}/affected-customers", response_model=IncidentResponse)
 async def add_affected_customers(
     incident_id: str,
     request: AddAffectedCustomersRequest,
@@ -620,7 +636,7 @@ async def add_affected_customers(
 spam_router = APIRouter(prefix="/spam", tags=["Spam Moderation"])
 
 
-@spam_router.get("/queue")
+@spam_router.get("/queue", response_model=SpamQueueResponse)
 async def get_spam_queue(
     limit: int = Query(50, le=200),
     offset: int = Query(0, ge=0),
@@ -650,7 +666,7 @@ async def get_spam_queue(
     }
 
 
-@spam_router.post("/analyze")
+@spam_router.post("/analyze", response_model=SpamAnalyzeResponse)
 async def analyze_ticket_for_spam(
     subject: str = Query(...),
     content: str = Query(...),

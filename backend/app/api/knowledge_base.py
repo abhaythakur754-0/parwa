@@ -48,7 +48,10 @@ logger = logging.getLogger("parwa.knowledge_base")
 # ── Allowed File Types ─────────────────────────────────────────────
 
 ALLOWED_EXTENSIONS = {".pdf", ".docx", ".doc", ".txt", ".csv", ".md", ".json"}
-MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
+# R-07 FIX: Max file size now configurable via KB_MAX_FILE_SIZE setting
+def _get_max_file_size() -> int:
+    from app.config import get_settings
+    return get_settings().KB_MAX_FILE_SIZE
 
 
 # ── Request/Response Schemas ───────────────────────────────────────
@@ -140,10 +143,11 @@ async def api_upload_document(
     content = await file.read()
 
     # Validate file size
-    if len(content) > MAX_FILE_SIZE:
+    _max_file_size = _get_max_file_size()
+    if len(content) > _max_file_size:
         raise ValidationError(
-            message=f"File too large. Maximum size is {MAX_FILE_SIZE // (1024 * 1024)} MB.",
-            details={"file_size": len(content), "max_size": MAX_FILE_SIZE},
+            message=f"File too large. Maximum size is {_max_file_size // (1024 * 1024)} MB.",
+            details={"file_size": len(content), "max_size": _max_file_size},
         )
 
     # Create document record
@@ -443,7 +447,8 @@ def api_retry_all_failed(
     retried = 0
     for doc in failed_docs:
         retry_count = getattr(doc, "retry_count", 0) or 0
-        if retry_count < 3:
+        from app.config import get_settings as _get_kb_settings
+        if retry_count < _get_kb_settings().KB_MAX_RETRY_COUNT:
             try:
                 from app.tasks.knowledge_tasks import process_knowledge_document
                 process_knowledge_document.delay(str(doc.id), user.company_id)

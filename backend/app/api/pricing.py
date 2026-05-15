@@ -29,13 +29,16 @@ router = APIRouter(prefix="/api/pricing", tags=["Pricing"])
 
 # ── Security Helpers (GAP-6-1, GAP-6-3 fixes) ───────────────────────
 
-def sanitize_input(value: str, max_length: int = 100) -> str:
+def sanitize_input(value: str, max_length: int | None = None) -> str:
     """Sanitize user input to prevent XSS (GAP-6-4 fix).
     
     - Strips HTML tags
     - Escapes HTML entities
     - Truncates to max_length
     """
+    if max_length is None:
+        from app.config import get_settings
+        max_length = get_settings().PRICING_INPUT_MAX_LENGTH
     if not value:
         return ""
     # Remove any HTML tags
@@ -431,8 +434,10 @@ class CalculateRequest(BaseModel):
                 raise ValueError("Each variant must have a 'quantity'")
             if not isinstance(item["quantity"], int) or item["quantity"] < 0:
                 raise ValueError("Quantity must be a non-negative integer")
-            if item["quantity"] > 10:
-                raise ValueError("Quantity cannot exceed 10 per variant")
+            from app.config import get_settings
+            _max_qty = get_settings().PRICING_MAX_VARIANT_QUANTITY
+            if item["quantity"] > _max_qty:
+                raise ValueError(f"Quantity cannot exceed {_max_qty} per variant")
         return v
 
 
@@ -614,8 +619,10 @@ class ValidateRequest(BaseModel):
                 raise ValueError("Each variant must have a 'quantity'")
             if not isinstance(item["quantity"], int) or item["quantity"] < 0:
                 raise ValueError("Quantity must be a non-negative integer")
-            if item["quantity"] > 10:
-                raise ValueError("Quantity cannot exceed 10 per variant")
+            from app.config import get_settings
+            _max_qty = get_settings().PRICING_MAX_VARIANT_QUANTITY
+            if item["quantity"] > _max_qty:
+                raise ValueError(f"Quantity cannot exceed {_max_qty} per variant")
         return v
 
     @validator("other_industry_name")
@@ -663,7 +670,7 @@ class ValidateResponse(BaseModel):
 # H-09 FIX: Pricing signing key from Settings (validated in config.py)
 _settings = get_settings()
 PRICING_SIGNING_KEY: str = _settings.PRICING_SIGNING_KEY
-TOKEN_VALIDITY_SECONDS = 3600  # 1 hour
+TOKEN_VALIDITY_SECONDS = _settings.PRICING_TOKEN_TTL_SECONDS  # R-07: from config
 
 
 def _generate_validation_token(data: dict) -> tuple[str, int]:

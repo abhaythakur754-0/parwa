@@ -182,3 +182,141 @@ class NotificationSendResponse(BaseModel):
     notification_id: Optional[str] = None
     message: Optional[str] = None
     failed_recipients: Optional[List[str]] = None
+
+
+# ── Notification API Response Schemas ──────────────────────────────────────────
+
+
+class NotificationListItem(BaseModel):
+    """Single notification item in list response."""
+
+    id: str
+    event_type: str
+    title: Optional[str] = None
+    message: Optional[str] = None
+    priority: Optional[str] = None
+    status: Optional[str] = None
+    ticket_id: Optional[str] = None
+    read_at: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class NotificationListResponse(BaseModel):
+    """Paginated list of notifications."""
+
+    notifications: List[NotificationListItem]
+    total: int
+    unread_count: int
+
+
+class UnreadCountResponse(BaseModel):
+    """Unread notification count."""
+
+    unread_count: int
+
+
+class MarkReadResponse(BaseModel):
+    """Response after marking notifications as read."""
+
+    marked_count: int
+    marked_all: Optional[bool] = None
+    marked_ids: Optional[List[str]] = None
+
+
+class TemplateListItem(BaseModel):
+    """Single template item in list response."""
+
+    id: str
+    event_type: str
+    channel: str
+    name: Optional[str] = None
+    description: Optional[str] = None
+    subject_template: str
+    body_template: str
+    is_active: bool
+    version: Optional[int] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class TemplateListResponse(BaseModel):
+    """Paginated list of notification templates."""
+
+    templates: List[TemplateListItem]
+    total: int
+
+
+class TemplateCreateResponse(BaseModel):
+    """Response after creating a template."""
+
+    id: str
+    event_type: str
+    channel: str
+    name: Optional[str] = None
+    is_active: bool
+    version: Optional[int] = None
+
+
+class TemplateGetResponse(BaseModel):
+    """Response for getting a single template."""
+
+    id: str
+    event_type: str
+    channel: str
+    name: Optional[str] = None
+    description: Optional[str] = None
+    subject_template: str
+    body_template: str
+    is_active: bool
+    version: Optional[int] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class TemplateUpdateResponse(BaseModel):
+    """Response after updating a template."""
+
+    id: str
+    name: Optional[str] = None
+    is_active: bool
+    updated_at: Optional[str] = None
+
+
+class TemplateDeleteResponse(BaseModel):
+    """Response after deleting a template."""
+
+    success: bool
+
+
+class TemplateVariablesResponse(BaseModel):
+    """Response for template variables."""
+
+    event_type: str
+    variables: Dict[str, Any]
+
+
+class PreferenceUpdateResponse(BaseModel):
+    """Response after updating a notification preference."""
+
+    event_type: str
+    enabled: Optional[bool] = None
+    channels: Optional[List[str]] = None
+    priority_threshold: Optional[str] = None
+
+
+class ResetPreferencesResponse(BaseModel):
+    """Response after resetting preferences."""
+
+    reset_count: int
+
+
+class DisableAllResponse(BaseModel):
+    """Response after disabling all notifications."""
+
+    disabled_count: int
+
+
+class EnableAllResponse(BaseModel):
+    """Response after enabling all notifications."""
+
+    enabled_count: int

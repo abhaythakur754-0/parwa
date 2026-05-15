@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_current_user, get_company_id
+from database.models.core import User
 from app.services.message_service import MessageService
 from app.exceptions import NotFoundError, ValidationError, AuthorizationError
 from app.core.event_emitter import emit_event
@@ -96,7 +97,7 @@ async def create_message(
     request: MessageCreate,
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Add a message to a ticket.
 
@@ -114,7 +115,7 @@ async def create_message(
             is_internal=request.is_internal,
             metadata_json=request.metadata_json,
             attachments=[a.model_dump() for a in request.attachments] if request.attachments else None,
-            user_id=current_user.get("id"),
+            user_id=str(current_user.id),
             ai_confidence=request.ai_confidence,
             variant_version=request.variant_version,
         )
@@ -159,7 +160,7 @@ async def list_messages(
     order: str = Query(default="asc", regex="^(asc|desc)$"),
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """List messages for a ticket.
 
@@ -209,7 +210,7 @@ async def get_message(
     message_id: str,
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Get a single message by ID."""
     service = MessageService(db, company_id)
@@ -242,7 +243,7 @@ async def update_message(
     force: bool = Query(default=False),
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Edit a message.
 
@@ -258,7 +259,7 @@ async def update_message(
             message_id=message_id,
             content=request.content,
             metadata_json=request.metadata_json,
-            user_id=current_user.get("id"),
+            user_id=str(current_user.id),
             force=force,
         )
 
@@ -288,7 +289,7 @@ async def delete_message(
     hard: bool = Query(default=False),
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Delete a message.
 
@@ -301,7 +302,7 @@ async def delete_message(
         service.delete_message(
             ticket_id=ticket_id,
             message_id=message_id,
-            user_id=current_user.get("id"),
+            user_id=str(current_user.id),
             hard=hard,
         )
 
@@ -316,7 +317,7 @@ async def redact_message(
     reason: str = Query(..., min_length=1, max_length=500),
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Redact a message (GDPR/PS12).
 
@@ -330,7 +331,7 @@ async def redact_message(
             ticket_id=ticket_id,
             message_id=message_id,
             reason=reason,
-            user_id=current_user.get("id"),
+            user_id=str(current_user.id),
         )
 
         return MessageResponse(
@@ -355,7 +356,7 @@ async def list_attachments(
     ticket_id: str,
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """List all attachments for a ticket."""
     service = MessageService(db, company_id)

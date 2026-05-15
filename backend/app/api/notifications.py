@@ -19,6 +19,21 @@ from app.api.deps import get_current_user, require_roles, get_db, get_tenant_con
 from app.services.notification_service import NotificationService
 from app.services.notification_template_service import NotificationTemplateService
 from app.services.notification_preference_service import NotificationPreferenceService
+from app.schemas.notification import (
+    NotificationListResponse,
+    UnreadCountResponse,
+    MarkReadResponse,
+    TemplateListResponse,
+    TemplateCreateResponse,
+    TemplateGetResponse,
+    TemplateUpdateResponse,
+    TemplateDeleteResponse,
+    TemplateVariablesResponse,
+    PreferenceUpdateResponse,
+    ResetPreferencesResponse,
+    DisableAllResponse,
+    EnableAllResponse,
+)
 from database.models.core import User
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
@@ -90,7 +105,7 @@ class TemplatePreviewRequest(BaseModel):
 
 # ── Notification Endpoints ─────────────────────────────────────────────────────
 
-@router.get("")
+@router.get("", response_model=NotificationListResponse)
 async def list_notifications(
     status: Optional[str] = Query(None),
     event_type: Optional[str] = Query(None),
@@ -133,7 +148,7 @@ async def list_notifications(
     }
 
 
-@router.get("/unread-count")
+@router.get("/unread-count", response_model=UnreadCountResponse)
 async def get_unread_count(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -147,7 +162,7 @@ async def get_unread_count(
     }
 
 
-@router.post("/mark-read")
+@router.post("/mark-read", response_model=MarkReadResponse)
 async def mark_notifications_read(
     request: NotificationMarkReadRequest,
     db: Session = Depends(get_db),
@@ -184,7 +199,7 @@ async def mark_notifications_read(
     return {"marked_count": len(marked), "marked_ids": marked}
 
 
-@router.post("/send")
+@router.post("/send", response_model=Dict[str, Any])
 async def send_notification(
     request: NotificationSendRequest,
     db: Session = Depends(get_db),
@@ -212,7 +227,7 @@ async def send_notification(
     return result
 
 
-@router.post("/digest")
+@router.post("/digest", response_model=Dict[str, Any])
 async def create_digest(
     period: str = Query("daily", regex="^(daily|weekly)$"),
     db: Session = Depends(get_db),
@@ -232,7 +247,7 @@ async def create_digest(
 
 # ── Template Endpoints ─────────────────────────────────────────────────────────
 
-@router.get("/templates")
+@router.get("/templates", response_model=TemplateListResponse)
 async def list_templates(
     event_type: Optional[str] = Query(None),
     channel: Optional[str] = Query(None),
@@ -275,7 +290,7 @@ async def list_templates(
     }
 
 
-@router.post("/templates")
+@router.post("/templates", response_model=TemplateCreateResponse)
 async def create_template(
     request: TemplateCreateRequest,
     db: Session = Depends(get_db),
@@ -312,7 +327,7 @@ async def create_template(
         )
 
 
-@router.get("/templates/{template_id}")
+@router.get("/templates/{template_id}", response_model=TemplateGetResponse)
 async def get_template(
     template_id: str,
     db: Session = Depends(get_db),
@@ -345,7 +360,7 @@ async def get_template(
         )
 
 
-@router.put("/templates/{template_id}")
+@router.put("/templates/{template_id}", response_model=TemplateUpdateResponse)
 async def update_template(
     template_id: str,
     request: TemplateUpdateRequest,
@@ -380,7 +395,7 @@ async def update_template(
         )
 
 
-@router.delete("/templates/{template_id}")
+@router.delete("/templates/{template_id}", response_model=TemplateDeleteResponse)
 async def delete_template(
     template_id: str,
     db: Session = Depends(get_db),
@@ -401,7 +416,7 @@ async def delete_template(
         )
 
 
-@router.post("/templates/{template_id}/preview")
+@router.post("/templates/{template_id}/preview", response_model=Dict[str, Any])
 async def preview_template(
     template_id: str,
     request: TemplatePreviewRequest,
@@ -426,7 +441,7 @@ async def preview_template(
         )
 
 
-@router.get("/templates/variables/{event_type}")
+@router.get("/templates/variables/{event_type}", response_model=TemplateVariablesResponse)
 async def get_template_variables(
     event_type: str,
     db: Session = Depends(get_db),
@@ -446,7 +461,7 @@ async def get_template_variables(
 
 # ── Preference Endpoints ───────────────────────────────────────────────────────
 
-@router.get("/preferences")
+@router.get("/preferences", response_model=Dict[str, Any])
 async def get_preferences(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -458,7 +473,7 @@ async def get_preferences(
     return service.get_user_preferences(current_user.id)
 
 
-@router.put("/preferences/{event_type}")
+@router.put("/preferences/{event_type}", response_model=PreferenceUpdateResponse)
 async def update_preference(
     event_type: str,
     request: PreferenceUpdateRequest,
@@ -491,7 +506,7 @@ async def update_preference(
         )
 
 
-@router.put("/preferences")
+@router.put("/preferences", response_model=Dict[str, Any])
 async def update_preferences_bulk(
     request: PreferencesBulkUpdateRequest,
     db: Session = Depends(get_db),
@@ -509,7 +524,7 @@ async def update_preferences_bulk(
     return result
 
 
-@router.put("/preferences/digest")
+@router.put("/preferences/digest", response_model=Dict[str, Any])
 async def set_digest_settings(
     request: DigestSettingsRequest,
     db: Session = Depends(get_db),
@@ -534,7 +549,7 @@ async def set_digest_settings(
         )
 
 
-@router.post("/preferences/reset")
+@router.post("/preferences/reset", response_model=ResetPreferencesResponse)
 async def reset_preferences(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -548,7 +563,7 @@ async def reset_preferences(
     return {"reset_count": count}
 
 
-@router.post("/preferences/disable-all")
+@router.post("/preferences/disable-all", response_model=DisableAllResponse)
 async def disable_all_notifications(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -562,7 +577,7 @@ async def disable_all_notifications(
     return {"disabled_count": count}
 
 
-@router.post("/preferences/enable-all")
+@router.post("/preferences/enable-all", response_model=EnableAllResponse)
 async def enable_all_notifications(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),

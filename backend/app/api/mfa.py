@@ -30,8 +30,10 @@ import logging
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, optional_user
@@ -69,6 +71,24 @@ from app.services.session_service import (
 from database.base import get_db
 from database.models.core import User
 
+# ── R-06 FIX: Response models for MFA endpoints returning untyped dict ──
+
+class MFALoginVerifyResponse(BaseModel):
+    """Response schema for MFA login verification."""
+    verified: bool
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+
+class BackupCodesCountResponse(BaseModel):
+    """Response schema for backup codes count."""
+    remaining: int
+    warning: bool
+
+class BackupCodeUseResponse(BaseModel):
+    """Response schema for using a backup code."""
+    verified: bool
+    remaining: int = 0
+
 logger = logging.getLogger("parwa.mfa")
 
 router = APIRouter(
@@ -84,7 +104,10 @@ router = APIRouter(
 # 3. Works correctly in multi-instance deployments
 # Falls back to in-memory only in non-production when Redis is down.
 
-_MFA_SESSION_TTL_SECONDS = 300  # 5 minutes
+# R-07 FIX: MFA session TTL now configurable via settings (default 300 = 5 minutes)
+def _get_mfa_session_ttl() -> int:
+    from app.config import get_settings
+    return get_settings().MFA_SESSION_TTL_SECONDS
 _MFA_REDIS_PREFIX = "parwa:mfa_session"
 
 # In-memory fallback (only used when Redis is unavailable in non-production)
@@ -98,7 +121,7 @@ async def _store_mfa_session(token: str, data: dict) -> bool:
         redis = await get_redis()
         key = f"{_MFA_REDIS_PREFIX}:{token}"
         # Store expiry as ISO string; Redis TTL handles actual expiration
-        await redis.set(key, json.dumps(data), ex=_MFA_SESSION_TTL_SECONDS)
+        await redis.set(key, json.dumps(data), ex=_get_mfa_session_ttl())
         return True
     except Exception as exc:
         logger.error(
@@ -177,7 +200,7 @@ async def create_mfa_session_token(
     """
     token = secrets.token_urlsafe(32)
     expires_at = datetime.now(timezone.utc) + timedelta(
-        seconds=_MFA_SESSION_TTL_SECONDS
+        seconds=_get_mfa_session_ttl()
     )
     session_data = {
         "user_id": user_id,
@@ -301,11 +324,11 @@ def mfa_setup_verify(
     return MFAVerifyResponse(**result)
 
 
-@router.post("/mfa/verify")
+@router.post("/mfa/verify", response_model=MFALoginVerifyResponse)
 async def mfa_verify_login(
     body: MFALoginVerifyRequest,
     db: Session = Depends(get_db),
-) -> dict:
+) -> MFALoginVerifyResponse:
     """Verify MFA during login.
 
     F-015: Validates TOTP code with progressive lockout.
@@ -405,11 +428,11 @@ async def mfa_verify_login(
 # ── F-016: Backup Codes ───────────────────────────────────────────
 
 
-@router.get("/mfa/backup-codes")
+@router.get("/mfa/backup-codes", response_model=BackupCodesCountResponse)
 def get_backup_codes_count(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> dict:
+) -> BackupCodesCountResponse:
     """Get remaining backup codes count.
 
     F-016: Returns count of unused backup codes.
@@ -444,12 +467,12 @@ def regenerate_codes(
     return BackupCodesResponse(**result)
 
 
-@router.post("/mfa/backup-codes/use")
+@router.post("/mfa/backup-codes/use", response_model=BackupCodeUseResponse)
 def use_backup_code_endpoint(
     body: BackupCodeUseRequest,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> dict:
+) -> BackupCodeUseResponse:
     """Use a backup code for authentication.
 
     F-016: Single-use, returns remaining count.

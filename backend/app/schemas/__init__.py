@@ -11,6 +11,11 @@ from app.schemas.ticket import (
     TicketAssign,
     TicketBulkStatusUpdate,
     TicketBulkAssign,
+    PriorityDetectionResponse,
+    CategoryDetectionResponse,
+    PIIScanResponse,
+    TicketDeleteResponse,
+    TicketAttachmentResponse,
 )
 
 # Ticket message schemas - Day 25
@@ -32,6 +37,10 @@ from app.schemas.sla import (
     SLATimerResponse,
     SLABreachAlert,
     SLAStats,
+    SLADeleteResponse,
+    SLASeedResponse,
+    SLABreachedTicketsResponse,
+    SLAApproachingTicketsResponse,
 )
 
 # Assignment schemas - Day 25
@@ -51,6 +60,28 @@ from app.schemas.bulk_action import (
     TicketMergeRequest,
     TicketUnmergeRequest,
     TicketMergeResponse,
+    TicketUnmergeResponse,
+    MergeHistoryResponse,
+    MergeCheckResponse,
+    MergeDetailResponse,
+)
+
+# Ticket lifecycle schemas - R-06
+from app.schemas.ticket_lifecycle import (
+    TicketEscalateResponse,
+    TicketReopenResponse,
+    TicketFreezeResponse,
+    TicketThawResponse,
+    TicketSpamMarkResponse,
+    TicketSpamUnmarkResponse,
+    TicketTransitionsResponse,
+    StaleTicketsResponse,
+    IncidentResponse,
+    IncidentDetailResponse,
+    IncidentListResponse,
+    IncidentNotifyResponse,
+    SpamQueueResponse,
+    SpamAnalyzeResponse,
 )
 
 # Notification schemas - Day 25
@@ -61,6 +92,19 @@ from app.schemas.notification import (
     NotificationPreferenceUpdate,
     NotificationSendRequest,
     NotificationSendResponse,
+    NotificationListResponse,
+    UnreadCountResponse,
+    MarkReadResponse,
+    TemplateListResponse,
+    TemplateCreateResponse,
+    TemplateGetResponse,
+    TemplateUpdateResponse,
+    TemplateDeleteResponse,
+    TemplateVariablesResponse,
+    PreferenceUpdateResponse,
+    ResetPreferencesResponse,
+    DisableAllResponse,
+    EnableAllResponse,
 )
 
 # Customer schemas - Day 25
@@ -73,6 +117,118 @@ from app.schemas.customer import (
     IdentityMatchResponse,
     CustomerChannelCreate,
     CustomerChannelResponse,
+    CustomerListResponse,
+    CustomerDeleteResponse,
+    CustomerTicketListResponse,
+    CustomerChannelLinkResponse,
+    CustomerUnlinkResponse,
+    CustomerMergeResponse,
+    IdentityDuplicatesResponse,
+    IdentityMatchLogResponse,
+    IdentityGrandfatheredResponse,
+    IdentityBatchResolveResponse,
+)
+
+# Integration schemas - R-08
+from app.schemas.integration import (
+    IntegrationCreate,
+    IntegrationUpdate,
+    IntegrationResponse,
+    RESTConnectorCreate,
+    RESTConnectorUpdate,
+    RESTConnectorResponse,
+    WebhookIntegrationCreate,
+    WebhookIntegrationUpdate,
+    WebhookIntegrationResponse,
+    MCPConnectionCreate,
+    MCPConnectionUpdate,
+    MCPConnectionResponse,
+    DBConnectionCreate,
+    DBConnectionUpdate,
+    DBConnectionResponse,
+    EventBufferCreate,
+    EventBufferUpdate,
+    EventBufferResponse,
+    ErrorLogCreate,
+    ErrorLogUpdate,
+    ErrorLogResponse,
+    AuditTrailCreate,
+    AuditTrailUpdate,
+    AuditTrailResponse,
+    OutgoingWebhookCreate,
+    OutgoingWebhookUpdate,
+    OutgoingWebhookResponse,
+)
+
+# Approval schemas - R-08
+from app.schemas.approval import (
+    ApprovalQueueCreate,
+    ApprovalQueueUpdate,
+    ApprovalQueueResponse,
+    AutoApproveRuleCreate,
+    AutoApproveRuleUpdate,
+    AutoApproveRuleResponse,
+    ExecutedActionCreate,
+    ExecutedActionUpdate,
+    ExecutedActionResponse,
+    UndoLogCreate,
+    UndoLogUpdate,
+    UndoLogResponse,
+)
+
+# Technique schemas - R-08
+from app.schemas.technique import (
+    TechniqueConfigurationCreate,
+    TechniqueConfigurationUpdate,
+    TechniqueConfigurationResponse,
+    TechniqueExecutionCreate,
+    TechniqueExecutionUpdate,
+    TechniqueExecutionResponse,
+    TechniqueVersionCreate,
+    TechniqueVersionUpdate,
+    TechniqueVersionResponse,
+)
+
+# Channel schemas - R-06
+from app.schemas.channel import (
+    ChannelConfigUpdateResponse,
+    ChannelTestResponse,
+    ChannelFormatMessageResponse,
+    ChannelFileValidationResponse,
+)
+
+# Public schemas - R-06
+from app.schemas.public import (
+    FeatureItem,
+    PublicStatsResponse,
+    IndustryItem,
+)
+
+# SMS Channel schemas - R-06
+from app.schemas.sms_channel import (
+    SMSConsentStatusResponse,
+    SMSWebhookStatusResponse,
+)
+
+# Chat Widget schemas - R-06
+from app.schemas.chat_widget import (
+    ChatSessionCreateResponse,
+    ChatAssignResponse,
+    ChatCloseResponse,
+    ChatMessageSendResponse,
+    ChatTypingResponse,
+    ChatMarkReadResponse,
+    ChatCSATResponse,
+    CannedResponseListResponse,
+)
+
+# API Key schemas
+from app.schemas.api_key import (
+    APIKeyCreate,
+    APIKeyResponse,
+    APIKeyCreatedResponse,
+    APIKeyRotatedResponse,
+    APIKeyRevokedResponse,
 )
 
 # Existing schemas - using correct class names
@@ -92,6 +248,11 @@ __all__ = [
     "TicketAssign",
     "TicketBulkStatusUpdate",
     "TicketBulkAssign",
+    "PriorityDetectionResponse",
+    "CategoryDetectionResponse",
+    "PIIScanResponse",
+    "TicketDeleteResponse",
+    "TicketAttachmentResponse",
     # Ticket message
     "MessageCreate",
     "MessageUpdate",
@@ -120,7 +281,11 @@ __all__ = [
     "TicketMergeRequest",
     "TicketUnmergeRequest",
     "TicketMergeResponse",
-    # Notification
+    "TicketUnmergeResponse",
+    "MergeHistoryResponse",
+    "MergeCheckResponse",
+    "MergeDetailResponse",
+    # Ticket lifecycle (R-06)
     "NotificationTemplateCreate",
     "NotificationTemplateUpdate",
     "NotificationTemplateResponse",
@@ -139,4 +304,112 @@ __all__ = [
     # Pagination
     "PaginatedResponse",
     "PaginatedResponseSchema",
+    # Integration (R-08)
+    "IntegrationCreate",
+    "IntegrationUpdate",
+    "IntegrationResponse",
+    "RESTConnectorCreate",
+    "RESTConnectorUpdate",
+    "RESTConnectorResponse",
+    "WebhookIntegrationCreate",
+    "WebhookIntegrationUpdate",
+    "WebhookIntegrationResponse",
+    "MCPConnectionCreate",
+    "MCPConnectionUpdate",
+    "MCPConnectionResponse",
+    "DBConnectionCreate",
+    "DBConnectionUpdate",
+    "DBConnectionResponse",
+    "EventBufferCreate",
+    "EventBufferUpdate",
+    "EventBufferResponse",
+    "ErrorLogCreate",
+    "ErrorLogUpdate",
+    "ErrorLogResponse",
+    "AuditTrailCreate",
+    "AuditTrailUpdate",
+    "AuditTrailResponse",
+    "OutgoingWebhookCreate",
+    "OutgoingWebhookUpdate",
+    "OutgoingWebhookResponse",
+    # Approval (R-08)
+    "ApprovalQueueCreate",
+    "ApprovalQueueUpdate",
+    "ApprovalQueueResponse",
+    "AutoApproveRuleCreate",
+    "AutoApproveRuleUpdate",
+    "AutoApproveRuleResponse",
+    "ExecutedActionCreate",
+    "ExecutedActionUpdate",
+    "ExecutedActionResponse",
+    "UndoLogCreate",
+    "UndoLogUpdate",
+    "UndoLogResponse",
+    # Technique (R-08)
+    "TechniqueConfigurationCreate",
+    "TechniqueConfigurationUpdate",
+    "TechniqueConfigurationResponse",
+    "TechniqueExecutionCreate",
+    "TechniqueExecutionUpdate",
+    "TechniqueExecutionResponse",
+    "TechniqueVersionCreate",
+    "TechniqueVersionUpdate",
+    "TechniqueVersionResponse",
+    # Customer (R-06 additions)
+    "CustomerListResponse",
+    "CustomerDeleteResponse",
+    "CustomerTicketListResponse",
+    "CustomerChannelLinkResponse",
+    "CustomerUnlinkResponse",
+    "CustomerMergeResponse",
+    "IdentityDuplicatesResponse",
+    "IdentityMatchLogResponse",
+    "IdentityGrandfatheredResponse",
+    "IdentityBatchResolveResponse",
+    # SLA (R-06 additions)
+    "SLADeleteResponse",
+    "SLASeedResponse",
+    "SLABreachedTicketsResponse",
+    "SLAApproachingTicketsResponse",
+    # Notification (R-06 additions)
+    "NotificationListResponse",
+    "UnreadCountResponse",
+    "MarkReadResponse",
+    "TemplateListResponse",
+    "TemplateCreateResponse",
+    "TemplateGetResponse",
+    "TemplateUpdateResponse",
+    "TemplateDeleteResponse",
+    "TemplateVariablesResponse",
+    "PreferenceUpdateResponse",
+    "ResetPreferencesResponse",
+    "DisableAllResponse",
+    "EnableAllResponse",
+    # Channel (R-06)
+    "ChannelConfigUpdateResponse",
+    "ChannelTestResponse",
+    "ChannelFormatMessageResponse",
+    "ChannelFileValidationResponse",
+    # Public (R-06)
+    "FeatureItem",
+    "PublicStatsResponse",
+    "IndustryItem",
+    # SMS Channel (R-06)
+    "SMSConsentStatusResponse",
+    "SMSWebhookStatusResponse",
+    # Chat Widget (R-06)
+    "ChatSessionCreateResponse",
+    "ChatAssignResponse",
+    "ChatCloseResponse",
+    "ChatMessageSendResponse",
+    "ChatTypingResponse",
+    "ChatMarkReadResponse",
+    "ChatCSATResponse",
+    "CannedResponseListResponse",
+    # API Key
+    "APIKeyCreate",
+    "APIKeyResponse",
+    "APIKeyCreatedResponse",
+    "APIKeyRotatedResponse",
+    "APIKeyRevokedResponse",
 ]

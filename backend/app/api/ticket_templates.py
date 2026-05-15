@@ -58,6 +58,32 @@ class TemplateResponse(BaseModel):
         from_attributes = True
 
 
+class TemplateDeleteResponse(BaseModel):
+    """Response after deleting a template."""
+    success: bool
+    message: str
+
+
+class TemplateApplyResponse(BaseModel):
+    """Response after applying variables to a template."""
+    template_id: str
+    rendered_text: str
+
+
+class TemplateVariablesResponse(BaseModel):
+    """Response for template variables."""
+    template_id: str
+    variables: List[str]
+
+
+class TemplateListResponse(BaseModel):
+    """Response for listing templates."""
+    templates: List[TemplateResponse]
+    total: int
+    page: int
+    page_size: int
+
+
 # ── Endpoints ──────────────────────────────────────────────────────────────
 
 
@@ -96,7 +122,7 @@ def create_template(
     )
 
 
-@router.get("", response_model=Dict[str, Any])
+@router.get("", response_model=TemplateListResponse)
 def list_templates(
     intent_type: Optional[str] = Query(None),
     language: Optional[str] = Query(None),
@@ -211,7 +237,7 @@ def update_template(
     )
 
 
-@router.delete("/{template_id}")
+@router.delete("/{template_id}", response_model=TemplateDeleteResponse)
 def delete_template(
     template_id: str,
     db: Session = Depends(get_db),
@@ -228,7 +254,7 @@ def delete_template(
     return {"success": True, "message": "Template deleted"}
 
 
-@router.post("/{template_id}/apply")
+@router.post("/{template_id}/apply", response_model=TemplateApplyResponse)
 def apply_template(
     template_id: str,
     data: TemplateApply,
@@ -251,7 +277,7 @@ def apply_template(
     }
 
 
-@router.get("/{template_id}/variables")
+@router.get("/{template_id}/variables", response_model=TemplateVariablesResponse)
 def get_template_variables(
     template_id: str,
     db: Session = Depends(get_db),

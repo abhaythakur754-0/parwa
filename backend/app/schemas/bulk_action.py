@@ -183,3 +183,67 @@ class TicketMergeResponse(BaseModel):
     )
 
     model_config = {"from_attributes": True}
+
+
+# ── Ticket Merge Response Schemas ─────────────────────────────────────────
+
+
+class TicketUnmergeResponse(BaseModel):
+    """Response after unmerging tickets."""
+
+    unmerged: bool = Field(description="Whether the unmerge was successful")
+    merge_id: str = Field(description="ID of the merge operation that was undone")
+    restored_ticket_ids: List[str] = Field(
+        default_factory=list,
+        description="IDs of tickets restored by the unmerge",
+    )
+    restored_count: int = Field(description="Number of tickets restored")
+
+
+class MergeHistoryItem(BaseModel):
+    """Single merge history item."""
+
+    id: str = Field(description="Merge operation ID")
+    primary_ticket_id: str = Field(description="Primary ticket ID")
+    merged_ticket_ids: List[Any] = Field(
+        default_factory=list, description="IDs of merged tickets"
+    )
+    merged_by: Optional[str] = Field(default=None, description="User who performed merge")
+    reason: Optional[str] = Field(default=None, description="Merge reason")
+    undone: bool = Field(default=False, description="Whether the merge was undone")
+    created_at: Optional[Any] = Field(default=None, description="Merge timestamp")
+
+
+class MergeHistoryResponse(BaseModel):
+    """Response for merge history of a ticket."""
+
+    ticket_id: str = Field(description="Ticket ID")
+    merges: List[MergeHistoryItem] = Field(
+        default_factory=list, description="List of merge operations"
+    )
+    total: int = Field(description="Total number of merge operations")
+
+
+class MergeCheckResponse(BaseModel):
+    """Response for merge eligibility check."""
+
+    can_merge: bool = Field(description="Whether the tickets can be merged")
+    issues: List[str] = Field(
+        default_factory=list,
+        description="List of issues preventing merge",
+    )
+
+
+class MergeDetailResponse(BaseModel):
+    """Response for merge operation details."""
+
+    id: str = Field(description="Merge operation ID")
+    primary_ticket_id: str = Field(description="Primary ticket ID")
+    merged_ticket_ids: List[Any] = Field(
+        default_factory=list, description="IDs of merged tickets"
+    )
+    merged_by: Optional[str] = Field(default=None, description="User who performed merge")
+    reason: Optional[str] = Field(default=None, description="Merge reason")
+    undo_token: Optional[str] = Field(default=None, description="Token for undoing the merge")
+    undone: bool = Field(default=False, description="Whether the merge was undone")
+    created_at: Optional[Any] = Field(default=None, description="Merge timestamp")

@@ -807,3 +807,59 @@ class TicketBulkOperationResponse(BaseModel):
         description="Token for undoing the bulk operation",
     )
     message: str = Field(default="Bulk operation completed")
+
+
+# ── Detection & Utility Response Schemas ──────────────────────────────────
+
+
+class PriorityDetectionResponse(BaseModel):
+    """Response for priority detection from text."""
+
+    priority: str = Field(description="Detected priority level")
+    confidence: float = Field(ge=0.0, le=1.0, description="Detection confidence score")
+
+
+class CategoryDetectionResponse(BaseModel):
+    """Response for category detection from text."""
+
+    category: str = Field(description="Detected category")
+    confidence: float = Field(ge=0.0, le=1.0, description="Detection confidence score")
+    all_scores: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Scores for all categories",
+    )
+    department: Optional[str] = Field(
+        default=None,
+        description="Department associated with the category",
+    )
+
+
+class PIIScanResponse(BaseModel):
+    """Response for PII scan of text."""
+
+    has_pii: bool = Field(default=False, description="Whether PII was detected")
+    redacted_text: Optional[str] = Field(default=None, description="Redacted text")
+    detections: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="List of PII detections",
+    )
+
+
+class TicketDeleteResponse(BaseModel):
+    """Response after deleting a ticket."""
+
+    deleted: bool = Field(description="Whether the deletion was successful")
+    ticket_id: str = Field(description="ID of the deleted ticket")
+
+
+class TicketAttachmentResponse(BaseModel):
+    """Response for a single ticket attachment."""
+
+    id: str = Field(description="Attachment ID")
+    filename: str = Field(description="File name")
+    file_url: str = Field(description="File storage URL")
+    file_size: Optional[int] = Field(default=None, description="File size in bytes")
+    mime_type: Optional[str] = Field(default=None, description="MIME type")
+    created_at: Optional[datetime] = Field(
+        default=None, description="Upload timestamp"
+    )

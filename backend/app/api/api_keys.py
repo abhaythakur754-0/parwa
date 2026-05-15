@@ -1,3 +1,4 @@
+from typing import List
 """
 PARWA API Key Endpoints (F-019)
 
@@ -31,7 +32,7 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=list)
+@router.get("", response_model=List[APIKeyResponse])
 def api_key_list(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -45,7 +46,7 @@ def api_key_list(
     return list_keys(db, user.company_id)
 
 
-@router.post("", status_code=201)
+@router.post("", response_model=APIKeyCreatedResponse, status_code=201)
 def api_key_create(
     body: APIKeyCreate,
     user: User = Depends(get_current_user),
@@ -85,7 +86,7 @@ def api_key_create(
     )
 
 
-@router.post("/{key_id}/rotate")
+@router.post("/{key_id}/rotate", response_model=APIKeyRotatedResponse)
 def api_key_rotate(
     key_id: str,
     user: User = Depends(get_current_user),
@@ -117,7 +118,7 @@ def api_key_rotate(
     )
 
 
-@router.delete("/{key_id}/revoke")
+@router.delete("/{key_id}/revoke", response_model=APIKeyRevokedResponse)
 def api_key_revoke(
     key_id: str,
     user: User = Depends(get_current_user),

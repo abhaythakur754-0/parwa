@@ -32,6 +32,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_current_user, get_company_id
+from database.models.core import User
 from app.services.activity_log_service import ActivityLogService
 from app.exceptions import NotFoundError
 
@@ -90,7 +91,7 @@ async def get_timeline(
     page_size: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Get activity timeline for a ticket.
 
@@ -150,7 +151,7 @@ async def get_activity_summary(
     ticket_id: str,
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Get activity summary for a ticket.
 
@@ -174,14 +175,14 @@ async def get_activity_summary(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.get("/{ticket_id}/timeline/status-changes")
+@router.get("/{ticket_id}/timeline/status-changes", response_model=TimelineResponse)
 async def get_status_history(
     ticket_id: str,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Get status change history for a ticket.
 
@@ -223,14 +224,14 @@ async def get_status_history(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.get("/{ticket_id}/timeline/assignments")
+@router.get("/{ticket_id}/timeline/assignments", response_model=TimelineResponse)
 async def get_assignment_history(
     ticket_id: str,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Get assignment history for a ticket.
 
@@ -272,14 +273,14 @@ async def get_assignment_history(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.get("/{ticket_id}/timeline/sla")
+@router.get("/{ticket_id}/timeline/sla", response_model=TimelineResponse)
 async def get_sla_events(
     ticket_id: str,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Get SLA-related events for a ticket.
 

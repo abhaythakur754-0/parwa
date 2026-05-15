@@ -8,7 +8,8 @@ Provides tenant-level bounce/complaint management:
 - GET /api/v1/email/bounces/digest — Get deliverability digest
 - GET /api/v1/email/bounces/status/{email} — Check email sendability
 
-BC-001: All endpoints scoped to company_id (via middleware).
+BC-001: All endpoints scoped to company_id.
+BC-011: JWT verification on every endpoint (R-01 fix).
 BC-003: Webhook endpoints in webhooks.py (already exist).
 BC-012: Structured JSON error responses.
 """
@@ -51,8 +52,7 @@ async def list_bounces(
 ):
     """List bounce and complaint events for the tenant.
 
-    Returns paginated list of bounce/complaint events ordered by most recent.
-    Supports filtering by bounce type.
+    R-01: Now requires JWT authentication via get_current_user.
     """
     company_id = current_user.company_id
 
@@ -94,9 +94,7 @@ async def whitelist_bounced_email(
 ):
     """Whitelist a previously bounced email address.
 
-    Allows sending to the email again. If a new bounce occurs
-    after whitelisting, the whitelist is preserved and an alert
-    is sent recommending review.
+    R-01: Now requires JWT authentication via get_current_user.
     """
     company_id = current_user.company_id
 
@@ -130,12 +128,11 @@ async def whitelist_bounced_email(
             )
 
         # Whitelist the email
-        user_id = str(current_user.id)
         result = service.whitelist_email(
             company_id=company_id,
             email=bounce.customer_email,
             justification=body.justification,
-            user_id=user_id,
+            user_id=str(current_user.id),
         )
 
         return WhitelistResponse(
@@ -168,7 +165,7 @@ async def get_bounce_stats(
 ):
     """Get bounce and complaint statistics for the tenant.
 
-    Returns counts, rates, trend direction, and suppressed email count.
+    R-01: Now requires JWT authentication via get_current_user.
     """
     company_id = current_user.company_id
 
@@ -203,8 +200,7 @@ async def get_bounce_digest(
 ):
     """Get deliverability digest for the tenant.
 
-    Returns critical unacknowledged alerts and a 24h summary
-    of bounces and complaints.
+    R-01: Now requires JWT authentication via get_current_user.
     """
     company_id = current_user.company_id
 
@@ -240,8 +236,7 @@ async def check_email_status(
 ):
     """Check if an email address can receive messages.
 
-    Returns the current delivery status, bounce/complaint counts,
-    and whether the email is whitelisted or suppressed.
+    R-01: Now requires JWT authentication via get_current_user.
     """
     company_id = current_user.company_id
 
