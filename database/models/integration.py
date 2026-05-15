@@ -56,7 +56,7 @@ class RESTConnector(Base):
     base_url = Column(String(500), nullable=False)
     # bearer, basic, api_key, oauth2
     auth_type = Column(String(50), nullable=False)
-    auth_config = Column(Text)  # encrypted
+    auth_config_encrypted = Column(Text)  # Fernet-encrypted auth credentials
     headers = Column(Text, default="{}")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -92,7 +92,7 @@ class MCPConnection(Base):
     )
     name = Column(String(255), nullable=False)
     server_url = Column(String(500))
-    auth_token = Column(Text)  # encrypted
+    auth_token_encrypted = Column(Text)  # Fernet-encrypted MCP auth token
     status = Column(String(50), default="disconnected")
     capabilities = Column(Text, default="[]")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -110,7 +110,7 @@ class DBConnection(Base):
     name = Column(String(255), nullable=False)
     # postgresql, mysql, mongodb
     db_type = Column(String(50), nullable=False)
-    connection_string = Column(Text)  # encrypted
+    connection_string_encrypted = Column(Text)  # Fernet-encrypted DB connection string
     is_readonly = Column(Boolean, default=True)
     status = Column(String(50), default="disconnected")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

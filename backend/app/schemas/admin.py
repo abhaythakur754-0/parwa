@@ -13,7 +13,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Generic, List, Optional, TypeVar
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 T = TypeVar("T")
 
@@ -132,6 +132,7 @@ class TeamMemberUpdate(BaseModel):
 class PasswordChangeRequest(BaseModel):
     current_password: str = Field(min_length=1)
     new_password: str = Field(min_length=8, max_length=128)
+    confirm_new_password: str = Field(min_length=8, max_length=128)
 
     @field_validator("new_password")
     @classmethod
@@ -157,6 +158,15 @@ class PasswordChangeRequest(BaseModel):
                 "special character"
             )
         return v
+
+    @model_validator(mode="after")
+    def passwords_match(self) -> "PasswordChangeRequest":
+        """Ensure new_password and confirm_new_password are identical."""
+        if self.new_password != self.confirm_new_password:
+            raise ValueError(
+                "new_password and confirm_new_password do not match"
+            )
+        return self
 
 
 # ── API Provider ───────────────────────────────────────────────────

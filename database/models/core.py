@@ -95,8 +95,8 @@ class User(Base):
     full_name = Column(String(255))
     phone = Column(String(20))
     avatar_url = Column(String(500))
-    role = Column(String(50), nullable=False, default="owner")
-    is_active = Column(Boolean, default=True)
+    role = Column(String(50), nullable=False, default="owner", index=True)
+    is_active = Column(Boolean, default=True, index=True)
     is_verified = Column(Boolean, default=False)
     is_platform_admin = Column(Boolean, default=False)  # Platform admin flag
     mfa_enabled = Column(Boolean, default=False)
@@ -120,6 +120,23 @@ class User(Base):
     oauth_accounts = relationship(
         "OAuthAccount",
         back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    mfa_secret = relationship(
+        "MFASecret", back_populates="user",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+    verification_tokens = relationship(
+        "VerificationToken", back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    password_reset_tokens = relationship(
+        "PasswordResetToken", back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    notification_preferences = relationship(
+        "UserNotificationPreference", back_populates="user",
         cascade="all, delete-orphan",
     )
 
@@ -172,6 +189,8 @@ class MFASecret(Base):
     secret_key = Column(String(512), nullable=False)
     is_verified = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User", back_populates="mfa_secret")
 
 
 # ── Backup Codes ───────────────────────────────────────────────────
@@ -287,6 +306,8 @@ class UserNotificationPreference(Base):
     enabled = Column(Boolean, default=True)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
+    user = relationship("User", back_populates="notification_preferences")
+
 
 # ── Verification Tokens (F-012: email verification) ──────────────
 
@@ -308,6 +329,8 @@ class VerificationToken(Base):
     expires_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+    user = relationship("User", back_populates="verification_tokens")
+
 
 # ── Password Reset Tokens (F-014) ───────────────────────────────
 
@@ -327,6 +350,8 @@ class PasswordResetToken(Base):
     is_used = Column(Boolean, default=False)
     expires_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User", back_populates="password_reset_tokens")
 
 
 # ── OAuth Accounts (F-011: Google OAuth) ────────────────────────

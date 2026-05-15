@@ -30,8 +30,8 @@ class Subscription(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    tier = Column(String(50), nullable=False)
-    status = Column(String(50), nullable=False)
+    tier = Column(String(50), nullable=False, index=True)
+    status = Column(String(50), nullable=False, index=True)
     current_period_start = Column(DateTime)
     current_period_end = Column(DateTime)
     cancel_at_period_end = Column(Boolean, default=False)
