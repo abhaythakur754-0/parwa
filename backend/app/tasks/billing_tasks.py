@@ -33,6 +33,7 @@ logger = logging.getLogger("parwa.tasks.billing")
     time_limit=300,
     retry_backoff=True,
     retry_jitter=True,
+    link_error=billing_failure_callback.s(),  # CL-04: Alert on permanent failure
 )
 @with_company_id
 def daily_overage_charge(self, company_id: str) -> dict:
@@ -198,6 +199,7 @@ def process_all_overages(self, target_date: str = None) -> dict:
     soft_time_limit=120,
     time_limit=300,
     retry_backoff=True,
+    link_error=billing_failure_callback.s(),  # CL-04: Alert on permanent failure
 )
 @with_company_id
 def invoice_sync(self, company_id: str) -> dict:
@@ -325,6 +327,7 @@ def invoice_sync(self, company_id: str) -> dict:
     max_retries=2,
     soft_time_limit=60,
     time_limit=120,
+    link_error=billing_failure_callback.s(),  # CL-04: Alert on permanent failure
 )
 @with_company_id
 def subscription_check(self, company_id: str) -> dict:
@@ -414,6 +417,7 @@ def subscription_check(self, company_id: str) -> dict:
     max_retries=2,
     soft_time_limit=60,
     time_limit=120,
+    link_error=billing_failure_callback.s(),  # CL-04: Alert on permanent failure
 )
 @with_company_id
 def send_usage_warning(self, company_id: str, threshold: float = 80.0) -> dict:

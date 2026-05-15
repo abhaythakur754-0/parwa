@@ -19,6 +19,7 @@ from typing import Dict, List, Any, Optional
 from celery import shared_task
 
 from app.tasks.base import ParwaTask
+from app.tasks.error_callbacks import sla_failure_callback
 from database.base import SessionLocal
 from database.models.tickets import (
     SLAPolicy,
@@ -38,6 +39,7 @@ logger = logging.getLogger(__name__)
     max_retries=3,
     soft_time_limit=55,
     time_limit=60,
+    link_error=sla_failure_callback.s(),  # CL-04: Alert on permanent failure
 )
 def run_sla_check(self, company_id: str) -> Dict[str, Any]:
     """
@@ -182,6 +184,7 @@ def run_sla_check(self, company_id: str) -> Dict[str, Any]:
     max_retries=3,
     soft_time_limit=30,
     time_limit=35,
+    link_error=sla_failure_callback.s(),  # CL-04: Alert on permanent failure
 )
 def send_sla_warning(
     self,
@@ -250,6 +253,7 @@ def send_sla_warning(
     max_retries=3,
     soft_time_limit=30,
     time_limit=35,
+    link_error=sla_failure_callback.s(),  # CL-04: Alert on permanent failure
 )
 def send_sla_breach_notification(
     self,
@@ -331,6 +335,7 @@ def send_sla_breach_notification(
     max_retries=3,
     soft_time_limit=30,
     time_limit=35,
+    link_error=sla_failure_callback.s(),  # CL-04: Alert on permanent failure
 )
 def check_first_response_sla(
     self,
@@ -403,6 +408,7 @@ def check_first_response_sla(
     max_retries=3,
     soft_time_limit=30,
     time_limit=35,
+    link_error=sla_failure_callback.s(),  # CL-04: Alert on permanent failure
 )
 def seed_sla_policies(self, company_id: str) -> Dict[str, Any]:
     """
@@ -443,6 +449,7 @@ def seed_sla_policies(self, company_id: str) -> Dict[str, Any]:
     max_retries=3,
     soft_time_limit=120,
     time_limit=130,
+    link_error=sla_failure_callback.s(),  # CL-04: Alert on permanent failure
 )
 def daily_sla_report(self, company_id: str) -> Dict[str, Any]:
     """

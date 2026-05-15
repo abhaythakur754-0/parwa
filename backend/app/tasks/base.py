@@ -6,7 +6,8 @@ Base task classes that enforce:
 - Automatic audit logging
 - Structured error handling
 - Retry with exponential backoff
-- Dead letter queue for failed tasks
+- Dead letter queue for failed tasks (CL-01 FIX: actually routes to DLQ)
+- Task idempotency via Redis dedup (CL-03 FIX)
 
 Day 20: Added tenant context propagation for Celery tasks:
 - inject_tenant_context decorator auto-extracts company_id from task headers
@@ -16,6 +17,7 @@ Day 20: Added tenant context propagation for Celery tasks:
 """
 
 import functools
+import json
 import logging
 from typing import Any, Callable, Dict, Optional
 
@@ -28,6 +30,58 @@ logger = logging.getLogger("parwa.tasks")
 # Header key used to pass company_id from API → Celery task
 TENANT_HEADER_KEY = "X-Parwa-Company-ID"
 
+# CL-03: Redis key prefix for task dedup
+DEDUP_KEY_PREFIX = "parwa:task_dedup:"
+DEDUP_DEFAULT_TTL_SECONDS = 3600  # 1 hour default dedup window
+
+
+def _get_redis_client():
+    """Get Redis client for dedup and DLQ operations."""
+    try:
+        from app.core.redis import get_redis
+        import asyncio
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(get_redis())
+        finally:
+            loop.close()
+    except Exception:
+        return None
+
+
+def _build_dedup_key(task_name: str, args: tuple, kwargs: dict) -> Optional[str]:
+    """Build a deterministic dedup key from task name and arguments.
+
+    CL-03 FIX: Generates a unique key based on the task name and
+    its arguments so that duplicate task dispatches can be detected
+    and skipped.
+
+    Args:
+        task_name: The Celery task name (e.g. 'app.tasks.ai.classify_ticket')
+        args: Positional arguments to the task
+        kwargs: Keyword arguments to the task
+
+    Returns:
+        A Redis key string like 'parwa:task_dedup:app.tasks.ai.classify_ticket:hash'
+    """
+    try:
+        # Create a stable string representation of the task arguments
+        key_parts = [task_name]
+        for arg in args:
+            key_parts.append(str(arg))
+        for k, v in sorted(kwargs.items()):
+            key_parts.append(f"{k}={v}")
+
+        key_str = ":".join(key_parts)
+
+        # Hash to keep the key length manageable
+        import hashlib
+        key_hash = hashlib.sha256(key_str.encode()).hexdigest()[:16]
+
+        return f"{DEDUP_KEY_PREFIX}{task_name}:{key_hash}"
+    except Exception:
+        return None
+
 
 class ParwaTask(Task):
     """Base task class with structured lifecycle logging (BC-012).
@@ -38,6 +92,7 @@ class ParwaTask(Task):
     - Success logging with timing info
     - Day 16: DLQ routing on max retries exhausted
     - Day 20: Auto tenant context from task headers
+    - CL-01 FIX: Actually routes failed tasks to dead_letter queue
     """
 
     abstract = True
@@ -120,7 +175,6 @@ class ParwaTask(Task):
 
     def on_retry(self, exc, traceback, eta):
         """Log retry event with structured context (BC-012)."""
-        # FIX L43: Truncate error message (consistent with on_failure)
         logger.warning(
             "task_retry",
             extra={
@@ -135,9 +189,16 @@ class ParwaTask(Task):
         )
 
     def on_failure(self, exc, traceback, args, kwargs, einfo):
-        """Log failure without stack traces (BC-012).
+        """Log failure and route to DLQ when retries exhausted (BC-012).
 
-        Day 16: When max retries exhausted, log DLQ routing.
+        CL-01 FIX: When max retries are exhausted, this method now
+        actually republishes the failed task to the 'dead_letter' queue
+        instead of just logging a dlq_routed=True flag.
+
+        The republished task includes:
+        - Original task args/kwargs
+        - Error information in headers
+        - Original task_id for traceability
         """
         retries = self._safe_request_attr("retries", 0)
         max_retries = self.max_retries
@@ -157,11 +218,93 @@ class ParwaTask(Task):
                 "task_permanently_failed",
                 extra=extra,
             )
+
+            # CL-01 FIX: Actually route the task to the dead_letter queue
+            try:
+                self._route_to_dlq(exc, args, kwargs)
+            except Exception as dlq_exc:
+                logger.error(
+                    "dlq_route_failed",
+                    extra={
+                        "task_name": self.name,
+                        "task_id": self._safe_request_attr("id"),
+                        "dlq_error": str(dlq_exc)[:200],
+                    },
+                )
         else:
             logger.error(
                 "task_failure",
                 extra=extra,
             )
+
+    def _route_to_dlq(self, exc, args, kwargs):
+        """CL-01 FIX: Republish the failed task to the dead_letter queue.
+
+        This method creates a new task message and publishes it to the
+        'dead_letter' queue via Redis, preserving:
+        - The original task name, args, and kwargs
+        - The error that caused the failure
+        - The original task_id for traceability
+        - The company_id for tenant isolation
+
+        The dead_letter queue can be processed by a separate worker or
+        by the periodic purge_dead_letter_queue_task in periodic.py.
+        """
+        task_id = self._safe_request_attr("id")
+        company_id = args[0] if args else None
+
+        # Build the DLQ message payload
+        dlq_payload = {
+            "original_task_name": self.name,
+            "original_task_id": task_id,
+            "args": [str(a) for a in args],  # Serialize args
+            "kwargs": {k: str(v) for k, v in kwargs.items()},  # Serialize kwargs
+            "error_type": type(exc).__name__,
+            "error_message": str(exc)[:500],
+            "company_id": company_id,
+            "retries_exhausted": True,
+        }
+
+        # Publish to dead_letter queue via Redis (as a Celery task message)
+        try:
+            redis = _get_redis_client()
+            if redis is not None:
+                # Push to the Celery dead_letter queue (Redis list)
+                queue_key = "parwa:dead_letter"
+                redis.lpush(queue_key, json.dumps(dlq_payload))
+                # Set TTL on the queue key (keep DLQ entries for 7 days max)
+                try:
+                    redis.expire(queue_key, 7 * 24 * 3600)
+                except Exception:
+                    pass  # TTL is best-effort
+
+                logger.info(
+                    "task_routed_to_dlq",
+                    extra={
+                        "task_name": self.name,
+                        "original_task_id": task_id,
+                        "company_id": company_id,
+                        "dlq_queue": "dead_letter",
+                    },
+                )
+            else:
+                logger.warning(
+                    "dlq_redis_unavailable",
+                    extra={
+                        "task_name": self.name,
+                        "original_task_id": task_id,
+                        "warning": "Redis unavailable — DLQ entry not stored",
+                    },
+                )
+        except Exception as e:
+            logger.error(
+                "dlq_publish_error",
+                extra={
+                    "task_name": self.name,
+                    "error": str(e)[:200],
+                },
+            )
+            raise
 
     def on_success(self, retval, task_id, args, kwargs):
         """Log successful completion with structured context."""
@@ -186,6 +329,10 @@ class ParwaBaseTask(ParwaTask):
 
     BC-001: Every task's first parameter must be company_id.
     Day 20: Also supports company_id from task headers.
+
+    CL-03 FIX: Now includes idempotency/dedup checking via Redis.
+    Override `dedup_enabled = True` and optionally `dedup_ttl_seconds`
+    on your task class to enable automatic dedup.
     """
 
     abstract = True
@@ -198,6 +345,74 @@ class ParwaBaseTask(ParwaTask):
     retry_backoff_max = 300  # 5 minutes
     retry_jitter = True
     queue = "default"
+
+    # CL-03: Idempotency / dedup configuration
+    dedup_enabled: bool = False  # Opt-in: set True on task class to enable
+    dedup_ttl_seconds: int = DEDUP_DEFAULT_TTL_SECONDS  # Dedup window
+
+    def __call__(self, *args, **kwargs):
+        """Execute task with dedup check and tenant context.
+
+        CL-03 FIX: Before executing the task, checks Redis for a dedup
+        key. If found, skips execution and returns the previous result
+        (if cached) or a dedup_skip indicator.
+        """
+        # CL-03: Check dedup before executing
+        if self.dedup_enabled:
+            dedup_key = _build_dedup_key(self.name, args, kwargs)
+            if dedup_key:
+                redis = _get_redis_client()
+                if redis is not None:
+                    try:
+                        existing = redis.get(dedup_key)
+                        if existing is not None:
+                            logger.info(
+                                "task_dedup_skip",
+                                extra={
+                                    "task_name": self.name,
+                                    "dedup_key": dedup_key,
+                                    "message": "Duplicate task detected — skipping execution",
+                                },
+                            )
+                            # Try to return cached result
+                            try:
+                                cached = json.loads(existing)
+                                return cached
+                            except (json.JSONDecodeError, TypeError):
+                                return {"status": "dedup_skip", "task_name": self.name}
+                    except Exception as e:
+                        logger.warning(
+                            "task_dedup_check_failed",
+                            extra={
+                                "task_name": self.name,
+                                "error": str(e)[:200],
+                                "message": "Dedup check failed — proceeding with execution",
+                            },
+                        )
+
+        # Execute the task (with tenant context from parent)
+        result = super().__call__(*args, **kwargs)
+
+        # CL-03: Store dedup key after successful execution
+        if self.dedup_enabled:
+            dedup_key = _build_dedup_key(self.name, args, kwargs)
+            if dedup_key:
+                redis = _get_redis_client()
+                if redis is not None:
+                    try:
+                        # Cache the result for duplicate requests
+                        result_json = json.dumps(result) if result is not None else "null"
+                        redis.setex(dedup_key, self.dedup_ttl_seconds, result_json)
+                    except Exception as e:
+                        logger.warning(
+                            "task_dedup_store_failed",
+                            extra={
+                                "task_name": self.name,
+                                "error": str(e)[:200],
+                            },
+                        )
+
+        return result
 
 
 def with_company_id(func: Callable) -> Callable:
