@@ -207,7 +207,7 @@ class VariantWorkloadDistribution(Base):
     )
     ticket_id = Column(
         String(36),
-        ForeignKey("tickets.id"),
+        ForeignKey("tickets.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
 
@@ -259,7 +259,7 @@ class AIAgentAssignment(Base):
 
     __tablename__ = "ai_agent_assignments"
 
-    company_id = Column(String(36), ForeignKey("companies.id"), nullable=False, index=True)
+    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
 
     id = Column(String(36), primary_key=True, default=_uuid)
     agent_name = Column(String(100), nullable=False)
@@ -445,7 +445,7 @@ class PromptInjectionAttempt(Base):
 
     user_id = Column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
     ip_address = Column(String(45), nullable=True)
@@ -545,7 +545,7 @@ class PipelineStateSnapshot(Base):
     )
     ticket_id = Column(
         String(36),
-        ForeignKey("tickets.id"),
+        ForeignKey("tickets.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
     session_id = Column(String(36), nullable=True)

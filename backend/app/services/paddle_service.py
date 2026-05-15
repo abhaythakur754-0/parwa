@@ -20,6 +20,10 @@ from app.clients.paddle_client import PaddleClient, get_paddle_client, PaddleErr
 
 logger = logging.getLogger("parwa.services.paddle")
 
+# ── Idempotency constants ──────────────────────────────────────────────
+_PADDLE_WEBHOOK_TTL_SECONDS = 24 * 3600  # 24 hours (Paddle's retry window)
+_PADDLE_WEBHOOK_KEY_PREFIX = "parwa:paddle:webhook_processed"
+
 
 # ── Constants ────────────────────────────────────────────────────────
 
@@ -667,62 +671,98 @@ class PaddleService:
             "session_id": session_id,
         }
 
-    # ── Idempotency ──────────────────────────────────────────────────────
+    # ── Idempotency (Redis-backed) ─────────────────────────────────────
 
     @staticmethod
-    def is_duplicate_event(
-        event_id: str,
-        processed_ids: Optional[set] = None,
-    ) -> bool:
+    async def is_duplicate_event(event_id: str) -> bool:
         """
         Check if a webhook event has already been processed (idempotency).
 
-        Uses the caller-supplied *processed_ids* set for fast in-memory
-        lookup.  The set is ephemeral — it does not survive process
-        restarts.
+        Uses Redis SET with NX (set-if-not-exists) and EX (TTL) for
+        atomic idempotency checking. This is safe across process restarts
+        and multiple workers.
 
-        TODO(M4): Persist processed event IDs in a durable store (Redis
-        SET or a database table with a short TTL) so that idempotency
-        is maintained across restarts and across multiple workers.
-        Suggested key: ``parwa:paddle:processed:{event_id}`` with a
-        48-hour TTL.
+        The key is set with a 24-hour TTL matching Paddle's retry window.
+        If the key already exists, the event was previously processed.
 
         Args:
             event_id: Paddle event notification ID
-            processed_ids: Set of already-processed event IDs (in-memory or cached)
 
         Returns:
-            True if this event was already processed
+            True if this event was already processed (duplicate)
         """
-        if processed_ids is None:
+        if not event_id:
+            logger.warning("paddle_idempotency_check_empty_event_id")
             return False
-        return event_id in processed_ids
+
+        redis_key = f"{_PADDLE_WEBHOOK_KEY_PREFIX}:{event_id}"
+
+        try:
+            from app.core.redis import get_redis
+            redis = await get_redis()
+            # SET with NX (only set if not exists) and EX (TTL)
+            # Returns True if the key was set (first time), None/False if already exists
+            was_set = await redis.set(
+                redis_key,
+                "1",
+                nx=True,
+                ex=_PADDLE_WEBHOOK_TTL_SECONDS,
+            )
+            if was_set:
+                # Key was set for the first time → NOT a duplicate
+                logger.debug(
+                    "paddle_event_idempotency_new event_id=%s", event_id,
+                )
+                return False
+            else:
+                # Key already existed → IS a duplicate
+                logger.info(
+                    "paddle_event_idempotency_duplicate event_id=%s", event_id,
+                )
+                return True
+
+        except Exception as exc:
+            # Redis unavailable — fail-open (allow processing) per BC-012
+            logger.warning(
+                "paddle_event_idempotency_redis_failed event_id=%s error=%s",
+                event_id,
+                str(exc)[:200],
+            )
+            return False
 
     @staticmethod
-    def mark_event_processed(
-        event_id: str,
-        processed_ids: set,
-    ) -> None:
+    async def mark_event_processed(event_id: str) -> None:
         """
-        Mark a webhook event as processed.
+        Mark a webhook event as processed in Redis.
 
-        Adds *event_id* to the in-memory set and logs the event for
-        audit/debugging purposes.
-
-        TODO(M4): Also persist to Redis or DB so the record survives
-        restarts.  Example:
-            ``redis.setex(f"parwa:paddle:processed:{event_id}", 172800, "1")``
+        This is now a no-op when called after is_duplicate_event() because
+        is_duplicate_event() atomically sets the Redis key with NX+EX.
+        Kept for API backward-compatibility and explicit marking use cases.
 
         Args:
             event_id: Paddle event notification ID
-            processed_ids: Set to add the event ID to
         """
-        processed_ids.add(event_id)
-        logger.debug(
-            "paddle_event_marked_processed event_id=%s set_size=%d",
-            event_id,
-            len(processed_ids),
-        )
+        if not event_id:
+            return
+
+        redis_key = f"{_PADDLE_WEBHOOK_KEY_PREFIX}:{event_id}"
+
+        try:
+            from app.core.redis import get_redis
+            redis = await get_redis()
+            # Use SET with EX to ensure TTL is set even if key already exists
+            await redis.set(redis_key, "1", ex=_PADDLE_WEBHOOK_TTL_SECONDS)
+            logger.debug(
+                "paddle_event_marked_processed event_id=%s ttl=%dh",
+                event_id,
+                _PADDLE_WEBHOOK_TTL_SECONDS // 3600,
+            )
+        except Exception as exc:
+            logger.warning(
+                "paddle_event_mark_processed_redis_failed event_id=%s error=%s",
+                event_id,
+                str(exc)[:200],
+            )
 
 
 # ── Factory ─────────────────────────────────────────────────────────────────

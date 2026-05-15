@@ -208,6 +208,9 @@ class FAQAgent(BaseDomainAgent):
         Uses the production rag_retrieval module when available.
         Falls back to empty results with a warning.
 
+        RAG retrieval is wrapped with llm_call_with_retry for automatic
+        retry on transient errors (rate limit, timeout, connection).
+
         Args:
             message: The PII-redacted message to search against.
             tenant_id: Tenant identifier (BC-001).
@@ -218,16 +221,20 @@ class FAQAgent(BaseDomainAgent):
         """
         try:
             from app.core.rag_retrieval import retrieve_documents  # type: ignore[import-untyped]
+            from app.core.langgraph.retry import llm_call_with_retry
 
             max_docs = self.domain_knowledge.get("max_rag_documents", 5)
             min_score = self.domain_knowledge.get("min_relevance_score", 0.6)
 
-            result = retrieve_documents(
+            result = llm_call_with_retry(
+                retrieve_documents,
                 query=message,
                 tenant_id=tenant_id,
                 max_documents=max_docs,
                 min_relevance_score=min_score,
                 rerank=self.domain_knowledge.get("reranking_enabled", True),
+                max_retries=3,
+                base_delay=1.0,
             )
 
             documents = result.get("documents", [])

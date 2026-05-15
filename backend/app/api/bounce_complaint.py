@@ -16,9 +16,11 @@ BC-012: Structured JSON error responses.
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 
+from app.api.deps import get_current_user
+from database.models.core import User
 from app.schemas.bounce_complaint import (
     BounceListResponse,
     WhitelistRequest,
@@ -42,6 +44,7 @@ def _get_db(request: Request):
 @router.get("", response_model=BounceListResponse)
 async def list_bounces(
     request: Request,
+    current_user: User = Depends(get_current_user),
     status: str = Query("all", description="Filter: all/soft/hard/complaint"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=200, description="Items per page"),
@@ -51,18 +54,7 @@ async def list_bounces(
     Returns paginated list of bounce/complaint events ordered by most recent.
     Supports filtering by bounce type.
     """
-    company_id = getattr(request.state, "company_id", None)
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
+    company_id = current_user.company_id
 
     try:
         db = _get_db(request)
@@ -98,6 +90,7 @@ async def whitelist_bounced_email(
     request: Request,
     bounce_id: str,
     body: WhitelistRequest,
+    current_user: User = Depends(get_current_user),
 ):
     """Whitelist a previously bounced email address.
 
@@ -105,18 +98,7 @@ async def whitelist_bounced_email(
     after whitelisting, the whitelist is preserved and an alert
     is sent recommending review.
     """
-    company_id = getattr(request.state, "company_id", None)
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
+    company_id = current_user.company_id
 
     try:
         db = _get_db(request)
@@ -148,7 +130,7 @@ async def whitelist_bounced_email(
             )
 
         # Whitelist the email
-        user_id = getattr(request.state, "user_id", None)
+        user_id = str(current_user.id)
         result = service.whitelist_email(
             company_id=company_id,
             email=bounce.customer_email,
@@ -181,24 +163,14 @@ async def whitelist_bounced_email(
 @router.get("/stats", response_model=BounceStatsResponse)
 async def get_bounce_stats(
     request: Request,
+    current_user: User = Depends(get_current_user),
     range_days: int = Query(7, ge=1, le=90, description="Number of days to look back"),
 ):
     """Get bounce and complaint statistics for the tenant.
 
     Returns counts, rates, trend direction, and suppressed email count.
     """
-    company_id = getattr(request.state, "company_id", None)
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
+    company_id = current_user.company_id
 
     try:
         db = _get_db(request)
@@ -225,24 +197,16 @@ async def get_bounce_stats(
 
 
 @router.get("/digest", response_model=BounceDigestResponse)
-async def get_bounce_digest(request: Request):
+async def get_bounce_digest(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
     """Get deliverability digest for the tenant.
 
     Returns critical unacknowledged alerts and a 24h summary
     of bounces and complaints.
     """
-    company_id = getattr(request.state, "company_id", None)
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
+    company_id = current_user.company_id
 
     try:
         db = _get_db(request)
@@ -269,24 +233,17 @@ async def get_bounce_digest(request: Request):
 
 
 @router.get("/status/{email:path}")
-async def check_email_status(request: Request, email: str):
+async def check_email_status(
+    request: Request,
+    email: str,
+    current_user: User = Depends(get_current_user),
+):
     """Check if an email address can receive messages.
 
     Returns the current delivery status, bounce/complaint counts,
     and whether the email is whitelisted or suppressed.
     """
-    company_id = getattr(request.state, "company_id", None)
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
+    company_id = current_user.company_id
 
     try:
         db = _get_db(request)

@@ -47,9 +47,20 @@ config = context.config
 # Override sqlalchemy.url from DATABASE_URL environment variable
 # This is required for Docker deployments where the URL comes from env
 import os
+import logging
+
+logger = logging.getLogger("alembic.env")
+
 _database_url = os.environ.get("DATABASE_URL", "")
 if _database_url:
     config.set_main_option("sqlalchemy.url", _database_url)
+else:
+    ini_url = config.get_main_option("sqlalchemy.url") or ""
+    if not ini_url or ini_url.strip() == "":
+        logger.warning(
+            "DATABASE_URL env var not set and sqlalchemy.url is empty in alembic.ini. "
+            "Set DATABASE_URL or configure alembic.ini before running migrations."
+        )
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

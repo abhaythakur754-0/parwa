@@ -100,7 +100,7 @@ class User(Base):
     is_verified = Column(Boolean, default=False)
     is_platform_admin = Column(Boolean, default=False)  # Platform admin flag
     mfa_enabled = Column(Boolean, default=False)
-    mfa_secret = Column(String(255))
+    # mfa_secret removed: use MFASecret.secret_key (String(512) Fernet-encrypted) instead
     # Login lockout fields (F-013: progressive lockout)
     failed_login_count = Column(Integer, default=0)
     locked_until = Column(DateTime)
@@ -234,11 +234,11 @@ class APIKey(Base):
     revoked = Column(Boolean, default=False)
     revoked_at = Column(DateTime, nullable=True)
     rotated_from_id = Column(
-        String(36), ForeignKey("api_keys.id"), nullable=True,
+        String(36), ForeignKey("api_keys.id", ondelete="SET NULL"), nullable=True,
     )
     grace_ends_at = Column(DateTime, nullable=True)
     created_by = Column(
-        String(36), ForeignKey("users.id"), nullable=True,
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True,
     )
     last_used_at = Column(DateTime)
     expires_at = Column(DateTime)
@@ -281,7 +281,7 @@ class EmergencyState(Base):
     )
     is_paused = Column(Boolean, default=False)
     paused_channels = Column(Text, default="")
-    paused_by = Column(String(36), ForeignKey("users.id"))
+    paused_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
     paused_at = Column(DateTime)
     reason = Column(Text)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

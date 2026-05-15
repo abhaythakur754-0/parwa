@@ -30,7 +30,7 @@ class ApprovalQueue(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("tickets.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id", ondelete="SET NULL"))
     action_type = Column(String(100), nullable=False)
     confidence_score = Column(Numeric(5, 2))
     risk_level = Column(String(50))
@@ -41,7 +41,7 @@ class ApprovalQueue(Base):
     batch_id = Column(String(36))
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     resolved_at = Column(DateTime)
-    resolved_by = Column(String(36), ForeignKey("users.id"))
+    resolved_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
 
 
 class AutoApproveRule(Base):
@@ -58,7 +58,7 @@ class AutoApproveRule(Base):
     risk_levels = Column(Text, default="low")
     is_active = Column(Boolean, default=False)
     created_by = Column(
-        String(36), ForeignKey("users.id"), nullable=False,
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False,
     )
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -72,15 +72,15 @@ class ExecutedAction(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("tickets.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id", ondelete="SET NULL"))
     approval_id = Column(
-        String(36), ForeignKey("approval_queues.id"),
+        String(36), ForeignKey("approval_queues.id", ondelete="CASCADE"),
     )
     action_type = Column(String(100), nullable=False)
     action_data = Column(Text)
     response_data = Column(Text)
     amount = Column(Numeric(10, 2))  # BC-002
-    executed_by = Column(String(36), ForeignKey("users.id"))
+    executed_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
@@ -93,7 +93,7 @@ class UndoLog(Base):
         nullable=False, index=True,
     )
     executed_action_id = Column(
-        String(36), ForeignKey("executed_actions.id"),
+        String(36), ForeignKey("executed_actions.id", ondelete="CASCADE"),
         nullable=False,
     )
     # reversal, email_recall
@@ -101,5 +101,5 @@ class UndoLog(Base):
     original_data = Column(Text)
     undo_data = Column(Text)
     undo_reason = Column(Text)
-    undone_by = Column(String(36), ForeignKey("users.id"))
+    undone_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

@@ -100,7 +100,7 @@ class CancellationRequest(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     reason = Column(Text, nullable=False)
     feedback = Column(Text)
     status = Column(String(50), default="pending")

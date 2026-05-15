@@ -17,9 +17,11 @@ BC-012: Structured JSON error responses.
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 
+from app.api.deps import get_current_user
+from database.models.core import User
 from app.schemas.ooo_detection import (
     OOOCheckRequest,
     OOOCheckResponse,
@@ -43,24 +45,17 @@ def _get_db(request: Request):
 
 
 @router.post("/check", response_model=OOOCheckResponse)
-async def check_ooo(request: Request, body: OOOCheckRequest):
+async def check_ooo(
+    request: Request,
+    body: OOOCheckRequest,
+    current_user: User = Depends(get_current_user),
+):
     """Check if an email is an out-of-office or auto-reply.
 
     Analyzes email headers, subject, and body content against
     OOO detection patterns and custom tenant rules.
     """
-    company_id = getattr(request.state, "company_id", None)
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
+    company_id = current_user.company_id
 
     try:
         db = _get_db(request)
@@ -109,24 +104,16 @@ async def check_ooo(request: Request, body: OOOCheckRequest):
 
 
 @router.get("/rules", response_model=OOORulesListResponse)
-async def list_ooo_rules(request: Request):
+async def list_ooo_rules(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
     """List OOO detection rules for the tenant.
 
     Returns both tenant-specific custom rules and the count of
     global rules available to all tenants.
     """
-    company_id = getattr(request.state, "company_id", None)
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
+    company_id = current_user.company_id
 
     try:
         db = _get_db(request)
@@ -153,24 +140,17 @@ async def list_ooo_rules(request: Request):
 
 
 @router.post("/rules", response_model=OOORuleActionResponse)
-async def create_ooo_rule(request: Request, body: OOORuleCreate):
+async def create_ooo_rule(
+    request: Request,
+    body: OOORuleCreate,
+    current_user: User = Depends(get_current_user),
+):
     """Create a custom OOO detection rule for the tenant.
 
     Rules are evaluated in order after built-in patterns.
     Supported pattern types: regex, substring, contains.
     """
-    company_id = getattr(request.state, "company_id", None)
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
+    company_id = current_user.company_id
 
     try:
         db = _get_db(request)
@@ -218,20 +198,14 @@ async def create_ooo_rule(request: Request, body: OOORuleCreate):
 
 
 @router.put("/rules/{rule_id}", response_model=OOORuleActionResponse)
-async def update_ooo_rule(request: Request, rule_id: str, body: OOORuleUpdate):
+async def update_ooo_rule(
+    request: Request,
+    rule_id: str,
+    body: OOORuleUpdate,
+    current_user: User = Depends(get_current_user),
+):
     """Update an existing OOO detection rule."""
-    company_id = getattr(request.state, "company_id", None)
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
+    company_id = current_user.company_id
 
     try:
         db = _get_db(request)
@@ -276,20 +250,13 @@ async def update_ooo_rule(request: Request, rule_id: str, body: OOORuleUpdate):
 
 
 @router.delete("/rules/{rule_id}", response_model=OOORuleActionResponse)
-async def delete_ooo_rule(request: Request, rule_id: str):
+async def delete_ooo_rule(
+    request: Request,
+    rule_id: str,
+    current_user: User = Depends(get_current_user),
+):
     """Delete a custom OOO detection rule."""
-    company_id = getattr(request.state, "company_id", None)
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
+    company_id = current_user.company_id
 
     try:
         db = _get_db(request)
@@ -334,24 +301,14 @@ async def delete_ooo_rule(request: Request, rule_id: str):
 @router.get("/stats", response_model=OOOStatsResponse)
 async def get_ooo_stats(
     request: Request,
+    current_user: User = Depends(get_current_user),
     range_days: int = Query(7, ge=1, le=90, description="Number of days to look back"),
 ):
     """Get OOO detection statistics for the tenant.
 
     Returns detection counts, breakdown by type, and top senders.
     """
-    company_id = getattr(request.state, "company_id", None)
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
+    company_id = current_user.company_id
 
     try:
         db = _get_db(request)
@@ -378,23 +335,16 @@ async def get_ooo_stats(
 
 
 @router.get("/status/{email:path}")
-async def check_sender_ooo_status(request: Request, email: str):
+async def check_sender_ooo_status(
+    request: Request,
+    email: str,
+    current_user: User = Depends(get_current_user),
+):
     """Check if a customer currently has an active OOO status.
 
     Returns the OOO profile details if active, or null if not.
     """
-    company_id = getattr(request.state, "company_id", None)
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
+    company_id = current_user.company_id
 
     try:
         db = _get_db(request)

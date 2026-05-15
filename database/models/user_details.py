@@ -40,7 +40,7 @@ class UserDetails(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     user_id = Column(
-        String(36), ForeignKey("users.id"),
+        String(36), ForeignKey("users.id", ondelete="CASCADE"),
         unique=True, nullable=False, index=True,
     )
     company_id = Column(

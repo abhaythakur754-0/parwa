@@ -253,7 +253,7 @@ def verify_mfa_setup(
     }
 
 
-def verify_mfa_login(
+async def verify_mfa_login(
     db: Session, user: User, code: str
 ) -> dict:
     """Verify MFA during login.
@@ -345,22 +345,10 @@ def verify_mfa_login(
                 details={"locked": True},
             )
 
-        # Progressive delay (non-blocking for async callers)
+        # Progressive delay
         attempt = min(count - 1, len(_MFA_DELAYS) - 1)
         if _MFA_DELAYS[attempt] > 0:
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
-            if loop and loop.is_running():
-                # We're inside an async context — schedule non-blocking delay
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as pool:
-                    loop.run_in_executor(
-                        pool, lambda: time.sleep(_MFA_DELAYS[attempt])
-                    )
-            else:
-                time.sleep(_MFA_DELAYS[attempt])
+            await asyncio.sleep(_MFA_DELAYS[attempt])
 
         db.commit()
         raise AuthenticationError(

@@ -322,6 +322,9 @@ class BaseDomainAgent(ABC):
         Uses the production response_generator when available.
         Falls back to a template-based response.
 
+        Task ID 6: Wraps the LLM call with retry_llm_call for
+        automatic retry on transient errors (rate limit, timeout, etc.).
+
         Args:
             message: The PII-redacted message.
             enriched_context: Output from _apply_techniques().
@@ -336,8 +339,10 @@ class BaseDomainAgent(ABC):
         """
         try:
             from app.core.response_generator import generate_response  # type: ignore[import-untyped]
+            from app.core.langgraph.retry import retry_llm_call
 
-            result = generate_response(
+            result = retry_llm_call(
+                generate_response,
                 message=message,
                 system_prompt=self.system_prompt,
                 enriched_context=enriched_context,
@@ -348,6 +353,8 @@ class BaseDomainAgent(ABC):
                 context_health=context_health,
                 sentiment_score=sentiment_score,
                 agent_name=self.agent_name,
+                max_retries=3,
+                base_delay=1.0,
             )
 
             return {

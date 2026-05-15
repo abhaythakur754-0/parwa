@@ -6,7 +6,6 @@ Revises: 016_email_channel_tables
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 revision = "017_outbound_email"
 down_revision = "016_email_channel_tables"
@@ -17,8 +16,8 @@ depends_on = None
 def upgrade() -> None:
     op.create_table(
         "outbound_emails",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("company_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("id", sa.String(36), primary_key=True),
+        sa.Column("company_id", sa.String(36), nullable=False),
         sa.Column("recipient_email", sa.String(254), nullable=False),
         sa.Column("recipient_name", sa.String(200), nullable=True),
         sa.Column("subject", sa.String(500), nullable=False),
@@ -31,8 +30,8 @@ def upgrade() -> None:
             nullable=False,
             server_default="pending",
         ),
-        sa.Column("ticket_id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("ticket_message_id", postgresql.UUID(as_uuid=True), nullable=True),
+        sa.Column("ticket_id", sa.String(36), nullable=False),
+        sa.Column("ticket_message_id", sa.String(36), nullable=True),
         sa.Column("role", sa.String(50), nullable=False, server_default="ai"),
         sa.Column("model_used", sa.String(100), nullable=True),
         sa.Column("confidence", sa.Float(), nullable=True),

@@ -1013,17 +1013,27 @@ class ChatWidgetService:
     def _get_hmac_secret(self) -> str:
         """Get the HMAC secret key for visitor token signing.
 
-        Falls back to SECRET_KEY environment variable.
-
         Returns:
             Secret key string.
+
+        Raises:
+            RuntimeError: If SECRET_KEY cannot be loaded.
         """
         try:
             from app.config import get_settings
             settings = get_settings()
             return settings.SECRET_KEY
-        except Exception:
-            return "parwa-widget-secret-fallback"
+        except Exception as exc:
+            import logging as _logging
+            _logging.getLogger("parwa.chat_widget").critical(
+                "hmac_secret_unavailable: SECRET_KEY could not be loaded. "
+                "Widget HMAC signing is disabled until this is fixed."
+            )
+            raise RuntimeError(
+                "CRITICAL: SECRET_KEY could not be loaded. "
+                "Chat widget HMAC signing requires a valid SECRET_KEY. "
+                f"Original error: {exc}"
+            ) from exc
 
     def _check_visitor_rate_limit(
         self,

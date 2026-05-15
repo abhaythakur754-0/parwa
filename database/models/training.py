@@ -28,7 +28,7 @@ class TrainingDataset(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    agent_id = Column(String(36), ForeignKey("agents.id"))
+    agent_id = Column(String(36), ForeignKey("agents.id", ondelete="SET NULL"))
     name = Column(String(255), nullable=False)
     record_count = Column(Integer, default=0)
     source = Column(String(50), nullable=False)  # mistakes, manual, export
@@ -47,7 +47,7 @@ class TrainingCheckpoint(Base):
         nullable=False, index=True,
     )
     training_run_id = Column(
-        String(36), ForeignKey("training_runs.id"),
+        String(36), ForeignKey("training_runs.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
     checkpoint_name = Column(String(255), nullable=False)
@@ -67,10 +67,10 @@ class AgentMistake(Base):
         nullable=False, index=True,
     )
     agent_id = Column(
-        String(36), ForeignKey("agents.id"),
+        String(36), ForeignKey("agents.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("tickets.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id", ondelete="SET NULL"))
     mistake_type = Column(String(100), nullable=False)
     original_response = Column(Text)
     expected_response = Column(Text)
@@ -89,7 +89,7 @@ class AgentPerformance(Base):
         nullable=False, index=True,
     )
     agent_id = Column(
-        String(36), ForeignKey("agents.id"),
+        String(36), ForeignKey("agents.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
     period = Column(String(20), nullable=False)

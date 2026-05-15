@@ -13,9 +13,11 @@ BC-001: All endpoints scoped to company_id (via middleware).
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 
+from app.api.deps import get_current_user
+from database.models.core import User
 from app.schemas.email_channel import (
     InboundEmailListResponse,
     InboundEmailResponse,
@@ -39,6 +41,7 @@ def _get_db(request: Request):
 )
 async def list_inbound_emails(
     request: Request,
+    current_user: User = Depends(get_current_user),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=200, description="Items per page"),
     is_processed: Optional[bool] = Query(None, description="Filter by processed status"),
@@ -50,18 +53,7 @@ async def list_inbound_emails(
     ordered by most recent first. Supports filtering by
     processing status and sender email address.
     """
-    company_id = getattr(request.state, "company_id", None)
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
+    company_id = current_user.company_id
 
     try:
         db = _get_db(request)
@@ -102,24 +94,14 @@ async def list_inbound_emails(
 async def get_inbound_email(
     request: Request,
     inbound_email_id: str,
+    current_user: User = Depends(get_current_user),
 ):
     """Get a single inbound email by ID.
 
     Returns the full inbound email record including headers,
     body content, and processing status.
     """
-    company_id = getattr(request.state, "company_id", None)
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
+    company_id = current_user.company_id
 
     try:
         db = _get_db(request)
@@ -164,6 +146,7 @@ async def get_inbound_email(
 )
 async def list_email_threads(
     request: Request,
+    current_user: User = Depends(get_current_user),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=200, description="Items per page"),
 ):
@@ -172,18 +155,7 @@ async def list_email_threads(
     Returns paginated list of email threads with message counts
     and participant information, ordered by most recent activity.
     """
-    company_id = getattr(request.state, "company_id", None)
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
+    company_id = current_user.company_id
 
     try:
         db = _get_db(request)
@@ -247,24 +219,14 @@ async def list_email_threads(
 async def get_email_thread(
     request: Request,
     thread_id: str,
+    current_user: User = Depends(get_current_user),
 ):
     """Get a single email thread by ID.
 
     Returns the email thread record including ticket association,
     message count, and participant list.
     """
-    company_id = getattr(request.state, "company_id", None)
-    if not company_id:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Tenant identification required",
-                    "details": None,
-                }
-            },
-        )
+    company_id = current_user.company_id
 
     try:
         db = _get_db(request)

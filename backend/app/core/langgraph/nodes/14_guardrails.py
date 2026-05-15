@@ -76,12 +76,16 @@ def _check_guardrails_engine(
     """
     try:
         from app.core.guardrails_engine import check_response  # type: ignore[import-untyped]
+        from app.core.langgraph.retry import llm_call_with_retry
 
-        result = check_response(
+        result = llm_call_with_retry(
+            check_response,
             response=response_text,
             original_message=message,
             tenant_id=tenant_id,
             variant_tier=variant_tier,
+            max_retries=3,
+            base_delay=1.0,
         )
 
         passed = bool(result.get("passed", True))
@@ -160,11 +164,15 @@ def _check_hallucination(
     """
     try:
         from app.core.hallucination_detector import detect_hallucination  # type: ignore[import-untyped]
+        from app.core.langgraph.retry import llm_call_with_retry
 
-        result = detect_hallucination(
+        result = llm_call_with_retry(
+            detect_hallucination,
             response=response_text,
             query=message,
             tenant_id=tenant_id,
+            max_retries=3,
+            base_delay=1.0,
         )
 
         hallucination_score = float(result.get("hallucination_score", 0.0))
@@ -428,11 +436,15 @@ def _check_brand_voice(
 
     try:
         from app.core.brand_voice_engine import check_compliance  # type: ignore[import-untyped]
+        from app.core.langgraph.retry import llm_call_with_retry
 
-        result = check_compliance(
+        result = llm_call_with_retry(
+            check_compliance,
             response=response_text,
             tenant_id=tenant_id,
             variant_tier=variant_tier,
+            max_retries=3,
+            base_delay=1.0,
         )
 
         passed = bool(result.get("compliant", True))

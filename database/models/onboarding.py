@@ -37,7 +37,7 @@ class OnboardingSession(Base):
         nullable=False, index=True,
     )
     user_id = Column(
-        String(36), ForeignKey("users.id"), nullable=False,
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False,
     )
     # Wizard progress (1-5)
     current_step = Column(Integer, default=1)
@@ -82,7 +82,7 @@ class ConsentRecord(Base):
         nullable=False, index=True,
     )
     user_id = Column(
-        String(36), ForeignKey("users.id"), nullable=False,
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False,
     )
     # tcpa, gdpr, call_recording
     consent_type = Column(String(50), nullable=False)

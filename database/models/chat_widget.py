@@ -90,7 +90,7 @@ class ChatWidgetSession(Base):
     status = Column(String(20), nullable=False, default="active")
 
     # Assignment
-    assigned_agent_id = Column(String(36), nullable=True, index=True)
+    assigned_agent_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     department = Column(String(100), nullable=True)
 
     # Linked ticket (auto-created or manual)
@@ -101,7 +101,7 @@ class ChatWidgetSession(Base):
     )
 
     # Customer resolution (if visitor matches known customer)
-    customer_id = Column(String(36), nullable=True, index=True)
+    customer_id = Column(String(36), ForeignKey("customers.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Session metrics
     message_count = Column(Integer, nullable=False, default=0)
@@ -211,10 +211,10 @@ class ChatWidgetMessage(Base):
         nullable=False,
         index=True,
     )
-    company_id = Column(String(36), nullable=False, index=True)
+    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Who sent this message
-    sender_id = Column(String(36), nullable=True, index=True)
+    sender_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     sender_name = Column(String(100), nullable=True)
     role = Column(String(10), nullable=False)
 
@@ -317,8 +317,8 @@ class CannedResponse(Base):
     sort_order = Column(Integer, nullable=False, default=0)
 
     is_active = Column(Boolean, nullable=False, default=True)
-    created_by = Column(String(36), nullable=True)
-    updated_by = Column(String(36), nullable=True)
+    created_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    updated_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime, default=lambda: datetime.now(timezone.utc),

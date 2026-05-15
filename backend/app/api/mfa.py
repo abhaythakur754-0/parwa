@@ -351,7 +351,7 @@ async def mfa_verify_login(
     # M-09: Wrap service call to catch any raw Exception and
     # convert to proper AuthenticationError for consistent error handling.
     try:
-        result = verify_mfa_login(
+        result = await verify_mfa_login(
             db=db, user=user, code=body.code
         )
     except AuthenticationError:

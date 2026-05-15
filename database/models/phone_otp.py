@@ -24,7 +24,7 @@ class PhoneOTP(Base):
     )
     phone = Column(String(20), nullable=False, index=True)
     company_id = Column(
-        String(36), ForeignKey("companies.id"),
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
     code_hash = Column(String(64), nullable=False)

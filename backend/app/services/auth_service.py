@@ -170,7 +170,7 @@ def register_user(
     )
 
 
-def authenticate_user(
+async def authenticate_user(
     db: Session,
     email: str,
     password: str,
@@ -277,24 +277,12 @@ def authenticate_user(
             message="Invalid email or password"
         )
 
-    # L11: Progressive delay before success response (non-blocking for async)
+    # L11: Progressive delay before success response
     attempt = user.failed_login_count or 0
     if attempt > 0 and attempt < len(_LOCKOUT_DELAYS):
         delay = _LOCKOUT_DELAYS[attempt]
         if delay > 0:
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
-            if loop and loop.is_running():
-                # Async context — run delay in thread pool to avoid blocking event loop
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as pool:
-                    loop.run_in_executor(
-                        pool, lambda: time.sleep(delay)
-                    )
-            else:
-                time.sleep(delay)
+            await asyncio.sleep(delay)
 
     # Reset failed login count on success
     user.failed_login_count = 0

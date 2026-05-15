@@ -452,9 +452,17 @@ async def invoke_parwa_graph(
     try:
         # Day 4: Add global execution timeout (60s) to prevent hanging nodes
         import asyncio
+        from app.core.langgraph.retry import retry_llm_call
 
         result = await asyncio.wait_for(
-            graph.ainvoke(initial_state, config),
+            retry_llm_call(
+                graph.ainvoke,
+                initial_state,
+                config,
+                max_retries=2,
+                base_delay=1.0,
+                max_delay=8.0,
+            ),
             timeout=60.0,
         )
 
@@ -477,6 +485,19 @@ async def invoke_parwa_graph(
             tenant_id=tenant_id,
             timeout="60s",
         )
+        # P0-2: Persist to DLQ before returning fallback
+        try:
+            import asyncio as _aio
+            _aio.get_event_loop().create_task(
+                _persist_to_dlq(
+                    company_id=tenant_id,
+                    conversation_id=conversation_id or session_id or "",
+                    error="Graph execution timed out after 60s",
+                    state_snapshot=initial_state,
+                )
+            )
+        except Exception:
+            pass  # DLQ persistence must not break the fallback path
         return _fallback_response(
             message, variant_tier, tenant_id,
             "Graph execution timed out after 60s",
@@ -487,7 +508,68 @@ async def invoke_parwa_graph(
             tenant_id=tenant_id,
             error=str(exc),
         )
+        # P0-2: Persist to DLQ before returning fallback
+        try:
+            import asyncio as _aio
+            _aio.get_event_loop().create_task(
+                _persist_to_dlq(
+                    company_id=tenant_id,
+                    conversation_id=conversation_id or session_id or "",
+                    error=str(exc)[:500],
+                    state_snapshot=initial_state,
+                )
+            )
+        except Exception:
+            pass  # DLQ persistence must not break the fallback path
         return _fallback_response(message, variant_tier, tenant_id, str(exc))
+
+
+async def _persist_to_dlq(
+    company_id: str,
+    conversation_id: str,
+    error: str,
+    state_snapshot: dict,
+) -> None:
+    """Persist failed graph execution to Dead Letter Queue for review/retry.
+
+    Stores the failed conversation state in Redis with a 7-day TTL so that
+    operators can review, debug, and manually retry failed conversations.
+
+    Key format: parwa:langgraph:dlq:{company_id}:{conversation_id}
+    """
+    from datetime import datetime, timezone
+    import json as _json
+
+    dlq_entry = {
+        "company_id": company_id,
+        "conversation_id": conversation_id,
+        "error": error,
+        "state_snapshot": {
+            k: v for k, v in state_snapshot.items()
+            if k in ("message", "channel", "customer_id", "tenant_id",
+                      "variant_tier", "intent", "target_agent",
+                      "agent_response", "agent_confidence")
+        },
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "retried": False,
+    }
+
+    try:
+        from app.core.redis_client import get_redis_client
+        redis = get_redis_client()
+        key = f"parwa:langgraph:dlq:{company_id}:{conversation_id or 'no-conv'}"
+        redis.setex(key, 7 * 24 * 3600, _json.dumps(dlq_entry))
+        logger.info(
+            "langgraph_dlq_persisted",
+            company_id=company_id,
+            conversation_id=conversation_id,
+        )
+    except Exception as dlq_exc:
+        logger.warning(
+            "langgraph_dlq_persist_failed",
+            company_id=company_id,
+            error=str(dlq_exc)[:200],
+        )
 
 
 def _fallback_response(

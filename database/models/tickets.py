@@ -141,8 +141,8 @@ class Ticket(Base):
     )
     category = Column(String(50), nullable=True)
     tags = Column(Text, default="[]")
-    agent_id = Column(String(36), ForeignKey("agents.id"))
-    assigned_to = Column(String(36), ForeignKey("users.id"))
+    agent_id = Column(String(36), ForeignKey("agents.id", ondelete="SET NULL"))
+    assigned_to = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
     classification_intent = Column(String(100))
     classification_type = Column(String(50))
     metadata_json = Column(Text, default="{}")
@@ -253,7 +253,7 @@ class TicketAttachment(Base):
     file_url = Column(Text, nullable=False)
     file_size = Column(Integer)
     mime_type = Column(String(100))
-    uploaded_by = Column(String(36), ForeignKey("users.id"))
+    uploaded_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
@@ -270,7 +270,7 @@ class TicketInternalNote(Base):
         nullable=False, index=True,
     )
     author_id = Column(
-        String(36), ForeignKey("users.id"), nullable=False
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     content = Column(Text, nullable=False)
     is_pinned = Column(Boolean, default=False)
@@ -296,7 +296,7 @@ class TicketStatusChange(Base):
     from_status = Column(String(50))
     to_status = Column(String(50), nullable=False)
     changed_by = Column(
-        String(36), ForeignKey("users.id"), nullable=False,
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=False,
     )
     reason = Column(Text)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -388,7 +388,7 @@ class BulkActionLog(Base):
     # JSON array of ticket IDs
     ticket_ids = Column(Text, nullable=False)
     performed_by = Column(
-        String(36), ForeignKey("users.id"), nullable=False,
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=False,
     )
     result_summary = Column(Text)
     # Unique token for undo capability
@@ -409,7 +409,7 @@ class TicketMerge(Base):
     # JSON array of merged ticket IDs
     merged_ticket_ids = Column(Text, nullable=False)
     merged_by = Column(
-        String(36), ForeignKey("users.id"), nullable=False,
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=False,
     )
     company_id = Column(
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
@@ -556,7 +556,7 @@ class ClassificationCorrection(Base):
     original_urgency = Column(String(50))
     corrected_urgency = Column(String(50))
     corrected_by = Column(
-        String(36), ForeignKey("users.id"), nullable=False,
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=False,
     )
     reason = Column(Text)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -645,7 +645,7 @@ class CustomerMergeAudit(Base):
     # JSON array of absorbed customer IDs
     merged_customer_ids = Column(Text, nullable=False)
     merged_by = Column(
-        String(36), ForeignKey("users.id"), nullable=False,
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=False,
     )
     # merge_reason, unmerge
     action_type = Column(String(50), nullable=False)
@@ -673,7 +673,7 @@ class TicketTrigger(Base):
     priority_order = Column(Integer, default=0)
     execution_count = Column(Integer, default=0)
     last_executed_at = Column(DateTime)
-    created_by = Column(String(36), ForeignKey("users.id"))
+    created_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
@@ -719,8 +719,8 @@ class TicketCollision(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    ticket_id = Column(String(36), ForeignKey("tickets.id"), nullable=False, index=True)
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    ticket_id = Column(String(36), ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     session_id = Column(String(100))  # Browser session identifier
     started_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     last_activity_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

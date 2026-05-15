@@ -142,7 +142,7 @@ async def login(
     L11: Progressive lockout after 5 failures.
     L12: Also sets HTTP-only cookies for tokens.
     """
-    result = authenticate_user(
+    result = await authenticate_user(
         db=db,
         email=body.email,
         password=body.password,

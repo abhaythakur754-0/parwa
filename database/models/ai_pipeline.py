@@ -47,9 +47,9 @@ class ServiceConfig(Base):
     __tablename__ = "service_configs"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    provider_id = Column(String(36), ForeignKey("api_providers.id"))
+    provider_id = Column(String(36), ForeignKey("api_providers.id", ondelete="SET NULL"))
     company_id = Column(
-        String(36), ForeignKey("companies.id"),
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
     display_name = Column(String(255))
@@ -68,7 +68,7 @@ class GSDSession(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     session_id = Column(
-        String(36), ForeignKey("tickets.id"),
+        String(36), ForeignKey("tickets.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
     company_id = Column(
@@ -87,7 +87,7 @@ class ConfidenceScore(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     session_id = Column(
-        String(36), ForeignKey("tickets.id"),
+        String(36), ForeignKey("tickets.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
     company_id = Column(
@@ -107,7 +107,7 @@ class GuardrailBlock(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     session_id = Column(
-        String(36), ForeignKey("tickets.id"),
+        String(36), ForeignKey("tickets.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
     company_id = Column(
@@ -120,7 +120,7 @@ class GuardrailBlock(Base):
     block_reason = Column(Text)
     severity = Column(String(20), default="medium")
     status = Column(String(50), default="pending_review")
-    reviewed_by = Column(String(36), ForeignKey("users.id"))
+    reviewed_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
     reviewed_at = Column(DateTime)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -167,7 +167,7 @@ class ModelUsageLog(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("tickets.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id", ondelete="SET NULL"))
     provider_name = Column(String(100), nullable=False)
     model_name = Column(String(100), nullable=False)
     input_tokens = Column(Integer, default=0)

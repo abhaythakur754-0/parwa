@@ -28,6 +28,7 @@ BC-012: All timestamps UTC.
 
 import json
 import logging
+import asyncio
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -267,7 +268,7 @@ class ZAIClient:
                     agent_type, attempt + 1, max_retries, str(e)[:200],
                 )
                 if attempt < max_retries - 1:
-                    time.sleep(0.5 * (attempt + 1))  # Exponential backoff
+                    await asyncio.sleep(0.5 * (attempt + 1))  # Exponential backoff
 
         # Fallback: rule-based decision
         logger.info("zai_chat_fallback: agent=%s, using_rule_based", agent_type)

@@ -139,13 +139,17 @@ class RefundAgent(BaseDomainAgent):
         """
         try:
             from app.core.react_tools.order_tool import lookup_order  # type: ignore[import-untyped]
+            from app.core.langgraph.retry import llm_call_with_retry
 
             order_id = signals.get("order_id", "") if signals else ""
 
-            result = lookup_order(
+            result = llm_call_with_retry(
+                lookup_order,
                 query=message,
                 tenant_id=tenant_id,
                 order_id=order_id,
+                max_retries=3,
+                base_delay=1.0,
             )
 
             order_found = result.get("found", False)

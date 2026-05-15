@@ -48,31 +48,25 @@ def _generate_token() -> str:
 def _hash_token(token: str) -> str:
     """Hash a reset token for DB storage (SHA-256 + pepper).
 
-    SECURITY FIX: In production, raises an error if SECRET_KEY cannot
-    be loaded. A fallback pepper would allow token forgery if the source
-    code is known. In non-production, a warning is logged but a fallback
-    is still used for developer convenience.
+    SECURITY FIX: Always raises RuntimeError if SECRET_KEY cannot be
+    loaded. A known fallback pepper would allow token forgery if the
+    source code is compromised — this is never acceptable in any
+    environment.
     """
     try:
         from app.config import get_settings
         settings = get_settings()
         pepper = settings.SECRET_KEY
     except Exception as exc:
-        # Check if we're in production — fail closed
-        import os
-        environment = os.environ.get("ENVIRONMENT", "development")
-        if environment == "production":
-            raise RuntimeError(
-                "CRITICAL: SECRET_KEY could not be loaded in production. "
-                "Password reset tokens cannot be securely hashed. "
-                f"Original error: {exc}"
-            ) from exc
-        # Non-production: log warning and use fallback
-        logger.warning(
-            "secret_key_unavailable_using_fallback_pepper "
-            "This is insecure — only acceptable in development"
+        logger.critical(
+            "secret_key_unavailable: Password reset token hashing "
+            "failed because SECRET_KEY could not be loaded."
         )
-        pepper = "fallback-pepper-change-in-production"
+        raise RuntimeError(
+            "CRITICAL: SECRET_KEY could not be loaded. "
+            "Password reset tokens cannot be securely hashed. "
+            f"Original error: {exc}"
+        ) from exc
     return hashlib.sha256(
         f"{token}:{pepper}".encode("utf-8")
     ).hexdigest()

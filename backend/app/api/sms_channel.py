@@ -25,8 +25,11 @@ BC-012: Structured JSON error responses.
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
+
+from app.api.deps import get_current_user
+from database.models.core import User
 
 logger = logging.getLogger("parwa.sms_channel_api")
 
@@ -49,13 +52,14 @@ def _get_db(request: Request):
 
 
 @router.post("/send")
-async def send_sms(request: Request):
+async def send_sms(request: Request, current_user: User = Depends(get_current_user)):
     """Send an outbound SMS message.
 
     Validates opt-out status (BC-010), rate limits (BC-006),
     and sends via Twilio API.
+    Requires JWT authentication.
     """
-    company_id = getattr(request.state, "company_id", None)
+    company_id = current_user.company_id
     if not company_id:
         return JSONResponse(
             status_code=403,
@@ -94,7 +98,7 @@ async def send_sms(request: Request):
             },
         )
 
-    sender_id = getattr(request.state, "user_id", None)
+    sender_id = str(current_user.id)
 
     try:
         db = _get_db(request)
@@ -149,12 +153,13 @@ async def send_sms(request: Request):
 @router.get("/conversations")
 async def list_sms_conversations(
     request: Request,
+    current_user: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     is_opted_out: Optional[bool] = Query(None),
 ):
     """List SMS conversations with pagination."""
-    company_id = getattr(request.state, "company_id", None)
+    company_id = current_user.company_id
     if not company_id:
         return JSONResponse(
             status_code=403,
@@ -195,9 +200,9 @@ async def list_sms_conversations(
 
 
 @router.get("/conversations/{conversation_id}")
-async def get_sms_conversation(request: Request, conversation_id: str):
+async def get_sms_conversation(request: Request, conversation_id: str, current_user: User = Depends(get_current_user)):
     """Get a single SMS conversation by ID."""
-    company_id = getattr(request.state, "company_id", None)
+    company_id = current_user.company_id
     if not company_id:
         return JSONResponse(
             status_code=403,
@@ -252,11 +257,12 @@ async def get_sms_conversation(request: Request, conversation_id: str):
 async def get_sms_messages(
     request: Request,
     conversation_id: str,
+    current_user: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ):
     """Get messages for an SMS conversation."""
-    company_id = getattr(request.state, "company_id", None)
+    company_id = current_user.company_id
     if not company_id:
         return JSONResponse(
             status_code=403,
@@ -306,9 +312,9 @@ async def get_sms_messages(
 
 
 @router.get("/config")
-async def get_sms_config(request: Request):
+async def get_sms_config(request: Request, current_user: User = Depends(get_current_user)):
     """Get SMS channel configuration (secrets redacted)."""
-    company_id = getattr(request.state, "company_id", None)
+    company_id = current_user.company_id
     if not company_id:
         return JSONResponse(
             status_code=403,
@@ -356,12 +362,12 @@ async def get_sms_config(request: Request):
 
 
 @router.post("/config")
-async def create_sms_config(request: Request):
+async def create_sms_config(request: Request, current_user: User = Depends(get_current_user)):
     """Create SMS channel configuration.
 
     Twilio credentials are encrypted at rest (BC-011).
     """
-    company_id = getattr(request.state, "company_id", None)
+    company_id = current_user.company_id
     if not company_id:
         return JSONResponse(
             status_code=403,
@@ -437,9 +443,9 @@ async def create_sms_config(request: Request):
 
 
 @router.put("/config")
-async def update_sms_config(request: Request):
+async def update_sms_config(request: Request, current_user: User = Depends(get_current_user)):
     """Update SMS channel configuration (partial update)."""
-    company_id = getattr(request.state, "company_id", None)
+    company_id = current_user.company_id
     if not company_id:
         return JSONResponse(
             status_code=403,
@@ -492,9 +498,9 @@ async def update_sms_config(request: Request):
 
 
 @router.delete("/config")
-async def delete_sms_config(request: Request):
+async def delete_sms_config(request: Request, current_user: User = Depends(get_current_user)):
     """Delete SMS channel configuration."""
-    company_id = getattr(request.state, "company_id", None)
+    company_id = current_user.company_id
     if not company_id:
         return JSONResponse(
             status_code=403,
@@ -547,9 +553,9 @@ async def delete_sms_config(request: Request):
 
 
 @router.post("/consent/opt-out")
-async def manual_opt_out(request: Request):
+async def manual_opt_out(request: Request, current_user: User = Depends(get_current_user)):
     """Manually opt out a phone number from SMS (BC-010 TCPA)."""
-    company_id = getattr(request.state, "company_id", None)
+    company_id = current_user.company_id
     if not company_id:
         return JSONResponse(
             status_code=403,
@@ -619,9 +625,9 @@ async def manual_opt_out(request: Request):
 
 
 @router.post("/consent/opt-in")
-async def manual_opt_in(request: Request):
+async def manual_opt_in(request: Request, current_user: User = Depends(get_current_user)):
     """Manually opt in a phone number back to SMS (BC-010 TCPA)."""
-    company_id = getattr(request.state, "company_id", None)
+    company_id = current_user.company_id
     if not company_id:
         return JSONResponse(
             status_code=403,
@@ -690,9 +696,9 @@ async def manual_opt_in(request: Request):
 
 
 @router.get("/consent/{customer_number}")
-async def get_consent_status(request: Request, customer_number: str):
+async def get_consent_status(request: Request, customer_number: str, current_user: User = Depends(get_current_user)):
     """Get TCPA consent status for a phone number (BC-010)."""
-    company_id = getattr(request.state, "company_id", None)
+    company_id = current_user.company_id
     if not company_id:
         return JSONResponse(
             status_code=403,

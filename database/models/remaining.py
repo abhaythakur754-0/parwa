@@ -43,7 +43,7 @@ class ResponseTemplate(Base):
     language = Column(String(10), default="en")
     is_active = Column(Boolean, default=True)
     version = Column(Integer, default=1)
-    created_by = Column(String(36), ForeignKey("users.id"))
+    created_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
@@ -117,7 +117,7 @@ class FeatureFlag(Base):
     is_active = Column(Boolean, default=True)
     enabled_for_tiers = Column(Text, default="[]")  # JSON list of tiers
     enabled_for_roles = Column(Text, default="[]")  # JSON list of roles
-    created_by = Column(String(36), ForeignKey("users.id"))
+    created_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
@@ -139,7 +139,7 @@ class ClassificationLog(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("tickets.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id", ondelete="SET NULL"))
     interaction_id = Column(String(36))
     input_text = Column(Text)
     classified_intent = Column(String(100))
@@ -161,7 +161,7 @@ class GuardrailsAuditLog(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("tickets.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id", ondelete="SET NULL"))
     # audit, policy_violation, escalation, manual_review
     event_type = Column(String(50), nullable=False)
     rule_id = Column(String(36))
@@ -170,7 +170,7 @@ class GuardrailsAuditLog(Base):
     output_summary = Column(Text)
     action_taken = Column(String(100))
     severity = Column(String(20), default="info")
-    reviewed_by = Column(String(36), ForeignKey("users.id"))
+    reviewed_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
     reviewed_at = Column(DateTime)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -185,14 +185,14 @@ class GuardrailsBlockedQueue(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("tickets.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id", ondelete="SET NULL"))
     block_type = Column(String(50), nullable=False)
     original_response = Column(Text)
     block_reason = Column(Text)
     severity = Column(String(20), default="medium")
     status = Column(String(50), default="pending_review")  # pending_review, resolved, escalated
     auto_resolved = Column(Boolean, default=False)
-    resolved_by = Column(String(36), ForeignKey("users.id"))
+    resolved_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
     resolved_at = Column(DateTime)
     resolution_notes = Column(Text)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -208,13 +208,13 @@ class AIResponseFeedback(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("tickets.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id", ondelete="SET NULL"))
     interaction_id = Column(String(36))
     feedback_type = Column(String(50), nullable=False)  # thumbs_up, thumbs_down, correction
     feedback_text = Column(Text)
     ai_response_text = Column(Text)
     confidence_at_time = Column(Numeric(5, 2))
-    provided_by = Column(String(36), ForeignKey("users.id"))
+    provided_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
@@ -255,13 +255,13 @@ class HumanCorrection(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("tickets.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id", ondelete="SET NULL"))
     interaction_id = Column(String(36))
     original_response = Column(Text)
     corrected_response = Column(Text, nullable=False)
     correction_reason = Column(String(255))
-    corrected_by = Column(String(36), ForeignKey("users.id"), nullable=False)
-    agent_id = Column(String(36), ForeignKey("agents.id"))
+    corrected_by = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    agent_id = Column(String(36), ForeignKey("agents.id", ondelete="SET NULL"))
     used_in_training = Column(Boolean, default=False)
     training_run_id = Column(String(36))
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -282,7 +282,7 @@ class ApprovalBatch(Base):
     total_items = Column(Integer, default=0)
     approved_items = Column(Integer, default=0)
     rejected_items = Column(Integer, default=0)
-    reviewed_by = Column(String(36), ForeignKey("users.id"))
+    reviewed_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
     reviewed_at = Column(DateTime)
     notes = Column(Text)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -299,7 +299,7 @@ class Notification(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     # Event type: ticket_created, ticket_assigned, sla_warning, etc.
     event_type = Column(String(100))
     # Notification priority: low, medium, high, urgent
@@ -311,9 +311,9 @@ class Notification(Base):
     # JSON list of channels this notification was sent to
     channels = Column(Text, default='["in_app"]')
     # Related ticket if applicable
-    ticket_id = Column(String(36), ForeignKey("tickets.id"))
+    ticket_id = Column(String(36), ForeignKey("tickets.id", ondelete="SET NULL"))
     # User who triggered the notification
-    sender_id = Column(String(36), ForeignKey("users.id"))
+    sender_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
     # Additional data as JSON
     data_json = Column(Text, default="{}")
     action_url = Column(String(500))
@@ -333,7 +333,7 @@ class NotificationPreference(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     # Event type: ticket_created, ticket_assigned, sla_warning, etc.
     event_type = Column(String(100), nullable=False)
     # Whether notifications are enabled for this event
@@ -363,8 +363,8 @@ class NotificationLog(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
-    notification_id = Column(String(36), ForeignKey("notifications.id"))
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    notification_id = Column(String(36), ForeignKey("notifications.id", ondelete="SET NULL"))
     # Event that triggered notification
     event_type = Column(String(100), nullable=False)
     # Channel used: email, in_app, push
@@ -391,7 +391,7 @@ class FirstVictory(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     # first_ticket_resolved, first_agent_created, first_integration_connected,
     # first_knowledge_doc_uploaded, first_api_key_created
     milestone_type = Column(String(100), nullable=False)

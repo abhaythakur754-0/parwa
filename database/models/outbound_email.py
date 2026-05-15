@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     Column, String, Text, Integer, Float, Boolean,
-    DateTime, ForeignKey, Index,
+    DateTime, ForeignKey, Index, Numeric,
 )
 from sqlalchemy.orm import relationship
 
@@ -35,7 +35,11 @@ class OutboundEmail(Base):
     __tablename__ = "outbound_emails"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), nullable=False, index=True)
+    company_id = Column(
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
 
     # Who we sent to
     recipient_email = Column(String(254), nullable=False)
@@ -55,13 +59,17 @@ class OutboundEmail(Base):
     )  # pending, sent, delivered, bounced, failed, complaint
 
     # Ticket association
-    ticket_id = Column(String(36), nullable=False, index=True)
+    ticket_id = Column(
+        String(36),
+        ForeignKey("tickets.id", ondelete="SET NULL"),
+        nullable=True, index=True,
+    )
     ticket_message_id = Column(String(36), nullable=True)
 
     # AI attribution
     role = Column(String(50), nullable=False, default="ai")
     model_used = Column(String(100), nullable=True)
-    confidence = Column(Float, nullable=True)
+    confidence = Column(Numeric(5, 2), nullable=True)
 
     # Content tracking
     content_length = Column(Integer, nullable=True)

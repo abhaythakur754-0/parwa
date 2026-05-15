@@ -18,6 +18,8 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from database.models.core import User
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError as PydanticValidationError
@@ -25,6 +27,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from database.base import get_db
+from database.models.core import User
 from app.exceptions import NotFoundError, AuthorizationError, ValidationError
 from app.services.ticket_service import TicketService
 from app.services.priority_service import PriorityService
@@ -63,7 +66,7 @@ async def create_ticket(
     request: Request,
     data: TicketCreate,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Create a new ticket.
 
@@ -73,8 +76,8 @@ async def create_ticket(
     PS07: Account suspended check.
     BL05: Rate limiting.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = current_user.id
 
     service = TicketService(db, company_id)
 
@@ -128,13 +131,13 @@ async def list_tickets(
     sort_by: str = Query("created_at"),
     sort_order: str = Query("desc"),
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """List tickets with filters and pagination.
 
     F-046: Ticket listing with filtering.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = TicketService(db, company_id)
 
@@ -173,14 +176,14 @@ async def list_tickets(
 async def bulk_status_update(
     data: TicketBulkStatusUpdate,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Bulk update ticket status.
 
     F-051: Bulk operations.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = current_user.id
 
     service = TicketService(db, company_id)
 
@@ -207,14 +210,14 @@ async def bulk_status_update(
 async def bulk_assign(
     data: TicketBulkAssign,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Bulk assign tickets.
 
     F-051: Bulk operations.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = current_user.id
 
     service = TicketService(db, company_id)
 
@@ -243,13 +246,13 @@ async def bulk_assign(
 async def detect_priority(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Detect priority from text content.
 
     MF01: Priority auto-assignment.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     body = await request.json()
     text = body.get("text", "")
@@ -271,13 +274,13 @@ async def detect_priority(
 async def detect_category(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Detect category from text content.
 
     MF02: Category routing.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     body = await request.json()
     subject = body.get("subject", "")
@@ -307,14 +310,14 @@ async def detect_category(
 async def scan_pii(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Scan text for PII.
 
     BL07: PII scanning.
     PS29: Sensitive data detection.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     body = await request.json()
     text = body.get("text", "")
@@ -337,13 +340,13 @@ async def scan_pii(
 async def get_ticket(
     ticket_id: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Get a single ticket by ID.
 
     F-046: Ticket detail view.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = TicketService(db, company_id)
 
@@ -367,14 +370,14 @@ async def update_ticket(
     ticket_id: str,
     data: TicketUpdate,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Update ticket fields.
 
     F-046: Ticket update.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = current_user.id
 
     service = TicketService(db, company_id)
 
@@ -413,14 +416,14 @@ async def delete_ticket(
     ticket_id: str,
     hard: bool = Query(False),
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Dict:
     """Delete a ticket (soft delete by default).
 
     PS12: Soft delete preserves metadata for audit.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = current_user.id
 
     service = TicketService(db, company_id)
 
@@ -450,14 +453,14 @@ async def update_ticket_status(
     ticket_id: str,
     data: TicketStatusUpdate,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Update ticket status with state machine validation.
 
     F-046: Status update with validation.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = current_user.id
 
     service = TicketService(db, company_id)
 
@@ -504,14 +507,14 @@ async def assign_ticket(
     ticket_id: str,
     data: TicketAssign,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Assign a ticket to an agent.
 
     F-046: Ticket assignment.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
+    company_id = current_user.company_id
+    user_id = current_user.id
 
     service = TicketService(db, company_id)
 
@@ -555,13 +558,13 @@ async def add_tags(
     ticket_id: str,
     tags: List[str],
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Add tags to a ticket.
 
     MF03: Tag management.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = TicketService(db, company_id)
 
@@ -585,13 +588,13 @@ async def remove_tag(
     ticket_id: str,
     tag: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Remove a tag from a ticket.
 
     MF03: Tag management.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = TicketService(db, company_id)
 
@@ -617,16 +620,16 @@ async def upload_attachment(
     ticket_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """Upload an attachment to a ticket.
 
     BL06: Attachment validation.
     PS09: File size limits.
     """
-    company_id = current_user.get("company_id")
-    user_id = current_user.get("user_id")
-    plan_tier = current_user.get("plan_tier", "starter")
+    company_id = current_user.company_id
+    user_id = current_user.id
+    plan_tier = getattr(current_user, 'plan_tier', 'starter')
 
     # Get file from request
     form = await request.form()
@@ -675,13 +678,13 @@ async def upload_attachment(
 async def list_attachments(
     ticket_id: str,
     db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """List attachments for a ticket.
 
     F-046: Attachment listing.
     """
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     service = AttachmentService(db, company_id)
 

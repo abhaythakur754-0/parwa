@@ -50,7 +50,7 @@ class RESTConnector(Base):
         nullable=False, index=True,
     )
     integration_id = Column(
-        String(36), ForeignKey("integrations.id"),
+        String(36), ForeignKey("integrations.id", ondelete="CASCADE"),
         nullable=False,
     )
     base_url = Column(String(500), nullable=False)
@@ -72,7 +72,7 @@ class WebhookIntegration(Base):
         nullable=False, index=True,
     )
     integration_id = Column(
-        String(36), ForeignKey("integrations.id"),
+        String(36), ForeignKey("integrations.id", ondelete="CASCADE"),
         nullable=False,
     )
     webhook_url = Column(String(500), nullable=False)
@@ -125,7 +125,7 @@ class EventBuffer(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("tickets.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id", ondelete="CASCADE"))
     event_type = Column(String(100), nullable=False)
     event_data = Column(Text)
     # 24h default (BC-005)

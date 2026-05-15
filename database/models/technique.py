@@ -71,7 +71,7 @@ class TechniqueConfiguration(Base):
     custom_timeout_ms = Column(Integer, nullable=True)
     # Max execution time in ms; NULL = use system default
 
-    updated_by = Column(String(36), ForeignKey("users.id"), nullable=True)
+    updated_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
@@ -207,7 +207,7 @@ class TechniqueVersion(Base):
     configuration = Column(Text, default="{}")
     # JSON blob with technique-specific parameters
 
-    created_by = Column(String(36), ForeignKey("users.id"), nullable=True)
+    created_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 

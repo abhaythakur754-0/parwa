@@ -116,8 +116,15 @@ def _apply_ner_redaction(message: str, existing_entities: List[Dict[str, Any]], 
     """
     try:
         from app.core.ner_engine import detect_pii_entities  # type: ignore[import-untyped]
+        from app.core.langgraph.retry import llm_call_with_retry
 
-        ner_result = detect_pii_entities(message, tenant_id=tenant_id)
+        ner_result = llm_call_with_retry(
+            detect_pii_entities,
+            message,
+            tenant_id=tenant_id,
+            max_retries=3,
+            base_delay=1.0,
+        )
         ner_entities = ner_result.get("entities_found", [])
 
         # Merge NER entities with regex entities (deduplicate)
@@ -262,8 +269,16 @@ def pii_redaction_node(state: Dict[str, Any]) -> Dict[str, Any]:
         # ── Attempt production PII engine ───────────────────────
         try:
             from app.core.pii_redaction_engine import redact_pii  # type: ignore[import-untyped]
+            from app.core.langgraph.retry import llm_call_with_retry
 
-            result = redact_pii(message, tenant_id=tenant_id, variant_tier=variant_tier)
+            result = llm_call_with_retry(
+                redact_pii,
+                message,
+                tenant_id=tenant_id,
+                variant_tier=variant_tier,
+                max_retries=3,
+                base_delay=1.0,
+            )
 
             redacted_message = result.get("redacted_message", message)
             entities_found = result.get("entities_found", [])

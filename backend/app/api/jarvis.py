@@ -367,11 +367,16 @@ async def payment_webhook(
     except ParwaBaseError as exc:
         return exc.to_dict()
     except Exception as exc:
+        logger.error(
+            "webhook_processing_failed",
+            error=str(exc),
+            exc_info=True,
+        )
         return {
             "error": {
                 "code": "INTERNAL_ERROR",
                 "message": "Webhook processing failed",
-                "details": str(exc),
+                "details": None,
             }
         }
 
@@ -424,9 +429,44 @@ def verify_call_otp(
 ):
     """Verify phone OTP for demo call.
 
-    In production, this verifies the Twilio phone OTP.
+    Uses the phone_otp_service to verify the OTP code against
+    the stored hash. Requires a valid, unexpired OTP.
     """
-    # Placeholder — in production, verify Twilio OTP
+    from app.services import phone_otp_service
+
+    # Retrieve session to get the phone number stored in context
+    session = jarvis_service.get_session(db, session_id, user.id)
+    ctx = {}
+    try:
+        ctx = json.loads(session.context_json) if session.context_json else {}
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    demo_call = ctx.get("demo_call", {})
+    phone_number = demo_call.get("phone_number")
+    if not phone_number:
+        return {
+            "error": {
+                "code": "NO_PHONE_ON_FILE",
+                "message": "No phone number found for this session. Initiate a call first.",
+                "details": None,
+            }
+        }
+
+    result = phone_otp_service.verify_otp(
+        db=db,
+        phone_number=phone_number,
+        code=body.code,
+        company_id=user.company_id,
+    )
+
+    if result.get("status") != "verified":
+        return {
+            "message": result["message"],
+            "status": "failed",
+            "attempts_remaining": result.get("attempts_remaining", 0),
+        }
+
     return {
         "message": "Phone verified. Call will start shortly.",
         "status": "verified",

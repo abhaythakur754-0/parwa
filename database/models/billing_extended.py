@@ -61,7 +61,7 @@ class ClientRefund(Base):
         nullable=False,
         index=True,
     )
-    ticket_id = Column(String(36), ForeignKey("tickets.id"), nullable=True)
+    ticket_id = Column(String(36), ForeignKey("tickets.id", ondelete="SET NULL"), nullable=True)
     amount = Column(Numeric(10, 2), nullable=False)  # BC-002
     currency = Column(String(3), default="USD")
     reason = Column(Text, nullable=True)
@@ -170,7 +170,11 @@ class IdempotencyKey(Base):
     __tablename__ = "idempotency_keys"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id"), nullable=True)
+    company_id = Column(
+        String(36),
+        ForeignKey("companies.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     idempotency_key = Column(String(255), unique=True, nullable=False)
     resource_type = Column(String(50), nullable=False)  # paddle_webhook, stripe_webhook, etc
     resource_id = Column(String(255), nullable=True)
@@ -188,7 +192,7 @@ class WebhookSequence(Base):
     __tablename__ = "webhook_sequences"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), ForeignKey("companies.id"), nullable=True)
+    company_id = Column(String(36), ForeignKey("companies.id", ondelete="SET NULL"), nullable=True)
     paddle_event_id = Column(String(255), unique=True, nullable=False)
     event_type = Column(String(100), nullable=False)
     occurred_at = Column(DateTime, nullable=False)

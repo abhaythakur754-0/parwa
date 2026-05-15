@@ -11,7 +11,7 @@ import os
 import warnings
 from enum import Enum
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -58,7 +58,7 @@ class Settings(BaseSettings):
             )
         return v
 
-    SECRET_KEY: str = "dev-secret-key-change-in-production"
+    SECRET_KEY: Optional[str] = None
     DEBUG: bool = False
 
     # ── Database ─────────────────────────────────────────────────
@@ -84,7 +84,7 @@ class Settings(BaseSettings):
         return v
 
     # ── JWT (BC-011) ─────────────────────────────────────────────
-    JWT_SECRET_KEY: str = "dev-jwt-secret-key-change-in-production"
+    JWT_SECRET_KEY: Optional[str] = None
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     MAX_SESSIONS_PER_USER: int = 5
@@ -226,14 +226,24 @@ class Settings(BaseSettings):
     # ── Compliance ───────────────────────────────────────────────
     GDPR_RETENTION_DAYS: int = 365
     AUDIT_LOG_RETENTION_DAYS: int = 2555
-    DATA_ENCRYPTION_KEY: str = "devkey_devkey_devkey_devkey_abcd"  # 32-char dev default
+    DATA_ENCRYPTION_KEY: Optional[str] = None
 
     # ── Validators ────────────────────────────────────────────────
 
     @field_validator("DATA_ENCRYPTION_KEY")
     @classmethod
-    def validate_encryption_key(cls, v: str) -> str:
-        """BC-011: DATA_ENCRYPTION_KEY must be exactly 32 characters."""
+    def validate_encryption_key(cls, v) -> str:
+        """BC-011: DATA_ENCRYPTION_KEY must be set and exactly 32 characters.
+
+        Raises RuntimeError in ALL environments if not set.
+        Users MUST set this in their .env file.
+        """
+        if v is None:
+            raise RuntimeError(
+                "DATA_ENCRYPTION_KEY must be set. "
+                "Set a 32-character cryptographically random value via "
+                "the DATA_ENCRYPTION_KEY env var."
+            )
         if len(v) != 32:
             if os.environ.get("ENVIRONMENT") == "production":
                 raise ValueError(
@@ -247,7 +257,12 @@ class Settings(BaseSettings):
 
     @field_validator("SECRET_KEY")
     @classmethod
-    def validate_secret_key(cls, v: str) -> str:
+    def validate_secret_key(cls, v) -> str:
+        if v is None:
+            raise RuntimeError(
+                "SECRET_KEY must be set. "
+                "Set a cryptographically random value via the SECRET_KEY env var."
+            )
         if v.startswith("dev-") or v == "change-me":
             if os.environ.get("ENVIRONMENT") == "production":
                 raise ValueError(
@@ -262,10 +277,15 @@ class Settings(BaseSettings):
 
     @field_validator("JWT_SECRET_KEY")
     @classmethod
-    def validate_jwt_key(cls, v: str) -> str:
-        """C-11 FIX: JWT_SECRET_KEY must be changed from default in production.
+    def validate_jwt_key(cls, v) -> str:
+        """C-11 FIX: JWT_SECRET_KEY must be set and changed from default in production.
         Also enforces minimum length in production (>=32 chars).
         """
+        if v is None:
+            raise RuntimeError(
+                "JWT_SECRET_KEY must be set. "
+                "Set a cryptographically random value via the JWT_SECRET_KEY env var."
+            )
         if v.startswith("dev-") or v == "change-me":
             if os.environ.get("ENVIRONMENT") == "production":
                 raise ValueError(
@@ -364,7 +384,7 @@ class Settings(BaseSettings):
         return v
 
     # ── Pricing Integrity (H-09) ────────────────────────────────
-    PRICING_SIGNING_KEY: str = "dev-pricing-key-change-in-prod-32c"
+    PRICING_SIGNING_KEY: str = ""
 
     @field_validator("PRICING_SIGNING_KEY")
     @classmethod

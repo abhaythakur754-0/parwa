@@ -13,21 +13,28 @@ M-32 FIX:
 - Task payload size limit (1 MB max)
 - Worker memory and task count limits
 
+Task ID 6 FIX:
+- Proper DLQ routing with Celery Queue/Exchange objects
+- task_default_queue renamed to parwa_default
+- parwa_dlq queue with no consumers (inspection only)
+- task_acks_late + task_reject_on_worker_lost route failed tasks to DLQ
+
 Queues:
-- default: General tasks (account export, data cleanup)
+- parwa_default: General tasks (account export, data cleanup)
 - ai_heavy: Heavy AI tasks (embedding generation, batch classification)
 - ai_light: Light AI tasks (single classification, sentiment analysis)
 - email: Email sending via Brevo (BC-006)
 - webhook: Webhook processing (BC-003)
 - analytics: Analytics aggregation and reporting
 - training: Model training and fine-tuning
-- dead_letter: Failed tasks that exhausted all retries (Day 16)
+- parwa_dlq: Dead Letter Queue for failed tasks (no consumers, inspection only)
 """
 
 import logging
 import json
 
 from celery import Celery
+from celery import Queue, Exchange
 from celery.signals import before_task_publish
 
 # M-32: Maximum allowed task payload size in bytes (1 MB)
@@ -43,15 +50,78 @@ app = Celery("parwa")
 
 # All queue names for reference and validation
 QUEUE_NAMES = [
-    "default",
+    "parwa_default",
     "ai_heavy",
     "ai_light",
     "email",
     "webhook",
     "analytics",
     "training",
-    "dead_letter",  # Day 16: DLQ for permanently failed tasks
+    "parwa_dlq",  # Dead Letter Queue for permanently failed tasks (no consumers)
 ]
+
+# ── Exchange definitions ──────────────────────────────────────────
+
+# Default exchange — all tasks route through here
+_default_exchange = Exchange("parwa_default", type="direct")
+
+# DLQ exchange — no consumers; messages here are for inspection only
+_dlq_exchange = Exchange("parwa_dlq", type="direct")
+
+# ── Queue objects with routing keys ──────────────────────────────
+
+TASK_QUEUES = (
+    Queue(
+        "parwa_default",
+        exchange=_default_exchange,
+        routing_key="parwa_default",
+        queue_arguments={"x-dead-letter-exchange": "parwa_dlq"},
+    ),
+    Queue(
+        "ai_heavy",
+        exchange=Exchange("ai_heavy", type="direct"),
+        routing_key="ai_heavy",
+        queue_arguments={"x-dead-letter-exchange": "parwa_dlq"},
+    ),
+    Queue(
+        "ai_light",
+        exchange=Exchange("ai_light", type="direct"),
+        routing_key="ai_light",
+        queue_arguments={"x-dead-letter-exchange": "parwa_dlq"},
+    ),
+    Queue(
+        "email",
+        exchange=Exchange("email", type="direct"),
+        routing_key="email",
+        queue_arguments={"x-dead-letter-exchange": "parwa_dlq"},
+    ),
+    Queue(
+        "webhook",
+        exchange=Exchange("webhook", type="direct"),
+        routing_key="webhook",
+        queue_arguments={"x-dead-letter-exchange": "parwa_dlq"},
+    ),
+    Queue(
+        "analytics",
+        exchange=Exchange("analytics", type="direct"),
+        routing_key="analytics",
+        queue_arguments={"x-dead-letter-exchange": "parwa_dlq"},
+    ),
+    Queue(
+        "training",
+        exchange=Exchange("training", type="direct"),
+        routing_key="training",
+        queue_arguments={"x-dead-letter-exchange": "parwa_dlq"},
+    ),
+    # DLQ: no consumers, inspection only. Failed tasks land here via
+    # x-dead-letter-exchange when task_acks_late=True and
+    # task_reject_on_worker_lost=True.
+    Queue(
+        "parwa_dlq",
+        exchange=_dlq_exchange,
+        routing_key="parwa_dlq",
+    ),
+)
 
 # ── Lazy configuration from Settings ──────────────────────────────
 
@@ -81,10 +151,11 @@ def _build_config() -> dict:
         "worker_prefetch_multiplier": (
             settings.CELERY_WORKER_PREFETCH_MULTIPLIER
         ),
-        "task_acks_late": settings.CELERY_TASK_ACKS_LATE,
-        "task_reject_on_worker_lost": (
-            settings.CELERY_TASK_REJECT_ON_WORKER_LOST
-        ),
+        # CRITICAL for DLQ: acks_late + reject_on_worker_lost
+        # When both are True, a task that fails or whose worker dies
+        # is rejected and routed to the DLQ via x-dead-letter-exchange.
+        "task_acks_late": True,
+        "task_reject_on_worker_lost": True,
         "task_soft_time_limit": settings.CELERY_TASK_SOFT_TIME_LIMIT,
         "task_time_limit": settings.CELERY_TASK_TIME_LIMIT,
         # M-32 FIX: Limit task payload size to 1 MB to prevent oversized payloads
@@ -98,13 +169,12 @@ def _build_config() -> dict:
         # Timezone
         "timezone": "UTC",
         "enable_utc": True,
-        # Default queue
-        "task_default_queue": "default",
-        # Task queues (Day 16: added dead_letter)
-        "task_queues": {
-            name: {"queue": name}
-            for name in QUEUE_NAMES
-        },
+        # Default queue — renamed to parwa_default for namespace clarity
+        "task_default_queue": "parwa_default",
+        "task_default_exchange": "parwa_default",
+        "task_default_routing_key": "parwa_default",
+        # Task queues — proper Queue objects with DLQ routing
+        "task_queues": TASK_QUEUES,
         # Task routing
         "task_routes": {
             "app.tasks.email.*": {"queue": "email"},
@@ -115,7 +185,9 @@ def _build_config() -> dict:
             "app.tasks.ai.light.*": {"queue": "ai_light"},
             "app.tasks.training.*": {"queue": "training"},
             # Phase 2.4: Jarvis Awareness Engine task routing
-            "app.tasks.jarvis_awareness_tasks.*": {"queue": "default"},
+            "app.tasks.jarvis_awareness_tasks.*": {"queue": "parwa_default"},
+            # Catch-all: route any unmatched tasks to default
+            "app.tasks.*": {"queue": "parwa_default"},
         },
         # Day 16: Beat scheduler (periodic tasks)
         "beat_schedule": {

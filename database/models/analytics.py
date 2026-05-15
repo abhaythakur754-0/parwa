@@ -67,7 +67,7 @@ class DriftReport(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    agent_id = Column(String(36), ForeignKey("agents.id"))
+    agent_id = Column(String(36), ForeignKey("agents.id", ondelete="SET NULL"))
     metric_type = Column(String(100), nullable=False)
     baseline_value = Column(Numeric(10, 2))
     current_value = Column(Numeric(10, 2))
@@ -85,13 +85,13 @@ class QAScore(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    session_id = Column(String(36), ForeignKey("tickets.id"))
-    agent_id = Column(String(36), ForeignKey("agents.id"))
+    session_id = Column(String(36), ForeignKey("tickets.id", ondelete="SET NULL"))
+    agent_id = Column(String(36), ForeignKey("agents.id", ondelete="SET NULL"))
     accuracy = Column(Numeric(5, 2))
     tone = Column(Numeric(5, 2))
     completeness = Column(Numeric(5, 2))
     overall = Column(Numeric(5, 2))
-    scored_by = Column(String(36), ForeignKey("users.id"))
+    scored_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
@@ -103,7 +103,7 @@ class TrainingRun(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    agent_id = Column(String(36), ForeignKey("agents.id"))
+    agent_id = Column(String(36), ForeignKey("agents.id", ondelete="SET NULL"))
     # auto_mistake_threshold, time_fallback, manual
     trigger = Column(String(50), nullable=False)
     mistake_count_at_trigger = Column(Integer, default=0)
