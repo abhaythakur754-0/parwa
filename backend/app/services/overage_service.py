@@ -19,6 +19,7 @@ BC-004: Celery task integration
 BC-006: Email notification via Brevo
 """
 
+import asyncio
 import logging
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
@@ -113,216 +114,296 @@ class OverageService:
         if target_date is None:
             target_date = (datetime.now(timezone.utc) - timedelta(days=1)).date()
 
-        with SessionLocal() as db:
-            # Get company with subscription
-            company = db.query(Company).filter(
-                Company.id == str(company_id)
-            ).first()
+        # ── Step 1: Gather data from DB ──
+        def _db_gather():
+            with SessionLocal() as db:
+                # Get company with subscription
+                company = db.query(Company).filter(
+                    Company.id == str(company_id)
+                ).first()
 
-            if not company:
-                raise OverageError(f"Company {company_id} not found")
+                if not company:
+                    raise OverageError(f"Company {company_id} not found")
 
-            # Get active subscription
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-                Subscription.status == "active",
-            ).first()
+                # Get active subscription
+                subscription = db.query(Subscription).filter(
+                    Subscription.company_id == str(company_id),
+                    Subscription.status == "active",
+                ).first()
 
-            if not subscription:
-                logger.info(
-                    "overage_skip_no_subscription company_id=%s",
-                    company_id,
-                )
+                if not subscription:
+                    logger.info(
+                        "overage_skip_no_subscription company_id=%s",
+                        company_id,
+                    )
+                    return None
+
+                # Get plan limits
+                variant = subscription.tier
+                limits = get_variant_limits(variant)
+                if not limits:
+                    limits = VARIANT_LIMITS.get(VariantType(variant), {})
+
+                ticket_limit = limits.get("monthly_tickets", 2000)
+
+                # Get or create usage record for the date
+                usage_record = db.query(UsageRecord).filter(
+                    UsageRecord.company_id == str(company_id),
+                    UsageRecord.record_date == target_date,
+                ).first()
+
+                if not usage_record:
+                    # Create usage record (ticket count would come from ticket system)
+                    usage_record = UsageRecord(
+                        company_id=str(company_id),
+                        record_date=target_date,
+                        record_month=target_date.strftime("%Y-%m"),
+                        tickets_used=0,  # Will be updated by ticket system
+                    )
+                    db.add(usage_record)
+                    db.commit()
+                    db.refresh(usage_record)
+
+                # Get month-to-date usage
+                month_start = target_date.replace(day=1)
+                month_usage = db.query(
+                    func.sum(UsageRecord.tickets_used).label("total_tickets")
+                ).filter(
+                    UsageRecord.company_id == str(company_id),
+                    UsageRecord.record_month == target_date.strftime("%Y-%m"),
+                ).scalar() or 0
+
+                # The SQL SUM already includes today's UsageRecord, so no extra addition needed.
+                # (Previous code double-counted by adding usage_record.tickets_used on top of the SUM.)
+                total_tickets = int(month_usage)
+
+                # Eagerly access attributes so they survive session close
+                _ = company.id, company.paddle_customer_id
+                _ = subscription.tier, subscription.company_id
+
                 return {
-                    "status": "skipped",
-                    "reason": "no_active_subscription",
-                    "company_id": str(company_id),
-                    "date": target_date.isoformat(),
+                    "company": company,
+                    "subscription": subscription,
+                    "ticket_limit": ticket_limit,
+                    "total_tickets": total_tickets,
                 }
 
-            # Get plan limits
-            variant = subscription.tier
-            limits = get_variant_limits(variant)
-            if not limits:
-                limits = VARIANT_LIMITS.get(VariantType(variant), {})
+        data = await asyncio.to_thread(_db_gather)
 
-            ticket_limit = limits.get("monthly_tickets", 2000)
+        if data is None:
+            return {
+                "status": "skipped",
+                "reason": "no_active_subscription",
+                "company_id": str(company_id),
+                "date": target_date.isoformat(),
+            }
 
-            # Get or create usage record for the date
-            usage_record = db.query(UsageRecord).filter(
-                UsageRecord.company_id == str(company_id),
-                UsageRecord.record_date == target_date,
-            ).first()
+        company = data["company"]
+        subscription = data["subscription"]
+        ticket_limit = data["ticket_limit"]
+        total_tickets = data["total_tickets"]
 
-            if not usage_record:
-                # Create usage record (ticket count would come from ticket system)
-                usage_record = UsageRecord(
+        # Calculate overage (pure computation, no DB)
+        overage_result = self._calculate_overage(total_tickets, ticket_limit)
+
+        # Check if there's actual overage
+        if overage_result["overage_tickets"] <= 0:
+            logger.info(
+                "overage_none company_id=%s tickets=%s limit=%s",
+                company_id,
+                total_tickets,
+                ticket_limit,
+            )
+            return {
+                "status": "no_overage",
+                "company_id": str(company_id),
+                "date": target_date.isoformat(),
+                "tickets_used": total_tickets,
+                "ticket_limit": ticket_limit,
+                "overage_tickets": 0,
+                "overage_charges": "0.00",
+            }
+
+        # ── Step 2: Create overage charge record ──
+        def _db_create_charge():
+            with SessionLocal() as db:
+                # Create overage charge record
+                overage_charge = OverageCharge(
                     company_id=str(company_id),
-                    record_date=target_date,
-                    record_month=target_date.strftime("%Y-%m"),
-                    tickets_used=0,  # Will be updated by ticket system
+                    date=target_date,
+                    tickets_over_limit=overage_result["overage_tickets"],
+                    charge_amount=overage_result["overage_charges"],
+                    status="pending",
                 )
-                db.add(usage_record)
+                db.add(overage_charge)
+
+                # Update usage record
+                usage_record = db.query(UsageRecord).filter(
+                    UsageRecord.company_id == str(company_id),
+                    UsageRecord.record_date == target_date,
+                ).first()
+
+                if usage_record:
+                    usage_record.overage_tickets = overage_result["overage_tickets"]
+                    usage_record.overage_charges = overage_result["overage_charges"]
+
                 db.commit()
-                db.refresh(usage_record)
+                db.refresh(overage_charge)
 
-            # Get month-to-date usage
-            month_start = target_date.replace(day=1)
-            month_usage = db.query(
-                func.sum(UsageRecord.tickets_used).label("total_tickets")
-            ).filter(
-                UsageRecord.company_id == str(company_id),
-                UsageRecord.record_month == target_date.strftime("%Y-%m"),
-            ).scalar() or 0
-
-            # The SQL SUM already includes today's UsageRecord, so no extra addition needed.
-            # (Previous code double-counted by adding usage_record.tickets_used on top of the SUM.)
-            total_tickets = int(month_usage)
-
-            # Calculate overage
-            overage_result = self._calculate_overage(total_tickets, ticket_limit)
-
-            # Check if there's actual overage
-            if overage_result["overage_tickets"] <= 0:
-                logger.info(
-                    "overage_none company_id=%s tickets=%s limit=%s",
-                    company_id,
-                    total_tickets,
-                    ticket_limit,
+                # Eagerly access attributes so they survive session close
+                _ = (
+                    overage_charge.id,
+                    overage_charge.status,
+                    overage_charge.tickets_over_limit,
+                    overage_charge.date,
                 )
-                return {
-                    "status": "no_overage",
-                    "company_id": str(company_id),
-                    "date": target_date.isoformat(),
+
+                return overage_charge
+
+        overage_charge = await asyncio.to_thread(_db_create_charge)
+
+        # Check if charge is above minimum
+        if overage_result["overage_charges"] < MINIMUM_OVERAGE_CHARGE:
+            logger.info(
+                "overage_below_minimum company_id=%s charge=%s",
+                company_id,
+                overage_result["overage_charges"],
+            )
+
+            def _db_mark_skipped():
+                with SessionLocal() as db:
+                    oc = db.query(OverageCharge).filter(
+                        OverageCharge.id == overage_charge.id
+                    ).first()
+                    if oc:
+                        oc.status = "skipped_below_minimum"
+                        db.commit()
+
+            await asyncio.to_thread(_db_mark_skipped)
+
+            return {
+                "status": "below_minimum",
+                "company_id": str(company_id),
+                "date": target_date.isoformat(),
+                "overage_tickets": overage_result["overage_tickets"],
+                "overage_charges": str(overage_result["overage_charges"]),
+                "minimum_charge": str(MINIMUM_OVERAGE_CHARGE),
+            }
+
+        # ── Step 3: Submit charge to Paddle (async, non-DB) ──
+        try:
+            paddle = await self._get_paddle()
+            charge_result = await self._submit_paddle_charge(
+                paddle=paddle,
+                company=company,
+                subscription=subscription,
+                overage_charge=overage_charge,
+            )
+
+            def _db_mark_charged():
+                with SessionLocal() as db:
+                    oc = db.query(OverageCharge).filter(
+                        OverageCharge.id == overage_charge.id
+                    ).first()
+                    if oc:
+                        oc.status = "charged"
+                        oc.paddle_charge_id = charge_result.get("charge_id")
+                        db.commit()
+
+            await asyncio.to_thread(_db_mark_charged)
+
+            logger.info(
+                "overage_charged company_id=%s amount=%s paddle_id=%s",
+                company_id,
+                overage_result["overage_charges"],
+                charge_result.get("charge_id"),
+            )
+
+            # Send notifications (async, non-DB)
+            await self._send_notifications(
+                company=company,
+                overage_charge=overage_charge,
+                usage_info={
                     "tickets_used": total_tickets,
                     "ticket_limit": ticket_limit,
-                    "overage_tickets": 0,
-                    "overage_charges": "0.00",
-                }
-
-            # Create overage charge record
-            overage_charge = OverageCharge(
-                company_id=str(company_id),
-                date=target_date,
-                tickets_over_limit=overage_result["overage_tickets"],
-                charge_amount=overage_result["overage_charges"],
-                status="pending",
+                    "overage_tickets": overage_result["overage_tickets"],
+                    "overage_charges": overage_result["overage_charges"],
+                },
             )
-            db.add(overage_charge)
 
-            # Update usage record
-            usage_record.overage_tickets = overage_result["overage_tickets"]
-            usage_record.overage_charges = overage_result["overage_charges"]
+            return {
+                "status": "charged",
+                "company_id": str(company_id),
+                "date": target_date.isoformat(),
+                "overage_tickets": overage_result["overage_tickets"],
+                "overage_charges": str(overage_result["overage_charges"]),
+                "paddle_charge_id": charge_result.get("charge_id"),
+                "overage_charge_id": overage_charge.id,
+            }
 
-            db.commit()
-            db.refresh(overage_charge)
+        except AttributeError as e:
+            # PaddleClient.create_transaction() does not exist yet
+            # (being added separately). Mark as pending_provider so it can
+            # be retried later when the method is available.
+            logger.warning(
+                "overage_paddle_method_missing company_id=%s error=%s",
+                company_id,
+                str(e),
+            )
 
-            # Check if charge is above minimum
-            if overage_result["overage_charges"] < MINIMUM_OVERAGE_CHARGE:
-                logger.info(
-                    "overage_below_minimum company_id=%s charge=%s",
-                    company_id,
-                    overage_result["overage_charges"],
-                )
-                overage_charge.status = "skipped_below_minimum"
-                db.commit()
+            def _db_mark_pending_provider():
+                with SessionLocal() as db:
+                    oc = db.query(OverageCharge).filter(
+                        OverageCharge.id == overage_charge.id
+                    ).first()
+                    if oc:
+                        oc.status = "pending_provider"
+                        oc.retry_count = (oc.retry_count or 0) + 1
+                        oc.last_retry_at = datetime.now(timezone.utc)
+                        db.commit()
 
-                return {
-                    "status": "below_minimum",
-                    "company_id": str(company_id),
-                    "date": target_date.isoformat(),
-                    "overage_tickets": overage_result["overage_tickets"],
-                    "overage_charges": str(overage_result["overage_charges"]),
-                    "minimum_charge": str(MINIMUM_OVERAGE_CHARGE),
-                }
+            await asyncio.to_thread(_db_mark_pending_provider)
 
-            # Submit charge to Paddle
-            try:
-                paddle = await self._get_paddle()
-                charge_result = await self._submit_paddle_charge(
-                    paddle=paddle,
-                    company=company,
-                    subscription=subscription,
-                    overage_charge=overage_charge,
-                )
+            return {
+                "status": "pending_provider",
+                "company_id": str(company_id),
+                "date": target_date.isoformat(),
+                "overage_tickets": overage_result["overage_tickets"],
+                "overage_charges": str(overage_result["overage_charges"]),
+                "error": str(e),
+                "message": "Paddle create_transaction not available yet; charge queued for retry",
+            }
 
-                overage_charge.status = "charged"
-                overage_charge.paddle_charge_id = charge_result.get("charge_id")
-                db.commit()
+        except PaddleError as e:
+            logger.error(
+                "overage_paddle_failed company_id=%s error=%s",
+                company_id,
+                str(e),
+            )
 
-                logger.info(
-                    "overage_charged company_id=%s amount=%s paddle_id=%s",
-                    company_id,
-                    overage_result["overage_charges"],
-                    charge_result.get("charge_id"),
-                )
+            def _db_mark_retry_pending():
+                with SessionLocal() as db:
+                    oc = db.query(OverageCharge).filter(
+                        OverageCharge.id == overage_charge.id
+                    ).first()
+                    if oc:
+                        oc.status = "retry_pending"
+                        oc.retry_count = (oc.retry_count or 0) + 1
+                        oc.last_retry_at = datetime.now(timezone.utc)
+                        db.commit()
+                        return oc.retry_count
 
-                # Send notifications
-                await self._send_notifications(
-                    company=company,
-                    overage_charge=overage_charge,
-                    usage_info={
-                        "tickets_used": total_tickets,
-                        "ticket_limit": ticket_limit,
-                        "overage_tickets": overage_result["overage_tickets"],
-                        "overage_charges": overage_result["overage_charges"],
-                    },
-                )
+            retry_count = await asyncio.to_thread(_db_mark_retry_pending)
 
-                return {
-                    "status": "charged",
-                    "company_id": str(company_id),
-                    "date": target_date.isoformat(),
-                    "overage_tickets": overage_result["overage_tickets"],
-                    "overage_charges": str(overage_result["overage_charges"]),
-                    "paddle_charge_id": charge_result.get("charge_id"),
-                    "overage_charge_id": overage_charge.id,
-                }
-
-            except AttributeError as e:
-                # PaddleClient.create_transaction() does not exist yet
-                # (being added separately). Mark as pending_provider so it can
-                # be retried later when the method is available.
-                logger.warning(
-                    "overage_paddle_method_missing company_id=%s error=%s",
-                    company_id,
-                    str(e),
-                )
-                overage_charge.status = "pending_provider"
-                overage_charge.retry_count = (overage_charge.retry_count or 0) + 1
-                overage_charge.last_retry_at = datetime.now(timezone.utc)
-                db.commit()
-
-                return {
-                    "status": "pending_provider",
-                    "company_id": str(company_id),
-                    "date": target_date.isoformat(),
-                    "overage_tickets": overage_result["overage_tickets"],
-                    "overage_charges": str(overage_result["overage_charges"]),
-                    "error": str(e),
-                    "message": "Paddle create_transaction not available yet; charge queued for retry",
-                }
-
-            except PaddleError as e:
-                logger.error(
-                    "overage_paddle_failed company_id=%s error=%s",
-                    company_id,
-                    str(e),
-                )
-                overage_charge.status = "retry_pending"
-                overage_charge.retry_count = (overage_charge.retry_count or 0) + 1
-                overage_charge.last_retry_at = datetime.now(timezone.utc)
-                db.commit()
-
-                return {
-                    "status": "retry_pending",
-                    "company_id": str(company_id),
-                    "date": target_date.isoformat(),
-                    "overage_tickets": overage_result["overage_tickets"],
-                    "overage_charges": str(overage_result["overage_charges"]),
-                    "error": str(e),
-                    "retry_count": overage_charge.retry_count,
-                }
+            return {
+                "status": "retry_pending",
+                "company_id": str(company_id),
+                "date": target_date.isoformat(),
+                "overage_tickets": overage_result["overage_tickets"],
+                "overage_charges": str(overage_result["overage_charges"]),
+                "error": str(e),
+                "retry_count": retry_count,
+            }
 
     def _calculate_overage(
         self,
@@ -494,62 +575,65 @@ class OverageService:
         if record_month is None:
             record_month = datetime.now(timezone.utc).strftime("%Y-%m")
 
-        with SessionLocal() as db:
-            # Get subscription
-            subscription = db.query(Subscription).filter(
-                Subscription.company_id == str(company_id),
-            ).order_by(Subscription.created_at.desc()).first()
+        def _db_work():
+            with SessionLocal() as db:
+                # Get subscription
+                subscription = db.query(Subscription).filter(
+                    Subscription.company_id == str(company_id),
+                ).order_by(Subscription.created_at.desc()).first()
 
-            if not subscription:
+                if not subscription:
+                    return UsageInfo(
+                        company_id=company_id,
+                        record_month=record_month,
+                        tickets_used=0,
+                        ticket_limit=0,
+                        overage_tickets=0,
+                        overage_charges=Decimal("0.00"),
+                        usage_percentage=0.0,
+                        approaching_limit=False,
+                        limit_exceeded=False,
+                    )
+
+                # Get plan limits
+                limits = get_variant_limits(subscription.tier)
+                if not limits:
+                    limits = VARIANT_LIMITS.get(
+                        VariantType(subscription.tier), {}
+                    )
+
+                ticket_limit = limits.get("monthly_tickets", 2000)
+
+                # Get month usage
+                month_usage = db.query(
+                    func.sum(UsageRecord.tickets_used).label("total_tickets"),
+                    func.sum(UsageRecord.overage_tickets).label("total_overage"),
+                    func.sum(UsageRecord.overage_charges).label("total_charges"),
+                ).filter(
+                    UsageRecord.company_id == str(company_id),
+                    UsageRecord.record_month == record_month,
+                ).first()
+
+                tickets_used = int(month_usage.total_tickets or 0)
+                overage_tickets = int(month_usage.total_overage or 0)
+                overage_charges = month_usage.total_charges or Decimal("0.00")
+
+                # Calculate percentage
+                usage_percentage = (tickets_used / ticket_limit * 100) if ticket_limit > 0 else 0.0
+
                 return UsageInfo(
                     company_id=company_id,
                     record_month=record_month,
-                    tickets_used=0,
-                    ticket_limit=0,
-                    overage_tickets=0,
-                    overage_charges=Decimal("0.00"),
-                    usage_percentage=0.0,
-                    approaching_limit=False,
-                    limit_exceeded=False,
+                    tickets_used=tickets_used,
+                    ticket_limit=ticket_limit,
+                    overage_tickets=overage_tickets,
+                    overage_charges=overage_charges,
+                    usage_percentage=round(usage_percentage, 2),
+                    approaching_limit=usage_percentage >= 80,
+                    limit_exceeded=tickets_used > ticket_limit,
                 )
 
-            # Get plan limits
-            limits = get_variant_limits(subscription.tier)
-            if not limits:
-                limits = VARIANT_LIMITS.get(
-                    VariantType(subscription.tier), {}
-                )
-
-            ticket_limit = limits.get("monthly_tickets", 2000)
-
-            # Get month usage
-            month_usage = db.query(
-                func.sum(UsageRecord.tickets_used).label("total_tickets"),
-                func.sum(UsageRecord.overage_tickets).label("total_overage"),
-                func.sum(UsageRecord.overage_charges).label("total_charges"),
-            ).filter(
-                UsageRecord.company_id == str(company_id),
-                UsageRecord.record_month == record_month,
-            ).first()
-
-            tickets_used = int(month_usage.total_tickets or 0)
-            overage_tickets = int(month_usage.total_overage or 0)
-            overage_charges = month_usage.total_charges or Decimal("0.00")
-
-            # Calculate percentage
-            usage_percentage = (tickets_used / ticket_limit * 100) if ticket_limit > 0 else 0.0
-
-            return UsageInfo(
-                company_id=company_id,
-                record_month=record_month,
-                tickets_used=tickets_used,
-                ticket_limit=ticket_limit,
-                overage_tickets=overage_tickets,
-                overage_charges=overage_charges,
-                usage_percentage=round(usage_percentage, 2),
-                approaching_limit=usage_percentage >= 80,
-                limit_exceeded=tickets_used > ticket_limit,
-            )
+        return await asyncio.to_thread(_db_work)
 
     async def get_overage_history(
         self,
@@ -566,25 +650,28 @@ class OverageService:
         Returns:
             List of OverageChargeInfo records
         """
-        with SessionLocal() as db:
-            charges = db.query(OverageCharge).filter(
-                OverageCharge.company_id == str(company_id),
-            ).order_by(
-                OverageCharge.date.desc()
-            ).limit(limit).all()
+        def _db_work():
+            with SessionLocal() as db:
+                charges = db.query(OverageCharge).filter(
+                    OverageCharge.company_id == str(company_id),
+                ).order_by(
+                    OverageCharge.date.desc()
+                ).limit(limit).all()
 
-            return [
-                OverageChargeInfo(
-                    id=UUID(charge.id),
-                    company_id=UUID(charge.company_id),
-                    date=charge.date,
-                    tickets_over_limit=charge.tickets_over_limit,
-                    charge_amount=charge.charge_amount,
-                    status=charge.status,
-                    created_at=charge.created_at,
-                )
-                for charge in charges
-            ]
+                return [
+                    OverageChargeInfo(
+                        id=UUID(charge.id),
+                        company_id=UUID(charge.company_id),
+                        date=charge.date,
+                        tickets_over_limit=charge.tickets_over_limit,
+                        charge_amount=charge.charge_amount,
+                        status=charge.status,
+                        created_at=charge.created_at,
+                    )
+                    for charge in charges
+                ]
+
+        return await asyncio.to_thread(_db_work)
 
     async def record_ticket_usage(
         self,
@@ -608,30 +695,33 @@ class OverageService:
         if record_date is None:
             record_date = datetime.now(timezone.utc).date()
 
-        with SessionLocal() as db:
-            # Get or create usage record
-            usage_record = db.query(UsageRecord).filter(
-                UsageRecord.company_id == str(company_id),
-                UsageRecord.record_date == record_date,
-            ).first()
+        def _db_work():
+            with SessionLocal() as db:
+                # Get or create usage record
+                usage_record = db.query(UsageRecord).filter(
+                    UsageRecord.company_id == str(company_id),
+                    UsageRecord.record_date == record_date,
+                ).first()
 
-            if usage_record:
-                # Update existing record
-                usage_record.tickets_used = ticket_count
-            else:
-                # Create new record
-                usage_record = UsageRecord(
-                    company_id=str(company_id),
-                    record_date=record_date,
-                    record_month=record_date.strftime("%Y-%m"),
-                    tickets_used=ticket_count,
-                )
-                db.add(usage_record)
+                if usage_record:
+                    # Update existing record
+                    usage_record.tickets_used = ticket_count
+                else:
+                    # Create new record
+                    usage_record = UsageRecord(
+                        company_id=str(company_id),
+                        record_date=record_date,
+                        record_month=record_date.strftime("%Y-%m"),
+                        tickets_used=ticket_count,
+                    )
+                    db.add(usage_record)
 
-            db.commit()
-            db.refresh(usage_record)
+                db.commit()
+                db.refresh(usage_record)
 
-            return usage_record
+                return usage_record
+
+        return await asyncio.to_thread(_db_work)
 
     async def check_approaching_limit(
         self,
@@ -680,84 +770,144 @@ class OverageService:
         still_pending = 0
         dead = 0
 
-        with SessionLocal() as db:
-            charges = db.query(OverageCharge).filter(
-                OverageCharge.status.in_(["retry_pending", "pending_provider"]),
-                OverageCharge.retry_count < self.MAX_RETRY_ATTEMPTS,
-            ).all()
+        # ── Step 1: Fetch pending charges and related objects ──
+        def _db_get_pending():
+            with SessionLocal() as db:
+                charges = db.query(OverageCharge).filter(
+                    OverageCharge.status.in_(["retry_pending", "pending_provider"]),
+                    OverageCharge.retry_count < self.MAX_RETRY_ATTEMPTS,
+                ).all()
 
-            for charge in charges:
-                retried += 1
+                results = []
+                for charge in charges:
+                    # Get related objects
+                    company = db.query(Company).filter(
+                        Company.id == charge.company_id
+                    ).first()
+                    subscription = db.query(Subscription).filter(
+                        Subscription.company_id == charge.company_id,
+                        Subscription.status == "active",
+                    ).first()
 
-                # Get related objects
-                company = db.query(Company).filter(
-                    Company.id == charge.company_id
-                ).first()
-                subscription = db.query(Subscription).filter(
-                    Subscription.company_id == charge.company_id,
-                    Subscription.status == "active",
-                ).first()
+                    # Eagerly access attributes so they survive session close
+                    _ = charge.id, charge.company_id, charge.tickets_over_limit, charge.date, charge.retry_count
+                    if company:
+                        _ = company.id, company.paddle_customer_id
+                    if subscription:
+                        _ = subscription.tier, subscription.company_id
 
-                if not company or not subscription:
-                    logger.warning(
-                        "overage_retry_skip company_id=%s missing_company_or_subscription",
-                        charge.company_id,
-                    )
+                    results.append({
+                        "charge": charge,
+                        "company": company,
+                        "subscription": subscription,
+                    })
+
+                return results
+
+        pending_items = await asyncio.to_thread(_db_get_pending)
+
+        # ── Step 2: Process each charge (async Paddle + DB updates) ──
+        for item in pending_items:
+            charge = item["charge"]
+            company = item["company"]
+            subscription = item["subscription"]
+
+            retried += 1
+
+            if not company or not subscription:
+                logger.warning(
+                    "overage_retry_skip company_id=%s missing_company_or_subscription",
+                    charge.company_id,
+                )
+                still_pending += 1
+                continue
+
+            try:
+                paddle = await self._get_paddle()
+                charge_result = await self._submit_paddle_charge(
+                    paddle=paddle,
+                    company=company,
+                    subscription=subscription,
+                    overage_charge=charge,
+                )
+
+                def _db_mark_succeeded(
+                    _charge_id=charge.id,
+                    _charge_result=charge_result,
+                ):
+                    with SessionLocal() as db:
+                        oc = db.query(OverageCharge).filter(
+                            OverageCharge.id == _charge_id
+                        ).first()
+                        if oc:
+                            oc.status = "charged"
+                            oc.paddle_charge_id = _charge_result.get("charge_id")
+                            oc.last_retry_at = datetime.now(timezone.utc)
+                            db.commit()
+
+                await asyncio.to_thread(_db_mark_succeeded)
+                succeeded += 1
+
+                logger.info(
+                    "overage_retry_succeeded charge_id=%s company_id=%s",
+                    charge.id,
+                    charge.company_id,
+                )
+
+            except AttributeError as e:
+                # create_transaction still not available
+                logger.warning(
+                    "overage_retry_method_missing charge_id=%s error=%s",
+                    charge.id,
+                    str(e),
+                )
+
+                def _db_mark_attr_error(_charge_id=charge.id):
+                    with SessionLocal() as db:
+                        oc = db.query(OverageCharge).filter(
+                            OverageCharge.id == _charge_id
+                        ).first()
+                        if oc:
+                            oc.retry_count = (oc.retry_count or 0) + 1
+                            oc.last_retry_at = datetime.now(timezone.utc)
+                            if oc.retry_count >= self.MAX_RETRY_ATTEMPTS:
+                                oc.status = "dead"
+                            db.commit()
+                            return oc.retry_count
+
+                new_retry_count = await asyncio.to_thread(_db_mark_attr_error)
+                if new_retry_count >= self.MAX_RETRY_ATTEMPTS:
+                    dead += 1
+                else:
                     still_pending += 1
-                    continue
 
-                try:
-                    paddle = await self._get_paddle()
-                    charge_result = await self._submit_paddle_charge(
-                        paddle=paddle,
-                        company=company,
-                        subscription=subscription,
-                        overage_charge=charge,
-                    )
+            except (PaddleError, Exception) as e:
+                logger.error(
+                    "overage_retry_failed charge_id=%s error=%s",
+                    charge.id,
+                    str(e),
+                )
 
-                    charge.status = "charged"
-                    charge.paddle_charge_id = charge_result.get("charge_id")
-                    charge.last_retry_at = datetime.now(timezone.utc)
-                    db.commit()
-                    succeeded += 1
+                def _db_mark_error(_charge_id=charge.id):
+                    with SessionLocal() as db:
+                        oc = db.query(OverageCharge).filter(
+                            OverageCharge.id == _charge_id
+                        ).first()
+                        if oc:
+                            oc.retry_count = (oc.retry_count or 0) + 1
+                            oc.last_retry_at = datetime.now(timezone.utc)
+                            if oc.retry_count >= self.MAX_RETRY_ATTEMPTS:
+                                oc.status = "dead"
+                            else:
+                                oc.status = "retry_pending"
+                            db.commit()
+                            return oc.retry_count
 
-                    logger.info(
-                        "overage_retry_succeeded charge_id=%s company_id=%s",
-                        charge.id,
-                        charge.company_id,
-                    )
-
-                except AttributeError as e:
-                    # create_transaction still not available
-                    logger.warning(
-                        "overage_retry_method_missing charge_id=%s error=%s",
-                        charge.id,
-                        str(e),
-                    )
-                    charge.retry_count = (charge.retry_count or 0) + 1
-                    charge.last_retry_at = datetime.now(timezone.utc)
-                    if charge.retry_count >= self.MAX_RETRY_ATTEMPTS:
-                        charge.status = "dead"
-                        dead += 1
-                    else:
-                        still_pending += 1
-                    db.commit()
-
-                except (PaddleError, Exception) as e:
-                    logger.error(
-                        "overage_retry_failed charge_id=%s error=%s",
-                        charge.id,
-                        str(e),
-                    )
-                    charge.retry_count = (charge.retry_count or 0) + 1
-                    charge.last_retry_at = datetime.now(timezone.utc)
-                    if charge.retry_count >= self.MAX_RETRY_ATTEMPTS:
-                        charge.status = "dead"
-                        dead += 1
-                    else:
-                        charge.status = "retry_pending"
-                        still_pending += 1
-                    db.commit()
+                new_retry_count = await asyncio.to_thread(_db_mark_error)
+                if new_retry_count >= self.MAX_RETRY_ATTEMPTS:
+                    dead += 1
+                else:
+                    still_pending += 1
 
         return {
             "retried": retried,

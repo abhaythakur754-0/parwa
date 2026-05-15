@@ -937,6 +937,94 @@ def create_initial_state(
 
 
 # ══════════════════════════════════════════════════════════════════
+# STATE TRANSITION VALIDATION & SANITIZATION
+# ══════════════════════════════════════════════════════════════════
+
+
+def validate_and_sanitize_node_output(
+    node_name: str,
+    update: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Validate and sanitize a node's output before it is written to state.
+
+    This is the recommended entry point for all nodes to call before
+    returning their state update dict. It:
+
+      1. Validates the update against known field constraints
+      2. Logs any validation errors with the node name for traceability
+      3. Sanitizes invalid values to safe defaults
+      4. Logs each correction with the node name
+      5. Returns the sanitized update dict
+
+    This function NEVER raises exceptions (BC-008). If anything goes
+    wrong internally, the original update is returned unchanged.
+
+    Args:
+        node_name: Name of the node producing this update (for logging)
+        update: Partial state update dict that the node wants to return
+
+    Returns:
+        Sanitized update dict with invalid values corrected to safe defaults.
+
+    Example usage in a node::
+
+        def my_agent_node(state: ParwaGraphState) -> Dict[str, Any]:
+            result = {
+                "variant_tier": "pro",
+                "agent_confidence": 0.85,
+                "action_type": "informational",
+            }
+            return validate_and_sanitize_node_output("my_agent_node", result)
+    """
+    from app.core.langgraph.validators import (
+        validate_state_transition,
+        sanitize_state_update,
+    )
+    from app.logger import get_logger
+
+    _logger = get_logger("langgraph_state")
+
+    try:
+        # Step 1: Validate — collect errors for logging
+        errors = validate_state_transition(update)
+        if errors:
+            _logger.warning(
+                "node_output_validation_errors",
+                node=node_name,
+                errors=errors,
+                fields=list(update.keys()),
+            )
+
+        # Step 2: Sanitize — correct invalid values to safe defaults
+        sanitized = sanitize_state_update(update)
+
+        # Step 3: Log summary if any corrections were made
+        if sanitized != update:
+            corrected_fields = [
+                key for key in update if update[key] != sanitized.get(key)
+            ]
+            _logger.info(
+                "node_output_sanitized",
+                node=node_name,
+                corrected_fields=corrected_fields,
+                original_values={k: update[k] for k in corrected_fields},
+                sanitized_values={k: sanitized[k] for k in corrected_fields},
+            )
+
+        return sanitized
+
+    except Exception as exc:
+        # BC-008: Never crash — if validation itself fails, return original
+        _logger.error(
+            "node_output_validation_failed_returning_original",
+            node=node_name,
+            error=str(exc),
+        )
+        return update
+
+
+# ══════════════════════════════════════════════════════════════════
 # FIELD COUNT VALIDATION
 # ══════════════════════════════════════════════════════════════════
 

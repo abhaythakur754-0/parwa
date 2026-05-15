@@ -81,11 +81,15 @@ def _check_dnd_applies(
 
     try:
         from app.core.dnd_engine import check_dnd  # type: ignore[import-untyped]
+        from app.core.langgraph.retry import sync_llm_call_with_retry  # LG-01: Wrap with retry for transient errors
 
         customer_id = state.get("customer_id", "")
-        result = check_dnd(
+        result = sync_llm_call_with_retry(
+            check_dnd,
             customer_id=customer_id,
             tenant_id=tenant_id,
+            max_retries=3,
+            base_delay=1.0,
         )
         return bool(result.get("dnd_active", False))
 
@@ -129,9 +133,17 @@ def _is_vip_customer(
 
     try:
         from app.core.customer_tier import is_vip  # type: ignore[import-untyped]
+        from app.core.langgraph.retry import sync_llm_call_with_retry  # LG-01: Wrap with retry for transient errors
 
         customer_id = state.get("customer_id", "")
-        return bool(is_vip(customer_id=customer_id, tenant_id=tenant_id))
+        result = sync_llm_call_with_retry(
+            is_vip,
+            customer_id=customer_id,
+            tenant_id=tenant_id,
+            max_retries=3,
+            base_delay=1.0,
+        )
+        return bool(result)
 
     except ImportError:
         logger.warning("vip_module_import_failed", tenant_id=tenant_id)

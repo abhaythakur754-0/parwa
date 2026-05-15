@@ -247,8 +247,10 @@ def _push_jarvis_feed(state: Dict[str, Any], tenant_id: str) -> bool:
     """
     try:
         from app.core.state_serialization import push_jarvis_feed  # type: ignore[import-untyped]
+        from app.core.langgraph.retry import sync_llm_call_with_retry  # LG-01: Wrap with retry for transient errors
 
-        push_jarvis_feed(
+        sync_llm_call_with_retry(
+            push_jarvis_feed,
             tenant_id=tenant_id,
             conversation_id=state.get("conversation_id", ""),
             customer_id=state.get("customer_id", ""),
@@ -256,6 +258,8 @@ def _push_jarvis_feed(state: Dict[str, Any], tenant_id: str) -> bool:
             agent_type=state.get("agent_type", ""),
             delivery_status=state.get("delivery_status", ""),
             variant_tier=state.get("variant_tier", "mini"),
+            max_retries=3,
+            base_delay=1.0,
         )
         return True
 
@@ -349,12 +353,16 @@ def _check_fifty_mistake_rule(state: Dict[str, Any], tenant_id: str) -> Dict[str
 
     try:
         from app.core.state_serialization import check_fifty_mistake  # type: ignore[import-untyped]
+        from app.core.langgraph.retry import sync_llm_call_with_retry  # LG-01: Wrap with retry for transient errors
 
-        check_result = check_fifty_mistake(
+        check_result = sync_llm_call_with_retry(
+            check_fifty_mistake,
             tenant_id=tenant_id,
             agent_id=state.get("agent_type", ""),
             red_flag=state.get("red_flag", False),
             guardrails_passed=state.get("guardrails_passed", True),
+            max_retries=3,
+            base_delay=1.0,
         )
 
         result = {

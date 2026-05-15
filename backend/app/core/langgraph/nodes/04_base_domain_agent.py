@@ -339,9 +339,9 @@ class BaseDomainAgent(ABC):
         """
         try:
             from app.core.response_generator import generate_response  # type: ignore[import-untyped]
-            from app.core.langgraph.retry import retry_llm_call
+            from app.core.langgraph.retry import sync_retry_llm_call
 
-            result = retry_llm_call(
+            result = sync_retry_llm_call(
                 generate_response,
                 message=message,
                 system_prompt=self.system_prompt,

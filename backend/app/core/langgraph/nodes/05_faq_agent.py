@@ -221,12 +221,12 @@ class FAQAgent(BaseDomainAgent):
         """
         try:
             from app.core.rag_retrieval import retrieve_documents  # type: ignore[import-untyped]
-            from app.core.langgraph.retry import llm_call_with_retry
+            from app.core.langgraph.retry import sync_llm_call_with_retry
 
             max_docs = self.domain_knowledge.get("max_rag_documents", 5)
             min_score = self.domain_knowledge.get("min_relevance_score", 0.6)
 
-            result = llm_call_with_retry(
+            result = sync_llm_call_with_retry(
                 retrieve_documents,
                 query=message,
                 tenant_id=tenant_id,

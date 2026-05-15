@@ -171,13 +171,17 @@ def _initiate_voice_call(
     """
     try:
         from app.core.call_lifecycle import initiate_call  # type: ignore[import-untyped]
+        from app.core.langgraph.retry import sync_llm_call_with_retry  # LG-01: Wrap with retry for transient errors
 
-        result = initiate_call(
+        result = sync_llm_call_with_retry(
+            initiate_call,
             customer_id=state.get("customer_id", ""),
             tenant_id=tenant_id,
             conversation_id=state.get("conversation_id", ""),
             ssml_content=ssml_content,
             variant_tier=state.get("variant_tier", "pro"),
+            max_retries=3,
+            base_delay=1.0,
         )
 
         return {

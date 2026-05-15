@@ -72,13 +72,17 @@ def _apply_dspy_optimization(
     """
     try:
         from app.core.dspy_integration import optimize_prompt  # type: ignore[import-untyped]
+        from app.core.langgraph.retry import sync_llm_call_with_retry  # LG-01: Wrap with retry for transient errors
 
-        result = optimize_prompt(
+        result = sync_llm_call_with_retry(
+            optimize_prompt,
             query=message,
             response=agent_response,
             intent=intent,
             tenant_id=tenant_id,
             variant_tier=variant_tier,
+            max_retries=3,
+            base_delay=1.0,
         )
 
         optimized = bool(result.get("optimized", False))
@@ -150,8 +154,10 @@ def _regenerate_with_optimized_prompt(
     """
     try:
         from app.core.response_generator import generate_response  # type: ignore[import-untyped]
+        from app.core.langgraph.retry import sync_llm_call_with_retry  # LG-01: Wrap with retry for transient errors
 
-        result = generate_response(
+        result = sync_llm_call_with_retry(
+            generate_response,
             message=message,
             system_prompt=optimized_prompt,
             enriched_context={"optimized_by_dspy": True, "original_intent": intent},
@@ -162,6 +168,8 @@ def _regenerate_with_optimized_prompt(
             context_health=1.0,
             sentiment_score=0.5,
             agent_name="dspy_optimized",
+            max_retries=3,
+            base_delay=1.0,
         )
 
         response = result.get("response", "")

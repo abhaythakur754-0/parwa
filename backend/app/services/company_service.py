@@ -29,6 +29,28 @@ logger = get_logger("company_service")
 # Role hierarchy for authorization checks
 _ROLE_HIERARCHY = {"owner": 4, "admin": 3, "agent": 2, "viewer": 1}
 
+# S-10 fix: Explicit whitelist of fields that may be updated via the
+# profile endpoint.  Sensitive / billing fields (subscription_tier,
+# paddle_customer_id, paddle_subscription_id, subscription_status,
+# billing_email) can only be changed through dedicated billing endpoints.
+UPDATABLE_PROFILE_FIELDS = frozenset({
+    "name",
+    "industry",
+    "size",
+    "website",
+    "phone",
+    "address",
+    "city",
+    "state",
+    "country",
+    "zip_code",
+    "logo_url",
+    "timezone",
+    "locale",
+    "support_email",
+    "from_name",
+})
+
 
 def get_company_profile(
     company_id: str, db: Session,
@@ -65,7 +87,13 @@ def update_company_profile(
 ) -> Company:
     """Update company profile fields.
 
-    Only updates fields that are provided in data.
+    Only updates fields that are in the UPDATABLE_PROFILE_FIELDS whitelist.
+    Sensitive fields like subscription_tier, paddle_customer_id, etc.
+    are explicitly excluded and must be updated through billing endpoints.
+
+    S-10 fix: Previous code used ``setattr(company, field, value)`` for
+    any field present in ``data``, allowing callers to overwrite billing-
+    related attributes.  Now only whitelisted fields are accepted.
 
     BC-001: Filtered by company_id.
 
@@ -79,7 +107,19 @@ def update_company_profile(
 
     Raises:
         NotFoundError: If company not found.
+        ValidationError: If data contains disallowed fields.
     """
+    # S-10: Reject any field not in the whitelist
+    disallowed = set(data.keys()) - UPDATABLE_PROFILE_FIELDS
+    if disallowed:
+        raise ValidationError(
+            message="Cannot update restricted fields",
+            details={
+                "disallowed_fields": sorted(disallowed),
+                "allowed_fields": sorted(UPDATABLE_PROFILE_FIELDS),
+            },
+        )
+
     company = db.query(Company).filter(
         Company.id == company_id,
     ).first()
@@ -90,7 +130,7 @@ def update_company_profile(
         )
 
     for field, value in data.items():
-        if value is not None and hasattr(company, field):
+        if value is not None and field in UPDATABLE_PROFILE_FIELDS:
             setattr(company, field, value)
 
     company.updated_at = datetime.now(timezone.utc)

@@ -239,7 +239,7 @@ class Settings(BaseSettings):
         Raises RuntimeError in ALL environments if not set.
         Users MUST set this in their .env file.
         """
-        if v is None:
+        if v is None or v == "":
             raise RuntimeError(
                 "DATA_ENCRYPTION_KEY must be set. "
                 "Set a 32-character cryptographically random value via "
@@ -259,7 +259,7 @@ class Settings(BaseSettings):
     @field_validator("SECRET_KEY")
     @classmethod
     def validate_secret_key(cls, v) -> str:
-        if v is None:
+        if v is None or v == "":
             raise RuntimeError(
                 "SECRET_KEY must be set. "
                 "Set a cryptographically random value via the SECRET_KEY env var."
@@ -274,6 +274,13 @@ class Settings(BaseSettings):
                 "Using development SECRET_KEY — change in production!",
                 stacklevel=2,
             )
+        # Enforce minimum key length in production
+        if os.environ.get("ENVIRONMENT") == "production" and len(v) < 32:
+            raise ValueError(
+                f"SECRET_KEY must be at least 32 characters in production, "
+                f"got {len(v)}. Generate one with: "
+                f"python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            )
         return v
 
     @field_validator("JWT_SECRET_KEY")
@@ -282,7 +289,7 @@ class Settings(BaseSettings):
         """C-11 FIX: JWT_SECRET_KEY must be set and changed from default in production.
         Also enforces minimum length in production (>=32 chars).
         """
-        if v is None:
+        if v is None or v == "":
             raise RuntimeError(
                 "JWT_SECRET_KEY must be set. "
                 "Set a cryptographically random value via the JWT_SECRET_KEY env var."
@@ -385,21 +392,34 @@ class Settings(BaseSettings):
         return v
 
     # ── Pricing Integrity (H-09) ────────────────────────────────
-    PRICING_SIGNING_KEY: str = ""
+    PRICING_SIGNING_KEY: Optional[str] = None
 
     @field_validator("PRICING_SIGNING_KEY")
     @classmethod
-    def validate_pricing_signing_key(cls, v: str) -> str:
-        if not v or v.startswith("dev-"):
+    def validate_pricing_signing_key(cls, v) -> str:
+        if v is None or v == "":
+            raise RuntimeError(
+                "PRICING_SIGNING_KEY must be set. "
+                "Set a cryptographically random value via the "
+                "PRICING_SIGNING_KEY env var."
+            )
+        if v.startswith("dev-"):
             if os.environ.get("ENVIRONMENT") == "production":
                 raise ValueError(
-                    "PRICING_SIGNING_KEY must be set to a non-default value "
+                    "PRICING_SIGNING_KEY must be changed from default "
                     "in production. Set a cryptographically random value via the "
                     "PRICING_SIGNING_KEY env var."
                 )
             warnings.warn(
                 "Using development PRICING_SIGNING_KEY — change in production!",
                 stacklevel=2,
+            )
+        # Enforce minimum key length in production
+        if os.environ.get("ENVIRONMENT") == "production" and len(v) < 32:
+            raise ValueError(
+                f"PRICING_SIGNING_KEY must be at least 32 characters in production, "
+                f"got {len(v)}. Generate one with: "
+                f"python -c \"import secrets; print(secrets.token_urlsafe(32))\""
             )
         return v
 

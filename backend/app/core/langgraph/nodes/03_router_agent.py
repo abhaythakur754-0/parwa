@@ -310,9 +310,9 @@ def router_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
         intent = "general"
         try:
             from app.core.classification_engine import classify_intent  # type: ignore[import-untyped]
-            from app.core.langgraph.retry import retry_llm_call
+            from app.core.langgraph.retry import sync_retry_llm_call
 
-            intent = str(retry_llm_call(
+            intent = str(sync_retry_llm_call(
                 classify_intent, message, tenant_id=tenant_id,
                 max_retries=3, base_delay=1.0,
             ))
@@ -343,9 +343,9 @@ def router_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
         complexity_score = 0.0
         try:
             from app.core.classification_engine import estimate_complexity  # type: ignore[import-untyped]
-            from app.core.langgraph.retry import retry_llm_call
+            from app.core.langgraph.retry import sync_retry_llm_call
 
-            complexity_score = float(retry_llm_call(
+            complexity_score = float(sync_retry_llm_call(
                 estimate_complexity, message, tenant_id=tenant_id,
                 max_retries=3, base_delay=1.0,
             ))

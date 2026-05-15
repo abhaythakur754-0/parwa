@@ -117,8 +117,14 @@ class TechnicalAgent(BaseDomainAgent):
         """
         try:
             from app.core.react_tools import get_system_status  # type: ignore[import-untyped]
+            from app.core.langgraph.retry import sync_llm_call_with_retry  # LG-01: Wrap with retry for transient errors
 
-            result = get_system_status(tenant_id=tenant_id)
+            result = sync_llm_call_with_retry(
+                get_system_status,
+                tenant_id=tenant_id,
+                max_retries=3,
+                base_delay=1.0,
+            )
 
             logger.info(
                 "system_status_check_success",
@@ -177,14 +183,18 @@ class TechnicalAgent(BaseDomainAgent):
         """
         try:
             from app.core.react_tools import diagnose_issue  # type: ignore[import-untyped]
+            from app.core.langgraph.retry import sync_llm_call_with_retry  # LG-01: Wrap with retry for transient errors
 
-            result = diagnose_issue(
+            result = sync_llm_call_with_retry(
+                diagnose_issue,
                 query=message,
                 tenant_id=tenant_id,
                 context={
                     "signals": signals,
                     "system_status": system_status,
                 },
+                max_retries=3,
+                base_delay=1.0,
             )
 
             steps = result.get("steps", [])

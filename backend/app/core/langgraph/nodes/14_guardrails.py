@@ -76,9 +76,9 @@ def _check_guardrails_engine(
     """
     try:
         from app.core.guardrails_engine import check_response  # type: ignore[import-untyped]
-        from app.core.langgraph.retry import llm_call_with_retry
+        from app.core.langgraph.retry import sync_llm_call_with_retry
 
-        result = llm_call_with_retry(
+        result = sync_llm_call_with_retry(
             check_response,
             response=response_text,
             original_message=message,
@@ -164,9 +164,9 @@ def _check_hallucination(
     """
     try:
         from app.core.hallucination_detector import detect_hallucination  # type: ignore[import-untyped]
-        from app.core.langgraph.retry import llm_call_with_retry
+        from app.core.langgraph.retry import sync_llm_call_with_retry
 
-        result = llm_call_with_retry(
+        result = sync_llm_call_with_retry(
             detect_hallucination,
             response=response_text,
             query=message,
@@ -436,9 +436,9 @@ def _check_brand_voice(
 
     try:
         from app.core.brand_voice_engine import check_compliance  # type: ignore[import-untyped]
-        from app.core.langgraph.retry import llm_call_with_retry
+        from app.core.langgraph.retry import sync_llm_call_with_retry
 
-        result = llm_call_with_retry(
+        result = sync_llm_call_with_retry(
             check_compliance,
             response=response_text,
             tenant_id=tenant_id,

@@ -21,7 +21,6 @@ Security controls:
 """
 
 import asyncio
-import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -571,18 +570,26 @@ def check_email_availability(
 
 
 def get_user_by_id(
-    db: Session, user_id: str
+    db: Session, user_id: str, company_id: Optional[str] = None
 ) -> Optional[User]:
-    """Fetch a user by ID.
+    """Fetch a user by ID, optionally scoped to a company.
+
+    S-09 fix: When ``company_id`` is provided, the query is filtered
+    so that a user from a different tenant can never be retrieved.
+    This prevents cross-tenant data leakage.
 
     Args:
         db: Database session.
         user_id: User UUID.
+        company_id: Optional company UUID for tenant-scoped lookup.
 
     Returns:
         User object or None.
     """
-    return db.query(User).filter(User.id == user_id).first()
+    query = db.query(User).filter(User.id == user_id)
+    if company_id is not None:
+        query = query.filter(User.company_id == company_id)
+    return query.first()
 
 
 # ── Private Helpers ────────────────────────────────────────────────

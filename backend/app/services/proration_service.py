@@ -20,6 +20,7 @@ Formula (Upgrade only):
 BC-002: All money calculations use Decimal (never float)
 """
 
+import asyncio
 import logging
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
@@ -197,36 +198,39 @@ class ProrationService:
         Returns:
             ProrationAudit record
         """
-        with SessionLocal() as db:
-            audit = ProrationAudit(
-                company_id=str(company_id),
-                old_variant=proration_result.old_variant.value,
-                new_variant=proration_result.new_variant.value,
-                old_price=proration_result.old_price,
-                new_price=proration_result.new_price,
-                days_remaining=proration_result.days_remaining,
-                days_in_period=proration_result.days_in_period,
-                unused_amount=proration_result.unused_amount,
-                proration_amount=proration_result.proration_credit,
-                credit_applied=proration_result.proration_credit,
-                charge_applied=proration_result.net_charge,
-                billing_cycle_start=proration_result.billing_cycle_start,
-                billing_cycle_end=proration_result.billing_cycle_end,
-            )
+        def _db_work():
+            with SessionLocal() as db:
+                audit = ProrationAudit(
+                    company_id=str(company_id),
+                    old_variant=proration_result.old_variant.value,
+                    new_variant=proration_result.new_variant.value,
+                    old_price=proration_result.old_price,
+                    new_price=proration_result.new_price,
+                    days_remaining=proration_result.days_remaining,
+                    days_in_period=proration_result.days_in_period,
+                    unused_amount=proration_result.unused_amount,
+                    proration_amount=proration_result.proration_credit,
+                    credit_applied=proration_result.proration_credit,
+                    charge_applied=proration_result.net_charge,
+                    billing_cycle_start=proration_result.billing_cycle_start,
+                    billing_cycle_end=proration_result.billing_cycle_end,
+                )
 
-            db.add(audit)
-            db.commit()
-            db.refresh(audit)
+                db.add(audit)
+                db.commit()
+                db.refresh(audit)
 
-            logger.info(
-                "proration_applied company_id=%s audit_id=%s credit=%s charge=%s",
-                company_id,
-                audit.id,
-                proration_result.proration_credit,
-                proration_result.net_charge,
-            )
+                logger.info(
+                    "proration_applied company_id=%s audit_id=%s credit=%s charge=%s",
+                    company_id,
+                    audit.id,
+                    proration_result.proration_credit,
+                    proration_result.net_charge,
+                )
 
-            return audit
+                return audit
+
+        return await asyncio.to_thread(_db_work)
 
     async def get_proration_audit_log(
         self,
@@ -243,31 +247,34 @@ class ProrationService:
         Returns:
             List of ProrationAudit records (most recent first)
         """
-        with SessionLocal() as db:
-            audits = db.query(ProrationAudit).filter(
-                ProrationAudit.company_id == str(company_id)
-            ).order_by(
-                ProrationAudit.calculated_at.desc()
-            ).limit(limit).all()
+        def _db_work():
+            with SessionLocal() as db:
+                audits = db.query(ProrationAudit).filter(
+                    ProrationAudit.company_id == str(company_id)
+                ).order_by(
+                    ProrationAudit.calculated_at.desc()
+                ).limit(limit).all()
 
-            return [
-                ProrationAuditSchema(
-                    id=UUID(audit.id),
-                    company_id=UUID(audit.company_id),
-                    old_variant=VariantType(audit.old_variant),
-                    new_variant=VariantType(audit.new_variant),
-                    old_price=audit.old_price,
-                    new_price=audit.new_price,
-                    days_remaining=audit.days_remaining,
-                    days_in_period=audit.days_in_period,
-                    unused_amount=audit.unused_amount,
-                    proration_amount=audit.proration_amount,
-                    credit_applied=audit.credit_applied,
-                    charge_applied=audit.charge_applied,
-                    calculated_at=audit.calculated_at,
-                )
-                for audit in audits
-            ]
+                return [
+                    ProrationAuditSchema(
+                        id=UUID(audit.id),
+                        company_id=UUID(audit.company_id),
+                        old_variant=VariantType(audit.old_variant),
+                        new_variant=VariantType(audit.new_variant),
+                        old_price=audit.old_price,
+                        new_price=audit.new_price,
+                        days_remaining=audit.days_remaining,
+                        days_in_period=audit.days_in_period,
+                        unused_amount=audit.unused_amount,
+                        proration_amount=audit.proration_amount,
+                        credit_applied=audit.credit_applied,
+                        charge_applied=audit.charge_applied,
+                        calculated_at=audit.calculated_at,
+                    )
+                    for audit in audits
+                ]
+
+        return await asyncio.to_thread(_db_work)
 
     async def calculate_downgrade_effective_date(
         self,

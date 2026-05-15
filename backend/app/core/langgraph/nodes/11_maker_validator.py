@@ -72,7 +72,7 @@ def _generate_k_solutions_llm(
     K diverse candidate solutions for the same query. Each solution
     includes response text, confidence score, and reasoning.
 
-    Task ID 6: Wraps the LLM call with retry_llm_call for automatic
+    Task ID 6: Wraps the LLM call with sync_retry_llm_call for automatic
     retry on transient errors (rate limit, timeout, etc.).
 
     Falls back to perturbation-based generation if LLM unavailable.
@@ -91,9 +91,9 @@ def _generate_k_solutions_llm(
     """
     try:
         from app.core.response_generator import generate_k_solutions  # type: ignore[import-untyped]
-        from app.core.langgraph.retry import retry_llm_call
+        from app.core.langgraph.retry import sync_retry_llm_call
 
-        result = retry_llm_call(
+        result = sync_retry_llm_call(
             generate_k_solutions,
             message=message,
             original_response=agent_response,

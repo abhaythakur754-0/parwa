@@ -168,16 +168,20 @@ class EscalationAgent(BaseDomainAgent):
         """
         try:
             from app.core.graceful_escalation import get_escalation_context  # type: ignore[import-untyped]
+            from app.core.langgraph.retry import sync_llm_call_with_retry  # LG-01: Wrap with retry for transient errors
 
             legal_threat = state.get("legal_threat_detected", False)
             urgency = state.get("urgency", "high")
             message = state.get("pii_redacted_message", "")
 
-            result = get_escalation_context(
+            result = sync_llm_call_with_retry(
+                get_escalation_context,
                 message=message,
                 legal_threat=legal_threat,
                 urgency=urgency,
                 tenant_id=tenant_id,
+                max_retries=3,
+                base_delay=1.0,
             )
 
             logger.info(

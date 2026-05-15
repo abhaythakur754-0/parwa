@@ -73,11 +73,15 @@ def _apply_brand_voice(
 
     try:
         from app.core.brand_voice_engine import apply_brand_voice  # type: ignore[import-untyped]
+        from app.core.langgraph.retry import sync_llm_call_with_retry  # LG-01: Wrap with retry for transient errors
 
-        result = apply_brand_voice(
+        result = sync_llm_call_with_retry(
+            apply_brand_voice,
             text=response_text,
             profile=brand_voice_profile,
             tenant_id=tenant_id,
+            max_retries=3,
+            base_delay=1.0,
         )
         return result.get("text", response_text)
 
@@ -191,14 +195,18 @@ def _dispatch_email(
     """
     try:
         from app.core.channel_dispatcher import dispatch  # type: ignore[import-untyped]
+        from app.core.langgraph.retry import sync_llm_call_with_retry  # LG-01: Wrap with retry for transient errors
 
-        result = dispatch(
+        result = sync_llm_call_with_retry(
+            dispatch,
             channel="email",
             content=html_body,
             tenant_id=tenant_id,
             customer_id=state.get("customer_id", ""),
             conversation_id=state.get("conversation_id", ""),
             variant_tier=state.get("variant_tier", "mini"),
+            max_retries=3,
+            base_delay=1.0,
         )
 
         return {

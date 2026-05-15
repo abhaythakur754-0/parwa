@@ -355,9 +355,9 @@ def empathy_engine_node(state: Dict[str, Any]) -> Dict[str, Any]:
         # ── Step 1: Base sentiment analysis (all tiers) ───────────
         try:
             from app.core.sentiment_engine import analyze_sentiment  # type: ignore[import-untyped]
-            from app.core.langgraph.retry import retry_llm_call
+            from app.core.langgraph.retry import sync_retry_llm_call
 
-            result = retry_llm_call(
+            result = sync_retry_llm_call(
                 analyze_sentiment,
                 message=message,
                 tenant_id=tenant_id,

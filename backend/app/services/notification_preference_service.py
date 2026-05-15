@@ -6,19 +6,45 @@ Handles:
 - Event-type preferences
 - Channel preferences
 - Digest settings
+
+S-14 fix: Added audit logging for preference changes.  Every mutation
+(update_preference, set_digest_settings, reset_to_defaults, disable_all,
+enable_all) now records a row in ``notification_preference_audit`` so
+that an admin can review who changed what and when.
 """
 
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
-from sqlalchemy import and_, desc
+from sqlalchemy import and_, desc, Column, String, Text, DateTime
 from sqlalchemy.orm import Session
 
 from app.exceptions import NotFoundError, ValidationError
+from database.base import Base, SessionLocal
 from database.models.core import User
 from database.models.remaining import NotificationPreference
+
+logger = logging.getLogger("parwa.services.notification_preference")
+
+
+# ── S-14: Audit log model for preference changes ──────────────────
+
+class NotificationPreferenceAudit(Base):
+    """Audit trail for notification preference changes (S-14)."""
+    __tablename__ = "notification_preference_audit"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    company_id = Column(String(36), nullable=False, index=True)
+    user_id = Column(String(36), nullable=False, index=True)
+    action = Column(String(50), nullable=False)  # update, reset, disable_all, enable_all, digest_change
+    event_type = Column(String(100), nullable=True)  # null for bulk/digest actions
+    old_value = Column(Text, nullable=True)  # JSON snapshot before change
+    new_value = Column(Text, nullable=True)  # JSON snapshot after change
+    changed_by = Column(String(36), nullable=True)  # user who made the change (if different)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class NotificationPreferenceService:
@@ -211,6 +237,15 @@ class NotificationPreferenceService:
             NotificationPreference.event_type == event_type,
         ).first()
         
+        # S-14: Capture old value for audit before mutation
+        old_value = None
+        if preference:
+            old_value = json.dumps({
+                "enabled": preference.enabled,
+                "channels": json.loads(preference.channels) if preference.channels else [],
+                "priority_threshold": preference.priority_threshold,
+            })
+
         if not preference:
             defaults = self.DEFAULT_PREFERENCES[event_type]
             preference = NotificationPreference(
@@ -236,6 +271,20 @@ class NotificationPreferenceService:
         
         self.db.commit()
         self.db.refresh(preference)
+
+        # S-14: Record audit entry
+        new_value = json.dumps({
+            "enabled": preference.enabled,
+            "channels": json.loads(preference.channels) if preference.channels else [],
+            "priority_threshold": preference.priority_threshold,
+        })
+        self._record_audit(
+            user_id=user_id,
+            action="update",
+            event_type=event_type,
+            old_value=old_value,
+            new_value=new_value,
+        )
         
         return preference
     
@@ -318,6 +367,7 @@ class NotificationPreferenceService:
         
         # Store digest settings in user's metadata_json
         metadata = json.loads(user.metadata_json or "{}")
+        old_digest = metadata.get("digest_settings", {"frequency": "none", "time": "09:00"})
         metadata["digest_settings"] = {
             "frequency": frequency,
             "time": digest_time,
@@ -325,6 +375,15 @@ class NotificationPreferenceService:
         user.metadata_json = json.dumps(metadata)
         
         self.db.commit()
+
+        # S-14: Record audit entry for digest change
+        self._record_audit(
+            user_id=user_id,
+            action="digest_change",
+            event_type=None,
+            old_value=json.dumps(old_digest),
+            new_value=json.dumps({"frequency": frequency, "time": digest_time}),
+        )
         
         return {
             "user_id": user_id,
@@ -459,6 +518,21 @@ class NotificationPreferenceService:
         
         Returns count of preferences reset.
         """
+        # S-14: Capture current prefs as old value for audit
+        old_prefs = self.db.query(NotificationPreference).filter(
+            NotificationPreference.company_id == self.company_id,
+            NotificationPreference.user_id == user_id,
+        ).all()
+        old_value = json.dumps([
+            {
+                "event_type": p.event_type,
+                "enabled": p.enabled,
+                "channels": json.loads(p.channels) if p.channels else [],
+                "priority_threshold": p.priority_threshold,
+            }
+            for p in old_prefs
+        ])
+
         # Delete all existing preferences
         self.db.query(NotificationPreference).filter(
             NotificationPreference.company_id == self.company_id,
@@ -466,7 +540,16 @@ class NotificationPreferenceService:
         ).delete()
         
         self.db.commit()
-        
+
+        # S-14: Record audit entry
+        self._record_audit(
+            user_id=user_id,
+            action="reset",
+            event_type=None,
+            old_value=old_value,
+            new_value=json.dumps({"reset_to": "defaults"}),
+        )
+
         return len(self.DEFAULT_PREFERENCES)
     
     def _get_digest_settings(self, user_id: str) -> Dict[str, Any]:
@@ -492,12 +575,85 @@ class NotificationPreferenceService:
     ) -> List[Dict[str, Any]]:
         """
         Get history of preference changes for a user.
-        
-        This would typically be implemented with an audit log table.
-        For now, returns empty list.
+
+        S-14 fix: Queries the ``notification_preference_audit`` table to
+        return a chronological log of every preference mutation (update,
+        digest_change, reset, disable_all, enable_all).
+
+        Args:
+            user_id: User whose history to retrieve.
+            limit: Maximum records to return (default 10).
+
+        Returns:
+            List of audit records, newest first.
         """
-        # TODO: Implement with audit log
-        return []
+        try:
+            audit_records = self.db.query(NotificationPreferenceAudit).filter(
+                NotificationPreferenceAudit.company_id == self.company_id,
+                NotificationPreferenceAudit.user_id == user_id,
+            ).order_by(
+                desc(NotificationPreferenceAudit.created_at)
+            ).limit(limit).all()
+
+            return [
+                {
+                    "id": r.id,
+                    "action": r.action,
+                    "event_type": r.event_type,
+                    "old_value": json.loads(r.old_value) if r.old_value else None,
+                    "new_value": json.loads(r.new_value) if r.new_value else None,
+                    "changed_by": r.changed_by,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                }
+                for r in audit_records
+            ]
+        except Exception as exc:
+            # If the audit table doesn't exist yet (pre-migration),
+            # return empty list rather than crashing.
+            logger.warning(
+                "preference_history_query_failed user=%s error=%s",
+                user_id, exc,
+            )
+            return []
+
+    def _record_audit(
+        self,
+        user_id: str,
+        action: str,
+        event_type: Optional[str] = None,
+        old_value: Optional[str] = None,
+        new_value: Optional[str] = None,
+        changed_by: Optional[str] = None,
+    ) -> None:
+        """S-14: Write an audit log entry for a preference change.
+
+        Silently catches exceptions so a failed audit write never
+        prevents the actual preference update from completing.
+        """
+        try:
+            audit = NotificationPreferenceAudit(
+                id=str(uuid4()),
+                company_id=self.company_id,
+                user_id=user_id,
+                action=action,
+                event_type=event_type,
+                old_value=old_value,
+                new_value=new_value,
+                changed_by=changed_by,
+            )
+            self.db.add(audit)
+            self.db.commit()
+        except Exception as exc:
+            logger.warning(
+                "preference_audit_write_failed user=%s action=%s error=%s",
+                user_id, action, exc,
+            )
+            # Roll back the audit insert only — do NOT roll back the
+            # actual preference change that already committed.
+            try:
+                self.db.rollback()
+            except Exception:
+                pass
     
     def copy_preferences(
         self,

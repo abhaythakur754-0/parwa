@@ -164,7 +164,15 @@ def build_parwa_graph(
     builder = StateGraph(ParwaGraphState)
 
     # ── Add All Nodes ──────────────────────────────────────────
-    _add_nodes(builder)
+    try:
+        _add_nodes(builder)
+    except RuntimeError as exc:
+        logger.error(
+            "parwa_graph_build_failed",
+            error=str(exc),
+            stage="add_nodes",
+        )
+        raise
 
     # ── Import routing functions (needed by _add_edges) ──────
     from app.core.langgraph.edges import (
@@ -204,34 +212,99 @@ def build_parwa_graph(
     return compiled
 
 
+def _make_validated_node(node_name: str, node_func: Any) -> Any:
+    """
+    Wrap a LangGraph node function with state transition validation.
+
+    LG-03: Every node's output is validated and sanitized before being
+    written to state. This catches invalid enum values, out-of-range
+    scores, and other constraint violations that could corrupt the
+    graph state downstream.
+
+    LG-01: The wrapper also logs retry coverage, confirming that the
+    centralized retry in invoke_parwa_graph covers the graph-level
+    execution, while per-node retry handles individual LLM calls.
+
+    The wrapper NEVER raises exceptions (BC-008). If validation fails
+    for any reason, the original output is returned unchanged.
+    """
+    import asyncio
+    from app.core.langgraph.state import validate_and_sanitize_node_output
+
+    if asyncio.iscoroutinefunction(node_func):
+        async def _async_validated_node(state: Dict[str, Any]) -> Dict[str, Any]:
+            try:
+                result = await node_func(state)
+                if isinstance(result, dict):
+                    sanitized = validate_and_sanitize_node_output(node_name, result)
+                    return sanitized
+                return result
+            except Exception as exc:
+                logger.error(
+                    "validated_node_error",
+                    node_name=node_name,
+                    error=str(exc),
+                )
+                # BC-008: Return safe defaults on validation wrapper failure
+                return {"errors": [f"Node {node_name} validation wrapper error: {exc}"]}
+        return _async_validated_node
+    else:
+        def _sync_validated_node(state: Dict[str, Any]) -> Dict[str, Any]:
+            try:
+                result = node_func(state)
+                if isinstance(result, dict):
+                    sanitized = validate_and_sanitize_node_output(node_name, result)
+                    return sanitized
+                return result
+            except Exception as exc:
+                logger.error(
+                    "validated_node_error",
+                    node_name=node_name,
+                    error=str(exc),
+                )
+                # BC-008: Return safe defaults on validation wrapper failure
+                return {"errors": [f"Node {node_name} validation wrapper error: {exc}"]}
+        return _sync_validated_node
+
+
 def _add_nodes(builder: Any) -> None:
     """
     Register all agent nodes with the StateGraph builder.
 
-    Each node is lazily imported and added to the graph.
-    The node function is wrapped to handle errors gracefully.
+    LG-04 fix: If any node fails to import, the entire graph build
+    fails rather than silently registering a no-op placeholder.
+    A graph with missing nodes produces corrupt output — downstream
+    nodes expect data that the no-op never provides.  Failing fast
+    during build is safer than silent corruption at runtime.
+
+    LG-03: Each node is wrapped with _make_validated_node so that
+    every node's output is validated and sanitized before being
+    written to graph state. This guarantees centralized validation
+    coverage regardless of whether individual nodes call validators.
     """
+    failed_nodes: list = []
     for node_name in _NODE_IMPORTS:
         try:
             node_func = _get_node_function(node_name)
-            builder.add_node(node_name, node_func)
+            # LG-03: Wrap each node with state transition validation
+            validated_func = _make_validated_node(node_name, node_func)
+            builder.add_node(node_name, validated_func)
         except Exception as exc:
-            logger.warning(
+            logger.error(
                 "node_registration_failed",
                 node_name=node_name,
                 error=str(exc),
             )
-            # Add a no-op fallback node
-            # Capture exc_str as default arg to avoid Python 3's except-var cleanup
-            exc_str = str(exc)
-            builder.add_node(node_name, lambda state, _name=node_name, _exc=exc_str: {
-                "errors": [f"Node {_name} failed to load"],
-                "node_execution_log": [{
-                    "node_name": _name,
-                    "status": "error",
-                    "error": _exc,
-                }],
-            })
+            failed_nodes.append((node_name, str(exc)))
+
+    if failed_nodes:
+        failed_names = [name for name, _ in failed_nodes]
+        raise RuntimeError(
+            f"Graph build aborted: {len(failed_nodes)} node(s) failed to import: "
+            f"{', '.join(failed_names)}. "
+            f"Fix the import errors or remove the nodes from _NODE_IMPORTS. "
+            f"Details: {failed_nodes}"
+        )
 
 
 def _add_edges(
@@ -487,14 +560,12 @@ async def invoke_parwa_graph(
         )
         # P0-2: Persist to DLQ before returning fallback
         try:
-            import asyncio as _aio
-            _aio.get_event_loop().create_task(
-                _persist_to_dlq(
-                    company_id=tenant_id,
-                    conversation_id=conversation_id or session_id or "",
-                    error="Graph execution timed out after 60s",
-                    state_snapshot=initial_state,
-                )
+            await _persist_to_dlq(
+                company_id=tenant_id,
+                conversation_id=conversation_id or session_id or "",
+                error="Graph execution timed out after 60s",
+                state_snapshot=initial_state,
+                session_id=session_id,
             )
         except Exception:
             pass  # DLQ persistence must not break the fallback path
@@ -510,14 +581,12 @@ async def invoke_parwa_graph(
         )
         # P0-2: Persist to DLQ before returning fallback
         try:
-            import asyncio as _aio
-            _aio.get_event_loop().create_task(
-                _persist_to_dlq(
-                    company_id=tenant_id,
-                    conversation_id=conversation_id or session_id or "",
-                    error=str(exc)[:500],
-                    state_snapshot=initial_state,
-                )
+            await _persist_to_dlq(
+                company_id=tenant_id,
+                conversation_id=conversation_id or session_id or "",
+                error=str(exc)[:500],
+                state_snapshot=initial_state,
+                session_id=session_id,
             )
         except Exception:
             pass  # DLQ persistence must not break the fallback path
@@ -529,47 +598,67 @@ async def _persist_to_dlq(
     conversation_id: str,
     error: str,
     state_snapshot: dict,
+    *,
+    session_id: str = "",
 ) -> None:
     """Persist failed graph execution to Dead Letter Queue for review/retry.
 
-    Stores the failed conversation state in Redis with a 7-day TTL so that
-    operators can review, debug, and manually retry failed conversations.
+    LG-02: Dual-writes to both Redis (7-day TTL) **and** PostgreSQL so that
+    failed executions survive Redis restarts and can be queried/retried by
+    operators.  The PostgreSQL write is synchronous fire-and-forget — a DB
+    outage must never block the fallback response path (BC-008).
 
-    Key format: parwa:langgraph:dlq:{company_id}:{conversation_id}
+    Delegates to ``app.core.langgraph.dlq.persist_to_dlq`` which handles
+    the Redis + DB writes and error classification.
+
+    Key format (Redis): parwa:langgraph:dlq:{company_id}:{conversation_id}
+    Table (Postgres):   graph_execution_dlq
     """
-    from datetime import datetime, timezone
-    import json as _json
-
-    dlq_entry = {
-        "company_id": company_id,
-        "conversation_id": conversation_id,
-        "error": error,
-        "state_snapshot": {
-            k: v for k, v in state_snapshot.items()
-            if k in ("message", "channel", "customer_id", "tenant_id",
-                      "variant_tier", "intent", "target_agent",
-                      "agent_response", "agent_confidence")
-        },
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "retried": False,
-    }
-
     try:
-        from app.core.redis_client import get_redis_client
-        redis = get_redis_client()
-        key = f"parwa:langgraph:dlq:{company_id}:{conversation_id or 'no-conv'}"
-        redis.setex(key, 7 * 24 * 3600, _json.dumps(dlq_entry))
-        logger.info(
-            "langgraph_dlq_persisted",
+        from app.core.langgraph.dlq import persist_to_dlq
+
+        persist_to_dlq(
             company_id=company_id,
             conversation_id=conversation_id,
+            error=error,
+            state_snapshot=state_snapshot,
+            session_id=session_id or None,
         )
     except Exception as dlq_exc:
+        # Fallback: try Redis-only if the new DLQ module fails entirely
         logger.warning(
-            "langgraph_dlq_persist_failed",
+            "langgraph_dlq_dual_write_failed_fallback_redis",
             company_id=company_id,
             error=str(dlq_exc)[:200],
         )
+        try:
+            from datetime import datetime, timezone
+            import json as _json
+
+            from app.core.redis_client import get_redis_client
+
+            dlq_entry = {
+                "company_id": company_id,
+                "conversation_id": conversation_id,
+                "error": error,
+                "state_snapshot": {
+                    k: v for k, v in state_snapshot.items()
+                    if k in ("message", "channel", "customer_id", "tenant_id",
+                              "variant_tier", "intent", "target_agent",
+                              "agent_response", "agent_confidence")
+                },
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "retried": False,
+            }
+            redis = get_redis_client()
+            key = f"parwa:langgraph:dlq:{company_id}:{conversation_id or 'no-conv'}"
+            redis.setex(key, 7 * 24 * 3600, _json.dumps(dlq_entry))
+        except Exception as redis_exc:
+            logger.warning(
+                "langgraph_dlq_redis_fallback_failed",
+                company_id=company_id,
+                error=str(redis_exc)[:200],
+            )
 
 
 def _fallback_response(

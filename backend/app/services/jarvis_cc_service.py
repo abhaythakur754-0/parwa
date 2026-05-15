@@ -751,14 +751,20 @@ def send_cc_message(
                 system_prompt=system_prompt,
             )
 
+            # S-12 fix: asyncio.run() conflicts with FastAPI's running event
+            # loop.  Always run process_ai_message in a dedicated thread with
+            # its own event loop instead of trying asyncio.run() in the main
+            # thread and falling back on RuntimeError.
             try:
-                legacy_result = asyncio.run(process_ai_message(**pipeline_args))
-            except RuntimeError:
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                     future = pool.submit(
                         asyncio.run, process_ai_message(**pipeline_args),
                     )
                     legacy_result = future.result(timeout=60)
+            except (concurrent.futures.TimeoutError, Exception) as pool_exc:
+                raise RuntimeError(
+                    f"Legacy AI pipeline threadpool failed: {pool_exc}"
+                ) from pool_exc
 
             ai_content = legacy_result.response
             ai_message_type = "ai_generated"

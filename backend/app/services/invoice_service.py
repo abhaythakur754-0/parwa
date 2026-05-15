@@ -11,6 +11,7 @@ BC-001: All operations validate company_id
 BC-002: All money calculations use Decimal
 """
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -95,42 +96,45 @@ class InvoiceService:
         page_size = min(page_size, 50)  # Cap at 50
         offset = (page - 1) * page_size
 
-        with SessionLocal() as db:
-            # Get total count
-            total = db.query(Invoice).filter(
-                Invoice.company_id == str(company_id),
-            ).count()
+        def _db_work():
+            with SessionLocal() as db:
+                # Get total count
+                total = db.query(Invoice).filter(
+                    Invoice.company_id == str(company_id),
+                ).count()
 
-            # Get paginated invoices
-            invoices = db.query(Invoice).filter(
-                Invoice.company_id == str(company_id),
-            ).order_by(
-                desc(Invoice.invoice_date),
-                desc(Invoice.created_at),
-            ).offset(offset).limit(page_size).all()
+                # Get paginated invoices
+                invoices = db.query(Invoice).filter(
+                    Invoice.company_id == str(company_id),
+                ).order_by(
+                    desc(Invoice.invoice_date),
+                    desc(Invoice.created_at),
+                ).offset(offset).limit(page_size).all()
 
-            return {
-                "invoices": [
-                    {
-                        "id": inv.id,
-                        "paddle_invoice_id": inv.paddle_invoice_id,
-                        "amount": str(inv.amount) if inv.amount else "0.00",
-                        "currency": inv.currency or "USD",
-                        "status": inv.status,
-                        "invoice_date": inv.invoice_date.isoformat() if inv.invoice_date else None,
-                        "due_date": inv.due_date.isoformat() if inv.due_date else None,
-                        "paid_at": inv.paid_at.isoformat() if inv.paid_at else None,
-                        "created_at": inv.created_at.isoformat() if inv.created_at else None,
-                    }
-                    for inv in invoices
-                ],
-                "pagination": {
-                    "page": page,
-                    "page_size": page_size,
-                    "total": total,
-                    "total_pages": (total + page_size - 1) // page_size,
-                },
-            }
+                return {
+                    "invoices": [
+                        {
+                            "id": inv.id,
+                            "paddle_invoice_id": inv.paddle_invoice_id,
+                            "amount": str(inv.amount) if inv.amount else "0.00",
+                            "currency": inv.currency or "USD",
+                            "status": inv.status,
+                            "invoice_date": inv.invoice_date.isoformat() if inv.invoice_date else None,
+                            "due_date": inv.due_date.isoformat() if inv.due_date else None,
+                            "paid_at": inv.paid_at.isoformat() if inv.paid_at else None,
+                            "created_at": inv.created_at.isoformat() if inv.created_at else None,
+                        }
+                        for inv in invoices
+                    ],
+                    "pagination": {
+                        "page": page,
+                        "page_size": page_size,
+                        "total": total,
+                        "total_pages": (total + page_size - 1) // page_size,
+                    },
+                }
+
+        return await asyncio.to_thread(_db_work)
 
     async def get_invoice(
         self,
@@ -151,34 +155,37 @@ class InvoiceService:
             InvoiceNotFoundError: Invoice not found
             InvoiceAccessDeniedError: Invoice belongs to different company
         """
-        with SessionLocal() as db:
-            invoice = db.query(Invoice).filter(
-                Invoice.id == invoice_id,
-            ).first()
+        def _db_work():
+            with SessionLocal() as db:
+                invoice = db.query(Invoice).filter(
+                    Invoice.id == invoice_id,
+                ).first()
 
-            if not invoice:
-                raise InvoiceNotFoundError(
-                    f"Invoice {invoice_id} not found"
-                )
+                if not invoice:
+                    raise InvoiceNotFoundError(
+                        f"Invoice {invoice_id} not found"
+                    )
 
-            # BC-001: Validate company_id
-            if invoice.company_id != str(company_id):
-                raise InvoiceAccessDeniedError(
-                    "Access denied to this invoice"
-                )
+                # BC-001: Validate company_id
+                if invoice.company_id != str(company_id):
+                    raise InvoiceAccessDeniedError(
+                        "Access denied to this invoice"
+                    )
 
-            return {
-                "id": invoice.id,
-                "company_id": invoice.company_id,
-                "paddle_invoice_id": invoice.paddle_invoice_id,
-                "amount": str(invoice.amount) if invoice.amount else "0.00",
-                "currency": invoice.currency or "USD",
-                "status": invoice.status,
-                "invoice_date": invoice.invoice_date.isoformat() if invoice.invoice_date else None,
-                "due_date": invoice.due_date.isoformat() if invoice.due_date else None,
-                "paid_at": invoice.paid_at.isoformat() if invoice.paid_at else None,
-                "created_at": invoice.created_at.isoformat() if invoice.created_at else None,
-            }
+                return {
+                    "id": invoice.id,
+                    "company_id": invoice.company_id,
+                    "paddle_invoice_id": invoice.paddle_invoice_id,
+                    "amount": str(invoice.amount) if invoice.amount else "0.00",
+                    "currency": invoice.currency or "USD",
+                    "status": invoice.status,
+                    "invoice_date": invoice.invoice_date.isoformat() if invoice.invoice_date else None,
+                    "due_date": invoice.due_date.isoformat() if invoice.due_date else None,
+                    "paid_at": invoice.paid_at.isoformat() if invoice.paid_at else None,
+                    "created_at": invoice.created_at.isoformat() if invoice.created_at else None,
+                }
+
+        return await asyncio.to_thread(_db_work)
 
     async def get_invoice_pdf(
         self,
@@ -322,90 +329,101 @@ class InvoiceService:
         Returns:
             Sync result with count of invoices synced
         """
-        with SessionLocal() as db:
-            # Get company for paddle_customer_id
-            company = db.query(Company).filter(
-                Company.id == str(company_id),
-            ).first()
+        # DB operation 1: Get company's paddle_customer_id
+        def _get_company():
+            with SessionLocal() as db:
+                company = db.query(Company).filter(
+                    Company.id == str(company_id),
+                ).first()
+                return company.paddle_customer_id if company else None
 
-            if not company or not company.paddle_customer_id:
-                logger.info(
-                    "invoice_sync_skipped company_id=%s reason=no_paddle_customer",
-                    company_id,
-                )
-                return {
-                    "synced": 0,
-                    "message": "No Paddle customer ID found",
-                }
+        paddle_customer_id = await asyncio.to_thread(_get_company)
 
-            try:
-                paddle = await self._get_paddle()
+        if not paddle_customer_id:
+            logger.info(
+                "invoice_sync_skipped company_id=%s reason=no_paddle_customer",
+                company_id,
+            )
+            return {
+                "synced": 0,
+                "message": "No Paddle customer ID found",
+            }
 
-                # Get transactions (Paddle invoices are tied to transactions)
-                result = await paddle.list_transactions(
-                    customer_id=company.paddle_customer_id,
-                    per_page=50,
-                )
+        try:
+            paddle = await self._get_paddle()
 
-                transactions = result.get("data", [])
-                synced = 0
+            # Get transactions (Paddle invoices are tied to transactions)
+            result = await paddle.list_transactions(
+                customer_id=paddle_customer_id,
+                per_page=50,
+            )
 
-                for txn in transactions:
-                    txn_id = txn.get("id")
-                    if not txn_id:
-                        continue
+            transactions = result.get("data", [])
 
-                    # Check for existing invoice
-                    existing = db.query(Invoice).filter(
-                        Invoice.paddle_invoice_id == txn_id,
-                    ).first()
+            # DB operation 2: Upsert invoices
+            def _upsert_invoices():
+                with SessionLocal() as db:
+                    synced = 0
 
-                    invoice_data = {
-                        "company_id": str(company_id),
-                        "paddle_invoice_id": txn_id,
-                        "amount": Decimal(str(txn.get("amount", "0"))),
-                        "currency": txn.get("currency_code", "USD"),
-                        "status": txn.get("status", "pending"),
-                        "invoice_date": datetime.fromisoformat(
-                            txn["created_at"].replace("Z", "+00:00")
-                        ) if txn.get("created_at") else None,
-                    }
+                    for txn in transactions:
+                        txn_id = txn.get("id")
+                        if not txn_id:
+                            continue
 
-                    if existing:
-                        # Update existing
-                        for key, value in invoice_data.items():
-                            if key != "company_id":
-                                setattr(existing, key, value)
-                    else:
-                        # Create new
-                        invoice = Invoice(**invoice_data)
-                        db.add(invoice)
+                        # Check for existing invoice
+                        existing = db.query(Invoice).filter(
+                            Invoice.paddle_invoice_id == txn_id,
+                        ).first()
 
-                    synced += 1
+                        invoice_data = {
+                            "company_id": str(company_id),
+                            "paddle_invoice_id": txn_id,
+                            "amount": Decimal(str(txn.get("amount", "0"))),
+                            "currency": txn.get("currency_code", "USD"),
+                            "status": txn.get("status", "pending"),
+                            "invoice_date": datetime.fromisoformat(
+                                txn["created_at"].replace("Z", "+00:00")
+                            ) if txn.get("created_at") else None,
+                        }
 
-                db.commit()
+                        if existing:
+                            # Update existing
+                            for key, value in invoice_data.items():
+                                if key != "company_id":
+                                    setattr(existing, key, value)
+                        else:
+                            # Create new
+                            invoice = Invoice(**invoice_data)
+                            db.add(invoice)
 
-                logger.info(
-                    "invoice_sync_complete company_id=%s synced=%d",
-                    company_id,
-                    synced,
-                )
+                        synced += 1
 
-                return {
-                    "synced": synced,
-                    "message": f"Synced {synced} invoices from Paddle",
-                }
+                    db.commit()
+                    return synced
 
-            except PaddleError as e:
-                logger.error(
-                    "invoice_sync_failed company_id=%s error=%s",
-                    company_id,
-                    str(e),
-                )
-                return {
-                    "synced": 0,
-                    "message": f"Sync failed: {str(e)}",
-                }
+            synced = await asyncio.to_thread(_upsert_invoices)
+
+            logger.info(
+                "invoice_sync_complete company_id=%s synced=%d",
+                company_id,
+                synced,
+            )
+
+            return {
+                "synced": synced,
+                "message": f"Synced {synced} invoices from Paddle",
+            }
+
+        except PaddleError as e:
+            logger.error(
+                "invoice_sync_failed company_id=%s error=%s",
+                company_id,
+                str(e),
+            )
+            return {
+                "synced": 0,
+                "message": f"Sync failed: {str(e)}",
+            }
 
     async def create_invoice_record(
         self,
@@ -434,35 +452,38 @@ class InvoiceService:
         Returns:
             Created invoice dict
         """
-        with SessionLocal() as db:
-            invoice = Invoice(
-                company_id=str(company_id),
-                paddle_invoice_id=paddle_invoice_id,
-                amount=amount,
-                currency=currency,
-                status=status,
-                invoice_date=invoice_date or datetime.now(timezone.utc),
-                due_date=due_date,
-            )
-            db.add(invoice)
-            db.commit()
-            db.refresh(invoice)
+        def _db_work():
+            with SessionLocal() as db:
+                invoice = Invoice(
+                    company_id=str(company_id),
+                    paddle_invoice_id=paddle_invoice_id,
+                    amount=amount,
+                    currency=currency,
+                    status=status,
+                    invoice_date=invoice_date or datetime.now(timezone.utc),
+                    due_date=due_date,
+                )
+                db.add(invoice)
+                db.commit()
+                db.refresh(invoice)
 
-            logger.info(
-                "invoice_created company_id=%s invoice_id=%s amount=%s",
-                company_id,
-                invoice.id,
-                amount,
-            )
+                logger.info(
+                    "invoice_created company_id=%s invoice_id=%s amount=%s",
+                    company_id,
+                    invoice.id,
+                    amount,
+                )
 
-            return {
-                "id": invoice.id,
-                "company_id": invoice.company_id,
-                "amount": str(invoice.amount),
-                "currency": invoice.currency,
-                "status": invoice.status,
-                "created_at": invoice.created_at.isoformat(),
-            }
+                return {
+                    "id": invoice.id,
+                    "company_id": invoice.company_id,
+                    "amount": str(invoice.amount),
+                    "currency": invoice.currency,
+                    "status": invoice.status,
+                    "created_at": invoice.created_at.isoformat(),
+                }
+
+        return await asyncio.to_thread(_db_work)
 
     async def update_invoice_status(
         self,
@@ -487,36 +508,39 @@ class InvoiceService:
                 f"Invalid status: {status}. Must be one of {valid_statuses}"
             )
 
-        with SessionLocal() as db:
-            invoice = db.query(Invoice).filter(
-                Invoice.id == invoice_id,
-            ).first()
+        def _db_work():
+            with SessionLocal() as db:
+                invoice = db.query(Invoice).filter(
+                    Invoice.id == invoice_id,
+                ).first()
 
-            if not invoice:
-                raise InvoiceNotFoundError(
-                    f"Invoice {invoice_id} not found"
+                if not invoice:
+                    raise InvoiceNotFoundError(
+                        f"Invoice {invoice_id} not found"
+                    )
+
+                invoice.status = status
+                if paid_at:
+                    invoice.paid_at = paid_at
+                elif status == "paid":
+                    invoice.paid_at = datetime.now(timezone.utc)
+
+                db.commit()
+                db.refresh(invoice)
+
+                logger.info(
+                    "invoice_status_updated invoice_id=%s status=%s",
+                    invoice_id,
+                    status,
                 )
 
-            invoice.status = status
-            if paid_at:
-                invoice.paid_at = paid_at
-            elif status == "paid":
-                invoice.paid_at = datetime.now(timezone.utc)
+                return {
+                    "id": invoice.id,
+                    "status": invoice.status,
+                    "paid_at": invoice.paid_at.isoformat() if invoice.paid_at else None,
+                }
 
-            db.commit()
-            db.refresh(invoice)
-
-            logger.info(
-                "invoice_status_updated invoice_id=%s status=%s",
-                invoice_id,
-                status,
-            )
-
-            return {
-                "id": invoice.id,
-                "status": invoice.status,
-                "paid_at": invoice.paid_at.isoformat() if invoice.paid_at else None,
-            }
+        return await asyncio.to_thread(_db_work)
 
 
 # ── Singleton Service ────────────────────────────────────────────────────

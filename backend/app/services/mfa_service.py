@@ -16,7 +16,6 @@ import base64
 import hashlib
 import io
 import secrets
-import time
 
 from datetime import timezone
 

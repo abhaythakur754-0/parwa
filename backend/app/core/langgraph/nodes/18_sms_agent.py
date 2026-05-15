@@ -149,14 +149,18 @@ def _dispatch_sms(
     """
     try:
         from app.core.channel_dispatcher import dispatch  # type: ignore[import-untyped]
+        from app.core.langgraph.retry import sync_llm_call_with_retry  # LG-01: Wrap with retry for transient errors
 
-        result = dispatch(
+        result = sync_llm_call_with_retry(
+            dispatch,
             channel="sms",
             content=sms_content,
             tenant_id=tenant_id,
             customer_id=state.get("customer_id", ""),
             conversation_id=state.get("conversation_id", ""),
             variant_tier=state.get("variant_tier", "mini"),
+            max_retries=3,
+            base_delay=1.0,
         )
 
         return {

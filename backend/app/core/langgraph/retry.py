@@ -4,27 +4,34 @@ All 19 LangGraph nodes call LLM APIs but had no retry with exponential
 backoff. This shared utility provides a single entry point for wrapping
 LLM calls with configurable retry behaviour.
 
-Task ID 6 enhancements:
+LG-01 Fix: All 19 node functions are synchronous (def, not async def).
+Previously they called the async retry_llm_call without await, returning
+coroutine objects instead of actual results — retry was silently broken
+everywhere. This module now provides both async and sync versions.
+
+Retry policy:
 - Transient error classification: only retries on rate-limit, timeout,
   and connection errors. Does NOT retry on authentication or invalid
   request errors.
 - Exponential backoff: 1s, 2s, 4s (base_delay=1.0, default 3 retries)
 - Logs each retry attempt with error type classification.
 
-Usage:
+Usage (async nodes):
     from app.core.langgraph.retry import retry_llm_call, llm_call_with_retry
 
-    # Generic retry (works with any callable):
     result = await retry_llm_call(
         my_llm_function, arg1, arg2,
         max_retries=3,
         base_delay=1.0,
     )
 
-    # LLM-specific convenience wrapper (same behaviour, self-documenting):
-    result = await llm_call_with_retry(
-        generate_response, message, system_prompt="...",
-        max_retries=3, base_delay=1.0,
+Usage (sync nodes — ALL 19 current LangGraph nodes):
+    from app.core.langgraph.retry import sync_retry_llm_call, sync_llm_call_with_retry
+
+    result = sync_retry_llm_call(
+        my_llm_function, arg1, arg2,
+        max_retries=3,
+        base_delay=1.0,
     )
 
 BC-008: Even if all retries fail the exception is re-raised so the
@@ -33,6 +40,7 @@ calling node can fall back to its own safe-default path.
 
 import asyncio
 import logging
+import time
 from typing import Any, Callable, Optional, Set, Tuple, Type
 
 logger = logging.getLogger(__name__)
@@ -287,6 +295,139 @@ async def llm_call_with_retry(
         )
     """
     return await retry_llm_call(
+        fn, *args,
+        max_retries=max_retries,
+        base_delay=base_delay,
+        max_delay=max_delay,
+        **kwargs,
+    )
+
+
+# ══════════════════════════════════════════════════════════════════
+# SYNCHRONOUS RETRY — Used by all 19 LangGraph sync node functions
+# LG-01 Fix: These use time.sleep() instead of asyncio.sleep()
+# ══════════════════════════════════════════════════════════════════
+
+
+def sync_retry_llm_call(
+    fn: Callable,
+    *args,
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    max_delay: float = 10.0,
+    **kwargs,
+) -> Any:
+    """Synchronous LLM call with exponential backoff retry.
+
+    LG-01 Fix: All 19 LangGraph node functions are synchronous (def,
+    not async def). Previously they called the async retry_llm_call
+    without await, which returned coroutine objects instead of actual
+    results — retry was silently broken everywhere.
+
+    This sync version uses time.sleep() instead of asyncio.sleep() so
+    it works correctly inside synchronous node functions.
+
+    Same transient error classification and backoff policy as
+    retry_llm_call: only retries on rate-limit, timeout, connection
+    errors. Non-transient errors (auth, invalid request) are re-raised
+    immediately.
+
+    Args:
+        fn: The synchronous function to call (LLM API call)
+        max_retries: Maximum number of retry attempts (default: 3)
+        base_delay: Base delay in seconds for exponential backoff (default: 1.0)
+        max_delay: Maximum delay between retries (default: 10.0)
+
+    Returns:
+        The result of the function call
+
+    Raises:
+        The last exception if all retries are exhausted or the error
+        is non-transient.
+    """
+    last_exception = None
+    for attempt in range(max_retries + 1):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as exc:
+            last_exception = exc
+
+            # Classify the error
+            transient = is_transient_error(exc)
+
+            if not transient:
+                # Non-transient error: don't retry, raise immediately
+                logger.error(
+                    "LLM call failed with non-transient error (attempt %d/%d): %s",
+                    attempt + 1, max_retries + 1,
+                    str(exc)[:200],
+                )
+                raise
+
+            if attempt == max_retries:
+                logger.error(
+                    "LLM call failed after %d retries (transient): %s",
+                    max_retries, str(exc)[:200],
+                )
+                raise
+
+            delay = min(base_delay * (2 ** attempt), max_delay)
+            logger.warning(
+                "LLM call attempt %d/%d failed (transient): %s. Retrying in %.1fs",
+                attempt + 1, max_retries + 1, str(exc)[:100], delay,
+            )
+            time.sleep(delay)
+
+    # Should never reach here, but just in case
+    raise last_exception
+
+
+def sync_llm_call_with_retry(
+    fn: Callable,
+    *args,
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    max_delay: float = 10.0,
+    **kwargs,
+) -> Any:
+    """Synchronous convenience wrapper for LLM API calls with retry.
+
+    Semantically identical to sync_retry_llm_call but with an explicit
+    name that makes it clear this is for LLM invocations only. Use this
+    in synchronous LangGraph nodes so the intent is self-documenting.
+
+    LG-01 Fix: Use this in sync node functions instead of the async
+    llm_call_with_retry which requires await.
+
+    Retry policy:
+      - Exponential backoff: 1s, 2s, 4s (base_delay=1.0, default 3 retries)
+      - Only retries on transient errors (rate-limit, timeout, connection)
+      - Does NOT retry on auth / invalid-request errors
+      - Logs every retry attempt with error classification
+
+    Args:
+        fn: The synchronous function to call (LLM API call)
+        max_retries: Maximum number of retry attempts (default: 3)
+        base_delay: Base delay in seconds for exponential backoff (default: 1.0)
+        max_delay: Maximum delay between retries (default: 10.0)
+
+    Returns:
+        The result of the function call
+
+    Raises:
+        The last exception if all retries are exhausted or the error
+        is non-transient.
+
+    Example::
+
+        from app.core.langgraph.retry import sync_llm_call_with_retry
+
+        result = sync_llm_call_with_retry(
+            generate_response, message, system_prompt="...",
+            max_retries=3, base_delay=1.0,
+        )
+    """
+    return sync_retry_llm_call(
         fn, *args,
         max_retries=max_retries,
         base_delay=base_delay,

@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.exceptions import RateLimitError
 from app.logger import get_logger
 from app.services.email_service import (
@@ -31,9 +32,19 @@ TOKEN_EXPIRE_HOURS = 24
 
 
 def _hash_token(token: str) -> str:
-    """Hash a verification token for DB storage (SHA-256)."""
-    return hashlib.sha256(
-        token.encode("utf-8")
+    """Hash a verification token for DB storage (SHA-256 + pepper).
+
+    Uses HMAC-SHA256 with the application SECRET_KEY as a pepper
+    to protect against rainbow table attacks. Even if the DB is
+    compromised, tokens cannot be reversed without the pepper.
+    """
+    import hmac
+    settings = get_settings()
+    pepper = settings.SECRET_KEY or ""
+    return hmac.new(
+        pepper.encode("utf-8"),
+        token.encode("utf-8"),
+        hashlib.sha256,
     ).hexdigest()
 
 

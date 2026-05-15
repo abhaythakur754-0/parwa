@@ -122,13 +122,17 @@ class BillingAgent(BaseDomainAgent):
         """
         try:
             from app.core.react_tools.billing_tool import lookup_billing  # type: ignore[import-untyped]
+            from app.core.langgraph.retry import sync_llm_call_with_retry  # LG-01: Wrap with retry for transient errors
 
             invoice_id = signals.get("invoice_id", "") if signals else ""
 
-            result = lookup_billing(
+            result = sync_llm_call_with_retry(
+                lookup_billing,
                 query=message,
                 tenant_id=tenant_id,
                 invoice_id=invoice_id,
+                max_retries=3,
+                base_delay=1.0,
             )
 
             billing_found = result.get("found", False)

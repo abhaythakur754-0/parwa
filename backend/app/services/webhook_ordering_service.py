@@ -12,10 +12,14 @@ Strategy:
 3. If earlier event arrives after later event, reprocess chain
 
 This prevents race conditions where events arrive out of order.
+
+S-11 fix: All SessionLocal() calls now use context managers
+(``with SessionLocal() as db:``) to guarantee session cleanup
+even on unexpected exceptions, eliminating session leak risk.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from sqlalchemy import and_, asc, desc, or_
@@ -66,45 +70,44 @@ def get_or_create_webhook_sequence(
 
     This is idempotent - if the event already exists, returns it.
     """
-    db: Session = SessionLocal()
-    try:
-        # Check for existing
-        existing = db.query(WebhookSequence).filter(
-            WebhookSequence.paddle_event_id == paddle_event_id,
-        ).first()
+    # S-11: Use context manager to guarantee session cleanup
+    with SessionLocal() as db:
+        try:
+            # Check for existing
+            existing = db.query(WebhookSequence).filter(
+                WebhookSequence.paddle_event_id == paddle_event_id,
+            ).first()
 
-        if existing:
-            return existing
+            if existing:
+                return existing
 
-        # Create new
-        sequence = WebhookSequence(
-            paddle_event_id=paddle_event_id,
-            event_type=event_type,
-            occurred_at=occurred_at,
-            company_id=company_id,
-            status="pending",
-        )
+            # Create new
+            sequence = WebhookSequence(
+                paddle_event_id=paddle_event_id,
+                event_type=event_type,
+                occurred_at=occurred_at,
+                company_id=company_id,
+                status="pending",
+            )
 
-        db.add(sequence)
-        db.commit()
-        db.refresh(sequence)
+            db.add(sequence)
+            db.commit()
+            db.refresh(sequence)
 
-        logger.info(
-            "webhook_sequence_created event_id=%s type=%s occurred_at=%s",
-            paddle_event_id, event_type, occurred_at.isoformat(),
-        )
+            logger.info(
+                "webhook_sequence_created event_id=%s type=%s occurred_at=%s",
+                paddle_event_id, event_type, occurred_at.isoformat(),
+            )
 
-        return sequence
+            return sequence
 
-    except Exception as e:
-        db.rollback()
-        logger.error(
-            "webhook_sequence_create_error event_id=%s error=%s",
-            paddle_event_id, str(e),
-        )
-        raise
-    finally:
-        db.close()
+        except Exception as e:
+            db.rollback()
+            logger.error(
+                "webhook_sequence_create_error event_id=%s error=%s",
+                paddle_event_id, str(e),
+            )
+            raise
 
 
 def get_next_processing_order(company_id: str) -> int:
@@ -113,8 +116,7 @@ def get_next_processing_order(company_id: str) -> int:
 
     Processing order is sequential per company.
     """
-    db: Session = SessionLocal()
-    try:
+    with SessionLocal() as db:
         last = db.query(WebhookSequence).filter(
             WebhookSequence.company_id == company_id,
         ).order_by(desc(WebhookSequence.processing_order)).first()
@@ -123,9 +125,6 @@ def get_next_processing_order(company_id: str) -> int:
             return last.processing_order + 1
 
         return 1
-
-    finally:
-        db.close()
 
 
 def get_pending_events_ordered(
@@ -137,8 +136,7 @@ def get_pending_events_ordered(
 
     This ensures events are processed in the correct order.
     """
-    db: Session = SessionLocal()
-    try:
+    with SessionLocal() as db:
         events = db.query(WebhookSequence).filter(
             and_(
                 WebhookSequence.company_id == company_id,
@@ -148,28 +146,23 @@ def get_pending_events_ordered(
 
         return events
 
-    finally:
-        db.close()
-
 
 def mark_sequence_processing(sequence_id: str) -> None:
     """Mark a webhook sequence as currently being processed."""
-    db: Session = SessionLocal()
-    try:
-        record = db.query(WebhookSequence).filter(
-            WebhookSequence.id == sequence_id,
-        ).first()
+    with SessionLocal() as db:
+        try:
+            record = db.query(WebhookSequence).filter(
+                WebhookSequence.id == sequence_id,
+            ).first()
 
-        if record:
-            record.status = "processing"
-            record.processed_at = datetime.now(timezone.utc)
-            db.commit()
+            if record:
+                record.status = "processing"
+                record.processed_at = datetime.now(timezone.utc)
+                db.commit()
 
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        db.close()
+        except Exception:
+            db.rollback()
+            raise
 
 
 def mark_sequence_processed(
@@ -177,29 +170,27 @@ def mark_sequence_processed(
     processing_order: Optional[int] = None,
 ) -> None:
     """Mark a webhook sequence as successfully processed."""
-    db: Session = SessionLocal()
-    try:
-        record = db.query(WebhookSequence).filter(
-            WebhookSequence.id == sequence_id,
-        ).first()
+    with SessionLocal() as db:
+        try:
+            record = db.query(WebhookSequence).filter(
+                WebhookSequence.id == sequence_id,
+            ).first()
 
-        if record:
-            record.status = "processed"
-            record.processed_at = datetime.now(timezone.utc)
-            if processing_order is not None:
-                record.processing_order = processing_order
-            db.commit()
+            if record:
+                record.status = "processed"
+                record.processed_at = datetime.now(timezone.utc)
+                if processing_order is not None:
+                    record.processing_order = processing_order
+                db.commit()
 
-            logger.info(
-                "webhook_sequence_processed id=%s order=%s",
-                sequence_id, processing_order,
-            )
+                logger.info(
+                    "webhook_sequence_processed id=%s order=%s",
+                    sequence_id, processing_order,
+                )
 
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        db.close()
+        except Exception:
+            db.rollback()
+            raise
 
 
 def mark_sequence_failed(
@@ -207,28 +198,26 @@ def mark_sequence_failed(
     error_message: str,
 ) -> None:
     """Mark a webhook sequence as failed."""
-    db: Session = SessionLocal()
-    try:
-        record = db.query(WebhookSequence).filter(
-            WebhookSequence.id == sequence_id,
-        ).first()
+    with SessionLocal() as db:
+        try:
+            record = db.query(WebhookSequence).filter(
+                WebhookSequence.id == sequence_id,
+            ).first()
 
-        if record:
-            record.status = "failed"
-            record.error_message = error_message[:500] if error_message else None
-            record.retry_count = (record.retry_count or 0) + 1
-            db.commit()
+            if record:
+                record.status = "failed"
+                record.error_message = error_message[:500] if error_message else None
+                record.retry_count = (record.retry_count or 0) + 1
+                db.commit()
 
-            logger.warning(
-                "webhook_sequence_failed id=%s error=%s",
-                sequence_id, error_message[:100],
-            )
+                logger.warning(
+                    "webhook_sequence_failed id=%s error=%s",
+                    sequence_id, error_message[:100],
+                )
 
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        db.close()
+        except Exception:
+            db.rollback()
+            raise
 
 
 def check_dependencies_met(
@@ -247,8 +236,7 @@ def check_dependencies_met(
     if not dependencies:
         return {"met": True, "missing": []}
 
-    db: Session = SessionLocal()
-    try:
+    with SessionLocal() as db:
         # Check if all dependencies have been processed
         # for events that occurred BEFORE this one
         processed_deps = db.query(WebhookSequence.event_type).filter(
@@ -267,9 +255,6 @@ def check_dependencies_met(
             "met": len(missing) == 0,
             "missing": missing,
         }
-
-    finally:
-        db.close()
 
 
 def process_ordered(
@@ -363,9 +348,8 @@ def get_stuck_events(
     Returns:
         List of stuck event details
     """
-    db: Session = SessionLocal()
-    try:
-        cutoff = datetime.now(timezone.utc) - __import__('datetime').timedelta(hours=max_age_hours)
+    with SessionLocal() as db:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
 
         query = db.query(WebhookSequence).filter(
             and_(
@@ -394,9 +378,6 @@ def get_stuck_events(
             for s in stuck
         ]
 
-    finally:
-        db.close()
-
 
 def retry_stuck_event(sequence_id: str) -> Dict[str, Any]:
     """
@@ -408,40 +389,38 @@ def retry_stuck_event(sequence_id: str) -> Dict[str, Any]:
     Returns:
         Updated event details
     """
-    db: Session = SessionLocal()
-    try:
-        record = db.query(WebhookSequence).filter(
-            WebhookSequence.id == sequence_id,
-        ).first()
+    with SessionLocal() as db:
+        try:
+            record = db.query(WebhookSequence).filter(
+                WebhookSequence.id == sequence_id,
+            ).first()
 
-        if not record:
-            raise ValueError(f"Sequence {sequence_id} not found")
+            if not record:
+                raise ValueError(f"Sequence {sequence_id} not found")
 
-        if record.status not in ["pending", "processing", "failed"]:
-            raise ValueError(f"Cannot retry event with status {record.status}")
+            if record.status not in ["pending", "processing", "failed"]:
+                raise ValueError(f"Cannot retry event with status {record.status}")
 
-        record.status = "pending"
-        record.processed_at = None
-        record.error_message = None
-        record.retry_count = (record.retry_count or 0) + 1
-        db.commit()
+            record.status = "pending"
+            record.processed_at = None
+            record.error_message = None
+            record.retry_count = (record.retry_count or 0) + 1
+            db.commit()
 
-        logger.info(
-            "webhook_sequence_retry id=%s retry_count=%s",
-            sequence_id, record.retry_count,
-        )
+            logger.info(
+                "webhook_sequence_retry id=%s retry_count=%s",
+                sequence_id, record.retry_count,
+            )
 
-        return {
-            "id": record.id,
-            "status": record.status,
-            "retry_count": record.retry_count,
-        }
+            return {
+                "id": record.id,
+                "status": record.status,
+                "retry_count": record.retry_count,
+            }
 
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        db.close()
+        except Exception:
+            db.rollback()
+            raise
 
 
 def cleanup_old_sequences(days: int = 30) -> int:
@@ -454,24 +433,22 @@ def cleanup_old_sequences(days: int = 30) -> int:
     Returns:
         Number of sequences deleted
     """
-    db: Session = SessionLocal()
-    try:
-        cutoff = datetime.now(timezone.utc) - __import__('datetime').timedelta(days=days)
+    with SessionLocal() as db:
+        try:
+            cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
-        deleted = db.query(WebhookSequence).filter(
-            and_(
-                WebhookSequence.status == "processed",
-                WebhookSequence.created_at < cutoff,
-            )
-        ).delete()
+            deleted = db.query(WebhookSequence).filter(
+                and_(
+                    WebhookSequence.status == "processed",
+                    WebhookSequence.created_at < cutoff,
+                )
+            ).delete()
 
-        db.commit()
+            db.commit()
 
-        logger.info("webhook_sequences_cleaned deleted=%d", deleted)
-        return deleted
+            logger.info("webhook_sequences_cleaned deleted=%d", deleted)
+            return deleted
 
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        db.close()
+        except Exception:
+            db.rollback()
+            raise

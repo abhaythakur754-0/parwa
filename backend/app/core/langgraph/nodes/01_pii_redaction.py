@@ -116,9 +116,9 @@ def _apply_ner_redaction(message: str, existing_entities: List[Dict[str, Any]], 
     """
     try:
         from app.core.ner_engine import detect_pii_entities  # type: ignore[import-untyped]
-        from app.core.langgraph.retry import llm_call_with_retry
+        from app.core.langgraph.retry import sync_llm_call_with_retry
 
-        ner_result = llm_call_with_retry(
+        ner_result = sync_llm_call_with_retry(
             detect_pii_entities,
             message,
             tenant_id=tenant_id,
@@ -269,9 +269,9 @@ def pii_redaction_node(state: Dict[str, Any]) -> Dict[str, Any]:
         # ── Attempt production PII engine ───────────────────────
         try:
             from app.core.pii_redaction_engine import redact_pii  # type: ignore[import-untyped]
-            from app.core.langgraph.retry import llm_call_with_retry
+            from app.core.langgraph.retry import sync_llm_call_with_retry
 
-            result = llm_call_with_retry(
+            result = sync_llm_call_with_retry(
                 redact_pii,
                 message,
                 tenant_id=tenant_id,
