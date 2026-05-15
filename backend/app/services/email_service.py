@@ -71,15 +71,27 @@ class TenantCircuitBreaker:
         self._lock = threading.Lock()
 
     def _get_tenant_state(self, company_id: str) -> dict:
-        """Get or create circuit breaker state for a tenant."""
+        """Get or create circuit breaker state for a tenant.
+
+        Uses hardcoded defaults (threshold=3, reset_seconds=60) when
+        settings are unavailable (e.g., test environments without full
+        env config). This prevents get_settings() validation errors
+        from crashing the circuit breaker in isolated unit tests.
+        """
         if company_id not in self._tenants:
-            settings = get_settings()
+            try:
+                settings = get_settings()
+                threshold = settings.EMAIL_CB_FAILURE_THRESHOLD
+                reset_seconds = settings.EMAIL_CB_RESET_SECONDS
+            except Exception:
+                threshold = 3
+                reset_seconds = 60
             self._tenants[company_id] = {
                 "failures": 0,
                 "last_failure": 0.0,
                 "is_open": False,
-                "threshold": settings.EMAIL_CB_FAILURE_THRESHOLD,
-                "reset_seconds": settings.EMAIL_CB_RESET_SECONDS,
+                "threshold": threshold,
+                "reset_seconds": reset_seconds,
             }
         return self._tenants[company_id]
 

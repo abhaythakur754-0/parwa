@@ -88,6 +88,7 @@ jobs:
           MODEL_REGISTRY_PATH: models
           COLAB_WEBHOOK_URL: https://fake
           DATA_ENCRYPTION_KEY: 12345678901234567890123456789012
+          PRICING_SIGNING_KEY: dev-ci-pricing-signing-key-for-testing
         run: |
           # Create fake .env for tests
           echo "ENVIRONMENT=test" > .env
