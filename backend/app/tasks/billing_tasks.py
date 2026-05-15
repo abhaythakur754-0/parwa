@@ -16,6 +16,7 @@ from typing import Dict, List, Any
 
 from app.tasks.base import ParwaBaseTask, with_company_id
 from app.tasks.celery_app import app
+from app.tasks.error_callbacks import billing_failure_callback
 from database.base import SessionLocal
 from database.models.core import Company
 from database.models.billing import Subscription

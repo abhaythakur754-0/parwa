@@ -31,14 +31,6 @@ from fastapi.responses import JSONResponse
 
 from app.api.deps import get_current_user
 from database.models.core import User
-from app.schemas.sms_channel import (
-    SMSSendResponse,
-    SMSConversationListResponse,
-    SMSConversationResponse,
-    SMSMessageListResponse,
-    SMSConfigResponse,
-    SMSConsentStatusResponse,
-)
 
 logger = logging.getLogger("parwa.sms_channel_api")
 
@@ -60,7 +52,7 @@ def _get_db(request: Request):
 # ═══════════════════════════════════════════════════════════════
 
 
-@router.post("/send", response_model=SMSSendResponse)
+@router.post("/send")
 async def send_sms(
     request: Request,
     current_user: User = Depends(get_current_user),
@@ -152,7 +144,7 @@ async def send_sms(
 # ═══════════════════════════════════════════════════════════════
 
 
-@router.get("/conversations", response_model=SMSConversationListResponse)
+@router.get("/conversations")
 async def list_sms_conversations(
     request: Request,
     current_user: User = Depends(get_current_user),
@@ -193,7 +185,7 @@ async def list_sms_conversations(
         )
 
 
-@router.get("/conversations/{conversation_id}", response_model=SMSConversationResponse)
+@router.get("/conversations/{conversation_id}")
 async def get_sms_conversation(
     request: Request,
     conversation_id: str,
@@ -243,7 +235,7 @@ async def get_sms_conversation(
         )
 
 
-@router.get("/conversations/{conversation_id}/messages", response_model=SMSMessageListResponse)
+@router.get("/conversations/{conversation_id}/messages")
 async def get_sms_messages(
     request: Request,
     conversation_id: str,
@@ -293,7 +285,7 @@ async def get_sms_messages(
 # ═══════════════════════════════════════════════════════════════
 
 
-@router.get("/config", response_model=SMSConfigResponse)
+@router.get("/config")
 async def get_sms_config(
     request: Request,
     current_user: User = Depends(get_current_user),
@@ -338,7 +330,7 @@ async def get_sms_config(
         )
 
 
-@router.post("/config", response_model=SMSConfigResponse)
+@router.post("/config")
 async def create_sms_config(
     request: Request,
     current_user: User = Depends(get_current_user),
@@ -350,7 +342,6 @@ async def create_sms_config(
     R-01: Now requires JWT authentication via get_current_user.
     """
     company_id = current_user.company_id
-
 
     try:
         body = await request.json()
@@ -414,7 +405,7 @@ async def create_sms_config(
         )
 
 
-@router.put("/config", response_model=SMSConfigResponse)
+@router.put("/config")
 async def update_sms_config(
     request: Request,
     current_user: User = Depends(get_current_user),
@@ -464,7 +455,7 @@ async def update_sms_config(
         )
 
 
-@router.delete("/config", response_model=dict)
+@router.delete("/config")
 async def delete_sms_config(
     request: Request,
     current_user: User = Depends(get_current_user),
@@ -514,7 +505,7 @@ async def delete_sms_config(
 # ═══════════════════════════════════════════════════════════════
 
 
-@router.post("/consent/opt-out", response_model=SMSConsentStatusResponse)
+@router.post("/consent/opt-out")
 async def manual_opt_out(
     request: Request,
     current_user: User = Depends(get_current_user),
@@ -581,7 +572,7 @@ async def manual_opt_out(
         )
 
 
-@router.post("/consent/opt-in", response_model=SMSConsentStatusResponse)
+@router.post("/consent/opt-in")
 async def manual_opt_in(
     request: Request,
     current_user: User = Depends(get_current_user),
@@ -647,7 +638,7 @@ async def manual_opt_in(
         )
 
 
-@router.get("/consent/{customer_number}", response_model=SMSConsentStatusResponse)
+@router.get("/consent/{customer_number}")
 async def get_consent_status(
     request: Request,
     customer_number: str,
@@ -693,7 +684,7 @@ async def get_consent_status(
 # ═══════════════════════════════════════════════════════════════
 
 
-@router.post("/webhook/status", response_model=dict)
+@router.post("/webhook/status")
 async def twilio_status_callback(request: Request):
     """Receive Twilio SMS delivery status callback.
 

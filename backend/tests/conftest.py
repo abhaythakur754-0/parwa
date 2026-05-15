@@ -28,6 +28,8 @@ if not os.environ.get("DATA_ENCRYPTION_KEY"):
     os.environ["DATA_ENCRYPTION_KEY"] = "test-encryption-key-for-testing-32"
 if not os.environ.get("ENVIRONMENT"):
     os.environ["ENVIRONMENT"] = "test"
+if not os.environ.get("PRICING_SIGNING_KEY"):
+    os.environ["PRICING_SIGNING_KEY"] = "test-pricing-signing-key-for-testing-32c"
 
 
 # ════════════════════════════════════════════════════════════════════════
