@@ -53,7 +53,7 @@ spec:
               memory: 256Mi
       containers:
         - name: backend
-          image: parwa/backend:latest
+          image: parwa/backend:v1.0.0
           imagePullPolicy: Always
           ports:
             - name: http
@@ -122,12 +122,13 @@ spec:
             limits:
               cpu: "1"
               memory: 512Mi
-          startupProbe:                    # #68: allow slow start
+          startupProbe:
             httpGet:
               path: /health
               port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
             failureThreshold: 30
-            periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /health

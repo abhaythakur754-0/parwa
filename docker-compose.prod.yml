@@ -3,6 +3,10 @@
 # All services with health checks, network isolation, and security
 # ════════════════════════════════════════════════════════════════
 
+# NOTE: Resource limits use Docker Compose V2 native keys (cpus, mem_limit, mem_reservation).
+# For replica scaling, use: docker compose --scale backend=2 --scale worker=2 up -d
+# Or enable compatibility mode: docker compose --compatibility up -d
+
 services:
   # ───────────────────────────────────────────────────────────────
   # PostgreSQL Database (Production)
@@ -11,6 +15,9 @@ services:
     image: postgres:15-alpine
     container_name: parwa_prod_db
     restart: always
+    cpus: '1.0'
+    mem_limit: 1g
+    mem_reservation: 512m
     # No port exposure in production — internal only
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -27,12 +34,11 @@ services:
       start_period: 30s
     networks:
       - backend_network
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-        reservations:
-          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     security_opt:
       - no-new-privileges:true
 
@@ -43,6 +49,9 @@ services:
     image: redis:7-alpine
     container_name: parwa_prod_redis
     restart: always
+    cpus: '0.50'
+    mem_limit: 512m
+    mem_reservation: 256m
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     # No port exposure in production — internal only
     volumes:
@@ -54,12 +63,11 @@ services:
       retries: 5
     networks:
       - backend_network
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     security_opt:
       - no-new-privileges:true
 
@@ -71,8 +79,10 @@ services:
       context: .
       dockerfile: infra/docker/backend.Dockerfile
     image: parwa/backend:${VERSION:-latest}
-    container_name: parwa_prod_backend
     restart: always
+    cpus: '1.0'
+    mem_limit: 1g
+    mem_reservation: 512m
     # No port exposure — accessed via nginx on frontend_network
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
@@ -107,13 +117,11 @@ services:
       - backend_network
       - frontend_network
       - monitoring_network
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-        reservations:
-          memory: 512M
-      replicas: 2
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     security_opt:
       - no-new-privileges:true
 
@@ -125,8 +133,10 @@ services:
       context: .
       dockerfile: infra/docker/worker.Dockerfile
     image: parwa/worker:${VERSION:-latest}
-    container_name: parwa_prod_worker
     restart: always
+    cpus: '0.50'
+    mem_limit: 512m
+    mem_reservation: 256m
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
@@ -141,11 +151,11 @@ services:
     volumes:
       - state_prod_data:/app/state_data
     healthcheck:
-      test: ["CMD-SHELL", "celery -A backend.app.celery_app inspect ping --timeout 10 || exit 0"]
+      test: ["CMD-SHELL", "pgrep -f 'celery.worker' > /dev/null || exit 1"]
       interval: 30s
-      timeout: 15s
+      timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     depends_on:
       db:
         condition: service_healthy
@@ -153,13 +163,11 @@ services:
         condition: service_healthy
     networks:
       - backend_network
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
-      replicas: 2
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     security_opt:
       - no-new-privileges:true
 
@@ -173,6 +181,9 @@ services:
     image: parwa/mcp:${VERSION:-latest}
     container_name: parwa_prod_mcp
     restart: always
+    cpus: '0.50'
+    mem_limit: 512m
+    mem_reservation: 256m
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
@@ -185,16 +196,17 @@ services:
       timeout: 10s
       retries: 3
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - backend_network
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     security_opt:
       - no-new-privileges:true
 
@@ -211,6 +223,9 @@ services:
     image: parwa/frontend:${VERSION:-latest}
     container_name: parwa_prod_frontend
     restart: always
+    cpus: '0.50'
+    mem_limit: 512m
+    mem_reservation: 256m
     ports:
       - "3000:3000"
     environment:
@@ -230,12 +245,44 @@ services:
         condition: service_healthy
     networks:
       - frontend_network
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+
+  # ───────────────────────────────────────────────────────────────
+  # Automated Backup (Production)
+  # ───────────────────────────────────────────────────────────────
+  backup:
+    build:
+      context: .
+      dockerfile: infra/docker/backup.Dockerfile
+    image: parwa/backup:${VERSION:-latest}
+    restart: always
+    cpus: '0.25'
+    mem_limit: 256m
+    mem_reservation: 128m
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - BACKUP_DIR=/backups
+      - BACKUP_RETENTION_COUNT=${BACKUP_RETENTION_COUNT:-7}
+      - S3_BUCKET=${S3_BUCKET:-}
+      - S3_PREFIX=${S3_PREFIX:-parwa-backups}
+    volumes:
+      - backup_data:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend_network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     security_opt:
       - no-new-privileges:true
 
@@ -250,6 +297,9 @@ services:
     image: prom/prometheus:v2.45.0
     container_name: parwa_prod_prometheus
     restart: always
+    cpus: '0.50'
+    mem_limit: 512m
+    mem_reservation: 256m
     user: "65534:65534"  # nobody user
     # Internal only — no port exposure
     volumes:
@@ -270,12 +320,11 @@ services:
       retries: 3
     networks:
       - monitoring_network
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     security_opt:
       - no-new-privileges:true
 
@@ -286,6 +335,9 @@ services:
     image: grafana/grafana:10.0.0
     container_name: parwa_prod_grafana
     restart: always
+    cpus: '0.25'
+    mem_limit: 256m
+    mem_reservation: 128m
     user: "472:472"  # grafana user (non-root)
     # Grafana accessible via nginx /grafana/ or monitoring.parwa.ai
     # Port NOT exposed to internet for security
@@ -310,12 +362,11 @@ services:
       - prometheus
     networks:
       - monitoring_network
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     security_opt:
       - no-new-privileges:true
 
@@ -326,6 +377,9 @@ services:
     image: prom/alertmanager:v0.26.0
     container_name: parwa_prod_alertmanager
     restart: always
+    cpus: '0.25'
+    mem_limit: 128m
+    mem_reservation: 64m
     user: "65534:65534"  # nobody user
     # Internal only — no port exposure
     volumes:
@@ -342,12 +396,11 @@ services:
       retries: 3
     networks:
       - monitoring_network
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-        reservations:
-          memory: 64M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     security_opt:
       - no-new-privileges:true
 
@@ -358,6 +411,9 @@ services:
     image: oliver006/redis_exporter:v1.55.0-alpine
     container_name: parwa_prod_redis_exporter
     restart: always
+    cpus: '0.10'
+    mem_limit: 64m
+    mem_reservation: 32m
     # Internal only — no port exposure
     environment:
       - REDIS_ADDR=redis://redis:6379
@@ -369,12 +425,11 @@ services:
     networks:
       - monitoring_network
       - backend_network
-    deploy:
-      resources:
-        limits:
-          memory: 64M
-        reservations:
-          memory: 32M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     security_opt:
       - no-new-privileges:true
 
@@ -385,6 +440,9 @@ services:
     image: prometheuscommunity/postgres-exporter:v0.15.0
     container_name: parwa_prod_postgres_exporter
     restart: always
+    cpus: '0.10'
+    mem_limit: 64m
+    mem_reservation: 32m
     # Internal only — no port exposure
     environment:
       - DATA_SOURCE_NAME=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
@@ -394,12 +452,11 @@ services:
     networks:
       - monitoring_network
       - backend_network
-    deploy:
-      resources:
-        limits:
-          memory: 64M
-        reservations:
-          memory: 32M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     security_opt:
       - no-new-privileges:true
 
@@ -410,6 +467,9 @@ services:
     image: prom/node-exporter:v1.6.1
     container_name: parwa_prod_node_exporter
     restart: always
+    cpus: '0.10'
+    mem_limit: 64m
+    mem_reservation: 32m
     user: "65534:65534"  # nobody user
     # Internal only — no port exposure
     command:
@@ -424,12 +484,11 @@ services:
       - /:/host:ro,rslave
     networks:
       - monitoring_network
-    deploy:
-      resources:
-        limits:
-          memory: 64M
-        reservations:
-          memory: 32M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     security_opt:
       - no-new-privileges:true
 
@@ -440,6 +499,9 @@ services:
     image: nginx:1.25-alpine
     container_name: parwa_prod_nginx
     restart: always
+    cpus: '0.25'
+    mem_limit: 128m
+    mem_reservation: 64m
     ports:
       - "80:80"
       - "443:443"
@@ -457,12 +519,11 @@ services:
       - frontend
     networks:
       - frontend_network
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-        reservations:
-          memory: 64M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     security_opt:
       - no-new-privileges:true
 
@@ -496,4 +557,6 @@ volumes:
   alertmanager_data:
     driver: local
   nginx_logs:
+    driver: local
+  backup_data:
     driver: local

@@ -9,13 +9,17 @@ metadata:
     app.kubernetes.io/part-of: parwa-platform
     app.kubernetes.io/managed-by: kustomize
 spec:
-  replicas: 2                          # #84: scaled from 1 to 2
+  replicas: 2
   selector:
     matchLabels:
       app.kubernetes.io/name: mcp
       app.kubernetes.io/component: ai-tools
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
       labels:
         app.kubernetes.io/name: mcp
         app.kubernetes.io/component: ai-tools
@@ -33,9 +37,10 @@ spec:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      serviceAccountName: parwa-mcp
       containers:
         - name: mcp
-          image: parwa/mcp:latest
+          image: parwa/mcp:v1.0.0
           imagePullPolicy: Always
           ports:
             - name: http
@@ -67,6 +72,21 @@ spec:
                 secretKeyRef:
                   name: parwa-secrets
                   key: REDIS_PASSWORD
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: REDIS_URL
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: SECRET_KEY
           resources:
             requests:
               cpu: 200m
@@ -116,18 +136,11 @@ spec:
                 topologyKey: kubernetes.io/hostname
       nodeSelector:
         workload-type: api
-      tolerations:                        # #84: added tolerations
+      tolerations:
         - key: "workload-type"
           operator: "Equal"
           value: "api"
           effect: "NoSchedule"
-      topologySpreadConstraints:          # #70: spread across zones
-        - maxSkew: 1
-          topologyKey: topology.kubernetes.io/zone
-          whenUnsatisfiable: DoNotSchedule
-          labelSelector:
-            matchLabels:
-              app.kubernetes.io/name: mcp
       volumes:
         - name: tmp
           emptyDir: {}

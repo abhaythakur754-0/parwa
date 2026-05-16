@@ -41,7 +41,6 @@ metadata:
     app.kubernetes.io/part-of: parwa-platform
 data:
   POSTGRES_DB: "parwa_db"
-  POSTGRES_USER: "parwa"
   POSTGRES_HOST_AUTH_METHOD: "scram-sha-256"
   postgresql.conf: |
     # Production PostgreSQL configuration
@@ -90,4 +89,4 @@ data:
     save 60 10000
     maxmemory 256mb
     maxmemory-policy allkeys-lru
-    requirepass ""
+    # requirepass is set via --requirepass command flag from K8s secret

@@ -33,9 +33,10 @@ spec:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      serviceAccountName: parwa-worker
       containers:
         - name: worker
-          image: parwa/worker:latest
+          image: parwa/worker:v1.0.0
           imagePullPolicy: Always
           env:
             - name: ENVIRONMENT
@@ -93,8 +94,8 @@ spec:
                 secretKeyRef:
                   name: parwa-secrets
                   key: CELERY_RESULT_BACKEND
-            - name: CELERY_QUEUES           # #79: added Celery queue list
-              value: "celery,email_queue,sms_queue,voice_queue,chat_queue,ai_queue,report_queue,maintenance_queue"
+            - name: CELERY_QUEUES
+              value: "default,ai,tickets,emails,billing,analytics,training,notifications"
           resources:
             requests:
               cpu: 200m
@@ -115,20 +116,20 @@ spec:
               command:
                 - /bin/sh
                 - -c
-                - celery -A backend.app.tasks.celery_app inspect ping --timeout 10
+                - pgrep -f 'celery.worker' > /dev/null || exit 1
             initialDelaySeconds: 30
-            periodSeconds: 60
-            timeoutSeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 10
             failureThreshold: 3
           readinessProbe:
             exec:
               command:
                 - /bin/sh
                 - -c
-                - celery -A backend.app.tasks.celery_app inspect ping --timeout 5
+                - pgrep -f 'celery.worker' > /dev/null || exit 1
             initialDelaySeconds: 15
-            periodSeconds: 30
-            timeoutSeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
             failureThreshold: 3
           securityContext:
             allowPrivilegeEscalation: false

@@ -37,20 +37,28 @@ spec:
               containerPort: 6379
               protocol: TCP
           command:
-            - redis-server
-            - /etc/redis/redis.conf
+            - /bin/sh
+            - -c
+            - redis-server /etc/redis/redis.conf --requirepass "$(REDIS_PASSWORD)"
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: REDIS_PASSWORD
           resources:
             requests:
               cpu: 100m
               memory: 128Mi
             limits:
               cpu: 500m
-              memory: 256Mi
+              memory: 512Mi
           livenessProbe:
             exec:
               command:
-                - redis-cli
-                - ping
+                - /bin/sh
+                - -c
+                - redis-cli -a "$REDIS_PASSWORD" ping 2>/dev/null | grep -q PONG
             initialDelaySeconds: 15
             periodSeconds: 10
             timeoutSeconds: 5
@@ -58,8 +66,9 @@ spec:
           readinessProbe:
             exec:
               command:
-                - redis-cli
-                - ping
+                - /bin/sh
+                - -c
+                - redis-cli -a "$REDIS_PASSWORD" ping 2>/dev/null | grep -q PONG
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5

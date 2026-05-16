@@ -16,6 +16,10 @@ spec:
       app.kubernetes.io/component: web
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
       labels:
         app.kubernetes.io/name: frontend
         app.kubernetes.io/component: web
@@ -29,9 +33,10 @@ spec:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      serviceAccountName: parwa-frontend
       containers:
         - name: frontend
-          image: parwa/frontend:latest
+          image: parwa/frontend:v1.0.0
           imagePullPolicy: Always
           ports:
             - name: http
@@ -63,7 +68,7 @@ spec:
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /api/health             # #77: use /api/health
+              path: /api/health
               port: http
             initialDelaySeconds: 30
             periodSeconds: 15
@@ -99,18 +104,11 @@ spec:
                 topologyKey: kubernetes.io/hostname
       nodeSelector:
         workload-type: frontend
-      tolerations:                        # #76: added tolerations
+      tolerations:
         - key: "workload-type"
           operator: "Equal"
           value: "frontend"
           effect: "NoSchedule"
-      topologySpreadConstraints:          # #70: spread across zones
-        - maxSkew: 1
-          topologyKey: topology.kubernetes.io/zone
-          whenUnsatisfiable: DoNotSchedule
-          labelSelector:
-            matchLabels:
-              app.kubernetes.io/name: frontend
       volumes:
         - name: tmp
           emptyDir: {}

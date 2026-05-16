@@ -10,6 +10,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 spec:
   serviceName: postgres-svc
+  terminationGracePeriodSeconds: 60
   replicas: 1
   selector:
     matchLabels:
@@ -75,7 +76,7 @@ spec:
               command:
                 - /bin/sh
                 - -c
-                - pg_isready -U parwa -d parwa_db
+                - pg_isready -U parwa -d parwa_db && psql -U parwa -d parwa_db -c "SELECT 1" >/dev/null 2>&1
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5

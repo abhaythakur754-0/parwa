@@ -74,6 +74,17 @@ spec:
       ports:
         - port: 6379
           protocol: TCP
+    # Allow external HTTPS egress (Paddle, Twilio, AI APIs)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -141,15 +152,7 @@ spec:
   policyTypes:
     - Ingress
     - Egress
-  ingress:
-    # Allow monitoring scrapes
-    - from:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: prometheus
-      ports:
-        - port: 8000
-          protocol: TCP
+  ingress: []
   egress:
     # Allow DNS resolution
     - to: []
@@ -184,6 +187,17 @@ spec:
               app.kubernetes.io/name: redis
       ports:
         - port: 6379
+          protocol: TCP
+    # Allow external HTTPS egress (Paddle, Twilio, AI APIs)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
           protocol: TCP
 ---
 apiVersion: networking.k8s.io/v1
@@ -253,6 +267,17 @@ spec:
               app.kubernetes.io/name: redis
       ports:
         - port: 6379
+          protocol: TCP
+    # Allow external HTTPS egress (OpenAI, Anthropic, AI APIs)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
           protocol: TCP
 ---
 apiVersion: networking.k8s.io/v1
@@ -410,9 +435,7 @@ spec:
           protocol: TCP
     # Allow to all pods in namespace for scraping
     - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: parwa
+        - podSelector: {}
     # Allow to alertmanager
     - to:
         - podSelector:

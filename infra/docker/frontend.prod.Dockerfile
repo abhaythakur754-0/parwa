@@ -3,7 +3,7 @@
 # Multi-stage build for Next.js frontend (production context)
 #
 # NOTE: docker-compose.prod.yml sets context: . (project root)
-# So all COPY paths use frontend/ prefix
+# All COPY paths are relative to project root
 #
 # IMPORTANT: NEXT_PUBLIC_* vars are baked in at BUILD TIME, not runtime.
 # Pass them as build args via docker-compose or docker build --build-arg
@@ -35,7 +35,7 @@ WORKDIR /app
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 
-# Copy frontend source (context is project root)
+# Copy project source (context is project root)
 COPY . ./
 
 # Build arguments — these are BAKED INTO the build
@@ -95,5 +95,5 @@ ENV HOSTNAME="0.0.0.0"
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
-# Start the application — shell form allows fallback logic
+# Start the application — exec form for proper signal handling
 CMD ["node", "server.js"]

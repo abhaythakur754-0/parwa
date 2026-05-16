@@ -3,14 +3,12 @@ kind: Kustomization
 
 namespace: parwa
 
-# #60: Replace deprecated commonLabels with labels + includeSelectors
 labels:
   - pairs:
       app.kubernetes.io/part-of: parwa-platform
       app.kubernetes.io/managed-by: kustomize
     includeSelectors: true
 
-# #61: Pin image tags (replaces :latest)
 images:
   - name: parwa/backend
     newTag: v1.0.0
@@ -20,6 +18,10 @@ images:
     newTag: v1.0.0
   - name: parwa/mcp
     newTag: v1.0.0
+  - name: postgres
+    newTag: "15-alpine"
+  - name: redis
+    newTag: "7-alpine"
 
 resources:
   # Namespace
@@ -28,20 +30,15 @@ resources:
   # Configuration
   - configmap.yaml
   - secrets.yaml
-  - limitrange.yaml                    # #37: namespace resource limits
-  - resourcequota.yaml                 # #38: namespace resource quotas
-  - backup-cronjob.yaml               # #88, #89, #99: backup CronJob
-  - backup-pvc.yaml                   # #88, #89, #99: backup PVC
+  - rbac.yaml
 
   # Database
   - postgres/statefulset.yaml
   - postgres/service.yaml
-  # #63, #94: Removed orphaned postgres/pvc.yaml (StatefulSet uses volumeClaimTemplates)
 
   # Cache
   - redis/statefulset.yaml
   - redis/service.yaml
-  # #63, #94: Removed orphaned redis/pvc.yaml (StatefulSet uses volumeClaimTemplates)
 
   # Application
   - backend/deployment.yaml
