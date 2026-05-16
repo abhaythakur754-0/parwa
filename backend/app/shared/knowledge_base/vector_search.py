@@ -105,6 +105,22 @@ class VectorStore(ABC):
         """Get all documents for a company (used by keyword fallback)."""
         return {}
 
+    def get_document(
+        self, document_id: str, company_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Get a single document and its chunks.
+
+        SECURITY (BC-001): Must be scoped to company_id.
+
+        Args:
+            document_id: Document identifier.
+            company_id: Tenant identifier.
+
+        Returns:
+            Dict with document data, or None if not found.
+        """
+        return None
+
     def _generate_embedding(self, text: str) -> Optional[List[float]]:
         """Generate a deterministic pseudo-embedding for fallback."""
         if not text or not text.strip():
@@ -146,6 +162,13 @@ class MockVectorStore(VectorStore):
         metadata: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """Store chunks in memory."""
+        # ── SAFETY ASSERTION: prevent unscoped writes ──────────────
+        if not company_id or not isinstance(company_id, str) or not company_id.strip():
+            raise ValueError(
+                "SECURITY: MockVectorStore.add_document() requires a non-empty "
+                "company_id to prevent cross-tenant data leakage. "
+                f"Received: {company_id!r}"
+            )
         if company_id not in self._store:
             self._store[company_id] = {}
         self._store[company_id][document_id] = {
@@ -168,6 +191,13 @@ class MockVectorStore(VectorStore):
         filters: Optional[Dict[str, Any]] = None,
     ) -> List[SearchResult]:
         """Search using cosine similarity against pseudo-embeddings."""
+        # ── SAFETY ASSERTION: prevent unscoped queries ─────────────
+        if not company_id or not isinstance(company_id, str) or not company_id.strip():
+            raise ValueError(
+                "SECURITY: MockVectorStore.search() requires a non-empty "
+                "company_id to prevent cross-tenant data leakage. "
+                f"Received: {company_id!r}"
+            )
         results: List[SearchResult] = []
 
         company_docs = self._store.get(company_id, {})
@@ -215,6 +245,13 @@ class MockVectorStore(VectorStore):
 
     def delete_document(self, document_id: str, company_id: str) -> bool:
         """Remove a document from memory."""
+        # ── SAFETY ASSERTION: prevent unscoped deletes ─────────────
+        if not company_id or not isinstance(company_id, str) or not company_id.strip():
+            raise ValueError(
+                "SECURITY: MockVectorStore.delete_document() requires a non-empty "
+                "company_id to prevent cross-tenant data deletion. "
+                f"Received: {company_id!r}"
+            )
         if company_id in self._store:
             self._store[company_id].pop(document_id, None)
         return True
@@ -226,6 +263,21 @@ class MockVectorStore(VectorStore):
     def get_all_documents(self, company_id: str) -> Dict[str, Any]:
         """Get all documents for a company."""
         return dict(self._store.get(company_id, {}))
+
+    def get_document(
+        self, document_id: str, company_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Get a single document and its chunks (BC-001: scoped to company_id)."""
+        company_docs = self._store.get(company_id, {})
+        doc_data = company_docs.get(document_id)
+        if doc_data is None:
+            return None
+        return {
+            "document_id": document_id,
+            "company_id": company_id,
+            "chunks": doc_data.get("chunks", []),
+            "metadata": doc_data.get("metadata", {}),
+        }
 
     @staticmethod
     def _cosine_similarity(a: List[float], b: List[float]) -> float:
@@ -260,7 +312,19 @@ class PgVectorStore(VectorStore):
         company_id: str,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> bool:
-        """Store document chunks and their embeddings in the database."""
+        """Store document chunks and their embeddings in the database.
+
+        SECURITY (BC-001): company_id is stored as a first-class column
+        on every INSERT to enforce tenant isolation.
+        """
+        # ── SAFETY ASSERTION: prevent unscoped writes ──────────────
+        if not company_id or not isinstance(company_id, str) or not company_id.strip():
+            raise ValueError(
+                "SECURITY: PgVectorStore.add_document() requires a non-empty "
+                "company_id to prevent cross-tenant data leakage. "
+                f"Received: {company_id!r}"
+            )
+
         from sqlalchemy import create_engine, text
         from app.core.config import get_settings
 
@@ -272,25 +336,26 @@ class PgVectorStore(VectorStore):
                 for i, chunk in enumerate(chunks):
                     chunk_id = chunk.get("chunk_id", f"{document_id}_{i}")
                     embedding = chunk.get("embedding")
-                    if embedding:
-                        conn.execute(
-                            text("""
-                                INSERT INTO document_chunks (id, document_id, chunk_index, content, embedding, metadata_json)
-                                VALUES (:id, :document_id, :chunk_index, :content, :embedding, :metadata_json)
-                                ON CONFLICT (id) DO UPDATE SET
-                                    embedding = EXCLUDED.embedding,
-                                    content = EXCLUDED.content,
-                                    metadata_json = EXCLUDED.metadata_json
-                            """),
-                            {
-                                "id": chunk_id,
-                                "document_id": document_id,
-                                "chunk_index": chunk.get("chunk_index", i),
-                                "content": chunk.get("content", ""),
-                                "embedding": str(embedding),
-                                "metadata_json": str({"company_id": company_id, **(metadata or {})}),
-                            },
-                        )
+                    conn.execute(
+                        text("""
+                            INSERT INTO document_chunks
+                                (id, document_id, chunk_index, content, embedding, company_id)
+                            VALUES
+                                (:id, :document_id, :chunk_index, :content, :embedding, :company_id)
+                            ON CONFLICT (id) DO UPDATE SET
+                                embedding = EXCLUDED.embedding,
+                                content = EXCLUDED.content,
+                                company_id = EXCLUDED.company_id
+                        """),
+                        {
+                            "id": chunk_id,
+                            "document_id": document_id,
+                            "chunk_index": chunk.get("chunk_index", i),
+                            "content": chunk.get("content", ""),
+                            "embedding": str(embedding) if embedding else None,
+                            "company_id": company_id,  # BC-001: first-class column
+                        },
+                    )
             return True
         except Exception as exc:
             logger.warning("PgVectorStore add_document failed: %s", exc)
@@ -305,7 +370,20 @@ class PgVectorStore(VectorStore):
         top_k: int = 5,
         filters: Optional[Dict[str, Any]] = None,
     ) -> List[SearchResult]:
-        """Find similar documents using cosine similarity."""
+        """Find similar documents using cosine similarity.
+
+        SECURITY (BC-001): Results are strictly scoped to *company_id*
+        via a proper column filter.  A safety assertion raises if
+        company_id is None or empty, preventing accidental unscoped queries.
+        """
+        # ── SAFETY ASSERTION: prevent unscoped queries ─────────────
+        if not company_id or not isinstance(company_id, str) or not company_id.strip():
+            raise ValueError(
+                "SECURITY: PgVectorStore.search() requires a non-empty "
+                "company_id to prevent cross-tenant data leakage. "
+                f"Received: {company_id!r}"
+            )
+
         from sqlalchemy import create_engine, text
         from app.core.config import get_settings
 
@@ -313,15 +391,15 @@ class PgVectorStore(VectorStore):
         engine = create_engine(settings.DATABASE_URL)
 
         query_sql = """
-            SELECT id, document_id, chunk_index, content, metadata_json,
+            SELECT id, document_id, chunk_index, content,
                    1 - (embedding <=> :query_embedding::vector) AS similarity
             FROM document_chunks
             WHERE embedding IS NOT NULL
-              AND metadata_json::text LIKE :company_pattern
+              AND company_id = :company_id
         """
-        params = {
+        params: Dict[str, Any] = {
             "query_embedding": str(query_embedding),
-            "company_pattern": f"%\"company_id\": \"{company_id}\"%",
+            "company_id": company_id,  # BC-001: proper column filter
             "limit": top_k,
         }
 
@@ -336,8 +414,8 @@ class PgVectorStore(VectorStore):
                         chunk_id=str(row[0]),
                         document_id=str(row[1]) if row[1] else "",
                         content=row[3] or "",
-                        score=float(row[5]),
-                        metadata=row[4] if isinstance(row[4], dict) else {},
+                        score=float(row[4]),
+                        metadata={},
                     ))
         except Exception as exc:
             logger.warning("PgVectorStore search failed: %s", exc)
@@ -347,7 +425,20 @@ class PgVectorStore(VectorStore):
         return results
 
     def delete_document(self, document_id: str, company_id: str) -> bool:
-        """Delete all chunks for a document."""
+        """Delete all chunks for a document.
+
+        SECURITY (BC-001): Deletion is scoped to both *document_id* AND
+        *company_id* to prevent cross-tenant deletion.  A safety assertion
+        raises if company_id is None or empty.
+        """
+        # ── SAFETY ASSERTION: prevent unscoped deletes ─────────────
+        if not company_id or not isinstance(company_id, str) or not company_id.strip():
+            raise ValueError(
+                "SECURITY: PgVectorStore.delete_document() requires a non-empty "
+                "company_id to prevent cross-tenant data deletion. "
+                f"Received: {company_id!r}"
+            )
+
         from sqlalchemy import create_engine, text
         from app.core.config import get_settings
 
@@ -357,13 +448,118 @@ class PgVectorStore(VectorStore):
         try:
             with engine.begin() as conn:
                 conn.execute(
-                    text("DELETE FROM document_chunks WHERE document_id = :document_id"),
-                    {"document_id": document_id},
+                    text(
+                        "DELETE FROM document_chunks "
+                        "WHERE document_id = :document_id "
+                        "AND company_id = :company_id"  # BC-001: tenant-scoped delete
+                    ),
+                    {
+                        "document_id": document_id,
+                        "company_id": company_id,  # BC-001: prevents cross-tenant deletion
+                    },
                 )
             return True
         except Exception as exc:
             logger.warning("PgVectorStore delete_document failed: %s", exc)
             return False
+        finally:
+            engine.dispose()
+
+    def get_all_documents(self, company_id: str) -> Dict[str, Any]:
+        """Get all documents for a company from the vector store.
+
+        SECURITY (BC-001): Strictly scoped to company_id.
+        """
+        if not company_id or not company_id.strip():
+            return {}
+
+        from sqlalchemy import create_engine, text
+        from app.core.config import get_settings
+
+        settings = get_settings()
+        engine = create_engine(settings.DATABASE_URL)
+
+        result: Dict[str, Any] = {}
+        try:
+            with engine.connect() as conn:
+                rows = conn.execute(
+                    text(
+                        "SELECT document_id, id, chunk_index, content "
+                        "FROM document_chunks "
+                        "WHERE company_id = :company_id "
+                        "ORDER BY document_id, chunk_index"
+                    ),
+                    {"company_id": company_id},
+                ).fetchall()
+
+                for row in rows:
+                    doc_id = str(row[0])
+                    if doc_id not in result:
+                        result[doc_id] = {
+                            "chunks": [],
+                            "metadata": {},
+                        }
+                    result[doc_id]["chunks"].append({
+                        "chunk_id": str(row[1]),
+                        "chunk_index": row[2],
+                        "content": row[3] or "",
+                    })
+        except Exception as exc:
+            logger.warning("PgVectorStore get_all_documents failed: %s", exc)
+        finally:
+            engine.dispose()
+
+        return result
+
+    def get_document(
+        self, document_id: str, company_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Get a single document and its chunks.
+
+        SECURITY (BC-001): Strictly scoped to company_id.
+        """
+        if not company_id or not company_id.strip():
+            return None
+
+        from sqlalchemy import create_engine, text
+        from app.core.config import get_settings
+
+        settings = get_settings()
+        engine = create_engine(settings.DATABASE_URL)
+
+        try:
+            with engine.connect() as conn:
+                rows = conn.execute(
+                    text(
+                        "SELECT id, chunk_index, content "
+                        "FROM document_chunks "
+                        "WHERE document_id = :document_id "
+                        "AND company_id = :company_id "
+                        "ORDER BY chunk_index"
+                    ),
+                    {"document_id": document_id, "company_id": company_id},
+                ).fetchall()
+
+                if not rows:
+                    return None
+
+                chunks = []
+                for row in rows:
+                    chunks.append({
+                        "chunk_id": str(row[0]),
+                        "chunk_index": row[1],
+                        "content": row[2] or "",
+                    })
+
+                return {
+                    "document_id": document_id,
+                    "company_id": company_id,
+                    "chunks": chunks,
+                    "metadata": {},
+                }
+        except Exception as exc:
+            logger.warning("PgVectorStore get_document failed: %s", exc)
+            return None
         finally:
             engine.dispose()
 

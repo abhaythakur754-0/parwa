@@ -240,14 +240,15 @@ async def trigger_reindex(
         )
 
     manager = ReindexingManager()
-    queued = await manager.mark_for_reindex(target_company_id, document_ids)
+    job = manager.create_job(target_company_id, document_ids)
 
     return {
         "status": "ok",
         "data": {
             "company_id": target_company_id,
-            "documents_queued": queued,
-            "message": f"{queued} documents queued for reindexing",
+            "job_id": job.job_id,
+            "documents_queued": len(document_ids),
+            "message": f"{len(document_ids)} documents queued for reindexing",
         },
     }
 
@@ -265,20 +266,26 @@ def get_reindex_status(
             details={"path_company_id": company_id, "token_company_id": jwt_company_id},
         )
 
-    from shared.knowledge_base.reindexing import ReindexingManager
+    from shared.knowledge_base.reindexing import ReindexingManager, ReindexStatus
 
     manager = ReindexingManager()
-    status = manager.get_reindex_status(company_id)
+    jobs = manager.list_jobs(company_id)
+
+    # Aggregate status counts
+    pending = sum(1 for j in jobs if j.status == ReindexStatus.PENDING.value)
+    processing = sum(1 for j in jobs if j.status == ReindexStatus.RUNNING.value)
+    completed = sum(1 for j in jobs if j.status == ReindexStatus.COMPLETED.value)
+    failed = sum(1 for j in jobs if j.status == ReindexStatus.FAILED.value)
 
     return {
         "status": "ok",
         "data": {
-            "company_id": status.company_id,
-            "pending": status.pending,
-            "processing": status.processing,
-            "completed": status.completed,
-            "failed": status.failed,
-            "total": status.total,
+            "company_id": company_id,
+            "pending": pending,
+            "processing": processing,
+            "completed": completed,
+            "failed": failed,
+            "total": len(jobs),
         },
     }
 

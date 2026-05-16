@@ -1,3 +1,22 @@
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  DEPRECATED — DO NOT USE THIS FILE                              ║
+// ║                                                                  ║
+// ║  PARWA's real database layer uses SQLAlchemy ORM + Alembic       ║
+// ║  migrations, defined in:                                         ║
+// ║    • database/models/  — SQLAlchemy model definitions            ║
+// ║    • database/migrations/  — Alembic migration scripts           ║
+// ║                                                                  ║
+// ║  This Prisma schema is a vestigial artifact from project         ║
+// ║  scaffolding and should NOT be used for:                         ║
+// ║    • Schema changes  → use Alembic migrations instead            ║
+// ║    • DB queries      → use SQLAlchemy sessions instead           ║
+// ║    • Type generation → use database/models/ Python types         ║
+// ║                                                                  ║
+// ║  The User/Post models below are scaffolding leftovers only.      ║
+// ║  If Prisma Client is needed for a future feature, create a       ║
+// ║  separate schema in a dedicated directory and document why.      ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 

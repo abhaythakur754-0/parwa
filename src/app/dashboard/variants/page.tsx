@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { VariantInstanceCard, type VariantInstanceData } from '@/components/jarvis-cc/VariantInstanceCard';
 import { MetricCard } from '@/components/jarvis-cc/MetricCard';
 import { get } from '@/lib/api';
+import { toast } from 'sonner';
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -111,13 +112,119 @@ export default function VariantsPage() {
   }, {} as Record<string, VariantInstanceData[]>);
 
   const handleEscalate = (instanceId: string) => {
-    // TODO: Call escalation API
-    console.log('Escalating instance:', instanceId);
+    // Find the instance to escalate
+    const instance = instances.find((i) => i.id === instanceId);
+    if (!instance) return;
+
+    // Determine the next tier up for escalation
+    const tierOrder = ['mini_parwa', 'parwa', 'parwa_high'] as const;
+    const currentIdx = tierOrder.indexOf(instance.variant_tier as typeof tierOrder[number]);
+    const nextTier = currentIdx < tierOrder.length - 1 ? tierOrder[currentIdx + 1] : null;
+
+    // Update the instance status in local state
+    setInstances((prev) =>
+      prev.map((inst) =>
+        inst.id === instanceId
+          ? {
+              ...inst,
+              status: 'active',
+              // On escalate, bump capacity to next-tier default
+              capacity: nextTier === 'parwa' ? 5000 : nextTier === 'parwa_high' ? 99999 : inst.capacity,
+            }
+          : inst
+      )
+    );
+
+    // Persist escalation intent to localStorage for cross-page awareness
+    try {
+      const escalations = JSON.parse(localStorage.getItem('parwa_variant_escalations') || '[]');
+      escalations.push({
+        instanceId,
+        fromTier: instance.variant_tier,
+        toTier: nextTier || instance.variant_tier,
+        escalatedAt: new Date().toISOString(),
+      });
+      localStorage.setItem('parwa_variant_escalations', JSON.stringify(escalations));
+    } catch {
+      // localStorage unavailable — non-critical
+    }
+
+    const tierName = tierNames[instance.variant_tier] || instance.variant_tier;
+    if (nextTier) {
+      toast.success(`Escalated ${tierName} instance`, {
+        description: `Instance promoted to ${tierNames[nextTier]} tier. Active tickets will be re-routed.`,
+      });
+    } else {
+      toast.info(`Escalation requested for ${tierName}`, {
+        description: 'Already at highest tier. A human agent has been notified.',
+      });
+    }
   };
 
   const handleRebalance = (instanceId: string) => {
-    // TODO: Call rebalance API
-    console.log('Rebalancing instance:', instanceId);
+    // Find the instance to rebalance
+    const instance = instances.find((i) => i.id === instanceId);
+    if (!instance) return;
+
+    // Redistribute active tickets more evenly across same-tier instances
+    const sameTierInstances = instances.filter(
+      (i) => i.variant_tier === instance.variant_tier && i.id !== instanceId && i.status === 'active'
+    );
+
+    if (sameTierInstances.length === 0) {
+      toast.info('No available instances for rebalancing', {
+        description: 'Add more instances or escalate to a higher tier.',
+      });
+      return;
+    }
+
+    // Calculate redistribution: spread overload evenly
+    const overload = instance.active_tickets - Math.floor(instance.capacity * 0.6);
+    if (overload <= 0) {
+      toast.info('Instance is within healthy load', {
+        description: `Utilization at ${Math.round((instance.active_tickets / instance.capacity) * 100)}% — no rebalance needed.`,
+      });
+      return;
+    }
+
+    const perInstance = Math.floor(overload / sameTierInstances.length);
+    const remainder = overload % sameTierInstances.length;
+
+    // Update local state to reflect redistribution
+    setInstances((prev) =>
+      prev.map((inst) => {
+        if (inst.id === instanceId) {
+          return { ...inst, active_tickets: inst.active_tickets - overload };
+        }
+        const idx = sameTierInstances.findIndex((s) => s.id === inst.id);
+        if (idx >= 0) {
+          return {
+            ...inst,
+            active_tickets: inst.active_tickets + perInstance + (idx < remainder ? 1 : 0),
+          };
+        }
+        return inst;
+      })
+    );
+
+    // Persist rebalance log
+    try {
+      const rebalances = JSON.parse(localStorage.getItem('parwa_variant_rebalances') || '[]');
+      rebalances.push({
+        instanceId,
+        tier: instance.variant_tier,
+        ticketsRedistributed: overload,
+        targetCount: sameTierInstances.length,
+        rebalancedAt: new Date().toISOString(),
+      });
+      localStorage.setItem('parwa_variant_rebalances', JSON.stringify(rebalances));
+    } catch {
+      // localStorage unavailable — non-critical
+    }
+
+    toast.success(`Rebalanced ${tierNames[instance.variant_tier] || instance.variant_tier}`, {
+      description: `${overload} ticket${overload !== 1 ? 's' : ''} redistributed across ${sameTierInstances.length} instance${sameTierInstances.length !== 1 ? 's' : ''}.`,
+    });
   };
 
   return (

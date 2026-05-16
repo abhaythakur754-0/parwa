@@ -230,6 +230,14 @@ class MockVectorStore(VectorStore):
         Returns:
             List of search results sorted by score descending.
         """
+        # ── SAFETY ASSERTION: prevent unscoped queries ─────────────
+        if not company_id or not isinstance(company_id, str) or not company_id.strip():
+            raise ValueError(
+                "SECURITY: MockVectorStore.search() requires a non-empty "
+                "company_id to prevent cross-tenant data leakage. "
+                f"Received: {company_id!r}"
+            )
+
         if not self._healthy:
             return []
 
@@ -280,6 +288,14 @@ class MockVectorStore(VectorStore):
         Returns:
             Number of chunks added.
         """
+        # ── SAFETY ASSERTION: prevent unscoped writes ──────────────
+        if not company_id or not isinstance(company_id, str) or not company_id.strip():
+            raise ValueError(
+                "SECURITY: MockVectorStore.add_chunks() requires a non-empty "
+                "company_id to prevent cross-tenant data leakage. "
+                f"Received: {company_id!r}"
+            )
+
         if company_id not in self._store:
             self._store[company_id] = {}
 
@@ -309,6 +325,14 @@ class MockVectorStore(VectorStore):
         Returns:
             True if document was found and deleted.
         """
+        # ── SAFETY ASSERTION: prevent unscoped deletes ─────────────
+        if not company_id or not isinstance(company_id, str) or not company_id.strip():
+            raise ValueError(
+                "SECURITY: MockVectorStore.delete_document() requires a non-empty "
+                "company_id to prevent cross-tenant data deletion. "
+                f"Received: {company_id!r}"
+            )
+
         if company_id in self._store and document_id in self._store[company_id]:
             del self._store[company_id][document_id]
             return True
@@ -339,6 +363,8 @@ class MockVectorStore(VectorStore):
     ) -> bool:
         """Add a document with chunk dicts to the store.
 
+        SECURITY (BC-001): company_id is required for tenant isolation.
+
         Args:
             document_id: Unique document identifier.
             chunks: List of dicts with "content" and optional "metadata".
@@ -348,6 +374,14 @@ class MockVectorStore(VectorStore):
         Returns:
             True (always succeeds).
         """
+        # ── SAFETY ASSERTION: prevent unscoped writes ──────────────
+        if not company_id or not isinstance(company_id, str) or not company_id.strip():
+            raise ValueError(
+                "SECURITY: MockVectorStore.add_document() requires a non-empty "
+                "company_id to prevent cross-tenant data leakage. "
+                f"Received: {company_id!r}"
+            )
+
         if company_id not in self._store:
             self._store[company_id] = {}
 
@@ -642,6 +676,14 @@ class PgVectorStore(VectorStore):
         Returns:
             List of search results sorted by score descending.
         """
+        # ── SAFETY ASSERTION: prevent unscoped queries ─────────────
+        if not company_id or not isinstance(company_id, str) or not company_id.strip():
+            raise ValueError(
+                "SECURITY: PgVectorStore.search() requires a non-empty "
+                "company_id to prevent cross-tenant data leakage. "
+                f"Received: {company_id!r}"
+            )
+
         session = self._get_session()
         if session is None:
             return []
@@ -720,6 +762,8 @@ class PgVectorStore(VectorStore):
     ) -> int:
         """Insert chunks into ``document_chunks`` with pgvector embeddings.
 
+        SECURITY (BC-001): company_id is required for tenant isolation.
+
         Each chunk's ``embedding`` list is serialised as a pgvector literal.
 
         Args:
@@ -729,6 +773,14 @@ class PgVectorStore(VectorStore):
         Returns:
             Number of chunks successfully added.
         """
+        # ── SAFETY ASSERTION: prevent unscoped writes ──────────────
+        if not company_id or not isinstance(company_id, str) or not company_id.strip():
+            raise ValueError(
+                "SECURITY: PgVectorStore.add_chunks() requires a non-empty "
+                "company_id to prevent cross-tenant data leakage. "
+                f"Received: {company_id!r}"
+            )
+
         session = self._get_session()
         if session is None:
             return 0
@@ -785,6 +837,8 @@ class PgVectorStore(VectorStore):
     ) -> bool:
         """Delete all chunks for a document.
 
+        SECURITY (BC-001): Deletion scoped to both document_id AND company_id.
+
         Args:
             document_id: Document to delete.
             company_id: Tenant identifier (BC-001).
@@ -792,6 +846,14 @@ class PgVectorStore(VectorStore):
         Returns:
             True if rows were deleted, False otherwise.
         """
+        # ── SAFETY ASSERTION: prevent unscoped deletes ─────────────
+        if not company_id or not isinstance(company_id, str) or not company_id.strip():
+            raise ValueError(
+                "SECURITY: PgVectorStore.delete_document() requires a non-empty "
+                "company_id to prevent cross-tenant data deletion. "
+                f"Received: {company_id!r}"
+            )
+
         session = self._get_session()
         if session is None:
             return False
@@ -830,7 +892,18 @@ class PgVectorStore(VectorStore):
         company_id: str,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> bool:
-        """Add a document with chunk dicts — generates embeddings via EmbeddingService."""
+        """Add a document with chunk dicts — generates embeddings via EmbeddingService.
+
+        SECURITY (BC-001): company_id is required for tenant isolation.
+        """
+        # ── SAFETY ASSERTION: prevent unscoped writes ──────────────
+        if not company_id or not isinstance(company_id, str) or not company_id.strip():
+            raise ValueError(
+                "SECURITY: PgVectorStore.add_document() requires a non-empty "
+                "company_id to prevent cross-tenant data leakage. "
+                f"Received: {company_id!r}"
+            )
+
         doc_metadata = metadata or {}
         stored_chunks: List[StoredChunk] = []
         for i, chunk in enumerate(chunks):
@@ -1105,6 +1178,9 @@ def vector_search(
 ) -> List[SearchResult]:
     """Convenience function that searches the default vector store.
 
+    SECURITY (BC-001): company_id is required for tenant isolation.
+    Raises ValueError if company_id is None or empty.
+
     Args:
         query_embedding: Query vector.
         company_id: Tenant identifier (BC-001).
@@ -1113,5 +1189,13 @@ def vector_search(
     Returns:
         List of SearchResult objects sorted by score descending.
     """
+    # ── SAFETY ASSERTION: prevent unscoped queries ─────────────
+    if not company_id or not isinstance(company_id, str) or not company_id.strip():
+        raise ValueError(
+            "SECURITY: vector_search() requires a non-empty company_id "
+            "to prevent cross-tenant data leakage. "
+            f"Received: {company_id!r}"
+        )
+
     store = get_vector_store()
     return store.search(query_embedding, company_id, top_k)
