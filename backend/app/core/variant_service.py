@@ -36,7 +36,7 @@ BC-012: All timestamps UTC.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.industry_enum import (
     Industry,
@@ -531,6 +531,7 @@ class VariantService:
         self,
         company_id: str,
         instance_id: str,
+        db: Any = None,
     ) -> VariantConfig:
         """Resolve config by looking up instance details from DB.
 
@@ -538,29 +539,132 @@ class VariantService:
         2. Call resolve(tier, industry) for base config
         3. Apply instance-level overrides (from DB)
 
+        If a db session is provided, looks up the VariantInstance
+        from the database. Otherwise, falls back to tier+industry
+        resolution using a heuristic from the instance_id naming
+        convention (inst_{variant_type}_{company_id}).
+
         Args:
             company_id: Tenant identifier (BC-001).
             instance_id: Variant instance identifier.
+            db: Optional SQLAlchemy session for DB lookups.
 
         Returns:
             Fully resolved VariantConfig with instance overrides.
         """
         try:
-            # Future: Look up instance from database
-            # instance = VariantInstance.query.filter_by(
-            #     id=instance_id, company_id=company_id
-            # ).first()
+            variant_tier = "parwa"
+            industry = "general"
 
-            # For now, use the tier + industry resolution
-            # This will be enhanced when we wire the DB layer
-            logger.info(
-                "resolve_by_instance: instance_id=%s, company_id=%s "
-                "(using tier+industry resolution — DB lookup coming soon)",
-                instance_id, company_id,
-            )
+            # ── DB-backed lookup ──
+            if db is not None:
+                try:
+                    from database.models.variant_engine import VariantInstance
+                    instance = (
+                        db.query(VariantInstance)
+                        .filter(
+                            VariantInstance.id == instance_id,
+                            VariantInstance.company_id == company_id,
+                        )
+                        .first()
+                    )
+                    if instance is not None:
+                        variant_tier = instance.variant_type
+                        # Try to derive industry from company settings
+                        try:
+                            from database.models.core import CompanySetting
+                            setting = (
+                                db.query(CompanySetting)
+                                .filter(
+                                    CompanySetting.company_id == company_id,
+                                )
+                                .first()
+                            )
+                            if setting and hasattr(setting, "industry"):
+                                industry = setting.industry or "general"
+                        except Exception:
+                            pass  # Industry resolution is best-effort
 
-            # Fallback: return general config for parwa tier
-            return self.resolve("parwa", "general")
+                        logger.info(
+                            "resolve_by_instance: DB lookup succeeded — "
+                            "instance_id=%s, company_id=%s, tier=%s, industry=%s",
+                            instance_id, company_id, variant_tier, industry,
+                        )
+                    else:
+                        logger.warning(
+                            "resolve_by_instance: instance_id=%s not found "
+                            "in DB for company_id=%s — using heuristic",
+                            instance_id, company_id,
+                        )
+                except ImportError:
+                    logger.warning(
+                        "resolve_by_instance: VariantInstance model not "
+                        "available — using heuristic fallback",
+                    )
+
+            # ── Heuristic fallback from instance_id naming convention ──
+            if db is None or variant_tier == "parwa":
+                # Try to extract variant type from instance_id pattern:
+                # inst_{variant_type}_{company_id} or inst_onboarding_{variant_type}_{company_id}
+                if "mini_parwa" in instance_id or "mini" in instance_id:
+                    variant_tier = "mini_parwa"
+                elif "parwa_high" in instance_id or "high" in instance_id:
+                    variant_tier = "parwa_high"
+                elif "parwa" in instance_id:
+                    variant_tier = "parwa"
+
+            # Resolve base config
+            config = self.resolve(variant_tier, industry)
+            config.instance_id = instance_id
+
+            # ── Apply instance-level overrides from DB ──
+            if db is not None:
+                try:
+                    from database.models.variant_engine import VariantAICapability
+                    import json
+
+                    overrides = (
+                        db.query(VariantAICapability)
+                        .filter(
+                            VariantAICapability.company_id == company_id,
+                            VariantAICapability.instance_id == instance_id,
+                            VariantAICapability.is_enabled == True,
+                        )
+                        .all()
+                    )
+
+                    for cap in overrides:
+                        if cap.config_json:
+                            try:
+                                override_config = json.loads(cap.config_json)
+                                # Apply model overrides
+                                if "generation_model" in override_config:
+                                    config.generation_model = override_config["generation_model"]
+                                if "classification_model" in override_config:
+                                    config.classification_model = override_config["classification_model"]
+                                if "quality_model" in override_config:
+                                    config.quality_model = override_config["quality_model"]
+                                if "quality_threshold" in override_config:
+                                    config.quality_threshold = float(
+                                        override_config["quality_threshold"]
+                                    )
+                                if "max_total_tokens" in override_config:
+                                    config.max_total_tokens = int(
+                                        override_config["max_total_tokens"]
+                                    )
+                            except (json.JSONDecodeError, TypeError, ValueError):
+                                pass
+
+                    if overrides:
+                        logger.info(
+                            "resolve_by_instance: applied %d instance-level "
+                            "overrides for instance_id=%s",
+                            len(overrides), instance_id,
+                        )
+                except ImportError:
+                    pass  # VariantAICapability not available — skip overrides
+
+            return config
 
         except Exception:
             logger.exception(
@@ -569,6 +673,49 @@ class VariantService:
                 company_id, instance_id,
             )
             return self.resolve("mini_parwa", "general")
+
+    def resolve_for_shadow(
+        self,
+        company_id: str,
+        live_variant: str,
+        shadow_variant: str,
+        industry: str = "general",
+    ) -> Tuple[VariantConfig, VariantConfig]:
+        """Resolve configs for both live and shadow variants.
+
+        Used by the Shadow Mode pipeline bridge to get both
+        configurations simultaneously for comparison processing.
+
+        Args:
+            company_id: Tenant identifier (BC-001).
+            live_variant: Current live variant tier.
+            shadow_variant: Variant being tested in shadow.
+            industry: Industry vertical.
+
+        Returns:
+            Tuple of (live_config, shadow_config).
+        """
+        try:
+            live_config = self.resolve(live_variant, industry)
+            shadow_config = self.resolve(shadow_variant, industry)
+
+            logger.info(
+                "resolve_for_shadow: company_id=%s, live=%s, shadow=%s, "
+                "industry=%s — live_steps=%d, shadow_steps=%d",
+                company_id, live_variant, shadow_variant, industry,
+                len(live_config.steps), len(shadow_config.steps),
+            )
+
+            return (live_config, shadow_config)
+
+        except Exception:
+            logger.exception(
+                "resolve_for_shadow failed for company_id=%s — "
+                "returning safe fallback configs",
+                company_id,
+            )
+            return (self.resolve("mini_parwa", "general"),
+                    self.resolve("parwa", "general"))
 
     def get_all_configs(self) -> Dict[str, Dict[str, VariantConfig]]:
         """Get all variant×industry configurations.

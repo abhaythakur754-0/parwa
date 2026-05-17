@@ -530,6 +530,204 @@ def has_variant_tier_in_context(session_context: Dict[str, Any]) -> bool:
 
 
 # ══════════════════════════════════════════════════════════════════
+# SHADOW MODE PROCESSING
+# ══════════════════════════════════════════════════════════════════
+
+
+async def process_shadow_mode(
+    query: str,
+    company_id: str,
+    session_context: Dict[str, Any],
+    conversation_id: str = "",
+    ticket_id: str = "",
+    channel: str = "chat",
+    customer_id: str = "",
+    customer_tier: str = "free",
+) -> PipelineResult:
+    """Process a message through both live and shadow variants.
+
+    When shadow mode is active for a company, this function:
+      1. Runs the LIVE variant pipeline (normal processing)
+      2. Runs the SHADOW variant pipeline (parallel, non-blocking)
+      3. Compares the results (quality, latency, tokens)
+      4. Records the comparison for analysis
+      5. Returns the LIVE variant result (shadow is never shown to customer)
+
+    In SUPERVISED mode, the shadow variant's response is returned
+    instead, but flagged for human review before delivery.
+
+    BC-001: company_id first parameter.
+    BC-008: Never crashes — returns live result on shadow failure.
+    BC-012: All timestamps UTC.
+    """
+    try:
+        from app.services.shadow_mode_service import get_shadow_mode_service
+
+        service = get_shadow_mode_service()
+        shadow_config = service.get_shadow_config(company_id)
+
+        if shadow_config is None:
+            # No active shadow mode — just run normal pipeline
+            return await process_customer_care_message(
+                query=query,
+                company_id=company_id,
+                session_context=session_context,
+                conversation_id=conversation_id,
+                ticket_id=ticket_id,
+                channel=channel,
+                customer_id=customer_id,
+                customer_tier=customer_tier,
+            )
+
+        # Check if this message should be shadow-processed
+        should_shadow, reason = service.should_process_shadow(
+            company_id=company_id, message=query,
+        )
+
+        if not should_shadow:
+            logger.debug(
+                "Shadow mode: skipping message for company_id=%s, reason=%s",
+                company_id, reason,
+            )
+            return await process_customer_care_message(
+                query=query,
+                company_id=company_id,
+                session_context=session_context,
+                conversation_id=conversation_id,
+                ticket_id=ticket_id,
+                channel=channel,
+                customer_id=customer_id,
+                customer_tier=customer_tier,
+            )
+
+        live_variant = shadow_config.get("live_variant", "mini_parwa")
+        shadow_variant = shadow_config.get("shadow_variant", "parwa")
+        shadow_status = shadow_config.get("status", "shadow")
+
+        logger.info(
+            "Shadow mode processing: company_id=%s, live=%s, shadow=%s, "
+            "status=%s, ticket_id=%s",
+            company_id, live_variant, shadow_variant, shadow_status, ticket_id,
+        )
+
+        # ── Run LIVE pipeline ──
+        live_result = await _run_pipeline(
+            variant_tier=live_variant,
+            query=query,
+            company_id=company_id,
+            industry=_resolve_industry_from_session(session_context),
+            conversation_id=conversation_id,
+            ticket_id=ticket_id,
+            channel=channel,
+            customer_id=customer_id,
+            customer_tier=customer_tier,
+        )
+
+        # ── Run SHADOW pipeline (best-effort, don't fail on error) ──
+        shadow_result = None
+        try:
+            shadow_result = await _run_pipeline(
+                variant_tier=shadow_variant,
+                query=query,
+                company_id=company_id,
+                industry=_resolve_industry_from_session(session_context),
+                conversation_id=f"shadow_{conversation_id}",
+                ticket_id=ticket_id,
+                channel=channel,
+                customer_id=customer_id,
+                customer_tier=customer_tier,
+            )
+        except Exception:
+            logger.exception(
+                "Shadow pipeline failed for company_id=%s — "
+                "continuing with live result only",
+                company_id,
+            )
+
+        # ── Record comparison ──
+        if shadow_result is not None:
+            try:
+                from app.services.shadow_mode_service import ShadowComparison
+
+                live_quality = live_result.quality_score or 0.0
+                shadow_quality = shadow_result.quality_score or 0.0
+
+                comparison = ShadowComparison(
+                    company_id=company_id,
+                    config_id=shadow_config.get("id", ""),
+                    ticket_id=ticket_id,
+                    conversation_id=conversation_id,
+                    message_hash=service._hash_message(query),
+                    live_variant=live_variant,
+                    live_response=live_result.response_text[:500],
+                    live_quality_score=live_quality,
+                    live_latency_ms=int(live_result.total_latency_ms or 0),
+                    live_tokens_used=live_result.billing_tokens or 0,
+                    shadow_variant=shadow_variant,
+                    shadow_response=shadow_result.response_text[:500],
+                    shadow_quality_score=shadow_quality,
+                    shadow_latency_ms=int(shadow_result.total_latency_ms or 0),
+                    shadow_tokens_used=shadow_result.billing_tokens or 0,
+                    quality_delta=round(shadow_quality - live_quality, 4),
+                    latency_delta_ms=int(
+                        (shadow_result.total_latency_ms or 0)
+                        - (live_result.total_latency_ms or 0)
+                    ),
+                    token_delta=(shadow_result.billing_tokens or 0) - (live_result.billing_tokens or 0),
+                    shadow_winner=shadow_quality >= live_quality,
+                    mode_at_comparison=shadow_status,
+                )
+
+                service.record_comparison(
+                    company_id=company_id,
+                    comparison=comparison,
+                )
+
+            except Exception:
+                logger.exception(
+                    "Failed to record shadow comparison for company_id=%s",
+                    company_id,
+                )
+
+        # ── Determine which result to return ──
+        if shadow_status == "supervised" and shadow_result is not None:
+            # In supervised mode, return shadow result but flag for review
+            shadow_result.metadata["shadow_mode"] = "supervised"
+            shadow_result.metadata["requires_human_review"] = True
+            shadow_result.metadata["live_response_available"] = True
+            shadow_result.metadata["live_variant"] = live_variant
+            logger.info(
+                "Supervised mode: returning shadow result for review, "
+                "company_id=%s, ticket_id=%s",
+                company_id, ticket_id,
+            )
+            return shadow_result
+        else:
+            # In shadow mode, always return live result
+            live_result.metadata["shadow_mode"] = "shadow"
+            live_result.metadata["shadow_processed"] = shadow_result is not None
+            live_result.metadata["shadow_variant"] = shadow_variant
+            return live_result
+
+    except Exception:
+        logger.exception(
+            "process_shadow_mode failed for company_id=%s — "
+            "falling back to normal processing",
+            company_id,
+        )
+        return await process_customer_care_message(
+            query=query,
+            company_id=company_id,
+            session_context=session_context,
+            conversation_id=conversation_id,
+            ticket_id=ticket_id,
+            channel=channel,
+            customer_id=customer_id,
+            customer_tier=customer_tier,
+        )
+
+
+# ══════════════════════════════════════════════════════════════════
 # UNIFIED PIPELINE RUNNER
 # ══════════════════════════════════════════════════════════════════
 

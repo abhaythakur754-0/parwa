@@ -2,9 +2,12 @@
 SG-22: Agent Assignment Strategy Service.
 
 Manages AI build agent assignments to features and tasks.
-Uses the ai_agent_assignments table (global, no company_id).
+Uses the ai_agent_assignments table with company_id isolation.
 
-BC-001: N/A — this is a global dev process table.
+BC-001: All queries are scoped by company_id to enforce
+multi-tenant row-level isolation. Every public service
+function requires a non-empty company_id and filters all
+database queries accordingly.
 BC-012: All errors use ParwaBaseError.
 """
 
@@ -42,6 +45,14 @@ VALID_ROLES = {
 # ══════════════════════════════════════════════════════════════════
 # VALIDATION HELPERS
 # ══════════════════════════════════════════════════════════════════
+
+def _validate_company_id(company_id: str) -> None:
+    """Validate company_id is present and non-empty (BC-001)."""
+    if not company_id or not str(company_id).strip():
+        raise ValidationError(
+            message="company_id is required and cannot be empty",
+        )
+
 
 def _validate_agent_name(agent_name: str) -> None:
     """Validate agent name is non-empty."""
@@ -117,6 +128,7 @@ def _parse_json_list(value: str | None) -> list[str]:
 
 def register_agent(
     db: Session,
+    company_id: str,
     agent_name: str,
     agent_role: str | None = None,
     feature_ids: list[str] | None = None,
@@ -126,14 +138,16 @@ def register_agent(
     Create a new agent assignment record.
 
     Validates inputs (non-empty name, valid role) and checks
-    for duplicate agent names.
+    for duplicate agent names within the same company (BC-001).
     """
+    _validate_company_id(company_id)
     _validate_agent_name(agent_name)
     _validate_agent_role(agent_role)
 
-    # Check for duplicate name
+    # Check for duplicate name within the same company
     existing = db.query(AIAgentAssignment).filter_by(
         agent_name=agent_name.strip(),
+        company_id=company_id,
     ).first()
     if existing is not None:
         raise ValidationError(
@@ -147,6 +161,7 @@ def register_agent(
     effective_tasks = task_ids or []
 
     agent = AIAgentAssignment(
+        company_id=company_id,
         agent_name=agent_name.strip(),
         agent_role=(
             agent_role.strip() if agent_role else None
@@ -164,28 +179,36 @@ def register_agent(
 
 def get_agent(
     db: Session,
+    company_id: str,
     agent_name: str,
 ) -> AIAgentAssignment | None:
     """
-    Get agent by name.
+    Get agent by name within the given company (BC-001).
 
     Returns None if not found.
     """
+    _validate_company_id(company_id)
     _validate_agent_name(agent_name)
 
     return db.query(AIAgentAssignment).filter_by(
         agent_name=agent_name.strip(),
+        company_id=company_id,
     ).first()
 
 
 def list_agents(
     db: Session,
+    company_id: str,
     status: str | None = None,
 ) -> list[AIAgentAssignment]:
     """
-    List all agents, optionally filtered by status.
+    List all agents for the given company, optionally
+    filtered by status (BC-001).
     """
-    query = db.query(AIAgentAssignment)
+    _validate_company_id(company_id)
+    query = db.query(AIAgentAssignment).filter_by(
+        company_id=company_id,
+    )
 
     if status is not None:
         _validate_status(status)
@@ -198,17 +221,20 @@ def list_agents(
 
 def update_agent_features(
     db: Session,
+    company_id: str,
     agent_name: str,
     feature_ids: list[str],
 ) -> AIAgentAssignment:
     """
-    Update the feature_ids JSON for an agent.
+    Update the feature_ids JSON for an agent (BC-001).
     """
+    _validate_company_id(company_id)
     _validate_agent_name(agent_name)
     _validate_feature_ids(feature_ids)
 
     agent = db.query(AIAgentAssignment).filter_by(
         agent_name=agent_name.strip(),
+        company_id=company_id,
     ).first()
 
     if agent is None:
@@ -226,17 +252,20 @@ def update_agent_features(
 
 def update_agent_tasks(
     db: Session,
+    company_id: str,
     agent_name: str,
     task_ids: list[str],
 ) -> AIAgentAssignment:
     """
-    Update the task_ids JSON for an agent.
+    Update the task_ids JSON for an agent (BC-001).
     """
+    _validate_company_id(company_id)
     _validate_agent_name(agent_name)
     _validate_task_ids(task_ids)
 
     agent = db.query(AIAgentAssignment).filter_by(
         agent_name=agent_name.strip(),
+        company_id=company_id,
     ).first()
 
     if agent is None:
@@ -254,17 +283,20 @@ def update_agent_tasks(
 
 def update_agent_status(
     db: Session,
+    company_id: str,
     agent_name: str,
     status: str,
 ) -> AIAgentAssignment:
     """
-    Update agent status (active, completed, paused).
+    Update agent status (active, completed, paused) (BC-001).
     """
+    _validate_company_id(company_id)
     _validate_agent_name(agent_name)
     _validate_status(status)
 
     agent = db.query(AIAgentAssignment).filter_by(
         agent_name=agent_name.strip(),
+        company_id=company_id,
     ).first()
 
     if agent is None:
@@ -280,15 +312,22 @@ def update_agent_status(
     return agent
 
 
-def get_agent_feature_coverage(db: Session) -> dict:
+def get_agent_feature_coverage(
+    db: Session,
+    company_id: str,
+) -> dict:
     """
-    Returns which features are assigned to which agents.
+    Returns which features are assigned to which agents
+    within the given company (BC-001).
 
     Format: {"feature_id": "agent_name", ...}
     If a feature is assigned to multiple agents, the last
     one wins (warning logged in production).
     """
-    agents = db.query(AIAgentAssignment).all()
+    _validate_company_id(company_id)
+    agents = db.query(AIAgentAssignment).filter_by(
+        company_id=company_id,
+    ).all()
 
     coverage: dict[str, str] = {}
     for agent in agents:
@@ -305,18 +344,20 @@ def get_agent_feature_coverage(db: Session) -> dict:
 
 def find_unassigned_features(
     db: Session,
+    company_id: str,
     all_feature_ids: list[str],
 ) -> list[str]:
     """
     Given a list of all feature IDs, return ones not
-    assigned to any agent.
+    assigned to any agent within the given company (BC-001).
     """
+    _validate_company_id(company_id)
     if not isinstance(all_feature_ids, list):
         raise ValidationError(
             message="all_feature_ids must be a list",
         )
 
-    coverage = get_agent_feature_coverage(db)
+    coverage = get_agent_feature_coverage(db, company_id=company_id)
     assigned = set(coverage.keys())
 
     unassigned = []
@@ -331,14 +372,19 @@ def find_unassigned_features(
     return unassigned
 
 
-def get_build_progress(db: Session) -> dict:
+def get_build_progress(
+    db: Session,
+    company_id: str,
+) -> dict:
     """
-    Returns summary of build progress across all agents.
+    Returns summary of build progress across all agents
+    within the given company (BC-001).
 
     Includes: total agents, active agents, completed
     features count, pending features count.
     """
-    all_agents = list_agents(db)
+    _validate_company_id(company_id)
+    all_agents = list_agents(db, company_id=company_id)
 
     total_agents = len(all_agents)
     active_agents = sum(
@@ -396,26 +442,32 @@ def get_build_progress(db: Session) -> dict:
 
 def get_all_agents(
     db: Session,
+    company_id: str,
     status: str | None = None,
 ) -> list[AIAgentAssignment]:
-    """List all agent assignments, optionally filtered by status.
+    """List all agent assignments for the given company,
+    optionally filtered by status (BC-001).
 
     SG-22: Wraps list_agents for API layer compatibility.
     """
-    return list_agents(db, status=status)
+    return list_agents(db, company_id=company_id, status=status)
 
 
 def get_agent_by_id(
     db: Session,
+    company_id: str,
     agent_id: str,
 ) -> AIAgentAssignment:
-    """Get a single agent by its UUID."""
+    """Get a single agent by its UUID within the given
+    company (BC-001)."""
+    _validate_company_id(company_id)
     if not agent_id or not agent_id.strip():
         raise ValidationError(
             message="agent_id is required and cannot be empty",
         )
-    agent = db.query(AIAgentAssignment).filter(
-        AIAgentAssignment.id == agent_id.strip(),
+    agent = db.query(AIAgentAssignment).filter_by(
+        id=agent_id.strip(),
+        company_id=company_id,
     ).first()
     if agent is None:
         raise NotFoundError(
@@ -427,23 +479,27 @@ def get_agent_by_id(
 
 def get_agent_for_feature(
     db: Session,
+    company_id: str,
     feature_id: str,
 ) -> AIAgentAssignment | None:
-    """Find which agent owns a specific feature.
+    """Find which agent owns a specific feature within
+    the given company (BC-001).
 
     Searches all active agents' feature_ids JSON arrays
     for the given feature_id.
 
     Returns None if no agent owns the feature.
     """
+    _validate_company_id(company_id)
     if not feature_id or not feature_id.strip():
         raise ValidationError(
             message="feature_id is required and cannot be empty",
         )
 
     fid = feature_id.strip()
-    agents = db.query(AIAgentAssignment).filter(
-        AIAgentAssignment.status == "active",
+    agents = db.query(AIAgentAssignment).filter_by(
+        company_id=company_id,
+        status="active",
     ).all()
 
     for agent in agents:
@@ -458,18 +514,20 @@ def get_agent_for_feature(
 
 def create_agent(
     db: Session,
+    company_id: str,
     agent_name: str,
     agent_role: str | None = None,
     feature_ids: list[str] | None = None,
     task_ids: list[str] | None = None,
 ) -> AIAgentAssignment:
-    """Create a new agent assignment.
+    """Create a new agent assignment (BC-001).
 
     SG-22: Alias for register_agent with explicit parameter names.
     Validates inputs and checks for duplicate agent names.
     """
     return register_agent(
         db=db,
+        company_id=company_id,
         agent_name=agent_name,
         agent_role=agent_role,
         feature_ids=feature_ids,
@@ -479,21 +537,25 @@ def create_agent(
 
 def update_agent_by_id(
     db: Session,
+    company_id: str,
     agent_id: str,
     **kwargs: object,
 ) -> AIAgentAssignment:
-    """Update an agent assignment by ID.
+    """Update an agent assignment by ID within the given
+    company (BC-001).
 
     Accepts any combination of: agent_name, agent_role,
     feature_ids (list), task_ids (list), status.
     """
+    _validate_company_id(company_id)
     if not agent_id or not agent_id.strip():
         raise ValidationError(
             message="agent_id is required and cannot be empty",
         )
 
-    agent = db.query(AIAgentAssignment).filter(
-        AIAgentAssignment.id == agent_id.strip(),
+    agent = db.query(AIAgentAssignment).filter_by(
+        id=agent_id.strip(),
+        company_id=company_id,
     ).first()
     if agent is None:
         raise NotFoundError(
@@ -546,16 +608,20 @@ def update_agent_by_id(
 
 def delete_agent(
     db: Session,
+    company_id: str,
     agent_id: str,
 ) -> AIAgentAssignment:
-    """Soft-delete an agent by setting status='inactive'."""
+    """Soft-delete an agent within the given company by
+    setting status='inactive' (BC-001)."""
+    _validate_company_id(company_id)
     if not agent_id or not agent_id.strip():
         raise ValidationError(
             message="agent_id is required and cannot be empty",
         )
 
-    agent = db.query(AIAgentAssignment).filter(
-        AIAgentAssignment.id == agent_id.strip(),
+    agent = db.query(AIAgentAssignment).filter_by(
+        id=agent_id.strip(),
+        company_id=company_id,
     ).first()
     if agent is None:
         raise NotFoundError(
@@ -571,8 +637,12 @@ def delete_agent(
     return agent
 
 
-def get_task_decomposition_summary(db: Session) -> dict:
-    """SG-21: Return task decomposition summary.
+def get_task_decomposition_summary(
+    db: Session,
+    company_id: str,
+) -> dict:
+    """SG-21: Return task decomposition summary for the
+        given company (BC-001).
 
     Computes:
     - total_agents: number of active agents
@@ -581,7 +651,8 @@ def get_task_decomposition_summary(db: Session) -> dict:
     - agents: per-agent breakdown with feature/task counts
     - coverage_stats: agent distribution overview
     """
-    active_agents = list_agents(db, status="active")
+    _validate_company_id(company_id)
+    active_agents = list_agents(db, company_id=company_id, status="active")
 
     all_features: set[str] = set()
     all_tasks: set[str] = set()
@@ -707,12 +778,17 @@ _DEFAULT_AGENTS = [
 ]
 
 
-def initialize_default_agents(db: Session) -> dict:
-    """SG-22: Seed the 5 default build agents (idempotent).
+def initialize_default_agents(
+    db: Session,
+    company_id: str,
+) -> dict:
+    """SG-22: Seed the 5 default build agents (idempotent)
+    for the given company (BC-001).
 
     Creates default agents only if they do not already exist.
     Returns a summary of created vs existing agents.
     """
+    _validate_company_id(company_id)
     created = []
     existing = []
 
@@ -720,12 +796,14 @@ def initialize_default_agents(db: Session) -> dict:
         name = spec["agent_name"]
         agent = db.query(AIAgentAssignment).filter_by(
             agent_name=name,
+            company_id=company_id,
         ).first()
 
         if agent is not None:
             existing.append(name)
         else:
             new_agent = AIAgentAssignment(
+                company_id=company_id,
                 agent_name=name,
                 agent_role=spec["agent_role"],
                 feature_ids=json.dumps(spec["feature_ids"]),
