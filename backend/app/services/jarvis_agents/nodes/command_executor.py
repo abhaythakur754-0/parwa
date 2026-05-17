@@ -213,6 +213,38 @@ def _execute_action(
     result: Dict[str, Any] = {"executed": False}
 
     try:
+        # ── Check if this is a product command (shadow mode, billing, etc.) ──
+        router_params = state.get("router_parameters", {})
+        is_product_command = router_params.get("is_product_command", False)
+        parsed_command = router_params.get("parsed_command", {})
+
+        if is_product_command and parsed_command:
+            try:
+                from app.services.jarvis_product_commands import execute_product_command
+                product_result = execute_product_command(
+                    company_id=company_id,
+                    action=parsed_command.get("action", agent_action),
+                    parsed=parsed_command,
+                    session_id=session_id,
+                    user_id=user_id,
+                )
+                # Merge product command result into execution result format
+                result = {
+                    "executed": product_result.get("success", False),
+                    "action": product_result.get("action", agent_action),
+                    "message": product_result.get("message", ""),
+                    "data": product_result.get("data", {}),
+                    "undo_action": product_result.get("undo_action"),
+                    "is_product_command": True,
+                    "execution_time_ms": product_result.get("execution_time_ms"),
+                }
+                return result
+            except Exception as e:
+                logger.warning("product_command_execution_failed: %s", str(e)[:200])
+                result = {"executed": False, "error": f"Product command failed: {str(e)[:200]}"}
+                return result
+
+        # ── Standard agent actions ──
         if agent_type == "escalation":
             result = _execute_escalation(agent_decision, company_id, session_id)
         elif agent_type == "sla_protection":

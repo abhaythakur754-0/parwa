@@ -995,9 +995,10 @@ def get_quick_commands(
     company_id: str,
     session_id: str,
 ) -> List[Dict[str, Any]]:
-    """Get quick command presets for a session (default + custom).
+    """Get quick command presets for a session (default + product + custom).
 
-    Returns the default quick commands plus any tenant-specific
+    Returns the default quick commands plus product-specific commands
+    (shadow mode, billing, variants) plus any tenant-specific
     custom presets stored in the session context.
 
     Args:
@@ -1017,6 +1018,13 @@ def get_quick_commands(
     """
     try:
         commands = list(DEFAULT_QUICK_COMMANDS)
+
+        # Add product-specific quick commands (shadow mode, billing, variants)
+        try:
+            from app.services.jarvis_product_commands import PRODUCT_QUICK_COMMANDS
+            commands.extend(PRODUCT_QUICK_COMMANDS)
+        except Exception:
+            logger.debug("product_quick_commands_load_failed: session=%s", session_id)
 
         # Load custom quick commands from session context
         try:

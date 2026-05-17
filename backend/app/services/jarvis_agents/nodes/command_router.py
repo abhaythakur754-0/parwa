@@ -160,6 +160,30 @@ def _route_user_command(state: Dict[str, Any], context: Dict[str, Any]) -> Dict[
     raw_input = state.get("raw_input", "")
     company_id = state.get("company_id", "")
 
+    # Step 0: Try product command parser first (shadow mode, billing, variants, etc.)
+    try:
+        from app.services.jarvis_product_commands import parse_product_command
+        product_parsed = parse_product_command(
+            company_id=company_id, raw_input=raw_input,
+            session_id=state.get("session_id", ""),
+        )
+        if product_parsed.get("confidence", 0) >= 0.70 and product_parsed.get("is_product_command"):
+            # Product commands go to a dedicated "product_command" agent type
+            # which the executor will handle via execute_product_command()
+            return {
+                "_source": "product_command_parser",
+                "agent": "notification_agent",  # Default agent for routing
+                "reasoning": f"Product command matched: '{product_parsed.get('action')}' with confidence {product_parsed.get('confidence', 0):.2f}",
+                "urgency": "medium",
+                "parameters": {
+                    "original_action": product_parsed.get("action", ""),
+                    "parsed_command": product_parsed,
+                    "is_product_command": True,
+                },
+            }
+    except Exception:
+        logger.debug("product_command_parser_failed, trying base parser", exc_info=True)
+
     # Step 1: Regex parser (fast, no LLM)
     try:
         from app.services.jarvis_command_service import parse_natural_language_command
