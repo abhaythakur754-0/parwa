@@ -22,6 +22,7 @@ export interface VariantInstanceCardProps {
   instance: VariantInstanceData;
   onEscalate?: (instanceId: string) => void;
   onRebalance?: (instanceId: string) => void;
+  onShadowMode?: (instanceId: string, tier: string) => void;
   className?: string;
 }
 
@@ -44,7 +45,7 @@ const statusDots: Record<string, string> = {
   paused: 'bg-amber-400',
 };
 
-export function VariantInstanceCard({ instance, onEscalate, onRebalance, className }: VariantInstanceCardProps) {
+export function VariantInstanceCard({ instance, onEscalate, onRebalance, onShadowMode, className }: VariantInstanceCardProps) {
   const utilization = instance.capacity > 0 ? instance.activeTickets / instance.capacity : 0;
 
   return (
@@ -104,26 +105,35 @@ export function VariantInstanceCard({ instance, onEscalate, onRebalance, classNa
       </div>
 
       {/* Actions */}
-      {(onEscalate || onRebalance) && (
-        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/[0.06]">
-          {onRebalance && (
-            <button
-              onClick={() => onRebalance(instance.id)}
-              className="text-[10px] px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-zinc-200 transition-colors"
-            >
-              Rebalance
-            </button>
-          )}
-          {onEscalate && (
-            <button
-              onClick={() => onEscalate(instance.id)}
-              className="text-[10px] px-2.5 py-1 rounded bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 transition-colors"
-            >
-              Escalate
-            </button>
-          )}
-        </div>
-      )}
+      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/[0.06]">
+        {onRebalance && (
+          <button
+            onClick={() => onRebalance(instance.id)}
+            className="text-[10px] px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-zinc-200 transition-colors"
+          >
+            Rebalance
+          </button>
+        )}
+        {onEscalate && (
+          <button
+            onClick={() => onEscalate(instance.id)}
+            className="text-[10px] px-2.5 py-1 rounded bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 transition-colors"
+          >
+            Escalate
+          </button>
+        )}
+        {onShadowMode && (
+          <button
+            onClick={() => onShadowMode(instance.id, instance.tier)}
+            className="text-[10px] px-2.5 py-1 rounded bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 transition-colors flex items-center gap-1"
+          >
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09Z" />
+            </svg>
+            Shadow Mode
+          </button>
+        )}
+      </div>
     </div>
   );
 }

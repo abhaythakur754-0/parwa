@@ -9,6 +9,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 import { VariantInstanceCard, type VariantInstanceData } from '@/components/jarvis-cc/VariantInstanceCard';
 import { MetricCard } from '@/components/jarvis-cc/MetricCard';
 import { get } from '@/lib/api';
@@ -51,6 +52,7 @@ const tierDescriptions: Record<string, string> = {
 // ── Variants Page ───────────────────────────────────────────────────
 
 export default function VariantsPage() {
+  const router = useRouter();
   const [instances, setInstances] = useState<VariantInstance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -159,6 +161,26 @@ export default function VariantsPage() {
         description: 'Already at highest tier. A human agent has been notified.',
       });
     }
+  };
+
+  const handleShadowMode = (instanceId: string, tier: string) => {
+    // Determine the next tier up as the shadow variant
+    const tierOrder = ['mini_parwa', 'parwa', 'parwa_high'] as const;
+    const currentIdx = tierOrder.indexOf(tier as typeof tierOrder[number]);
+    const shadowTier = currentIdx < tierOrder.length - 1 ? tierOrder[currentIdx + 1] : null;
+
+    if (shadowTier) {
+      toast.info('Opening Shadow Mode', {
+        description: `Test ${tierNames[shadowTier]} against ${tierNames[tier]} in Shadow Mode`,
+      });
+    } else {
+      toast.info('Opening Shadow Mode', {
+        description: `Configure shadow testing for ${tierNames[tier]}`,
+      });
+    }
+
+    // Navigate to shadow mode page with context
+    router.push('/dashboard/shadow-mode');
   };
 
   const handleRebalance = (instanceId: string) => {
@@ -326,6 +348,7 @@ export default function VariantsPage() {
                   instance={inst}
                   onEscalate={handleEscalate}
                   onRebalance={handleRebalance}
+                  onShadowMode={handleShadowMode}
                 />
               ))}
             </div>
