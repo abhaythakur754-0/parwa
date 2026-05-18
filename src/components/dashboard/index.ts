@@ -1,20 +1,18 @@
-/**
- * PARWA Dashboard Components
- *
- * Barrel exports for all dashboard cards, charts, and layout components.
- * Phase 4 — Day 1 & Day 2
- */
-
-export { DashboardLayout } from './DashboardLayout';
-export { WelcomeCard } from './WelcomeCard';
-export { default as KPICard } from './KPICard';
-export { default as DashboardHeader } from './DashboardHeader';
-export { default as DateRangeSelector } from './DateRangeSelector';
+export { default as DashboardLayout } from './DashboardLayout';
 export { default as DashboardSidebar } from './DashboardSidebar';
-
-// Phase 4 Day 2 — Charts & Table
-export { default as TrendChart } from './TrendChart';
-export { default as CategoryChart } from './CategoryChart';
-export { default as SLAChart } from './SLAChart';
-export { default as AgentPerformanceTable } from './AgentPerformanceTable';
-export { default as ResponseTimeChart } from './ResponseTimeChart';
+export { DashboardHeader } from './DashboardHeader';
+export { WelcomeCard } from './WelcomeCard';
+export { KPICard } from './KPICard';
+export { TrendChart } from './TrendChart';
+export { SLAChart } from './SLAChart';
+export { CategoryChart } from './CategoryChart';
+export { ChannelCard } from './ChannelCard';
+export { DateRangeSelector } from './DateRangeSelector';
+export { ResponseTimeChart } from './ResponseTimeChart';
+export { AgentPerformanceTable } from './AgentPerformanceTable';
+export { SystemHealthMonitor } from './SystemHealthMonitor';
+export { ActiveCallCard } from './ActiveCallCard';
+export { MakeCallDialog } from './MakeCallDialog';
+export { CallDetailPanel } from './CallDetailPanel';
+export { CallHistoryRow } from './CallHistoryRow';
+export { VoiceConfigCard } from './VoiceConfigCard';

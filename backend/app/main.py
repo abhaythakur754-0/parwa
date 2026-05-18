@@ -61,7 +61,6 @@ from app.api.ai_engine import router as ai_engine_router
 from app.api.ai_agent import router as ai_agent_router
 from app.api.jarvis import router as jarvis_router
 from app.api.jarvis_cc import router as jarvis_cc_router
-from app.api.jarvis_chat import router as jarvis_chat_router  # Phase 4: Jarvis natural chat (LLM function calling)
 from app.api.onboarding import router as onboarding_router
 from app.api.integrations import router as integrations_router
 from app.api.knowledge_base import router as knowledge_base_router
@@ -72,6 +71,7 @@ from app.api.ooo_detection import router as ooo_detection_router  # Week 13 Day 
 from app.api.bounce_complaint import router as bounce_complaint_router  # Week 13 Day 3: Bounce/complaint endpoints (F-124)
 from app.api.chat_widget import router as chat_widget_router  # Week 13 Day 4: Chat widget endpoints (F-122)
 from app.api.sms_channel import router as sms_channel_router  # Week 13 Day 5: SMS channel endpoints (F-123)
+from app.api.voice_channel import router as voice_channel_router  # Voice Channel: Twilio voice calls, call history, config
 from app.api.workflow import router as workflow_router  # Week 10: Workflow API (now with LangGraph multi-agent)
 from app.api.tickets import router as tickets_router  # BUG-3 FIX: Day 26 Ticket CRUD (was dead code in api_router)
 from app.api.technique_config import router as technique_config_router  # BUG-3 FIX: SG-17 Technique Config Admin (was dead code in api_router)
@@ -396,7 +396,6 @@ app.include_router(ai_engine_router)  # Week 8: AI Engine endpoints
 app.include_router(ai_agent_router)  # SG-21/SG-22: AI agent assignments
 app.include_router(jarvis_router)  # Week 6: Jarvis onboarding chat
 app.include_router(jarvis_cc_router)  # Phase 2+: Jarvis Customer Care (awareness + commands)
-app.include_router(jarvis_chat_router)  # Phase 4: Jarvis natural chat (LLM function calling)
 app.include_router(onboarding_router)  # Week 6: Onboarding wizard (F-028 to F-035)
 app.include_router(integrations_router)  # Week 6: Integration management (F-030/F-031)
 app.include_router(knowledge_base_router)  # Week 6: Knowledge base (F-032/F-033)
@@ -407,6 +406,7 @@ app.include_router(ooo_detection_router)  # Week 13 Day 3: OOO detection endpoin
 app.include_router(bounce_complaint_router)  # Week 13 Day 3: Bounce/complaint endpoints (F-124)
 app.include_router(chat_widget_router)  # Week 13 Day 4: Chat widget endpoints (F-122)
 app.include_router(sms_channel_router)  # Week 13 Day 5: SMS channel endpoints (F-123)
+app.include_router(voice_channel_router)  # Voice Channel: Twilio voice calls
 app.include_router(workflow_router)  # Week 10: Workflow API (now with LangGraph multi-agent)
 app.include_router(tickets_router, prefix="/api/v1", tags=["tickets"])  # BUG-3 FIX: Tickets at /api/v1/tickets (matches variant_check.py)
 app.include_router(technique_config_router, tags=["technique-config"])  # BUG-3 FIX: Technique Config at /api/techniques/config (router already has prefix)

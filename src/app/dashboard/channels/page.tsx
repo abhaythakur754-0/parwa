@@ -1,10 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/api';
+import { voiceApi } from '@/lib/voice-api';
+import { Phone, Settings, Loader2 } from 'lucide-react';
 import type { ChannelInfo, ChannelConfig, ChannelType } from '@/types/analytics';
+import type { VoiceChannelConfig } from '@/types/voice';
 
 // ── Channel Metadata ──────────────────────────────────────────────────
 
@@ -30,12 +34,14 @@ function ChannelCard({
   isLoading,
   onToggle,
   onTest,
+  extra,
 }: {
   channel: ChannelMeta;
   isEnabled: boolean;
   isLoading: boolean;
   onToggle: (type: ChannelType, enabled: boolean) => void;
   onTest: (type: ChannelType) => void;
+  extra?: React.ReactNode;
 }) {
   return (
     <div
@@ -96,6 +102,9 @@ function ChannelCard({
           </button>
         )}
       </div>
+
+      {/* Extra content (Voice-specific) */}
+      {extra}
     </div>
   );
 }
@@ -105,11 +114,15 @@ function ChannelCard({
 export default function ChannelsPage() {
   const [enabledChannels, setEnabledChannels] = useState<Set<ChannelType>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
+  const [voiceConfig, setVoiceConfig] = useState<VoiceChannelConfig | null>(null);
+  const [recentCallCount, setRecentCallCount] = useState(0);
+  const [testCallLoading, setTestCallLoading] = useState(false);
 
   // ── Load channel config ────────────────────────────────────────────
 
   useEffect(() => {
     loadChannelConfig();
+    loadVoiceData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -133,6 +146,24 @@ export default function ChannelsPage() {
       console.error('Failed to load channels:', error);
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function loadVoiceData() {
+    try {
+      const config = await voiceApi.getConfig();
+      setVoiceConfig(config);
+
+      // Get recent calls count
+      const history = await voiceApi.getHistory({ page: 1, page_size: 1 });
+      setRecentCallCount(history.total);
+
+      // If voice is enabled in config, add to enabled set
+      if (config.is_enabled) {
+        setEnabledChannels((prev) => new Set(prev).add('voice'));
+      }
+    } catch {
+      // Voice config may not exist yet
     }
   }
 
@@ -189,6 +220,20 @@ export default function ChannelsPage() {
     }
   }, []);
 
+  // ── Test Voice Call ────────────────────────────────────────────────
+
+  const handleTestCall = useCallback(async () => {
+    setTestCallLoading(true);
+    try {
+      const result = await voiceApi.testCall({ to_number: '+919652852014' });
+      toast.success(`Test call initiated! SID: ${result.twilio_call_sid?.slice(0, 10)}...`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to make test call');
+    } finally {
+      setTestCallLoading(false);
+    }
+  }, []);
+
   // ── Render ─────────────────────────────────────────────────────────
 
   return (
@@ -212,6 +257,16 @@ export default function ChannelsPage() {
               isLoading={isLoading}
               onToggle={handleToggle}
               onTest={handleTest}
+              extra={
+                channel.type === 'voice' ? (
+                  <VoiceChannelExtra
+                    config={voiceConfig}
+                    recentCallCount={recentCallCount}
+                    testCallLoading={testCallLoading}
+                    onTestCall={handleTestCall}
+                  />
+                ) : undefined
+              }
             />
           ))}
         </div>
@@ -228,6 +283,63 @@ export default function ChannelsPage() {
               </p>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Voice Channel Extra Section ───────────────────────────────────────
+
+function VoiceChannelExtra({
+  config,
+  recentCallCount,
+  testCallLoading,
+  onTestCall,
+}: {
+  config: VoiceChannelConfig | null;
+  recentCallCount: number;
+  testCallLoading: boolean;
+  onTestCall: () => void;
+}) {
+  return (
+    <div className="mt-3 pt-3 border-t border-white/[0.04] space-y-2.5">
+      {/* Voice Config Status */}
+      {config && (
+        <div className="flex items-center gap-2 text-[10px] text-zinc-600">
+          <Phone className="w-3 h-3" />
+          <span>Number: {config.twilio_phone_number}</span>
+        </div>
+      )}
+
+      {/* Recent Calls */}
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-zinc-600">
+          {recentCallCount} total call{recentCallCount !== 1 ? 's' : ''} recorded
+        </span>
+        <div className="flex items-center gap-2">
+          {/* Configure Link */}
+          <Link
+            href="/dashboard/calls"
+            className="inline-flex items-center gap-1 text-[10px] font-medium text-orange-400 hover:text-orange-300 transition-colors"
+          >
+            <Settings className="w-3 h-3" />
+            Configure
+          </Link>
+
+          {/* Test Call */}
+          <button
+            onClick={onTestCall}
+            disabled={testCallLoading}
+            className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 hover:text-emerald-300 transition-colors disabled:opacity-50"
+          >
+            {testCallLoading ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Phone className="w-3 h-3" />
+            )}
+            Test Call
+          </button>
         </div>
       </div>
     </div>

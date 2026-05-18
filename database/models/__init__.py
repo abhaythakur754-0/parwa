@@ -81,6 +81,11 @@ from database.models.sms_channel import (  # noqa: F401
     SMSConversation,
     SMSChannelConfig,
 )
+from database.models.voice_channel import (  # noqa: F401
+    VoiceCall,
+    VoiceConversation,
+    VoiceChannelConfig,
+)
 from database.models.ooo_detection import (  # noqa: F401
     OOODetectionRule,
     OOODetectionLog,
