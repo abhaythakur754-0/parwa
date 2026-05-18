@@ -407,34 +407,145 @@ FUNCTION_REGISTRY: List[Dict[str, Any]] = [
     {
         "name": "process_refund",
         "description": (
-            "Process a refund for a customer. This is a MONETARY action — "
-            "it will actually issue a refund. Use ONLY when the user "
-            "explicitly requests a refund and confirms the amount."
+            "Process a refund for a customer via Paddle Adjustments API. "
+            "This is a REAL MONETARY action — it will actually issue a refund "
+            "through Paddle. Use ONLY when the user explicitly requests a "
+            "refund and confirms the amount. Can do full or partial refunds."
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "customer_id": {
                     "type": "string",
-                    "description": "ID of the customer to refund",
+                    "description": "Paddle customer ID of the customer to refund",
                 },
                 "amount": {
                     "type": "number",
-                    "description": "Refund amount",
+                    "description": "Refund amount (for partial refunds)",
                 },
                 "reason": {
                     "type": "string",
-                    "description": "Reason for the refund",
+                    "description": "Reason for the refund (e.g., 'defective product', 'subscription canceled')",
                 },
                 "ticket_id": {
                     "type": "string",
-                    "description": "Related ticket ID (if applicable)",
+                    "description": "Related ticket ID (if applicable, for audit trail)",
+                },
+                "transaction_id": {
+                    "type": "string",
+                    "description": "Paddle transaction ID to refund (optional — auto-finds latest if not given)",
+                },
+                "partial": {
+                    "type": "boolean",
+                    "description": "If true, do a partial refund for the given amount instead of full (default false)",
+                    "default": False,
                 },
             },
             "required": ["customer_id", "amount", "reason"],
         },
         "safety_level": SAFETY_APPROVAL,
         "tier_available": TIER_STANDARD_AND_UP,
+        "category": CATEGORY_BILLING,
+    },
+    {
+        "name": "upgrade_plan",
+        "description": (
+            "Upgrade the subscription plan to a higher tier via Paddle API. "
+            "Available plans: mini_parwa (Starter), parwa (Professional), "
+            "parwa_high (Enterprise). Paddle handles proration automatically. "
+            "Use when the user wants to upgrade, change to a higher plan, "
+            "or get more features and capacity."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "target_plan": {
+                    "type": "string",
+                    "enum": ["mini_parwa", "parwa", "parwa_high"],
+                    "description": "The plan to upgrade to",
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "Why the user is upgrading (optional, for audit)",
+                },
+            },
+            "required": ["target_plan"],
+        },
+        "safety_level": SAFETY_APPROVAL,
+        "tier_available": TIER_ALL,
+        "category": CATEGORY_BILLING,
+    },
+    {
+        "name": "cancel_subscription",
+        "description": (
+            "Cancel the subscription via Paddle API. By default, cancels at "
+            "the end of the current billing period (Netflix-style). If "
+            "immediate=True, cancels right away. Use when the user wants to "
+            "cancel, stop their subscription, or end their account."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string",
+                    "description": "Why the subscription is being cancelled",
+                },
+                "immediate": {
+                    "type": "boolean",
+                    "description": "Cancel immediately instead of at end of billing period (default false)",
+                    "default": False,
+                },
+            },
+            "required": ["reason"],
+        },
+        "safety_level": SAFETY_APPROVAL,
+        "tier_available": TIER_ALL,
+        "category": CATEGORY_BILLING,
+    },
+    {
+        "name": "get_transaction_history",
+        "description": (
+            "Get transaction and billing history from Paddle. Returns real "
+            "payment data with amounts, dates, statuses, and totals. Use when "
+            "the user asks about their billing history, payments, charges, "
+            "invoices, or transaction history."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "period": {
+                    "type": "string",
+                    "enum": ["last_30_days", "last_90_days", "this_year", "all"],
+                    "description": "Time period for transaction history (default 'last_30_days')",
+                    "default": "last_30_days",
+                },
+                "transaction_type": {
+                    "type": "string",
+                    "enum": ["all", "payment", "refund", "credit"],
+                    "description": "Filter by transaction type (default 'all')",
+                    "default": "all",
+                },
+            },
+            "required": [],
+        },
+        "safety_level": SAFETY_NONE,
+        "tier_available": TIER_ALL,
+        "category": CATEGORY_BILLING,
+    },
+    {
+        "name": "get_invoices",
+        "description": (
+            "Get invoice list from Paddle. Returns invoice IDs, numbers, "
+            "amounts, and statuses. Use when the user asks about invoices, "
+            "needs an invoice, or wants billing documents."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+        "safety_level": SAFETY_NONE,
+        "tier_available": TIER_ALL,
         "category": CATEGORY_BILLING,
     },
 

@@ -568,6 +568,91 @@ class PaddleClient:
 
         return await self._request("GET", "/invoices", params=params)
 
+    # ── Adjustment Methods (Refunds/Credits) ─────────────────────────
+
+    async def create_adjustment(
+        self,
+        transaction_id: str,
+        items: Optional[List[Dict[str, Any]]] = None,
+        reason: str = "other",
+        description: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Create a credit adjustment (refund) on a transaction.
+
+        API: POST /adjustments
+
+        Paddle uses adjustments to issue refunds/credits. You can refund
+        the full transaction or specific line items.
+
+        Args:
+            transaction_id: The Paddle transaction ID to adjust/refund.
+            items: Optional list of items to adjust. Each item has:
+                - item_id: str (Paddle transaction item ID)
+                - type: "full" or "partial"
+                - amount: str (for partial, e.g. "5.00")
+                If not provided, creates a full adjustment on all items.
+            reason: Reason for the adjustment. Paddle values:
+                "duplicate", "fraudulent", "subscription_canceled",
+                "product_unsatisfactory", "other"
+            description: Optional free-text description.
+            **kwargs: Additional Paddle API fields.
+
+        Returns:
+            Paddle API response with adjustment details including
+            adjustment ID and status.
+
+        Ref: https://developer.paddle.com/api-reference/adjustments/create-adjustment
+        """
+        data: Dict[str, Any] = {
+            "transaction_id": transaction_id,
+            "reason": reason,
+        }
+        if items:
+            data["items"] = items
+        if description:
+            data["description"] = description
+        data.update(kwargs)
+
+        return await self._request("POST", "/adjustments", json=data)
+
+    async def get_adjustment(self, adjustment_id: str) -> Dict[str, Any]:
+        """
+        Get adjustment details by ID.
+
+        API: GET /adjustments/{adjustment_id}
+        """
+        return await self._request("GET", f"/adjustments/{adjustment_id}")
+
+    async def list_adjustments(
+        self,
+        transaction_id: Optional[str] = None,
+        customer_id: Optional[str] = None,
+        subscription_id: Optional[str] = None,
+        status: Optional[str] = None,
+        per_page: int = 50,
+        after: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        List adjustments with optional filters.
+
+        API: GET /adjustments
+        """
+        params: Dict[str, Any] = {"per_page": per_page}
+        if transaction_id:
+            params["transaction_id"] = transaction_id
+        if customer_id:
+            params["customer_id"] = customer_id
+        if subscription_id:
+            params["subscription_id"] = subscription_id
+        if status:
+            params["status"] = status
+        if after:
+            params["after"] = after
+
+        return await self._request("GET", "/adjustments", params=params)
+
     # ── Report Methods ───────────────────────────────────────────────
 
     async def get_report(self, report_id: str) -> Dict[str, Any]:
@@ -577,6 +662,28 @@ class PaddleClient:
         API: GET /reports/{report_id}
         """
         return await self._request("GET", f"/reports/{report_id}")
+
+    async def create_report(
+        self,
+        report_type: str,
+        filters: Optional[Dict[str, Any]] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Create a new report.
+
+        API: POST /reports
+
+        Args:
+            report_type: Type of report (e.g., "transactions", "adjustments",
+                "subscriptions", "products", "revenue")
+            filters: Optional filter parameters for the report.
+        """
+        data: Dict[str, Any] = {"type": report_type}
+        if filters:
+            data["filters"] = filters
+        data.update(kwargs)
+        return await self._request("POST", "/reports", json=data)
 
     # ── Webhook Verification ───────────────────────────────────────────
 

@@ -687,6 +687,7 @@ async def execute_function(
             "upgrade_plan": _exec_upgrade_plan,
             "cancel_subscription": _exec_cancel_subscription,
             "get_transaction_history": _exec_get_transaction_history,
+            "get_invoices": _exec_get_invoices,
         }
 
         executor = executor_map.get(function_name)
@@ -2211,6 +2212,47 @@ async def _exec_get_transaction_history(
             "data": {},
             "message": "I couldn't fetch the transaction history right now.",
         }
+
+
+async def _exec_get_invoices(
+    db: Any, company_id: str, session_id: str, user_id: str,
+    params: Dict[str, Any], context: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Get invoices — tries Paddle API first, falls back to empty list."""
+    try:
+        # Try Paddle API for real invoice data
+        try:
+            from app.services.jarvis_paddle_bridge import get_jarvis_paddle_bridge
+            bridge = get_jarvis_paddle_bridge()
+
+            paddle_customer_id = bridge.get_paddle_customer_id(db, company_id)
+
+            paddle_result = await bridge.list_invoices(
+                company_id=company_id,
+                paddle_customer_id=paddle_customer_id,
+            )
+
+            if paddle_result.get("success"):
+                invoices = paddle_result.get("invoices", [])
+                return {
+                    "success": True,
+                    "data": paddle_result,
+                    "message": (
+                        f"Found {len(invoices)} invoices from Paddle. "
+                        "Let me know if you need details on any specific one."
+                    ),
+                }
+        except Exception:
+            logger.debug("paddle_invoices_fallback: company=%s", company_id)
+
+        # Fallback: no invoices available
+        return {
+            "success": True,
+            "data": {"invoices": []},
+            "message": "I couldn't find any invoices right now. If you have a Paddle subscription set up, they'll appear here.",
+        }
+    except Exception:
+        return {"success": False, "data": {}, "message": "Couldn't fetch invoices right now."}
 
 
 # ══════════════════════════════════════════════════════════════════
