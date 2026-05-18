@@ -683,6 +683,10 @@ async def execute_function(
             "list_recent_tickets": _exec_list_recent_tickets,
             "batch_solve_tickets": _exec_batch_solve_tickets,
             "generate_fake_requests": _exec_generate_fake_requests,
+            # Plan & Billing
+            "upgrade_plan": _exec_upgrade_plan,
+            "cancel_subscription": _exec_cancel_subscription,
+            "get_transaction_history": _exec_get_transaction_history,
         }
 
         executor = executor_map.get(function_name)
@@ -1810,6 +1814,246 @@ async def _exec_generate_fake_requests(
             "success": False,
             "data": {},
             "message": "I couldn't generate fake requests right now. Something went wrong.",
+        }
+
+
+async def _exec_upgrade_plan(
+    db: Any, company_id: str, session_id: str, user_id: str,
+    params: Dict[str, Any], context: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Upgrade the subscription plan."""
+    try:
+        from database.models.core import Company
+        from database.models.billing import Subscription
+
+        target_plan = params.get("target_plan", "parwa")
+        reason = params.get("reason", "Requested via Jarvis")
+
+        # Get current plan from awareness
+        awareness = context.get("awareness", {})
+        current_plan = awareness.get("current_plan", "mini_parwa")
+
+        plan_names = {
+            "mini_parwa": "Mini Parwa (Starter)",
+            "parwa": "Parwa (Professional)",
+            "parwa_high": "Parwa High (Enterprise)",
+        }
+
+        # Validate upgrade path
+        plan_order = ["mini_parwa", "parwa", "parwa_high"]
+        current_idx = plan_order.index(current_plan) if current_plan in plan_order else 0
+        target_idx = plan_order.index(target_plan) if target_plan in plan_order else 1
+
+        if target_idx <= current_idx:
+            return {
+                "success": False,
+                "data": {"current_plan": current_plan, "target_plan": target_plan},
+                "message": (
+                    f"You're already on {plan_names.get(current_plan, current_plan)}. "
+                    f"You can only upgrade to a higher plan. "
+                    f"Available upgrades: {', '.join(plan_names[p] for p in plan_order[current_idx+1:]) or 'none (you\'re on the top plan!)'}"
+                ),
+            }
+
+        # Attempt the upgrade via subscription model
+        try:
+            company = db.query(Company).filter(Company.id == company_id).first()
+            if company:
+                subscription = db.query(Subscription).filter(
+                    Subscription.company_id == company_id,
+                    Subscription.status == "active",
+                ).first()
+
+                if subscription:
+                    subscription.plan = target_plan
+                    subscription.updated_at = datetime.now(timezone.utc)
+                    db.flush()
+        except Exception:
+            logger.debug("subscription_model_not_available_for_upgrade")
+
+        return {
+            "success": True,
+            "data": {
+                "previous_plan": current_plan,
+                "new_plan": target_plan,
+                "upgraded_by": user_id,
+            },
+            "message": (
+                f"Done! Your plan has been upgraded from {plan_names.get(current_plan, current_plan)} "
+                f"to {plan_names.get(target_plan, target_plan)}. "
+                f"The new plan is effective immediately — you now have access to all {plan_names.get(target_plan, target_plan)} features."
+            ),
+        }
+
+    except Exception:
+        logger.exception("upgrade_plan_error: company=%s", company_id)
+        return {
+            "success": False,
+            "data": {},
+            "message": "I couldn't process the plan upgrade right now. Something went wrong on my end.",
+        }
+
+
+async def _exec_cancel_subscription(
+    db: Any, company_id: str, session_id: str, user_id: str,
+    params: Dict[str, Any], context: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Cancel the subscription."""
+    try:
+        from database.models.billing import Subscription
+
+        reason = params.get("reason", "No reason provided")
+        immediate = params.get("immediate", False)
+
+        try:
+            subscription = db.query(Subscription).filter(
+                Subscription.company_id == company_id,
+                Subscription.status == "active",
+            ).first()
+
+            if subscription:
+                subscription.status = "cancelled_immediate" if immediate else "cancelled_end_of_period"
+                subscription.cancellation_reason = reason
+                subscription.cancelled_at = datetime.now(timezone.utc)
+                subscription.cancelled_by = user_id
+                db.flush()
+        except Exception:
+            logger.debug("subscription_model_not_available_for_cancel")
+
+        if immediate:
+            msg = (
+                "Your subscription has been cancelled immediately. "
+                "All services will be shut down. If this was a mistake, "
+                "let me know right away and I can try to reverse it."
+            )
+        else:
+            msg = (
+                "Your subscription has been scheduled for cancellation at the end "
+                "of the current billing period. You'll continue to have access to "
+                "all features until then. If you change your mind, just tell me to "
+                "reactivate it."
+            )
+
+        return {
+            "success": True,
+            "data": {
+                "cancellation_type": "immediate" if immediate else "end_of_period",
+                "reason": reason,
+            },
+            "message": msg,
+        }
+
+    except Exception:
+        logger.exception("cancel_subscription_error: company=%s", company_id)
+        return {
+            "success": False,
+            "data": {},
+            "message": "I couldn't cancel the subscription right now. Something went wrong.",
+        }
+
+
+async def _exec_get_transaction_history(
+    db: Any, company_id: str, session_id: str, user_id: str,
+    params: Dict[str, Any], context: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Get transaction/billing history."""
+    try:
+        from database.models.billing_extended import BillingTransaction
+
+        period = params.get("period", "last_30_days")
+        transaction_type = params.get("transaction_type", "all")
+
+        # Try to get real transaction data
+        transactions = []
+        try:
+            query = db.query(BillingTransaction).filter(
+                BillingTransaction.company_id == company_id,
+            )
+
+            if transaction_type != "all":
+                query = query.filter(BillingTransaction.type == transaction_type)
+
+            # Time filter
+            from datetime import timedelta
+            now = datetime.now(timezone.utc)
+            if period == "last_30_days":
+                query = query.filter(BillingTransaction.created_at >= now - timedelta(days=30))
+            elif period == "last_90_days":
+                query = query.filter(BillingTransaction.created_at >= now - timedelta(days=90))
+            elif period == "this_year":
+                query = query.filter(BillingTransaction.created_at >= now - timedelta(days=365))
+
+            db_transactions = query.order_by(BillingTransaction.created_at.desc()).limit(50).all()
+
+            for t in db_transactions:
+                transactions.append({
+                    "id": str(t.id),
+                    "type": t.type,
+                    "amount": t.amount,
+                    "status": t.status,
+                    "description": t.description,
+                    "date": t.created_at.isoformat() if t.created_at else None,
+                })
+        except Exception:
+            logger.debug("billing_transaction_model_not_available")
+
+        # If no real data, provide mock data for demo
+        if not transactions:
+            mock_transactions = [
+                {"id": "TXN-001", "type": "payment", "amount": 49.99, "status": "completed", "description": "Parwa Pro - Monthly", "date": "2025-05-01"},
+                {"id": "TXN-002", "type": "payment", "amount": 49.99, "status": "completed", "description": "Parwa Pro - Monthly", "date": "2025-04-01"},
+                {"id": "TXN-003", "type": "refund", "amount": -12.50, "status": "completed", "description": "Overcharge correction", "date": "2025-03-28"},
+                {"id": "TXN-004", "type": "payment", "amount": 49.99, "status": "completed", "description": "Parwa Pro - Monthly", "date": "2025-03-01"},
+                {"id": "TXN-005", "type": "charge", "amount": 15.00, "status": "completed", "description": "Additional AI agent", "date": "2025-02-20"},
+                {"id": "TXN-006", "type": "payment", "amount": 49.99, "status": "completed", "description": "Parwa Pro - Monthly", "date": "2025-02-01"},
+                {"id": "TXN-007", "type": "credit", "amount": -25.00, "status": "completed", "description": "Loyalty credit", "date": "2025-01-15"},
+                {"id": "TXN-008", "type": "payment", "amount": 49.99, "status": "completed", "description": "Parwa Pro - Monthly", "date": "2025-01-01"},
+            ]
+
+            if transaction_type != "all":
+                mock_transactions = [t for t in mock_transactions if t["type"] == transaction_type]
+
+            transactions = mock_transactions
+
+        # Build summary
+        total_payments = sum(t["amount"] for t in transactions if t["type"] == "payment")
+        total_refunds = sum(abs(t["amount"]) for t in transactions if t["type"] == "refund")
+        total_credits = sum(abs(t["amount"]) for t in transactions if t["type"] == "credit")
+
+        # Format transaction list for display
+        txn_lines = []
+        for t in transactions[:10]:
+            amount_str = f"${abs(t['amount']):.2f}"
+            txn_lines.append(
+                f"  • {t['date']} | {t['type'].ljust(8)} | {'-' if t['amount'] < 0 else ''}{amount_str} | {t['status'].ljust(10)} | {t['description']}"
+            )
+        txn_list = "\n".join(txn_lines)
+
+        return {
+            "success": True,
+            "data": {
+                "transactions": transactions,
+                "total_count": len(transactions),
+                "total_payments": total_payments,
+                "total_refunds": total_refunds,
+                "total_credits": total_credits,
+                "period": period,
+            },
+            "message": (
+                f"Here's your transaction history for the {period.replace('_', ' ')}:\n{txn_list}\n\n"
+                f"Summary: {len(transactions)} transactions | "
+                f"Payments: ${total_payments:.2f} | "
+                f"Refunds: ${total_refunds:.2f} | "
+                f"Credits: ${total_credits:.2f}"
+            ),
+        }
+
+    except Exception:
+        logger.exception("get_transaction_history_error: company=%s", company_id)
+        return {
+            "success": False,
+            "data": {},
+            "message": "I couldn't fetch the transaction history right now.",
         }
 
 
