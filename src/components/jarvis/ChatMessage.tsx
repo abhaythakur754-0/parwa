@@ -11,7 +11,7 @@
 'use client';
 
 import { User, Bot, AlertTriangle, Clock, Zap } from 'lucide-react';
-import type { JarvisMessage, MessageType, MessageRole } from '@/types/jarvis';
+import type { JarvisMessage, MessageType, MessageRole, IntegrationActions, ProviderInfo as ProviderInfoType } from '@/types/jarvis';
 
 // Phase 6 card imports
 import { BillSummaryCard } from './BillSummaryCard';
@@ -27,6 +27,14 @@ import { PackExpiredCard } from './PackExpiredCard';
 import { MessageCounter } from './MessageCounter';
 import { DemoPackCTA } from './DemoPackCTA';
 
+// Integration Setup card imports
+import { ProviderSelectorCard, type ProviderSelectorCardProps } from './ProviderSelectorCard';
+import { ApiKeyInputCard } from './ApiKeyInputCard';
+import { ConnectionStatusCard } from './ConnectionStatusCard';
+import { ConnectionErrorCard } from './ConnectionErrorCard';
+import { IntegrationSummaryCard } from './IntegrationSummaryCard';
+import { IndustrySuggestionCard } from './IndustrySuggestionCard';
+
 interface ChatMessageProps {
   message: JarvisMessage;
   onRetry?: () => void;
@@ -38,6 +46,7 @@ interface ChatMessageProps {
     createPayment?: (variants: { id: string; name?: string; quantity: number; price?: number; features?: string[] }[], industry: string) => Promise<string | null>;
     initiateDemoCall?: (phone: string) => Promise<void>;
     executeHandoff?: () => Promise<void>;
+    integrationActions?: IntegrationActions;
   };
   // Session state for card props
   sessionState?: {
@@ -429,6 +438,147 @@ export function ChatMessage({ message, onRetry, hookActions, sessionState }: Cha
           />
         </CardWrapper>
       );
+
+    // ── Integration Setup Cards ──────────────────────────────────
+
+    case 'provider_selector': {
+      const ia = hookActions?.integrationActions;
+      return (
+        <CardWrapper message={message} isUser={false}>
+          <ProviderSelectorCard
+            category={(metadata.category as ProviderSelectorCardProps['category']) || 'email'}
+            providers={(metadata.providers as ProviderInfoType[]) || []}
+            onSelect={(providerType: string) => {
+              // Provider selection triggers the next step in the integration flow
+              ia?.testConnection(providerType, metadata.category || '', {});
+            }}
+            onSkip={() => ia?.skipIntegration(metadata.category as string || '')}
+          />
+        </CardWrapper>
+      );
+    }
+
+    case 'api_key_input': {
+      const ia = hookActions?.integrationActions;
+      const providerType = metadata.detected_provider?.provider_type || (metadata.provider_type as string);
+      const category = metadata.category || '';
+      return (
+        <CardWrapper message={message} isUser={false}>
+          <ApiKeyInputCard
+            category={category}
+            providerType={providerType}
+            onDetect={async (apiKey: string) => {
+              const result = await ia!.detectProvider(apiKey);
+              return {
+                providerType: result.provider_type,
+                providerName: result.name,
+                icon: undefined,
+                confidence: result.confidence,
+              };
+            }}
+            onTest={async (credentials: Record<string, unknown>) => {
+              const result = await ia!.testConnection(
+                providerType || 'unknown',
+                category,
+                credentials as Record<string, string>,
+              );
+              return {
+                success: result.success,
+                message: result.message,
+                details: result.provider_info as Record<string, unknown>,
+              };
+            }}
+            onConnect={(credentials: Record<string, unknown>) => {
+              ia?.connectIntegration(
+                providerType || 'unknown',
+                category,
+                credentials as Record<string, string>,
+              );
+            }}
+            onSkip={() => ia?.skipIntegration(category)}
+          />
+        </CardWrapper>
+      );
+    }
+
+    case 'connection_status': {
+      const ia = hookActions?.integrationActions;
+      const conn = metadata.connection;
+      return (
+        <CardWrapper message={message} isUser={false}>
+          <ConnectionStatusCard
+            providerName={conn?.provider_name || ''}
+            status={conn?.status || 'disconnected'}
+            errorMessage={conn?.error_message}
+            troubleshootingSteps={metadata.troubleshooting_steps}
+            onDisconnect={() => ia?.disconnectIntegration(conn?.id || '')}
+            onRetry={() => ia?.testConnection(conn?.provider_type || '', conn?.category || '', {})}
+          />
+        </CardWrapper>
+      );
+    }
+
+    case 'connection_error': {
+      const ia = hookActions?.integrationActions;
+      const conn = metadata.connection;
+      return (
+        <CardWrapper message={message} isUser={false}>
+          <ConnectionErrorCard
+            errorMessage={conn?.error_message || message.content}
+            commonFixes={metadata.troubleshooting_steps}
+            onRetry={() => ia?.testConnection(conn?.provider_type || '', conn?.category || '', {})}
+            onSkip={() => ia?.skipIntegration(conn?.category || '')}
+          />
+        </CardWrapper>
+      );
+    }
+
+    case 'integration_summary': {
+      const ia = hookActions?.integrationActions;
+      return (
+        <CardWrapper message={message} isUser={false}>
+          <IntegrationSummaryCard
+            connected={(metadata.connected || []).map((c) => ({
+              category: c.category,
+              provider: c.provider_name,
+              status: c.status,
+            }))}
+            skipped={(metadata.skipped || []).map((s) => ({
+              category: s.category,
+            }))}
+            industry={metadata.industry || ''}
+            onAddMore={() => {/* triggers next provider_selector in chat flow */}}
+            onContinue={() => {/* signals end of integration setup */}}
+          />
+        </CardWrapper>
+      );
+    }
+
+    case 'industry_suggestion': {
+      const ia = hookActions?.integrationActions;
+      const rawSuggestions = metadata.suggestions || [];
+      // Flatten { category, providers: ProviderInfo[] }[] into IndustrySuggestion[]
+      const flatSuggestions = rawSuggestions.flatMap((group) =>
+        (group.providers || []).map((p) => ({
+          providerType: p.type,
+          providerName: p.name,
+          category: group.category,
+          icon: p.icon,
+        }))
+      );
+      return (
+        <CardWrapper message={message} isUser={false}>
+          <IndustrySuggestionCard
+            industry={metadata.industry || ''}
+            suggestions={flatSuggestions}
+            onSelectSuggestion={(providerType: string, category: string) => {
+              ia?.testConnection(providerType, category, {});
+            }}
+            onDismiss={() => ia?.skipIntegration('')}
+          />
+        </CardWrapper>
+      );
+    }
 
     // ── Standard text message ─────────────────────────────────
     default:
