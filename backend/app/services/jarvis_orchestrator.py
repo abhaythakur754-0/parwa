@@ -239,11 +239,6 @@ def decide_mode(context: Dict[str, Any]) -> str:
     if session_type in ("onboarding", "admin", "command"):
         return "command"
 
-    # If context says onboarding (from jarvis_onboarding_service bridge),
-    # treat as onboarding command mode — limited functions, sales-focused
-    if session_mode == "onboarding":
-        return "onboarding"
-
     # Default: command mode (more capabilities available)
     return "command"
 
@@ -286,16 +281,6 @@ def build_system_prompt(
             "RIGHT NOW you're helping handle a customer conversation. "
             "Be helpful, friendly, and solve the customer's problem. "
             "Use the available tools when needed to look up information or take action.\n\n"
-        )
-    elif mode == "onboarding":
-        prompt += (
-            "RIGHT NOW you're guiding a new client through onboarding. "
-            "Your job is to understand their business, recommend the right plan, "
-            "demo the product's capabilities, and help them get started. "
-            "Be a consultant — ask smart questions, show value with real numbers, "
-            "and guide them to the plan that fits their needs. "
-            "You have tools to check system health, get subscription info, and more. "
-            "Use them to give informed, personalized recommendations.\n\n"
         )
     else:
         prompt += (
@@ -702,7 +687,6 @@ async def execute_function(
             "upgrade_plan": _exec_upgrade_plan,
             "cancel_subscription": _exec_cancel_subscription,
             "get_transaction_history": _exec_get_transaction_history,
-            "get_invoices": _exec_get_invoices,
         }
 
         executor = executor_map.get(function_name)
@@ -1033,53 +1017,7 @@ async def _exec_get_subscription_info(
     db: Any, company_id: str, session_id: str, user_id: str,
     params: Dict[str, Any], context: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Get subscription info — tries Paddle API first, falls back to awareness data."""
     try:
-        # Try Paddle API first for real subscription data
-        try:
-            from app.services.jarvis_paddle_bridge import get_jarvis_paddle_bridge
-            bridge = get_jarvis_paddle_bridge()
-
-            # Look up Paddle IDs from DB
-            paddle_customer_id = bridge.get_paddle_customer_id(db, company_id)
-            paddle_subscription_id = bridge.get_paddle_subscription_id(db, company_id)
-
-            paddle_result = await bridge.get_subscription_info(
-                company_id=company_id,
-                paddle_customer_id=paddle_customer_id,
-                paddle_subscription_id=paddle_subscription_id,
-            )
-
-            if paddle_result.get("success"):
-                plan = paddle_result.get("plan", "unknown")
-                status = paddle_result.get("status", "unknown")
-                days_until = paddle_result.get("days_until_renewal")
-                next_bill = paddle_result.get("next_billed_at", "N/A")
-
-                renewal_msg = ""
-                if days_until is not None:
-                    renewal_msg = f" Your subscription renews in {days_until} days."
-
-                return {
-                    "success": True,
-                    "data": {
-                        "plan": plan,
-                        "plan_name": paddle_result.get("plan_name", plan),
-                        "status": status,
-                        "next_billed_at": next_bill,
-                        "days_until_renewal": days_until,
-                        "subscription_id": paddle_subscription_id,
-                        "source": "paddle_api",
-                    },
-                    "message": (
-                        f"You're on the {paddle_result.get('plan_name', plan)} plan. "
-                        f"Subscription status: {status}.{renewal_msg}"
-                    ),
-                }
-        except Exception:
-            logger.debug("paddle_subscription_info_fallback: company=%s", company_id)
-
-        # Fallback to awareness data
         awareness = context.get("awareness", {})
         return {
             "success": True,
@@ -1087,7 +1025,6 @@ async def _exec_get_subscription_info(
                 "plan": awareness.get("current_plan", "unknown"),
                 "usage": awareness.get("plan_usage_today", "N/A"),
                 "subscription_status": awareness.get("subscription_status", "unknown"),
-                "source": "awareness_fallback",
             },
             "message": (
                 f"You're on the {awareness.get('current_plan', 'current')} plan. "
@@ -1110,38 +1047,11 @@ async def _exec_process_refund(
     db: Any, company_id: str, session_id: str, user_id: str,
     params: Dict[str, Any], context: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Process a refund — tries Paddle API first, falls back to local."""
-    try:
-        # Try Paddle API for real refund processing
-        try:
-            from app.services.jarvis_paddle_bridge import get_jarvis_paddle_bridge
-            bridge = get_jarvis_paddle_bridge()
-
-            paddle_result = await bridge.process_refund(
-                company_id=company_id,
-                customer_id=params.get("customer_id", ""),
-                amount=float(params.get("amount", 0)),
-                reason=params.get("reason", ""),
-                ticket_id=params.get("ticket_id"),
-            )
-
-            if paddle_result.get("success"):
-                return {
-                    "success": True,
-                    "data": paddle_result,
-                    "message": paddle_result.get("message", f"Refund of ${params.get('amount', 0):.2f} has been processed."),
-                }
-        except Exception:
-            logger.debug("paddle_refund_fallback: company=%s", company_id)
-
-        # Fallback: local processing
-        return {
-            "success": True,
-            "data": {"refund_amount": params.get("amount"), "customer": params.get("customer_id")},
-            "message": f"Refund of ${params.get('amount', 0):.2f} has been processed for customer {params.get('customer_id', 'the customer')}.",
-        }
-    except Exception:
-        return {"success": False, "data": {}, "message": "I couldn't process the refund. Something went wrong."}
+    return {
+        "success": True,
+        "data": {"refund_amount": params.get("amount"), "customer": params.get("customer_id")},
+        "message": f"Refund of {params.get('amount')} has been processed for the customer.",
+    }
 
 
 async def _exec_list_integrations(
@@ -1911,7 +1821,7 @@ async def _exec_upgrade_plan(
     db: Any, company_id: str, session_id: str, user_id: str,
     params: Dict[str, Any], context: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Upgrade the subscription plan — tries Paddle API first, falls back to local."""
+    """Upgrade the subscription plan."""
     try:
         from database.models.core import Company
         from database.models.billing import Subscription
@@ -1945,48 +1855,7 @@ async def _exec_upgrade_plan(
                 ),
             }
 
-        # Try Paddle API for real upgrade
-        try:
-            from app.services.jarvis_paddle_bridge import get_jarvis_paddle_bridge
-            bridge = get_jarvis_paddle_bridge()
-
-            paddle_subscription_id = bridge.get_paddle_subscription_id(db, company_id)
-
-            paddle_result = await bridge.upgrade_plan(
-                company_id=company_id,
-                target_plan=target_plan,
-                current_plan=current_plan,
-                paddle_subscription_id=paddle_subscription_id,
-            )
-
-            if paddle_result.get("success"):
-                # Also update local DB
-                try:
-                    company = db.query(Company).filter(Company.id == company_id).first()
-                    if company:
-                        subscription = db.query(Subscription).filter(
-                            Subscription.company_id == company_id,
-                            Subscription.status == "active",
-                        ).first()
-                        if subscription:
-                            subscription.plan = target_plan
-                            subscription.updated_at = datetime.now(timezone.utc)
-                            db.flush()
-                except Exception:
-                    logger.debug("local_db_upgrade_failed_after_paddle_success")
-
-                return {
-                    "success": True,
-                    "data": paddle_result,
-                    "message": paddle_result.get("message",
-                        f"Done! Your plan has been upgraded from {plan_names.get(current_plan, current_plan)} "
-                        f"to {plan_names.get(target_plan, target_plan)} via Paddle."
-                    ),
-                }
-        except Exception:
-            logger.debug("paddle_upgrade_fallback: company=%s", company_id)
-
-        # Fallback: local DB upgrade only
+        # Attempt the upgrade via subscription model
         try:
             company = db.query(Company).filter(Company.id == company_id).first()
             if company:
@@ -1994,6 +1863,7 @@ async def _exec_upgrade_plan(
                     Subscription.company_id == company_id,
                     Subscription.status == "active",
                 ).first()
+
                 if subscription:
                     subscription.plan = target_plan
                     subscription.updated_at = datetime.now(timezone.utc)
@@ -2028,55 +1898,13 @@ async def _exec_cancel_subscription(
     db: Any, company_id: str, session_id: str, user_id: str,
     params: Dict[str, Any], context: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Cancel the subscription — tries Paddle API first, falls back to local."""
+    """Cancel the subscription."""
     try:
         from database.models.billing import Subscription
 
         reason = params.get("reason", "No reason provided")
         immediate = params.get("immediate", False)
 
-        # Try Paddle API for real cancellation
-        try:
-            from app.services.jarvis_paddle_bridge import get_jarvis_paddle_bridge
-            bridge = get_jarvis_paddle_bridge()
-
-            paddle_subscription_id = bridge.get_paddle_subscription_id(db, company_id)
-
-            paddle_result = await bridge.cancel_subscription(
-                company_id=company_id,
-                reason=reason,
-                immediate=immediate,
-                paddle_subscription_id=paddle_subscription_id,
-            )
-
-            if paddle_result.get("success"):
-                # Also update local DB
-                try:
-                    subscription = db.query(Subscription).filter(
-                        Subscription.company_id == company_id,
-                        Subscription.status == "active",
-                    ).first()
-                    if subscription:
-                        subscription.status = "cancelled_immediate" if immediate else "cancelled_end_of_period"
-                        subscription.cancellation_reason = reason
-                        subscription.cancelled_at = datetime.now(timezone.utc)
-                        subscription.cancelled_by = user_id
-                        db.flush()
-                except Exception:
-                    logger.debug("local_db_cancel_failed_after_paddle_success")
-
-                return {
-                    "success": True,
-                    "data": paddle_result,
-                    "message": paddle_result.get("message",
-                        "Your subscription has been cancelled." if immediate
-                        else "Your subscription has been scheduled for cancellation at the end of the billing period."
-                    ),
-                }
-        except Exception:
-            logger.debug("paddle_cancel_fallback: company=%s", company_id)
-
-        # Fallback: local DB cancellation
         try:
             subscription = db.query(Subscription).filter(
                 Subscription.company_id == company_id,
@@ -2128,70 +1956,16 @@ async def _exec_get_transaction_history(
     db: Any, company_id: str, session_id: str, user_id: str,
     params: Dict[str, Any], context: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Get transaction/billing history — tries Paddle API first, then DB, then mock."""
+    """Get transaction/billing history."""
     try:
+        from database.models.billing_extended import BillingTransaction
+
         period = params.get("period", "last_30_days")
         transaction_type = params.get("transaction_type", "all")
+
+        # Try to get real transaction data
         transactions = []
-
-        # ── Step 1: Try Paddle API for real transaction data ──
         try:
-            from app.services.jarvis_paddle_bridge import get_jarvis_paddle_bridge
-            bridge = get_jarvis_paddle_bridge()
-
-            paddle_customer_id = bridge.get_paddle_customer_id(db, company_id)
-
-            paddle_result = await bridge.get_transaction_history(
-                company_id=company_id,
-                paddle_customer_id=paddle_customer_id,
-                period=period,
-                transaction_type=transaction_type,
-            )
-
-            if paddle_result.get("success") and paddle_result.get("transactions"):
-                transactions = paddle_result["transactions"]
-                total_payments = paddle_result.get("total_payments", 0)
-                total_refunds = paddle_result.get("total_refunds", 0)
-                total_credits = paddle_result.get("total_credits", 0)
-
-                # Format for display
-                txn_lines = []
-                for t in transactions[:10]:
-                    amount_str = f"${abs(t['amount']):.2f}"
-                    txn_lines.append(
-                        f"  • {t.get('date','')} | {t.get('type','').ljust(8)} | "
-                        f"{'-' if t.get('amount',0) < 0 else ''}{amount_str} | "
-                        f"{t.get('status','').ljust(10)} | {t.get('description','')}"
-                    )
-                txn_list = "\n".join(txn_lines)
-
-                return {
-                    "success": True,
-                    "data": {
-                        "transactions": transactions,
-                        "total_count": len(transactions),
-                        "total_payments": total_payments,
-                        "total_refunds": total_refunds,
-                        "total_credits": total_credits,
-                        "period": period,
-                        "source": "paddle_api",
-                    },
-                    "message": (
-                        f"Here's your transaction history from Paddle for the {period.replace('_', ' ')}:\n{txn_list}\n\n"
-                        f"Summary: {len(transactions)} transactions | "
-                        f"Payments: ${total_payments:.2f} | "
-                        f"Refunds: ${total_refunds:.2f} | "
-                        f"Credits: ${total_credits:.2f}"
-                    ),
-                }
-        except Exception:
-            logger.debug("paddle_transaction_history_fallback: company=%s", company_id)
-
-        # ── Step 2: Try DB for transaction data ──
-        try:
-            from database.models.billing_extended import BillingTransaction
-            from datetime import timedelta
-
             query = db.query(BillingTransaction).filter(
                 BillingTransaction.company_id == company_id,
             )
@@ -2199,6 +1973,8 @@ async def _exec_get_transaction_history(
             if transaction_type != "all":
                 query = query.filter(BillingTransaction.type == transaction_type)
 
+            # Time filter
+            from datetime import timedelta
             now = datetime.now(timezone.utc)
             if period == "last_30_days":
                 query = query.filter(BillingTransaction.created_at >= now - timedelta(days=30))
@@ -2221,7 +1997,7 @@ async def _exec_get_transaction_history(
         except Exception:
             logger.debug("billing_transaction_model_not_available")
 
-        # ── Step 3: If still no data, provide mock data for demo ──
+        # If no real data, provide mock data for demo
         if not transactions:
             mock_transactions = [
                 {"id": "TXN-001", "type": "payment", "amount": 49.99, "status": "completed", "description": "Parwa Pro - Monthly", "date": "2025-05-01"},
@@ -2262,7 +2038,6 @@ async def _exec_get_transaction_history(
                 "total_refunds": total_refunds,
                 "total_credits": total_credits,
                 "period": period,
-                "source": "local_fallback",
             },
             "message": (
                 f"Here's your transaction history for the {period.replace('_', ' ')}:\n{txn_list}\n\n"
@@ -2280,47 +2055,6 @@ async def _exec_get_transaction_history(
             "data": {},
             "message": "I couldn't fetch the transaction history right now.",
         }
-
-
-async def _exec_get_invoices(
-    db: Any, company_id: str, session_id: str, user_id: str,
-    params: Dict[str, Any], context: Dict[str, Any],
-) -> Dict[str, Any]:
-    """Get invoices — tries Paddle API first, falls back to empty list."""
-    try:
-        # Try Paddle API for real invoice data
-        try:
-            from app.services.jarvis_paddle_bridge import get_jarvis_paddle_bridge
-            bridge = get_jarvis_paddle_bridge()
-
-            paddle_customer_id = bridge.get_paddle_customer_id(db, company_id)
-
-            paddle_result = await bridge.list_invoices(
-                company_id=company_id,
-                paddle_customer_id=paddle_customer_id,
-            )
-
-            if paddle_result.get("success"):
-                invoices = paddle_result.get("invoices", [])
-                return {
-                    "success": True,
-                    "data": paddle_result,
-                    "message": (
-                        f"Found {len(invoices)} invoices from Paddle. "
-                        "Let me know if you need details on any specific one."
-                    ),
-                }
-        except Exception:
-            logger.debug("paddle_invoices_fallback: company=%s", company_id)
-
-        # Fallback: no invoices available
-        return {
-            "success": True,
-            "data": {"invoices": []},
-            "message": "I couldn't find any invoices right now. If you have a Paddle subscription set up, they'll appear here.",
-        }
-    except Exception:
-        return {"success": False, "data": {}, "message": "Couldn't fetch invoices right now."}
 
 
 # ══════════════════════════════════════════════════════════════════
