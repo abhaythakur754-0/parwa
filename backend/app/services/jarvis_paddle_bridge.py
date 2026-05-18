@@ -515,7 +515,7 @@ class JarvisPaddleBridge:
                 "message": f"Failed to fetch transactions: {str(e)[:200]}",
             }
     
-    # ── Process Refund ──
+    # ── Process Refund (Real Paddle Adjustments API) ──
     
     async def process_refund(
         self,
@@ -524,40 +524,176 @@ class JarvisPaddleBridge:
         amount: float,
         reason: str,
         ticket_id: Optional[str] = None,
+        transaction_id: Optional[str] = None,
+        partial: bool = False,
     ) -> Dict[str, Any]:
-        """Process a refund via Paddle API.
+        """Process a refund via Paddle Adjustments API.
         
-        Creates a credit adjustment on the customer's account.
-        This is a real monetary action — requires approval_required safety level.
+        Paddle uses "adjustments" to issue refunds/credits on transactions.
+        This is a REAL monetary action — requires approval_required safety level.
+        
+        Flow:
+          1. If transaction_id provided → create adjustment directly
+          2. If only customer_id → find latest transaction for customer first
+          3. Create adjustment (full or partial) via Paddle API
+          4. Return adjustment details
+        
+        Args:
+            company_id: Company ID (BC-001).
+            customer_id: Paddle customer ID.
+            amount: Refund amount (used for partial refunds).
+            reason: Reason for the refund.
+            ticket_id: Related ticket ID (for audit trail).
+            transaction_id: Paddle transaction ID to refund (optional — auto-find if not given).
+            partial: If True, do a partial refund for the given amount.
         """
         try:
-            # Paddle doesn't have a direct "refund" API for billing.
-            # Instead, we create a credit adjustment via the adjustments API.
-            # For now, we'll document the refund and return the result.
-            # In production, this would integrate with Paddle's adjustments endpoint.
+            # Map reason to Paddle's accepted reason values
+            paddle_reason = self._map_refund_reason(reason)
+            
+            # Step 1: Find transaction if not provided
+            if not transaction_id:
+                logger.info(
+                    "refund_finding_transaction: company=%s, customer=%s",
+                    company_id, customer_id,
+                )
+                txn_result = await self.client.list_transactions(
+                    customer_id=customer_id,
+                    status="completed",
+                    per_page=5,
+                )
+                transactions = txn_result.get("data", [])
+                if not transactions:
+                    return {
+                        "success": False,
+                        "message": f"No completed transactions found for customer {customer_id}. Cannot process refund.",
+                    }
+                transaction_id = transactions[0].get("id", "")
+                logger.info(
+                    "refund_found_transaction: txn=%s, customer=%s",
+                    transaction_id, customer_id,
+                )
+            
+            # Step 2: Build adjustment items
+            adjustment_items = None
+            if partial and amount:
+                # Partial refund — need to specify amount per item
+                # First get the transaction to find its items
+                try:
+                    txn_detail = await self.client.get_transaction(transaction_id)
+                    txn_items = txn_detail.get("data", {}).get("details", {}).get("line_items", [])
+                    if txn_items:
+                        # Apply partial amount to the first item
+                        first_item = txn_items[0]
+                        adjustment_items = [{
+                            "item_id": first_item.get("id", ""),
+                            "type": "partial",
+                            "amount": str(amount),
+                        }]
+                except Exception as e:
+                    logger.warning(
+                        "refund_partial_item_lookup_failed: txn=%s, error=%s",
+                        transaction_id, str(e)[:100],
+                    )
+            
+            # Step 3: Create adjustment via Paddle API
+            description_parts = [f"Refund for company {company_id}"]
+            if ticket_id:
+                description_parts.append(f"Related ticket: {ticket_id}")
+            description_parts.append(f"Reason: {reason}")
+            description = ". ".join(description_parts)
+            
+            adjustment_result = await self.client.create_adjustment(
+                transaction_id=transaction_id,
+                items=adjustment_items,
+                reason=paddle_reason,
+                description=description,
+            )
+            
+            adjustment_data = adjustment_result.get("data", adjustment_result)
+            adjustment_id = adjustment_data.get("id", "")
+            adjustment_status = adjustment_data.get("status", "pending")
+            
+            # Calculate refund total from adjustment
+            refund_total = adjustment_data.get("details", {}).get("totals", {}).get("total", "0")
             
             logger.info(
-                "refund_processed_via_paddle: company=%s, customer=%s, amount=%.2f, reason=%s",
-                company_id, customer_id, amount, reason,
+                "refund_adjustment_created: company=%s, customer=%s, txn=%s, "
+                "adjustment=%s, status=%s, amount=%.2f, reason=%s",
+                company_id, customer_id, transaction_id,
+                adjustment_id, adjustment_status, amount, reason,
             )
             
             return {
                 "success": True,
                 "source": "paddle_api",
                 "customer_id": customer_id,
+                "transaction_id": transaction_id,
+                "adjustment_id": adjustment_id,
                 "refund_amount": amount,
+                "refund_total": refund_total,
                 "reason": reason,
+                "paddle_reason": paddle_reason,
                 "ticket_id": ticket_id,
-                "status": "pending",
-                "message": f"Refund of ${amount:.2f} has been submitted for customer {customer_id}. Reason: {reason}. The refund will be processed within 3-5 business days.",
+                "status": adjustment_status,
+                "partial": partial,
+                "message": (
+                    f"Refund of ${amount:.2f} has been submitted via Paddle Adjustments API. "
+                    f"Adjustment ID: {adjustment_id}. Status: {adjustment_status}. "
+                    f"The refund will be processed within 3-5 business days."
+                ),
             }
             
+        except PaddleAuthError:
+            return {
+                "success": False,
+                "message": "Paddle authentication failed. Check API key has adjustments:create permission.",
+            }
+        except PaddleNotFoundError:
+            return {
+                "success": False,
+                "message": f"Transaction {transaction_id} not found on Paddle.",
+            }
+        except PaddleError as e:
+            logger.error("refund_paddle_error: company=%s, error=%s", company_id, str(e))
+            return {
+                "success": False,
+                "message": f"Paddle API error during refund: {str(e)[:200]}",
+            }
         except Exception as e:
             logger.exception("process_refund_error: company=%s", company_id)
             return {
                 "success": False,
                 "message": f"Failed to process refund: {str(e)[:200]}",
             }
+    
+    @staticmethod
+    def _map_refund_reason(reason: str) -> str:
+        """Map free-text reason to Paddle's accepted adjustment reason values.
+        
+        Paddle accepts: duplicate, fraudulent, subscription_canceled,
+        product_unsatisfactory, other
+        """
+        reason_lower = reason.lower().strip()
+        reason_map = {
+            "duplicate": "duplicate",
+            "dup": "duplicate",
+            "fraud": "fraudulent",
+            "fraudulent": "fraudulent",
+            "cancel": "subscription_canceled",
+            "canceled": "subscription_canceled",
+            "cancelled": "subscription_canceled",
+            "subscription_canceled": "subscription_canceled",
+            "unsatisfied": "product_unsatisfactory",
+            "product_unsatisfactory": "product_unsatisfactory",
+            "bad_product": "product_unsatisfactory",
+            "not_working": "product_unsatisfactory",
+            "defective": "product_unsatisfactory",
+        }
+        for key, paddle_value in reason_map.items():
+            if key in reason_lower:
+                return paddle_value
+        return "other"
     
     # ── List Invoices ──
     
@@ -673,13 +809,22 @@ def get_jarvis_paddle_bridge(
     if _bridge is None:
         if not api_key:
             try:
-                import os
-                api_key = os.environ.get("PADDLE_API_KEY", "")
-                client_token = client_token or os.environ.get("PADDLE_CLIENT_TOKEN", "")
-                env = os.environ.get("ENVIRONMENT", "sandbox")
-                sandbox = env != "production"
+                # Prefer app config (which reads .env via pydantic-settings)
+                from app.config import get_settings
+                settings = get_settings()
+                api_key = settings.PADDLE_API_KEY
+                client_token = client_token or settings.PADDLE_CLIENT_TOKEN
+                sandbox = settings.ENVIRONMENT != "production"
             except Exception:
-                api_key = api_key or ""
+                # Fallback to raw env vars if config is unavailable
+                try:
+                    import os
+                    api_key = os.environ.get("PADDLE_API_KEY", "")
+                    client_token = client_token or os.environ.get("PADDLE_CLIENT_TOKEN", "")
+                    env = os.environ.get("ENVIRONMENT", "sandbox")
+                    sandbox = env != "production"
+                except Exception:
+                    api_key = api_key or ""
         
         _bridge = JarvisPaddleBridge(
             api_key=api_key or "",
