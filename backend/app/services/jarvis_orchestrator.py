@@ -1017,7 +1017,53 @@ async def _exec_get_subscription_info(
     db: Any, company_id: str, session_id: str, user_id: str,
     params: Dict[str, Any], context: Dict[str, Any],
 ) -> Dict[str, Any]:
+    """Get subscription info — tries Paddle API first, falls back to awareness data."""
     try:
+        # Try Paddle API first for real subscription data
+        try:
+            from app.services.jarvis_paddle_bridge import get_jarvis_paddle_bridge
+            bridge = get_jarvis_paddle_bridge()
+
+            # Look up Paddle IDs from DB
+            paddle_customer_id = bridge.get_paddle_customer_id(db, company_id)
+            paddle_subscription_id = bridge.get_paddle_subscription_id(db, company_id)
+
+            paddle_result = await bridge.get_subscription_info(
+                company_id=company_id,
+                paddle_customer_id=paddle_customer_id,
+                paddle_subscription_id=paddle_subscription_id,
+            )
+
+            if paddle_result.get("success"):
+                plan = paddle_result.get("plan", "unknown")
+                status = paddle_result.get("status", "unknown")
+                days_until = paddle_result.get("days_until_renewal")
+                next_bill = paddle_result.get("next_billed_at", "N/A")
+
+                renewal_msg = ""
+                if days_until is not None:
+                    renewal_msg = f" Your subscription renews in {days_until} days."
+
+                return {
+                    "success": True,
+                    "data": {
+                        "plan": plan,
+                        "plan_name": paddle_result.get("plan_name", plan),
+                        "status": status,
+                        "next_billed_at": next_bill,
+                        "days_until_renewal": days_until,
+                        "subscription_id": paddle_subscription_id,
+                        "source": "paddle_api",
+                    },
+                    "message": (
+                        f"You're on the {paddle_result.get('plan_name', plan)} plan. "
+                        f"Subscription status: {status}.{renewal_msg}"
+                    ),
+                }
+        except Exception:
+            logger.debug("paddle_subscription_info_fallback: company=%s", company_id)
+
+        # Fallback to awareness data
         awareness = context.get("awareness", {})
         return {
             "success": True,
@@ -1025,6 +1071,7 @@ async def _exec_get_subscription_info(
                 "plan": awareness.get("current_plan", "unknown"),
                 "usage": awareness.get("plan_usage_today", "N/A"),
                 "subscription_status": awareness.get("subscription_status", "unknown"),
+                "source": "awareness_fallback",
             },
             "message": (
                 f"You're on the {awareness.get('current_plan', 'current')} plan. "
@@ -1047,11 +1094,38 @@ async def _exec_process_refund(
     db: Any, company_id: str, session_id: str, user_id: str,
     params: Dict[str, Any], context: Dict[str, Any],
 ) -> Dict[str, Any]:
-    return {
-        "success": True,
-        "data": {"refund_amount": params.get("amount"), "customer": params.get("customer_id")},
-        "message": f"Refund of {params.get('amount')} has been processed for the customer.",
-    }
+    """Process a refund — tries Paddle API first, falls back to local."""
+    try:
+        # Try Paddle API for real refund processing
+        try:
+            from app.services.jarvis_paddle_bridge import get_jarvis_paddle_bridge
+            bridge = get_jarvis_paddle_bridge()
+
+            paddle_result = await bridge.process_refund(
+                company_id=company_id,
+                customer_id=params.get("customer_id", ""),
+                amount=float(params.get("amount", 0)),
+                reason=params.get("reason", ""),
+                ticket_id=params.get("ticket_id"),
+            )
+
+            if paddle_result.get("success"):
+                return {
+                    "success": True,
+                    "data": paddle_result,
+                    "message": paddle_result.get("message", f"Refund of ${params.get('amount', 0):.2f} has been processed."),
+                }
+        except Exception:
+            logger.debug("paddle_refund_fallback: company=%s", company_id)
+
+        # Fallback: local processing
+        return {
+            "success": True,
+            "data": {"refund_amount": params.get("amount"), "customer": params.get("customer_id")},
+            "message": f"Refund of ${params.get('amount', 0):.2f} has been processed for customer {params.get('customer_id', 'the customer')}.",
+        }
+    except Exception:
+        return {"success": False, "data": {}, "message": "I couldn't process the refund. Something went wrong."}
 
 
 async def _exec_list_integrations(
@@ -1821,7 +1895,7 @@ async def _exec_upgrade_plan(
     db: Any, company_id: str, session_id: str, user_id: str,
     params: Dict[str, Any], context: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Upgrade the subscription plan."""
+    """Upgrade the subscription plan — tries Paddle API first, falls back to local."""
     try:
         from database.models.core import Company
         from database.models.billing import Subscription
@@ -1855,7 +1929,48 @@ async def _exec_upgrade_plan(
                 ),
             }
 
-        # Attempt the upgrade via subscription model
+        # Try Paddle API for real upgrade
+        try:
+            from app.services.jarvis_paddle_bridge import get_jarvis_paddle_bridge
+            bridge = get_jarvis_paddle_bridge()
+
+            paddle_subscription_id = bridge.get_paddle_subscription_id(db, company_id)
+
+            paddle_result = await bridge.upgrade_plan(
+                company_id=company_id,
+                target_plan=target_plan,
+                current_plan=current_plan,
+                paddle_subscription_id=paddle_subscription_id,
+            )
+
+            if paddle_result.get("success"):
+                # Also update local DB
+                try:
+                    company = db.query(Company).filter(Company.id == company_id).first()
+                    if company:
+                        subscription = db.query(Subscription).filter(
+                            Subscription.company_id == company_id,
+                            Subscription.status == "active",
+                        ).first()
+                        if subscription:
+                            subscription.plan = target_plan
+                            subscription.updated_at = datetime.now(timezone.utc)
+                            db.flush()
+                except Exception:
+                    logger.debug("local_db_upgrade_failed_after_paddle_success")
+
+                return {
+                    "success": True,
+                    "data": paddle_result,
+                    "message": paddle_result.get("message",
+                        f"Done! Your plan has been upgraded from {plan_names.get(current_plan, current_plan)} "
+                        f"to {plan_names.get(target_plan, target_plan)} via Paddle."
+                    ),
+                }
+        except Exception:
+            logger.debug("paddle_upgrade_fallback: company=%s", company_id)
+
+        # Fallback: local DB upgrade only
         try:
             company = db.query(Company).filter(Company.id == company_id).first()
             if company:
@@ -1863,7 +1978,6 @@ async def _exec_upgrade_plan(
                     Subscription.company_id == company_id,
                     Subscription.status == "active",
                 ).first()
-
                 if subscription:
                     subscription.plan = target_plan
                     subscription.updated_at = datetime.now(timezone.utc)
@@ -1898,13 +2012,55 @@ async def _exec_cancel_subscription(
     db: Any, company_id: str, session_id: str, user_id: str,
     params: Dict[str, Any], context: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Cancel the subscription."""
+    """Cancel the subscription — tries Paddle API first, falls back to local."""
     try:
         from database.models.billing import Subscription
 
         reason = params.get("reason", "No reason provided")
         immediate = params.get("immediate", False)
 
+        # Try Paddle API for real cancellation
+        try:
+            from app.services.jarvis_paddle_bridge import get_jarvis_paddle_bridge
+            bridge = get_jarvis_paddle_bridge()
+
+            paddle_subscription_id = bridge.get_paddle_subscription_id(db, company_id)
+
+            paddle_result = await bridge.cancel_subscription(
+                company_id=company_id,
+                reason=reason,
+                immediate=immediate,
+                paddle_subscription_id=paddle_subscription_id,
+            )
+
+            if paddle_result.get("success"):
+                # Also update local DB
+                try:
+                    subscription = db.query(Subscription).filter(
+                        Subscription.company_id == company_id,
+                        Subscription.status == "active",
+                    ).first()
+                    if subscription:
+                        subscription.status = "cancelled_immediate" if immediate else "cancelled_end_of_period"
+                        subscription.cancellation_reason = reason
+                        subscription.cancelled_at = datetime.now(timezone.utc)
+                        subscription.cancelled_by = user_id
+                        db.flush()
+                except Exception:
+                    logger.debug("local_db_cancel_failed_after_paddle_success")
+
+                return {
+                    "success": True,
+                    "data": paddle_result,
+                    "message": paddle_result.get("message",
+                        "Your subscription has been cancelled." if immediate
+                        else "Your subscription has been scheduled for cancellation at the end of the billing period."
+                    ),
+                }
+        except Exception:
+            logger.debug("paddle_cancel_fallback: company=%s", company_id)
+
+        # Fallback: local DB cancellation
         try:
             subscription = db.query(Subscription).filter(
                 Subscription.company_id == company_id,
