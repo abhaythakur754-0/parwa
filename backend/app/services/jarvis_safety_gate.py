@@ -398,6 +398,8 @@ def _build_confirmation_message(
             f"{'They will also be automatically solved by the variant pipeline.' if params.get('auto_solve') else 'They will be created as open tickets for you to test with.'} "
             "Want me to go ahead?"
         ),
+        "upgrade_plan": f"This will upgrade your plan to {params.get('target_plan', 'the selected tier')}. This is a billing change and will affect your subscription. Please type 'confirm' if you want me to proceed.",
+        "cancel_subscription": "This will cancel your subscription. You'll lose access to all features at the end of the billing period. Please type 'confirm' if you want me to proceed.",
     }
 
     return messages.get(
@@ -420,6 +422,15 @@ def _build_approval_message(
             f"This will issue a refund of {params.get('amount', 'the specified amount')} "
             f"to the customer. This is a monetary action and can't be easily reversed. "
             f"Please type 'confirm' if you want me to proceed."
+        ),
+        "upgrade_plan": (
+            f"This will upgrade your plan to {params.get('target_plan', 'the selected tier')}. "
+            f"This is a billing change that will affect your subscription and pricing. "
+            f"Please type 'confirm' if you want me to proceed."
+        ),
+        "cancel_subscription": (
+            "This will cancel your subscription. This is a destructive action that "
+            "will remove access to all features. Please type 'confirm' if you want me to proceed."
         ),
     }
 

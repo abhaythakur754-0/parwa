@@ -245,6 +245,54 @@ const FUNCTION_DEFINITIONS = [
       }
     }
   },
+  // ── PLAN UPGRADE / CHANGE ──
+  {
+    type: "function",
+    function: {
+      name: "upgrade_plan",
+      description: "Upgrade the current subscription plan to a higher tier. Available tiers: mini_parwa (starter), parwa (professional), parwa_high (enterprise). Use when the user wants to upgrade, change plan, move to a better plan, or get more features.",
+      parameters: {
+        type: "object",
+        properties: {
+          target_plan: { type: "string", enum: ["mini_parwa", "parwa", "parwa_high"], description: "The plan to upgrade to" },
+          reason: { type: "string", description: "Why the upgrade is being requested (optional)" }
+        },
+        required: ["target_plan"]
+      }
+    }
+  },
+  // ── TRANSACTION HISTORY ──
+  {
+    type: "function",
+    function: {
+      name: "get_transaction_history",
+      description: "Get the transaction/billing history — payments, refunds, credits, and charges. Shows amount, date, status, and description. Use when the user asks about transaction history, billing history, payment history, charges, invoices, or past payments.",
+      parameters: {
+        type: "object",
+        properties: {
+          period: { type: "string", enum: ["last_30_days", "last_90_days", "this_year", "all"], description: "Time period (default 'last_30_days')", default: "last_30_days" },
+          transaction_type: { type: "string", enum: ["all", "payments", "refunds", "credits", "charges"], description: "Filter by type (default 'all')", default: "all" }
+        },
+        required: []
+      }
+    }
+  },
+  // ── CANCEL SUBSCRIPTION ──
+  {
+    type: "function",
+    function: {
+      name: "cancel_subscription",
+      description: "Cancel the current subscription. This will schedule cancellation at the end of the billing period. Use when the user explicitly wants to cancel, end their subscription, or stop using the service. DESTRUCTIVE action.",
+      parameters: {
+        type: "object",
+        properties: {
+          reason: { type: "string", description: "Why the subscription is being cancelled" },
+          immediate: { type: "boolean", description: "Cancel immediately instead of end of billing period (default false)", default: false }
+        },
+        required: ["reason"]
+      }
+    }
+  },
 ];
 
 
@@ -340,6 +388,28 @@ const MOCK_EXECUTORS = {
     const subjects = ["App crashing on startup", "Double charge on card", "Order not arrived", "Damaged product return", "Dashboard slow"];
     const list = Array.from({length: count}, (_, i) => `  • ${names[i % 5]} — ${subjects[i % 5]} [${['medium','high','critical','low','high'][i % 5]}]`).join('\n');
     return { success: true, message: `Generated ${count} fake customer requests:\n${list}` };
+  },
+  upgrade_plan: (params) => {
+    const planNames = { mini_parwa: "Mini Parwa (Starter)", parwa: "Parwa (Professional)", parwa_high: "Parwa High (Enterprise)" };
+    return { success: true, message: `Done! Your plan has been upgraded to ${planNames[params?.target_plan] || params?.target_plan}. The new plan is effective immediately — you now have access to all features.` };
+  },
+  get_transaction_history: (params) => {
+    const txns = [
+      { date: "2025-05-01", type: "payment", amount: "$49.99", desc: "Parwa Pro - Monthly" },
+      { date: "2025-04-01", type: "payment", amount: "$49.99", desc: "Parwa Pro - Monthly" },
+      { date: "2025-03-28", type: "refund", amount: "-$12.50", desc: "Overcharge correction" },
+      { date: "2025-03-01", type: "payment", amount: "$49.99", desc: "Parwa Pro - Monthly" },
+      { date: "2025-02-20", type: "charge", amount: "$15.00", desc: "Additional AI agent" },
+      { date: "2025-02-01", type: "payment", amount: "$49.99", desc: "Parwa Pro - Monthly" },
+      { date: "2025-01-15", type: "credit", amount: "-$25.00", desc: "Loyalty credit" },
+      { date: "2025-01-01", type: "payment", amount: "$49.99", desc: "Parwa Pro - Monthly" },
+    ];
+    const list = txns.map(t => `  • ${t.date} | ${t.type.padEnd(8)} | ${t.amount.padStart(7)} | ${t.desc}`).join('\n');
+    const totalPayments = txns.filter(t => t.type === 'payment').reduce((s, t) => s + 49.99, 0);
+    return { success: true, message: `Here's your transaction history:\n${list}\n\nSummary: ${txns.length} transactions | Total payments: $${totalPayments.toFixed(2)} | Refunds: $12.50 | Credits: $25.00` };
+  },
+  cancel_subscription: (params) => {
+    return { success: true, message: `Your subscription has been scheduled for cancellation at the end of the current billing period. You'll continue to have access to all features until then. If you change your mind, just tell me to reactivate it.` };
   },
 };
 
@@ -497,6 +567,9 @@ async function chatWithJarvis(zai, userMessage) {
         get_agent_status: "none",
         search_knowledge_base: "none",
         generate_fake_requests: "confirmation_required",
+        upgrade_plan: "approval_required",
+        get_transaction_history: "none",
+        cancel_subscription: "approval_required",
       };
 
       const safetyLevel = safetyLevels[funcName] || "none";
@@ -552,6 +625,8 @@ async function chatWithJarvis(zai, userMessage) {
           batch_solve_tickets: `I'll solve the open tickets through the AI variant pipeline. Each one will get an AI-generated response. Want me to proceed?`,
           generate_fake_requests: `I'll generate ${funcArgs?.count || 5} fake customer requests and create tickets from them. Want me to go ahead?`,
           process_refund: `This will issue a refund. This is a monetary action and can't be easily reversed. Please type 'confirm' if you want me to proceed.`,
+          upgrade_plan: `This will upgrade your plan to ${funcArgs?.target_plan || 'the selected tier'}. This is a billing change that will affect your subscription. Please type 'confirm' if you want me to proceed.`,
+          cancel_subscription: `This will cancel your subscription. You'll lose access to all features. Please type 'confirm' if you want me to proceed.`,
         };
 
         const confirmMsg = confirmationMessages[funcName] || `I'd like to run '${funcName}'. Can I go ahead?`;
@@ -592,7 +667,7 @@ async function runTestSuite(zai) {
   // Each test starts with a fresh conversation to avoid state leaking
   const testCases = [
     // Group 1: Simple commands (no confirmation needed)
-    { message: "show me my transaction history", expected: "list_recent_tickets", reset: true },
+    { message: "show me my transaction history", expected: "get_transaction_history", reset: true },
     { message: "what's my subscription? I want to upgrade my plan", expected: "get_subscription_info", reset: true },
     { message: "how's the system doing?", expected: "check_system_health", reset: true },
     { message: "what are my integrations?", expected: "list_integrations", reset: true },
@@ -608,6 +683,10 @@ async function runTestSuite(zai) {
     { message: "create a ticket for a customer whose order is late", expected: "create_ticket", reset: true },
     { message: "generate 5 fake requests for testing", expected: "generate_fake_requests", reset: true },
     { message: "escalate urgent tickets", expected: "escalate_urgent_tickets", reset: true },
+    // Group 4: New functions — upgrade, transaction history, cancel
+    { message: "upgrade my plan to parwa high", expected: "upgrade_plan", reset: true },
+    { message: "show me my billing history", expected: "get_transaction_history", reset: true },
+    { message: "I want to cancel my subscription because it's too expensive", expected: "cancel_subscription", reset: true },
   ];
 
   const results = [];

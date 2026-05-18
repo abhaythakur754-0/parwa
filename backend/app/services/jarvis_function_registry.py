@@ -1026,6 +1026,97 @@ FUNCTION_REGISTRY: List[Dict[str, Any]] = [
         "tier_available": TIER_ALL,
         "category": CATEGORY_TICKETS,
     },
+    # ────────────────────────────────────────────────────────────
+    # PLAN UPGRADE / CHANGE / CANCEL
+    # ────────────────────────────────────────────────────────────
+    {
+        "name": "upgrade_plan",
+        "description": (
+            "Upgrade the current subscription plan to a higher tier. "
+            "Available tiers: mini_parwa (starter), parwa (professional), "
+            "parwa_high (enterprise). Use when the user wants to upgrade, "
+            "change plan, move to a better plan, or get more features. "
+            "This is a BILLING action — it affects the subscription."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "target_plan": {
+                    "type": "string",
+                    "enum": ["mini_parwa", "parwa", "parwa_high"],
+                    "description": "The plan to upgrade to",
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "Why the upgrade is being requested (optional, for audit)",
+                },
+            },
+            "required": ["target_plan"],
+        },
+        "safety_level": SAFETY_APPROVAL,
+        "tier_available": TIER_ALL,
+        "category": CATEGORY_BILLING,
+    },
+    {
+        "name": "cancel_subscription",
+        "description": (
+            "Cancel the current subscription. This will schedule the "
+            "subscription for cancellation at the end of the current "
+            "billing period. Use when the user explicitly wants to cancel, "
+            "end their subscription, or stop using the service. This is a "
+            "DESTRUCTIVE action — confirm carefully."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string",
+                    "description": "Why the subscription is being cancelled (required for retention team)",
+                },
+                "immediate": {
+                    "type": "boolean",
+                    "description": "Cancel immediately instead of at end of billing period (default false)",
+                    "default": False,
+                },
+            },
+            "required": ["reason"],
+        },
+        "safety_level": SAFETY_APPROVAL,
+        "tier_available": TIER_ALL,
+        "category": CATEGORY_BILLING,
+    },
+    {
+        "name": "get_transaction_history",
+        "description": (
+            "Get the transaction/billing history — payments, refunds, "
+            "credits, and charges. Shows amount, date, status, and "
+            "description for each transaction. Use when the user asks "
+            "about their transaction history, billing history, payment "
+            "history, charges, invoices, or past payments."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "period": {
+                    "type": "string",
+                    "enum": ["last_30_days", "last_90_days", "this_year", "all"],
+                    "description": "Time period for transaction history (default 'last_30_days')",
+                    "default": "last_30_days",
+                },
+                "transaction_type": {
+                    "type": "string",
+                    "enum": ["all", "payments", "refunds", "credits", "charges"],
+                    "description": "Filter by transaction type (default 'all')",
+                    "default": "all",
+                },
+            },
+            "required": [],
+        },
+        "safety_level": SAFETY_NONE,
+        "tier_available": TIER_ALL,
+        "category": CATEGORY_BILLING,
+    },
+
     {
         "name": "generate_fake_requests",
         "description": (
