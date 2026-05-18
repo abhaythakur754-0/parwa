@@ -26,6 +26,7 @@ BC-011: Credentials encrypted at rest.
 BC-012: Structured JSON error responses.
 """
 
+import asyncio
 import logging
 from typing import Optional
 
@@ -112,6 +113,26 @@ async def initiate_outbound_call(
             status_code = 429 if "rate" in result.get("error", "").lower() else 422
             code = "RATE_LIMIT_EXCEEDED" if status_code == 429 else "VALIDATION_ERROR"
             return _error_response(code, result["error"], status_code)
+
+        # Emit Socket.io call:outgoing event to the tenant room
+        try:
+            from app.core.socketio import emit_to_tenant
+            asyncio.create_task(emit_to_tenant(
+                company_id=company_id,
+                event_type="call:outgoing",
+                payload={
+                    "call_id": result.get("call_id"),
+                    "conversation_id": result.get("conversation_id"),
+                    "twilio_call_sid": result.get("twilio_call_sid"),
+                    "direction": "outbound",
+                    "from_number": result.get("from_number"),
+                    "to_number": result.get("to_number"),
+                    "status": "queued",
+                    "variant_tier": result.get("variant_tier"),
+                },
+            ))
+        except Exception as sio_exc:
+            logger.warning("voice_outgoing_socket_emit_failed error=%s", str(sio_exc)[:200])
 
         return result
     except Exception as exc:
@@ -684,6 +705,25 @@ async def twilio_status_callback(request: Request):
             recording_url=recording_url,
             recording_sid=recording_sid,
         )
+
+        # Emit Socket.io call:status event to the tenant room
+        try:
+            from app.core.socketio import emit_to_tenant
+            event_type = "call:ended" if call_status in ("completed", "failed", "busy", "no-answer", "canceled") else "call:status"
+            asyncio.create_task(emit_to_tenant(
+                company_id=company_id,
+                event_type=event_type,
+                payload={
+                    "call_sid": call_sid,
+                    "status": call_status,
+                    "duration": int(duration) if duration else None,
+                    "recording_url": recording_url,
+                    "recording_sid": recording_sid,
+                },
+            ))
+        except Exception as sio_exc:
+            logger.warning("voice_status_socket_emit_failed error=%s", str(sio_exc)[:200])
+
         return result
     except Exception as exc:
         logger.error(
@@ -784,6 +824,25 @@ async def twilio_voice_webhook(request: Request):
                 "call_status": "ringing",
             },
         )
+
+        # Emit Socket.io call:incoming event to the tenant room
+        try:
+            from app.core.socketio import emit_to_tenant
+            asyncio.create_task(emit_to_tenant(
+                company_id=company_id,
+                event_type="call:incoming",
+                payload={
+                    "call_id": result.get("call_id"),
+                    "conversation_id": result.get("conversation_id"),
+                    "twilio_call_sid": call_sid,
+                    "direction": "inbound",
+                    "from_number": from_number,
+                    "to_number": to_number,
+                    "status": "ringing",
+                },
+            ))
+        except Exception as sio_exc:
+            logger.warning("voice_incoming_socket_emit_failed error=%s", str(sio_exc)[:200])
 
         # Return TwiML as XML response
         twiml = result.get("twiml", (

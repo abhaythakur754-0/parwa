@@ -36,6 +36,7 @@ import { useSystemHealthStore } from '@/lib/system-health-store';
 import { usePresenceStore } from '@/lib/presence-store';
 import { useTypingStore } from '@/lib/typing-store';
 import { useCollisionStore } from '@/lib/collision-store';
+import { useCallStore } from '@/lib/call-store';
 
 // ── AI State Store Placeholder (Phase 5 — Real-Time Chat) ──────────
 // AI streaming state will be implemented in Phase 5 when we build
@@ -834,6 +835,64 @@ export function useRealtimeEvents(): void {
     updateLastEventTimestamp();
   }, []);
 
+  // ── Call Event Handlers ───────────────────────────────────────
+
+  const handleCallIncoming = useCallback((...args: unknown[]) => {
+    const data = args[0];
+    if (!data) return;
+
+    useCallStore.getState().handleCallIncoming(data);
+
+    const callData = data as { from_number?: string; to_number?: string };
+    toast(`📞 Incoming call from ${callData.from_number || 'unknown'}`, {
+      duration: 6000,
+      id: `call-incoming-${Date.now()}`,
+    });
+
+    updateLastEventTimestamp();
+  }, []);
+
+  const handleCallOutgoing = useCallback((...args: unknown[]) => {
+    const data = args[0];
+    if (!data) return;
+
+    useCallStore.getState().handleCallOutgoing(data);
+
+    const callData = data as { to_number?: string; sender_role?: string };
+    const byJarvis = callData.sender_role === 'bot';
+    toast(`${byJarvis ? '🤖' : '📞'} Outbound call to ${callData.to_number || 'unknown'}${byJarvis ? ' (via Jarvis)' : ''}`, {
+      duration: 4000,
+      id: `call-outgoing-${Date.now()}`,
+    });
+
+    updateLastEventTimestamp();
+  }, []);
+
+  const handleCallStatus = useCallback((...args: unknown[]) => {
+    const data = args[0];
+    if (!data) return;
+
+    useCallStore.getState().handleCallStatus(data);
+    updateLastEventTimestamp();
+  }, []);
+
+  const handleCallEnded = useCallback((...args: unknown[]) => {
+    const data = args[0];
+    if (!data) return;
+
+    useCallStore.getState().handleCallEnded(data);
+
+    const callData = data as { duration?: number; status?: string };
+    const durationStr = callData.duration ? ` (${Math.floor(callData.duration / 60)}:${String(callData.duration % 60).padStart(2, '0')})` : '';
+    toast(`📞 Call ended${durationStr}`, {
+      duration: 4000,
+      icon: '✅',
+      id: `call-ended-${Date.now()}`,
+    });
+
+    updateLastEventTimestamp();
+  }, []);
+
   // ── Register All Event Listeners ───────────────────────────────
 
   useEffect(() => {
@@ -899,6 +958,12 @@ export function useRealtimeEvents(): void {
       ['collision:enter', handleCollisionEnter],
       ['collision:leave', handleCollisionLeave],
       ['collision:update', handleCollisionUpdate],
+
+      // ── Call events ──
+      ['call:incoming', handleCallIncoming],
+      ['call:outgoing', handleCallOutgoing],
+      ['call:status', handleCallStatus],
+      ['call:ended', handleCallEnded],
     ];
 
     // Register each event with the socket client
