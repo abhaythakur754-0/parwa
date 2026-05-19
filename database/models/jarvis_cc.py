@@ -186,6 +186,14 @@ class JarvisAwarenessSnapshot(Base):
     recent_dashboard_events_json = Column(Text, default="[]")
     recent_ticket_actions_json = Column(Text, default="[]")
 
+    # Domain 11: Onboarding Funnel awareness
+    onboarding_active_sessions = Column(Integer, default=0)
+    onboarding_verification_rate = Column(Numeric(5, 2), nullable=True)
+    onboarding_payment_rate = Column(Numeric(5, 2), nullable=True)
+    onboarding_handoff_rate = Column(Numeric(5, 2), nullable=True)
+    onboarding_stage_distribution_json = Column(Text, default="{}")
+    onboarding_flags_json = Column(Text, default="[]")
+
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # ── Relationships ──

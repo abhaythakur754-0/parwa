@@ -239,6 +239,11 @@ def decide_mode(context: Dict[str, Any]) -> str:
     if session_type in ("onboarding", "admin", "command"):
         return "command"
 
+    # If context says onboarding (from jarvis_onboarding_service bridge),
+    # treat as onboarding command mode — limited functions, sales-focused
+    if session_mode == "onboarding":
+        return "onboarding"
+
     # Default: command mode (more capabilities available)
     return "command"
 
@@ -281,6 +286,16 @@ def build_system_prompt(
             "RIGHT NOW you're helping handle a customer conversation. "
             "Be helpful, friendly, and solve the customer's problem. "
             "Use the available tools when needed to look up information or take action.\n\n"
+        )
+    elif mode == "onboarding":
+        prompt += (
+            "RIGHT NOW you're guiding a new client through onboarding. "
+            "Your job is to understand their business, recommend the right plan, "
+            "demo the product's capabilities, and help them get started. "
+            "Be a consultant — ask smart questions, show value with real numbers, "
+            "and guide them to the plan that fits their needs. "
+            "You have tools to check system health, get subscription info, and more. "
+            "Use them to give informed, personalized recommendations.\n\n"
         )
     else:
         prompt += (

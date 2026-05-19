@@ -66,6 +66,7 @@ from app.api.onboarding_jarvis import router as onboarding_jarvis_router  # Onbo
 from app.api.onboarding import router as onboarding_router
 from app.api.integrations import router as integrations_router
 from app.api.jarvis_integrations import router as jarvis_integrations_router  # Jarvis onboarding integration setup
+from app.api.jarvis_onboarding import router as jarvis_onboarding_router  # Jarvis onboarding backend (awareness bridge)
 from app.api.knowledge_base import router as knowledge_base_router
 from app.api.verification import router as verification_router  # Week 6 Day 10-11: Business Email OTP
 from app.api.ticket_analytics import router as analytics_router  # Phase 4: Ticket analytics dashboard
@@ -406,6 +407,7 @@ app.include_router(onboarding_jarvis_router)  # Onboarding Jarvis AI chat (LangG
 app.include_router(onboarding_router)  # Week 6: Onboarding wizard (F-028 to F-035)
 app.include_router(integrations_router)  # Week 6: Integration management (F-030/F-031)
 app.include_router(jarvis_integrations_router)  # Jarvis onboarding integration setup flow
+app.include_router(jarvis_onboarding_router)  # Jarvis onboarding backend (awareness bridge to Activity Store)
 app.include_router(knowledge_base_router)  # Week 6: Knowledge base (F-032/F-033)
 app.include_router(verification_router)  # Week 6 Day 10-11: Business Email OTP verification
 app.include_router(analytics_router)  # Phase 4: Ticket analytics dashboard

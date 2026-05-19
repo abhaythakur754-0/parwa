@@ -453,6 +453,12 @@ def collect_awareness_state(
     # which settings they change. This enables context-aware conversations.
     state.update(_collect_dashboard_awareness(db, company_id, session_id))
 
+    # Domain 11: Onboarding Funnel awareness
+    # Jarvis MUST know about the onboarding pipeline: how many sessions
+    # are active, verification rates, payment conversion, and drop-off
+    # points. This gives Jarvis full awareness of the pre-purchase funnel.
+    state.update(_collect_onboarding_awareness(db, company_id))
+
     # ── JV-02: Merge live LangGraph state (takes precedence over DB) ──
     if live_graph_state and isinstance(live_graph_state, dict):
         state = _merge_live_graph_state(state, live_graph_state)
@@ -770,6 +776,17 @@ def create_snapshot(
         ),
         recent_ticket_actions_json=json.dumps(
             state.get("recent_ticket_actions", []), default=str
+        ),
+        # Domain 11: Onboarding Funnel awareness
+        onboarding_active_sessions=state.get("onboarding_active_sessions", 0),
+        onboarding_verification_rate=state.get("onboarding_verification_rate"),
+        onboarding_payment_rate=state.get("onboarding_payment_rate"),
+        onboarding_handoff_rate=state.get("onboarding_handoff_rate"),
+        onboarding_stage_distribution_json=json.dumps(
+            state.get("onboarding_stage_distribution", {}), default=str
+        ),
+        onboarding_flags_json=json.dumps(
+            state.get("onboarding_flags", []), default=str
         ),
     )
     db.add(snapshot)
@@ -3290,6 +3307,88 @@ def _collect_dashboard_awareness(
         logger.debug(
             "dashboard_awareness_collection_failed: company=%s, session=%s",
             company_id, session_id,
+        )
+
+    return result
+
+
+# ══════════════════════════════════════════════════════════════════
+# DOMAIN 11: ONBOARDING FUNNEL AWARENESS
+# ══════════════════════════════════════════════════════════════════
+
+
+def _collect_onboarding_awareness(
+    db: Session,
+    company_id: str,
+) -> Dict[str, Any]:
+    """Domain 11: Onboarding Funnel awareness.
+
+    Jarvis MUST know about the onboarding pipeline. This gives Jarvis
+    full awareness of the pre-purchase funnel:
+      - How many active onboarding sessions are running
+      - What stage users are at
+      - Email verification rates
+      - Payment conversion rates
+      - Where users drop off
+      - Onboarding flags (low conversion, etc.)
+
+    This data comes from the Activity Store (Domain 8 already logs
+    onboarding actions via jarvis_onboarding_service.log_onboarding_action).
+    This collector reads those events and provides a structured summary
+    for the awareness engine.
+
+    Why this matters:
+      If a user just completed onboarding and enters the CC dashboard,
+      CC Jarvis can see:
+        - onboarding_active_sessions: 3 (other prospects in pipeline)
+        - onboarding_payment_rate: 45% (healthy conversion)
+        - onboarding_flags: ["low_verification_rate"] (action needed)
+
+      This enables CC Jarvis to say things like:
+        "I see your verification rate is a bit low — want me to
+         optimize the OTP flow?"
+
+    Returns:
+        Dict with onboarding funnel awareness data.
+    """
+    result: Dict[str, Any] = {
+        "onboarding_active_sessions": 0,
+        "onboarding_stage_distribution": {},
+        "onboarding_verification_rate": 0.0,
+        "onboarding_payment_rate": 0.0,
+        "onboarding_handoff_rate": 0.0,
+        "onboarding_top_entry_sources": [],
+        "onboarding_flags": [],
+    }
+
+    try:
+        from app.services.jarvis_onboarding_service import get_onboarding_awareness
+
+        # Delegate to the onboarding service's awareness function
+        # which reads from the Activity Store
+        onboarding_data = get_onboarding_awareness(
+            db=db,
+            company_id=company_id,
+            hours=1,
+        )
+
+        result.update(onboarding_data)
+
+        logger.debug(
+            "domain11_onboarding_awareness: company=%s, active=%d, "
+            "verification_rate=%s, payment_rate=%s, flags=%d",
+            company_id,
+            result.get("onboarding_active_sessions", 0),
+            result.get("onboarding_verification_rate", "N/A"),
+            result.get("onboarding_payment_rate", "N/A"),
+            len(result.get("onboarding_flags", [])),
+        )
+
+    except Exception:
+        # Onboarding awareness is non-critical — BC-008
+        logger.debug(
+            "onboarding_awareness_collection_failed: company=%s",
+            company_id,
         )
 
     return result
