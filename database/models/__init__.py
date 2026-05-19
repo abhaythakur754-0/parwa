@@ -96,3 +96,8 @@ from database.models.email_bounces import (  # noqa: F401
     CustomerEmailStatus,
     EmailDeliverabilityAlert,
 )
+from database.models.activity_log import (  # noqa: F401
+    ActivityLog,
+    IMPORTANCE_TTL_DAYS,
+    CATEGORY_IMPORTANCE_DEFAULTS,
+)

@@ -26,6 +26,7 @@ class EventCategory(str, Enum):
     APPROVAL = "approval"
     NOTIFICATION = "notification"
     SYSTEM = "system"
+    ACTIVITY = "activity"
 
 
 # ── Event Payload Schemas ────────────────────────────────
@@ -85,6 +86,20 @@ class SystemEventPayload(BaseModel):
     status: Optional[str] = None
     message: Optional[str] = None
     metric_value: Optional[float] = None
+    extra: Optional[Dict[str, Any]] = None
+
+
+class ActivityEventPayload(BaseModel):
+    """Schema for activity-scoped events (Jarvis non-agentic awareness)."""
+    company_id: str
+    category: str
+    action: str
+    actor_type: Optional[str] = None
+    actor_id: Optional[str] = None
+    entity_type: Optional[str] = None
+    entity_id: Optional[str] = None
+    importance: Optional[str] = None
+    label: Optional[str] = None
     extra: Optional[Dict[str, Any]] = None
 
 
@@ -240,6 +255,21 @@ class EventRegistry:
                 type_str=type_str,
                 category=EventCategory.SYSTEM,
                 payload_schema=SystemEventPayload,
+                description=desc,
+            ))
+
+        # ── Activity Events (5) — Jarvis non-agentic awareness ──
+        for type_str, desc in [
+            ("activity:logged", "New activity logged in Activity Store"),
+            ("activity:billing", "Billing-related activity detected"),
+            ("activity:user_action", "User action activity detected"),
+            ("activity:flag", "Activity awareness flag raised"),
+            ("activity:pruned", "Expired activity log entries pruned"),
+        ]:
+            self.register(EventType(
+                type_str=type_str,
+                category=EventCategory.ACTIVITY,
+                payload_schema=ActivityEventPayload,
                 description=desc,
             ))
 

@@ -6,7 +6,7 @@ things ("hey, ticket volume just spiked 3x"), the Awareness Engine monitors
 the system state and generates alerts when something needs attention.
 
 Architecture:
-  7 Monitoring Domains (from GROUP 14 of ParwaGraphState):
+  8 Monitoring Domains (7 from GROUP 14 + Domain 8 Activity Store):
     1. PLAN & SUBSCRIPTION  — plan usage, renewal, subscription status
     2. SYSTEM HEALTH        — overall health, per-channel health
     3. TICKET VOLUME        — today vs avg, spike detection
@@ -14,6 +14,14 @@ Architecture:
     5. TRAINING             — Agent Lightning training state, mistake count
     6. DRIFT & QUALITY      — model drift, quality score, quality alerts
     7. ERRORS               — last 5 errors, error rate tracking
+    8. ACTIVITY STORE       — non-agentic awareness: user actions, billing,
+                              system events, config changes, channel events
+
+  Domain 8 (Activity Store) is the KEY differentiator for Jarvis awareness.
+  For AGENTIC parts, Jarvis asks variant agents directly via variant_bridge.
+  For NON-AGENTIC parts, Jarvis reads the Activity Store to know what happened.
+  This avoids hardcoding 500+ awareness functions — instead, every action is
+  logged and Jarvis reads it for contextual awareness.
 
   Tick Types:
     - periodic:  Automatic tick (every 30 seconds via Celery/Redis beat)
@@ -261,6 +269,13 @@ def run_awareness_tick(
     except Exception:
         logger.exception("Failed to prune expired alerts")
 
+    # ── Step 10b: Prune expired activity log entries ──
+    try:
+        from app.services.activity_store import prune_expired
+        prune_expired(db, company_id=company_id)
+    except Exception:
+        logger.debug("activity_prune_non_fatal", exc_info=True)
+
     # ── Step 11: Dispatch events (Phase 2.4) ──
     try:
         from app.services import jarvis_event_dispatcher
@@ -370,7 +385,7 @@ def collect_awareness_state(
     session_id: str,
     live_graph_state: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Collect current awareness state from all 7 monitoring domains.
+    """Collect current awareness state from all 8 monitoring domains.
 
     Each domain collector is independently wrapped in try/except (BC-008).
     If a collector fails, its fields are set to safe defaults and
@@ -419,6 +434,9 @@ def collect_awareness_state(
 
     # Domain 7: Errors
     state.update(_collect_errors(db, company_id))
+
+    # Domain 8: Activity Store (non-agentic awareness)
+    state.update(_collect_activity_store(db, company_id))
 
     # ── JV-02: Merge live LangGraph state (takes precedence over DB) ──
     if live_graph_state and isinstance(live_graph_state, dict):
@@ -561,6 +579,76 @@ def get_live_graph_state(
         )
 
     return None
+
+
+
+# ══════════════════════════════════════════════════════════════════
+# DOMAIN 8: ACTIVITY STORE (Non-Agentic Awareness)
+# ══════════════════════════════════════════════════════════════════
+
+
+def _collect_activity_store(
+    db: Session,
+    company_id: str,
+) -> Dict[str, Any]:
+    """Collect non-agentic awareness from the Activity Store.
+
+    This is Domain 8 — the key differentiator. For AGENTIC parts,
+    Jarvis asks variant agents directly via variant_bridge. For
+    NON-AGENTIC parts (user actions, billing, system events, config
+    changes), Jarvis reads the Activity Store.
+
+    The Activity Store records EVERY action in the system, so Jarvis
+    doesn't need hardcoded awareness functions. Instead, it reads
+    what happened and REASONS about it using the ZAI LLM.
+
+    Returns:
+        Dict with activity_awareness fields:
+          - activity_total_last_hour: count of activities in last hour
+          - activity_billing_awareness: billing events summary
+          - activity_user_awareness: user behavior summary
+          - activity_system_awareness: system events summary
+          - activity_flags: auto-detected flags for Jarvis
+          - activity_recent_high: last 5 high-importance events
+    """
+    defaults: Dict[str, Any] = {
+        "activity_total_last_hour": 0,
+        "activity_billing_awareness": {},
+        "activity_user_awareness": {},
+        "activity_system_awareness": {},
+        "activity_flags": [],
+        "activity_recent_high": [],
+    }
+
+    try:
+        from app.services.activity_store import get_awareness_context
+
+        # Get the full awareness context from the Activity Store
+        # This reads recent activities for this tenant (1 hour window)
+        awareness = get_awareness_context(db, company_id, hours=1)
+
+        defaults["activity_total_last_hour"] = awareness.get("summary", {}).get("total_count", 0)
+        defaults["activity_billing_awareness"] = awareness.get("billing_awareness", {})
+        defaults["activity_user_awareness"] = awareness.get("user_action_awareness", {})
+        defaults["activity_system_awareness"] = awareness.get("system_awareness", {})
+        defaults["activity_flags"] = awareness.get("flags", [])
+        defaults["activity_recent_high"] = awareness.get("summary", {}).get("recent_high", [])
+
+        logger.debug(
+            "domain8_activity_store: company=%s, total_last_hour=%d, flags=%d",
+            company_id,
+            defaults["activity_total_last_hour"],
+            len(defaults["activity_flags"]),
+        )
+
+    except Exception as e:
+        logger.warning(
+            "domain8_activity_store_failed: company=%s, error=%s",
+            company_id, str(e)[:200],
+        )
+        defaults["activity_store_error"] = str(e)[:200]
+
+    return defaults
 
 
 # ══════════════════════════════════════════════════════════════════

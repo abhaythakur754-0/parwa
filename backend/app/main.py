@@ -44,6 +44,7 @@ from app.middleware.api_key_auth import APIKeyAuthMiddleware
 from app.middleware.ip_allowlist import (
     IPAllowlistMiddleware,
 )
+from app.middleware.activity_capture import ActivityCaptureMiddleware
 from app.middleware.ai_entitlement import (
     AIEntitlementMiddleware,
 )
@@ -333,29 +334,32 @@ app.add_middleware(ErrorHandlerMiddleware)
 # 2. Request logger — audit trail for every request
 app.add_middleware(RequestLoggerMiddleware)
 
-# 3. Tenant middleware — BC-001 multi-tenant isolation
+# 3. Activity capture — records non-agentic actions for Jarvis awareness
+app.add_middleware(ActivityCaptureMiddleware)
+
+# 4. Tenant middleware — BC-001 multi-tenant isolation
 app.add_middleware(TenantMiddleware)
 
-# 4. Rate limit middleware — BC-011/BC-012 rate limiting
+# 5. Rate limit middleware — BC-011/BC-012 rate limiting
 app.add_middleware(RateLimitMiddleware)
 
-# 5. API Key auth — BC-011
+# 6. API Key auth — BC-011
 app.add_middleware(APIKeyAuthMiddleware)
 
-# 6. Security headers — BC-011/BC-012
+# 7. Security headers — BC-011/BC-012
 app.add_middleware(SecurityHeadersMiddleware)
 
-# 7. CSRF protection — Origin/Referer validation + double-submit cookie
+# 8. CSRF protection — Origin/Referer validation + double-submit cookie
 app.add_middleware(CSRFSecurityMiddleware)
 
-# 8. IP allowlist — BC-012 (disabled by default)
+# 9. IP allowlist — BC-012 (disabled by default)
 # Set IP_ALLOWLIST_ENABLED=true to activate
 app.add_middleware(IPAllowlistMiddleware)
 
-# 9. AI Entitlement — Week 8: feature gating for /api/ai/ paths
+# 10. AI Entitlement — Week 8: feature gating for /api/ai/ paths
 app.add_middleware(AIEntitlementMiddleware)
 
-# 10. CORS middleware (frontend cross-origin access)
+# 11. CORS middleware (frontend cross-origin access)
 # SECURITY (C-05, L-16): Never fall back to wildcard ["*"] when
 # allow_credentials=True. CORS origins must always be explicit,
 # even when OpenAPI docs are hidden in non-debug mode.
