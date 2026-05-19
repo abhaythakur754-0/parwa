@@ -698,19 +698,90 @@ def send_message(
                     metadata = {"error_type": "all_pipelines_failed"}
                     knowledge = []
         else:
-            # ── Legacy Onboarding Path (no variant_tier set) ──
-            # Uses direct AI provider call without pipeline processing
-            logger.info("Using Jarvis Onboarding AI Path (direct AI, no variant_tier)")
+            # ── Onboarding Orchestrator Path (no variant_tier set) ──
+            # Routes through the full Onboarding Jarvis Orchestrator:
+            #   context → awareness → stage detection → function registry →
+            #   LLM with function calling → safety gate → execute → awareness update
+            # Falls back to direct AI if orchestrator import/call fails.
+            logger.info("Using Jarvis Onboarding Orchestrator Path (full pipeline)")
             try:
-                system_prompt = build_system_prompt(db, session_id, user_message)
-                ai_content, ai_message_type, metadata, knowledge = (
-                    _call_ai_provider(system_prompt, history, user_message, ctx)
+                from app.services.onboarding_jarvis_orchestrator import (
+                    process_onboarding_message,
                 )
+
+                # Bridge async orchestrator from sync context
+                _orchestrator_coro = process_onboarding_message(
+                    db=db,
+                    session_id=session_id,
+                    user_id=user_id,
+                    company_id=company_id or "",
+                    user_message=user_message,
+                    channel="chat",
+                )
+                try:
+                    result = asyncio.run(_orchestrator_coro)
+                except RuntimeError:
+                    # Already inside an event loop — run in a separate thread
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as _pool:
+                        _future = _pool.submit(asyncio.run, _orchestrator_coro)
+                        result = _future.result(timeout=30)
+
+                # Map orchestrator result to jarvis_service format
+                ai_content = result.get("content", "")
+                ai_message_type = result.get("message_type", "text")
+                metadata = result.get("metadata", {})
+                knowledge = []  # Orchestrator handles knowledge internally
+
+                # Track orchestrator-specific metadata
+                if result.get("function_called"):
+                    metadata["function_called"] = result["function_called"]
+                if result.get("function_result"):
+                    metadata["function_result"] = result["function_result"]
+
+                logger.info(
+                    "onboarding_orchestrator_success: session=%s, func=%s, stage=%s",
+                    session_id,
+                    result.get("function_called"),
+                    metadata.get("stage", "unknown"),
+                )
+
+            except ImportError as import_exc:
+                # Orchestrator module unavailable — fall back to direct AI
+                logger.warning(
+                    "Onboarding Orchestrator import failed, falling back to direct AI: %s",
+                    import_exc,
+                )
+                try:
+                    system_prompt = build_system_prompt(db, session_id, user_message)
+                    ai_content, ai_message_type, metadata, knowledge = (
+                        _call_ai_provider(system_prompt, history, user_message, ctx)
+                    )
+                    metadata["fallback_reason"] = "orchestrator_import_error"
+                except Exception as inner_exc:
+                    logger.error("Direct AI also failed: %s", inner_exc)
+                    ai_content = _get_friendly_error_message()
+                    ai_message_type = "error"
+                    metadata = {"error_type": "all_paths_failed", "fallback_reason": "orchestrator_import_error"}
+                    knowledge = []
+
             except Exception as exc:
-                logger.error("Jarvis AI Path failed: %s", exc)
-                ai_content, ai_message_type = _get_friendly_error_message(), "error"
-                metadata = {"error_type": type(exc).__name__}
-                knowledge = []
+                # Orchestrator call failed — fall back to direct AI
+                logger.error(
+                    "Onboarding Orchestrator failed, falling back to direct AI: %s",
+                    exc,
+                )
+                try:
+                    system_prompt = build_system_prompt(db, session_id, user_message)
+                    ai_content, ai_message_type, metadata, knowledge = (
+                        _call_ai_provider(system_prompt, history, user_message, ctx)
+                    )
+                    metadata["fallback_reason"] = "orchestrator_error"
+                except Exception as inner_exc:
+                    logger.error("Direct AI also failed: %s", inner_exc)
+                    ai_content = _get_friendly_error_message()
+                    ai_message_type = "error"
+                    metadata = {"error_type": "all_paths_failed", "fallback_reason": "orchestrator_error"}
+                    knowledge = []
     else:
         # ── Customer Care Path: Route through Variant Pipeline Bridge ──
         # This connects the Mini Parwa / Parwa / Parwa High LangGraph

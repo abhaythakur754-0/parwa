@@ -1,0 +1,285 @@
+{
+  "direct_api": {
+    "list_customers": {
+      "success": true,
+      "count": 1,
+      "data": [
+        {
+          "id": "ctm_01krxm369k6pa5e85p5qbtsw64",
+          "status": "active",
+          "custom_data": {
+            "type": "test",
+            "source": "paddle_setup_script"
+          },
+          "name": "Parwa Test Customer",
+          "email": "test@parwa.ai",
+          "marketing_consent": false,
+          "locale": "en",
+          "created_at": "2026-05-18T13:23:35.347Z",
+          "updated_at": "2026-05-18T13:23:35.347Z",
+          "import_meta": null
+        }
+      ]
+    },
+    "list_subscriptions": {
+      "success": true,
+      "count": 0,
+      "data": []
+    },
+    "list_transactions": {
+      "success": true,
+      "count": 0,
+      "data": []
+    },
+    "list_prices": {
+      "success": true,
+      "count": 3,
+      "data": [
+        {
+          "id": "pri_01krxm4rjx1bfgg1w9z4qr3dd8",
+          "product_id": "pro_01krxm34tek4skgcaap69c0hmg",
+          "type": "standard",
+          "description": "Parwa High \u2014 Enterprise Plan Monthly",
+          "name": null,
+          "billing_cycle": {
+            "interval": "month",
+            "frequency": 1
+          },
+          "trial_period": null,
+          "tax_mode": "location",
+          "unit_price": {
+            "amount": "19900",
+            "currency_code": "USD"
+          },
+          "unit_price_overrides": [],
+          "custom_data": {
+            "billing_cycle": "monthly",
+            "parwa_plan": "parwa_high"
+          },
+          "status": "active",
+          "quantity": {
+            "minimum": 1,
+            "maximum": 100
+          },
+          "import_meta": null,
+          "created_at": "2026-05-18T13:24:26.845063Z",
+          "updated_at": "2026-05-18T13:24:26.845064Z"
+        },
+        {
+          "id": "pri_01krxm4ra529ry7bzr9z73pza1",
+          "product_id": "pro_01krxm34gy1bew3xqkgamt1ywa",
+          "type": "standard",
+          "description": "Parwa \u2014 Professional Plan Monthly",
+          "name": null,
+          "billing_cycle": {
+            "interval": "month",
+            "frequency": 1
+          },
+          "trial_period": null,
+          "tax_mode": "location",
+          "unit_price": {
+            "amount": "7900",
+            "currency_code": "USD"
+          },
+          "unit_price_overrides": [],
+          "custom_data": {
+            "billing_cycle": "monthly",
+            "parwa_plan": "parwa"
+          },
+          "status": "active",
+          "quantity": {
+            "minimum": 1,
+            "maximum": 100
+          },
+          "import_meta": null,
+          "created_at": "2026-05-18T13:24:26.565352Z",
+          "updated_at": "2026-05-18T13:24:26.565352Z"
+        },
+        {
+          "id": "pri_01krxm4r0kcm6mm5fc84pp9bj0",
+          "product_id": "pro_01krxm347n849rkaraykhvqfhy",
+          "type": "standard",
+          "description": "Mini Parwa \u2014 Starter Plan Monthly",
+          "name": null,
+          "billing_cycle": {
+            "interval": "month",
+            "frequency": 1
+          },
+          "trial_period": null,
+          "tax_mode": "location",
+          "unit_price": {
+            "amount": "2900",
+            "currency_code": "USD"
+          },
+          "unit_price_overrides": [],
+          "custom_data": {
+            "billing_cycle": "monthly",
+            "parwa_plan": "mini_parwa"
+          },
+          "status": "active",
+          "quantity": {
+            "minimum": 1,
+            "maximum": 100
+          },
+          "import_meta": null,
+          "created_at": "2026-05-18T13:24:26.259659Z",
+          "updated_at": "2026-05-18T13:24:26.259659Z"
+        }
+      ]
+    },
+    "list_products": {
+      "success": true,
+      "count": 3,
+      "data": [
+        {
+          "id": "pro_01krxm34tek4skgcaap69c0hmg",
+          "name": "Parwa High",
+          "tax_category": "standard",
+          "type": "standard",
+          "description": "Enterprise plan for large businesses \u2014 unlimited AI support with priority",
+          "image_url": null,
+          "custom_data": {
+            "parwa_plan": "parwa_high"
+          },
+          "status": "active",
+          "import_meta": null,
+          "created_at": "2026-05-18T13:23:33.838Z",
+          "updated_at": "2026-05-18T13:23:33.838Z"
+        },
+        {
+          "id": "pro_01krxm34gy1bew3xqkgamt1ywa",
+          "name": "Parwa",
+          "tax_category": "standard",
+          "type": "standard",
+          "description": "Professional plan for growing businesses \u2014 full AI support suite",
+          "image_url": null,
+          "custom_data": {
+            "parwa_plan": "parwa"
+          },
+          "status": "active",
+          "import_meta": null,
+          "created_at": "2026-05-18T13:23:33.534Z",
+          "updated_at": "2026-05-18T13:23:33.534Z"
+        },
+        {
+          "id": "pro_01krxm347n849rkaraykhvqfhy",
+          "name": "Mini Parwa",
+          "tax_category": "standard",
+          "type": "standard",
+          "description": "Starter plan for small businesses \u2014 AI customer support basics",
+          "image_url": null,
+          "custom_data": {
+            "parwa_plan": "mini_parwa"
+          },
+          "status": "active",
+          "import_meta": null,
+          "created_at": "2026-05-18T13:23:33.237Z",
+          "updated_at": "2026-05-18T13:23:33.237Z"
+        }
+      ]
+    },
+    "list_adjustments": {
+      "success": true,
+      "count": 0,
+      "data": []
+    },
+    "list_reports": {
+      "success": true,
+      "count": 0
+    }
+  },
+  "paddle_bridge": {
+    "bridge_list_customers": {
+      "success": true,
+      "customers": [
+        {
+          "id": "ctm_01krxm369k6pa5e85p5qbtsw64",
+          "status": "active",
+          "custom_data": {
+            "type": "test",
+            "source": "paddle_setup_script"
+          },
+          "name": "Parwa Test Customer",
+          "email": "test@parwa.ai",
+          "marketing_consent": false,
+          "locale": "en",
+          "created_at": "2026-05-18T13:23:35.347Z",
+          "updated_at": "2026-05-18T13:23:35.347Z",
+          "import_meta": null
+        }
+      ],
+      "total_count": 1
+    },
+    "bridge_list_subscriptions": {
+      "success": true,
+      "subscriptions": [],
+      "total_count": 0
+    },
+    "bridge_get_subscription_info": {
+      "success": false,
+      "message": "No subscriptions available"
+    },
+    "bridge_get_transaction_history": {
+      "success": true,
+      "source": "paddle_api",
+      "transactions": [],
+      "total_count": 0,
+      "total_payments": 0,
+      "total_refunds": 0,
+      "total_credits": 0,
+      "period": "all",
+      "message": "Found 0 transactions from Paddle."
+    },
+    "bridge_list_invoices": {
+      "success": false,
+      "invoices": [],
+      "message": "Failed to list invoices: Permission denied"
+    }
+  },
+  "permissions": {
+    "read_addresses": {
+      "success": false,
+      "status": 404
+    },
+    "read_adjustments": {
+      "success": true,
+      "count": 0
+    },
+    "read_businesses": {
+      "success": false,
+      "status": 404
+    },
+    "read_customers": {
+      "success": true,
+      "count": 1
+    },
+    "read_discounts": {
+      "success": true,
+      "count": 0
+    },
+    "read_prices": {
+      "success": true,
+      "count": 3
+    },
+    "read_products": {
+      "success": true,
+      "count": 3
+    },
+    "read_reports": {
+      "success": true,
+      "count": 0
+    },
+    "read_subscriptions": {
+      "success": true,
+      "count": 0
+    },
+    "read_transactions": {
+      "success": true,
+      "count": 0
+    },
+    "read_notification-settings": {
+      "success": true,
+      "count": 1
+    }
+  }
+}

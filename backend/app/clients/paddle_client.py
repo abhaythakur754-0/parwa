@@ -493,6 +493,30 @@ class PaddleClient:
 
     # ── Price Methods ────────────────────────────────────────────────
 
+    async def get_product(self, product_id: str) -> Dict[str, Any]:
+        """
+        Get product details by ID.
+
+        API: GET /products/{product_id}
+        """
+        return await self._request("GET", f"/products/{product_id}")
+
+    async def list_products(
+        self,
+        per_page: int = 50,
+        after: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        List products with optional filters.
+
+        API: GET /products
+        """
+        params: Dict[str, Any] = {"per_page": per_page}
+        if after:
+            params["after"] = after
+
+        return await self._request("GET", "/products", params=params)
+
     async def get_price(self, price_id: str) -> Dict[str, Any]:
         """
         Get price/variant details by ID.

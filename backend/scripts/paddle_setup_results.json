@@ -1,0 +1,65 @@
+{
+  "products": [
+    {
+      "id": "pro_01krxm347n849rkaraykhvqfhy",
+      "name": "Mini Parwa",
+      "tax_category": "standard",
+      "type": "standard",
+      "description": "Starter plan for small businesses \u2014 AI customer support basics",
+      "image_url": null,
+      "custom_data": {
+        "parwa_plan": "mini_parwa"
+      },
+      "status": "active",
+      "import_meta": null,
+      "created_at": "2026-05-18T13:23:33.237Z",
+      "updated_at": "2026-05-18T13:23:33.237Z"
+    },
+    {
+      "id": "pro_01krxm34gy1bew3xqkgamt1ywa",
+      "name": "Parwa",
+      "tax_category": "standard",
+      "type": "standard",
+      "description": "Professional plan for growing businesses \u2014 full AI support suite",
+      "image_url": null,
+      "custom_data": {
+        "parwa_plan": "parwa"
+      },
+      "status": "active",
+      "import_meta": null,
+      "created_at": "2026-05-18T13:23:33.534Z",
+      "updated_at": "2026-05-18T13:23:33.534Z"
+    },
+    {
+      "id": "pro_01krxm34tek4skgcaap69c0hmg",
+      "name": "Parwa High",
+      "tax_category": "standard",
+      "type": "standard",
+      "description": "Enterprise plan for large businesses \u2014 unlimited AI support with priority",
+      "image_url": null,
+      "custom_data": {
+        "parwa_plan": "parwa_high"
+      },
+      "status": "active",
+      "import_meta": null,
+      "created_at": "2026-05-18T13:23:33.838Z",
+      "updated_at": "2026-05-18T13:23:33.838Z"
+    }
+  ],
+  "prices": [],
+  "customer": {
+    "id": "ctm_01krxm369k6pa5e85p5qbtsw64",
+    "status": "active",
+    "custom_data": {
+      "type": "test",
+      "source": "paddle_setup_script"
+    },
+    "name": "Parwa Test Customer",
+    "email": "test@parwa.ai",
+    "marketing_consent": false,
+    "locale": "en",
+    "created_at": "2026-05-18T13:23:35.347Z",
+    "updated_at": "2026-05-18T13:23:35.347Z",
+    "import_meta": null
+  }
+}

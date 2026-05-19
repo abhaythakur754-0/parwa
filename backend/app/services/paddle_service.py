@@ -36,10 +36,10 @@ DEMO_PACK_DURATION_HOURS = 24
 # Default price IDs — used until PADDLE_PRICE_IDS env var is set
 _DEFAULT_PRICE_IDS: Dict[str, str] = {
     "demo_pack": "pri_demo_pack_01",
-    # Plan price IDs
-    "mini_parwa": "pri_mini_parwa_01",
-    "parwa": "pri_parwa_01",
-    "parwa_high": "pri_parwa_high_01",
+    # Plan price IDs (LIVE Paddle production IDs)
+    "mini_parwa": "pri_01krxm4r0kcm6mm5fc84pp9bj0",
+    "parwa": "pri_01krxm4ra529ry7bzr9z73pza1",
+    "parwa_high": "pri_01krxm4rjx1bfgg1w9z4qr3dd8",
     # E-commerce variants
     "order_management": "pri_order_mgmt_01",
     "returns_refunds": "pri_returns_01",
