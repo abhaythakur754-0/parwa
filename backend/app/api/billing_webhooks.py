@@ -84,6 +84,36 @@ class BillingStatusResponse(BaseModel):
     last_payment_failure: Optional[Dict[str, Any]] = None
 
 
+class WebhookAckResponse(BaseModel):
+    """Response for webhook acknowledgment."""
+    status: str
+    event_id: Optional[str] = None
+    warning: Optional[str] = None
+    message: Optional[str] = None
+
+    model_config = {"extra": "allow"}
+
+
+class PaymentFailureHandleResponse(BaseModel):
+    """Response for payment failure webhook handling."""
+    status: str
+    failure_id: Optional[str] = None
+    company_id: Optional[str] = None
+    message: Optional[str] = None
+
+    model_config = {"extra": "allow"}
+
+
+class PaymentSucceededHandleResponse(BaseModel):
+    """Response for payment succeeded webhook handling."""
+    status: str
+    failure_id: Optional[str] = None
+    company_id: Optional[str] = None
+    message: Optional[str] = None
+
+    model_config = {"extra": "allow"}
+
+
 # ── Webhook Signature Verification ──────────────────────────────────────
 # BC-011: Signature verification is delegated to PaddleClient.verify_webhook_signature()
 # which implements the correct Paddle Billing format (ts=;h1=) rather than the
@@ -126,11 +156,11 @@ def extract_company_id_from_event(data: Dict[str, Any]) -> Optional[str]:
 
 # ── Webhook Endpoints ────────────────────────────────────────────────────
 
-@router.post("/webhooks/paddle")
+@router.post("/webhooks/paddle", response_model=WebhookAckResponse)
 async def handle_paddle_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
-):
+) -> WebhookAckResponse:
     """
     Main Paddle webhook endpoint.
 
@@ -296,11 +326,11 @@ async def handle_paddle_webhook(
     return {"status": "accepted", "event_id": event_id}
 
 
-@router.post("/webhooks/paddle/payment-failed")
+@router.post("/webhooks/paddle/payment-failed", response_model=PaymentFailureHandleResponse)
 async def handle_payment_failed_webhook(
     webhook: PaymentFailedWebhook,
     background_tasks: BackgroundTasks,
-):
+) -> PaymentFailureHandleResponse:
     """
     Dedicated payment failed webhook endpoint.
 
@@ -343,11 +373,11 @@ async def handle_payment_failed_webhook(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/webhooks/paddle/payment-succeeded")
+@router.post("/webhooks/paddle/payment-succeeded", response_model=PaymentSucceededHandleResponse)
 async def handle_payment_succeeded_webhook(
     webhook: PaymentSucceededWebhook,
     background_tasks: BackgroundTasks,
-):
+) -> PaymentSucceededHandleResponse:
     """
     Dedicated payment succeeded webhook endpoint.
 

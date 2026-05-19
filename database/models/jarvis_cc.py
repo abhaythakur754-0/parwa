@@ -168,6 +168,24 @@ class JarvisAwarenessSnapshot(Base):
     # Complete ParwaGraphState GROUP 14 fields as JSON.
     # Used for crash recovery and debug replay.
 
+    # ── Domain 9: Shadow Mode (new) ──
+    shadow_mode_active = Column(Boolean, default=False)
+    shadow_mode_phase = Column(String(20), nullable=True)
+    # off, shadow, supervised, graduated
+    shadow_mode_live_variant = Column(String(50), nullable=True)
+    shadow_mode_shadow_variant = Column(String(50), nullable=True)
+    shadow_mode_win_rate = Column(Numeric(5, 4), nullable=True)
+    shadow_mode_total_comparisons = Column(Integer, default=0)
+    shadow_mode_quality_streak = Column(Integer, default=0)
+    shadow_mode_recent_events_json = Column(Text, default="[]")
+
+    # ── Domain 10: Dashboard & Ticket Actions (new) ──
+    user_current_page = Column(String(255), nullable=True)
+    recent_dashboard_action_count = Column(Integer, default=0)
+    recent_ticket_action_count = Column(Integer, default=0)
+    recent_dashboard_events_json = Column(Text, default="[]")
+    recent_ticket_actions_json = Column(Text, default="[]")
+
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # ── Relationships ──

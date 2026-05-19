@@ -101,3 +101,6 @@ from database.models.activity_log import (  # noqa: F401
     IMPORTANCE_TTL_DAYS,
     CATEGORY_IMPORTANCE_DEFAULTS,
 )
+from database.models.jarvis_activity import (  # noqa: F401
+    JarvisActivityEvent,
+)

@@ -585,12 +585,12 @@ async def preview_upgrade(
     )
 
 
-@router.get("/proration/history")
+@router.get("/proration/history", response_model=ProrationHistoryResponse)
 async def get_proration_history(
     request: Request,
     company_id: UUID = Depends(get_company_id),
     limit: int = Query(12, ge=1, le=50),
-) -> Dict[str, Any]:
+) -> ProrationHistoryResponse:
     """
     Get proration audit history.
 
@@ -609,19 +609,19 @@ async def get_proration_history(
         limit=min(limit, 50),  # Cap at 50
     )
 
-    return {
-        "history": history,
-        "total": len(history),
-    }
+    return ProrationHistoryResponse(
+        history=history,
+        total=len(history),
+    )
 
 
 # ── Status Endpoint ────────────────────────────────────────────────────────
 
-@router.get("/status")
+@router.get("/status", response_model=CompanyBillingStatusResponse)
 async def get_billing_status(
     request: Request,
     company_id: UUID = Depends(get_company_id),
-) -> Dict[str, Any]:
+) -> CompanyBillingStatusResponse:
     """
     Get overall billing status for the company.
 
@@ -632,13 +632,13 @@ async def get_billing_status(
     subscription = await sub_service.get_subscription(company_id)
     status_value = await sub_service.get_subscription_status(company_id)
 
-    return {
-        "subscription_status": status_value,
-        "has_subscription": subscription is not None,
-        "variant": subscription.variant.value if subscription else None,
-        "cancel_at_period_end": subscription.cancel_at_period_end if subscription else False,
-        "current_period_end": subscription.current_period_end if subscription else None,
-    }
+    return CompanyBillingStatusResponse(
+        subscription_status=status_value,
+        has_subscription=subscription is not None,
+        variant=subscription.variant.value if subscription else None,
+        cancel_at_period_end=subscription.cancel_at_period_end if subscription else False,
+        current_period_end=str(subscription.current_period_end) if subscription and subscription.current_period_end else None,
+    )
 
 
 # ── Invoice Endpoints ─────────────────────────────────────────────────────
@@ -876,6 +876,30 @@ class ClientRefundProcessRequest(BaseModel):
     external_ref: Optional[str] = None
 
 
+class ProrationHistoryResponse(BaseModel):
+    """Response for proration audit history."""
+    history: List[Dict[str, Any]]
+    total: int
+
+
+class CompanyBillingStatusResponse(BaseModel):
+    """Response for company billing status."""
+    subscription_status: Optional[str] = None
+    has_subscription: bool
+    variant: Optional[str] = None
+    cancel_at_period_end: bool = False
+    current_period_end: Optional[str] = None
+
+
+class ClientRefundStatsResponse(BaseModel):
+    """Response for client refund statistics."""
+    total_count: int
+    total_amount: str
+    pending_count: int
+    processed_count: int
+    failed_count: int
+
+
 @router.get("/client-refunds", response_model=ClientRefundListResponse)
 async def list_client_refunds(
     request: Request,
@@ -1004,11 +1028,11 @@ async def process_client_refund(
         )
 
 
-@router.get("/client-refunds/stats")
+@router.get("/client-refunds/stats", response_model=ClientRefundStatsResponse)
 async def get_client_refund_stats(
     request: Request,
     company_id: UUID = Depends(get_company_id),
-) -> Dict[str, Any]:
+) -> ClientRefundStatsResponse:
     """
     Get client refund statistics.
 
@@ -1016,4 +1040,4 @@ async def get_client_refund_stats(
         Stats with counts and totals
     """
     service = get_client_refund_service()
-    return service.get_refund_stats(company_id)
+    return ClientRefundStatsResponse(**service.get_refund_stats(company_id))

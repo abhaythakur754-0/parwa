@@ -73,6 +73,7 @@ CATEGORY_KNOWLEDGE = "knowledge"        # Knowledge base management
 CATEGORY_CUSTOMER_FACING = "customer_facing"  # Functions available in agentic mode
 CATEGORY_COMMUNICATION = "communication"  # Call customer, send message
 CATEGORY_SETTINGS = "settings"          # Company settings, preferences
+CATEGORY_ACTIVITY = "activity"          # Activity log, awareness events
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1064,6 +1065,146 @@ FUNCTION_REGISTRY: List[Dict[str, Any]] = [
         "safety_level": SAFETY_CONFIRMATION,
         "tier_available": TIER_ALL,
         "category": CATEGORY_TICKETS,
+    },
+
+    # ────────────────────────────────────────────────────────────
+    # ACTIVITY STORE & AWARENESS
+    # ────────────────────────────────────────────────────────────
+    {
+        "name": "query_activity_log",
+        "description": (
+            "Query the activity log for recent events. The activity log "
+            "records everything that happens in the system: user actions, "
+            "billing events, channel events, admin actions, system events, "
+            "and agent actions. Use when the user asks about what's been "
+            "happening, recent activity, or wants to know about specific "
+            "events like payments, emails, or configuration changes."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "enum": [
+                        "all", "user_action", "billing", "channel",
+                        "admin", "system", "integration", "agent_action",
+                    ],
+                    "description": "Filter by event source (default 'all')",
+                    "default": "all",
+                },
+                "category": {
+                    "type": "string",
+                    "enum": [
+                        "all", "ui", "subscription", "payment", "refund",
+                        "channel_email", "channel_sms", "channel_voice",
+                        "channel_chat", "channel_webhook", "config",
+                        "security", "integration", "cron", "agent",
+                        "sla", "escalation", "quality", "training",
+                    ],
+                    "description": "Filter by event category (default 'all')",
+                    "default": "all",
+                },
+                "severity": {
+                    "type": "string",
+                    "enum": ["all", "info", "warning", "critical", "emergency"],
+                    "description": "Filter by severity (default 'all')",
+                    "default": "all",
+                },
+                "minutes": {
+                    "type": "integer",
+                    "description": "How far back to look in minutes (default 60)",
+                    "default": 60,
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max events to return (default 20, max 100)",
+                    "default": 20,
+                },
+            },
+            "required": [],
+        },
+        "safety_level": SAFETY_NONE,
+        "tier_available": TIER_ALL,
+        "category": CATEGORY_ACTIVITY,
+    },
+    {
+        "name": "get_activity_summary",
+        "description": (
+            "Get a summary of recent activity across the system. Returns "
+            "counts by source, category, severity, and control boundary. "
+            "Shows what Jarvis can and cannot control. Use when the user "
+            "asks 'what's happening?', 'give me an overview', or wants "
+            "to understand the current state of the system."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "hours": {
+                    "type": "integer",
+                    "description": "Look-back window in hours (default 24)",
+                    "default": 24,
+                },
+            },
+            "required": [],
+        },
+        "safety_level": SAFETY_NONE,
+        "tier_available": TIER_ALL,
+        "category": CATEGORY_ACTIVITY,
+    },
+    {
+        "name": "get_control_boundary_report",
+        "description": (
+            "Get a report of what Jarvis can and cannot control. Shows "
+            "how many events are in each control boundary: "
+            "jarvis_can_act (Jarvis can take action), "
+            "agent_controlled (variant agents handle this - ask them), "
+            "notify_only (Jarvis sees but can't control), "
+            "human_required (only humans can handle this). "
+            "Use when the user asks about Jarvis's control scope or "
+            "what needs human attention."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "hours": {
+                    "type": "integer",
+                    "description": "Look-back window in hours (default 24)",
+                    "default": 24,
+                },
+            },
+            "required": [],
+        },
+        "safety_level": SAFETY_NONE,
+        "tier_available": TIER_ALL,
+        "category": CATEGORY_ACTIVITY,
+    },
+    {
+        "name": "get_critical_events",
+        "description": (
+            "Get critical and emergency events that need immediate attention. "
+            "These are the most important events in the activity log. "
+            "Use when the user asks about problems, issues, or what needs "
+            "attention right now."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "hours": {
+                    "type": "integer",
+                    "description": "How far back to look in hours (default 24)",
+                    "default": 24,
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max events to return (default 10)",
+                    "default": 10,
+                },
+            },
+            "required": [],
+        },
+        "safety_level": SAFETY_NONE,
+        "tier_available": TIER_ALL,
+        "category": CATEGORY_ACTIVITY,
     },
 ]
 

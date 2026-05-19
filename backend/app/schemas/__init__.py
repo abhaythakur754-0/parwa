@@ -231,6 +231,66 @@ from app.schemas.api_key import (
     APIKeyRevokedResponse,
 )
 
+# Integration schemas - R-08
+from app.schemas.integration import (
+    IntegrationCreate,
+    IntegrationUpdate,
+    IntegrationResponse,
+    RESTConnectorCreate,
+    RESTConnectorUpdate,
+    RESTConnectorResponse,
+    WebhookIntegrationCreate,
+    WebhookIntegrationUpdate,
+    WebhookIntegrationResponse,
+    MCPConnectionCreate,
+    MCPConnectionUpdate,
+    MCPConnectionResponse,
+    DBConnectionCreate,
+    DBConnectionUpdate,
+    DBConnectionResponse,
+    EventBufferCreate,
+    EventBufferUpdate,
+    EventBufferResponse,
+    ErrorLogCreate,
+    ErrorLogUpdate,
+    ErrorLogResponse,
+    AuditTrailCreate,
+    AuditTrailUpdate,
+    AuditTrailResponse,
+    OutgoingWebhookCreate,
+    OutgoingWebhookUpdate,
+    OutgoingWebhookResponse,
+)
+
+# Approval schemas - R-08
+from app.schemas.approval import (
+    ApprovalQueueCreate,
+    ApprovalQueueUpdate,
+    ApprovalQueueResponse,
+    AutoApproveRuleCreate,
+    AutoApproveRuleUpdate,
+    AutoApproveRuleResponse,
+    ExecutedActionCreate,
+    ExecutedActionUpdate,
+    ExecutedActionResponse,
+    UndoLogCreate,
+    UndoLogUpdate,
+    UndoLogResponse,
+)
+
+# Technique schemas - R-08
+from app.schemas.technique import (
+    TechniqueConfigurationCreate,
+    TechniqueConfigurationUpdate,
+    TechniqueConfigurationResponse,
+    TechniqueExecutionCreate,
+    TechniqueExecutionUpdate,
+    TechniqueExecutionResponse,
+    TechniqueVersionCreate,
+    TechniqueVersionUpdate,
+    TechniqueVersionResponse,
+)
+
 # Existing schemas - using correct class names
 from app.schemas.pagination import PaginatedResponseSchema
 
