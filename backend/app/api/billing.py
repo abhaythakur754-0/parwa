@@ -99,6 +99,21 @@ class UpgradePreviewResponse(BaseModel):
     message: str
 
 
+class ProrationHistoryResponse(BaseModel):
+    """Response for proration audit history."""
+    history: List[Dict[str, Any]]
+    total: int
+
+
+class CompanyBillingStatusResponse(BaseModel):
+    """Response for company billing status."""
+    subscription_status: Optional[str] = None
+    has_subscription: bool
+    variant: Optional[str] = None
+    cancel_at_period_end: bool = False
+    current_period_end: Optional[str] = None
+
+
 class UpgradeResponse(BaseModel):
     """Response for upgrade."""
     subscription: SubscriptionInfo
@@ -874,21 +889,6 @@ class ClientRefundListResponse(BaseModel):
 class ClientRefundProcessRequest(BaseModel):
     """Request to process a refund."""
     external_ref: Optional[str] = None
-
-
-class ProrationHistoryResponse(BaseModel):
-    """Response for proration audit history."""
-    history: List[Dict[str, Any]]
-    total: int
-
-
-class CompanyBillingStatusResponse(BaseModel):
-    """Response for company billing status."""
-    subscription_status: Optional[str] = None
-    has_subscription: bool
-    variant: Optional[str] = None
-    cancel_at_period_end: bool = False
-    current_period_end: Optional[str] = None
 
 
 class ClientRefundStatsResponse(BaseModel):

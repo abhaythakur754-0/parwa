@@ -393,7 +393,11 @@ def _build_confirmation_message(
         "disable_auto_approve_rule": "I'll disable that auto-approve rule. This means those actions will need manual approval instead. Want me to proceed?",
         "solve_ticket": f"I'll route this ticket through the variant pipeline for AI solving. The AI will generate a response to resolve the customer's issue. Shall I go ahead?",
         "batch_solve_tickets": f"I'll solve up to {params.get('max_tickets', 10)} open tickets through the variant pipeline. Each one will get an AI-generated response. Want me to proceed?",
-        "generate_fake_requests": f"I'll generate {params.get('count', 5)} fake customer requests and create tickets from them. {'They\'ll also be automatically solved by the variant pipeline.' if params.get('auto_solve') else 'They\'ll be created as open tickets for you to test with.'} Want me to go ahead?",
+        "generate_fake_requests": (
+            f"I'll generate {params.get('count', 5)} fake customer requests and create tickets from them. "
+            f"{'They will also be automatically solved by the variant pipeline.' if params.get('auto_solve') else 'They will be created as open tickets for you to test with.'} "
+            "Want me to go ahead?"
+        ),
     }
 
     return messages.get(
