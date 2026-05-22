@@ -6,6 +6,7 @@ const nextConfig = {
   },
   reactStrictMode: false,
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
+  turbopack: {},
 
   // ── M-26 FIX: Security headers on all responses ──
   async headers() {

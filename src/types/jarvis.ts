@@ -23,7 +23,13 @@ export type MessageType =
   | 'pack_expired'
   | 'error'
   | 'message_counter'
-  | 'demo_pack_cta';
+  | 'demo_pack_cta'
+  | 'provider_selector'
+  | 'api_key_input'
+  | 'connection_status'
+  | 'connection_error'
+  | 'integration_summary'
+  | 'industry_suggestion';
 
 export type SessionType = 'onboarding' | 'customer_care';
 
@@ -150,7 +156,7 @@ export interface JarvisMessage {
   role: MessageRole;
   content: string;
   message_type: MessageType;
-  metadata: Record<string, unknown>;
+  metadata: IntegrationMetadata & Record<string, unknown>;
   timestamp: string | null;
   knowledge_used?: KnowledgeUsedItem[];
 }
@@ -185,6 +191,72 @@ export interface DemoCallState {
   phone: string | null;
   duration: number;
   call_id?: string | null;
+}
+
+// ── Integration Setup Types ────────────────────────────────────────
+
+export interface ProviderInfo {
+  type: string;
+  name: string;
+  description: string;
+  popular?: boolean;
+  icon?: string;
+  setup_difficulty?: string;
+  setup_time?: string;
+  required_fields?: string[];
+  capabilities?: string[];
+}
+
+export interface DetectionResult {
+  provider_type: string;
+  category: string;
+  confidence: number;
+  name: string;
+}
+
+export interface TestResult {
+  success: boolean;
+  message: string;
+  provider_info?: Record<string, any>;
+}
+
+export interface ConnectionInfo {
+  id: string;
+  category: string;
+  provider_type: string;
+  provider_name: string;
+  status: 'disconnected' | 'connecting' | 'connected' | 'error';
+  connected_at?: string;
+  error_message?: string;
+}
+
+export interface IntegrationMetadata {
+  // For provider_selector cards
+  category?: string;
+  providers?: ProviderInfo[];
+  industry?: string;
+
+  // For api_key_input cards
+  detected_provider?: DetectionResult;
+
+  // For connection_status cards
+  connection?: ConnectionInfo;
+  troubleshooting_steps?: string[];
+
+  // For integration_summary cards
+  connected?: ConnectionInfo[];
+  skipped?: { category: string; name: string }[];
+
+  // For industry_suggestion cards
+  suggestions?: { category: string; providers: ProviderInfo[] }[];
+}
+
+export interface IntegrationActions {
+  detectProvider: (apiKey: string) => Promise<DetectionResult>;
+  testConnection: (providerType: string, category: string, credentials: Record<string, string>) => Promise<TestResult>;
+  connectIntegration: (providerType: string, category: string, credentials: Record<string, string>) => Promise<void>;
+  disconnectIntegration: (connectionId: string) => Promise<void>;
+  skipIntegration: (category: string) => void;
 }
 
 // ── API Request Types ─────────────────────────────────────────────

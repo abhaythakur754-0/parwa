@@ -6,7 +6,7 @@ things ("hey, ticket volume just spiked 3x"), the Awareness Engine monitors
 the system state and generates alerts when something needs attention.
 
 Architecture:
-  7 Monitoring Domains (from GROUP 14 of ParwaGraphState):
+  8 Monitoring Domains (7 from GROUP 14 + Domain 8 Activity Store):
     1. PLAN & SUBSCRIPTION  — plan usage, renewal, subscription status
     2. SYSTEM HEALTH        — overall health, per-channel health
     3. TICKET VOLUME        — today vs avg, spike detection
@@ -14,6 +14,14 @@ Architecture:
     5. TRAINING             — Agent Lightning training state, mistake count
     6. DRIFT & QUALITY      — model drift, quality score, quality alerts
     7. ERRORS               — last 5 errors, error rate tracking
+    8. ACTIVITY STORE       — non-agentic awareness: user actions, billing,
+                              system events, config changes, channel events
+
+  Domain 8 (Activity Store) is the KEY differentiator for Jarvis awareness.
+  For AGENTIC parts, Jarvis asks variant agents directly via variant_bridge.
+  For NON-AGENTIC parts, Jarvis reads the Activity Store to know what happened.
+  This avoids hardcoding 500+ awareness functions — instead, every action is
+  logged and Jarvis reads it for contextual awareness.
 
   Tick Types:
     - periodic:  Automatic tick (every 30 seconds via Celery/Redis beat)
@@ -261,6 +269,13 @@ def run_awareness_tick(
     except Exception:
         logger.exception("Failed to prune expired alerts")
 
+    # ── Step 10b: Prune expired activity log entries ──
+    try:
+        from app.services.activity_store import prune_expired
+        prune_expired(db, company_id=company_id)
+    except Exception:
+        logger.debug("activity_prune_non_fatal", exc_info=True)
+
     # ── Step 11: Dispatch events (Phase 2.4) ──
     try:
         from app.services import jarvis_event_dispatcher
@@ -370,7 +385,7 @@ def collect_awareness_state(
     session_id: str,
     live_graph_state: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Collect current awareness state from all 7 monitoring domains.
+    """Collect current awareness state from all 8 monitoring domains.
 
     Each domain collector is independently wrapped in try/except (BC-008).
     If a collector fails, its fields are set to safe defaults and
@@ -419,6 +434,30 @@ def collect_awareness_state(
 
     # Domain 7: Errors
     state.update(_collect_errors(db, company_id))
+
+    # Domain 8: Activity Store (non-agentic awareness)
+    # This is where Jarvis gets awareness of things that aren't
+    # handled by agentic variant agents: user actions, billing,
+    # channel events, admin actions, integrations, etc.
+    state.update(_collect_activity_store(db, company_id, session_id))
+
+    # Domain 9: Shadow Mode awareness
+    # Jarvis MUST know if shadow mode is on/off, what phase it's in,
+    # and which variants are being compared. Without this, Jarvis can't
+    # understand why certain tickets are being handled differently.
+    state.update(_collect_shadow_mode(db, company_id))
+
+    # Domain 10: Dashboard & Ticket Actions awareness
+    # Jarvis MUST know what the user is doing in the dashboard:
+    # which pages they visit, which tickets they interact with,
+    # which settings they change. This enables context-aware conversations.
+    state.update(_collect_dashboard_awareness(db, company_id, session_id))
+
+    # Domain 11: Onboarding Funnel awareness
+    # Jarvis MUST know about the onboarding pipeline: how many sessions
+    # are active, verification rates, payment conversion, and drop-off
+    # points. This gives Jarvis full awareness of the pre-purchase funnel.
+    state.update(_collect_onboarding_awareness(db, company_id))
 
     # ── JV-02: Merge live LangGraph state (takes precedence over DB) ──
     if live_graph_state and isinstance(live_graph_state, dict):
@@ -563,6 +602,76 @@ def get_live_graph_state(
     return None
 
 
+
+# ══════════════════════════════════════════════════════════════════
+# DOMAIN 8: ACTIVITY STORE (Non-Agentic Awareness)
+# ══════════════════════════════════════════════════════════════════
+
+
+def _collect_activity_store(
+    db: Session,
+    company_id: str,
+) -> Dict[str, Any]:
+    """Collect non-agentic awareness from the Activity Store.
+
+    This is Domain 8 — the key differentiator. For AGENTIC parts,
+    Jarvis asks variant agents directly via variant_bridge. For
+    NON-AGENTIC parts (user actions, billing, system events, config
+    changes), Jarvis reads the Activity Store.
+
+    The Activity Store records EVERY action in the system, so Jarvis
+    doesn't need hardcoded awareness functions. Instead, it reads
+    what happened and REASONS about it using the ZAI LLM.
+
+    Returns:
+        Dict with activity_awareness fields:
+          - activity_total_last_hour: count of activities in last hour
+          - activity_billing_awareness: billing events summary
+          - activity_user_awareness: user behavior summary
+          - activity_system_awareness: system events summary
+          - activity_flags: auto-detected flags for Jarvis
+          - activity_recent_high: last 5 high-importance events
+    """
+    defaults: Dict[str, Any] = {
+        "activity_total_last_hour": 0,
+        "activity_billing_awareness": {},
+        "activity_user_awareness": {},
+        "activity_system_awareness": {},
+        "activity_flags": [],
+        "activity_recent_high": [],
+    }
+
+    try:
+        from app.services.activity_store import get_awareness_context
+
+        # Get the full awareness context from the Activity Store
+        # This reads recent activities for this tenant (1 hour window)
+        awareness = get_awareness_context(db, company_id, hours=1)
+
+        defaults["activity_total_last_hour"] = awareness.get("summary", {}).get("total_count", 0)
+        defaults["activity_billing_awareness"] = awareness.get("billing_awareness", {})
+        defaults["activity_user_awareness"] = awareness.get("user_action_awareness", {})
+        defaults["activity_system_awareness"] = awareness.get("system_awareness", {})
+        defaults["activity_flags"] = awareness.get("flags", [])
+        defaults["activity_recent_high"] = awareness.get("summary", {}).get("recent_high", [])
+
+        logger.debug(
+            "domain8_activity_store: company=%s, total_last_hour=%d, flags=%d",
+            company_id,
+            defaults["activity_total_last_hour"],
+            len(defaults["activity_flags"]),
+        )
+
+    except Exception as e:
+        logger.warning(
+            "domain8_activity_store_failed: company=%s, error=%s",
+            company_id, str(e)[:200],
+        )
+        defaults["activity_store_error"] = str(e)[:200]
+
+    return defaults
+
+
 # ══════════════════════════════════════════════════════════════════
 # SNAPSHOT MANAGEMENT
 # ══════════════════════════════════════════════════════════════════
@@ -647,6 +756,38 @@ def create_snapshot(
         quality_alerts_json=quality_alerts_json,
         last_5_errors_json=last_5_errors_json,
         raw_state_json=raw_state_json,
+        # Domain 9: Shadow Mode
+        shadow_mode_active=state.get("shadow_mode_active", False),
+        shadow_mode_phase=state.get("shadow_mode_phase"),
+        shadow_mode_live_variant=state.get("shadow_mode_live_variant"),
+        shadow_mode_shadow_variant=state.get("shadow_mode_shadow_variant"),
+        shadow_mode_win_rate=state.get("shadow_mode_win_rate"),
+        shadow_mode_total_comparisons=state.get("shadow_mode_total_comparisons", 0),
+        shadow_mode_quality_streak=state.get("shadow_mode_quality_streak", 0),
+        shadow_mode_recent_events_json=json.dumps(
+            state.get("shadow_mode_recent_events", []), default=str
+        ),
+        # Domain 10: Dashboard & Ticket Actions
+        user_current_page=state.get("user_current_page"),
+        recent_dashboard_action_count=state.get("recent_dashboard_action_count", 0),
+        recent_ticket_action_count=state.get("recent_ticket_action_count", 0),
+        recent_dashboard_events_json=json.dumps(
+            state.get("recent_dashboard_events", []), default=str
+        ),
+        recent_ticket_actions_json=json.dumps(
+            state.get("recent_ticket_actions", []), default=str
+        ),
+        # Domain 11: Onboarding Funnel awareness
+        onboarding_active_sessions=state.get("onboarding_active_sessions", 0),
+        onboarding_verification_rate=state.get("onboarding_verification_rate"),
+        onboarding_payment_rate=state.get("onboarding_payment_rate"),
+        onboarding_handoff_rate=state.get("onboarding_handoff_rate"),
+        onboarding_stage_distribution_json=json.dumps(
+            state.get("onboarding_stage_distribution", {}), default=str
+        ),
+        onboarding_flags_json=json.dumps(
+            state.get("onboarding_flags", []), default=str
+        ),
     )
     db.add(snapshot)
     db.flush()
@@ -1701,8 +1842,73 @@ def _collect_errors(
 
 
 # ══════════════════════════════════════════════════════════════════
-# RULE CHECKS: Generate alerts from state + delta
+# DOMAIN 8: ACTIVITY STORE (Non-Agentic Awareness)
 # ══════════════════════════════════════════════════════════════════
+
+
+def _collect_activity_store(
+    db: Session,
+    company_id: str,
+    session_id: str,
+) -> Dict[str, Any]:
+    """Domain 8: Activity Store (Non-Agentic Awareness).
+
+    This is the key domain that gives Jarvis awareness of everything
+    that ISN'T handled by agentic variant agents. The Activity Store
+    records user actions, billing events, channel events, admin
+    actions, and system events.
+
+    For AGENTIC parts (ticket handling, quality, escalation), Jarvis
+    asks the variant agents directly via variant_bridge.
+    For NON-AGENTIC parts (everything else), Jarvis reads the
+    Activity Store.
+
+    Returns:
+        Dict with:
+          - activity_store_connected: bool
+          - recent_activity: last 20 events
+          - activity_summary: counts by source/category/severity
+          - control_boundary_summary: what Jarvis can/cannot control
+          - unread_activity_count: events since last tick
+          - critical_activity_count: critical/emergency events
+          - collection_timestamp: when this was collected
+    """
+    result: Dict[str, Any] = {
+        "activity_store_connected": False,
+        "recent_activity": [],
+        "activity_summary": {},
+        "control_boundary_summary": {},
+        "unread_activity_count": 0,
+        "critical_activity_count": 0,
+    }
+
+    try:
+        from app.services.jarvis_activity_store import collect_activity_awareness
+
+        # Determine variant scope from session context
+        variant_scope = None
+        try:
+            from app.services.jarvis_cc_service import get_cc_session
+            session = get_cc_session(db, session_id, "", company_id)
+            if session and session.context_json:
+                ctx = _safe_parse_json(session.context_json)
+                variant_scope = ctx.get("variant_tier")
+        except Exception:
+            pass  # BC-008: Continue without variant scope
+
+        activity_data = collect_activity_awareness(
+            db, company_id, variant_scope=variant_scope,
+        )
+
+        result.update(activity_data)
+
+    except Exception:
+        logger.debug(
+            "activity_store_collection_failed: company=%s, session=%s",
+            company_id, session_id,
+        )
+
+    return result
 
 
 def _run_rule_checks(
@@ -1823,6 +2029,16 @@ def _run_rule_checks(
             alerts.extend(rule_alerts if isinstance(rule_alerts, list) else [rule_alerts])
     except Exception:
         logger.exception("training_status_rule_failed: session=%s", session_id)
+
+    # Rule 12: Activity Store Critical Events
+    # Check for critical/emergency events in the Activity Store
+    # (non-agentic events like payment failures, channel outages, etc.)
+    try:
+        rule_alerts = _check_activity_store_critical(db, session_id, company_id, current_state, snapshot_id, overrides)
+        if rule_alerts:
+            alerts.extend(rule_alerts if isinstance(rule_alerts, list) else [rule_alerts])
+    except Exception:
+        logger.exception("activity_store_rule_failed: session=%s", session_id)
 
     return alerts
 
@@ -2646,6 +2862,114 @@ def _check_training_status(
 
 
 # ══════════════════════════════════════════════════════════════════
+# RULE 12: ACTIVITY STORE CRITICAL EVENTS
+# ══════════════════════════════════════════════════════════════════
+
+
+def _check_activity_store_critical(
+    db: Session,
+    session_id: str,
+    company_id: str,
+    state: Dict[str, Any],
+    snapshot_id: str,
+    overrides: Optional[Dict[str, Any]] = None,
+) -> Optional[List[JarvisProactiveAlert]]:
+    """Rule 12: Activity Store Critical Events.
+
+    Checks the Activity Store for critical/emergency events that
+    need Jarvis's attention. These are non-agentic events like
+    payment failures, channel outages, security issues, etc.
+
+    For AGENTIC events (handled by variant agents), this rule
+    creates info-level alerts since the agents will handle them.
+    For NON-AGENTIC events (notify_only, human_required), this
+    rule creates warning/critical alerts since Jarvis or a human
+    needs to act.
+
+    Returns a list of alerts.
+    """
+    created_alerts: List[JarvisProactiveAlert] = []
+
+    try:
+        critical_count = state.get("critical_activity_count", 0)
+
+        if critical_count == 0:
+            return None
+
+        # Get the actual critical events
+        activity_summary = state.get("activity_summary", {})
+        critical_events = activity_summary.get("critical_events", [])
+
+        if not critical_events:
+            return None
+
+        # Create alert for critical activity events
+        # Group by control boundary for smarter alerting
+        control_summary = state.get("control_boundary_summary", {})
+        human_required = control_summary.get("human_required", 0)
+        jarvis_can_act = control_summary.get("jarvis_can_act", 0)
+
+        # Build alert message
+        event_descriptions = []
+        for evt in critical_events[:5]:
+            action = evt.get("action", "unknown")
+            source = evt.get("event_source", "unknown")
+            category = evt.get("event_category", "unknown")
+            event_descriptions.append(f"{source}/{category}: {action}")
+
+        message = (
+            f"{critical_count} critical activity event(s) detected in the last 24 hours. "
+            f"Key events: {'; '.join(event_descriptions[:3])}. "
+        )
+
+        if human_required > 0:
+            message += f"{human_required} event(s) require human attention. "
+        if jarvis_can_act > 0:
+            message += f"{jarvis_can_act} event(s) can be handled by Jarvis. "
+
+        # Determine severity based on control boundary
+        if human_required > 0:
+            severity = "critical"
+        elif jarvis_can_act > 0:
+            severity = "warning"
+        else:
+            severity = "warning"
+
+        alert = create_alert(
+            db=db,
+            session_id=session_id,
+            company_id=company_id,
+            alert_type="activity_store_critical",
+            severity=severity,
+            category="system_health",
+            title="Critical Activity Events Detected",
+            message=message,
+            details_json=json.dumps({
+                "critical_count": critical_count,
+                "human_required": human_required,
+                "jarvis_can_act": jarvis_can_act,
+                "notify_only": control_summary.get("notify_only", 0),
+                "agent_controlled": control_summary.get("agent_controlled", 0),
+                "top_events": critical_events[:5],
+            }),
+            action_required=human_required > 0,
+            action_url="/dashboard/activity",
+            related_snapshot_id=snapshot_id,
+            dedup_key="activity_store_critical",
+        )
+        if alert:
+            created_alerts.append(alert)
+
+    except Exception:
+        logger.debug(
+            "activity_store_rule_failed: company=%s, session=%s",
+            company_id, session_id,
+        )
+
+    return created_alerts if created_alerts else None
+
+
+# ══════════════════════════════════════════════════════════════════
 # PRIVATE HELPERS
 # ══════════════════════════════════════════════════════════════════
 
@@ -2848,3 +3172,223 @@ def _safe_parse_json(raw: Optional[str]) -> Dict[str, Any]:
         return json.loads(raw)
     except (json.JSONDecodeError, TypeError):
         return {}
+
+
+def _collect_shadow_mode(
+    db: Session,
+    company_id: str,
+) -> Dict[str, Any]:
+    """Domain 9: Shadow Mode awareness.
+
+    Jarvis MUST know the shadow mode state because it directly
+    affects which variant handles customer messages. If shadow mode
+    is active, some messages go to the shadow variant for A/B testing.
+    Jarvis needs to know this to understand why responses might differ.
+
+    Returns:
+        Dict with shadow_mode_active, shadow_mode_phase,
+        live_variant, shadow_variant, shadow_win_rate, etc.
+    """
+    result: Dict[str, Any] = {
+        "shadow_mode_active": False,
+        "shadow_mode_phase": "off",
+        "shadow_mode_live_variant": None,
+        "shadow_mode_shadow_variant": None,
+        "shadow_mode_win_rate": None,
+        "shadow_mode_total_comparisons": 0,
+        "shadow_mode_quality_streak": 0,
+    }
+
+    try:
+        from app.services.shadow_mode_service import get_shadow_mode_service
+        service = get_shadow_mode_service()
+        status = service.get_status(company_id=company_id)
+
+        if hasattr(status, 'to_dict'):
+            status_dict = status.to_dict()
+        elif isinstance(status, dict):
+            status_dict = status
+        else:
+            return result
+
+        active = status_dict.get("active", False)
+        result["shadow_mode_active"] = active
+        result["shadow_mode_phase"] = status_dict.get("status", "off") if active else "off"
+        result["shadow_mode_live_variant"] = status_dict.get("live_variant")
+        result["shadow_mode_shadow_variant"] = status_dict.get("shadow_variant")
+        result["shadow_mode_win_rate"] = status_dict.get("shadow_win_rate")
+        result["shadow_mode_total_comparisons"] = status_dict.get("total_comparisons", 0)
+        result["shadow_mode_quality_streak"] = status_dict.get("quality_streak", 0)
+        result["shadow_mode_sample_rate"] = status_dict.get("sample_rate")
+        result["shadow_mode_auto_graduation_window"] = status_dict.get("auto_graduation_window")
+
+        # Also check for recent shadow mode activity events in the Activity Store
+        try:
+            from app.services.jarvis_activity_store import query_events
+            shadow_events, _ = query_events(
+                db=db,
+                company_id=company_id,
+                event_category="shadow_mode",
+                page_size=5,
+            )
+            result["shadow_mode_recent_events"] = shadow_events
+        except Exception:
+            result["shadow_mode_recent_events"] = []
+
+    except Exception:
+        # Shadow mode service may not be available — BC-008
+        logger.debug(
+            "shadow_mode_collection_failed: company=%s", company_id,
+        )
+
+    return result
+
+
+def _collect_dashboard_awareness(
+    db: Session,
+    company_id: str,
+    session_id: str,
+) -> Dict[str, Any]:
+    """Domain 10: Dashboard & Ticket Actions awareness.
+
+    Jarvis MUST know what the user is doing in the dashboard. This
+    enables context-aware conversations. If a user is on the billing
+    page and says "I need help", Jarvis should know they're looking
+    at billing. If they just resolved 5 tickets, Jarvis should
+    acknowledge their productivity.
+
+    This reads dashboard and ticket action events from the Activity
+    Store, giving Jarvis a real-time picture of user activity.
+
+    Returns:
+        Dict with recent_dashboard_events, recent_ticket_actions,
+        user_current_page, active_ticket_count, etc.
+    """
+    result: Dict[str, Any] = {
+        "recent_dashboard_events": [],
+        "recent_ticket_actions": [],
+        "user_current_page": None,
+        "recent_ticket_action_count": 0,
+    }
+
+    try:
+        from app.services.jarvis_activity_store import query_events
+
+        # Get recent dashboard events (page views, button clicks)
+        dashboard_events, dashboard_count = query_events(
+            db=db,
+            company_id=company_id,
+            event_category="dashboard",
+            page_size=10,
+        )
+        result["recent_dashboard_events"] = dashboard_events
+        result["recent_dashboard_action_count"] = dashboard_count
+
+        # Extract current page from most recent dashboard event
+        if dashboard_events:
+            latest = dashboard_events[0]
+            ctx = latest.get("context", {})
+            if isinstance(ctx, dict):
+                result["user_current_page"] = ctx.get("page")
+
+        # Get recent ticket actions (create, update, resolve, escalate)
+        ticket_events, ticket_count = query_events(
+            db=db,
+            company_id=company_id,
+            event_category="dashboard",
+            action="ticket_",
+            page_size=10,
+        )
+        result["recent_ticket_actions"] = ticket_events
+        result["recent_ticket_action_count"] = ticket_count
+
+    except Exception:
+        # Dashboard awareness is non-critical — BC-008
+        logger.debug(
+            "dashboard_awareness_collection_failed: company=%s, session=%s",
+            company_id, session_id,
+        )
+
+    return result
+
+
+# ══════════════════════════════════════════════════════════════════
+# DOMAIN 11: ONBOARDING FUNNEL AWARENESS
+# ══════════════════════════════════════════════════════════════════
+
+
+def _collect_onboarding_awareness(
+    db: Session,
+    company_id: str,
+) -> Dict[str, Any]:
+    """Domain 11: Onboarding Funnel awareness.
+
+    Jarvis MUST know about the onboarding pipeline. This gives Jarvis
+    full awareness of the pre-purchase funnel:
+      - How many active onboarding sessions are running
+      - What stage users are at
+      - Email verification rates
+      - Payment conversion rates
+      - Where users drop off
+      - Onboarding flags (low conversion, etc.)
+
+    This data comes from the Activity Store (Domain 8 already logs
+    onboarding actions via jarvis_onboarding_service.log_onboarding_action).
+    This collector reads those events and provides a structured summary
+    for the awareness engine.
+
+    Why this matters:
+      If a user just completed onboarding and enters the CC dashboard,
+      CC Jarvis can see:
+        - onboarding_active_sessions: 3 (other prospects in pipeline)
+        - onboarding_payment_rate: 45% (healthy conversion)
+        - onboarding_flags: ["low_verification_rate"] (action needed)
+
+      This enables CC Jarvis to say things like:
+        "I see your verification rate is a bit low — want me to
+         optimize the OTP flow?"
+
+    Returns:
+        Dict with onboarding funnel awareness data.
+    """
+    result: Dict[str, Any] = {
+        "onboarding_active_sessions": 0,
+        "onboarding_stage_distribution": {},
+        "onboarding_verification_rate": 0.0,
+        "onboarding_payment_rate": 0.0,
+        "onboarding_handoff_rate": 0.0,
+        "onboarding_top_entry_sources": [],
+        "onboarding_flags": [],
+    }
+
+    try:
+        from app.services.jarvis_onboarding_service import get_onboarding_awareness
+
+        # Delegate to the onboarding service's awareness function
+        # which reads from the Activity Store
+        onboarding_data = get_onboarding_awareness(
+            db=db,
+            company_id=company_id,
+            hours=1,
+        )
+
+        result.update(onboarding_data)
+
+        logger.debug(
+            "domain11_onboarding_awareness: company=%s, active=%d, "
+            "verification_rate=%s, payment_rate=%s, flags=%d",
+            company_id,
+            result.get("onboarding_active_sessions", 0),
+            result.get("onboarding_verification_rate", "N/A"),
+            result.get("onboarding_payment_rate", "N/A"),
+            len(result.get("onboarding_flags", [])),
+        )
+
+    except Exception:
+        # Onboarding awareness is non-critical — BC-008
+        logger.debug(
+            "onboarding_awareness_collection_failed: company=%s",
+            company_id,
+        )
+
+    return result

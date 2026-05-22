@@ -541,6 +541,20 @@ def execute_product_command(
         elapsed_ms = round((time.monotonic() - start_time) * 1000, 2)
         result["execution_time_ms"] = elapsed_ms
 
+        # ── Record to Activity Store for Jarvis awareness ──
+        # EVERY product command execution is recorded so Jarvis has
+        # awareness of all user-initiated operations: shadow mode,
+        # billing, variant ops, ticket actions, knowledge, settings.
+        _record_command_to_activity_store(
+            company_id=company_id,
+            action=action,
+            result=result,
+            parsed=parsed,
+            user_id=user_id,
+            session_id=session_id,
+            elapsed_ms=elapsed_ms,
+        )
+
         logger.info(
             "product_command_executed: action=%s, company=%s, "
             "success=%s, ms=%.1f",
@@ -1265,3 +1279,179 @@ def _extract_product_parameters(raw_input: str, action: str) -> Dict[str, Any]:
             params["amount"] = int(amount_match.group(1))
 
     return params
+
+
+# ══════════════════════════════════════════════════════════════════
+# ACTIVITY STORE INTEGRATION
+# ══════════════════════════════════════════════════════════════════
+# This is the CRITICAL missing link: every product command execution
+# is now recorded to the Activity Store so Jarvis has FULL awareness
+# of shadow mode, billing, variants, tickets, knowledge, and settings.
+#
+# Before this, product commands executed silently — Jarvis had NO idea
+# when shadow mode was enabled, when variants were rebalanced, etc.
+# Now every command writes an activity event that the awareness engine
+# reads on the next tick.
+
+
+def _record_command_to_activity_store(
+    company_id: str,
+    action: str,
+    result: Dict[str, Any],
+    parsed: Dict[str, Any],
+    user_id: str = "",
+    session_id: str = "",
+    elapsed_ms: float = 0.0,
+) -> None:
+    """Record a product command execution to the Activity Store.
+
+    Routes each command to the appropriate activity recorder based on
+    the command category. This is the CENTRAL bridge that makes every
+    product operation visible to Jarvis.
+
+    Category → Activity Recorder mapping:
+      shadow_mode  → record_shadow_mode_event (category: shadow_mode)
+      subscription → record_billing_event (category: subscription)
+      billing      → record_billing_event (category: payment)
+      variant      → record_variant_ops_event (category: variant_ops)
+      ticket       → record_dashboard_event (category: dashboard)
+      knowledge    → record_knowledge_ops_event (category: knowledge_ops)
+      agent        → record_admin_action (category: config)
+      settings     → record_admin_action (category: config)
+
+    BC-008: Never crashes — all recording is wrapped in try/except.
+    If recording fails, the command still returns successfully.
+    """
+    try:
+        from database.base import SessionLocal
+        from app.services.jarvis_activity_store import (
+            record_shadow_mode_event,
+            record_billing_event,
+            record_dashboard_event,
+            record_variant_ops_event,
+            record_knowledge_ops_event,
+            record_admin_action,
+        )
+
+        db = SessionLocal()
+        try:
+            success = result.get("success", False)
+            category = action.split(".")[0] if "." in action else action
+            raw_input = parsed.get("raw_input", "")
+            context = {
+                "raw_input": raw_input,
+                "success": success,
+                "execution_time_ms": elapsed_ms,
+                "session_id": session_id,
+                "parsed_action": action,
+            }
+
+            # ── Shadow Mode Commands ──
+            if category == "shadow_mode":
+                old_val = "off"
+                new_val = "shadow"
+                if "disable" in action:
+                    old_val, new_val = "shadow", "off"
+                elif "promote" in action:
+                    old_val = "shadow"
+                    new_val = result.get("data", {}).get("new_status", "supervised")
+                elif "graduate" in action:
+                    old_val = "supervised"
+                    new_val = "graduated"
+
+                record_shadow_mode_event(
+                    db=db,
+                    company_id=company_id,
+                    action=f"product_command_{action.replace('.', '_')}",
+                    severity="info" if success else "warning",
+                    actor_id=user_id,
+                    description=f"Shadow mode command: {action} ({'success' if success else 'failed'})",
+                    context=context,
+                    old_value=old_val,
+                    new_value=new_val,
+                )
+
+            # ── Subscription Commands ──
+            elif category == "subscription":
+                record_billing_event(
+                    db=db,
+                    company_id=company_id,
+                    action=f"product_command_{action.replace('.', '_')}",
+                    severity="info" if success else "warning",
+                    actor_id=user_id,
+                    description=f"Subscription command: {action}",
+                    context=context,
+                    jarvis_control_boundary="human_required",
+                )
+
+            # ── Billing Commands ──
+            elif category == "billing":
+                record_billing_event(
+                    db=db,
+                    company_id=company_id,
+                    action=f"product_command_{action.replace('.', '_')}",
+                    severity="info" if success else "warning",
+                    actor_id=user_id,
+                    description=f"Billing command: {action}",
+                    context=context,
+                )
+
+            # ── Variant Commands ──
+            elif category == "variant":
+                record_variant_ops_event(
+                    db=db,
+                    company_id=company_id,
+                    action=f"product_command_{action.replace('.', '_')}",
+                    severity="info" if success else "warning",
+                    actor_id=user_id,
+                    description=f"Variant command: {action}",
+                    context=context,
+                )
+
+            # ── Ticket Commands ──
+            elif category == "ticket":
+                record_dashboard_event(
+                    db=db,
+                    company_id=company_id,
+                    action=f"product_command_{action.replace('.', '_')}",
+                    actor_id=user_id,
+                    description=f"Ticket command: {action}",
+                    context=context,
+                    resource_type="ticket",
+                )
+
+            # ── Knowledge Base Commands ──
+            elif category == "knowledge":
+                record_knowledge_ops_event(
+                    db=db,
+                    company_id=company_id,
+                    action=f"product_command_{action.replace('.', '_')}",
+                    actor_id=user_id,
+                    description=f"Knowledge command: {action}",
+                    context=context,
+                )
+
+            # ── Agent & Settings Commands ──
+            elif category in ("agent", "settings"):
+                record_admin_action(
+                    db=db,
+                    company_id=company_id,
+                    action=f"product_command_{action.replace('.', '_')}",
+                    actor_id=user_id,
+                    description=f"{category.title()} command: {action}",
+                    context=context,
+                    jarvis_control_boundary="jarvis_can_act",
+                )
+
+            db.commit()
+        except Exception:
+            db.rollback()
+        finally:
+            db.close()
+
+    except Exception as e:
+        # BC-008: Never crash — recording failure is non-fatal
+        logger.debug(
+            "activity_store_record_non_fatal: action=%s, company=%s, error=%s",
+            action, company_id, str(e)[:200],
+        )

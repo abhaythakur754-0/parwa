@@ -44,6 +44,7 @@ from app.middleware.api_key_auth import APIKeyAuthMiddleware
 from app.middleware.ip_allowlist import (
     IPAllowlistMiddleware,
 )
+from app.middleware.activity_capture import ActivityCaptureMiddleware
 from app.middleware.ai_entitlement import (
     AIEntitlementMiddleware,
 )
@@ -61,8 +62,11 @@ from app.api.ai_engine import router as ai_engine_router
 from app.api.ai_agent import router as ai_agent_router
 from app.api.jarvis import router as jarvis_router
 from app.api.jarvis_cc import router as jarvis_cc_router
+from app.api.onboarding_jarvis import router as onboarding_jarvis_router  # Onboarding Jarvis AI chat (LangGraph + orchestrator)
 from app.api.onboarding import router as onboarding_router
 from app.api.integrations import router as integrations_router
+from app.api.jarvis_integrations import router as jarvis_integrations_router  # Jarvis onboarding integration setup
+from app.api.jarvis_onboarding import router as jarvis_onboarding_router  # Jarvis onboarding backend (awareness bridge)
 from app.api.knowledge_base import router as knowledge_base_router
 from app.api.verification import router as verification_router  # Week 6 Day 10-11: Business Email OTP
 from app.api.ticket_analytics import router as analytics_router  # Phase 4: Ticket analytics dashboard
@@ -332,29 +336,32 @@ app.add_middleware(ErrorHandlerMiddleware)
 # 2. Request logger — audit trail for every request
 app.add_middleware(RequestLoggerMiddleware)
 
-# 3. Tenant middleware — BC-001 multi-tenant isolation
+# 3. Activity capture — records non-agentic actions for Jarvis awareness
+app.add_middleware(ActivityCaptureMiddleware)
+
+# 4. Tenant middleware — BC-001 multi-tenant isolation
 app.add_middleware(TenantMiddleware)
 
-# 4. Rate limit middleware — BC-011/BC-012 rate limiting
+# 5. Rate limit middleware — BC-011/BC-012 rate limiting
 app.add_middleware(RateLimitMiddleware)
 
-# 5. API Key auth — BC-011
+# 6. API Key auth — BC-011
 app.add_middleware(APIKeyAuthMiddleware)
 
-# 6. Security headers — BC-011/BC-012
+# 7. Security headers — BC-011/BC-012
 app.add_middleware(SecurityHeadersMiddleware)
 
-# 7. CSRF protection — Origin/Referer validation + double-submit cookie
+# 8. CSRF protection — Origin/Referer validation + double-submit cookie
 app.add_middleware(CSRFSecurityMiddleware)
 
-# 8. IP allowlist — BC-012 (disabled by default)
+# 9. IP allowlist — BC-012 (disabled by default)
 # Set IP_ALLOWLIST_ENABLED=true to activate
 app.add_middleware(IPAllowlistMiddleware)
 
-# 9. AI Entitlement — Week 8: feature gating for /api/ai/ paths
+# 10. AI Entitlement — Week 8: feature gating for /api/ai/ paths
 app.add_middleware(AIEntitlementMiddleware)
 
-# 10. CORS middleware (frontend cross-origin access)
+# 11. CORS middleware (frontend cross-origin access)
 # SECURITY (C-05, L-16): Never fall back to wildcard ["*"] when
 # allow_credentials=True. CORS origins must always be explicit,
 # even when OpenAPI docs are hidden in non-debug mode.
@@ -396,8 +403,11 @@ app.include_router(ai_engine_router)  # Week 8: AI Engine endpoints
 app.include_router(ai_agent_router)  # SG-21/SG-22: AI agent assignments
 app.include_router(jarvis_router)  # Week 6: Jarvis onboarding chat
 app.include_router(jarvis_cc_router)  # Phase 2+: Jarvis Customer Care (awareness + commands)
+app.include_router(onboarding_jarvis_router)  # Onboarding Jarvis AI chat (LangGraph + orchestrator)
 app.include_router(onboarding_router)  # Week 6: Onboarding wizard (F-028 to F-035)
 app.include_router(integrations_router)  # Week 6: Integration management (F-030/F-031)
+app.include_router(jarvis_integrations_router)  # Jarvis onboarding integration setup flow
+app.include_router(jarvis_onboarding_router)  # Jarvis onboarding backend (awareness bridge to Activity Store)
 app.include_router(knowledge_base_router)  # Week 6: Knowledge base (F-032/F-033)
 app.include_router(verification_router)  # Week 6 Day 10-11: Business Email OTP verification
 app.include_router(analytics_router)  # Phase 4: Ticket analytics dashboard
