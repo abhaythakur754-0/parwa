@@ -2113,16 +2113,70 @@ async def _exec_get_transaction_history(
     db: Any, company_id: str, session_id: str, user_id: str,
     params: Dict[str, Any], context: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Get transaction/billing history."""
+    """Get transaction/billing history — tries Paddle API first, then DB, then mock."""
     try:
-        from database.models.billing_extended import BillingTransaction
-
         period = params.get("period", "last_30_days")
         transaction_type = params.get("transaction_type", "all")
-
-        # Try to get real transaction data
         transactions = []
+
+        # ── Step 1: Try Paddle API for real transaction data ──
         try:
+            from app.services.jarvis_paddle_bridge import get_jarvis_paddle_bridge
+            bridge = get_jarvis_paddle_bridge()
+
+            paddle_customer_id = bridge.get_paddle_customer_id(db, company_id)
+
+            paddle_result = await bridge.get_transaction_history(
+                company_id=company_id,
+                paddle_customer_id=paddle_customer_id,
+                period=period,
+                transaction_type=transaction_type,
+            )
+
+            if paddle_result.get("success") and paddle_result.get("transactions"):
+                transactions = paddle_result["transactions"]
+                total_payments = paddle_result.get("total_payments", 0)
+                total_refunds = paddle_result.get("total_refunds", 0)
+                total_credits = paddle_result.get("total_credits", 0)
+
+                # Format for display
+                txn_lines = []
+                for t in transactions[:10]:
+                    amount_str = f"${abs(t['amount']):.2f}"
+                    txn_lines.append(
+                        f"  • {t.get('date','')} | {t.get('type','').ljust(8)} | "
+                        f"{'-' if t.get('amount',0) < 0 else ''}{amount_str} | "
+                        f"{t.get('status','').ljust(10)} | {t.get('description','')}"
+                    )
+                txn_list = "\n".join(txn_lines)
+
+                return {
+                    "success": True,
+                    "data": {
+                        "transactions": transactions,
+                        "total_count": len(transactions),
+                        "total_payments": total_payments,
+                        "total_refunds": total_refunds,
+                        "total_credits": total_credits,
+                        "period": period,
+                        "source": "paddle_api",
+                    },
+                    "message": (
+                        f"Here's your transaction history from Paddle for the {period.replace('_', ' ')}:\n{txn_list}\n\n"
+                        f"Summary: {len(transactions)} transactions | "
+                        f"Payments: ${total_payments:.2f} | "
+                        f"Refunds: ${total_refunds:.2f} | "
+                        f"Credits: ${total_credits:.2f}"
+                    ),
+                }
+        except Exception:
+            logger.debug("paddle_transaction_history_fallback: company=%s", company_id)
+
+        # ── Step 2: Try DB for transaction data ──
+        try:
+            from database.models.billing_extended import BillingTransaction
+            from datetime import timedelta
+
             query = db.query(BillingTransaction).filter(
                 BillingTransaction.company_id == company_id,
             )
@@ -2130,8 +2184,6 @@ async def _exec_get_transaction_history(
             if transaction_type != "all":
                 query = query.filter(BillingTransaction.type == transaction_type)
 
-            # Time filter
-            from datetime import timedelta
             now = datetime.now(timezone.utc)
             if period == "last_30_days":
                 query = query.filter(BillingTransaction.created_at >= now - timedelta(days=30))
@@ -2154,7 +2206,7 @@ async def _exec_get_transaction_history(
         except Exception:
             logger.debug("billing_transaction_model_not_available")
 
-        # If no real data, provide mock data for demo
+        # ── Step 3: If still no data, provide mock data for demo ──
         if not transactions:
             mock_transactions = [
                 {"id": "TXN-001", "type": "payment", "amount": 49.99, "status": "completed", "description": "Parwa Pro - Monthly", "date": "2025-05-01"},
@@ -2195,6 +2247,7 @@ async def _exec_get_transaction_history(
                 "total_refunds": total_refunds,
                 "total_credits": total_credits,
                 "period": period,
+                "source": "local_fallback",
             },
             "message": (
                 f"Here's your transaction history for the {period.replace('_', ' ')}:\n{txn_list}\n\n"

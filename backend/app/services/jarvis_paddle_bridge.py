@@ -53,9 +53,9 @@ def _get_plan_price_ids() -> Dict[str, str]:
         except Exception:
             logger.debug("plan_price_ids_fallback_to_defaults")
             _plan_price_ids = {
-                "mini_parwa": "pri_mini_parwa_01",
-                "parwa": "pri_parwa_01",
-                "parwa_high": "pri_parwa_high_01",
+                "mini_parwa": "pri_01krxm4r0kcm6mm5fc84pp9bj0",
+                "parwa": "pri_01krxm4ra529ry7bzr9z73pza1",
+                "parwa_high": "pri_01krxm4rjx1bfgg1w9z4qr3dd8",
             }
     return _plan_price_ids
 
@@ -688,7 +688,11 @@ class JarvisPaddleBridge:
             "product_unsatisfactory": "product_unsatisfactory",
             "bad_product": "product_unsatisfactory",
             "not_working": "product_unsatisfactory",
+            "product not working": "product_unsatisfactory",
             "defective": "product_unsatisfactory",
+            "not as described": "product_unsatisfactory",
+            "doesn't work": "product_unsatisfactory",
+            "broken": "product_unsatisfactory",
         }
         for key, paddle_value in reason_map.items():
             if key in reason_lower:
@@ -702,7 +706,12 @@ class JarvisPaddleBridge:
         company_id: str,
         paddle_customer_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """List invoices from Paddle API."""
+        """List invoices from Paddle API.
+        
+        Falls back to transaction history if invoices endpoint
+        is not available (403 — some Paddle plans don't include
+        the invoices permission).
+        """
         try:
             if not paddle_customer_id:
                 return {
@@ -735,6 +744,43 @@ class JarvisPaddleBridge:
                 "total_count": len(invoice_list),
             }
             
+        except PaddleAuthError:
+            # Invoices permission not available — fall back to transaction data
+            logger.info(
+                "invoices_fallback_to_transactions: company=%s (403 = no invoice permission)",
+                company_id,
+            )
+            try:
+                txn_result = await self.get_transaction_history(
+                    company_id=company_id,
+                    paddle_customer_id=paddle_customer_id,
+                    period="all",
+                )
+                # Convert transactions to invoice-like format
+                invoice_list = []
+                for txn in txn_result.get("transactions", []):
+                    invoice_list.append({
+                        "id": txn.get("id", ""),
+                        "number": f"TXN-{txn.get('id', '')[:8]}",
+                        "amount": str(txn.get("amount", 0)),
+                        "currency": txn.get("currency", "USD"),
+                        "status": txn.get("status", "unknown"),
+                        "date": txn.get("date", ""),
+                        "type": txn.get("type", "payment"),
+                    })
+                return {
+                    "success": True,
+                    "source": "transaction_fallback",
+                    "invoices": invoice_list,
+                    "total_count": len(invoice_list),
+                    "message": "Invoice details retrieved from transaction history (invoices permission not available on Paddle).",
+                }
+            except Exception:
+                return {
+                    "success": False,
+                    "invoices": [],
+                    "message": "Invoices permission not available on Paddle, and transaction fallback also failed.",
+                }
         except Exception as e:
             logger.exception("list_invoices_error: company=%s", company_id)
             return {
