@@ -49,6 +49,8 @@ ENV PYTHONUNBUFFERED=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
+    redis-tools \
+    postgresql-client \
     procps \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
@@ -68,12 +70,10 @@ COPY --chown=parwa:parwa shared/ ./shared/
 COPY --chown=parwa:parwa variants/ ./variants/
 COPY --chown=parwa:parwa database/ ./database/
 
+# Copy entrypoint script (before switching to non-root user)
+COPY --chmod=755 infra/docker/scripts/worker-entrypoint.sh /app/entrypoint.sh
+
 # Switch to non-root user
 USER parwa
 
-# Health check for worker process
-HEALTHCHECK --interval=60s --timeout=10s --start-period=10s --retries=3 \
-    CMD pgrep -f "backend.worker" > /dev/null || exit 1
-
-# Run the background worker
-CMD ["python", "-m", "backend.worker.main"]
+ENTRYPOINT ["/app/entrypoint.sh"]

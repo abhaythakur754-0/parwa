@@ -2,9 +2,11 @@
 .env
 .env.local
 .env.*.local
+.env.prod
 !.env.example
 !.env.prod.example
 !.env.rs256.example
+!.env.production
 
 # Python
 __pycache__/

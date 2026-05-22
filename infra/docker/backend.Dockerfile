@@ -49,6 +49,8 @@ ENV PYTHONUNBUFFERED=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
+    redis-tools \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -67,16 +69,14 @@ COPY --chown=parwa:parwa shared/ ./shared/
 COPY --chown=parwa:parwa security/ ./security/
 COPY --chown=parwa:parwa database/ ./database/
 
-# Switch to non-root user
-USER parwa
+# Copy entrypoint script (before switching to non-root user)
+COPY --chmod=755 infra/docker/scripts/backend-entrypoint.sh /app/entrypoint.sh
 
 # Expose FastAPI port
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+# Switch to non-root user
+USER parwa
 
-# Run FastAPI server via Uvicorn with production settings
-# Workers configurable via UVICORN_WORKERS env var (default: 2)
-CMD ["sh", "-c", "uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS:-2} --loop uvloop"]
+# Start via entrypoint
+ENTRYPOINT ["/app/entrypoint.sh"]

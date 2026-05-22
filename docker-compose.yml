@@ -95,6 +95,8 @@ services:
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-jwt-secret-key-change-in-production}
       - DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY:-devkey_devkey_devkey_devkey_abcd}
+      - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+      - UVICORN_WORKERS=${UVICORN_WORKERS:-1}
       - STATE_SERIALIZATION_PATH=/app/state_data
       - STATE_SERIALIZATION_ENABLED=true
     env_file:

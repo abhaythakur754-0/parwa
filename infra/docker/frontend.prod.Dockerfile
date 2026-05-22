@@ -81,6 +81,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Copy package.json for version info
 COPY --from=builder /app/package.json ./package.json
 
+# Copy entrypoint script (before switching to non-root user)
+COPY --chmod=755 infra/docker/scripts/frontend-entrypoint.sh /app/entrypoint.sh
+
 # Switch to non-root user
 USER nextjs
 
@@ -91,9 +94,9 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Health check — use shell form to allow fallback
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
-# Start the application — exec form for proper signal handling
-CMD ["node", "server.js"]
+# Start via entrypoint
+ENTRYPOINT ["/app/entrypoint.sh"]
