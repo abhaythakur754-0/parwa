@@ -297,7 +297,8 @@ def build_parwa_graph() -> StateGraph:
         route_after_emergency,
         {
             "gsd_state": "gsd_state",
-            "format": "format",  # Legacy emergency bypass
+            "format": "format",  # Emergency bypass
+            "classify": "gsd_state",  # Redirect: Pro goes through gsd_state first
         },
     )
 

@@ -163,12 +163,16 @@ def build_mini_parwa_graph() -> StateGraph:
     )
 
     # emergency_check -> gsd_state (always — emergency handled in gsd_state routing)
+    # Mini Parwa: emergency_check always goes to gsd_state next.
+    # route_after_emergency may return "classify" (from variant_router),
+    # which we redirect to "gsd_state" since Mini doesn't skip gsd_state.
     graph.add_conditional_edges(
         "emergency_check",
         route_after_emergency,
         {
             "gsd_state": "gsd_state",
-            "format": "format",  # Legacy emergency bypass
+            "format": "format",  # Emergency bypass
+            "classify": "gsd_state",  # Redirect: Mini goes through gsd_state first
         },
     )
 

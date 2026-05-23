@@ -315,7 +315,8 @@ def build_parwa_high_graph() -> StateGraph:
         route_after_emergency,
         {
             "gsd_state": "gsd_state",
-            "format": "format",  # Legacy emergency bypass
+            "format": "format",  # Emergency bypass
+            "classify": "gsd_state",  # Redirect: High goes through gsd_state first
         },
     )
 
@@ -433,11 +434,14 @@ def build_parwa_high_graph() -> StateGraph:
         {"dedup": "dedup"},
     )
 
-    # dedup -> strategic_decision (always)
+    # dedup -> strategic_decision (normal) OR format (shortcut)
     graph.add_conditional_edges(
         "dedup",
         route_after_dedup,
-        {"strategic_decision": "strategic_decision"},
+        {
+            "strategic_decision": "strategic_decision",
+            "format": "format",  # Dedup shortcut — skips strategic_decision/peer_review
+        },
     )
 
     # strategic_decision -> peer_review (always)
