@@ -299,13 +299,17 @@ def route_after_context_health(state: dict) -> str:
 def route_after_dedup(state: dict) -> str:
     """Decide what comes after dedup check.
 
-    Always goes to format. Dedup flags duplicates but the format
-    node handles what to do with that information.
+    For parwa_high: goes through strategic_decision + peer_review before format.
+    For other variants: goes straight to format.
 
     Returns:
         Next node name.
     """
     try:
+        variant_tier = state.get("variant_tier", "parwa")
+        if variant_tier == "parwa_high":
+            # High goes through strategic_decision + peer_review before format
+            return "strategic_decision"
         return NODE_FORMAT
     except Exception:
         return NODE_FORMAT

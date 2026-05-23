@@ -121,21 +121,48 @@ def route_after_classify_pro(state: ParwaGraphState) -> str:
     return "smart_enrichment"
 
 
-# Intent to deep enrichment mapping
+# Intent to deep enrichment mapping — expanded for agentic coverage
 INTENT_DEEP_ENRICHMENT_MAP = {
+    # Complaint / Feedback
     "complaint": "complaint_handler",
     "feedback": "complaint_handler",
+    "review": "complaint_handler",
+    "dissatisfied": "complaint_handler",
+    "unhappy": "complaint_handler",
+    "bad_experience": "complaint_handler",
+    # Cancellation / Retention
     "cancellation": "retention_negotiator",
     "cancel": "retention_negotiator",
+    "unsubscribe": "retention_negotiator",
+    "leave": "retention_negotiator",
+    "switch": "retention_negotiator",
+    # Billing / Payment
     "billing": "billing_resolver",
     "payment": "billing_resolver",
     "refund": "billing_resolver",
+    "charge": "billing_resolver",
+    "invoice": "billing_resolver",
+    "overcharge": "billing_resolver",
+    "subscription": "billing_resolver",
+    # Technical
     "technical": "tech_diagnostic",
     "bug": "tech_diagnostic",
+    "error": "tech_diagnostic",
+    "not_working": "tech_diagnostic",
+    "broken": "tech_diagnostic",
+    "crash": "tech_diagnostic",
+    "technical_support": "tech_diagnostic",
+    "password_reset": "tech_diagnostic",
+    "login_issue": "tech_diagnostic",
+    "account_access": "tech_diagnostic",
+    # Shipping / Order
     "shipping": "shipping_tracker",
     "delivery": "shipping_tracker",
     "tracking": "shipping_tracker",
     "order": "shipping_tracker",
+    "package": "shipping_tracker",
+    "late_delivery": "shipping_tracker",
+    "missing_order": "shipping_tracker",
 }
 
 

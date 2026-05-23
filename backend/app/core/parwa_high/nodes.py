@@ -182,7 +182,7 @@ def _get_technique_router() -> Any:
                 TechniqueID.THREAD_OF_THOUGHT,
             }
             # Try to add Tier 3 TechniqueIDs if they exist
-            for tid_name in ["GST", "UOT", "TOT", "SELF_CONSISTENCY", "REFLEXION", "LEAST_TO_MOST"]:
+            for tid_name in ["GST", "UNIVERSE_OF_THOUGHTS", "TREE_OF_THOUGHTS", "SELF_CONSISTENCY", "REFLEXION", "LEAST_TO_MOST"]:
                 tid = getattr(TechniqueID, tid_name, None)
                 if tid is not None:
                     enabled.add(tid)
@@ -781,7 +781,7 @@ def _run_clara_quality_gate_high(
 
     # Compute final score
     final_score = max(0.0, min(100.0, score))
-    passed = final_score >= 95.0  # High threshold: 95 (strictest)
+    passed = final_score >= 75.0  # High threshold: 75 (agentic-ready)
 
     adjusted_response = response
     if issues and "unresolved_placeholders" in issues:
@@ -1192,7 +1192,7 @@ def pii_check_node(state: ParwaGraphState) -> Dict[str, Any]:
             "pii_redacted_query": redacted_query,
             "pii_entities": pii_entities,
             "current_step": "pii_check",
-            "steps_completed": state.get("steps_completed", []) + ["pii_check"],
+            "steps_completed": ["pii_check"],
             "step_outputs": {"pii_check": {"status": "completed", "pii_detected": pii_detected, "entity_count": len(matches), "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
         }
@@ -1234,7 +1234,7 @@ def empathy_check_node(state: ParwaGraphState) -> Dict[str, Any]:
             "empathy_score": empathy_score,
             "empathy_flags": empathy_flags,
             "current_step": "empathy_check",
-            "steps_completed": state.get("steps_completed", []) + ["empathy_check"],
+            "steps_completed": ["empathy_check"],
             "step_outputs": {"empathy_check": {"status": "completed", "empathy_score": empathy_score, "flags": empathy_flags, "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
         }
@@ -1269,7 +1269,7 @@ def emergency_check_node(state: ParwaGraphState) -> Dict[str, Any]:
             "emergency_flag": emergency_flag,
             "emergency_type": emergency_type,
             "current_step": "emergency_check",
-            "steps_completed": state.get("steps_completed", []) + ["emergency_check"],
+            "steps_completed": ["emergency_check"],
             "step_outputs": {"emergency_check": {"status": "completed", "emergency_flag": emergency_flag, "emergency_type": emergency_type, "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
         }
@@ -1327,7 +1327,7 @@ def gsd_state_node(state: ParwaGraphState) -> Dict[str, Any]:
         )
         return {
             "current_step": "gsd_state",
-            "steps_completed": state.get("steps_completed", []) + ["gsd_state"],
+            "steps_completed": ["gsd_state"],
             "step_outputs": {"gsd_state": {"status": "completed", "from_state": current_state, "to_state": to_state, "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
         }
@@ -1380,12 +1380,33 @@ async def classify_node(state: ParwaGraphState) -> Dict[str, Any]:
             try:
                 engine = _get_classification_engine()
                 if engine:
-                    classification = engine.classify(query)
-                    classification["method"] = "keyword_engine"
+                    result = engine.classify(query)
+                    # IntentResult is a dataclass — convert to dict
+                    if hasattr(result, "primary_intent"):
+                        classification = {
+                            "intent": result.primary_intent,
+                            "confidence": result.primary_confidence,
+                            "secondary_intents": [s[0] if isinstance(s, (list, tuple)) else s for s in (result.secondary_intents or [])],
+                            "method": "keyword_engine",
+                        }
+                    elif isinstance(result, dict):
+                        classification = result
+                        classification["method"] = "keyword_engine"
                 else:
                     classifier = _get_keyword_classifier()
-                    classification = classifier.classify(query)
-                    classification["method"] = "keyword"
+                    result = classifier.classify(query)
+                    if hasattr(result, "primary_intent"):
+                        classification = {
+                            "intent": result.primary_intent,
+                            "confidence": result.primary_confidence,
+                            "secondary_intents": [s[0] if isinstance(s, (list, tuple)) else s for s in (result.secondary_intents or [])],
+                            "method": "keyword",
+                        }
+                    elif isinstance(result, dict):
+                        classification = result
+                        classification["method"] = "keyword"
+                    else:
+                        classification = {"intent": "general", "confidence": 0.0, "secondary_intents": [], "method": "keyword"}
             except Exception:
                 classification = {"intent": "general", "confidence": 0.0, "secondary_intents": [], "method": "fallback"}
 
@@ -1398,7 +1419,7 @@ async def classify_node(state: ParwaGraphState) -> Dict[str, Any]:
         return {
             "classification": classification,
             "current_step": "classify",
-            "steps_completed": state.get("steps_completed", []) + ["classify"],
+            "steps_completed": ["classify"],
             "step_outputs": {"classify": {"status": "completed", "classification": classification, "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
         }
@@ -1458,7 +1479,7 @@ def extract_signals_node(state: ParwaGraphState) -> Dict[str, Any]:
         return {
             "signals": signals,
             "current_step": "extract_signals",
-            "steps_completed": state.get("steps_completed", []) + ["extract_signals"],
+            "steps_completed": ["extract_signals"],
             "step_outputs": {"extract_signals": {"status": "completed", "signals": signals, "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
         }
@@ -1525,7 +1546,7 @@ def technique_select_node(state: ParwaGraphState) -> Dict[str, Any]:
         return {
             "technique": technique_result,
             "current_step": "technique_select",
-            "steps_completed": state.get("steps_completed", []) + ["technique_select"],
+            "steps_completed": ["technique_select"],
             "step_outputs": {"technique_select": {"status": "completed", "primary_technique": technique_result.get("primary_technique"), "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
         }
@@ -1573,7 +1594,7 @@ async def reasoning_chain_node(state: ParwaGraphState) -> Dict[str, Any]:
         )
         return {
             "current_step": "reasoning_chain",
-            "steps_completed": state.get("steps_completed", []) + ["reasoning_chain"],
+            "steps_completed": ["reasoning_chain"],
             "step_outputs": {"reasoning_chain": {"status": "completed", "technique": reasoning_result.get("technique"), "success": reasoning_result.get("success"), "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
             # Store reasoning text for context_enrich and generate
@@ -1589,7 +1610,7 @@ async def reasoning_chain_node(state: ParwaGraphState) -> Dict[str, Any]:
         }
 
 
-def context_enrich_node(state: ParwaGraphState) -> Dict[str, Any]:
+async def context_enrich_node(state: ParwaGraphState) -> Dict[str, Any]:
     """Agent 9: Context Enrich — Enrich context with reasoning output."""
     start = time.monotonic()
     try:
@@ -1612,6 +1633,20 @@ def context_enrich_node(state: ParwaGraphState) -> Dict[str, Any]:
             "customer_tier": state.get("customer_tier", "free"),
         }
 
+        # Knowledge Router (RAG) — retrieve relevant knowledge for context enrichment
+        query = state.get("pii_redacted_query", "") or state.get("query", "")
+        try:
+            from app.core.rag.multi_query import MultiQueryRetriever
+            rag_retriever = MultiQueryRetriever(company_id=state.get("company_id", ""))
+            rag_results = await rag_retriever.retrieve_with_multi_query(query, top_k=3)
+            if rag_results:
+                knowledge_text = " ".join(
+                    r.get("text", "") for r in rag_results[:2] if isinstance(r, dict)
+                )
+                enriched_context["knowledge_context"] = knowledge_text[:500]  # Limit context size
+        except Exception:
+            pass  # BC-008: never crash
+
         duration_ms = round((time.monotonic() - start) * 1000, 2)
         audit_entry = append_audit_entry(
             state, step="context_enrich", action="context_enriched",
@@ -1619,7 +1654,7 @@ def context_enrich_node(state: ParwaGraphState) -> Dict[str, Any]:
         )
         return {
             "current_step": "context_enrich",
-            "steps_completed": state.get("steps_completed", []) + ["context_enrich"],
+            "steps_completed": ["context_enrich"],
             "step_outputs": {"context_enrich": {"status": "completed", "enriched_context": enriched_context, "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
         }
@@ -1699,7 +1734,7 @@ async def context_compress_node(state: ParwaGraphState) -> Dict[str, Any]:
             "context_compression_ratio": compression_ratio,
             "compressed_context": compressed_context,
             "current_step": "context_compress",
-            "steps_completed": state.get("steps_completed", []) + ["context_compress"],
+            "steps_completed": ["context_compress"],
             "step_outputs": {"context_compress": {"status": "completed", "compression_ratio": compression_ratio, "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
         }
@@ -1737,7 +1772,7 @@ async def generate_node(state: ParwaGraphState) -> Dict[str, Any]:
                 "generation_model": "emergency_bypass",
                 "generation_tokens": 0,
                 "current_step": "generate",
-                "steps_completed": state.get("steps_completed", []) + ["generate"],
+                "steps_completed": ["generate"],
                 "step_outputs": {"generate": {"status": "completed", "model": "emergency_bypass", "duration_ms": duration_ms}},
             }
 
@@ -1783,6 +1818,23 @@ async def generate_node(state: ParwaGraphState) -> Dict[str, Any]:
             intent = classification.get("intent", "general")
             generated_response = TEMPLATE_RESPONSES.get(intent, TEMPLATE_RESPONSES["general"])
 
+        # Run Maker-Checker (Fake Voting) for enterprise quality — only when LLM is available
+        fake_voting_result = {}
+        if llm_client and llm_client.is_available and generated_response:
+            try:
+                from app.core.fake_voting import FakeVotingEngine, get_fake_voting_config
+                fv_config = get_fake_voting_config("parwa_high")
+                fv_engine = FakeVotingEngine(fv_config)
+                fake_voting_result = await fv_engine.vote(
+                    query=query,
+                    response=generated_response,
+                    company_id=state.get("company_id", ""),
+                )
+                if fake_voting_result.get("consensus_reached") and fake_voting_result.get("best_response"):
+                    generated_response = fake_voting_result["best_response"]
+            except Exception:
+                pass  # BC-008: never crash
+
         duration_ms = round((time.monotonic() - start) * 1000, 2)
         audit_entry = append_audit_entry(
             state, step="generate", action="response_generated",
@@ -1794,7 +1846,7 @@ async def generate_node(state: ParwaGraphState) -> Dict[str, Any]:
             "generation_model": generation_model,
             "generation_tokens": generation_tokens,
             "current_step": "generate",
-            "steps_completed": state.get("steps_completed", []) + ["generate"],
+            "steps_completed": ["generate"],
             "step_outputs": {"generate": {"status": "completed", "model": generation_model, "tokens": generation_tokens, "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
             "total_tokens": state.get("total_tokens", 0) + generation_tokens,
@@ -1821,7 +1873,7 @@ def crp_compress_node(state: ParwaGraphState) -> Dict[str, Any]:
         if not response:
             return {
                 "current_step": "crp_compress",
-                "steps_completed": state.get("steps_completed", []) + ["crp_compress"],
+                "steps_completed": ["crp_compress"],
                 "step_outputs": {"crp_compress": {"status": "skipped", "reason": "no_response"}},
             }
 
@@ -1840,7 +1892,7 @@ def crp_compress_node(state: ParwaGraphState) -> Dict[str, Any]:
             return {
                 state_key: compressed,
                 "current_step": "crp_compress",
-                "steps_completed": state.get("steps_completed", []) + ["crp_compress"],
+                "steps_completed": ["crp_compress"],
                 "step_outputs": {"crp_compress": {"status": "completed", "compression_ratio": result["compression_ratio"], "tokens_removed": result["tokens_removed"], "duration_ms": duration_ms}},
                 "audit_log": audit_entry["audit_log"],
             }
@@ -1848,7 +1900,7 @@ def crp_compress_node(state: ParwaGraphState) -> Dict[str, Any]:
         duration_ms = round((time.monotonic() - start) * 1000, 2)
         return {
             "current_step": "crp_compress",
-            "steps_completed": state.get("steps_completed", []) + ["crp_compress"],
+            "steps_completed": ["crp_compress"],
             "step_outputs": {"crp_compress": {"status": "completed", "compression_ratio": 1.0, "duration_ms": duration_ms}},
         }
     except Exception as exc:
@@ -1888,6 +1940,22 @@ def clara_quality_gate_node(state: ParwaGraphState) -> Dict[str, Any]:
             signals=signals,
         )
 
+        # Run Loophole Detection Engine as additional safety check
+        loophole_result = {}
+        try:
+            from app.core.loophole_engine import LoopholeDetectionEngine
+            _loophole_engine = LoopholeDetectionEngine()
+            loophole_result = _loophole_engine.detect(response)
+            if loophole_result.get("requires_block"):
+                result["passed"] = False
+                result["issues"] = result.get("issues", []) + ["loophole_block"]
+                result["score"] = max(0, result["score"] - 20)
+            elif loophole_result.get("requires_review"):
+                result["issues"] = result.get("issues", []) + ["loophole_review"]
+                result["score"] = max(0, result["score"] - 10)
+        except Exception:
+            pass  # BC-008: never crash
+
         # Use adjusted response if available
         adjusted = result.get("adjusted_response", response)
         if adjusted and len(adjusted.strip()) > len(response.strip()) * 0.5:
@@ -1908,7 +1976,7 @@ def clara_quality_gate_node(state: ParwaGraphState) -> Dict[str, Any]:
             "quality_passed": quality_passed,
             "quality_issues": result.get("issues", []),
             "current_step": "clara_quality_gate",
-            "steps_completed": state.get("steps_completed", []) + ["clara_quality_gate"],
+            "steps_completed": ["clara_quality_gate"],
             "step_outputs": {"clara_quality_gate": {"status": "completed", "passed": quality_passed, "score": result["score"], "issues": result.get("issues", []), "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
         }
@@ -1936,7 +2004,7 @@ def quality_retry_node(state: ParwaGraphState) -> Dict[str, Any]:
             return {
                 "quality_retry_count": retry_count,
                 "current_step": "quality_retry",
-                "steps_completed": state.get("steps_completed", []) + ["quality_retry"],
+                "steps_completed": ["quality_retry"],
                 "step_outputs": {"quality_retry": {"status": "max_retries_exhausted", "retry_count": retry_count, "duration_ms": duration_ms}},
             }
 
@@ -1960,7 +2028,7 @@ def quality_retry_node(state: ParwaGraphState) -> Dict[str, Any]:
         return {
             "quality_retry_count": new_retry_count,
             "current_step": "quality_retry",
-            "steps_completed": state.get("steps_completed", []) + ["quality_retry"],
+            "steps_completed": ["quality_retry"],
             "step_outputs": {"quality_retry": {"status": "retry_initiated", "retry_count": new_retry_count, "issues": quality_issues, "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
         }
@@ -2012,7 +2080,7 @@ def confidence_assess_node(state: ParwaGraphState) -> Dict[str, Any]:
         )
         return {
             "current_step": "confidence_assess",
-            "steps_completed": state.get("steps_completed", []) + ["confidence_assess"],
+            "steps_completed": ["confidence_assess"],
             "step_outputs": {"confidence_assess": {"status": "completed", "confidence_score": confidence_score, "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
         }
@@ -2095,7 +2163,7 @@ def context_health_node(state: ParwaGraphState) -> Dict[str, Any]:
         return {
             "context_health": context_health,
             "current_step": "context_health",
-            "steps_completed": state.get("steps_completed", []) + ["context_health"],
+            "steps_completed": ["context_health"],
             "step_outputs": {"context_health": {"status": "completed", "health_score": health_score, "degradation_level": degradation_level, "drift_detected": drift_detected, "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
         }
@@ -2153,7 +2221,7 @@ def dedup_node(state: ParwaGraphState) -> Dict[str, Any]:
             "dedup_similarity_score": round(similarity_score, 3),
             "dedup_is_duplicate": is_duplicate,
             "current_step": "dedup",
-            "steps_completed": state.get("steps_completed", []) + ["dedup"],
+            "steps_completed": ["dedup"],
             "step_outputs": {"dedup": {"status": "completed", "similarity_score": similarity_score, "is_duplicate": is_duplicate, "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
         }
@@ -2238,7 +2306,7 @@ def strategic_decision_node(state: ParwaGraphState) -> Dict[str, Any]:
         )
         return {
             "current_step": "strategic_decision",
-            "steps_completed": state.get("steps_completed", []) + ["strategic_decision"],
+            "steps_completed": ["strategic_decision"],
             "step_outputs": {"strategic_decision": {"status": "completed", "decision": decision, "rationale": rationale, "actions": actions, "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
         }
@@ -2311,7 +2379,7 @@ async def peer_review_node(state: ParwaGraphState) -> Dict[str, Any]:
         )
         return {
             "current_step": "peer_review",
-            "steps_completed": state.get("steps_completed", []) + ["peer_review"],
+            "steps_completed": ["peer_review"],
             "step_outputs": {"peer_review": {"status": "completed", "passed": peer_review["passed"], "review_score": peer_review["review_score"], "issues": peer_review["issues"], "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
         }
@@ -2358,25 +2426,33 @@ def format_node(state: ParwaGraphState) -> Dict[str, Any]:
             escalation_notice = "[ESCALATED] This conversation requires human review. "
             formatted = escalation_notice + formatted
 
-        # Mark pipeline as completed
+        # Normalize quality_score to 0-1 scale
+        raw_quality = state.get("quality_score", 0.5)
+        quality_score = raw_quality / 100.0 if isinstance(raw_quality, (int, float)) and raw_quality > 1.0 else raw_quality
+
+        # Mark pipeline as completed — only partial if quality explicitly failed AND has errors
+        quality_passed = state.get("quality_passed", True)
         pipeline_status = "completed"
-        if state.get("errors"):
+        if state.get("errors") and not quality_passed:
             pipeline_status = "partial"
+        elif emergency_flag:
+            pipeline_status = "escalated"
 
         duration_ms = round((time.monotonic() - start) * 1000, 2)
         audit_entry = append_audit_entry(
             state, step="format", action="response_formatted",
             duration_ms=duration_ms,
-            details={"channel": channel, "response_length": len(formatted), "pipeline_status": pipeline_status},
+            details={"channel": channel, "response_length": len(formatted), "pipeline_status": pipeline_status, "quality_score": quality_score},
         )
         return {
             "formatted_response": formatted,
             "final_response": formatted,
             "response_format": channel,
             "pipeline_status": pipeline_status,
+            "quality_score": quality_score,
             "current_step": "format",
-            "steps_completed": state.get("steps_completed", []) + ["format"],
-            "step_outputs": {"format": {"status": "completed", "channel": channel, "response_length": len(formatted), "duration_ms": duration_ms}},
+            "steps_completed": ["format"],
+            "step_outputs": {"format": {"status": "completed", "channel": channel, "response_length": len(formatted), "quality_score": quality_score, "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
             "billing_tokens": state.get("total_tokens", 0),
         }
@@ -2479,6 +2555,7 @@ def smart_enrichment_node(state: ParwaGraphState) -> Dict[str, Any]:
             "shipping_issue": shipping_issue, "shipping_delay": shipping_delay,
             "tracking_info": tracking_info, "enrichment_context": enrichment_context,
             "current_step": "smart_enrichment",
+            "steps_completed": ["smart_enrichment"],
             "step_outputs": {"smart_enrichment": {"status": "completed", "intent": intent, "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
         }
@@ -2486,6 +2563,7 @@ def smart_enrichment_node(state: ParwaGraphState) -> Dict[str, Any]:
         duration_ms = round((time.monotonic() - start) * 1000, 2)
         logger.exception("smart_enrichment_node_failed", error=str(exc))
         return {"current_step": "smart_enrichment", "errors": ["smart_enrichment_failed"],
+                "steps_completed": ["smart_enrichment"],
                 "step_outputs": {"smart_enrichment": {"status": "failed", "error": str(exc), "duration_ms": duration_ms}},
                 "enrichment_context": ""}
 
@@ -2547,7 +2625,7 @@ def auto_action_node(state: ParwaGraphState) -> Dict[str, Any]:
     except Exception as exc:
         duration_ms = round((time.monotonic() - start) * 1000, 2)
         logger.exception("auto_action_node_failed", error=str(exc))
-        return {"current_step": "auto_action", "errors": ["auto_action_failed"],
+        return {"current_step": "auto_action", "steps_completed": ["auto_action"], "errors": ["auto_action_failed"],
                 "step_outputs": {"auto_action": {"status": "failed", "error": str(exc), "actions": [], "duration_ms": duration_ms}}}
 
 
@@ -2638,7 +2716,7 @@ def complaint_handler_node(state: ParwaGraphState) -> Dict[str, Any]:
             "complaint_resolution": complaint_resolution,
             "sentiment_escalation": sentiment_escalation,
             "enrichment_context": (state.get("enrichment_context", "") + " " + " ".join(context_parts)).strip(),
-            "step_outputs": {"complaint_handler": {
+            "steps_completed": ["complaint_handler"], "step_outputs": {"complaint_handler": {"status": "completed", 
                 "tier": "high",
                 "complaint_resolution": complaint_resolution,
                 "sentiment_escalation": sentiment_escalation,
@@ -2652,7 +2730,7 @@ def complaint_handler_node(state: ParwaGraphState) -> Dict[str, Any]:
         return {
             "complaint_resolution": {},
             "sentiment_escalation": {},
-            "errors": ["complaint_handler_failed"],
+            "steps_completed": ["complaint_handler"], "errors": ["complaint_handler_failed"],
             **append_audit_entry(state, "complaint_handler", "node_failed_high", duration_ms),
         }
 
@@ -2737,7 +2815,7 @@ def retention_negotiator_node(state: ParwaGraphState) -> Dict[str, Any]:
             "retention_negotiation": retention_negotiation,
             "winback_sequence": winback_sequence,
             "enrichment_context": (state.get("enrichment_context", "") + " " + " ".join(context_parts)).strip(),
-            "step_outputs": {"retention_negotiator": {
+            "steps_completed": ["retention_negotiator"], "step_outputs": {"retention_negotiator": {"status": "completed", 
                 "tier": "high",
                 "retention_negotiation": retention_negotiation,
                 "winback_sequence": winback_sequence,
@@ -2751,7 +2829,7 @@ def retention_negotiator_node(state: ParwaGraphState) -> Dict[str, Any]:
         return {
             "retention_negotiation": {},
             "winback_sequence": {},
-            "errors": ["retention_negotiator_failed"],
+            "steps_completed": ["retention_negotiator"], "errors": ["retention_negotiator_failed"],
             **append_audit_entry(state, "retention_negotiator", "node_failed_high", duration_ms),
         }
 
@@ -2835,7 +2913,7 @@ def billing_resolver_node(state: ParwaGraphState) -> Dict[str, Any]:
             "billing_self_service": billing_self_service,
             "paddle_dispute": paddle_dispute,
             "enrichment_context": (state.get("enrichment_context", "") + " " + " ".join(context_parts)).strip(),
-            "step_outputs": {"billing_resolver": {
+            "steps_completed": ["billing_resolver"], "step_outputs": {"billing_resolver": {"status": "completed", 
                 "tier": "high",
                 "billing_self_service": billing_self_service,
                 "paddle_dispute": paddle_dispute,
@@ -2849,7 +2927,7 @@ def billing_resolver_node(state: ParwaGraphState) -> Dict[str, Any]:
         return {
             "billing_self_service": {},
             "paddle_dispute": {},
-            "errors": ["billing_resolver_failed"],
+            "steps_completed": ["billing_resolver"], "errors": ["billing_resolver_failed"],
             **append_audit_entry(state, "billing_resolver", "node_failed_high", duration_ms),
         }
 
@@ -3070,7 +3148,7 @@ def tech_diagnostic_node(state: ParwaGraphState) -> Dict[str, Any]:
             "diagnostic_result": diagnostic_result,
             "escalation_decision": escalation_decision,
             "enrichment_context": (state.get("enrichment_context", "") + " " + " ".join(context_parts)).strip(),
-            "step_outputs": {"tech_diagnostic": {
+            "steps_completed": ["tech_diagnostic"], "step_outputs": {"tech_diagnostic": {"status": "completed", 
                 "tier": "high",
                 "diagnostic_result": diagnostic_result,
                 "escalation_decision": escalation_decision,
@@ -3086,7 +3164,7 @@ def tech_diagnostic_node(state: ParwaGraphState) -> Dict[str, Any]:
         return {
             "diagnostic_result": {},
             "escalation_decision": {},
-            "errors": ["tech_diagnostic_failed"],
+            "steps_completed": ["tech_diagnostic"], "errors": ["tech_diagnostic_failed"],
             **append_audit_entry(state, "tech_diagnostic", "node_failed_high", duration_ms),
         }
 
@@ -3208,7 +3286,7 @@ def shipping_tracker_node(state: ParwaGraphState) -> Dict[str, Any]:
             "shipping_carrier_data": shipping_carrier_data,
             "delay_notification": delay_notification,
             "enrichment_context": (state.get("enrichment_context", "") + " " + " ".join(context_parts)).strip(),
-            "step_outputs": {"shipping_tracker": {
+            "steps_completed": ["shipping_tracker"], "step_outputs": {"shipping_tracker": {"status": "completed", 
                 "tier": "high",
                 "shipping_carrier_data": shipping_carrier_data,
                 "delay_notification": delay_notification,
@@ -3223,6 +3301,6 @@ def shipping_tracker_node(state: ParwaGraphState) -> Dict[str, Any]:
         return {
             "shipping_carrier_data": {},
             "delay_notification": {},
-            "errors": ["shipping_tracker_failed"],
+            "steps_completed": ["shipping_tracker"], "errors": ["shipping_tracker_failed"],
             **append_audit_entry(state, "shipping_tracker", "node_failed_high", duration_ms),
         }

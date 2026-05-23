@@ -437,8 +437,8 @@ class ParwaGraphState(TypedDict, total=False):
     pipeline_status: str
     """Overall pipeline result: 'success' | 'partial' | 'failed' | 'timeout'."""
 
-    steps_completed: List[str]
-    """List of step IDs that completed successfully."""
+    steps_completed: Annotated[List[str], operator.add]
+    """List of step IDs that completed successfully. Auto-appended by LangGraph."""
 
     # ── METADATA: Audit, billing, compliance ──────────────────────
 
