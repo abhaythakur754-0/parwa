@@ -6,7 +6,9 @@ const nextConfig = {
   },
   reactStrictMode: false,
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
-  turbopack: {},
+  // Turbopack disabled — causes panics on Windows with large projects
+  // Re-enable with: turbopack: {}, and run: next dev --turbopack
+  // turbopack: {},
 
   // ── M-26 FIX: Security headers on all responses ──
   async headers() {
