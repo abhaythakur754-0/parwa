@@ -23,7 +23,7 @@ import json
 import sqlite3
 from datetime import datetime, timedelta
 
-DB_PATH = "/home/z/my-project/db/parwa_manual_test.db"
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db", "parwa_manual_test.db")
 
 # ── REAL Customer Care Ticket Data ──
 # These are tickets from CUSTOMERS/CLIENTS of TechNova Solutions,
