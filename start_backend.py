@@ -63,9 +63,13 @@ SQLiteTypeCompiler.visit_JSON = _visit_json_or_jsonb
 # Also add visit_JSONB that redirects
 SQLiteTypeCompiler.visit_JSONB = _visit_json_or_jsonb
 
-# ── Add project root to sys.path so 'backend.app' is importable ──
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+# ── Add BOTH paths to sys.path ──
+# 1. Project root  → so 'backend' package is importable
+# 2. backend/ dir  → so 'app' package is importable (app.config, app.services, etc.)
+BACKEND_DIR = str(Path(PROJECT_ROOT) / "backend")
+for _p in [PROJECT_ROOT, BACKEND_DIR]:
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 # Now import and run uvicorn
 import uvicorn
@@ -76,6 +80,7 @@ if __name__ == "__main__":
     print("=" * 60)
     print("  Starting PARWA Backend for Manual Testing")
     print(f"  Project:  {PROJECT_ROOT}")
+    print(f"  Backend:  {BACKEND_DIR}")
     print(f"  Database: SQLite at {DB_PATH}")
     print(f"  URL:      http://localhost:{port}")
     print(f"  API Docs: http://localhost:{port}/docs")
