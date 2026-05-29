@@ -48,12 +48,20 @@ const apiClient: AxiosInstance = axios.create({
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    // Handle 401 Unauthorized — clear user display data and trigger navigation.
-    // Tokens are httpOnly cookies cleared by the backend; we only clean up localStorage.
+    // Handle 401 Unauthorized — but distinguish between:
+    // 1. Failed login/signup (auth endpoint returning 401) → just pass through,
+    //    don't clear session or redirect — the calling component handles the error.
+    // 2. Expired/invalid token on a protected route → clear user data & redirect.
     if (error.response?.status === 401) {
-      if (typeof window !== 'undefined') {
+      const url = error.config?.url || '';
+      const isAuthEndpoint = url.startsWith('/api/auth/login') ||
+        url.startsWith('/api/auth/register') ||
+        url.startsWith('/api/auth/google') ||
+        url.startsWith('/api/auth/phone/');
+
+      if (!isAuthEndpoint && typeof window !== 'undefined') {
+        // Protected route with expired/invalid token — clear session
         localStorage.removeItem('parwa_user');
-        // Use Zustand store for SPA navigation instead of window.location
         try {
           const store = useAppStore.getState();
           if (store && !['login', 'signup', 'forgot-password'].includes(store.currentPage)) {
@@ -108,8 +116,17 @@ export function getErrorMessage(error: unknown): string {
     
     // Server responded with error
     const status = error.response.status;
-    const detail = error.response?.data?.detail;
-    
+    const data = error.response?.data;
+
+    // Extract the actual error message from the backend response.
+    // PARWA backend returns: { error: { code, message, details } }
+    // FastAPI default returns: { detail: "..." }
+    // Next.js API routes return: { status: "error", message: "..." }
+    const backendMessage =
+      data?.error?.message ||   // PARWA structured error format
+      data?.detail ||           // FastAPI default format
+      data?.message;            // Next.js API route format
+
     if (status === 429) {
       const retryAfter = error.response.headers['retry-after'] || 60;
       return `Too many requests. Please try again in ${retryAfter} seconds.`;
@@ -119,17 +136,28 @@ export function getErrorMessage(error: unknown): string {
       return 'Server error. Please try again later.';
     }
     
+    // For 401: Use the backend's specific message if available (e.g.
+    // "Invalid email or password", "Account temporarily locked").
+    // Only fall back to generic "Session expired" when there's no
+    // message — which means it's an expired/missing token on a
+    // protected route, not a failed login attempt.
     if (status === 401) {
+      if (backendMessage) {
+        return backendMessage;
+      }
       return 'Session expired. Please log in again.';
     }
     
     if (status === 403) {
+      if (backendMessage) {
+        return backendMessage;
+      }
       return 'Access denied.';
     }
     
     // Return server's error message if available
-    if (detail) {
-      return detail;
+    if (backendMessage) {
+      return backendMessage;
     }
     
     return `Request failed with status ${status}`;
@@ -184,6 +212,18 @@ export async function patch<T>(url: string, data?: unknown, config?: AxiosReques
 export async function del<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
   try {
     const response = await apiClient.delete<T>(url, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
+  }
+}
+
+/**
+ * Generic PUT request with safe parsing.
+ */
+export async function put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  try {
+    const response = await apiClient.put<T>(url, data, config);
     return safeParseResponse<T>(response);
   } catch (error) {
     throw error;
@@ -316,7 +356,7 @@ export const knowledgeApi = {
     const formData = new FormData();
     formData.append('file', file);
     
-    const response = await apiClient.post('/api/knowledge/upload', formData, {
+    const response = await apiClient.post('/api/kb/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -334,17 +374,17 @@ export const knowledgeApi = {
   /**
    * List documents.
    */
-  list: () => get('/api/knowledge'),
+  list: () => get('/api/kb/documents'),
   
   /**
    * Get document status.
    */
-  getStatus: (id: string) => get(`/api/knowledge/${id}/status`),
+  getStatus: (id: string) => get(`/api/kb/documents/${id}`),
   
   /**
    * Delete document.
    */
-  delete: (id: string) => del(`/api/knowledge/${id}`),
+  delete: (id: string) => del(`/api/kb/documents/${id}`),
 };
 
 // ── Auth API Endpoints ──────────────────────────────────────────────────
@@ -408,6 +448,105 @@ export const authApi = {
    */
   resetPassword: (token: string, new_password: string) => 
     post<MessageResponse>('/api/auth/reset-password', { token, new_password }),
+};
+
+// ── Ticket API Endpoints ────────────────────────────────────────────
+
+export interface TicketListParams {
+  status?: string;
+  priority?: string;
+  category?: string;
+  assigned_to?: string;
+  channel?: string;
+  customer_id?: string;
+  search?: string;
+  page?: number;
+  page_size?: number;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+}
+
+export interface TicketCreateData {
+  subject: string;
+  customer_id?: string;
+  channel?: string;
+  priority?: string;
+  category?: string;
+  tags?: string[];
+  metadata_json?: Record<string, unknown>;
+}
+
+export interface TicketUpdateData {
+  priority?: string;
+  category?: string;
+  tags?: string[];
+  status?: string;
+  assigned_to?: string;
+  subject?: string;
+}
+
+export const ticketApi = {
+  /**
+   * Create a new ticket.
+   */
+  create: (data: TicketCreateData) =>
+    post('/api/v1/tickets', data),
+
+  /**
+   * List tickets with filters & pagination.
+   */
+  list: (params?: TicketListParams) => {
+    const queryParts: string[] = [];
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+          queryParts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
+        }
+      });
+    }
+    const qs = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
+    return get(`/api/v1/tickets${qs}`);
+  },
+
+  /**
+   * Get ticket details by ID.
+   */
+  get: (id: string) => get(`/api/v1/tickets/${id}`),
+
+  /**
+   * Update a ticket.
+   */
+  update: (id: string, data: TicketUpdateData) =>
+    put(`/api/v1/tickets/${id}`, data),
+
+  /**
+   * Delete a ticket.
+   */
+  delete: (id: string) => del(`/api/v1/tickets/${id}`),
+
+  /**
+   * Update ticket status.
+   */
+  updateStatus: (id: string, data: { status: string }) =>
+    patch(`/api/v1/tickets/${id}/status`, data),
+
+  /**
+   * Assign a ticket.
+   */
+  assign: (id: string, data: { assigned_to: string }) =>
+    post(`/api/v1/tickets/${id}/assign`, data),
+
+  /**
+   * Add tags to a ticket.
+   */
+  addTags: (id: string, data: { tags: string[] }) =>
+    post(`/api/v1/tickets/${id}/tags`, data),
+
+  /**
+   * Remove a tag from a ticket.
+   */
+  removeTag: (id: string, tag: string) =>
+    del(`/api/v1/tickets/${id}/tags/${encodeURIComponent(tag)}`),
 };
 
 export default apiClient;

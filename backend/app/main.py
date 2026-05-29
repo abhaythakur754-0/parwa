@@ -110,6 +110,7 @@ from app.api.ai_classification import router as ai_classification_router  # AI c
 from app.api.ai_signals import router as ai_signals_router  # AI signal extraction
 from app.api.rag import router as rag_router  # RAG retrieval
 from app.api.response import router as response_api_router  # Response generation + brand voice + assignment + migration
+from app.api.gdpr import router as gdpr_router  # Phase 15: GDPR & Data Lifecycle (Art. 15/17/20, BC-010)
 
 from app.api.deps import get_current_user
 from database.models.core import User
@@ -473,6 +474,9 @@ app.include_router(rag_router, tags=["rag"])  # prefix: /api/rag
 
 # Response generation + brand voice + AI assignment + migration
 app.include_router(response_api_router, tags=["response"])  # combined router with sub-routers
+
+# Phase 15: GDPR & Data Lifecycle (Art. 15/17/20, BC-010)
+app.include_router(gdpr_router, tags=["gdpr"])  # prefix: /api/v1/gdpr
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───

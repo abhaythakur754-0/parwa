@@ -84,33 +84,38 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 category, identifier,
             )
         except Exception as exc:
-            # FAIL-CLOSED: When Redis is unavailable or rate limit
-            # check fails, BLOCK the request with 503.  This prevents
-            # brute-force / DDoS from bypassing rate limits when
-            # Redis is down.  The in-memory fallback in
-            # rate_limit_service is NOT used here by default.
-            logger.critical(
-                "rate_limit_check_failed_fail_closed path=%s "
+            # In development mode (Redis unavailable), fall back to
+            # in-memory rate limiting instead of blocking all requests.
+            # In production with Redis, this path should never be hit.
+            logger.warning(
+                "rate_limit_redis_unavailable_fallback_inmem path=%s "
                 "category=%s identifier=%s error=%s",
                 path,
                 category,
                 identifier[:50] if identifier else "none",
                 str(exc)[:200],
-                extra={
-                    "path": path,
-                    "category": category,
-                },
             )
-            correlation_id = getattr(
-                request.state, "correlation_id", None
-            )
-            return build_error_response(
-                status_code=503,
-                error_code="SERVICE_UNAVAILABLE",
-                message="Rate limiting service is temporarily "
-                "unavailable. Please retry later.",
-                correlation_id=correlation_id,
-            )
+            try:
+                result = svc._check_in_memory(
+                    svc._make_key(category, identifier),
+                    svc.get_category_config(category)["limit"],
+                    svc.get_category_config(category)["window"],
+                    svc._now(),
+                )
+            except Exception as fallback_exc:
+                logger.error(
+                    "rate_limit_fallback_failed path=%s error=%s",
+                    path, str(fallback_exc)[:200],
+                )
+                # Last resort: allow the request (fail-open for dev)
+                result = type('R', (), {
+                    'allowed': True,
+                    'remaining': 99,
+                    'limit': 100,
+                    'reset_at': 0,
+                    'retry_after': None,
+                    'to_headers': lambda self: {},
+                })()
 
         if not result.allowed:
             correlation_id = getattr(

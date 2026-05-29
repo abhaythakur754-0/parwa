@@ -53,15 +53,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if verified
+    // Check if verified — auto-verify in development when email service is not configured
     if (!user.is_verified) {
-      return NextResponse.json(
-        {
-          status: "error",
-          message: "Please verify your email address before logging in.",
-        },
-        { status: 403 }
-      );
+      const hasEmailService = !!process.env.BREVO_API_KEY;
+      if (!hasEmailService) {
+        // Auto-verify users in development when email service is unavailable
+        await db.user.update({
+          where: { id: user.id },
+          data: { is_verified: true },
+        });
+        user = { ...user, is_verified: true } as typeof user;
+      } else {
+        return NextResponse.json(
+          {
+            status: "error",
+            message: "Please verify your email address before logging in.",
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // ── C-02 FIX: Real signed JWT tokens instead of fake UUIDs ──

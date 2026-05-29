@@ -9,6 +9,7 @@ import {
   JarvisDemo,
   Footer,
 } from '@/components/landing';
+import { ChatWidget } from '@/components/chat/ChatWidget';
 import { useEffect } from 'react';
 
 /**
@@ -66,6 +67,9 @@ export default function HomePage() {
 
       {/* Footer */}
       <Footer />
+
+      {/* Floating Chat Widget */}
+      <ChatWidget />
     </div>
   );
 }

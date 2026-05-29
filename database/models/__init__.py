@@ -104,3 +104,7 @@ from database.models.activity_log import (  # noqa: F401
 from database.models.jarvis_activity import (  # noqa: F401
     JarvisActivityEvent,
 )
+from database.models.gdpr import (  # noqa: F401
+    ErasureRequest,
+    DataRetentionPolicy,
+)

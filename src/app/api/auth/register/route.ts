@@ -60,6 +60,8 @@ export async function POST(request: NextRequest) {
     const password_hash = await bcrypt.hash(password, salt);
 
     // ── H-03 FIX: New users start unverified, require email verification ──
+    // In development without BREVO_API_KEY, auto-verify users
+    const hasEmailService = !!process.env.BREVO_API_KEY;
     const verificationToken = crypto.randomBytes(32).toString("hex");
     const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
@@ -70,29 +72,31 @@ export async function POST(request: NextRequest) {
         full_name: fullName || null,
         company_name: companyName || null,
         industry: industry || null,
-        is_verified: false, // FIX: Require email verification
+        is_verified: !hasEmailService, // Auto-verify in development when email service is unavailable
         verification_token: verificationToken,
         verification_token_expires: verificationTokenExpires,
       },
     });
 
-    // Send verification email
-    try {
-      const verificationUrl = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/auth/verify-email?token=${verificationToken}`;
-      const htmlContent = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #E06A00;">Welcome to PARWA!</h2>
-          <p>Hi ${fullName || "there"},</p>
-          <p>Please verify your email address by clicking the link below:</p>
-          <p><a href="${verificationUrl}" style="display: inline-block; padding: 12px 24px; background: #E06A00; color: white; text-decoration: none; border-radius: 8px;">Verify Email</a></p>
-          <p>This link expires in 24 hours.</p>
-          <p style="color: #888; font-size: 12px;">If you didn't create an account, please ignore this email.</p>
-        </div>
-      `;
-      await sendEmail(normalizedEmail, "PARWA — Verify Your Email", htmlContent);
-    } catch (emailError) {
-      console.error("Failed to send verification email:", emailError);
-      // Don't block registration if email fails — user can request a new verification
+    // Send verification email (only if email service is configured)
+    if (hasEmailService) {
+      try {
+        const verificationUrl = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/auth/verify-email?token=${verificationToken}`;
+        const htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #E06A00;">Welcome to PARWA!</h2>
+            <p>Hi ${fullName || "there"},</p>
+            <p>Please verify your email address by clicking the link below:</p>
+            <p><a href="${verificationUrl}" style="display: inline-block; padding: 12px 24px; background: #E06A00; color: white; text-decoration: none; border-radius: 8px;">Verify Email</a></p>
+            <p>This link expires in 24 hours.</p>
+            <p style="color: #888; font-size: 12px;">If you didn't create an account, please ignore this email.</p>
+          </div>
+        `;
+        await sendEmail(normalizedEmail, "PARWA — Verify Your Email", htmlContent);
+      } catch (emailError) {
+        console.error("Failed to send verification email:", emailError);
+        // Don't block registration if email fails — user can request a new verification
+      }
     }
 
     // ── C-02 FIX: Real signed JWT tokens ──

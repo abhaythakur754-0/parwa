@@ -759,18 +759,59 @@ export async function POST(
   const endpoint = path.join('/');
 
   try {
+    // Read body ONCE and clone for both proxy and local use (Next.js 16 body-is-unusable fix)
+    let bodyData: any = null;
+    let rawBody: ArrayBuffer | undefined;
+    
+    try {
+      rawBody = await request.arrayBuffer();
+      bodyData = JSON.parse(new TextDecoder().decode(rawBody));
+    } catch {
+      // No body or unparseable
+    }
+
     // ── Try backend proxy first for ALL endpoints ──
-    const proxyResult = await proxyToBackend(request, path);
-    console.log(
-      `[OnboardingJarvis] POST /${endpoint} — Backend proxy ${proxyResult ? 'succeeded' : 'failed, using local fallback'}`,
-    );
-    if (proxyResult) return proxyResult;
+    let proxyResult: Response | null = null;
+    try {
+      const backendPath = `${BACKEND_URL}/api/onboarding-jarvis/${path.join('/')}`;
+      const url = new URL(request.url);
+      const searchParams = url.searchParams.toString();
+      const fullUrl = searchParams ? `${backendPath}?${searchParams}` : backendPath;
+
+      const headers = buildAuthHeaders(request);
+      const response = await fetch(fullUrl, {
+        method: request.method,
+        headers,
+        body: rawBody,
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (response.status >= 200 && response.status < 300) {
+        proxyResult = response;
+      } else {
+        console.warn(
+          `[OnboardingJarvis] Backend returned ${response.status}`,
+        );
+      }
+    } catch (err) {
+      console.warn(
+        '[OnboardingJarvis] Backend proxy failed:',
+        (err instanceof Error ? err.message : String(err))?.slice(0, 150),
+      );
+    }
+
+    if (proxyResult) {
+      console.log(`[OnboardingJarvis] POST /${endpoint} — Backend proxy succeeded`);
+      return proxyResult;
+    }
+
+    console.log(`[OnboardingJarvis] POST /${endpoint} — Using local fallback`);
 
     // ── Local fallback when backend is unavailable ──
 
     // POST /session — Create Session
     if (endpoint === 'session') {
-      const body = await request.json();
+      const body = bodyData || {};
       const session = createDefaultSession(
         body.entry_source,
         body.entry_params,
@@ -808,7 +849,7 @@ export async function POST(
 
     // POST /message — Send Message & Get AI Reply
     if (endpoint === 'message') {
-      const body = await request.json();
+      const body = bodyData || {};
       const { message, session_id, channel } = body;
 
       let session = session_id ? sessions.get(session_id) : undefined;
@@ -936,7 +977,7 @@ export async function POST(
 
     // POST /entry — Set Entry Context
     if (endpoint === 'entry') {
-      const body = await request.json();
+      const body = bodyData || {};
       const { session_id, entry_source, entry_params } = body;
 
       if (!session_id || !sessions.has(session_id)) {
@@ -1017,7 +1058,7 @@ export async function POST(
       const url = new URL(request.url);
       const sessionId =
         url.searchParams.get('session_id') ||
-        (await request.json().catch(() => ({}))).session_id;
+        (bodyData || {}).session_id;
 
       if (!sessionId || !sessions.has(sessionId)) {
         return NextResponse.json(
@@ -1064,7 +1105,7 @@ export async function POST(
     if (endpoint === 'verify/send-otp') {
       const url = new URL(request.url);
       const sessionId = url.searchParams.get('session_id');
-      const body = await request.json();
+      const body = bodyData || {};
 
       if (!sessionId || !sessions.has(sessionId)) {
         return NextResponse.json(
@@ -1103,7 +1144,7 @@ export async function POST(
     if (endpoint === 'verify/verify-otp') {
       const url = new URL(request.url);
       const sessionId = url.searchParams.get('session_id');
-      const body = await request.json();
+      const body = bodyData || {};
 
       if (!sessionId || !sessions.has(sessionId)) {
         return NextResponse.json(
@@ -1164,7 +1205,7 @@ export async function POST(
       }
 
       const session = sessions.get(sessionId);
-      const body = await request.json();
+      const body = bodyData || {};
 
       const items: Array<{ name: string; quantity: number; unit_price: number; total: number }> = [];
       const variants = body.variant_ids || [];
@@ -1456,7 +1497,7 @@ export async function PATCH(
         );
       }
 
-      const body = await request.json();
+      const body = bodyData || {};
       const session = sessions.get(sessionId);
 
       // Partial merge of context

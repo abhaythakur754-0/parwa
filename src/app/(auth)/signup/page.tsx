@@ -81,7 +81,7 @@ export default function SignupPage() {
       hydrate();
 
       // Redirect to dashboard
-      router.push('/models');
+      router.push('/onboarding');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Registration failed. Please try again.';
       setError(message);
@@ -116,7 +116,7 @@ export default function SignupPage() {
       }
       hydrate();
       toast.success(result.is_new_user ? 'Account created with Google!' : 'Signed in with Google!');
-      router.push('/models');
+      router.push('/onboarding');
     } catch (err) {
       const message = err instanceof Error
         ? err.message
