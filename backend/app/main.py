@@ -111,6 +111,8 @@ from app.api.ai_signals import router as ai_signals_router  # AI signal extracti
 from app.api.rag import router as rag_router  # RAG retrieval
 from app.api.response import router as response_api_router  # Response generation + brand voice + assignment + migration
 from app.api.gdpr import router as gdpr_router  # Phase 15: GDPR & Data Lifecycle (Art. 15/17/20, BC-010)
+from app.api.shadow_mode import router as shadow_mode_router  # Shadow Mode: SHADOW→SUPERVISED→GRADUATED pipeline
+from app.api.jarvis_chat import router as jarvis_chat_router  # Jarvis natural language chat interface
 
 from app.api.deps import get_current_user
 from database.models.core import User
@@ -477,6 +479,12 @@ app.include_router(response_api_router, tags=["response"])  # combined router wi
 
 # Phase 15: GDPR & Data Lifecycle (Art. 15/17/20, BC-010)
 app.include_router(gdpr_router, tags=["gdpr"])  # prefix: /api/v1/gdpr
+
+# Shadow Mode: variant deployment pipeline (SHADOW → SUPERVISED → GRADUATED)
+app.include_router(shadow_mode_router, tags=["shadow-mode"])  # prefix: /api/shadow-mode
+
+# Jarvis natural language chat (session/message/history)
+app.include_router(jarvis_chat_router, tags=["jarvis-chat"])  # prefix: /api/jarvis/chat
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───

@@ -108,3 +108,18 @@ from database.models.gdpr import (  # noqa: F401
     ErasureRequest,
     DataRetentionPolicy,
 )
+from database.models.shadow_mode import (  # noqa: F401
+    ShadowModeConfig,
+    ShadowModeResult,
+)
+from database.models.variant_engine import (  # noqa: F401
+    VariantAICapability,
+    VariantInstance,
+    VariantWorkloadDistribution,
+    AIAgentAssignment,
+    TechniqueCache,
+    AITokenBudget,
+    PromptInjectionAttempt,
+    AIPerformanceVariantMetric,
+    PipelineStateSnapshot,
+)
