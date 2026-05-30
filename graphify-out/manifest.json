@@ -9,49 +9,14 @@
     "ast_hash": "3d633ae0333b1d7ca5efa6ccc03d1bb8",
     "semantic_hash": ""
   },
-  "/home/z/my-project/parwa/generate-roadmap.js": {
-    "mtime": 1778708626.0,
-    "ast_hash": "771705f9a21764471cb6c7d572dbdeb7",
-    "semantic_hash": ""
-  },
   "/home/z/my-project/parwa/package.json": {
     "mtime": 1780073102.0,
     "ast_hash": "75adeb0c7802298c86806bd280b8f071",
     "semantic_hash": ""
   },
-  "/home/z/my-project/parwa/start_backend_daemon.py": {
-    "mtime": 1779741996.0,
-    "ast_hash": "5e9ce3fc63eeb963e3fc13145be06fe4",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/search_cs_problems.json": {
-    "mtime": 1778708626.0,
-    "ast_hash": "1d99afe313a9960c3b72251e3784ea48",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/search_cs_categories.json": {
-    "mtime": 1778708626.0,
-    "ast_hash": "870673d3da8b1830db736ff53b3ed4dc",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/test_security_fixes.py": {
-    "mtime": 1779082124.0,
-    "ast_hash": "2b2cf98c088c7ee08b19ef30f5406893",
-    "semantic_hash": ""
-  },
   "/home/z/my-project/parwa/playwright.config.ts": {
     "mtime": 1779886584.0,
     "ast_hash": "7718b1a104815cf141a94aa12103559f",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/search_ai_cs_benchmarks.json": {
-    "mtime": 1778708626.0,
-    "ast_hash": "07bad155ebdc1adb39b4892d951651f8",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/generate-pr-roadmap.js": {
-    "mtime": 1778708626.0,
-    "ast_hash": "75328ab37cd49c0557658fe8a7c81f48",
     "semantic_hash": ""
   },
   "/home/z/my-project/parwa/next.config.mjs": {
@@ -74,11 +39,6 @@
     "ast_hash": "44a51b28bb75baa05a3557e6a612c0ed",
     "semantic_hash": ""
   },
-  "/home/z/my-project/parwa/awareness_manual_test.py": {
-    "mtime": 1778708626.0,
-    "ast_hash": "5f456168640dda1dc10e6efdb506d204",
-    "semantic_hash": ""
-  },
   "/home/z/my-project/parwa/sentry.server.config.ts": {
     "mtime": 1778708626.0,
     "ast_hash": "c63a3a8da6213f013240a4791a59c1d8",
@@ -94,11 +54,6 @@
     "ast_hash": "ac19e4b067f4dbcde9ae67db96106680",
     "semantic_hash": ""
   },
-  "/home/z/my-project/parwa/start_backend.py": {
-    "mtime": 1779886980.0,
-    "ast_hash": "2244085b551d0e7c591188c23fa31112",
-    "semantic_hash": ""
-  },
   "/home/z/my-project/parwa/postcss.config.mjs": {
     "mtime": 1778708626.0,
     "ast_hash": "675899342e765a4d16acd75a53389101",
@@ -107,16 +62,6 @@
   "/home/z/my-project/parwa/sentry.edge.config.ts": {
     "mtime": 1778708626.0,
     "ast_hash": "e6d411c76eb1ff869422f0a1becb648a",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/gap_analysis_W5D6.json": {
-    "mtime": 1778708626.0,
-    "ast_hash": "b027b1cf6fb7772213a4b19c9b729df9",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/manual_test.py": {
-    "mtime": 1778708626.0,
-    "ast_hash": "91e3a8c09515a795b1ada892d3a783bd",
     "semantic_hash": ""
   },
   "/home/z/my-project/parwa/src/proxy.ts": {
@@ -1967,11 +1912,6 @@
   "/home/z/my-project/parwa/src/hooks/__tests__/useKeyboardShortcut.test.ts": {
     "mtime": 1779082124.0,
     "ast_hash": "e23eac15b4a648cadb79ac769a8d19a7",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/testing_assistant.jsx": {
-    "mtime": 1778708626.0,
-    "ast_hash": "cc61221402c0614b63c9b0611d362e78",
     "semantic_hash": ""
   },
   "/home/z/my-project/parwa/nginx/ssl-setup.sh": {
@@ -6404,19 +6344,9 @@
     "ast_hash": "80b7ba84a3219053df940df1d6e1e017",
     "semantic_hash": ""
   },
-  "/home/z/my-project/parwa/scripts/gap_finder.py": {
-    "mtime": 1778708626.0,
-    "ast_hash": "63914ecc7fd86cd010ce8698eeeb47c6",
-    "semantic_hash": ""
-  },
   "/home/z/my-project/parwa/scripts/run_worker.py": {
     "mtime": 1778708626.0,
     "ast_hash": "2ba19736c80d4ab90d80c298d474bc10",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/scripts/generate_infra_gap_report.py": {
-    "mtime": 1778708626.0,
-    "ast_hash": "935564c4a469dccfeebe937dd13e2266",
     "semantic_hash": ""
   },
   "/home/z/my-project/parwa/scripts/validate-env.sh": {
@@ -6459,74 +6389,9 @@
     "ast_hash": "1825d530aaebd4fa5af2ab8756da8c5f",
     "semantic_hash": ""
   },
-  "/home/z/my-project/parwa/integration_tests/run_phases_2_3_4.py": {
-    "mtime": 1779742777.0,
-    "ast_hash": "71ac1110b8ca26b703d7b285d76e0155",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/integration_tests/test_phase2_bc_compliance.py": {
-    "mtime": 1779739218.0,
-    "ast_hash": "f84a0a32e0160d67b36f550f1fc28ba0",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/docs/gap_analysis/week9_gap_analysis.json": {
-    "mtime": 1778708626.0,
-    "ast_hash": "17bb685862f0bf85ffbefd256ae3d6a4",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/variants/__init__.py": {
-    "mtime": 1778708627.0,
-    "ast_hash": "5c61cc5633d479ad0db1a651d6b0d9f4",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/jarvis-cli/manual_test.mjs": {
-    "mtime": 1779100784.0,
-    "ast_hash": "129c3015e996a9211cca570e6c6d2b2b",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/jarvis-cli/package.json": {
-    "mtime": 1779098415.0,
-    "ast_hash": "4a94573a1e3975b91a89d2a7a90251e2",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/jarvis-cli/jarvis-cli.mjs": {
-    "mtime": 1779100158.0,
-    "ast_hash": "c016c193ea5a0eb552d15092cadfc842",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/jarvis-cli/quick_test.mjs": {
-    "mtime": 1779100665.0,
-    "ast_hash": "3d82f229ddccf1ad7558e2653b30fa43",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/e2e/phase19-webhook-unification.spec.ts": {
-    "mtime": 1779985510.0,
-    "ast_hash": "da2f868a84645d4bc4407a97d311ade5",
-    "semantic_hash": ""
-  },
   "/home/z/my-project/parwa/e2e/jarvis-chat.spec.ts": {
     "mtime": 1780074242.0,
     "ast_hash": "8c63d9fc63e5ba4da7a51917905737f2",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/e2e/phase13-mobile-responsive.spec.ts": {
-    "mtime": 1779886584.0,
-    "ast_hash": "e91ec5143142569272408cdb57678ddf",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/e2e/phase16-frontend-gaps.spec.ts": {
-    "mtime": 1779976913.0,
-    "ast_hash": "84c044d84488a1106e72bef957354a2d",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/e2e/phase17-realtime-socketio.spec.ts": {
-    "mtime": 1779978433.0,
-    "ast_hash": "e73787a3e416be0d9b956de62a84c649",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/e2e/phase18-integration-manual.spec.ts": {
-    "mtime": 1779981849.0,
-    "ast_hash": "2bb36fb7ccc56b00e3fc0d8d5d2e054b",
     "semantic_hash": ""
   },
   "/home/z/my-project/parwa/tests/__init__.py": {
@@ -6539,21 +6404,6 @@
     "ast_hash": "e7816b29b540810943aa178a70894edb",
     "semantic_hash": ""
   },
-  "/home/z/my-project/parwa/tests/test_day3_frontend_auth.py": {
-    "mtime": 1778708626.0,
-    "ast_hash": "969299038059b5912dda89b5306611f8",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/tests/test_day8_final_cleanup.py": {
-    "mtime": 1778708626.0,
-    "ast_hash": "34f19ff77892a45f6ee3f1964c820a93",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/tests/test_day6_input_validation.py": {
-    "mtime": 1778708626.0,
-    "ast_hash": "3c3f2f147b22e80676571d4eb20e2a06",
-    "semantic_hash": ""
-  },
   "/home/z/my-project/parwa/tests/conftest.py": {
     "mtime": 1779954790.0,
     "ast_hash": "c6cd1a02319822abecaa2ee993f789a5",
@@ -6562,11 +6412,6 @@
   "/home/z/my-project/parwa/tests/test_gsd_engine.py": {
     "mtime": 1778708626.0,
     "ast_hash": "36e4e5efa82a8adc9f8f85406b68b555",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/tests/test_day4_webhook_security.py": {
-    "mtime": 1778708626.0,
-    "ast_hash": "e48bfb22b8a2ebd509a550c2c70a471c",
     "semantic_hash": ""
   },
   "/home/z/my-project/parwa/tests/infra/test_k8s_services.py": {
@@ -7839,26 +7684,6 @@
     "ast_hash": "c4a72725e8e17136b64912c9464f39a6",
     "semantic_hash": ""
   },
-  "/home/z/my-project/parwa/PARWA_SRS_Software_Requirements_Specification.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "a4a62db7d142f10c6dbfecb3af5f32ee",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/PARWA_Architecture_Design_Document.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "1e8b71e1699d12f9ddf536d2ce8795a9",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/WORKLOG.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "286d701a66d59ad445fe3d425bb55d62",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/security_audit_report.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "76b173f7c05712dc66be00778dbd1e46",
-    "semantic_hash": ""
-  },
   "/home/z/my-project/parwa/docker-compose.yml": {
     "mtime": 1779444903.0,
     "ast_hash": "cd59e8aa97b6dad3cbd88249a6ba2e40",
@@ -7872,146 +7697,6 @@
   "/home/z/my-project/parwa/docker-compose.prod.yml": {
     "mtime": 1779444862.0,
     "ast_hash": "150e18839abd1238db368183f99956e9",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/graphify-out/converted/PARWA_Complete_Gaps_Roadmap_04b8a5fa.md": {
-    "mtime": 1780168094.6116412,
-    "ast_hash": "90208bbf48c1cfcf605f766632c55aea",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/PARWA_Phase3_AI_Engine_Roadmap.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "82676eec031f85e08cd50e37e7d7ecf3",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/graphify-out/converted/Parwa_3Day_Human_Replacement_Roadmap_45ee5d15.md": {
-    "mtime": 1780168094.6626415,
-    "ast_hash": "0c20c1e262caf63f455cf45fb70fccba",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/PARWA_Context_Bible.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "7d785ad31f12200d181afe54034c5e85",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/CORRECTED_PARWA_Complete_Backend_Documentation.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "4e7419097dc4f646c8066f75ae77b34f",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/PARWA_Build_Agent_Prompt.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "5d2a9b9af1ab7a1cc2aa029c8aad0296",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/PARWA_Feature_Specs_Batch1.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "989aa0f564a8c5d001088e6c81ced8fd",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/Day27_Production_Gaps_Analysis.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "586ccc8ec1eea2702a13c12be98013f1",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/PARWA_Feature_Specs_Batch5.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "a531e3a265e7314d98cbe808c1173774",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/PARWA_Feature_Specs_Batch6.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "89091d250eaa018980d39b08180c937a",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/CORRECTED_PARWA_Complete_Infrastructure_Documentation.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "6804a06ebd59eddcaa3fcb7df086200c",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/PARWA_Feature_Specs_Batch7.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "1e6a5aa2c9c342d6ca01899f388a89c4",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/PARWA_Feature_Specs_Batch10.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "8d1bb1beb72273ada6c47fcba613b39f",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/CORRECTED_PARWA_UI_Additional_Features.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "8223b0b29e6c5bb759fc54263bf56b63",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/PARWA_Build_Roadmap_v1.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "e2ff362abb052a2efbb81351c8d3fe8c",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/CORRECTED_PARWA_Complete_Frontend_Documentation.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "d61b34d8eacaec4ea7d211ce90b54790",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/PARWA_Building_Codes_v1.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "613ad2ae3200b75210790d26dc2ce3fc",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/PARWA_Feature_Specs_Batch2.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "fdd174dc87883a510ad1dbc9370e19e7",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/PARWA_Feature_Specs_Batch3.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "96e22032df1bb135439c495928c8cd85",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/3_day_roadmap.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "57d4ddae038adb498fa02fb821f9dc70",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/PARWA_Connection_Map_PART2.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "fa19125c7102474ca890ee1216780cbf",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/PARWA_Feature_Specs_Batch4.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "c5f2fe16d91c1d8af68535a23f9cff3a",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/PARWA_Feature_Specs_Batch8.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "d389f7b44b5546c0510a4587d038587e",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/JWT_KEY_ROTATION_PROCEDURE.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "fea065cc3e114d2edf29e60c0049860d",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/CORRECTED_PARWA_Complete_Master_Document.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "7fec792961b34f8500b3289d03efbb55",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/PARWA_Feature_Specs_Batch9.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "ae9e76abff3e4daeedde931639d2d0e7",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/PARWA_Sprint_Plan_v1.md": {
-    "mtime": 1779082124.0,
-    "ast_hash": "c74ac9f3100991c593903f3cf4654010",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/documents/PARWA_AI_Technique_Framework.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "0e7c79c4619d4a54ef498402b4ee7305",
     "semantic_hash": ""
   },
   "/home/z/my-project/parwa/backend/app/templates/emails/base.html": {
@@ -8414,49 +8099,14 @@
     "ast_hash": "d8bf9b8568ff0f77cbbd8b8269d78a64",
     "semantic_hash": ""
   },
-  "/home/z/my-project/parwa/scripts/RS256_MIGRATION_NOTES.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "3cd58a5f0df1ad74ba04017b67471f76",
-    "semantic_hash": ""
-  },
   "/home/z/my-project/parwa/docs/ARCHITECTURE.md": {
     "mtime": 1778708626.0,
     "ast_hash": "141260666bf7c45c030713d7292d3e56",
     "semantic_hash": ""
   },
-  "/home/z/my-project/parwa/docs/WEEK6_ONBOARDING_PLAN.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "b9ebdd9ac9ec4c90a0b2e18e3934a657",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/graphify-out/converted/PARWA_Gap_Fix_Roadmap_c85da082.md": {
-    "mtime": 1780168101.8996737,
-    "ast_hash": "8dc49c2398cb28ffd11b551bfaf6a70d",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/docs/IMPLEMENTATION_PLAN_ONBOARDING.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "4f0d48407367830fb1e9343e26f84926",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/docs/JARVIS_ROADMAP.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "24b740c18049cf03876c194ff3f3c756",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/docs/ONBOARDING_SPEC.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "224545efcb983ff26c43f32883cb01aa",
-    "semantic_hash": ""
-  },
   "/home/z/my-project/parwa/docs/PRODUCTION_RUNBOOK.md": {
     "mtime": 1778708626.0,
     "ast_hash": "ca6e8583ba80a56f8f6cb64bf79d2ffe",
-    "semantic_hash": ""
-  },
-  "/home/z/my-project/parwa/docs/JARVIS_SPECIFICATION.md": {
-    "mtime": 1778708626.0,
-    "ast_hash": "17fb55e063171dce2dc85f5786beb1c1",
     "semantic_hash": ""
   },
   "/home/z/my-project/parwa/tests/infra/infra_test_report.txt": {
