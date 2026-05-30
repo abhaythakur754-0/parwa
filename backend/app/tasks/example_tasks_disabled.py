@@ -1,13 +1,19 @@
 """
-PARWA Example Tasks (BC-004)
+PARWA Example Tasks (BC-004) — DISABLED
 
-Skeleton tasks to verify Celery infrastructure works.
-These will be fleshed out in later days:
-- send_welcome_email_task → BC-006 (Email)
-- process_webhook_task → BC-003 (Webhooks)
-- calculate_analytics_task → Analytics reporting
+This file is renamed from example_tasks.py to example_tasks_disabled.py
+so that Celery does NOT auto-discover these stub tasks.
+
+These were originally skeleton tasks to verify Celery infrastructure.
+Production replacements now exist:
+
+- send_welcome_email_task → email_tasks.send_email (BC-006)
+- process_webhook_task    → webhook_tasks.process_webhook_event (BC-003)
+- calculate_analytics_task → analytics_tasks.aggregate_metrics (Day 22)
 
 BC-001: Every task's first parameter is company_id.
+
+To re-enable for development/testing, rename back to example_tasks.py.
 """
 
 import logging

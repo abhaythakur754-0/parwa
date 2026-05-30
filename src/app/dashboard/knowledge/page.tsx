@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { knowledgeApi } from '@/lib/api';
+import { appConfig } from '@/lib/config';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -58,7 +59,7 @@ interface KnowledgeDocument {
   chunks?: number;
 }
 
-// ── Mock Data ────────────────────────────────────────────────────────────
+// ── Mock Data (only used when appConfig.isDemo is true) ──────────────
 
 const MOCK_DOCUMENTS: KnowledgeDocument[] = [
   {
@@ -341,8 +342,8 @@ export default function KnowledgePage() {
           );
         }
       } catch {
-        // API not available — use mock data
-        if (!cancelled) {
+        // API not available — use mock data only in demo mode
+        if (!cancelled && appConfig.isDemo) {
           setDocuments(MOCK_DOCUMENTS);
         }
       } finally {

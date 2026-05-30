@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useBillingStore } from '@/lib/billing-store';
+import { appConfig } from '@/lib/config';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ const PLANS: PlanTier[] = [
   },
 ];
 
-// ── Mock Data ────────────────────────────────────────────────────────
+// ── Mock Data (only used when appConfig.isDemo is true) ──────────────
 
 const MOCK_INVOICES: Invoice[] = [
   { id: 'INV-2026-001', date: '2026-02-28', description: 'PARWA Pro — March 2026', amount: 2499, status: 'paid' },
@@ -238,14 +239,15 @@ export default function BillingPage() {
   const annualPrice = (plan: PlanTier) => Math.round(plan.monthlyPrice * (1 - annualDiscount));
   const activePrice = billingCycle === 'annual' ? annualPrice(currentPlan) : currentPlan.monthlyPrice;
 
-  // Usage data — use store values with hardcoded fallbacks
-  const tokensUsed = storeUsage.apiCallsUsed || 145_000;
+  // Usage data — use store values; fallback to demo values only in demo mode
+  const demoUsage = appConfig.isDemo;
+  const tokensUsed = storeUsage.apiCallsUsed || (demoUsage ? 145_000 : 0);
   const tokensTotal = storeUsage.apiCallsLimit || 500_000;
-  const agentHoursUsed = storeUsage.messagesUsed || 187;
+  const agentHoursUsed = storeUsage.messagesUsed || (demoUsage ? 187 : 0);
   const agentHoursTotal = storeUsage.messagesLimit || 300;
-  const agentsUsed = storeUsage.ticketsUsed || 2;
+  const agentsUsed = storeUsage.ticketsUsed || (demoUsage ? 2 : 0);
   const agentsMax = currentPlan.agents;
-  const ticketsThisMonth = storeUsage.ticketsUsed || 4_287;
+  const ticketsThisMonth = storeUsage.ticketsUsed || (demoUsage ? 4_287 : 0);
   const overageTokens = tokensUsed > tokensTotal ? tokensUsed - tokensTotal : 0;
   const overageCost = overageTokens > 0 ? (overageTokens / 1_000) * 0.02 : 0;
 
@@ -253,7 +255,7 @@ export default function BillingPage() {
   const baseCost = activePrice;
   const overageTotal = overageCost;
   const totalThisMonth = baseCost + overageTotal;
-  // Use store invoices with MOCK_INVOICES fallback when store returns empty
+  // Use store invoices with MOCK_INVOICES fallback only in demo mode
   const displayInvoices = storeInvoices.length > 0
     ? storeInvoices.map(inv => ({
         id: inv.id,
@@ -262,7 +264,9 @@ export default function BillingPage() {
         amount: inv.amount,
         status: inv.status as InvoiceStatus,
       }))
-    : MOCK_INVOICES;
+    : appConfig.isDemo
+      ? MOCK_INVOICES
+      : [];
 
   const totalSpentThisYear = displayInvoices.reduce((sum, inv) => sum + inv.amount, 0);
 

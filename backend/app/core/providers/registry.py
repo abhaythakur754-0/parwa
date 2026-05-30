@@ -264,12 +264,10 @@ class ProviderFactory:
                 "returning empty credentials.  Ensure the model is importable "
                 "at runtime."
             )
-            # Fallback: attempt generic query pattern
-            raise NotImplementedError(
-                "ProviderConfiguration ORM model not found. "
-                "Implement app.models.provider_config.ProviderConfiguration "
-                "or override ProviderFactory._load_credentials."
-            )
+            # Fallback: return empty credentials so the factory can decide
+            # how to handle the missing configuration (e.g. raise ValueError
+            # in the caller with a clearer message).
+            return {}
 
         # Standard SQLAlchemy async query pattern
         from sqlalchemy import select

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/jwt";
 
 /**
- * PARWA — Next.js Proxy (formerly Middleware)
+ * PARWA — Next.js Middleware
  *
  * Provides route protection for authenticated routes.
  * Verifies JWT from Authorization header or httpOnly cookie.
@@ -17,9 +17,6 @@ import { verifyToken } from "@/lib/jwt";
  * Public routes (no auth needed):
  *   /, /login, /signup, /forgot-password, /reset-password,
  *   /api/auth/*, /api/health, /contact, /pricing, /about
- *
- * Next.js 16: Renamed from middleware.ts to proxy.ts
- * Export renamed from `middleware` to `proxy`.
  */
 
 const PUBLIC_PATHS = [
@@ -93,8 +90,7 @@ function addSecurityHeaders(
   return response;
 }
 
-// Next.js 16: export name changed from `middleware` to `proxy`
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow public paths without auth

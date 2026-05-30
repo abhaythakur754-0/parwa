@@ -1,8 +1,8 @@
 """
-AI Classification API Endpoints (F-062 / F-149)
+AI Classification API Endpoints (F-062 / F-149 / F-151)
 
-REST endpoints for AI-powered intent classification and
-intent × technique mapping.
+REST endpoints for AI-powered intent classification,
+intent × technique mapping, and sentiment × technique mapping.
 
 C-01 FIX: All write endpoints require JWT authentication.
 C-12 FIX: company_id comes from JWT, not user-supplied (cross-tenant fix).
@@ -39,6 +39,33 @@ class ClassifyRequest(BaseModel):
     text: str = Field(..., min_length=1, description="Text to classify")
     variant_type: str = Field(default="parwa", description="PARWA variant type")
     use_ai: bool = Field(default=True, description="Use AI classification if available")
+    customer_tier: str = Field(default="free", description="Customer tier for sentiment mapping")
+    is_vip: bool = Field(default=False, description="Whether the customer is VIP")
+
+
+class ClassifyWithTechniquesRequest(BaseModel):
+    """Request body for classification with combined technique mapping.
+
+    Returns both intent-based and sentiment-based technique
+    recommendations alongside the classification result.
+    """
+    text: str = Field(..., min_length=1, description="Text to classify")
+    variant_type: str = Field(default="parwa", description="PARWA variant type")
+    use_ai: bool = Field(default=True, description="Use AI classification if available")
+    customer_tier: str = Field(default="free", description="Customer tier")
+    is_vip: bool = Field(default=False, description="Whether the customer is VIP")
+    frustration_score: Optional[float] = Field(
+        None, ge=0.0, le=100.0,
+        description="Frustration score (0-100). If provided, sentiment-based technique mapping is included.",
+    )
+    sentiment_score: Optional[float] = Field(
+        None, ge=0.0, le=1.0,
+        description="Sentiment score (0.0-1.0). If provided, sentiment-based technique mapping is included.",
+    )
+    urgency_level: Optional[str] = Field(
+        None,
+        description="Urgency level: low, medium, high, critical. If provided, used in sentiment mapping.",
+    )
 
 
 class BatchClassifyRequest(BaseModel):
@@ -56,6 +83,7 @@ class BatchClassifyRequest(BaseModel):
 
 _engine = None
 _mapper = None
+_sentiment_mapper = None
 
 
 def _get_engine():
@@ -74,6 +102,23 @@ def _get_mapper():
     return _mapper
 
 
+def _get_sentiment_mapper():
+    """Lazy-load SentimentTechniqueMapper (BC-008: never crash)."""
+    global _sentiment_mapper
+    if _sentiment_mapper is None:
+        try:
+            from app.services.sentiment_technique_mapper import SentimentTechniqueMapper
+            _sentiment_mapper = SentimentTechniqueMapper()
+        except Exception as exc:
+            import logging
+            logging.getLogger("ai_classification_api").error(
+                "sentiment_mapper_init_failed",
+                error=str(exc),
+            )
+            _sentiment_mapper = None
+    return _sentiment_mapper
+
+
 # ── Endpoints ────────────────────────────────────────────────────────
 
 
@@ -88,6 +133,10 @@ async def classify_text(
 ) -> Dict[str, Any]:
     """Classify text into primary + secondary intents (F-062).
 
+    Also returns intent-based technique recommendations and,
+    if frustration/sentiment scores are available, sentiment-based
+    technique recommendations (F-151).
+
     C-01: Requires JWT authentication.
     C-12: company_id derived from JWT, preventing cross-tenant access.
     """
@@ -98,6 +147,106 @@ async def classify_text(
         variant_type=req.variant_type,
         use_ai=req.use_ai,
     )
+
+    # Intent-based technique mapping (F-149)
+    intent_techniques = {}
+    mapper = _get_mapper()
+    try:
+        intent_result = mapper.map_intent(
+            intent=result.primary_intent,
+            variant_type=req.variant_type,
+            company_id=company_id,
+        )
+        intent_techniques = {
+            "selected_techniques": [t.value for t in intent_result.selected_techniques],
+            "selected_tiers": [t.value for t in intent_result.selected_tiers],
+            "fallback_applied": intent_result.fallback_applied,
+            "blocked_techniques": intent_result.blocked_techniques,
+        }
+    except Exception as exc:
+        intent_techniques = {"error": str(exc)}
+
+    response = {
+        "primary_intent": result.primary_intent,
+        "primary_confidence": result.primary_confidence,
+        "secondary_intents": [
+            {"intent": i, "confidence": c}
+            for i, c in result.secondary_intents
+        ],
+        "all_scores": result.all_scores,
+        "classification_method": result.classification_method,
+        "processing_time_ms": result.processing_time_ms,
+        "model_used": result.model_used,
+        "intent_techniques": intent_techniques,
+    }
+
+    return response
+
+
+@router.post("/classify-with-techniques")
+async def classify_with_techniques(
+    req: ClassifyWithTechniquesRequest,
+    # C-01 FIX: Require JWT authentication
+    user: User = Depends(get_current_user),
+    # C-12 FIX: Derive company_id from authenticated user, not request body
+    company_id: str = Depends(get_company_id),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Classify text and return combined technique recommendations.
+
+    Combines intent-based (F-149) and sentiment-based (F-151) technique
+    recommendations alongside the classification result. This is the
+    unified pipeline endpoint that wires both mappers together.
+
+    C-01: Requires JWT authentication.
+    C-12: company_id derived from JWT, preventing cross-tenant access.
+    """
+    engine = _get_engine()
+    result = await engine.classify(
+        text=req.text,
+        company_id=company_id,
+        variant_type=req.variant_type,
+        use_ai=req.use_ai,
+    )
+
+    # Intent-based technique mapping (F-149)
+    intent_techniques = {}
+    mapper = _get_mapper()
+    try:
+        intent_result = mapper.map_intent(
+            intent=result.primary_intent,
+            variant_type=req.variant_type,
+            company_id=company_id,
+        )
+        intent_techniques = {
+            "selected_techniques": [t.value for t in intent_result.selected_techniques],
+            "selected_tiers": [t.value for t in intent_result.selected_tiers],
+            "fallback_applied": intent_result.fallback_applied,
+            "blocked_techniques": intent_result.blocked_techniques,
+        }
+    except Exception as exc:
+        intent_techniques = {"error": str(exc)}
+
+    # Sentiment-based technique mapping (F-151)
+    sentiment_techniques = {}
+    sentiment_mapper = _get_sentiment_mapper()
+    if sentiment_mapper is not None and req.frustration_score is not None and req.sentiment_score is not None:
+        try:
+            sentiment_result = sentiment_mapper.map(
+                frustration_score=req.frustration_score,
+                sentiment_score=req.sentiment_score,
+                urgency_level=req.urgency_level or "low",
+                customer_tier=req.customer_tier,
+                is_vip=req.is_vip,
+                variant_type=req.variant_type,
+                company_id=company_id,
+            )
+            sentiment_techniques = sentiment_result.to_dict()
+        except Exception as exc:
+            sentiment_techniques = {"error": str(exc)}
+    elif req.frustration_score is not None and req.sentiment_score is not None:
+        sentiment_techniques = {"error": "SentimentTechniqueMapper unavailable"}
+
     return {
         "primary_intent": result.primary_intent,
         "primary_confidence": result.primary_confidence,
@@ -109,6 +258,8 @@ async def classify_text(
         "classification_method": result.classification_method,
         "processing_time_ms": result.processing_time_ms,
         "model_used": result.model_used,
+        "intent_techniques": intent_techniques,
+        "sentiment_techniques": sentiment_techniques,
     }
 
 

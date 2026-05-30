@@ -111,6 +111,13 @@ class Settings(BaseSettings):
     GOOGLE_AI_API_KEY: str = ""
     CEREBRAS_API_KEY: str = ""
     GROQ_API_KEY: str = ""
+    OPENAI_API_KEY: str = ""
+    ZAI_API_KEY: str = ""
+    ZAI_BASE_URL: str = os.environ.get("ZAI_BASE_URL", "http://localhost:3000/api")
+    # LLM Provider: "litellm" (production), "zai_gateway" (dev/testing), "openai" (direct)
+    # Auto-detected if empty based on which API keys are set.
+    LLM_PROVIDER: str = ""
+    LLM_MODEL: str = ""
     LLM_PRIMARY_PROVIDER: str = "google"
     LLM_FALLBACK_PROVIDER: str = "groq"
     AI_LIGHT_MODEL: str = ""

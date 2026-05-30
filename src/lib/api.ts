@@ -10,6 +10,7 @@
  */
 
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { appConfig } from '@/lib/config';
 import { useAppStore } from '@/lib/store';
 import { UserDetails, OnboardingState } from '@/types/onboarding';
 import {
@@ -25,7 +26,7 @@ import {
 
 // API base URL from environment or default.
 // When the Python backend is not running, we proxy through Next.js mock API routes.
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
+const API_BASE_URL = appConfig.apiUrl;
 
 /**
  * Create axios instance with default configuration.

@@ -13,8 +13,14 @@
 import { SignJWT, jwtVerify, importSPKI, importPKCS8 } from "jose";
 import type { CryptoKey } from "jose";
 
-const JWT_SECRET =
-  process.env.JWT_SECRET_KEY || "dev-jwt-secret-key-change-in-prod-32c";
+const JWT_SECRET = process.env.JWT_SECRET_KEY || "";
+
+if (!JWT_SECRET) {
+  console.warn(
+    "[PARWA] JWT_SECRET_KEY is not set. JWT signing/verification will fail. " +
+    "Set JWT_SECRET_KEY in your environment to match the backend signing key."
+  );
+}
 const JWT_ACCESS_EXPIRY = "15m"; // Access token: 15 minutes
 const JWT_REFRESH_EXPIRY = "7d"; // Refresh token: 7 days
 

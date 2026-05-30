@@ -7,6 +7,7 @@
 
 import { create } from 'zustand';
 import { VariantTier } from './variant-store';
+import { appConfig } from '@/lib/config';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ const TIER_PRICES: Record<VariantTier, number> = {
   high: 3999,
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = appConfig.apiUrl;
 
 // ── Store ───────────────────────────────────────────────────────────
 

@@ -1,9 +1,19 @@
 /**
  * PARWA Demo Store — In-Memory Demo Session Store
  *
+ * ⚠️  INTENTIONALLY IN-MEMORY: This store is designed for demo / development
+ * mode only.  All session data lives in process memory (Map) and will be
+ * lost on server restart.  In production, this would be replaced by
+ * PostgreSQL for persistent session data and Redis for fast TTL-based
+ * lookups and rate-limiting.
+ *
+ * Memory-safety: A MAX_SESSIONS cap (default 1000) with LRU eviction
+ * prevents unbounded memory growth under load.  When the limit is
+ * reached, the least-recently-accessed session is evicted before a new
+ * one is created.
+ *
  * Manages demo sessions, usage tracking, and billing for the $1 Demo Pack.
  * Used by API routes for server-side state management.
- * In production, this would be backed by PostgreSQL + Redis.
  */
 
 import type {
@@ -171,9 +181,34 @@ export const PREBUILT_KNOWLEDGE_BASES: DemoKnowledgeBase[] = [
 
 // ── In-Memory Store ──────────────────────────────────────────────
 
+const MAX_SESSIONS = 1000;
+
+/** Tracks insertion/access order for LRU eviction. */
+const sessionAccessOrder: string[] = [];
+
 const demoSessions = new Map<string, DemoSession>();
 const demoUsageEvents = new Map<string, DemoUsageEvent[]>();
 const uploadedKBs: DemoKnowledgeBase[] = [];
+
+/** Mark a session as recently accessed (moves to end of LRU list). */
+function touchSession(sessionId: string): void {
+  const idx = sessionAccessOrder.indexOf(sessionId);
+  if (idx !== -1) {
+    sessionAccessOrder.splice(idx, 1);
+  }
+  sessionAccessOrder.push(sessionId);
+}
+
+/** Evict the least-recently-used session if the store exceeds MAX_SESSIONS. */
+function evictIfNeeded(): void {
+  while (demoSessions.size >= MAX_SESSIONS && sessionAccessOrder.length > 0) {
+    const oldestId = sessionAccessOrder.shift();
+    if (oldestId && demoSessions.has(oldestId)) {
+      demoSessions.delete(oldestId);
+      demoUsageEvents.delete(oldestId);
+    }
+  }
+}
 
 // ── Helper Functions ─────────────────────────────────────────────
 
@@ -198,6 +233,8 @@ export function createDemoSession(
   industry: string,
   entrySource: string,
 ): DemoSession {
+  evictIfNeeded();
+
   const now = new Date();
   const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24-hour expiry
 
@@ -219,12 +256,15 @@ export function createDemoSession(
 
   demoSessions.set(session.id, session);
   demoUsageEvents.set(session.id, []);
+  touchSession(session.id);
 
   return session;
 }
 
 export function getDemoSession(sessionId: string): DemoSession | undefined {
-  return demoSessions.get(sessionId);
+  const session = demoSessions.get(sessionId);
+  if (session) touchSession(sessionId);
+  return session;
 }
 
 export function updateDemoSession(
@@ -236,6 +276,7 @@ export function updateDemoSession(
 
   const updated = { ...session, ...updates };
   demoSessions.set(sessionId, updated);
+  touchSession(sessionId);
   return updated;
 }
 
@@ -271,6 +312,7 @@ export function recordUsageEvent(
   }
 
   demoSessions.set(sessionId, session);
+  touchSession(sessionId);
 }
 
 export function getUsageEvents(sessionId: string): DemoUsageEvent[] {

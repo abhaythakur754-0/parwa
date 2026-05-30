@@ -357,7 +357,8 @@ def _build_config() -> dict:
         "task_track_started": True,
         # Autodiscover
         "imports": [
-            "app.tasks.example_tasks",
+            # "app.tasks.example_tasks" — disabled, renamed to example_tasks_disabled.py
+            # Production replacements: email_tasks, webhook_tasks, analytics_tasks
             "app.tasks.periodic",
             "app.tasks.webhook_tasks",
             # Day 22: New task modules

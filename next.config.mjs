@@ -1,10 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  reactStrictMode: false,
+  reactStrictMode: true,
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
   // Turbopack disabled — causes panics on Windows with large projects
   // Re-enable with: turbopack: {}, and run: next dev --turbopack

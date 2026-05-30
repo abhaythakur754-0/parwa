@@ -8,6 +8,7 @@
 
 import { create } from 'zustand';
 import { v4 as uuid } from 'uuid';
+import { appConfig } from '@/lib/config';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -98,7 +99,7 @@ export const PRIORITY_LABELS: Record<Notification['priority'], string> = {
 
 const MAX_NOTIFICATIONS = 100;
 const TOAST_DURATION_MS = 5000;
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = appConfig.apiUrl;
 
 // ── Fire-and-forget API helper ────────────────────────────────────
 // Safely calls fetch and ignores errors. Handles the case where

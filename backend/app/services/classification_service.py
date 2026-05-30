@@ -30,6 +30,9 @@ from database.models.tickets import (
     TicketPriority,
 )
 from app.exceptions import NotFoundError, ValidationError
+from app.logger import get_logger
+
+logger = get_logger("classification_service")
 
 
 class IntentCategory:
@@ -58,6 +61,8 @@ class ClassificationService:
 
     Week 4: Rule-based classification using keyword matching.
     Week 9: Will be replaced with AI-based classification.
+    Week 9 Day 7: Integrated SentimentTechniqueMapper (F-151) for
+    sentiment-based technique recommendations alongside classification.
     """
 
     # Classification rules (keyword -> intent mappings)
@@ -122,6 +127,71 @@ class ClassificationService:
     def __init__(self, db: Session, company_id: str):
         self.db = db
         self.company_id = company_id
+        self._sentiment_mapper = None
+
+    def _get_sentiment_mapper(self):
+        """Lazy-load SentimentTechniqueMapper (BC-008: never crash)."""
+        if self._sentiment_mapper is None:
+            try:
+                from app.services.sentiment_technique_mapper import SentimentTechniqueMapper
+                self._sentiment_mapper = SentimentTechniqueMapper()
+            except Exception as exc:
+                logger.error(
+                    "sentiment_mapper_init_failed",
+                    error=str(exc),
+                )
+                self._sentiment_mapper = None
+        return self._sentiment_mapper
+
+    def get_sentiment_techniques(
+        self,
+        frustration_score: float,
+        sentiment_score: float,
+        urgency_level: str = "low",
+        customer_tier: str = "free",
+        emotion: str = "neutral",
+        is_vip: bool = False,
+        variant_type: str = "parwa",
+    ) -> Dict[str, Any]:
+        """Get sentiment-based technique recommendations (F-151).
+
+        Uses SentimentTechniqueMapper to recommend techniques based on
+        frustration, sentiment, urgency, and customer context.
+
+        Args:
+            frustration_score: 0-100 frustration score.
+            sentiment_score: 0.0-1.0 sentiment score.
+            urgency_level: low, medium, high, critical.
+            customer_tier: free, pro, enterprise, vip.
+            emotion: Primary emotion classification.
+            is_vip: Whether customer is VIP.
+            variant_type: mini_parwa, parwa, parwa_high.
+
+        Returns:
+            Dict with technique recommendations or empty dict on error.
+        """
+        mapper = self._get_sentiment_mapper()
+        if mapper is None:
+            return {"error": "SentimentTechniqueMapper unavailable"}
+
+        try:
+            result = mapper.map(
+                frustration_score=frustration_score,
+                sentiment_score=sentiment_score,
+                urgency_level=urgency_level,
+                customer_tier=customer_tier,
+                emotion=emotion,
+                is_vip=is_vip,
+                variant_type=variant_type,
+                company_id=self.company_id,
+            )
+            return result.to_dict()
+        except Exception as exc:
+            logger.error(
+                "get_sentiment_techniques_failed",
+                error=str(exc),
+            )
+            return {"error": str(exc)}
 
     # ── CLASSIFICATION ───────────────────────────────────────────────────────
 
@@ -210,6 +280,9 @@ class ClassificationService:
             "urgency_confidence": urgency_confidence,
             "already_classified": False,
             "suggested_priority": self._suggest_priority(intent, urgency),
+            "sentiment_techniques": self._compute_sentiment_techniques(
+                content, urgency,
+            ),
         }
 
     def classify_text(
@@ -260,6 +333,9 @@ class ClassificationService:
             "all_intent_scores": all_intent_scores,
             "all_urgency_scores": all_urgency_scores,
             "suggested_priority": self._suggest_priority(intent, urgency),
+            "sentiment_techniques": self._compute_sentiment_techniques(
+                content, urgency,
+            ),
         }
 
     # ── CORRECTIONS ──────────────────────────────────────────────────────────
@@ -597,3 +673,76 @@ class ClassificationService:
             return TicketPriority.medium.value
         else:
             return TicketPriority.low.value
+
+    def _compute_sentiment_techniques(
+        self,
+        content: str,
+        urgency: str,
+        variant_type: str = "parwa",
+    ) -> Dict[str, Any]:
+        """Compute sentiment-based technique recommendations from content.
+
+        Infers frustration and sentiment scores from the classified
+        urgency and content keywords, then delegates to the
+        SentimentTechniqueMapper (F-151).
+
+        Args:
+            content: The ticket content text.
+            urgency: Classified urgency level.
+            variant_type: PARWA variant type.
+
+        Returns:
+            Dict with sentiment technique recommendations, or empty dict
+            if the mapper is unavailable.
+        """
+        try:
+            # Infer frustration score from content keywords
+            content_lower = content.lower() if content else ""
+            frustration_keywords = [
+                "frustrated", "angry", "unacceptable", "terrible", "awful",
+                "worst", "horrible", "outrageous", "disgusting", "furious",
+                "livid", "disappointed", "upset", "annoyed", "irritated",
+            ]
+            frustration_hit = sum(
+                1 for kw in frustration_keywords if kw in content_lower
+            )
+            # Scale: 0 hits → 10, 1 hit → 40, 2+ hits → 70, 3+ hits → 90
+            if frustration_hit >= 3:
+                frustration_score = 90.0
+            elif frustration_hit == 2:
+                frustration_score = 70.0
+            elif frustration_hit == 1:
+                frustration_score = 40.0
+            else:
+                frustration_score = 10.0
+
+            # Boost frustration for urgent tickets
+            urgency_boost = {"urgent": 20.0, "routine": 0.0, "informational": -5.0}
+            frustration_score = min(
+                100.0,
+                frustration_score + urgency_boost.get(urgency, 0.0),
+            )
+
+            # Infer sentiment score (inverse of frustration)
+            sentiment_score = max(0.0, 1.0 - (frustration_score / 100.0))
+
+            # Map urgency to sentiment urgency levels
+            urgency_map = {
+                "urgent": "high",
+                "routine": "medium",
+                "informational": "low",
+            }
+            mapped_urgency = urgency_map.get(urgency, "low")
+
+            return self.get_sentiment_techniques(
+                frustration_score=frustration_score,
+                sentiment_score=sentiment_score,
+                urgency_level=mapped_urgency,
+                variant_type=variant_type,
+            )
+        except Exception as exc:
+            logger.error(
+                "compute_sentiment_techniques_failed",
+                error=str(exc),
+            )
+            return {}

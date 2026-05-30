@@ -469,9 +469,114 @@ STAGE: ${session.detected_stage || session.context?.detected_stage || 'welcome'}
 ${getStageInstructions(session.detected_stage || session.context?.detected_stage || 'welcome')}`;
 }
 
-// ── In-Memory Stores ──────────────────────────────────────────────
+// ── In-Memory Session Store (with LRU eviction + TTL expiry) ────────
+//
+// ⚠️  INTENTIONALLY IN-MEMORY: Session data lives in process memory only.
+// Data is lost on server restart.  Production would use Redis with TTL
+// keys for session state and PostgreSQL for persistent records.
 
-const sessions = new Map();
+const MAX_SESSIONS = 5000;
+const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes of inactivity
+
+interface SessionEntry {
+  session: any;
+  lastAccessed: number;
+}
+
+const sessions = new Map<string, SessionEntry>();
+const sessionAccessOrder: string[] = [];
+
+/** Mark a session as recently accessed (LRU + TTL refresh). */
+function touchSession(sessionId: string): void {
+  const idx = sessionAccessOrder.indexOf(sessionId);
+  if (idx !== -1) {
+    sessionAccessOrder.splice(idx, 1);
+  }
+  sessionAccessOrder.push(sessionId);
+
+  const entry = sessions.get(sessionId);
+  if (entry) {
+    entry.lastAccessed = Date.now();
+  }
+}
+
+/** Evict the least-recently-used session if the store exceeds MAX_SESSIONS. */
+function evictIfNeeded(): void {
+  while (sessions.size >= MAX_SESSIONS && sessionAccessOrder.length > 0) {
+    const oldestId = sessionAccessOrder.shift();
+    if (oldestId && sessions.has(oldestId)) {
+      sessions.delete(oldestId);
+    }
+  }
+}
+
+/** Remove expired sessions (TTL-based). Returns number of sessions removed. */
+function cleanExpiredSessions(): number {
+  const now = Date.now();
+  let removed = 0;
+  for (const [id, entry] of sessions) {
+    if (now - entry.lastAccessed > SESSION_TTL_MS) {
+      sessions.delete(id);
+      const idx = sessionAccessOrder.indexOf(id);
+      if (idx !== -1) sessionAccessOrder.splice(idx, 1);
+      removed++;
+    }
+  }
+  return removed;
+}
+
+/** Periodic cleanup: run every 5 minutes to purge expired sessions. */
+if (typeof globalThis !== 'undefined') {
+  const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+  const cleanupKey = '__jarvis_session_cleanup__' as any;
+  if (!(globalThis as any)[cleanupKey]) {
+    (globalThis as any)[cleanupKey] = setInterval(() => {
+      const removed = cleanExpiredSessions();
+      if (removed > 0) {
+        console.log(`[Jarvis] Session cleanup: removed ${removed} expired sessions (active: ${sessions.size}/${MAX_SESSIONS})`);
+      }
+    }, CLEANUP_INTERVAL_MS);
+    // Prevent the timer from keeping the process alive
+    if (typeof (globalThis as any)[cleanupKey]?.unref === 'function') {
+      (globalThis as any)[cleanupKey].unref();
+    }
+  }
+}
+
+/** Store a session (wraps with TTL metadata). */
+function setSession(id: string, session: any): void {
+  // Evict LRU session if we're adding a new entry and at capacity
+  if (!sessions.has(id)) {
+    evictIfNeeded();
+  }
+  sessions.set(id, {
+    session,
+    lastAccessed: Date.now(),
+  });
+  touchSession(id);
+}
+
+/** Get a session (returns null if expired or missing). */
+function getSession(id: string): any | null {
+  const entry = sessions.get(id);
+  if (!entry) return null;
+
+  // Check TTL
+  if (Date.now() - entry.lastAccessed > SESSION_TTL_MS) {
+    sessions.delete(id);
+    const idx = sessionAccessOrder.indexOf(id);
+    if (idx !== -1) sessionAccessOrder.splice(idx, 1);
+    return null;
+  }
+
+  touchSession(id);
+  return entry.session;
+}
+
+/** Check if a session exists and is not expired. */
+function hasSession(id: string): boolean {
+  return getSession(id) !== null;
+}
 
 function generateId(): string {
   return `sess_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -1136,7 +1241,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         timestamp: new Date().toISOString(),
       };
       (session.messages as any[]).push(welcomeMsg);
-      sessions.set(session.id, session);
+      setSession(session.id, session);
       return NextResponse.json(session);
     }
 
@@ -1151,10 +1256,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const body = await request.json();
       const { content, session_id, context: incomingContext } = body;
 
-      let session = session_id ? sessions.get(session_id) : undefined;
+      let session = session_id ? getSession(session_id) : undefined;
       if (!session) {
         session = createDefaultSession('direct');
-        sessions.set(session.id, session);
+        setSession(session.id, session);
       }
 
       // ── Merge incoming context from frontend BEFORE building AI response ──
@@ -1166,7 +1271,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           }
         }
         session.updated_at = new Date().toISOString();
-        sessions.set(session.id, session);
+        setSession(session.id, session);
       }
 
       if (!content || typeof content !== 'string') {
@@ -1243,7 +1348,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         }
       }
 
-      sessions.set(session.id, session);
+      setSession(session.id, session);
       return NextResponse.json(aiMsg);
     }
 
@@ -1251,14 +1356,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (endpoint === 'context') {
       const url = new URL(request.url);
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
       const body = await request.json();
-      const session = sessions.get(sessionId);
+      const session = getSession(sessionId);
       session.context = { ...session.context, ...body };
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      setSession(sessionId, session);
       return NextResponse.json(session);
     }
 
@@ -1271,15 +1376,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
       const body = await request.json();
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      if (sessions.has(sessionId)) {
-        const session = sessions.get(sessionId);
+      if (hasSession(sessionId)) {
+        const session = getSession(sessionId);
         session.context = {
           ...session.context,
           otp: { code: otp, email: body.email, attempts: 0, attempts_remaining: 3, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), status: 'sent' },
         };
         // Phase 10e: Create action ticket for OTP
         const ticket = createActionTicket(session, 'otp_verification', { email: body.email, otp_status: 'sent' });
-        sessions.set(sessionId, session);
+        setSession(sessionId, session);
         return NextResponse.json({ message: `OTP sent to ${body.email} (demo: ${otp})`, status: 'sent', attempts_remaining: 3, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), ticket_id: ticket.id });
       }
       return NextResponse.json({ message: `OTP sent to ${body.email} (demo: ${otp})`, status: 'sent', attempts_remaining: 3, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() });
@@ -1289,11 +1394,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (endpoint === 'verify/verify-otp') {
       const url = new URL(request.url);
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
       const body = await request.json();
-      const session = sessions.get(sessionId);
+      const session = getSession(sessionId);
       const otpData = session.context.otp;
       if (!otpData || otpData.code !== body.code) {
         return NextResponse.json({ message: 'Invalid OTP code. Please try again.', status: 'failed', attempts_remaining: Math.max(0, (Number(otpData?.attempts_remaining || 3)) - 1) });
@@ -1305,7 +1410,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         updateActionTicket(session, otpTickets[otpTickets.length - 1].id, { status: 'completed' });
       }
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      setSession(sessionId, session);
       return NextResponse.json({ message: 'Email verified successfully!', status: 'verified', attempts_remaining: Number(otpData?.attempts_remaining) });
     }
 
@@ -1313,10 +1418,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (endpoint === 'demo-pack/purchase') {
       const url = new URL(request.url);
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const session = sessions.get(sessionId);
+      const session = getSession(sessionId);
       session.pack_type = 'demo';
       session.remaining_today = 500;
 
@@ -1350,7 +1455,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       session.messages.push(paymentCardMsg);
 
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      setSession(sessionId, session);
       return NextResponse.json({ message: 'Demo pack activated! You now have 500 messages.', pack_type: 'demo', pack_expiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), remaining_today: 500, demo_call_remaining: true, bill_summary: billSummary, ticket_id: ticket.id });
     }
 
@@ -1358,10 +1463,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (endpoint === 'payment/create') {
       const url = new URL(request.url);
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const session = sessions.get(sessionId);
+      const session = getSession(sessionId);
       const body = await request.json();
 
       // Phase 10a: Enhanced itemized checkout
@@ -1421,7 +1526,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       session.messages.push(paymentCardMsg);
 
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      setSession(sessionId, session);
       return NextResponse.json({ checkout_url: checkoutUrl, transaction_id: transactionId, status: 'pending', amount: `$${total.toFixed(2)}/mo`, currency: 'USD', items, subtotal, tax, total, ticket_id: ticket.id });
     }
 
@@ -1435,11 +1540,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const body = await request.json();
       // Phase 10e: Create action ticket for demo call
       let ticketId: string | undefined;
-      if (sessionId && sessions.has(sessionId)) {
-        const session = sessions.get(sessionId);
+      if (sessionId && hasSession(sessionId)) {
+        const session = getSession(sessionId);
         const ticket = createActionTicket(session, 'demo_call', { phone: body.phone, duration_limit: 300 });
         ticketId = ticket.id;
-        sessions.set(sessionId, session);
+        setSession(sessionId, session);
       }
       return NextResponse.json({ call_id: `call_${Date.now()}`, status: 'initiated', phone: body.phone, duration_limit: 300, message: `Demo call initiated to ${body.phone}. You'll receive a call within 30 seconds.`, ticket_id: ticketId });
     }
@@ -1448,10 +1553,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (endpoint === 'handoff') {
       const url = new URL(request.url);
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const session = sessions.get(sessionId);
+      const session = getSession(sessionId);
       session.handoff_completed = true;
       session.detected_stage = 'handoff';
       session.context.detected_stage = 'handoff';
@@ -1465,7 +1570,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       });
 
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      setSession(sessionId, session);
       return NextResponse.json({ handoff_completed: true, new_session_id: null, handoff_at: new Date().toISOString(), ticket_id: ticket.id });
     }
 
@@ -1474,11 +1579,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const body = await request.json();
       const { session_id, entry_source, entry_params } = body;
 
-      if (!session_id || !sessions.has(session_id)) {
+      if (!session_id || !hasSession(session_id)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
 
-      const session = sessions.get(session_id);
+      const session = getSession(session_id);
 
       // Build enhanced context from entry params (Phase 9a)
       const params = entry_params || {};
@@ -1514,7 +1619,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       };
       session.messages.push(welcomeMsg);
       session.updated_at = new Date().toISOString();
-      sessions.set(session.id, session);
+      setSession(session.id, session);
       return NextResponse.json({ session, new_welcome: welcomeMsg });
     }
 
@@ -1523,11 +1628,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const body = await request.json();
       const { session_id, event_type, transaction_id } = body;
 
-      if (!session_id || !sessions.has(session_id)) {
+      if (!session_id || !hasSession(session_id)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
 
-      const session = sessions.get(session_id);
+      const session = getSession(session_id);
 
       if (event_type === 'payment.completed') {
         session.payment_status = 'completed';
@@ -1578,7 +1683,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
 
       session.updated_at = new Date().toISOString();
-      sessions.set(session.id, session);
+      setSession(session.id, session);
       return NextResponse.json({ received: true, event_type, payment_status: session.payment_status });
     }
 
@@ -1587,17 +1692,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const body = await request.json();
       const { session_id, type, metadata } = body;
 
-      if (!session_id || !sessions.has(session_id)) {
+      if (!session_id || !hasSession(session_id)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
       if (!type) {
         return NextResponse.json({ error: { code: 'bad_request', message: 'Ticket type is required', details: null } }, { status: 400 });
       }
 
-      const session = sessions.get(session_id);
+      const session = getSession(session_id);
       const ticket = createActionTicket(session, type, metadata || {});
       session.updated_at = new Date().toISOString();
-      sessions.set(session.id, session);
+      setSession(session.id, session);
       return NextResponse.json(ticket, { status: 201 });
     }
 
@@ -1618,10 +1723,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // ── GET /session ──────────────────────────────────────────
     if (endpoint === 'session') {
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      return NextResponse.json(sessions.get(sessionId));
+      return NextResponse.json(getSession(sessionId));
     }
 
     // ── GET /history ───────────────────────────────────────────
@@ -1630,11 +1735,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const limit = parseInt(url.searchParams.get('limit') || '100', 10);
       const offset = parseInt(url.searchParams.get('offset') || '0', 10);
 
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ messages: [], total: 0, limit, offset, has_more: false });
       }
 
-      const session = sessions.get(sessionId)!;
+      const session = getSession(sessionId)!;
       const allMessages = session.messages;
       const paged = allMessages.slice(offset, offset + limit);
       return NextResponse.json({ messages: paged, total: allMessages.length, limit, offset, has_more: offset + limit < allMessages.length });
@@ -1643,20 +1748,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // ── GET /demo-pack/status ─────────────────────────────────
     if (endpoint === 'demo-pack/status') {
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const session = sessions.get(sessionId)!;
+      const session = getSession(sessionId)!;
       return NextResponse.json({ pack_type: session.pack_type, remaining_today: session.remaining_today, total_allowed: session.pack_type === 'demo' ? 50 : 20, pack_expiry: session.pack_type === 'demo' ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : null, demo_call_remaining: !session.context.demo_call_used });
     }
 
     // ── GET /payment/status — Payment Status Check ───────────────
     if (endpoint === 'payment/status') {
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const session = sessions.get(sessionId)!;
+      const session = getSession(sessionId)!;
       const paymentData = session.context.payment_data;
       return NextResponse.json({
         payment_status: session.payment_status,
@@ -1676,10 +1781,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // ── GET /tickets — List Session Tickets ──────────────────────
     if (endpoint === 'tickets') {
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const session = sessions.get(sessionId)!;
+      const session = getSession(sessionId)!;
       const tickets = session.context.action_tickets || [];
       const typeFilter = url.searchParams.get('type');
       const statusFilter = url.searchParams.get('status');
@@ -1695,10 +1800,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (endpoint.startsWith('tickets/') && endpoint.split('/').length === 2) {
       const ticketId = endpoint.split('/')[1];
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const session = sessions.get(sessionId)!;
+      const session = getSession(sessionId)!;
       const tickets = session.context.action_tickets || [];
       const ticket = tickets.find((t: any) => t.id === ticketId);
       if (!ticket) {
@@ -1724,14 +1829,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     // ── PATCH /context ────────────────────────────────────────
     if (endpoint === 'context') {
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
       const body = await request.json();
-      const session = sessions.get(sessionId)!;
+      const session = getSession(sessionId)!;
       session.context = { ...session.context, ...body };
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      setSession(sessionId, session);
       return NextResponse.json(session);
     }
 
@@ -1740,17 +1845,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const parts = endpoint.split('/');
       const ticketId = parts[1];
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
       const body = await request.json();
-      const session = sessions.get(sessionId)!;
+      const session = getSession(sessionId)!;
       const updated = updateActionTicket(session, ticketId, { status: body.status, metadata: body.metadata });
       if (!updated) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Ticket not found', details: null } }, { status: 404 });
       }
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      setSession(sessionId, session);
       return NextResponse.json(updated);
     }
 

@@ -426,15 +426,16 @@ async def _try_function_calling(
     the provider doesn't support it or it fails.
     """
     try:
-        import os
+        from app.config import get_settings
+        _settings = get_settings()
 
         # Check if OpenAI is available for function calling
-        api_key = os.environ.get("OPENAI_API_KEY", "")
+        api_key = _settings.OPENAI_API_KEY
         base_url = os.environ.get("OPENAI_BASE_URL", "")
         model = os.environ.get("JARVIS_MODEL", os.environ.get("OPENAI_MODEL", "gpt-4o-mini"))
 
         # Try z-ai gateway first (if available)
-        zai_key = os.environ.get("ZAI_API_KEY", "")
+        zai_key = _settings.ZAI_API_KEY
         if zai_key:
             return await _call_zai_with_functions(
                 messages, function_definitions, company_id, zai_key
@@ -531,7 +532,9 @@ async def _call_zai_with_functions(
         import httpx
         import os
 
-        base_url = os.environ.get("ZAI_BASE_URL", "http://localhost:3000/api")
+        from app.config import get_settings as _get_settings
+        _s = _get_settings()
+        base_url = _s.ZAI_BASE_URL
         model = os.environ.get("ZAI_MODEL", "default")
 
         headers = {
