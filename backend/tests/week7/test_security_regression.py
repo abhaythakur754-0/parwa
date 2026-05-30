@@ -210,14 +210,16 @@ class TestInputValidation:
 
     def test_webhook_signature_verification(self):
         """Webhook signature verification exists."""
-        hmac_source = (BACKEND_DIR / "app" / "core" / "hmac_verify.py")
+        # Canonical implementation is in app/security/hmac_verification.py
+        # (app/core/hmac_verify.py was a deprecated wrapper, now removed)
+        hmac_source = (BACKEND_DIR / "app" / "security" / "hmac_verification.py")
         assert hmac_source.exists(), "HMAC verification module should exist"
 
     def test_webhook_replay_protection(self):
         """Webhook has replay protection (timestamp validation)."""
         # Check webhook service or HMAC verification for timestamp validation
         webhook_service = BACKEND_DIR / "app" / "services" / "webhook_service.py"
-        hmac_verify = BACKEND_DIR / "app" / "core" / "hmac_verify.py"
+        hmac_verify = BACKEND_DIR / "app" / "security" / "hmac_verification.py"
         billing_webhooks = BACKEND_DIR / "app" / "api" / "billing_webhooks.py"
         
         found_timestamp = False

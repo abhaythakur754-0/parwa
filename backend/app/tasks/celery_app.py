@@ -393,6 +393,9 @@ def _build_config() -> dict:
             "app.tasks.sms_tasks",
             "app.tasks.workflow_tasks",
             "app.tasks.celery_health",
+            # DLQ retry and technique tasks
+            "app.tasks.dlq_retry_tasks",
+            "app.tasks.technique_tasks",
         ],
     }
 

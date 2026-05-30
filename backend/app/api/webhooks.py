@@ -26,6 +26,7 @@ from fastapi.responses import JSONResponse
 from app.schemas.webhook import (
     WebhookResponse,
 )
+from app.core.providers.webhook_parser import WebhookParserRegistry  # noqa: F401
 from app.services import webhook_service
 from app.api.deps import require_platform_admin
 from database.models.core import User
@@ -491,6 +492,7 @@ async def receive_webhook(
         )
 
     # Extract event fields from payload
+    # TODO: Use WebhookParserRegistry.parse(provider, payload) for normalized parsing
     event_id = _get_event_id_from_payload(
         provider, payload,
     )

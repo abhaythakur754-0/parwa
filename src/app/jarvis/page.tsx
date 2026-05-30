@@ -3,6 +3,7 @@
 import React, { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { JarvisChat } from '@/components/jarvis/JarvisChat';
+import { ChatErrorBoundary } from '@/components/jarvis/ChatErrorBoundary';
 
 /**
  * Jarvis Chat Page
@@ -63,12 +64,14 @@ function JarvisPageInner() {
   }, [searchParams]);
 
   return (
-    <JarvisChat
-      isOpen={isOpen}
-      onClose={() => window.history.back()}
-      entrySource={entrySource}
-      entryParams={entryParams}
-    />
+    <ChatErrorBoundary>
+      <JarvisChat
+        isOpen={isOpen}
+        onClose={() => window.history.back()}
+        entrySource={entrySource}
+        entryParams={entryParams}
+      />
+    </ChatErrorBoundary>
   );
 }
 

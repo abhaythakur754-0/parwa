@@ -23,6 +23,7 @@ from app.api.deps import get_current_user, get_db
 from database.models.core import User
 from app.services.assignment_service import AssignmentService, AssigneeType
 from app.exceptions import NotFoundError, ValidationError
+from app.core.temp_agent_expiry import TempAgentExpiryService, TempAgentConfig, TempAgentRecord, ExpiryResult  # noqa: F401
 
 
 router = APIRouter(prefix="/tickets", tags=["ticket-assignment"])

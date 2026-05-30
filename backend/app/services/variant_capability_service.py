@@ -17,6 +17,11 @@ from datetime import datetime, timezone
 from database.base import SessionLocal
 from database.models.variant_engine import VariantAICapability
 from app.exceptions import ParwaBaseError
+from app.schemas.variant_schemas import (  # noqa: F401
+    VariantCapabilityResponse, VariantInstanceResponse,
+    VariantInstanceCreate, VariantInstanceUpdate,
+    VariantFeatureSummary, VariantCapacitySummary,
+)
 
 # ══════════════════════════════════════════════════════════════════
 # FEATURE REGISTRY — Single Source of Truth (BC-013)

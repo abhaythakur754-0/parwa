@@ -44,6 +44,10 @@ from .sms_vonage import VonageProvider
 from .payment_paddle import PaddleProvider
 from .payment_stripe import StripeProvider
 
+# Webhook parsing & verification — pluggable registries
+from .webhook_parser import WebhookParserRegistry, WebhookParser
+from .webhook_verifier import WebhookVerifierRegistry, WebhookVerifier
+
 
 # ---------------------------------------------------------------------------
 # Auto-registration
@@ -104,4 +108,9 @@ __all__ = [
     # Payment providers
     "PaddleProvider",
     "StripeProvider",
+    # Webhook parsing & verification
+    "WebhookParserRegistry",
+    "WebhookParser",
+    "WebhookVerifierRegistry",
+    "WebhookVerifier",
 ]
