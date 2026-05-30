@@ -212,16 +212,16 @@ class TestBC003Webhooks:
     def test_webhook_routes_exist(self):
         """Verify all webhook routes are registered."""
         # Test Paddle webhook route exists
-        r = requests.post(f"{BASE_URL}/api/webhooks/paddle", json={"test": true})
+        r = requests.post(f"{BASE_URL}/api/webhooks/paddle", json={"test": True})
         # Should get 401 (bad signature) not 404 (route missing)
         assert r.status_code != 404, f"Paddle webhook route not found!"
 
         # Test Brevo webhook route exists
-        r2 = requests.post(f"{BASE_URL}/api/webhooks/brevo", json={"test": true})
+        r2 = requests.post(f"{BASE_URL}/api/webhooks/brevo", json={"test": True})
         assert r2.status_code != 404, f"Brevo webhook route not found!"
 
         # Test Twilio webhook route exists
-        r3 = requests.post(f"{BASE_URL}/api/webhooks/twilio", json={"test": true})
+        r3 = requests.post(f"{BASE_URL}/api/webhooks/twilio", json={"test": True})
         assert r3.status_code != 404, f"Twilio webhook route not found!"
 
     def test_paddle_webhook_rejects_invalid_signature(self):
@@ -235,7 +235,7 @@ class TestBC003Webhooks:
 
     def test_dedicated_paddle_webhook_route(self):
         """Dedicated Paddle webhook route at /api/v1/webhooks/paddle should exist."""
-        r = requests.post(f"{BASE_URL}/api/v1/webhooks/paddle", json={"test": true})
+        r = requests.post(f"{BASE_URL}/api/v1/webhooks/paddle", json={"test": True})
         assert r.status_code != 404, "Dedicated Paddle webhook route not found!"
 
 

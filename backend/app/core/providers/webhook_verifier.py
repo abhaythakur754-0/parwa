@@ -17,6 +17,7 @@ existing code.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import logging
@@ -177,7 +178,6 @@ def verify_twilio(
         ).digest(),
     ).decode("utf-8")
 
-    import base64
     return hmac.compare_digest(expected, signature)
 
 
