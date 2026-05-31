@@ -1,0 +1,3 @@
+# These are large regeneratable files - run `graphify update .` to rebuild
+graph.json
+cache/
