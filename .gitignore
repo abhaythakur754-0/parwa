@@ -102,5 +102,5 @@ dump.rdb
 tsconfig.tsbuildinfo
 next-env.d.ts
 
-# Graphify output - large regeneratable files excluded in graphify-out/.gitignore
+# Graphify output - large regeneratable files excluded in graphify/.gitignore
 # Important design files (GRAPH_REPORT.md, manifest.json, labels) ARE tracked
