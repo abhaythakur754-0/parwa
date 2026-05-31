@@ -30,23 +30,37 @@ Nodes (Phase 2):
 # Explicit re-exports for static analysis visibility.
 # These modules are loaded lazily by graph.py's _get_node_function(),
 # but re-exporting here helps tools (Graphify, IDEs, mypy) see the edges.
+#
+# NOTE: Module filenames start with digits (e.g. 01_pii_redaction),
+# which makes standard `from ... import` a SyntaxError.
+# We use importlib.import_module() instead — same approach as graph.py.
 
-from app.core.langgraph.nodes.01_pii_redaction import pii_redaction_node  # noqa: F401
-from app.core.langgraph.nodes.02_empathy_engine import empathy_engine_node  # noqa: F401
-from app.core.langgraph.nodes.03_router_agent import router_agent_node  # noqa: F401
-from app.core.langgraph.nodes.04_base_domain_agent import BaseDomainAgent  # noqa: F401
-from app.core.langgraph.nodes.05_faq_agent import faq_agent_node  # noqa: F401
-from app.core.langgraph.nodes.06_refund_agent import refund_agent_node  # noqa: F401
-from app.core.langgraph.nodes.07_technical_agent import technical_agent_node  # noqa: F401
-from app.core.langgraph.nodes.08_billing_agent import billing_agent_node  # noqa: F401
-from app.core.langgraph.nodes.09_complaint_agent import complaint_agent_node  # noqa: F401
-from app.core.langgraph.nodes.10_escalation_agent import escalation_agent_node  # noqa: F401
-from app.core.langgraph.nodes.11_maker_validator import maker_validator_node  # noqa: F401
-from app.core.langgraph.nodes.12_control_system import control_system_node  # noqa: F401
-from app.core.langgraph.nodes.13_dspy_optimizer import dspy_optimizer_node  # noqa: F401
-from app.core.langgraph.nodes.14_guardrails import guardrails_node  # noqa: F401
-from app.core.langgraph.nodes.15_channel_delivery import channel_delivery_node  # noqa: F401
-from app.core.langgraph.nodes.16_state_update import state_update_node  # noqa: F401
-from app.core.langgraph.nodes.17_email_agent import email_agent_node  # noqa: F401
-from app.core.langgraph.nodes.18_sms_agent import sms_agent_node  # noqa: F401
-from app.core.langgraph.nodes.19_voice_agent import voice_agent_node  # noqa: F401
+import importlib
+
+_NODE_MODULES = {
+    "pii_redaction_node": ("01_pii_redaction", "pii_redaction_node"),
+    "empathy_engine_node": ("02_empathy_engine", "empathy_engine_node"),
+    "router_agent_node": ("03_router_agent", "router_agent_node"),
+    "BaseDomainAgent": ("04_base_domain_agent", "BaseDomainAgent"),
+    "faq_agent_node": ("05_faq_agent", "faq_agent_node"),
+    "refund_agent_node": ("06_refund_agent", "refund_agent_node"),
+    "technical_agent_node": ("07_technical_agent", "technical_agent_node"),
+    "billing_agent_node": ("08_billing_agent", "billing_agent_node"),
+    "complaint_agent_node": ("09_complaint_agent", "complaint_agent_node"),
+    "escalation_agent_node": ("10_escalation_agent", "escalation_agent_node"),
+    "maker_validator_node": ("11_maker_validator", "maker_validator_node"),
+    "control_system_node": ("12_control_system", "control_system_node"),
+    "dspy_optimizer_node": ("13_dspy_optimizer", "dspy_optimizer_node"),
+    "guardrails_node": ("14_guardrails", "guardrails_node"),
+    "channel_delivery_node": ("15_channel_delivery", "channel_delivery_node"),
+    "state_update_node": ("16_state_update", "state_update_node"),
+    "email_agent_node": ("17_email_agent", "email_agent_node"),
+    "sms_agent_node": ("18_sms_agent", "sms_agent_node"),
+    "voice_agent_node": ("19_voice_agent", "voice_agent_node"),
+}
+
+_BASE = "app.core.langgraph.nodes"
+
+for _attr, (_mod_name, _symbol) in _NODE_MODULES.items():
+    _mod = importlib.import_module(f"{_BASE}.{_mod_name}")
+    globals()[_attr] = getattr(_mod, _symbol)
