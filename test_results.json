@@ -1,0 +1,19 @@
+{
+  "passed": 33,
+  "failed": 3,
+  "total": 36,
+  "bugs": [
+    {
+      "name": "Pricing calculate",
+      "detail": "status=400, body={\"detail\":\"Variant 'starter' not found in industry 'ecommerce'\"}"
+    },
+    {
+      "name": "Create ticket",
+      "detail": "status=500, body={\"error\":{\"code\":\"INTERNAL_ERROR\",\"message\":\"An internal error occurred\",\"details\":null},\"correlation_id\":\"7ddb9c1d-a51e-44ca-b84c-5ee38a6d2857\"}"
+    },
+    {
+      "name": "List tickets",
+      "detail": "status=500, body={\"error\":{\"code\":\"INTERNAL_ERROR\",\"message\":\"An internal error occurred\",\"details\":null},\"correlation_id\":\"fa0e81fa-3dc2-4430-a04b-128e2f908c10\"}"
+    }
+  ]
+}

@@ -194,7 +194,7 @@ class JarvisAwarenessSnapshot(Base):
     onboarding_stage_distribution_json = Column(Text, default="{}")
     onboarding_flags_json = Column(Text, default="[]")
 
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # ── Relationships ──
     session = relationship("JarvisSession", back_populates="awareness_snapshots")
@@ -296,11 +296,11 @@ class JarvisCommand(Base):
     # If this command was undone, link to the undo command
 
     # ── Timestamps ──
-    received_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    received_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     parsed_at = Column(DateTime, nullable=True)
     executed_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # ── Relationships ──
     session = relationship("JarvisSession")
@@ -417,9 +417,9 @@ class JarvisProactiveAlert(Base):
     related_command_id = Column(String(36), nullable=True)
     # FK to jarvis_commands.id if alert triggered a command
 
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
-        DateTime,
+        DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )

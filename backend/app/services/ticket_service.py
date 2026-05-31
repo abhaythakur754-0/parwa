@@ -121,8 +121,8 @@ class TicketService:
             tags=json.dumps(tags or [] + scope_tags),
             metadata_json=json.dumps(metadata_json or {}),
             duplicate_of_id=duplicate_of,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
         )
 
         self.db.add(ticket)
@@ -612,7 +612,8 @@ class TicketService:
             return None
 
         # Look for recent open tickets from same customer with similar subject
-        recent_threshold = datetime.now(timezone.utc) - timedelta(hours=24)
+        # SQLite stores datetimes without tzinfo, so use naive UTC for comparison
+        recent_threshold = datetime.utcnow() - timedelta(hours=24)
 
         similar_tickets = self.db.query(Ticket).filter(
             Ticket.company_id == self.company_id,

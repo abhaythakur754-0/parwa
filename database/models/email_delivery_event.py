@@ -16,9 +16,8 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     Column, String, Text, Integer, Boolean,
-    DateTime, ForeignKey, Index,
+    DateTime, ForeignKey, Index, JSON,
 )
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from database.base import Base
@@ -67,7 +66,7 @@ class EmailDeliveryEvent(Base):
 
     # Provider metadata
     provider = Column(String(50), nullable=False, default="brevo")
-    provider_data = Column(JSONB, nullable=True)
+    provider_data = Column(JSON, nullable=True)
     # Raw event payload from Brevo for audit
 
     # Status tracking

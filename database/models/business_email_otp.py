@@ -62,7 +62,7 @@ class BusinessEmailOTP(Base):
     attempts = Column(Integer, default=0, nullable=False)
     # Timestamps
     created_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
     verified_at = Column(DateTime, nullable=True)

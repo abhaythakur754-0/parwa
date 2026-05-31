@@ -37,8 +37,8 @@ class Company(Base):
     mode = Column(String(50), default="shadow")
     paddle_customer_id = Column(String(255))
     paddle_subscription_id = Column(String(255))
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     users = relationship(
         "User", back_populates="company",
@@ -105,8 +105,8 @@ class User(Base):
     failed_login_count = Column(Integer, default=0)
     locked_until = Column(DateTime)
     last_failed_login_at = Column(DateTime)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     company = relationship("Company", back_populates="users")
     refresh_tokens = relationship(
@@ -159,7 +159,7 @@ class RefreshToken(Base):
     device_info = Column(String(255))
     ip_address = Column(String(45))
     expires_at = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="refresh_tokens")
 
@@ -188,7 +188,7 @@ class MFASecret(Base):
     # C-14: Fernet-encrypted TOTP secret (never plaintext)
     secret_key = Column(String(512), nullable=False)
     is_verified = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="mfa_secret")
 
@@ -210,7 +210,7 @@ class BackupCode(Base):
     code_hash = Column(String(255), nullable=False)
     is_used = Column(Boolean, default=False)
     used_at = Column(DateTime)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="backup_codes")
 
@@ -243,7 +243,7 @@ class APIKey(Base):
     last_used_at = Column(DateTime)
     expires_at = Column(DateTime)
     created_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
     )
 
     company = relationship("Company", back_populates="api_keys")
@@ -266,7 +266,7 @@ class Agent(Base):
     capacity_max = Column(Integer, default=100)
     accuracy_rate = Column(Numeric(5, 2), default=0)
     tickets_resolved = Column(Integer, default=0)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 # ── Emergency States (pause controls) ──────────────────────────────
@@ -284,7 +284,7 @@ class EmergencyState(Base):
     paused_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
     paused_at = Column(DateTime)
     reason = Column(Text)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 # ── User Notification Preferences ──────────────────────────────────
@@ -304,7 +304,7 @@ class UserNotificationPreference(Base):
     channel = Column(String(50), nullable=False)
     event_type = Column(String(100), nullable=False)
     enabled = Column(Boolean, default=True)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="notification_preferences")
 
@@ -327,7 +327,7 @@ class VerificationToken(Base):
     purpose = Column(String(50), default="email_verification")
     is_used = Column(Boolean, default=False)
     expires_at = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="verification_tokens")
 
@@ -349,7 +349,7 @@ class PasswordResetToken(Base):
     token_hash = Column(String(255), nullable=False, index=True)
     is_used = Column(Boolean, default=False)
     expires_at = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="password_reset_tokens")
 
@@ -384,8 +384,8 @@ class OAuthAccount(Base):
     access_token = Column(Text)
     refresh_token = Column(Text)
     token_expires_at = Column(DateTime)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="oauth_accounts")
 
@@ -421,5 +421,5 @@ class CompanySetting(Base):
     custom_rules = Column(Text, default="[]")
     # Assignment rules
     assignment_rules = Column(Text, default="[]")
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

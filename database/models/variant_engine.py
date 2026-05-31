@@ -82,10 +82,10 @@ class VariantAICapability(Base):
     # Per-variant feature configuration overrides
 
     created_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
     )
     updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
@@ -153,10 +153,10 @@ class VariantInstance(Base):
     last_activity_at = Column(DateTime, nullable=True)
 
     created_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
     )
     updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
@@ -238,7 +238,7 @@ class VariantWorkloadDistribution(Base):
     )
 
     created_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
     )
 
     __table_args__ = (
@@ -277,10 +277,10 @@ class AIAgentAssignment(Base):
 
     status = Column(String(50), default="active")
     created_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
     )
     updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
@@ -326,7 +326,7 @@ class TechniqueCache(Base):
     ttl_expires_at = Column(DateTime, nullable=False)
 
     created_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
     )
 
     __table_args__ = (
@@ -383,10 +383,10 @@ class AITokenBudget(Base):
     # JSON: {mini_parwa: {daily: X}, parwa: {...}, ...}
 
     created_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
     )
     updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
@@ -451,7 +451,7 @@ class PromptInjectionAttempt(Base):
     ip_address = Column(String(45), nullable=True)
 
     created_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
     )
 
     __table_args__ = (
@@ -506,7 +506,7 @@ class AIPerformanceVariantMetric(Base):
     error_rate_pct = Column(Numeric(5, 2), default=0)
 
     created_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
     )
 
     __table_args__ = (
@@ -564,7 +564,7 @@ class PipelineStateSnapshot(Base):
     # auto, manual, error, checkpoint
 
     created_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
     )
 
     __table_args__ = (

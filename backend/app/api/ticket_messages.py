@@ -157,7 +157,7 @@ async def list_messages(
     role: Optional[str] = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
-    order: str = Query(default="asc", regex="^(asc|desc)$"),
+    order: str = Query(default="asc", pattern="^(asc|desc)$"),
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
     current_user: User = Depends(get_current_user),

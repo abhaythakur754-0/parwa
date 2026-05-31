@@ -17,7 +17,7 @@ BC-002: Money fields use Numeric(10,4). No Float for money.
 BC-012: created_at/updated_at on all tables.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import uuid
 
@@ -127,11 +127,11 @@ class ShadowModeConfig(Base):
     disabled_at = Column(DateTime, nullable=True)
 
     created_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
     )
     updated_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
-        onupdate=lambda: datetime.utcnow(),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     __table_args__ = (
@@ -231,7 +231,7 @@ class ShadowModeResult(Base):
     auto_fallback_used = Column(Boolean, default=False)
 
     created_at = Column(
-        DateTime, default=lambda: datetime.utcnow(),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
     )
 
     __table_args__ = (
