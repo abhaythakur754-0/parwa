@@ -475,6 +475,7 @@ class LLMGateway:
                     connect=self.CONNECT_TIMEOUT_SECONDS,
                     read=self.READ_TIMEOUT_SECONDS,
                     write=self.CONNECT_TIMEOUT_SECONDS,
+                    pool=self.CONNECT_TIMEOUT_SECONDS,
                 ),
             ) as client:
                 response = await client.post(
