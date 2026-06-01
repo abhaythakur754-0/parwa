@@ -3,6 +3,26 @@ const nextConfig = {
   output: "standalone",
   reactStrictMode: true,
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
+
+  // ── Production API Proxy ──
+  // Vercel → Render backend: rewrites /api/backend/* to the FastAPI server
+  // This avoids CORS issues in production.
+  // The NEXT_PUBLIC_API_URL env var points to the Render backend directly.
+  async rewrites() {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    // Only add rewrites if not pointing to localhost (production)
+    if (backendUrl.includes('localhost')) return [];
+    return [
+      {
+        source: '/api/backend/:path*',
+        destination: `${backendUrl}/api/:path*`,
+      },
+      {
+        source: '/ws',
+        destination: `${backendUrl}/ws`,
+      },
+    ];
+  },
   // Turbopack disabled — causes panics on Windows with large projects
   // Re-enable with: turbopack: {}, and run: next dev --turbopack
   // turbopack: {},

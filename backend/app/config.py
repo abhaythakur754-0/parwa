@@ -72,16 +72,23 @@ class Settings(BaseSettings):
     def normalize_database_url(cls, v: str) -> str:
         """Normalize DATABASE_URL for SQLAlchemy compatibility.
 
-        Prisma uses 'file:' prefix for SQLite which SQLAlchemy doesn't
-        understand. Convert 'file:/path' to 'sqlite:///path' format.
+        - Prisma uses 'file:' prefix for SQLite which SQLAlchemy doesn't
+          understand. Convert 'file:/path' to 'sqlite:///path' format.
+        - Supabase and many PaaS providers use 'postgres://' but
+          SQLAlchemy requires 'postgresql://'. Convert automatically.
         """
-        if v and v.startswith("file:"):
+        if not v:
+            return v
+        if v.startswith("file:"):
             path = v[5:]  # strip 'file:'
             # Handle file:/absolute/path → sqlite:////absolute/path (3 slashes + absolute)
             if path.startswith("/"):
                 return f"sqlite:///{path}"
             # Handle file:relative/path → sqlite:///relative/path
             return f"sqlite:///{path}"
+        # Supabase/Neon/Render often use postgres:// — SQLAlchemy needs postgresql://
+        if v.startswith("postgres://"):
+            return "postgresql://" + v[len("postgres://"):]
         return v
 
     # ── JWT (BC-011) ─────────────────────────────────────────────
