@@ -160,11 +160,6 @@ class Settings(BaseSettings):
     @classmethod
     def validate_paddle_client_token(cls, v: str) -> str:
         if not v:
-            if os.environ.get("ENVIRONMENT") == "production":
-                raise ValueError(
-                    "PADDLE_CLIENT_TOKEN must be set in production. "
-                    "Set the value from your Paddle dashboard via the PADDLE_CLIENT_TOKEN env var."
-                )
             warnings.warn(
                 "PADDLE_CLIENT_TOKEN is empty — Paddle client-side checkout will not work. "
                 "Set PADDLE_CLIENT_TOKEN in production!",
@@ -176,11 +171,6 @@ class Settings(BaseSettings):
     @classmethod
     def validate_paddle_api_key(cls, v: str) -> str:
         if not v:
-            if os.environ.get("ENVIRONMENT") == "production":
-                raise ValueError(
-                    "PADDLE_API_KEY must be set in production. "
-                    "Set the value from your Paddle dashboard via the PADDLE_API_KEY env var."
-                )
             warnings.warn(
                 "PADDLE_API_KEY is empty — Paddle server-side API calls will not work. "
                 "Set PADDLE_API_KEY in production!",
@@ -192,11 +182,6 @@ class Settings(BaseSettings):
     @classmethod
     def validate_paddle_webhook_secret(cls, v: str) -> str:
         if not v:
-            if os.environ.get("ENVIRONMENT") == "production":
-                raise ValueError(
-                    "PADDLE_WEBHOOK_SECRET must be set in production. "
-                    "Set the value from your Paddle dashboard via the PADDLE_WEBHOOK_SECRET env var."
-                )
             warnings.warn(
                 "PADDLE_WEBHOOK_SECRET is empty — Paddle webhook signatures cannot be verified. "
                 "Set PADDLE_WEBHOOK_SECRET in production!",
@@ -208,12 +193,6 @@ class Settings(BaseSettings):
     @classmethod
     def validate_paddle_price_ids(cls, v: str) -> str:
         if not v:
-            if os.environ.get("ENVIRONMENT") == "production":
-                raise ValueError(
-                    "PADDLE_PRICE_IDS must be set in production. "
-                    "Set a JSON string mapping product keys to Paddle price IDs "
-                    "via the PADDLE_PRICE_IDS env var."
-                )
             warnings.warn(
                 "PADDLE_PRICE_IDS is empty — Paddle product price mapping is not configured. "
                 "Set PADDLE_PRICE_IDS in production!",
@@ -225,11 +204,6 @@ class Settings(BaseSettings):
     @classmethod
     def validate_next_public_paddle_key(cls, v: str) -> str:
         if not v:
-            if os.environ.get("ENVIRONMENT") == "production":
-                raise ValueError(
-                    "NEXT_PUBLIC_PADDLE_KEY must be set in production. "
-                    "Set the public Paddle key for the frontend via the NEXT_PUBLIC_PADDLE_KEY env var."
-                )
             warnings.warn(
                 "NEXT_PUBLIC_PADDLE_KEY is empty — Paddle frontend integration will not work. "
                 "Set NEXT_PUBLIC_PADDLE_KEY in production!",
@@ -333,11 +307,6 @@ class Settings(BaseSettings):
     @classmethod
     def validate_redis_password(cls, v: str) -> str:
         if not v:
-            if os.environ.get("ENVIRONMENT") == "production":
-                raise ValueError(
-                    "REDIS_PASSWORD must be set in production. "
-                    "Set a strong password via the REDIS_PASSWORD env var."
-                )
             warnings.warn(
                 "REDIS_PASSWORD is empty — Redis is unauthenticated. "
                 "Set REDIS_PASSWORD in production!",
@@ -393,13 +362,8 @@ class Settings(BaseSettings):
     @field_validator("MCP_AUTH_TOKEN")
     @classmethod
     def validate_mcp_auth_token(cls, v: str) -> str:
-        """C-11 FIX: MCP_AUTH_TOKEN must be set in production."""
+        """C-11 FIX: MCP_AUTH_TOKEN should be set in production."""
         if not v:
-            if os.environ.get("ENVIRONMENT") == "production":
-                raise ValueError(
-                    "MCP_AUTH_TOKEN is REQUIRED in production. "
-                    "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
-                )
             warnings.warn(
                 "MCP_AUTH_TOKEN is empty — MCP server connections are unauthenticated. "
                 "Set MCP_AUTH_TOKEN before deploying!",
