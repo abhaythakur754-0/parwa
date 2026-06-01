@@ -30,7 +30,7 @@ def _get_db_url() -> str:
         url = os.environ.get("DATABASE_URL", "sqlite:///:memory:")
     else:
         try:
-            from backend.app.config import get_settings  # noqa: E402
+            from app.config import get_settings  # noqa: E402
             settings = get_settings()
             url = settings.DATABASE_URL
         except Exception:
@@ -135,7 +135,7 @@ def get_tenant_db():
     The session will auto-inject company_id from tenant_context
     on any new object that has a company_id attribute.
     """
-    from backend.app.core.tenant_context import get_tenant_context
+    from app.core.tenant_context import get_tenant_context
 
     db = TenantSession()
     company_id = get_tenant_context()
@@ -161,7 +161,7 @@ def _auto_inject_company_id(session: Session, context: Any, instances: Any) -> N
     If no tenant context is available, a warning is logged (potential
     data leak if bypass is not explicitly enabled).
     """
-    from backend.app.core.tenant_context import (
+    from app.core.tenant_context import (
         get_tenant_context,
         is_tenant_bypassed,
     )
@@ -281,7 +281,7 @@ def bypass_tenant(func: Callable = None, *, reason: str = "") -> Any:
     Returns:
         Wrapped function or context manager.
     """
-    from backend.app.core.tenant_context import tenant_bypass
+    from app.core.tenant_context import tenant_bypass
 
     if func is not None:
         # Used as @bypass_tenant (without parentheses)

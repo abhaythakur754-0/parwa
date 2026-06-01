@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * PARWA Sentry Error Boundary (Phase 6)
  *

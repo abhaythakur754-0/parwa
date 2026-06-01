@@ -1,3 +1,5 @@
+'use client';
+
 export { default as NavigationBar } from './NavigationBar';
 export { default as FeatureCarousel } from './FeatureCarousel';
 export { default as HeroSection } from './HeroSection';
