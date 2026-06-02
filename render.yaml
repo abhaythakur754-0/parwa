@@ -3,17 +3,18 @@
 # ─────────────────────────────────────────────────────────────
 # Free tier: 750 hours/month (enough for 1 web + 1 worker)
 # Backend sleeps after 15 min inactivity — use UptimeRobot to keep warm
+# Uses Docker runtime to guarantee Python 3.11 (Render's Python
+# runtime ignores runtime.txt and defaults to 3.14, breaking pydantic)
 # ─────────────────────────────────────────────────────────────
 
 services:
   # ── FastAPI Backend ──────────────────────────────────────
   - type: web
     name: parwa-backend
-    runtime: python
+    runtime: docker
     region: oregon
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --log-level info
+    dockerfilePath: ./Dockerfile
     rootDir: backend
     envVars:
       - key: ENVIRONMENT
@@ -84,11 +85,10 @@ services:
   # ── Celery Worker ────────────────────────────────────────
   - type: worker
     name: parwa-worker
-    runtime: python
+    runtime: docker
     region: oregon
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=1 --max-tasks-per-child=50
+    dockerfilePath: ./Dockerfile.celery
     rootDir: backend
     envVars:
       - key: ENVIRONMENT
