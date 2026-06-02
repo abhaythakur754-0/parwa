@@ -430,6 +430,8 @@ async def _try_function_calling(
         _settings = get_settings()
 
         # Check if OpenAI is available for function calling
+        import os
+
         api_key = _settings.OPENAI_API_KEY
         base_url = os.environ.get("OPENAI_BASE_URL", "")
         model = os.environ.get("JARVIS_MODEL", os.environ.get("OPENAI_MODEL", "gpt-4o-mini"))

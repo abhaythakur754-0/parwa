@@ -126,7 +126,7 @@ async def list_notes(
     pinned_only: bool = Query(default=False),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
-    order: str = Query(default="desc", regex="^(asc|desc)$"),
+    order: str = Query(default="desc", pattern="^(asc|desc)$"),
     db: Session = Depends(get_db),
     company_id: str = Depends(get_company_id),
     current_user: User = Depends(get_current_user),

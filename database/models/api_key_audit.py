@@ -33,6 +33,6 @@ class APIKeyAuditLog(Base):
     endpoint = Column(String(255), nullable=True)
     ip_address = Column(String(45), nullable=True)
     created_at = Column(
-        DateTime,
+        DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
     )

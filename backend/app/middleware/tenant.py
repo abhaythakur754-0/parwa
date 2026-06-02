@@ -76,12 +76,18 @@ class TenantMiddleware(BaseHTTPMiddleware):
         "/api/auth/",
         "/api/public/",
         "/public/",
+        "/api/pricing/",
+        "/api/pricing",
         "/api/api-keys",
         "/api/mfa/",
         "/api/client/",
         "/api/webhooks/",
         "/api/jarvis/",
         "/api/jarvis",
+        "/api/onboarding-jarvis/",
+        "/api/onboarding-jarvis",
+        "/api/verification/",
+        "/api/integrations/available",
         "/test/",
     )
 

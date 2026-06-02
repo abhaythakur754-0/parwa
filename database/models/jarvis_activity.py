@@ -198,12 +198,12 @@ class JarvisActivityEvent(Base):
 
     # Timestamps
     occurred_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
     )
     # When the event actually happened
 
     created_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
     )
     # When this record was created
 

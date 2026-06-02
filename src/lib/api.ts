@@ -41,13 +41,98 @@ const apiClient: AxiosInstance = axios.create({
 });
 
 /**
+ * Request interceptor for CSRF token (double-submit cookie pattern).
+ * The backend CSRF middleware sets a 'parwa_csrf' cookie on responses.
+ * Since the cookie is on the backend domain (different port = different origin),
+ * we can't read it via document.cookie from the frontend.
+ * Instead, we extract it from the Set-Cookie response header on a preflight GET.
+ * 
+ * Alternative approach: Store the CSRF token from the first GET response
+ * and attach it as x-csrf-token header on subsequent mutating requests.
+ */
+let _csrfToken: string | null = null;
+
+// Preflight: fetch CSRF token from backend on first API call
+async function ensureCsrfToken(): Promise<string> {
+  if (_csrfToken) return _csrfToken;
+  try {
+    const response = await axios.get(`${API_BASE_URL}/health`, {
+      withCredentials: true,
+    });
+    // Extract from Set-Cookie header (available when same-origin or CORS)
+    const setCookie = response.headers['set-cookie'];
+    if (setCookie) {
+      const cookies = Array.isArray(setCookie) ? setCookie : [setCookie];
+      for (const cookie of cookies) {
+        const match = cookie.match(/parwa_csrf=([^;]+)/);
+        if (match) {
+          _csrfToken = match[1];
+          return _csrfToken;
+        }
+      }
+    }
+    // Also try reading from document.cookie (works if same origin)
+    if (typeof document !== 'undefined') {
+      const csrfCookie = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('parwa_csrf='));
+      if (csrfCookie) {
+        _csrfToken = csrfCookie.split('=')[1];
+        return _csrfToken;
+      }
+    }
+  } catch {
+    // CSRF preflight failed — will be caught by actual request
+  }
+  return '';
+}
+
+apiClient.interceptors.request.use(async (config) => {
+  // Only attach CSRF token for mutating methods (POST, PUT, PATCH, DELETE)
+  const method = (config.method || 'get').toUpperCase();
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    // Try to get CSRF token from cookie first (fast path)
+    let csrfToken = '';
+    if (typeof document !== 'undefined') {
+      const csrfCookie = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('parwa_csrf='));
+      if (csrfCookie) {
+        csrfToken = csrfCookie.split('=')[1];
+      }
+    }
+    // If not found in cookies, fetch it from backend
+    if (!csrfToken) {
+      csrfToken = await ensureCsrfToken();
+    }
+    if (csrfToken) {
+      config.headers['x-csrf-token'] = csrfToken;
+    }
+  }
+  return config;
+});
+
+/**
  * Response interceptor for handling errors.
- * C-03 FIX: No request interceptor — auth tokens are sent as httpOnly cookies
+ * C-03 FIX: Auth tokens are sent as httpOnly cookies
  * automatically by the browser via withCredentials: true.
  * GAP-002: Handle malformed responses gracefully.
  */
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Capture CSRF token from Set-Cookie header on any response
+    const setCookie = response.headers['set-cookie'];
+    if (setCookie) {
+      const cookies = Array.isArray(setCookie) ? setCookie : [setCookie];
+      for (const cookie of cookies) {
+        const match = cookie.match(/parwa_csrf=([^;]+)/);
+        if (match) {
+          _csrfToken = match[1];
+        }
+      }
+    }
+    return response;
+  },
   (error: AxiosError) => {
     // Handle 401 Unauthorized — but distinguish between:
     // 1. Failed login/signup (auth endpoint returning 401) → just pass through,

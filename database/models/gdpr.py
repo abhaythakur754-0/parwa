@@ -66,12 +66,12 @@ class ErasureRequest(Base):
     # Operator who executed the erasure (may differ from requestor)
     executed_by = Column(String(36), nullable=True)
     # Timestamps
-    requested_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    requested_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     verified_at = Column(DateTime, nullable=True)
     processing_started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class DataRetentionPolicy(Base):
@@ -99,5 +99,5 @@ class DataRetentionPolicy(Base):
     last_enforced_at = Column(DateTime, nullable=True)
     # Records affected in last enforcement run
     last_records_affected = Column(Integer, default=0)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

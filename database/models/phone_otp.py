@@ -32,5 +32,5 @@ class PhoneOTP(Base):
     expires_at = Column(DateTime, nullable=False)
     attempts = Column(Integer, default=0)
     created_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
     )

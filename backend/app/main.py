@@ -393,7 +393,7 @@ app.add_middleware(
 
 # ── Routers ────────────────────────────────────────────────────────
 
-app.include_router(health_router)
+app.include_router(health_router, prefix="/api")  # /api/health for UptimeRobot & Render health check
 app.include_router(auth_router)
 app.include_router(mfa_router)
 app.include_router(api_keys_router)
