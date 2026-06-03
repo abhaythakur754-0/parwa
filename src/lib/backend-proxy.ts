@@ -218,7 +218,8 @@ export async function proxyAuthRequest(
     'X-CSRF-Token': csrfToken,
     Cookie: `parwa_csrf=${csrfToken}`,
     // Trusted proxy auth — backend skips CSRF checks when this matches
-    'X-Proxy-Auth': PROXY_AUTH_SECRET,
+    // Use lowercase header name for HTTP/2 compatibility and ASGI normalization
+    'x-proxy-auth': PROXY_AUTH_SECRET,
   };
 
   // Forward Bearer token if requested

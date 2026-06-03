@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 
 interface SocialLoginProps {
   onGoogleLogin: (idToken: string) => Promise<void>;
@@ -19,6 +19,28 @@ export function SocialLogin({ onGoogleLogin, isLoading = false, error, showDivid
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   const isConfigured = !!clientId;
 
+  // Load Google GIS script on mount
+  useEffect(() => {
+    if (!clientId || typeof window === 'undefined') return;
+    if (window.google) return;
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      console.log('[SocialLogin] Google GIS script loaded');
+    };
+    script.onerror = () => {
+      console.warn('[SocialLogin] Failed to load Google GIS script');
+    };
+    document.head.appendChild(script);
+
+    return () => {
+      // Don't remove script on unmount as it may be needed later
+    };
+  }, [clientId]);
+
   const handleGoogleSignIn = useCallback(async () => {
     if (!clientId) {
       setSetupMode(true);
@@ -29,66 +51,57 @@ export function SocialLogin({ onGoogleLogin, isLoading = false, error, showDivid
     setLocalLoading(true);
 
     try {
-      // Load Google GIS script if not already loaded
-      if (typeof window !== 'undefined' && !window.google) {
-        await new Promise<void>((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = 'https://accounts.google.com/gsi/client';
-          script.async = true;
-          script.defer = true;
-          script.onload = () => resolve();
-          script.onerror = () => reject(new Error('Failed to load Google Sign-In'));
-          document.head.appendChild(script);
-        });
+      // Wait for Google GIS script to load
+      let retries = 0;
+      while (!window.google && retries < 20) {
+        await new Promise(r => setTimeout(r, 100));
+        retries++;
       }
 
-      // Initialize Google Identity Services
-      window.google?.accounts?.id?.initialize({
+      if (!window.google) {
+        console.error('[SocialLogin] Google GIS script failed to load');
+        setLocalLoading(false);
+        setSetupMode(true);
+        return;
+      }
+
+      // Use Google Identity Services popup directly (more reliable than One Tap)
+      const tokenClient = window.google.accounts.oauth2.initTokenClient({
         client_id: clientId,
-        callback: (response: { credential: string }) => {
-          if (response.credential) {
-            callbackRef.current(response.credential).finally(() => setLocalLoading(false));
+        scope: 'openid email profile',
+        callback: (tokenResponse: any) => {
+          if (tokenResponse?.access_token) {
+            // Pass the access_token to onGoogleLogin.
+            // The /api/auth/google route will detect it's an access_token
+            // (not a JWT id_token) and verify it via Google's userinfo endpoint.
+            callbackRef.current(tokenResponse.access_token).finally(() => setLocalLoading(false));
+          } else if (tokenResponse?.error) {
+            console.error('[SocialLogin] Google OAuth error:', tokenResponse.error);
+            setLocalLoading(false);
           } else {
+            console.warn('[SocialLogin] No token in Google response');
             setLocalLoading(false);
           }
         },
-        auto_select: false,
-        cancel_on_tap_outside: true,
+        error_callback: (error: any) => {
+          console.error('[SocialLogin] Google OAuth error_callback:', error);
+          setLocalLoading(false);
+        },
       });
 
-      // Try One Tap prompt first
-      window.google?.accounts?.id?.prompt((notification: any) => {
-        // If One Tap is dismissed, blocked, or not displayed, use popup fallback
-        if (notification?.isNotDisplayed() || notification?.isSkippedMoment() || notification?.getNotDisplayedReason?.()) {
-          // Fallback: Use Google OAuth2 popup with token client
-          try {
-            const tokenClient = window.google?.accounts?.oauth2?.initTokenClient({
-              client_id: clientId,
-              scope: 'openid email profile',
-              callback: (tokenResponse: any) => {
-                if (tokenResponse?.access_token) {
-                  // With OAuth2 token client we get an access_token, not id_token
-                  // Use it to fetch user info or just mark as done
-                  setLocalLoading(false);
-                }
-              },
-            });
-            if (tokenClient) {
-              tokenClient.requestAccessToken();
-            } else {
-              setLocalLoading(false);
-            }
-          } catch {
-            setLocalLoading(false);
-          }
-        }
-      });
+      // Request access token via popup
+      tokenClient.requestAccessToken();
 
-      // Don't set localLoading false here — the callback will handle it
-      // But set a timeout safety net
-      setTimeout(() => setLocalLoading(false), 30000);
+      // Safety timeout
+      setTimeout(() => {
+        setLocalLoading(prev => {
+          // If still loading after 30s, something went wrong
+          return prev; // Don't auto-clear — let user see the loading state
+        });
+      }, 30000);
+
     } catch (err) {
-      console.error('Google sign-in error:', err);
+      console.error('[SocialLogin] Google sign-in error:', err);
       setLocalLoading(false);
     }
   }, [clientId, isLoading, localLoading]);
@@ -162,7 +175,7 @@ declare global {
           prompt: (onNotification?: (notification: any) => void) => void;
         };
         oauth2: {
-          initTokenClient: (config: { client_id: string; scope: string; callback: (response: any) => void }) => any;
+          initTokenClient: (config: { client_id: string; scope: string; callback: (response: any) => void; error_callback?: (error: any) => void }) => any;
         };
       };
     };

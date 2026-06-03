@@ -52,13 +52,11 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[], rawB
   const fullUrl = searchParams ? `${backendPath}?${searchParams}` : backendPath;
 
   try {
-    // Use pre-read body if provided, otherwise read it (only safe if no local fallback needed)
-    let body: ArrayBuffer | undefined = rawBody;
-    if (!body && ['POST', 'PATCH', 'PUT'].includes(request.method)) {
-      // WARNING: If we read the body here, local fallback CANNOT read it again.
-      // Prefer passing rawBody from the caller.
-      body = await request.arrayBuffer();
-    }
+    // Always use pre-read body — NEVER read from the request object.
+    // In Next.js 16, the request body can only be consumed once.
+    // Reading it here would cause "Body is unusable: Body has already been read"
+    // when the local fallback handler also needs the body data.
+    const body: ArrayBuffer | undefined = rawBody;
 
     const headers = new Headers(request.headers);
     headers.delete('host');

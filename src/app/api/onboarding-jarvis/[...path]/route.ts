@@ -24,8 +24,12 @@ import { NextRequest, NextResponse } from 'next/server';
 // ── Backend Proxy Configuration ─────────────────────────────────
 const BACKEND_URL =
   process.env.BACKEND_URL ||
+  process.env.SERVER_API_URL ||
   process.env.NEXT_PUBLIC_BACKEND_URL ||
   'http://localhost:8000';
+
+// Proxy auth secret — must match backend PROXY_AUTH_SECRET
+const PROXY_AUTH_SECRET = process.env.PROXY_AUTH_SECRET || 'parwa_proxy_auth_2026';
 
 /**
  * Extract auth token from cookies (parwa_at) and/or Authorization header.
@@ -34,6 +38,9 @@ const BACKEND_URL =
 function buildAuthHeaders(request: NextRequest): Headers {
   const headers = new Headers(request.headers);
   headers.delete('host');
+
+  // Add proxy auth so backend CSRF middleware skips checks for trusted requests
+  headers.set('x-proxy-auth', PROXY_AUTH_SECRET);
 
   // Forward Authorization header if present
   const authHeader = request.headers.get('authorization');

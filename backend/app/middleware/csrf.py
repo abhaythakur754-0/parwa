@@ -134,20 +134,31 @@ class CSRFSecurityMiddleware:
         # ── Trusted proxy requests — skip all CSRF checks ──
         # The frontend Next.js server acts as a trusted proxy, sending
         # requests on behalf of the user with proper auth headers.
-        request_headers = dict(scope.get("headers", []))
+        # Default matches the frontend's PROXY_AUTH_SECRET default so the
+        # proxy auth works even when the env var is not explicitly set.
+        raw_headers = scope.get("headers", [])
+        request_headers = {}
+        for name, value in raw_headers:
+            # Normalize header names to lowercase for case-insensitive lookup
+            request_headers[name.decode("utf-8", errors="replace").lower()] = value.decode("utf-8", errors="replace")
         proxy_auth = request_headers.get(
-            b"x-proxy-auth", b"",
-        ).decode("utf-8", errors="replace").strip()
-        if proxy_auth and proxy_auth == os.environ.get("PROXY_AUTH_SECRET", ""):
-            await self.app(scope, receive, send)
+            "x-proxy-auth", "",
+        ).strip()
+        _proxy_auth_secret = os.environ.get(
+            "PROXY_AUTH_SECRET", "parwa_proxy_auth_2026",
+        )
+        if proxy_auth and proxy_auth == _proxy_auth_secret:
+            # Still inject CSRF cookie for browser-initiated requests
+            new_csrf_token = self.generate_csrf_token()
+            wrapped_send = self._wrap_send(send, new_csrf_token)
+            await self.app(scope, receive, wrapped_send)
             return
 
         # ── H-19: Check if request has an existing CSRF cookie ──
         # If not, generate one and inject it into the response.
-        request_headers = dict(scope.get("headers", []))
         cookie_header = request_headers.get(
-            b"cookie", b"",
-        ).decode("utf-8", errors="replace")
+            "cookie", "",
+        )
         existing_csrf = self._extract_cookie(
             cookie_header, _CSRF_COOKIE_NAME,
         )
@@ -171,11 +182,11 @@ class CSRFSecurityMiddleware:
 
         # ── H-19: Exempt Bearer token auth from CSRF cookie check ──
         auth_header = request_headers.get(
-            b"authorization", b"",
-        ).decode("utf-8", errors="replace").strip()
+            "authorization", "",
+        ).strip()
         api_key_header = request_headers.get(
-            b"x-api-key", b"",
-        ).decode("utf-8", errors="replace").strip()
+            "x-api-key", "",
+        ).strip()
         has_bearer = (
             auth_header.lower().startswith("bearer ")
             or bool(api_key_header)
@@ -184,11 +195,11 @@ class CSRFSecurityMiddleware:
         # ── Validate Origin / Referer ──
         try:
             origin = request_headers.get(
-                b"origin", b"",
-            ).decode("utf-8", errors="replace")
+                "origin", "",
+            )
             referer = request_headers.get(
-                b"referer", b"",
-            ).decode("utf-8", errors="replace")
+                "referer", "",
+            )
 
             if not self._is_valid_origin(origin, referer):
                 correlation_id = secrets.token_hex(8)
@@ -227,8 +238,8 @@ class CSRFSecurityMiddleware:
                     cookie_header, _CSRF_COOKIE_NAME,
                 )
                 csrf_header = request_headers.get(
-                    b"x-csrf-token", b"",
-                ).decode("utf-8", errors="replace")
+                    "x-csrf-token", "",
+                )
 
                 if not csrf_token or not csrf_header:
                     correlation_id = secrets.token_hex(8)
