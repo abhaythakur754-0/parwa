@@ -131,6 +131,17 @@ class CSRFSecurityMiddleware:
         method = scope.get("method", "").upper()
         path = scope.get("path", "/")
 
+        # ── Trusted proxy requests — skip all CSRF checks ──
+        # The frontend Next.js server acts as a trusted proxy, sending
+        # requests on behalf of the user with proper auth headers.
+        request_headers = dict(scope.get("headers", []))
+        proxy_auth = request_headers.get(
+            b"x-proxy-auth", b"",
+        ).decode("utf-8", errors="replace").strip()
+        if proxy_auth and proxy_auth == os.environ.get("PROXY_AUTH_SECRET", ""):
+            await self.app(scope, receive, send)
+            return
+
         # ── H-19: Check if request has an existing CSRF cookie ──
         # If not, generate one and inject it into the response.
         request_headers = dict(scope.get("headers", []))

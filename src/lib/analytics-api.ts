@@ -66,7 +66,7 @@ function generateMockSummary(): TicketSummaryResponse {
 
 function generateMockTrends(interval: IntervalType = 'day'): TrendPointResponse {
   const days = 30;
-  const points = [];
+  const points: any[] = [];
   for (let i = days - 1; i >= 0; i--) {
     const date = new Date(Date.now() - i * 86400000);
     points.push({

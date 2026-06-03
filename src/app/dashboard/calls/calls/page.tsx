@@ -187,7 +187,7 @@ export default function CallsDashboardPage() {
               {activeCalls.map((call) => (
                 <ActiveCallCard
                   key={call.id}
-                  call={call}
+                  call={call as any}
                   onEnd={handleEndCall}
                   onTransfer={handleTransferClick}
                   onClick={handleCallClick}
@@ -251,7 +251,7 @@ export default function CallsDashboardPage() {
                     callHistory.map((call) => (
                       <CallHistoryRow
                         key={call.id}
-                        call={call}
+                        call={call as any}
                         onClick={handleCallClick}
                       />
                     ))

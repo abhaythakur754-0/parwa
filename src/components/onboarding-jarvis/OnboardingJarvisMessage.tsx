@@ -32,7 +32,7 @@ export function OnboardingJarvisMessage({ message }: Props) {
         <div className="max-w-[85%] w-full">
           {renderCardContent(message_type, metadata)}
           {/* Also render text content if present alongside card */}
-          {content && message_type !== 'text' && (
+          {content && (message_type as string) !== 'text' && (
             <div className="bg-gray-800 rounded-2xl rounded-tl-sm px-4 py-3 mb-2">
               <p className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap">{content}</p>
             </div>
@@ -78,15 +78,15 @@ export function OnboardingJarvisMessage({ message }: Props) {
 function renderCardContent(type: MessageType, data: Record<string, any>) {
   switch (type) {
     case 'bill_summary':
-      return <BillSummaryCard data={data} />;
+      return <BillSummaryCard metadata={data} />;
     case 'payment_card':
-      return <PaymentCard data={data} />;
+      return <PaymentCard metadata={data} />;
     case 'otp_card':
-      return <OtpVerificationCard data={data} />;
+      return <OtpVerificationCard metadata={data} />;
     case 'demo_call_card':
-      return <DemoCallCard data={data} />;
+      return <DemoCallCard metadata={data} />;
     case 'handoff_card':
-      return <HandoffCard data={data} />;
+      return <HandoffCard metadata={data} />;
     case 'limit_reached':
       return <LimitReachedCard />;
     case 'pack_expired':

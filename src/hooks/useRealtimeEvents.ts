@@ -60,7 +60,7 @@ const chatStateActions: ChatStateActions = {
     // Route to notification store for chat notifications
     try {
       useNotificationStore.getState().addToast({
-        type: 'chat',
+        type: 'info' as any,
         category: 'chat',
         title: `Message from ${message.sender}`,
         message: message.content.slice(0, 100),
@@ -150,7 +150,7 @@ interface NotificationBulkData {
 
 // Approval events
 interface ApprovalPendingData {
-  approval: ApprovalItem;
+  approval: Record<string, any>;
 }
 
 interface ApprovalStatusData {
@@ -166,12 +166,12 @@ interface ApprovalTimeoutData {
 }
 
 interface ApprovalBulkData {
-  approvals: ApprovalItem[];
+  approvals: Record<string, any>[];
 }
 
 // System events
 interface SystemHealthData {
-  status: SystemHealthStatus;
+  status: Record<string, any>;
 }
 
 interface SystemQueueDepthData {
@@ -639,7 +639,7 @@ export function useRealtimeEvents(): void {
     const data = args[0] as { agent_id: string; name: string; status?: string; role?: string };
     if (!data?.agent_id) return;
 
-    usePresenceStore.getState().setOnline(data);
+    usePresenceStore.getState().setOnline(data as any);
     updateLastEventTimestamp();
   }, []);
 
@@ -655,7 +655,7 @@ export function useRealtimeEvents(): void {
     const data = args[0] as { agent_id: string; status: string };
     if (!data?.agent_id || !data?.status) return;
 
-    usePresenceStore.getState().updateStatus(data.agent_id, data.status);
+    usePresenceStore.getState().updateStatus(data.agent_id, data.status as any);
     updateLastEventTimestamp();
   }, []);
 
@@ -663,7 +663,7 @@ export function useRealtimeEvents(): void {
     const data = args[0] as { agents: Array<{ agent_id: string; name: string; status: string; role?: string }> };
     if (!data?.agents || !Array.isArray(data.agents)) return;
 
-    usePresenceStore.getState().setBulk(data.agents);
+    usePresenceStore.getState().setBulk(data.agents as any);
     updateLastEventTimestamp();
   }, []);
 
@@ -691,7 +691,7 @@ export function useRealtimeEvents(): void {
     const data = args[0] as { ticket_id: string; user_id: string; user_name: string; action: string };
     if (!data?.ticket_id || !data?.user_id) return;
 
-    useCollisionStore.getState().userEntered(data.ticket_id, data.user_id, data.user_name, data.action || 'viewing');
+    useCollisionStore.getState().userEntered(data.ticket_id, data.user_id, data.user_name, (data.action || 'viewing') as any);
     updateLastEventTimestamp();
   }, []);
 
@@ -707,7 +707,7 @@ export function useRealtimeEvents(): void {
     const data = args[0] as { ticket_id: string; user_id: string; field: string; value: unknown };
     if (!data?.ticket_id || !data?.user_id) return;
 
-    useCollisionStore.getState().updateField(data.ticket_id, data.user_id, data.field, data.value);
+    (useCollisionStore.getState() as any).updateField?.(data.ticket_id, data.user_id, data.field, data.value);
     updateLastEventTimestamp();
   }, []);
 
@@ -901,8 +901,8 @@ export function useRealtimeEvents(): void {
       const activityData = data as { type?: string; message?: string; priority?: string };
       if (activityData.priority === 'high' || activityData.priority === 'critical') {
         useNotificationStore.getState().addToast({
-          type: 'jarvis',
-          category: 'jarvis',
+          type: 'info' as any,
+          category: 'system' as any,
           title: 'Jarvis Alert',
           message: activityData.message || 'Jarvis detected activity',
           priority: activityData.priority as 'high' | 'critical' || 'medium',

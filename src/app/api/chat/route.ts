@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken, getAccessTokenFromCookies } from '@/lib/jwt';
+import { verifyToken } from '@/lib/jwt';
 
 /**
  * POST /api/chat — Jarvis AI Chat Endpoint
@@ -175,7 +175,17 @@ export async function POST(req: NextRequest) {
     token = authHeader.slice(7);
   }
   if (!token) {
-    token = getAccessTokenFromCookies(req);
+    // Try reading from cookie
+    const cookieHeader = req.headers.get('cookie');
+    if (cookieHeader) {
+      const cookies = Object.fromEntries(
+        cookieHeader.split(';').map(c => {
+          const [k, ...v] = c.trim().split('=');
+          return [k, v.join('=')];
+        })
+      );
+      token = cookies['parwa_at'] || null;
+    }
   }
 
   if (!token) {

@@ -88,7 +88,7 @@ export function OnboardingJarvisChat({ entrySource = 'direct', entryParams }: Pr
       </header>
 
       {/* Error banner */}
-      {error && <ErrorBanner message={error} onDismiss={clearError} />}
+      {error && <ErrorBanner error={error} onDismiss={clearError} />}
 
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto">
@@ -143,7 +143,11 @@ export function OnboardingJarvisChat({ entrySource = 'direct', entryParams }: Pr
           <MessageCounter remaining={remainingToday} total={isDemoPackActive ? 500 : 20} />
           <OnboardingJarvisInput
             onSend={handleSend}
-            disabled={isLoading || isTyping || isLimitReached}
+            isTyping={isTyping}
+            isLimitReached={isLimitReached}
+            isLoading={isLoading}
+            remainingToday={remainingToday}
+            isDemoPackActive={isDemoPackActive}
           />
         </div>
       </div>

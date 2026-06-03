@@ -29,7 +29,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // ── Backend Proxy Configuration ─────────────────────────────────
-const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || '';
+const BACKEND_URL = process.env.BACKEND_URL || process.env.SERVER_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || '';
+
+// Proxy auth secret — must match backend PROXY_AUTH_SECRET
+const PROXY_AUTH_SECRET = process.env.PROXY_AUTH_SECRET || 'parwa_proxy_auth_2026';
 
 /**
  * Try to proxy a request to the backend FastAPI server.
@@ -59,6 +62,8 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[], rawB
 
     const headers = new Headers(request.headers);
     headers.delete('host');
+    // Add proxy auth so backend CSRF middleware skips checks for trusted requests
+    headers.set('X-Proxy-Auth', PROXY_AUTH_SECRET);
 
     const response = await fetch(fullUrl, {
       method: request.method,
@@ -1231,10 +1236,25 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { path } = await params;
   const endpoint = path.join('/');
 
+  // ── Read body ONCE at the top (Next.js 16 body-is-unusable fix) ──
+  // In Next.js 16, the request body can only be read ONCE.
+  // We read it here and reuse the parsed data and raw bytes throughout.
+  let bodyData: any = null;
+  let rawBody: ArrayBuffer | undefined;
+
+  if (['POST', 'PATCH', 'PUT'].includes(request.method)) {
+    try {
+      rawBody = await request.arrayBuffer();
+      bodyData = JSON.parse(new TextDecoder().decode(rawBody));
+    } catch {
+      // No body or unparseable — that's okay for some endpoints
+    }
+  }
+
   try {
     // ── POST /session — Create Session ──────────────────────────
     if (endpoint === 'session') {
-      const body = await request.json();
+      const body = bodyData || {};
       const session = createDefaultSession(body.entry_source, body.entry_params);
 
       // Phase 8b: Context-aware welcome based on entry_source
@@ -1256,23 +1276,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // ── POST /message — Send Message & Get AI Reply ────────────
     if (endpoint === 'message') {
-      // ── Read body ONCE and clone for both proxy and local use (Next.js 16 body-is-unusable fix) ──
-      let bodyData: any = null;
-      let rawBody: ArrayBuffer | undefined;
-
-      try {
-        rawBody = await request.arrayBuffer();
-        bodyData = JSON.parse(new TextDecoder().decode(rawBody));
-      } catch {
-        // No body or unparseable
-      }
-
       // ── Try backend proxy first (LangGraph 13-stage pipeline + RAG + PostgreSQL) ──
       const proxyResult = await proxyToBackend(request, path, rawBody);
       console.log(`[Jarvis] Backend proxy ${proxyResult ? 'succeeded' : 'failed, using local fallback'}`);
       if (proxyResult) return proxyResult;
 
-      // ── Local fallback: in-memory handling ──
+      // ── Local fallback: in-memory handling (uses pre-read bodyData) ──
       if (!bodyData) {
         return NextResponse.json({ error: { code: 'bad_request', message: 'Invalid request body', details: null } }, { status: 400 });
       }
@@ -1381,7 +1390,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const body = await request.json();
+      const body = bodyData || {};
       const session = getSession(sessionId);
       session.context = { ...session.context, ...body };
       session.updated_at = new Date().toISOString();
@@ -1396,7 +1405,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!sessionId) {
         return NextResponse.json({ error: { code: 'bad_request', message: 'session_id required', details: null } }, { status: 400 });
       }
-      const body = await request.json();
+      const body = bodyData || {};
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       if (hasSession(sessionId)) {
         const session = getSession(sessionId);
@@ -1419,7 +1428,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const body = await request.json();
+      const body = bodyData || {};
       const session = getSession(sessionId);
       const otpData = session.context.otp;
       if (!otpData || otpData.code !== body.code) {
@@ -1489,7 +1498,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
       const session = getSession(sessionId);
-      const body = await request.json();
+      const body = bodyData || {};
 
       // Phase 10a: Enhanced itemized checkout
       const items: Array<{ name: string; quantity: number; unit_price: number; total: number }> = [];
@@ -1559,7 +1568,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!sessionId) {
         return NextResponse.json({ error: { code: 'bad_request', message: 'session_id required', details: null } }, { status: 400 });
       }
-      const body = await request.json();
+      const body = bodyData || {};
       // Phase 10e: Create action ticket for demo call
       let ticketId: string | undefined;
       if (sessionId && hasSession(sessionId)) {
@@ -1598,7 +1607,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // ── POST /context/entry — Update Entry Context ────────────
     if (endpoint === 'context/entry') {
-      const body = await request.json();
+      const body = bodyData || {};
       const { session_id, entry_source, entry_params } = body;
 
       if (!session_id || !hasSession(session_id)) {
@@ -1647,7 +1656,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // ── POST /payment/webhook — Simulated Paddle Webhook ─────────
     if (endpoint === 'payment/webhook') {
-      const body = await request.json();
+      const body = bodyData || {};
       const { session_id, event_type, transaction_id } = body;
 
       if (!session_id || !hasSession(session_id)) {
@@ -1711,7 +1720,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // ── POST /tickets — Create Action Ticket ─────────────────────
     if (endpoint === 'tickets') {
-      const body = await request.json();
+      const body = bodyData || {};
       const { session_id, type, metadata } = body;
 
       if (!session_id || !hasSession(session_id)) {
@@ -1847,6 +1856,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const endpoint = path.join('/');
   const url = new URL(request.url);
 
+  // ── Read body ONCE at the top (Next.js 16 body-is-unusable fix) ──
+  let bodyData: any = null;
+  try {
+    const rawBody = await request.arrayBuffer();
+    bodyData = JSON.parse(new TextDecoder().decode(rawBody));
+  } catch {
+    // No body or unparseable — that's okay for some endpoints
+  }
+
   try {
     // ── PATCH /context ────────────────────────────────────────
     if (endpoint === 'context') {
@@ -1854,7 +1872,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const body = await request.json();
+      const body = bodyData || {};
       const session = getSession(sessionId)!;
       session.context = { ...session.context, ...body };
       session.updated_at = new Date().toISOString();
@@ -1870,7 +1888,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const body = await request.json();
+      const body = bodyData || {};
       const session = getSession(sessionId)!;
       const updated = updateActionTicket(session, ticketId, { status: body.status, metadata: body.metadata });
       if (!updated) {

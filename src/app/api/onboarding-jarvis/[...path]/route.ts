@@ -59,6 +59,7 @@ function buildAuthHeaders(request: NextRequest): Headers {
 async function proxyToBackend(
   request: NextRequest,
   pathSegments: string[],
+  rawBody?: ArrayBuffer,
 ): Promise<Response | null> {
   const backendPath = `${BACKEND_URL}/api/onboarding-jarvis/${pathSegments.join('/')}`;
   const url = new URL(request.url);
@@ -66,9 +67,11 @@ async function proxyToBackend(
   const fullUrl = searchParams ? `${backendPath}?${searchParams}` : backendPath;
 
   try {
-    const body = ['POST', 'PATCH', 'PUT'].includes(request.method)
-      ? await request.arrayBuffer()
-      : undefined;
+    // Use pre-read body if provided, otherwise read it (only safe if no local fallback needed)
+    let body: ArrayBuffer | undefined = rawBody;
+    if (!body && ['POST', 'PATCH', 'PUT'].includes(request.method)) {
+      body = await request.arrayBuffer();
+    }
 
     const headers = buildAuthHeaders(request);
 
@@ -1469,9 +1472,19 @@ export async function PATCH(
   const { path } = await params;
   const endpoint = path.join('/');
 
+  // Pre-read body to avoid "Body already read" errors
+  let bodyData: any = null;
+  let rawBody: ArrayBuffer | undefined;
   try {
-    // Try backend proxy first
-    const proxyResult = await proxyToBackend(request, path);
+    rawBody = await request.arrayBuffer();
+    bodyData = JSON.parse(new TextDecoder().decode(rawBody));
+  } catch {
+    bodyData = {};
+  }
+
+  try {
+    // Try backend proxy first (pass pre-read body)
+    const proxyResult = await proxyToBackend(request, path, rawBody);
     console.log(
       `[OnboardingJarvis] PATCH /${endpoint} — Backend proxy ${proxyResult ? 'succeeded' : 'failed, using local fallback'}`,
     );

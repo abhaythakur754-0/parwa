@@ -14,9 +14,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { setAuthCookies, clearAuthCookies } from './auth-cookies';
 
-// Backend URL — prefer SERVER_API_URL (server-only), fall back to NEXT_PUBLIC_API_URL
+// Backend URL — prefer SERVER_API_URL (server-only), fall back to BACKEND_URL, then NEXT_PUBLIC_API_URL
 const BACKEND_URL =
   process.env.SERVER_API_URL ||
+  process.env.BACKEND_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
   'https://parwa-backend.onrender.com';
 
@@ -25,6 +26,9 @@ const PROXY_ORIGIN =
   process.env.NEXT_PUBLIC_SITE_URL ||
   process.env.NEXTAUTH_URL ||
   'https://parwafrontend.vercel.app';
+
+// Proxy auth secret — must match backend PROXY_AUTH_SECRET
+const PROXY_AUTH_SECRET = process.env.PROXY_AUTH_SECRET || 'parwa_proxy_auth_2026';
 
 // ── CSRF Token Generation ──────────────────────────────────────
 // The backend CSRF middleware uses a double-submit cookie pattern:
@@ -213,6 +217,8 @@ export async function proxyAuthRequest(
     // CSRF double-submit: cookie + header must match
     'X-CSRF-Token': csrfToken,
     Cookie: `parwa_csrf=${csrfToken}`,
+    // Trusted proxy auth — backend skips CSRF checks when this matches
+    'X-Proxy-Auth': PROXY_AUTH_SECRET,
   };
 
   // Forward Bearer token if requested
@@ -314,21 +320,41 @@ export async function proxyAuthRequest(
     const message =
       error instanceof Error ? error.message : 'Unknown error';
 
-    // Check for timeout (Render sleeping)
-    if (error instanceof DOMException && error.name === 'TimeoutError') {
+    // Check for timeout (Render sleeping or slow response)
+    const isTimeout =
+      (error instanceof DOMException && error.name === 'TimeoutError') ||
+      (error instanceof Error && (error.name === 'TimeoutError' || error.message?.includes('abort') || error.message?.includes('timeout')));
+    if (isTimeout) {
+      console.error('[ProxyAuth] Timeout error:', message);
       return NextResponse.json(
         {
           status: 'error',
           message:
-            'Server is waking up. Please try again in a few seconds.',
+            'Server is waking up, please try again in a moment.',
         },
         { status: 503 }
       );
     }
 
-    console.error('[ProxyAuth] Error:', message);
+    // Check for connection errors (backend unreachable)
+    const isConnectionError =
+      error instanceof TypeError &&
+      (message.includes('fetch') || message.includes('ECONNREFUSED') || message.includes('network') || message.includes('Failed to fetch'));
+    if (isConnectionError) {
+      console.error('[ProxyAuth] Connection error:', message);
+      return NextResponse.json(
+        {
+          status: 'error',
+          message:
+            'Unable to connect to the server. Please try again.',
+        },
+        { status: 502 }
+      );
+    }
+
+    console.error('[ProxyAuth] Unexpected error:', message, error);
     return NextResponse.json(
-      { status: 'error', message: 'An internal error occurred.' },
+      { status: 'error', message: 'Something went wrong. Please try again later.' },
       { status: 500 }
     );
   }

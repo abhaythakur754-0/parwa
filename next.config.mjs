@@ -23,9 +23,8 @@ const nextConfig = {
       },
     ];
   },
-  // Turbopack disabled — causes panics on Windows with large projects
-  // Re-enable with: turbopack: {}, and run: next dev --turbopack
-  // turbopack: {},
+  // Turbopack config for Next.js 16 (required for build)
+  turbopack: {},
 
   // ── M-26 FIX: Security headers on all responses ──
   async headers() {

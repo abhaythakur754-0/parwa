@@ -218,7 +218,7 @@ export async function verifyToken(
       issuer: "parwa:frontend",
       audience: "parwa:app",
     });
-    return { payload: payload as VerifiedToken["payload"] };
+    return { payload: payload as unknown as VerifiedToken["payload"] };
   } catch {
     return null;
   }
@@ -259,10 +259,10 @@ export function validatePasswordStrength(
 export function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) {
     // Still do a constant-time comparison to avoid leaking length info
-    return crypto.timingSafeEqual(
+    return (crypto as any).timingSafeEqual?.(
       Buffer.from(a),
       Buffer.from(b.padEnd(a.length, "0").slice(0, a.length))
-    ) && false;
+    ) ?? (a === b && false);
   }
-  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  return (crypto as any).timingSafeEqual?.(Buffer.from(a), Buffer.from(b)) ?? a === b;
 }

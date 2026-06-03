@@ -70,7 +70,7 @@ interface ChatMessageProps {
 function processBold(text: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
   // Regex matches **content** — non-greedy, allows line breaks within
-  const regex = /\*\*(.+?)\*\*/gs;
+  const regex = /\*\*(.+?)\*\*/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
