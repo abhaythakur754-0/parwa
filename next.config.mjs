@@ -62,7 +62,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https: *.googleusercontent.com",
-              "connect-src 'self' https://generativelanguage.googleapis.com https://api.cerebras.ai https://api.groq.com",
+              "connect-src 'self' https://parwa-backend.onrender.com https://generativelanguage.googleapis.com https://api.cerebras.ai https://api.groq.com",
               "frame-src https://accounts.google.com",
               "object-src 'none'",
               "base-uri 'self'",

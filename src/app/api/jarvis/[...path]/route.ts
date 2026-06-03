@@ -35,7 +35,12 @@ const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_U
  * Try to proxy a request to the backend FastAPI server.
  * Returns the Response on success, or null if backend is unavailable / returned an error.
  */
-async function proxyToBackend(request: NextRequest, pathSegments: string[]): Promise<Response | null> {
+/**
+ * Proxy to backend, accepting pre-read raw body (Next.js 16 body-is-unusable fix).
+ * The body is read ONCE by the caller and passed as rawBody to avoid
+ * "Body is unusable: Body has already been read" errors.
+ */
+async function proxyToBackend(request: NextRequest, pathSegments: string[], rawBody?: ArrayBuffer): Promise<Response | null> {
   if (!BACKEND_URL) return null;
 
   const backendPath = `${BACKEND_URL}/api/jarvis/${pathSegments.join('/')}`;
@@ -44,9 +49,13 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]): Pro
   const fullUrl = searchParams ? `${backendPath}?${searchParams}` : backendPath;
 
   try {
-    const body = ['POST', 'PATCH', 'PUT'].includes(request.method)
-      ? await request.arrayBuffer()
-      : undefined;
+    // Use pre-read body if provided, otherwise read it (only safe if no local fallback needed)
+    let body: ArrayBuffer | undefined = rawBody;
+    if (!body && ['POST', 'PATCH', 'PUT'].includes(request.method)) {
+      // WARNING: If we read the body here, local fallback CANNOT read it again.
+      // Prefer passing rawBody from the caller.
+      body = await request.arrayBuffer();
+    }
 
     const headers = new Headers(request.headers);
     headers.delete('host');
@@ -1247,14 +1256,27 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // ── POST /message — Send Message & Get AI Reply ────────────
     if (endpoint === 'message') {
+      // ── Read body ONCE and clone for both proxy and local use (Next.js 16 body-is-unusable fix) ──
+      let bodyData: any = null;
+      let rawBody: ArrayBuffer | undefined;
+
+      try {
+        rawBody = await request.arrayBuffer();
+        bodyData = JSON.parse(new TextDecoder().decode(rawBody));
+      } catch {
+        // No body or unparseable
+      }
+
       // ── Try backend proxy first (LangGraph 13-stage pipeline + RAG + PostgreSQL) ──
-      const proxyResult = await proxyToBackend(request, path);
+      const proxyResult = await proxyToBackend(request, path, rawBody);
       console.log(`[Jarvis] Backend proxy ${proxyResult ? 'succeeded' : 'failed, using local fallback'}`);
       if (proxyResult) return proxyResult;
 
       // ── Local fallback: in-memory handling ──
-      const body = await request.json();
-      const { content, session_id, context: incomingContext } = body;
+      if (!bodyData) {
+        return NextResponse.json({ error: { code: 'bad_request', message: 'Invalid request body', details: null } }, { status: 400 });
+      }
+      const { content, session_id, context: incomingContext } = bodyData;
 
       let session = session_id ? getSession(session_id) : undefined;
       if (!session) {
