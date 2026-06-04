@@ -152,6 +152,47 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
     setError(null);
 
     try {
+      // ── Persistent session: try to resume existing session from localStorage ──
+      if (typeof window !== 'undefined') {
+        try {
+          const existingSessionId = localStorage.getItem('parwa_jarvis_session_id');
+          if (existingSessionId) {
+            try {
+              const existingSession = await apiFetch<JarvisSession>(`/session?session_id=${existingSessionId}`);
+              if (existingSession && existingSession.is_active) {
+                sessionRef.current = existingSession.id;
+                setSession(existingSession);
+
+                // Load history
+                const history = await apiFetch<JarvisHistoryResponse>(`/history?session_id=${existingSession.id}&limit=100`);
+                setMessages(history.messages || []);
+
+                // Restore OTP state from context if present
+                const ctx = existingSession.context as JarvisContext;
+                if (ctx?.otp?.status === 'sent') {
+                  setOtpState({
+                    status: 'sent',
+                    email: ctx.otp.email || ctx.business_email || '',
+                    attempts: ctx.otp.attempts || 0,
+                    expires_at: ctx.otp.expires_at || null,
+                  });
+                } else if (ctx?.email_verified) {
+                  setOtpState((prev) => ({ ...prev, status: 'verified' }));
+                }
+
+                setIsLoading(false);
+                return; // Don't create a new session
+              }
+            } catch {
+              // Session expired or invalid — create new one
+              localStorage.removeItem('parwa_jarvis_session_id');
+            }
+          }
+        } catch {
+          // localStorage not available
+        }
+      }
+
       const body: JarvisSessionCreateRequest = {
         entry_source: (entrySource as EntrySource) || 'direct',
         entry_params: entryParams,
@@ -164,6 +205,13 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
 
       sessionRef.current = sessionData.id;
       setSession(sessionData);
+
+      // Save session ID to localStorage for persistence
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('parwa_jarvis_session_id', sessionData.id);
+        } catch { /* ignore */ }
+      }
 
       // Load history
       const history = await apiFetch<JarvisHistoryResponse>(

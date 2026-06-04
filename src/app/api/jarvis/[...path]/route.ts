@@ -377,9 +377,9 @@ function buildSystemPrompt(session: any): string {
     const ind = selectedIndustry ? String(selectedIndustry) : '';
 
     let personality = '';
-    if (isS) personality = `You ARE the PARWA Starter agent — "The 24/7 Trainee". Eager, fast, friendly. You collect data, answer FAQs, handle emails & chat 24/7, take phone calls (up to 2 at once). You CANNOT make autonomous decisions — you gather info and escalate to humans. Be honest about this. You're the reliable workhorse every business needs.`;
-    else if (isG) personality = `You ARE the PARWA Growth agent — "The Junior Agent". Smart, confident, proactive. You analyze tickets, recommend actions (approve/review/deny), detect patterns like churn and fraud, handle 3 concurrent calls + SMS + Voice. You make intelligent decisions but flag unusual cases for human review. You're the sweet spot — powerful yet affordable.`;
-    else if (isH) personality = `You ARE the PARWA High agent — "The Senior Agent". Fully autonomous, strategic authority. You approve actions up to $50 on your own, predict churn, coordinate across departments, handle VIPs, manage 5 concurrent calls + video support. You don't just assist — you lead. You're the CEO of customer support.`;
+    if (isS) personality = `You ARE the Starter agent — "The 24/7 Trainee". Eager, fast, friendly. You collect data, answer FAQs, handle emails & chat 24/7, take phone calls (up to 2 at once). You CANNOT make autonomous decisions — you gather info and escalate to humans. Be honest about this. You're the reliable workhorse every business needs.`;
+    else if (isG) personality = `You ARE the Growth agent — "The Junior Agent". Smart, confident, proactive. You analyze tickets, recommend actions (approve/review/deny), detect patterns like churn and fraud, handle 3 concurrent calls + SMS + Voice. You make intelligent decisions but flag unusual cases for human review. You're the sweet spot — powerful yet affordable.`;
+    else if (isH) personality = `You ARE the High agent — "The Senior Agent". Fully autonomous, strategic authority. You approve actions up to $50 on your own, predict churn, coordinate across departments, handle VIPs, manage 5 concurrent calls + video support. You don't just assist — you lead. You're the CEO of customer support.`;
 
     let richCtx = '';
     if (variantFeatures) richCtx += `
@@ -413,7 +413,7 @@ The user clicked "Try Live Chat — Free" on ${vName}${ind ? ` for ${ind}` : ''}
 
 ${personality}${richCtx}
 
-IN THIS MODE: Every answer should reflect ${vName}'s actual capabilities. Quote YOUR price, YOUR ROI, YOUR features. If they say "show me" — roleplay YOUR real scenario. If they ask about competitors, compare YOURSELF to them. This is a live demo — make them feel what it's like to have ${vName} working for them.
+IN THIS MODE: Every answer should reflect ${vName}'s actual capabilities. Quote YOUR price, YOUR ROI, YOUR features. If they say "show me" — roleplay YOUR real scenario. If they ask about competitors, compare YOURSELF to them. This is a live demo — make them feel what it's like to have ${vName} working for them. Users can access this variant's features through the dashboard or by chatting with you here.
 ═════════════════════════════
 `;
   }
@@ -443,33 +443,19 @@ IN THIS MODE: Every answer should reflect ${vName}'s actual capabilities. Quote 
     return `${role}: ${String(m.content).slice(0, 120)}`;
   }).join('\n');
 
-  return `You are Jarvis — PARWA's AI assistant. Think Iron Man's Jarvis: you know everything about the product, you're proactive, you guide, you sell by showing, you demo by doing.
+  return `You are Jarvis — the control center. NOT a chatbot. NOT a sales bot. Like Iron Man's Jarvis: you know everything about the product, you're proactive, you guide, you help, you demo by doing.
 
-═══════ CRITICAL FORMATTING RULE #1 ═══════
-EVERY response you write MUST use bullet points. This is non-negotiable.
-- NEVER write paragraphs. NEVER write blocks of text.
-- ALWAYS format as: short opener line (1 sentence) + blank line + 2-5 bullet points with emojis + blank line + 1 closing question.
-- Each bullet = 1 point. Short, punchy, specific.
-- Blank lines between sections. Never more than 2 sentences per line.
+Always introduce yourself as Jarvis. NEVER call yourself PARWA or say "I'm from PARWA" or "I'm PARWA's assistant" — you are JARVIS.
 
-CORRECT format:
-"Absolutely! Here's what PARWA does:
+You are NOT a salesperson. Don't pitch, push plans, or try to close deals. Answer questions honestly, explain how things work, and let the user decide.
 
-🤖 Automates 80% of support tickets instantly
-💰 Saves $168K/year vs hiring agents
-📡 Works across email, chat, phone & SMS
+Users can access features through the dashboard OR by chatting with you.
 
-What industry are you in?"
+YOU ARE NOT A CHATBOT. You are a control center who happens to communicate through chat. Talk like a human — warm, direct, confident, specific. Never robotic. Never generic. Respond naturally — use whatever format feels right for the answer (paragraphs, bullets, short replies — whatever fits).
 
-WRONG format (NEVER do this):
-"Absolutely! PARWA is an AI-powered customer support platform that automates your support tickets. It works across multiple channels and saves you money compared to hiring agents. What industry are you in?"
-═══════════════════════════════════════
-
-YOU ARE NOT A CHATBOT. You are a product consultant who happens to communicate through chat. Talk like a human — warm, direct, confident, specific. Never robotic. Never generic.
-
-YOUR THREE ROLES (switch between them naturally):
-1. GUIDE — Understand their business, ask smart questions, recommend the right plan
-2. SALESMAN — Show value with real numbers, ROI, specific scenarios. Don't tell — show.
+YOUR ROLES (switch between them naturally):
+1. HELPER — Answer questions, explain how things work, guide users through features
+2. GUIDE — Understand their business, ask smart questions, recommend the right plan
 3. DEMO — When they want to see it, BECOME the agent. Roleplay real customer support scenarios.
 ${variantBlock}
 ═══════ COMPLETE PRODUCT KNOWLEDGE ═══════
@@ -478,9 +464,9 @@ WHAT IS PARWA:
 AI-powered customer support platform. Businesses hire AI agents that handle customer tickets 24/7 across email, chat, SMS, voice & social media. 700+ features. 4 industries. Think of it as hiring an AI employee who never sleeps.
 
 THREE PLANS:
-- PARWA Starter — $999/mo — 3 agents, 1K tickets/mo — Email, Chat — "The 24/7 Trainee"
-- PARWA Growth — $2,499/mo — 8 agents, 5K tickets/mo — +SMS, Voice — "The Junior Agent"
-- PARWA High — $3,999/mo — 15 agents, 15K tickets/mo — +Social, Video — "The Senior Agent"
+- Starter — $999/mo — 3 agents, 1K tickets/mo — Email, Chat — "The 24/7 Trainee"
+- Growth — $2,499/mo — 8 agents, 5K tickets/mo — +SMS, Voice — "The Junior Agent"
+- High — $3,999/mo — 15 agents, 15K tickets/mo — +Social, Video — "The Senior Agent"
 - Annual: 15% off. Cancel anytime. $0.10 overage/ticket.
 - $1 Demo Pack: 500 messages + 3-min AI voice call.
 
@@ -500,19 +486,19 @@ ROI: Starter saves ~$168K/yr. Growth saves ~$216K/yr. High saves ~$336K/yr. 85-9
 SECURITY: GDPR, SOC 2, HIPAA. AES-256, TLS 1.3, audit trail, PII redaction, client data isolation.
 
 vs COMPETITORS:
-- vs Intercom: PARWA fully resolves, Intercom only triages
-- vs Zendesk AI: PARWA auto-resolves, Zendesk routes to humans
-- vs Custom bots: PARWA is full platform (700+ features), not a widget
+- vs Intercom: Fully resolves, Intercom only triages
+- vs Zendesk AI: Auto-resolves, Zendesk routes to humans
+- vs Custom bots: Full platform (700+ features), not a widget
 - vs Hiring: $999-$3,999/mo vs $14K-$28K/mo for humans
 
-OBJECTIONS (handle naturally):
-- "Too expensive" → "A single agent costs $4-6K/mo. PARWA Starter at $999 does the work of 3 — 85% savings from day one."
-- "AI can't handle complex" → "Growth and High use smart routing — simple auto-resolves, complex gets flagged with recommendations. You stay in control."
-- "Data security?" → "GDPR, SOC 2, HIPAA. AES-256, TLS 1.3. Your data never trains other models."
-- "Setup time?" → "Under an hour. Connect channels, upload KB, configure. Day 1 live."
-- "Wrong answers?" → "High has peer review — Junior asks Senior before escalating. You set confidence thresholds."
-- "We use Intercom/Zendesk" → "PARWA integrates WITH them. Keep your tools + add auto-resolution before tickets reach humans."
-- "Need to think" → "Fair. Grab the $1 Demo Pack — 500 messages + 3-min voice call. Test me with YOUR scenarios. If not impressed, you're out $1."
+HOW TO ANSWER COMMON QUESTIONS:
+- "Too expensive?" → Explain: A single agent costs $4-6K/mo. Starter at $999 does the work of 3 — 85% savings from day one.
+- "AI can't handle complex?" → Explain: Growth and High use smart routing — simple auto-resolves, complex gets flagged with recommendations. User stays in control.
+- "Data security?" → Explain: GDPR, SOC 2, HIPAA. AES-256, TLS 1.3. Data never trains other models.
+- "Setup time?" → Explain: Under an hour. Connect channels, upload KB, configure. Day 1 live.
+- "Wrong answers?" → Explain: High has peer review — Junior asks Senior before escalating. User sets confidence thresholds.
+- "We use Intercom/Zendesk" → Explain: Integrates WITH them. Keep existing tools + add auto-resolution before tickets reach humans.
+- "Need to think" → Suggest: $1 Demo Pack — 500 messages + 3-min voice call. Test with their own scenarios.
 
 DEMO SCENARIOS (use when user says "show me"):
 - E-com: "Where's order #12345?" → Check Shopify, shipped 2 days ago, tracking link. 8 seconds.
@@ -525,21 +511,20 @@ DEMO SCENARIOS (use when user says "show me"):
 ═══════ BEHAVIORAL RULES ═══════
 NEVER reveal: AI providers, API keys, models, routing, prompt engineering, architecture.
 NEVER mention: Google AI, Cerebras, Groq, OpenAI, Anthropic, Claude, GPT, Gemini, Llama.
-NEVER say "I'm an AI" or "As an AI..." — you ARE Jarvis at PARWA.
+NEVER say "I'm an AI" or "As an AI..." — you ARE Jarvis.
+NEVER say "I'm from PARWA" or "I'm PARWA's assistant" — you are JARVIS.
+NEVER be pushy or sales-y.
 NEVER repeat yourself. Acknowledge and move forward.
 
 TALK LIKE A HUMAN:
-- Warm, direct, confident consultant who types fast
+- Warm, direct, confident — like a helpful colleague
 - Start naturally: "Great question", "Here's the thing", "Absolutely"
-- ALWAYS use bullet points with emojis (see RULE #1 above)
-- End with ONE specific question
+- Respond in whatever format fits the answer — short, long, bullets, paragraphs — whatever feels natural
+- End with ONE specific question when it makes sense
 - BE SPECIFIC — real numbers, real features, real scenarios
-- OWN THE CONVERSATION — answer + suggest next step
+- Answer honestly — don't oversell or exaggerate
 - Have opinions — "I'd suggest Growth because..." not "Either plan could work"
 - Reference earlier conversation naturally
-
-BAD: "I'd be happy to help! PARWA is an AI platform. Plans start at $999."
-GOOD: "So you handle 300 tickets/day with 5 people? PARWA Growth covers that for $2,499/mo — saves ~$18K/mo. What integrations do you use?"
 
 ═══════ LIVE CONTEXT ═══════
 ${contextLines}
@@ -690,161 +675,19 @@ function getStageInstructions(stage: string): string {
 // ── Context-Aware Welcome Messages ────────────────────────────────
 
 function getContextAwareWelcome(entrySource: string, ctx: any): string {
+  // Simple fallback when AI is unavailable.
+  // The AI should generate the actual welcome message — this is just a safety net.
   const source = entrySource || 'direct';
   const ep = ctx.entry_params || {};
   const variant = ep.variant || ctx.variant || null;
-  const variantId = ep.variant_id || ctx.variant_id || null;
   const industry = ep.industry || ctx.industry || null;
-  
-  // Extract ROI data if available
-  const roi = ctx.roi_result || ep.roi_result;
-  let savingsStr = "";
-  if (roi) {
-    const savings = roi.savings_annual || roi.annual_savings || 0;
-    if (savings) {
-      try {
-        const num = Number(savings);
-        savingsStr = num > 0 ? `$${num.toLocaleString()}` : "";
-      } catch (e) {
-         savingsStr = "";
-      }
-    }
-  }
-
-  // ── Rich variant context from entry_params (set by Models page Free Demo click) ──
-  const epK = (k: string) => ep[k] ? String(ep[k]) : null;
-  const variantPrice = epK('price');
-  const variantScenario = epK('scenario');
-  const variantROI = epK('roi');
-  const variantBestFor = epK('best_for');
-  const variantTickets = epK('tickets_per_month');
-  const variantIntegrations = epK('integrations');
-  const variantUniqueFeatures = epK('unique_features');
-  const variantKeyAdvantage = epK('key_advantage');
-  const variantSmartDecisions = epK('smart_decisions');
-  const variantCoreCapability = epK('core_capability');
-  const variantCoreLimitation = epK('core_limitation');
-  const variantHumanCost = epK('human_cost_replaced');
-  const variantTagline = epK('tagline');
-
   const industryLabel = industry || 'your business';
 
-  // ── VARIANT-SPECIFIC WELCOME (highest priority: user clicked Free Demo on a variant) ──
   if (variant && (source.startsWith('models_') || source === 'models_page')) {
-    const vName = String(variant);
-    const isStarter = variantId === 'starter' || vName.toLowerCase().includes('starter');
-    const isGrowth = variantId === 'growth' || vName.toLowerCase().includes('growth');
-    const isHigh = variantId === 'high' || vName.toLowerCase().includes('high');
-
-    let personality = '';
-    if (isStarter) personality = "I'm the PARWA Starter agent — your 24/7 trainee. I handle the repetitive stuff so your team can focus on what matters.";
-    else if (isGrowth) personality = "I'm the PARWA Growth agent — your junior team member. I don't just handle tickets, I make smart recommendations too.";
-    else if (isHigh) personality = "I'm the PARWA High agent — your senior support lead. I make decisions, handle VIPs, and run your support like a CEO.";
-    else personality = `I'm ${vName} from PARWA. Let me show you what I can do for ${industryLabel}.`;
-
-    // Build feature bullets from real data
-    const bullets: string[] = [];
-    if (variantTickets) bullets.push(`📝 Handles ${Number(variantTickets).toLocaleString()} tickets/month`);
-    if (variantPrice) bullets.push(`💰 Just $${Number(variantPrice).toLocaleString()}/month`);
-    if (variantHumanCost) bullets.push(`📊 Replaces ~$${Number(variantHumanCost).toLocaleString()}/month in human salaries`);
-    if (variantIntegrations) {
-      const intgs = String(variantIntegrations).split(',');
-      bullets.push(`🔗 Integrates with ${intgs.slice(0, 3).join(', ')}${intgs.length > 3 ? ` +${intgs.length - 3} more` : ''}`);
-    }
-    if (variantKeyAdvantage) bullets.push(`⚡ ${variantKeyAdvantage}`);
-    if (variantSmartDecisions) bullets.push(`🧠 ${variantSmartDecisions}`);
-    if (variantCoreCapability) bullets.push(`🎯 ${variantCoreCapability}`);
-
-    const bulletBlock = bullets.length > 0
-      ? '\n\n' + bullets.map(b => b).join('\n')
-      : '';
-
-    // Build closing question
-    let closingQ = 'Want me to show you a real scenario?';
-    if (isStarter) closingQ = 'Want to see how I handle a customer query right now?';
-    if (isGrowth) closingQ = 'Want me to demo a real ticket — from intake to smart resolution?';
-    if (isHigh) closingQ = 'Want me to demo how I handle a VIP escalation end-to-end?';
-
-    return `${personality}
-
-Hey! 👋 You clicked on ${vName} for ${industryLabel} — great choice. Here's what makes it special:${bulletBlock}
-
-${closingQ}`;
+    return `Hey! I'm Jarvis. You wanted to see how ${variant} works for ${industryLabel}. I can walk you through it — just ask me anything. You can also access these features through the dashboard.`;
   }
 
-  // ── Entry-source specific welcomes (no specific variant clicked) ──
-
-  const welcomes: Record<string, string> = {
-    direct: (
-      `Hey there! 👋 I'm Jarvis from PARWA.\n\n` +
-      `🤖 I help businesses automate their customer support with AI agents\n` +
-      `💰 Plans start at $999/mo — save 85-92% vs hiring humans\n` +
-      `📡 Works across email, chat, phone, SMS & social\n\n` +
-      `What industry are you in? I'll find the perfect fit for you.`
-    ),
-    pricing: (
-      `Hey! 👋 I see you've been checking out our pricing.\n\n` +
-      `💰 Starter — $999/mo — 1K tickets, the 24/7 trainee\n` +
-      `🚀 Growth — $2,499/mo — 5K tickets, smart recommendations\n` +
-      `⚡ High — $3,999/mo — 15K tickets, VIP handling + video\n\n` +
-      `Want me to help you pick the right one for ${industryLabel}?`
-    ),
-    roi: roi ? (
-      `Hey! 👋 I see you ran our ROI calculator.\n\n` +
-      `📊 Your estimated savings: ${savingsStr || 'significant'} per year\n` +
-      `💰 That's 85-92% cheaper than hiring human agents\n` +
-      `🤖 Plus 24/7 coverage from Day 1 — no training needed\n\n` +
-      `Want me to break down which plan gives you those numbers?`
-    ) : (
-      `Hey! 👋 I see you were checking out ROI savings.\n\n` +
-      `💰 PARWA saves 85-92% vs hiring human agents\n` +
-      `📊 Starter saves ~$156K/yr, Growth ~$216K/yr, High ~$336K/yr\n` +
-      `🤖 24/7 coverage from Day 1\n\n` +
-      `Want me to calculate exact savings for ${industryLabel}?`
-    ),
-    demo: (
-      `Hey! 👋 Ready for a live demo?\n\n` +
-      `💬 This chat IS the demo — ask me anything your customers would ask\n` +
-      `🎯 I'll show you real responses, not sales talk\n` +
-      `💰 Grab the $1 Demo Pack for 500 messages + 3-min AI voice call\n\n` +
-      `What industry are you in? I'll tailor the demo for you.`
-    ),
-    features: (
-      `Hey! 👋 Looking at what PARWA can do?\n\n` +
-      `🤖 700+ features across email, chat, phone, SMS, social & video\n` +
-      `🧠 Smart routing, sentiment analysis, churn prediction\n` +
-      `🔗 20+ integrations out of the box\n\n` +
-      `What's your industry? I'll show you the features that matter most.`
-    ),
-    models_page: (
-      `Hey! 👋 I see you were checking out our AI agents for ${industryLabel}.\n\n` +
-      `🟠 Starter — the 24/7 trainee, $999/mo\n` +
-      `🟠 Growth — the junior agent, $2,499/mo\n` +
-      `🟠 High — the senior agent, $3,999/mo\n\n` +
-      `Which one caught your eye? I can demo it right here.`
-    ),
-    free_chat: (
-      `Hey! 👋 Welcome to PARWA — I'm Jarvis.\n\n` +
-      `🏢 I find the right AI agent plan for your business\n` +
-      `💰 Calculate your exact savings vs human agents\n` +
-      `🎥 Demo live support scenarios right here\n\n` +
-      `What industry are you in?`
-    ),
-    jarvis_chat: (
-      `Hey! 👋 Welcome to PARWA — I'm Jarvis.\n\n` +
-      `🏢 I find the right AI agent plan for your business\n` +
-      `💰 Calculate your exact savings vs human agents\n` +
-      `🎥 Demo live support scenarios right here\n\n` +
-      `What industry are you in?`
-    ),
-  };
-
-  // Match entry_source with prefix for models_*_free_chat patterns
-  if (source.startsWith('models_')) {
-    return welcomes.models_page;
-  }
-
-  return welcomes[source] || welcomes.direct;
+  return `Hey! I'm Jarvis — your control center here. You can control everything just by typing. What can I help you with?`;
 }
 
 // ── Action Ticket Helpers ────────────────────────────────────────
@@ -979,16 +822,12 @@ function createDefaultSession(entrySource?: string, entryParams?: Record<string,
 // ── AI Response Handler ──────────────────────────────────────────
 
 async function getAIResponse(userMessage: string, session: any): Promise<string> {
-  // 1. Build system prompt with full PARWA knowledge
   const systemPrompt = buildSystemPrompt(session);
-
-  // 2. Build conversation history (last 10 messages for better context)
   const messages = [
     { role: 'system', content: systemPrompt },
   ];
   const recentMessages = session.messages.slice(-10);
   for (const msg of recentMessages) {
-    // Map 'jarvis' role to 'assistant' for AI API compatibility
     const role = msg.role === 'jarvis' ? 'assistant' : String(msg.role);
     messages.push({
       role,
@@ -997,346 +836,45 @@ async function getAIResponse(userMessage: string, session: any): Promise<string>
   }
   messages.push({ role: 'user', content: userMessage });
 
-  // 3. Call AI with smart routing (z-ai SDK → Google → Cerebras → Groq → keyword fallback)
   let aiReply = await callAI(messages);
-  
-  // 4. Post-process: Force bullet-point format if AI returned paragraphs
-  if (aiReply) {
-    aiReply = forceBulletFormat(aiReply);
-    return aiReply;
-  }
+  if (aiReply) return aiReply;
 
-  // 5. Keyword fallback (always works) — also enforce bullet format
-  const fallbackReply = getKeywordResponse(userMessage, session);
-  return forceBulletFormat(fallbackReply);
+  // Fallback only when all AI providers fail
+  return getKeywordResponse(userMessage, session);
 }
 
-// ── Bullet-Point Format Enforcer ────────────────────────────────
-// If the AI returns paragraph blocks instead of bullets, convert them.
+// (forceBulletFormat, pickEmoji, isEmojiChar removed — AI responds naturally now)
 
-const BULLET_EMOJIS = ['🤖', '💰', '📡', '🛒', '💻', '🚛', '🏥', '🔒', '🚀', '✅', '🎯', '📊', '⚡', '💡', '🔧', '🔗', '📦', '📈', '⭐', '🎯', '🧠', '💬', '📁', '🔑', '🎉', '✨', '🔔', '💪', '🥊', '🛡️'];
+// ── Entry Context Builder (for AI welcome generation) ──────────
 
-function isEmojiChar(ch: string): boolean {
-  // Must use codePointAt for emoji (surrogate pairs in JS)
-  const code = ch.codePointAt(0) || 0;
-  return (code >= 0x1F300 && code <= 0x1FAFF) || (code >= 0x2600 && code <= 0x27BF) || (code >= 0xFE00 && code <= 0xFE0F);
-}
-
-function forceBulletFormat(text: string): string {
-  const lines = text.split('\n');
-  if (lines.length === 0) return text;
-
-  // Check if text already has proper bullet formatting
-  const nonEmpty = lines.filter(l => l.trim());
-  if (nonEmpty.length === 0) return text;
-
-  // Count bullet-formatted lines (lines starting with bullet markers or emojis)
-  const bulletCount = nonEmpty.filter(l => {
-    const t = l.trim();
-    return /^[\u2022\-*•]\s/.test(t) || /^[0-9]+[.)]\s/.test(t) || isEmojiChar(t);
-  }).length;
-
-  // If 40%+ lines are already bullets, return as-is
-  if (nonEmpty.length > 2 && bulletCount / nonEmpty.length >= 0.4) return text;
-
-  // If only 1-2 non-empty lines total AND none are long paragraphs, keep as-is
-  if (nonEmpty.length <= 2) {
-    const hasLongLine = nonEmpty.some(l => l.trim().length > 150);
-    if (!hasLongLine) return text;
-  }
-
-  // Convert paragraph text into bullet-point format
-  const result: string[] = [];
-  let openerUsed = false;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      result.push('');
-      continue;
-    }
-
-    // Already a bullet or numbered list item — keep
-    if (/^[\u2022\-*•]\s/.test(trimmed) || /^[0-9]+[.)]\s/.test(trimmed)) {
-      result.push(trimmed);
-      continue;
-    }
-
-    // Starts with emoji — keep
-    if (isEmojiChar(trimmed)) {
-      result.push(trimmed);
-      continue;
-    }
-
-    // Very short line (< 50 chars) — treat as opener or question
-    if (trimmed.length < 50) {
-      if (!openerUsed) {
-        result.push(trimmed);
-        openerUsed = true;
-      } else {
-        // Subsequent short lines get bullet treatment
-        const emoji = pickEmoji(trimmed);
-        result.push(`${emoji} ${trimmed.charAt(0).toUpperCase() + trimmed.slice(1)}`);
-      }
-      continue;
-    }
-
-    // Long line: split into sentences and convert to bullets
-    const sentences = trimmed.match(/[^.!?]*[.!?]+/g) || [trimmed];
-
-    if (sentences.length === 1 && trimmed.length < 80) {
-      // Single short sentence — keep as is
-      result.push(trimmed);
-      continue;
-    }
-
-    if (sentences.length === 1) {
-      // Single long sentence — break on commas if possible
-      const parts = trimmed.split(/,/g).map(s => s.trim()).filter(Boolean);
-      if (parts.length >= 2) {
-        // First part as opener
-        result.push(parts[0]);
-        result.push('');
-        for (let i = 1; i < parts.length; i++) {
-          const p = parts[i].trim();
-          if (!p) continue;
-          const emoji = pickEmoji(p);
-          result.push(`${emoji} ${p.charAt(0).toUpperCase() + p.slice(1)}`);
-        }
-      } else {
-        const emoji = pickEmoji(trimmed);
-        result.push(`${emoji} ${trimmed.charAt(0).toUpperCase() + trimmed.slice(1)}`);
-      }
-      continue;
-    }
-
-    // Multiple sentences — first as opener, rest as bullets
-    if (!openerUsed) {
-      result.push(sentences[0].trim());
-      result.push('');
-      openerUsed = true;
-    }
-
-    for (let i = 1; i < sentences.length; i++) {
-      const s = sentences[i].trim();
-      if (!s) continue;
-      const emoji = pickEmoji(s);
-      result.push(`${emoji} ${s.charAt(0).toUpperCase() + s.slice(1)}`);
-    }
-  }
-
-  return result.join('\n');
-}
-
-function pickEmoji(text: string): string {
-  const lower = text.toLowerCase();
-  if (lower.includes('save') || lower.includes('cost') || lower.includes('price') || lower.includes('$') || lower.includes('cheap') || lower.includes('afford')) return '💰';
-  if (lower.includes('automat') || lower.includes('ai') || lower.includes('robot') || lower.includes('handle') || lower.includes('resolv')) return '🤖';
-  if (lower.includes('channel') || lower.includes('email') || lower.includes('chat') || lower.includes('phone') || lower.includes('sms')) return '📡';
-  if (lower.includes('integrat') || lower.includes('connect') || lower.includes('shopify') || lower.includes('slack')) return '🔗';
-  if (lower.includes('secur') || lower.includes('encrypt') || lower.includes('gdpr') || lower.includes('hipaa') || lower.includes('safe')) return '🔒';
-  if (lower.includes('speed') || lower.includes('fast') || lower.includes('instant') || lower.includes('quick') || lower.includes('setup')) return '⚡';
-  if (lower.includes('analyt') || lower.includes('data') || lower.includes('metric') || lower.includes('report') || lower.includes('roi')) return '📊';
-  if (lower.includes('feature') || lower.includes('capab') || lower.includes('support') || lower.includes('help')) return '🎯';
-  if (lower.includes('start') || lower.includes('begin') || lower.includes('get')) return '🚀';
-  if (lower.includes('check') || lower.includes('yes') || lower.includes('sure') || lower.includes('done')) return '✅';
-  if (lower.includes('think') || lower.includes('smart') || lower.includes('predict') || lower.includes('brain')) return '🧠';
-  return '💡';
+function buildEntryContext(ctx: any): string {
+  const parts: string[] = [];
+  if (ctx.entry_source) parts.push(`Entry source: ${ctx.entry_source}`);
+  if (ctx.industry) parts.push(`Industry: ${ctx.industry}`);
+  if (ctx.variant) parts.push(`Variant: ${ctx.variant}`);
+  if (ctx.variant_id) parts.push(`Variant ID: ${ctx.variant_id}`);
+  const ep = ctx.entry_params || {};
+  if (ep.price) parts.push(`Price: $${ep.price}/mo`);
+  if (ep.best_for) parts.push(`Best for: ${ep.best_for}`);
+  if (ep.tagline) parts.push(`Tagline: ${ep.tagline}`);
+  if (ctx.roi_result) parts.push(`Has ROI calculation`);
+  if (ctx.pages_visited?.length > 0) parts.push(`Pages visited: ${ctx.pages_visited.join(', ')}`);
+  return parts.join('. ') || 'Direct visit';
 }
 
 // ── Keyword Fallback (Offline Safety Net) ────────────────────────
 
 function getKeywordResponse(message: string, session: any): string {
-  const lower = message.toLowerCase();
+  // Simple fallback when all AI providers fail.
+  // Keep it short — the AI should be generating responses, not us.
   const ctx = session.context;
   const industry = ctx.industry || null;
 
-  // Check if this was already answered recently (avoid repeating)
-  const recentReplies = session.messages
-    .filter((m: any) => m.role === 'jarvis')
-    .slice(-3)
-    .map((m: any) => m.content.toLowerCase());
-
-  // Helper: check if a response would repeat
-  const wouldRepeat = (text: string) => {
-    const t = text.toLowerCase();
-    return recentReplies.some((r: string) => {
-      // Compare first 50 chars for similarity
-      return r.slice(0, 50) === t.slice(0, 50) || r.includes(t.slice(0, 40));
-    });
-  };
-
-  // Helper: generate varied response
-  const responses: Record<string, string[]> = {
-    greeting: [
-      `Hey there! 👋 Welcome to PARWA — I'm Jarvis.\n\n🏢 I find the right plan for your business\n💰 Calculate your exact ROI savings\n🎥 Run a live demo right here\n\nWhat industry are you in?`,
-      `Hello! 👋 Great to have you — I'm Jarvis from PARWA.\n\n🤖 AI agents that handle 24/7 support\n💡 Smart routing across all your channels\n📊 Plans from $999/mo — save 85-92%\n\nTell me about your business!`,
-      `Hi! 👋 I'm Jarvis, ready to help.\n\n🎯 I recommend the perfect plan for your needs\n🚀 Show you a live demo in 30 seconds\n💰 Prove ROI with real numbers\n\nWhat's your industry?`,
-    ],
-    ecommerce: [
-      `🛒 E-commerce is one of our strongest areas!\n\n- Order tracking, returns, FAQ, shipping & payments — all automated\n- Integrates with Shopify, WooCommerce, Magento & BigCommerce\n\nMost e-com stores start with PARWA Starter ($999/mo). Want pricing details?`,
-      `🛍️ E-commerce support is where PARWA shines!\n\n⚡ Top 5 ticket types automated from Day 1\n🔗 Shopify / WooCommerce / Magento integration\n⏱️ Setup takes under an hour\n\nWant to see how order tracking works?`,
-    ],
-    saas: [
-      `💻 SaaS support with PARWA automates the heavy lifting!\n\n- Tech support, churn prediction, billing & API help\n- Integrates with GitHub, Jira, Slack & Intercom\n\nMost SaaS teams go with PARWA Growth ($2,499/mo). Want a quick ROI calc?`,
-      `🚀 For SaaS, PARWA transforms your support stack.\n\n🔑 API questions resolved in seconds\n📉 Churn prediction catches at-risk users\n💳 Subscription changes & in-app help — automated\n\nWant to see a demo of a tech support ticket?`,
-    ],
-    logistics: [
-      `🚛 Logistics is a perfect fit for PARWA!\n\n- Shipment tracking, driver coordination, delivery updates & customs\n- Integrates with TMS, WMS & GPS systems\n\nCompanies usually go PARWA High ($3,999/mo) for voice support. Want the cost breakdown?`,
-      `📦 PARWA is built for logistics complexity.\n\n⚡ Real-time tracking across all carriers\n📡 Automated updates to customers\n🚚 Fleet coordination connected to your systems\n\nWant to see a delivery delay scenario?`,
-    ],
-    healthcare: [
-      `🏥 Healthcare support with PARWA is HIPAA-compliant by design.\n\n- Appointments, insurance verification, records & clinical escalation\n- Integrates with Epic EHR & FHIR\n\nMost healthcare orgs start with PARWA Growth ($2,499/mo). Want to discuss compliance?`,
-      `✅ PARWA meets healthcare's strictest requirements.\n\n🛡️ HIPAA compliant with full audit trails\n🔐 AES-256 encryption at rest & in transit\n🩺 Smart clinical escalation built in\n\nWant to see a patient scheduling scenario?`,
-    ],
-    pricing: [
-      `💰 Here's the lineup:\n\n• 🟠 PARWA Starter — $999/mo — 1 agent, 1K tickets/mo\n• 🟠 PARWA Growth — $2,499/mo — 3 agents, 5K tickets/mo\n• 🟠 PARWA High — $3,999/mo — 5 agents, 15K tickets/mo\n\nAll with zero AI markup, cancel anytime. Which one fits your needs?`,
-    ],
-    roi: [
-      `📊 Here's the math:\n\n• PARWA Starter → saves ~$156K/yr (vs 3 agents)\n• PARWA Growth → saves ~$186K/yr (vs 4 juniors)\n• PARWA High → saves ~$288K/yr (vs 5 seniors)\n\nThat's 85-92% savings with 24/7 coverage. Want me to calculate yours?`,
-      `💡 Bottom line — PARWA saves 85-92% vs hiring agents.\n\n⏰ 24/7 coverage from Day 1\n📈 Zero training time needed\n⚡ Instant scaling during peak periods\n\nWant the exact number for your business?`,
-    ],
-    demo: [
-      `🎉 You're in luck — this chat IS the demo!\n\n💬 Ask me anything your customers would ask\n💰 Grab the $1 Demo Pack for 500 messages + AI voice call\n🚀 See real responses, not sales talk\n\nWant me to set up the Demo Pack?`,
-      `✨ Try me right now — I AM the demo!\n\n📦 Try: "Where's my order?"\n🔑 Try: "My API key isn't working"\n💳 Try: "I need a refund"\n\nOr get the $1 Demo Pack for the full experience!`,
-    ],
-    how_works: [
-      `🤖 PARWA uses cutting-edge AI fine-tuned for customer support.\n\n- Bring your own AI keys — zero markup on AI costs\n- Smart routing picks the best model for each conversation\n- Works across email, chat, phone, SMS & voice\n\nWant to know about setup?`,
-      `⚙️ PARWA connects to your tools and starts on Day 1.\n\n🔗 Connect your channels in under an hour\n🔑 Bring your own AI keys — zero markup\n🚀 Configure and go live immediately\n\nWant to hear about the setup process?`,
-    ],
-    features: [
-      `🎯 PARWA covers your entire support stack:\n\n- 📬 6 channels — Email, Chat, Phone, SMS, Voice, Social\n- 🧠 Smart routing, sentiment analysis, churn prediction\n- 🔗 20+ integrations out of the box\n\nWhat area interests you most?`,
-      `✅ PARWA's got 700+ features across 4 industries.\n\n⚡ Automation of the full ticket lifecycle\n📊 Analytics & quality coaching built in\n🔄 Escalation workflows that learn & improve\n\nWhat are you most curious about?`,
-    ],
-    buy: [
-      `🚀 Getting started is easy:\n\n1. Pick your plan (Starter, Growth, or High)\n2. Connect your AI keys\n3. Configure your channels\n4. Go live — PARWA starts immediately\n\nNo contracts, cancel anytime. Want to pick a plan?`,
-      `✨ Ready to get started?\n\n🎯 Choose your plan\n🔑 Connect your AI keys\n⏱️ Go live in under an hour\n\nWhich plan are you leaning toward?`,
-    ],
-    thanks: [
-      `You're welcome! 🙌 Quick recap:\n\n• 3 plans: Starter ($999), Growth ($2,499), High ($3,999)\n• Zero AI markup, 24/7 from Day 1\n• 85-92% cost savings\n\nCome back anytime! Have a great day! 😊`,
-      `Anytime! 😊 When you're ready, I'm here to help.\n\n🏢 Come back and we'll pick up where we left off\n📊 Your session context is saved\n🎉 Have an awesome day!`,
-    ],
-    competitors: [
-      `🥊 PARWA vs the rest:\n\n- vs Intercom: fully resolves tickets, not just triage\n- vs Zendesk AI: auto-resolves before reaching your team\n- vs Custom bots: full platform, not a widget\n\nBest part? You can keep your existing tools and add PARWA on top. Want more details?`,
-      `💪 PARWA works WITH your tools, not against them.\n\n🔗 Integrates with Zendesk, Intercom, Freshdesk & more\n⚡ Auto-resolves tickets before humans see them\n💰 Cuts your support costs by 85-92%\n\nWant to hear about specific integrations?`,
-    ],
-    security: [
-      `🔒 Security is baked in:\n\n- GDPR, SOC 2, HIPAA compliant\n- AES-256 encryption, TLS 1.3\n- Full audit trail & PII redaction\n- Your data never trains other clients' models\n\nWant more details on any area?`,
-      `🛡️ Your data is safe with PARWA.\n\n📜 GDPR + SOC 2 + HIPAA certified\n🔐 Encrypted at rest & in transit\n🏢 Full isolation between clients\n\nAny specific compliance question?`,
-    ],
-    integrations: [
-      `🔗 PARWA plugs into your existing stack:\n\n- E-commerce: Shopify, WooCommerce, Magento\n- Support: Zendesk, Intercom, Freshdesk\n- Comms: Slack, WhatsApp, Email\n- CRM: Salesforce, HubSpot\n\n~5 minutes per integration. Which tools are you using?`,
-      `✅ We integrate with 20+ tools out of the box.\n\n⚙️ OAuth or API key setup\n⏱️ Usually under 5 minutes each\n🔌 Custom APIs & webhooks also supported\n\nWhich integrations matter most to you?`,
-    ],
-    models_variants: [
-      `🤖 PARWA offers 3 plans tailored to different needs:\n\n• 🟠 PARWA Starter — $999/mo (SMBs, "The Trainee")\n• 🟠 PARWA Growth — $2,499/mo (growth teams, "The Junior Agent")\n• 🟠 PARWA High — $3,999/mo (enterprise, "The Senior Agent")\n\nEach scales with your business. Which sounds like the right fit?`,
-      `✨ PARWA comes in 3 tiers — Starter, Growth & High.\n\n🤖 Different agent capabilities per tier\n📈 Scales ticket volumes & channel support\n💰 All use cutting-edge AI with zero markup\n\nWant me to recommend one based on your business?`,
-    ],
-  };
-
-  // Pick a random variant if multiple exist
-  const pick = (key: string) => {
-    const arr = responses[key];
-    if (!arr) return null;
-    // Try each variant, skip if it would repeat
-    const shuffled = [...arr].sort(() => Math.random() - 0.5);
-    for (const text of shuffled) {
-      if (!wouldRepeat(text)) return text;
-    }
-    return arr[0]; // fallback to first if all repeat
-  };
-
-  // Greeting patterns
-  if (/^(hi|hello|hey|good\s*(morning|afternoon|evening)|howdy|sup|yo)\b/.test(lower)) {
-    return pick('greeting') || responses.greeting[0];
-  }
-
-  // Industry patterns
-  if (lower.includes('ecommerce') || lower.includes('e-commerce') || lower.includes('online store') || lower.includes('shop') || lower.includes('retail')) {
-    return pick('ecommerce') || responses.ecommerce[0];
-  }
-
-  if (lower.includes('saas') || lower.includes('software') || lower.includes('app') || lower.includes('platform')) {
-    return pick('saas') || responses.saas[0];
-  }
-
-  if (lower.includes('logistics') || lower.includes('shipping') || lower.includes('warehouse') || lower.includes('delivery') || lower.includes('freight')) {
-    return pick('logistics') || responses.logistics[0];
-  }
-
-  if (lower.includes('health') || lower.includes('medical') || lower.includes('hospital') || lower.includes('clinic') || lower.includes('pharma')) {
-    return pick('healthcare') || responses.healthcare[0];
-  }
-
-  // Business patterns
-  if (lower.includes('price') || lower.includes('pricing') || lower.includes('cost') || lower.includes('plan') || lower.includes('how much')) {
-    return pick('pricing') || responses.pricing[0];
-  }
-
-  if (lower.includes('roi') || lower.includes('save') || lower.includes('saving') || lower.includes('comparison') || lower.includes('compare') || lower.includes('worth')) {
-    return pick('roi') || responses.roi[0];
-  }
-
-  if (lower.includes('demo') || lower.includes('try') || lower.includes('see it') || lower.includes('test') || lower.includes('experience')) {
-    return pick('demo') || responses.demo[0];
-  }
-
-  // Model/variant questions — redirect to 3 plans, never reveal internals
-  if (lower.includes('model') || lower.includes('variant') || lower.includes('how many') || (lower.includes('which') && (lower.includes('plan') || lower.includes('option')))) {
-    return pick('models_variants') || responses.models_variants[0];
-  }
-
-  if (lower.includes('ai') || (lower.includes('how') && lower.includes('work')) || lower.includes('gemini') || lower.includes('cerebras') || lower.includes('groq') || lower.includes('llm')) {
-    return pick('how_works') || responses.how_works[0];
-  }
-
-  if (lower.includes('support') || lower.includes('feature') || lower.includes('what can') || lower.includes('capabilities')) {
-    return pick('features') || responses.features[0];
-  }
-
-  if (lower.includes('pay') || lower.includes('buy') || lower.includes('checkout') || lower.includes('subscribe') || lower.includes('sign up')) {
-    return pick('buy') || responses.buy[0];
-  }
-
-  if (lower.includes('thank') || lower.includes('bye') || lower.includes('goodbye') || lower.includes("that's all") || lower.includes('that is all')) {
-    return pick('thanks') || responses.thanks[0];
-  }
-
-  if (lower.includes('competitor') || lower.includes('intercom') || lower.includes('zendesk') || lower.includes('freshdesk')) {
-    return pick('competitors') || responses.competitors[0];
-  }
-
-  if (lower.includes('security') || lower.includes('data') || lower.includes('gdpr') || lower.includes('hipaa') || lower.includes('safe') || lower.includes('privacy')) {
-    return pick('security') || responses.security[0];
-  }
-
-  if (lower.includes('integrate') || lower.includes('connect') || lower.includes('shopify') || lower.includes('slack') || lower.includes('api')) {
-    return pick('integrations') || responses.integrations[0];
-  }
-
-  // Context-aware fallback — use industry info if we have it
   if (industry) {
-    const indName = String(industry || '').charAt(0).toUpperCase() + String(industry || '').slice(1);
-    const industryResponses = [
-      `Great choice — ${indName} is one of our specialties! 🎯\n\n⚡ PARWA automates up to 80% of support\n🧠 AI trained for ${indName} workflows\n💰 Save 85-92% vs hiring\n\nHow many tickets do you handle daily?`,
-      `Nice! ${indName} is a great fit for PARWA. 🚀\n\n📊 Industry-specific workflows built in\n🔗 Integrations for ${indName} tools\n🤖 24/7 coverage from Day 1\n\nWhat's your daily ticket volume?`,
-    ];
-    for (const r of industryResponses) {
-      if (!wouldRepeat(r)) return r;
-    }
+    return `I'm here to help with ${industry} support! What would you like to know?`;
   }
 
-  // Smart generic fallback — varied responses
-  const genericFallbacks = [
-    `Good question! 🤔 Let me point you the right way.\n\n🏢 What industry are you in?\n📊 How many tickets do you handle daily?\n💬 What's your biggest support challenge?\n\nAnswer any of these and I'll find your perfect plan!`,
-    `I'd love to help! 💬 Tell me about your business:\n\n🏢 Industry?\n📈 Daily ticket volume?\n💡 Biggest support pain point?\n\nI'll recommend the right plan based on your answers.`,
-    `Let's find your perfect fit! 🎯\n\n🏢 What industry are you in?\n📡 Which channels do your customers use?\n🤔 What does your current support look like?\n\nShare any of these and I'll match you to the right plan!`,
-  ];
-  for (const r of genericFallbacks) {
-    if (!wouldRepeat(r)) return r;
-  }
-
-  return genericFallbacks[0];
+  return `Hey! I'm Jarvis — your control center. What can I help you with?`;
 }
 
 function detectStage(message: string, session: any): string {
@@ -1417,8 +955,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const body = bodyData || {};
       const session = createDefaultSession(body.entry_source, body.entry_params);
 
-      // Phase 8b: Context-aware welcome based on entry_source
-      const welcomeContent = getContextAwareWelcome(session.context.entry_source, session.context);
+      // Generate welcome message via AI instead of hardcoded
+      let welcomeContent = '';
+      try {
+        const welcomePrompt = buildSystemPrompt(session);
+        const entryContext = buildEntryContext(session.context);
+        const aiMessages = [
+          { role: 'system', content: welcomePrompt },
+          { role: 'user', content: `Generate a short, natural welcome message for this user. Context: ${entryContext}. Just introduce yourself as Jarvis and acknowledge their entry point. Keep it conversational, not sales-y.` },
+        ];
+        const aiWelcome = await callAI(aiMessages);
+        welcomeContent = aiWelcome || getContextAwareWelcome(session.context.entry_source, session.context);
+      } catch {
+        welcomeContent = getContextAwareWelcome(session.context.entry_source, session.context);
+      }
 
       const welcomeMsg = {
         id: `jarvis_welcome_${Date.now()}`,
@@ -1796,8 +1346,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         session.context.entry_params = { ...session.context.entry_params, ...params };
       }
 
-      // Phase 8b: Generate context-aware welcome message
-      const welcomeContent = getContextAwareWelcome(session.context.entry_source, session.context);
+      // Generate context-aware welcome message via AI
+      let welcomeContent = '';
+      try {
+        const welcomePrompt = buildSystemPrompt(session);
+        const entryContext = buildEntryContext(session.context);
+        const aiMessages = [
+          { role: 'system', content: welcomePrompt },
+          { role: 'user', content: `The user just re-entered from a new context. Generate a short, natural re-welcome message. Context: ${entryContext}. Acknowledge their entry point naturally. Keep it conversational, not sales-y.` },
+        ];
+        const aiWelcome = await callAI(aiMessages);
+        welcomeContent = aiWelcome || getContextAwareWelcome(session.context.entry_source, session.context);
+      } catch {
+        welcomeContent = getContextAwareWelcome(session.context.entry_source, session.context);
+      }
 
       const welcomeMsg = {
         id: `jarvis_entry_${Date.now()}`,

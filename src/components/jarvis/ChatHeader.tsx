@@ -97,7 +97,7 @@ export function ChatHeader({ session, isLoading }: ChatHeaderProps) {
           </h1>
           <p className="text-[11px] text-orange-400/60 flex items-center gap-1">
             <Zap className="w-3 h-3" />
-            {isLoading ? 'Connecting...' : 'Online • Ready to help'}
+            {isLoading ? 'Connecting...' : 'Your control center'}
           </p>
         </div>
       </div>
