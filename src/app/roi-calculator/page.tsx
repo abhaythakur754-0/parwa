@@ -5,8 +5,6 @@ import Link from 'next/link';
 import NavigationBar from '@/components/landing/NavigationBar';
 import Footer from '@/components/landing/Footer';
 import {
-  ArrowLeft,
-  ArrowRight,
   Building2,
   Users,
   TicketCheck,
@@ -16,9 +14,7 @@ import {
   Clock,
   Target,
   Sparkles,
-  ChevronRight,
   Check,
-  CircleDot,
   BarChart3,
   PiggyBank,
   Brain,
@@ -27,10 +23,8 @@ import {
   Phone,
   Video,
   Globe,
-  ShieldCheck,
-  ArrowDownRight,
-  ThumbsUp,
   Package,
+  Layers,
 } from 'lucide-react';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -40,13 +34,14 @@ import {
 interface ParwaModel {
   id: string;
   name: string;
+  shortName: string;
   tagline: string;
   tier: string;
   price: number;
   aiResolution: number;
   agents: number;
   ticketCapacity: string;
-  ticketCapacityNum: number; // numeric capacity for calculations
+  ticketCapacityNum: number;
   channels: string[];
   description: string;
   bestFor: string;
@@ -61,6 +56,7 @@ const PARWA_MODELS: ParwaModel[] = [
   {
     id: 'parwa-starter',
     name: 'PARWA Starter',
+    shortName: 'Starter',
     tagline: 'The 24/7 Trainee',
     tier: 'Entry',
     price: 999,
@@ -81,6 +77,7 @@ const PARWA_MODELS: ParwaModel[] = [
   {
     id: 'parwa-growth',
     name: 'PARWA Growth',
+    shortName: 'Growth',
     tagline: 'The Junior Agent',
     tier: 'Growth',
     price: 2499,
@@ -101,6 +98,7 @@ const PARWA_MODELS: ParwaModel[] = [
   {
     id: 'parwa-high',
     name: 'PARWA High',
+    shortName: 'High',
     tagline: 'The Senior Agent',
     tier: 'Enterprise',
     price: 3999,
@@ -201,162 +199,294 @@ function getChannelIcon(channel: string) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// SMART RECOMMENDATION ENGINE — supports multi-instance, value-optimized
+// SMART RECOMMENDATION ENGINE — supports MULTI-TIER COMBINATIONS
 // ══════════════════════════════════════════════════════════════════════
+// Instead of just stacking the same plan (2x High), this engine finds
+// the OPTIMAL COMBINATION of different tiers (e.g., Growth + High)
+// that covers all tickets at the LOWEST COST with BEST savings.
 
-interface Recommendation {
+interface ComboItem {
   model: ParwaModel;
   quantity: number;
-  totalMonthlyPrice: number;
-  totalCapacity: number;
+}
+
+interface ComboRecommendation {
+  combo: ComboItem[];           // e.g., [{ model: Growth, quantity: 1 }, { model: High, quantity: 1 }]
+  label: string;                // e.g., "1x Growth + 1x High"
+  totalMonthlyPrice: number;    // subscription cost only
+  totalCapacity: number;        // total tickets capacity
+  totalAiAgents: number;        // total AI agents across all instances
   coversAllTickets: boolean;
-  netSavingsPerMonth: number; // monthly savings after PARWA cost
+  // Weighted AI resolution based on how tickets are distributed
+  weightedAiResolution: number; // e.g., 0.85 for Growth+High combo
+  totalAiTickets: number;       // AI-resolved tickets per month
+  totalHumanTickets: number;    // tickets needing human attention
+  humanCost: number;            // cost of human-handled tickets
+  parwaMonthly: number;         // subscription + human cost
+  netSavingsPerMonth: number;   // current cost - parwa cost
   reasons: string[];
 }
 
-function getRecommendations(
+function getOptimalCombo(
   tickets: number,
   agentCount: number,
   industry: string,
   cpt: number,
   currentMonthly: number
 ): {
-  primary: Recommendation;
-  alternatives: Recommendation[];
+  primary: ComboRecommendation;
+  alternatives: ComboRecommendation[];
 } {
   const bench = BENCHMARKS[industry];
   const industryLabel =
     INDUSTRIES.find((i) => i.id === industry)?.label || 'your industry';
 
-  // Calculate instances needed for each model to cover ticket volume
-  const options = PARWA_MODELS.map((model) => {
-    const quantity = Math.max(1, Math.ceil(tickets / model.ticketCapacityNum));
-    const totalMonthlyPrice = quantity * model.price;
-    const totalCapacity = quantity * model.ticketCapacityNum;
-    const coversAllTickets = totalCapacity >= tickets;
+  // Model references for convenience
+  const starter = PARWA_MODELS[0]; // 1K capacity, $999, 60% AI
+  const growth = PARWA_MODELS[1];   // 5K capacity, $2,499, 78% AI
+  const high = PARWA_MODELS[2];     // 15K capacity, $3,999, 88% AI
 
-    // Calculate actual monthly cost with PARWA
-    const aiTickets = Math.round(tickets * model.aiResolution);
-    const humanTickets = tickets - aiTickets;
-    const humanCost = humanTickets * cpt * 0.25;
-    const parwaMonthly = totalMonthlyPrice + humanCost;
-    const netSavingsPerMonth = Math.max(0, currentMonthly - parwaMonthly);
+  // Calculate max instances needed for each model to cover ticket volume
+  const maxStarter = Math.ceil(tickets / starter.ticketCapacityNum);
+  const maxGrowth = Math.ceil(tickets / growth.ticketCapacityNum);
+  const maxHigh = Math.ceil(tickets / high.ticketCapacityNum);
 
-    const reasons: string[] = [];
+  const combinations: ComboRecommendation[] = [];
 
-    // Generate recommendation-specific reasons
-    if (quantity === 1) {
-      reasons.push(
-        `Your volume of ${fmtNum(tickets)} tickets/month fits within a single ${model.name} (${model.ticketCapacity} capacity).`
-      );
-    } else {
-      reasons.push(
-        `With ${fmtNum(tickets)} tickets/month, you need ${quantity}x ${model.name} instances (each handles ${model.ticketCapacity}, total: ${fmtNum(totalCapacity)}).`
-      );
-    }
+  // Edge case: no tickets — return a default recommendation
+  if (tickets <= 0) {
+    const defaultModel = growth; // Default to Growth as a sensible starting point
+    const defaultCombo: ComboRecommendation = {
+      combo: [{ model: defaultModel, quantity: 1 }],
+      label: defaultModel.shortName,
+      totalMonthlyPrice: defaultModel.price,
+      totalCapacity: defaultModel.ticketCapacityNum,
+      totalAiAgents: defaultModel.agents,
+      coversAllTickets: true,
+      weightedAiResolution: defaultModel.aiResolution,
+      totalAiTickets: 0,
+      totalHumanTickets: 0,
+      humanCost: 0,
+      parwaMonthly: defaultModel.price,
+      netSavingsPerMonth: 0,
+      reasons: ['Enter your ticket volume to see personalized recommendations.'],
+    };
+    return { primary: defaultCombo, alternatives: [] };
+  }
 
-    if (model.aiResolution >= 0.88) {
-      reasons.push(
-        `At ${Math.round(model.aiResolution * 100)}% AI resolution, only ${fmtNum(Math.round(tickets * (1 - model.aiResolution)))} tickets need human attention.`
-      );
-    } else if (model.aiResolution >= 0.78) {
-      reasons.push(
-        `At ${Math.round(model.aiResolution * 100)}% AI resolution, ${fmtNum(Math.round(tickets * model.aiResolution))} of your ${fmtNum(tickets)} tickets are handled automatically.`
-      );
-    } else {
-      reasons.push(
-        `At ${Math.round(model.aiResolution * 100)}% AI resolution, ${fmtNum(Math.round(tickets * model.aiResolution))} tickets are auto-resolved — a solid starting point.`
-      );
-    }
+  // Brute force all valid combinations of Starter/Growth/High instances
+  // With 3 models, even for 50K tickets this is only ~140 combos — very fast
+  for (let s = 0; s <= maxStarter; s++) {
+    for (let g = 0; g <= maxGrowth; g++) {
+      for (let h = 0; h <= maxHigh; h++) {
+        // Skip empty combination
+        if (s === 0 && g === 0 && h === 0) continue;
 
-    if (agentCount > 0) {
-      const agentsNeeded = Math.max(1, Math.round(agentCount * (1 - model.aiResolution)));
-      if (agentsNeeded < agentCount) {
+        const totalCapacity = s * starter.ticketCapacityNum + g * growth.ticketCapacityNum + h * high.ticketCapacityNum;
+
+        // Must cover all tickets
+        if (totalCapacity < tickets) continue;
+
+        const totalMonthlyPrice = s * starter.price + g * growth.price + h * high.price;
+        const totalAiAgents = s * starter.agents + g * growth.agents + h * high.agents;
+
+        // Distribute tickets to models — best AI resolution first (High > Growth > Starter)
+        // This gives the maximum AI resolution for the combination
+        let remainingTickets = tickets;
+
+        const highTickets = Math.min(remainingTickets, h * high.ticketCapacityNum);
+        const aiHigh = Math.round(highTickets * high.aiResolution);
+        remainingTickets -= highTickets;
+
+        const growthTickets = Math.min(remainingTickets, g * growth.ticketCapacityNum);
+        const aiGrowth = Math.round(growthTickets * growth.aiResolution);
+        remainingTickets -= growthTickets;
+
+        const starterTickets = Math.min(remainingTickets, s * starter.ticketCapacityNum);
+        const aiStarter = Math.round(starterTickets * starter.aiResolution);
+
+        const totalAiTickets = aiHigh + aiGrowth + aiStarter;
+        const totalHumanTickets = tickets - totalAiTickets;
+        const weightedAiResolution = tickets > 0 ? totalAiTickets / tickets : 0;
+
+        // Human cost: remaining tickets cost 25% of original (AI handles triage, context, replies)
+        const humanCost = totalHumanTickets * cpt * 0.25;
+        const parwaMonthly = totalMonthlyPrice + humanCost;
+        const netSavingsPerMonth = Math.max(0, currentMonthly - parwaMonthly);
+
+        // Build label
+        const combo: ComboItem[] = [];
+        if (s > 0) combo.push({ model: starter, quantity: s });
+        if (g > 0) combo.push({ model: growth, quantity: g });
+        if (h > 0) combo.push({ model: high, quantity: h });
+
+        const label = combo
+          .map((c) => (c.quantity > 1 ? `${c.quantity}x ${c.model.shortName}` : c.model.shortName))
+          .join(' + ');
+
+        // Generate smart reasons
+        const reasons: string[] = [];
+
+        if (combo.length === 1 && combo[0].quantity === 1) {
+          reasons.push(
+            `Your volume of ${fmtNum(tickets)} tickets/month fits perfectly within a single ${combo[0].model.name} (${combo[0].model.ticketCapacity} capacity).`
+          );
+        } else {
+          reasons.push(
+            `With ${fmtNum(tickets)} tickets/month, the optimal mix is ${label} — total capacity of ${fmtNum(totalCapacity)} tickets at the best price.`
+          );
+        }
+
+        const aiPct = Math.round(weightedAiResolution * 100);
+        if (aiPct >= 85) {
+          reasons.push(
+            `At ${aiPct}% combined AI resolution, only ${fmtNum(totalHumanTickets)} tickets need human attention — the rest is fully automated.`
+          );
+        } else if (aiPct >= 75) {
+          reasons.push(
+            `At ${aiPct}% combined AI resolution, ${fmtNum(totalAiTickets)} of your ${fmtNum(tickets)} tickets are handled automatically.`
+          );
+        } else {
+          reasons.push(
+            `At ${aiPct}% AI resolution, ${fmtNum(totalAiTickets)} tickets are auto-resolved — a solid starting point.`
+          );
+        }
+
+        if (agentCount > 0) {
+          const agentsNeeded = Math.max(1, Math.round(agentCount * (1 - weightedAiResolution)));
+          if (agentsNeeded < agentCount) {
+            reasons.push(
+              `Your team of ${agentCount} can be reduced to ~${agentsNeeded} human agents — ${totalAiAgents} AI agents handle the rest.`
+            );
+          }
+        }
+
+        if (netSavingsPerMonth > 0) {
+          reasons.push(
+            `You save ${fmtMoney(netSavingsPerMonth)}/month — that's ${fmtMoney(netSavingsPerMonth * 12)} back every year.`
+          );
+        }
+
         reasons.push(
-          `Your team of ${agentCount} can be reduced to ~${agentsNeeded} human agents — the rest is handled by ${model.agents * quantity} AI agents.`
+          `${industryLabel} businesses typically spend $${bench?.avgCostPerTicket || 7}/ticket — ${aiPct}% AI resolution means massive savings.`
         );
+
+        combinations.push({
+          combo,
+          label,
+          totalMonthlyPrice,
+          totalCapacity,
+          totalAiAgents,
+          coversAllTickets: totalCapacity >= tickets,
+          weightedAiResolution,
+          totalAiTickets,
+          totalHumanTickets,
+          humanCost,
+          parwaMonthly,
+          netSavingsPerMonth,
+          reasons,
+        });
       }
     }
-
-    // Add savings-specific reason
-    if (netSavingsPerMonth > 0) {
-      reasons.push(
-        `You save ${fmtMoney(netSavingsPerMonth)}/month — that's ${fmtMoney(netSavingsPerMonth * 12)} back in your pocket every year.`
-      );
-    }
-
-    reasons.push(
-      `${industryLabel} businesses typically spend $${bench?.avgCostPerTicket || 7}/ticket — ${Math.round(model.aiResolution * 100)}% AI resolution means massive savings.`
-    );
-
-    return {
-      model,
-      quantity,
-      totalMonthlyPrice,
-      totalCapacity,
-      coversAllTickets,
-      netSavingsPerMonth,
-      reasons,
-    };
-  });
+  }
 
   // ══════════════════════════════════════════════════════════
-  // SMART SORTING — recommend the best VALUE option
+  // SMART SORTING — recommend the best VALUE combination
   // ══════════════════════════════════════════════════════════
-  //
   // Priority:
-  // 1. Must cover all tickets (capacity >= tickets)
-  // 2. Must save money (PARWA cheaper than current cost)
-  // 3. Among saving options, prefer highest net savings (best value)
-  // 4. Tiebreak: fewer instances (simpler), then higher AI resolution
+  // 1. Must save money (PARWA cheaper than current cost)
+  // 2. BUSINESS RULE: Never stack lower tiers when a single higher-tier
+  //    instance covers all tickets (better AI resolution, simpler setup)
+  // 3. Highest net savings (best value for customer)
+  // 4. Fewer total instances (simpler setup)
+  // 5. Higher AI resolution (better support quality)
 
-  const covering = options.filter((o) => o.coversAllTickets);
-  const notCovering = options.filter((o) => !o.coversAllTickets);
+  const totalInstances = (c: ComboRecommendation) =>
+    c.combo.reduce((sum, item) => sum + item.quantity, 0);
 
-  // Among covering options, find those that actually save money
-  const saving = covering.filter((o) => o.netSavingsPerMonth > 0);
-  const notSaving = covering.filter((o) => o.netSavingsPerMonth <= 0);
+  // BUSINESS RULE: Filter out "anti-recommendations"
+  // Stacking lower tiers (e.g., 2x Starter) is worse than one higher tier
+  // (e.g., 1x Growth) because: worse AI %, more instances to manage, less headroom
+  // Only keep a combo if NO single-tier option exists that covers all tickets
+  // with fewer instances AND higher AI resolution at a reasonable price.
+  const isBadStack = (c: ComboRecommendation): boolean => {
+    // Check if this combo stacks a lower tier when a single higher tier covers all tickets
+    // A "bad stack" is when: combo has multiple instances of a low tier AND
+    // a single instance of a higher tier covers all tickets AND costs < 2x the combo price
+    for (const model of PARWA_MODELS) {
+      if (model.ticketCapacityNum >= tickets) {
+        // This single model covers all tickets
+        const singlePrice = model.price;
+        const singleAI = model.aiResolution;
+        const comboInst = totalInstances(c);
+        const comboAI = c.weightedAiResolution;
 
-  let sorted: Recommendation[];
+        // If the single higher-tier option has better AI AND fewer instances
+        // AND isn't outrageously more expensive, the stack is bad
+        if (singleAI > comboAI && comboInst > 1 && singlePrice <= c.totalMonthlyPrice * 1.5) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  const filtered = combinations.filter((c) => !isBadStack(c));
+
+  // If filtering removed everything (shouldn't happen), fall back to all combinations
+  const pool = filtered.length > 0 ? filtered : combinations;
+
+  const saving = pool.filter((c) => c.netSavingsPerMonth > 0);
+  const notSaving = pool.filter((c) => c.netSavingsPerMonth <= 0);
+
+  let sorted: ComboRecommendation[];
 
   if (saving.length > 0) {
-    // Best value: highest net savings, then fewer instances, then higher AI %
     sorted = [...saving].sort((a, b) => {
+      // Best savings first
       if (b.netSavingsPerMonth !== a.netSavingsPerMonth)
         return b.netSavingsPerMonth - a.netSavingsPerMonth;
-      if (a.quantity !== b.quantity) return a.quantity - b.quantity;
-      if (a.model.aiResolution !== b.model.aiResolution)
-        return b.model.aiResolution - a.model.aiResolution;
+      // Fewer instances = simpler
+      const aInst = totalInstances(a);
+      const bInst = totalInstances(b);
+      if (aInst !== bInst) return aInst - bInst;
+      // Higher AI resolution
+      if (a.weightedAiResolution !== b.weightedAiResolution)
+        return b.weightedAiResolution - a.weightedAiResolution;
+      // Cheaper price
       return a.totalMonthlyPrice - b.totalMonthlyPrice;
     });
-    // Append non-saving but covering options as alternatives
-    sorted.push(...notSaving.sort((a, b) => a.totalMonthlyPrice - b.totalMonthlyPrice));
-  } else if (covering.length > 0) {
-    // None save money — pick the cheapest covering option
-    sorted = [...covering].sort((a, b) => a.totalMonthlyPrice - b.totalMonthlyPrice);
+    // Append non-saving as alternatives
+    sorted.push(
+      ...notSaving.sort((a, b) => a.totalMonthlyPrice - b.totalMonthlyPrice)
+    );
   } else {
-    // None cover fully — sort by coverage ratio then price
-    sorted = [...options].sort((a, b) => {
-      const aRatio = a.totalCapacity / tickets;
-      const bRatio = b.totalCapacity / tickets;
-      if (aRatio !== bRatio) return bRatio - aRatio;
-      return a.totalMonthlyPrice - b.totalMonthlyPrice;
-    });
+    // None save money — pick cheapest covering option
+    sorted = [...pool].sort((a, b) => a.totalMonthlyPrice - b.totalMonthlyPrice);
   }
 
   const primary = sorted[0];
-  const alternatives = sorted.slice(1);
+  // For alternatives, pick the top 3 that are DIFFERENT (not just minor variations)
+  const alternatives: ComboRecommendation[] = [];
+  const seenLabels = new Set([primary.label]);
+  for (const opt of sorted.slice(1)) {
+    if (!seenLabels.has(opt.label) && alternatives.length < 3) {
+      seenLabels.add(opt.label);
+      alternatives.push(opt);
+    }
+  }
 
   return { primary, alternatives };
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// ROI CALCULATIONS — fixed: no double-counting, multi-instance aware
+// ROI CALCULATIONS for the per-tier comparison table
 // ══════════════════════════════════════════════════════════════════════
 
 interface ModelComparison {
   model: ParwaModel;
   quantity: number;
+  displayLabel: string;
   aiTicketsPerMonth: number;
   humanTicketsPerMonth: number;
   parwaSubscriptionCost: number;
@@ -369,59 +499,42 @@ interface ModelComparison {
   annualSavings: number;
   savingsPercent: number;
   hoursSavedPerMonth: number;
-  paybackMonths: number;
   roiMultiple: number;
   isRecommended: boolean;
 }
 
 function calculateComparisons(
   tickets: number,
-  agentCount: number,
   cpt: number,
   currentMonthly: number,
   currentAnnual: number,
-  primaryRecommendation: Recommendation
+  primaryCombo: ComboRecommendation
 ): ModelComparison[] {
-  return PARWA_MODELS.map((model) => {
-    // Calculate instances needed for ticket volume
-    const quantity = Math.max(1, Math.ceil(tickets / model.ticketCapacityNum));
+  // Show per-tier options (each tier stacked to cover tickets)
+  // Plus the optimal combo as a special entry
+  const results: ModelComparison[] = [];
 
+  // Per-tier options
+  for (const model of PARWA_MODELS) {
+    const quantity = Math.max(1, Math.ceil(tickets / model.ticketCapacityNum));
     const aiTickets = Math.round(tickets * model.aiResolution);
     const humanTickets = tickets - aiTickets;
-
-    // PARWA cost breakdown:
-    // 1. Subscription: quantity * monthly price
-    // 2. Remaining human ticket handling cost: human tickets cost 25% of original
-    //    (AI handles triage, context, suggested replies — reducing human effort by 75%)
     const parwaSubscription = quantity * model.price;
     const humanCost = humanTickets * cpt * 0.25;
     const parwaMonthly = parwaSubscription + humanCost;
     const parwaAnnual = parwaMonthly * 12;
-
     const monthlySavings = Math.max(0, currentMonthly - parwaMonthly);
     const annualSavings = Math.max(0, currentAnnual - parwaAnnual);
-    const savingsPercent =
-      currentAnnual > 0 ? (annualSavings / currentAnnual) * 100 : 0;
-
-    // Hours saved: each AI-resolved ticket saves ~15 minutes of human time
+    const savingsPercent = currentAnnual > 0 ? (annualSavings / currentAnnual) * 100 : 0;
     const hoursSavedPerMonth = aiTickets * 0.25;
+    const roiMultiple = parwaAnnual > 0 ? annualSavings / parwaAnnual : 0;
 
-    // Payback: how many months until cumulative savings cover the subscription investment
-    // payback = subscription cost / monthly net savings
-    const paybackMonths =
-      monthlySavings > 0 ? parwaSubscription / monthlySavings : 999;
+    const displayLabel = quantity > 1 ? `${quantity}x ${model.shortName}` : model.shortName;
 
-    // ROI Multiple: for every $1 invested in PARWA, how much do you get back in savings?
-    const roiMultiple =
-      parwaAnnual > 0 ? annualSavings / parwaAnnual : 0;
-
-    const isRecommended =
-      model.id === primaryRecommendation.model.id &&
-      quantity === primaryRecommendation.quantity;
-
-    return {
+    results.push({
       model,
       quantity,
+      displayLabel,
       aiTicketsPerMonth: aiTickets,
       humanTicketsPerMonth: humanTickets,
       parwaSubscriptionCost: parwaSubscription,
@@ -434,11 +547,43 @@ function calculateComparisons(
       annualSavings,
       savingsPercent,
       hoursSavedPerMonth,
-      paybackMonths: Math.min(12, Math.max(0.1, paybackMonths)),
       roiMultiple,
-      isRecommended,
-    };
+      isRecommended: false,
+    });
+  }
+
+  // Add the optimal combo as a special entry
+  const comboSubCost = primaryCombo.totalMonthlyPrice;
+  const comboHumanCost = primaryCombo.humanCost;
+  const comboMonthly = primaryCombo.parwaMonthly;
+  const comboAnnual = comboMonthly * 12;
+  const comboMonthlySavings = Math.max(0, currentMonthly - comboMonthly);
+  const comboAnnualSavings = Math.max(0, currentAnnual - comboAnnual);
+  const comboSavingsPercent = currentAnnual > 0 ? (comboAnnualSavings / currentAnnual) * 100 : 0;
+  const comboHoursSaved = primaryCombo.totalAiTickets * 0.25;
+  const comboRoiMultiple = comboAnnual > 0 ? comboAnnualSavings / comboAnnual : 0;
+
+  results.unshift({
+    model: PARWA_MODELS[2], // Use High as the "primary model" for styling
+    quantity: 1, // Not used for combo
+    displayLabel: primaryCombo.label,
+    aiTicketsPerMonth: primaryCombo.totalAiTickets,
+    humanTicketsPerMonth: primaryCombo.totalHumanTickets,
+    parwaSubscriptionCost: comboSubCost,
+    parwaHumanCost: comboHumanCost,
+    parwaMonthlyCost: comboMonthly,
+    parwaAnnualCost: comboAnnual,
+    currentMonthlyCost: currentMonthly,
+    currentAnnualCost: currentAnnual,
+    monthlySavings: comboMonthlySavings,
+    annualSavings: comboAnnualSavings,
+    savingsPercent: comboSavingsPercent,
+    hoursSavedPerMonth: comboHoursSaved,
+    roiMultiple: comboRoiMultiple,
+    isRecommended: true,
   });
+
+  return results;
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -462,9 +607,8 @@ export default function ROICalculatorPage() {
     Number(costPerTicket) ||
     BENCHMARKS[industry]?.avgCostPerTicket ||
     7;
-  const avgSalary = BENCHMARKS[industry]?.avgSalary || 37000;
 
-  // ── FIXED: Current monthly cost ──
+  // ── Current monthly cost ──
   // Use user-provided monthly budget if available, otherwise tickets * cpt
   // Cost per ticket is ALL-IN (includes labor, tools, overhead) — NO double counting
   const userBudget = Number(currentMonthlyBudget) || 0;
@@ -474,26 +618,21 @@ export default function ROICalculatorPage() {
   // ── Recommendation ──
   const { primary: primaryRecommendation, alternatives: alternativeRecommendations } =
     useMemo(
-      () => getRecommendations(tickets, agentCount, industry, cpt, currentTotalMonthly),
+      () => getOptimalCombo(tickets, agentCount, industry, cpt, currentTotalMonthly),
       [tickets, agentCount, industry, cpt, currentTotalMonthly]
     );
-
-  const recommendedModel = primaryRecommendation.model;
-  const recommendationReasons = primaryRecommendation.reasons;
-  const recommendedQuantity = primaryRecommendation.quantity;
 
   // ── Comparisons ──
   const comparisons = useMemo(
     () =>
       calculateComparisons(
         tickets,
-        agentCount,
         cpt,
         currentTotalMonthly,
         currentTotalAnnual,
         primaryRecommendation
       ),
-    [tickets, agentCount, cpt, currentTotalMonthly, currentTotalAnnual, primaryRecommendation]
+    [tickets, cpt, currentTotalMonthly, currentTotalAnnual, primaryRecommendation]
   );
 
   const recommendedComparison = comparisons.find((c) => c.isRecommended) || comparisons[0];
@@ -516,9 +655,15 @@ export default function ROICalculatorPage() {
   // Max cost for bar chart scaling
   const maxCostForChart = Math.max(currentTotalAnnual, ...comparisons.map((c) => c.parwaAnnualCost));
 
-  // Display label for quantity
-  const qtyLabel = (qty: number, name: string) =>
-    qty > 1 ? `${qty}x ${name}` : name;
+  // Determine if primary recommendation is a combo (multiple tiers)
+  const isCombo = primaryRecommendation.combo.length > 1 ||
+    primaryRecommendation.combo.some((c) => c.quantity > 1);
+
+  // Get the "best" model in the combo for display purposes (highest tier)
+  const bestModelInCombo = primaryRecommendation.combo[primaryRecommendation.combo.length - 1]?.model || PARWA_MODELS[2];
+
+  // Collect all unique channels from combo
+  const comboChannels = [...new Set(primaryRecommendation.combo.flatMap((c) => c.model.channels))];
 
   return (
     <div
@@ -734,7 +879,7 @@ export default function ROICalculatorPage() {
                   )}
                 </div>
 
-                {/* NEW: Current Monthly Support Budget */}
+                {/* Current Monthly Support Budget */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     <DollarSign className="w-4 h-4 inline mr-1.5 text-orange-400/70" />
@@ -785,7 +930,7 @@ export default function ROICalculatorPage() {
               </div>
 
               {/* ════════════════════════════════════════
-                  A. RECOMMENDED MODEL — BIG HERO CARD
+                  A. RECOMMENDED COMBO — BIG HERO CARD
                   ════════════════════════════════════════ */}
               <div
                 className="rounded-2xl border-2 border-orange-500/40 p-6 sm:p-8 relative overflow-hidden"
@@ -803,18 +948,13 @@ export default function ROICalculatorPage() {
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/20 border border-orange-500/30">
                       <Sparkles className="w-3.5 h-3.5 text-orange-400" />
                       <span className="text-xs font-bold text-orange-300 uppercase tracking-wider">
-                        Recommended for You
+                        Best Value for You
                       </span>
                     </div>
-                    <span
-                      className={`text-xs font-semibold px-2.5 py-1 rounded-full ${recommendedModel.tierBg} ${recommendedModel.tierBorder} border ${recommendedModel.tierColor}`}
-                    >
-                      {recommendedModel.tierLabel}
-                    </span>
-                    {recommendedQuantity > 1 && (
+                    {isCombo && (
                       <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-300">
-                        <Package className="w-3 h-3 inline mr-1" />
-                        {recommendedQuantity}x Instances
+                        <Layers className="w-3 h-3 inline mr-1" />
+                        Multi-Tier Combo
                       </span>
                     )}
                   </div>
@@ -822,43 +962,79 @@ export default function ROICalculatorPage() {
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
                     <div>
                       <h2 className="text-2xl sm:text-3xl font-black text-white mb-1">
-                        {qtyLabel(recommendedQuantity, recommendedModel.name)}
+                        {primaryRecommendation.label}
                       </h2>
                       <p className="text-base text-orange-300/80 font-medium">
-                        &ldquo;{recommendedModel.tagline}&rdquo;
+                        {isCombo
+                          ? `Optimal mix for ${fmtNum(tickets)} tickets/mo`
+                          : `&ldquo;${bestModelInCombo.tagline}&rdquo;`}
                       </p>
                     </div>
                     <div className="text-left sm:text-right flex-shrink-0">
                       <div className="text-4xl font-black text-orange-400">
-                        ${recommendedComparison.parwaSubscriptionCost.toLocaleString()}
+                        ${primaryRecommendation.totalMonthlyPrice.toLocaleString()}
                       </div>
                       <div className="text-sm text-gray-400">/month
-                        {recommendedQuantity > 1 && (
-                          <span className="text-gray-500"> ({recommendedQuantity} x ${recommendedModel.price.toLocaleString()})</span>
+                        {isCombo && (
+                          <span className="text-gray-500">
+                            {' '}
+                            ({primaryRecommendation.combo.map((c) => `${c.quantity}x $${c.model.price.toLocaleString()}`).join(' + ')})
+                          </span>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  <p className="text-sm text-gray-400 leading-relaxed mb-5">
-                    {recommendedModel.description}
-                  </p>
+                  {/* Combo breakdown cards */}
+                  {isCombo && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+                      {primaryRecommendation.combo.map((item) => (
+                        <div
+                          key={item.model.id}
+                          className={`rounded-xl border ${item.model.tierBorder} ${item.model.tierBg} p-3`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className={`text-sm font-bold ${item.model.tierColor}`}>
+                              {item.quantity > 1 ? `${item.quantity}x ` : ''}{item.model.shortName}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              ${item.model.price.toLocaleString()}/mo
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-gray-500">
+                            <span>
+                              <TicketCheck className="w-3 h-3 inline mr-0.5" />
+                              {item.model.ticketCapacity}
+                            </span>
+                            <span>
+                              <Brain className="w-3 h-3 inline mr-0.5" />
+                              {Math.round(item.model.aiResolution * 100)}% AI
+                            </span>
+                            <span>
+                              <Users className="w-3 h-3 inline mr-0.5" />
+                              {item.model.agents * item.quantity} agents
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Quick specs */}
                   <div className="flex flex-wrap gap-2 mb-5">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300">
                       <Brain className="w-3 h-3 text-orange-400" />
-                      {Math.round(recommendedModel.aiResolution * 100)}% AI Resolution
+                      {Math.round(primaryRecommendation.weightedAiResolution * 100)}% AI Resolution
                     </span>
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300">
                       <Users className="w-3 h-3 text-orange-400" />
-                      {recommendedModel.agents * recommendedQuantity} AI Agents
+                      {primaryRecommendation.totalAiAgents} AI Agents
                     </span>
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300">
                       <TicketCheck className="w-3 h-3 text-orange-400" />
-                      {fmtNum(recommendedQuantity * recommendedModel.ticketCapacityNum)} tickets/mo capacity
+                      {fmtNum(primaryRecommendation.totalCapacity)} tickets/mo capacity
                     </span>
-                    {recommendedModel.channels.map((ch) => (
+                    {comboChannels.slice(0, 4).map((ch) => (
                       <span
                         key={ch}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300"
@@ -867,6 +1043,11 @@ export default function ROICalculatorPage() {
                         {ch}
                       </span>
                     ))}
+                    {comboChannels.length > 4 && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300">
+                        +{comboChannels.length - 4} more
+                      </span>
+                    )}
                   </div>
 
                   {/* WHY reasons — SMART explanation */}
@@ -874,11 +1055,11 @@ export default function ROICalculatorPage() {
                     <div className="flex items-center gap-2 mb-3">
                       <Brain className="w-4 h-4 text-orange-400" />
                       <span className="text-sm font-bold text-orange-200">
-                        Why {qtyLabel(recommendedQuantity, recommendedModel.name)} for {companyName}?
+                        Why {primaryRecommendation.label} for {companyName}?
                       </span>
                     </div>
                     <ul className="space-y-2">
-                      {recommendationReasons.map((reason, i) => (
+                      {primaryRecommendation.reasons.map((reason, i) => (
                         <li key={i} className="flex items-start gap-2.5">
                           <div className="w-5 h-5 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                             <Check className="w-3 h-3 text-orange-400" />
@@ -918,14 +1099,14 @@ export default function ROICalculatorPage() {
                 <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 text-center">
                   <Clock className="w-5 h-5 text-blue-400 mx-auto mb-2" />
                   <div className="text-2xl sm:text-3xl font-black text-blue-400">
-                    {fmtNum(recommendedComparison.hoursSavedPerMonth)}h
+                    {fmtNum(recommendedComparison.hoursSavedPerMonth)}
                   </div>
                   <div className="text-xs text-gray-400 mt-1">
-                    Hours Saved/Month
+                    Hours Saved/Mo
                   </div>
                 </div>
                 <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4 text-center">
-                  <Zap className="w-5 h-5 text-purple-400 mx-auto mb-2" />
+                  <BarChart3 className="w-5 h-5 text-purple-400 mx-auto mb-2" />
                   <div className="text-2xl sm:text-3xl font-black text-purple-400">
                     {recommendedComparison.roiMultiple.toFixed(1)}x
                   </div>
@@ -936,554 +1117,230 @@ export default function ROICalculatorPage() {
               </div>
 
               {/* ════════════════════════════════════════
-                  C. SIDE-BY-SIDE COMPARISON TABLE
+                  C. COST COMPARISON — Before vs After
                   ════════════════════════════════════════ */}
-              <div
-                className="rounded-2xl border border-white/10 overflow-hidden"
-                style={{ background: 'rgba(255,255,255,0.03)' }}
-              >
-                <div className="px-5 py-4 border-b border-white/10 flex items-center gap-2">
+              <div className="rounded-2xl border border-white/10 p-6 sm:p-8" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                <div className="flex items-center gap-2 mb-6">
                   <BarChart3 className="w-5 h-5 text-orange-400" />
-                  <h3 className="text-base sm:text-lg font-bold text-white">
-                    Cost Comparison: Before vs After PARWA
+                  <h3 className="text-lg font-bold text-white">
+                    Cost Comparison
                   </h3>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-white/5">
-                        <th className="text-left px-5 py-3.5 text-gray-500 font-medium text-xs uppercase tracking-wider">
-                          Metric
-                        </th>
-                        <th className="text-right px-5 py-3.5 text-gray-500 font-medium text-xs uppercase tracking-wider">
-                          <span className="inline-flex items-center gap-1.5">
-                            <ArrowDownRight className="w-3 h-3 text-red-400" />
-                            Your Current Setup
-                          </span>
-                        </th>
-                        <th className="text-right px-5 py-3.5 text-orange-400 font-medium text-xs uppercase tracking-wider">
-                          <span className="inline-flex items-center gap-1.5">
-                            <ThumbsUp className="w-3 h-3" />
-                            With {qtyLabel(recommendedQuantity, recommendedModel.name)}
-                          </span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {/* Agent headcount */}
-                      <tr className="border-b border-white/5">
-                        <td className="px-5 py-3.5 text-gray-300 font-medium">
-                          Support Agents
-                        </td>
-                        <td className="px-5 py-3.5 text-right text-gray-400">
-                          {agentCount} humans
-                        </td>
-                        <td className="px-5 py-3.5 text-right text-gray-300 font-semibold">
-                          {recommendedModel.agents * recommendedQuantity} AI +{' '}
-                          {Math.max(
-                            1,
-                            Math.round(agentCount * (1 - recommendedModel.aiResolution))
-                          )}{' '}
-                          humans
-                        </td>
-                      </tr>
-                      {/* Tickets breakdown */}
-                      <tr className="border-b border-white/5">
-                        <td className="px-5 py-3.5 text-gray-300 font-medium">
-                          Monthly Tickets
-                        </td>
-                        <td className="px-5 py-3.5 text-right text-gray-400">
-                          {fmtNum(tickets)} manual
-                        </td>
-                        <td className="px-5 py-3.5 text-right text-gray-300 font-semibold">
-                          {fmtNum(recommendedComparison.aiTicketsPerMonth)} AI +{' '}
-                          {fmtNum(recommendedComparison.humanTicketsPerMonth)} human
-                        </td>
-                      </tr>
-                      {/* AI Resolution */}
-                      <tr className="border-b border-white/5">
-                        <td className="px-5 py-3.5 text-gray-300 font-medium">
-                          AI Resolution Rate
-                        </td>
-                        <td className="px-5 py-3.5 text-right text-gray-400">
-                          0%
-                        </td>
-                        <td className="px-5 py-3.5 text-right text-orange-400 font-bold">
-                          {Math.round(recommendedModel.aiResolution * 100)}%
-                        </td>
-                      </tr>
-                      {/* Subscription cost */}
-                      <tr className="border-b border-white/5">
-                        <td className="px-5 py-3.5 text-gray-300 font-medium">
-                          PARWA Subscription
-                        </td>
-                        <td className="px-5 py-3.5 text-right text-gray-400">
-                          {'\u2014'}
-                        </td>
-                        <td className="px-5 py-3.5 text-right text-gray-300 font-semibold">
-                          ${recommendedComparison.parwaSubscriptionCost.toLocaleString()}/mo
-                          {recommendedComparison.quantity > 1 && (
-                            <span className="text-gray-500 text-xs ml-1">
-                              ({recommendedComparison.quantity} x ${recommendedModel.price.toLocaleString()})
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                      {/* Remaining human ticket cost */}
-                      <tr className="border-b border-white/5">
-                        <td className="px-5 py-3.5 text-gray-300 font-medium">
-                          Human Ticket Handling
-                        </td>
-                        <td className="px-5 py-3.5 text-right text-gray-400">
-                          {fmtMoney(currentTotalMonthly)}/mo
-                        </td>
-                        <td className="px-5 py-3.5 text-right text-gray-300 font-semibold">
-                          {fmtMoney(recommendedComparison.parwaHumanCost)}/mo
-                          <span className="text-gray-500 text-xs ml-1">(AI-assisted)</span>
-                        </td>
-                      </tr>
-                      {/* TOTAL MONTHLY */}
-                      <tr className="border-b border-white/5 bg-white/[0.04]">
-                        <td className="px-5 py-4 text-white font-bold">
-                          Total Monthly Cost
-                        </td>
-                        <td className="px-5 py-4 text-right text-red-300 font-bold text-base">
-                          {fmtMoney(currentTotalMonthly)}
-                        </td>
-                        <td className="px-5 py-4 text-right text-emerald-400 font-black text-base">
-                          {fmtMoney(recommendedComparison.parwaMonthlyCost)}
-                        </td>
-                      </tr>
-                      {/* TOTAL ANNUAL */}
-                      <tr className="border-b border-white/5 bg-white/[0.06]">
-                        <td className="px-5 py-4 text-white font-bold">
-                          Total Annual Cost
-                        </td>
-                        <td className="px-5 py-4 text-right text-red-300 font-bold text-base">
-                          {fmtMoney(currentTotalAnnual)}
-                        </td>
-                        <td className="px-5 py-4 text-right text-emerald-400 font-black text-base">
-                          {fmtMoney(recommendedComparison.parwaAnnualCost)}
-                        </td>
-                      </tr>
-                      {/* SAVINGS ROW */}
-                      <tr className="bg-emerald-500/5">
-                        <td className="px-5 py-4 text-emerald-300 font-bold">
-                          Your Annual Savings
-                        </td>
-                        <td
-                          className="px-5 py-4 text-right text-emerald-400 font-black text-xl"
-                          colSpan={2}
-                        >
-                          {fmtMoney(recommendedComparison.annualSavings)}/year{' '}
-                          <span className="text-sm font-bold text-emerald-300/70 ml-1">
-                            ({recommendedComparison.savingsPercent.toFixed(0)}% less)
-                          </span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* ════════════════════════════════════════
-                  D. VISUAL BAR CHART — Cost Difference
-                  ════════════════════════════════════════ */}
-              <div
-                className="rounded-2xl border border-white/10 p-6 sm:p-8"
-                style={{ background: 'rgba(255,255,255,0.03)' }}
-              >
-                <h3 className="text-base sm:text-lg font-bold text-white mb-6 flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-orange-400" />
-                  Visual Cost Breakdown (Annual)
-                </h3>
-
-                {/* Current Cost Bar */}
-                <div className="mb-5">
+                {/* Current cost bar */}
+                <div className="mb-6">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-gray-400 font-medium">
-                      Your Current Cost
+                    <span className="text-sm font-medium text-gray-300">
+                      Current Monthly Cost
                     </span>
                     <span className="text-sm font-bold text-red-400">
-                      {fmtMoney(currentTotalAnnual)}
+                      {fmtMoney(currentTotalMonthly)}/mo
                     </span>
                   </div>
-                  <div className="w-full h-10 rounded-xl bg-red-500/10 border border-red-500/20 overflow-hidden relative">
+                  <div className="w-full h-4 rounded-full bg-white/5 overflow-hidden">
                     <div
-                      className="h-full rounded-xl bg-gradient-to-r from-red-500/40 to-red-500/20 transition-all duration-1000 ease-out"
+                      className="h-full rounded-full bg-gradient-to-r from-red-500/80 to-red-400/80 transition-all duration-1000"
                       style={{ width: '100%' }}
                     />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-xs font-bold text-red-300">
-                        {fmtMoney(currentTotalAnnual)}
-                      </span>
-                    </div>
                   </div>
                 </div>
 
-                {/* PARWA Cost Bars — all options */}
-                <div className="space-y-3 mb-6">
-                  {comparisons.map((comp) => (
-                    <div key={comp.model.id}>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`text-sm font-medium ${
-                              comp.isRecommended ? 'text-orange-300' : 'text-gray-400'
-                            }`}
-                          >
-                            {qtyLabel(comp.quantity, comp.model.name)}
-                          </span>
-                          {comp.isRecommended && (
-                            <span className="text-[10px] font-bold text-orange-400 uppercase tracking-wider bg-orange-500/15 px-1.5 py-0.5 rounded">
-                              Best
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span
-                            className={`text-xs font-semibold ${
-                              comp.annualSavings > 0 ? 'text-emerald-400' : 'text-gray-500'
-                            }`}
-                          >
-                            Save {fmtMoney(comp.annualSavings)}/yr
-                          </span>
-                          <span
-                            className={`text-sm font-bold ${
-                              comp.isRecommended ? 'text-emerald-400' : 'text-gray-300'
-                            }`}
-                          >
-                            {fmtMoney(comp.parwaAnnualCost)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="w-full h-8 rounded-lg bg-white/5 border border-white/10 overflow-hidden relative">
-                        <div
-                          className={`h-full rounded-lg transition-all duration-1000 ease-out ${
-                            comp.isRecommended
-                              ? 'bg-gradient-to-r from-emerald-500/50 to-emerald-500/20'
-                              : 'bg-gradient-to-r from-white/15 to-white/5'
-                          }`}
-                          style={{
-                            width: `${Math.min(
-                              100,
-                              maxCostForChart > 0 ? (comp.parwaAnnualCost / maxCostForChart) * 100 : 0
-                            )}%`,
-                          }}
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-[11px] font-semibold text-gray-300">
-                            {comp.savingsPercent.toFixed(0)}% cheaper
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                {/* PARWA cost bar */}
+                <div className="mb-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-300">
+                      With {primaryRecommendation.label}
+                    </span>
+                    <span className="text-sm font-bold text-emerald-400">
+                      {fmtMoney(recommendedComparison.parwaMonthlyCost)}/mo
+                    </span>
+                  </div>
+                  <div className="w-full h-4 rounded-full bg-white/5 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-500/80 to-emerald-400/80 transition-all duration-1000"
+                      style={{
+                        width: `${Math.max(5, (recommendedComparison.parwaMonthlyCost / currentTotalMonthly) * 100)}%`,
+                      }}
+                    />
+                  </div>
                 </div>
 
-                {/* Savings callout — show appropriate message based on savings */}
-                {recommendedComparison.annualSavings > 0 ? (
-                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 flex items-center gap-3">
-                    <PiggyBank className="w-6 h-6 text-emerald-400 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-bold text-emerald-300">
-                        By choosing {qtyLabel(recommendedQuantity, recommendedModel.name)}, you save{' '}
-                        {fmtMoney(recommendedComparison.annualSavings)} every year
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        That&apos;s{' '}
-                        {fmtMoney(
-                          recommendedComparison.annualSavings / 12
-                        )}{' '}
-                        back in your pocket every month — while{' '}
-                        {fmtNum(recommendedComparison.aiTicketsPerMonth)} of your{' '}
-                        {fmtNum(tickets)} tickets are resolved by AI.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4 flex items-center gap-3">
-                    <TrendingUp className="w-6 h-6 text-orange-400 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-bold text-orange-300">
-                        At {fmtNum(tickets)} tickets/month, your volume is best suited for scaling up first
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        PARWA delivers the highest ROI at 1,000+ tickets/month. As your support volume grows,
-                        AI automation savings multiply dramatically — {qtyLabel(recommendedQuantity, recommendedModel.name)} still
-                        resolves {fmtNum(recommendedComparison.aiTicketsPerMonth)} tickets with AI, saving your team{' '}
-                        {fmtNum(recommendedComparison.hoursSavedPerMonth)} hours/month.
-                      </p>
-                    </div>
-                  </div>
-                )}
+                <div className="mt-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+                  <PiggyBank className="w-4 h-4 text-emerald-400" />
+                  <span className="text-sm text-emerald-300 font-medium">
+                    You save {fmtMoney(recommendedComparison.monthlySavings)}/month = {fmtMoney(recommendedComparison.annualSavings)}/year
+                  </span>
+                </div>
               </div>
 
               {/* ════════════════════════════════════════
-                  E. ALL MODELS — Detailed Comparison with quantities
+                  D. ALL OPTIONS COMPARISON TABLE
                   ════════════════════════════════════════ */}
-              <div
-                className="rounded-2xl border border-white/10 p-6 sm:p-8"
-                style={{ background: 'rgba(255,255,255,0.03)' }}
-              >
-                <h3 className="text-base sm:text-lg font-bold text-white mb-2 flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-orange-400" />
-                  Compare All PARWA Options
-                </h3>
-                <p className="text-sm text-gray-400 mb-5">
-                  See how each model performs with your data. Instances are calculated based on your ticket volume.
-                  The recommended option is highlighted.
-                </p>
+              <div className="rounded-2xl border border-white/10 p-6 sm:p-8" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                <div className="flex items-center gap-2 mb-6">
+                  <Layers className="w-5 h-5 text-orange-400" />
+                  <h3 className="text-lg font-bold text-white">
+                    All Options Compared
+                  </h3>
+                </div>
 
                 <div className="space-y-3">
-                  {comparisons.map((comp) => (
+                  {comparisons.map((comp, i) => (
                     <div
-                      key={comp.model.id}
-                      className={`rounded-xl border p-5 transition-all duration-300 ${
+                      key={i}
+                      className={`rounded-xl border p-4 transition-all ${
                         comp.isRecommended
-                          ? 'border-orange-500/40 bg-orange-500/5 shadow-lg shadow-orange-500/5'
-                          : 'border-white/5 bg-white/[0.02] hover:border-white/10'
+                          ? 'border-orange-500/40 bg-orange-500/5'
+                          : 'border-white/10 bg-white/[0.02] hover:border-white/20'
                       }`}
                     >
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-                        <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
                           {comp.isRecommended && (
-                            <span className="px-2.5 py-1 rounded-full bg-orange-500/20 text-orange-300 text-[10px] font-bold uppercase tracking-wider border border-orange-500/20">
-                              Recommended
+                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 text-xs font-bold">
+                              <Sparkles className="w-3 h-3" />
+                              Best Value
                             </span>
                           )}
-                          <div>
-                            <span className="text-sm font-bold text-white">
-                              {qtyLabel(comp.quantity, comp.model.name)}
-                            </span>
-                            <span className="text-xs text-gray-500 ml-2">
-                              &ldquo;{comp.model.tagline}&rdquo;
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          {comp.quantity > 1 && (
-                            <span className="text-xs text-blue-400 font-medium">
-                              {comp.quantity} x ${comp.model.price.toLocaleString()}
-                            </span>
-                          )}
-                          <span className="text-lg font-black text-orange-400">
-                            ${comp.parwaSubscriptionCost.toLocaleString()}
-                            <span className="text-xs text-gray-500 font-normal">
-                              /mo
-                            </span>
+                          <span className={`text-sm font-bold ${comp.isRecommended ? 'text-orange-300' : 'text-white'}`}>
+                            {comp.displayLabel}
                           </span>
                         </div>
+                        <span className={`text-lg font-black ${comp.isRecommended ? 'text-orange-400' : 'text-white'}`}>
+                          ${comp.parwaSubscriptionCost.toLocaleString()}
+                          <span className="text-xs text-gray-500 font-normal">/mo</span>
+                        </span>
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                        <div className="rounded-lg bg-white/5 px-3 py-2">
-                          <div className="text-lg font-bold text-white">
-                            {Math.round(comp.model.aiResolution * 100)}%
-                          </div>
-                          <div className="text-[10px] text-gray-500 uppercase tracking-wider">
-                            AI Resolved
-                          </div>
-                        </div>
-                        <div className="rounded-lg bg-white/5 px-3 py-2">
-                          <div className="text-lg font-bold text-white">
-                            {fmtNum(comp.aiTicketsPerMonth)}
-                          </div>
-                          <div className="text-[10px] text-gray-500 uppercase tracking-wider">
-                            AI Tickets/Mo
-                          </div>
-                        </div>
-                        <div className="rounded-lg bg-white/5 px-3 py-2">
-                          <div className="text-lg font-bold text-white">
-                            {fmtNum(comp.quantity * comp.model.ticketCapacityNum)}
-                          </div>
-                          <div className="text-[10px] text-gray-500 uppercase tracking-wider">
-                            Capacity/Mo
-                          </div>
-                        </div>
-                        <div className="rounded-lg bg-white/5 px-3 py-2">
-                          <div className="text-lg font-bold text-emerald-400">
-                            {fmtMoney(comp.annualSavings)}
-                          </div>
-                          <div className="text-[10px] text-gray-500 uppercase tracking-wider">
-                            Annual Savings
-                          </div>
-                        </div>
-                        <div className="rounded-lg bg-white/5 px-3 py-2">
-                          <div className="text-lg font-bold text-blue-400">
-                            {comp.roiMultiple.toFixed(1)}x
-                          </div>
-                          <div className="text-[10px] text-gray-500 uppercase tracking-wider">
-                            ROI Multiple
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Channels */}
-                      <div className="flex flex-wrap items-center gap-1.5 mt-3">
-                        {comp.model.channels.map((ch) => (
-                          <span
-                            key={ch}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/5 text-[10px] text-gray-400 border border-white/5"
-                          >
-                            {getChannelIcon(ch)}
-                            {ch}
-                          </span>
-                        ))}
-                        <span className="text-[10px] text-gray-600 ml-1">
-                          — {comp.model.ticketCapacity} each
+                      {/* Stats row */}
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+                        <span>
+                          <Brain className="w-3 h-3 inline mr-0.5 text-orange-400/60" />
+                          {comp.displayLabel === primaryRecommendation.label
+                            ? `${Math.round(primaryRecommendation.weightedAiResolution * 100)}% AI`
+                            : `${Math.round(comp.model.aiResolution * 100)}% AI`}
+                        </span>
+                        <span>
+                          <TicketCheck className="w-3 h-3 inline mr-0.5 text-orange-400/60" />
+                          {comp.displayLabel === primaryRecommendation.label
+                            ? `${fmtNum(primaryRecommendation.totalCapacity)} capacity`
+                            : `${fmtNum(comp.quantity * comp.model.ticketCapacityNum)} capacity`}
+                        </span>
+                        <span className="text-emerald-400">
+                          Saves {fmtMoney(comp.annualSavings)}/yr
+                        </span>
+                        <span className="text-gray-500">
+                          ROI {comp.roiMultiple.toFixed(1)}x
                         </span>
                       </div>
                     </div>
                   ))}
                 </div>
-
-                {/* Alternative recommendations */}
-                {alternativeRecommendations.length > 0 && (
-                  <div className="mt-6 rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <CircleDot className="w-4 h-4 text-blue-400" />
-                      <span className="text-sm font-bold text-blue-200">
-                        Other configurations that cover your {fmtNum(tickets)} tickets/mo
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {alternativeRecommendations.map((alt) => (
-                        <div key={alt.model.id} className="flex items-center justify-between text-sm">
-                          <span className="text-gray-300">
-                            {qtyLabel(alt.quantity, alt.model.name)} — {fmtNum(alt.totalCapacity)} tickets/mo capacity
-                          </span>
-                          <span className="text-gray-400">
-                            ${alt.totalMonthlyPrice.toLocaleString()}/mo
-                            {alt.totalMonthlyPrice < primaryRecommendation.totalMonthlyPrice && (
-                              <span className="text-emerald-400 ml-1.5 text-xs font-medium">Cheaper</span>
-                            )}
-                            {alt.model.aiResolution > primaryRecommendation.model.aiResolution && (
-                              <span className="text-purple-400 ml-1.5 text-xs font-medium">Higher AI %</span>
-                            )}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* ════════════════════════════════════════
-                  F. CTAs
+                  E. ALTERNATIVE COMBOS
                   ════════════════════════════════════════ */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              {alternativeRecommendations.length > 0 && (
+                <div className="rounded-2xl border border-white/10 p-6 sm:p-8" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                  <div className="flex items-center gap-2 mb-5">
+                    <Package className="w-5 h-5 text-blue-400" />
+                    <h3 className="text-lg font-bold text-white">
+                      Other Configurations
+                    </h3>
+                  </div>
+
+                  <div className="space-y-3">
+                    {alternativeRecommendations.map((alt, i) => (
+                      <div
+                        key={i}
+                        className="rounded-xl border border-white/10 bg-white/[0.02] p-4 hover:border-white/20 transition-all"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-bold text-white">
+                            {alt.label}
+                          </span>
+                          <div className="text-right">
+                            <span className="text-sm font-bold text-white">
+                              ${alt.totalMonthlyPrice.toLocaleString()}
+                            </span>
+                            <span className="text-xs text-gray-500">/mo</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+                          <span>
+                            <Brain className="w-3 h-3 inline mr-0.5" />
+                            {Math.round(alt.weightedAiResolution * 100)}% AI
+                          </span>
+                          <span>
+                            <TicketCheck className="w-3 h-3 inline mr-0.5" />
+                            {fmtNum(alt.totalCapacity)} capacity
+                          </span>
+                          <span className="text-emerald-400">
+                            Saves {fmtMoney(alt.netSavingsPerMonth)}/mo
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ════════════════════════════════════════
+                  F. CTA
+                  ════════════════════════════════════════ */}
+              <div className="text-center pt-4 pb-8">
                 <Link
                   href="/models"
-                  className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl bg-gradient-to-r from-orange-600 to-orange-500 text-white text-sm font-bold shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all duration-300 hover:-translate-y-0.5"
+                  className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold text-base hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40"
                 >
-                  Explore All AI Models
-                  <ChevronRight className="w-4 h-4" />
+                  Get Started with {primaryRecommendation.label}
+                  <Zap className="w-5 h-5" />
                 </Link>
-                <button
-                  onClick={() => {
-                    if (typeof window !== 'undefined') {
-                      window.localStorage.setItem(
-                        'parwa_jarvis_context',
-                        JSON.stringify({
-                          source: 'roi',
-                          industry: industry,
-                          variant: recommendedModel.id,
-                          roi_result: {
-                            monthly_tickets: tickets,
-                            team_size: agentCount,
-                            current_monthly: currentTotalMonthly,
-                            current_annual: currentTotalAnnual,
-                            parwa_monthly: recommendedComparison.parwaMonthlyCost,
-                            parwa_annual: recommendedComparison.parwaAnnualCost,
-                            savings_annual: recommendedComparison.annualSavings,
-                            savings_pct: recommendedComparison.savingsPercent,
-                            suggested_model: recommendedModel.id,
-                            quantity: recommendedQuantity,
-                          },
-                        })
-                      );
-                      try {
-                        const visited = JSON.parse(
-                          localStorage.getItem('parwa_pages_visited') || '[]'
-                        ) as string[];
-                        if (!visited.includes('roi_calculator')) {
-                          visited.push('roi_calculator');
-                          localStorage.setItem(
-                            'parwa_pages_visited',
-                            JSON.stringify(visited)
-                          );
-                        }
-                      } catch {
-                        /* ignore */
-                      }
-                    }
-                    window.location.href =
-                      '/jarvis?entry_source=roi&industry=' +
-                      encodeURIComponent(industry) +
-                      '&variant=' +
-                      encodeURIComponent(recommendedModel.id);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl border border-white/10 text-gray-300 text-sm font-bold hover:border-orange-500/30 hover:bg-white/5 transition-all duration-300"
-                >
-                  Try Jarvis Live
-                  <Sparkles className="w-4 h-4" />
-                </button>
+                <p className="text-xs text-gray-500 mt-3">
+                  No credit card required. 14-day free trial on all plans.
+                </p>
               </div>
-
-              <p className="text-center text-[11px] text-gray-600 px-4">
-                * Estimates based on industry benchmarks and typical AI resolution rates. &quot;Cost per ticket&quot; includes labor, tools, and overhead. Actual results may vary depending on ticket complexity and implementation. PARWA pricing is current as of 2025.
-              </p>
             </div>
           )}
 
-          {/* ══════════════════════════════════════════════
-              NAVIGATION BUTTONS
-              ══════════════════════════════════════════════ */}
+          {/* ── Navigation Buttons ── */}
           {step < 3 && (
             <div className="flex items-center justify-between mt-8">
-              {step > 1 ? (
-                <button
-                  onClick={handleBack}
-                  className="flex items-center gap-2 px-5 py-3 rounded-xl border border-white/10 text-gray-400 text-sm font-medium hover:border-white/20 hover:text-gray-300 transition-all duration-300"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  Back
-                </button>
-              ) : (
-                <Link
-                  href="/"
-                  className="flex items-center gap-2 px-5 py-3 text-gray-500 text-sm font-medium hover:text-gray-400 transition-colors"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  Home
-                </Link>
-              )}
-
+              <button
+                onClick={handleBack}
+                disabled={step === 1}
+                className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium transition-all ${
+                  step === 1
+                    ? 'opacity-0 pointer-events-none'
+                    : 'border border-white/10 text-gray-400 hover:bg-white/5 hover:text-white'
+                }`}
+              >
+                Back
+              </button>
               <button
                 onClick={handleNext}
                 disabled={!canGoNext}
-                className={`flex items-center gap-2 px-8 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 ${
+                className={`flex items-center gap-2 px-8 py-3 rounded-xl text-sm font-bold transition-all ${
                   canGoNext
-                    ? 'bg-gradient-to-r from-orange-600 to-orange-500 text-white shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:-translate-y-0.5'
+                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40'
                     : 'bg-white/5 text-gray-600 cursor-not-allowed'
                 }`}
               >
-                {step === 2 ? 'See My Results' : 'Continue'}
-                <ArrowRight className="w-4 h-4" />
+                {step === 2 ? 'Calculate ROI' : 'Continue'}
+                <Zap className="w-4 h-4" />
               </button>
             </div>
           )}
 
+          {/* Back button on step 3 */}
           {step === 3 && (
-            <div className="mt-6">
+            <div className="flex items-center justify-start mt-6">
               <button
-                onClick={() => setStep(1)}
-                className="flex items-center gap-2 px-5 py-3 rounded-xl border border-white/10 text-gray-400 text-sm font-medium hover:border-white/20 hover:text-gray-300 transition-all duration-300 mx-auto"
+                onClick={handleBack}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium border border-white/10 text-gray-400 hover:bg-white/5 hover:text-white transition-all"
               >
-                <ArrowLeft className="w-4 h-4" />
-                Start Over
+                Back
               </button>
             </div>
           )}
