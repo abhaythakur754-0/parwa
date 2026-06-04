@@ -419,21 +419,21 @@ def _set_token_cookies(
     """
     secure = _should_use_secure_cookies()
     response.set_cookie(
-        key="parwa_access",
+        key="parwa_at",
         value=tokens.access_token,
         max_age=tokens.expires_in,
         httponly=True,
         secure=secure,
-        samesite="strict",
+        samesite="lax",
         path="/",
     )
     response.set_cookie(
-        key="parwa_refresh",
+        key="parwa_rt",
         value=tokens.refresh_token,
         max_age=7 * 24 * 60 * 60,  # 7 days
         httponly=True,
         secure=secure,
-        samesite="strict",
+        samesite="lax",
         path="/",
     )
 
@@ -441,8 +441,8 @@ def _set_token_cookies(
 def _clear_token_cookies(response: Response) -> None:
     """L12: Clear auth cookies on logout."""
     response.delete_cookie(
-        key="parwa_access", path="/"
+        key="parwa_at", path="/"
     )
     response.delete_cookie(
-        key="parwa_refresh", path="/"
+        key="parwa_rt", path="/"
     )

@@ -29,7 +29,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // ── Backend Proxy Configuration ─────────────────────────────────
-const BACKEND_URL = process.env.BACKEND_URL || process.env.SERVER_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || '';
+const BACKEND_URL = process.env.SERVER_API_URL || process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || '';
 
 // Proxy auth secret — must match backend PROXY_AUTH_SECRET
 const PROXY_AUTH_SECRET = process.env.PROXY_AUTH_SECRET || 'parwa_proxy_auth_2026';
