@@ -213,14 +213,16 @@ export async function proxyAuthRequest(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     // Set Origin for CSRF Layer 1 validation
-    Origin: PROXY_ORIGIN,
+    'Origin': PROXY_ORIGIN,
     // CSRF double-submit: cookie + header must match
     'X-CSRF-Token': csrfToken,
-    Cookie: `parwa_csrf=${csrfToken}`,
+    'Cookie': `parwa_csrf=${csrfToken}`,
     // Trusted proxy auth — backend skips CSRF checks when this matches
-    // Use lowercase header name for HTTP/2 compatibility and ASGI normalization
     'x-proxy-auth': PROXY_AUTH_SECRET,
   };
+
+  // Debug: log proxy details (remove after fixing CSRF issues)
+  console.log('[ProxyAuth]', options.method, options.backendPath, 'origin=', PROXY_ORIGIN, 'proxy_auth_len=', PROXY_AUTH_SECRET.length);
 
   // Forward Bearer token if requested
   if (options.forwardAuth) {
