@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * PARWA Calls Dashboard Page
  *
