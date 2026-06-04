@@ -613,7 +613,7 @@ function TicketDetailPanel({
   const [newMessage, setNewMessage] = useState('');
   const [isAiTyping, setIsAiTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const aiTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const aiTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const isAiRespondingRef = useRef(false);
 
   // Cleanup AI timer on unmount

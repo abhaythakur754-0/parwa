@@ -79,7 +79,7 @@ jest.mock('next/navigation', () => ({
 // ── Mock next/link ──────────────────────────────────────────────────
 jest.mock('next/link', () => {
   return function MockLink(props: Record<string, unknown>) {
-    return React.createElement('a', { href: props.href as string }, props.children as React.ReactNode);
+    return React.createElement('a', { href: props.href as string }, props.children);
   };
 });
 

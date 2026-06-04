@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { MailCheck, MailX, RefreshCw, ArrowLeft, Loader2 } from 'lucide-react';
+import { MailCheck, MailX, RefreshCw, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 type VerifyState = 'loading' | 'success' | 'error' | 'expired';
 
-function EmailVerifyContent() {
+export default function EmailVerifyPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -129,17 +129,5 @@ function EmailVerifyContent() {
         </div>
       </div>
     </div>
-  );
-}
-
-export default function EmailVerifyPage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
-      </div>
-    }>
-      <EmailVerifyContent />
-    </Suspense>
   );
 }

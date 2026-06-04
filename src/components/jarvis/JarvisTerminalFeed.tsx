@@ -88,8 +88,8 @@ export default function JarvisTerminalFeed({
       });
     };
 
-    socketClient.on("jarvis:terminal", handleTerminalStep as (...args: unknown[]) => void);
-    socketClient.on("jarvis:terminal:batch", handleTerminalBatch as (...args: unknown[]) => void);
+    socketClient.on("jarvis:terminal", handleTerminalStep);
+    socketClient.on("jarvis:terminal:batch", handleTerminalBatch);
 
     // Check if socket is connected
     const checkConnection = () => {
@@ -99,8 +99,8 @@ export default function JarvisTerminalFeed({
     const interval = setInterval(checkConnection, 5000);
 
     return () => {
-      socketClient.off("jarvis:terminal", handleTerminalStep as (...args: unknown[]) => void);
-      socketClient.off("jarvis:terminal:batch", handleTerminalBatch as (...args: unknown[]) => void);
+      socketClient.off("jarvis:terminal", handleTerminalStep);
+      socketClient.off("jarvis:terminal:batch", handleTerminalBatch);
       clearInterval(interval);
     };
   }, [maxSteps]);

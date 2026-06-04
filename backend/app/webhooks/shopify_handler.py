@@ -1,17 +1,13 @@
 """
-Shopify Webhook Handler (Day 1 — Expanded)
+Shopify Webhook Handler (BC-003, GAP 1.5)
 
 Handles Shopify webhook events:
 - orders.create: New order created in Shopify store
-- orders.updated: Order details changed
-- orders/cancelled: Order was cancelled
 - customers.create: New customer registered
-- refunds/create: Refund issued on an order
-- fulfillments/create: Fulfillment created (item shipped)
 
 All handlers:
 - Validate required fields in payload
-- Extract normalized data
+- Extract normalized order/customer data
 - Return structured result for service layer
 - Are idempotent (checked at webhook_service level)
 """
@@ -26,11 +22,7 @@ logger = logging.getLogger("parwa.webhooks.shopify")
 # Required fields per Shopify event type
 REQUIRED_FIELDS = {
     "orders.create": ["order_id", "email", "total_price", "currency"],
-    "orders.updated": ["order_id"],
-    "orders/cancelled": ["order_id"],
     "customers.create": ["customer_id", "email"],
-    "refunds/create": ["order_id", "refund_id"],
-    "fulfillments/create": ["order_id", "fulfillment_id"],
 }
 
 
@@ -69,7 +61,6 @@ def _extract_order_data(payload: dict) -> dict:
             "title": _sanitize_field(item.get("title", ""), 500),
             "quantity": int(item.get("quantity", 1)),
             "price": str(item.get("price", "0")),
-            "sku": _sanitize_field(item.get("sku", ""), 50),
         })
 
     return {
@@ -80,8 +71,6 @@ def _extract_order_data(payload: dict) -> dict:
         "currency": _sanitize_field(order.get("currency", "USD"), 10),
         "financial_status": _sanitize_field(order.get("financial_status", ""), 30),
         "fulfillment_status": _sanitize_field(order.get("fulfillment_status", ""), 30),
-        "cancel_reason": _sanitize_field(order.get("cancel_reason", ""), 100),
-        "cancelled_at": order.get("cancelled_at"),
         "customer_id": str(customer.get("id", "")),
         "customer_name": _sanitize_field(
             " ".join(filter(None, [
@@ -91,7 +80,6 @@ def _extract_order_data(payload: dict) -> dict:
         ),
         "line_items": items,
         "created_at": order.get("created_at"),
-        "updated_at": order.get("updated_at"),
     }
 
 
@@ -111,96 +99,7 @@ def _extract_customer_data(payload: dict) -> dict:
         "phone": _sanitize_field(customer.get("phone", ""), 30),
         "state": _sanitize_field(customer.get("state", ""), 30),
         "orders_count": int(customer.get("orders_count", 0)),
-        "total_spent": str(customer.get("total_spent", "0")),
         "created_at": customer.get("created_at"),
-    }
-
-
-def _extract_refund_data(payload: dict) -> dict:
-    """Extract and normalize refund data from Shopify payload.
-
-    Shopify sends refund data:
-    - refund: {id, order_id, refund_line_items, transactions, ...}
-    """
-    refund = payload.get("refund", payload) or {}
-
-    # Extract refund line items
-    refund_items = []
-    for rli in (refund.get("refund_line_items") or [])[:100]:
-        if not isinstance(rli, dict):
-            continue
-        line_item = rli.get("line_item", {}) or {}
-        refund_items.append({
-            "line_item_id": str(rli.get("line_item_id", "")),
-            "quantity": int(rli.get("quantity", 0)),
-            "restock_type": _sanitize_field(rli.get("restock_type", ""), 30),
-            "item_title": _sanitize_field(line_item.get("title", ""), 500),
-            "item_price": str(line_item.get("price", "0")),
-        })
-
-    # Extract transactions (actual refund amounts)
-    transactions = []
-    for txn in (refund.get("transactions") or [])[:50]:
-        if not isinstance(txn, dict):
-            continue
-        transactions.append({
-            "transaction_id": str(txn.get("id", "")),
-            "amount": str(txn.get("amount", "0")),
-            "kind": _sanitize_field(txn.get("kind", ""), 30),
-            "gateway": _sanitize_field(txn.get("gateway", ""), 50),
-            "status": _sanitize_field(txn.get("status", ""), 30),
-        })
-
-    return {
-        "refund_id": str(refund.get("id", "")),
-        "order_id": str(refund.get("order_id", "")),
-        "created_at": refund.get("created_at"),
-        "note": _sanitize_field(refund.get("note", ""), 500),
-        "refund_line_items": refund_items,
-        "transactions": transactions,
-        "total_refund_amount": sum(
-            float(t.get("amount", 0)) for t in transactions
-            if t.get("kind") == "refund"
-        ),
-    }
-
-
-def _extract_fulfillment_data(payload: dict) -> dict:
-    """Extract and normalize fulfillment data from Shopify payload.
-
-    Shopify sends fulfillment data:
-    - fulfillment: {id, order_id, tracking_number, tracking_company, ...}
-    """
-    fulfillment = payload.get("fulfillment", payload) or {}
-
-    # Extract line items being fulfilled
-    fulfilled_items = []
-    for item in (fulfillment.get("line_items") or [])[:100]:
-        if not isinstance(item, dict):
-            continue
-        fulfilled_items.append({
-            "line_item_id": str(item.get("id", "")),
-            "title": _sanitize_field(item.get("title", ""), 500),
-            "quantity": int(item.get("quantity", 0)),
-            "sku": _sanitize_field(item.get("sku", ""), 50),
-        })
-
-    return {
-        "fulfillment_id": str(fulfillment.get("id", "")),
-        "order_id": str(fulfillment.get("order_id", "")),
-        "status": _sanitize_field(fulfillment.get("status", ""), 30),
-        "tracking_company": _sanitize_field(fulfillment.get("tracking_company", ""), 100),
-        "tracking_number": _sanitize_field(fulfillment.get("tracking_number", ""), 100),
-        "tracking_url": _sanitize_field(fulfillment.get("tracking_url", ""), 500),
-        "tracking_numbers": [
-            _sanitize_field(t, 100) for t in (fulfillment.get("tracking_numbers") or [])
-        ],
-        "tracking_urls": [
-            _sanitize_field(u, 500) for u in (fulfillment.get("tracking_urls") or [])
-        ],
-        "line_items": fulfilled_items,
-        "created_at": fulfillment.get("created_at"),
-        "updated_at": fulfillment.get("updated_at"),
     }
 
 
@@ -221,7 +120,18 @@ def _validate_required_fields(
 
 
 def handle_order_created(event: dict) -> dict:
-    """Handle Shopify orders.create event."""
+    """Handle Shopify orders.create event.
+
+    Args:
+        event: Full event dict with keys:
+            - event_type: "orders.create"
+            - payload: Raw Shopify payload
+            - company_id: Tenant company ID
+            - event_id: Provider event ID
+
+    Returns:
+        Dict with status, action, and extracted order data.
+    """
     payload = event.get("payload", {})
     order_data = _extract_order_data(payload)
 
@@ -247,69 +157,15 @@ def handle_order_created(event: dict) -> dict:
     }
 
 
-def handle_order_updated(event: dict) -> dict:
-    """Handle Shopify orders.updated event.
-
-    Fires when order details change: financial_status, fulfillment_status,
-    line items, shipping address, tags, notes, etc.
-    """
-    payload = event.get("payload", {})
-    order_data = _extract_order_data(payload)
-
-    error = _validate_required_fields("orders.updated", order_data)
-    if error:
-        return {"status": "validation_error", "error": error}
-
-    logger.info(
-        "shopify_order_updated order_id=%s financial=%s fulfillment=%s",
-        order_data["order_id"],
-        order_data["financial_status"],
-        order_data["fulfillment_status"],
-        extra={
-            "company_id": event.get("company_id"),
-            "event_id": event.get("event_id"),
-        },
-    )
-
-    return {
-        "status": "processed",
-        "action": "order_updated",
-        "data": order_data,
-    }
-
-
-def handle_order_cancelled(event: dict) -> dict:
-    """Handle Shopify orders/cancelled event.
-
-    Fires when an order is cancelled. Includes cancel_reason
-    (inventory, customer, fraud, other) and cancelled_at.
-    """
-    payload = event.get("payload", {})
-    order_data = _extract_order_data(payload)
-
-    error = _validate_required_fields("orders/cancelled", order_data)
-    if error:
-        return {"status": "validation_error", "error": error}
-
-    logger.info(
-        "shopify_order_cancelled order_id=%s reason=%s",
-        order_data["order_id"],
-        order_data.get("cancel_reason", "unknown"),
-        extra={
-            "company_id": event.get("company_id"),
-            "event_id": event.get("event_id"),
-        },
-    )
-
-    return {
-        "status": "processed",
-        "action": "order_cancelled",
-        "data": order_data,
-    }
-
-
 def handle_customer_created(event: dict) -> dict:
-    """Handle Shopify customers.create event."""
+    """Handle Shopify customers.create event.
+
+    Args:
+        event: Full event dict.
+
+    Returns:
+        Dict with status, action, and extracted customer data.
+    """
     payload = event.get("payload", {})
     customer_data = _extract_customer_data(payload)
 
@@ -334,83 +190,10 @@ def handle_customer_created(event: dict) -> dict:
     }
 
 
-def handle_refund_created(event: dict) -> dict:
-    """Handle Shopify refunds/create event.
-
-    Fires when a refund is issued on an order. Contains refund line items
-    and transactions with actual refund amounts.
-
-    This is critical for PARWA — when a refund is processed (either by the
-    AI agent or by the merchant directly in Shopify), this webhook keeps
-    PARWA's ticket context in sync.
-    """
-    payload = event.get("payload", {})
-    refund_data = _extract_refund_data(payload)
-
-    error = _validate_required_fields("refunds/create", refund_data)
-    if error:
-        return {"status": "validation_error", "error": error}
-
-    logger.info(
-        "shopify_refund_created refund_id=%s order_id=%s total_refund=%s",
-        refund_data["refund_id"],
-        refund_data["order_id"],
-        refund_data["total_refund_amount"],
-        extra={
-            "company_id": event.get("company_id"),
-            "event_id": event.get("event_id"),
-        },
-    )
-
-    return {
-        "status": "processed",
-        "action": "refund_created",
-        "data": refund_data,
-    }
-
-
-def handle_fulfillment_created(event: dict) -> dict:
-    """Handle Shopify fulfillments/create event.
-
-    Fires when a fulfillment is created (items shipped). Contains
-    tracking number, tracking URL, and carrier information.
-
-    This enables PARWA's shipping intelligence — when a package ships,
-    the agent can proactively notify the customer with tracking info.
-    """
-    payload = event.get("payload", {})
-    fulfillment_data = _extract_fulfillment_data(payload)
-
-    error = _validate_required_fields("fulfillments/create", fulfillment_data)
-    if error:
-        return {"status": "validation_error", "error": error}
-
-    logger.info(
-        "shopify_fulfillment_created fulfillment_id=%s order_id=%s tracking=%s",
-        fulfillment_data["fulfillment_id"],
-        fulfillment_data["order_id"],
-        fulfillment_data["tracking_number"],
-        extra={
-            "company_id": event.get("company_id"),
-            "event_id": event.get("event_id"),
-        },
-    )
-
-    return {
-        "status": "processed",
-        "action": "fulfillment_created",
-        "data": fulfillment_data,
-    }
-
-
 # Event type to handler mapping
 _SHOPIFY_HANDLERS = {
     "orders.create": handle_order_created,
-    "orders.updated": handle_order_updated,
-    "orders/cancelled": handle_order_cancelled,
     "customers.create": handle_customer_created,
-    "refunds/create": handle_refund_created,
-    "fulfillments/create": handle_fulfillment_created,
 }
 
 
@@ -419,14 +202,6 @@ def handle_shopify_event(event: dict) -> dict:
     """Main Shopify webhook handler dispatcher.
 
     Routes to the correct sub-handler based on event_type.
-
-    Supported event types (Day 1):
-    - orders.create
-    - orders.updated
-    - orders/cancelled
-    - customers.create
-    - refunds/create
-    - fulfillments/create
 
     Args:
         event: Full event dict.

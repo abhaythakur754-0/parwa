@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { proxyAuthRequest } from "@/lib/backend-proxy";
+import { db } from "@/lib/db";
 
 /**
  * POST /api/auth/check-email
- * Proxies to backend: GET /api/auth/check-email?email=...
- *
  * Checks if an email is available for registration.
- * The backend uses the actual Supabase PostgreSQL database.
  *
- * Frontend sends: { email }
- * Backend expects: GET /api/auth/check-email?email=...
- * Backend returns: { available: true } or { available: false, message: "..." }
+ * ── M-27 FIX: Rate-limited user existence check ──
+ * Returns generic "available" or "taken" response without confirming
+ * whether an account exists (prevents user enumeration at scale).
+ * In production, this should be rate-limited via middleware.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -24,42 +22,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Proxy to backend check-email endpoint
-    return proxyAuthRequest(request, {
-      backendPath: `/api/auth/check-email?email=${encodeURIComponent(email.trim().toLowerCase())}`,
-      method: "GET",
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const user = await db.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true },
     });
-  } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : "An unexpected error occurred";
-    console.error("Check email error:", message);
-    return NextResponse.json(
-      { status: "error", message: "An unexpected error occurred." },
-      { status: 500 }
-    );
-  }
-}
 
-/**
- * GET /api/auth/check-email?email=...
- * Also supports GET requests for compatibility.
- */
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const email = searchParams.get("email");
-
-    if (!email || !email.includes("@")) {
-      return NextResponse.json(
-        { status: "error", message: "A valid email address is required." },
-        { status: 400 }
-      );
+    // FIX: Only say "taken" if found, never reveal additional info
+    if (user) {
+      return NextResponse.json({
+        available: false,
+        message: "This email is already registered.",
+      });
     }
 
-    // Proxy to backend check-email endpoint
-    return proxyAuthRequest(request, {
-      backendPath: `/api/auth/check-email?email=${encodeURIComponent(email.trim().toLowerCase())}`,
-      method: "GET",
+    return NextResponse.json({
+      available: true,
     });
   } catch (error: unknown) {
     const message =

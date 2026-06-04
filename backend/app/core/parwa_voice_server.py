@@ -27,14 +27,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-try:
-    from flask import Flask, request, Response
-    _HAS_FLASK = True
-except ImportError:
-    _HAS_FLASK = False
-    Flask = None  # type: ignore[assignment,misc]
-    request = None  # type: ignore[assignment]
-    Response = None  # type: ignore[assignment,misc]
+from flask import Flask, request, Response
 
 logger = logging.getLogger("parwa.voice_server")
 
@@ -225,17 +218,14 @@ class ParwaVoiceServer:
 
     def __init__(self, config: Optional[ParwaVoiceConfig] = None):
         self._config = config or ParwaVoiceConfig()
+        self._app = Flask(__name__)
         self._lock = threading.Lock()
         self._sessions: Dict[str, VoiceCallSession] = {}
         self._response_builder = ParwaVoiceResponseBuilder()
-        if _HAS_FLASK and Flask is not None:
-            self._app = Flask(__name__)
-            self._setup_routes()
-        else:
-            self._app = None
+        self._setup_routes()
 
     @property
-    def app(self):
+    def app(self) -> Flask:
         return self._app
 
     def _setup_routes(self):
@@ -583,9 +573,6 @@ class ParwaVoiceServer:
 
     def run(self, **kwargs):
         """Start the Flask server."""
-        if self._app is None:
-            logger.warning("Flask not installed — voice server cannot run. Install flask to enable.")
-            return
         host = kwargs.pop("host", self._config.host)
         port = kwargs.pop("port", self._config.port)
         debug = kwargs.pop("debug", False)

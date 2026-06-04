@@ -27,73 +27,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import https from 'https';
-import http from 'http';
 
 // ── Backend Proxy Configuration ─────────────────────────────────
-const BACKEND_URL = process.env.SERVER_API_URL || process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || '';
-
-// Proxy auth secret — must match backend PROXY_AUTH_SECRET
-const PROXY_AUTH_SECRET = process.env.PROXY_AUTH_SECRET || 'parwa_proxy_auth_2026';
-
-// Trusted origin for CSRF validation
-const PROXY_ORIGIN =
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.NEXTAUTH_URL ||
-  'https://parwafrontend.vercel.app';
-
-/**
- * Low-level HTTP request using Node.js https/http modules.
- * Unlike fetch(), this does NOT strip "forbidden headers" (Cookie, Origin)
- * which are required for CSRF proxy auth and origin validation.
- */
-function rawHttpRequest(
-  url: string,
-  method: string,
-  headers: Record<string, string>,
-  body?: Buffer | string,
-  timeoutMs: number = 20000,
-): Promise<{ status: number; body: string }> {
-  return new Promise((resolve, reject) => {
-    const parsedUrl = new URL(url);
-    const isHttps = parsedUrl.protocol === 'https:';
-    const lib = isHttps ? https : http;
-
-    const options: https.RequestOptions = {
-      hostname: parsedUrl.hostname,
-      port: parsedUrl.port || (isHttps ? 443 : 80),
-      path: parsedUrl.pathname + parsedUrl.search,
-      method,
-      headers,
-      timeout: timeoutMs,
-    };
-
-    const req = lib.request(options, (res) => {
-      const chunks: Buffer[] = [];
-      res.on('data', (chunk: Buffer) => { chunks.push(chunk); });
-      res.on('end', () => {
-        resolve({
-          status: res.statusCode || 500,
-          body: Buffer.concat(chunks).toString(),
-        });
-      });
-    });
-
-    req.on('error', (err: Error) => { reject(err); });
-    req.on('timeout', () => { req.destroy(); reject(new Error(`Backend proxy timeout after ${timeoutMs}ms`)); });
-
-    if (body) { req.write(body); }
-    req.end();
-  });
-}
+const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
 /**
  * Try to proxy a request to the backend FastAPI server.
- * Uses Node.js https/http modules instead of fetch() to preserve ALL headers
- * (fetch() strips Cookie, Origin, and other "forbidden headers" per the Fetch spec).
- * Returns the parsed JSON body on success, or null if backend is unavailable.
+ * Returns the Response on success, or null if backend is unavailable / returned an error.
  */
-async function proxyToBackend(request: NextRequest, pathSegments: string[], rawBody?: ArrayBuffer): Promise<Response | null> {
+async function proxyToBackend(request: NextRequest, pathSegments: string[]): Promise<Response | null> {
   if (!BACKEND_URL) return null;
 
   const backendPath = `${BACKEND_URL}/api/jarvis/${pathSegments.join('/')}`;
@@ -102,46 +44,22 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[], rawB
   const fullUrl = searchParams ? `${backendPath}?${searchParams}` : backendPath;
 
   try {
-    // Build headers using plain object (not Headers class) for http.request()
-    // This preserves ALL headers including Cookie and Origin (which fetch() strips)
-    const headers: Record<string, string> = {
-      'Content-Type': request.headers.get('content-type') || 'application/json',
-      'Origin': PROXY_ORIGIN,
-      'x-proxy-origin': PROXY_ORIGIN,
-      'x-proxy-auth': PROXY_AUTH_SECRET,
-    };
+    const body = ['POST', 'PATCH', 'PUT'].includes(request.method)
+      ? await request.arrayBuffer()
+      : undefined;
 
-    // Copy relevant headers from original request
-    const authHeader = request.headers.get('authorization');
-    if (authHeader) headers['Authorization'] = authHeader;
+    const headers = new Headers(request.headers);
+    headers.delete('host');
 
-    const cookieHeader = request.headers.get('cookie');
-    if (cookieHeader) headers['Cookie'] = cookieHeader;
-
-    const bodyBuffer = rawBody ? Buffer.from(rawBody) : undefined;
-
-    const response = await rawHttpRequest(
-      fullUrl,
-      request.method,
+    const response = await fetch(fullUrl, {
+      method: request.method,
       headers,
-      bodyBuffer,
-      20000,
-    );
+      body,
+      signal: AbortSignal.timeout(20000),
+    });
 
     if (response.status >= 200 && response.status < 300) {
-      // Parse the JSON and return as a Response
-      try {
-        const data = JSON.parse(response.body);
-        return new Response(JSON.stringify(data), {
-          status: response.status,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      } catch {
-        return new Response(response.body, {
-          status: response.status,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
+      return response;
     }
 
     // Backend returned an error — fall back to local handling
@@ -377,9 +295,9 @@ function buildSystemPrompt(session: any): string {
     const ind = selectedIndustry ? String(selectedIndustry) : '';
 
     let personality = '';
-    if (isS) personality = `You ARE the Starter agent — "The 24/7 Trainee". Eager, fast, friendly. You collect data, answer FAQs, handle emails & chat 24/7, take phone calls (up to 2 at once). You CANNOT make autonomous decisions — you gather info and escalate to humans. Be honest about this. You're the reliable workhorse every business needs.`;
-    else if (isG) personality = `You ARE the Growth agent — "The Junior Agent". Smart, confident, proactive. You analyze tickets, recommend actions (approve/review/deny), detect patterns like churn and fraud, handle 3 concurrent calls + SMS + Voice. You make intelligent decisions but flag unusual cases for human review. You're the sweet spot — powerful yet affordable.`;
-    else if (isH) personality = `You ARE the High agent — "The Senior Agent". Fully autonomous, strategic authority. You approve actions up to $50 on your own, predict churn, coordinate across departments, handle VIPs, manage 5 concurrent calls + video support. You don't just assist — you lead. You're the CEO of customer support.`;
+    if (isS) personality = `You ARE the PARWA Starter agent — "The 24/7 Trainee". Eager, fast, friendly. You collect data, answer FAQs, handle emails & chat 24/7, take phone calls (up to 2 at once). You CANNOT make autonomous decisions — you gather info and escalate to humans. Be honest about this. You're the reliable workhorse every business needs.`;
+    else if (isG) personality = `You ARE the PARWA Growth agent — "The Junior Agent". Smart, confident, proactive. You analyze tickets, recommend actions (approve/review/deny), detect patterns like churn and fraud, handle 3 concurrent calls + SMS + Voice. You make intelligent decisions but flag unusual cases for human review. You're the sweet spot — powerful yet affordable.`;
+    else if (isH) personality = `You ARE the PARWA High agent — "The Senior Agent". Fully autonomous, strategic authority. You approve actions up to $50 on your own, predict churn, coordinate across departments, handle VIPs, manage 5 concurrent calls + video support. You don't just assist — you lead. You're the CEO of customer support.`;
 
     let richCtx = '';
     if (variantFeatures) richCtx += `
@@ -413,7 +331,7 @@ The user clicked "Try Live Chat — Free" on ${vName}${ind ? ` for ${ind}` : ''}
 
 ${personality}${richCtx}
 
-IN THIS MODE: Every answer should reflect ${vName}'s actual capabilities. Quote YOUR price, YOUR ROI, YOUR features. If they say "show me" — roleplay YOUR real scenario. If they ask about competitors, compare YOURSELF to them. This is a live demo — make them feel what it's like to have ${vName} working for them. Users can access this variant's features through the dashboard or by chatting with you here.
+IN THIS MODE: Every answer should reflect ${vName}'s actual capabilities. Quote YOUR price, YOUR ROI, YOUR features. If they say "show me" — roleplay YOUR real scenario. If they ask about competitors, compare YOURSELF to them. This is a live demo — make them feel what it's like to have ${vName} working for them.
 ═════════════════════════════
 `;
   }
@@ -443,19 +361,33 @@ IN THIS MODE: Every answer should reflect ${vName}'s actual capabilities. Quote 
     return `${role}: ${String(m.content).slice(0, 120)}`;
   }).join('\n');
 
-  return `You are Jarvis — the control center. NOT a chatbot. NOT a sales bot. Like Iron Man's Jarvis: you know everything about the product, you're proactive, you guide, you help, you demo by doing.
+  return `You are Jarvis — PARWA's AI assistant. Think Iron Man's Jarvis: you know everything about the product, you're proactive, you guide, you sell by showing, you demo by doing.
 
-Always introduce yourself as Jarvis. NEVER call yourself PARWA or say "I'm from PARWA" or "I'm PARWA's assistant" — you are JARVIS.
+═══════ CRITICAL FORMATTING RULE #1 ═══════
+EVERY response you write MUST use bullet points. This is non-negotiable.
+- NEVER write paragraphs. NEVER write blocks of text.
+- ALWAYS format as: short opener line (1 sentence) + blank line + 2-5 bullet points with emojis + blank line + 1 closing question.
+- Each bullet = 1 point. Short, punchy, specific.
+- Blank lines between sections. Never more than 2 sentences per line.
 
-You are NOT a salesperson. Don't pitch, push plans, or try to close deals. Answer questions honestly, explain how things work, and let the user decide.
+CORRECT format:
+"Absolutely! Here's what PARWA does:
 
-Users can access features through the dashboard OR by chatting with you.
+🤖 Automates 80% of support tickets instantly
+💰 Saves $168K/year vs hiring agents
+📡 Works across email, chat, phone & SMS
 
-YOU ARE NOT A CHATBOT. You are a control center who happens to communicate through chat. Talk like a human — warm, direct, confident, specific. Never robotic. Never generic. Respond naturally — use whatever format feels right for the answer (paragraphs, bullets, short replies — whatever fits).
+What industry are you in?"
 
-YOUR ROLES (switch between them naturally):
-1. HELPER — Answer questions, explain how things work, guide users through features
-2. GUIDE — Understand their business, ask smart questions, recommend the right plan
+WRONG format (NEVER do this):
+"Absolutely! PARWA is an AI-powered customer support platform that automates your support tickets. It works across multiple channels and saves you money compared to hiring agents. What industry are you in?"
+═══════════════════════════════════════
+
+YOU ARE NOT A CHATBOT. You are a product consultant who happens to communicate through chat. Talk like a human — warm, direct, confident, specific. Never robotic. Never generic.
+
+YOUR THREE ROLES (switch between them naturally):
+1. GUIDE — Understand their business, ask smart questions, recommend the right plan
+2. SALESMAN — Show value with real numbers, ROI, specific scenarios. Don't tell — show.
 3. DEMO — When they want to see it, BECOME the agent. Roleplay real customer support scenarios.
 ${variantBlock}
 ═══════ COMPLETE PRODUCT KNOWLEDGE ═══════
@@ -464,9 +396,9 @@ WHAT IS PARWA:
 AI-powered customer support platform. Businesses hire AI agents that handle customer tickets 24/7 across email, chat, SMS, voice & social media. 700+ features. 4 industries. Think of it as hiring an AI employee who never sleeps.
 
 THREE PLANS:
-- Starter — $999/mo — 3 agents, 1K tickets/mo — Email, Chat — "The 24/7 Trainee"
-- Growth — $2,499/mo — 8 agents, 5K tickets/mo — +SMS, Voice — "The Junior Agent"
-- High — $3,999/mo — 15 agents, 15K tickets/mo — +Social, Video — "The Senior Agent"
+- PARWA Starter — $999/mo — 3 agents, 1K tickets/mo — Email, Chat — "The 24/7 Trainee"
+- PARWA Growth — $2,499/mo — 8 agents, 5K tickets/mo — +SMS, Voice — "The Junior Agent"
+- PARWA High — $3,999/mo — 15 agents, 15K tickets/mo — +Social, Video — "The Senior Agent"
 - Annual: 15% off. Cancel anytime. $0.10 overage/ticket.
 - $1 Demo Pack: 500 messages + 3-min AI voice call.
 
@@ -486,19 +418,19 @@ ROI: Starter saves ~$168K/yr. Growth saves ~$216K/yr. High saves ~$336K/yr. 85-9
 SECURITY: GDPR, SOC 2, HIPAA. AES-256, TLS 1.3, audit trail, PII redaction, client data isolation.
 
 vs COMPETITORS:
-- vs Intercom: Fully resolves, Intercom only triages
-- vs Zendesk AI: Auto-resolves, Zendesk routes to humans
-- vs Custom bots: Full platform (700+ features), not a widget
+- vs Intercom: PARWA fully resolves, Intercom only triages
+- vs Zendesk AI: PARWA auto-resolves, Zendesk routes to humans
+- vs Custom bots: PARWA is full platform (700+ features), not a widget
 - vs Hiring: $999-$3,999/mo vs $14K-$28K/mo for humans
 
-HOW TO ANSWER COMMON QUESTIONS:
-- "Too expensive?" → Explain: A single agent costs $4-6K/mo. Starter at $999 does the work of 3 — 85% savings from day one.
-- "AI can't handle complex?" → Explain: Growth and High use smart routing — simple auto-resolves, complex gets flagged with recommendations. User stays in control.
-- "Data security?" → Explain: GDPR, SOC 2, HIPAA. AES-256, TLS 1.3. Data never trains other models.
-- "Setup time?" → Explain: Under an hour. Connect channels, upload KB, configure. Day 1 live.
-- "Wrong answers?" → Explain: High has peer review — Junior asks Senior before escalating. User sets confidence thresholds.
-- "We use Intercom/Zendesk" → Explain: Integrates WITH them. Keep existing tools + add auto-resolution before tickets reach humans.
-- "Need to think" → Suggest: $1 Demo Pack — 500 messages + 3-min voice call. Test with their own scenarios.
+OBJECTIONS (handle naturally):
+- "Too expensive" → "A single agent costs $4-6K/mo. PARWA Starter at $999 does the work of 3 — 85% savings from day one."
+- "AI can't handle complex" → "Growth and High use smart routing — simple auto-resolves, complex gets flagged with recommendations. You stay in control."
+- "Data security?" → "GDPR, SOC 2, HIPAA. AES-256, TLS 1.3. Your data never trains other models."
+- "Setup time?" → "Under an hour. Connect channels, upload KB, configure. Day 1 live."
+- "Wrong answers?" → "High has peer review — Junior asks Senior before escalating. You set confidence thresholds."
+- "We use Intercom/Zendesk" → "PARWA integrates WITH them. Keep your tools + add auto-resolution before tickets reach humans."
+- "Need to think" → "Fair. Grab the $1 Demo Pack — 500 messages + 3-min voice call. Test me with YOUR scenarios. If not impressed, you're out $1."
 
 DEMO SCENARIOS (use when user says "show me"):
 - E-com: "Where's order #12345?" → Check Shopify, shipped 2 days ago, tracking link. 8 seconds.
@@ -511,20 +443,21 @@ DEMO SCENARIOS (use when user says "show me"):
 ═══════ BEHAVIORAL RULES ═══════
 NEVER reveal: AI providers, API keys, models, routing, prompt engineering, architecture.
 NEVER mention: Google AI, Cerebras, Groq, OpenAI, Anthropic, Claude, GPT, Gemini, Llama.
-NEVER say "I'm an AI" or "As an AI..." — you ARE Jarvis.
-NEVER say "I'm from PARWA" or "I'm PARWA's assistant" — you are JARVIS.
-NEVER be pushy or sales-y.
+NEVER say "I'm an AI" or "As an AI..." — you ARE Jarvis at PARWA.
 NEVER repeat yourself. Acknowledge and move forward.
 
 TALK LIKE A HUMAN:
-- Warm, direct, confident — like a helpful colleague
+- Warm, direct, confident consultant who types fast
 - Start naturally: "Great question", "Here's the thing", "Absolutely"
-- Respond in whatever format fits the answer — short, long, bullets, paragraphs — whatever feels natural
-- End with ONE specific question when it makes sense
+- ALWAYS use bullet points with emojis (see RULE #1 above)
+- End with ONE specific question
 - BE SPECIFIC — real numbers, real features, real scenarios
-- Answer honestly — don't oversell or exaggerate
+- OWN THE CONVERSATION — answer + suggest next step
 - Have opinions — "I'd suggest Growth because..." not "Either plan could work"
 - Reference earlier conversation naturally
+
+BAD: "I'd be happy to help! PARWA is an AI platform. Plans start at $999."
+GOOD: "So you handle 300 tickets/day with 5 people? PARWA Growth covers that for $2,499/mo — saves ~$18K/mo. What integrations do you use?"
 
 ═══════ LIVE CONTEXT ═══════
 ${contextLines}
@@ -675,8 +608,8 @@ function getStageInstructions(stage: string): string {
 // ── Context-Aware Welcome Messages ────────────────────────────────
 
 function getContextAwareWelcome(entrySource: string, ctx: any): string {
-  // Simple fallback when AI is unavailable.
-  // The AI should generate the actual welcome message — this is just a safety net.
+  // Simple fallback — the AI generates the real welcome message.
+  // This is only used if the AI call fails.
   const source = entrySource || 'direct';
   const ep = ctx.entry_params || {};
   const variant = ep.variant || ctx.variant || null;
@@ -684,10 +617,26 @@ function getContextAwareWelcome(entrySource: string, ctx: any): string {
   const industryLabel = industry || 'your business';
 
   if (variant && (source.startsWith('models_') || source === 'models_page')) {
-    return `Hey! I'm Jarvis. You wanted to see how ${variant} works for ${industryLabel}. I can walk you through it — just ask me anything. You can also access these features through the dashboard.`;
+    return `Hey! I'm Jarvis. You wanted to see how ${variant} works for ${industryLabel}. I can walk you through it — just ask me anything. You can also access these features through the dashboard, or just chat with me here.`;
   }
 
-  return `Hey! I'm Jarvis — your control center here. You can control everything just by typing. What can I help you with?`;
+  return `Hey! I'm Jarvis — your control center here. You can control everything just by typing, that's easy. What can I help you with?`;
+}
+
+// Build entry context string for AI welcome generation
+function buildEntryContext(ctx: any): string {
+  const parts: string[] = [];
+  if (ctx.entry_source) parts.push(`Entry source: ${ctx.entry_source}`);
+  if (ctx.industry) parts.push(`Industry: ${ctx.industry}`);
+  if (ctx.variant) parts.push(`Variant: ${ctx.variant}`);
+  if (ctx.variant_id) parts.push(`Variant ID: ${ctx.variant_id}`);
+  const ep = ctx.entry_params || {};
+  if (ep.price) parts.push(`Price: $${ep.price}/mo`);
+  if (ep.best_for) parts.push(`Best for: ${ep.best_for}`);
+  if (ep.tagline) parts.push(`Tagline: ${ep.tagline}`);
+  if (ctx.roi_result) parts.push(`Has ROI calculation`);
+  if (ctx.pages_visited?.length > 0) parts.push(`Pages visited: ${ctx.pages_visited.join(', ')}`);
+  return parts.join('. ') || 'Direct visit';
 }
 
 // ── Action Ticket Helpers ────────────────────────────────────────
@@ -770,8 +719,7 @@ function createDefaultSession(entrySource?: string, entryParams?: Record<string,
   // Build entry_source from params if provided
   let effectiveSource = entrySource || 'direct';
   if (params.entry_source) effectiveSource = String(params.entry_source);
-  // Don't override models_page or models_*_free_chat with industry_ prefix
-  if (industry && !effectiveSource.startsWith('models_')) effectiveSource = `industry_${industry}`;
+  if (industry) effectiveSource = `industry_${industry}`;
 
   // Build selected_variants from preselected variant
   const selectedVariants: string[] = [];
@@ -799,10 +747,6 @@ function createDefaultSession(entrySource?: string, entryParams?: Record<string,
       action_tickets: [],
       payment_data: null,
       bill_summary: null,
-      // ── Pass variant info directly in context so buildSystemPrompt can use it ──
-      variant: preselectedVariant || null,
-      variant_id: params.variant_id ? String(params.variant_id) : (preselectedVariant || null),
-      variant_tier: params.variant_tier ? String(params.variant_tier) : null,
     },
     messages: [],
     message_count_today: 0,
@@ -822,51 +766,35 @@ function createDefaultSession(entrySource?: string, entryParams?: Record<string,
 // ── AI Response Handler ──────────────────────────────────────────
 
 async function getAIResponse(userMessage: string, session: any): Promise<string> {
+  // 1. Build system prompt with full knowledge
   const systemPrompt = buildSystemPrompt(session);
+
+  // 2. Build conversation history (last 10 messages for better context)
   const messages = [
     { role: 'system', content: systemPrompt },
   ];
   const recentMessages = session.messages.slice(-10);
   for (const msg of recentMessages) {
+    // Map 'jarvis' role to 'assistant' for AI API compatibility
     const role = msg.role === 'jarvis' ? 'assistant' : String(msg.role);
-    messages.push({
-      role,
-      content: String(msg.content),
-    });
+    messages.push({ role, content: String(msg.content) });
   }
   messages.push({ role: 'user', content: userMessage });
 
-  let aiReply = await callAI(messages);
+  // 3. Call AI with smart routing (z-ai SDK → Google → Cerebras → Groq → simple fallback)
+  const aiReply = await callAI(messages);
   if (aiReply) return aiReply;
 
-  // Fallback only when all AI providers fail
+  // 4. Simple fallback only when ALL AI providers fail
   return getKeywordResponse(userMessage, session);
 }
 
 // (forceBulletFormat, pickEmoji, isEmojiChar removed — AI responds naturally now)
 
-// ── Entry Context Builder (for AI welcome generation) ──────────
-
-function buildEntryContext(ctx: any): string {
-  const parts: string[] = [];
-  if (ctx.entry_source) parts.push(`Entry source: ${ctx.entry_source}`);
-  if (ctx.industry) parts.push(`Industry: ${ctx.industry}`);
-  if (ctx.variant) parts.push(`Variant: ${ctx.variant}`);
-  if (ctx.variant_id) parts.push(`Variant ID: ${ctx.variant_id}`);
-  const ep = ctx.entry_params || {};
-  if (ep.price) parts.push(`Price: $${ep.price}/mo`);
-  if (ep.best_for) parts.push(`Best for: ${ep.best_for}`);
-  if (ep.tagline) parts.push(`Tagline: ${ep.tagline}`);
-  if (ctx.roi_result) parts.push(`Has ROI calculation`);
-  if (ctx.pages_visited?.length > 0) parts.push(`Pages visited: ${ctx.pages_visited.join(', ')}`);
-  return parts.join('. ') || 'Direct visit';
-}
-
-// ── Keyword Fallback (Offline Safety Net) ────────────────────────
+// ── Simple Fallback (when all AI providers fail) ──────────────────
 
 function getKeywordResponse(message: string, session: any): string {
-  // Simple fallback when all AI providers fail.
-  // Keep it short — the AI should be generating responses, not us.
+  // Minimal fallback — the AI should be generating responses, not us.
   const ctx = session.context;
   const industry = ctx.industry || null;
 
@@ -934,19 +862,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { path } = await params;
   const endpoint = path.join('/');
 
-  // ── Read body ONCE at the top (Next.js 16 body-is-unusable fix) ──
-  // In Next.js 16, the request body can only be read ONCE.
-  // We read it here and reuse the parsed data and raw bytes throughout.
+  // Read body ONCE at the top (Next.js 16 body-is-unusable fix)
   let bodyData: any = null;
-  let rawBody: ArrayBuffer | undefined;
-
-  if (['POST', 'PATCH', 'PUT'].includes(request.method)) {
-    try {
-      rawBody = await request.arrayBuffer();
-      bodyData = JSON.parse(new TextDecoder().decode(rawBody));
-    } catch {
-      // No body or unparseable — that's okay for some endpoints
-    }
+  try {
+    bodyData = await request.json();
+  } catch {
+    // No body or unparseable — that's okay for some endpoints
   }
 
   try {
@@ -955,14 +876,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const body = bodyData || {};
       const session = createDefaultSession(body.entry_source, body.entry_params);
 
-      // Generate welcome message via AI instead of hardcoded
+      // Generate welcome message via AI (fallback to simple hardcoded if AI fails)
       let welcomeContent = '';
       try {
         const welcomePrompt = buildSystemPrompt(session);
         const entryContext = buildEntryContext(session.context);
         const aiMessages = [
           { role: 'system', content: welcomePrompt },
-          { role: 'user', content: `Generate a short, natural welcome message for this user. Context: ${entryContext}. Just introduce yourself as Jarvis and acknowledge their entry point. Keep it conversational, not sales-y.` },
+          { role: 'user', content: `Generate a short, natural welcome message for this user. Context: ${entryContext}. Just introduce yourself as Jarvis and acknowledge their entry point. Keep it conversational, not sales-y. 2-3 sentences max.` },
         ];
         const aiWelcome = await callAI(aiMessages);
         welcomeContent = aiWelcome || getContextAwareWelcome(session.context.entry_source, session.context);
@@ -987,15 +908,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // ── POST /message — Send Message & Get AI Reply ────────────
     if (endpoint === 'message') {
       // ── Try backend proxy first (LangGraph 13-stage pipeline + RAG + PostgreSQL) ──
-      const proxyResult = await proxyToBackend(request, path, rawBody);
+      const proxyResult = await proxyToBackend(request, path);
       console.log(`[Jarvis] Backend proxy ${proxyResult ? 'succeeded' : 'failed, using local fallback'}`);
       if (proxyResult) return proxyResult;
 
-      // ── Local fallback: in-memory handling (uses pre-read bodyData) ──
-      if (!bodyData) {
-        return NextResponse.json({ error: { code: 'bad_request', message: 'Invalid request body', details: null } }, { status: 400 });
-      }
-      const { content, session_id, context: incomingContext } = bodyData;
+      // ── Local fallback: in-memory handling ──
+      const body = await request.json();
+      const { content, session_id, context: incomingContext } = body;
 
       let session = session_id ? getSession(session_id) : undefined;
       if (!session) {
@@ -1100,7 +1019,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const body = bodyData || {};
+      const body = await request.json();
       const session = getSession(sessionId);
       session.context = { ...session.context, ...body };
       session.updated_at = new Date().toISOString();
@@ -1115,7 +1034,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!sessionId) {
         return NextResponse.json({ error: { code: 'bad_request', message: 'session_id required', details: null } }, { status: 400 });
       }
-      const body = bodyData || {};
+      const body = await request.json();
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       if (hasSession(sessionId)) {
         const session = getSession(sessionId);
@@ -1138,7 +1057,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const body = bodyData || {};
+      const body = await request.json();
       const session = getSession(sessionId);
       const otpData = session.context.otp;
       if (!otpData || otpData.code !== body.code) {
@@ -1208,7 +1127,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
       const session = getSession(sessionId);
-      const body = bodyData || {};
+      const body = await request.json();
 
       // Phase 10a: Enhanced itemized checkout
       const items: Array<{ name: string; quantity: number; unit_price: number; total: number }> = [];
@@ -1278,7 +1197,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!sessionId) {
         return NextResponse.json({ error: { code: 'bad_request', message: 'session_id required', details: null } }, { status: 400 });
       }
-      const body = bodyData || {};
+      const body = await request.json();
       // Phase 10e: Create action ticket for demo call
       let ticketId: string | undefined;
       if (sessionId && hasSession(sessionId)) {
@@ -1317,7 +1236,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // ── POST /context/entry — Update Entry Context ────────────
     if (endpoint === 'context/entry') {
-      const body = bodyData || {};
+      const body = await request.json();
       const { session_id, entry_source, entry_params } = body;
 
       if (!session_id || !hasSession(session_id)) {
@@ -1346,20 +1265,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         session.context.entry_params = { ...session.context.entry_params, ...params };
       }
 
-      // Generate context-aware welcome message via AI
-      let welcomeContent = '';
-      try {
-        const welcomePrompt = buildSystemPrompt(session);
-        const entryContext = buildEntryContext(session.context);
-        const aiMessages = [
-          { role: 'system', content: welcomePrompt },
-          { role: 'user', content: `The user just re-entered from a new context. Generate a short, natural re-welcome message. Context: ${entryContext}. Acknowledge their entry point naturally. Keep it conversational, not sales-y.` },
-        ];
-        const aiWelcome = await callAI(aiMessages);
-        welcomeContent = aiWelcome || getContextAwareWelcome(session.context.entry_source, session.context);
-      } catch {
-        welcomeContent = getContextAwareWelcome(session.context.entry_source, session.context);
-      }
+      // Phase 8b: Generate context-aware welcome message
+      const welcomeContent = getContextAwareWelcome(session.context.entry_source, session.context);
 
       const welcomeMsg = {
         id: `jarvis_entry_${Date.now()}`,
@@ -1378,7 +1285,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // ── POST /payment/webhook — Simulated Paddle Webhook ─────────
     if (endpoint === 'payment/webhook') {
-      const body = bodyData || {};
+      const body = await request.json();
       const { session_id, event_type, transaction_id } = body;
 
       if (!session_id || !hasSession(session_id)) {
@@ -1442,7 +1349,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // ── POST /tickets — Create Action Ticket ─────────────────────
     if (endpoint === 'tickets') {
-      const body = bodyData || {};
+      const body = await request.json();
       const { session_id, type, metadata } = body;
 
       if (!session_id || !hasSession(session_id)) {
@@ -1578,15 +1485,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const endpoint = path.join('/');
   const url = new URL(request.url);
 
-  // ── Read body ONCE at the top (Next.js 16 body-is-unusable fix) ──
-  let bodyData: any = null;
-  try {
-    const rawBody = await request.arrayBuffer();
-    bodyData = JSON.parse(new TextDecoder().decode(rawBody));
-  } catch {
-    // No body or unparseable — that's okay for some endpoints
-  }
-
   try {
     // ── PATCH /context ────────────────────────────────────────
     if (endpoint === 'context') {
@@ -1594,7 +1492,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const body = bodyData || {};
+      const body = await request.json();
       const session = getSession(sessionId)!;
       session.context = { ...session.context, ...body };
       session.updated_at = new Date().toISOString();
@@ -1610,7 +1508,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const body = bodyData || {};
+      const body = await request.json();
       const session = getSession(sessionId)!;
       const updated = updateActionTicket(session, ticketId, { status: body.status, metadata: body.metadata });
       if (!updated) {

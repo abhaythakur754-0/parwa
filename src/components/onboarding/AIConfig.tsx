@@ -220,7 +220,7 @@ export function AIConfig({ onComplete, initialConfig }: AIConfigProps) {
       <div className="flex justify-end">
         <Button
           onClick={handleActivate}
-          disabled={activating || activated || (prerequisites && !prerequisites.can_activate) || false}
+          disabled={activating || activated || (prerequisites && !prerequisites.can_activate)}
           size="lg"
         >
           {activating ? (

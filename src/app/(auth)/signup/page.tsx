@@ -15,11 +15,16 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
   const [alreadyLoggedIn, setAlreadyLoggedIn] = useState(false);
   const { hydrate, isAuthenticated } = useAuth();
 
   // Check if already logged in via context or localStorage
   useEffect(() => {
+    if (isAuthenticated) {
+      setAlreadyLoggedIn(true);
+      return;
+    }
     try {
       const storedUser = localStorage.getItem('parwa_user');
       if (storedUser) {
@@ -32,13 +37,7 @@ export default function SignupPage() {
     } catch {
       // ignore parse errors
     }
-  }, []);
-
-  // Separate effect: redirect if authenticated (avoid blocking the form)
-  useEffect(() => {
-    if (isAuthenticated) {
-      setAlreadyLoggedIn(true);
-    }
+    setIsChecking(false);
   }, [isAuthenticated]);
 
   const handleSignup = async (data: SignupFormData) => {
@@ -46,7 +45,6 @@ export default function SignupPage() {
     setIsSubmitting(true);
 
     try {
-      console.log('[Signup] Starting registration for:', data.email);
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -60,11 +58,9 @@ export default function SignupPage() {
       });
 
       const result = await res.json();
-      console.log('[Signup] Response:', res.status, result.status || 'no status');
 
       if (!res.ok) {
-        const errorMsg = result.message || result.detail || 'Registration failed. Please try again.';
-        throw new Error(errorMsg);
+        throw new Error(result.message || 'Registration failed. Please try again.');
       }
 
       toast.success('Account created successfully!');
@@ -82,13 +78,12 @@ export default function SignupPage() {
       }
 
       // Sync AuthContext state from localStorage
-      try { hydrate(); } catch (e) { console.warn('[Signup] hydrate failed:', e); }
+      hydrate();
 
-      // Redirect to onboarding
+      // Redirect to dashboard
       router.push('/onboarding');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Registration failed. Please try again.';
-      console.error('[Signup] Error:', message);
       setError(message);
       toast.error(message);
     } finally {
@@ -135,10 +130,13 @@ export default function SignupPage() {
 
   const handleCheckEmail = async (email: string): Promise<boolean> => {
     try {
-      const res = await fetch(`/api/auth/check-email?email=${encodeURIComponent(email)}`);
+      const res = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
       const data = await res.json();
-      // Backend returns { available: true } or { available: false, message: "..." }
-      return data.available === true;
+      return !data.exists;
     } catch {
       return false;
     }

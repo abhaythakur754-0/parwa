@@ -152,7 +152,7 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
     setError(null);
 
     try {
-      // ── Persistent session: try to resume existing session from localStorage ──
+      // ── Persistent Chat: Try to resume existing session first ──
       if (typeof window !== 'undefined') {
         try {
           const existingSessionId = localStorage.getItem('parwa_jarvis_session_id');
@@ -163,8 +163,10 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
                 sessionRef.current = existingSession.id;
                 setSession(existingSession);
 
-                // Load history
-                const history = await apiFetch<JarvisHistoryResponse>(`/history?session_id=${existingSession.id}&limit=100`);
+                // Load history from existing session
+                const history = await apiFetch<JarvisHistoryResponse>(
+                  `/history?session_id=${existingSession.id}&limit=100`,
+                );
                 setMessages(history.messages || []);
 
                 // Restore OTP state from context if present
@@ -181,7 +183,7 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
                 }
 
                 setIsLoading(false);
-                return; // Don't create a new session
+                return; // Session resumed — don't create new one
               }
             } catch {
               // Session expired or invalid — create new one
@@ -189,7 +191,7 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
             }
           }
         } catch {
-          // localStorage not available
+          // localStorage not available — continue to create new session
         }
       }
 

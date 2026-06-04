@@ -18,11 +18,6 @@ FROM python:3.11-slim AS runtime
 
 WORKDIR /app
 
-# Ensure Python can find both `app` and `shared` packages
-# shared/ sits at /app/shared/ (copied from backend/shared/)
-# Without this, `from shared.utils.datetime import ...` fails
-ENV PYTHONPATH=/app
-
 # Install runtime dependencies only
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \

@@ -11,7 +11,7 @@
 'use client';
 
 import { useCallback, useRef, useEffect, useState } from 'react';
-import { Send, ArrowUp, AlertCircle } from 'lucide-react';
+import { Send, ArrowUp, AlertCircle, Paperclip } from 'lucide-react';
 
 interface ChatInputProps {
   /** Send message callback */
@@ -41,6 +41,7 @@ export function ChatInput({
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sendingRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isDisabled = isTyping || isLoading || isLimitReached || !value.trim();
   const charCount = value.length;
@@ -96,6 +97,23 @@ export function ChatInput({
     });
   }, [value, isDisabled, isOverLimit, onSend]);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Read small text files directly and send as a document upload message
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        onSend(`[DOCUMENT_UPLOAD]: ${file.name}\n\nContent:\n${content.slice(0, 5000)}`);
+      }
+    };
+    reader.readAsText(file);
+    // Reset input so the same file can be re-attached
+    e.target.value = '';
+  };
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       // Enter to send (without Shift)
@@ -133,6 +151,25 @@ export function ChatInput({
 
         {/* Input row */}
         <div className="flex items-end gap-3">
+          {/* Hidden file input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
+            accept=".txt,.json,.md,.csv"
+          />
+
+          {/* Attachment Button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isTyping || isLoading || isLimitReached}
+            className="mb-2 w-10 h-10 rounded-xl flex items-center justify-center bg-white/[0.04] border border-white/10 text-white/40 hover:text-white hover:bg-white/[0.08] transition-all disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+            title="Attach document"
+          >
+            <Paperclip className="w-5 h-5" />
+          </button>
+
           <div className="flex-1 relative group">
             <textarea
               ref={textareaRef}
@@ -141,10 +178,10 @@ export function ChatInput({
               onKeyDown={handleKeyDown}
               placeholder={
                 isLoading
-                  ? 'Connecting...'
+                  ? 'Connecting to Jarvis...'
                   : isLimitReached
-                    ? 'Taking a break — back soon!'
-                    : 'Say something...'
+                    ? 'Daily limit reached'
+                    : 'Message Jarvis...'
               }
               disabled={isTyping || isLoading || isLimitReached}
               rows={1}
@@ -196,8 +233,12 @@ export function ChatInput({
           </div>
         </div>
 
-        {/* Remaining messages hint */}
-        <div className="flex items-center justify-end mt-1.5 px-1">
+        {/* Footer hint */}
+        <div className="flex items-center justify-between mt-1.5 px-1">
+          <p className="text-[10px] text-white/20">
+            Press Enter to send · Shift+Enter for new line
+          </p>
+
           {!isLimitReached && remainingToday > 0 && (
             <p className="text-[10px] text-white/20">
               {remainingToday} message{remainingToday !== 1 ? 's' : ''} remaining today

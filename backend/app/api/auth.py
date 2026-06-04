@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.schemas.auth import (
     AuthResponse,
+    EmailCheckResponse,
     GoogleAuthRequest,
     LoginRequest,
     MessageResponse,
@@ -83,29 +84,20 @@ router = APIRouter(prefix="/api/auth", tags=["Auth"])
 # ── Public Endpoints ───────────────────────────────────────────────
 
 
-@router.get("/check-email")
+@router.get("/check-email", response_model=EmailCheckResponse)
 def check_email(
     email: str = Query(..., min_length=1, max_length=254),
     db: Session = Depends(get_db),
-) -> dict:
+) -> EmailCheckResponse:
     """Check if an email is available for registration.
 
     L04: F-010 spec requires email availability check.
     Rate limited by middleware (20/IP/min).
-
-    Returns actual availability so the frontend can show UX
-    feedback before form submission. Anti-enumeration is handled
-    by rate limiting at the middleware level.
+    M-27 FIX: Always returns the same generic response regardless
+    of whether the email exists, preventing user enumeration.
     """
-    available = check_email_availability(db=db, email=email)
-
-    if available:
-        return {"available": True}
-    else:
-        return {
-            "available": False,
-            "message": "This email is already registered.",
-        }
+    # Always return the same response — do not reveal email existence
+    return EmailCheckResponse()
 
 
 @router.post(
@@ -427,21 +419,21 @@ def _set_token_cookies(
     """
     secure = _should_use_secure_cookies()
     response.set_cookie(
-        key="parwa_at",
+        key="parwa_access",
         value=tokens.access_token,
         max_age=tokens.expires_in,
         httponly=True,
         secure=secure,
-        samesite="lax",
+        samesite="strict",
         path="/",
     )
     response.set_cookie(
-        key="parwa_rt",
+        key="parwa_refresh",
         value=tokens.refresh_token,
         max_age=7 * 24 * 60 * 60,  # 7 days
         httponly=True,
         secure=secure,
-        samesite="lax",
+        samesite="strict",
         path="/",
     )
 
@@ -449,8 +441,8 @@ def _set_token_cookies(
 def _clear_token_cookies(response: Response) -> None:
     """L12: Clear auth cookies on logout."""
     response.delete_cookie(
-        key="parwa_at", path="/"
+        key="parwa_access", path="/"
     )
     response.delete_cookie(
-        key="parwa_rt", path="/"
+        key="parwa_refresh", path="/"
     )

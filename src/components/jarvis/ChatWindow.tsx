@@ -13,6 +13,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { MessageSquare } from 'lucide-react';
 import type { JarvisMessage, JarvisContext } from '@/types/jarvis';
 import { ChatMessage } from './ChatMessage';
 import { TypingIndicator } from './TypingIndicator';
@@ -84,14 +85,92 @@ const INDUSTRY_LABELS: Record<string, string> = {
   legal: 'legal',
 };
 
-/** Build a simple welcome message — the AI generates the real one, this is just a fallback for the empty state. */
+/** Build a context-aware welcome message combining ROI data and page-visit context. */
 function getWelcomeMessage(
   ctx?: JarvisContext | null,
   roiCtx?: RoiContext | null,
 ): { heading: string; body: string } {
+  const entrySource = ctx?.entry_source;
+  const pagesVisited = ctx?.pages_visited || [];
+
+  // ── Priority 1: ROI-aware messages (from localStorage parwa_jarvis_context) ──
+  if (roiCtx) {
+    const hasRoi = roiCtx.roi_result != null;
+    const industry = roiCtx.industry
+      ? INDUSTRY_LABELS[roiCtx.industry] || roiCtx.industry
+      : null;
+    const variant = roiCtx.variant || null;
+
+    if (hasRoi && industry) {
+      return {
+        heading: `Great news for your ${industry} business! 📊`,
+        body: `Based on your ROI calculation, you could save significantly. Your selected ${variant ? `"${variant}" ` : ''}plan looks like a great fit. Want me to walk you through the details?`,
+      };
+    }
+    if (hasRoi && !industry) {
+      return {
+        heading: 'Your ROI results are in! 📊',
+        body: `I see you ran the ROI calculator — looks promising! Want to explore the right plan to make those savings a reality?`,
+      };
+    }
+    if (!hasRoi && industry) {
+      return {
+        heading: `${industry.charAt(0).toUpperCase() + industry.slice(1)} solutions 🏢`,
+        body: `I see you're exploring PARWA for ${industry}. Want to see how our AI agents can help your business grow?`,
+      };
+    }
+    if (variant) {
+      return {
+        heading: `${variant} — great choice! ✨`,
+        body: `I see you were checking out the "${variant}" plan. Want me to break down what's included and get you started?`,
+      };
+    }
+  }
+
+  // ── Priority 2: entry_source specific messages ──
+  if (entrySource === 'pricing') {
+    return {
+      heading: 'Pricing questions? I can help! 💰',
+      body: "I see you were exploring our pricing! Ready to find the right plan for your business?",
+    };
+  }
+  if (entrySource === 'roi') {
+    return {
+      heading: 'Welcome back! 📊',
+      body: "I see you've been checking out our ROI calculator. Want to see how PARWA can save you money?",
+    };
+  }
+  if (entrySource === 'features' || entrySource === 'models') {
+    return {
+      heading: 'Explore our AI models! 🤖',
+      body: "I see you were browsing our AI models. Which ones caught your eye?",
+    };
+  }
+
+  // ── Priority 3: pages_visited awareness ──
+  if (pagesVisited.includes('pricing_page')) {
+    return {
+      heading: 'Hey there! 👋',
+      body: "Welcome! I see you've been looking at our pricing. I can help you pick the perfect plan.",
+    };
+  }
+  if (pagesVisited.includes('roi_calculator')) {
+    return {
+      heading: 'Hey there! 👋',
+      body: "Welcome! I see you've been using our ROI calculator. Ready to see PARWA in action?",
+    };
+  }
+  if (pagesVisited.includes('models_page')) {
+    return {
+      heading: 'Hey there! 👋',
+      body: "Welcome! I see you were browsing our AI models. I'd love to help you find the right fit.",
+    };
+  }
+
+  // ── Default / direct / onboarding ──
   return {
-    heading: 'Jarvis',
-    body: "Hey! I'm Jarvis — your control center here. You can control everything just by typing, that's easy.",
+    heading: "Hey there! 👋",
+    body: "I'm Jarvis, your AI assistant from PARWA. I'll help you find the perfect AI agents for your business. What brings you here today?",
   };
 }
 
@@ -139,18 +218,15 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hoo
           {/* Empty state */}
           {isEmpty && (
             <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center animate-fade-in">
-              {/* Personal avatar */}
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center mb-4 shadow-lg shadow-orange-500/20">
-                <span className="text-white font-bold text-2xl">J</span>
+              {/* Decorative icon */}
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500/10 to-orange-600/10 border border-orange-500/15 flex items-center justify-center mb-4">
+                <MessageSquare className="w-8 h-8 text-orange-400/50" />
               </div>
 
-              <h3 className="text-lg font-semibold text-white/80 mb-0.5">
-                Jarvis
+              <h3 className="text-base font-medium text-white/60 mb-1">
+                {welcome.heading}
               </h3>
-              <p className="text-xs text-white/30 mb-3">
-                Your control center
-              </p>
-              <p className="text-sm text-white/40 max-w-xs leading-relaxed">
+              <p className="text-sm text-white/30 max-w-xs leading-relaxed">
                 {welcome.body}
               </p>
 
@@ -165,7 +241,7 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hoo
 
           {/* Message list */}
           {!isEmpty && (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1">
               {messages.map((msg, idx) => (
                 <ChatMessage
                   key={msg.id || `msg-${idx}`}
@@ -205,8 +281,8 @@ function QuickSuggestion({ text, onClick }: { text: string; onClick?: (text: str
 
 /** Starter suggestions shown in the empty state */
 const SUGGESTIONS = [
-  'What can you do?',
-  'Show me the pricing plans',
-  'How much can I save?',
-  'Give me a live demo!',
+  '💡 What is PARWA?',
+  '💰 Show me pricing',
+  '🛒 How it works for e-commerce?',
+  '🚀 Help me get started',
 ] as const;

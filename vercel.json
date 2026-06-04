@@ -1,13 +1,14 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npm install && npm run build",
   "devCommand": "npm run dev",
-  "installCommand": "npm install --legacy-peer-deps",
+  "installCommand": "npm install",
   "framework": "nextjs",
   "outputDirectory": ".next",
   "regions": ["iad1"],
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://parwa-backend.onrender.com",
-    "NEXTAUTH_URL": "https://parwa.buzz"
+    "NEXT_PUBLIC_API_URL": "@parwa-backend-url",
+    "NEXTAUTH_SECRET": "@nextauth-secret",
+    "NEXTAUTH_URL": "@vercel-url"
   },
   "headers": [
     {

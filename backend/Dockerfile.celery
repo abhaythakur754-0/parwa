@@ -2,9 +2,6 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Ensure Python can find both `app` and `shared` packages
-ENV PYTHONPATH=/app
-
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/jwt';
+import { verifyToken, getAccessTokenFromCookies } from '@/lib/jwt';
 
 /**
  * POST /api/chat — Jarvis AI Chat Endpoint
@@ -167,17 +167,6 @@ async function getAIResponse(messages: ChatMessage[]): Promise<string | null> {
 }
 
 export async function POST(req: NextRequest) {
-  // ── Read body ONCE at the top (Next.js 16 body-is-unusable fix) ──
-  // In Next.js 16, the request body can only be read ONCE.
-  // We must read it before any other body-consuming operations.
-  let bodyData: { message?: string; industry?: string; variant?: string } | null = null;
-  try {
-    const rawBody = await req.arrayBuffer();
-    bodyData = JSON.parse(new TextDecoder().decode(rawBody));
-  } catch {
-    // No body or unparseable
-  }
-
   // ── H-18 FIX: Verify authentication ──
   const authHeader = req.headers.get("authorization");
   let token: string | null = null;
@@ -186,17 +175,7 @@ export async function POST(req: NextRequest) {
     token = authHeader.slice(7);
   }
   if (!token) {
-    // Try reading from cookie
-    const cookieHeader = req.headers.get('cookie');
-    if (cookieHeader) {
-      const cookies = Object.fromEntries(
-        cookieHeader.split(';').map(c => {
-          const [k, ...v] = c.trim().split('=');
-          return [k, v.join('=')];
-        })
-      );
-      token = cookies['parwa_at'] || null;
-    }
+    token = getAccessTokenFromCookies(req);
   }
 
   if (!token) {
@@ -215,7 +194,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { message, industry, variant } = bodyData || {};
+    const { message, industry, variant } = await req.json();
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return NextResponse.json(

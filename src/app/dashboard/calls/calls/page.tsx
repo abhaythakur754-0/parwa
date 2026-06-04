@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * PARWA Calls Dashboard Page
  *
@@ -189,7 +187,7 @@ export default function CallsDashboardPage() {
               {activeCalls.map((call) => (
                 <ActiveCallCard
                   key={call.id}
-                  call={call as any}
+                  call={call}
                   onEnd={handleEndCall}
                   onTransfer={handleTransferClick}
                   onClick={handleCallClick}
@@ -253,7 +251,7 @@ export default function CallsDashboardPage() {
                     callHistory.map((call) => (
                       <CallHistoryRow
                         key={call.id}
-                        call={call as any}
+                        call={call}
                         onClick={handleCallClick}
                       />
                     ))

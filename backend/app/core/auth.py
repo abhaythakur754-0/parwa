@@ -53,28 +53,21 @@ if _raw_previous:
 
 # H3 fix: pepper for refresh-token hashing — prevents rainbow-table
 # attacks even if the DB is leaked.
-# SHOULD be set via the REFRESH_TOKEN_PEPPER env-var.
-# In production, warns loudly if not set but does NOT crash the app
-# (consistent with how SECRET_KEY, JWT_SECRET_KEY, etc. are handled).
+# MUST be set via the REFRESH_TOKEN_PEPPER env-var.
+# In production, this will raise an error if not set.
 _REFRESH_TOKEN_PEPPER = os.environ.get("REFRESH_TOKEN_PEPPER", "")
 if not _REFRESH_TOKEN_PEPPER:
-    # Generate a stable default so the app can start
-    _REFRESH_TOKEN_PEPPER = "parwa_default_rtp_2026_change_me_in_prod!"
     if os.environ.get("ENVIRONMENT") == "production":
-        logger.warning(
-            "REFRESH_TOKEN_PEPPER is not set — using insecure default in "
-            "production! This weakens refresh-token hashing. Generate a "
-            "strong random value with: python -c 'import secrets; "
-            "print(secrets.token_urlsafe(32))' and set REFRESH_TOKEN_PEPPER "
-            "in your environment variables."
+        raise RuntimeError(
+            "REFRESH_TOKEN_PEPPER environment variable is required in "
+            "production. Generate a strong random value with: "
+            "python -c \"import secrets; print(secrets.token_urlsafe(32))\""
         )
-    else:
-        logger.warning(
-            "REFRESH_TOKEN_PEPPER is not set — using insecure default. "
-            "Set REFRESH_TOKEN_PEPPER for all environments. "
-            "Generate one with: python -c 'import secrets; "
-            "print(secrets.token_urlsafe(32))'"
-        )
+    logger.warning(
+        "REFRESH_TOKEN_PEPPER is not set — refresh tokens will lack pepper "
+        "hardening. Set REFRESH_TOKEN_PEPPER for all environments. "
+        "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+    )
 
 
 # ── Week 6: RS256 Key Loading ────────────────────────────────────

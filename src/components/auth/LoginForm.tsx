@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Eye, EyeOff, Loader2, Mail, Lock } from 'lucide-react';
-import Link from 'next/link';
+import { useAppStore } from '@/lib/store';
 
 interface LoginFormProps {
   onSubmit: (email: string, password: string) => Promise<void>;
@@ -21,6 +21,7 @@ export function LoginForm({ onSubmit, isLoading = false, error }: LoginFormProps
   const [showPassword, setShowPassword] = useState(false);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useAppStore((s) => s.navigate);
 
   const validateEmail = (value: string): string | undefined => {
     if (!value) return 'Email is required';
@@ -94,9 +95,9 @@ export function LoginForm({ onSubmit, isLoading = false, error }: LoginFormProps
           <label htmlFor="password" className="block text-sm font-medium text-orange-200/70">
             Password
           </label>
-          <Link href="/forgot-password" className="text-sm text-orange-400 hover:text-orange-300 transition-colors">
+          <button onClick={() => navigate('landing')} className="text-sm text-orange-400 hover:text-orange-300 transition-colors">
             Forgot password?
-          </Link>
+          </button>
         </div>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -156,9 +157,9 @@ export function LoginForm({ onSubmit, isLoading = false, error }: LoginFormProps
       {/* Sign Up Link */}
       <p className="text-center text-sm text-orange-200/40">
         Don&apos;t have an account?{' '}
-        <Link href="/signup" className="text-orange-400 hover:text-orange-300 font-medium transition-colors">
+        <button onClick={() => navigate('signup')} className="text-orange-400 hover:text-orange-300 font-medium transition-colors">
           Sign up
-        </Link>
+        </button>
       </p>
     </form>
   );

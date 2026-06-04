@@ -296,7 +296,7 @@ export function IntegrationSetup({ onComplete }: IntegrationSetupProps) {
               <Button
                 variant="outline"
                 onClick={handleTest}
-                disabled={!!testing}
+                disabled={testing}
               >
                 {testing ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -111,14 +111,6 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
-      - key: PADDLE_API_KEY
-        sync: false
-      - key: PADDLE_CLIENT_TOKEN
-        sync: false
-      - key: PADDLE_WEBHOOK_SECRET
-        sync: false
-      - key: PADDLE_PRICE_IDS
-        sync: false
       - key: DATA_ENCRYPTION_KEY
         sync: false
       - key: JWT_SECRET_KEY

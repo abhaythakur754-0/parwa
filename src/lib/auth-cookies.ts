@@ -10,7 +10,7 @@ const COOKIE_OPTIONS = {
   path: "/",
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const,
+  sameSite: process.env.NODE_ENV === "production" ? ("strict" as const) : ("lax" as const),
   maxAge: 15 * 60, // 15 minutes for access token
 };
 
@@ -18,7 +18,7 @@ const REFRESH_COOKIE_OPTIONS = {
   path: "/",
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const,
+  sameSite: process.env.NODE_ENV === "production" ? ("strict" as const) : ("lax" as const),
   maxAge: 7 * 24 * 60 * 60, // 7 days for refresh token
 };
 
@@ -40,7 +40,7 @@ export function setAuthCookies(
     path: "/",
     httpOnly: false,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax" as const,
+    sameSite: process.env.NODE_ENV === "production" ? ("strict" as const) : ("lax" as const),
     maxAge: 7 * 24 * 60 * 60,
   });
 

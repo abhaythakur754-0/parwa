@@ -88,11 +88,27 @@ async function ensureCsrfToken(): Promise<string> {
 }
 
 apiClient.interceptors.request.use(async (config) => {
-  // NOTE: CSRF tokens are NOT attached here because this axios client
-  // calls the backend DIRECTLY (causes CORS issues in production).
-  // The signup/login pages use fetch('/api/auth/...') instead, which
-  // goes through the Next.js proxy route that handles CSRF automatically.
-  // If you need CSRF for direct backend calls, use the proxy routes.
+  // Only attach CSRF token for mutating methods (POST, PUT, PATCH, DELETE)
+  const method = (config.method || 'get').toUpperCase();
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    // Try to get CSRF token from cookie first (fast path)
+    let csrfToken = '';
+    if (typeof document !== 'undefined') {
+      const csrfCookie = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('parwa_csrf='));
+      if (csrfCookie) {
+        csrfToken = csrfCookie.split('=')[1];
+      }
+    }
+    // If not found in cookies, fetch it from backend
+    if (!csrfToken) {
+      csrfToken = await ensureCsrfToken();
+    }
+    if (csrfToken) {
+      config.headers['x-csrf-token'] = csrfToken;
+    }
+  }
   return config;
 });
 

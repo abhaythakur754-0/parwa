@@ -343,21 +343,6 @@ export default function ModelsPage() {
           high: 'parwa_high',
         };
         context.variant_tier = tierMap[v.id] || 'mini_parwa';
-        // ── Rich variant context so Jarvis knows exactly what the user saw ──
-        context.price = isAnnual ? v.annualPrice : v.monthlyPrice;
-        context.billing_cycle = isAnnual ? 'annual' : 'monthly';
-        context.tagline = v.tagline;
-        context.scenario = v.scenario;
-        context.roi = v.roi;
-        context.best_for = v.bestFor;
-        context.tickets_per_month = v.ticketsPerMonth;
-        context.integrations = v.integrations;
-        context.unique_features = v.uniqueFeatures;
-        context.key_advantage = v.keyAdvantage;
-        context.smart_decisions = v.smartDecisions;
-        context.core_capability = v.coreCapability;
-        context.core_limitation = v.coreLimitation;
-        context.human_cost_replaced = v.avgHumanCostPerMonth;
       }
     }
     if (typeof window !== 'undefined') {

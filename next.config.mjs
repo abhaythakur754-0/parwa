@@ -23,8 +23,9 @@ const nextConfig = {
       },
     ];
   },
-  // Turbopack config for Next.js 16 (required for build)
-  turbopack: {},
+  // Turbopack disabled — causes panics on Windows with large projects
+  // Re-enable with: turbopack: {}, and run: next dev --turbopack
+  // turbopack: {},
 
   // ── M-26 FIX: Security headers on all responses ──
   async headers() {
@@ -61,7 +62,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https: *.googleusercontent.com",
-              "connect-src 'self' https://parwa-backend.onrender.com https://generativelanguage.googleapis.com https://api.cerebras.ai https://api.groq.com",
+              "connect-src 'self' https://generativelanguage.googleapis.com https://api.cerebras.ai https://api.groq.com",
               "frame-src https://accounts.google.com",
               "object-src 'none'",
               "base-uri 'self'",
