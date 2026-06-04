@@ -33,6 +33,8 @@ const PUBLIC_PATHS = [
   "/about",
   "/roi-calculator",
   "/models",
+  "/jarvis",
+  "/onboarding",
   "/api/auth",
   "/api/health",
   "/api/demo",
