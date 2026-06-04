@@ -227,10 +227,17 @@ class CSRFSecurityMiddleware:
         )
 
         # ── Validate Origin / Referer ──
+        # Also check x-proxy-origin header (Node.js fetch may strip Origin header)
         try:
             origin = request_headers.get(
                 "origin", "",
             )
+            # Fallback: check custom proxy origin header (Node.js fetch
+            # strips 'Origin' as a forbidden header per Fetch spec)
+            if not origin:
+                origin = request_headers.get(
+                    "x-proxy-origin", "",
+                )
             referer = request_headers.get(
                 "referer", "",
             )
@@ -271,6 +278,12 @@ class CSRFSecurityMiddleware:
                 csrf_token = self._extract_cookie(
                     cookie_header, _CSRF_COOKIE_NAME,
                 )
+                # Fallback: check x-csrf-cookie header (Node.js fetch
+                # strips Cookie as a forbidden header)
+                if not csrf_token:
+                    csrf_token = request_headers.get(
+                        "x-csrf-cookie", "",
+                    )
                 csrf_header = request_headers.get(
                     "x-csrf-token", "",
                 )

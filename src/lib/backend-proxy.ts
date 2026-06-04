@@ -210,18 +210,22 @@ export async function proxyAuthRequest(
   const csrfToken = generateCSRFToken();
 
   // Build headers
+  // NOTE: Node.js fetch() may strip 'Origin' and 'Cookie' as "forbidden headers"
+  // per the Fetch spec. We use custom 'x-proxy-*' headers as fallbacks.
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    // Set Origin for CSRF Layer 1 validation
+    // Set Origin (may be stripped by Node.js fetch, but try anyway)
     'Origin': PROXY_ORIGIN,
-    // CSRF double-submit: cookie + header must match
-    'X-CSRF-Token': csrfToken,
+    // Custom proxy headers that Node.js fetch won't strip
+    'x-proxy-origin': PROXY_ORIGIN,
+    'x-csrf-token': csrfToken,
+    'x-csrf-cookie': csrfToken,
     'Cookie': `parwa_csrf=${csrfToken}`,
     // Trusted proxy auth — backend skips CSRF checks when this matches
     'x-proxy-auth': PROXY_AUTH_SECRET,
   };
 
-  // Debug: log proxy details (remove after fixing CSRF issues)
+  // Debug: log proxy details
   console.log('[ProxyAuth]', options.method, options.backendPath, 'origin=', PROXY_ORIGIN, 'proxy_auth_len=', PROXY_AUTH_SECRET.length);
 
   // Forward Bearer token if requested
