@@ -13,7 +13,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { MessageSquare } from 'lucide-react';
 import type { JarvisMessage, JarvisContext } from '@/types/jarvis';
 import { ChatMessage } from './ChatMessage';
 import { TypingIndicator } from './TypingIndicator';
@@ -170,7 +169,7 @@ function getWelcomeMessage(
   // ── Default / direct / onboarding ──
   return {
     heading: "Hey there! 👋",
-    body: "I'm Jarvis, your AI assistant from PARWA. I'll help you find the perfect AI agents for your business. What brings you here today?",
+    body: "I'm Jarvis from PARWA — think of me as your teammate, not a chatbot. I'll help you find the right AI agents for your business. What's on your mind?",
   };
 }
 
@@ -218,15 +217,18 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hoo
           {/* Empty state */}
           {isEmpty && (
             <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center animate-fade-in">
-              {/* Decorative icon */}
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500/10 to-orange-600/10 border border-orange-500/15 flex items-center justify-center mb-4">
-                <MessageSquare className="w-8 h-8 text-orange-400/50" />
+              {/* Personal avatar */}
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center mb-4 shadow-lg shadow-orange-500/20">
+                <span className="text-white font-bold text-2xl">J</span>
               </div>
 
-              <h3 className="text-base font-medium text-white/60 mb-1">
-                {welcome.heading}
+              <h3 className="text-lg font-semibold text-white/80 mb-0.5">
+                Jarvis
               </h3>
-              <p className="text-sm text-white/30 max-w-xs leading-relaxed">
+              <p className="text-xs text-white/30 mb-3">
+                Your PARWA teammate
+              </p>
+              <p className="text-sm text-white/40 max-w-xs leading-relaxed">
                 {welcome.body}
               </p>
 
@@ -241,7 +243,7 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hoo
 
           {/* Message list */}
           {!isEmpty && (
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
               {messages.map((msg, idx) => (
                 <ChatMessage
                   key={msg.id || `msg-${idx}`}
@@ -281,8 +283,8 @@ function QuickSuggestion({ text, onClick }: { text: string; onClick?: (text: str
 
 /** Starter suggestions shown in the empty state */
 const SUGGESTIONS = [
-  '💡 What is PARWA?',
-  '💰 Show me pricing',
-  '🛒 How it works for e-commerce?',
-  '🚀 Help me get started',
+  'Hey, what exactly does PARWA do?',
+  'I run a business, how can PARWA help?',
+  'Show me the pricing plans',
+  'I want to try it out!',
 ] as const;

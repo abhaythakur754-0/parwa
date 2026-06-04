@@ -33,7 +33,7 @@ export function OnboardingJarvisMessage({ message }: Props) {
           {renderCardContent(message_type, metadata)}
           {/* Also render text content if present alongside card */}
           {content && (message_type as string) !== 'text' && (
-            <div className="bg-gray-800 rounded-2xl rounded-tl-sm px-4 py-3 mb-2">
+            <div className="bg-white/[0.06] border-l-2 border-emerald-500/30 rounded-2xl px-4 py-3 mb-2">
               <p className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap">{content}</p>
             </div>
           )}
@@ -46,7 +46,7 @@ export function OnboardingJarvisMessage({ message }: Props) {
   if (role === 'user') {
     return (
       <div className="flex justify-end">
-        <div className="bg-emerald-600/90 rounded-2xl rounded-tr-sm px-4 py-3 max-w-[80%]">
+        <div className="bg-gradient-to-br from-emerald-600/90 to-emerald-700/90 rounded-2xl px-4 py-3 max-w-[80%]">
           <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">{content}</p>
         </div>
       </div>
@@ -65,10 +65,10 @@ export function OnboardingJarvisMessage({ message }: Props) {
   // Jarvis text message (default)
   return (
     <div className="flex justify-start gap-2">
-      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-xs flex-shrink-0 mt-1">
-        🤖
+      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shrink-0 text-white font-bold text-xs shadow-sm shadow-emerald-500/20 mt-1">
+        J
       </div>
-      <div className="bg-gray-800 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[80%]">
+      <div className="bg-white/[0.06] border-l-2 border-emerald-500/30 rounded-2xl px-4 py-3 max-w-[80%]">
         <p className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap">{content}</p>
       </div>
     </div>
