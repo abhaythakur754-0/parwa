@@ -138,9 +138,18 @@ class RefreshRequest(BaseModel):
 
 
 class GoogleAuthRequest(BaseModel):
-    """Google OAuth sign-in request."""
+    """Google OAuth sign-in request.
 
-    id_token: str = Field(min_length=1)
+    Accepts either a Google ID token (JWT from One Tap) or
+    a Google access token (from OAuth2 popup fallback).
+    """
+
+    id_token: str = Field(default="", min_length=0)
+    access_token: str = Field(default="", min_length=0)
+
+    @property
+    def has_token(self) -> bool:
+        return bool(self.id_token.strip() or self.access_token.strip())
 
 
 # ── Response Schemas ───────────────────────────────────────────────

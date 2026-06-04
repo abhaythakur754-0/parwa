@@ -17,6 +17,12 @@ import {
   Trash2,
   Plus,
   Check,
+  Plug,
+  TestTube,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  ExternalLink,
 } from 'lucide-react';
 
 // ── API Base ────────────────────────────────────────────────────────────
@@ -122,6 +128,211 @@ export default function SettingsPage() {
   const [creatingKey, setCreatingKey] = useState(false);
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
   const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null);
+
+  // ── Integrations State ────────────────────────────────────────────
+  interface IntegrationItem {
+    id: string;
+    type: string;
+    name: string;
+    status: string;
+    config: Record<string, string>;
+  }
+
+  const [integrations, setIntegrations] = useState<IntegrationItem[]>([]);
+  const [integrationsLoading, setIntegrationsLoading] = useState(true);
+  const [addingIntegration, setAddingIntegration] = useState<string | null>(null);
+  const [integrationForm, setIntegrationForm] = useState<Record<string, string>>({});
+  const [integrationName, setIntegrationName] = useState('');
+  const [integrationTesting, setIntegrationTesting] = useState(false);
+  const [integrationSaving, setIntegrationSaving] = useState(false);
+  const [integrationTestResult, setIntegrationTestResult] = useState<boolean | null>(null);
+  const [integrationError, setIntegrationError] = useState<string | null>(null);
+
+  const INTEGRATION_CATALOG: Array<{
+    type: string;
+    name: string;
+    description: string;
+    icon: string;
+    fields: Array<{ key: string; label: string; placeholder: string; type?: string }>;
+  }> = [
+    {
+      type: 'shopify',
+      name: 'Shopify',
+      description: 'Connect your Shopify store for order lookup, product search, refunds, and tracking.',
+      icon: 'S',
+      fields: [
+        { key: 'shop_domain', label: 'Shop Domain', placeholder: 'your-store.myshopify.com' },
+        { key: 'access_token', label: 'Access Token', placeholder: 'shpat_xxx', type: 'password' },
+      ],
+    },
+    {
+      type: 'zendesk',
+      name: 'Zendesk',
+      description: 'Connect your Zendesk support center for unified ticket management.',
+      icon: 'Z',
+      fields: [
+        { key: 'subdomain', label: 'Subdomain', placeholder: 'your-company' },
+        { key: 'email', label: 'Email', placeholder: 'admin@company.com' },
+        { key: 'api_token', label: 'API Token', placeholder: 'zendesk_api_token', type: 'password' },
+      ],
+    },
+    {
+      type: 'slack',
+      name: 'Slack',
+      description: 'Receive real-time alerts and manage tickets from Slack.',
+      icon: 'Sl',
+      fields: [
+        { key: 'bot_token', label: 'Bot Token', placeholder: 'xoxb-xxx', type: 'password' },
+        { key: 'channel_id', label: 'Channel ID', placeholder: 'C01ABCDEF' },
+      ],
+    },
+    {
+      type: 'gmail',
+      name: 'Gmail',
+      description: 'Sync email conversations and auto-respond via AI.',
+      icon: 'G',
+      fields: [
+        { key: 'client_id', label: 'Client ID', placeholder: 'xxx.apps.googleusercontent.com' },
+        { key: 'client_secret', label: 'Client Secret', placeholder: 'GOCSPX-xxx', type: 'password' },
+        { key: 'refresh_token', label: 'Refresh Token', placeholder: '1//xxx', type: 'password' },
+      ],
+    },
+  ];
+
+  // Load integrations on mount
+  useEffect(() => {
+    const fetchIntegrations = async () => {
+      setIntegrationsLoading(true);
+      try {
+        const res = await fetch(`${API_BASE}/api/integrations`, { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setIntegrations(
+              data.map((i: any) => ({
+                id: i.id,
+                type: i.type,
+                name: i.name,
+                status: i.status,
+                config: i.config || {},
+              }))
+            );
+          }
+        }
+      } catch {
+        // Backend unavailable — keep empty list
+      } finally {
+        setIntegrationsLoading(false);
+      }
+    };
+    fetchIntegrations();
+  }, []);
+
+  const handleTestIntegration = async () => {
+    if (!addingIntegration) return;
+    setIntegrationTesting(true);
+    setIntegrationError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/integrations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          integration_type: addingIntegration,
+          name: integrationName,
+          config: integrationForm,
+          validate: true,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'active') {
+        setIntegrationTestResult(true);
+      } else {
+        setIntegrationTestResult(false);
+        setIntegrationError(data.error_message || data.detail || 'Connection test failed');
+      }
+    } catch {
+      setIntegrationTestResult(false);
+      setIntegrationError('Connection test failed — backend unavailable');
+    } finally {
+      setIntegrationTesting(false);
+    }
+  };
+
+  const handleSaveIntegration = async () => {
+    if (!addingIntegration) return;
+    setIntegrationSaving(true);
+    setIntegrationError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/integrations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          integration_type: addingIntegration,
+          name: integrationName,
+          config: integrationForm,
+          validate: true,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIntegrations((prev) => [
+          ...prev,
+          {
+            id: data.id,
+            type: addingIntegration,
+            name: data.name || integrationName,
+            status: data.status || 'active',
+            config: integrationForm,
+          },
+        ]);
+        setAddingIntegration(null);
+        setIntegrationForm({});
+        setIntegrationName('');
+        setIntegrationTestResult(null);
+        toast.success('Integration saved successfully');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setIntegrationError(data?.detail || data?.error?.message || 'Failed to save integration');
+      }
+    } catch {
+      setIntegrationError('Failed to save integration — backend unavailable');
+    } finally {
+      setIntegrationSaving(false);
+    }
+  };
+
+  const handleDeleteIntegration = async (id: string) => {
+    try {
+      await fetch(`${API_BASE}/api/integrations/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      }).catch(() => {});
+      setIntegrations((prev) => prev.filter((i) => i.id !== id));
+      toast.success('Integration removed');
+    } catch {
+      toast.error('Failed to remove integration');
+    }
+  };
+
+  const handleRetestIntegration = async (id: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/integrations/${id}/test`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIntegrations((prev) =>
+          prev.map((i) => (i.id === id ? { ...i, status: data.status || i.status } : i))
+        );
+        toast.success(data.success ? 'Connection test passed' : 'Connection test failed');
+      }
+    } catch {
+      toast.error('Failed to test integration');
+    }
+  };
 
   // ── Profile Handlers ────────────────────────────────────────────────
 
@@ -384,6 +595,13 @@ export default function SettingsPage() {
           >
             <Key className="w-4 h-4" />
             API Keys
+          </Tabs.Trigger>
+          <Tabs.Trigger
+            value="integrations"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 text-zinc-400 hover:text-white hover:bg-white/[0.04] data-[state=active]:text-white data-[state=active]:bg-white/[0.08] data-[state=active]:shadow-sm outline-none"
+          >
+            <Plug className="w-4 h-4" />
+            Integrations
           </Tabs.Trigger>
         </Tabs.List>
 
@@ -936,6 +1154,212 @@ export default function SettingsPage() {
               )}
             </div>
           </LockedFeature>
+        </Tabs.Content>
+
+        {/* ── Integrations Tab ─────────────────────────────────────────── */}
+        <Tabs.Content value="integrations" className="outline-none">
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-sm font-semibold text-white">Integrations</h3>
+                <p className="text-xs text-zinc-500 mt-1">
+                  Connect your tools so PARWA can provide context-aware responses
+                </p>
+              </div>
+            </div>
+
+            {/* Connected Integrations List */}
+            {integrationsLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="w-6 h-6 text-zinc-500 animate-spin" />
+                <span className="ml-2 text-sm text-zinc-500">Loading integrations...</span>
+              </div>
+            ) : integrations.length > 0 ? (
+              <div className="space-y-3 mb-6">
+                <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Connected</h4>
+                {integrations.map((integration) => {
+                  const catalog = INTEGRATION_CATALOG.find((c) => c.type === integration.type);
+                  return (
+                    <div
+                      key={integration.id}
+                      className="flex items-center justify-between p-4 rounded-lg bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.10] transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500/20 to-amber-400/20 flex items-center justify-center font-bold text-orange-400 text-sm">
+                          {catalog?.icon || '?'}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-zinc-200">{integration.name}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-zinc-500">{integration.type}</span>
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                              integration.status === 'active'
+                                ? 'bg-emerald-500/10 text-emerald-400'
+                                : integration.status === 'error'
+                                ? 'bg-red-500/10 text-red-400'
+                                : 'bg-yellow-500/10 text-yellow-400'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${
+                                integration.status === 'active' ? 'bg-emerald-400' :
+                                integration.status === 'error' ? 'bg-red-400' : 'bg-yellow-400'
+                              }`} />
+                              {integration.status}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleRetestIntegration(integration.id)}
+                          className="p-1.5 rounded-md text-zinc-500 hover:text-white hover:bg-white/[0.06] transition-all"
+                          title="Test connection"
+                        >
+                          <TestTube className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteIntegration(integration.id)}
+                          className="p-1.5 rounded-md text-zinc-500 hover:text-red-400 hover:bg-red-400/10 transition-all"
+                          title="Remove integration"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8 mb-6 border border-white/[0.06] rounded-lg">
+                <ExternalLink className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
+                <p className="text-sm text-zinc-500">No integrations connected</p>
+                <p className="text-xs text-zinc-600 mt-1">Connect a tool below to get started</p>
+              </div>
+            )}
+
+            {/* Add New Integration Form */}
+            {addingIntegration && (
+              <div className="mb-6 p-4 rounded-lg border border-orange-500/20 bg-orange-500/5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500/20 to-amber-400/20 flex items-center justify-center font-bold text-orange-400 text-sm">
+                      {INTEGRATION_CATALOG.find((c) => c.type === addingIntegration)?.icon}
+                    </div>
+                    <h4 className="text-sm font-semibold text-white">
+                      Connect {INTEGRATION_CATALOG.find((c) => c.type === addingIntegration)?.name}
+                    </h4>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setAddingIntegration(null);
+                      setIntegrationForm({});
+                      setIntegrationName('');
+                      setIntegrationTestResult(null);
+                      setIntegrationError(null);
+                    }}
+                    className="p-1.5 rounded-md text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-all"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1.5">Integration Name</label>
+                  <input
+                    type="text"
+                    value={integrationName}
+                    onChange={(e) => setIntegrationName(e.target.value)}
+                    className="w-full bg-white/[0.04] border border-white/[0.08] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 transition-all placeholder:text-zinc-600"
+                    placeholder={`My ${INTEGRATION_CATALOG.find((c) => c.type === addingIntegration)?.name} Integration`}
+                  />
+                </div>
+
+                {INTEGRATION_CATALOG.find((c) => c.type === addingIntegration)?.fields.map((field) => (
+                  <div key={field.key}>
+                    <label className="block text-sm font-medium text-zinc-400 mb-1.5">{field.label}</label>
+                    <input
+                      type={field.type || 'text'}
+                      value={integrationForm[field.key] || ''}
+                      onChange={(e) =>
+                        setIntegrationForm((prev) => ({ ...prev, [field.key]: e.target.value }))
+                      }
+                      className="w-full bg-white/[0.04] border border-white/[0.08] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 transition-all placeholder:text-zinc-600"
+                      placeholder={field.placeholder}
+                    />
+                  </div>
+                ))}
+
+                {integrationTestResult !== null && (
+                  <div className={`flex items-center gap-2 text-sm ${
+                    integrationTestResult ? 'text-emerald-400' : 'text-red-400'
+                  }`}>
+                    {integrationTestResult ? (
+                      <CheckCircle2 className="w-4 h-4" />
+                    ) : (
+                      <XCircle className="w-4 h-4" />
+                    )}
+                    {integrationTestResult ? 'Connection test passed!' : `Connection test failed: ${integrationError}`}
+                  </div>
+                )}
+
+                {integrationError && !integrationTestResult && (
+                  <p className="text-xs text-red-400">{integrationError}</p>
+                )}
+
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={handleTestIntegration}
+                    disabled={integrationTesting}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-white bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.15] transition-all disabled:opacity-50"
+                  >
+                    {integrationTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <TestTube className="w-4 h-4" />}
+                    Test Connection
+                  </button>
+                  <button
+                    onClick={handleSaveIntegration}
+                    disabled={integrationSaving}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 transition-all disabled:opacity-50"
+                  >
+                    {integrationSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                    Save Integration
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Available Integrations Grid */}
+            {!addingIntegration && (
+              <div>
+                <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Available</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {INTEGRATION_CATALOG.filter(
+                    (c) => !integrations.some((i) => i.type === c.type)
+                  ).map((catalog) => (
+                    <button
+                      key={catalog.type}
+                      onClick={() => {
+                        setAddingIntegration(catalog.type);
+                        setIntegrationName(`${catalog.name} Integration`);
+                        setIntegrationForm({});
+                        setIntegrationTestResult(null);
+                        setIntegrationError(null);
+                      }}
+                      className="text-left p-4 rounded-lg bg-white/[0.02] border border-white/[0.06] hover:border-orange-500/30 hover:bg-orange-500/5 transition-all group"
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500/10 to-amber-400/10 flex items-center justify-center font-bold text-orange-400 text-sm group-hover:from-orange-500/20 group-hover:to-amber-400/20 transition-all">
+                          {catalog.icon}
+                        </div>
+                        <span className="text-sm font-medium text-zinc-200 group-hover:text-white transition-all">
+                          {catalog.name}
+                        </span>
+                      </div>
+                      <p className="text-xs text-zinc-500 leading-relaxed">{catalog.description}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </Tabs.Content>
       </Tabs.Root>
 

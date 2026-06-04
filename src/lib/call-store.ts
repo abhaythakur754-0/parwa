@@ -145,7 +145,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
       if (exists) return state;
 
       const newCall: VoiceCallItem = {
-        id: call.id || call.call_id || '',
+        id: (call as any).id || (call as any).call_id || '',
         company_id: call.company_id || '',
         twilio_call_sid: call.twilio_call_sid || '',
         direction: 'inbound',
@@ -178,7 +178,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
       if (exists) return state;
 
       const newCall: VoiceCallItem = {
-        id: call.id || call.call_id || '',
+        id: (call as any).id || (call as any).call_id || '',
         company_id: call.company_id || '',
         twilio_call_sid: call.twilio_call_sid || '',
         direction: 'outbound',
@@ -345,8 +345,8 @@ export const useCallStore = create<CallStore>((set, get) => ({
       const { voiceApi } = await import('@/lib/voice-api');
       const result = await voiceApi.listCalls({ status: 'in-progress' });
 
-      const items = (result as { items?: VoiceCallItem[]; calls?: VoiceCallItem[] }).items
-        || (result as { items?: VoiceCallItem[]; calls?: VoiceCallItem[] }).calls
+      const items = (result as any).items
+        || (result as any).calls
         || [];
 
       // Also get queued and ringing

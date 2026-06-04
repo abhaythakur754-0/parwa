@@ -93,11 +93,11 @@ export function ChatHeader({ session, isLoading }: ChatHeaderProps) {
 
         <div className="flex flex-col">
           <h1 className="text-sm font-semibold text-white tracking-tight">
-            Jarvis — Your AI Assistant
+            Jarvis
           </h1>
           <p className="text-[11px] text-orange-400/60 flex items-center gap-1">
             <Zap className="w-3 h-3" />
-            {isLoading ? 'Connecting...' : 'Online • Ready to help'}
+            {isLoading ? 'Connecting...' : 'Your control center'}
           </p>
         </div>
       </div>

@@ -78,7 +78,7 @@ async function callLLM(messages: Array<{ role: string; content: string }>, tempe
   const ZAI = (await import('z-ai-web-dev-sdk')).default;
   const zai = await ZAI.create();
   const completion = await zai.chat.completions.create({
-    messages,
+    messages: messages as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
     temperature,
     max_tokens: maxTokens,
   });

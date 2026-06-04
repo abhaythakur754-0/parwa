@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 
 interface SocialLoginProps {
   onGoogleLogin: (idToken: string) => Promise<void>;
@@ -11,38 +11,100 @@ interface SocialLoginProps {
 
 export function SocialLogin({ onGoogleLogin, isLoading = false, error, showDividerAfter = true }: SocialLoginProps) {
   const [setupMode, setSetupMode] = useState(false);
+  const [localLoading, setLocalLoading] = useState(false);
+  const initRef = useRef(false);
+  const callbackRef = useRef(onGoogleLogin);
+  callbackRef.current = onGoogleLogin;
 
-  const handleGoogleSignIn = async () => {
-    // Check if Google Client ID is configured
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const isConfigured = !!clientId;
+
+  // Load Google GIS script on mount
+  useEffect(() => {
+    if (!clientId || typeof window === 'undefined') return;
+    if (window.google) return;
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      console.log('[SocialLogin] Google GIS script loaded');
+    };
+    script.onerror = () => {
+      console.warn('[SocialLogin] Failed to load Google GIS script');
+    };
+    document.head.appendChild(script);
+
+    return () => {
+      // Don't remove script on unmount as it may be needed later
+    };
+  }, [clientId]);
+
+  const handleGoogleSignIn = useCallback(async () => {
     if (!clientId) {
       setSetupMode(true);
       return;
     }
 
+    if (localLoading || isLoading) return;
+    setLocalLoading(true);
+
     try {
-      if (typeof window !== 'undefined' && !window.google) {
-        const script = document.createElement('script');
-        script.src = 'https://accounts.google.com/gsi/client';
-        script.async = true;
-        script.defer = true;
-        document.head.appendChild(script);
-        await new Promise<void>((resolve) => { script.onload = () => resolve(); });
+      // Wait for Google GIS script to load
+      let retries = 0;
+      while (!window.google && retries < 20) {
+        await new Promise(r => setTimeout(r, 100));
+        retries++;
       }
-      window.google?.accounts?.id?.initialize({
+
+      if (!window.google) {
+        console.error('[SocialLogin] Google GIS script failed to load');
+        setLocalLoading(false);
+        setSetupMode(true);
+        return;
+      }
+
+      // Use Google Identity Services popup directly (more reliable than One Tap)
+      const tokenClient = window.google.accounts.oauth2.initTokenClient({
         client_id: clientId,
-        callback: async (response: { credential: string }) => {
-          if (response.credential) await onGoogleLogin(response.credential);
+        scope: 'openid email profile',
+        callback: (tokenResponse: any) => {
+          if (tokenResponse?.access_token) {
+            // Pass the access_token to onGoogleLogin.
+            // The /api/auth/google route will detect it's an access_token
+            // (not a JWT id_token) and verify it via Google's userinfo endpoint.
+            callbackRef.current(tokenResponse.access_token).finally(() => setLocalLoading(false));
+          } else if (tokenResponse?.error) {
+            console.error('[SocialLogin] Google OAuth error:', tokenResponse.error);
+            setLocalLoading(false);
+          } else {
+            console.warn('[SocialLogin] No token in Google response');
+            setLocalLoading(false);
+          }
+        },
+        error_callback: (error: any) => {
+          console.error('[SocialLogin] Google OAuth error_callback:', error);
+          setLocalLoading(false);
         },
       });
-      window.google?.accounts?.id?.prompt();
-    } catch (err) {
-      console.error('Google sign-in error:', err);
-    }
-  };
 
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-  const isConfigured = !!clientId;
+      // Request access token via popup
+      tokenClient.requestAccessToken();
+
+      // Safety timeout
+      setTimeout(() => {
+        setLocalLoading(prev => {
+          // If still loading after 30s, something went wrong
+          return prev; // Don't auto-clear — let user see the loading state
+        });
+      }, 30000);
+
+    } catch (err) {
+      console.error('[SocialLogin] Google sign-in error:', err);
+      setLocalLoading(false);
+    }
+  }, [clientId, isLoading, localLoading]);
 
   return (
     <div className="space-y-4">
@@ -50,21 +112,20 @@ export function SocialLogin({ onGoogleLogin, isLoading = false, error, showDivid
         <button
           type="button"
           onClick={handleGoogleSignIn}
-          disabled={isLoading}
+          disabled={isLoading || localLoading}
           className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl border border-white/15 bg-white/5 text-white hover:bg-white/10 hover:border-white/25 transition-all duration-300 font-medium text-sm"
           style={{ backdropFilter: 'blur(10px)' }}
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
-            <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-            <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-            <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-            <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
-          <span>{isLoading ? 'Signing in...' : 'Continue with Google'}</span>
+          <span>{(isLoading || localLoading) ? 'Signing in...' : 'Continue with Google'}</span>
         </button>
       </div>
 
-      {/* Show setup instructions when Google Client ID is not configured */}
       {setupMode && !isConfigured && (
         <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
           <p className="text-xs text-amber-300 font-medium mb-1">Google Sign-In Setup Required</p>
@@ -110,8 +171,11 @@ declare global {
     google?: {
       accounts: {
         id: {
-          initialize: (config: { client_id: string; callback: (response: { credential: string }) => void }) => void;
-          prompt: () => void;
+          initialize: (config: { client_id: string; callback: (response: { credential: string }) => void; auto_select?: boolean; cancel_on_tap_outside?: boolean }) => void;
+          prompt: (onNotification?: (notification: any) => void) => void;
+        };
+        oauth2: {
+          initTokenClient: (config: { client_id: string; scope: string; callback: (response: any) => void; error_callback?: (error: any) => void }) => any;
         };
       };
     };

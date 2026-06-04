@@ -290,7 +290,7 @@ export default function WebhookConfigurator({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => onDelete?.(cfg.id)}
+                        onClick={() => onDelete?.(cfg.id!)}
                         aria-label={`Delete ${cfg.name}`}
                       >
                         Delete
