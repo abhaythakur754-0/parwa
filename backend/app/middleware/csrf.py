@@ -66,19 +66,45 @@ def _parse_trusted_origins() -> list:
     """Parse trusted origins from environment variable.
 
     Reads CSRF_TRUSTED_ORIGINS first, falls back to CORS_ORIGINS,
-    then falls back to an empty list (effectively disabling CSRF
-    in local development where no origins are configured).
+    then falls back to FRONTEND_URL from settings.
+    If nothing is configured, includes common production frontend URLs.
     """
     raw = os.environ.get("CSRF_TRUSTED_ORIGINS", "")
     if not raw:
         raw = os.environ.get("CORS_ORIGINS", "")
-    if not raw:
-        return []
-    origins = [o.strip() for o in raw.split(",") if o.strip()]
+    if raw:
+        origins = [o.strip() for o in raw.split(",") if o.strip()]
+        if origins:
+            logger.info(
+                "csrf_trusted_origins_configured count=%d",
+                len(origins),
+            )
+        return origins
+
+    # Fallback: include FRONTEND_URL from settings + common production URLs
+    origins = []
+    try:
+        from app.config import get_settings
+        settings = get_settings()
+        if settings.FRONTEND_URL:
+            origins.append(settings.FRONTEND_URL.rstrip("/"))
+    except Exception:
+        pass
+
+    # Common production frontend URLs (ensures signup works even if env vars are missing)
+    _PRODUCTION_ORIGINS = [
+        "https://parwafrontend.vercel.app",
+        "https://parwa.buzz",
+    ]
+    for origin in _PRODUCTION_ORIGINS:
+        if origin not in origins:
+            origins.append(origin)
+
     if origins:
         logger.info(
-            "csrf_trusted_origins_configured count=%d",
+            "csrf_trusted_origins_default count=%d origins=%s",
             len(origins),
+            origins,
         )
     return origins
 

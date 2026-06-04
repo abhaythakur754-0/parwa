@@ -447,6 +447,14 @@ try:
         if _settings.CORS_ORIGINS
         else [_settings.FRONTEND_URL]
     )
+    # Ensure both production frontend URLs are always included
+    _PRODUCTION_FRONTENDS = [
+        "https://parwafrontend.vercel.app",
+        "https://parwa.buzz",
+    ]
+    for url in _PRODUCTION_FRONTENDS:
+        if url not in _cors_origins:
+            _cors_origins.append(url)
 except Exception:
     # Fail closed: restrict to localhost rather than open wildcard
     _cors_origins = ["http://localhost:3000"]
