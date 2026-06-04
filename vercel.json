@@ -6,9 +6,8 @@
   "outputDirectory": ".next",
   "regions": ["iad1"],
   "env": {
-    "NEXT_PUBLIC_API_URL": "@parwa-backend-url",
-    "NEXTAUTH_SECRET": "@nextauth-secret",
-    "NEXTAUTH_URL": "@vercel-url"
+    "NEXT_PUBLIC_API_URL": "https://parwa-backend.onrender.com",
+    "NEXTAUTH_URL": "https://parwa.buzz"
   },
   "headers": [
     {
