@@ -201,7 +201,7 @@ function getChannelIcon(channel: string) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// SMART RECOMMENDATION ENGINE — supports multi-instance
+// SMART RECOMMENDATION ENGINE — supports multi-instance, value-optimized
 // ══════════════════════════════════════════════════════════════════════
 
 interface Recommendation {
@@ -210,13 +210,16 @@ interface Recommendation {
   totalMonthlyPrice: number;
   totalCapacity: number;
   coversAllTickets: boolean;
+  netSavingsPerMonth: number; // monthly savings after PARWA cost
   reasons: string[];
 }
 
 function getRecommendations(
   tickets: number,
   agentCount: number,
-  industry: string
+  industry: string,
+  cpt: number,
+  currentMonthly: number
 ): {
   primary: Recommendation;
   alternatives: Recommendation[];
@@ -231,6 +234,13 @@ function getRecommendations(
     const totalMonthlyPrice = quantity * model.price;
     const totalCapacity = quantity * model.ticketCapacityNum;
     const coversAllTickets = totalCapacity >= tickets;
+
+    // Calculate actual monthly cost with PARWA
+    const aiTickets = Math.round(tickets * model.aiResolution);
+    const humanTickets = tickets - aiTickets;
+    const humanCost = humanTickets * cpt * 0.25;
+    const parwaMonthly = totalMonthlyPrice + humanCost;
+    const netSavingsPerMonth = Math.max(0, currentMonthly - parwaMonthly);
 
     const reasons: string[] = [];
 
@@ -268,6 +278,13 @@ function getRecommendations(
       }
     }
 
+    // Add savings-specific reason
+    if (netSavingsPerMonth > 0) {
+      reasons.push(
+        `You save ${fmtMoney(netSavingsPerMonth)}/month — that's ${fmtMoney(netSavingsPerMonth * 12)} back in your pocket every year.`
+      );
+    }
+
     reasons.push(
       `${industryLabel} businesses typically spend $${bench?.avgCostPerTicket || 7}/ticket — ${Math.round(model.aiResolution * 100)}% AI resolution means massive savings.`
     );
@@ -278,29 +295,45 @@ function getRecommendations(
       totalMonthlyPrice,
       totalCapacity,
       coversAllTickets,
+      netSavingsPerMonth,
       reasons,
     };
   });
 
-  // Determine best recommendation:
-  // 1. Must cover all tickets
-  // 2. Prefer single instance over multiple (simpler management)
-  // 3. Among single-instance options, prefer the cheapest that covers tickets
-  // 4. Among multi-instance, prefer best total value (consider AI resolution)
+  // ══════════════════════════════════════════════════════════
+  // SMART SORTING — recommend the best VALUE option
+  // ══════════════════════════════════════════════════════════
+  //
+  // Priority:
+  // 1. Must cover all tickets (capacity >= tickets)
+  // 2. Must save money (PARWA cheaper than current cost)
+  // 3. Among saving options, prefer highest net savings (best value)
+  // 4. Tiebreak: fewer instances (simpler), then higher AI resolution
 
   const covering = options.filter((o) => o.coversAllTickets);
   const notCovering = options.filter((o) => !o.coversAllTickets);
 
+  // Among covering options, find those that actually save money
+  const saving = covering.filter((o) => o.netSavingsPerMonth > 0);
+  const notSaving = covering.filter((o) => o.netSavingsPerMonth <= 0);
+
   let sorted: Recommendation[];
 
-  if (covering.length > 0) {
-    // Sort covering options: prefer single instance, then by total price
-    sorted = [...covering].sort((a, b) => {
+  if (saving.length > 0) {
+    // Best value: highest net savings, then fewer instances, then higher AI %
+    sorted = [...saving].sort((a, b) => {
+      if (b.netSavingsPerMonth !== a.netSavingsPerMonth)
+        return b.netSavingsPerMonth - a.netSavingsPerMonth;
       if (a.quantity !== b.quantity) return a.quantity - b.quantity;
-      // Same quantity: prefer higher AI resolution (better value)
-      if (a.model.aiResolution !== b.model.aiResolution) return b.model.aiResolution - a.model.aiResolution;
+      if (a.model.aiResolution !== b.model.aiResolution)
+        return b.model.aiResolution - a.model.aiResolution;
       return a.totalMonthlyPrice - b.totalMonthlyPrice;
     });
+    // Append non-saving but covering options as alternatives
+    sorted.push(...notSaving.sort((a, b) => a.totalMonthlyPrice - b.totalMonthlyPrice));
+  } else if (covering.length > 0) {
+    // None save money — pick the cheapest covering option
+    sorted = [...covering].sort((a, b) => a.totalMonthlyPrice - b.totalMonthlyPrice);
   } else {
     // None cover fully — sort by coverage ratio then price
     sorted = [...options].sort((a, b) => {
@@ -441,8 +474,8 @@ export default function ROICalculatorPage() {
   // ── Recommendation ──
   const { primary: primaryRecommendation, alternatives: alternativeRecommendations } =
     useMemo(
-      () => getRecommendations(tickets, agentCount, industry),
-      [tickets, agentCount, industry]
+      () => getRecommendations(tickets, agentCount, industry, cpt, currentTotalMonthly),
+      [tickets, agentCount, industry, cpt, currentTotalMonthly]
     );
 
   const recommendedModel = primaryRecommendation.model;
@@ -1149,25 +1182,42 @@ export default function ROICalculatorPage() {
                   ))}
                 </div>
 
-                {/* Savings callout */}
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 flex items-center gap-3">
-                  <PiggyBank className="w-6 h-6 text-emerald-400 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm font-bold text-emerald-300">
-                      By choosing {qtyLabel(recommendedQuantity, recommendedModel.name)}, you save{' '}
-                      {fmtMoney(recommendedComparison.annualSavings)} every year
-                    </p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      That&apos;s{' '}
-                      {fmtMoney(
-                        recommendedComparison.annualSavings / 12
-                      )}{' '}
-                      back in your pocket every month — while{' '}
-                      {fmtNum(recommendedComparison.aiTicketsPerMonth)} of your{' '}
-                      {fmtNum(tickets)} tickets are resolved by AI.
-                    </p>
+                {/* Savings callout — show appropriate message based on savings */}
+                {recommendedComparison.annualSavings > 0 ? (
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 flex items-center gap-3">
+                    <PiggyBank className="w-6 h-6 text-emerald-400 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-bold text-emerald-300">
+                        By choosing {qtyLabel(recommendedQuantity, recommendedModel.name)}, you save{' '}
+                        {fmtMoney(recommendedComparison.annualSavings)} every year
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        That&apos;s{' '}
+                        {fmtMoney(
+                          recommendedComparison.annualSavings / 12
+                        )}{' '}
+                        back in your pocket every month — while{' '}
+                        {fmtNum(recommendedComparison.aiTicketsPerMonth)} of your{' '}
+                        {fmtNum(tickets)} tickets are resolved by AI.
+                      </p>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4 flex items-center gap-3">
+                    <TrendingUp className="w-6 h-6 text-orange-400 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-bold text-orange-300">
+                        At {fmtNum(tickets)} tickets/month, your volume is best suited for scaling up first
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        PARWA delivers the highest ROI at 1,000+ tickets/month. As your support volume grows,
+                        AI automation savings multiply dramatically — {qtyLabel(recommendedQuantity, recommendedModel.name)} still
+                        resolves {fmtNum(recommendedComparison.aiTicketsPerMonth)} tickets with AI, saving your team{' '}
+                        {fmtNum(recommendedComparison.hoursSavedPerMonth)} hours/month.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* ════════════════════════════════════════
