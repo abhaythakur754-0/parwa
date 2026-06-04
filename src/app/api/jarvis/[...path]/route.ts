@@ -675,8 +675,8 @@ function getStageInstructions(stage: string): string {
 // ── Context-Aware Welcome Messages ────────────────────────────────
 
 function getContextAwareWelcome(entrySource: string, ctx: any): string {
-  // Simple fallback when AI is unavailable.
-  // The AI should generate the actual welcome message — this is just a safety net.
+  // Simple fallback — the AI generates the real welcome message.
+  // This is only used if the AI call fails.
   const source = entrySource || 'direct';
   const ep = ctx.entry_params || {};
   const variant = ep.variant || ctx.variant || null;
@@ -684,10 +684,26 @@ function getContextAwareWelcome(entrySource: string, ctx: any): string {
   const industryLabel = industry || 'your business';
 
   if (variant && (source.startsWith('models_') || source === 'models_page')) {
-    return `Hey! I'm Jarvis. You wanted to see how ${variant} works for ${industryLabel}. I can walk you through it — just ask me anything. You can also access these features through the dashboard.`;
+    return `Hey! I'm Jarvis. You wanted to see how ${variant} works for ${industryLabel}. I can walk you through it — just ask me anything. You can also access these features through the dashboard, or just chat with me here.`;
   }
 
-  return `Hey! I'm Jarvis — your control center here. You can control everything just by typing. What can I help you with?`;
+  return `Hey! I'm Jarvis — your control center here. You can control everything just by typing, that's easy. What can I help you with?`;
+}
+
+// Build entry context string for AI welcome generation
+function buildEntryContext(ctx: any): string {
+  const parts: string[] = [];
+  if (ctx.entry_source) parts.push(`Entry source: ${ctx.entry_source}`);
+  if (ctx.industry) parts.push(`Industry: ${ctx.industry}`);
+  if (ctx.variant) parts.push(`Variant: ${ctx.variant}`);
+  if (ctx.variant_id) parts.push(`Variant ID: ${ctx.variant_id}`);
+  const ep = ctx.entry_params || {};
+  if (ep.price) parts.push(`Price: $${ep.price}/mo`);
+  if (ep.best_for) parts.push(`Best for: ${ep.best_for}`);
+  if (ep.tagline) parts.push(`Tagline: ${ep.tagline}`);
+  if (ctx.roi_result) parts.push(`Has ROI calculation`);
+  if (ctx.pages_visited?.length > 0) parts.push(`Pages visited: ${ctx.pages_visited.join(', ')}`);
+  return parts.join('. ') || 'Direct visit';
 }
 
 // ── Action Ticket Helpers ────────────────────────────────────────
@@ -829,44 +845,24 @@ async function getAIResponse(userMessage: string, session: any): Promise<string>
   const recentMessages = session.messages.slice(-10);
   for (const msg of recentMessages) {
     const role = msg.role === 'jarvis' ? 'assistant' : String(msg.role);
-    messages.push({
-      role,
-      content: String(msg.content),
-    });
+    messages.push({ role, content: String(msg.content) });
   }
   messages.push({ role: 'user', content: userMessage });
 
-  let aiReply = await callAI(messages);
+  const aiReply = await callAI(messages);
   if (aiReply) return aiReply;
 
-  // Fallback only when all AI providers fail
+  // Simple fallback only when ALL AI providers fail
   return getKeywordResponse(userMessage, session);
 }
 
 // (forceBulletFormat, pickEmoji, isEmojiChar removed — AI responds naturally now)
 
-// ── Entry Context Builder (for AI welcome generation) ──────────
 
-function buildEntryContext(ctx: any): string {
-  const parts: string[] = [];
-  if (ctx.entry_source) parts.push(`Entry source: ${ctx.entry_source}`);
-  if (ctx.industry) parts.push(`Industry: ${ctx.industry}`);
-  if (ctx.variant) parts.push(`Variant: ${ctx.variant}`);
-  if (ctx.variant_id) parts.push(`Variant ID: ${ctx.variant_id}`);
-  const ep = ctx.entry_params || {};
-  if (ep.price) parts.push(`Price: $${ep.price}/mo`);
-  if (ep.best_for) parts.push(`Best for: ${ep.best_for}`);
-  if (ep.tagline) parts.push(`Tagline: ${ep.tagline}`);
-  if (ctx.roi_result) parts.push(`Has ROI calculation`);
-  if (ctx.pages_visited?.length > 0) parts.push(`Pages visited: ${ctx.pages_visited.join(', ')}`);
-  return parts.join('. ') || 'Direct visit';
-}
-
-// ── Keyword Fallback (Offline Safety Net) ────────────────────────
+// ── Simple Fallback (when all AI providers fail) ──────────────────
 
 function getKeywordResponse(message: string, session: any): string {
-  // Simple fallback when all AI providers fail.
-  // Keep it short — the AI should be generating responses, not us.
+  // Minimal fallback — the AI should be generating responses, not us.
   const ctx = session.context;
   const industry = ctx.industry || null;
 
