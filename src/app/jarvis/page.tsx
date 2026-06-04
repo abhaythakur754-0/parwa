@@ -52,6 +52,22 @@ function JarvisPageInner() {
           if (ctx.industry && !industry) params.industry = ctx.industry;
           if (ctx.selected_variants) params.selected_variants = ctx.selected_variants;
           if (ctx.interests) params.interests = ctx.interests;
+          // ── Pass rich variant context so Jarvis knows exactly what the user saw ──
+          if (ctx.price) params.price = ctx.price;
+          if (ctx.billing_cycle) params.billing_cycle = ctx.billing_cycle;
+          if (ctx.tagline) params.tagline = ctx.tagline;
+          if (ctx.scenario) params.scenario = ctx.scenario;
+          if (ctx.roi) params.roi = ctx.roi;
+          if (ctx.best_for) params.best_for = ctx.best_for;
+          if (ctx.tickets_per_month) params.tickets_per_month = ctx.tickets_per_month;
+          if (ctx.integrations) params.integrations = ctx.integrations;
+          if (ctx.unique_features) params.unique_features = ctx.unique_features;
+          if (ctx.key_advantage) params.key_advantage = ctx.key_advantage;
+          if (ctx.smart_decisions) params.smart_decisions = ctx.smart_decisions;
+          if (ctx.core_capability) params.core_capability = ctx.core_capability;
+          if (ctx.core_limitation) params.core_limitation = ctx.core_limitation;
+          if (ctx.human_cost_replaced) params.human_cost_replaced = ctx.human_cost_replaced;
+          if (ctx.variant_tier) params.variant_tier = ctx.variant_tier;
           // Do NOT remove — let useJarvisChat sync to backend first
         }
       } catch {

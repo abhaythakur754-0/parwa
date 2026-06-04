@@ -693,7 +693,8 @@ function getContextAwareWelcome(entrySource: string, ctx: any): string {
   const source = entrySource || 'direct';
   const ep = ctx.entry_params || {};
   const variant = ep.variant || ctx.variant || null;
-  const industry = ep.industry || ctx.industry || 'your enterprise';
+  const variantId = ep.variant_id || ctx.variant_id || null;
+  const industry = ep.industry || ctx.industry || null;
   
   // Extract ROI data if available
   const roi = ctx.roi_result || ep.roi_result;
@@ -710,51 +711,137 @@ function getContextAwareWelcome(entrySource: string, ctx: any): string {
     }
   }
 
+  // ── Rich variant context from entry_params (set by Models page Free Demo click) ──
+  const epK = (k: string) => ep[k] ? String(ep[k]) : null;
+  const variantPrice = epK('price');
+  const variantScenario = epK('scenario');
+  const variantROI = epK('roi');
+  const variantBestFor = epK('best_for');
+  const variantTickets = epK('tickets_per_month');
+  const variantIntegrations = epK('integrations');
+  const variantUniqueFeatures = epK('unique_features');
+  const variantKeyAdvantage = epK('key_advantage');
+  const variantSmartDecisions = epK('smart_decisions');
+  const variantCoreCapability = epK('core_capability');
+  const variantCoreLimitation = epK('core_limitation');
+  const variantHumanCost = epK('human_cost_replaced');
+  const variantTagline = epK('tagline');
+
+  const industryLabel = industry || 'your business';
+
+  // ── VARIANT-SPECIFIC WELCOME (highest priority: user clicked Free Demo on a variant) ──
+  if (variant && (source.startsWith('models_') || source === 'models_page')) {
+    const vName = String(variant);
+    const isStarter = variantId === 'starter' || vName.toLowerCase().includes('starter');
+    const isGrowth = variantId === 'growth' || vName.toLowerCase().includes('growth');
+    const isHigh = variantId === 'high' || vName.toLowerCase().includes('high');
+
+    let personality = '';
+    if (isStarter) personality = "I'm the PARWA Starter agent — your 24/7 trainee. I handle the repetitive stuff so your team can focus on what matters.";
+    else if (isGrowth) personality = "I'm the PARWA Growth agent — your junior team member. I don't just handle tickets, I make smart recommendations too.";
+    else if (isHigh) personality = "I'm the PARWA High agent — your senior support lead. I make decisions, handle VIPs, and run your support like a CEO.";
+    else personality = `I'm ${vName} from PARWA. Let me show you what I can do for ${industryLabel}.`;
+
+    // Build feature bullets from real data
+    const bullets: string[] = [];
+    if (variantTickets) bullets.push(`📝 Handles ${Number(variantTickets).toLocaleString()} tickets/month`);
+    if (variantPrice) bullets.push(`💰 Just $${Number(variantPrice).toLocaleString()}/month`);
+    if (variantHumanCost) bullets.push(`📊 Replaces ~$${Number(variantHumanCost).toLocaleString()}/month in human salaries`);
+    if (variantIntegrations) {
+      const intgs = String(variantIntegrations).split(',');
+      bullets.push(`🔗 Integrates with ${intgs.slice(0, 3).join(', ')}${intgs.length > 3 ? ` +${intgs.length - 3} more` : ''}`);
+    }
+    if (variantKeyAdvantage) bullets.push(`⚡ ${variantKeyAdvantage}`);
+    if (variantSmartDecisions) bullets.push(`🧠 ${variantSmartDecisions}`);
+    if (variantCoreCapability) bullets.push(`🎯 ${variantCoreCapability}`);
+
+    const bulletBlock = bullets.length > 0
+      ? '\n\n' + bullets.map(b => b).join('\n')
+      : '';
+
+    // Build closing question
+    let closingQ = 'Want me to show you a real scenario?';
+    if (isStarter) closingQ = 'Want to see how I handle a customer query right now?';
+    if (isGrowth) closingQ = 'Want me to demo a real ticket — from intake to smart resolution?';
+    if (isHigh) closingQ = 'Want me to demo how I handle a VIP escalation end-to-end?';
+
+    return `${personality}
+
+Hey! 👋 You clicked on ${vName} for ${industryLabel} — great choice. Here's what makes it special:${bulletBlock}
+
+${closingQ}`;
+  }
+
+  // ── Entry-source specific welcomes (no specific variant clicked) ──
+
   const welcomes: Record<string, string> = {
     direct: (
-      "Control Center active. I am Jarvis, your strategic partner for PARWA. " +
-      "I have established a secure link to your support ecosystem. " +
-      "How shall we begin your transformation today?"
+      `Hey there! 👋 I'm Jarvis from PARWA.\n\n` +
+      `🤖 I help businesses automate their customer support with AI agents\n` +
+      `💰 Plans start at $999/mo — save 85-92% vs hiring humans\n` +
+      `📡 Works across email, chat, phone, SMS & social\n\n` +
+      `What industry are you in? I'll find the perfect fit for you.`
     ),
     pricing: (
-      `Strategizing for ${industry}. I see you've been reviewing our premium architecture. ` +
-      "I can help you optimize your deployment to maximize every dollar of ROI. " +
-      "Shall we dive into the specific capabilities of our agents?"
+      `Hey! 👋 I see you've been checking out our pricing.\n\n` +
+      `💰 Starter — $999/mo — 1K tickets, the 24/7 trainee\n` +
+      `🚀 Growth — $2,499/mo — 5K tickets, smart recommendations\n` +
+      `⚡ High — $3,999/mo — 15K tickets, VIP handling + video\n\n` +
+      `Want me to help you pick the right one for ${industryLabel}?`
     ),
     roi: roi ? (
-      `Mission Objective: Efficiency. I've finished auditing your calculations for ${industry}. ` +
-      `With an estimate of ${savingsStr || 'staggering'} in annual recaptured revenue, ` +
-      "your operation is poised for a significant upgrade. Ready to see the blueprint?"
+      `Hey! 👋 I see you ran our ROI calculator.\n\n` +
+      `📊 Your estimated savings: ${savingsStr || 'significant'} per year\n` +
+      `💰 That's 85-92% cheaper than hiring human agents\n` +
+      `🤖 Plus 24/7 coverage from Day 1 — no training needed\n\n` +
+      `Want me to break down which plan gives you those numbers?`
     ) : (
-      "Welcome. I've been auditing your ROI calculations. " +
-      "The numbers suggest massive untapped potential in your current workflow. " +
-      "Shall I demonstrate how we convert those savings into operational reality?"
+      `Hey! 👋 I see you were checking out ROI savings.\n\n` +
+      `💰 PARWA saves 85-92% vs hiring human agents\n` +
+      `📊 Starter saves ~$156K/yr, Growth ~$216K/yr, High ~$336K/yr\n` +
+      `🤖 24/7 coverage from Day 1\n\n` +
+      `Want me to calculate exact savings for ${industryLabel}?`
     ),
     demo: (
-      "System check complete. Ready for high-fidelity simulation. " +
-      "For just $1, I can open 500 tactical channels and a 3-minute professional voice demonstration. " +
-      "It is the optimal way to experience my full strategic range. Shall we initiate?"
+      `Hey! 👋 Ready for a live demo?\n\n` +
+      `💬 This chat IS the demo — ask me anything your customers would ask\n` +
+      `🎯 I'll show you real responses, not sales talk\n` +
+      `💰 Grab the $1 Demo Pack for 500 messages + 3-min AI voice call\n\n` +
+      `What industry are you in? I'll tailor the demo for you.`
     ),
     features: (
-      `Mapping ${industry} requirements to our 700+ feature landscape. ` +
-      "I've identified several high-impact nodes that would solve your current bottlenecks. " +
-      "What is the single most critical operational friction point we should address first?"
+      `Hey! 👋 Looking at what PARWA can do?\n\n` +
+      `🤖 700+ features across email, chat, phone, SMS, social & video\n` +
+      `🧠 Smart routing, sentiment analysis, churn prediction\n` +
+      `🔗 20+ integrations out of the box\n\n` +
+      `What's your industry? I'll show you the features that matter most.`
     ),
     models_page: (
-      `I see you've been analyzing our specialized agents for ${industry}. ` +
-      "A precise choice. Those specific architectures are engineered for your vertical's unique logic demands. " +
-      "Shall we run a 3-minute live simulation for $1 so you can witness the performance firsthand?"
+      `Hey! 👋 I see you were checking out our AI agents for ${industryLabel}.\n\n` +
+      `🟠 Starter — the 24/7 trainee, $999/mo\n` +
+      `🟠 Growth — the junior agent, $2,499/mo\n` +
+      `🟠 High — the senior agent, $3,999/mo\n\n` +
+      `Which one caught your eye? I can demo it right here.`
+    ),
+    free_chat: (
+      `Hey! 👋 Welcome to PARWA — I'm Jarvis.\n\n` +
+      `🏢 I find the right AI agent plan for your business\n` +
+      `💰 Calculate your exact savings vs human agents\n` +
+      `🎥 Demo live support scenarios right here\n\n` +
+      `What industry are you in?`
+    ),
+    jarvis_chat: (
+      `Hey! 👋 Welcome to PARWA — I'm Jarvis.\n\n` +
+      `🏢 I find the right AI agent plan for your business\n` +
+      `💰 Calculate your exact savings vs human agents\n` +
+      `🎥 Demo live support scenarios right here\n\n` +
+      `What industry are you in?`
     ),
   };
 
-  // Variant-specific overrides (Demo Mode)
-  if (variant && source === 'models_page') {
-    return (
-      `Greetings. I noticed your interest in the ${variant} agent. ` +
-      "It is one of my most sophisticated variants, optimized for high-precision operations. " +
-      "As your control center, I can demonstrate its logic right here, " +
-      "or we can initiate a voice simulation for $1. What is your command?"
-    );
+  // Match entry_source with prefix for models_*_free_chat patterns
+  if (source.startsWith('models_')) {
+    return welcomes.models_page;
   }
 
   return welcomes[source] || welcomes.direct;
@@ -840,7 +927,8 @@ function createDefaultSession(entrySource?: string, entryParams?: Record<string,
   // Build entry_source from params if provided
   let effectiveSource = entrySource || 'direct';
   if (params.entry_source) effectiveSource = String(params.entry_source);
-  if (industry) effectiveSource = `industry_${industry}`;
+  // Don't override models_page or models_*_free_chat with industry_ prefix
+  if (industry && !effectiveSource.startsWith('models_')) effectiveSource = `industry_${industry}`;
 
   // Build selected_variants from preselected variant
   const selectedVariants: string[] = [];
@@ -868,6 +956,10 @@ function createDefaultSession(entrySource?: string, entryParams?: Record<string,
       action_tickets: [],
       payment_data: null,
       bill_summary: null,
+      // ── Pass variant info directly in context so buildSystemPrompt can use it ──
+      variant: preselectedVariant || null,
+      variant_id: params.variant_id ? String(params.variant_id) : (preselectedVariant || null),
+      variant_tier: params.variant_tier ? String(params.variant_tier) : null,
     },
     messages: [],
     message_count_today: 0,

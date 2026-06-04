@@ -169,7 +169,7 @@ function getWelcomeMessage(
   // ── Default / direct / onboarding ──
   return {
     heading: "Hey there! 👋",
-    body: "I'm Jarvis from PARWA — think of me as your teammate, not a chatbot. I'll help you find the right AI agents for your business. What's on your mind?",
+    body: "I'm Jarvis from PARWA — your teammate, not a chatbot. I'll help you find the right AI agents for your business. What industry are you in?",
   };
 }
 
@@ -283,8 +283,8 @@ function QuickSuggestion({ text, onClick }: { text: string; onClick?: (text: str
 
 /** Starter suggestions shown in the empty state */
 const SUGGESTIONS = [
-  'Hey, what exactly does PARWA do?',
-  'I run a business, how can PARWA help?',
+  'What can PARWA do for my business?',
   'Show me the pricing plans',
-  'I want to try it out!',
+  'How much can I save with PARWA?',
+  'I want to try a live demo!',
 ] as const;
