@@ -240,8 +240,12 @@ class Settings(BaseSettings):
             )
         return v
 
-    # ── Shopify (F-131) ─────────────────────────────────────────
+    # ── Shopify (F-131, Day 1 — E-Commerce MCP) ────────────────
     SHOPIFY_WEBHOOK_SECRET: str = ""
+    SHOPIFY_API_VERSION: str = "2024-01"
+    SHOPIFY_CLIENT_ID: str = ""  # For OAuth flow (future)
+    SHOPIFY_CLIENT_SECRET: str = ""  # For OAuth flow (future)
+    SHOPIFY_SCOPES: str = "read_orders,write_orders,read_products,read_customers,write_refunds,read_fulfillments"
 
     # ── Compliance ───────────────────────────────────────────────
     GDPR_RETENTION_DAYS: int = 365
