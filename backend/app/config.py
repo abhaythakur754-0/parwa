@@ -76,6 +76,7 @@ class Settings(BaseSettings):
           understand. Convert 'file:/path' to 'sqlite:///path' format.
         - Supabase and many PaaS providers use 'postgres://' but
           SQLAlchemy requires 'postgresql://'. Convert automatically.
+        - Handles unencoded '@' in passwords (e.g., Durgamaa@754 → Durgamaa%40754).
         """
         if not v:
             return v
@@ -88,7 +89,35 @@ class Settings(BaseSettings):
             return f"sqlite:///{path}"
         # Supabase/Neon/Render often use postgres:// — SQLAlchemy needs postgresql://
         if v.startswith("postgres://"):
-            return "postgresql://" + v[len("postgres://"):]
+            v = "postgresql://" + v[len("postgres://"):]
+        # Fix unencoded '@' in password portion of PostgreSQL URLs.
+        # e.g., postgresql://user:Pass@word@host/db → postgresql://user:Pass%40word@host/db
+        if v.startswith("postgresql://"):
+            try:
+                # Split: postgresql://user:password@host:port/db
+                prefix = "postgresql://"
+                rest = v[len(prefix):]
+                # Find the last '@' which separates user:pass from host
+                last_at = rest.rfind("@")
+                if last_at > 0:
+                    user_pass = rest[:last_at]
+                    host_db = rest[last_at + 1:]
+                    # If user:pass contains '@', the password has unencoded chars
+                    if "@" in user_pass:
+                        # Split user:pass at first ':'
+                        colon_idx = user_pass.find(":")
+                        if colon_idx > 0:
+                            user = user_pass[:colon_idx]
+                            password = user_pass[colon_idx + 1:]
+                            # URL-encode '@' in password only
+                            encoded_password = password.replace("@", "%40")
+                            v = f"{prefix}{user}:{encoded_password}@{host_db}"
+                            logger.warning(
+                                "DATABASE_URL password contained unencoded '@' — "
+                                "auto-encoded to %%40. Please update your env var."
+                            )
+            except Exception:
+                pass  # Don't crash on URL parsing errors
         return v
 
     # ── JWT (BC-011) ─────────────────────────────────────────────

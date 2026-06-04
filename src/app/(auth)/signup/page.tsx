@@ -136,7 +136,8 @@ export default function SignupPage() {
         body: JSON.stringify({ email }),
       });
       const data = await res.json();
-      return !data.exists;
+      // Backend returns { available: true } or { available: false, message: "..." }
+      return data.available === true;
     } catch {
       return false;
     }

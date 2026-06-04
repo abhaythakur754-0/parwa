@@ -212,13 +212,40 @@ export interface VerifiedToken {
 export async function verifyToken(
   token: string
 ): Promise<VerifiedToken | null> {
+  const verificationKey = await getVerificationKey();
+
+  // Strategy 1: Try strict verification (frontend-issued tokens with issuer/audience)
   try {
-    const verificationKey = await getVerificationKey();
     const { payload } = await jwtVerify(token, verificationKey, {
       issuer: "parwa:frontend",
       audience: "parwa:app",
     });
-    return { payload: payload as unknown as VerifiedToken["payload"] };
+    const p = payload as unknown as VerifiedToken["payload"];
+    // Reject refresh tokens in middleware — only access tokens are valid
+    if (p.type === "refresh") return null;
+    return { payload: p };
+  } catch {
+    // Not a frontend-issued token — try relaxed verification
+  }
+
+  // Strategy 2: Verify signature only (backend-issued tokens)
+  // Backend tokens don't set issuer/audience but have type: "access"
+  try {
+    const { payload } = await jwtVerify(token, verificationKey);
+    const p = payload as unknown as VerifiedToken["payload"];
+    // Reject refresh tokens — only access tokens are valid for API calls
+    if (p.type === "refresh") return null;
+    return { payload: p };
+  } catch {
+    // RS256 failed — try HS256 with secret key as last resort
+  }
+
+  // Strategy 3: Fallback HS256 verification (migration period support)
+  try {
+    const { payload } = await jwtVerify(token, getSecret());
+    const p = payload as unknown as VerifiedToken["payload"];
+    if (p.type === "refresh") return null;
+    return { payload: p };
   } catch {
     return null;
   }
