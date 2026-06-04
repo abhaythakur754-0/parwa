@@ -316,15 +316,22 @@ try:
     _docs_url = "/docs" if _init_settings.DEBUG else None
     _redoc_url = "/redoc" if _init_settings.DEBUG else None
     _openapi_url = "/openapi.json" if _init_settings.DEBUG else None
-except Exception:
+except Exception as _settings_exc:
+    _init_settings = None
     _docs_url = None
     _redoc_url = None
     _openapi_url = None
+    import logging as _logging
+    _logging.getLogger("parwa.startup").critical(
+        "Failed to load settings — check required env vars (SECRET_KEY, "
+        "JWT_SECRET_KEY, DATA_ENCRYPTION_KEY, PRICING_SIGNING_KEY): %s",
+        _settings_exc,
+    )
 
 app = FastAPI(
     title="PARWA API",
     description="AI-Powered Customer Support Platform",
-    version=_init_settings.APP_VERSION,  # R-05: Single source of truth from config
+    version=_init_settings.APP_VERSION if _init_settings else "0.0.0",
     lifespan=lifespan,
     docs_url=_docs_url,
     redoc_url=_redoc_url,
