@@ -12,20 +12,13 @@
 
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import type { JarvisMessage, JarvisContext } from '@/types/jarvis';
 import { ChatMessage } from './ChatMessage';
 import { TypingIndicator } from './TypingIndicator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-// ── ROI context shape (stored in localStorage as parwa_jarvis_context) ──
-
-interface RoiContext {
-  roi_result?: number | string | null;
-  industry?: string | null;
-  variant?: string | null;
-  [key: string]: unknown;
-}
+// ── Props ──────────────────────────────────────────────────────
 
 interface ChatWindowProps {
   /** Ordered list of chat messages */
@@ -59,54 +52,13 @@ interface ChatWindowProps {
   sessionContext?: JarvisContext | null;
 }
 
-/** Safe localStorage getter — returns null if unavailable (SSR). */
-function getLocalStorageJson<T>(key: string): T | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Industry display names for welcome messages. */
-const INDUSTRY_LABELS: Record<string, string> = {
-  ecommerce: 'e-commerce',
-  realestate: 'real estate',
-  healthcare: 'healthcare',
-  education: 'education',
-  finance: 'finance',
-  travel: 'travel',
-  restaurant: 'restaurant',
-  salon: 'salon & beauty',
-  fitness: 'fitness',
-  legal: 'legal',
-};
-
-/** Build a simple welcome message — the AI generates the real one, this is just a fallback for the empty state. */
-function getWelcomeMessage(
-  ctx?: JarvisContext | null,
-  roiCtx?: RoiContext | null,
-): { heading: string; body: string } {
-  return {
-    heading: 'Jarvis',
-    body: "Hey! I'm Jarvis — your control center here. You can control everything just by typing, that's easy.",
-  };
-}
+// Welcome message is now AI-generated, not hardcoded.
+// This is just the empty state placeholder.
 
 export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hookActions, sessionState, sessionContext }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
-
-  // ROI context from localStorage (client-only)
-  const [roiContext, setRoiContext] = useState<RoiContext | null>(null);
-
-  useEffect(() => {
-    const ctx = getLocalStorageJson<RoiContext>('parwa_jarvis_context');
-    setRoiContext(ctx);
-  }, []);
 
   // Track scroll position — user is near bottom if within 80px
   useEffect(() => {
@@ -130,7 +82,6 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hoo
   }, [messages.length, isTyping]);
 
   const isEmpty = messages.length === 0 && !isTyping;
-  const welcome = getWelcomeMessage(sessionContext, roiContext);
 
   return (
     <div className="flex-1 overflow-hidden relative" ref={containerRef} role="log" aria-label="Chat messages">
@@ -151,7 +102,7 @@ export function ChatWindow({ messages, isTyping, onRetry, onSuggestionClick, hoo
                 Your control center
               </p>
               <p className="text-sm text-white/40 max-w-xs leading-relaxed">
-                {welcome.body}
+                Your AI-powered control center. Ask me anything — I can help with pricing, demos, setup, and more.
               </p>
 
               {/* Quick-start suggestions */}

@@ -4,6 +4,11 @@
  * React hook managing all Jarvis onboarding chat state.
  * Single source of truth for the chat UI.
  *
+ * KEY ARCHITECTURE: Frontend is the source of truth.
+ * Messages and message count are stored in localStorage.
+ * Server sessions are ephemeral (may be lost on serverless cold starts).
+ * Conversation history is sent with each API call so the AI always has context.
+ *
  * State:
  *   - messages, session, loading/typing states
  *   - Flow states: otp, payment, handoff, demo call
@@ -15,8 +20,6 @@
  *   - purchaseDemoPack(), createPayment()
  *   - initiateDemoCall(), executeHandoff()
  *   - clearError()
- *
- * Based on: JARVIS_SPECIFICATION.md v3.0 / JARVIS_ROADMAP.md v4.0
  */
 
 'use client';
@@ -30,7 +33,6 @@ import type {
   JarvisSessionCreateRequest,
   JarvisMessageSendRequest,
   JarvisContextUpdateRequest,
-  JarvisEntryContextRequest,
   JarvisOtpRequest,
   JarvisOtpVerifyRequest,
   JarvisPaymentCreateRequest,
@@ -78,6 +80,16 @@ const DEFAULT_DEMO_CALL_STATE: DemoCallState = {
   duration: 0,
 };
 
+// ── localStorage Keys ─────────────────────────────────────────────
+// Frontend is the source of truth. These persist across page navigations.
+
+const LS_SESSION_ID = 'parwa_jarvis_session_id';
+const LS_MESSAGES = 'parwa_jarvis_messages';
+const LS_TOTAL_SENT = 'parwa_jarvis_total_sent'; // total user messages ever sent (for 20 limit)
+const LS_ENTRY_PROCESSED = 'parwa_jarvis_entry_processed'; // last processed entry key
+
+const FREE_MESSAGE_LIMIT = 20;
+
 // ── API Helper ────────────────────────────────────────────────────
 
 const API_BASE = '/api/jarvis';
@@ -110,6 +122,34 @@ async function apiFetch<T>(
   return response.json() as Promise<T>;
 }
 
+// ── localStorage Helpers ──────────────────────────────────────────
+
+function lsGet<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) as T : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function lsSet(key: string, value: unknown): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // localStorage full or unavailable
+  }
+}
+
+function lsRemove(key: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(key);
+  } catch {}
+}
+
 // ── Hook ──────────────────────────────────────────────────────────
 
 export function useJarvisChat(entrySource?: string, entryParams?: Record<string, unknown>) {
@@ -117,9 +157,12 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
 
   const [messages, setMessages] = useState<JarvisMessage[]>([]);
   const [session, setSession] = useState<JarvisSession | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Total user messages sent across ALL sessions (tracked in localStorage)
+  const [totalSent, setTotalSent] = useState(0);
 
   // Flow states
   const [otpState, setOtpState] = useState<OtpState>(DEFAULT_OTP_STATE);
@@ -134,12 +177,44 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
   const isSendingRef = useRef(false);
   const msgCounterRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  const entryProcessedRef = useRef<string>('');
+  const sessionReadyRef = useRef(false);
 
   // ── Computed Values ─────────────────────────────────────────────
 
-  const remainingToday = session?.remaining_today ?? 20;
-  const isLimitReached = remainingToday <= 0;
+  const remainingToday = Math.max(0, FREE_MESSAGE_LIMIT - totalSent);
+  const isLimitReached = remainingToday <= 0 && session?.pack_type !== 'demo';
   const isDemoPackActive = session?.pack_type === 'demo';
+
+  // ── Load from localStorage immediately on mount ────────────────
+  // This ensures the UI shows previous messages instantly, before any API calls.
+
+  useEffect(() => {
+    const storedMessages = lsGet<JarvisMessage[]>(LS_MESSAGES, []);
+    const storedSent = lsGet<number>(LS_TOTAL_SENT, 0);
+    const storedEntryKey = lsGet<string>(LS_ENTRY_PROCESSED, '');
+
+    if (storedMessages.length > 0) {
+      setMessages(storedMessages);
+    }
+    setTotalSent(storedSent);
+    entryProcessedRef.current = storedEntryKey;
+    setIsLoading(false); // Show UI immediately with cached data
+  }, []);
+
+  // ── Save messages to localStorage whenever they change ──────────
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      lsSet(LS_MESSAGES, messages);
+    }
+  }, [messages]);
+
+  // ── Save totalSent to localStorage ──────────────────────────────
+
+  useEffect(() => {
+    lsSet(LS_TOTAL_SENT, totalSent);
+  }, [totalSent]);
 
   // ── Init Session ────────────────────────────────────────────────
 
@@ -152,51 +227,75 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
     setError(null);
 
     try {
-      // ── Persistent session: try to resume existing session from localStorage ──
-      if (typeof window !== 'undefined') {
+      const storedSessionId = lsGet<string | null>(LS_SESSION_ID, null);
+      const storedMessages = lsGet<JarvisMessage[]>(LS_MESSAGES, []);
+      const storedSent = lsGet<number>(LS_TOTAL_SENT, 0);
+      const hasExistingChat = storedMessages.length > 0;
+
+      // Build entry key to detect if entry context changed
+      const currentEntryKey = `${entrySource || 'direct'}_${JSON.stringify(entryParams || {})}`;
+      const entryChanged = currentEntryKey !== entryProcessedRef.current && currentEntryKey !== 'direct_{}';
+
+      // ── Try to resume existing server session ──
+      if (storedSessionId) {
         try {
-          const existingSessionId = localStorage.getItem('parwa_jarvis_session_id');
-          if (existingSessionId) {
-            try {
-              const existingSession = await apiFetch<JarvisSession>(`/session?session_id=${existingSessionId}`);
-              if (existingSession && existingSession.is_active) {
-                sessionRef.current = existingSession.id;
-                setSession(existingSession);
+          const existingSession = await apiFetch<JarvisSession>(`/session?session_id=${storedSessionId}`);
+          if (existingSession && existingSession.is_active) {
+            sessionRef.current = existingSession.id;
+            sessionReadyRef.current = true;
+            setSession(existingSession);
 
-                // Load history
-                const history = await apiFetch<JarvisHistoryResponse>(`/history?session_id=${existingSession.id}&limit=100`);
-                setMessages(history.messages || []);
+            // Load history from server
+            const history = await apiFetch<JarvisHistoryResponse>(`/history?session_id=${existingSession.id}&limit=100`);
+            const serverMessages = history.messages || [];
 
-                // Restore OTP state from context if present
-                const ctx = existingSession.context as JarvisContext;
-                if (ctx?.otp?.status === 'sent') {
-                  setOtpState({
-                    status: 'sent',
-                    email: ctx.otp.email || ctx.business_email || '',
-                    attempts: ctx.otp.attempts || 0,
-                    expires_at: ctx.otp.expires_at || null,
-                  });
-                } else if (ctx?.email_verified) {
-                  setOtpState((prev) => ({ ...prev, status: 'verified' }));
-                }
-
-                setIsLoading(false);
-                return; // Don't create a new session
-              }
-            } catch {
-              // Session expired or invalid — create new one
-              localStorage.removeItem('parwa_jarvis_session_id');
+            // Use whichever has more messages (server or local)
+            if (serverMessages.length > storedMessages.length) {
+              setMessages(serverMessages);
             }
+            // If local has more (server lost some), keep local
+
+            // Restore OTP state from context if present
+            const ctx = existingSession.context as JarvisContext;
+            if (ctx?.otp?.status === 'sent') {
+              setOtpState({
+                status: 'sent',
+                email: ctx.otp.email || ctx.business_email || '',
+                attempts: ctx.otp.attempts || 0,
+                expires_at: ctx.otp.expires_at || null,
+              });
+            } else if (ctx?.email_verified) {
+              setOtpState((prev) => ({ ...prev, status: 'verified' }));
+            }
+
+            // ── Handle entry context change (e.g. user came from Free Demo) ──
+            if (entryChanged && (entrySource?.includes('models_') || entrySource === 'models_page' || entrySource === 'free_chat')) {
+              await handleEntryContextUpdate(existingSession.id, entrySource, entryParams, hasExistingChat);
+              entryProcessedRef.current = currentEntryKey;
+              lsSet(LS_ENTRY_PROCESSED, currentEntryKey);
+            }
+
+            setIsLoading(false);
+            return; // Session resumed successfully
           }
         } catch {
-          // localStorage not available
+          // Server session expired/unavailable — will create new below
         }
       }
 
-      const body: JarvisSessionCreateRequest = {
+      // ── No existing server session — create new one ──
+      const body: Record<string, unknown> = {
         entry_source: (entrySource as EntrySource) || 'direct',
         entry_params: entryParams,
       };
+
+      // If we have existing chat messages locally, tell server to skip welcome
+      // and provide the previous messages so the AI has context
+      if (hasExistingChat) {
+        body.skip_welcome = true;
+        body.previous_messages = storedMessages.slice(-30); // Send last 30 messages for context
+        body.total_sent = storedSent;
+      }
 
       const sessionData = await apiFetch<JarvisSession>('/session', {
         method: 'POST',
@@ -204,132 +303,55 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
       });
 
       sessionRef.current = sessionData.id;
+      sessionReadyRef.current = true;
       setSession(sessionData);
 
-      // Save session ID to localStorage for persistence
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('parwa_jarvis_session_id', sessionData.id);
-        } catch { /* ignore */ }
+      // Save session ID to localStorage
+      lsSet(LS_SESSION_ID, sessionData.id);
+
+      // If server returned welcome messages and we DON'T have local messages, use server's
+      if (!hasExistingChat && sessionData.messages?.length > 0) {
+        setMessages(sessionData.messages as JarvisMessage[]);
+      }
+      // If we have local messages, keep them (server session is just for API compatibility)
+
+      // If this is a Free Demo entry with existing chat, trigger contextual message
+      if (hasExistingChat && (entrySource?.includes('models_') || entrySource === 'free_chat')) {
+        await handleEntryContextUpdate(sessionData.id, entrySource, entryParams, true);
       }
 
-      // Load history
-      const history = await apiFetch<JarvisHistoryResponse>(
-        `/history?session_id=${sessionData.id}&limit=100`,
-      );
+      entryProcessedRef.current = currentEntryKey;
+      lsSet(LS_ENTRY_PROCESSED, currentEntryKey);
 
-      setMessages(history.messages || []);
-
-      // Restore OTP state from context if present
-      const ctx = sessionData.context as JarvisContext;
-      if (ctx?.otp?.status === 'sent') {
-        setOtpState({
-          status: 'sent',
-          email: ctx.otp.email || ctx.business_email || '',
-          attempts: ctx.otp.attempts || 0,
-          expires_at: ctx.otp.expires_at || null,
-        });
-      } else if (ctx?.email_verified) {
-        setOtpState((prev) => ({ ...prev, status: 'verified' }));
-      }
-
-      // ── Phase 9: Cross-Page Context Bridge ──────────────────────
+      // ── Cross-Page Context Bridge ──────────────────────────────
       // Read pricing/ROI context from localStorage (set by pricing page)
-      if (typeof window !== 'undefined') {
-        try {
-          const storedContext = localStorage.getItem('parwa_jarvis_context');
-          if (storedContext) {
-            const bridgedContext = JSON.parse(storedContext) as Record<string, unknown>;
-            // Transfer pricing selection into session context via API
-            const contextPatch: Partial<JarvisContext> = {};
-            if (bridgedContext.industry) {
-              contextPatch.industry = bridgedContext.industry as string;
-            }
-            if (bridgedContext.selected_variants) {
-              contextPatch.selected_variants = bridgedContext.selected_variants as VariantSelection[];
-            }
-            if (bridgedContext.total_price) {
-              contextPatch.total_price = bridgedContext.total_price as number;
-            }
-            if (bridgedContext.source) {
-              contextPatch.referral_source = bridgedContext.source as string;
-            }
-            if (bridgedContext.roi_result) {
-              contextPatch.roi_result = bridgedContext.roi_result as JarvisContext['roi_result'];
-            }
-            // CRITICAL: Bridge variant/variant_id from Models page click
-            // so the AI system prompt can reference the specific model
-            if (bridgedContext.variant) {
-              contextPatch.variant = bridgedContext.variant as string;
-            }
-            if (bridgedContext.variant_id) {
-              contextPatch.variant_id = bridgedContext.variant_id as string;
-            }
-            // CRITICAL: Bridge variant_tier from Models page click
-            // This is what triggers the variant pipeline routing in the backend.
-            // Without variant_tier, onboarding uses direct AI (legacy path).
-            // With variant_tier, onboarding routes through Mini Parwa / Pro Parwa.
-            // starter → mini_parwa, growth → parwa, high → parwa_high
-            if (bridgedContext.variant_tier) {
-              contextPatch.variant_tier = bridgedContext.variant_tier as string;
-            }
-            // Bridge entry_source so the backend knows the user's journey origin
-            if (bridgedContext.entry_source) {
-              contextPatch.entry_source = bridgedContext.entry_source as EntrySource;
-            }
-            // Push context to backend
-            const hasPatch = Object.keys(contextPatch).length > 0;
-            if (hasPatch) {
-              await apiFetch<JarvisSession>(
-                `/context?session_id=${sessionData.id}`,
-                { method: 'PATCH', body: JSON.stringify(contextPatch) },
-              );
-              // Update local session state
-              setSession((prev) => {
-                if (!prev) return prev;
-                return { ...prev, context: { ...prev.context, ...contextPatch } };
-              });
-            }
-            // NOTE: Do NOT remove parwa_jarvis_context here.
-            // Other pages may still need to read it, and the pushContextToBackend
-            // above already synced it to the backend session.
-          }
+      const storedContext = lsGet<Record<string, unknown>>('parwa_jarvis_context', null);
+      if (storedContext) {
+        const contextPatch: Partial<JarvisContext> = {};
+        if (storedContext.industry) contextPatch.industry = storedContext.industry as string;
+        if (storedContext.selected_variants) contextPatch.selected_variants = storedContext.selected_variants as VariantSelection[];
+        if (storedContext.total_price) contextPatch.total_price = storedContext.total_price as number;
+        if (storedContext.source) contextPatch.referral_source = storedContext.source as string;
+        if (storedContext.roi_result) contextPatch.roi_result = storedContext.roi_result as JarvisContext['roi_result'];
+        if (storedContext.variant) contextPatch.variant = storedContext.variant as string;
+        if (storedContext.variant_id) contextPatch.variant_id = storedContext.variant_id as string;
+        if (storedContext.variant_tier) contextPatch.variant_tier = storedContext.variant_tier as string;
+        if (storedContext.entry_source) contextPatch.entry_source = storedContext.entry_source as EntrySource;
 
-          // Also read parwa_pricing_selection as fallback (set by pricing page)
-          if (!storedContext) {
-            const pricingRaw = localStorage.getItem('parwa_pricing_selection');
-            if (pricingRaw) {
-              try {
-                const pricing = JSON.parse(pricingRaw) as Record<string, unknown>;
-                const contextPatch: Partial<JarvisContext> = {};
-                if (pricing.industry) contextPatch.industry = pricing.industry as string;
-                if (pricing.variants) contextPatch.selected_variants = pricing.variants as VariantSelection[];
-                if (pricing.totalMonthly) contextPatch.total_price = pricing.totalMonthly as number;
-                const hasPatch = Object.keys(contextPatch).length > 0;
-                if (hasPatch) {
-                  await apiFetch<JarvisSession>(
-                    `/context?session_id=${sessionData.id}`,
-                    { method: 'PATCH', body: JSON.stringify(contextPatch) },
-                  );
-                  setSession((prev) => {
-                    if (!prev) return prev;
-                    return { ...prev, context: { ...prev.context, ...contextPatch } };
-                  });
-                }
-              } catch { /* ignore */ }
-            }
-          }
-          // Track pages visited for context awareness
-          const visitedRaw = localStorage.getItem('parwa_pages_visited');
-          const visited: string[] = visitedRaw ? JSON.parse(visitedRaw) : [];
-          if (visited.length > 0) {
+        const hasPatch = Object.keys(contextPatch).length > 0;
+        if (hasPatch) {
+          try {
             await apiFetch<JarvisSession>(
               `/context?session_id=${sessionData.id}`,
-              { method: 'PATCH', body: JSON.stringify({ pages_visited: visited } as Partial<JarvisContext>) },
-            ).catch(() => { /* non-critical */ });
+              { method: 'PATCH', body: JSON.stringify(contextPatch) },
+            );
+            setSession((prev) => {
+              if (!prev) return prev;
+              return { ...prev, context: { ...prev.context, ...contextPatch } };
+            });
+          } catch {
+            // Non-critical
           }
-        } catch {
-          // Non-critical — localStorage bridge failure
         }
       }
     } catch (err) {
@@ -339,6 +361,73 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
       setIsLoading(false);
     }
   }, [entrySource, entryParams]);
+
+  // ── Handle Entry Context Update ────────────────────────────────
+  // When user enters from a different page (e.g. Free Demo),
+  // update the session context and generate a contextual AI message.
+
+  const handleEntryContextUpdate = useCallback(async (
+    sessionId: string,
+    source?: string,
+    params?: Record<string, unknown>,
+    hasExistingChat?: boolean,
+  ) => {
+    if (!source && !params) return;
+
+    try {
+      // First update the session context
+      const contextPatch: Record<string, unknown> = {};
+      if (source) contextPatch.entry_source = source;
+      if (params) {
+        for (const [k, v] of Object.entries(params)) {
+          if (v !== null && v !== undefined) contextPatch[k] = v;
+        }
+      }
+
+      try {
+        await apiFetch<JarvisSession>(
+          `/context?session_id=${sessionId}`,
+          { method: 'PATCH', body: JSON.stringify(contextPatch) },
+        );
+        setSession((prev) => {
+          if (!prev) return prev;
+          return { ...prev, context: { ...prev.context, ...contextPatch } };
+        });
+      } catch {
+        // Context update failed — still try entry endpoint
+      }
+
+      // If this is a Free Demo entry, generate a contextual AI message
+      if (source?.includes('models_') || source === 'models_page' || source === 'free_chat') {
+        try {
+          const result = await apiFetch<{ session: JarvisSession; new_welcome: JarvisMessage }>(
+            `/context/entry`,
+            {
+              method: 'POST',
+              body: JSON.stringify({
+                session_id: sessionId,
+                entry_source: source,
+                entry_params: params,
+              }),
+            },
+          );
+
+          if (result.new_welcome) {
+            setMessages((prev) => [...prev, result.new_welcome]);
+          }
+
+          if (result.session) {
+            setSession(result.session);
+          }
+        } catch {
+          // Contextual message failed — non-critical
+          // The user can still chat normally
+        }
+      }
+    } catch {
+      // Non-critical
+    }
+  }, []);
 
   // Auto-init on mount, abort on unmount
   useEffect(() => {
@@ -352,8 +441,11 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
 
   const sendMessage = useCallback(
     async (content: string) => {
-      if (isLimitReached) return;
       if (!content.trim()) return;
+
+      // Check limit using localStorage-tracked count
+      if (isLimitReached && session?.pack_type !== 'demo') return;
+
       if (!sessionRef.current) {
         setError('Session not ready. Please wait or reload.');
         return;
@@ -381,15 +473,23 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
       };
       setMessages((prev) => [...prev, optimisticUserMsg]);
 
+      // Increment total sent count
+      setTotalSent((prev) => prev + 1);
+
       try {
-        // ── Attach current session context to every message ──
-        // This ensures the AI always has the latest context even if
-        // the PATCH /context endpoint failed or hasn't completed yet
+        // ── Send context AND recent messages with every request ──
+        // This ensures the AI always has conversation history even if
+        // the server session was lost/recreated
         const currentCtx = session?.context || {};
-        const body: JarvisMessageSendRequest & { context?: typeof currentCtx } = {
+        const currentMessages = lsGet<JarvisMessage[]>(LS_MESSAGES, []);
+
+        const body: Record<string, unknown> = {
           content: content.trim(),
           session_id: sessionId || undefined,
           ...(Object.keys(currentCtx).length > 0 ? { context: currentCtx } : {}),
+          // Send recent messages for AI context (critical for serverless)
+          recent_messages: currentMessages.slice(-20),
+          total_sent: lsGet<number>(LS_TOTAL_SENT, 0),
         };
 
         const aiMessage = await apiFetch<JarvisMessage>('/message', {
@@ -421,12 +521,15 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
             );
             setSession(updatedSession);
           } catch {
-            // Non-critical — session state update failed
+            // Non-critical
           }
         }
       } catch (err) {
         if ((err as Error)?.name === 'AbortError') return;
         setError(err instanceof Error ? err.message : 'Failed to send message');
+
+        // Decrement total sent on failure
+        setTotalSent((prev) => Math.max(0, prev - 1));
 
         // Mark optimistic message as error
         setMessages((prev) =>
@@ -441,7 +544,7 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
         isSendingRef.current = false;
       }
     },
-    [isLimitReached],
+    [isLimitReached, session?.context, session?.pack_type],
   );
 
   // ── Retry Last Message ──────────────────────────────────────────
@@ -459,7 +562,6 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
       if (lastIdx >= 0 && prev[lastIdx].message_type === 'error') {
         return prev.slice(0, -1);
       }
-      // Also remove last user message (will be re-added by sendMessage)
       const userMsgIdx = prev.length - 1;
       if (userMsgIdx >= 0 && prev[userMsgIdx].role === 'user') {
         return prev.slice(0, -1);
@@ -754,6 +856,7 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
     handoffState,
     demoCallState,
     error,
+    totalSent,
 
     // Actions
     initSession,

@@ -675,19 +675,37 @@ function getStageInstructions(stage: string): string {
 // ── Context-Aware Welcome Messages ────────────────────────────────
 
 function getContextAwareWelcome(entrySource: string, ctx: any): string {
-  // Simple fallback — the AI generates the real welcome message.
-  // This is only used if the AI call fails.
+  // Fallback only — the AI generates the real welcome message.
+  // This is only used if all AI providers fail.
   const source = entrySource || 'direct';
   const ep = ctx.entry_params || {};
   const variant = ep.variant || ctx.variant || null;
   const industry = ep.industry || ctx.industry || null;
   const industryLabel = industry || 'your business';
 
+  // Randomize the greeting to avoid repetition
+  const greetings = [
+    "Hey!", "Hi there!", "Welcome!", "Hey, good to see you!",
+    "Hello!", "Hey there!", "Welcome in!", "Glad you're here!",
+  ];
+  const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+
   if (variant && (source.startsWith('models_') || source === 'models_page')) {
-    return `Hey! I'm Jarvis. You wanted to see how ${variant} works for ${industryLabel}. I can walk you through it — just ask me anything. You can also access these features through the dashboard, or just chat with me here.`;
+    const variantIntros = [
+      `${greeting} I'm Jarvis. You wanted to see how ${variant} works for ${industryLabel} — let me show you. Ask me anything about it, or I can walk you through a live scenario. You can access these features through the dashboard or by chatting with me here.`,
+      `${greeting} I'm Jarvis. So you're curious about ${variant} for ${industryLabel}? Great choice — let me give you the real picture. I can demo it right here, or you can explore the dashboard. What would you like to know first?`,
+      `${greeting} Jarvis here. ${variant} for ${industryLabel} — solid pick. I can show you exactly how it handles real situations, or answer any questions. Dashboard or chat, whatever works for you.`,
+    ];
+    return variantIntros[Math.floor(Math.random() * variantIntros.length)];
   }
 
-  return `Hey! I'm Jarvis — your control center here. You can control everything just by typing, that's easy. What can I help you with?`;
+  const defaultIntros = [
+    `${greeting} I'm Jarvis — your control center. You can control everything just by typing. What can I help you with?`,
+    `${greeting} I'm Jarvis. Think of me as your command center — just tell me what you need and I'll handle it. What's on your mind?`,
+    `${greeting} Jarvis here. I'm your control room — ask me anything, I'll get it done. What are you looking for?`,
+    `${greeting} I'm Jarvis. Whatever you need — pricing, demos, setup, questions — just type it and I'm on it. How can I help?`,
+  ];
+  return defaultIntros[Math.floor(Math.random() * defaultIntros.length)];
 }
 
 // Build entry context string for AI welcome generation
@@ -949,33 +967,54 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // ── POST /session — Create Session ──────────────────────────
     if (endpoint === 'session') {
       const body = bodyData || {};
+      const skipWelcome = body.skip_welcome === true;
+      const previousMessages = Array.isArray(body.previous_messages) ? body.previous_messages : [];
+      const frontendTotalSent = typeof body.total_sent === 'number' ? body.total_sent : 0;
+
       const session = createDefaultSession(body.entry_source, body.entry_params);
 
-      // Generate welcome message via AI instead of hardcoded
-      let welcomeContent = '';
-      try {
-        const welcomePrompt = buildSystemPrompt(session);
-        const entryContext = buildEntryContext(session.context);
-        const aiMessages = [
-          { role: 'system', content: welcomePrompt },
-          { role: 'user', content: `Generate a short, natural welcome message for this user. Context: ${entryContext}. Just introduce yourself as Jarvis and acknowledge their entry point. Keep it conversational, not sales-y.` },
-        ];
-        const aiWelcome = await callAI(aiMessages);
-        welcomeContent = aiWelcome || getContextAwareWelcome(session.context.entry_source, session.context);
-      } catch {
-        welcomeContent = getContextAwareWelcome(session.context.entry_source, session.context);
+      // ── If frontend has existing messages, restore them into the new session ──
+      // This happens when the server session was lost (serverless cold start)
+      // but the frontend has messages in localStorage.
+      if (previousMessages.length > 0) {
+        session.messages = previousMessages;
+        session.message_count_today = frontendTotalSent;
+        session.total_message_count = frontendTotalSent;
+        session.remaining_today = Math.max(0, 20 - frontendTotalSent);
+        // Advance stage from welcome since user already has messages
+        session.detected_stage = 'discovery';
+        session.context.detected_stage = 'discovery';
+        session.stage_history = ['welcome', 'discovery'];
       }
 
-      const welcomeMsg = {
-        id: `jarvis_welcome_${Date.now()}`,
-        session_id: session.id,
-        role: 'jarvis',
-        content: welcomeContent,
-        message_type: 'text',
-        metadata: { entry_source: session.context.entry_source },
-        timestamp: new Date().toISOString(),
-      };
-      (session.messages as any[]).push(welcomeMsg);
+      // ── Generate AI welcome message (only for new users, not resumed sessions) ──
+      if (!skipWelcome && previousMessages.length === 0) {
+        let welcomeContent = '';
+        try {
+          const welcomePrompt = buildSystemPrompt(session);
+          const entryContext = buildEntryContext(session.context);
+          const aiMessages = [
+            { role: 'system', content: welcomePrompt },
+            { role: 'user', content: `Generate a short, natural welcome message for this user. Context: ${entryContext}. Just introduce yourself as Jarvis and acknowledge their entry point. Keep it conversational, not sales-y. Each time you generate a welcome, make it different and unique.` },
+          ];
+          const aiWelcome = await callAI(aiMessages);
+          welcomeContent = aiWelcome || getContextAwareWelcome(session.context.entry_source, session.context);
+        } catch {
+          welcomeContent = getContextAwareWelcome(session.context.entry_source, session.context);
+        }
+
+        const welcomeMsg = {
+          id: `jarvis_welcome_${Date.now()}`,
+          session_id: session.id,
+          role: 'jarvis',
+          content: welcomeContent,
+          message_type: 'text',
+          metadata: { entry_source: session.context.entry_source },
+          timestamp: new Date().toISOString(),
+        };
+        (session.messages as any[]).push(welcomeMsg);
+      }
+
       setSession(session.id, session);
       return NextResponse.json(session);
     }
@@ -991,11 +1030,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!bodyData) {
         return NextResponse.json({ error: { code: 'bad_request', message: 'Invalid request body', details: null } }, { status: 400 });
       }
-      const { content, session_id, context: incomingContext } = bodyData;
+      const { content, session_id, context: incomingContext, recent_messages, total_sent: frontendTotalSent } = bodyData;
 
       let session = session_id ? getSession(session_id) : undefined;
       if (!session) {
+        // Server session lost — create new one and seed with frontend messages if available
         session = createDefaultSession('direct');
+        // Restore conversation history from frontend if available
+        if (Array.isArray(recent_messages) && recent_messages.length > 0) {
+          session.messages = recent_messages;
+          session.message_count_today = typeof frontendTotalSent === 'number' ? frontendTotalSent : 0;
+          session.total_message_count = session.message_count_today;
+          session.remaining_today = Math.max(0, 20 - session.message_count_today);
+          session.detected_stage = 'discovery';
+          session.context.detected_stage = 'discovery';
+        }
         setSession(session.id, session);
       }
 
@@ -1030,6 +1079,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           if (!session.context.concerns_raised) session.context.concerns_raised = [];
           session.context.concerns_raised.push(concern);
         }
+      }
+
+      // Use frontend-tracked message count if available (more reliable than server count
+      // because server sessions can be lost on serverless cold starts)
+      if (typeof frontendTotalSent === 'number' && frontendTotalSent > session.message_count_today) {
+        session.message_count_today = frontendTotalSent;
+        session.total_message_count = frontendTotalSent;
       }
 
       const userMsg = {
@@ -1316,11 +1372,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const body = bodyData || {};
       const { session_id, entry_source, entry_params } = body;
 
+      // If server session is gone, create a new one and seed with frontend data
+      let session: any;
       if (!session_id || !hasSession(session_id)) {
-        return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
+        session = createDefaultSession(entry_source || 'direct', entry_params);
+        // Restore messages from entry_params if available
+        if (Array.isArray(entry_params?.previous_messages) && entry_params.previous_messages.length > 0) {
+          session.messages = entry_params.previous_messages;
+          const prevSent = typeof entry_params?.total_sent === 'number' ? entry_params.total_sent : 0;
+          session.message_count_today = prevSent;
+          session.total_message_count = prevSent;
+          session.remaining_today = Math.max(0, 20 - prevSent);
+          session.detected_stage = 'discovery';
+          session.context.detected_stage = 'discovery';
+        }
+        setSession(session.id, session);
+      } else {
+        session = getSession(session_id);
       }
-
-      const session = getSession(session_id);
 
       // Build enhanced context from entry params (Phase 9a)
       const params = entry_params || {};
@@ -1342,14 +1411,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         session.context.entry_params = { ...session.context.entry_params, ...params };
       }
 
-      // Generate context-aware welcome message via AI
+      // Generate context-aware welcome message via AI (unique each time)
       let welcomeContent = '';
       try {
         const welcomePrompt = buildSystemPrompt(session);
         const entryContext = buildEntryContext(session.context);
+        // Add randomness seed to ensure different messages each time
+        const randomSeed = Date.now();
         const aiMessages = [
           { role: 'system', content: welcomePrompt },
-          { role: 'user', content: `The user just re-entered from a new context. Generate a short, natural re-welcome message. Context: ${entryContext}. Acknowledge their entry point naturally. Keep it conversational, not sales-y.` },
+          { role: 'user', content: `The user just came from a new page/context. Context: ${entryContext}. They clicked "${entry_source || 'free demo'}" to explore. Generate a short, natural, UNIQUE message acknowledging this. Be specific about what they clicked. Be conversational, not sales-y. Make it different every time (seed: ${randomSeed}). If they selected a variant, explain how it works for their industry and mention they can access features through the dashboard or by chatting with you.` },
         ];
         const aiWelcome = await callAI(aiMessages);
         welcomeContent = aiWelcome || getContextAwareWelcome(session.context.entry_source, session.context);
