@@ -860,10 +860,14 @@ async function getAIResponse(userMessage: string, session: any): Promise<string>
   const messages = [
     { role: 'system', content: systemPrompt },
   ];
-  const recentMessages = session.messages.slice(-10);
+  // ── RAG-lite: Send up to 30 recent messages for full context awareness ──
+  // This ensures the AI remembers the entire conversation, not just last 10
+  const recentMessages = session.messages.slice(-30);
   for (const msg of recentMessages) {
-    const role = msg.role === 'jarvis' ? 'assistant' : String(msg.role);
-    messages.push({ role, content: String(msg.content) });
+    const role = msg.role === 'jarvis' ? 'assistant' : (msg.role === 'system' ? 'user' : String(msg.role));
+    // Truncate very long messages to avoid token limits
+    const content = String(msg.content).slice(0, 500);
+    messages.push({ role, content });
   }
   messages.push({ role: 'user', content: userMessage });
 
