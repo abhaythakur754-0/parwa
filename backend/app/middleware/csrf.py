@@ -179,6 +179,15 @@ class CSRFSecurityMiddleware:
             await self.app(scope, receive, wrapped_send)
             return
 
+        # Debug: log proxy auth mismatch (helps diagnose CSRF failures)
+        if proxy_auth:
+            logger.warning(
+                "csrf_proxy_auth_mismatch method=%s path=%s "
+                "received_len=%d expected_len=%d",
+                method, path,
+                len(proxy_auth), len(_proxy_auth_secret),
+            )
+
         # ── H-19: Check if request has an existing CSRF cookie ──
         # If not, generate one and inject it into the response.
         cookie_header = request_headers.get(
