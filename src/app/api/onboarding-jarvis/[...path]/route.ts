@@ -20,40 +20,101 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import https from 'https';
+import http from 'http';
 
 // ── Backend Proxy Configuration ─────────────────────────────────
 const BACKEND_URL =
   process.env.BACKEND_URL ||
   process.env.SERVER_API_URL ||
   process.env.NEXT_PUBLIC_BACKEND_URL ||
-  'http://localhost:8000';
+  process.env.NEXT_PUBLIC_API_URL ||
+  'https://parwa-backend.onrender.com';
 
 // Proxy auth secret — must match backend PROXY_AUTH_SECRET
 const PROXY_AUTH_SECRET = process.env.PROXY_AUTH_SECRET || 'parwa_proxy_auth_2026';
 
-/**
- * Extract auth token from cookies (parwa_at) and/or Authorization header.
- * Returns a headers object suitable for forwarding.
- */
-function buildAuthHeaders(request: NextRequest): Headers {
-  const headers = new Headers(request.headers);
-  headers.delete('host');
+// Trusted origin for CSRF validation
+const PROXY_ORIGIN =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  process.env.NEXTAUTH_URL ||
+  'https://parwafrontend.vercel.app';
 
-  // Add proxy auth so backend CSRF middleware skips checks for trusted requests
-  headers.set('x-proxy-auth', PROXY_AUTH_SECRET);
+/**
+ * Low-level HTTP request using Node.js https/http modules.
+ * Unlike fetch(), this does NOT strip "forbidden headers" (Cookie, Origin)
+ * which are required for CSRF proxy auth and origin validation.
+ */
+function rawHttpRequest(
+  url: string,
+  method: string,
+  headers: Record<string, string>,
+  body?: Buffer | string,
+  timeoutMs: number = 20000,
+): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const parsedUrl = new URL(url);
+    const isHttps = parsedUrl.protocol === 'https:';
+    const lib = isHttps ? https : http;
+
+    const options: https.RequestOptions = {
+      hostname: parsedUrl.hostname,
+      port: parsedUrl.port || (isHttps ? 443 : 80),
+      path: parsedUrl.pathname + parsedUrl.search,
+      method,
+      headers,
+      timeout: timeoutMs,
+    };
+
+    const req = lib.request(options, (res) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (chunk: Buffer) => { chunks.push(chunk); });
+      res.on('end', () => {
+        resolve({
+          status: res.statusCode || 500,
+          body: Buffer.concat(chunks).toString(),
+        });
+      });
+    });
+
+    req.on('error', (err: Error) => { reject(err); });
+    req.on('timeout', () => { req.destroy(); reject(new Error(`Backend proxy timeout after ${timeoutMs}ms`)); });
+
+    if (body) { req.write(body); }
+    req.end();
+  });
+}
+
+/**
+ * Build auth headers using plain object (NOT Headers class) for http.request().
+ * The Headers class + fetch() strips "forbidden headers" (Cookie, Origin).
+ */
+function buildAuthHeadersObj(request: NextRequest): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': request.headers.get('content-type') || 'application/json',
+    'Origin': PROXY_ORIGIN,
+    'x-proxy-origin': PROXY_ORIGIN,
+    'x-proxy-auth': PROXY_AUTH_SECRET,
+  };
 
   // Forward Authorization header if present
   const authHeader = request.headers.get('authorization');
   if (authHeader) {
-    headers.set('Authorization', authHeader);
+    headers['Authorization'] = authHeader;
   }
 
   // Also check for parwa_at cookie and use it as Bearer token if no Authorization header
   if (!authHeader) {
     const cookieToken = request.cookies.get('parwa_at')?.value;
     if (cookieToken) {
-      headers.set('Authorization', `Bearer ${cookieToken}`);
+      headers['Authorization'] = `Bearer ${cookieToken}`;
     }
+  }
+
+  // Forward cookies
+  const cookieHeader = request.headers.get('cookie');
+  if (cookieHeader) {
+    headers['Cookie'] = cookieHeader;
   }
 
   return headers;
@@ -61,6 +122,7 @@ function buildAuthHeaders(request: NextRequest): Headers {
 
 /**
  * Try to proxy a request to the backend FastAPI server.
+ * Uses Node.js https/http modules instead of fetch() to preserve ALL headers.
  * Returns the Response on success, or null if backend is unavailable / returned an error.
  */
 async function proxyToBackend(
@@ -74,30 +136,43 @@ async function proxyToBackend(
   const fullUrl = searchParams ? `${backendPath}?${searchParams}` : backendPath;
 
   try {
-    // Use pre-read body if provided, otherwise read it (only safe if no local fallback needed)
-    let body: ArrayBuffer | undefined = rawBody;
-    if (!body && ['POST', 'PATCH', 'PUT'].includes(request.method)) {
-      body = await request.arrayBuffer();
+    const headers = buildAuthHeadersObj(request);
+
+    let bodyBuffer: Buffer | undefined;
+    if (rawBody) {
+      bodyBuffer = Buffer.from(rawBody);
+    } else if (['POST', 'PATCH', 'PUT'].includes(request.method)) {
+      const ab = await request.arrayBuffer();
+      bodyBuffer = Buffer.from(ab);
     }
 
-    const headers = buildAuthHeaders(request);
-
-    const response = await fetch(fullUrl, {
-      method: request.method,
+    const response = await rawHttpRequest(
+      fullUrl,
+      request.method,
       headers,
-      body,
-      signal: AbortSignal.timeout(20000),
-    });
+      bodyBuffer,
+      20000,
+    );
 
     if (response.status >= 200 && response.status < 300) {
-      return response;
+      try {
+        const data = JSON.parse(response.body);
+        return new Response(JSON.stringify(data), {
+          status: response.status,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch {
+        return new Response(response.body, {
+          status: response.status,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     // Backend returned an error — fall back to local handling
-    const errorText = await response.text().catch(() => '');
     console.warn(
       `[OnboardingJarvis] Backend returned ${response.status}:`,
-      errorText.slice(0, 200),
+      response.body?.slice(0, 200),
     );
     return null;
   } catch (err) {
@@ -783,26 +858,7 @@ export async function POST(
     // ── Try backend proxy first for ALL endpoints ──
     let proxyResult: Response | null = null;
     try {
-      const backendPath = `${BACKEND_URL}/api/onboarding-jarvis/${path.join('/')}`;
-      const url = new URL(request.url);
-      const searchParams = url.searchParams.toString();
-      const fullUrl = searchParams ? `${backendPath}?${searchParams}` : backendPath;
-
-      const headers = buildAuthHeaders(request);
-      const response = await fetch(fullUrl, {
-        method: request.method,
-        headers,
-        body: rawBody,
-        signal: AbortSignal.timeout(10000),
-      });
-
-      if (response.status >= 200 && response.status < 300) {
-        proxyResult = response;
-      } else {
-        console.warn(
-          `[OnboardingJarvis] Backend returned ${response.status}`,
-        );
-      }
+      proxyResult = await proxyToBackend(request, path, rawBody);
     } catch (err) {
       console.warn(
         '[OnboardingJarvis] Backend proxy failed:',

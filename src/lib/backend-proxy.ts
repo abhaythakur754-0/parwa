@@ -9,9 +9,16 @@
  *   - Response body transformation (backend → frontend format)
  *   - Auth cookie setting (parwa_at, parwa_rt, parwa_user)
  *   - Error normalization
+ *
+ * IMPORTANT: Uses Node.js https.request() instead of fetch() because
+ * Node.js fetch() strips "forbidden headers" (Cookie, Origin) per the
+ * Fetch spec, which breaks CSRF proxy auth and origin validation.
+ * https.request() sends ALL headers without stripping.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import https from 'https';
+import http from 'http';
 import { setAuthCookies, clearAuthCookies } from './auth-cookies';
 
 // Backend URL — prefer SERVER_API_URL (server-only), fall back to BACKEND_URL, then NEXT_PUBLIC_API_URL
@@ -177,6 +184,76 @@ function getCookieFromRequest(request: NextRequest, name: string): string | null
   return null;
 }
 
+// ── Low-level HTTP request using Node.js https/http ─────────────
+// Uses native Node.js http/https modules instead of fetch() because
+// fetch() strips "forbidden headers" (Cookie, Origin) per the Fetch spec.
+// This breaks our CSRF proxy auth and origin validation.
+
+interface RawHttpResponse {
+  status: number;
+  headers: Record<string, string>;
+  body: string;
+}
+
+function rawHttpRequest(
+  url: string,
+  method: string,
+  headers: Record<string, string>,
+  body?: string,
+  timeoutMs: number = 60000,
+): Promise<RawHttpResponse> {
+  return new Promise((resolve, reject) => {
+    const parsedUrl = new URL(url);
+    const isHttps = parsedUrl.protocol === 'https:';
+    const lib = isHttps ? https : http;
+
+    const options: https.RequestOptions = {
+      hostname: parsedUrl.hostname,
+      port: parsedUrl.port || (isHttps ? 443 : 80),
+      path: parsedUrl.pathname + parsedUrl.search,
+      method,
+      headers,
+      timeout: timeoutMs,
+    };
+
+    const req = lib.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk: Buffer | string) => {
+        data += chunk.toString();
+      });
+      res.on('end', () => {
+        const respHeaders: Record<string, string> = {};
+        for (let i = 0; i < (res.rawHeaders?.length || 0); i += 2) {
+          const key = res.rawHeaders[i];
+          const val = res.rawHeaders[i + 1];
+          if (key && val) {
+            respHeaders[key.toLowerCase()] = val;
+          }
+        }
+        resolve({
+          status: res.statusCode || 500,
+          headers: respHeaders,
+          body: data,
+        });
+      });
+    });
+
+    req.on('error', (err: Error) => {
+      reject(err);
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error(`Request timeout after ${timeoutMs}ms`));
+    });
+
+    if (body) {
+      req.write(body);
+    }
+    req.end();
+  });
+}
+
 // ── Main Proxy Function ────────────────────────────────────────
 
 export interface ProxyAuthOptions {
@@ -209,14 +286,11 @@ export async function proxyAuthRequest(
   // Generate CSRF token for double-submit pattern
   const csrfToken = generateCSRFToken();
 
-  // Build headers
-  // NOTE: Node.js fetch() may strip 'Origin' and 'Cookie' as "forbidden headers"
-  // per the Fetch spec. We use custom 'x-proxy-*' headers as fallbacks.
+  // Build headers — using Node.js https.request() which does NOT strip
+  // "forbidden headers" like Cookie and Origin (unlike fetch()).
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    // Set Origin (may be stripped by Node.js fetch, but try anyway)
     'Origin': PROXY_ORIGIN,
-    // Custom proxy headers that Node.js fetch won't strip
     'x-proxy-origin': PROXY_ORIGIN,
     'x-csrf-token': csrfToken,
     'x-csrf-cookie': csrfToken,
@@ -233,7 +307,6 @@ export async function proxyAuthRequest(
     const accessToken = getCookieFromRequest(request, 'parwa_at');
     if (accessToken) {
       headers['Authorization'] = `Bearer ${accessToken}`;
-      // When Bearer is present, CSRF Layer 2 is skipped
     }
   }
 
@@ -269,18 +342,32 @@ export async function proxyAuthRequest(
   }
 
   try {
-    const response = await fetch(url, {
-      method: options.method,
+    // Use raw HTTP request instead of fetch() to preserve ALL headers
+    // (fetch() strips Cookie, Origin, and other "forbidden headers")
+    const response = await rawHttpRequest(
+      url,
+      options.method,
       headers,
-      body: requestBody ? JSON.stringify(requestBody) : undefined,
-      signal: AbortSignal.timeout(60000), // 60s timeout for Render wake-up
-    });
+      requestBody ? JSON.stringify(requestBody) : undefined,
+      60000, // 60s timeout for Render wake-up
+    );
 
-    const data = await response.json();
+    // Parse JSON response
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(response.body);
+    } catch {
+      console.error('[ProxyAuth] Invalid JSON response:', response.body?.slice(0, 200));
+      return NextResponse.json(
+        { status: 'error', message: 'Invalid response from server.' },
+        { status: 502 }
+      );
+    }
 
     // Handle error responses
-    if (!response.ok) {
+    if (response.status < 200 || response.status >= 300) {
       const errorMessage = extractErrorMessage(data);
+      console.error('[ProxyAuth] Backend error:', response.status, errorMessage);
       return NextResponse.json(
         { status: 'error', message: errorMessage },
         { status: response.status }
@@ -329,8 +416,7 @@ export async function proxyAuthRequest(
 
     // Check for timeout (Render sleeping or slow response)
     const isTimeout =
-      (error instanceof DOMException && error.name === 'TimeoutError') ||
-      (error instanceof Error && (error.name === 'TimeoutError' || error.message?.includes('abort') || error.message?.includes('timeout')));
+      message.includes('timeout') || message.includes('abort') || message.includes('ETIMEDOUT');
     if (isTimeout) {
       console.error('[ProxyAuth] Timeout error:', message);
       return NextResponse.json(
@@ -345,8 +431,10 @@ export async function proxyAuthRequest(
 
     // Check for connection errors (backend unreachable)
     const isConnectionError =
-      error instanceof TypeError &&
-      (message.includes('fetch') || message.includes('ECONNREFUSED') || message.includes('network') || message.includes('Failed to fetch'));
+      message.includes('ECONNREFUSED') ||
+      message.includes('ENOTFOUND') ||
+      message.includes('network') ||
+      message.includes('socket hang up');
     if (isConnectionError) {
       console.error('[ProxyAuth] Connection error:', message);
       return NextResponse.json(

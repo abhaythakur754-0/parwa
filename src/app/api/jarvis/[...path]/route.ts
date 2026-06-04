@@ -27,6 +27,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import https from 'https';
+import http from 'http';
 
 // ── Backend Proxy Configuration ─────────────────────────────────
 const BACKEND_URL = process.env.SERVER_API_URL || process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || '';
@@ -34,14 +36,62 @@ const BACKEND_URL = process.env.SERVER_API_URL || process.env.BACKEND_URL || pro
 // Proxy auth secret — must match backend PROXY_AUTH_SECRET
 const PROXY_AUTH_SECRET = process.env.PROXY_AUTH_SECRET || 'parwa_proxy_auth_2026';
 
+// Trusted origin for CSRF validation
+const PROXY_ORIGIN =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  process.env.NEXTAUTH_URL ||
+  'https://parwafrontend.vercel.app';
+
+/**
+ * Low-level HTTP request using Node.js https/http modules.
+ * Unlike fetch(), this does NOT strip "forbidden headers" (Cookie, Origin)
+ * which are required for CSRF proxy auth and origin validation.
+ */
+function rawHttpRequest(
+  url: string,
+  method: string,
+  headers: Record<string, string>,
+  body?: Buffer | string,
+  timeoutMs: number = 20000,
+): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const parsedUrl = new URL(url);
+    const isHttps = parsedUrl.protocol === 'https:';
+    const lib = isHttps ? https : http;
+
+    const options: https.RequestOptions = {
+      hostname: parsedUrl.hostname,
+      port: parsedUrl.port || (isHttps ? 443 : 80),
+      path: parsedUrl.pathname + parsedUrl.search,
+      method,
+      headers,
+      timeout: timeoutMs,
+    };
+
+    const req = lib.request(options, (res) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (chunk: Buffer) => { chunks.push(chunk); });
+      res.on('end', () => {
+        resolve({
+          status: res.statusCode || 500,
+          body: Buffer.concat(chunks).toString(),
+        });
+      });
+    });
+
+    req.on('error', (err: Error) => { reject(err); });
+    req.on('timeout', () => { req.destroy(); reject(new Error(`Backend proxy timeout after ${timeoutMs}ms`)); });
+
+    if (body) { req.write(body); }
+    req.end();
+  });
+}
+
 /**
  * Try to proxy a request to the backend FastAPI server.
- * Returns the Response on success, or null if backend is unavailable / returned an error.
- */
-/**
- * Proxy to backend, accepting pre-read raw body (Next.js 16 body-is-unusable fix).
- * The body is read ONCE by the caller and passed as rawBody to avoid
- * "Body is unusable: Body has already been read" errors.
+ * Uses Node.js https/http modules instead of fetch() to preserve ALL headers
+ * (fetch() strips Cookie, Origin, and other "forbidden headers" per the Fetch spec).
+ * Returns the parsed JSON body on success, or null if backend is unavailable.
  */
 async function proxyToBackend(request: NextRequest, pathSegments: string[], rawBody?: ArrayBuffer): Promise<Response | null> {
   if (!BACKEND_URL) return null;
@@ -52,26 +102,46 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[], rawB
   const fullUrl = searchParams ? `${backendPath}?${searchParams}` : backendPath;
 
   try {
-    // Always use pre-read body — NEVER read from the request object.
-    // In Next.js 16, the request body can only be consumed once.
-    // Reading it here would cause "Body is unusable: Body has already been read"
-    // when the local fallback handler also needs the body data.
-    const body: ArrayBuffer | undefined = rawBody;
+    // Build headers using plain object (not Headers class) for http.request()
+    // This preserves ALL headers including Cookie and Origin (which fetch() strips)
+    const headers: Record<string, string> = {
+      'Content-Type': request.headers.get('content-type') || 'application/json',
+      'Origin': PROXY_ORIGIN,
+      'x-proxy-origin': PROXY_ORIGIN,
+      'x-proxy-auth': PROXY_AUTH_SECRET,
+    };
 
-    const headers = new Headers(request.headers);
-    headers.delete('host');
-    // Add proxy auth so backend CSRF middleware skips checks for trusted requests
-    headers.set('X-Proxy-Auth', PROXY_AUTH_SECRET);
+    // Copy relevant headers from original request
+    const authHeader = request.headers.get('authorization');
+    if (authHeader) headers['Authorization'] = authHeader;
 
-    const response = await fetch(fullUrl, {
-      method: request.method,
+    const cookieHeader = request.headers.get('cookie');
+    if (cookieHeader) headers['Cookie'] = cookieHeader;
+
+    const bodyBuffer = rawBody ? Buffer.from(rawBody) : undefined;
+
+    const response = await rawHttpRequest(
+      fullUrl,
+      request.method,
       headers,
-      body,
-      signal: AbortSignal.timeout(20000),
-    });
+      bodyBuffer,
+      20000,
+    );
 
     if (response.status >= 200 && response.status < 300) {
-      return response;
+      // Parse the JSON and return as a Response
+      try {
+        const data = JSON.parse(response.body);
+        return new Response(JSON.stringify(data), {
+          status: response.status,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch {
+        return new Response(response.body, {
+          status: response.status,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     // Backend returned an error — fall back to local handling

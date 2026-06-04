@@ -77,9 +77,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (user) {
         // Best-effort verification with the backend (httpOnly cookie carries the token)
+        // Use the Next.js proxy route instead of direct backend call to avoid CORS issues
         try {
           const currentUser = await Promise.race([
-            authApi.getMe(),
+            fetch('/api/auth/me-proxy').then(r => r.ok ? r.json() : Promise.reject(new Error('Not authenticated'))),
             new Promise<never>((_, reject) =>
               setTimeout(() => reject(new Error('Auth check timeout')), 5000)
             ),
