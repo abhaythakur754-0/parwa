@@ -1,16 +1,17 @@
 /**
- * PARWA ChatMessage Component (Week 6 — Day 3 Phase 5, Updated Day 4 Phase 6)
+ * PARWA ChatMessage Component — ZAI-style Clean Design
  *
- * Renders a single chat message with support for multiple message types.
- * - text: Markdown-rendered bubble (supports **bold** inline formatting)
- * - Card types: Rich interactive cards (Phase 6)
- * - error: Error state with retry prompt
- * - system: Centered muted message
+ * Renders chat messages in a clean, modern style:
+ * - User messages: Right-aligned gradient bubble
+ * - AI messages: Clean open text (no WhatsApp boxes), proper markdown
+ * - Cards: Rich interactive cards for specific message types
+ * - Error: Inline error with retry
+ * - System: Centered muted message
  */
 
 'use client';
 
-import { User, AlertTriangle, Clock, Zap } from 'lucide-react';
+import { User, AlertTriangle, Clock, Zap, Bot } from 'lucide-react';
 import type { JarvisMessage, MessageType, MessageRole, IntegrationActions, ProviderInfo as ProviderInfoType } from '@/types/jarvis';
 
 // Phase 6 card imports
@@ -58,29 +59,23 @@ interface ChatMessageProps {
     otpState?: { status: string; email: string };
     demoCallState?: { status: string; phone: string | null; duration: number };
   };
+  /** Whether the previous message was from the same role (for grouping) */
+  isConsecutive?: boolean;
 }
 
-// ── Bold Processing (`**text**` → <strong>) ──────────────────────
+// ── Markdown Processing ──────────────────────────────────────────
 
-/**
- * Splits a string on `**bold**` markers and returns an array of
- * React elements where bold segments are wrapped in <strong>.
- * Unmatched or malformed markers are treated as plain text.
- */
 function processBold(text: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  // Regex matches **content** — non-greedy, allows line breaks within
   const regex = /\*\*(.+?)\*\*/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
 
   while ((match = regex.exec(text)) !== null) {
-    // Push any plain text before this match
     if (match.index > lastIndex) {
       parts.push(text.slice(lastIndex, match.index));
     }
-    // Push the bold segment
     parts.push(
       <strong key={`b-${key++}`} className="font-semibold text-white">
         {match[1]}
@@ -89,30 +84,11 @@ function processBold(text: string): React.ReactNode[] {
     lastIndex = regex.lastIndex;
   }
 
-  // Push remaining text after the last match
   if (lastIndex < text.length) {
     parts.push(text.slice(lastIndex));
   }
 
   return parts.length > 0 ? parts : [text];
-}
-
-// ── Avatar ───────────────────────────────────────────────────────
-
-function MessageAvatar({ role }: { role: MessageRole }) {
-  if (role === 'user') {
-    return (
-      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500/20 to-blue-600/20 border border-blue-400/20 flex items-center justify-center shrink-0">
-        <User className="w-4 h-4 text-blue-300" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shrink-0 text-white font-bold text-sm shadow-sm shadow-orange-500/20">
-      J
-    </div>
-  );
 }
 
 // ── Timestamp ────────────────────────────────────────────────────
@@ -131,26 +107,6 @@ function formatRelativeTime(timestamp: string): string {
   if (diffHr === 1) return '1h ago';
   if (diffHr < 24) return `${diffHr}h ago`;
   return new Date(timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' });
-}
-
-function MessageTimestamp({
-  timestamp,
-  isUser,
-}: {
-  timestamp?: string | null;
-  isUser: boolean;
-}) {
-  if (!timestamp) return null;
-
-  return (
-    <p
-      className={`text-[10px] mt-1 px-1 ${
-        isUser ? 'text-white/20 text-right' : 'text-white/20'
-      }`}
-    >
-      {formatRelativeTime(timestamp)}
-    </p>
-  );
 }
 
 // ── System Message ───────────────────────────────────────────────
@@ -176,7 +132,7 @@ function ErrorMessage({
   onRetry?: () => void;
 }) {
   return (
-    <div className="glass rounded-xl p-3 border border-red-500/15 max-w-sm">
+    <div className="rounded-xl p-3 border border-red-500/15 bg-red-500/[0.04] max-w-sm">
       <div className="flex items-start gap-2">
         <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
         <div className="flex-1">
@@ -198,23 +154,28 @@ function ErrorMessage({
   );
 }
 
-// ── Inline Content Renderer (bullet-point aware, bold-aware, XSS-safe) ──
+// ── Inline Content Renderer — Beautiful Markdown ──────────────────
 
 function isEmojiChar(ch: string): boolean {
-  // Must use codePointAt for emoji (surrogate pairs in JS)
   const code = ch.codePointAt(0) || 0;
   return (code >= 0x1F300 && code <= 0x1FAFF) || (code >= 0x2600 && code <= 0x27BF) || (code >= 0xFE00 && code <= 0xFE0F);
 }
 
-function renderInlineContent(content: string) {
-  // Pre-process: if a single line contains multiple bullet markers (•, -, *) split them into separate lines
+/**
+ * Renders AI message content in a beautiful, structured way:
+ * - Opening line: Large, bold, eye-catching
+ * - Bullet points: With orange chevron markers and proper spacing
+ * - Numbered lists: With subtle orange numbers
+ * - Emoji lines: Preserved as-is with proper layout
+ * - Regular text: Clean and readable
+ */
+function renderAIContent(content: string) {
+  // Pre-process: split lines that have multiple bullet markers jammed together
   const preprocessed = content.split('\n').flatMap((line) => {
     const trimmed = line.trim();
     if (!trimmed) return [line];
-    // Check if line has 2+ bullet markers — meaning multiple bullets are jammed on one line
     const bulletMatches = trimmed.match(/[\u2022\-*•]\s/g);
     if (bulletMatches && bulletMatches.length >= 2) {
-      // Split on bullet markers but keep the marker with each piece
       return trimmed.split(/(?=[\u2022\-*•]\s)/).filter(Boolean);
     }
     return [line];
@@ -222,41 +183,79 @@ function renderInlineContent(content: string) {
 
   const lines = preprocessed;
   let openerUsed = false;
+  let inList = false;
 
   return lines.map((line, index) => {
     const trimmed = line.trim();
-    if (!trimmed) return <div key={index} className="h-2" />;
+    if (!trimmed) {
+      // Empty line = spacing between sections
+      if (inList) { inList = false; return <div key={index} className="h-1.5" />; }
+      return <div key={index} className="h-1" />;
+    }
 
-    // Bullet point lines (•, -, *, or emoji prefix)
-    const firstChar = trimmed.charCodeAt(0);
+    // Detect line type
     const isEmoji = isEmojiChar(trimmed);
-    const isBullet = /^[\u2022\-*•]\s/.test(trimmed) || /^[0-9]+[.)]\s/.test(trimmed) || isEmoji;
-    const isOpener = !openerUsed && !isBullet && trimmed.length < 80;
+    const isBullet = /^[\u2022\-*•]\s/.test(trimmed);
+    const isNumbered = /^[0-9]+[.)]\s/.test(trimmed);
+    const isOpener = !openerUsed && !isBullet && !isNumbered && !isEmoji && trimmed.length < 100;
 
-    if (isBullet) {
-      // Strip leading bullet markers but keep emoji + text
-      const displayText = trimmed.replace(/^[\u2022\-*•]\s*/, '').replace(/^[0-9]+[.)]\s*/, '');
+    // ── Opening line: bold, larger, eye-catching ──
+    if (isOpener) {
+      openerUsed = true;
       return (
-        <div key={index} className="flex items-start gap-2 py-0.5">
-          <span className="text-orange-400 shrink-0 mt-0.5 text-xs">&#9656;</span>
-          <span className="text-white/90 leading-relaxed text-sm">
+        <p key={index} className="text-white font-semibold text-[15px] leading-relaxed mb-0.5">
+          {processBold(trimmed)}
+        </p>
+      );
+    }
+
+    // ── Bullet point lines ──
+    if (isBullet) {
+      inList = true;
+      const displayText = trimmed.replace(/^[\u2022\-*•]\s*/, '');
+      return (
+        <div key={index} className="flex items-start gap-2.5 py-0.5 pl-0.5">
+          <span className="text-orange-400/80 shrink-0 mt-[3px] text-[10px]">&#9656;</span>
+          <span className="text-white/85 leading-relaxed text-[13.5px]">
             {processBold(displayText)}
           </span>
         </div>
       );
     }
 
-    if (isOpener) {
-      openerUsed = true;
+    // ── Numbered list lines ──
+    if (isNumbered) {
+      inList = true;
+      const numMatch = trimmed.match(/^([0-9]+)[.)]\s*(.*)/);
+      const num = numMatch ? numMatch[1] : '1';
+      const displayText = numMatch ? numMatch[2] : trimmed.replace(/^[0-9]+[.)]\s*/, '');
       return (
-        <p key={index} className="text-white font-medium text-sm leading-relaxed">
-          {processBold(trimmed)}
-        </p>
+        <div key={index} className="flex items-start gap-2.5 py-0.5 pl-0.5">
+          <span className="text-orange-400/70 shrink-0 mt-[2px] text-[11px] font-medium min-w-[16px]">{num}.</span>
+          <span className="text-white/85 leading-relaxed text-[13.5px]">
+            {processBold(displayText)}
+          </span>
+        </div>
       );
     }
 
+    // ── Emoji-prefixed lines ──
+    if (isEmoji) {
+      inList = true;
+      return (
+        <div key={index} className="flex items-start gap-2 py-0.5 pl-0.5">
+          <span className="shrink-0 text-[14px] leading-relaxed">{trimmed.charAt(0)}</span>
+          <span className="text-white/85 leading-relaxed text-[13.5px]">
+            {processBold(trimmed.slice(trimmed.charAt(0).length).trim())}
+          </span>
+        </div>
+      );
+    }
+
+    // ── Regular paragraph text ──
+    inList = false;
     return (
-      <p key={index} className="text-white/80 text-sm leading-relaxed">
+      <p key={index} className="text-white/75 text-[13.5px] leading-relaxed">
         {processBold(trimmed)}
       </p>
     );
@@ -276,14 +275,20 @@ function CardWrapper({
 }) {
   return (
     <div
-      className={`flex items-end gap-2 px-4 py-2 chat-msg-reveal ${
+      className={`flex items-end gap-2.5 px-4 py-2 chat-msg-reveal ${
         isUser ? 'flex-row-reverse' : ''
       }`}
     >
-      <MessageAvatar role={message.role} />
+      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shrink-0 text-white font-bold text-xs shadow-sm shadow-orange-500/15">
+        J
+      </div>
       <div className="max-w-[80%]">
         {children}
-        <MessageTimestamp timestamp={message.timestamp} isUser={isUser} />
+        {message.timestamp && (
+          <p className="text-[10px] mt-1 px-1 text-white/20">
+            {formatRelativeTime(message.timestamp)}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -291,7 +296,7 @@ function CardWrapper({
 
 // ── Main Component ──────────────────────────────────────────────
 
-export function ChatMessage({ message, onRetry, hookActions, sessionState }: ChatMessageProps) {
+export function ChatMessage({ message, onRetry, hookActions, sessionState, isConsecutive }: ChatMessageProps) {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
   const metadata = message.metadata || {};
@@ -426,7 +431,6 @@ export function ChatMessage({ message, onRetry, hookActions, sessionState }: Cha
         </CardWrapper>
       );
 
-    // message_counter type — inline counter
     case 'message_counter':
       return (
         <CardWrapper message={message} isUser={false}>
@@ -438,7 +442,6 @@ export function ChatMessage({ message, onRetry, hookActions, sessionState }: Cha
         </CardWrapper>
       );
 
-    // demo_pack_cta type — upgrade CTA
     case 'demo_pack_cta':
       return (
         <CardWrapper message={message} isUser={false}>
@@ -460,7 +463,6 @@ export function ChatMessage({ message, onRetry, hookActions, sessionState }: Cha
             category={(metadata.category as ProviderSelectorCardProps['category']) || 'email'}
             providers={(metadata.providers as ProviderInfoType[]) || []}
             onSelect={(providerType: string) => {
-              // Provider selection triggers the next step in the integration flow
               ia?.testConnection(providerType, metadata.category || '', {});
             }}
             onSkip={() => ia?.skipIntegration(metadata.category as string || '')}
@@ -558,8 +560,8 @@ export function ChatMessage({ message, onRetry, hookActions, sessionState }: Cha
               category: s.category,
             }))}
             industry={metadata.industry || ''}
-            onAddMore={() => {/* triggers next provider_selector in chat flow */}}
-            onContinue={() => {/* signals end of integration setup */}}
+            onAddMore={() => {}}
+            onContinue={() => {}}
           />
         </CardWrapper>
       );
@@ -568,7 +570,6 @@ export function ChatMessage({ message, onRetry, hookActions, sessionState }: Cha
     case 'industry_suggestion': {
       const ia = hookActions?.integrationActions;
       const rawSuggestions = metadata.suggestions || [];
-      // Flatten { category, providers: ProviderInfo[] }[] into IndustrySuggestion[]
       const flatSuggestions = rawSuggestions.flatMap((group) =>
         (group.providers || []).map((p) => ({
           providerType: p.type,
@@ -591,36 +592,54 @@ export function ChatMessage({ message, onRetry, hookActions, sessionState }: Cha
       );
     }
 
-    // ── Standard text message ─────────────────────────────────
-    default:
-      return (
-        <div
-          className={`flex items-end gap-2 px-4 py-2 chat-msg-reveal ${
-            isUser ? 'flex-row-reverse' : ''
-          }`}
-        >
-          <MessageAvatar role={message.role} />
-
-          <div className={`max-w-[75%] flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
-            <div
-              className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                isUser
-                  ? 'bg-gradient-to-br from-blue-600/90 to-blue-700/90 text-white shadow-lg shadow-blue-500/10'
-                  : 'bg-white/[0.06] text-white/90 border-l-2 border-orange-500/30'
-              }`}
-            >
-              {isUser ? (
+    // ── Standard text message — ZAI-STYLE CLEAN DESIGN ─────────
+    default: {
+      // ── USER MESSAGE: Clean gradient bubble, right-aligned ──
+      if (isUser) {
+        return (
+          <div className="flex justify-end px-4 py-1.5 chat-msg-reveal">
+            <div className="max-w-[75%] flex flex-col items-end">
+              <div className="rounded-2xl rounded-br-md px-4 py-2.5 bg-gradient-to-br from-orange-500/90 to-orange-600/90 text-white text-[14px] leading-relaxed shadow-md shadow-orange-500/10">
                 <p className="whitespace-pre-wrap break-words">{message.content}</p>
-              ) : (
-                <div className="space-y-0.5">
-                  {renderInlineContent(message.content)}
-                </div>
+              </div>
+              {message.timestamp && (
+                <p className="text-[10px] mt-0.5 px-1 text-white/20">
+                  {formatRelativeTime(message.timestamp)}
+                </p>
               )}
             </div>
+          </div>
+        );
+      }
 
-            <MessageTimestamp timestamp={message.timestamp} isUser={isUser} />
+      // ── AI MESSAGE: Clean, open text — no WhatsApp boxes ──
+      // Like ZAI: avatar + clean formatted text, no box background
+      return (
+        <div className="px-4 py-1.5 chat-msg-reveal">
+          <div className="flex items-start gap-2.5 max-w-[90%]">
+            {/* Avatar — only show for first message in a group */}
+            {!isConsecutive ? (
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shrink-0 text-white font-bold text-[10px] shadow-sm shadow-orange-500/15 mt-0.5">
+                J
+              </div>
+            ) : (
+              <div className="w-7 shrink-0" />
+            )}
+
+            {/* Content — clean, no box */}
+            <div className="flex-1 min-w-0">
+              <div className="space-y-0.5">
+                {renderAIContent(message.content)}
+              </div>
+              {message.timestamp && (
+                <p className="text-[10px] mt-1 text-white/20">
+                  {formatRelativeTime(message.timestamp)}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       );
+    }
   }
 }

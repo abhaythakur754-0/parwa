@@ -1,5 +1,5 @@
 /**
- * PARWA JarvisChat — Main Container Component (Week 6 — Day 3 Phase 5)
+ * PARWA JarvisChat — Main Container Component (ZAI-style Clean Design)
  *
  * Root-level component that composes all chat sub-components and
  * manages the useJarvisChat hook. Acts as the single integration
@@ -10,12 +10,13 @@
  *   - Composes ChatHeader, ErrorBanner, ChatWindow, ChatInput
  *   - Handles initial loading state
  *   - Wires up retry, clear error, and send message callbacks
+ *   - Knowledge base file upload integration
  *   - Responsive layout (full-height on desktop, mobile-aware)
  */
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { Loader2, WifiOff } from 'lucide-react';
 import { useJarvisChat } from '@/hooks/useJarvisChat';
 import { ChatHeader } from './ChatHeader';
@@ -65,6 +66,58 @@ export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: Jarvis
     handoffState,
   } = useJarvisChat(entrySource, entryParams);
 
+  // ── Knowledge Base State ──────────────────────────────────────────
+  const [kbFiles, setKbFiles] = useState<Array<{ name: string; size: number; status: 'pending' | 'uploading' | 'done' | 'error' }>>([]);
+  const [isKbUploading, setIsKbUploading] = useState(false);
+  const [showKbInChat, setShowKbInChat] = useState(false);
+
+  const handleKnowledgeBaseUpload = useCallback(async (files: File[]) => {
+    setIsKbUploading(true);
+
+    // Add files to state with uploading status
+    const newFiles = files.map(f => ({
+      name: f.name,
+      size: f.size,
+      status: 'uploading' as const,
+    }));
+    setKbFiles(prev => [...prev, ...newFiles]);
+
+    try {
+      // Upload to API
+      const formData = new FormData();
+      files.forEach(f => formData.append('files', f));
+
+      const sessionId = session?.id;
+      if (sessionId) {
+        formData.append('session_id', sessionId);
+      }
+
+      const response = await fetch('/api/jarvis/knowledge-base', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        // Mark all as done
+        setKbFiles(prev => prev.map(f => ({ ...f, status: 'done' as const })));
+
+        // Send a message about the upload for context
+        const fileNames = files.map(f => f.name).join(', ');
+        sendMessage(`I uploaded my knowledge base files: ${fileNames}`);
+      } else {
+        setKbFiles(prev => prev.map(f => ({ ...f, status: 'error' as const })));
+      }
+    } catch {
+      setKbFiles(prev => prev.map(f => ({ ...f, status: 'error' as const })));
+    } finally {
+      setIsKbUploading(false);
+    }
+  }, [session?.id, sendMessage]);
+
+  const handleKnowledgeBaseClick = useCallback(() => {
+    setShowKbInChat(prev => !prev);
+  }, []);
+
   // Memoize hookActions to prevent re-renders
   const hookActions = useMemo(() => ({
     sendOtp,
@@ -84,6 +137,9 @@ export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: Jarvis
     otpState,
     demoCallState,
   }), [remainingToday, isDemoPackActive, handoffState.status, paymentState.status, otpState, demoCallState]);
+
+  // Check if knowledge base has uploaded files
+  const hasKnowledgeBase = kbFiles.some(f => f.status === 'done');
 
   // ── Loading State ────────────────────────────────────────────
 
@@ -106,7 +162,7 @@ export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: Jarvis
               Connecting to Jarvis
             </p>
             <p className="text-xs text-white/30">
-              Setting up your onboarding session...
+              Setting up your session...
             </p>
           </div>
         </div>
@@ -167,6 +223,11 @@ export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: Jarvis
         hookActions={hookActions}
         sessionState={sessionState}
         sessionContext={session?.context ?? null}
+        onKnowledgeBaseUpload={handleKnowledgeBaseUpload}
+        isKnowledgeBaseUploading={isKbUploading}
+        knowledgeBaseFiles={kbFiles}
+        entrySource={entrySource}
+        entryParams={entryParams}
       />
 
       {/* Input area (pinned to bottom) */}
@@ -180,6 +241,8 @@ export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: Jarvis
         isPaid={isPaid}
         paidRemaining={paidRemaining}
         onUpgrade={purchaseDemoPack}
+        onKnowledgeBaseClick={handleKnowledgeBaseClick}
+        hasKnowledgeBase={hasKnowledgeBase}
       />
     </div>
   );

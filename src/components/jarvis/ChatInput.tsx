@@ -1,17 +1,15 @@
 /**
- * PARWA ChatInput Component (Week 6 — Day 3 Phase 5)
+ * PARWA ChatInput Component — ZAI-style Clean Design
  *
- * Text input area with send button for the Jarvis chat.
+ * Text input area with send button and knowledge base upload.
  * Handles keyboard shortcuts (Enter to send, Shift+Enter for newline),
  * auto-resize, and disabled states for limit reached / typing / loading.
- * Shows remaining message count indicator.
- * Includes file attachment support for text-based documents.
  */
 
 'use client';
 
 import { useCallback, useRef, useEffect, useState } from 'react';
-import { Send, ArrowUp, AlertCircle, Zap, Sparkles } from 'lucide-react';
+import { Send, ArrowUp, Sparkles, Zap, Paperclip, BookOpen } from 'lucide-react';
 
 interface ChatInputProps {
   /** Send message callback */
@@ -32,6 +30,10 @@ interface ChatInputProps {
   paidRemaining: number;
   /** Upgrade callback (triggers $1 purchase) */
   onUpgrade: () => void;
+  /** Callback when knowledge base upload is requested */
+  onKnowledgeBaseClick?: () => void;
+  /** Whether knowledge base is available */
+  hasKnowledgeBase?: boolean;
 }
 
 const MAX_CHARS = 2000;
@@ -46,6 +48,8 @@ export function ChatInput({
   isPaid,
   paidRemaining,
   onUpgrade,
+  onKnowledgeBaseClick,
+  hasKnowledgeBase,
 }: ChatInputProps) {
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -77,13 +81,6 @@ export function ChatInput({
   useEffect(() => {
     if (!isTyping) sendingRef.current = false;
   }, [isTyping]);
-
-  // Focus textarea when component mounts or after a message is sent
-  useEffect(() => {
-    if (!isTyping && !isLoading && textareaRef.current) {
-      // Don't auto-focus on mount (mobile unfriendly), but refocus after send
-    }
-  }, [isTyping, isLoading]);
 
   const handleSend = useCallback(() => {
     const trimmed = value.trim();
@@ -170,7 +167,23 @@ export function ChatInput({
         )}
 
         {/* Input row */}
-        <div className="flex items-end gap-3">
+        <div className="flex items-end gap-2">
+          {/* Knowledge base upload button */}
+          {onKnowledgeBaseClick && (
+            <button
+              onClick={onKnowledgeBaseClick}
+              className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 mb-0.5 ${
+                hasKnowledgeBase
+                  ? 'bg-orange-500/15 border border-orange-500/25 text-orange-400'
+                  : 'bg-white/[0.04] border border-white/10 text-white/30 hover:text-white/50 hover:bg-white/[0.06]'
+              }`}
+              title="Upload Knowledge Base"
+              aria-label="Upload knowledge base files"
+            >
+              <BookOpen className="w-4 h-4" />
+            </button>
+          )}
+
           <div className="flex-1 relative group">
             <textarea
               ref={textareaRef}
@@ -182,12 +195,12 @@ export function ChatInput({
                   ? 'Connecting...'
                   : isLimitReached
                     ? 'Taking a break — back soon!'
-                    : 'Say something...'
+                    : 'Ask Jarvis anything...'
               }
               disabled={isTyping || isLoading || isLimitReached}
               rows={1}
               maxLength={MAX_CHARS + 50}
-              className="w-full resize-none rounded-2xl bg-white/[0.04] border border-white/10 text-[15px] text-white px-4 py-4 pr-14 placeholder:text-white/20 focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed leading-relaxed"
+              className="w-full resize-none rounded-2xl bg-white/[0.04] border border-white/10 text-[15px] text-white px-4 py-4 pr-14 placeholder:text-white/20 focus:outline-none focus:border-orange-500/30 focus:ring-1 focus:ring-orange-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed leading-relaxed"
             />
 
             {/* Character counter (visible when near limit) */}
@@ -203,7 +216,7 @@ export function ChatInput({
               </span>
             )}
 
-            {/* Send button — gradient style, absolutely positioned inside the textarea area */}
+            {/* Send button */}
             <div className="absolute right-2 bottom-2">
               <button
                 onClick={handleSend}
@@ -235,12 +248,17 @@ export function ChatInput({
         </div>
 
         {/* Remaining messages hint */}
-        <div className="flex items-center justify-end mt-1.5 px-1">
+        <div className="flex items-center justify-between mt-1.5 px-1">
           {!isLimitReached && remainingToday > 0 && (
             <p className="text-[10px] text-white/20">
               {isPaid
                 ? `${paidRemaining} Pro message${paidRemaining !== 1 ? 's' : ''} remaining`
                 : `${remainingToday} message${remainingToday !== 1 ? 's' : ''} remaining today`}
+            </p>
+          )}
+          {hasKnowledgeBase && (
+            <p className="text-[10px] text-orange-400/40">
+              Knowledge base active
             </p>
           )}
         </div>

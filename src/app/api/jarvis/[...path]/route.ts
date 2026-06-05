@@ -24,6 +24,7 @@
  *   GET  /api/jarvis/tickets              — List session tickets
  *   GET  /api/jarvis/tickets/:id          — Get specific ticket
  *   PATCH /api/jarvis/tickets/:id/status  — Update ticket status
+ *   POST /api/jarvis/knowledge-base       — Upload knowledge base files
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -1453,6 +1454,67 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       session.updated_at = new Date().toISOString();
       setSession(session.id, session);
       return NextResponse.json({ session, new_welcome: welcomeMsg });
+    }
+
+    // ── POST /knowledge-base — Upload Knowledge Base Files ────────
+    if (endpoint === 'knowledge-base') {
+      try {
+        const formData = await request.formData();
+        const files = formData.getAll('files') as File[];
+        const sessionId = formData.get('session_id') as string | null;
+
+        if (!files || files.length === 0) {
+          return NextResponse.json({ error: { code: 'no_files', message: 'No files provided', details: null } }, { status: 400 });
+        }
+
+        // Validate files
+        const validExts = ['pdf', 'txt', 'csv', 'md', 'docx', 'doc'];
+        const validated: Array<{ name: string; size: number; type: string }> = [];
+
+        for (const file of files) {
+          const ext = file.name.split('.').pop()?.toLowerCase() || '';
+          if (!validExts.includes(ext)) {
+            return NextResponse.json({
+              error: { code: 'invalid_file', message: `File type ".${ext}" not supported. Use PDF, TXT, CSV, MD, or DOCX.`, details: null },
+            }, { status: 400 });
+          }
+          if (file.size > 10 * 1024 * 1024) {
+            return NextResponse.json({
+              error: { code: 'file_too_large', message: `File "${file.name}" exceeds 10MB limit.`, details: null },
+            }, { status: 400 });
+          }
+          validated.push({ name: file.name, size: file.size, type: file.type });
+        }
+
+        // Store knowledge base metadata in session context
+        if (sessionId && hasSession(sessionId)) {
+          const session = getSession(sessionId);
+          if (session) {
+            if (!session.context.knowledge_base) {
+              session.context.knowledge_base = [];
+            }
+            for (const v of validated) {
+              session.context.knowledge_base.push({
+                ...v,
+                uploaded_at: new Date().toISOString(),
+                status: 'indexed',
+              });
+            }
+            session.updated_at = new Date().toISOString();
+            setSession(session.id, session);
+          }
+        }
+
+        return NextResponse.json({
+          message: `Successfully uploaded ${validated.length} file(s)`,
+          files: validated,
+          status: 'success',
+        });
+      } catch (err) {
+        return NextResponse.json({
+          error: { code: 'upload_failed', message: 'Knowledge base upload failed', details: String(err) },
+        }, { status: 500 });
+      }
     }
 
     // ── POST /payment/webhook — Simulated Paddle Webhook ─────────
