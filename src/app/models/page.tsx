@@ -725,13 +725,9 @@ export default function ModelsPage() {
                             <div
                               className="flex-1 h-10 rounded-xl flex items-center justify-center font-bold text-lg tabular-nums transition-all duration-200"
                               style={{
-                                background: isActive
-                                  ? `rgba(${accentRgb},0.15)`
-                                  : 'rgba(255,255,255,0.05)',
-                                border: isActive
-                                  ? `1px solid rgba(${accentRgb},0.3)`
-                                  : '1px solid rgba(255,255,255,0.1)',
-                                color: isActive ? accent : 'rgba(255,255,255,0.5)',
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                color: isActive ? 'white' : 'rgba(255,255,255,0.5)',
                               }}
                             >
                               {qty}
@@ -829,8 +825,9 @@ export default function ModelsPage() {
 
                         {/* ── Main CTA ── */}
                         {isAuthenticated ? (
-                          <div
-                            className="relative flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-500 no-underline overflow-hidden"
+                          <button
+                            onClick={() => handleQuantityChange(variant.id, isActive ? qty : Math.max(qty, 1))}
+                            className="relative flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-500 no-underline overflow-hidden cursor-pointer hover:-translate-y-0.5 active:scale-[0.98]"
                             style={{
                               background: isActive
                                 ? `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.8) 100%)`
@@ -851,7 +848,7 @@ export default function ModelsPage() {
                                 'Select to Hire'
                               )}
                             </div>
-                          </div>
+                          </button>
                         ) : (
                           <Link href="/signup" className="group relative flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-500 no-underline hover:-translate-y-0.5 overflow-hidden"
                             style={{ background: `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.85) 100%)`, color: primary, boxShadow: `0 8px 24px rgba(${accentRgb},0.3)` }}>
@@ -956,8 +953,9 @@ export default function ModelsPage() {
                             Book Instant Demo — Just $1
                           </div>
                         </button>
-                        <div
-                          className="group/cfm flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 overflow-hidden relative"
+                        <button
+                          onClick={() => handleFreeChat()}
+                          className="group/cfm flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 overflow-hidden relative cursor-pointer hover:-translate-y-0.5 active:scale-[0.98]"
                           style={{ background: `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.85) 100%)`, color: primary, boxShadow: `0 8px 24px rgba(${accentRgb},0.3)` }}
                         >
                           <div className="absolute inset-0 opacity-0 group-hover/cfm:opacity-100 transition-opacity duration-300" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 100%)' }} />
@@ -965,7 +963,7 @@ export default function ModelsPage() {
                             <Check className="w-4 h-4" />
                             Confirm ${totalMonthly.toLocaleString()}/mo
                           </div>
-                        </div>
+                        </button>
                       </div>
                     ) : (
                       <Link href="/signup" className="group relative flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-500 no-underline hover:-translate-y-0.5 overflow-hidden"
