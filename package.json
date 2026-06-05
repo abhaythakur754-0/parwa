@@ -59,7 +59,7 @@
     "@types/node": "^20.11.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "axios": "^1.15.0",
+    "axios": "^1.16.0",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
