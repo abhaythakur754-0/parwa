@@ -11,10 +11,10 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { BookOpen } from 'lucide-react';
 import type { JarvisMessage, JarvisContext } from '@/types/jarvis';
 import { ChatMessage } from './ChatMessage';
 import { TypingIndicator } from './TypingIndicator';
-import { KnowledgeBaseUpload } from './KnowledgeBaseUpload';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 // ── Props ──────────────────────────────────────────────────────
@@ -49,14 +49,6 @@ interface ChatWindowProps {
   };
   /** Session context for personalized welcome message */
   sessionContext?: JarvisContext | null;
-  /** Knowledge base upload callback */
-  onKnowledgeBaseUpload?: (files: File[]) => Promise<void>;
-  /** Whether knowledge base upload is in progress */
-  isKnowledgeBaseUploading?: boolean;
-  /** Uploaded knowledge base files */
-  knowledgeBaseFiles?: Array<{ name: string; size: number; status: 'pending' | 'uploading' | 'done' | 'error' }>;
-  /** Whether to show knowledge base panel (controlled from ChatInput BookOpen button) */
-  showKnowledgeBase?: boolean;
   /** Entry source for context-aware UI */
   entrySource?: string;
   /** Entry params for variant context */
@@ -71,21 +63,12 @@ export function ChatWindow({
   hookActions,
   sessionState,
   sessionContext,
-  onKnowledgeBaseUpload,
-  isKnowledgeBaseUploading,
-  knowledgeBaseFiles,
-  showKnowledgeBase: showKnowledgeBaseProp,
   entrySource,
   entryParams,
 }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
-
-  // Show knowledge base when prop is true (from BookOpen button click)
-  // OR automatically for models_page / free_chat entries
-  const isVariantEntry = entrySource?.includes('models_') || entrySource === 'models_page' || entrySource === 'free_chat';
-  const showKnowledgeBase = showKnowledgeBaseProp || isVariantEntry;
 
   // Track scroll position — user is near bottom if within 80px
   useEffect(() => {
@@ -116,10 +99,6 @@ export function ChatWindow({
     return messages[index].role === messages[index - 1].role && messages[index].role !== 'system';
   };
 
-  // Variant/industry info for knowledge base section
-  const variantName = entryParams?.variant ? String(entryParams.variant) : undefined;
-  const industryName = entryParams?.industry ? String(entryParams.industry) : undefined;
-
   return (
     <div className="flex-1 overflow-hidden relative" ref={containerRef} role="log" aria-label="Chat messages">
       <ScrollArea className="h-full scrollbar-premium">
@@ -149,19 +128,10 @@ export function ChatWindow({
                 ))}
               </div>
 
-              {/* Knowledge base upload in empty state — show for all users */}
-              {onKnowledgeBaseUpload && (
-                <div className="w-full max-w-xs">
-                  <KnowledgeBaseUpload
-                    onUpload={onKnowledgeBaseUpload}
-                    isUploading={isKnowledgeBaseUploading}
-                    uploadedFiles={knowledgeBaseFiles}
-                    variantName={variantName}
-                    industryName={industryName}
-                    compact={true}
-                  />
-                </div>
-              )}
+              {/* KB upload hint */}
+              <p className="text-[10px] text-white/20 mt-2">
+                Click <BookOpen className="w-3 h-3 inline -mt-0.5" /> to upload your knowledge base
+              </p>
             </div>
           )}
 
@@ -181,26 +151,6 @@ export function ChatWindow({
 
               {/* Typing indicator */}
               {isTyping && <TypingIndicator />}
-
-              {/* Knowledge base upload — shown when user clicks BookOpen button */}
-              {showKnowledgeBase && onKnowledgeBaseUpload && (
-                <div className="px-4 py-2 chat-msg-reveal">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shrink-0 text-white font-bold text-[11px] shadow-md shadow-orange-500/20 mt-0.5">
-                      J
-                    </div>
-                    <div className="max-w-[80%]">
-                      <KnowledgeBaseUpload
-                        onUpload={onKnowledgeBaseUpload}
-                        isUploading={isKnowledgeBaseUploading}
-                        uploadedFiles={knowledgeBaseFiles}
-                        variantName={variantName}
-                        industryName={industryName}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Scroll anchor */}
               <div ref={bottomRef} className="h-1" />

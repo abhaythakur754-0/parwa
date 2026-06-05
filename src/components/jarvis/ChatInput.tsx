@@ -9,7 +9,7 @@
 'use client';
 
 import { useCallback, useRef, useEffect, useState } from 'react';
-import { Send, ArrowUp, Sparkles, Zap, Paperclip, BookOpen } from 'lucide-react';
+import { Send, ArrowUp, Sparkles, Zap, Paperclip, BookOpen, X, CheckCircle2, Loader2, FileText, CloudUpload, AlertCircle } from 'lucide-react';
 
 interface ChatInputProps {
   /** Send message callback */
@@ -30,8 +30,12 @@ interface ChatInputProps {
   paidRemaining: number;
   /** Upgrade callback (triggers $1 purchase) */
   onUpgrade: () => void;
-  /** Callback when knowledge base upload is requested */
-  onKnowledgeBaseClick?: () => void;
+  /** Knowledge base upload callback */
+  onKnowledgeBaseUpload?: (files: File[]) => Promise<void>;
+  /** Whether knowledge base upload is in progress */
+  isKnowledgeBaseUploading?: boolean;
+  /** Uploaded knowledge base files */
+  knowledgeBaseFiles?: Array<{ name: string; size: number; status: 'pending' | 'uploading' | 'done' | 'error' }>;
   /** Whether knowledge base is available */
   hasKnowledgeBase?: boolean;
 }
@@ -48,12 +52,19 @@ export function ChatInput({
   isPaid,
   paidRemaining,
   onUpgrade,
-  onKnowledgeBaseClick,
+  onKnowledgeBaseUpload,
+  isKnowledgeBaseUploading,
+  knowledgeBaseFiles = [],
   hasKnowledgeBase,
 }: ChatInputProps) {
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sendingRef = useRef(false);
+  const [showKbPopover, setShowKbPopover] = useState(false);
+  const [kbSelectedFiles, setKbSelectedFiles] = useState<File[]>([]);
+  const [kbError, setKbError] = useState<string | null>(null);
+  const kbFileInputRef = useRef<HTMLInputElement>(null);
+  const kbPopoverRef = useRef<HTMLDivElement>(null);
 
   const isDisabled = isTyping || isLoading || isLimitReached || !value.trim();
   const charCount = value.length;
@@ -120,6 +131,63 @@ export function ChatInput({
     [handleSend],
   );
 
+  // Close KB popover when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (kbPopoverRef.current && !kbPopoverRef.current.contains(e.target as Node)) {
+        setShowKbPopover(false);
+      }
+    };
+    if (showKbPopover) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showKbPopover]);
+
+  // KB file validation
+  const validateKbFile = useCallback((file: File): string | null => {
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    const validExts = ['pdf', 'txt', 'csv', 'md', 'docx', 'doc'];
+    if (!validExts.includes(ext)) return `"${ext}" files not supported`;
+    if (file.size > 10 * 1024 * 1024) return `"${file.name}" too large (max 10MB)`;
+    return null;
+  }, []);
+
+  const handleKbFiles = useCallback((files: FileList | File[]) => {
+    setKbError(null);
+    const fileArray = Array.from(files);
+    if (kbSelectedFiles.length + fileArray.length > 5) {
+      setKbError('Maximum 5 files at a time');
+      return;
+    }
+    const valid: File[] = [];
+    for (const f of fileArray) {
+      const err = validateKbFile(f);
+      if (err) { setKbError(err); continue; }
+      valid.push(f);
+    }
+    if (valid.length > 0) setKbSelectedFiles(prev => [...prev, ...valid]);
+  }, [kbSelectedFiles, validateKbFile]);
+
+  const handleKbUpload = useCallback(async () => {
+    if (kbSelectedFiles.length === 0 || !onKnowledgeBaseUpload) return;
+    try {
+      await onKnowledgeBaseUpload(kbSelectedFiles);
+      setKbSelectedFiles([]);
+      setKbError(null);
+      // Don't close popover immediately — show success state briefly
+      setTimeout(() => setShowKbPopover(false), 1500);
+    } catch {
+      setKbError('Upload failed. Please try again.');
+    }
+  }, [kbSelectedFiles, onKnowledgeBaseUpload]);
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  };
+
   return (
     <div className="shrink-0 bg-[#0D0D0D] px-4 pb-8 pt-2">
       <div className="max-w-3xl mx-auto">
@@ -168,20 +236,134 @@ export function ChatInput({
 
         {/* Input row */}
         <div className="flex items-end gap-2">
-          {/* Knowledge base upload button */}
-          {onKnowledgeBaseClick && (
-            <button
-              onClick={onKnowledgeBaseClick}
-              className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 mb-0.5 ${
-                hasKnowledgeBase
-                  ? 'bg-orange-500/15 border border-orange-500/25 text-orange-400'
-                  : 'bg-white/[0.04] border border-white/10 text-white/30 hover:text-white/50 hover:bg-white/[0.06]'
-              }`}
-              title="Upload Knowledge Base"
-              aria-label="Upload knowledge base files"
-            >
-              <BookOpen className="w-4 h-4" />
-            </button>
+          {/* Knowledge base upload button + popover */}
+          {onKnowledgeBaseUpload && (
+            <div className="relative" ref={kbPopoverRef}>
+              <button
+                onClick={() => setShowKbPopover(prev => !prev)}
+                className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 mb-0.5 ${
+                  hasKnowledgeBase
+                    ? 'bg-orange-500/15 border border-orange-500/25 text-orange-400'
+                    : showKbPopover
+                      ? 'bg-orange-500/10 border border-orange-500/20 text-orange-400'
+                      : 'bg-white/[0.04] border border-white/10 text-white/30 hover:text-white/50 hover:bg-white/[0.06]'
+                }`}
+                title="Upload Knowledge Base"
+                aria-label="Upload knowledge base files"
+              >
+                <BookOpen className="w-4 h-4" />
+              </button>
+
+              {/* KB Upload Popover */}
+              {showKbPopover && (
+                <div className="absolute bottom-full left-0 mb-2 w-72 rounded-xl border border-orange-500/15 bg-[#1A1A1A] shadow-2xl shadow-black/50 p-3 z-50 animate-in fade-in slide-in-from-bottom-1 duration-150">
+                  {/* Header */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-7 h-7 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                      <BookOpen className="w-3.5 h-3.5 text-orange-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-white/80">Knowledge Base</p>
+                      <p className="text-[10px] text-white/40">Help Jarvis learn your business</p>
+                    </div>
+                    <button
+                      onClick={() => setShowKbPopover(false)}
+                      className="w-6 h-6 rounded-md flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Already uploaded files */}
+                  {knowledgeBaseFiles.length > 0 && (
+                    <div className="mb-2 space-y-1">
+                      {knowledgeBaseFiles.map((f, i) => (
+                        <div key={i} className="flex items-center gap-1.5 text-[10px]">
+                          {f.status === 'done' ? (
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                          ) : f.status === 'uploading' ? (
+                            <Loader2 className="w-3 h-3 text-orange-400 animate-spin shrink-0" />
+                          ) : (
+                            <FileText className="w-3 h-3 text-white/30 shrink-0" />
+                          )}
+                          <span className="text-white/50 truncate">{f.name}</span>
+                          {f.status === 'done' && <span className="text-emerald-400/60 shrink-0 ml-auto">ready</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Drop zone / file select */}
+                  <div
+                    onClick={() => kbFileInputRef.current?.click()}
+                    className="cursor-pointer rounded-lg border-2 border-dashed border-white/10 hover:border-orange-400/30 hover:bg-white/[0.02] p-3 text-center transition-all"
+                  >
+                    <CloudUpload className="w-5 h-5 mx-auto mb-1 text-white/20" />
+                    <p className="text-[11px] text-white/50">Click to select files</p>
+                    <p className="text-[9px] text-white/25">PDF, TXT, CSV, DOCX, MD · Max 10MB</p>
+                  </div>
+
+                  <input
+                    ref={kbFileInputRef}
+                    type="file"
+                    accept=".pdf,.txt,.csv,.md,.docx,.doc"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => e.target.files && handleKbFiles(e.target.files)}
+                  />
+
+                  {/* Selected files to upload */}
+                  {kbSelectedFiles.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {kbSelectedFiles.map((file, i) => (
+                        <div key={i} className="flex items-center gap-1.5 p-1.5 rounded-md bg-white/[0.03] border border-white/5">
+                          <FileText className="w-3.5 h-3.5 text-orange-400/60 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] text-white/70 truncate">{file.name}</p>
+                            <p className="text-[9px] text-white/30">{formatSize(file.size)}</p>
+                          </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setKbSelectedFiles(prev => prev.filter((_, idx) => idx !== i)); }}
+                            className="w-4 h-4 rounded flex items-center justify-center hover:bg-white/10 transition-colors"
+                          >
+                            <X className="w-2.5 h-2.5 text-white/30" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Error */}
+                  {kbError && (
+                    <p className="text-[10px] text-red-300/70 mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {kbError}
+                    </p>
+                  )}
+
+                  {/* Upload button */}
+                  {kbSelectedFiles.length > 0 && (
+                    <button
+                      onClick={handleKbUpload}
+                      disabled={isKnowledgeBaseUploading}
+                      className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs font-semibold hover:from-orange-400 hover:to-orange-500 disabled:opacity-40 transition-all shadow-lg shadow-orange-500/15 active:scale-[0.98]"
+                    >
+                      {isKnowledgeBaseUploading ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <CloudUpload className="w-3 h-3" />
+                          Upload {kbSelectedFiles.length} file{kbSelectedFiles.length !== 1 ? 's' : ''}
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
           <div className="flex-1 relative group">

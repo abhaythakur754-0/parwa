@@ -69,7 +69,6 @@ export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: Jarvis
   // ── Knowledge Base State ──────────────────────────────────────────
   const [kbFiles, setKbFiles] = useState<Array<{ name: string; size: number; status: 'pending' | 'uploading' | 'done' | 'error' }>>([]);
   const [isKbUploading, setIsKbUploading] = useState(false);
-  const [showKbInChat, setShowKbInChat] = useState(false);
 
   const handleKnowledgeBaseUpload = useCallback(async (files: File[]) => {
     setIsKbUploading(true);
@@ -101,18 +100,8 @@ export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: Jarvis
         // Mark all as done
         setKbFiles(prev => prev.map(f => ({ ...f, status: 'done' as const })));
 
-        // Hide the KB panel after successful upload
-        setShowKbInChat(false);
-
-        // Get extraction info from response
-        const result = await response.json().catch(() => ({}));
-        const totalChars = result.totalChars || 0;
-        const extractedCount = result.extracted?.length || 0;
-
-        // Send a message about the upload so Jarvis acknowledges and uses the KB
-        const fileNames = files.map(f => f.name).join(', ');
-        const charInfo = totalChars > 0 ? ` (${totalChars.toLocaleString()} characters read)` : '';
-        sendMessage(`I uploaded my knowledge base: ${fileNames}${charInfo}. Please use this to understand my business and give me relevant answers.`);
+        // No synthetic message needed — KB is already injected into the AI system prompt
+        // The AI will naturally use the knowledge base in its responses
       } else {
         setKbFiles(prev => prev.map(f => ({ ...f, status: 'error' as const })));
       }
@@ -121,11 +110,7 @@ export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: Jarvis
     } finally {
       setIsKbUploading(false);
     }
-  }, [session?.id, sendMessage]);
-
-  const handleKnowledgeBaseClick = useCallback(() => {
-    setShowKbInChat(prev => !prev);
-  }, []);
+  }, [session?.id]);
 
   // Memoize hookActions to prevent re-renders
   const hookActions = useMemo(() => ({
@@ -232,10 +217,6 @@ export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: Jarvis
         hookActions={hookActions}
         sessionState={sessionState}
         sessionContext={session?.context ?? null}
-        onKnowledgeBaseUpload={handleKnowledgeBaseUpload}
-        isKnowledgeBaseUploading={isKbUploading}
-        knowledgeBaseFiles={kbFiles}
-        showKnowledgeBase={showKbInChat}
         entrySource={entrySource}
         entryParams={entryParams}
       />
@@ -251,7 +232,9 @@ export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: Jarvis
         isPaid={isPaid}
         paidRemaining={paidRemaining}
         onUpgrade={purchaseDemoPack}
-        onKnowledgeBaseClick={handleKnowledgeBaseClick}
+        onKnowledgeBaseUpload={handleKnowledgeBaseUpload}
+        isKnowledgeBaseUploading={isKbUploading}
+        knowledgeBaseFiles={kbFiles}
         hasKnowledgeBase={hasKnowledgeBase}
       />
     </div>
