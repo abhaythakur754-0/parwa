@@ -955,7 +955,7 @@ export default function ModelsPage() {
                         </button>
                         <button
                           onClick={() => {
-                            // Save hiring selection to localStorage and redirect to signup/onboarding
+                            // Save hiring selection to localStorage
                             const selection = currentVariants
                               ?.filter(v => quantities[v.id] > 0)
                               .map(v => ({
@@ -965,14 +965,29 @@ export default function ModelsPage() {
                                 pricePerUnit: isAnnual ? v.annualPrice : v.monthlyPrice,
                                 billing: isAnnual ? 'annual' : 'monthly',
                               })) || [];
-                            localStorage.setItem('parwa_hiring_selection', JSON.stringify({
+                            const hiringData = {
                               industry: activeIndustry?.id,
                               industryLabel: activeIndustry?.label,
                               variants: selection,
                               totalMonthly,
                               isAnnual,
+                            };
+                            localStorage.setItem('parwa_hiring_selection', JSON.stringify(hiringData));
+                            // Also save to jarvis context so onboarding Jarvis knows what was selected
+                            localStorage.setItem('parwa_jarvis_context', JSON.stringify({
+                              source: 'hiring_confirm',
+                              entry_source: 'models_confirm',
+                              industry: activeIndustry?.label,
+                              selected_variants: selection.map(s => `${s.name} x${s.quantity}`).join(', '),
+                              total_monthly: totalMonthly,
+                              billing_cycle: isAnnual ? 'annual' : 'monthly',
                             }));
-                            window.location.href = isAuthenticated ? '/dashboard?tab=agents' : '/signup';
+                            // Build URL params for onboarding
+                            const params = new URLSearchParams();
+                            params.set('source', 'confirm');
+                            if (activeIndustry) params.set('industry', activeIndustry.label);
+                            if (selection.length > 0) params.set('variant_name', selection.map(s => s.name).join(','));
+                            window.location.href = `/onboarding?${params.toString()}`;
                           }}
                           className="group/cfm flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 overflow-hidden relative cursor-pointer hover:-translate-y-0.5 active:scale-[0.98]"
                           style={{ background: `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.85) 100%)`, color: primary, boxShadow: `0 8px 24px rgba(${accentRgb},0.3)` }}
