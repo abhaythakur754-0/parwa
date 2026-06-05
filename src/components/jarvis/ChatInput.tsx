@@ -11,7 +11,7 @@
 'use client';
 
 import { useCallback, useRef, useEffect, useState } from 'react';
-import { Send, ArrowUp, AlertCircle } from 'lucide-react';
+import { Send, ArrowUp, AlertCircle, Zap, Sparkles } from 'lucide-react';
 
 interface ChatInputProps {
   /** Send message callback */
@@ -26,6 +26,12 @@ interface ChatInputProps {
   remainingToday: number;
   /** Whether a demo pack is active */
   isDemoPackActive: boolean;
+  /** Whether the user has paid for the upgrade */
+  isPaid: boolean;
+  /** Number of paid messages remaining */
+  paidRemaining: number;
+  /** Upgrade callback (triggers $1 purchase) */
+  onUpgrade: () => void;
 }
 
 const MAX_CHARS = 2000;
@@ -37,6 +43,9 @@ export function ChatInput({
   isLoading,
   remainingToday,
   isDemoPackActive,
+  isPaid,
+  paidRemaining,
+  onUpgrade,
 }: ChatInputProps) {
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -117,17 +126,46 @@ export function ChatInput({
   return (
     <div className="shrink-0 bg-[#0D0D0D] px-4 pb-8 pt-2">
       <div className="max-w-3xl mx-auto">
-        {/* Limit reached banner */}
+        {/* Limit reached banner — $1 paywall CTA */}
         {isLimitReached && (
-          <div className="flex items-center gap-2 mb-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/15">
-            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-            <p className="text-xs text-amber-200/80">
-              Daily message limit reached. Come back tomorrow
-              {!isDemoPackActive && (
-                <span> or upgrade to a demo pack to continue chatting</span>
-              )}
-              .
-            </p>
+          <div className="mb-2 p-3 rounded-xl bg-gradient-to-br from-orange-500/10 to-amber-500/10 border border-orange-500/20">
+            {!isPaid ? (
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="w-4 h-4 text-orange-400 shrink-0" />
+                  <p className="text-sm font-medium text-white/90">
+                    Free messages completed for today
+                  </p>
+                </div>
+                <p className="text-xs text-white/50 mb-3">
+                  Upgrade for 40 more messages + a 2-min AI voice call
+                </p>
+                <button
+                  onClick={onUpgrade}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 text-white text-sm font-semibold hover:from-orange-400 hover:to-amber-400 transition-all shadow-lg shadow-orange-500/20 active:scale-[0.98]"
+                >
+                  <Zap className="w-4 h-4" />
+                  Upgrade — $1
+                </button>
+                <p className="text-[10px] text-white/30 mt-2 text-center">
+                  Resets in 24hrs
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mb-1">
+                  <Zap className="w-4 h-4 text-amber-400 shrink-0" />
+                  <p className="text-sm font-medium text-amber-200/90">
+                    Pro messages: {paidRemaining} remaining
+                  </p>
+                </div>
+                {paidRemaining <= 5 && (
+                  <p className="text-[10px] text-amber-400/50 mt-1">
+                    Resets in 24hrs
+                  </p>
+                )}
+              </>
+            )}
           </div>
         )}
 
@@ -200,7 +238,9 @@ export function ChatInput({
         <div className="flex items-center justify-end mt-1.5 px-1">
           {!isLimitReached && remainingToday > 0 && (
             <p className="text-[10px] text-white/20">
-              {remainingToday} message{remainingToday !== 1 ? 's' : ''} remaining today
+              {isPaid
+                ? `${paidRemaining} Pro message${paidRemaining !== 1 ? 's' : ''} remaining`
+                : `${remainingToday} message${remainingToday !== 1 ? 's' : ''} remaining today`}
             </p>
           )}
         </div>

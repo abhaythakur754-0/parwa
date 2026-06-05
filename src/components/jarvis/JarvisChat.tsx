@@ -44,6 +44,9 @@ export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: Jarvis
     remainingToday,
     isLimitReached,
     isDemoPackActive,
+    isPaid,
+    paidSent,
+    paidRemaining,
     error,
 
     // Actions
@@ -146,7 +149,7 @@ export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: Jarvis
   return (
     <div className="h-dvh [height:100dvh] flex flex-col bg-[#1A1A1A]">
       {/* Header */}
-      <ChatHeader session={session} isLoading={false} />
+      <ChatHeader session={session} isLoading={false} isPaid={isPaid} />
 
       {/* Error banner (dismissible, inline) */}
       <ErrorBanner
@@ -174,6 +177,9 @@ export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: Jarvis
         isLoading={isLoading}
         remainingToday={remainingToday}
         isDemoPackActive={isDemoPackActive}
+        isPaid={isPaid}
+        paidRemaining={paidRemaining}
+        onUpgrade={purchaseDemoPack}
       />
     </div>
   );

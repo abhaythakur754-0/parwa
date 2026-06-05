@@ -24,6 +24,8 @@ interface ChatHeaderProps {
   } | null;
   /** Whether the session is currently loading */
   isLoading?: boolean;
+  /** Whether the user has paid for the upgrade */
+  isPaid?: boolean;
 }
 
 /** Stage display labels mapped from backend enum values */
@@ -38,7 +40,7 @@ const STAGE_LABELS: Record<string, string> = {
   handoff: 'Handoff',
 };
 
-export function ChatHeader({ session, isLoading }: ChatHeaderProps) {
+export function ChatHeader({ session, isLoading, isPaid }: ChatHeaderProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Initialize and listen for storage changes (login/logout) after mount
@@ -92,8 +94,14 @@ export function ChatHeader({ session, isLoading }: ChatHeaderProps) {
         </div>
 
         <div className="flex flex-col">
-          <h1 className="text-sm font-semibold text-white tracking-tight">
+          <h1 className="text-sm font-semibold text-white tracking-tight flex items-center gap-1.5">
             Jarvis
+            {isPaid && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-[9px] font-bold text-amber-300 uppercase tracking-wider">
+                <Zap className="w-2.5 h-2.5" />
+                Pro
+              </span>
+            )}
           </h1>
           <p className="text-[11px] text-orange-400/60 flex items-center gap-1">
             <Zap className="w-3 h-3" />

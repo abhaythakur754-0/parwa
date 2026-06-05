@@ -51,6 +51,8 @@ import type {
 // ── Constants ─────────────────────────────────────────────────────
 
 const FREE_MESSAGE_LIMIT = 20;
+const PAID_MESSAGE_LIMIT = 40;
+const WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const DEFAULT_OTP_STATE: OtpState = { status: 'idle', email: '', attempts: 0, expires_at: null };
 const DEFAULT_PAYMENT_STATE: PaymentState = { status: 'idle', paddle_url: null, error: null };
@@ -63,6 +65,10 @@ const LS_SESSION_ID = 'parwa_jarvis_session_id';
 const LS_MESSAGES = 'parwa_jarvis_messages';
 const LS_TOTAL_SENT = 'parwa_jarvis_total_sent';
 const LS_LAST_ENTRY = 'parwa_jarvis_last_entry';
+const LS_WINDOW_START = 'parwa_jarvis_window_start';
+const LS_HAS_PAID = 'parwa_jarvis_has_paid';
+const LS_PAID_SENT = 'parwa_jarvis_paid_sent';
+const LS_FIRST_MSG_DONE = 'parwa_jarvis_first_msg_done';
 
 // ── localStorage Helpers ──────────────────────────────────────────
 
@@ -141,10 +147,38 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
   const msgCounterRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const lastProcessedEntryRef = useRef<string>('');
+  const entryProcessedRef = useRef(false);
+
+  // ── 24hr Window Tracking ─────────────────────────────────────────
+
+  const [isPaid, setIsPaid] = useState<boolean>(() => lsGet<boolean>(LS_HAS_PAID, false));
+  const [paidSent, setPaidSent] = useState<number>(() => lsGet<number>(LS_PAID_SENT, 0));
+
+  // Check if 24hr window has expired — if so, reset counters
+  useEffect(() => {
+    const windowStart = lsGet<number | null>(LS_WINDOW_START, null);
+    if (windowStart && Date.now() - windowStart > WINDOW_MS) {
+      // Window expired — reset all counters
+      lsSet(LS_TOTAL_SENT, 0);
+      lsSet(LS_WINDOW_START, Date.now());
+      lsSet(LS_HAS_PAID, false);
+      lsSet(LS_PAID_SENT, 0);
+      lsSet(LS_FIRST_MSG_DONE, false);
+      setTotalSent(0);
+      setIsPaid(false);
+      setPaidSent(0);
+    } else if (!windowStart) {
+      // First visit — start the window
+      lsSet(LS_WINDOW_START, Date.now());
+    }
+  }, []);
 
   // ── Computed ─────────────────────────────────────────────────────
 
-  const remainingToday = Math.max(0, FREE_MESSAGE_LIMIT - totalSent);
+  const paidRemaining = isPaid ? Math.max(0, PAID_MESSAGE_LIMIT - paidSent) : 0;
+  const remainingToday = isPaid
+    ? paidRemaining
+    : Math.max(0, FREE_MESSAGE_LIMIT - totalSent);
   const isLimitReached = remainingToday <= 0 && session?.pack_type !== 'demo';
   const isDemoPackActive = session?.pack_type === 'demo';
 
@@ -159,6 +193,10 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
   useEffect(() => {
     lsSet(LS_TOTAL_SENT, totalSent);
   }, [totalSent]);
+
+  useEffect(() => {
+    lsSet(LS_PAID_SENT, paidSent);
+  }, [paidSent]);
 
   // ── Phase 1: Create or resume server session (runs ONCE) ────────
 
@@ -238,13 +276,20 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
     return () => { abortRef.current?.abort(); };
   }, [initSession]);
 
-  // ── Phase 2: Handle entry context changes (runs whenever entrySource/entryParams change) ──
+  // ── Phase 2: Handle entry context changes (runs whenever entrySource/entryParams/session change) ──
   // This is SEPARATE from session init. It watches for entry context and
   // sends it to the server AFTER the session is ready.
+  //
+  // CRITICAL FIX: `session` and `isLoading` are now in the dependency array.
+  // Previously this effect only watched entrySource/entryParams, so when they
+  // changed (before session was ready), the effect fired but returned early.
+  // When session became ready, the effect didn't re-fire. Now it will.
 
   useEffect(() => {
+    if (isLoading) return; // Wait until session init completes
     if (!sessionReadyRef.current || !sessionRef.current) return;
     if (!entrySource && !entryParams) return;
+    if (entryProcessedRef.current) return; // Only process entry context once
 
     // Build entry key to detect if this entry was already processed
     const entryKey = `${entrySource || 'none'}_${JSON.stringify(entryParams || {})}`;
@@ -252,10 +297,14 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
     if (entryKey === 'none_{}') return; // No real entry context
 
     lastProcessedEntryRef.current = entryKey;
+    entryProcessedRef.current = true;
     lsSet(LS_LAST_ENTRY, entryKey);
 
+    // Check if we already sent a first message for this session
+    const firstMsgDone = lsGet<boolean>(LS_FIRST_MSG_DONE, false);
+    if (firstMsgDone) return;
+
     const sessionId = sessionRef.current;
-    const hasExistingChat = readStoredMessages().length > 0;
     const isVariantEntry = entrySource?.includes('models_') || entrySource === 'models_page' || entrySource === 'free_chat';
 
     // Update server session context with entry info
@@ -277,6 +326,7 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
 
     // If user came from Free Demo / Models page, generate a contextual AI message
     if (isVariantEntry) {
+      lsSet(LS_FIRST_MSG_DONE, true);
       setIsTyping(true);
       apiFetch<{ session: JarvisSession; new_welcome: JarvisMessage }>('/context/entry', {
         method: 'POST',
@@ -298,13 +348,18 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
         setIsTyping(false);
       });
     }
-  }, [entrySource, entryParams]);
+  }, [entrySource, entryParams, session, isLoading]);
 
   // ── Send Message ────────────────────────────────────────────────
 
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return;
-    if (isLimitReached && session?.pack_type !== 'demo') return;
+    if (isLimitReached && session?.pack_type !== 'demo') {
+      // If user is paid but hit paid limit, don't allow more
+      if (isPaid && paidRemaining <= 0) return;
+      // If user is free and hit free limit, don't allow more
+      if (!isPaid) return;
+    }
 
     // If session isn't ready yet, wait a bit
     if (!sessionRef.current) {
@@ -334,7 +389,11 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
       timestamp: new Date().toISOString(),
     };
     setMessages(prev => [...prev, optimisticUserMsg]);
-    setTotalSent(prev => prev + 1);
+    if (isPaid) {
+      setPaidSent(prev => prev + 1);
+    } else {
+      setTotalSent(prev => prev + 1);
+    }
 
     try {
       // Send context + recent messages with each request (RAG-lite)
@@ -377,7 +436,11 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
     } catch (err) {
       if ((err as Error)?.name === 'AbortError') return;
       setError(err instanceof Error ? err.message : 'Failed to send message');
-      setTotalSent(prev => Math.max(0, prev - 1));
+      if (isPaid) {
+        setPaidSent(prev => Math.max(0, prev - 1));
+      } else {
+        setTotalSent(prev => Math.max(0, prev - 1));
+      }
       setMessages(prev =>
         prev.map(m => m.id === tempId ? { ...m, message_type: 'error' as MessageType } : m)
       );
@@ -385,7 +448,7 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
       setIsTyping(false);
       isSendingRef.current = false;
     }
-  }, [isLimitReached, session?.context, session?.pack_type]);
+  }, [isLimitReached, isPaid, paidRemaining, session?.context, session?.pack_type]);
 
   // ── Retry Last Message ──────────────────────────────────────────
 
@@ -472,6 +535,11 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
       await apiFetch<JarvisPurchaseResponse>(`/demo-pack/purchase?session_id=${sessionId}`, { method: 'POST' });
       const updatedSession = await apiFetch<JarvisSession>(`/session?session_id=${sessionId}`);
       setSession(updatedSession);
+      // Mark as paid in localStorage for 24hr window tracking
+      lsSet(LS_HAS_PAID, true);
+      lsSet(LS_PAID_SENT, 0);
+      setIsPaid(true);
+      setPaidSent(0);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to purchase demo pack');
     }
@@ -556,6 +624,7 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
   return {
     messages, session, isLoading, isTyping,
     remainingToday, isLimitReached, isDemoPackActive,
+    isPaid, paidSent, paidRemaining,
     otpState, paymentState, handoffState, demoCallState,
     error, totalSent,
     initSession, sendMessage, retryLastMessage, updateContext,

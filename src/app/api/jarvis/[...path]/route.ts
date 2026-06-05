@@ -692,11 +692,19 @@ function getContextAwareWelcome(entrySource: string, ctx: any): string {
 
   if (variant && (source.startsWith('models_') || source === 'models_page')) {
     const variantIntros = [
-      `${greeting} I'm Jarvis. You wanted to see how ${variant} works for ${industryLabel} — let me show you. Ask me anything about it, or I can walk you through a live scenario. You can access these features through the dashboard or by chatting with me here.`,
-      `${greeting} I'm Jarvis. So you're curious about ${variant} for ${industryLabel}? Great choice — let me give you the real picture. I can demo it right here, or you can explore the dashboard. What would you like to know first?`,
-      `${greeting} Jarvis here. ${variant} for ${industryLabel} — solid pick. I can show you exactly how it handles real situations, or answer any questions. Dashboard or chat, whatever works for you.`,
+      `${greeting} I'm Jarvis. You wanted to see how ${variant} works for ${industryLabel} — let me show you. Ask me anything about it, or I can walk you through a live scenario. You can access these features through the dashboard or by chatting with me here. Pro tip: upload your knowledge base files so I can learn from your real data and respond like a trained agent — it makes the demo way more realistic.`,
+      `${greeting} I'm Jarvis. So you're curious about ${variant} for ${industryLabel}? Great choice — let me give you the real picture. I can demo it right here, or you can explore the dashboard. What would you like to know first? Also, for the best demo experience, upload your knowledge base files — that way I can operate in shadow mode, learning from your actual data.`,
+      `${greeting} Jarvis here. ${variant} for ${industryLabel} — solid pick. I can show you exactly how it handles real situations, or answer any questions. Dashboard or chat, whatever works for you. Quick recommendation: upload your knowledge base so I can shadow-learn from your real customer data — makes everything way more accurate.`,
     ];
     return variantIntros[Math.floor(Math.random() * variantIntros.length)];
+  }
+
+  if (source === 'free_chat') {
+    const freeChatIntros = [
+      `${greeting} I'm Jarvis — your control center. You're trying the free chat — ask me anything! I can demo any agent, answer questions, or walk you through scenarios. For the best experience, upload your knowledge base files so I can learn from your real data and respond like a trained agent.`,
+      `${greeting} I'm Jarvis. Free chat mode — let's go! Ask me anything about how the agents work, or I can roleplay a live scenario. Pro tip: upload your knowledge base and I'll shadow-learn from your actual data for a much more realistic demo.`,
+    ];
+    return freeChatIntros[Math.floor(Math.random() * freeChatIntros.length)];
   }
 
   const defaultIntros = [
@@ -1424,7 +1432,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         const randomSeed = Date.now();
         const aiMessages = [
           { role: 'system', content: welcomePrompt },
-          { role: 'user', content: `The user just came from a new page/context. Context: ${entryContext}. They clicked "${entry_source || 'free demo'}" to explore. Generate a short, natural, UNIQUE message acknowledging this. Be specific about what they clicked. Be conversational, not sales-y. Make it different every time (seed: ${randomSeed}). If they selected a variant, explain how it works for their industry and mention they can access features through the dashboard or by chatting with you.` },
+          { role: 'user', content: `The user just came from a new page/context. Context: ${entryContext}. They clicked "${entry_source || 'free demo'}" to explore. Generate a short, natural, UNIQUE message acknowledging this. Be specific about what they clicked. Be conversational, not sales-y. Make it different every time (seed: ${randomSeed}). If they selected a variant, explain how it works for their industry and mention they can access features through the dashboard or by chatting with you.${entry_source === 'models_page' || entry_source === 'free_chat' ? ' IMPORTANT: Since they clicked the variant demo, you MUST: (1) Acknowledge they clicked the variant demo, (2) Explain what the variant can do, (3) RECOMMEND uploading knowledge base files so the AI agent can operate in shadow mode — learning from their real data before going live. Say something like "For the best experience, upload your knowledge base files so I can learn from your real data and respond like a trained agent."' : ''}` },
         ];
         const aiWelcome = await callAI(aiMessages);
         welcomeContent = aiWelcome || getContextAwareWelcome(session.context.entry_source, session.context);
