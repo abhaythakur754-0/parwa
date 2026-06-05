@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Check, MessageSquare } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 /**
  * HeroSection - Dark premium theme with orange animated background
@@ -35,6 +36,7 @@ export default function HeroSection() {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const sectionRef = useRef<HTMLElement>(null);
   const router = useRouter();
+  const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -310,21 +312,25 @@ export default function HeroSection() {
             <button
               type="button"
               onClick={() => {
-                // Merge into existing context instead of overwriting
-                if (typeof window !== 'undefined') {
-                  try {
-                    const existing = JSON.parse(localStorage.getItem('parwa_jarvis_context') || '{}');
-                    localStorage.setItem('parwa_jarvis_context', JSON.stringify({ ...existing, source: 'landing_page_cta' }));
-                  } catch {
-                    localStorage.setItem('parwa_jarvis_context', JSON.stringify({ source: 'landing_page_cta' }));
+                if (isAuthenticated && !isLoading) {
+                  router.push('/dashboard');
+                } else {
+                  // Merge into existing context instead of overwriting
+                  if (typeof window !== 'undefined') {
+                    try {
+                      const existing = JSON.parse(localStorage.getItem('parwa_jarvis_context') || '{}');
+                      localStorage.setItem('parwa_jarvis_context', JSON.stringify({ ...existing, source: 'landing_page_cta' }));
+                    } catch {
+                      localStorage.setItem('parwa_jarvis_context', JSON.stringify({ source: 'landing_page_cta' }));
+                    }
                   }
+                  router.push('/onboarding');
                 }
-                router.push('/onboarding');
               }}
               className="flex items-center gap-2.5 px-7 py-3.5 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] shadow-lg shadow-orange-500/25 hover:from-orange-400 hover:to-orange-300 hover:shadow-orange-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 focus-visible-ring"
             >
               <MessageSquare className="w-4.5 h-4.5" />
-              Get Started with Jarvis
+              {isAuthenticated && !isLoading ? 'Go to Dashboard' : 'Get Started with Jarvis'}
             </button>
           </div>
         </div>

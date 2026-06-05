@@ -2,17 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/hooks/useAuth';
+import { UserMenu } from '@/components/common/UserMenu';
 
 /**
  * NavigationBar Component
  *
  * Dark premium navigation bar with orange accents — matches the
  * PARWA dark theme (#0D0D0D/#1A1A1A + #FF7F11 orange).
+ *
+ * Auth-aware: Shows "Get Started" for guests, UserMenu + Dashboard for logged-in users.
  */
 
 export default function NavigationBar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -88,22 +93,38 @@ export default function NavigationBar() {
             ))}
           </div>
 
-          {/* Login + Social Proof - Desktop */}
+          {/* Right Side - Desktop */}
           <div className="hidden md:flex items-center gap-4">
-            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20">
-              <div className="flex -space-x-1.5">
-                <div className="w-5 h-5 rounded-full bg-orange-400/30 border-2 border-[#0D0D0D]" />
-                <div className="w-5 h-5 rounded-full bg-orange-500/30 border-2 border-[#0D0D0D]" />
-                <div className="w-5 h-5 rounded-full bg-orange-300/30 border-2 border-[#0D0D0D]" />
-              </div>
-              <span className="text-xs text-gray-400 font-medium">2,400+ businesses trust us</span>
-            </div>
-            <Link
-              href="/login"
-              className="bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-500 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:-translate-y-0.5 focus-visible-ring"
-            >
-              Get Started
-            </Link>
+            {isAuthenticated && !isLoading ? (
+              <>
+                {/* Logged-in: Dashboard link + UserMenu */}
+                <Link
+                  href="/dashboard"
+                  className="px-4 py-2 text-sm font-medium text-orange-300 hover:text-orange-200 transition-all duration-300 rounded-xl hover:bg-orange-500/10"
+                >
+                  Dashboard
+                </Link>
+                <UserMenu />
+              </>
+            ) : (
+              <>
+                {/* Not logged-in: Social proof + Get Started */}
+                <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20">
+                  <div className="flex -space-x-1.5">
+                    <div className="w-5 h-5 rounded-full bg-orange-400/30 border-2 border-[#0D0D0D]" />
+                    <div className="w-5 h-5 rounded-full bg-orange-500/30 border-2 border-[#0D0D0D]" />
+                    <div className="w-5 h-5 rounded-full bg-orange-300/30 border-2 border-[#0D0D0D]" />
+                  </div>
+                  <span className="text-xs text-gray-400 font-medium">2,400+ businesses trust us</span>
+                </div>
+                <Link
+                  href="/login"
+                  className="bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-500 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:-translate-y-0.5 focus-visible-ring"
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -134,37 +155,72 @@ export default function NavigationBar() {
         >
           <div className="py-5 border-t border-white/[0.06]">
             <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2 px-4 py-2 mb-2">
-                <div className="flex -space-x-1.5">
-                  <div className="w-5 h-5 rounded-full bg-orange-400/30 border-2 border-[#0D0D0D]" />
-                  <div className="w-5 h-5 rounded-full bg-orange-500/30 border-2 border-[#0D0D0D]" />
-                  <div className="w-5 h-5 rounded-full bg-orange-300/30 border-2 border-[#0D0D0D]" />
-                </div>
-                <span className="text-xs text-gray-500 font-medium">2,400+ businesses trust us</span>
-              </div>
-              {navLinks.map((link, index) => (
+              {isAuthenticated && !isLoading ? (
+                <>
+                  {/* Logged-in mobile: UserMenu info + Dashboard + Logout */}
+                  <div className="px-4 py-3 mb-2 rounded-xl bg-orange-500/5 border border-orange-500/10">
+                    <UserMenu compact />
+                  </div>
                   <Link
-                    key={link.name}
-                    href={link.href}
-                    className={`px-4 py-3.5 text-gray-400 hover:text-white text-sm font-medium rounded-xl hover:bg-white/[0.06] transition-all duration-500 focus-visible-ring ${
+                    href="/dashboard"
+                    className={`px-4 py-3.5 text-orange-300 hover:text-orange-200 text-sm font-semibold rounded-xl hover:bg-orange-500/10 transition-all duration-500 focus-visible-ring ${
                       isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
                     }`}
-                    style={{ transitionDelay: isMobileMenuOpen ? `${index * 60}ms` : '0ms' }}
+                    style={{ transitionDelay: isMobileMenuOpen ? '60ms' : '0ms' }}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    {link.name}
+                    Dashboard
                   </Link>
-              ))}
-              <Link
-                href="/login"
-                className={`mt-3 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white px-5 py-3.5 rounded-xl text-sm font-semibold text-center transition-all duration-500 focus-visible-ring ${
-                  isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
-                }`}
-                style={{ transitionDelay: isMobileMenuOpen ? '240ms' : '0ms' }}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Get Started
-              </Link>
+                  {navLinks.map((link, index) => (
+                    <Link
+                      key={link.name}
+                      href={link.href}
+                      className={`px-4 py-3.5 text-gray-400 hover:text-white text-sm font-medium rounded-xl hover:bg-white/[0.06] transition-all duration-500 focus-visible-ring ${
+                        isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
+                      }`}
+                      style={{ transitionDelay: isMobileMenuOpen ? `${(index + 1) * 60}ms` : '0ms' }}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      {link.name}
+                    </Link>
+                  ))}
+                </>
+              ) : (
+                <>
+                  {/* Not logged-in mobile: Social proof + links + Get Started */}
+                  <div className="flex items-center gap-2 px-4 py-2 mb-2">
+                    <div className="flex -space-x-1.5">
+                      <div className="w-5 h-5 rounded-full bg-orange-400/30 border-2 border-[#0D0D0D]" />
+                      <div className="w-5 h-5 rounded-full bg-orange-500/30 border-2 border-[#0D0D0D]" />
+                      <div className="w-5 h-5 rounded-full bg-orange-300/30 border-2 border-[#0D0D0D]" />
+                    </div>
+                    <span className="text-xs text-gray-500 font-medium">2,400+ businesses trust us</span>
+                  </div>
+                  {navLinks.map((link, index) => (
+                    <Link
+                      key={link.name}
+                      href={link.href}
+                      className={`px-4 py-3.5 text-gray-400 hover:text-white text-sm font-medium rounded-xl hover:bg-white/[0.06] transition-all duration-500 focus-visible-ring ${
+                        isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
+                      }`}
+                      style={{ transitionDelay: isMobileMenuOpen ? `${index * 60}ms` : '0ms' }}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      {link.name}
+                    </Link>
+                  ))}
+                  <Link
+                    href="/login"
+                    className={`mt-3 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white px-5 py-3.5 rounded-xl text-sm font-semibold text-center transition-all duration-500 focus-visible-ring ${
+                      isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
+                    }`}
+                    style={{ transitionDelay: isMobileMenuOpen ? '240ms' : '0ms' }}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Get Started
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

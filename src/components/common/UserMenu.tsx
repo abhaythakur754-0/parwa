@@ -34,6 +34,7 @@ import {
   X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 interface UserMenuProps {
   /** Whether to show compact version (for ChatHeader) */
@@ -49,8 +50,11 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Get user from localStorage (works with Next.js API route login)
-  const [userData, setUserData] = useState<{
+  // Auth context — must be called before any derived state
+  const { logout: authLogout, user: authUser } = useAuth();
+
+  // Get user from AuthContext (primary) with localStorage fallback
+  const [localUserData, setLocalUserData] = useState<{
     id?: string;
     email?: string;
     full_name?: string | null;
@@ -60,16 +64,22 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
     onboarding_completed?: boolean;
   } | null>(null);
 
+  // Prefer AuthContext user data, fall back to localStorage
+  const userData = authUser || localUserData;
+
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('parwa_user');
-      if (stored) {
-        setUserData(JSON.parse(stored));
+    // Only read localStorage if AuthContext doesn't have user data
+    if (!authUser) {
+      try {
+        const stored = localStorage.getItem('parwa_user');
+        if (stored) {
+          setLocalUserData(JSON.parse(stored));
+        }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
     }
-  }, [isOpen]);
+  }, [isOpen, authUser]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -99,14 +109,13 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
 
   const handleLogout = async () => {
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/auth/logout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      }).catch(() => {});
+      // Use the centralized auth logout which clears cookies, localStorage,
+      // updates AuthContext state, and syncs Zustand store
+      await authLogout();
+      toast.success('Logged out successfully!');
+      router.push('/');
     } catch {
-      // ignore backend errors
-    } finally {
+      // Fallback: clear locally and redirect
       localStorage.removeItem('parwa_user');
       toast.success('Logged out successfully!');
       router.push('/');

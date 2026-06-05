@@ -217,7 +217,7 @@ export async function requireAuth(
 
   // H19: Attempt token refresh if the access token is missing/expired
   const refreshed = await refreshAuthToken(request);
-  if (refreshed) {
+  if (refreshed?.newRequest) {
     // Re-verify with the new token
     const retryUser = await verifyAuth(refreshed.newRequest);
     if (retryUser) {
