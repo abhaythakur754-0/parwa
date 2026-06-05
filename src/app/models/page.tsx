@@ -954,7 +954,26 @@ export default function ModelsPage() {
                           </div>
                         </button>
                         <button
-                          onClick={() => handleFreeChat()}
+                          onClick={() => {
+                            // Save hiring selection to localStorage and redirect to signup/onboarding
+                            const selection = currentVariants
+                              ?.filter(v => quantities[v.id] > 0)
+                              .map(v => ({
+                                id: v.id,
+                                name: v.name,
+                                quantity: quantities[v.id],
+                                pricePerUnit: isAnnual ? v.annualPrice : v.monthlyPrice,
+                                billing: isAnnual ? 'annual' : 'monthly',
+                              })) || [];
+                            localStorage.setItem('parwa_hiring_selection', JSON.stringify({
+                              industry: activeIndustry?.id,
+                              industryLabel: activeIndustry?.label,
+                              variants: selection,
+                              totalMonthly,
+                              isAnnual,
+                            }));
+                            window.location.href = isAuthenticated ? '/dashboard?tab=agents' : '/signup';
+                          }}
                           className="group/cfm flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 overflow-hidden relative cursor-pointer hover:-translate-y-0.5 active:scale-[0.98]"
                           style={{ background: `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.85) 100%)`, color: primary, boxShadow: `0 8px 24px rgba(${accentRgb},0.3)` }}
                         >
