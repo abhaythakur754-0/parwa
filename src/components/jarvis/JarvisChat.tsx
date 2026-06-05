@@ -104,9 +104,15 @@ export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: Jarvis
         // Hide the KB panel after successful upload
         setShowKbInChat(false);
 
-        // Send a message about the upload for context
+        // Get extraction info from response
+        const result = await response.json().catch(() => ({}));
+        const totalChars = result.totalChars || 0;
+        const extractedCount = result.extracted?.length || 0;
+
+        // Send a message about the upload so Jarvis acknowledges and uses the KB
         const fileNames = files.map(f => f.name).join(', ');
-        sendMessage(`I uploaded my knowledge base files: ${fileNames}`);
+        const charInfo = totalChars > 0 ? ` (${totalChars.toLocaleString()} characters read)` : '';
+        sendMessage(`I uploaded my knowledge base: ${fileNames}${charInfo}. Please use this to understand my business and give me relevant answers.`);
       } else {
         setKbFiles(prev => prev.map(f => ({ ...f, status: 'error' as const })));
       }

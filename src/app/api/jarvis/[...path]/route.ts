@@ -31,6 +31,85 @@ import { NextRequest, NextResponse } from 'next/server';
 import https from 'https';
 import http from 'http';
 
+// ── Knowledge Base File Parsing ──────────────────────────────────
+// These extract actual TEXT from uploaded files so Jarvis can
+// understand and reference the content, not just file metadata.
+
+let pdfParse: any = null;
+let mammothLib: any = null;
+
+async function getPdfParse() {
+  if (!pdfParse) {
+    try {
+      const mod = await import('pdf-parse') as any;
+      pdfParse = mod.default || mod;
+    } catch (err) {
+      console.warn('[Jarvis] pdf-parse not available:', (err instanceof Error ? err.message : String(err))?.slice(0, 80));
+    }
+  }
+  return pdfParse;
+}
+
+async function getMammoth() {
+  if (!mammothLib) {
+    try {
+      mammothLib = await import('mammoth');
+    } catch (err) {
+      console.warn('[Jarvis] mammoth not available:', (err instanceof Error ? err.message : String(err))?.slice(0, 80));
+    }
+  }
+  return mammothLib;
+}
+
+/**
+ * Extract text content from an uploaded file based on its extension.
+ * Returns the extracted text, or null if extraction failed.
+ * Supports: PDF, TXT, CSV, MD, DOCX, DOC
+ */
+async function extractTextFromFile(file: File): Promise<string | null> {
+  const ext = file.name.split('.').pop()?.toLowerCase() || '';
+  const MAX_CHARS = 30000; // Cap extracted text to avoid token overflow
+
+  try {
+    // ── Plain text files: TXT, CSV, MD ──
+    if (['txt', 'csv', 'md'].includes(ext)) {
+      const text = await file.text();
+      return text.slice(0, MAX_CHARS);
+    }
+
+    // ── PDF files ──
+    if (ext === 'pdf') {
+      const pdf = await getPdfParse();
+      if (!pdf) {
+        console.warn('[Jarvis] pdf-parse unavailable, skipping PDF content extraction');
+        return null;
+      }
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const data = await pdf(buffer);
+      const text = data?.text || '';
+      return text.slice(0, MAX_CHARS);
+    }
+
+    // ── DOCX files ──
+    if (ext === 'docx' || ext === 'doc') {
+      const mammoth = await getMammoth();
+      if (!mammoth) {
+        console.warn('[Jarvis] mammoth unavailable, skipping DOCX content extraction');
+        return null;
+      }
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const result = await mammoth.extractRawText({ buffer });
+      const text = result?.value || '';
+      return text.slice(0, MAX_CHARS);
+    }
+
+    return null;
+  } catch (err) {
+    console.warn(`[Jarvis] Failed to extract text from ${file.name}:`, (err instanceof Error ? err.message : String(err))?.slice(0, 100));
+    return null;
+  }
+}
+
 // ── Backend Proxy Configuration ─────────────────────────────────
 const BACKEND_URL = process.env.SERVER_API_URL || process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -342,6 +421,56 @@ async function callAI(messages: Array<{role: string, content: string}>): Promise
 // Per JARVIS_SPECIFICATION.md v3.0: NO internal details, only what clients can see
 // Jarvis is NOT a chatbot. Jarvis IS the product. Jarvis is the control room.
 
+// ── Knowledge Base Block Builder ──────────────────────────────────
+// Injects the user's uploaded KB content into the system prompt
+// so Jarvis can reference it when answering questions.
+// Uses smart truncation: first 3000 chars of each doc, max 15K total.
+
+function buildKnowledgeBaseBlock(session: any): string {
+  const ctx = session.context || {};
+  const kbDocs = ctx.kb_documents || [];
+  const kbCombined = ctx.kb_combined_text || '';
+
+  if (kbDocs.length === 0 && !kbCombined) return '';
+
+  const MAX_DOC_CHARS = 3000;   // Per document
+  const MAX_TOTAL_CHARS = 15000; // Total KB block
+
+  let kbBlock = `
+═══════ USER'S KNOWLEDGE BASE ═══════
+The user uploaded ${kbDocs.length} document(s) to their knowledge base. This is THEIR business data.
+When relevant, reference this content naturally — as if you already know their business.
+Use it to personalize responses, give industry-specific examples, and demonstrate shadow mode.
+Do NOT say "Based on your uploaded document" — just use the information naturally.
+
+`;
+
+  if (kbCombined && kbCombined.length > 0) {
+    // Use the combined text, truncated
+    const truncated = kbCombined.slice(0, MAX_TOTAL_CHARS);
+    kbBlock += truncated;
+    if (kbCombined.length > MAX_TOTAL_CHARS) {
+      kbBlock += '\n\n[... content truncated for length ...]';
+    }
+  } else if (kbDocs.length > 0) {
+    // Fallback: build from individual documents
+    let totalLen = 0;
+    for (const doc of kbDocs) {
+      if (totalLen >= MAX_TOTAL_CHARS) break;
+      const remaining = MAX_TOTAL_CHARS - totalLen;
+      const docContent = doc.content.slice(0, Math.min(MAX_DOC_CHARS, remaining));
+      kbBlock += `=== ${doc.name} ===\n${docContent}\n\n`;
+      totalLen += docContent.length;
+      if (doc.content.length > MAX_DOC_CHARS) {
+        kbBlock += '[... document truncated ...]\n\n';
+      }
+    }
+  }
+
+  kbBlock += '\n═════════════════════════════\n';
+  return kbBlock;
+}
+
 function buildSystemPrompt(session: any): string {
   const ctx = session.context;
   const ep = ctx.entry_params || {};
@@ -545,7 +674,7 @@ FORMATTING RULES (CRITICAL — follow these always):
 
 ═══════ LIVE CONTEXT ═══════
 ${contextLines}
-
+${buildKnowledgeBaseBlock(session)}
 RECENT CONVERSATION:
 ${conversationMemory}
 
@@ -1518,13 +1647,28 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           validated.push({ name: file.name, size: file.size, type: file.type });
         }
 
-        // Store knowledge base metadata in session context
+        // ── Extract text content from each file ──
+        // This is the critical part — without this, Jarvis can't "read" the files
+        const extractedDocs: Array<{ name: string; content: string; charCount: number }> = [];
+        for (const file of files) {
+          const text = await extractTextFromFile(file);
+          if (text && text.trim().length > 0) {
+            extractedDocs.push({
+              name: file.name,
+              content: text.trim(),
+              charCount: text.trim().length,
+            });
+          }
+        }
+
+        // Store knowledge base content in session context
         if (sessionId && hasSession(sessionId)) {
           const session = getSession(sessionId);
           if (session) {
             if (!session.context.knowledge_base) {
               session.context.knowledge_base = [];
             }
+            // Store metadata
             for (const v of validated) {
               session.context.knowledge_base.push({
                 ...v,
@@ -1532,14 +1676,37 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
                 status: 'indexed',
               });
             }
+            // ── Store extracted text content ──
+            // This is what Jarvis actually reads when generating responses
+            if (!session.context.kb_documents) {
+              session.context.kb_documents = [];
+            }
+            for (const doc of extractedDocs) {
+              session.context.kb_documents.push(doc);
+            }
+            // Create a combined text blob for quick reference in system prompt
+            if (extractedDocs.length > 0) {
+              const combinedText = extractedDocs
+                .map(d => `=== ${d.name} ===\n${d.content}`)
+                .join('\n\n');
+              // Cap total KB content to ~50K chars to avoid token overflow
+              session.context.kb_combined_text = (session.context.kb_combined_text || '') + '\n\n' + combinedText;
+              if (session.context.kb_combined_text.length > 50000) {
+                session.context.kb_combined_text = session.context.kb_combined_text.slice(0, 50000);
+              }
+            }
             session.updated_at = new Date().toISOString();
             setSession(session.id, session);
           }
         }
 
+        const totalChars = extractedDocs.reduce((sum, d) => sum + d.charCount, 0);
+
         return NextResponse.json({
-          message: `Successfully uploaded ${validated.length} file(s)`,
+          message: `Successfully uploaded and parsed ${validated.length} file(s) — ${totalChars.toLocaleString()} characters extracted`,
           files: validated,
+          extracted: extractedDocs.map(d => ({ name: d.name, charCount: d.charCount })),
+          totalChars,
           status: 'success',
         });
       } catch (err) {
