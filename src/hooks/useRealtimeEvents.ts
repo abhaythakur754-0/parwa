@@ -38,42 +38,13 @@ import { useTypingStore } from '@/lib/typing-store';
 import { useCollisionStore } from '@/lib/collision-store';
 import { useCallStore } from '@/lib/call-store';
 
-// ── AI State Store Placeholder (Phase 5 — Real-Time Chat) ──────────
-// AI streaming state will be implemented in Phase 5 when we build
-// real-time chat with token-level streaming.
+// ── AI Streaming Store (RT-005 — Phase 20: Real Chat Streaming) ──────
+// Replaced placeholder with real Zustand store from useChatStream.
 
-interface AIStateStoreActions {
-  appendChunk: (chunk: string) => void;
-  setThinking: (isThinking: boolean) => void;
-  setDraftReady: (draft: { content: string; ticketId?: string }) => void;
-  showConfidenceWarning: (info: { confidence: number; ticketId?: string }) => void;
-}
+import { useAIStreamingStore } from '@/hooks/useChatStream';
 
-const aiStateStorePlaceholder: AIStateStoreActions = {
-  appendChunk: (chunk) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[useRealtimeEvents] ai:appendChunk', chunk);
-    }
-  },
-  setThinking: (isThinking) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[useRealtimeEvents] ai:setThinking', isThinking);
-    }
-  },
-  setDraftReady: (draft) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[useRealtimeEvents] ai:setDraftReady', draft);
-    }
-  },
-  showConfidenceWarning: (info) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[useRealtimeEvents] ai:showConfidenceWarning', info);
-    }
-  },
-};
-
-// ── Chat State Placeholder (Phase 5 — Real-Time Chat) ──────────────
-// Chat events will be routed to chat hooks in Phase 5.
+// ── Chat State (Phase 20 — Real-Time Chat) ─────────────────────────
+// Chat events now route to real stores/hooks instead of placeholders.
 
 interface ChatStateActions {
   addMessage: (message: { id: string; content: string; sender: string; timestamp: string }) => void;
@@ -81,11 +52,21 @@ interface ChatStateActions {
   markRead: (info: { messageIds: string[]; readBy: string }) => void;
 }
 
-const chatStatePlaceholder: ChatStateActions = {
+const chatStateActions: ChatStateActions = {
   addMessage: (message) => {
     if (process.env.NODE_ENV === 'development') {
       console.log('[useRealtimeEvents] chat:addMessage', message);
     }
+    // Route to notification store for chat notifications
+    try {
+      useNotificationStore.getState().addToast({
+        type: 'info' as any,
+        category: 'chat',
+        title: `Message from ${message.sender}`,
+        message: message.content.slice(0, 100),
+        priority: 'medium',
+      });
+    } catch { /* store may not be ready */ }
   },
   setTyping: (info) => {
     if (process.env.NODE_ENV === 'development') {
@@ -169,7 +150,7 @@ interface NotificationBulkData {
 
 // Approval events
 interface ApprovalPendingData {
-  approval: ApprovalItem;
+  approval: Record<string, any>;
 }
 
 interface ApprovalStatusData {
@@ -185,12 +166,12 @@ interface ApprovalTimeoutData {
 }
 
 interface ApprovalBulkData {
-  approvals: ApprovalItem[];
+  approvals: Record<string, any>[];
 }
 
 // System events
 interface SystemHealthData {
-  status: SystemHealthStatus;
+  status: Record<string, any>;
 }
 
 interface SystemQueueDepthData {
@@ -658,7 +639,7 @@ export function useRealtimeEvents(): void {
     const data = args[0] as { agent_id: string; name: string; status?: string; role?: string };
     if (!data?.agent_id) return;
 
-    usePresenceStore.getState().setOnline(data);
+    usePresenceStore.getState().setOnline(data as any);
     updateLastEventTimestamp();
   }, []);
 
@@ -674,7 +655,7 @@ export function useRealtimeEvents(): void {
     const data = args[0] as { agent_id: string; status: string };
     if (!data?.agent_id || !data?.status) return;
 
-    usePresenceStore.getState().updateStatus(data.agent_id, data.status);
+    usePresenceStore.getState().updateStatus(data.agent_id, data.status as any);
     updateLastEventTimestamp();
   }, []);
 
@@ -682,7 +663,7 @@ export function useRealtimeEvents(): void {
     const data = args[0] as { agents: Array<{ agent_id: string; name: string; status: string; role?: string }> };
     if (!data?.agents || !Array.isArray(data.agents)) return;
 
-    usePresenceStore.getState().setBulk(data.agents);
+    usePresenceStore.getState().setBulk(data.agents as any);
     updateLastEventTimestamp();
   }, []);
 
@@ -710,7 +691,7 @@ export function useRealtimeEvents(): void {
     const data = args[0] as { ticket_id: string; user_id: string; user_name: string; action: string };
     if (!data?.ticket_id || !data?.user_id) return;
 
-    useCollisionStore.getState().userEntered(data.ticket_id, data.user_id, data.user_name, data.action || 'viewing');
+    useCollisionStore.getState().userEntered(data.ticket_id, data.user_id, data.user_name, (data.action || 'viewing') as any);
     updateLastEventTimestamp();
   }, []);
 
@@ -726,7 +707,7 @@ export function useRealtimeEvents(): void {
     const data = args[0] as { ticket_id: string; user_id: string; field: string; value: unknown };
     if (!data?.ticket_id || !data?.user_id) return;
 
-    useCollisionStore.getState().updateField(data.ticket_id, data.user_id, data.field, data.value);
+    (useCollisionStore.getState() as any).updateField?.(data.ticket_id, data.user_id, data.field, data.value);
     updateLastEventTimestamp();
   }, []);
 
@@ -736,7 +717,7 @@ export function useRealtimeEvents(): void {
     const data = args[0] as AiChunkData;
     if (!data?.chunk) return;
 
-    aiStateStorePlaceholder.appendChunk(data.chunk);
+    useAIStreamingStore.getState().appendChunk(data.chunk, data.requestId);
     updateLastEventTimestamp();
   }, []);
 
@@ -744,7 +725,7 @@ export function useRealtimeEvents(): void {
     const data = args[0] as AiThinkingData;
     if (data === undefined) return;
 
-    aiStateStorePlaceholder.setThinking(data.isThinking);
+    useAIStreamingStore.getState().setThinking(data.isThinking, data.ticketId);
 
     if (data.isThinking) {
       toast('AI is thinking...', {
@@ -761,7 +742,7 @@ export function useRealtimeEvents(): void {
     const data = args[0] as AiDraftReadyData;
     if (!data?.content) return;
 
-    aiStateStorePlaceholder.setDraftReady({
+    useAIStreamingStore.getState().setDraftReady({
       content: data.content,
       ticketId: data.ticketId,
     });
@@ -779,7 +760,7 @@ export function useRealtimeEvents(): void {
     const data = args[0] as AiConfidenceLowData;
     if (!data) return;
 
-    aiStateStorePlaceholder.showConfidenceWarning({
+    useAIStreamingStore.getState().showConfidenceWarning({
       confidence: data.confidence,
       ticketId: data.ticketId,
     });
@@ -801,7 +782,7 @@ export function useRealtimeEvents(): void {
     const data = args[0] as ChatMessageData;
     if (!data) return;
 
-    chatStatePlaceholder.addMessage({
+    chatStateActions.addMessage({
       id: data.id,
       content: data.content,
       sender: data.sender,
@@ -815,7 +796,7 @@ export function useRealtimeEvents(): void {
     const data = args[0] as ChatTypingData;
     if (!data) return;
 
-    chatStatePlaceholder.setTyping({
+    chatStateActions.setTyping({
       userId: data.userId,
       isTyping: data.isTyping,
     });
@@ -827,7 +808,7 @@ export function useRealtimeEvents(): void {
     const data = args[0] as ChatReadData;
     if (!data) return;
 
-    chatStatePlaceholder.markRead({
+    chatStateActions.markRead({
       messageIds: data.messageIds,
       readBy: data.readBy,
     });
@@ -889,6 +870,62 @@ export function useRealtimeEvents(): void {
       icon: '✅',
       id: `call-ended-${Date.now()}`,
     });
+
+    updateLastEventTimestamp();
+  }, []);
+
+  // ── Jarvis Awareness Event Handlers (RT-006 — Phase 20) ────────
+
+  const handleJarvisTick = useCallback((...args: unknown[]) => {
+    const data = args[0];
+    if (!data) return;
+
+    // Update system health store with Jarvis awareness snapshot
+    try {
+      useSystemHealthStore.getState().handleSystemHealth(data);
+    } catch { /* store may not be ready */ }
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[useRealtimeEvents] jarvis:tick', data);
+    }
+
+    updateLastEventTimestamp();
+  }, []);
+
+  const handleJarvisActivity = useCallback((...args: unknown[]) => {
+    const data = args[0];
+    if (!data) return;
+
+    // Route Jarvis activity to notification store for alerts
+    try {
+      const activityData = data as { type?: string; message?: string; priority?: string };
+      if (activityData.priority === 'high' || activityData.priority === 'critical') {
+        useNotificationStore.getState().addToast({
+          type: 'info' as any,
+          category: 'system' as any,
+          title: 'Jarvis Alert',
+          message: activityData.message || 'Jarvis detected activity',
+          priority: activityData.priority as 'high' | 'critical' || 'medium',
+        });
+      }
+    } catch { /* store may not be ready */ }
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[useRealtimeEvents] jarvis:activity', data);
+    }
+
+    updateLastEventTimestamp();
+  }, []);
+
+  const handleJarvisTerminal = useCallback((...args: unknown[]) => {
+    const data = args[0];
+    if (!data) return;
+
+    // Terminal step data is consumed by JarvisTerminalFeed component
+    // via direct socketClient.on('jarvis:terminal') subscription
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[useRealtimeEvents] jarvis:terminal', data);
+    }
 
     updateLastEventTimestamp();
   }, []);
@@ -964,6 +1001,11 @@ export function useRealtimeEvents(): void {
       ['call:outgoing', handleCallOutgoing],
       ['call:status', handleCallStatus],
       ['call:ended', handleCallEnded],
+
+      // ── Jarvis awareness events (RT-006 — Phase 20) ──
+      ['jarvis:tick', handleJarvisTick],
+      ['jarvis:activity', handleJarvisActivity],
+      ['jarvis:terminal', handleJarvisTerminal],
     ];
 
     // Register each event with the socket client

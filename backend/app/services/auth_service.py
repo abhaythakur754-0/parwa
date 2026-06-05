@@ -718,13 +718,18 @@ def _invalidate_all_tokens(
 
 
 def _verify_google_token(id_token: str) -> dict:
-    """Verify a Google ID token by calling Google's API.
+    """Verify a Google ID token or access token by calling Google's API.
 
     F-011: Server-side verification of Google tokens.
     Uses httpx to call Google's tokeninfo endpoint.
+    
+    Supports two token types:
+    - JWT id_token (starts with "eyJ") — verified via tokeninfo id_token endpoint
+    - access_token (opaque string) — verified via tokeninfo access_token endpoint,
+      then enriched with userinfo endpoint for name/picture
 
     Args:
-        id_token: Google ID token string.
+        id_token: Google ID token or access token string.
 
     Returns:
         Dict with Google user info (sub, email, name, picture).
@@ -733,26 +738,70 @@ def _verify_google_token(id_token: str) -> dict:
         AuthenticationError: If verification fails.
     """
     try:
-        # H-12: Exchange/verify Google ID token via POST body (not
+        # Detect token type: JWT id_tokens start with "eyJ"
+        is_jwt = isinstance(id_token, str) and id_token.startswith("eyJ")
+        
+        # H-12: Exchange/verify Google token via POST body (not
         # URL query parameter) to prevent the token from being
         # logged in access logs, browser history, or referrer headers.
-        resp = httpx.post(
-            "https://oauth2.googleapis.com/tokeninfo",
-            data={"id_token": id_token},
-            timeout=10.0,
-        )
+        if is_jwt:
+            resp = httpx.post(
+                "https://oauth2.googleapis.com/tokeninfo",
+                data={"id_token": id_token},
+                timeout=10.0,
+            )
+        else:
+            # Access token verification
+            resp = httpx.post(
+                "https://oauth2.googleapis.com/tokeninfo",
+                data={"access_token": id_token},
+                timeout=10.0,
+            )
+        
         data = resp.json()
 
         if resp.status_code != 200:
-            raise AuthenticationError(
-                message="Google token verification failed",
-                details={"status": resp.status_code},
-            )
+            # If tokeninfo failed for access_token, try userinfo endpoint as fallback
+            if not is_jwt:
+                try:
+                    userinfo_resp = httpx.get(
+                        "https://www.googleapis.com/oauth2/v3/userinfo",
+                        headers={"Authorization": f"Bearer {id_token}"},
+                        timeout=10.0,
+                    )
+                    if userinfo_resp.status_code == 200:
+                        userinfo = userinfo_resp.json()
+                        # Map userinfo to tokeninfo-like format
+                        data = {
+                            "sub": userinfo.get("sub", ""),
+                            "email": userinfo.get("email", ""),
+                            "email_verified": userinfo.get("email_verified", False),
+                            "name": userinfo.get("name", ""),
+                            "picture": userinfo.get("picture", ""),
+                            "aud": "access_token_flow",
+                        }
+                    else:
+                        raise AuthenticationError(
+                            message="Google token verification failed",
+                            details={"status": resp.status_code},
+                        )
+                except (TimeoutException, HTTPError):
+                    raise AuthenticationError(
+                        message="Google token verification failed",
+                        details={"status": resp.status_code},
+                    )
+            else:
+                raise AuthenticationError(
+                    message="Google token verification failed",
+                    details={"status": resp.status_code},
+                )
 
         # Verify audience (ensure token is for our app)
+        # Only check audience for JWT id_tokens (access tokens don't have aud)
         settings = get_settings()
         if (
-            settings.GOOGLE_CLIENT_ID
+            is_jwt
+            and settings.GOOGLE_CLIENT_ID
             and data.get("aud") != settings.GOOGLE_CLIENT_ID
         ):
             raise AuthenticationError(

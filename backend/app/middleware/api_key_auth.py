@@ -292,7 +292,7 @@ def require_scope(required_scope: str):
             # No API key — request uses JWT auth, pass through
             return
         scopes = api_key.get("scopes", [])
-        from security.api_keys import validate_scopes
+        from app.security.api_keys import validate_scopes
         if not validate_scopes(scopes, required_scope):
             from fastapi import HTTPException
             raise HTTPException(

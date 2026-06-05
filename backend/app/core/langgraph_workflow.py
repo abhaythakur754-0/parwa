@@ -913,10 +913,14 @@ class LangGraphWorkflow:
                 company_id, query, context, step_results,
             )
 
-        # Unknown step — let the caller fall back to simulation
-        raise NotImplementedError(
-            f"No real handler for step '{step_id}'"
+        # Unknown step — graceful fallback with simulated result
+        logger.warning(
+            "no_real_handler_for_step_fallback",
+            step_id=step_id,
+            company_id=company_id,
+            message="Falling back to simulation for unhandled step",
         )
+        return {"status": "simulated", "step_id": step_id}, 0
 
     # ── Individual real step handlers ────────────────────────
 

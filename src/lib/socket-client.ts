@@ -11,6 +11,7 @@
  */
 
 import { io, Socket } from 'socket.io-client';
+import { appConfig } from '@/lib/config';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -41,7 +42,7 @@ export interface MissedEvent {
 // ── Constants ────────────────────────────────────────────────────────
 
 const TOKEN_KEY = 'parwa_access_token';
-const DEFAULT_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const DEFAULT_URL = appConfig.apiUrl;
 const DEFAULT_PATH = '/ws';
 const MAX_RECONNECT_DELAY = 30_000;
 const INITIAL_RECONNECT_DELAY = 1_000;

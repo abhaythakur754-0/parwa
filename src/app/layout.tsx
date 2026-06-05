@@ -3,6 +3,10 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { SentryErrorBoundary } from '@/components/common/SentryErrorBoundary';
+import { AccessibilityAnnouncer } from '@/components/AccessibilityAnnouncer';
+import { SkipLink } from '@/components/SkipLink';
+import { OfflineBanner } from '@/components/OfflineBanner';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -20,7 +24,12 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <AuthProvider>
-          {children}
+          <SentryErrorBoundary>
+            <SkipLink />
+            <OfflineBanner />
+            <AccessibilityAnnouncer />
+            {children}
+          </SentryErrorBoundary>
         </AuthProvider>
         <Toaster
           position="top-right"

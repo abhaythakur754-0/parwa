@@ -73,9 +73,34 @@ agent-ctx/
 # Worklog
 worklog.md
 
+# Temporary run/test scripts (local dev only)
+run_phase*_test*.py
+run_phase*_testclient.py
+run_phase*_backend_api.py
+run_phase*_full.py
+test-demo-api.js
+production_readiness_check.py
+comprehensive_manual_test.py
+seed_manual_test.py
+run_api_tests.py
+
+# Integration test results (local artifacts)
+integration_tests/results.json
+
 # Database dumps
 *.sql.gz
 *.sql
 
+# SQLite databases (local dev only — do not commit)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
 # Redis dumps
 dump.rdb
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# Graphify output - large regeneratable files excluded in graphify/.gitignore
+# Important design files (GRAPH_REPORT.md, manifest.json, labels) ARE tracked

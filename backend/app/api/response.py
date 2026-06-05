@@ -63,6 +63,11 @@ from app.exceptions import (
     ValidationError,
 )
 from app.logger import get_logger
+from app.schemas.variant_schemas import (  # noqa: F401
+    VariantCapabilityResponse, VariantInstanceResponse,
+    VariantInstanceCreate, VariantInstanceUpdate,
+    VariantFeatureSummary, VariantCapacitySummary,
+)
 from database.base import get_db
 from database.models.core import User
 

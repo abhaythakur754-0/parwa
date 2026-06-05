@@ -1,6 +1,9 @@
-FROM python:3.12-slim
+FROM python:3.11-slim
 
 WORKDIR /app
+
+# Ensure Python can find both `app` and `shared` packages
+ENV PYTHONPATH=/app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -15,4 +18,4 @@ COPY . .
 RUN groupadd -r parwa && useradd -r -g parwa parwa
 USER parwa
 
-CMD ["celery", "-A", "app.tasks.celery_app:app", "worker", "--loglevel=info", "--concurrency=4", "-Q", "default,ai_heavy,ai_light,email,webhook,analytics,training"]
+CMD ["celery", "-A", "app.tasks.celery_app", "worker", "--loglevel=info", "--concurrency=1", "--max-tasks-per-child=50"]

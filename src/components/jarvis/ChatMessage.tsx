@@ -10,7 +10,7 @@
 
 'use client';
 
-import { User, Bot, AlertTriangle, Clock, Zap } from 'lucide-react';
+import { User, AlertTriangle, Clock, Zap } from 'lucide-react';
 import type { JarvisMessage, MessageType, MessageRole, IntegrationActions, ProviderInfo as ProviderInfoType } from '@/types/jarvis';
 
 // Phase 6 card imports
@@ -70,7 +70,7 @@ interface ChatMessageProps {
 function processBold(text: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
   // Regex matches **content** — non-greedy, allows line breaks within
-  const regex = /\*\*(.+?)\*\*/gs;
+  const regex = /\*\*(.+?)\*\*/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -109,13 +109,29 @@ function MessageAvatar({ role }: { role: MessageRole }) {
   }
 
   return (
-    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400/20 to-orange-600/20 border border-orange-400/20 flex items-center justify-center shrink-0">
-      <Bot className="w-4 h-4 text-orange-400" />
+    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shrink-0 text-white font-bold text-sm shadow-sm shadow-orange-500/20">
+      J
     </div>
   );
 }
 
 // ── Timestamp ────────────────────────────────────────────────────
+
+function formatRelativeTime(timestamp: string): string {
+  const now = Date.now();
+  const then = new Date(timestamp).getTime();
+  const diffMs = now - then;
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+
+  if (diffSec < 60) return 'now';
+  if (diffMin === 1) return '1m ago';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr === 1) return '1h ago';
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return new Date(timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
 
 function MessageTimestamp({
   timestamp,
@@ -126,18 +142,13 @@ function MessageTimestamp({
 }) {
   if (!timestamp) return null;
 
-  const time = new Date(timestamp).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-
   return (
     <p
       className={`text-[10px] mt-1 px-1 ${
-        isUser ? 'text-blue-300/40 text-right' : 'text-orange-300/40'
+        isUser ? 'text-white/20 text-right' : 'text-white/20'
       }`}
     >
-      {time}
+      {formatRelativeTime(timestamp)}
     </p>
   );
 }
@@ -594,8 +605,8 @@ export function ChatMessage({ message, onRetry, hookActions, sessionState }: Cha
             <div
               className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                 isUser
-                  ? 'bg-gradient-to-br from-blue-600/90 to-blue-700/90 text-white rounded-br-md shadow-lg shadow-blue-500/10'
-                  : 'glass text-white/90 rounded-bl-md border border-white/[0.06]'
+                  ? 'bg-gradient-to-br from-blue-600/90 to-blue-700/90 text-white shadow-lg shadow-blue-500/10'
+                  : 'bg-white/[0.06] text-white/90 border-l-2 border-orange-500/30'
               }`}
             >
               {isUser ? (

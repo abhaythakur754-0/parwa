@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.logger import get_logger
 from database.models.api_key_audit import APIKeyAuditLog
 from database.models.core import APIKey
-from security.api_keys import (
+from app.security.api_keys import (
     APIKeyScope,
     hash_api_key,
 )

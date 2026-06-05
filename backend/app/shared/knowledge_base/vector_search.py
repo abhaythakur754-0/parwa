@@ -77,8 +77,24 @@ class VectorStore(ABC):
         company_id: str,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> bool:
-        """Add a document's chunks to the vector store."""
-        ...
+        """Add a document's chunks to the vector store.
+
+        Args:
+            document_id: Unique identifier for the document.
+            chunks: List of chunk dicts, each with 'content', optional
+                'chunk_id', 'chunk_index', 'embedding', and 'metadata'.
+            company_id: Tenant identifier (BC-001: required for isolation).
+            metadata: Optional document-level metadata.
+
+        Returns:
+            True on success, False on failure (BC-008: never raises).
+
+        Raises:
+            ValueError: If company_id is empty (security guard).
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__}.add_document() not implemented"
+        )
 
     @abstractmethod
     def search(
@@ -88,18 +104,123 @@ class VectorStore(ABC):
         top_k: int = 5,
         filters: Optional[Dict[str, Any]] = None,
     ) -> List[SearchResult]:
-        """Search for similar chunks."""
-        ...
+        """Search for similar chunks using a pre-computed query embedding.
+
+        Uses cosine similarity (pgvector ``<=>`` operator or numpy fallback).
+
+        Args:
+            query_embedding: Pre-computed embedding vector for the query.
+            company_id: Tenant identifier (BC-001: required for isolation).
+            top_k: Maximum number of results to return.
+            filters: Optional metadata filters to apply (e.g. document_type,
+                tags, date range). Only used when the store supports metadata
+                filtering (parwa / parwa_high variants).
+
+        Returns:
+            List of SearchResult sorted by descending similarity score.
+
+        Raises:
+            ValueError: If company_id is empty (security guard).
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__}.search() not implemented"
+        )
 
     @abstractmethod
     def delete_document(self, document_id: str, company_id: str) -> bool:
-        """Delete a document from the vector store."""
-        ...
+        """Delete all chunks for a document from the vector store.
+
+        SECURITY (BC-001): Must be scoped to both *document_id* AND
+        *company_id* to prevent cross-tenant data deletion.
+
+        Args:
+            document_id: Document identifier to delete.
+            company_id: Tenant identifier (BC-001: required for isolation).
+
+        Returns:
+            True on success, False on failure (BC-008: never raises).
+
+        Raises:
+            ValueError: If company_id is empty (security guard).
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__}.delete_document() not implemented"
+        )
 
     @abstractmethod
     def health_check(self) -> bool:
-        """Check if the vector store is healthy."""
-        ...
+        """Check if the vector store is healthy and reachable.
+
+        For PgVectorStore, verifies pgvector extension is available.
+        For MockVectorStore, always returns True.
+
+        Returns:
+            True if the store is operational, False otherwise.
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__}.health_check() not implemented"
+        )
+
+    def search_by_text(
+        self,
+        query: str,
+        company_id: str,
+        top_k: int = 5,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> List[SearchResult]:
+        """Search for similar chunks by text query (generates embedding automatically).
+
+        Convenience method that combines embedding generation and vector search
+        in a single call.  Uses the EmbeddingService to produce a query embedding,
+        then delegates to :meth:`search`.
+
+        Falls back to the store's own :meth:`_generate_embedding` pseudo-embedding
+        when the embedding service is unavailable (BC-008).
+
+        Args:
+            query: Natural-language query text.
+            company_id: Tenant identifier (BC-001: required for isolation).
+            top_k: Maximum number of results to return.
+            filters: Optional metadata filters.
+
+        Returns:
+            List of SearchResult sorted by descending similarity score.
+            Returns an empty list if embedding generation fails (BC-008).
+        """
+        if not query or not query.strip():
+            return []
+
+        # ── Try real EmbeddingService first ────────────────────────
+        query_embedding: Optional[List[float]] = None
+        try:
+            from app.services.embedding_service import EmbeddingService
+            svc = EmbeddingService(company_id=company_id)
+            query_embedding = svc.generate_embedding(query)
+        except Exception as exc:
+            logger.debug(
+                "search_by_text: EmbeddingService unavailable (%s), "
+                "falling back to pseudo-embedding",
+                str(exc),
+            )
+
+        # ── BC-008: Fallback to deterministic pseudo-embedding ────
+        if query_embedding is None:
+            query_embedding = self._generate_embedding(query)
+
+        if query_embedding is None:
+            logger.warning(
+                "search_by_text: could not generate embedding for query, "
+                "returning empty results (company_id=%s)",
+                company_id,
+            )
+            return []
+
+        return self.search(
+            query_embedding=query_embedding,
+            company_id=company_id,
+            top_k=top_k,
+            filters=filters,
+        )
 
     def get_all_documents(self, company_id: str) -> Dict[str, Any]:
         """Get all documents for a company (used by keyword fallback)."""

@@ -1,5 +1,5 @@
 # ── Stage 1: Builder ──
-FROM python:3.12-slim AS builder
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
@@ -14,9 +14,14 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ── Stage 2: Runtime ──
-FROM python:3.12-slim AS runtime
+FROM python:3.11-slim AS runtime
 
 WORKDIR /app
+
+# Ensure Python can find both `app` and `shared` packages
+# shared/ sits at /app/shared/ (copied from backend/shared/)
+# Without this, `from shared.utils.datetime import ...` fails
+ENV PYTHONPATH=/app
 
 # Install runtime dependencies only
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -36,9 +41,9 @@ RUN mkdir -p /app/storage && chown -R parwa:parwa /app/storage
 
 USER parwa
 
-EXPOSE 8000
+EXPOSE 10000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:10000/api/health || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--loop", "uvloop", "--http", "httptools"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000", "--workers", "1", "--log-level", "info"]

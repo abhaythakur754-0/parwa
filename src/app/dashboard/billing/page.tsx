@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useBillingStore } from '@/lib/billing-store';
+import { appConfig } from '@/lib/config';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -66,7 +68,7 @@ const PLANS: PlanTier[] = [
   },
 ];
 
-// ── Mock Data ────────────────────────────────────────────────────────
+// ── Mock Data (only used when appConfig.isDemo is true) ──────────────
 
 const MOCK_INVOICES: Invoice[] = [
   { id: 'INV-2026-001', date: '2026-02-28', description: 'PARWA Pro — March 2026', amount: 2499, status: 'paid' },
@@ -80,55 +82,55 @@ const MOCK_INVOICES: Invoice[] = [
 // ── Icons ────────────────────────────────────────────────────────────
 
 const CreditCardIcon = ({ className = 'w-6 h-6' }: { className?: string }) => (
-  <svg className={cn('text-orange-400', className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+  <svg aria-hidden="true" className={cn('text-orange-400', className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
   </svg>
 );
 
 const ShieldIcon = () => (
-  <svg className="w-5 h-5 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+  <svg aria-hidden="true" className="w-5 h-5 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
   </svg>
 );
 
 const BoltIcon = () => (
-  <svg className="w-5 h-5 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+  <svg aria-hidden="true" className="w-5 h-5 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
     <path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
   </svg>
 );
 
 const DownloadIcon = () => (
-  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+  <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
   </svg>
 );
 
 const ArrowUpIcon = () => (
-  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+  <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
   </svg>
 );
 
 const ArrowDownIcon = () => (
-  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+  <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 4.5l15 15m0 0V8.25m0 11.25H8.25" />
   </svg>
 );
 
 const CheckIcon = () => (
-  <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+  <svg aria-hidden="true" className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
   </svg>
 );
 
 const ClockIcon = () => (
-  <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+  <svg aria-hidden="true" className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
   </svg>
 );
 
 const XCircleIcon = () => (
-  <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+  <svg aria-hidden="true" className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
     <path strokeLinecap="round" strokeLinejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
   </svg>
 );
@@ -197,6 +199,7 @@ function StatusBadge({ status }: { status: InvoiceStatus }) {
     <span className={cn('inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border', config.classes)}>
       {config.icon}
       {config.label}
+      <span className="sr-only">{status} invoice</span>
     </span>
   );
 }
@@ -204,56 +207,102 @@ function StatusBadge({ status }: { status: InvoiceStatus }) {
 // ── Billing Page ─────────────────────────────────────────────────────
 
 export default function BillingPage() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentTier, setCurrentTier] = useState<TierKey>('pro');
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
-  // Simulate loading
+  // Billing store
+  const {
+    currentTier: storeTier,
+    invoices: storeInvoices,
+    usage: storeUsage,
+    isLoading: storeLoading,
+    fetchBilling,
+    fetchInvoices,
+    fetchUsage,
+    changePlan,
+    cancelSubscription,
+  } = useBillingStore();
+
+  const currentTier = storeTier as TierKey;
+
+  // Fetch billing data on mount
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
-  }, []);
+    fetchBilling();
+    fetchInvoices();
+    fetchUsage();
+  }, [fetchBilling, fetchInvoices, fetchUsage]);
+
+  const isLoading = storeLoading;
 
   const currentPlan = PLANS.find(p => p.key === currentTier)!;
   const annualDiscount = 0.2;
   const annualPrice = (plan: PlanTier) => Math.round(plan.monthlyPrice * (1 - annualDiscount));
   const activePrice = billingCycle === 'annual' ? annualPrice(currentPlan) : currentPlan.monthlyPrice;
 
-  // Usage data
-  const tokensUsed = 145_000;
-  const tokensTotal = 500_000;
-  const agentHoursUsed = 187;
-  const agentHoursTotal = 300;
-  const agentsUsed = 2;
+  // Usage data — use store values; fallback to demo values only in demo mode
+  const demoUsage = appConfig.isDemo;
+  const tokensUsed = storeUsage.apiCallsUsed || (demoUsage ? 145_000 : 0);
+  const tokensTotal = storeUsage.apiCallsLimit || 500_000;
+  const agentHoursUsed = storeUsage.messagesUsed || (demoUsage ? 187 : 0);
+  const agentHoursTotal = storeUsage.messagesLimit || 300;
+  const agentsUsed = storeUsage.ticketsUsed || (demoUsage ? 2 : 0);
   const agentsMax = currentPlan.agents;
-  const ticketsThisMonth = 4_287;
-  const overageTokens = 0;
+  const ticketsThisMonth = storeUsage.ticketsUsed || (demoUsage ? 4_287 : 0);
+  const overageTokens = tokensUsed > tokensTotal ? tokensUsed - tokensTotal : 0;
   const overageCost = overageTokens > 0 ? (overageTokens / 1_000) * 0.02 : 0;
 
   // Token cost breakdown
   const baseCost = activePrice;
   const overageTotal = overageCost;
   const totalThisMonth = baseCost + overageTotal;
-  const totalSpentThisYear = MOCK_INVOICES.reduce((sum, inv) => sum + inv.amount, 0);
+  // Use store invoices with MOCK_INVOICES fallback only in demo mode
+  const displayInvoices = storeInvoices.length > 0
+    ? storeInvoices.map(inv => ({
+        id: inv.id,
+        date: inv.date,
+        description: inv.description,
+        amount: inv.amount,
+        status: inv.status as InvoiceStatus,
+      }))
+    : appConfig.isDemo
+      ? MOCK_INVOICES
+      : [];
+
+  const totalSpentThisYear = displayInvoices.reduce((sum, inv) => sum + inv.amount, 0);
 
   // Next billing date (demo: 15 days from now)
   const nextBillingDate = new Date();
   nextBillingDate.setDate(nextBillingDate.getDate() + 15);
 
-  const handleUpgrade = () => {
+  const handleUpgrade = async () => {
     const tiers: TierKey[] = ['mini', 'pro', 'high'];
     const idx = tiers.indexOf(currentTier);
     if (idx < tiers.length - 1) {
-      setCurrentTier(tiers[idx + 1]);
+      try {
+        await changePlan(tiers[idx + 1]);
+      } catch {
+        // changePlan handles its own error state
+      }
     }
   };
 
-  const handleDowngrade = () => {
+  const handleDowngrade = async () => {
     const tiers: TierKey[] = ['mini', 'pro', 'high'];
     const idx = tiers.indexOf(currentTier);
     if (idx > 0) {
-      setCurrentTier(tiers[idx - 1]);
+      try {
+        await changePlan(tiers[idx - 1]);
+      } catch {
+        // changePlan handles its own error state
+      }
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    try {
+      await cancelSubscription();
+    } catch {
+      // cancelSubscription handles its own error state
     }
   };
 
@@ -450,7 +499,10 @@ export default function BillingPage() {
                 Downgrade
               </button>
             )}
-            <button className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors ml-auto">
+            <button
+              onClick={handleCancelSubscription}
+              className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors ml-auto"
+            >
               Cancel Subscription
             </button>
           </div>
@@ -548,7 +600,7 @@ export default function BillingPage() {
                   ) : (
                     <div className="pt-4 border-t border-white/[0.06]">
                       <button
-                        onClick={() => setCurrentTier(plan.key)}
+                        onClick={() => changePlan(plan.key)}
                         className={cn(
                           'w-full text-xs font-medium py-2.5 rounded-lg transition-all',
                           PLANS.findIndex(p => p.key === plan.key) > PLANS.findIndex(p => p.key === currentTier)
@@ -623,7 +675,7 @@ export default function BillingPage() {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_INVOICES.map((invoice) => (
+                {displayInvoices.map((invoice) => (
                   <tr key={invoice.id} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
                     <td className="px-6 py-3 text-zinc-300 font-mono">{invoice.id}</td>
                     <td className="px-4 py-3 text-zinc-400">{formatDate(invoice.date)}</td>

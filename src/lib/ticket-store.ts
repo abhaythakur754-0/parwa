@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { v4 as uuid } from 'uuid';
+import { ticketApi, getErrorMessage } from '@/lib/api';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -225,6 +226,9 @@ function computeStats(tickets: Ticket[]): TicketStats {
 interface TicketState {
   tickets: Ticket[];
   initialized: boolean;
+  isLoading: boolean;
+  error: string | null;
+  apiSynced: boolean;
 
   // Actions
   init: () => void;
@@ -241,6 +245,13 @@ interface TicketState {
   getTicket: (id: string) => Ticket | undefined;
   getTicketByNumber: (number: string) => Ticket | undefined;
 
+  // API-first actions (with localStorage fallback)
+  fetchTickets: (params?: Record<string, unknown>) => Promise<void>;
+  fetchTicket: (id: string) => Promise<Ticket | undefined>;
+  createTicketApi: (data: Omit<Ticket, 'id' | 'ticket_number' | 'status' | 'assigned_variant' | 'assigned_agent' | 'created_at' | 'updated_at' | 'resolved_at' | 'first_response_at' | 'resolution_time_hours' | 'ai_confidence' | 'cost_per_ticket' | 'savings_per_ticket' | 'messages' | 'tags'>) => Promise<Ticket>;
+  updateTicketApi: (id: string, data: Partial<Ticket>) => Promise<void>;
+  deleteTicketApi: (id: string) => Promise<void>;
+
   // Computed
   ticketStats: () => TicketStats;
 }
@@ -251,6 +262,9 @@ const INIT_KEY = 'parwa_tickets_initialized';
 export const useTicketStore = create<TicketState>((set, get) => ({
   tickets: [],
   initialized: false,
+  isLoading: false,
+  error: null,
+  apiSynced: false,
 
   init: () => {
     if (get().initialized) return;
@@ -480,6 +494,166 @@ export const useTicketStore = create<TicketState>((set, get) => ({
     get().tickets.find((t) => t.ticket_number === number),
 
   ticketStats: () => computeStats(get().tickets),
+
+  // ── API-first Actions (with localStorage fallback) ──────────────────
+
+  fetchTickets: async (params) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await ticketApi.list(params as Parameters<typeof ticketApi.list>[0]);
+      // Backend may return { items: Ticket[] } or Ticket[] directly
+      const apiTickets = Array.isArray(response)
+        ? (response as Ticket[])
+        : ((response as Record<string, unknown>)?.items ?? []) as Ticket[];
+
+      // Merge: keep local-only tickets, update existing ones from API
+      const localTickets = get().tickets;
+      const apiIdSet = new Set(apiTickets.map((t: Ticket) => t.id));
+      const localOnly = localTickets.filter((t) => !apiIdSet.has(t.id));
+      const merged = [...apiTickets, ...localOnly];
+
+      // Restore ticket counter
+      if (merged.length > 0) {
+        const maxNum = Math.max(
+          ...merged.map((t) =>
+            parseInt(t.ticket_number?.replace('TKT-', '') ?? '0', 10)
+          )
+        );
+        if (!isNaN(maxNum)) ticketCounter = maxNum + 1;
+      }
+
+      set({ tickets: merged, apiSynced: true, isLoading: false });
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      }
+    } catch (err) {
+      const errMsg = getErrorMessage(err);
+      console.warn('[ticketStore] fetchTickets failed, using localStorage fallback:', errMsg);
+      // Fallback: keep existing localStorage data
+      set({ error: errMsg, isLoading: false, apiSynced: false });
+    }
+  },
+
+  fetchTicket: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await ticketApi.get(id);
+      const apiTicket = response as Ticket;
+      set((s) => {
+        const exists = s.tickets.find((t) => t.id === id);
+        const tickets = exists
+          ? s.tickets.map((t) => (t.id === id ? apiTicket : t))
+          : [apiTicket, ...s.tickets];
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(tickets));
+        }
+        return { tickets, isLoading: false, apiSynced: true };
+      });
+      return apiTicket;
+    } catch (err) {
+      const errMsg = getErrorMessage(err);
+      console.warn('[ticketStore] fetchTicket failed, using localStorage fallback:', errMsg);
+      set({ error: errMsg, isLoading: false });
+      return get().tickets.find((t) => t.id === id);
+    }
+  },
+
+  createTicketApi: async (data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const payload = {
+        subject: data.subject,
+        channel: data.channel,
+        priority: data.priority,
+        category: data.category,
+        tags: [] as string[],
+        metadata_json: {
+          customer_name: data.customer_name,
+          customer_email: data.customer_email,
+          description: data.description,
+        },
+      };
+      const response = await ticketApi.create(payload);
+      const apiTicket = response as Ticket;
+      set((s) => {
+        const tickets = [apiTicket, ...s.tickets];
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(tickets));
+        }
+        return { tickets, isLoading: false, apiSynced: true };
+      });
+      return apiTicket;
+    } catch (err) {
+      const errMsg = getErrorMessage(err);
+      console.warn('[ticketStore] createTicketApi failed, falling back to localStorage:', errMsg);
+      // Fallback to local addTicket
+      const ticket = get().addTicket(data);
+      set({ error: errMsg, isLoading: false, apiSynced: false });
+      return ticket;
+    }
+  },
+
+  updateTicketApi: async (id, data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const payload: Record<string, unknown> = {};
+      if (data.priority !== undefined) payload.priority = data.priority;
+      if (data.category !== undefined) payload.category = data.category;
+      if (data.tags !== undefined) payload.tags = data.tags;
+      if (data.status !== undefined) payload.status = data.status;
+      if (data.assigned_agent !== undefined) payload.assigned_to = data.assigned_agent;
+      if (data.subject !== undefined) payload.subject = data.subject;
+
+      const response = await ticketApi.update(id, payload);
+      const apiTicket = response as Ticket;
+      set((s) => {
+        const tickets = s.tickets.map((t) => (t.id === id ? apiTicket : t));
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(tickets));
+        }
+        return { tickets, isLoading: false, apiSynced: true };
+      });
+    } catch (err) {
+      const errMsg = getErrorMessage(err);
+      console.warn('[ticketStore] updateTicketApi failed, falling back to localStorage:', errMsg);
+      // Fallback: apply update locally
+      const now = new Date().toISOString();
+      set((s) => {
+        const tickets = s.tickets.map((t) =>
+          t.id === id ? { ...t, ...data, updated_at: now } : t
+        );
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(tickets));
+        }
+        return { tickets, error: errMsg, isLoading: false, apiSynced: false };
+      });
+    }
+  },
+
+  deleteTicketApi: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      await ticketApi.delete(id);
+      set((s) => {
+        const tickets = s.tickets.filter((t) => t.id !== id);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(tickets));
+        }
+        return { tickets, isLoading: false, apiSynced: true };
+      });
+    } catch (err) {
+      const errMsg = getErrorMessage(err);
+      console.warn('[ticketStore] deleteTicketApi failed, falling back to localStorage:', errMsg);
+      // Fallback: delete locally
+      set((s) => {
+        const tickets = s.tickets.filter((t) => t.id !== id);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(tickets));
+        }
+        return { tickets, error: errMsg, isLoading: false, apiSynced: false };
+      });
+    }
+  },
 }));
 
 // ── Seed Data ───────────────────────────────────────────────────────

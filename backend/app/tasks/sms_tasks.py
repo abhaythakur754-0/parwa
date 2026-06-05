@@ -14,18 +14,15 @@ Building Codes:
 
 import logging
 
-from backend.app.tasks.base import ParwaTask
+from app.tasks.base import ParwaTask
 
 logger = logging.getLogger("parwa.sms_tasks")
 
 # Import celery app
 try:
-    from backend.app.tasks.celery_app import celery_app
+    from app.tasks.celery_app import celery_app
 except ImportError:
-    try:
-        from app.tasks.celery_app import celery_app
-    except ImportError:
-        celery_app = None
+    celery_app = None
 
 
 @celery_app.task(

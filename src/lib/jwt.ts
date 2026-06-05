@@ -13,8 +13,14 @@
 import { SignJWT, jwtVerify, importSPKI, importPKCS8 } from "jose";
 import type { CryptoKey } from "jose";
 
-const JWT_SECRET =
-  process.env.JWT_SECRET_KEY || "dev-jwt-secret-key-change-in-prod-32c";
+const JWT_SECRET = process.env.JWT_SECRET_KEY || "";
+
+if (!JWT_SECRET) {
+  console.warn(
+    "[PARWA] JWT_SECRET_KEY is not set. JWT signing/verification will fail. " +
+    "Set JWT_SECRET_KEY in your environment to match the backend signing key."
+  );
+}
 const JWT_ACCESS_EXPIRY = "15m"; // Access token: 15 minutes
 const JWT_REFRESH_EXPIRY = "7d"; // Refresh token: 7 days
 
@@ -206,13 +212,40 @@ export interface VerifiedToken {
 export async function verifyToken(
   token: string
 ): Promise<VerifiedToken | null> {
+  const verificationKey = await getVerificationKey();
+
+  // Strategy 1: Try strict verification (frontend-issued tokens with issuer/audience)
   try {
-    const verificationKey = await getVerificationKey();
     const { payload } = await jwtVerify(token, verificationKey, {
       issuer: "parwa:frontend",
       audience: "parwa:app",
     });
-    return { payload: payload as VerifiedToken["payload"] };
+    const p = payload as unknown as VerifiedToken["payload"];
+    // Reject refresh tokens in middleware — only access tokens are valid
+    if (p.type === "refresh") return null;
+    return { payload: p };
+  } catch {
+    // Not a frontend-issued token — try relaxed verification
+  }
+
+  // Strategy 2: Verify signature only (backend-issued tokens)
+  // Backend tokens don't set issuer/audience but have type: "access"
+  try {
+    const { payload } = await jwtVerify(token, verificationKey);
+    const p = payload as unknown as VerifiedToken["payload"];
+    // Reject refresh tokens — only access tokens are valid for API calls
+    if (p.type === "refresh") return null;
+    return { payload: p };
+  } catch {
+    // RS256 failed — try HS256 with secret key as last resort
+  }
+
+  // Strategy 3: Fallback HS256 verification (migration period support)
+  try {
+    const { payload } = await jwtVerify(token, getSecret());
+    const p = payload as unknown as VerifiedToken["payload"];
+    if (p.type === "refresh") return null;
+    return { payload: p };
   } catch {
     return null;
   }
@@ -253,10 +286,10 @@ export function validatePasswordStrength(
 export function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) {
     // Still do a constant-time comparison to avoid leaking length info
-    return crypto.timingSafeEqual(
+    return (crypto as any).timingSafeEqual?.(
       Buffer.from(a),
       Buffer.from(b.padEnd(a.length, "0").slice(0, a.length))
-    ) && false;
+    ) ?? (a === b && false);
   }
-  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  return (crypto as any).timingSafeEqual?.(Buffer.from(a), Buffer.from(b)) ?? a === b;
 }

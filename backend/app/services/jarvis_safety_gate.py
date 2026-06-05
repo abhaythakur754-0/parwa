@@ -378,6 +378,13 @@ def _build_confirmation_message(
     Instead of "Confirm: pause_all_ai", it says something like
     "I'll pause all AI activity for you. Just want to make sure — shall I go ahead?"
     """
+    # Pre-build the auto_solve message to avoid backslash in f-string
+    _auto_solve_msg = (
+        "They'll also be automatically solved by the variant pipeline."
+        if params.get("auto_solve")
+        else "They'll be created as open tickets for you to test with."
+    )
+
     messages = {
         "pause_all_ai": "I'll pause all AI agents for you. They'll stop handling tickets until you tell me to resume. Shall I go ahead?",
         "resume_all_ai": "I'll resume all AI agents so they start handling tickets again. Should I proceed?",
@@ -393,7 +400,7 @@ def _build_confirmation_message(
         "disable_auto_approve_rule": "I'll disable that auto-approve rule. This means those actions will need manual approval instead. Want me to proceed?",
         "solve_ticket": f"I'll route this ticket through the variant pipeline for AI solving. The AI will generate a response to resolve the customer's issue. Shall I go ahead?",
         "batch_solve_tickets": f"I'll solve up to {params.get('max_tickets', 10)} open tickets through the variant pipeline. Each one will get an AI-generated response. Want me to proceed?",
-        "generate_fake_requests": f"I'll generate {params.get('count', 5)} fake customer requests and create tickets from them. {'They\'ll also be automatically solved by the variant pipeline.' if params.get('auto_solve') else 'They\'ll be created as open tickets for you to test with.'} Want me to go ahead?",
+        "generate_fake_requests": f"I'll generate {params.get('count', 5)} fake customer requests and create tickets from them. {_auto_solve_msg} Want me to go ahead?",
         "upgrade_plan": f"This will upgrade your plan to {params.get('target_plan', 'the selected tier')}. This is a billing change and will affect your subscription. Please type 'confirm' if you want me to proceed.",
         "cancel_subscription": "This will cancel your subscription. You'll lose access to all features at the end of the billing period. Please type 'confirm' if you want me to proceed.",
     }

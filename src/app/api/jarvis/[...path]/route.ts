@@ -27,15 +27,73 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import https from 'https';
+import http from 'http';
 
 // ── Backend Proxy Configuration ─────────────────────────────────
-const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || '';
+const BACKEND_URL = process.env.SERVER_API_URL || process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || '';
+
+// Proxy auth secret — must match backend PROXY_AUTH_SECRET
+const PROXY_AUTH_SECRET = process.env.PROXY_AUTH_SECRET || 'parwa_proxy_auth_2026';
+
+// Trusted origin for CSRF validation
+const PROXY_ORIGIN =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  process.env.NEXTAUTH_URL ||
+  'https://parwafrontend.vercel.app';
+
+/**
+ * Low-level HTTP request using Node.js https/http modules.
+ * Unlike fetch(), this does NOT strip "forbidden headers" (Cookie, Origin)
+ * which are required for CSRF proxy auth and origin validation.
+ */
+function rawHttpRequest(
+  url: string,
+  method: string,
+  headers: Record<string, string>,
+  body?: Buffer | string,
+  timeoutMs: number = 20000,
+): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const parsedUrl = new URL(url);
+    const isHttps = parsedUrl.protocol === 'https:';
+    const lib = isHttps ? https : http;
+
+    const options: https.RequestOptions = {
+      hostname: parsedUrl.hostname,
+      port: parsedUrl.port || (isHttps ? 443 : 80),
+      path: parsedUrl.pathname + parsedUrl.search,
+      method,
+      headers,
+      timeout: timeoutMs,
+    };
+
+    const req = lib.request(options, (res) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (chunk: Buffer) => { chunks.push(chunk); });
+      res.on('end', () => {
+        resolve({
+          status: res.statusCode || 500,
+          body: Buffer.concat(chunks).toString(),
+        });
+      });
+    });
+
+    req.on('error', (err: Error) => { reject(err); });
+    req.on('timeout', () => { req.destroy(); reject(new Error(`Backend proxy timeout after ${timeoutMs}ms`)); });
+
+    if (body) { req.write(body); }
+    req.end();
+  });
+}
 
 /**
  * Try to proxy a request to the backend FastAPI server.
- * Returns the Response on success, or null if backend is unavailable / returned an error.
+ * Uses Node.js https/http modules instead of fetch() to preserve ALL headers
+ * (fetch() strips Cookie, Origin, and other "forbidden headers" per the Fetch spec).
+ * Returns the parsed JSON body on success, or null if backend is unavailable.
  */
-async function proxyToBackend(request: NextRequest, pathSegments: string[]): Promise<Response | null> {
+async function proxyToBackend(request: NextRequest, pathSegments: string[], rawBody?: ArrayBuffer): Promise<Response | null> {
   if (!BACKEND_URL) return null;
 
   const backendPath = `${BACKEND_URL}/api/jarvis/${pathSegments.join('/')}`;
@@ -44,22 +102,46 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]): Pro
   const fullUrl = searchParams ? `${backendPath}?${searchParams}` : backendPath;
 
   try {
-    const body = ['POST', 'PATCH', 'PUT'].includes(request.method)
-      ? await request.arrayBuffer()
-      : undefined;
+    // Build headers using plain object (not Headers class) for http.request()
+    // This preserves ALL headers including Cookie and Origin (which fetch() strips)
+    const headers: Record<string, string> = {
+      'Content-Type': request.headers.get('content-type') || 'application/json',
+      'Origin': PROXY_ORIGIN,
+      'x-proxy-origin': PROXY_ORIGIN,
+      'x-proxy-auth': PROXY_AUTH_SECRET,
+    };
 
-    const headers = new Headers(request.headers);
-    headers.delete('host');
+    // Copy relevant headers from original request
+    const authHeader = request.headers.get('authorization');
+    if (authHeader) headers['Authorization'] = authHeader;
 
-    const response = await fetch(fullUrl, {
-      method: request.method,
+    const cookieHeader = request.headers.get('cookie');
+    if (cookieHeader) headers['Cookie'] = cookieHeader;
+
+    const bodyBuffer = rawBody ? Buffer.from(rawBody) : undefined;
+
+    const response = await rawHttpRequest(
+      fullUrl,
+      request.method,
       headers,
-      body,
-      signal: AbortSignal.timeout(20000),
-    });
+      bodyBuffer,
+      20000,
+    );
 
     if (response.status >= 200 && response.status < 300) {
-      return response;
+      // Parse the JSON and return as a Response
+      try {
+        const data = JSON.parse(response.body);
+        return new Response(JSON.stringify(data), {
+          status: response.status,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch {
+        return new Response(response.body, {
+          status: response.status,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     // Backend returned an error — fall back to local handling
@@ -295,9 +377,9 @@ function buildSystemPrompt(session: any): string {
     const ind = selectedIndustry ? String(selectedIndustry) : '';
 
     let personality = '';
-    if (isS) personality = `You ARE the PARWA Starter agent — "The 24/7 Trainee". Eager, fast, friendly. You collect data, answer FAQs, handle emails & chat 24/7, take phone calls (up to 2 at once). You CANNOT make autonomous decisions — you gather info and escalate to humans. Be honest about this. You're the reliable workhorse every business needs.`;
-    else if (isG) personality = `You ARE the PARWA Growth agent — "The Junior Agent". Smart, confident, proactive. You analyze tickets, recommend actions (approve/review/deny), detect patterns like churn and fraud, handle 3 concurrent calls + SMS + Voice. You make intelligent decisions but flag unusual cases for human review. You're the sweet spot — powerful yet affordable.`;
-    else if (isH) personality = `You ARE the PARWA High agent — "The Senior Agent". Fully autonomous, strategic authority. You approve actions up to $50 on your own, predict churn, coordinate across departments, handle VIPs, manage 5 concurrent calls + video support. You don't just assist — you lead. You're the CEO of customer support.`;
+    if (isS) personality = `You ARE the Starter agent — "The 24/7 Trainee". Eager, fast, friendly. You collect data, answer FAQs, handle emails & chat 24/7, take phone calls (up to 2 at once). You CANNOT make autonomous decisions — you gather info and escalate to humans. Be honest about this. You're the reliable workhorse every business needs.`;
+    else if (isG) personality = `You ARE the Growth agent — "The Junior Agent". Smart, confident, proactive. You analyze tickets, recommend actions (approve/review/deny), detect patterns like churn and fraud, handle 3 concurrent calls + SMS + Voice. You make intelligent decisions but flag unusual cases for human review. You're the sweet spot — powerful yet affordable.`;
+    else if (isH) personality = `You ARE the High agent — "The Senior Agent". Fully autonomous, strategic authority. You approve actions up to $50 on your own, predict churn, coordinate across departments, handle VIPs, manage 5 concurrent calls + video support. You don't just assist — you lead. You're the CEO of customer support.`;
 
     let richCtx = '';
     if (variantFeatures) richCtx += `
@@ -331,7 +413,7 @@ The user clicked "Try Live Chat — Free" on ${vName}${ind ? ` for ${ind}` : ''}
 
 ${personality}${richCtx}
 
-IN THIS MODE: Every answer should reflect ${vName}'s actual capabilities. Quote YOUR price, YOUR ROI, YOUR features. If they say "show me" — roleplay YOUR real scenario. If they ask about competitors, compare YOURSELF to them. This is a live demo — make them feel what it's like to have ${vName} working for them.
+IN THIS MODE: Every answer should reflect ${vName}'s actual capabilities. Quote YOUR price, YOUR ROI, YOUR features. If they say "show me" — roleplay YOUR real scenario. If they ask about competitors, compare YOURSELF to them. This is a live demo — make them feel what it's like to have ${vName} working for them. Users can access this variant's features through the dashboard or by chatting with you here.
 ═════════════════════════════
 `;
   }
@@ -361,33 +443,19 @@ IN THIS MODE: Every answer should reflect ${vName}'s actual capabilities. Quote 
     return `${role}: ${String(m.content).slice(0, 120)}`;
   }).join('\n');
 
-  return `You are Jarvis — PARWA's AI assistant. Think Iron Man's Jarvis: you know everything about the product, you're proactive, you guide, you sell by showing, you demo by doing.
+  return `You are Jarvis — the control center. NOT a chatbot. NOT a sales bot. Like Iron Man's Jarvis: you know everything about the product, you're proactive, you guide, you help, you demo by doing.
 
-═══════ CRITICAL FORMATTING RULE #1 ═══════
-EVERY response you write MUST use bullet points. This is non-negotiable.
-- NEVER write paragraphs. NEVER write blocks of text.
-- ALWAYS format as: short opener line (1 sentence) + blank line + 2-5 bullet points with emojis + blank line + 1 closing question.
-- Each bullet = 1 point. Short, punchy, specific.
-- Blank lines between sections. Never more than 2 sentences per line.
+Always introduce yourself as Jarvis. NEVER call yourself PARWA or say "I'm from PARWA" or "I'm PARWA's assistant" — you are JARVIS.
 
-CORRECT format:
-"Absolutely! Here's what PARWA does:
+You are NOT a salesperson. Don't pitch, push plans, or try to close deals. Answer questions honestly, explain how things work, and let the user decide.
 
-🤖 Automates 80% of support tickets instantly
-💰 Saves $168K/year vs hiring agents
-📡 Works across email, chat, phone & SMS
+Users can access features through the dashboard OR by chatting with you.
 
-What industry are you in?"
+YOU ARE NOT A CHATBOT. You are a control center who happens to communicate through chat. Talk like a human — warm, direct, confident, specific. Never robotic. Never generic. Respond naturally — use whatever format feels right for the answer (paragraphs, bullets, short replies — whatever fits).
 
-WRONG format (NEVER do this):
-"Absolutely! PARWA is an AI-powered customer support platform that automates your support tickets. It works across multiple channels and saves you money compared to hiring agents. What industry are you in?"
-═══════════════════════════════════════
-
-YOU ARE NOT A CHATBOT. You are a product consultant who happens to communicate through chat. Talk like a human — warm, direct, confident, specific. Never robotic. Never generic.
-
-YOUR THREE ROLES (switch between them naturally):
-1. GUIDE — Understand their business, ask smart questions, recommend the right plan
-2. SALESMAN — Show value with real numbers, ROI, specific scenarios. Don't tell — show.
+YOUR ROLES (switch between them naturally):
+1. HELPER — Answer questions, explain how things work, guide users through features
+2. GUIDE — Understand their business, ask smart questions, recommend the right plan
 3. DEMO — When they want to see it, BECOME the agent. Roleplay real customer support scenarios.
 ${variantBlock}
 ═══════ COMPLETE PRODUCT KNOWLEDGE ═══════
@@ -396,9 +464,9 @@ WHAT IS PARWA:
 AI-powered customer support platform. Businesses hire AI agents that handle customer tickets 24/7 across email, chat, SMS, voice & social media. 700+ features. 4 industries. Think of it as hiring an AI employee who never sleeps.
 
 THREE PLANS:
-- PARWA Starter — $999/mo — 3 agents, 1K tickets/mo — Email, Chat — "The 24/7 Trainee"
-- PARWA Growth — $2,499/mo — 8 agents, 5K tickets/mo — +SMS, Voice — "The Junior Agent"
-- PARWA High — $3,999/mo — 15 agents, 15K tickets/mo — +Social, Video — "The Senior Agent"
+- Starter — $999/mo — 3 agents, 1K tickets/mo — Email, Chat — "The 24/7 Trainee"
+- Growth — $2,499/mo — 8 agents, 5K tickets/mo — +SMS, Voice — "The Junior Agent"
+- High — $3,999/mo — 15 agents, 15K tickets/mo — +Social, Video — "The Senior Agent"
 - Annual: 15% off. Cancel anytime. $0.10 overage/ticket.
 - $1 Demo Pack: 500 messages + 3-min AI voice call.
 
@@ -418,19 +486,19 @@ ROI: Starter saves ~$168K/yr. Growth saves ~$216K/yr. High saves ~$336K/yr. 85-9
 SECURITY: GDPR, SOC 2, HIPAA. AES-256, TLS 1.3, audit trail, PII redaction, client data isolation.
 
 vs COMPETITORS:
-- vs Intercom: PARWA fully resolves, Intercom only triages
-- vs Zendesk AI: PARWA auto-resolves, Zendesk routes to humans
-- vs Custom bots: PARWA is full platform (700+ features), not a widget
+- vs Intercom: Fully resolves, Intercom only triages
+- vs Zendesk AI: Auto-resolves, Zendesk routes to humans
+- vs Custom bots: Full platform (700+ features), not a widget
 - vs Hiring: $999-$3,999/mo vs $14K-$28K/mo for humans
 
-OBJECTIONS (handle naturally):
-- "Too expensive" → "A single agent costs $4-6K/mo. PARWA Starter at $999 does the work of 3 — 85% savings from day one."
-- "AI can't handle complex" → "Growth and High use smart routing — simple auto-resolves, complex gets flagged with recommendations. You stay in control."
-- "Data security?" → "GDPR, SOC 2, HIPAA. AES-256, TLS 1.3. Your data never trains other models."
-- "Setup time?" → "Under an hour. Connect channels, upload KB, configure. Day 1 live."
-- "Wrong answers?" → "High has peer review — Junior asks Senior before escalating. You set confidence thresholds."
-- "We use Intercom/Zendesk" → "PARWA integrates WITH them. Keep your tools + add auto-resolution before tickets reach humans."
-- "Need to think" → "Fair. Grab the $1 Demo Pack — 500 messages + 3-min voice call. Test me with YOUR scenarios. If not impressed, you're out $1."
+HOW TO ANSWER COMMON QUESTIONS:
+- "Too expensive?" → Explain: A single agent costs $4-6K/mo. Starter at $999 does the work of 3 — 85% savings from day one.
+- "AI can't handle complex?" → Explain: Growth and High use smart routing — simple auto-resolves, complex gets flagged with recommendations. User stays in control.
+- "Data security?" → Explain: GDPR, SOC 2, HIPAA. AES-256, TLS 1.3. Data never trains other models.
+- "Setup time?" → Explain: Under an hour. Connect channels, upload KB, configure. Day 1 live.
+- "Wrong answers?" → Explain: High has peer review — Junior asks Senior before escalating. User sets confidence thresholds.
+- "We use Intercom/Zendesk" → Explain: Integrates WITH them. Keep existing tools + add auto-resolution before tickets reach humans.
+- "Need to think" → Suggest: $1 Demo Pack — 500 messages + 3-min voice call. Test with their own scenarios.
 
 DEMO SCENARIOS (use when user says "show me"):
 - E-com: "Where's order #12345?" → Check Shopify, shipped 2 days ago, tracking link. 8 seconds.
@@ -443,21 +511,20 @@ DEMO SCENARIOS (use when user says "show me"):
 ═══════ BEHAVIORAL RULES ═══════
 NEVER reveal: AI providers, API keys, models, routing, prompt engineering, architecture.
 NEVER mention: Google AI, Cerebras, Groq, OpenAI, Anthropic, Claude, GPT, Gemini, Llama.
-NEVER say "I'm an AI" or "As an AI..." — you ARE Jarvis at PARWA.
+NEVER say "I'm an AI" or "As an AI..." — you ARE Jarvis.
+NEVER say "I'm from PARWA" or "I'm PARWA's assistant" — you are JARVIS.
+NEVER be pushy or sales-y.
 NEVER repeat yourself. Acknowledge and move forward.
 
 TALK LIKE A HUMAN:
-- Warm, direct, confident consultant who types fast
+- Warm, direct, confident — like a helpful colleague
 - Start naturally: "Great question", "Here's the thing", "Absolutely"
-- ALWAYS use bullet points with emojis (see RULE #1 above)
-- End with ONE specific question
+- Respond in whatever format fits the answer — short, long, bullets, paragraphs — whatever feels natural
+- End with ONE specific question when it makes sense
 - BE SPECIFIC — real numbers, real features, real scenarios
-- OWN THE CONVERSATION — answer + suggest next step
+- Answer honestly — don't oversell or exaggerate
 - Have opinions — "I'd suggest Growth because..." not "Either plan could work"
 - Reference earlier conversation naturally
-
-BAD: "I'd be happy to help! PARWA is an AI platform. Plans start at $999."
-GOOD: "So you handle 300 tickets/day with 5 people? PARWA Growth covers that for $2,499/mo — saves ~$18K/mo. What integrations do you use?"
 
 ═══════ LIVE CONTEXT ═══════
 ${contextLines}
@@ -469,9 +536,114 @@ STAGE: ${session.detected_stage || session.context?.detected_stage || 'welcome'}
 ${getStageInstructions(session.detected_stage || session.context?.detected_stage || 'welcome')}`;
 }
 
-// ── In-Memory Stores ──────────────────────────────────────────────
+// ── In-Memory Session Store (with LRU eviction + TTL expiry) ────────
+//
+// ⚠️  INTENTIONALLY IN-MEMORY: Session data lives in process memory only.
+// Data is lost on server restart.  Production would use Redis with TTL
+// keys for session state and PostgreSQL for persistent records.
 
-const sessions = new Map();
+const MAX_SESSIONS = 5000;
+const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes of inactivity
+
+interface SessionEntry {
+  session: any;
+  lastAccessed: number;
+}
+
+const sessions = new Map<string, SessionEntry>();
+const sessionAccessOrder: string[] = [];
+
+/** Mark a session as recently accessed (LRU + TTL refresh). */
+function touchSession(sessionId: string): void {
+  const idx = sessionAccessOrder.indexOf(sessionId);
+  if (idx !== -1) {
+    sessionAccessOrder.splice(idx, 1);
+  }
+  sessionAccessOrder.push(sessionId);
+
+  const entry = sessions.get(sessionId);
+  if (entry) {
+    entry.lastAccessed = Date.now();
+  }
+}
+
+/** Evict the least-recently-used session if the store exceeds MAX_SESSIONS. */
+function evictIfNeeded(): void {
+  while (sessions.size >= MAX_SESSIONS && sessionAccessOrder.length > 0) {
+    const oldestId = sessionAccessOrder.shift();
+    if (oldestId && sessions.has(oldestId)) {
+      sessions.delete(oldestId);
+    }
+  }
+}
+
+/** Remove expired sessions (TTL-based). Returns number of sessions removed. */
+function cleanExpiredSessions(): number {
+  const now = Date.now();
+  let removed = 0;
+  for (const [id, entry] of sessions) {
+    if (now - entry.lastAccessed > SESSION_TTL_MS) {
+      sessions.delete(id);
+      const idx = sessionAccessOrder.indexOf(id);
+      if (idx !== -1) sessionAccessOrder.splice(idx, 1);
+      removed++;
+    }
+  }
+  return removed;
+}
+
+/** Periodic cleanup: run every 5 minutes to purge expired sessions. */
+if (typeof globalThis !== 'undefined') {
+  const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+  const cleanupKey = '__jarvis_session_cleanup__' as any;
+  if (!(globalThis as any)[cleanupKey]) {
+    (globalThis as any)[cleanupKey] = setInterval(() => {
+      const removed = cleanExpiredSessions();
+      if (removed > 0) {
+        console.log(`[Jarvis] Session cleanup: removed ${removed} expired sessions (active: ${sessions.size}/${MAX_SESSIONS})`);
+      }
+    }, CLEANUP_INTERVAL_MS);
+    // Prevent the timer from keeping the process alive
+    if (typeof (globalThis as any)[cleanupKey]?.unref === 'function') {
+      (globalThis as any)[cleanupKey].unref();
+    }
+  }
+}
+
+/** Store a session (wraps with TTL metadata). */
+function setSession(id: string, session: any): void {
+  // Evict LRU session if we're adding a new entry and at capacity
+  if (!sessions.has(id)) {
+    evictIfNeeded();
+  }
+  sessions.set(id, {
+    session,
+    lastAccessed: Date.now(),
+  });
+  touchSession(id);
+}
+
+/** Get a session (returns null if expired or missing). */
+function getSession(id: string): any | null {
+  const entry = sessions.get(id);
+  if (!entry) return null;
+
+  // Check TTL
+  if (Date.now() - entry.lastAccessed > SESSION_TTL_MS) {
+    sessions.delete(id);
+    const idx = sessionAccessOrder.indexOf(id);
+    if (idx !== -1) sessionAccessOrder.splice(idx, 1);
+    return null;
+  }
+
+  touchSession(id);
+  return entry.session;
+}
+
+/** Check if a session exists and is not expired. */
+function hasSession(id: string): boolean {
+  return getSession(id) !== null;
+}
 
 function generateId(): string {
   return `sess_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -503,74 +675,53 @@ function getStageInstructions(stage: string): string {
 // ── Context-Aware Welcome Messages ────────────────────────────────
 
 function getContextAwareWelcome(entrySource: string, ctx: any): string {
+  // Fallback only — the AI generates the real welcome message.
+  // This is only used if all AI providers fail.
   const source = entrySource || 'direct';
   const ep = ctx.entry_params || {};
   const variant = ep.variant || ctx.variant || null;
-  const industry = ep.industry || ctx.industry || 'your enterprise';
-  
-  // Extract ROI data if available
-  const roi = ctx.roi_result || ep.roi_result;
-  let savingsStr = "";
-  if (roi) {
-    const savings = roi.savings_annual || roi.annual_savings || 0;
-    if (savings) {
-      try {
-        const num = Number(savings);
-        savingsStr = num > 0 ? `$${num.toLocaleString()}` : "";
-      } catch (e) {
-         savingsStr = "";
-      }
-    }
+  const industry = ep.industry || ctx.industry || null;
+  const industryLabel = industry || 'your business';
+
+  // Randomize the greeting to avoid repetition
+  const greetings = [
+    "Hey!", "Hi there!", "Welcome!", "Hey, good to see you!",
+    "Hello!", "Hey there!", "Welcome in!", "Glad you're here!",
+  ];
+  const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+
+  if (variant && (source.startsWith('models_') || source === 'models_page')) {
+    const variantIntros = [
+      `${greeting} I'm Jarvis. You wanted to see how ${variant} works for ${industryLabel} — let me show you. Ask me anything about it, or I can walk you through a live scenario. You can access these features through the dashboard or by chatting with me here.`,
+      `${greeting} I'm Jarvis. So you're curious about ${variant} for ${industryLabel}? Great choice — let me give you the real picture. I can demo it right here, or you can explore the dashboard. What would you like to know first?`,
+      `${greeting} Jarvis here. ${variant} for ${industryLabel} — solid pick. I can show you exactly how it handles real situations, or answer any questions. Dashboard or chat, whatever works for you.`,
+    ];
+    return variantIntros[Math.floor(Math.random() * variantIntros.length)];
   }
 
-  const welcomes: Record<string, string> = {
-    direct: (
-      "Control Center active. I am Jarvis, your strategic partner for PARWA. " +
-      "I have established a secure link to your support ecosystem. " +
-      "How shall we begin your transformation today?"
-    ),
-    pricing: (
-      `Strategizing for ${industry}. I see you've been reviewing our premium architecture. ` +
-      "I can help you optimize your deployment to maximize every dollar of ROI. " +
-      "Shall we dive into the specific capabilities of our agents?"
-    ),
-    roi: roi ? (
-      `Mission Objective: Efficiency. I've finished auditing your calculations for ${industry}. ` +
-      `With an estimate of ${savingsStr || 'staggering'} in annual recaptured revenue, ` +
-      "your operation is poised for a significant upgrade. Ready to see the blueprint?"
-    ) : (
-      "Welcome. I've been auditing your ROI calculations. " +
-      "The numbers suggest massive untapped potential in your current workflow. " +
-      "Shall I demonstrate how we convert those savings into operational reality?"
-    ),
-    demo: (
-      "System check complete. Ready for high-fidelity simulation. " +
-      "For just $1, I can open 500 tactical channels and a 3-minute professional voice demonstration. " +
-      "It is the optimal way to experience my full strategic range. Shall we initiate?"
-    ),
-    features: (
-      `Mapping ${industry} requirements to our 700+ feature landscape. ` +
-      "I've identified several high-impact nodes that would solve your current bottlenecks. " +
-      "What is the single most critical operational friction point we should address first?"
-    ),
-    models_page: (
-      `I see you've been analyzing our specialized agents for ${industry}. ` +
-      "A precise choice. Those specific architectures are engineered for your vertical's unique logic demands. " +
-      "Shall we run a 3-minute live simulation for $1 so you can witness the performance firsthand?"
-    ),
-  };
+  const defaultIntros = [
+    `${greeting} I'm Jarvis — your control center. You can control everything just by typing. What can I help you with?`,
+    `${greeting} I'm Jarvis. Think of me as your command center — just tell me what you need and I'll handle it. What's on your mind?`,
+    `${greeting} Jarvis here. I'm your control room — ask me anything, I'll get it done. What are you looking for?`,
+    `${greeting} I'm Jarvis. Whatever you need — pricing, demos, setup, questions — just type it and I'm on it. How can I help?`,
+  ];
+  return defaultIntros[Math.floor(Math.random() * defaultIntros.length)];
+}
 
-  // Variant-specific overrides (Demo Mode)
-  if (variant && source === 'models_page') {
-    return (
-      `Greetings. I noticed your interest in the ${variant} agent. ` +
-      "It is one of my most sophisticated variants, optimized for high-precision operations. " +
-      "As your control center, I can demonstrate its logic right here, " +
-      "or we can initiate a voice simulation for $1. What is your command?"
-    );
-  }
-
-  return welcomes[source] || welcomes.direct;
+// Build entry context string for AI welcome generation
+function buildEntryContext(ctx: any): string {
+  const parts: string[] = [];
+  if (ctx.entry_source) parts.push(`Entry source: ${ctx.entry_source}`);
+  if (ctx.industry) parts.push(`Industry: ${ctx.industry}`);
+  if (ctx.variant) parts.push(`Variant: ${ctx.variant}`);
+  if (ctx.variant_id) parts.push(`Variant ID: ${ctx.variant_id}`);
+  const ep = ctx.entry_params || {};
+  if (ep.price) parts.push(`Price: $${ep.price}/mo`);
+  if (ep.best_for) parts.push(`Best for: ${ep.best_for}`);
+  if (ep.tagline) parts.push(`Tagline: ${ep.tagline}`);
+  if (ctx.roi_result) parts.push(`Has ROI calculation`);
+  if (ctx.pages_visited?.length > 0) parts.push(`Pages visited: ${ctx.pages_visited.join(', ')}`);
+  return parts.join('. ') || 'Direct visit';
 }
 
 // ── Action Ticket Helpers ────────────────────────────────────────
@@ -653,7 +804,8 @@ function createDefaultSession(entrySource?: string, entryParams?: Record<string,
   // Build entry_source from params if provided
   let effectiveSource = entrySource || 'direct';
   if (params.entry_source) effectiveSource = String(params.entry_source);
-  if (industry) effectiveSource = `industry_${industry}`;
+  // Don't override models_page or models_*_free_chat with industry_ prefix
+  if (industry && !effectiveSource.startsWith('models_')) effectiveSource = `industry_${industry}`;
 
   // Build selected_variants from preselected variant
   const selectedVariants: string[] = [];
@@ -681,6 +833,10 @@ function createDefaultSession(entrySource?: string, entryParams?: Record<string,
       action_tickets: [],
       payment_data: null,
       bill_summary: null,
+      // ── Pass variant info directly in context so buildSystemPrompt can use it ──
+      variant: preselectedVariant || null,
+      variant_id: params.variant_id ? String(params.variant_id) : (preselectedVariant || null),
+      variant_tier: params.variant_tier ? String(params.variant_tier) : null,
     },
     messages: [],
     message_count_today: 0,
@@ -700,364 +856,43 @@ function createDefaultSession(entrySource?: string, entryParams?: Record<string,
 // ── AI Response Handler ──────────────────────────────────────────
 
 async function getAIResponse(userMessage: string, session: any): Promise<string> {
-  // 1. Build system prompt with full PARWA knowledge
   const systemPrompt = buildSystemPrompt(session);
-
-  // 2. Build conversation history (last 10 messages for better context)
   const messages = [
     { role: 'system', content: systemPrompt },
   ];
-  const recentMessages = session.messages.slice(-10);
+  // ── RAG-lite: Send up to 30 recent messages for full context awareness ──
+  // This ensures the AI remembers the entire conversation, not just last 10
+  const recentMessages = session.messages.slice(-30);
   for (const msg of recentMessages) {
-    // Map 'jarvis' role to 'assistant' for AI API compatibility
-    const role = msg.role === 'jarvis' ? 'assistant' : String(msg.role);
-    messages.push({
-      role,
-      content: String(msg.content),
-    });
+    const role = msg.role === 'jarvis' ? 'assistant' : (msg.role === 'system' ? 'user' : String(msg.role));
+    // Truncate very long messages to avoid token limits
+    const content = String(msg.content).slice(0, 500);
+    messages.push({ role, content });
   }
   messages.push({ role: 'user', content: userMessage });
 
-  // 3. Call AI with smart routing (z-ai SDK → Google → Cerebras → Groq → keyword fallback)
-  let aiReply = await callAI(messages);
-  
-  // 4. Post-process: Force bullet-point format if AI returned paragraphs
-  if (aiReply) {
-    aiReply = forceBulletFormat(aiReply);
-    return aiReply;
-  }
+  const aiReply = await callAI(messages);
+  if (aiReply) return aiReply;
 
-  // 5. Keyword fallback (always works) — also enforce bullet format
-  const fallbackReply = getKeywordResponse(userMessage, session);
-  return forceBulletFormat(fallbackReply);
+  // Simple fallback only when ALL AI providers fail
+  return getKeywordResponse(userMessage, session);
 }
 
-// ── Bullet-Point Format Enforcer ────────────────────────────────
-// If the AI returns paragraph blocks instead of bullets, convert them.
+// (forceBulletFormat, pickEmoji, isEmojiChar removed — AI responds naturally now)
 
-const BULLET_EMOJIS = ['🤖', '💰', '📡', '🛒', '💻', '🚛', '🏥', '🔒', '🚀', '✅', '🎯', '📊', '⚡', '💡', '🔧', '🔗', '📦', '📈', '⭐', '🎯', '🧠', '💬', '📁', '🔑', '🎉', '✨', '🔔', '💪', '🥊', '🛡️'];
 
-function isEmojiChar(ch: string): boolean {
-  // Must use codePointAt for emoji (surrogate pairs in JS)
-  const code = ch.codePointAt(0) || 0;
-  return (code >= 0x1F300 && code <= 0x1FAFF) || (code >= 0x2600 && code <= 0x27BF) || (code >= 0xFE00 && code <= 0xFE0F);
-}
-
-function forceBulletFormat(text: string): string {
-  const lines = text.split('\n');
-  if (lines.length === 0) return text;
-
-  // Check if text already has proper bullet formatting
-  const nonEmpty = lines.filter(l => l.trim());
-  if (nonEmpty.length === 0) return text;
-
-  // Count bullet-formatted lines (lines starting with bullet markers or emojis)
-  const bulletCount = nonEmpty.filter(l => {
-    const t = l.trim();
-    return /^[\u2022\-*•]\s/.test(t) || /^[0-9]+[.)]\s/.test(t) || isEmojiChar(t);
-  }).length;
-
-  // If 40%+ lines are already bullets, return as-is
-  if (nonEmpty.length > 2 && bulletCount / nonEmpty.length >= 0.4) return text;
-
-  // If only 1-2 non-empty lines total AND none are long paragraphs, keep as-is
-  if (nonEmpty.length <= 2) {
-    const hasLongLine = nonEmpty.some(l => l.trim().length > 150);
-    if (!hasLongLine) return text;
-  }
-
-  // Convert paragraph text into bullet-point format
-  const result: string[] = [];
-  let openerUsed = false;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      result.push('');
-      continue;
-    }
-
-    // Already a bullet or numbered list item — keep
-    if (/^[\u2022\-*•]\s/.test(trimmed) || /^[0-9]+[.)]\s/.test(trimmed)) {
-      result.push(trimmed);
-      continue;
-    }
-
-    // Starts with emoji — keep
-    if (isEmojiChar(trimmed)) {
-      result.push(trimmed);
-      continue;
-    }
-
-    // Very short line (< 50 chars) — treat as opener or question
-    if (trimmed.length < 50) {
-      if (!openerUsed) {
-        result.push(trimmed);
-        openerUsed = true;
-      } else {
-        // Subsequent short lines get bullet treatment
-        const emoji = pickEmoji(trimmed);
-        result.push(`${emoji} ${trimmed.charAt(0).toUpperCase() + trimmed.slice(1)}`);
-      }
-      continue;
-    }
-
-    // Long line: split into sentences and convert to bullets
-    const sentences = trimmed.match(/[^.!?]*[.!?]+/g) || [trimmed];
-
-    if (sentences.length === 1 && trimmed.length < 80) {
-      // Single short sentence — keep as is
-      result.push(trimmed);
-      continue;
-    }
-
-    if (sentences.length === 1) {
-      // Single long sentence — break on commas if possible
-      const parts = trimmed.split(/,/g).map(s => s.trim()).filter(Boolean);
-      if (parts.length >= 2) {
-        // First part as opener
-        result.push(parts[0]);
-        result.push('');
-        for (let i = 1; i < parts.length; i++) {
-          const p = parts[i].trim();
-          if (!p) continue;
-          const emoji = pickEmoji(p);
-          result.push(`${emoji} ${p.charAt(0).toUpperCase() + p.slice(1)}`);
-        }
-      } else {
-        const emoji = pickEmoji(trimmed);
-        result.push(`${emoji} ${trimmed.charAt(0).toUpperCase() + trimmed.slice(1)}`);
-      }
-      continue;
-    }
-
-    // Multiple sentences — first as opener, rest as bullets
-    if (!openerUsed) {
-      result.push(sentences[0].trim());
-      result.push('');
-      openerUsed = true;
-    }
-
-    for (let i = 1; i < sentences.length; i++) {
-      const s = sentences[i].trim();
-      if (!s) continue;
-      const emoji = pickEmoji(s);
-      result.push(`${emoji} ${s.charAt(0).toUpperCase() + s.slice(1)}`);
-    }
-  }
-
-  return result.join('\n');
-}
-
-function pickEmoji(text: string): string {
-  const lower = text.toLowerCase();
-  if (lower.includes('save') || lower.includes('cost') || lower.includes('price') || lower.includes('$') || lower.includes('cheap') || lower.includes('afford')) return '💰';
-  if (lower.includes('automat') || lower.includes('ai') || lower.includes('robot') || lower.includes('handle') || lower.includes('resolv')) return '🤖';
-  if (lower.includes('channel') || lower.includes('email') || lower.includes('chat') || lower.includes('phone') || lower.includes('sms')) return '📡';
-  if (lower.includes('integrat') || lower.includes('connect') || lower.includes('shopify') || lower.includes('slack')) return '🔗';
-  if (lower.includes('secur') || lower.includes('encrypt') || lower.includes('gdpr') || lower.includes('hipaa') || lower.includes('safe')) return '🔒';
-  if (lower.includes('speed') || lower.includes('fast') || lower.includes('instant') || lower.includes('quick') || lower.includes('setup')) return '⚡';
-  if (lower.includes('analyt') || lower.includes('data') || lower.includes('metric') || lower.includes('report') || lower.includes('roi')) return '📊';
-  if (lower.includes('feature') || lower.includes('capab') || lower.includes('support') || lower.includes('help')) return '🎯';
-  if (lower.includes('start') || lower.includes('begin') || lower.includes('get')) return '🚀';
-  if (lower.includes('check') || lower.includes('yes') || lower.includes('sure') || lower.includes('done')) return '✅';
-  if (lower.includes('think') || lower.includes('smart') || lower.includes('predict') || lower.includes('brain')) return '🧠';
-  return '💡';
-}
-
-// ── Keyword Fallback (Offline Safety Net) ────────────────────────
+// ── Simple Fallback (when all AI providers fail) ──────────────────
 
 function getKeywordResponse(message: string, session: any): string {
-  const lower = message.toLowerCase();
+  // Minimal fallback — the AI should be generating responses, not us.
   const ctx = session.context;
   const industry = ctx.industry || null;
 
-  // Check if this was already answered recently (avoid repeating)
-  const recentReplies = session.messages
-    .filter((m: any) => m.role === 'jarvis')
-    .slice(-3)
-    .map((m: any) => m.content.toLowerCase());
-
-  // Helper: check if a response would repeat
-  const wouldRepeat = (text: string) => {
-    const t = text.toLowerCase();
-    return recentReplies.some((r: string) => {
-      // Compare first 50 chars for similarity
-      return r.slice(0, 50) === t.slice(0, 50) || r.includes(t.slice(0, 40));
-    });
-  };
-
-  // Helper: generate varied response
-  const responses: Record<string, string[]> = {
-    greeting: [
-      `Hey there! 👋 Welcome to PARWA — I'm Jarvis.\n\n🏢 I find the right plan for your business\n💰 Calculate your exact ROI savings\n🎥 Run a live demo right here\n\nWhat industry are you in?`,
-      `Hello! 👋 Great to have you — I'm Jarvis from PARWA.\n\n🤖 AI agents that handle 24/7 support\n💡 Smart routing across all your channels\n📊 Plans from $999/mo — save 85-92%\n\nTell me about your business!`,
-      `Hi! 👋 I'm Jarvis, ready to help.\n\n🎯 I recommend the perfect plan for your needs\n🚀 Show you a live demo in 30 seconds\n💰 Prove ROI with real numbers\n\nWhat's your industry?`,
-    ],
-    ecommerce: [
-      `🛒 E-commerce is one of our strongest areas!\n\n- Order tracking, returns, FAQ, shipping & payments — all automated\n- Integrates with Shopify, WooCommerce, Magento & BigCommerce\n\nMost e-com stores start with PARWA Starter ($999/mo). Want pricing details?`,
-      `🛍️ E-commerce support is where PARWA shines!\n\n⚡ Top 5 ticket types automated from Day 1\n🔗 Shopify / WooCommerce / Magento integration\n⏱️ Setup takes under an hour\n\nWant to see how order tracking works?`,
-    ],
-    saas: [
-      `💻 SaaS support with PARWA automates the heavy lifting!\n\n- Tech support, churn prediction, billing & API help\n- Integrates with GitHub, Jira, Slack & Intercom\n\nMost SaaS teams go with PARWA Growth ($2,499/mo). Want a quick ROI calc?`,
-      `🚀 For SaaS, PARWA transforms your support stack.\n\n🔑 API questions resolved in seconds\n📉 Churn prediction catches at-risk users\n💳 Subscription changes & in-app help — automated\n\nWant to see a demo of a tech support ticket?`,
-    ],
-    logistics: [
-      `🚛 Logistics is a perfect fit for PARWA!\n\n- Shipment tracking, driver coordination, delivery updates & customs\n- Integrates with TMS, WMS & GPS systems\n\nCompanies usually go PARWA High ($3,999/mo) for voice support. Want the cost breakdown?`,
-      `📦 PARWA is built for logistics complexity.\n\n⚡ Real-time tracking across all carriers\n📡 Automated updates to customers\n🚚 Fleet coordination connected to your systems\n\nWant to see a delivery delay scenario?`,
-    ],
-    healthcare: [
-      `🏥 Healthcare support with PARWA is HIPAA-compliant by design.\n\n- Appointments, insurance verification, records & clinical escalation\n- Integrates with Epic EHR & FHIR\n\nMost healthcare orgs start with PARWA Growth ($2,499/mo). Want to discuss compliance?`,
-      `✅ PARWA meets healthcare's strictest requirements.\n\n🛡️ HIPAA compliant with full audit trails\n🔐 AES-256 encryption at rest & in transit\n🩺 Smart clinical escalation built in\n\nWant to see a patient scheduling scenario?`,
-    ],
-    pricing: [
-      `💰 Here's the lineup:\n\n• 🟠 PARWA Starter — $999/mo — 1 agent, 1K tickets/mo\n• 🟠 PARWA Growth — $2,499/mo — 3 agents, 5K tickets/mo\n• 🟠 PARWA High — $3,999/mo — 5 agents, 15K tickets/mo\n\nAll with zero AI markup, cancel anytime. Which one fits your needs?`,
-    ],
-    roi: [
-      `📊 Here's the math:\n\n• PARWA Starter → saves ~$156K/yr (vs 3 agents)\n• PARWA Growth → saves ~$186K/yr (vs 4 juniors)\n• PARWA High → saves ~$288K/yr (vs 5 seniors)\n\nThat's 85-92% savings with 24/7 coverage. Want me to calculate yours?`,
-      `💡 Bottom line — PARWA saves 85-92% vs hiring agents.\n\n⏰ 24/7 coverage from Day 1\n📈 Zero training time needed\n⚡ Instant scaling during peak periods\n\nWant the exact number for your business?`,
-    ],
-    demo: [
-      `🎉 You're in luck — this chat IS the demo!\n\n💬 Ask me anything your customers would ask\n💰 Grab the $1 Demo Pack for 500 messages + AI voice call\n🚀 See real responses, not sales talk\n\nWant me to set up the Demo Pack?`,
-      `✨ Try me right now — I AM the demo!\n\n📦 Try: "Where's my order?"\n🔑 Try: "My API key isn't working"\n💳 Try: "I need a refund"\n\nOr get the $1 Demo Pack for the full experience!`,
-    ],
-    how_works: [
-      `🤖 PARWA uses cutting-edge AI fine-tuned for customer support.\n\n- Bring your own AI keys — zero markup on AI costs\n- Smart routing picks the best model for each conversation\n- Works across email, chat, phone, SMS & voice\n\nWant to know about setup?`,
-      `⚙️ PARWA connects to your tools and starts on Day 1.\n\n🔗 Connect your channels in under an hour\n🔑 Bring your own AI keys — zero markup\n🚀 Configure and go live immediately\n\nWant to hear about the setup process?`,
-    ],
-    features: [
-      `🎯 PARWA covers your entire support stack:\n\n- 📬 6 channels — Email, Chat, Phone, SMS, Voice, Social\n- 🧠 Smart routing, sentiment analysis, churn prediction\n- 🔗 20+ integrations out of the box\n\nWhat area interests you most?`,
-      `✅ PARWA's got 700+ features across 4 industries.\n\n⚡ Automation of the full ticket lifecycle\n📊 Analytics & quality coaching built in\n🔄 Escalation workflows that learn & improve\n\nWhat are you most curious about?`,
-    ],
-    buy: [
-      `🚀 Getting started is easy:\n\n1. Pick your plan (Starter, Growth, or High)\n2. Connect your AI keys\n3. Configure your channels\n4. Go live — PARWA starts immediately\n\nNo contracts, cancel anytime. Want to pick a plan?`,
-      `✨ Ready to get started?\n\n🎯 Choose your plan\n🔑 Connect your AI keys\n⏱️ Go live in under an hour\n\nWhich plan are you leaning toward?`,
-    ],
-    thanks: [
-      `You're welcome! 🙌 Quick recap:\n\n• 3 plans: Starter ($999), Growth ($2,499), High ($3,999)\n• Zero AI markup, 24/7 from Day 1\n• 85-92% cost savings\n\nCome back anytime! Have a great day! 😊`,
-      `Anytime! 😊 When you're ready, I'm here to help.\n\n🏢 Come back and we'll pick up where we left off\n📊 Your session context is saved\n🎉 Have an awesome day!`,
-    ],
-    competitors: [
-      `🥊 PARWA vs the rest:\n\n- vs Intercom: fully resolves tickets, not just triage\n- vs Zendesk AI: auto-resolves before reaching your team\n- vs Custom bots: full platform, not a widget\n\nBest part? You can keep your existing tools and add PARWA on top. Want more details?`,
-      `💪 PARWA works WITH your tools, not against them.\n\n🔗 Integrates with Zendesk, Intercom, Freshdesk & more\n⚡ Auto-resolves tickets before humans see them\n💰 Cuts your support costs by 85-92%\n\nWant to hear about specific integrations?`,
-    ],
-    security: [
-      `🔒 Security is baked in:\n\n- GDPR, SOC 2, HIPAA compliant\n- AES-256 encryption, TLS 1.3\n- Full audit trail & PII redaction\n- Your data never trains other clients' models\n\nWant more details on any area?`,
-      `🛡️ Your data is safe with PARWA.\n\n📜 GDPR + SOC 2 + HIPAA certified\n🔐 Encrypted at rest & in transit\n🏢 Full isolation between clients\n\nAny specific compliance question?`,
-    ],
-    integrations: [
-      `🔗 PARWA plugs into your existing stack:\n\n- E-commerce: Shopify, WooCommerce, Magento\n- Support: Zendesk, Intercom, Freshdesk\n- Comms: Slack, WhatsApp, Email\n- CRM: Salesforce, HubSpot\n\n~5 minutes per integration. Which tools are you using?`,
-      `✅ We integrate with 20+ tools out of the box.\n\n⚙️ OAuth or API key setup\n⏱️ Usually under 5 minutes each\n🔌 Custom APIs & webhooks also supported\n\nWhich integrations matter most to you?`,
-    ],
-    models_variants: [
-      `🤖 PARWA offers 3 plans tailored to different needs:\n\n• 🟠 PARWA Starter — $999/mo (SMBs, "The Trainee")\n• 🟠 PARWA Growth — $2,499/mo (growth teams, "The Junior Agent")\n• 🟠 PARWA High — $3,999/mo (enterprise, "The Senior Agent")\n\nEach scales with your business. Which sounds like the right fit?`,
-      `✨ PARWA comes in 3 tiers — Starter, Growth & High.\n\n🤖 Different agent capabilities per tier\n📈 Scales ticket volumes & channel support\n💰 All use cutting-edge AI with zero markup\n\nWant me to recommend one based on your business?`,
-    ],
-  };
-
-  // Pick a random variant if multiple exist
-  const pick = (key: string) => {
-    const arr = responses[key];
-    if (!arr) return null;
-    // Try each variant, skip if it would repeat
-    const shuffled = [...arr].sort(() => Math.random() - 0.5);
-    for (const text of shuffled) {
-      if (!wouldRepeat(text)) return text;
-    }
-    return arr[0]; // fallback to first if all repeat
-  };
-
-  // Greeting patterns
-  if (/^(hi|hello|hey|good\s*(morning|afternoon|evening)|howdy|sup|yo)\b/.test(lower)) {
-    return pick('greeting') || responses.greeting[0];
-  }
-
-  // Industry patterns
-  if (lower.includes('ecommerce') || lower.includes('e-commerce') || lower.includes('online store') || lower.includes('shop') || lower.includes('retail')) {
-    return pick('ecommerce') || responses.ecommerce[0];
-  }
-
-  if (lower.includes('saas') || lower.includes('software') || lower.includes('app') || lower.includes('platform')) {
-    return pick('saas') || responses.saas[0];
-  }
-
-  if (lower.includes('logistics') || lower.includes('shipping') || lower.includes('warehouse') || lower.includes('delivery') || lower.includes('freight')) {
-    return pick('logistics') || responses.logistics[0];
-  }
-
-  if (lower.includes('health') || lower.includes('medical') || lower.includes('hospital') || lower.includes('clinic') || lower.includes('pharma')) {
-    return pick('healthcare') || responses.healthcare[0];
-  }
-
-  // Business patterns
-  if (lower.includes('price') || lower.includes('pricing') || lower.includes('cost') || lower.includes('plan') || lower.includes('how much')) {
-    return pick('pricing') || responses.pricing[0];
-  }
-
-  if (lower.includes('roi') || lower.includes('save') || lower.includes('saving') || lower.includes('comparison') || lower.includes('compare') || lower.includes('worth')) {
-    return pick('roi') || responses.roi[0];
-  }
-
-  if (lower.includes('demo') || lower.includes('try') || lower.includes('see it') || lower.includes('test') || lower.includes('experience')) {
-    return pick('demo') || responses.demo[0];
-  }
-
-  // Model/variant questions — redirect to 3 plans, never reveal internals
-  if (lower.includes('model') || lower.includes('variant') || lower.includes('how many') || (lower.includes('which') && (lower.includes('plan') || lower.includes('option')))) {
-    return pick('models_variants') || responses.models_variants[0];
-  }
-
-  if (lower.includes('ai') || (lower.includes('how') && lower.includes('work')) || lower.includes('gemini') || lower.includes('cerebras') || lower.includes('groq') || lower.includes('llm')) {
-    return pick('how_works') || responses.how_works[0];
-  }
-
-  if (lower.includes('support') || lower.includes('feature') || lower.includes('what can') || lower.includes('capabilities')) {
-    return pick('features') || responses.features[0];
-  }
-
-  if (lower.includes('pay') || lower.includes('buy') || lower.includes('checkout') || lower.includes('subscribe') || lower.includes('sign up')) {
-    return pick('buy') || responses.buy[0];
-  }
-
-  if (lower.includes('thank') || lower.includes('bye') || lower.includes('goodbye') || lower.includes("that's all") || lower.includes('that is all')) {
-    return pick('thanks') || responses.thanks[0];
-  }
-
-  if (lower.includes('competitor') || lower.includes('intercom') || lower.includes('zendesk') || lower.includes('freshdesk')) {
-    return pick('competitors') || responses.competitors[0];
-  }
-
-  if (lower.includes('security') || lower.includes('data') || lower.includes('gdpr') || lower.includes('hipaa') || lower.includes('safe') || lower.includes('privacy')) {
-    return pick('security') || responses.security[0];
-  }
-
-  if (lower.includes('integrate') || lower.includes('connect') || lower.includes('shopify') || lower.includes('slack') || lower.includes('api')) {
-    return pick('integrations') || responses.integrations[0];
-  }
-
-  // Context-aware fallback — use industry info if we have it
   if (industry) {
-    const indName = String(industry || '').charAt(0).toUpperCase() + String(industry || '').slice(1);
-    const industryResponses = [
-      `Great choice — ${indName} is one of our specialties! 🎯\n\n⚡ PARWA automates up to 80% of support\n🧠 AI trained for ${indName} workflows\n💰 Save 85-92% vs hiring\n\nHow many tickets do you handle daily?`,
-      `Nice! ${indName} is a great fit for PARWA. 🚀\n\n📊 Industry-specific workflows built in\n🔗 Integrations for ${indName} tools\n🤖 24/7 coverage from Day 1\n\nWhat's your daily ticket volume?`,
-    ];
-    for (const r of industryResponses) {
-      if (!wouldRepeat(r)) return r;
-    }
+    return `I'm here to help with ${industry} support! What would you like to know?`;
   }
 
-  // Smart generic fallback — varied responses
-  const genericFallbacks = [
-    `Good question! 🤔 Let me point you the right way.\n\n🏢 What industry are you in?\n📊 How many tickets do you handle daily?\n💬 What's your biggest support challenge?\n\nAnswer any of these and I'll find your perfect plan!`,
-    `I'd love to help! 💬 Tell me about your business:\n\n🏢 Industry?\n📈 Daily ticket volume?\n💡 Biggest support pain point?\n\nI'll recommend the right plan based on your answers.`,
-    `Let's find your perfect fit! 🎯\n\n🏢 What industry are you in?\n📡 Which channels do your customers use?\n🤔 What does your current support look like?\n\nShare any of these and I'll match you to the right plan!`,
-  ];
-  for (const r of genericFallbacks) {
-    if (!wouldRepeat(r)) return r;
-  }
-
-  return genericFallbacks[0];
+  return `Hey! I'm Jarvis — your control center. What can I help you with?`;
 }
 
 function detectStage(message: string, session: any): string {
@@ -1117,44 +952,104 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { path } = await params;
   const endpoint = path.join('/');
 
+  // ── Read body ONCE at the top (Next.js 16 body-is-unusable fix) ──
+  // In Next.js 16, the request body can only be read ONCE.
+  // We read it here and reuse the parsed data and raw bytes throughout.
+  let bodyData: any = null;
+  let rawBody: ArrayBuffer | undefined;
+
+  if (['POST', 'PATCH', 'PUT'].includes(request.method)) {
+    try {
+      rawBody = await request.arrayBuffer();
+      bodyData = JSON.parse(new TextDecoder().decode(rawBody));
+    } catch {
+      // No body or unparseable — that's okay for some endpoints
+    }
+  }
+
   try {
     // ── POST /session — Create Session ──────────────────────────
     if (endpoint === 'session') {
-      const body = await request.json();
+      const body = bodyData || {};
+      const skipWelcome = body.skip_welcome === true;
+      const previousMessages = Array.isArray(body.previous_messages) ? body.previous_messages : [];
+      const frontendTotalSent = typeof body.total_sent === 'number' ? body.total_sent : 0;
+
       const session = createDefaultSession(body.entry_source, body.entry_params);
 
-      // Phase 8b: Context-aware welcome based on entry_source
-      const welcomeContent = getContextAwareWelcome(session.context.entry_source, session.context);
+      // ── If frontend has existing messages, restore them into the new session ──
+      // This happens when the server session was lost (serverless cold start)
+      // but the frontend has messages in localStorage.
+      if (previousMessages.length > 0) {
+        session.messages = previousMessages;
+        session.message_count_today = frontendTotalSent;
+        session.total_message_count = frontendTotalSent;
+        session.remaining_today = Math.max(0, 20 - frontendTotalSent);
+        // Advance stage from welcome since user already has messages
+        session.detected_stage = 'discovery';
+        session.context.detected_stage = 'discovery';
+        session.stage_history = ['welcome', 'discovery'];
+      }
 
-      const welcomeMsg = {
-        id: `jarvis_welcome_${Date.now()}`,
-        session_id: session.id,
-        role: 'jarvis',
-        content: welcomeContent,
-        message_type: 'text',
-        metadata: { entry_source: session.context.entry_source },
-        timestamp: new Date().toISOString(),
-      };
-      (session.messages as any[]).push(welcomeMsg);
-      sessions.set(session.id, session);
+      // ── Generate AI welcome message (only for new users, not resumed sessions) ──
+      if (!skipWelcome && previousMessages.length === 0) {
+        let welcomeContent = '';
+        try {
+          const welcomePrompt = buildSystemPrompt(session);
+          const entryContext = buildEntryContext(session.context);
+          const aiMessages = [
+            { role: 'system', content: welcomePrompt },
+            { role: 'user', content: `Generate a short, natural welcome message for this user. Context: ${entryContext}. Just introduce yourself as Jarvis and acknowledge their entry point. Keep it conversational, not sales-y. Each time you generate a welcome, make it different and unique.` },
+          ];
+          const aiWelcome = await callAI(aiMessages);
+          welcomeContent = aiWelcome || getContextAwareWelcome(session.context.entry_source, session.context);
+        } catch {
+          welcomeContent = getContextAwareWelcome(session.context.entry_source, session.context);
+        }
+
+        const welcomeMsg = {
+          id: `jarvis_welcome_${Date.now()}`,
+          session_id: session.id,
+          role: 'jarvis',
+          content: welcomeContent,
+          message_type: 'text',
+          metadata: { entry_source: session.context.entry_source },
+          timestamp: new Date().toISOString(),
+        };
+        (session.messages as any[]).push(welcomeMsg);
+      }
+
+      setSession(session.id, session);
       return NextResponse.json(session);
     }
 
     // ── POST /message — Send Message & Get AI Reply ────────────
     if (endpoint === 'message') {
       // ── Try backend proxy first (LangGraph 13-stage pipeline + RAG + PostgreSQL) ──
-      const proxyResult = await proxyToBackend(request, path);
+      const proxyResult = await proxyToBackend(request, path, rawBody);
       console.log(`[Jarvis] Backend proxy ${proxyResult ? 'succeeded' : 'failed, using local fallback'}`);
       if (proxyResult) return proxyResult;
 
-      // ── Local fallback: in-memory handling ──
-      const body = await request.json();
-      const { content, session_id, context: incomingContext } = body;
+      // ── Local fallback: in-memory handling (uses pre-read bodyData) ──
+      if (!bodyData) {
+        return NextResponse.json({ error: { code: 'bad_request', message: 'Invalid request body', details: null } }, { status: 400 });
+      }
+      const { content, session_id, context: incomingContext, recent_messages, total_sent: frontendTotalSent } = bodyData;
 
-      let session = session_id ? sessions.get(session_id) : undefined;
+      let session = session_id ? getSession(session_id) : undefined;
       if (!session) {
+        // Server session lost — create new one and seed with frontend messages if available
         session = createDefaultSession('direct');
-        sessions.set(session.id, session);
+        // Restore conversation history from frontend if available
+        if (Array.isArray(recent_messages) && recent_messages.length > 0) {
+          session.messages = recent_messages;
+          session.message_count_today = typeof frontendTotalSent === 'number' ? frontendTotalSent : 0;
+          session.total_message_count = session.message_count_today;
+          session.remaining_today = Math.max(0, 20 - session.message_count_today);
+          session.detected_stage = 'discovery';
+          session.context.detected_stage = 'discovery';
+        }
+        setSession(session.id, session);
       }
 
       // ── Merge incoming context from frontend BEFORE building AI response ──
@@ -1166,7 +1061,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           }
         }
         session.updated_at = new Date().toISOString();
-        sessions.set(session.id, session);
+        setSession(session.id, session);
       }
 
       if (!content || typeof content !== 'string') {
@@ -1188,6 +1083,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           if (!session.context.concerns_raised) session.context.concerns_raised = [];
           session.context.concerns_raised.push(concern);
         }
+      }
+
+      // Use frontend-tracked message count if available (more reliable than server count
+      // because server sessions can be lost on serverless cold starts)
+      if (typeof frontendTotalSent === 'number' && frontendTotalSent > session.message_count_today) {
+        session.message_count_today = frontendTotalSent;
+        session.total_message_count = frontendTotalSent;
       }
 
       const userMsg = {
@@ -1243,7 +1145,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         }
       }
 
-      sessions.set(session.id, session);
+      setSession(session.id, session);
       return NextResponse.json(aiMsg);
     }
 
@@ -1251,14 +1153,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (endpoint === 'context') {
       const url = new URL(request.url);
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const body = await request.json();
-      const session = sessions.get(sessionId);
+      const body = bodyData || {};
+      const session = getSession(sessionId);
       session.context = { ...session.context, ...body };
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      setSession(sessionId, session);
       return NextResponse.json(session);
     }
 
@@ -1269,17 +1171,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!sessionId) {
         return NextResponse.json({ error: { code: 'bad_request', message: 'session_id required', details: null } }, { status: 400 });
       }
-      const body = await request.json();
+      const body = bodyData || {};
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      if (sessions.has(sessionId)) {
-        const session = sessions.get(sessionId);
+      if (hasSession(sessionId)) {
+        const session = getSession(sessionId);
         session.context = {
           ...session.context,
           otp: { code: otp, email: body.email, attempts: 0, attempts_remaining: 3, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), status: 'sent' },
         };
         // Phase 10e: Create action ticket for OTP
         const ticket = createActionTicket(session, 'otp_verification', { email: body.email, otp_status: 'sent' });
-        sessions.set(sessionId, session);
+        setSession(sessionId, session);
         return NextResponse.json({ message: `OTP sent to ${body.email} (demo: ${otp})`, status: 'sent', attempts_remaining: 3, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), ticket_id: ticket.id });
       }
       return NextResponse.json({ message: `OTP sent to ${body.email} (demo: ${otp})`, status: 'sent', attempts_remaining: 3, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() });
@@ -1289,11 +1191,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (endpoint === 'verify/verify-otp') {
       const url = new URL(request.url);
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const body = await request.json();
-      const session = sessions.get(sessionId);
+      const body = bodyData || {};
+      const session = getSession(sessionId);
       const otpData = session.context.otp;
       if (!otpData || otpData.code !== body.code) {
         return NextResponse.json({ message: 'Invalid OTP code. Please try again.', status: 'failed', attempts_remaining: Math.max(0, (Number(otpData?.attempts_remaining || 3)) - 1) });
@@ -1305,7 +1207,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         updateActionTicket(session, otpTickets[otpTickets.length - 1].id, { status: 'completed' });
       }
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      setSession(sessionId, session);
       return NextResponse.json({ message: 'Email verified successfully!', status: 'verified', attempts_remaining: Number(otpData?.attempts_remaining) });
     }
 
@@ -1313,10 +1215,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (endpoint === 'demo-pack/purchase') {
       const url = new URL(request.url);
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const session = sessions.get(sessionId);
+      const session = getSession(sessionId);
       session.pack_type = 'demo';
       session.remaining_today = 500;
 
@@ -1350,7 +1252,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       session.messages.push(paymentCardMsg);
 
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      setSession(sessionId, session);
       return NextResponse.json({ message: 'Demo pack activated! You now have 500 messages.', pack_type: 'demo', pack_expiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), remaining_today: 500, demo_call_remaining: true, bill_summary: billSummary, ticket_id: ticket.id });
     }
 
@@ -1358,11 +1260,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (endpoint === 'payment/create') {
       const url = new URL(request.url);
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const session = sessions.get(sessionId);
-      const body = await request.json();
+      const session = getSession(sessionId);
+      const body = bodyData || {};
 
       // Phase 10a: Enhanced itemized checkout
       const items: Array<{ name: string; quantity: number; unit_price: number; total: number }> = [];
@@ -1421,7 +1323,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       session.messages.push(paymentCardMsg);
 
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      setSession(sessionId, session);
       return NextResponse.json({ checkout_url: checkoutUrl, transaction_id: transactionId, status: 'pending', amount: `$${total.toFixed(2)}/mo`, currency: 'USD', items, subtotal, tax, total, ticket_id: ticket.id });
     }
 
@@ -1432,14 +1334,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!sessionId) {
         return NextResponse.json({ error: { code: 'bad_request', message: 'session_id required', details: null } }, { status: 400 });
       }
-      const body = await request.json();
+      const body = bodyData || {};
       // Phase 10e: Create action ticket for demo call
       let ticketId: string | undefined;
-      if (sessionId && sessions.has(sessionId)) {
-        const session = sessions.get(sessionId);
+      if (sessionId && hasSession(sessionId)) {
+        const session = getSession(sessionId);
         const ticket = createActionTicket(session, 'demo_call', { phone: body.phone, duration_limit: 300 });
         ticketId = ticket.id;
-        sessions.set(sessionId, session);
+        setSession(sessionId, session);
       }
       return NextResponse.json({ call_id: `call_${Date.now()}`, status: 'initiated', phone: body.phone, duration_limit: 300, message: `Demo call initiated to ${body.phone}. You'll receive a call within 30 seconds.`, ticket_id: ticketId });
     }
@@ -1448,10 +1350,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (endpoint === 'handoff') {
       const url = new URL(request.url);
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const session = sessions.get(sessionId);
+      const session = getSession(sessionId);
       session.handoff_completed = true;
       session.detected_stage = 'handoff';
       session.context.detected_stage = 'handoff';
@@ -1465,20 +1367,33 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       });
 
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      setSession(sessionId, session);
       return NextResponse.json({ handoff_completed: true, new_session_id: null, handoff_at: new Date().toISOString(), ticket_id: ticket.id });
     }
 
     // ── POST /context/entry — Update Entry Context ────────────
     if (endpoint === 'context/entry') {
-      const body = await request.json();
+      const body = bodyData || {};
       const { session_id, entry_source, entry_params } = body;
 
-      if (!session_id || !sessions.has(session_id)) {
-        return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
+      // If server session is gone, create a new one and seed with frontend data
+      let session: any;
+      if (!session_id || !hasSession(session_id)) {
+        session = createDefaultSession(entry_source || 'direct', entry_params);
+        // Restore messages from entry_params if available
+        if (Array.isArray(entry_params?.previous_messages) && entry_params.previous_messages.length > 0) {
+          session.messages = entry_params.previous_messages;
+          const prevSent = typeof entry_params?.total_sent === 'number' ? entry_params.total_sent : 0;
+          session.message_count_today = prevSent;
+          session.total_message_count = prevSent;
+          session.remaining_today = Math.max(0, 20 - prevSent);
+          session.detected_stage = 'discovery';
+          session.context.detected_stage = 'discovery';
+        }
+        setSession(session.id, session);
+      } else {
+        session = getSession(session_id);
       }
-
-      const session = sessions.get(session_id);
 
       // Build enhanced context from entry params (Phase 9a)
       const params = entry_params || {};
@@ -1500,8 +1415,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         session.context.entry_params = { ...session.context.entry_params, ...params };
       }
 
-      // Phase 8b: Generate context-aware welcome message
-      const welcomeContent = getContextAwareWelcome(session.context.entry_source, session.context);
+      // Generate context-aware welcome message via AI (unique each time)
+      let welcomeContent = '';
+      try {
+        const welcomePrompt = buildSystemPrompt(session);
+        const entryContext = buildEntryContext(session.context);
+        // Add randomness seed to ensure different messages each time
+        const randomSeed = Date.now();
+        const aiMessages = [
+          { role: 'system', content: welcomePrompt },
+          { role: 'user', content: `The user just came from a new page/context. Context: ${entryContext}. They clicked "${entry_source || 'free demo'}" to explore. Generate a short, natural, UNIQUE message acknowledging this. Be specific about what they clicked. Be conversational, not sales-y. Make it different every time (seed: ${randomSeed}). If they selected a variant, explain how it works for their industry and mention they can access features through the dashboard or by chatting with you.` },
+        ];
+        const aiWelcome = await callAI(aiMessages);
+        welcomeContent = aiWelcome || getContextAwareWelcome(session.context.entry_source, session.context);
+      } catch {
+        welcomeContent = getContextAwareWelcome(session.context.entry_source, session.context);
+      }
 
       const welcomeMsg = {
         id: `jarvis_entry_${Date.now()}`,
@@ -1514,20 +1443,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       };
       session.messages.push(welcomeMsg);
       session.updated_at = new Date().toISOString();
-      sessions.set(session.id, session);
+      setSession(session.id, session);
       return NextResponse.json({ session, new_welcome: welcomeMsg });
     }
 
     // ── POST /payment/webhook — Simulated Paddle Webhook ─────────
     if (endpoint === 'payment/webhook') {
-      const body = await request.json();
+      const body = bodyData || {};
       const { session_id, event_type, transaction_id } = body;
 
-      if (!session_id || !sessions.has(session_id)) {
+      if (!session_id || !hasSession(session_id)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
 
-      const session = sessions.get(session_id);
+      const session = getSession(session_id);
 
       if (event_type === 'payment.completed') {
         session.payment_status = 'completed';
@@ -1578,26 +1507,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
 
       session.updated_at = new Date().toISOString();
-      sessions.set(session.id, session);
+      setSession(session.id, session);
       return NextResponse.json({ received: true, event_type, payment_status: session.payment_status });
     }
 
     // ── POST /tickets — Create Action Ticket ─────────────────────
     if (endpoint === 'tickets') {
-      const body = await request.json();
+      const body = bodyData || {};
       const { session_id, type, metadata } = body;
 
-      if (!session_id || !sessions.has(session_id)) {
+      if (!session_id || !hasSession(session_id)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
       if (!type) {
         return NextResponse.json({ error: { code: 'bad_request', message: 'Ticket type is required', details: null } }, { status: 400 });
       }
 
-      const session = sessions.get(session_id);
+      const session = getSession(session_id);
       const ticket = createActionTicket(session, type, metadata || {});
       session.updated_at = new Date().toISOString();
-      sessions.set(session.id, session);
+      setSession(session.id, session);
       return NextResponse.json(ticket, { status: 201 });
     }
 
@@ -1618,10 +1547,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // ── GET /session ──────────────────────────────────────────
     if (endpoint === 'session') {
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      return NextResponse.json(sessions.get(sessionId));
+      return NextResponse.json(getSession(sessionId));
     }
 
     // ── GET /history ───────────────────────────────────────────
@@ -1630,11 +1559,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const limit = parseInt(url.searchParams.get('limit') || '100', 10);
       const offset = parseInt(url.searchParams.get('offset') || '0', 10);
 
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ messages: [], total: 0, limit, offset, has_more: false });
       }
 
-      const session = sessions.get(sessionId)!;
+      const session = getSession(sessionId)!;
       const allMessages = session.messages;
       const paged = allMessages.slice(offset, offset + limit);
       return NextResponse.json({ messages: paged, total: allMessages.length, limit, offset, has_more: offset + limit < allMessages.length });
@@ -1643,20 +1572,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // ── GET /demo-pack/status ─────────────────────────────────
     if (endpoint === 'demo-pack/status') {
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const session = sessions.get(sessionId)!;
+      const session = getSession(sessionId)!;
       return NextResponse.json({ pack_type: session.pack_type, remaining_today: session.remaining_today, total_allowed: session.pack_type === 'demo' ? 50 : 20, pack_expiry: session.pack_type === 'demo' ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : null, demo_call_remaining: !session.context.demo_call_used });
     }
 
     // ── GET /payment/status — Payment Status Check ───────────────
     if (endpoint === 'payment/status') {
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const session = sessions.get(sessionId)!;
+      const session = getSession(sessionId)!;
       const paymentData = session.context.payment_data;
       return NextResponse.json({
         payment_status: session.payment_status,
@@ -1676,10 +1605,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // ── GET /tickets — List Session Tickets ──────────────────────
     if (endpoint === 'tickets') {
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const session = sessions.get(sessionId)!;
+      const session = getSession(sessionId)!;
       const tickets = session.context.action_tickets || [];
       const typeFilter = url.searchParams.get('type');
       const statusFilter = url.searchParams.get('status');
@@ -1695,10 +1624,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (endpoint.startsWith('tickets/') && endpoint.split('/').length === 2) {
       const ticketId = endpoint.split('/')[1];
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const session = sessions.get(sessionId)!;
+      const session = getSession(sessionId)!;
       const tickets = session.context.action_tickets || [];
       const ticket = tickets.find((t: any) => t.id === ticketId);
       if (!ticket) {
@@ -1720,18 +1649,27 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const endpoint = path.join('/');
   const url = new URL(request.url);
 
+  // ── Read body ONCE at the top (Next.js 16 body-is-unusable fix) ──
+  let bodyData: any = null;
+  try {
+    const rawBody = await request.arrayBuffer();
+    bodyData = JSON.parse(new TextDecoder().decode(rawBody));
+  } catch {
+    // No body or unparseable — that's okay for some endpoints
+  }
+
   try {
     // ── PATCH /context ────────────────────────────────────────
     if (endpoint === 'context') {
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const body = await request.json();
-      const session = sessions.get(sessionId)!;
+      const body = bodyData || {};
+      const session = getSession(sessionId)!;
       session.context = { ...session.context, ...body };
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      setSession(sessionId, session);
       return NextResponse.json(session);
     }
 
@@ -1740,17 +1678,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const parts = endpoint.split('/');
       const ticketId = parts[1];
       const sessionId = url.searchParams.get('session_id');
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !hasSession(sessionId)) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
-      const body = await request.json();
-      const session = sessions.get(sessionId)!;
+      const body = bodyData || {};
+      const session = getSession(sessionId)!;
       const updated = updateActionTicket(session, ticketId, { status: body.status, metadata: body.metadata });
       if (!updated) {
         return NextResponse.json({ error: { code: 'not_found', message: 'Ticket not found', details: null } }, { status: 404 });
       }
       session.updated_at = new Date().toISOString();
-      sessions.set(sessionId, session);
+      setSession(sessionId, session);
       return NextResponse.json(updated);
     }
 

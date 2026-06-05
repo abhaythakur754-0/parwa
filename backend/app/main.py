@@ -110,6 +110,10 @@ from app.api.ai_classification import router as ai_classification_router  # AI c
 from app.api.ai_signals import router as ai_signals_router  # AI signal extraction
 from app.api.rag import router as rag_router  # RAG retrieval
 from app.api.response import router as response_api_router  # Response generation + brand voice + assignment + migration
+from app.api.gdpr import router as gdpr_router  # Phase 15: GDPR & Data Lifecycle (Art. 15/17/20, BC-010)
+from app.api.shadow_mode import router as shadow_mode_router  # Shadow Mode: SHADOW→SUPERVISED→GRADUATED pipeline
+from app.api.jarvis_chat import router as jarvis_chat_router  # Jarvis natural language chat interface
+from app.api.leads import router as leads_router  # Lead management: stats & listing endpoints
 
 from app.api.deps import get_current_user
 from database.models.core import User
@@ -205,6 +209,68 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger = get_logger("lifespan")
         logger.warning("alembic_migrations_error", error=str(exc))
+
+    # ── Fallback: Ensure tables exist via create_all() ──
+    # If Alembic failed or was skipped, use SQLAlchemy's create_all()
+    # to ensure all required tables exist. This is safe to run on
+    # existing tables (it's a no-op for tables that already exist).
+    try:
+        from database.base import Base, engine, check_db_health
+        health = await check_db_health()
+        if health["status"] == "healthy":
+            # Import all models so they register with Base.metadata
+            import database.models.core  # noqa: F401
+            import database.models.billing  # noqa: F401
+            import database.models.tickets  # noqa: F401
+            import database.models.ai_pipeline  # noqa: F401
+            import database.models.approval  # noqa: F401
+            import database.models.analytics  # noqa: F401
+            import database.models.training  # noqa: F401
+            import database.models.integration  # noqa: F401
+            import database.models.onboarding  # noqa: F401
+            import database.models.core_rate_limit  # noqa: F401
+            import database.models.phone_otp  # noqa: F401
+            import database.models.api_key_audit  # noqa: F401
+            import database.models.webhook_event  # noqa: F401
+            import database.models.remaining  # noqa: F401
+            import database.models.jarvis  # noqa: F401
+            import database.models.billing_extended  # noqa: F401
+            import database.models.user_details  # noqa: F401
+            import database.models.variant_engine  # noqa: F401
+            import database.models.technique  # noqa: F401
+            import database.models.chat_widget  # noqa: F401
+            import database.models.business_email_otp  # noqa: F401
+            import database.models.outbound_email  # noqa: F401
+            import database.models.jarvis_cc  # noqa: F401
+            import database.models.email_channel  # noqa: F401
+            import database.models.ooo_detection  # noqa: F401
+            import database.models.email_bounces  # noqa: F401
+            import database.models.sms_channel  # noqa: F401
+            import database.models.email_delivery_event  # noqa: F401
+            import database.models.activity_log  # noqa: F401
+            import database.models.voice_channel  # noqa: F401
+            import database.models.gdpr  # noqa: F401
+            import database.models.shadow_mode  # noqa: F401
+            import database.models.jarvis_activity  # noqa: F401
+            Base.metadata.create_all(bind=engine)
+            logger = get_logger("lifespan")
+            logger.info(
+                "database_tables_verified",
+                table_count=len(Base.metadata.tables),
+            )
+        else:
+            logger = get_logger("lifespan")
+            logger.warning(
+                "database_tables_verify_skipped",
+                reason="db_unhealthy",
+                error=health.get("error", ""),
+            )
+    except Exception as exc:
+        logger = get_logger("lifespan")
+        logger.warning(
+            "database_tables_verify_failed",
+            error=str(exc),
+        )
 
     # Hide OpenAPI schema when not in debug mode (BC-011)
     if settings.DEBUG:
@@ -312,15 +378,22 @@ try:
     _docs_url = "/docs" if _init_settings.DEBUG else None
     _redoc_url = "/redoc" if _init_settings.DEBUG else None
     _openapi_url = "/openapi.json" if _init_settings.DEBUG else None
-except Exception:
+except Exception as _settings_exc:
+    _init_settings = None
     _docs_url = None
     _redoc_url = None
     _openapi_url = None
+    import logging as _logging
+    _logging.getLogger("parwa.startup").critical(
+        "Failed to load settings — check required env vars (SECRET_KEY, "
+        "JWT_SECRET_KEY, DATA_ENCRYPTION_KEY, PRICING_SIGNING_KEY): %s",
+        _settings_exc,
+    )
 
 app = FastAPI(
     title="PARWA API",
     description="AI-Powered Customer Support Platform",
-    version=_init_settings.APP_VERSION,  # R-05: Single source of truth from config
+    version=_init_settings.APP_VERSION if _init_settings else "0.0.0",
     lifespan=lifespan,
     docs_url=_docs_url,
     redoc_url=_redoc_url,
@@ -374,6 +447,14 @@ try:
         if _settings.CORS_ORIGINS
         else [_settings.FRONTEND_URL]
     )
+    # Ensure both production frontend URLs are always included
+    _PRODUCTION_FRONTENDS = [
+        "https://parwafrontend.vercel.app",
+        "https://parwa.buzz",
+    ]
+    for url in _PRODUCTION_FRONTENDS:
+        if url not in _cors_origins:
+            _cors_origins.append(url)
 except Exception:
     # Fail closed: restrict to localhost rather than open wildcard
     _cors_origins = ["http://localhost:3000"]
@@ -389,7 +470,7 @@ app.add_middleware(
 
 # ── Routers ────────────────────────────────────────────────────────
 
-app.include_router(health_router)
+app.include_router(health_router, prefix="/api")  # /api/health for UptimeRobot & Render health check
 app.include_router(auth_router)
 app.include_router(mfa_router)
 app.include_router(api_keys_router)
@@ -473,6 +554,18 @@ app.include_router(rag_router, tags=["rag"])  # prefix: /api/rag
 
 # Response generation + brand voice + AI assignment + migration
 app.include_router(response_api_router, tags=["response"])  # combined router with sub-routers
+
+# Phase 15: GDPR & Data Lifecycle (Art. 15/17/20, BC-010)
+app.include_router(gdpr_router, tags=["gdpr"])  # prefix: /api/v1/gdpr
+
+# Shadow Mode: variant deployment pipeline (SHADOW → SUPERVISED → GRADUATED)
+app.include_router(shadow_mode_router, tags=["shadow-mode"])  # prefix: /api/shadow-mode
+
+# Jarvis natural language chat (session/message/history)
+app.include_router(jarvis_chat_router, tags=["jarvis-chat"])  # prefix: /api/jarvis/chat
+
+# Lead management (stats & listing)
+app.include_router(leads_router, tags=["leads"])  # prefix: /api/leads
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───

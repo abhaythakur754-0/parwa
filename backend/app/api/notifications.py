@@ -229,7 +229,7 @@ async def send_notification(
 
 @router.post("/digest", response_model=Dict[str, Any])
 async def create_digest(
-    period: str = Query("daily", regex="^(daily|weekly)$"),
+    period: str = Query("daily", pattern="^(daily|weekly)$"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     tenant: Dict = Depends(get_tenant_context),

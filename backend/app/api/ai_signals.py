@@ -42,10 +42,48 @@ class CLARAEvaluateRequest(BaseModel):
     brand_voice: Optional[Dict[str, Any]] = Field(default=None)
 
 
+class SentimentTechniqueRequest(BaseModel):
+    """Request body for sentiment → technique mapping (F-151)."""
+
+    frustration_score: float = Field(
+        ..., ge=0.0, le=100.0,
+        description="Frustration score (0-100)",
+    )
+    sentiment_score: float = Field(
+        ..., ge=0.0, le=1.0,
+        description="Sentiment score (0.0-1.0, from signal extraction)",
+    )
+    urgency_level: str = Field(
+        default="low",
+        description="Urgency level: low, medium, high, critical",
+    )
+    customer_tier: str = Field(
+        default="free",
+        description="Customer tier: free, pro, enterprise, vip",
+    )
+    emotion: str = Field(
+        default="neutral",
+        description="Primary emotion classification",
+    )
+    is_vip: bool = Field(
+        default=False,
+        description="Whether the customer is VIP",
+    )
+    variant_type: str = Field(
+        default="parwa",
+        description="PARWA variant: mini_parwa, parwa, parwa_high",
+    )
+    company_id: str = Field(
+        default="",
+        description="Tenant identifier (BC-001)",
+    )
+
+
 # ── Singletons ────────────────────────────────────────────────────────
 
 _extractor = None
 _clara = None
+_sentiment_mapper = None
 
 
 def _get_extractor():
@@ -65,6 +103,23 @@ def _get_clara(brand_voice_config=None):
             bv = BrandVoiceConfig(**brand_voice_config)
         _clara = CLARAQualityGate(brand_voice=bv)
     return _clara
+
+
+def _get_sentiment_mapper():
+    """Lazy-load SentimentTechniqueMapper (BC-008: never crash)."""
+    global _sentiment_mapper
+    if _sentiment_mapper is None:
+        try:
+            from app.services.sentiment_technique_mapper import SentimentTechniqueMapper
+            _sentiment_mapper = SentimentTechniqueMapper()
+        except Exception as exc:
+            import logging
+            logging.getLogger("signals_api").error(
+                "sentiment_mapper_init_failed",
+                error=str(exc),
+            )
+            _sentiment_mapper = None
+    return _sentiment_mapper
 
 
 # ── Endpoints ────────────────────────────────────────────────────────
@@ -141,6 +196,63 @@ async def evaluate_clara(req: CLARAEvaluateRequest) -> Dict[str, Any]:
             for s in result.stages
         ],
     }
+
+
+@router.post("/sentiment-techniques")
+async def map_sentiment_to_techniques(
+    req: SentimentTechniqueRequest,
+) -> Dict[str, Any]:
+    """Map sentiment signals to recommended AI techniques (F-151).
+
+    Uses SentimentTechniqueMapper to recommend techniques based on
+    frustration score, sentiment score, urgency, customer tier,
+    and VIP status. Applies variant-aware tier filtering (GAP-001).
+
+    Returns:
+        recommended_techniques: List of technique IDs
+        technique_reasons: Dict mapping technique ID → reason
+        priority_override: Whether to bypass normal selection
+        escalation_recommended: Whether human escalation is recommended
+        tone_adjustments: List of tone adjustment instructions
+        blocked_techniques: Techniques blocked by variant tier limit
+    """
+    mapper = _get_sentiment_mapper()
+
+    if mapper is None:
+        return {
+            "recommended_techniques": ["chain_of_thought"],
+            "technique_reasons": {"chain_of_thought": "Fallback — mapper unavailable"},
+            "priority_override": False,
+            "escalation_recommended": False,
+            "tone_adjustments": [],
+            "variant_type": req.variant_type,
+            "blocked_techniques": [],
+            "_fallback_reason": "sentiment_mapper_unavailable",
+        }
+
+    try:
+        result = mapper.map(
+            frustration_score=req.frustration_score,
+            sentiment_score=req.sentiment_score,
+            urgency_level=req.urgency_level,
+            customer_tier=req.customer_tier,
+            emotion=req.emotion,
+            is_vip=req.is_vip,
+            variant_type=req.variant_type,
+            company_id=req.company_id,
+        )
+        return result.to_dict()
+    except Exception as exc:
+        return {
+            "recommended_techniques": ["chain_of_thought"],
+            "technique_reasons": {"chain_of_thought": f"Fallback — {exc!s}"},
+            "priority_override": False,
+            "escalation_recommended": False,
+            "tone_adjustments": [],
+            "variant_type": req.variant_type,
+            "blocked_techniques": [],
+            "_fallback_reason": "internal_error",
+        }
 
 
 @router.get("/info")

@@ -35,6 +35,7 @@ from fastapi.responses import JSONResponse, Response
 
 from app.api.deps import get_current_user
 from database.models.core import User
+from app.core.parwa_voice_server import ParwaVoiceServer, ParwaVoiceConfig, ParwaVoiceResponseBuilder  # noqa: F401
 
 logger = logging.getLogger("parwa.voice_channel_api")
 

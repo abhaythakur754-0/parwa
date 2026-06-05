@@ -1,22 +1,21 @@
 /**
- * PARWA useJarvisChat Hook (Week 6 — Day 2 Phase 4)
+ * PARWA useJarvisChat Hook
  *
- * React hook managing all Jarvis onboarding chat state.
- * Single source of truth for the chat UI.
+ * React hook managing all Jarvis chat state.
  *
- * State:
- *   - messages, session, loading/typing states
- *   - Flow states: otp, payment, handoff, demo call
- *   - Error state
+ * ARCHITECTURE:
+ *   - Messages are the PRIMARY source of truth, stored in localStorage
+ *   - Server sessions are ephemeral (lost on serverless cold starts)
+ *   - Conversation history is sent with each API call (RAG-lite)
+ *   - Entry context is handled AFTER session is ready, not during init
  *
- * Actions:
- *   - initSession(), sendMessage(), retryLastMessage()
- *   - updateContext(), sendOtp(), verifyOtp()
- *   - purchaseDemoPack(), createPayment()
- *   - initiateDemoCall(), executeHandoff()
- *   - clearError()
- *
- * Based on: JARVIS_SPECIFICATION.md v3.0 / JARVIS_ROADMAP.md v4.0
+ * Flow:
+ *   1. On mount: Load messages + count from localStorage SYNCHRONOUSLY
+ *   2. Create or resume server session (async)
+ *   3. When entrySource/entryParams change AFTER session is ready:
+ *      - Send context to server
+ *      - Generate contextual AI message if user came from Free Demo
+ *   4. All messages saved to localStorage on every change
  */
 
 'use client';
@@ -30,18 +29,11 @@ import type {
   JarvisSessionCreateRequest,
   JarvisMessageSendRequest,
   JarvisContextUpdateRequest,
-  JarvisEntryContextRequest,
   JarvisOtpRequest,
   JarvisOtpVerifyRequest,
   JarvisPaymentCreateRequest,
   JarvisPaymentCreateResponse,
   JarvisDemoCallRequest,
-  JarvisActionTicketCreateRequest,
-  JarvisActionTicketUpdateStatusRequest,
-  OtpState,
-  PaymentState,
-  HandoffState,
-  DemoCallState,
   MessageType,
   ParwaApiError,
   JarvisPurchaseResponse,
@@ -50,74 +42,89 @@ import type {
   JarvisHandoffStatusResponse,
   VariantSelection,
   EntrySource,
+  OtpState,
+  PaymentState,
+  HandoffState,
+  DemoCallState,
 } from '@/types/jarvis';
 
 // ── Constants ─────────────────────────────────────────────────────
 
-const DEFAULT_OTP_STATE: OtpState = {
-  status: 'idle',
-  email: '',
-  attempts: 0,
-  expires_at: null,
-};
+const FREE_MESSAGE_LIMIT = 20;
 
-const DEFAULT_PAYMENT_STATE: PaymentState = {
-  status: 'idle',
-  paddle_url: null,
-  error: null,
-};
+const DEFAULT_OTP_STATE: OtpState = { status: 'idle', email: '', attempts: 0, expires_at: null };
+const DEFAULT_PAYMENT_STATE: PaymentState = { status: 'idle', paddle_url: null, error: null };
+const DEFAULT_HANDOFF_STATE: HandoffState = { status: 'idle', new_session_id: null };
+const DEFAULT_DEMO_CALL_STATE: DemoCallState = { status: 'idle', phone: null, duration: 0 };
 
-const DEFAULT_HANDOFF_STATE: HandoffState = {
-  status: 'idle',
-  new_session_id: null,
-};
+// ── localStorage Keys ─────────────────────────────────────────────
 
-const DEFAULT_DEMO_CALL_STATE: DemoCallState = {
-  status: 'idle',
-  phone: null,
-  duration: 0,
-};
+const LS_SESSION_ID = 'parwa_jarvis_session_id';
+const LS_MESSAGES = 'parwa_jarvis_messages';
+const LS_TOTAL_SENT = 'parwa_jarvis_total_sent';
+const LS_LAST_ENTRY = 'parwa_jarvis_last_entry';
+
+// ── localStorage Helpers ──────────────────────────────────────────
+
+function lsGet<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) as T : fallback;
+  } catch { return fallback; }
+}
+
+function lsSet(key: string, value: unknown): void {
+  if (typeof window === 'undefined') return;
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+}
+
+// ── Synchronous localStorage readers (for useState initializers) ──
+
+function readStoredMessages(): JarvisMessage[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(LS_MESSAGES);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function readStoredTotalSent(): number {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const raw = localStorage.getItem(LS_TOTAL_SENT);
+    return raw ? parseInt(raw, 10) || 0 : 0;
+  } catch { return 0; }
+}
 
 // ── API Helper ────────────────────────────────────────────────────
 
 const API_BASE = '/api/jarvis';
 
-async function apiFetch<T>(
-  endpoint: string,
-  options: RequestInit = {},
-): Promise<T> {
+async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
-
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...((options.headers as Record<string, string>) || {}),
   };
-
-  const response = await fetch(url, {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
-
+  const response = await fetch(url, { ...options, headers, credentials: 'include' });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      (errorData as ParwaApiError)?.error?.message ||
-        `API error: ${response.status}`,
-    );
+    throw new Error((errorData as ParwaApiError)?.error?.message || `API error: ${response.status}`);
   }
-
   return response.json() as Promise<T>;
 }
 
 // ── Hook ──────────────────────────────────────────────────────────
 
 export function useJarvisChat(entrySource?: string, entryParams?: Record<string, unknown>) {
-  // ── State ───────────────────────────────────────────────────────
+  // ── State — initialized SYNCHRONOUSLY from localStorage ────────
+  // This prevents flash of empty state. Messages appear instantly.
 
-  const [messages, setMessages] = useState<JarvisMessage[]>([]);
+  const [messages, setMessages] = useState<JarvisMessage[]>(() => readStoredMessages());
+  const [totalSent, setTotalSent] = useState<number>(() => readStoredTotalSent());
   const [session, setSession] = useState<JarvisSession | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Not loading — messages already from localStorage
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -129,33 +136,78 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
 
   // Refs
   const sessionRef = useRef<string | null>(null);
-  const initCalledRef = useRef(false);
-  const initFailedRef = useRef(false);
+  const sessionReadyRef = useRef(false);
   const isSendingRef = useRef(false);
   const msgCounterRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  const lastProcessedEntryRef = useRef<string>('');
 
-  // ── Computed Values ─────────────────────────────────────────────
+  // ── Computed ─────────────────────────────────────────────────────
 
-  const remainingToday = session?.remaining_today ?? 20;
-  const isLimitReached = remainingToday <= 0;
+  const remainingToday = Math.max(0, FREE_MESSAGE_LIMIT - totalSent);
+  const isLimitReached = remainingToday <= 0 && session?.pack_type !== 'demo';
   const isDemoPackActive = session?.pack_type === 'demo';
 
-  // ── Init Session ────────────────────────────────────────────────
+  // ── Save messages to localStorage on every change ────────────────
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      lsSet(LS_MESSAGES, messages);
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    lsSet(LS_TOTAL_SENT, totalSent);
+  }, [totalSent]);
+
+  // ── Phase 1: Create or resume server session (runs ONCE) ────────
 
   const initSession = useCallback(async () => {
-    if (initCalledRef.current && !initFailedRef.current) return;
-    initCalledRef.current = true;
-    initFailedRef.current = false;
+    // Only run once
+    if (sessionReadyRef.current) return;
 
     setIsLoading(true);
-    setError(null);
 
     try {
-      const body: JarvisSessionCreateRequest = {
-        entry_source: (entrySource as EntrySource) || 'direct',
-        entry_params: entryParams,
-      };
+      const storedSessionId = lsGet<string | null>(LS_SESSION_ID, null);
+      const hasExistingChat = readStoredMessages().length > 0;
+
+      // Try to resume existing server session
+      if (storedSessionId) {
+        try {
+          const existingSession = await apiFetch<JarvisSession>(`/session?session_id=${storedSessionId}`);
+          if (existingSession && existingSession.is_active) {
+            sessionRef.current = existingSession.id;
+            sessionReadyRef.current = true;
+            setSession(existingSession);
+
+            // Merge server messages with local (use whichever has more)
+            const history = await apiFetch<JarvisHistoryResponse>(`/history?session_id=${existingSession.id}&limit=200`);
+            const serverMessages = history.messages || [];
+            setMessages(prev => {
+              if (serverMessages.length > prev.length) return serverMessages;
+              return prev; // Keep local if it has more
+            });
+
+            setIsLoading(false);
+            return; // Session resumed!
+          }
+        } catch {
+          // Server session expired — create new one below
+        }
+      }
+
+      // Create new server session
+      const hasMessages = readStoredMessages().length > 0;
+      const body: Record<string, unknown> = {};
+
+      // If we have existing messages locally, tell server to skip welcome
+      // and seed with our messages so the AI has context
+      if (hasMessages) {
+        body.skip_welcome = true;
+        body.previous_messages = readStoredMessages().slice(-50);
+        body.total_sent = readStoredTotalSent();
+      }
 
       const sessionData = await apiFetch<JarvisSession>('/session', {
         method: 'POST',
@@ -163,492 +215,314 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
       });
 
       sessionRef.current = sessionData.id;
+      sessionReadyRef.current = true;
       setSession(sessionData);
+      lsSet(LS_SESSION_ID, sessionData.id);
 
-      // Load history
-      const history = await apiFetch<JarvisHistoryResponse>(
-        `/history?session_id=${sessionData.id}&limit=100`,
-      );
-
-      setMessages(history.messages || []);
-
-      // Restore OTP state from context if present
-      const ctx = sessionData.context as JarvisContext;
-      if (ctx?.otp?.status === 'sent') {
-        setOtpState({
-          status: 'sent',
-          email: ctx.otp.email || ctx.business_email || '',
-          attempts: ctx.otp.attempts || 0,
-          expires_at: ctx.otp.expires_at || null,
-        });
-      } else if (ctx?.email_verified) {
-        setOtpState((prev) => ({ ...prev, status: 'verified' }));
+      // If server returned a welcome message and we have NO local messages, use it
+      if (!hasMessages && sessionData.messages?.length > 0) {
+        setMessages(sessionData.messages as JarvisMessage[]);
       }
 
-      // ── Phase 9: Cross-Page Context Bridge ──────────────────────
-      // Read pricing/ROI context from localStorage (set by pricing page)
-      if (typeof window !== 'undefined') {
-        try {
-          const storedContext = localStorage.getItem('parwa_jarvis_context');
-          if (storedContext) {
-            const bridgedContext = JSON.parse(storedContext) as Record<string, unknown>;
-            // Transfer pricing selection into session context via API
-            const contextPatch: Partial<JarvisContext> = {};
-            if (bridgedContext.industry) {
-              contextPatch.industry = bridgedContext.industry as string;
-            }
-            if (bridgedContext.selected_variants) {
-              contextPatch.selected_variants = bridgedContext.selected_variants as VariantSelection[];
-            }
-            if (bridgedContext.total_price) {
-              contextPatch.total_price = bridgedContext.total_price as number;
-            }
-            if (bridgedContext.source) {
-              contextPatch.referral_source = bridgedContext.source as string;
-            }
-            if (bridgedContext.roi_result) {
-              contextPatch.roi_result = bridgedContext.roi_result as JarvisContext['roi_result'];
-            }
-            // CRITICAL: Bridge variant/variant_id from Models page click
-            // so the AI system prompt can reference the specific model
-            if (bridgedContext.variant) {
-              contextPatch.variant = bridgedContext.variant as string;
-            }
-            if (bridgedContext.variant_id) {
-              contextPatch.variant_id = bridgedContext.variant_id as string;
-            }
-            // CRITICAL: Bridge variant_tier from Models page click
-            // This is what triggers the variant pipeline routing in the backend.
-            // Without variant_tier, onboarding uses direct AI (legacy path).
-            // With variant_tier, onboarding routes through Mini Parwa / Pro Parwa.
-            // starter → mini_parwa, growth → parwa, high → parwa_high
-            if (bridgedContext.variant_tier) {
-              contextPatch.variant_tier = bridgedContext.variant_tier as string;
-            }
-            // Bridge entry_source so the backend knows the user's journey origin
-            if (bridgedContext.entry_source) {
-              contextPatch.entry_source = bridgedContext.entry_source as EntrySource;
-            }
-            // Push context to backend
-            const hasPatch = Object.keys(contextPatch).length > 0;
-            if (hasPatch) {
-              await apiFetch<JarvisSession>(
-                `/context?session_id=${sessionData.id}`,
-                { method: 'PATCH', body: JSON.stringify(contextPatch) },
-              );
-              // Update local session state
-              setSession((prev) => {
-                if (!prev) return prev;
-                return { ...prev, context: { ...prev.context, ...contextPatch } };
-              });
-            }
-            // NOTE: Do NOT remove parwa_jarvis_context here.
-            // Other pages may still need to read it, and the pushContextToBackend
-            // above already synced it to the backend session.
-          }
-
-          // Also read parwa_pricing_selection as fallback (set by pricing page)
-          if (!storedContext) {
-            const pricingRaw = localStorage.getItem('parwa_pricing_selection');
-            if (pricingRaw) {
-              try {
-                const pricing = JSON.parse(pricingRaw) as Record<string, unknown>;
-                const contextPatch: Partial<JarvisContext> = {};
-                if (pricing.industry) contextPatch.industry = pricing.industry as string;
-                if (pricing.variants) contextPatch.selected_variants = pricing.variants as VariantSelection[];
-                if (pricing.totalMonthly) contextPatch.total_price = pricing.totalMonthly as number;
-                const hasPatch = Object.keys(contextPatch).length > 0;
-                if (hasPatch) {
-                  await apiFetch<JarvisSession>(
-                    `/context?session_id=${sessionData.id}`,
-                    { method: 'PATCH', body: JSON.stringify(contextPatch) },
-                  );
-                  setSession((prev) => {
-                    if (!prev) return prev;
-                    return { ...prev, context: { ...prev.context, ...contextPatch } };
-                  });
-                }
-              } catch { /* ignore */ }
-            }
-          }
-          // Track pages visited for context awareness
-          const visitedRaw = localStorage.getItem('parwa_pages_visited');
-          const visited: string[] = visitedRaw ? JSON.parse(visitedRaw) : [];
-          if (visited.length > 0) {
-            await apiFetch<JarvisSession>(
-              `/context?session_id=${sessionData.id}`,
-              { method: 'PATCH', body: JSON.stringify({ pages_visited: visited } as Partial<JarvisContext>) },
-            ).catch(() => { /* non-critical */ });
-          }
-        } catch {
-          // Non-critical — localStorage bridge failure
-        }
-      }
-    } catch (err) {
-      initFailedRef.current = true;
-      setError(err instanceof Error ? err.message : 'Failed to initialize session');
-    } finally {
       setIsLoading(false);
+    } catch (err) {
+      sessionReadyRef.current = false;
+      setError(err instanceof Error ? err.message : 'Failed to initialize session');
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Run init once on mount
+  useEffect(() => {
+    initSession();
+    return () => { abortRef.current?.abort(); };
+  }, [initSession]);
+
+  // ── Phase 2: Handle entry context changes (runs whenever entrySource/entryParams change) ──
+  // This is SEPARATE from session init. It watches for entry context and
+  // sends it to the server AFTER the session is ready.
+
+  useEffect(() => {
+    if (!sessionReadyRef.current || !sessionRef.current) return;
+    if (!entrySource && !entryParams) return;
+
+    // Build entry key to detect if this entry was already processed
+    const entryKey = `${entrySource || 'none'}_${JSON.stringify(entryParams || {})}`;
+    if (entryKey === lastProcessedEntryRef.current) return;
+    if (entryKey === 'none_{}') return; // No real entry context
+
+    lastProcessedEntryRef.current = entryKey;
+    lsSet(LS_LAST_ENTRY, entryKey);
+
+    const sessionId = sessionRef.current;
+    const hasExistingChat = readStoredMessages().length > 0;
+    const isVariantEntry = entrySource?.includes('models_') || entrySource === 'models_page' || entrySource === 'free_chat';
+
+    // Update server session context with entry info
+    const contextPatch: Record<string, unknown> = {};
+    if (entrySource) contextPatch.entry_source = entrySource;
+    if (entryParams) {
+      for (const [k, v] of Object.entries(entryParams)) {
+        if (v !== null && v !== undefined) contextPatch[k] = v;
+      }
+    }
+
+    // Patch context on server
+    apiFetch<JarvisSession>(`/context?session_id=${sessionId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(contextPatch),
+    }).then(updated => {
+      setSession(updated);
+    }).catch(() => {});
+
+    // If user came from Free Demo / Models page, generate a contextual AI message
+    if (isVariantEntry) {
+      setIsTyping(true);
+      apiFetch<{ session: JarvisSession; new_welcome: JarvisMessage }>('/context/entry', {
+        method: 'POST',
+        body: JSON.stringify({
+          session_id: sessionId,
+          entry_source: entrySource,
+          entry_params: entryParams,
+        }),
+      }).then(result => {
+        if (result.new_welcome) {
+          setMessages(prev => [...prev, result.new_welcome]);
+        }
+        if (result.session) {
+          setSession(result.session);
+        }
+      }).catch(() => {
+        // Contextual message failed — non-critical
+      }).finally(() => {
+        setIsTyping(false);
+      });
     }
   }, [entrySource, entryParams]);
 
-  // Auto-init on mount, abort on unmount
-  useEffect(() => {
-    initSession();
-    return () => {
-      abortRef.current?.abort();
-    };
-  }, [initSession]);
-
   // ── Send Message ────────────────────────────────────────────────
 
-  const sendMessage = useCallback(
-    async (content: string) => {
-      if (isLimitReached) return;
-      if (!content.trim()) return;
-      if (!sessionRef.current) {
-        setError('Session not ready. Please wait or reload.');
-        return;
-      }
-      if (isSendingRef.current) return;
-      isSendingRef.current = true;
+  const sendMessage = useCallback(async (content: string) => {
+    if (!content.trim()) return;
+    if (isLimitReached && session?.pack_type !== 'demo') return;
 
-      setError(null);
-      setIsTyping(true);
+    // If session isn't ready yet, wait a bit
+    if (!sessionRef.current) {
+      setError('Session not ready. Please wait or reload.');
+      return;
+    }
+    if (isSendingRef.current) return;
+    isSendingRef.current = true;
 
-      const sessionId = sessionRef.current;
-      const abortController = new AbortController();
-      abortRef.current = abortController;
-      const { signal } = abortController;
+    setError(null);
+    setIsTyping(true);
 
-      // Optimistically add user message
-      const optimisticUserMsg: JarvisMessage = {
-        id: `temp_${Date.now()}_${++msgCounterRef.current}`,
-        session_id: sessionId || '',
-        role: 'user',
+    const sessionId = sessionRef.current;
+    const abortController = new AbortController();
+    abortRef.current = abortController;
+    const { signal } = abortController.signal;
+
+    // Optimistically add user message
+    const tempId = `temp_${Date.now()}_${++msgCounterRef.current}`;
+    const optimisticUserMsg: JarvisMessage = {
+      id: tempId,
+      session_id: sessionId || '',
+      role: 'user',
+      content: content.trim(),
+      message_type: 'text' as MessageType,
+      metadata: {},
+      timestamp: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, optimisticUserMsg]);
+    setTotalSent(prev => prev + 1);
+
+    try {
+      // Send context + recent messages with each request (RAG-lite)
+      // This ensures the AI always has full conversation history
+      const currentCtx = session?.context || {};
+      const currentMessages = lsGet<JarvisMessage[]>(LS_MESSAGES, []);
+
+      const body: Record<string, unknown> = {
         content: content.trim(),
-        message_type: 'text' as MessageType,
-        metadata: {},
-        timestamp: new Date().toISOString(),
+        session_id: sessionId,
+        context: currentCtx,
+        // ── RAG-lite: Send full conversation history with each request ──
+        // This gives the AI complete awareness of the entire conversation
+        recent_messages: currentMessages.slice(-50),
+        total_sent: lsGet<number>(LS_TOTAL_SENT, 0),
       };
-      setMessages((prev) => [...prev, optimisticUserMsg]);
 
-      try {
-        // ── Attach current session context to every message ──
-        // This ensures the AI always has the latest context even if
-        // the PATCH /context endpoint failed or hasn't completed yet
-        const currentCtx = session?.context || {};
-        const body: JarvisMessageSendRequest & { context?: typeof currentCtx } = {
-          content: content.trim(),
-          session_id: sessionId || undefined,
-          ...(Object.keys(currentCtx).length > 0 ? { context: currentCtx } : {}),
+      const aiMessage = await apiFetch<JarvisMessage>('/message', {
+        method: 'POST',
+        body: JSON.stringify(body),
+        signal: abortController.signal,
+      });
+
+      // Replace optimistic user message + add AI response
+      setMessages(prev => {
+        const filtered = prev.filter(m => m.id !== tempId);
+        const realUserMsg: JarvisMessage = {
+          ...optimisticUserMsg,
+          id: `user_${Date.now()}`,
         };
+        return [...filtered, realUserMsg, aiMessage];
+      });
 
-        const aiMessage = await apiFetch<JarvisMessage>('/message', {
-          method: 'POST',
-          body: JSON.stringify(body),
-          signal,
-        });
+      // Refresh session state
+      try {
+        const updatedSession = await apiFetch<JarvisSession>(`/session?session_id=${sessionId}`);
+        setSession(updatedSession);
+      } catch {}
 
-        // Update session ref if new session was created
-        if (aiMessage.session_id && !sessionRef.current) {
-          sessionRef.current = aiMessage.session_id;
-        }
-
-        // Replace optimistic user message + add AI response
-        setMessages((prev) => {
-          const filtered = prev.filter((m) => m.id !== optimisticUserMsg.id);
-          const realUserMsg: JarvisMessage = {
-            ...optimisticUserMsg,
-            id: `user_${Date.now()}`,
-          };
-          return [...filtered, realUserMsg, aiMessage];
-        });
-
-        // Refresh session for updated limits
-        if (sessionId) {
-          try {
-            const updatedSession = await apiFetch<JarvisSession>(
-              `/session?session_id=${sessionId}`,
-            );
-            setSession(updatedSession);
-          } catch {
-            // Non-critical — session state update failed
-          }
-        }
-      } catch (err) {
-        if ((err as Error)?.name === 'AbortError') return;
-        setError(err instanceof Error ? err.message : 'Failed to send message');
-
-        // Mark optimistic message as error
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === optimisticUserMsg.id
-              ? { ...m, message_type: 'error' as MessageType }
-              : m,
-          ),
-        );
-      } finally {
-        setIsTyping(false);
-        isSendingRef.current = false;
-      }
-    },
-    [isLimitReached],
-  );
+    } catch (err) {
+      if ((err as Error)?.name === 'AbortError') return;
+      setError(err instanceof Error ? err.message : 'Failed to send message');
+      setTotalSent(prev => Math.max(0, prev - 1));
+      setMessages(prev =>
+        prev.map(m => m.id === tempId ? { ...m, message_type: 'error' as MessageType } : m)
+      );
+    } finally {
+      setIsTyping(false);
+      isSendingRef.current = false;
+    }
+  }, [isLimitReached, session?.context, session?.pack_type]);
 
   // ── Retry Last Message ──────────────────────────────────────────
 
   const retryLastMessage = useCallback(async () => {
-    // Find last user message that resulted in error
-    const lastUserMsg = [...messages].reverse().find(
-      (m) => m.role === 'user',
-    );
+    const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
     if (!lastUserMsg) return;
-
-    // Remove the error message
-    setMessages((prev) => {
+    setMessages(prev => {
       const lastIdx = prev.length - 1;
-      if (lastIdx >= 0 && prev[lastIdx].message_type === 'error') {
-        return prev.slice(0, -1);
-      }
-      // Also remove last user message (will be re-added by sendMessage)
-      const userMsgIdx = prev.length - 1;
-      if (userMsgIdx >= 0 && prev[userMsgIdx].role === 'user') {
+      if (lastIdx >= 0 && (prev[lastIdx].message_type === 'error' || prev[lastIdx].role === 'user')) {
         return prev.slice(0, -1);
       }
       return prev;
     });
-
     await sendMessage(lastUserMsg.content);
   }, [messages, sendMessage]);
 
   // ── Update Context ──────────────────────────────────────────────
 
-  const updateContext = useCallback(
-    async (partial: JarvisContextUpdateRequest) => {
-      const sessionId = sessionRef.current;
-      if (!sessionId) return;
-
-      try {
-        await apiFetch<JarvisSession>(
-          `/context?session_id=${sessionId}`,
-          {
-            method: 'PATCH',
-            body: JSON.stringify(partial),
-          },
-        );
-
-        // Update local session state
-        setSession((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            context: { ...prev.context, ...partial },
-          };
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to update context');
-      }
-    },
-    [],
-  );
+  const updateContext = useCallback(async (partial: JarvisContextUpdateRequest) => {
+    const sessionId = sessionRef.current;
+    if (!sessionId) return;
+    try {
+      const updated = await apiFetch<JarvisSession>(`/context?session_id=${sessionId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(partial),
+      });
+      setSession(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update context');
+    }
+  }, []);
 
   // ── OTP Flow ────────────────────────────────────────────────────
 
   const sendOtp = useCallback(async (email: string) => {
     const sessionId = sessionRef.current;
     if (!sessionId) return;
-
-    setOtpState((prev) => ({ ...prev, status: 'sending', email }));
+    setOtpState(prev => ({ ...prev, status: 'sending', email }));
     setError(null);
-
     try {
-      const body: JarvisOtpRequest = { email };
-      const result = await apiFetch<{
-        message: string;
-        status: string;
-        attempts_remaining: number | null;
-        expires_at: string | null;
-      }>(`/verify/send-otp?session_id=${sessionId}`, {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
-
-      setOtpState({
-        status: 'sent',
-        email,
-        attempts: 0,
-        expires_at: result.expires_at,
-      });
+      const result = await apiFetch<{ message: string; status: string; attempts_remaining: number | null; expires_at: string | null }>(
+        `/verify/send-otp?session_id=${sessionId}`,
+        { method: 'POST', body: JSON.stringify({ email }) },
+      );
+      setOtpState({ status: 'sent', email, attempts: 0, expires_at: result.expires_at });
     } catch (err) {
-      setOtpState((prev) => ({ ...prev, status: 'error' }));
+      setOtpState(prev => ({ ...prev, status: 'error' }));
       setError(err instanceof Error ? err.message : 'Failed to send OTP');
     }
   }, []);
 
-  const verifyOtp = useCallback(
-    async (code: string): Promise<boolean> => {
-      if (!code || code.trim().length < 4) {
-        setError('Please enter a valid OTP code (at least 4 digits).');
-        return false;
+  const verifyOtp = useCallback(async (code: string): Promise<boolean> => {
+    if (!code || code.trim().length < 4) { setError('Please enter a valid OTP code.'); return false; }
+    const sessionId = sessionRef.current;
+    if (!sessionId) return false;
+    setOtpState(prev => ({ ...prev, status: 'verifying' }));
+    setError(null);
+    try {
+      const result = await apiFetch<{ message: string; status: string; attempts_remaining: number | null }>(
+        `/verify/verify-otp?session_id=${sessionId}`,
+        { method: 'POST', body: JSON.stringify({ code, email: otpState.email }) },
+      );
+      if (result.status === 'verified') {
+        setOtpState(prev => ({ ...prev, status: 'verified', attempts: prev.attempts + 1 }));
+        setSession(prev => prev ? { ...prev, context: { ...prev.context, email_verified: true } } : prev);
+        return true;
       }
-      const sessionId = sessionRef.current;
-      if (!sessionId) return false;
-
-      setOtpState((prev) => ({ ...prev, status: 'verifying' }));
-      setError(null);
-
-      try {
-        const body: JarvisOtpVerifyRequest = { code, email: otpState.email };
-        const result = await apiFetch<{
-          message: string;
-          status: string;
-          attempts_remaining: number | null;
-        }>(`/verify/verify-otp?session_id=${sessionId}`, {
-          method: 'POST',
-          body: JSON.stringify(body),
-        });
-
-        if (result.status === 'verified') {
-          setOtpState((prev) => ({
-            ...prev,
-            status: 'verified',
-            attempts: prev.attempts + 1,
-          }));
-
-          // Update context
-          setSession((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              context: { ...prev.context, email_verified: true },
-            };
-          });
-
-          return true;
-        }
-
-        setOtpState((prev) => ({
-          ...prev,
-          status: 'sent', // Allow retry
-          attempts: prev.attempts + 1,
-        }));
-
-        return false;
-      } catch (err) {
-        setOtpState((prev) => ({ ...prev, status: 'error' }));
-        setError(err instanceof Error ? err.message : 'OTP verification failed');
-        return false;
-      }
-    },
-    [otpState.email],
-  );
+      setOtpState(prev => ({ ...prev, status: 'sent', attempts: prev.attempts + 1 }));
+      return false;
+    } catch (err) {
+      setOtpState(prev => ({ ...prev, status: 'error' }));
+      setError(err instanceof Error ? err.message : 'OTP verification failed');
+      return false;
+    }
+  }, [otpState.email]);
 
   // ── Demo Pack ───────────────────────────────────────────────────
 
   const purchaseDemoPack = useCallback(async () => {
     const sessionId = sessionRef.current;
     if (!sessionId) return;
-
     setError(null);
-
     try {
-      const result = await apiFetch<JarvisPurchaseResponse>(
-        `/demo-pack/purchase?session_id=${sessionId}`,
-        { method: 'POST' },
-      );
-
-      // Refresh session
-      const updatedSession = await apiFetch<JarvisSession>(
-        `/session?session_id=${sessionId}`,
-      );
+      await apiFetch<JarvisPurchaseResponse>(`/demo-pack/purchase?session_id=${sessionId}`, { method: 'POST' });
+      const updatedSession = await apiFetch<JarvisSession>(`/session?session_id=${sessionId}`);
       setSession(updatedSession);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to purchase demo pack',
-      );
+      setError(err instanceof Error ? err.message : 'Failed to purchase demo pack');
     }
   }, []);
 
   const getDemoPackStatus = useCallback(async () => {
     const sessionId = sessionRef.current;
-    if (!sessionId) return;
-
+    if (!sessionId) return null;
     try {
-      return await apiFetch<JarvisDemoPackStatusResponse>(
-        `/demo-pack/status?session_id=${sessionId}`,
-      );
-    } catch {
-      return null;
-    }
+      return await apiFetch<JarvisDemoPackStatusResponse>(`/demo-pack/status?session_id=${sessionId}`);
+    } catch { return null; }
   }, []);
 
   // ── Payment ─────────────────────────────────────────────────────
 
-  const createPayment = useCallback(
-    async (
-      variants: VariantSelection[],
-      industry: string,
-    ): Promise<string | null> => {
-      const sessionId = sessionRef.current;
-      if (!sessionId) return null;
-
-      setPaymentState({ status: 'processing', paddle_url: null, error: null });
-      setError(null);
-
-      try {
-        const body: JarvisPaymentCreateRequest = { variants, industry };
-        const result = await apiFetch<JarvisPaymentCreateResponse>(
-          `/payment/create?session_id=${sessionId}`,
-          { method: 'POST', body: JSON.stringify(body) },
-        );
-
-        setPaymentState({
-          status: 'processing',
-          paddle_url: result.checkout_url,
-          error: null,
-        });
-
-        return result.checkout_url;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Payment creation failed';
-        setPaymentState({ status: 'failed', paddle_url: null, error: msg });
-        setError(msg);
-        return null;
-      }
-    },
-    [],
-  );
+  const createPayment = useCallback(async (variants: VariantSelection[], industry: string): Promise<string | null> => {
+    const sessionId = sessionRef.current;
+    if (!sessionId) return null;
+    setPaymentState({ status: 'processing', paddle_url: null, error: null });
+    setError(null);
+    try {
+      const result = await apiFetch<JarvisPaymentCreateResponse>(
+        `/payment/create?session_id=${sessionId}`,
+        { method: 'POST', body: JSON.stringify({ variants, industry }) },
+      );
+      setPaymentState({ status: 'processing', paddle_url: result.checkout_url, error: null });
+      return result.checkout_url;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Payment creation failed';
+      setPaymentState({ status: 'failed', paddle_url: null, error: msg });
+      setError(msg);
+      return null;
+    }
+  }, []);
 
   // ── Demo Call ───────────────────────────────────────────────────
 
   const initiateDemoCall = useCallback(async (phone: string) => {
     const sessionId = sessionRef.current;
     if (!sessionId) return;
-
     setDemoCallState({ status: 'initiating', phone, duration: 0 });
     setError(null);
-
     try {
-      const body: JarvisDemoCallRequest = { phone };
       const result = await apiFetch<JarvisDemoCallInitiateResponse>(
         `/demo-call/initiate?session_id=${sessionId}`,
-        { method: 'POST', body: JSON.stringify(body) },
+        { method: 'POST', body: JSON.stringify({ phone }) },
       );
-
-      setDemoCallState({
-        status: 'calling',
-        phone,
-        duration: result.duration_limit,
-        call_id: result.call_id,
-      });
+      setDemoCallState({ status: 'calling', phone, duration: result.duration_limit, call_id: result.call_id });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to initiate call';
-      setDemoCallState((prev) => ({
-        ...prev,
-        status: 'failed',
-      }));
-      setError(msg);
+      setDemoCallState(prev => ({ ...prev, status: 'failed' }));
+      setError(err instanceof Error ? err.message : 'Failed to initiate call');
     }
   }, []);
 
@@ -657,69 +531,36 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
   const executeHandoff = useCallback(async () => {
     const sessionId = sessionRef.current;
     if (!sessionId) return;
-
     setHandoffState({ status: 'in_progress' });
     setError(null);
-
     try {
       const result = await apiFetch<JarvisHandoffStatusResponse>(
         `/handoff?session_id=${sessionId}`,
         { method: 'POST', body: JSON.stringify({}) },
       );
-
-      setHandoffState({
-        status: 'completed',
-        new_session_id: result.new_session_id,
-      });
-
-      // Refresh session
-      const updatedSession = await apiFetch<JarvisSession>(
-        `/session?session_id=${sessionId}`,
-      );
+      setHandoffState({ status: 'completed', new_session_id: result.new_session_id });
+      const updatedSession = await apiFetch<JarvisSession>(`/session?session_id=${sessionId}`);
       setSession(updatedSession);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Handoff failed';
-      setHandoffState((prev) => ({ ...prev, status: 'idle' }));
-      setError(msg);
+      setHandoffState(prev => ({ ...prev, status: 'idle' }));
+      setError(err instanceof Error ? err.message : 'Handoff failed');
     }
   }, []);
 
   // ── Clear Error ─────────────────────────────────────────────────
 
-  const clearError = useCallback(() => {
-    setError(null);
-  }, []);
+  const clearError = useCallback(() => { setError(null); }, []);
 
-  // ── Return Everything ───────────────────────────────────────────
+  // ── Return ───────────────────────────────────────────────────────
 
   return {
-    // State
-    messages,
-    session,
-    isLoading,
-    isTyping,
-    remainingToday,
-    isLimitReached,
-    isDemoPackActive,
-    otpState,
-    paymentState,
-    handoffState,
-    demoCallState,
-    error,
-
-    // Actions
-    initSession,
-    sendMessage,
-    retryLastMessage,
-    updateContext,
-    sendOtp,
-    verifyOtp,
-    purchaseDemoPack,
-    getDemoPackStatus,
-    createPayment,
-    initiateDemoCall,
-    executeHandoff,
-    clearError,
+    messages, session, isLoading, isTyping,
+    remainingToday, isLimitReached, isDemoPackActive,
+    otpState, paymentState, handoffState, demoCallState,
+    error, totalSent,
+    initSession, sendMessage, retryLastMessage, updateContext,
+    sendOtp, verifyOtp, purchaseDemoPack, getDemoPackStatus,
+    createPayment, initiateDemoCall, executeHandoff, clearError,
   };
 }
 

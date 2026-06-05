@@ -21,6 +21,7 @@ import ApprovalWatcher from '@/components/approvals/ApprovalWatcher';
 import SystemHealthMonitor from '@/components/dashboard/SystemHealthMonitor';
 import ConnectionStatus from '@/components/ConnectionStatus';
 import { SocketProvider } from '@/providers/SocketProvider';
+import { DemoBanner } from '@/components/DemoBanner';
 import { useNotificationStore } from '@/lib/notification-store';
 import { useApprovalStore } from '@/lib/approval-store';
 import toast from 'react-hot-toast';
@@ -100,6 +101,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   // On desktop, we show the persistent sidebar with collapse toggle
   return (
     <SocketProvider>
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-orange-500 focus:text-white focus:rounded-lg focus:text-sm focus:font-medium">Skip to content</a>
       <div className="min-h-screen bg-[#1A1A1A] flex">
         {/* Mobile overlay */}
         {isMobileOpen && (
@@ -176,10 +178,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <NotificationBell />
           </header>
 
+          {/* Demo Banner */}
+          <DemoBanner />
+
           {/* Content + Right Sidebar */}
           <div className="flex-1 flex">
             {/* Main content */}
-            <main className="flex-1 p-4 lg:p-6 xl:p-8 min-w-0">
+            <main id="main-content" className="flex-1 p-4 lg:p-6 xl:p-8 min-w-0">
               {children}
             </main>
 

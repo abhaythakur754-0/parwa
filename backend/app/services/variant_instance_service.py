@@ -16,6 +16,11 @@ from database.base import SessionLocal
 from database.models.variant_engine import VariantInstance
 from app.exceptions import ParwaBaseError
 from app.logger import get_logger
+from app.schemas.variant_schemas import (  # noqa: F401
+    VariantCapabilityResponse, VariantInstanceResponse,
+    VariantInstanceCreate, VariantInstanceUpdate,
+    VariantFeatureSummary, VariantCapacitySummary,
+)
 
 logger = get_logger("variant_instance_service")
 

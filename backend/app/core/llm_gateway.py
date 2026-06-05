@@ -2,17 +2,19 @@
 Unified LLM Gateway for AI Techniques (Day 3 - AI Core Security)
 
 Provides a single async interface for all 12 AI techniques to call
-external LLMs. Supports two provider modes:
+external LLMs. Supports three provider modes:
 
-  1. Production: Uses SmartRouter → LiteLLM → Google/Cerebras/Groq
-  2. Testing/China: Uses z-ai gateway via HTTP (z-ai-web-dev-sdk compatible)
+  1. Production: Uses SmartRouter -> LiteLLM -> Google/Cerebras/Groq
+  2. ZAI Gateway: Uses ZAI HTTP Gateway (dev/testing)
+  3. OpenAI: Uses OpenAI SDK directly
 
 Design Principles:
   - BC-007: All AI model interaction goes through this gateway
-  - BC-008: Never crash — always returns a usable response
+  - BC-008: Never crash -- always returns a usable response
   - BC-001: company_id isolation supported
-  - Graceful fallback: LLM failure → deterministic template fallback
+  - Graceful fallback: LLM failure -> deterministic template fallback
   - Token tracking per technique call
+  - Configurable: User can swap API keys via .env
 
 Usage in techniques:
     from app.core.llm_gateway import llm_gateway
@@ -47,7 +49,7 @@ import httpx
 logger = logging.getLogger("parwa.llm_gateway")
 
 
-# ── Response Types ──────────────────────────────────────────────────
+# -- Response Types ---------------------------------------------------------
 
 
 @dataclass
@@ -62,17 +64,17 @@ class LLMResponse:
     error: Optional[str] = None
 
 
-# ── Provider Mode ───────────────────────────────────────────────────
+# -- Provider Mode ----------------------------------------------------------
 
 
 class LLMProvider(str, Enum):
     """Supported LLM provider modes."""
-    LITELLM = "litellm"          # Production: SmartRouter → Google/Cerebras/Groq
-    ZAI_GATEWAY = "zai_gateway"  # Testing: z-ai HTTP API
+    LITELLM = "litellm"          # Production: SmartRouter -> Google/Cerebras/Groq
+    ZAI_GATEWAY = "zai_gateway"  # ZAI Gateway HTTP API (dev/testing)
     OPENAI = "openai"            # Direct OpenAI API
 
 
-# ── LLM Gateway ──────────────────────────────────────────────────────
+# -- LLM Gateway ------------------------------------------------------------
 
 
 class LLMGateway:
@@ -84,7 +86,7 @@ class LLMGateway:
 
     Provider selection:
       - LITELLM: Uses LiteLLM with SmartRouter routing (production)
-      - ZAI_GATEWAY: Uses z-ai HTTP API (testing/China access)
+      - ZAI_GATEWAY: Uses ZAI Gateway HTTP API (dev/testing)
       - OPENAI: Uses OpenAI SDK directly
 
     Graceful degradation:
@@ -132,7 +134,7 @@ class LLMGateway:
         self._failure_count = 0
         self._total_tokens = 0
 
-    # ── Lazy Initialization ────────────────────────────────────────
+    # -- Lazy Initialization ---------------------------------------------------
 
     async def _ensure_initialized(self) -> bool:
         """Ensure the LLM client is initialized. Returns True on success."""
@@ -175,7 +177,16 @@ class LLMGateway:
             return False
 
     def _init_zai_gateway(self) -> bool:
-        """Initialize z-ai gateway HTTP client."""
+        """Initialize ZAI Gateway HTTP client.
+
+        The ZAI Gateway provides LLM access via an OpenAI-compatible HTTP API.
+        It runs alongside the Next.js frontend (z-ai-web-dev-sdk Node.js process).
+
+        Configuration via .env:
+          - ZAI_BASE_URL: Gateway URL (default: http://localhost:3000/api)
+          - ZAI_API_KEY: Optional auth key for the gateway
+          - ZAI_MODEL: Optional model name override
+        """
         self._api_key = self._api_key or os.environ.get("ZAI_API_KEY", "")
         self._base_url = self._base_url or os.environ.get(
             "ZAI_BASE_URL", "http://localhost:3000/api"
@@ -184,7 +195,7 @@ class LLMGateway:
             "ZAI_MODEL", "default"
         )
         logger.info(
-            "LLM gateway initialized with z-ai gateway, "
+            "LLM gateway initialized with ZAI Gateway, "
             "base_url=%s, model=%s",
             self._base_url,
             self.model,
@@ -216,7 +227,7 @@ class LLMGateway:
             self._initialized = True
             return False
 
-    # ── Public API ──────────────────────────────────────────────────
+    # -- Public API ------------------------------------------------------------
 
     async def generate(
         self,
@@ -376,7 +387,7 @@ class LLMGateway:
             )
             return {}
 
-    # ── Provider-Specific Call Methods ──────────────────────────────
+    # -- Provider-Specific Call Methods ----------------------------------------
 
     async def _call_litellm(
         self,
@@ -439,7 +450,12 @@ class LLMGateway:
         technique_id: str,
         company_id: str,
     ) -> LLMResponse:
-        """Call LLM via z-ai gateway HTTP API (z-ai-web-dev-sdk compatible)."""
+        """Call LLM via ZAI Gateway HTTP API.
+
+        The ZAI Gateway runs alongside the Next.js frontend and provides
+        an OpenAI-compatible /chat/completions endpoint. This is the
+        dev/testing path that works without Google/Cerebras/Groq keys.
+        """
         try:
             start = time.time()
 
@@ -459,6 +475,7 @@ class LLMGateway:
                     connect=self.CONNECT_TIMEOUT_SECONDS,
                     read=self.READ_TIMEOUT_SECONDS,
                     write=self.CONNECT_TIMEOUT_SECONDS,
+                    pool=self.CONNECT_TIMEOUT_SECONDS,
                 ),
             ) as client:
                 response = await client.post(
@@ -491,7 +508,7 @@ class LLMGateway:
                 )
             else:
                 logger.warning(
-                    "z-ai gateway returned %d [technique=%s]: %s",
+                    "ZAI gateway returned %d [technique=%s]: %s",
                     response.status_code, technique_id,
                     response.text[:200] if response.text else "no body",
                 )
@@ -505,7 +522,7 @@ class LLMGateway:
 
         except httpx.TimeoutException:
             logger.warning(
-                "z-ai gateway timeout [technique=%s]", technique_id,
+                "ZAI gateway timeout [technique=%s]", technique_id,
             )
             return LLMResponse(
                 text="", tokens_used=0, model=self.model,
@@ -513,7 +530,7 @@ class LLMGateway:
             )
         except Exception as exc:
             logger.warning(
-                "z-ai gateway call failed [technique=%s]: %s",
+                "ZAI gateway call failed [technique=%s]: %s",
                 technique_id, str(exc)[:200],
             )
             return LLMResponse(
@@ -574,13 +591,13 @@ class LLMGateway:
                 error=str(exc),
             )
 
-    # ── Utility Methods ────────────────────────────────────────────
+    # -- Utility Methods -------------------------------------------------------
 
     @property
     def is_available(self) -> bool:
         """Quick check if gateway has credentials configured."""
         if self.provider == LLMProvider.ZAI_GATEWAY:
-            return bool(self._api_key or os.environ.get("ZAI_API_KEY"))
+            return bool(self._base_url or os.environ.get("ZAI_BASE_URL"))
         elif self.provider == LLMProvider.OPENAI:
             return bool(self._api_key or os.environ.get("OPENAI_API_KEY"))
         elif self.provider == LLMProvider.LITELLM:
@@ -604,21 +621,45 @@ class LLMGateway:
         }
 
 
-# ── Global Singleton ────────────────────────────────────────────────
+# -- Global Singleton --------------------------------------------------------
 
 # Auto-detect provider based on environment:
-#   - If ZAI_API_KEY is set → use zai_gateway (for testing/China)
-#   - If any LLM provider key is set → use litellm (production)
-#   - Otherwise → litellm (will fail gracefully to deterministic fallback)
+#   - If LLM_PROVIDER is set -> use that provider
+#   - If ZAI_BASE_URL or ZAI_API_KEY is set -> use ZAI Gateway
+#   - If any LiteLLM provider key is set -> use LiteLLM (production)
+#   - If OPENAI_API_KEY is set -> use OpenAI directly
+#   - Otherwise -> LiteLLM (will fail gracefully to deterministic fallback)
 
 def _detect_provider() -> LLMProvider:
-    """Auto-detect the best LLM provider based on environment."""
-    if os.environ.get("ZAI_API_KEY"):
+    """Auto-detect the best LLM provider based on environment.
+
+    Priority:
+      1. If LLM_PROVIDER is explicitly set -> use that
+      2. If ZAI_BASE_URL or ZAI_API_KEY is set -> use ZAI Gateway
+      3. If any LiteLLM provider key is set -> use LiteLLM
+      4. If OPENAI_API_KEY is set -> use OpenAI
+      5. Otherwise -> LiteLLM (will fail gracefully)
+    """
+    # Explicit provider override
+    explicit = os.environ.get("LLM_PROVIDER", "").lower()
+    if explicit == "zai_gateway":
         return LLMProvider.ZAI_GATEWAY
-    if os.environ.get("LLM_PROVIDER") == "zai_gateway":
-        return LLMProvider.ZAI_GATEWAY
-    if os.environ.get("LLM_PROVIDER") == "openai":
+    if explicit == "openai":
         return LLMProvider.OPENAI
+    if explicit == "litellm":
+        return LLMProvider.LITELLM
+
+    # Auto-detect from available keys/URLs
+    if os.environ.get("ZAI_BASE_URL") or os.environ.get("ZAI_API_KEY"):
+        return LLMProvider.ZAI_GATEWAY
+
+    # Has production LLM keys
+    if os.environ.get("GOOGLE_AI_API_KEY") or os.environ.get("GROQ_API_KEY"):
+        return LLMProvider.LITELLM
+
+    if os.environ.get("OPENAI_API_KEY"):
+        return LLMProvider.OPENAI
+
     return LLMProvider.LITELLM
 
 

@@ -1,96 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { proxyAuthRequest, transformGoogleBody, transformAuthResponse } from "@/lib/backend-proxy";
 
 /**
- * Google OAuth endpoint.
- * Verifies the Google id_token, then creates or returns the local user.
- * Works standalone — no Parwa backend required.
+ * POST /api/auth/google
+ * Proxies to backend: POST /api/auth/google
+ *
+ * Supports two Google auth flows:
+ *   1. id_token (JWT from Google One Tap) — proxied directly to backend
+ *   2. access_token (from OAuth2 popup) — also proxied to backend
+ *      The backend now handles both token types in _verify_google_token.
  */
 export async function POST(request: NextRequest) {
+  // Read body ONCE (Next.js 16 body-is-unusable fix)
+  let body: Record<string, unknown>;
   try {
-    const body = await request.json();
-    const { id_token } = body;
-
-    if (!id_token || typeof id_token !== "string") {
-      return NextResponse.json(
-        { status: "error", message: "Google ID token is required." },
-        { status: 400 }
-      );
-    }
-
-    // Step 1: Verify the token with Google
-    const googleRes = await fetch(
-      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(id_token)}`
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { status: "error", message: "Invalid request body." },
+      { status: 400 }
     );
+  }
 
-    if (!googleRes.ok) {
-      return NextResponse.json(
-        { status: "error", message: "Google token verification failed." },
-        { status: 401 }
-      );
-    }
+  const token = body.id_token || body.access_token;
 
-    const googleUser = await googleRes.json();
+  if (!token) {
+    return NextResponse.json(
+      { status: "error", message: "Google token is required." },
+      { status: 400 }
+    );
+  }
 
-    // Google returns: sub, email, email_verified, name, given_name, family_name, picture
-    if (!googleUser.email) {
-      return NextResponse.json(
-        { status: "error", message: "Could not get email from Google account." },
-        { status: 400 }
-      );
-    }
-
-    if (!googleUser.email_verified) {
-      return NextResponse.json(
-        { status: "error", message: "Please verify your email with Google first." },
-        { status: 403 }
-      );
-    }
-
-    const email = googleUser.email.trim().toLowerCase();
-    const fullName = googleUser.name || googleUser.given_name || null;
-
-    // Step 2: Find or create user in local DB
-    let user = await db.user.findUnique({
-      where: { email },
-    });
-
-    const isNewUser = !user;
-
-    if (!user) {
-      user = await db.user.create({
-        data: {
-          email,
-          full_name: fullName,
-          is_verified: true,
-          industry: null,
-          company_name: null,
-          // No password for Google users — they login via Google
-        },
-      });
-    } else {
-      // Update name if we got one from Google and user doesn't have one
-      if (fullName && !user.full_name) {
-        await db.user.update({
-          where: { email },
-          data: { full_name: fullName },
-        });
-        user.full_name = fullName;
-      }
-    }
-
-    // Step 3: Return user data
-    return NextResponse.json({
-      status: "success",
-      is_new_user: isNewUser,
-      user: {
-        id: user.id,
-        email: user.email,
-        fullName: user.full_name,
-        isVerified: user.is_verified,
-        industry: user.industry,
-        companyName: user.company_name,
-      },
+  try {
+    // Proxy directly to backend — the backend's _verify_google_token
+    // now handles both JWT id_tokens and access_tokens
+    return proxyAuthRequest(request, {
+      backendPath: "/api/auth/google",
+      method: "POST",
+      body,
+      transformBody: transformGoogleBody,
+      transformResponse: transformAuthResponse,
+      setCookies: true,
     });
   } catch (error: unknown) {
     const message =

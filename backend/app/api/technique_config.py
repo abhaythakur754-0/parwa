@@ -5,6 +5,9 @@ Provides REST endpoints for managing per-tenant technique configurations:
 - GET  /api/techniques/config          — list all technique configs for a tenant
 - PUT  /api/techniques/config/{id}     — enable/disable a technique for a tenant
 - GET  /api/techniques/config/{id}     — get config for a specific technique
+- GET  /api/techniques/config/prompts              — list available prompt templates
+- GET  /api/techniques/config/prompts/{name}       — get template by name
+- POST /api/techniques/config/prompts/render       — render a template with variables
 
 BC-001: All data scoped by company_id.
 BC-008: Never crashes.
@@ -29,6 +32,27 @@ from app.core.technique_router import (
 from app.logger import get_logger
 
 logger = get_logger("technique_config_api")
+
+
+# ── Prompt Template Service Singleton ──────────────────────────────
+
+_prompt_template_service = None
+
+
+def _get_prompt_template_service():
+    """Lazy-load PromptTemplateService (BC-008: never crash)."""
+    global _prompt_template_service
+    if _prompt_template_service is None:
+        try:
+            from app.services.prompt_template_service import PromptTemplateService
+            _prompt_template_service = PromptTemplateService()
+        except Exception as exc:
+            logger.error(
+                "prompt_template_service_init_failed",
+                error=str(exc),
+            )
+            _prompt_template_service = None
+    return _prompt_template_service
 
 
 # ── Pydantic Models ────────────────────────────────────────────────
@@ -72,6 +96,51 @@ class ErrorResponse(BaseModel):
 
     error: str
     detail: Optional[str] = None
+
+
+class PromptTemplateResponse(BaseModel):
+    """Response model for a single prompt template."""
+
+    id: str
+    name: str
+    category: str
+    description: str
+    variables: List[str]
+    version: int
+    status: str
+    is_default: bool
+    variant_type: Optional[str] = None
+    feature_id: Optional[str] = None
+    usage_count: int = 0
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class PromptTemplateListResponse(BaseModel):
+    """Response model for listing prompt templates."""
+
+    company_id: str
+    templates: List[PromptTemplateResponse]
+    total: int
+
+
+class RenderPromptRequest(BaseModel):
+    """Request body for rendering a prompt template."""
+
+    company_id: str = Field(..., min_length=1, description="Company ID")
+    template_name: str = Field(..., min_length=1, description="Template name to render")
+    variables: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Variable name → value mapping for template rendering",
+    )
+    variant_type: Optional[str] = Field(
+        None,
+        description="Variant type filter (mini_parwa, parwa, parwa_high)",
+    )
+    version: Optional[int] = Field(
+        None,
+        description="Specific template version (None = latest)",
+    )
 
 
 # ── Technique Config Store ─────────────────────────────────────────
@@ -269,6 +338,272 @@ def _build_response(
         estimated_tokens=info.estimated_tokens,
         time_budget_ms=info.time_budget_ms,
     ).model_dump()
+
+
+@router.get(
+    "/prompts",
+    response_model=PromptTemplateListResponse,
+    responses={400: {"model": ErrorResponse}},
+)
+async def list_prompt_templates(
+    company_id: str = Query(
+        ...,
+        min_length=1,
+        description="Company ID (required)",
+    ),
+    category: Optional[str] = Query(
+        None,
+        description="Filter by template category (system_prompt, technique_prompt, guardrail_prompt, classification, response_generation, summarization, rag_context, custom)",
+    ),
+    status: Optional[str] = Query(
+        None,
+        description="Filter by status (draft, active, archived, deprecated)",
+    ),
+    variant_type: Optional[str] = Query(
+        None,
+        description="Filter by variant type (mini_parwa, parwa, parwa_high)",
+    ),
+):
+    """
+    List all prompt templates available to a tenant.
+
+    Query params:
+    - company_id (required): Tenant company identifier
+    - category (optional): Filter by template category
+    - status (optional): Filter by template status
+    - variant_type (optional): Filter by variant association
+
+    Returns company-specific templates and built-in defaults.
+    Uses PromptTemplateService for template resolution.
+    """
+    try:
+        service = _get_prompt_template_service()
+
+        if service is None:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "Service unavailable",
+                    "detail": "PromptTemplateService failed to initialize",
+                },
+            )
+
+        templates = service.list_templates(
+            company_id=company_id,
+            category=category,
+            status=status,
+            variant_type=variant_type,
+        )
+
+        template_responses = [
+            PromptTemplateResponse(
+                id=t.id,
+                name=t.name,
+                category=t.category,
+                description=t.description,
+                variables=t.variables,
+                version=t.version,
+                status=t.status,
+                is_default=t.is_default,
+                variant_type=t.variant_type,
+                feature_id=t.feature_id,
+                usage_count=t.usage_count,
+                created_at=t.created_at,
+                updated_at=t.updated_at,
+            ).model_dump()
+            for t in templates
+        ]
+
+        return {
+            "company_id": company_id,
+            "templates": template_responses,
+            "total": len(template_responses),
+        }
+    except Exception as exc:
+        logger.error(
+            "list_prompt_templates_error",
+            error=str(exc),
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "Internal error",
+                "detail": str(exc),
+            },
+        )
+
+
+@router.get(
+    "/prompts/{template_name}",
+    responses={
+        200: {"model": PromptTemplateResponse},
+        400: {"model": ErrorResponse},
+        404: {"model": ErrorResponse},
+    },
+)
+async def get_prompt_template(
+    template_name: str,
+    company_id: str = Query(
+        ...,
+        min_length=1,
+        description="Company ID (required)",
+    ),
+    variant_type: Optional[str] = Query(
+        None,
+        description="Variant type filter (mini_parwa, parwa, parwa_high)",
+    ),
+    version: Optional[int] = Query(
+        None,
+        description="Specific template version (None = latest)",
+    ),
+):
+    """
+    Get a specific prompt template by name.
+
+    Path params:
+    - template_name: Name of the template (e.g. 'customer_support_system')
+
+    Query params:
+    - company_id (required): Tenant company identifier
+    - variant_type (optional): Variant filter for override resolution
+    - version (optional): Specific version number
+
+    Resolution order: variant override → company custom → built-in default.
+    """
+    try:
+        service = _get_prompt_template_service()
+
+        if service is None:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "Service unavailable",
+                    "detail": "PromptTemplateService failed to initialize",
+                },
+            )
+
+        template = service.get_template(
+            company_id=company_id,
+            name=template_name,
+            variant_type=variant_type,
+            version=version,
+        )
+
+        return PromptTemplateResponse(
+            id=template.id,
+            name=template.name,
+            category=template.category,
+            description=template.description,
+            variables=template.variables,
+            version=template.version,
+            status=template.status,
+            is_default=template.is_default,
+            variant_type=template.variant_type,
+            feature_id=template.feature_id,
+            usage_count=template.usage_count,
+            created_at=template.created_at,
+            updated_at=template.updated_at,
+        ).model_dump()
+
+    except Exception as exc:
+        error_msg = str(exc)
+        if "not found" in error_msg.lower():
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "error": "Template not found",
+                    "detail": error_msg,
+                },
+            )
+        logger.error(
+            "get_prompt_template_error",
+            template_name=template_name,
+            error=error_msg,
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "Internal error",
+                "detail": error_msg,
+            },
+        )
+
+
+@router.post(
+    "/prompts/render",
+    responses={
+        200: {},
+        400: {"model": ErrorResponse},
+        404: {"model": ErrorResponse},
+    },
+)
+async def render_prompt_template(
+    body: RenderPromptRequest,
+):
+    """
+    Render a prompt template by substituting {{variables}}.
+
+    Body:
+    - company_id (required): Tenant company identifier
+    - template_name (required): Name of the template to render
+    - variables: Mapping of variable name → value
+    - variant_type (optional): Variant filter for override resolution
+    - version (optional): Specific version number
+
+    Returns the rendered content with all {{var}} placeholders substituted.
+    Missing variables are left as-is (BC-008 graceful degradation).
+    """
+    try:
+        service = _get_prompt_template_service()
+
+        if service is None:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "Service unavailable",
+                    "detail": "PromptTemplateService failed to initialize",
+                },
+            )
+
+        result = service.render_template(
+            company_id=body.company_id,
+            name=body.template_name,
+            variables=body.variables,
+            variant_type=body.variant_type,
+            version=body.version,
+        )
+
+        return {
+            "template_id": result.template_id,
+            "template_name": result.template_name,
+            "rendered_content": result.rendered_content,
+            "variables_used": result.variables_used,
+            "version": result.version,
+            "rendered_at": result.rendered_at,
+        }
+
+    except Exception as exc:
+        error_msg = str(exc)
+        if "not found" in error_msg.lower():
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "error": "Template not found",
+                    "detail": error_msg,
+                },
+            )
+        logger.error(
+            "render_prompt_template_error",
+            template_name=body.template_name,
+            error=error_msg,
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "Internal error",
+                "detail": error_msg,
+            },
+        )
 
 
 @router.get(

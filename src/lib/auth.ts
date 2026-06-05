@@ -18,8 +18,14 @@ import { jwtVerify, importSPKI } from "jose";
 import type { CryptoKey } from "jose";
 import { NextRequest, NextResponse } from "next/server";
 
-const JWT_SECRET =
-  process.env.JWT_SECRET_KEY || "dev-jwt-secret-key-change-in-prod-32c";
+const JWT_SECRET = process.env.JWT_SECRET_KEY || "";
+
+if (!JWT_SECRET) {
+  console.warn(
+    "[PARWA] JWT_SECRET_KEY is not set. JWT verification will fail. " +
+    "Set JWT_SECRET_KEY in your environment to match the backend signing key."
+  );
+}
 
 /** JWT algorithm from env — defaults to HS256 for backward compatibility */
 const JWT_ALGORITHM = (process.env.NEXT_PUBLIC_JWT_ALGORITHM || "HS256") as

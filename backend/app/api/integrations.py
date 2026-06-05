@@ -42,7 +42,7 @@ class CreateIntegrationRequest(BaseModel):
     integration_type: str = Field(..., description="Type: zendesk, shopify, slack, gmail")
     name: str = Field(..., min_length=1, max_length=100, description="Display name")
     config: Dict[str, Any] = Field(default_factory=dict, description="Integration config with credentials")
-    validate: bool = Field(default=True, description="Whether to validate credentials before saving")
+    validate_credentials: bool = Field(default=True, description="Whether to validate credentials before saving")
 
 
 class IntegrationResponse(BaseModel):
@@ -123,7 +123,7 @@ def api_create_integration(
         integration_type=body.integration_type,
         name=body.name,
         config=body.config,
-        validate=body.validate,
+        validate=body.validate_credentials,
     )
 
     return IntegrationResponse(**integration)

@@ -48,6 +48,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from app.services.paddle_service import get_paddle_service
 from app.clients.paddle_client import get_paddle_client
+from app.services import lead_service as _lead_service
 
 logger = logging.getLogger(__name__)
 
@@ -548,20 +549,17 @@ def send_message(
     except Exception:
         pass
 
-    # ── Week 8-11: Lead capture (every 5 turns) ──
-    turn_count = ctx.get("conversation_turn_count", session.total_message_count)
+    # ── Week 8-11: Lead capture (every message interaction) ──
     try:
-        lead_svc = _get_service_module("app.services.lead_service")
-        if lead_svc and turn_count % 5 == 0:
-            lead_svc.capture_lead(
-                session_id=session_id,
-                user_id=user_id,
-                company_id=company_id,
-                session_context=ctx,
-                sentiment_data=ctx.get("sentiment"),
-            )
+        _lead_service.capture_lead(
+            session_id=session_id,
+            user_id=user_id,
+            company_id=company_id,
+            session_context=ctx,
+            sentiment_data=ctx.get("sentiment"),
+        )
     except Exception:
-        pass
+        logger.debug("lead_capture_non_fatal: session=%s", session_id, exc_info=True)
 
     # ── Week 8-11: Sentiment technique mapping ──
     try:

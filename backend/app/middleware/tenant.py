@@ -61,8 +61,12 @@ class TenantMiddleware(BaseHTTPMiddleware):
     # Paths that skip tenant check entirely
     PUBLIC_PATHS = {
         "/health",
+        "/api/health",
+        "/api/health/detail",
         "/ready",
+        "/api/ready",
         "/metrics",
+        "/api/metrics",
         "/docs",
         "/redoc",
         "/openapi.json",
@@ -76,12 +80,18 @@ class TenantMiddleware(BaseHTTPMiddleware):
         "/api/auth/",
         "/api/public/",
         "/public/",
+        "/api/pricing/",
+        "/api/pricing",
         "/api/api-keys",
         "/api/mfa/",
         "/api/client/",
         "/api/webhooks/",
         "/api/jarvis/",
         "/api/jarvis",
+        "/api/onboarding-jarvis/",
+        "/api/onboarding-jarvis",
+        "/api/verification/",
+        "/api/integrations/available",
         "/test/",
     )
 

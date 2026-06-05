@@ -707,7 +707,9 @@ async def call_llm_with_functions(
             logger.debug("onboarding_zai_sdk_failed: %s", str(e)[:200])
 
         # Try z-ai gateway (HTTP fallback)
-        zai_key = _get_env("ZAI_API_KEY", "")
+        from app.config import get_settings as _get_onboarding_settings
+        _onboarding_settings = _get_onboarding_settings()
+        zai_key = _onboarding_settings.ZAI_API_KEY
         if zai_key:
             result = await _call_zai_with_functions(
                 system_prompt, messages, function_definitions, company_id, zai_key,
@@ -716,7 +718,7 @@ async def call_llm_with_functions(
                 return result
 
         # Try OpenAI-compatible
-        api_key = _get_env("OPENAI_API_KEY", "")
+        api_key = _onboarding_settings.OPENAI_API_KEY
         if api_key:
             result = await _call_openai_with_functions(
                 system_prompt, messages, function_definitions, company_id, api_key,
@@ -780,7 +782,9 @@ async def _call_openai_with_functions(
         from openai import OpenAI
 
         base_url = _get_env("OPENAI_BASE_URL", "")
-        model = _get_env("JARVIS_MODEL", _get_env("OPENAI_MODEL", "gpt-4o-mini"))
+        from app.config import get_settings as _get_openai_settings
+        _openai_settings = _get_openai_settings()
+        model = _get_env("JARVIS_MODEL", _openai_settings.LLM_MODEL or _get_env("OPENAI_MODEL", "gpt-4o-mini"))
 
         kwargs: Dict[str, Any] = {"api_key": api_key}
         if base_url:

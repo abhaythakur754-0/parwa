@@ -6,6 +6,7 @@
  */
 
 import { create } from 'zustand';
+import { appConfig } from '@/lib/config';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -104,7 +105,7 @@ export const AGENT_STATUS_LABELS: Record<AgentStatus, string> = {
 
 // ── Store ───────────────────────────────────────────────────────────
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = appConfig.apiUrl;
 
 export const useAgentsStore = create<AgentsState>((set, get) => ({
   agents: [],
@@ -144,12 +145,12 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
         createdAt: String(a.created_at || a.createdAt || new Date().toISOString()),
         lastActiveAt: a.last_active_at ? String(a.last_active_at) : null,
         metrics: {
-          ticketsHandled: Number(a.tickets_handled ?? a.metrics?.ticketsHandled ?? 0),
-          avgResponseTime: Number(a.avg_response_time ?? a.metrics?.avgResponseTime ?? 0),
-          satisfactionScore: Number(a.satisfaction_score ?? a.metrics?.satisfactionScore ?? 0),
-          resolutionRate: Number(a.resolution_rate ?? a.metrics?.resolutionRate ?? 0),
-          totalCost: Number(a.total_cost ?? a.metrics?.totalCost ?? 0),
-          totalSavings: Number(a.total_savings ?? a.metrics?.totalSavings ?? 0),
+          ticketsHandled: Number((a as any).tickets_handled ?? (a as any).metrics?.ticketsHandled ?? 0),
+          avgResponseTime: Number((a as any).avg_response_time ?? (a as any).metrics?.avgResponseTime ?? 0),
+          satisfactionScore: Number((a as any).satisfaction_score ?? (a as any).metrics?.satisfactionScore ?? 0),
+          resolutionRate: Number((a as any).resolution_rate ?? (a as any).metrics?.resolutionRate ?? 0),
+          totalCost: Number((a as any).total_cost ?? (a as any).metrics?.totalCost ?? 0),
+          totalSavings: Number((a as any).total_savings ?? (a as any).metrics?.totalSavings ?? 0),
         },
         isAvailable: Boolean(a.is_available ?? a.isAvailable ?? true),
       }));

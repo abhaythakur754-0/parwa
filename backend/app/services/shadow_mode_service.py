@@ -367,13 +367,13 @@ class ShadowModeService:
             try:
                 session.rollback()
             except Exception:
-                pass
+                logger.debug("session.rollback() failed in _persist_config_to_db")
             return False
         finally:
             try:
                 session.close()
             except Exception:
-                pass
+                logger.debug("session.close() failed in _persist_config_to_db")
 
     # ── DB Load: Config ───────────────────────────────────────────
 
@@ -422,7 +422,7 @@ class ShadowModeService:
             try:
                 session.close()
             except Exception:
-                pass
+                logger.debug("session.close() failed in _load_config_from_db")
 
     # ── DB Persist: Comparison ────────────────────────────────────
 
@@ -479,13 +479,13 @@ class ShadowModeService:
             try:
                 session.rollback()
             except Exception:
-                pass
+                logger.debug("session.rollback() failed in _persist_comparison_to_db")
             return False
         finally:
             try:
                 session.close()
             except Exception:
-                pass
+                logger.debug("session.close() failed in _persist_comparison_to_db")
 
     # ── DB Load: Comparison History ───────────────────────────────
 
@@ -531,7 +531,7 @@ class ShadowModeService:
             try:
                 session.close()
             except Exception:
-                pass
+                logger.debug("session.close() failed in _load_comparisons_from_db")
 
     # ── DB Persist: Config Update (counters, status) ──────────────
 
@@ -598,13 +598,13 @@ class ShadowModeService:
             try:
                 session.rollback()
             except Exception:
-                pass
+                logger.debug("session.rollback() failed in _persist_config_counters_to_db")
             return False
         finally:
             try:
                 session.close()
             except Exception:
-                pass
+                logger.debug("session.close() failed in _persist_config_counters_to_db")
 
     # ── Row-to-Dict Helpers ───────────────────────────────────────
 
@@ -1573,12 +1573,12 @@ class ShadowModeService:
                     try:
                         session.rollback()
                     except Exception:
-                        pass
+                        logger.debug("session.rollback() failed in record_human_review")
                 finally:
                     try:
                         session.close()
                     except Exception:
-                        pass
+                        logger.debug("session.close() failed in record_human_review")
 
             if not db_updated:
                 # Fall back to in-memory scan

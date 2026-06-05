@@ -278,17 +278,140 @@ def _log_raw_key_access(key: str, operation: str) -> None:
     )
 
 
+class NoneRedis:
+    """No-op Redis client for local development without Redis.
+
+    All operations return safe defaults (None, False, 0, []) so the
+    application continues to function without a Redis server. This is
+    intended for local development / manual testing only — Redis is
+    required in production for caching, rate-limiting, and sessions.
+    """
+
+    def __init__(self):
+        self._warning_logged = False
+
+    def _warn_once(self, op: str) -> None:
+        if not self._warning_logged:
+            logger.warning(
+                "redis_not_configured_using_noop",
+                operation=op,
+                message="Redis is not configured. All Redis operations are no-ops. "
+                        "Set REDIS_URL in .env for production use.",
+            )
+            self._warning_logged = True
+
+    async def ping(self) -> bool:
+        self._warn_once("ping")
+        return False
+
+    async def get(self, key: str, **kwargs) -> None:
+        self._warn_once("get")
+        return None
+
+    async def set(self, key: str, value: str, **kwargs) -> bool:
+        self._warn_once("set")
+        return False
+
+    async def delete(self, *keys, **kwargs) -> int:
+        self._warn_once("delete")
+        return 0
+
+    async def mget(self, keys, **kwargs) -> list:
+        self._warn_once("mget")
+        return [None] * len(keys) if keys else []
+
+    async def mset(self, mapping, **kwargs) -> bool:
+        self._warn_once("mset")
+        return False
+
+    async def exists(self, *keys, **kwargs) -> int:
+        self._warn_once("exists")
+        return 0
+
+    async def expire(self, key: str, ttl: int, **kwargs) -> bool:
+        self._warn_once("expire")
+        return False
+
+    async def ttl(self, key: str, **kwargs) -> int:
+        self._warn_once("ttl")
+        return -2
+
+    async def incr(self, key: str, **kwargs) -> int:
+        self._warn_once("incr")
+        return 1
+
+    async def decr(self, key: str, **kwargs) -> int:
+        self._warn_once("decr")
+        return 0
+
+    async def keys(self, pattern: str = "*", **kwargs) -> list:
+        self._warn_once("keys")
+        return []
+
+    async def scan(self, cursor=0, **kwargs) -> tuple:
+        self._warn_once("scan")
+        return (0, [])
+
+    async def hget(self, name: str, key: str, **kwargs) -> None:
+        self._warn_once("hget")
+        return None
+
+    async def hset(self, name: str, key: str, value: str, **kwargs) -> bool:
+        self._warn_once("hset")
+        return False
+
+    async def hgetall(self, name: str, **kwargs) -> dict:
+        self._warn_once("hgetall")
+        return {}
+
+    async def sadd(self, name: str, *values, **kwargs) -> int:
+        self._warn_once("sadd")
+        return 0
+
+    async def smembers(self, name: str, **kwargs) -> set:
+        self._warn_once("smembers")
+        return set()
+
+    async def srem(self, name: str, *values, **kwargs) -> int:
+        self._warn_once("srem")
+        return 0
+
+    async def lpush(self, name: str, *values, **kwargs) -> int:
+        self._warn_once("lpush")
+        return 0
+
+    async def rpush(self, name: str, *values, **kwargs) -> int:
+        self._warn_once("rpush")
+        return 0
+
+    async def lrange(self, name: str, start: int, end: int, **kwargs) -> list:
+        self._warn_once("lrange")
+        return []
+
+    async def publish(self, channel: str, message: str, **kwargs) -> int:
+        self._warn_once("publish")
+        return 0
+
+    async def aclose(self) -> None:
+        pass
+
+    async def close(self) -> None:
+        pass
+
+
 async def get_redis() -> aioredis.Redis:
     """Get or create the Redis connection pool singleton.
 
     Uses connection pooling for efficient connection reuse.
     Redis URL is loaded from REDIS_URL environment variable (BC-011).
 
+    If REDIS_URL is not configured (empty), returns a NoneRedis no-op
+    client that allows the app to run locally without Redis.
+
     Returns:
-        Async Redis client connected to the pool.
+        Async Redis client connected to the pool, or NoneRedis no-op.
 
     Raises:
-        RuntimeError: If REDIS_URL is not configured (empty).
         Exception: If Redis is unreachable (callers should handle
                    with fail-open per BC-012).
     """
@@ -298,12 +421,14 @@ async def get_redis() -> aioredis.Redis:
             if _redis_client is None:  # double-check pattern
                 settings = get_settings()
                 if not settings.REDIS_URL:
-                    raise RuntimeError(
-                        "REDIS_URL is not configured. "
-                        "Redis is required for caching/rate-limiting. "
-                        "Set REDIS_URL in .env or run with Redis."
+                    # Local dev: no Redis available — use no-op client
+                    logger.info(
+                        "redis_not_configured_using_noop_client",
+                        message="REDIS_URL is empty. Using no-op Redis client for local dev.",
                     )
-                _redis_client = aioredis.from_url(
+                    _redis_client = NoneRedis()
+                else:
+                    _redis_client = aioredis.from_url(
                     settings.REDIS_URL,
                     encoding="utf-8",
                     decode_responses=True,

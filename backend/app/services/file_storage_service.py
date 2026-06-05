@@ -34,6 +34,13 @@ from app.core.storage import (
     get_storage_backend as _get_storage_backend,
 )
 
+# Schemas for file storage API request/response validation
+# (defined in app.schemas.file_storage — available when API layer imports are needed)
+# from app.schemas.file_storage import (
+#     FileUploadRequest, FileUploadResponse, FileMetadataResponse,
+#     FileListResponse, FileDownloadResponse, FileValidationResponse,
+# )
+
 logger = logging.getLogger("parwa.file_storage")
 
 
