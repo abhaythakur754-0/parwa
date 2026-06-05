@@ -78,9 +78,11 @@ from mcp_server.knowledge.kb_server import kb_server
 from mcp_server.integrations.email_server import email_server
 from mcp_server.integrations.voice_server import voice_server
 from mcp_server.integrations.chat_server import chat_server
+from mcp_server.integrations.sms_server import sms_server
 from mcp_server.integrations.ticketing_server import ticketing_server
 from mcp_server.integrations.ecommerce_server import ecommerce_server
 from mcp_server.integrations.crm_server import crm_server
+from mcp_server.integrations.external_tool_bus import external_tool_bus
 from mcp_server.tools.analytics_server import analytics_server
 from mcp_server.tools.monitoring_server import monitoring_server
 from mcp_server.tools.notification_server import notification_server
@@ -97,6 +99,7 @@ ALL_SUB_SERVERS: list[MCPServerBase] = [
     email_server,
     voice_server,
     chat_server,
+    sms_server,
     ticketing_server,
     ecommerce_server,
     crm_server,
@@ -359,6 +362,48 @@ async def root(request: Request):
     }
 
 
+@app.get("/mcp/channels", tags=["External Tools"])
+async def list_channels(variant: str = "parwa"):
+    """List available external channels for a variant tier.
+
+    Shows which channels are allowed and configured for the given variant.
+    Used by agents to discover what external tools they can use.
+    """
+    from mcp_server.integrations.external_tool_bus import (
+        VARIANT_CHANNEL_PERMISSIONS,
+        Channel,
+    )
+
+    variant = variant or "parwa"
+    if variant not in VARIANT_CHANNEL_PERMISSIONS:
+        return {
+            "error": f"Invalid variant: '{variant}'. Must be one of: mini_parwa, parwa, parwa_high",
+        }
+
+    allowed_channels = VARIANT_CHANNEL_PERMISSIONS[variant]
+    provider_status = external_tool_bus.get_provider_status()
+
+    channels = []
+    for ch in Channel:
+        channels.append({
+            "channel": ch.value,
+            "allowed": ch in allowed_channels,
+            "configured": provider_status.get(ch.value, {}).get("configured", False),
+            "provider": provider_status.get(ch.value, {}).get("provider", "unknown"),
+            "missing_env_vars": provider_status.get(ch.value, {}).get("missing_env_vars", []),
+        })
+
+    return {
+        "variant": variant,
+        "channels": channels,
+        "allowed_count": len(allowed_channels),
+        "configured_count": sum(
+            1 for ch in allowed_channels
+            if provider_status.get(ch.value, {}).get("configured", False)
+        ),
+    }
+
+
 @app.get("/mcp/tools", response_model=ToolsListResponse, tags=["MCP Protocol"])
 async def list_tools(
     category: ToolCategory | None = None,
@@ -487,6 +532,7 @@ app.include_router(kb_server.get_router())
 app.include_router(email_server.get_router())
 app.include_router(voice_server.get_router())
 app.include_router(chat_server.get_router())
+app.include_router(sms_server.get_router())
 app.include_router(ticketing_server.get_router())
 app.include_router(ecommerce_server.get_router())
 app.include_router(crm_server.get_router())

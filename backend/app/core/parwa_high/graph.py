@@ -393,13 +393,15 @@ def build_parwa_high_graph() -> StateGraph:
         {"technique_select": "technique_select"},
     )
 
-    # technique_select -> context_compress (High: compress before generate)
+    # technique_select -> reasoning_chain (always — High executes Tier 1+2+3 techniques)
+    # The variant_router may return "context_compress" but High ALWAYS runs reasoning first
     graph.add_conditional_edges(
         "technique_select",
         route_after_technique_select,
         {
             "reasoning_chain": "reasoning_chain",
-            "context_compress": "context_compress",
+            "context_compress": "reasoning_chain",  # Redirect: High always does reasoning
+            "generate": "reasoning_chain",  # Redirect: High always does reasoning
         },
     )
 

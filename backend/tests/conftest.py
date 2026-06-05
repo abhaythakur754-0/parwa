@@ -512,10 +512,18 @@ _FAKE_KB_CHUNKER = types.ModuleType("shared.knowledge_base.chunker")
 _FAKE_KB_REINDEX = types.ModuleType("shared.knowledge_base.reindexing")
 
 # Populate vector_search mock with expected exports
-_FAKE_KB_VECTOR.EMBEDDING_DIMENSION = 1536
+_FAKE_KB_VECTOR.EMBEDDING_DIMENSION = 768
 _FAKE_KB_VECTOR.VectorStore = MagicMock()
+_FAKE_KB_VECTOR.MockVectorStore = MagicMock()
+_FAKE_KB_VECTOR.SearchResult = MagicMock()
+_FAKE_KB_VECTOR.VectorChunk = MagicMock()
 _FAKE_KB_VECTOR.get_vector_store = MagicMock()
 _FAKE_KB_VECTOR.add_documents = MagicMock()
+
+# Populate reindexing mock with expected exports
+_FAKE_KB_REINDEX.ReindexJob = MagicMock()
+_FAKE_KB_REINDEX.ReindexingManager = MagicMock()
+_FAKE_KB_REINDEX.ReindexStatus = MagicMock()
 
 for mod in [_FAKE_SHARED, _FAKE_KB, _FAKE_KB_MANAGER, _FAKE_KB_RETRIEVER,
             _FAKE_KB_VECTOR, _FAKE_KB_CHUNKER, _FAKE_KB_REINDEX]:

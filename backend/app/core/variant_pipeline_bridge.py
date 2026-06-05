@@ -233,6 +233,53 @@ async def process_customer_care_message(
             customer_tier=customer_tier,
         )
 
+        # ── Step 5: Execute external tool actions (post-pipeline) ──
+        # BC-008: Tool failures don't affect the pipeline result.
+        # This is a fire-and-forget side effect — if it fails, the
+        # customer still gets their AI response.
+        try:
+            from app.core.external_tool_executor import execute_pipeline_actions
+
+            # Extract customer contact info from session context
+            customer_email = session_context.get("customer_email", "")
+            customer_phone = session_context.get("customer_phone", "")
+
+            # Get raw pipeline result dict for action extraction
+            raw_result = result.metadata or {}
+            raw_result["step_outputs"] = raw_result.get("step_outputs", {})
+            raw_result["emergency_flag"] = result.emergency_flag
+            raw_result["quality_score"] = result.quality_score
+            raw_result["pipeline_status"] = result.pipeline_status
+
+            tool_results = await execute_pipeline_actions(
+                variant_tier=variant_tier,
+                company_id=company_id,
+                pipeline_result=raw_result,
+                customer_email=customer_email,
+                customer_phone=customer_phone,
+                ticket_number=ticket_id,
+                ticket_id=ticket_id,
+            )
+
+            # Store tool execution results in metadata (non-blocking)
+            if tool_results:
+                result.metadata["external_tool_results"] = {
+                    k: {"channel": v.channel, "success": v.success,
+                        "message_id": v.message_id, "error": v.error}
+                    for k, v in tool_results.items()
+                }
+                result.metadata["tools_executed"] = len(tool_results)
+                result.metadata["tools_succeeded"] = sum(
+                    1 for v in tool_results.values() if v.success
+                )
+
+        except Exception as tool_exc:
+            # BC-008: Never crash — just log and continue
+            logger.warning(
+                "external_tool_execution_failed (non-blocking): %s",
+                str(tool_exc)[:200],
+            )
+
         total_ms = round((time.monotonic() - start) * 1000, 2)
         logger.info(
             "process_customer_care_message_complete: tier=%s, status=%s, "

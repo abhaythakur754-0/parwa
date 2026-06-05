@@ -4,6 +4,7 @@ PARWA Knowledge Base Router (Week 6 — F-032, F-033)
 Endpoints for knowledge base document management.
 
 - POST   /api/kb/upload                    — Upload a document for processing
+- POST   /api/kb/upload-url                — Import content from a URL
 - GET    /api/kb/documents                 — List all knowledge documents
 - GET    /api/kb/documents/{id}            — Get single document status
 - DELETE /api/kb/documents/{id}            — Delete a knowledge document
@@ -11,6 +12,7 @@ Endpoints for knowledge base document management.
 - POST   /api/kb/documents/{id}/reindex    — Re-index a completed document
 - GET    /api/kb/stats                     — Get knowledge base statistics
 - POST   /api/kb/retry-failed              — Retry all failed documents
+- GET    /api/kb/jobs/{job_id}             — Get ingest job status
 
 F-032: KB Document Upload (drag-drop file upload, validation)
 F-033: KB Processing + Indexing (chunking, vector embeddings via pgvector, Celery)
@@ -21,8 +23,12 @@ GAP 6: Failed document handling.
 """
 
 import logging
+import re
+import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
+import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 
 from app.services.file_storage_service import FileStorageService
@@ -52,6 +58,13 @@ ALLOWED_EXTENSIONS = {".pdf", ".docx", ".doc", ".txt", ".csv", ".md", ".json"}
 def _get_max_file_size() -> int:
     from app.config import get_settings
     return get_settings().KB_MAX_FILE_SIZE
+
+
+# ── In-Memory Job Tracker ─────────────────────────────────────────
+
+# Simple in-memory store for ingest job progress tracking.
+# Key: job_id (str), Value: dict with status/progress metadata.
+_job_tracker: Dict[str, Dict[str, Any]] = {}
 
 
 # ── Request/Response Schemas ───────────────────────────────────────
@@ -104,6 +117,26 @@ class MessageResponse(BaseModel):
     """Simple message response."""
 
     message: str
+
+
+class URLUploadRequest(BaseModel):
+    """Request body for URL-based content import."""
+
+    url: str = Field(..., description="URL to ingest content from")
+    title: str | None = Field(default=None, description="Optional title for the document")
+    category: str | None = Field(default=None, description="Optional category")
+
+
+class JobStatusResponse(BaseModel):
+    """Response with ingest job status."""
+
+    job_id: str
+    document_id: str | None = None
+    status: str
+    progress: int | None = None
+    message: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 # ── Endpoints ──────────────────────────────────────────────────────
@@ -194,6 +227,176 @@ async def api_upload_document(
         filename=filename,
         status=document.status,
         message="Document uploaded successfully. Processing will begin shortly.",
+    )
+
+
+@router.post(
+    "/upload-url",
+    response_model=UploadResponse,
+    status_code=201,
+)
+async def api_upload_url(
+    body: URLUploadRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UploadResponse:
+    """Import content from a URL into the knowledge base.
+
+    Validates the URL, fetches the page content, extracts text from HTML,
+    and triggers async processing via Celery — same pipeline as file upload.
+
+    BC-001: Scoped to user's company_id.
+    """
+    # 1. Validate URL format
+    if not (body.url.startswith("http://") or body.url.startswith("https://")):
+        raise ValidationError(
+            message="Invalid URL format. URL must start with http:// or https://.",
+            details={"url": body.url},
+        )
+
+    # 2. Fetch URL content
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(body.url, follow_redirects=True)
+            response.raise_for_status()
+            html_content = response.text
+    except httpx.TimeoutException:
+        raise ValidationError(
+            message="Failed to fetch URL: request timed out after 30 seconds.",
+            details={"url": body.url},
+        )
+    except httpx.HTTPStatusError as exc:
+        raise ValidationError(
+            message=f"Failed to fetch URL: HTTP {exc.response.status_code}.",
+            details={"url": body.url, "status_code": exc.response.status_code},
+        )
+    except httpx.HTTPError as exc:
+        raise ValidationError(
+            message=f"Failed to fetch URL: {exc.__class__.__name__}.",
+            details={"url": body.url, "error": str(exc)},
+        )
+
+    # 3. Extract text from HTML (strip tags)
+    text_content = re.sub(r"<[^>]+>", "", html_content)
+
+    # 4. Clean up whitespace
+    text_content = re.sub(r"\s+", " ", text_content).strip()
+
+    if not text_content:
+        raise ValidationError(
+            message="No text content could be extracted from the URL.",
+            details={"url": body.url},
+        )
+
+    # Determine filename / title
+    doc_title = body.title or body.url.split("?")[0].rstrip("/").rsplit("/", 1)[-1] or "url_import"
+    filename = f"{doc_title}.txt"
+
+    # 5. Create KnowledgeDocument record with status "pending"
+    content_bytes = text_content.encode("utf-8")
+    document = KnowledgeDocument(
+        company_id=user.company_id,
+        filename=filename,
+        file_type="txt",
+        file_size=len(content_bytes),
+        status="pending",
+    )
+    db.add(document)
+    db.commit()
+    db.refresh(document)
+
+    # 7. Store extracted content so the Celery task can process it
+    storage_svc = FileStorageService()
+    try:
+        storage_result = storage_svc.upload_file(
+            company_id=user.company_id,
+            content=content_bytes,
+            file_name=filename,
+            content_type="text/plain",
+            uploaded_by=str(user.id),
+            metadata={
+                "document_id": str(document.id),
+                "source": "url_import",
+                "original_url": body.url,
+                "category": body.category or "",
+            },
+        )
+        document.file_path = storage_result.get("file_path", storage_result.get("id"))
+        document.storage_file_id = storage_result.get("id")
+        db.flush()
+    except Exception as e:
+        logger.error("kb_url_storage_failed", document_id=str(document.id), error=str(e))
+
+    # Create a job tracker entry for progress tracking
+    job_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    _job_tracker[job_id] = {
+        "document_id": str(document.id),
+        "status": "pending",
+        "progress": 0,
+        "message": "URL content fetched. Queued for processing.",
+        "created_at": now,
+        "updated_at": now,
+    }
+
+    # 6. Trigger async processing via Celery
+    try:
+        from app.tasks.knowledge_tasks import process_knowledge_document
+        process_knowledge_document.delay(str(document.id), user.company_id)
+    except Exception:
+        # Celery not available — mark for sync processing
+        document.status = "pending"
+
+    # Update job tracker to reflect dispatch
+    _job_tracker[job_id]["status"] = "processing"
+    _job_tracker[job_id]["progress"] = 10
+    _job_tracker[job_id]["message"] = "Document dispatched to processing queue."
+    _job_tracker[job_id]["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    logger.info(
+        "kb_url_import_created",
+        document_id=str(document.id),
+        job_id=job_id,
+        url=body.url,
+        company_id=user.company_id,
+    )
+
+    return UploadResponse(
+        id=str(document.id),
+        filename=filename,
+        status=document.status,
+        message="URL content imported successfully. Processing will begin shortly.",
+    )
+
+
+@router.get(
+    "/jobs/{job_id}",
+    response_model=JobStatusResponse,
+)
+def api_get_job_status(
+    job_id: str,
+    user: User = Depends(get_current_user),
+) -> JobStatusResponse:
+    """Get the status of an ingest job (for progress tracking).
+
+    Reads from the in-memory job tracker. If the job is not found,
+    returns 404.
+    """
+    job = _job_tracker.get(job_id)
+    if not job:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Job '{job_id}' not found.",
+        )
+
+    return JobStatusResponse(
+        job_id=job_id,
+        document_id=job.get("document_id"),
+        status=job.get("status", "unknown"),
+        progress=job.get("progress"),
+        message=job.get("message"),
+        created_at=job.get("created_at"),
+        updated_at=job.get("updated_at"),
     )
 
 
