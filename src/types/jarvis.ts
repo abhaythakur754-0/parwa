@@ -146,6 +146,8 @@ export interface JarvisSession {
   detected_stage: ConversationStage;
   created_at: string | null;
   updated_at: string | null;
+  /** Optional messages returned when session is created (e.g. welcome message) */
+  messages?: JarvisMessage[];
 }
 
 // ── Messages ──────────────────────────────────────────────────────

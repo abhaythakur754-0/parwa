@@ -220,8 +220,8 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
       lsSet(LS_SESSION_ID, sessionData.id);
 
       // If server returned a welcome message and we have NO local messages, use it
-      if (!hasMessages && sessionData.messages?.length > 0) {
-        setMessages(sessionData.messages as JarvisMessage[]);
+      if (!hasMessages && sessionData.messages && sessionData.messages.length > 0) {
+        setMessages(sessionData.messages);
       }
 
       setIsLoading(false);
@@ -320,7 +320,7 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
     const sessionId = sessionRef.current;
     const abortController = new AbortController();
     abortRef.current = abortController;
-    const { signal } = abortController.signal;
+    const { signal } = abortController;
 
     // Optimistically add user message
     const tempId = `temp_${Date.now()}_${++msgCounterRef.current}`;
