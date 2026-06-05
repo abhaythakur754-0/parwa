@@ -12,6 +12,7 @@ Supported Integrations:
 - Gmail
 - Freshdesk
 - Intercom
+- HubSpot
 - Custom
 
 BC-001: All operations scoped to company_id.
@@ -57,6 +58,10 @@ INTEGRATION_TYPES: Dict[str, Dict[str, Any]] = {
     "intercom": {
         "required_fields": ["access_token"],
         "test_url": "https://api.intercom.io/me",
+    },
+    "hubspot": {
+        "required_fields": ["access_token"],
+        "test_url": "https://api.hubapi.com/crm/v3/pipelines/contacts",
     },
     "custom": {
         "required_fields": [],
@@ -319,6 +324,8 @@ class IntegrationService:
                 return self._test_freshdesk(config)
             elif integration_type == "intercom":
                 return self._test_intercom(config)
+            elif integration_type == "hubspot":
+                return self._test_hubspot(config)
             else:
                 return {"success": True, "message": f"{integration_type} integration config saved"}
         except Exception as e:
@@ -492,6 +499,41 @@ class IntegrationService:
                     }
         except Exception as e:
             return {"success": False, "message": f"Intercom connection failed: {str(e)}"}
+
+    def _test_hubspot(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Test HubSpot API connectivity."""
+        access_token = config.get("access_token")
+
+        if not access_token:
+            return {"success": False, "message": "Missing required field: access_token"}
+
+        url = "https://api.hubapi.com/crm/v3/pipelines/contacts"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+        }
+
+        try:
+            with httpx.Client(timeout=10) as client:
+                response = client.get(url, headers=headers)
+                if response.status_code == 200:
+                    data = response.json()
+                    pipeline_count = len(data.get("results", []))
+                    return {
+                        "success": True,
+                        "message": f"Connected to HubSpot CRM ({pipeline_count} contact pipelines found)",
+                    }
+                elif response.status_code == 401:
+                    return {"success": False, "message": "HubSpot access token is invalid or expired"}
+                else:
+                    return {
+                        "success": False,
+                        "message": f"HubSpot API returned {response.status_code}: {response.text[:200]}",
+                    }
+        except httpx.TimeoutException:
+            return {"success": False, "message": "Connection to HubSpot timed out"}
+        except Exception as e:
+            return {"success": False, "message": f"HubSpot connection failed: {str(e)}"}
 
     # ── Helpers ───────────────────────────────────────────────────
 

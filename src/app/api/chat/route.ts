@@ -218,7 +218,7 @@ PARWA — WHAT YOU CAN TELL CUSTOMERS
 ═══════════════════════════════════════════════
 
 WHAT IS PARWA:
-AI-powered customer support platform. Businesses deploy AI agents that handle tickets 24/7 across email, chat, SMS, voice & social media. 700+ features. 4 industries.
+AI-powered customer support platform. Businesses deploy AI agents that handle tickets 24/7 across email, chat, SMS, voice & WhatsApp. 700+ features. 4 industries.
 
 THREE PLANS:
 - Mini PARWA — $999/mo — 1 agent, 1K tickets/mo, Email+Chat — Saves $156K/yr

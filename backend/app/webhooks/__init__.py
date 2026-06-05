@@ -40,7 +40,20 @@ PROVIDER_EVENT_TYPES = {
     ],
     "shopify": [
         "orders.create",
+        "orders.updated",
+        "orders.cancelled",
         "customers.create",
+        "products.create",
+        "app/uninstalled",
+    ],
+    "hubspot": [
+        "contact.created",
+        "contact.updated",
+        "contact.deleted",
+        "deal.created",
+        "deal.updated",
+        "company.created",
+        "company.updated",
     ],
 }
 

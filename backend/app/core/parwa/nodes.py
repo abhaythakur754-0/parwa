@@ -1055,7 +1055,6 @@ def pii_check_node(state: ParwaGraphState) -> Dict[str, Any]:
                 "pii_redacted_query": query,
                 "pii_entities": [],
                 "steps_completed": ["pii_check"],
-            "steps_completed": ["pii_check"],
             "current_step": "pii_check",
                 "step_outputs": {"pii_check": {"status": "skipped", "reason": "empty_query"}},
                 "audit_log": [append_audit_entry(state, "pii_check", "skipped_empty_query")["audit_log"][0]],
@@ -1153,7 +1152,6 @@ async def empathy_check_node(state: ParwaGraphState) -> Dict[str, Any]:
                 "empathy_score": 0.5,
                 "empathy_flags": [],
                 "steps_completed": ["empathy_check"],
-            "steps_completed": ["empathy_check"],
             "current_step": "empathy_check",
                 "step_outputs": {"empathy_check": {"status": "skipped", "reason": "empty_query"}},
                 "audit_log": [append_audit_entry(state, "empathy_check", "skipped_empty_query")["audit_log"][0]],
@@ -1264,7 +1262,6 @@ def emergency_check_node(state: ParwaGraphState) -> Dict[str, Any]:
                 "emergency_flag": False,
                 "emergency_type": "",
                 "steps_completed": ["emergency_check"],
-            "steps_completed": ["emergency_check"],
             "current_step": "emergency_check",
                 "step_outputs": {"emergency_check": {"status": "skipped", "reason": "empty_query"}},
                 "audit_log": [append_audit_entry(state, "emergency_check", "skipped_empty_query")["audit_log"][0]],
@@ -1411,7 +1408,6 @@ def gsd_state_node(state: ParwaGraphState) -> Dict[str, Any]:
 
         return {
             "steps_completed": ["gsd_state"],
-            "steps_completed": ["gsd_state"],
             "current_step": "gsd_state",
             "step_outputs": {
                 "gsd_state": {
@@ -1457,7 +1453,6 @@ async def classify_node(state: ParwaGraphState) -> Dict[str, Any]:
             return {
                 "classification": {"intent": "general", "confidence": 0.0, "method": "skipped"},
                 "steps_completed": ["classify"],
-            "steps_completed": ["classify"],
             "current_step": "classify",
                 "step_outputs": {"classify": {"status": "skipped", "reason": "empty_query"}},
                 "audit_log": [append_audit_entry(state, "classify", "skipped_empty_query")["audit_log"][0]],
@@ -1470,7 +1465,12 @@ async def classify_node(state: ParwaGraphState) -> Dict[str, Any]:
         try:
             engine = _get_classification_engine()
             if engine:
-                ai_result = engine.classify(query, industry=industry)
+                # ClassificationEngine.classify is async — must await
+                import inspect as _inspect
+                if _inspect.iscoroutinefunction(engine.classify):
+                    ai_result = await engine.classify(query, industry=industry)
+                else:
+                    ai_result = engine.classify(query, industry=industry)
                 # IntentResult is a dataclass — handle both formats
                 if hasattr(ai_result, "primary_intent"):
                     if ai_result.primary_confidence > 0.5:
@@ -1713,7 +1713,6 @@ def extract_signals_node(state: ParwaGraphState) -> Dict[str, Any]:
             "signals": signals,
             "technique": technique_result,
             "steps_completed": ["extract_signals"],
-            "steps_completed": ["extract_signals"],
             "current_step": "extract_signals",
             "step_outputs": {
                 "extract_signals": {
@@ -1756,37 +1755,68 @@ def technique_select_node(state: ParwaGraphState) -> Dict[str, Any]:
     """
     start = time.monotonic()
     try:
-        technique_result = state.get("technique", {})
         signals = state.get("signals", {})
         classification = state.get("classification", {})
 
-        # Determine the primary technique from activated techniques
-        activated = technique_result.get("activated_techniques", [])
+        # Use TechniqueRouter to determine activated techniques
+        technique_router = _get_technique_router()
+        activated = []
+        primary_technique = "direct"
+        primary_tier = "tier_1"
+        activated_technique_ids = []
+        trigger_rules_matched = []
+
+        if technique_router:
+            try:
+                from app.core.technique_router import QuerySignals as TRQuerySignals
+                tr_signals = TRQuerySignals(
+                    query_complexity=signals.get("query_complexity", signals.get("complexity", 0.3)),
+                    confidence_score=classification.get("confidence", 0.5),
+                    sentiment_score=signals.get("sentiment", 0.5),
+                    frustration_score=signals.get("frustration_score", 0),
+                    customer_tier=state.get("customer_tier", "free"),
+                    monetary_value=signals.get("monetary_value", 0),
+                    turn_count=signals.get("turn_count", 1),
+                    intent_type=classification.get("intent", "general"),
+                    reasoning_loop_detected=signals.get("reasoning_loop_detected", False),
+                    resolution_path_count=signals.get("resolution_path_count", 1),
+                    external_data_required=signals.get("external_data_required", False),
+                    is_strategic_decision=signals.get("is_strategic_decision", False),
+                )
+                router_result = technique_router.route(tr_signals)
+                for activation in router_result.activated_techniques:
+                    activated.append({
+                        "id": activation.technique_id.value,
+                        "tier": activation.tier.value,
+                        "triggered_by": activation.triggered_by,
+                    })
+                    activated_technique_ids.append(activation.technique_id.value)
+                trigger_rules_matched = [r.rule_id.value for r in []]  # Not directly accessible
+            except Exception as e:
+                logger.warning("technique_router_route_failed: %s", e)
 
         # Priority: Tier 2 techniques first (they add the most value)
         tier2_techniques = [t for t in activated if t.get("tier") == "tier_2"]
-        tier1_techniques = [t for t in activated if t.get("tier") == "tier_1"]
+        tier3_techniques = [t for t in activated if t.get("tier") == "tier_3"]
 
         # Select primary technique (highest value Tier 2 technique)
         technique_priority = {
-            "react": 5,            # Most powerful for action-oriented queries
-            "chain_of_thought": 4,  # Great for complex reasoning
-            "reverse_thinking": 3,  # Good for resolution planning
-            "step_back": 2,        # Good for context seeking
-            "thread_of_thought": 1, # Good for continuity
+            "react": 5, "chain_of_thought": 4, "reverse_thinking": 3,
+            "step_back": 2, "thread_of_thought": 1,
+            "gst": 6, "universe_of_thoughts": 7, "tree_of_thoughts": 6,
+            "self_consistency": 5, "reflexion": 4, "least_to_most": 5,
         }
 
         primary_technique = "direct"  # Default: no technique, direct generation
         primary_tier = "tier_1"
 
         if tier2_techniques:
-            # Pick the highest priority Tier 2 technique
-            best = max(
-                tier2_techniques,
-                key=lambda t: technique_priority.get(t.get("id", ""), 0),
-            )
+            best = max(tier2_techniques, key=lambda t: technique_priority.get(t.get("id", ""), 0))
             primary_technique = best.get("id", "direct")
             primary_tier = best.get("tier", "tier_2")
+        elif not tier2_techniques and not tier3_techniques:
+            primary_technique = "direct"
+            primary_tier = "tier_1"
 
         # Build technique instruction for the reasoning chain
         technique_instruction = ""
@@ -1818,7 +1848,13 @@ def technique_select_node(state: ParwaGraphState) -> Dict[str, Any]:
         )
 
         return {
-            "steps_completed": ["technique_select"],
+            "technique": {
+                "primary_technique": primary_technique,
+                "activated_techniques": activated_technique_ids,
+                "model_tier": "medium",
+                "trigger_rules_matched": trigger_rules_matched,
+                "method": "technique_router",
+            },
             "steps_completed": ["technique_select"],
             "current_step": "technique_select",
             "step_outputs": {
@@ -1923,7 +1959,6 @@ async def reasoning_chain_node(state: ParwaGraphState) -> Dict[str, Any]:
 
         return {
             "steps_completed": ["reasoning_chain"],
-            "steps_completed": ["reasoning_chain"],
             "current_step": "reasoning_chain",
             "step_outputs": {
                 "reasoning_chain": {
@@ -2026,7 +2061,6 @@ def context_enrich_node(state: ParwaGraphState) -> Dict[str, Any]:
         )
 
         return {
-            "steps_completed": ["context_enrich"],
             "steps_completed": ["context_enrich"],
             "current_step": "context_enrich",
             "step_outputs": {
@@ -2173,7 +2207,6 @@ async def generate_node(state: ParwaGraphState) -> Dict[str, Any]:
             "generation_model": generation_model,
             "generation_tokens": generation_tokens,
             "steps_completed": ["generate"],
-            "steps_completed": ["generate"],
             "current_step": "generate",
             "step_outputs": {
                 "generate": {
@@ -2220,7 +2253,6 @@ def crp_compress_node(state: ParwaGraphState) -> Dict[str, Any]:
         if not response:
             return {
                 "steps_completed": ["crp_compress"],
-            "steps_completed": ["crp_compress"],
             "current_step": "crp_compress",
                 "step_outputs": {"crp_compress": {"status": "skipped", "reason": "no_response"}},
                 "audit_log": [append_audit_entry(state, "crp_compress", "skipped_no_response")["audit_log"][0]],
@@ -2321,7 +2353,9 @@ def clara_quality_gate_node(state: ParwaGraphState) -> Dict[str, Any]:
         duration_ms = round((time.monotonic() - start) * 1000, 2)
 
         # Compute combined confidence score: 60% CLARA + 40% Confidence Engine
-        confidence_score = 0.0
+        # ALL scores normalized to 0.0-1.0 scale for consistency
+        clara_score_normalized = quality_score / 100.0  # CLARA returns 0-100, normalize to 0-1
+        confidence_score_normalized = 0.5  # Default
         confidence_engine = _get_confidence_engine()
         if confidence_engine:
             try:
@@ -2332,11 +2366,15 @@ def clara_quality_gate_node(state: ParwaGraphState) -> Dict[str, Any]:
                     context={"industry": industry},
                     config={"tier": "parwa"},
                 )
-                confidence_score = cs_result if isinstance(cs_result, (int, float)) else 0.5
+                if isinstance(cs_result, (int, float)):
+                    # Confidence engine may return 0-1 or 0-100, normalize
+                    confidence_score_normalized = cs_result / 100.0 if cs_result > 1.0 else cs_result
+                    confidence_score_normalized = max(0.0, min(1.0, confidence_score_normalized))
             except Exception:
-                confidence_score = 0.5
+                confidence_score_normalized = 0.5
 
-        combined_quality = (quality_score * 0.6) + (confidence_score * 100 * 0.4)
+        # Combined quality: 60% CLARA + 40% confidence, always on 0-1 scale
+        combined_quality = (clara_score_normalized * 0.6) + (confidence_score_normalized * 0.4)
 
         audit_entry = append_audit_entry(
             state,
@@ -2346,8 +2384,10 @@ def clara_quality_gate_node(state: ParwaGraphState) -> Dict[str, Any]:
             tokens_used=0,
             details={
                 "passed": quality_passed,
-                "score": quality_score,
-                "combined_score": round(combined_quality, 2),
+                "clara_score": quality_score,
+                "clara_score_normalized": round(clara_score_normalized, 3),
+                "confidence_score_normalized": round(confidence_score_normalized, 3),
+                "combined_quality": round(combined_quality, 3),
                 "issues": quality_issues,
                 "retry_count": retry_count,
             },
@@ -2355,11 +2395,10 @@ def clara_quality_gate_node(state: ParwaGraphState) -> Dict[str, Any]:
 
         return {
             "generated_response": response,
-            "quality_score": round(combined_quality, 2),
+            "quality_score": round(combined_quality, 3),  # Always 0.0-1.0
             "quality_passed": quality_passed,
             "quality_issues": quality_issues,
             "quality_retry_count": retry_count,  # Not incremented yet
-            "steps_completed": ["clara_quality_gate"],
             "steps_completed": ["clara_quality_gate"],
             "current_step": "clara_quality_gate",
             "step_outputs": {
@@ -2470,7 +2509,6 @@ def quality_retry_node(state: ParwaGraphState) -> Dict[str, Any]:
         return {
             "quality_retry_count": retry_count,
             "steps_completed": ["quality_retry"],
-            "steps_completed": ["quality_retry"],
             "current_step": "quality_retry",
             "step_outputs": {
                 "quality_retry": {
@@ -2580,7 +2618,6 @@ def confidence_assess_node(state: ParwaGraphState) -> Dict[str, Any]:
         )
 
         return {
-            "steps_completed": ["confidence_assess"],
             "steps_completed": ["confidence_assess"],
             "current_step": "confidence_assess",
             "step_outputs": {
@@ -2701,7 +2738,6 @@ def format_node(state: ParwaGraphState) -> Dict[str, Any]:
             "formatted_response": formatted_response,
             "final_response": formatted_response,
             "response_format": channel,
-            "steps_completed": steps_completed,
             "pipeline_status": pipeline_status,
             "quality_score": quality_score,
             "billing_cost_usd": estimated_cost,

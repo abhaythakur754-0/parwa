@@ -61,7 +61,7 @@ class VoiceServer(MCPServerBase):
     name = "voice_server"
     description = "Voice call management via Twilio (outbound, status, IVR)"
     category = ToolCategory.INTEGRATION
-    version = "2.0.0"
+    version = "3.0.0"
 
     def register_tools(self, registry: MCPRegistry) -> None:
         """Register voice tools."""
@@ -171,6 +171,63 @@ class VoiceServer(MCPServerBase):
                 tags=["voice", "list", "active", "calls"],
             ),
             handler=self._invoke_list_active_calls,
+        )
+
+        # ── Day 6: Voice Deep tools ────────────────────────────
+
+        registry.register_tool(
+            ToolDefinition(
+                name="voice_get_call_recording",
+                description="Retrieve recording and transcript for a voice call. "
+                            "Returns recording URL, transcript text, and metadata. "
+                            "Day 6 roadmap: agents can review call recordings and transcripts.",
+                category=self.category,
+                server=self.name,
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "call_sid": {
+                            "type": "string",
+                            "description": "Twilio Call SID",
+                        },
+                        "company_id": {
+                            "type": "string",
+                            "description": "Tenant company ID",
+                        },
+                    },
+                    "required": ["call_sid", "company_id"],
+                },
+                tags=["voice", "recording", "transcript", "day6"],
+            ),
+            handler=self._invoke_get_call_recording,
+        )
+
+        registry.register_tool(
+            ToolDefinition(
+                name="voice_get_ivr_status",
+                description="Check the current caller position in an IVR menu. "
+                            "Returns which menu the caller is in, how long they've been waiting, "
+                            "and any digits they've pressed. "
+                            "Day 6 roadmap: agents see real-time IVR caller status.",
+                category=self.category,
+                server=self.name,
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "call_sid": {
+                            "type": "string",
+                            "description": "Twilio Call SID of the IVR caller",
+                        },
+                        "company_id": {
+                            "type": "string",
+                            "description": "Tenant company ID",
+                        },
+                    },
+                    "required": ["call_sid", "company_id"],
+                },
+                tags=["voice", "ivr", "status", "menu", "day6"],
+            ),
+            handler=self._invoke_get_ivr_status,
         )
 
     def get_router(self) -> APIRouter:
@@ -465,6 +522,143 @@ class VoiceServer(MCPServerBase):
                 success=False,
                 tool_name="voice_list_active_calls",
                 error=f"List active calls failed: {str(exc)[:200]}",
+            )
+        finally:
+            if db:
+                db.close()
+
+    # ── Day 6: Voice Deep tool handlers ─────────────────────────
+
+    async def _invoke_get_call_recording(
+        self, parameters: dict | None = None, context: dict | None = None
+    ) -> ToolInvokeResponse:
+        """Handle voice_get_call_recording tool invocation.
+
+        Uses CallRecordingService to retrieve recording + transcript.
+        """
+        params = parameters or {}
+        call_sid = params.get("call_sid", "")
+        company_id = params.get("company_id", "")
+
+        logger.info("voice_recording_via_mcp", call_sid=call_sid, company_id=company_id)
+
+        if not call_sid or not company_id:
+            return ToolInvokeResponse(
+                success=False,
+                tool_name="voice_get_call_recording",
+                error="Missing required parameters: call_sid and company_id",
+            )
+
+        try:
+            from app.services.voice.call_recording import CallRecordingService
+            service = CallRecordingService()
+            result = service.get_call_recordings(call_sid, company_id)
+
+            if result.get("status") == "error":
+                return ToolInvokeResponse(
+                    success=False,
+                    tool_name="voice_get_call_recording",
+                    error=result.get("error", "Failed to get recordings"),
+                )
+
+            return ToolInvokeResponse(
+                success=True,
+                tool_name="voice_get_call_recording",
+                data=result,
+                metadata={"source": "mcp_jarvis", "call_sid": call_sid},
+            )
+        except Exception as exc:
+            logger.error("voice_recording_mcp_error", error=str(exc)[:200])
+            return ToolInvokeResponse(
+                success=False,
+                tool_name="voice_get_call_recording",
+                error=f"Recording lookup failed: {str(exc)[:200]}",
+            )
+
+    async def _invoke_get_ivr_status(
+        self, parameters: dict | None = None, context: dict | None = None
+    ) -> ToolInvokeResponse:
+        """Handle voice_get_ivr_status tool invocation.
+
+        Checks current caller position in IVR menu by looking up
+        the call record and IVR session state.
+        """
+        params = parameters or {}
+        call_sid = params.get("call_sid", "")
+        company_id = params.get("company_id", "")
+
+        logger.info("voice_ivr_status_via_mcp", call_sid=call_sid, company_id=company_id)
+
+        if not call_sid or not company_id:
+            return ToolInvokeResponse(
+                success=False,
+                tool_name="voice_get_ivr_status",
+                error="Missing required parameters: call_sid and company_id",
+            )
+
+        service, db = _get_voice_service(company_id)
+        if not service:
+            return ToolInvokeResponse(
+                success=False,
+                tool_name="voice_get_ivr_status",
+                error="Failed to initialize voice service",
+            )
+
+        try:
+            from database.models.voice_channel import VoiceCall
+            import json
+
+            call = (
+                db.query(VoiceCall)
+                .filter(
+                    VoiceCall.twilio_call_sid == call_sid,
+                    VoiceCall.company_id == company_id,
+                )
+                .first()
+            )
+
+            if not call:
+                return ToolInvokeResponse(
+                    success=False,
+                    tool_name="voice_get_ivr_status",
+                    error=f"Call not found: {call_sid}",
+                )
+
+            # Extract IVR state from call metadata
+            metadata = json.loads(call.metadata_json or "{}")
+            ivr_state = metadata.get("ivr_state", {})
+            current_menu = ivr_state.get("current_menu", "unknown")
+            digits_pressed = ivr_state.get("digits_pressed", [])
+            entered_at = ivr_state.get("entered_at")
+
+            # Calculate wait time if in IVR
+            wait_seconds = 0
+            if call.created_at:
+                from datetime import datetime, timezone
+                elapsed = datetime.now(timezone.utc) - call.created_at
+                wait_seconds = int(elapsed.total_seconds())
+
+            return ToolInvokeResponse(
+                success=True,
+                tool_name="voice_get_ivr_status",
+                data={
+                    "call_sid": call_sid,
+                    "call_status": call.status,
+                    "current_menu": current_menu,
+                    "digits_pressed": digits_pressed,
+                    "entered_at": entered_at,
+                    "wait_seconds": wait_seconds,
+                    "from_number": call.from_number,
+                    "direction": call.direction,
+                },
+                metadata={"source": "mcp_jarvis"},
+            )
+        except Exception as exc:
+            logger.error("voice_ivr_status_mcp_error", error=str(exc)[:200])
+            return ToolInvokeResponse(
+                success=False,
+                tool_name="voice_get_ivr_status",
+                error=f"IVR status lookup failed: {str(exc)[:200]}",
             )
         finally:
             if db:

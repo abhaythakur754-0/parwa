@@ -611,3 +611,417 @@ class RAGRetriever:
             )
         except Exception as exc:
             logger.debug("rag_cache_write_failed", error=str(exc), cache_key=cache_key)
+
+    # ── HyDE: Hypothetical Document Embedding (Day 5 — AI-14) ──────
+
+    async def generate_hyde_and_retrieve(
+        self,
+        query: str,
+        company_id: str,
+        variant_type: str = "parwa_high",
+        top_k: Optional[int] = None,
+        similarity_threshold: Optional[float] = None,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> RAGResult:
+        """Retrieve using Hypothetical Document Embedding (HyDE).
+
+        Generates a hypothetical answer document using the LLM, then
+        embeds this hypothetical document and uses it as the primary
+        retrieval query. This technique improves retrieval quality
+        because the hypothetical answer is semantically closer to
+        relevant documents than the original question might be.
+
+        Falls back to standard retrieve() if LLM is unavailable (BC-008).
+
+        Args:
+            query: User query to search for.
+            company_id: Tenant identifier (BC-001).
+            variant_type: Variant tier (typically parwa_high).
+            top_k: Maximum results.
+            similarity_threshold: Minimum similarity score.
+            filters: Metadata filters.
+
+        Returns:
+            RAGResult with chunks found via HyDE-enhanced retrieval.
+        """
+        if not query or not query.strip():
+            return RAGResult(variant_tier_used=variant_type)
+
+        start_time = time.monotonic()
+
+        # Step 1: Generate hypothetical answer using LLM
+        hypothetical_doc = await self._generate_hypothetical_document(
+            query, company_id
+        )
+
+        if hypothetical_doc:
+            logger.info(
+                "rag_hyde_generated",
+                company_id=company_id,
+                query_len=len(query),
+                hyde_len=len(hypothetical_doc),
+            )
+
+            # Step 2: Embed the hypothetical document instead of the query
+            hyde_embedding = await self._generate_embedding(hypothetical_doc)
+
+            if hyde_embedding is not None:
+                # Step 3: Use HyDE embedding for retrieval
+                result = await self._retrieve_with_embedding(
+                    query_embedding=hyde_embedding,
+                    original_query=query,
+                    company_id=company_id,
+                    variant_type=variant_type,
+                    top_k=top_k,
+                    similarity_threshold=similarity_threshold,
+                    filters=filters,
+                )
+
+                result.retrieval_time_ms = round(
+                    (time.monotonic() - start_time) * 1000, 2
+                )
+
+                # Store metadata about HyDE usage
+                if result.filters_applied is not None:
+                    result.filters_applied["hyde_used"] = True
+                    result.filters_applied["hyde_doc_length"] = len(
+                        hypothetical_doc
+                    )
+
+                return result
+
+        # BC-008: Fall back to standard retrieval
+        logger.info(
+            "rag_hyde_fallback_to_standard",
+            company_id=company_id,
+        )
+        return await self.retrieve(
+            query=query,
+            company_id=company_id,
+            variant_type=variant_type,
+            top_k=top_k,
+            similarity_threshold=similarity_threshold,
+            filters=filters,
+        )
+
+    async def _generate_hypothetical_document(
+        self, query: str, company_id: str
+    ) -> Optional[str]:
+        """Generate a hypothetical answer document using the LLM.
+
+        BC-008: Returns None on any failure, triggering standard fallback.
+        """
+        try:
+            from app.services.llm_gateway import generate
+
+            prompt = (
+                "Write a brief (3-5 sentences) informative answer to the "
+                "following customer support question. This is a hypothetical "
+                "document for retrieval purposes — be specific and factual.\n\n"
+                f"Question: {query[:500]}\n\nAnswer:"
+            )
+
+            import asyncio
+            if asyncio.iscoroutinefunction(generate):
+                response = await generate(prompt, company_id=company_id)
+            else:
+                response = generate(prompt, company_id=company_id)
+
+            if hasattr(response, "text"):
+                return response.text.strip()
+            elif isinstance(response, str):
+                return response.strip()
+            elif isinstance(response, dict):
+                return response.get("text", "").strip()
+
+        except ImportError:
+            logger.debug(
+                "rag_hyde_llm_unavailable",
+                company_id=company_id,
+            )
+        except Exception as exc:
+            logger.warning(
+                "rag_hyde_generation_failed",
+                company_id=company_id,
+                error=str(exc)[:200],
+            )
+
+        return None
+
+    # ── Multi-Query Retrieval (Day 5 — AI-14) ──────────────────────
+
+    async def expand_query_multi(
+        self,
+        query: str,
+        company_id: str,
+        variant_type: str = "parwa",
+        top_k: Optional[int] = None,
+        similarity_threshold: Optional[float] = None,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> RAGResult:
+        """Retrieve using multi-query expansion.
+
+        Generates 3 alternative phrasings of the customer query using
+        the LLM, then retrieves documents for all 4 queries (original
+        + 3 alternatives). Merges and deduplicates results, ranking
+        by aggregate relevance score.
+
+        Falls back to synonym-based expansion if LLM unavailable (BC-008).
+
+        Args:
+            query: User query to search for.
+            company_id: Tenant identifier (BC-001).
+            variant_type: Variant tier.
+            top_k: Maximum results.
+            similarity_threshold: Minimum similarity score.
+            filters: Metadata filters.
+
+        Returns:
+            RAGResult with chunks found via multi-query retrieval.
+        """
+        if not query or not query.strip():
+            return RAGResult(variant_tier_used=variant_type)
+
+        start_time = time.monotonic()
+
+        # Step 1: Generate alternative query phrasings
+        alternative_queries = await self._generate_alternative_queries(
+            query, company_id
+        )
+
+        if not alternative_queries:
+            # BC-008: Fall back to synonym-based expansion
+            alternative_queries = self._expand_query(query)
+
+        all_queries = [query] + alternative_queries[:3]
+        logger.info(
+            "rag_multi_query_expanded",
+            company_id=company_id,
+            num_queries=len(all_queries),
+        )
+
+        # Step 2: Retrieve for each query
+        config = VARIANT_CONFIG.get(variant_type, VARIANT_CONFIG["parwa"])
+        if top_k is None:
+            top_k = config["default_top_k"]
+        if similarity_threshold is None:
+            similarity_threshold = config["similarity_threshold"]
+
+        all_chunks: List[RAGChunk] = []
+        chunk_scores: Dict[str, List[float]] = {}  # chunk_id -> [scores]
+
+        for q in all_queries:
+            try:
+                result = await self.retrieve(
+                    query=q,
+                    company_id=company_id,
+                    variant_type=variant_type,
+                    top_k=top_k,
+                    similarity_threshold=similarity_threshold,
+                    filters=filters,
+                )
+                for chunk in result.chunks:
+                    if chunk.chunk_id not in chunk_scores:
+                        chunk_scores[chunk.chunk_id] = []
+                        all_chunks.append(chunk)
+                    chunk_scores[chunk.chunk_id].append(chunk.score)
+            except Exception as exc:
+                logger.warning(
+                    "rag_multi_query_sub_query_failed",
+                    company_id=company_id,
+                    sub_query=q[:50],
+                    error=str(exc)[:200],
+                )
+
+        # Step 3: Re-score using aggregate relevance
+        for chunk in all_chunks:
+            scores = chunk_scores.get(chunk.chunk_id, [chunk.score])
+            # Aggregate: average of scores, bonus for appearing in multiple queries
+            avg_score = sum(scores) / len(scores)
+            multi_query_bonus = min(len(scores) * 0.05, 0.2)
+            chunk.score = round(min(avg_score + multi_query_bonus, 1.0), 6)
+
+        # Step 4: Deduplicate and sort
+        seen: Set[str] = set()
+        unique_chunks: List[RAGChunk] = []
+        for chunk in all_chunks:
+            if chunk.chunk_id not in seen:
+                seen.add(chunk.chunk_id)
+                unique_chunks.append(chunk)
+
+        unique_chunks.sort(key=lambda c: c.score, reverse=True)
+        final_chunks = unique_chunks[:top_k]
+
+        retrieval_time_ms = round((time.monotonic() - start_time) * 1000, 2)
+
+        result = RAGResult(
+            chunks=final_chunks,
+            total_found=len(unique_chunks),
+            retrieval_time_ms=retrieval_time_ms,
+            variant_tier_used=variant_type,
+            filters_applied={
+                **(filters or {}),
+                "multi_query_used": True,
+                "num_queries_searched": len(all_queries),
+            },
+        )
+
+        logger.info(
+            "rag_multi_query_complete",
+            company_id=company_id,
+            num_queries=len(all_queries),
+            chunks_found=result.total_found,
+            chunks_returned=len(result.chunks),
+        )
+
+        return result
+
+    async def _generate_alternative_queries(
+        self, query: str, company_id: str
+    ) -> List[str]:
+        """Generate 3 alternative phrasings of the query using LLM.
+
+        BC-008: Returns empty list on failure (triggers synonym fallback).
+        """
+        try:
+            from app.services.llm_gateway import generate
+
+            prompt = (
+                "Generate 3 alternative phrasings of the following customer "
+                "support question. Each alternative should use different "
+                "terminology while preserving the same intent. Output one "
+                "alternative per line, numbered 1-3.\n\n"
+                f"Question: {query[:500]}\n\nAlternatives:"
+            )
+
+            import asyncio
+            if asyncio.iscoroutinefunction(generate):
+                response = await generate(prompt, company_id=company_id)
+            else:
+                response = generate(prompt, company_id=company_id)
+
+            text = ""
+            if hasattr(response, "text"):
+                text = response.text.strip()
+            elif isinstance(response, str):
+                text = response.strip()
+            elif isinstance(response, dict):
+                text = response.get("text", "").strip()
+
+            if not text:
+                return []
+
+            # Parse numbered lines
+            alternatives: List[str] = []
+            for line in text.split("\n"):
+                line = line.strip()
+                # Remove leading numbers like "1.", "1)", "1:"
+                cleaned = re.sub(r"^\d+[\.\):]\s*", "", line).strip()
+                if cleaned and len(cleaned) > 5 and cleaned != query:
+                    alternatives.append(cleaned)
+
+            return alternatives[:3]
+
+        except ImportError:
+            logger.debug(
+                "rag_multi_query_llm_unavailable",
+                company_id=company_id,
+            )
+        except Exception as exc:
+            logger.warning(
+                "rag_multi_query_generation_failed",
+                company_id=company_id,
+                error=str(exc)[:200],
+            )
+
+        return []
+
+    # ── Internal: Retrieve with pre-computed embedding ─────────────
+
+    async def _retrieve_with_embedding(
+        self,
+        query_embedding: List[float],
+        original_query: str,
+        company_id: str,
+        variant_type: str = "parwa",
+        top_k: Optional[int] = None,
+        similarity_threshold: Optional[float] = None,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> RAGResult:
+        """Retrieve using a pre-computed embedding (used by HyDE).
+
+        This reuses the existing search infrastructure but bypasses
+        embedding generation since we already have the embedding.
+        """
+        config = VARIANT_CONFIG.get(variant_type, VARIANT_CONFIG["parwa"])
+        if top_k is None:
+            top_k = config["default_top_k"]
+        if similarity_threshold is None:
+            similarity_threshold = config["similarity_threshold"]
+
+        # Query expansion based on original query text
+        expanded_queries = [original_query]
+        if config.get("use_query_expansion"):
+            expanded_queries = self._expand_query(original_query)
+
+        all_chunks: List[RAGChunk] = []
+
+        # BC-008: Check store health
+        if hasattr(self._store, "health_check") and not self._store.health_check():
+            return RAGResult(
+                variant_tier_used=variant_type,
+                degradation_used=True,
+            )
+
+        for exp_query in expanded_queries:
+            exp_embedding = query_embedding
+            if exp_query != original_query:
+                exp_embedding = (
+                    await self._generate_embedding(exp_query) or query_embedding
+                )
+
+            try:
+                search_results = self._store.search(
+                    query_embedding=exp_embedding,
+                    company_id=company_id,
+                    top_k=top_k,
+                    filters=filters if config.get("use_metadata_filters") else None,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "rag_hyde_search_failed",
+                    company_id=company_id,
+                    error=str(exc)[:200],
+                )
+                continue
+
+            for sr in search_results:
+                if sr.score >= similarity_threshold:
+                    all_chunks.append(RAGChunk(
+                        chunk_id=sr.chunk_id,
+                        document_id=sr.document_id,
+                        content=sr.content,
+                        score=sr.score,
+                        metadata=sr.metadata,
+                    ))
+
+        # Reranking and citation tracking
+        if config.get("use_reranking") and all_chunks:
+            all_chunks = self._rerank(original_query, all_chunks)
+
+        if config.get("use_citation_tracking") and all_chunks:
+            all_chunks = self._add_citations(all_chunks)
+
+        # Deduplicate and limit
+        seen: Set[str] = set()
+        unique_chunks: List[RAGChunk] = []
+        for chunk in all_chunks:
+            if chunk.chunk_id not in seen:
+                seen.add(chunk.chunk_id)
+                unique_chunks.append(chunk)
+
+        return RAGResult(
+            chunks=unique_chunks[:top_k],
+            total_found=len(unique_chunks),
+            variant_tier_used=variant_type,
+        )
