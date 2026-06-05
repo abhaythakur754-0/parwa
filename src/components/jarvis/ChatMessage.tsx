@@ -156,17 +156,96 @@ function ErrorMessage({
 
 // ── Inline Content Renderer — Beautiful Markdown ──────────────────
 
+/**
+ * Detects emoji characters including skin tone modifiers, ZWJ sequences,
+ * and the full Unicode emoji range. Much more comprehensive than before.
+ */
 function isEmojiChar(ch: string): boolean {
   const code = ch.codePointAt(0) || 0;
-  return (code >= 0x1F300 && code <= 0x1FAFF) || (code >= 0x2600 && code <= 0x27BF) || (code >= 0xFE00 && code <= 0xFE0F);
+  // Standard emoji ranges
+  return (
+    (code >= 0x1F300 && code <= 0x1FAFF) ||  // Misc Symbols, Emoticons, etc.
+    (code >= 0x2600 && code <= 0x27BF) ||     // Misc symbols, Dingbats
+    (code >= 0xFE00 && code <= 0xFE0F) ||     // Variation selectors
+    (code >= 0x1F600 && code <= 0x1F64F) ||   // Emoticons
+    (code >= 0x1F680 && code <= 0x1F6FF) ||   // Transport & Map
+    (code >= 0x1F900 && code <= 0x1F9FF) ||   // Supplemental Symbols-A
+    (code >= 0x1FA00 && code <= 0x1FA6F) ||   // Chess Symbols
+    (code >= 0x1FA70 && code <= 0x1FAFF) ||   // Symbols Extended-A
+    (code >= 0x2702 && code <= 0x27B0) ||     // Dingbats
+    (code >= 0x24C2 && code <= 0x1F251) ||    // Enclosed
+    (code >= 0x2B50 && code <= 0x2B55) ||     // Stars
+    code === 0x200D ||                         // ZWJ
+    code === 0x20E3 ||                         // Combining Enclosing Keycap
+    code === 0xE0020 ||                        // Tag space
+    (code >= 0xE0061 && code <= 0xE007A)      // Tag latin letters
+  );
+}
+
+/**
+ * Extract the first emoji from a string, accounting for multi-codepoint
+ * emoji sequences (ZWJ, skin tones, etc.)
+ */
+function extractEmoji(str: string): { emoji: string; rest: string } | null {
+  if (!str || str.length === 0) return null;
+
+  const firstCode = str.codePointAt(0) || 0;
+  let emojiEnd = 0;
+
+  // Check if first char is an emoji
+  if (!isEmojiChar(str[0])) return null;
+
+  // Start with the base emoji (could be 2 UTF-16 code units for surrogate pairs)
+  emojiEnd = firstCode > 0xFFFF ? 2 : 1;
+
+  // Consume variation selectors (FE0F), skin tone modifiers (1F3FB-1F3FF), ZWJ sequences
+  let i = emojiEnd;
+  while (i < str.length) {
+    const code = str.codePointAt(i) || 0;
+
+    // Variation selector
+    if (code === 0xFE0F) {
+      i += 1;
+      emojiEnd = i;
+      continue;
+    }
+
+    // Skin tone modifier
+    if (code >= 0x1F3FB && code <= 0x1F3FF) {
+      i += 2; // surrogate pair
+      emojiEnd = i;
+      continue;
+    }
+
+    // Zero Width Joiner → next char is part of the emoji sequence
+    if (code === 0x200D) {
+      i += 1;
+      // Skip over the next emoji character
+      if (i < str.length) {
+        const nextCode = str.codePointAt(i) || 0;
+        i += nextCode > 0xFFFF ? 2 : 1;
+        emojiEnd = i;
+      }
+      continue;
+    }
+
+    // Not part of the emoji sequence — stop
+    break;
+  }
+
+  return {
+    emoji: str.slice(0, emojiEnd),
+    rest: str.slice(emojiEnd),
+  };
 }
 
 /**
  * Renders AI message content in a beautiful, structured way:
- * - Opening line: Large, bold, eye-catching
- * - Bullet points: With orange chevron markers and proper spacing
- * - Numbered lists: With subtle orange numbers
- * - Emoji lines: Preserved as-is with proper layout
+ * - Opening line: Bold, prominent heading
+ * - Bullet points with emojis: Emoji as visual marker, clean text
+ * - Bullet points without emojis: Orange chevron marker
+ * - Numbered lists: Subtle orange numbers
+ * - Standalone emoji lines: Emoji preserved with clean layout
  * - Regular text: Clean and readable
  */
 function renderAIContent(content: string) {
@@ -174,9 +253,9 @@ function renderAIContent(content: string) {
   const preprocessed = content.split('\n').flatMap((line) => {
     const trimmed = line.trim();
     if (!trimmed) return [line];
-    const bulletMatches = trimmed.match(/[\u2022\-*•]\s/g);
+    const bulletMatches = trimmed.match(/[\u2022•]\s/g);
     if (bulletMatches && bulletMatches.length >= 2) {
-      return trimmed.split(/(?=[\u2022\-*•]\s)/).filter(Boolean);
+      return trimmed.split(/(?=[\u2022•]\s)/).filter(Boolean);
     }
     return [line];
   });
@@ -189,73 +268,88 @@ function renderAIContent(content: string) {
     const trimmed = line.trim();
     if (!trimmed) {
       // Empty line = spacing between sections
-      if (inList) { inList = false; return <div key={index} className="h-1.5" />; }
+      if (inList) { inList = false; return <div key={index} className="h-2" />; }
       return <div key={index} className="h-1" />;
     }
 
-    // Detect line type
-    const isEmoji = isEmojiChar(trimmed);
-    const isBullet = /^[\u2022\-*•]\s/.test(trimmed);
-    const isNumbered = /^[0-9]+[.)]\s/.test(trimmed);
-    const isOpener = !openerUsed && !isBullet && !isNumbered && !isEmoji && trimmed.length < 100;
+    // Detect line type — check for "- 📧 text" pattern FIRST (emoji bullet)
+    const emojiBulletMatch = trimmed.match(/^[-*•]\s+(.+)$/);
+    if (emojiBulletMatch) {
+      const afterDash = emojiBulletMatch[1];
+      const emojiResult = extractEmoji(afterDash);
 
-    // ── Opening line: bold, larger, eye-catching ──
-    if (isOpener) {
-      openerUsed = true;
-      return (
-        <p key={index} className="text-white font-semibold text-[15px] leading-relaxed mb-0.5">
-          {processBold(trimmed)}
-        </p>
-      );
-    }
+      if (emojiResult) {
+        // ── Emoji bullet: "- 📧 Email support..." → show emoji as marker ──
+        inList = true;
+        const displayText = emojiResult.rest.trim();
+        return (
+          <div key={index} className="flex items-start gap-2.5 py-[3px]">
+            <span className="shrink-0 text-[15px] leading-snug mt-[-1px]">{emojiResult.emoji}</span>
+            <span className="text-white/90 leading-snug text-[14px]">
+              {processBold(displayText)}
+            </span>
+          </div>
+        );
+      }
 
-    // ── Bullet point lines ──
-    if (isBullet) {
+      // ── Regular bullet: "- Some text" → orange chevron marker ──
       inList = true;
-      const displayText = trimmed.replace(/^[\u2022\-*•]\s*/, '');
       return (
-        <div key={index} className="flex items-start gap-2.5 py-0.5 pl-0.5">
-          <span className="text-orange-400/80 shrink-0 mt-[3px] text-[10px]">&#9656;</span>
-          <span className="text-white/85 leading-relaxed text-[13.5px]">
-            {processBold(displayText)}
+        <div key={index} className="flex items-start gap-2.5 py-[2px]">
+          <span className="text-orange-400/80 shrink-0 mt-[4px] text-[9px]">&#9656;</span>
+          <span className="text-white/90 leading-snug text-[14px]">
+            {processBold(afterDash)}
           </span>
         </div>
       );
     }
 
     // ── Numbered list lines ──
+    const isNumbered = /^[0-9]+[.)]\s/.test(trimmed);
     if (isNumbered) {
       inList = true;
       const numMatch = trimmed.match(/^([0-9]+)[.)]\s*(.*)/);
       const num = numMatch ? numMatch[1] : '1';
       const displayText = numMatch ? numMatch[2] : trimmed.replace(/^[0-9]+[.)]\s*/, '');
       return (
-        <div key={index} className="flex items-start gap-2.5 py-0.5 pl-0.5">
-          <span className="text-orange-400/70 shrink-0 mt-[2px] text-[11px] font-medium min-w-[16px]">{num}.</span>
-          <span className="text-white/85 leading-relaxed text-[13.5px]">
+        <div key={index} className="flex items-start gap-2.5 py-[2px]">
+          <span className="text-orange-400/70 shrink-0 mt-[1px] text-[12px] font-semibold min-w-[18px]">{num}.</span>
+          <span className="text-white/90 leading-snug text-[14px]">
             {processBold(displayText)}
           </span>
         </div>
       );
     }
 
-    // ── Emoji-prefixed lines ──
-    if (isEmoji) {
+    // ── Standalone emoji line (no bullet prefix): "📧 Email support..." ──
+    const standaloneEmoji = extractEmoji(trimmed);
+    if (standaloneEmoji && standaloneEmoji.rest.trim().length > 0) {
       inList = true;
       return (
-        <div key={index} className="flex items-start gap-2 py-0.5 pl-0.5">
-          <span className="shrink-0 text-[14px] leading-relaxed">{trimmed.charAt(0)}</span>
-          <span className="text-white/85 leading-relaxed text-[13.5px]">
-            {processBold(trimmed.slice(trimmed.charAt(0).length).trim())}
+        <div key={index} className="flex items-start gap-2.5 py-[3px]">
+          <span className="shrink-0 text-[15px] leading-snug mt-[-1px]">{standaloneEmoji.emoji}</span>
+          <span className="text-white/90 leading-snug text-[14px]">
+            {processBold(standaloneEmoji.rest.trim())}
           </span>
         </div>
+      );
+    }
+
+    // ── Opening line: bold, larger, eye-catching ──
+    const isOpener = !openerUsed && !isNumbered && trimmed.length < 120;
+    if (isOpener) {
+      openerUsed = true;
+      return (
+        <p key={index} className="text-white font-semibold text-[15px] leading-snug mb-0.5">
+          {processBold(trimmed)}
+        </p>
       );
     }
 
     // ── Regular paragraph text ──
     inList = false;
     return (
-      <p key={index} className="text-white/75 text-[13.5px] leading-relaxed">
+      <p key={index} className="text-white/80 text-[14px] leading-snug">
         {processBold(trimmed)}
       </p>
     );
@@ -275,17 +369,17 @@ function CardWrapper({
 }) {
   return (
     <div
-      className={`flex items-end gap-2.5 px-4 py-2 chat-msg-reveal ${
+      className={`flex items-end gap-3 px-4 py-2 chat-msg-reveal ${
         isUser ? 'flex-row-reverse' : ''
       }`}
     >
-      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shrink-0 text-white font-bold text-xs shadow-sm shadow-orange-500/15">
+      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shrink-0 text-white font-bold text-[11px] shadow-md shadow-orange-500/20">
         J
       </div>
       <div className="max-w-[80%]">
         {children}
         {message.timestamp && (
-          <p className="text-[10px] mt-1 px-1 text-white/20">
+          <p className="text-[10px] mt-1 px-1 text-white/15">
             {formatRelativeTime(message.timestamp)}
           </p>
         )}
@@ -612,27 +706,26 @@ export function ChatMessage({ message, onRetry, hookActions, sessionState, isCon
         );
       }
 
-      // ── AI MESSAGE: Clean, open text — no WhatsApp boxes ──
-      // Like ZAI: avatar + clean formatted text, no box background
+      // ── AI MESSAGE: Clean, open text — like ZAI chat ──
+      // No box, no bubble. Just avatar + beautifully formatted text.
+      // The renderAIContent function handles emojis, bullets, bold, etc.
       return (
-        <div className="px-4 py-1.5 chat-msg-reveal">
-          <div className="flex items-start gap-2.5 max-w-[90%]">
-            {/* Avatar — only show for first message in a group */}
+        <div className="px-4 py-1 chat-msg-reveal">
+          <div className="flex items-start gap-3">
+            {/* Avatar — show for first message in group, spacer for consecutive */}
             {!isConsecutive ? (
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shrink-0 text-white font-bold text-[10px] shadow-sm shadow-orange-500/15 mt-0.5">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shrink-0 text-white font-bold text-[11px] shadow-md shadow-orange-500/20 mt-0.5">
                 J
               </div>
             ) : (
-              <div className="w-7 shrink-0" />
+              <div className="w-8 shrink-0" />
             )}
 
-            {/* Content — clean, no box */}
+            {/* Content area — clean, no background box */}
             <div className="flex-1 min-w-0">
-              <div className="space-y-0.5">
-                {renderAIContent(message.content)}
-              </div>
+              {renderAIContent(message.content)}
               {message.timestamp && (
-                <p className="text-[10px] mt-1 text-white/20">
+                <p className="text-[10px] mt-1.5 text-white/15">
                   {formatRelativeTime(message.timestamp)}
                 </p>
               )}

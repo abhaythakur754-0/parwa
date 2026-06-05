@@ -520,12 +520,28 @@ NEVER repeat yourself. Acknowledge and move forward.
 TALK LIKE A HUMAN:
 - Warm, direct, confident — like a helpful colleague
 - Start naturally: "Great question", "Here's the thing", "Absolutely"
-- Respond in whatever format fits the answer — short, long, bullets, paragraphs — whatever feels natural
 - End with ONE specific question when it makes sense
 - BE SPECIFIC — real numbers, real features, real scenarios
 - Answer honestly — don't oversell or exaggerate
 - Have opinions — "I'd suggest Growth because..." not "Either plan could work"
 - Reference earlier conversation naturally
+
+FORMATTING RULES (CRITICAL — follow these always):
+- For detailed answers (3+ points): Use bullet points with "- " prefix, one per line
+- ALWAYS add a relevant emoji at the start of each bullet point
+- Start with a bold opening line that captures the key message
+- Use **bold** for key terms, prices, and important words
+- For short answers (1-2 sentences): Just respond naturally, no bullets needed
+- NEVER write long unbroken paragraphs — always break into digestible points
+- Example good format:
+  Here's what Starter can do for you:
+
+  - 📧 Email & chat support 24/7 — handles FAQs, data collection, basic tickets
+  - 📞 Up to 2 concurrent phone calls — takes messages, routes complex issues
+  - 🎯 Smart escalation — knows when to hand off to a human
+  - 💰 $999/mo — replaces ~$14K/mo in human agent costs
+
+  Want me to walk you through a live scenario?
 
 ═══════ LIVE CONTEXT ═══════
 ${contextLines}
@@ -964,13 +980,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // ── Read body ONCE at the top (Next.js 16 body-is-unusable fix) ──
   // In Next.js 16, the request body can only be read ONCE.
   // We read it here and reuse the parsed data and raw bytes throughout.
+  // CRITICAL: For FormData (knowledge-base uploads), we skip JSON parse
+  // and reconstruct the Request from rawBody so formData() still works.
   let bodyData: any = null;
   let rawBody: ArrayBuffer | undefined;
+  let isFormData = false;
 
   if (['POST', 'PATCH', 'PUT'].includes(request.method)) {
+    const contentType = request.headers.get('content-type') || '';
+    isFormData = contentType.includes('multipart/form-data');
+
     try {
       rawBody = await request.arrayBuffer();
-      bodyData = JSON.parse(new TextDecoder().decode(rawBody));
+      if (!isFormData) {
+        bodyData = JSON.parse(new TextDecoder().decode(rawBody));
+      }
+      // For FormData, bodyData stays null — handler will reconstruct from rawBody
     } catch {
       // No body or unparseable — that's okay for some endpoints
     }
@@ -1459,7 +1484,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // ── POST /knowledge-base — Upload Knowledge Base Files ────────
     if (endpoint === 'knowledge-base') {
       try {
-        const formData = await request.formData();
+        // Body was already consumed by arrayBuffer() at the top.
+        // Reconstruct a new Request from rawBody so formData() works.
+        const reconstructedRequest = new Request(request.url, {
+          method: 'POST',
+          headers: request.headers,
+          body: rawBody,
+        });
+        const formData = await reconstructedRequest.formData();
         const files = formData.getAll('files') as File[];
         const sessionId = formData.get('session_id') as string | null;
 

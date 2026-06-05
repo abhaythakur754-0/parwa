@@ -101,6 +101,9 @@ export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: Jarvis
         // Mark all as done
         setKbFiles(prev => prev.map(f => ({ ...f, status: 'done' as const })));
 
+        // Hide the KB panel after successful upload
+        setShowKbInChat(false);
+
         // Send a message about the upload for context
         const fileNames = files.map(f => f.name).join(', ');
         sendMessage(`I uploaded my knowledge base files: ${fileNames}`);
@@ -226,6 +229,7 @@ export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: Jarvis
         onKnowledgeBaseUpload={handleKnowledgeBaseUpload}
         isKnowledgeBaseUploading={isKbUploading}
         knowledgeBaseFiles={kbFiles}
+        showKnowledgeBase={showKbInChat}
         entrySource={entrySource}
         entryParams={entryParams}
       />

@@ -10,7 +10,7 @@
 
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import type { JarvisMessage, JarvisContext } from '@/types/jarvis';
 import { ChatMessage } from './ChatMessage';
 import { TypingIndicator } from './TypingIndicator';
@@ -55,6 +55,8 @@ interface ChatWindowProps {
   isKnowledgeBaseUploading?: boolean;
   /** Uploaded knowledge base files */
   knowledgeBaseFiles?: Array<{ name: string; size: number; status: 'pending' | 'uploading' | 'done' | 'error' }>;
+  /** Whether to show knowledge base panel (controlled from ChatInput BookOpen button) */
+  showKnowledgeBase?: boolean;
   /** Entry source for context-aware UI */
   entrySource?: string;
   /** Entry params for variant context */
@@ -72,21 +74,18 @@ export function ChatWindow({
   onKnowledgeBaseUpload,
   isKnowledgeBaseUploading,
   knowledgeBaseFiles,
+  showKnowledgeBase: showKnowledgeBaseProp,
   entrySource,
   entryParams,
 }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
-  const [showKnowledgeBase, setShowKnowledgeBase] = useState(false);
 
-  // Show knowledge base section automatically for Free Demo / Models page entries
-  useEffect(() => {
-    const isVariantEntry = entrySource?.includes('models_') || entrySource === 'models_page' || entrySource === 'free_chat';
-    if (isVariantEntry) {
-      setShowKnowledgeBase(true);
-    }
-  }, [entrySource]);
+  // Show knowledge base when prop is true (from BookOpen button click)
+  // OR automatically for models_page / free_chat entries
+  const isVariantEntry = entrySource?.includes('models_') || entrySource === 'models_page' || entrySource === 'free_chat';
+  const showKnowledgeBase = showKnowledgeBaseProp || isVariantEntry;
 
   // Track scroll position — user is near bottom if within 80px
   useEffect(() => {
@@ -150,8 +149,8 @@ export function ChatWindow({
                 ))}
               </div>
 
-              {/* Knowledge base upload in empty state for demo users */}
-              {(entrySource?.includes('models_') || entrySource === 'models_page' || entrySource === 'free_chat') && onKnowledgeBaseUpload && (
+              {/* Knowledge base upload in empty state — show for all users */}
+              {onKnowledgeBaseUpload && (
                 <div className="w-full max-w-xs">
                   <KnowledgeBaseUpload
                     onUpload={onKnowledgeBaseUpload}
@@ -183,11 +182,11 @@ export function ChatWindow({
               {/* Typing indicator */}
               {isTyping && <TypingIndicator />}
 
-              {/* Knowledge base upload — shown after messages for demo users */}
+              {/* Knowledge base upload — shown when user clicks BookOpen button */}
               {showKnowledgeBase && onKnowledgeBaseUpload && (
                 <div className="px-4 py-2 chat-msg-reveal">
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shrink-0 text-white font-bold text-[10px] shadow-sm shadow-orange-500/15 mt-0.5">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shrink-0 text-white font-bold text-[11px] shadow-md shadow-orange-500/20 mt-0.5">
                       J
                     </div>
                     <div className="max-w-[80%]">

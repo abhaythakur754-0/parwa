@@ -10,9 +10,9 @@
 export function TypingIndicator() {
   return (
     <div className="px-4 py-2 chat-msg-reveal" role="status" aria-label="Jarvis is typing">
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-start gap-3">
         {/* Mini Jarvis avatar */}
-        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shrink-0 text-white font-bold text-[10px] shadow-sm shadow-orange-500/15 mt-0.5">
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shrink-0 text-white font-bold text-[11px] shadow-md shadow-orange-500/20 mt-0.5">
           J
         </div>
 
