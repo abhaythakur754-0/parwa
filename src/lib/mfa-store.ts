@@ -8,7 +8,9 @@
 
 import { create } from 'zustand';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { appConfig } from '@/lib/config';
+
+const API_BASE = appConfig.apiUrl;
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -59,7 +61,7 @@ export const useMFAStore = create<MFAState>((set) => ({
   initiateSetup: async () => {
     set({ status: 'enrolling', error: null, isBackendUnavailable: false });
     try {
-      const res = await fetch(`${API_BASE}/api/v1/auth/mfa/setup`, {
+      const res = await fetch(`${API_BASE}/api/auth/mfa/setup/initiate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -103,7 +105,7 @@ export const useMFAStore = create<MFAState>((set) => ({
     }
     set({ status: 'verifying', error: null });
     try {
-      const res = await fetch(`${API_BASE}/api/v1/auth/mfa/verify`, {
+      const res = await fetch(`${API_BASE}/api/auth/mfa/setup/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -145,8 +147,8 @@ export const useMFAStore = create<MFAState>((set) => ({
     set({ status: 'verifying', error: null });
     try {
       const endpoint = backupCode
-        ? `${API_BASE}/api/v1/auth/mfa/backup`
-        : `${API_BASE}/api/v1/auth/mfa/login`;
+        ? `${API_BASE}/api/auth/mfa/backup-codes/use`
+        : `${API_BASE}/api/auth/mfa/verify`;
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -184,8 +186,8 @@ export const useMFAStore = create<MFAState>((set) => ({
   disableMfa: async (password: string) => {
     set({ error: null });
     try {
-      const res = await fetch(`${API_BASE}/api/v1/auth/mfa/disable`, {
-        method: 'POST',
+      const res = await fetch(`${API_BASE}/api/auth/mfa/disable`, {
+        method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ password }),

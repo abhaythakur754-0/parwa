@@ -20,6 +20,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    ForeignKey,
     Integer,
     String,
     Text,
@@ -45,7 +46,7 @@ class OOODetectionRule(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36),
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
     )  # NULL = global rule

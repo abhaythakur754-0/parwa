@@ -325,7 +325,18 @@ class Notification(Base):
 
 # ── Notification Preferences (Day 31: MF05) ────────────────────────
 
+# M7 FIX: DEPRECATED — Use UserNotificationPreference in core.py instead.
+# This model exists for backward compatibility with existing migrations and
+# code that may reference it. New code should use the canonical version:
+#   from database.models.core import UserNotificationPreference
+# See: database/models/core.py — UserNotificationPreference
 class NotificationPreference(Base):
+    """DEPRECATED: Use UserNotificationPreference in core.py instead.
+
+    This model is kept for backward compatibility. It duplicates the
+    UserNotificationPreference model in core.py. Do not add new columns
+    or features here — add them to UserNotificationPreference instead.
+    """
     __tablename__ = "notification_preferences"
 
     id = Column(String(36), primary_key=True, default=_uuid)

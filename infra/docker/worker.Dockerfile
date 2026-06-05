@@ -67,7 +67,8 @@ WORKDIR /app
 # Copy only required source code (worker-specific)
 COPY --chown=parwa:parwa backend/ ./backend/
 COPY --chown=parwa:parwa shared/ ./shared/
-COPY --chown=parwa:parwa variants/ ./variants/
+# FIX: variants/ directory doesn't exist; removed to fix Docker build
+# COPY --chown=parwa:parwa variants/ ./variants/
 COPY --chown=parwa:parwa database/ ./database/
 
 # Copy entrypoint script (before switching to non-root user)

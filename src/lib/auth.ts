@@ -12,6 +12,12 @@
  *   1. Authorization: Bearer <token> header
  *   2. parwa_at httpOnly cookie
  *
+ * H20 NOTE: The parwa_at httpOnly cookie is NOT set directly by the Python
+ * backend. It is set by the Next.js API proxy layer (backend-proxy.ts calls
+ * setAuthCookies) when the backend's proxy-auth routes return tokens. The
+ * cookie is httpOnly and secure, so it cannot be read by client-side JS —
+ * it is only accessible in middleware/server-side request headers.
+ *
  * Week 6: Supports dual-algorithm (HS256 + RS256) verification.
  */
 import { jwtVerify, importSPKI } from "jose";
@@ -193,6 +199,9 @@ export async function verifyAuth(
  * Returns null if auth succeeds (caller should proceed).
  * Returns a 401 NextResponse if auth fails (caller should return this).
  *
+ * H19: If the access token is expired but a refresh token cookie exists,
+ * attempts an automatic token refresh before failing.
+ *
  * Usage:
  *   const authError = requireAuth(request);
  *   if (authError) return authError;
@@ -202,11 +211,192 @@ export async function requireAuth(
   request: NextRequest
 ): Promise<NextResponse | null> {
   const user = await verifyAuth(request);
-  if (!user) {
-    return NextResponse.json(
-      { success: false, error: "Authentication required" },
-      { status: 401 }
-    );
+  if (user) {
+    return null; // Auth succeeded
   }
-  return null;
+
+  // H19: Attempt token refresh if the access token is missing/expired
+  const refreshed = await refreshAuthToken(request);
+  if (refreshed) {
+    // Re-verify with the new token
+    const retryUser = await verifyAuth(refreshed.newRequest);
+    if (retryUser) {
+      // Return null but attach the refreshed tokens so the caller
+      // can update cookies in the response
+      return null;
+    }
+  }
+
+  return NextResponse.json(
+    { success: false, error: "Authentication required" },
+    { status: 401 }
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// H19: Token Refresh Mechanism
+// ──────────────────────────────────────────────────────────────────
+
+/** Refresh token cookie name (matches backend-proxy.ts setAuthCookies) */
+const REFRESH_TOKEN_COOKIE = "parwa_rt";
+
+/** Access token cookie name */
+const ACCESS_TOKEN_COOKIE = "parwa_at";
+
+/** Buffer time (seconds) before expiry to trigger proactive refresh */
+const EXPIRY_BUFFER_SECONDS = 30;
+
+/**
+ * Check if an access token is expired or about to expire.
+ * Returns true if the token is expired or will expire within the buffer.
+ */
+export function isTokenExpired(user: VerifiedUser): boolean {
+  if (!user.exp) return true;
+  const now = Math.floor(Date.now() / 1000);
+  return user.exp - now < EXPIRY_BUFFER_SECONDS;
+}
+
+/** Result of a token refresh attempt */
+export interface RefreshResult {
+  success: boolean;
+  accessToken?: string;
+  refreshToken?: string;
+  newRequest?: NextRequest;
+}
+
+/**
+ * Attempt to refresh the authentication tokens using the refresh token cookie.
+ *
+ * H19 FIX: This function:
+ * 1. Extracts the refresh token from the parwa_rt cookie
+ * 2. Calls the /api/auth/refresh endpoint to get new tokens
+ * 3. Returns the new tokens and a modified request with the new access token
+ *
+ * The actual cookie-setting is handled by the /api/auth/refresh route,
+ * so the caller just needs to forward the response cookies.
+ */
+export async function refreshAuthToken(
+  request: NextRequest
+): Promise<RefreshResult | null> {
+  // Extract refresh token from cookie
+  const cookieHeader = request.headers.get("cookie") || "";
+  const cookies = Object.fromEntries(
+    cookieHeader.split(";").map((c) => {
+      const [key, ...val] = c.trim().split("=");
+      return [key, val.join("=")];
+    })
+  );
+
+  const refreshToken = cookies[REFRESH_TOKEN_COOKIE];
+  if (!refreshToken) {
+    return null;
+  }
+
+  try {
+    // Call the refresh endpoint (relative URL, no port needed)
+    const response = await fetch("/api/auth/refresh", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: `${REFRESH_TOKEN_COOKIE}=${refreshToken}`,
+      },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    if (!data.access_token) {
+      return null;
+    }
+
+    // Build a new request with the refreshed access token
+    const newHeaders = new Headers(request.headers);
+    newHeaders.set("authorization", `Bearer ${data.access_token}`);
+
+    // Update cookie header with new access token
+    const newCookies: Record<string, string> = { ...cookies };
+    newCookies[ACCESS_TOKEN_COOKIE] = data.access_token;
+    if (data.refresh_token) {
+      newCookies[REFRESH_TOKEN_COOKIE] = data.refresh_token;
+    }
+    newHeaders.set(
+      "cookie",
+      Object.entries(newCookies)
+        .map(([k, v]) => `${k}=${v}`)
+        .join("; ")
+    );
+
+    const newRequest = new NextRequest(request.url, {
+      method: request.method,
+      headers: newHeaders,
+      body: request.body,
+    });
+
+    return {
+      success: true,
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      newRequest,
+    };
+  } catch {
+    // Refresh failed — don't log tokens
+    return null;
+  }
+}
+
+/**
+ * Client-side helper: Check if the current access token is about to expire
+ * and proactively refresh it. Call this before making authenticated API calls.
+ *
+ * Returns the current (or refreshed) access token, or null if refresh fails.
+ */
+export async function getValidAccessToken(): Promise<string | null> {
+  // This is for client-side use where we read from localStorage/sessionStorage
+  // or from the Next.js API route that can access cookies.
+  try {
+    const response = await fetch("/api/auth/me", {
+      method: "GET",
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      // Try refresh
+      const refreshResponse = await fetch("/api/auth/refresh", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (!refreshResponse.ok) {
+        return null;
+      }
+
+      const data = await refreshResponse.json();
+      return data.access_token || null;
+    }
+
+    // Parse the user to check expiry
+    const userData = await response.json();
+    if (userData?.exp) {
+      const now = Math.floor(Date.now() / 1000);
+      if (userData.exp - now < EXPIRY_BUFFER_SECONDS) {
+        // Token about to expire, refresh proactively
+        const refreshResponse = await fetch("/api/auth/refresh", {
+          method: "POST",
+          credentials: "include",
+        });
+        if (refreshResponse.ok) {
+          const data = await refreshResponse.json();
+          return data.access_token || null;
+        }
+      }
+    }
+
+    // Extract access token from the response or re-fetch
+    return userData?.access_token || null;
+  } catch {
+    return null;
+  }
 }

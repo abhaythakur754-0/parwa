@@ -175,7 +175,9 @@ const DEFAULT_USAGE: UsageMetrics = {
 
 // ── Store ───────────────────────────────────────────────────────────
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { appConfig } from '@/lib/config';
+
+const API_BASE = appConfig.apiUrl;
 
 export const useVariantStore = create<VariantState>((set, get) => ({
   tier: 'mini',
@@ -191,7 +193,7 @@ export const useVariantStore = create<VariantState>((set, get) => ({
   fetchTier: async (companyId?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const res = await fetch(`${API_BASE}/api/v1/billing/subscription`, {
+      const res = await fetch(`${API_BASE}/api/billing/subscription`, {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -226,7 +228,7 @@ export const useVariantStore = create<VariantState>((set, get) => ({
 
   fetchUsage: async (companyId?: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/billing/usage`, {
+      const res = await fetch(`${API_BASE}/api/billing/usage`, {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
       });

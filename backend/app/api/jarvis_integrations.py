@@ -11,7 +11,21 @@ BC-001: All operations scoped to authenticated user's company_id.
 """
 
 import json
+import os
+import sys
 import uuid
+
+# H8 FIX: Ensure shared/ is importable regardless of PYTHONPATH.
+# When running from the backend/ directory, "from shared.utils..." fails
+# because the parent directory (containing shared/) isn't on sys.path.
+_shared_dir = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    'shared',
+)
+if os.path.isdir(_shared_dir):
+    _parent = os.path.dirname(_shared_dir)
+    if _parent not in sys.path:
+        sys.path.insert(0, _parent)
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 

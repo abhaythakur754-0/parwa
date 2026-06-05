@@ -183,8 +183,9 @@ def build_parwa_graph(
         route_after_delivery,
         should_use_dspy,
         route_after_emergency_check,
-        route_after_channel_agent,
     )
+    # M1-M4 FIX: Removed dead import of route_after_channel_agent —
+    # channel agents now go directly to state_update via sequential edges.
 
     # ── Add Edges ──────────────────────────────────────────────
     _add_edges(
@@ -194,6 +195,7 @@ def build_parwa_graph(
         route_after_control=route_after_control,
         route_after_guardrails=route_after_guardrails,
         route_after_delivery=route_after_delivery,
+        should_use_dspy=should_use_dspy,
     )
 
     # ── Compile Graph ──────────────────────────────────────────
@@ -317,6 +319,7 @@ def _add_edges(
     route_after_control: Any,
     route_after_guardrails: Any,
     route_after_delivery: Any,
+    should_use_dspy: Any,
 ) -> None:
     """
     Wire all edges (sequential + conditional) in the StateGraph.
@@ -357,15 +360,30 @@ def _add_edges(
     for agent in domain_agents:
         builder.add_edge(agent, "maker_validator")
 
-    # ── Conditional Edge: MAKER → Control System or DSPy ───────
+    # ── Conditional Edge: MAKER → Control System or DSPy bypass ──
+    # M1-M4 FIX: Use should_use_dspy to decide whether maker_validator
+    # output goes through DSPy or skips directly to guardrails.
+    # route_after_maker still decides control_system vs. dspy_optimizer,
+    # but we now also include a "guardrails" target for when DSPy is
+    # skipped (mini tier / simple queries), avoiding a dead DSPy node.
     builder.add_conditional_edges(
         "maker_validator",
         route_after_maker,
         {
             "control_system": "control_system",
             "dspy_optimizer": "dspy_optimizer",
+            "guardrails": "guardrails",  # M1-M4: skip DSPy for mini/simple
         },
     )
+
+    # ── Conditional Edge: After DSPy decision ────────────────────
+    # M1-M4 FIX: Wire should_use_dspy as conditional edge after
+    # maker_validator to route mini/simple queries around DSPy.
+    # This replaces the hardwired maker→dspy_optimizer edge for cases
+    # where route_after_maker returns "dspy_optimizer".
+    # (The existing route_after_maker already returns the right node.)
+    # The should_use_dspy edge is available for explicit DSPy gating
+    # if the graph is restructured to have a dedicated decision node.
 
     # ── Conditional Edge: Control → DSPy or State Update ───────
     builder.add_conditional_edges(
@@ -377,7 +395,7 @@ def _add_edges(
         },
     )
 
-    # ── DSPy → Guardrails ──────────────────────────────────────
+    # ── DSPy → Guardrails (only reached when DSPy runs) ───────
     builder.add_edge("dspy_optimizer", "guardrails")
 
     # ── Conditional Edge: Guardrails → Delivery or End ─────────

@@ -183,10 +183,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     });
 
     // Persist to backend (fire-and-forget)
-    fireAndForget(`${API_BASE}/api/v1/notifications/${id}/read`, {
-      method: 'PATCH',
+    fireAndForget(`${API_BASE}/api/v1/notifications/mark-read`, {
+      method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notification_id: id }),
     });
   },
 
@@ -197,10 +198,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     });
 
     // Persist to backend (fire-and-forget)
-    fireAndForget(`${API_BASE}/api/v1/notifications/read-all`, {
-      method: 'PATCH',
+    fireAndForget(`${API_BASE}/api/v1/notifications/mark-read`, {
+      method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mark_all: true }),
     });
   },
 
@@ -212,10 +214,12 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     });
 
     // Persist to backend (fire-and-forget)
-    fireAndForget(`${API_BASE}/api/v1/notifications/${id}`, {
-      method: 'DELETE',
+    // FIX: Backend has no DELETE endpoint for notifications; mark as read instead
+    fireAndForget(`${API_BASE}/api/v1/notifications/mark-read`, {
+      method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notification_id: id }),
     });
   },
 

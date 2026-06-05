@@ -115,7 +115,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
   fetchAgents: async () => {
     set({ isLoading: true, error: null });
     try {
-      const res = await fetch(`${API_BASE}/api/v1/ai/instances`, {
+      const res = await fetch(`${API_BASE}/api/ai/instances`, {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
       });

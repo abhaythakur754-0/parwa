@@ -23,7 +23,10 @@ import {
   IntervalType,
 } from '@/types/analytics';
 
-const ANALYTICS_BASE = '/api/analytics';
+// Backend ticket_analytics router uses prefix="/api/analytics/tickets"
+// which means endpoints are at /api/analytics/tickets/dashboard, etc.
+// Frontend rewrites /api/backend/* → backend /api/* in production
+const ANALYTICS_BASE = '/api/analytics/tickets';
 
 /**
  * Format DateRange into query params.

@@ -143,6 +143,10 @@ def get_tenant_db():
         db.info["tenant_company_id"] = company_id
     try:
         yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 

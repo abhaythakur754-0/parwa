@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    Column, DateTime, Integer, JSON,
+    Column, DateTime, ForeignKey, Integer, JSON,
     String, Text, UniqueConstraint,
 )
 
@@ -32,7 +32,7 @@ class WebhookEvent(Base):
         default=lambda: str(uuid.uuid4()),
     )
     company_id = Column(
-        String(36), nullable=False, index=True,
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True,
     )
     provider = Column(String(50), nullable=False)
     event_id = Column(String(255), nullable=False, index=True)

@@ -37,7 +37,7 @@ class EmailDeliveryEvent(Base):
     __tablename__ = "email_delivery_events"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), nullable=False, index=True)
+    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Event identification
     event_type = Column(String(50), nullable=False, index=True)

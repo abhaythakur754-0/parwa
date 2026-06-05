@@ -48,18 +48,62 @@ _SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
 _CSRF_COOKIE_NAME = "parwa_csrf"
 _CSRF_MAX_AGE = 3600  # 1 hour
 
-# Content-Security-Policy header value (H-04)
-_CSP_HEADER = (
-    "default-src 'self'; "
-    "script-src 'self'; "
-    "style-src 'self' 'unsafe-inline'; "
-    "img-src 'self' data: blob:; "
-    "font-src 'self' data:; "
-    "connect-src 'self'; "
-    "frame-ancestors 'none'; "
-    "base-uri 'self'; "
-    "form-action 'self'"
-)
+def _build_csp_header() -> str:
+    """Build CSP header with dynamic connect-src from frontend origins.
+
+    H-17 fix: connect-src must include the configured frontend origins
+    so the browser allows API calls from the SPA. Reads from the same
+    settings that main.py uses for CORS origins.
+    """
+    connect_src_origins = ["'self'"]
+
+    # Read frontend origins from settings (same logic as CORS in main.py)
+    try:
+        from app.config import get_settings
+        settings = get_settings()
+
+        origins: list[str] = []
+        if settings.CORS_ORIGINS:
+            origins = [
+                o.strip()
+                for o in settings.CORS_ORIGINS.split(",")
+                if o.strip()
+            ]
+        if settings.FRONTEND_URL:
+            frontend_url = settings.FRONTEND_URL.rstrip("/")
+            if frontend_url not in origins:
+                origins.append(frontend_url)
+
+        # Always include production frontend URLs
+        _PRODUCTION_FRONTENDS = [
+            "https://parwafrontend.vercel.app",
+            "https://parwa.buzz",
+        ]
+        for url in _PRODUCTION_FRONTENDS:
+            if url not in origins:
+                origins.append(url)
+
+        connect_src_origins.extend(origins)
+    except Exception:
+        pass
+
+    connect_src = " ".join(connect_src_origins)
+
+    return (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; "
+        "font-src 'self' data:; "
+        f"connect-src {connect_src}; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'"
+    )
+
+
+# Content-Security-Policy header value (H-04, H-17)
+_CSP_HEADER = _build_csp_header()
 
 
 def _parse_trusted_origins() -> list:
@@ -133,6 +177,17 @@ class CSRFSecurityMiddleware:
         self.app = app
         self._trusted_origins = _parse_trusted_origins()
 
+        # H-18: Read proxy auth secret without hardcoded default
+        self._proxy_auth_secret = os.environ.get("PROXY_AUTH_SECRET", "")
+        if not self._proxy_auth_secret:
+            env = os.environ.get("ENVIRONMENT", "development")
+            if env not in ("development", "test"):
+                logger.warning(
+                    "PROXY_AUTH_SECRET is not set — proxy auth bypass is "
+                    "DISABLED in production. Set the PROXY_AUTH_SECRET "
+                    "env var to enable trusted proxy requests."
+                )
+
     def _is_enabled(self) -> bool:
         """Check if CSRF middleware is enabled."""
         return os.environ.get(
@@ -159,8 +214,8 @@ class CSRFSecurityMiddleware:
         # ── Trusted proxy requests — skip all CSRF checks ──
         # The frontend Next.js server acts as a trusted proxy, sending
         # requests on behalf of the user with proper auth headers.
-        # Default matches the frontend's PROXY_AUTH_SECRET default so the
-        # proxy auth works even when the env var is not explicitly set.
+        # H-18: PROXY_AUTH_SECRET must be explicitly set via env var
+        # (no hardcoded default). Empty secret disables proxy bypass.
         raw_headers = scope.get("headers", [])
         request_headers = {}
         for name, value in raw_headers:
@@ -169,10 +224,7 @@ class CSRFSecurityMiddleware:
         proxy_auth = request_headers.get(
             "x-proxy-auth", "",
         ).strip()
-        _proxy_auth_secret = os.environ.get(
-            "PROXY_AUTH_SECRET", "parwa_proxy_auth_2026",
-        )
-        if proxy_auth and proxy_auth == _proxy_auth_secret:
+        if proxy_auth and proxy_auth == self._proxy_auth_secret:
             # Still inject CSRF cookie for browser-initiated requests
             new_csrf_token = self.generate_csrf_token()
             wrapped_send = self._wrap_send(send, new_csrf_token)
@@ -185,7 +237,7 @@ class CSRFSecurityMiddleware:
                 "csrf_proxy_auth_mismatch method=%s path=%s "
                 "received_len=%d expected_len=%d",
                 method, path,
-                len(proxy_auth), len(_proxy_auth_secret),
+                len(proxy_auth), len(self._proxy_auth_secret),
             )
 
         # ── H-19: Check if request has an existing CSRF cookie ──

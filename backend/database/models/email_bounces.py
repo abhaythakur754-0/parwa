@@ -21,6 +21,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    ForeignKey,
     Integer,
     String,
     Text,
@@ -46,7 +47,7 @@ class EmailBounce(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36),
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -111,7 +112,7 @@ class CustomerEmailStatus(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36),
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -170,7 +171,7 @@ class EmailDeliverabilityAlert(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36),
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

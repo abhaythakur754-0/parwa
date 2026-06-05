@@ -74,22 +74,20 @@ class TenantMiddleware(BaseHTTPMiddleware):
 
     # Prefixes that skip tenant check (auth handles its own
     # via route-level get_current_user dependency)
-    # SECURITY: /api/billing/ and /api/admin/ are NOT excluded here.
+    # SECURITY: /api/billing/, /api/admin/, /api/jarvis/,
+    # /api/onboarding-jarvis/, and /api/api-keys are NOT excluded here.
     # They require explicit tenant isolation via route-level dependencies.
+    # C-15: Removed /api/jarvis/, /api/onboarding-jarvis/, /api/api-keys
+    # from PUBLIC_PREFIXES — these routes must go through tenant isolation.
     PUBLIC_PREFIXES = (
         "/api/auth/",
         "/api/public/",
         "/public/",
         "/api/pricing/",
         "/api/pricing",
-        "/api/api-keys",
         "/api/mfa/",
         "/api/client/",
         "/api/webhooks/",
-        "/api/jarvis/",
-        "/api/jarvis",
-        "/api/onboarding-jarvis/",
-        "/api/onboarding-jarvis",
         "/api/verification/",
         "/api/integrations/available",
         "/test/",

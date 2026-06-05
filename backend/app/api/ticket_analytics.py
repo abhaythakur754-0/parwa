@@ -34,7 +34,7 @@ from app.services.ticket_analytics_service import (
 )
 
 
-router = APIRouter(prefix="/analytics/tickets", tags=["analytics", "tickets"])
+router = APIRouter(prefix="/api/analytics/tickets", tags=["analytics", "tickets"])
 
 
 # ── Request/Response Schemas ─────────────────────────────────────────────────

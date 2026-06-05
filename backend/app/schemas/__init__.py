@@ -231,64 +231,35 @@ from app.schemas.api_key import (
     APIKeyRevokedResponse,
 )
 
-# Integration schemas - R-08
-from app.schemas.integration import (
-    IntegrationCreate,
-    IntegrationUpdate,
-    IntegrationResponse,
-    RESTConnectorCreate,
-    RESTConnectorUpdate,
-    RESTConnectorResponse,
-    WebhookIntegrationCreate,
-    WebhookIntegrationUpdate,
-    WebhookIntegrationResponse,
-    MCPConnectionCreate,
-    MCPConnectionUpdate,
-    MCPConnectionResponse,
-    DBConnectionCreate,
-    DBConnectionUpdate,
-    DBConnectionResponse,
-    EventBufferCreate,
-    EventBufferUpdate,
-    EventBufferResponse,
-    ErrorLogCreate,
-    ErrorLogUpdate,
-    ErrorLogResponse,
-    AuditTrailCreate,
-    AuditTrailUpdate,
-    AuditTrailResponse,
-    OutgoingWebhookCreate,
-    OutgoingWebhookUpdate,
-    OutgoingWebhookResponse,
+# M6 FIX: Added missing schema exports for gdpr, mfa, auth, and billing
+# GDPR schemas (BC-010)
+from app.schemas.gdpr import (
+    ErasureRequestCreate,
+    ErasureRequestResponse,
+    DataExportRequest,
+    DataExportResponse,
 )
 
-# Approval schemas - R-08
-from app.schemas.approval import (
-    ApprovalQueueCreate,
-    ApprovalQueueUpdate,
-    ApprovalQueueResponse,
-    AutoApproveRuleCreate,
-    AutoApproveRuleUpdate,
-    AutoApproveRuleResponse,
-    ExecutedActionCreate,
-    ExecutedActionUpdate,
-    ExecutedActionResponse,
-    UndoLogCreate,
-    UndoLogUpdate,
-    UndoLogResponse,
+# MFA schemas (F-015, F-016, F-017)
+from app.schemas.mfa import (
+    MFASetupInitiateRequest,
+    MFASetupVerifyRequest,
+    MFALoginVerifyRequest,
+    BackupCodeUseRequest,
 )
 
-# Technique schemas - R-08
-from app.schemas.technique import (
-    TechniqueConfigurationCreate,
-    TechniqueConfigurationUpdate,
-    TechniqueConfigurationResponse,
-    TechniqueExecutionCreate,
-    TechniqueExecutionUpdate,
-    TechniqueExecutionResponse,
-    TechniqueVersionCreate,
-    TechniqueVersionUpdate,
-    TechniqueVersionResponse,
+# Auth schemas (F-010, F-011, F-013)
+from app.schemas.auth import (
+    RegisterRequest,
+    LoginRequest,
+    TokenResponse,
+)
+
+# Billing schemas (BC-002)
+from app.schemas.billing import (
+    SubscriptionCreate,
+    SubscriptionInfo as SubscriptionResponse,
+    InvoiceInfo,
 )
 
 # Existing schemas - using correct class names
@@ -472,4 +443,22 @@ __all__ = [
     "APIKeyCreatedResponse",
     "APIKeyRotatedResponse",
     "APIKeyRevokedResponse",
+    # M6 FIX: GDPR schemas (BC-010)
+    "ErasureRequestCreate",
+    "ErasureRequestResponse",
+    "DataExportRequest",
+    "DataExportResponse",
+    # M6 FIX: MFA schemas (F-015, F-016, F-017)
+    "MFASetupInitiateRequest",
+    "MFASetupVerifyRequest",
+    "MFALoginVerifyRequest",
+    "BackupCodeUseRequest",
+    # M6 FIX: Auth schemas (F-010, F-011, F-013)
+    "RegisterRequest",
+    "LoginRequest",
+    "TokenResponse",
+    # M6 FIX: Billing schemas (BC-002)
+    "SubscriptionCreate",
+    "SubscriptionResponse",
+    "InvoiceInfo",
 ]

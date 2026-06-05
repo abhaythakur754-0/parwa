@@ -14,7 +14,7 @@ import sqlalchemy as sa
 
 
 revision = "013_email_verification_settings"
-down_revision = "012"
+down_revision = "013_some_migration"
 branch_labels = None
 depends_on = None
 

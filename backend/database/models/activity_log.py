@@ -51,7 +51,7 @@ from datetime import datetime, timezone
 import uuid
 
 from sqlalchemy import (
-    Column, DateTime, Integer, String, Text, Index, CheckConstraint,
+    Column, DateTime, Integer, String, Text, Index, CheckConstraint, ForeignKey,
 )
 
 from database.base import Base
@@ -93,7 +93,7 @@ class ActivityLog(Base):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
-        String(36),
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
 

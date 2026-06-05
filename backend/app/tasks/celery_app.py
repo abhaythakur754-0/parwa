@@ -177,12 +177,12 @@ def _build_config() -> dict:
         "task_queues": TASK_QUEUES,
         # Task routing
         "task_routes": {
-            "app.tasks.email.*": {"queue": "email"},
-            "app.tasks.email_channel.*": {"queue": "email"},
+            "app.tasks.email_tasks.*": {"queue": "email"},
+            "app.tasks.email_channel_tasks.*": {"queue": "email"},
             "app.tasks.webhook.*": {"queue": "webhook"},
             "app.tasks.analytics.*": {"queue": "analytics"},
-            "app.tasks.ai.heavy.*": {"queue": "ai_heavy"},
-            "app.tasks.ai.light.*": {"queue": "ai_light"},
+            "app.tasks.ai_engine_tasks.*": {"queue": "ai_heavy"},
+            "app.tasks.ai_tasks.*": {"queue": "ai_light"},
             "app.tasks.training.*": {"queue": "training"},
             # Phase 2.4: Jarvis Awareness Engine task routing
             "app.tasks.jarvis_awareness_tasks.*": {"queue": "parwa_default"},
@@ -349,6 +349,31 @@ def _build_config() -> dict:
                 "task": ("app.tasks.billing_tasks"
                           ".cleanup_old_webhook_events"),
                 "schedule": {"hour": 7, "minute": 0},
+                "kwargs": {},
+            },
+            # M10 FIX: Self-healing tasks (from self_healing_tasks.py)
+            "self-healing-check-hourly": {
+                "task": ("app.tasks.self_healing_tasks"
+                          ".run_self_healing_check"),
+                "schedule": 3600.0,  # Every hour
+                "kwargs": {},
+            },
+            "anomaly-detection-hourly": {
+                "task": ("app.tasks.self_healing_tasks"
+                          ".run_anomaly_detection"),
+                "schedule": 3600.0,  # Every hour
+                "kwargs": {},
+            },
+            "circuit-breaker-health-hourly": {
+                "task": ("app.tasks.self_healing_tasks"
+                          ".run_circuit_breaker_health"),
+                "schedule": 3600.0,  # Every hour
+                "kwargs": {},
+            },
+            "stale-lock-cleanup-hourly": {
+                "task": ("app.tasks.self_healing_tasks"
+                          ".run_stale_lock_cleanup"),
+                "schedule": 3600.0,  # Every hour
                 "kwargs": {},
             },
         },

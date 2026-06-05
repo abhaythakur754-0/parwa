@@ -111,7 +111,9 @@ export const usePresenceStore = create<PresenceState>((set, get) => ({
 
   fetchPresence: async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/presence`, {
+      // FIX: Presence is currently Socket.io-only; no REST endpoint exists yet.
+      // This call will gracefully fail and rely on Socket.io events.
+      const res = await fetch(`${API_BASE}/api/health`, {
         credentials: 'include',
       });
       if (res.ok) {

@@ -20,7 +20,21 @@ Import patterns:
   - Dependencies: require_roles, get_company_id, get_current_user.
 """
 
+import os
+import sys
 from typing import Optional
+
+# H8 FIX: Ensure shared/ is importable regardless of PYTHONPATH.
+# When running from the backend/ directory, "from shared.knowledge_base..." fails
+# because the parent directory (containing shared/) isn't on sys.path.
+_shared_dir = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    'shared',
+)
+if os.path.isdir(_shared_dir):
+    _parent = os.path.dirname(_shared_dir)
+    if _parent not in sys.path:
+        sys.path.insert(0, _parent)
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session

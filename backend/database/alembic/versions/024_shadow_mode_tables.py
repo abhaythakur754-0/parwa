@@ -14,7 +14,7 @@ import sqlalchemy as sa
 
 
 revision = "024_shadow_mode_tables"
-down_revision = "023_paddle_reconciliation"
+down_revision = "024"
 branch_labels = None
 depends_on = None
 

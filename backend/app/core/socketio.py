@@ -146,7 +146,11 @@ def create_socketio_app():
         )
     # Register connect/disconnect handlers
     _register_handlers()
-    return _socketio_pkg.ASGIApp(sio, socketio_path="/ws/socket.io")
+    # socketio_path must NOT include the mount prefix (/ws).
+    # FastAPI's app.mount("/ws", ...) strips the /ws prefix before
+    # passing the request to the ASGI app, so the ASGIApp only sees
+    # paths like /socket.io/?EIO=4 — hence "socket.io" (the default).
+    return _socketio_pkg.ASGIApp(sio, socketio_path="socket.io")
 
 
 def _register_handlers() -> None:

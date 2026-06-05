@@ -38,7 +38,7 @@ def _get_brevo_ips() -> list:
     Returns:
         List of CIDR strings.
     """
-    env_ips = os.getenv("BREVO_IP_RANGES", "")
+    env_ips = os.getenv("BREVO_IP_RANGES", "") or os.getenv("BREVO_INBOUND_IPS", "")
     if env_ips:
         try:
             ranges = [

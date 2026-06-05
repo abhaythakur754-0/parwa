@@ -35,7 +35,7 @@ def main():
         "worker",
         "--loglevel=info",
         # All 8 PARWA queues
-        "--queues=default,ai_heavy,ai_light,email,webhook,analytics,training,dead_letter",
+        "--queues=parwa_default,ai_heavy,ai_light,email,webhook,analytics,training,parwa_dlq",
         # Prevent memory leaks from long-running tasks
         "--max-tasks-per-child=1000",
         # Let broker handle liveness (reduces noise in logs)

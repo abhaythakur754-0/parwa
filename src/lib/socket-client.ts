@@ -43,7 +43,10 @@ export interface MissedEvent {
 
 const TOKEN_KEY = 'parwa_access_token';
 const DEFAULT_URL = appConfig.apiUrl;
-const DEFAULT_PATH = '/ws';
+// Client must request /ws/socket.io so that after FastAPI's
+// app.mount("/ws") strips the /ws prefix, the ASGIApp sees
+// /socket.io — which matches its socketio_path="socket.io".
+const DEFAULT_PATH = '/ws/socket.io';
 const MAX_RECONNECT_DELAY = 30_000;
 const INITIAL_RECONNECT_DELAY = 1_000;
 const BACKOFF_MULTIPLIER = 2;

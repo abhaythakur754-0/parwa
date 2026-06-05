@@ -21,7 +21,7 @@ logger = logging.getLogger("parwa.periodic")
 @app.task(
     base=ParwaBaseTask,
     bind=True,
-    queue="default",
+    queue="parwa_default",
     name="app.tasks.periodic.cleanup_stale_sessions",
     max_retries=1,
 )
@@ -75,7 +75,7 @@ def cleanup_stale_sessions(self):
 @app.task(
     base=ParwaBaseTask,
     bind=True,
-    queue="default",
+    queue="parwa_default",
     name="app.tasks.periodic.purge_dead_letter_queue",
     max_retries=1,
 )
@@ -211,7 +211,7 @@ def flush_audit_queue(self):
 @app.task(
     base=ParwaBaseTask,
     bind=True,
-    queue="default",
+    queue="parwa_default",
     name="app.tasks.periodic.cleanup_audit_trail",
     max_retries=1,
 )
@@ -356,7 +356,7 @@ def retry_soft_bounces(self):
 @app.task(
     base=ParwaBaseTask,
     bind=True,
-    queue="default",
+    queue="parwa_default",
     name="app.tasks.periodic.approval_timeout_check",
     max_retries=1,
 )
@@ -394,7 +394,7 @@ def dispatch_approval_timeout_check(self):
 @app.task(
     base=ParwaBaseTask,
     bind=True,
-    queue="default",
+    queue="parwa_default",
     name="app.tasks.periodic.approval_reminder_dispatch",
     max_retries=1,
 )
@@ -432,7 +432,7 @@ def dispatch_approval_reminder(self):
 @app.task(
     base=ParwaBaseTask,
     bind=True,
-    queue="default",
+    queue="parwa_default",
     name="app.tasks.periodic.daily_overage_charge",
     max_retries=1,
 )
@@ -590,7 +590,7 @@ def dispatch_training_mistake_check(self):
 @app.task(
     base=ParwaBaseTask,
     bind=True,
-    queue="default",
+    queue="parwa_default",
     name="app.tasks.periodic.cleanup_token_blacklist",
     max_retries=1,
 )

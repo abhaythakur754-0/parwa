@@ -20,9 +20,10 @@ The KEY benefit: every onboarding action is logged to the Activity Store,
 which feeds into the awareness engine. This means CC Jarvis has FULL
 AWARENESS of what happened during onboarding.
 
-BC-001: company_id enforced on every endpoint.
+BC-001: company_id enforced on every endpoint via authenticated user.
 BC-008: Every endpoint wrapped in try/except — graceful degradation.
 BC-012: All timestamps UTC.
+C-03: All endpoints require authentication via get_current_user.
 """
 
 import json
@@ -33,10 +34,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.logger import get_logger
 from database.base import get_db
+from database.models.core import User
 
-logger = get_logger("jarvis_onboarding_api")
+logger = get_logger("jarvis_onboarding")
 
 router = APIRouter(prefix="/api/jarvis/onboarding", tags=["jarvis-onboarding"])
 
@@ -118,18 +121,23 @@ class DeactivateRequest(BaseModel):
 
 
 @router.post("/session")
-def create_session(request: CreateSessionRequest, db: Session = Depends(get_db)):
+def create_session(
+    request: CreateSessionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Create a new onboarding session.
 
     Called when a user lands on /jarvis for the first time.
     Creates a DB session and logs the creation to Activity Store.
     """
     try:
+        company_id = current_user.company_id
         from app.services.jarvis_onboarding_service import create_onboarding_session
 
         session = create_onboarding_session(
             db=db,
-            company_id=request.company_id,
+            company_id=company_id,
             user_id=request.user_id,
             entry_source=request.entry_source,
             entry_params=request.entry_params,
@@ -152,18 +160,19 @@ def create_session(request: CreateSessionRequest, db: Session = Depends(get_db))
         }
 
     except Exception as e:
-        logger.exception("create_session_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        logger.error("endpoint_error", error=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred")
 
 
 @router.get("/session/{session_id}")
 def get_session(
     session_id: str,
-    company_id: str = Query(..., description="Company ID for BC-001"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Get an onboarding session by ID."""
     try:
+        company_id = current_user.company_id
         from app.services.jarvis_onboarding_service import get_onboarding_session
 
         session = get_onboarding_session(db, session_id, company_id)
@@ -185,18 +194,19 @@ def get_session(
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("get_session_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        logger.error("endpoint_error", error=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred")
 
 
 @router.post("/session/resume")
 def resume_session(
     session_id: str = Query(..., description="Session ID to resume"),
-    company_id: str = Query(..., description="Company ID for BC-001"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Resume an existing onboarding session."""
     try:
+        company_id = current_user.company_id
         from app.services.jarvis_onboarding_service import resume_onboarding_session
 
         result = resume_onboarding_session(db, session_id, company_id)
@@ -208,24 +218,29 @@ def resume_session(
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("resume_session_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        logger.error("endpoint_error", error=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred")
 
 
 @router.patch("/context")
-def update_context(request: UpdateContextRequest, db: Session = Depends(get_db)):
+def update_context(
+    request: UpdateContextRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Update the onboarding session context.
 
     Called whenever the frontend detects a context change —
     variant selection, industry change, ROI calculation, etc.
     """
     try:
+        company_id = current_user.company_id
         from app.services.jarvis_onboarding_service import update_onboarding_context
 
         updated_ctx = update_onboarding_context(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=company_id,
             updates=request.updates,
         )
 
@@ -241,20 +256,25 @@ def update_context(request: UpdateContextRequest, db: Session = Depends(get_db))
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("update_context_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        logger.error("endpoint_error", error=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred")
 
 
 @router.post("/stage/advance")
-def advance_stage(request: AdvanceStageRequest, db: Session = Depends(get_db)):
+def advance_stage(
+    request: AdvanceStageRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Advance the onboarding session to a new stage."""
     try:
+        company_id = current_user.company_id
         from app.services.jarvis_onboarding_service import advance_stage
 
         new_stage = advance_stage(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=company_id,
             new_stage=request.new_stage,
             reason=request.reason,
         )
@@ -267,17 +287,22 @@ def advance_stage(request: AdvanceStageRequest, db: Session = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("advance_stage_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        logger.error("endpoint_error", error=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred")
 
 
 @router.post("/message")
-def log_message(request: LogMessageRequest, db: Session = Depends(get_db)):
+def log_message(
+    request: LogMessageRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Log a chat message to the onboarding session.
 
     Persists messages to DB and logs user messages to Activity Store.
     """
     try:
+        company_id = current_user.company_id
         from app.services.jarvis_onboarding_service import (
             log_onboarding_message,
             get_onboarding_session,
@@ -286,7 +311,7 @@ def log_message(request: LogMessageRequest, db: Session = Depends(get_db)):
         msg = log_onboarding_message(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=company_id,
             role=request.role,
             content=request.content,
             message_type=request.message_type,
@@ -297,7 +322,7 @@ def log_message(request: LogMessageRequest, db: Session = Depends(get_db)):
             raise HTTPException(status_code=404, detail="Session not found")
 
         # Get updated remaining messages
-        session = get_onboarding_session(db, request.session_id, request.company_id)
+        session = get_onboarding_session(db, request.session_id, company_id)
         ctx = json.loads(session.context_json) if session and session.context_json else {}
 
         return {
@@ -309,20 +334,25 @@ def log_message(request: LogMessageRequest, db: Session = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("log_message_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        logger.error("endpoint_error", error=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred")
 
 
 @router.post("/verify-email")
-def verify_email(request: EmailVerificationRequest, db: Session = Depends(get_db)):
+def verify_email(
+    request: EmailVerificationRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Record email verification during onboarding."""
     try:
+        company_id = current_user.company_id
         from app.services.jarvis_onboarding_service import record_email_verification
 
         success = record_email_verification(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=company_id,
             email=request.email,
             verified=request.verified,
             otp_method=request.otp_method,
@@ -340,20 +370,25 @@ def verify_email(request: EmailVerificationRequest, db: Session = Depends(get_db
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("verify_email_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        logger.error("endpoint_error", error=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred")
 
 
 @router.post("/payment")
-def record_payment(request: RecordPaymentRequest, db: Session = Depends(get_db)):
+def record_payment(
+    request: RecordPaymentRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Record a completed payment during onboarding."""
     try:
+        company_id = current_user.company_id
         from app.services.jarvis_onboarding_service import record_payment
 
         success = record_payment(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=company_id,
             payment_data=request.payment_data,
         )
 
@@ -369,20 +404,25 @@ def record_payment(request: RecordPaymentRequest, db: Session = Depends(get_db))
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("record_payment_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        logger.error("endpoint_error", error=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred")
 
 
 @router.post("/demo-call")
-def initiate_demo_call(request: DemoCallRequest, db: Session = Depends(get_db)):
+def initiate_demo_call(
+    request: DemoCallRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Record a demo call initiation during onboarding."""
     try:
+        company_id = current_user.company_id
         from app.services.jarvis_onboarding_service import record_demo_call
 
         success = record_demo_call(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=company_id,
             call_data=request.call_data,
         )
 
@@ -394,23 +434,28 @@ def initiate_demo_call(request: DemoCallRequest, db: Session = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("demo_call_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        logger.error("endpoint_error", error=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred")
 
 
 @router.post("/handoff")
-def execute_handoff(request: HandoffRequest, db: Session = Depends(get_db)):
+def execute_handoff(
+    request: HandoffRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Execute the handoff from onboarding to CC Jarvis.
 
     This is the final step — creates a CC session with full onboarding context.
     """
     try:
+        company_id = current_user.company_id
         from app.services.jarvis_onboarding_service import execute_handoff
 
         result = execute_handoff(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=company_id,
             user_id=request.user_id,
             handoff_data=request.handoff_data,
         )
@@ -423,20 +468,25 @@ def execute_handoff(request: HandoffRequest, db: Session = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("handoff_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        logger.error("endpoint_error", error=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred")
 
 
 @router.post("/deactivate")
-def deactivate_session(request: DeactivateRequest, db: Session = Depends(get_db)):
+def deactivate_session(
+    request: DeactivateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Deactivate an onboarding session (user left/dropped off)."""
     try:
+        company_id = current_user.company_id
         from app.services.jarvis_onboarding_service import deactivate_session
 
         success = deactivate_session(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=company_id,
             reason=request.reason,
         )
 
@@ -448,21 +498,22 @@ def deactivate_session(request: DeactivateRequest, db: Session = Depends(get_db)
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("deactivate_session_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        logger.error("endpoint_error", error=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred")
 
 
 @router.get("/funnel-metrics")
 def get_funnel_metrics(
-    company_id: str = Query(..., description="Company ID for BC-001"),
     hours: int = Query(24, description="Hours of history to analyze"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Get onboarding funnel metrics for a tenant.
 
     Used by the awareness engine and analytics dashboards.
     """
     try:
+        company_id = current_user.company_id
         from app.services.jarvis_onboarding_service import get_onboarding_funnel_metrics
 
         metrics = get_onboarding_funnel_metrics(
@@ -474,21 +525,22 @@ def get_funnel_metrics(
         return {"success": True, "metrics": metrics}
 
     except Exception as e:
-        logger.exception("funnel_metrics_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        logger.error("endpoint_error", error=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred")
 
 
 @router.get("/awareness")
 def get_onboarding_awareness(
-    company_id: str = Query(..., description="Company ID for BC-001"),
     hours: int = Query(1, description="Hours of history"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Get onboarding-specific awareness data.
 
     This feeds into the awareness engine as Domain 11.
     """
     try:
+        company_id = current_user.company_id
         from app.services.jarvis_onboarding_service import get_onboarding_awareness
 
         awareness = get_onboarding_awareness(
@@ -500,5 +552,5 @@ def get_onboarding_awareness(
         return {"success": True, "awareness": awareness}
 
     except Exception as e:
-        logger.exception("onboarding_awareness_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        logger.error("endpoint_error", error=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred")

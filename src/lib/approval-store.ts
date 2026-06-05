@@ -118,7 +118,9 @@ export const APPROVAL_STATUS_COLORS: Record<ApprovalStatus, string> = {
 
 // ── Constants ────────────────────────────────────────────────────────
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { appConfig } from '@/lib/config';
+
+const API_BASE = appConfig.apiUrl;
 
 // ── Helpers ──────────────────────────────────────────────────────────
 

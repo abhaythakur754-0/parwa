@@ -12,7 +12,7 @@ from fastapi import APIRouter
 from typing import List, Dict, Any
 from app.schemas.public import FeatureItem, PublicStatsResponse, IndustryItem
 
-router = APIRouter(prefix="/public", tags=["public"])
+router = APIRouter(prefix="/api/public", tags=["public"])
 
 
 @router.get("/features", response_model=List[FeatureItem])
