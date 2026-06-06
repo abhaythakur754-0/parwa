@@ -34,7 +34,7 @@ async function fetchCSRFToken(): Promise<CSRFTokens | null> {
         'Origin': 'https://parwa.buzz',
         'Referer': 'https://parwa.buzz/',
       },
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(10000),
     });
 
     // Extract CSRF cookie from Set-Cookie header
@@ -98,7 +98,7 @@ export async function backendProxy(
     method,
     headers,
     body: method !== 'GET' && method !== 'HEAD' ? body : undefined,
-    signal: AbortSignal.timeout(10000),
+    signal: AbortSignal.timeout(15000),
   });
 
   return { response, csrfUsed: !!csrfTokens };

@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           email: normalizedEmail,
           password,
+          confirm_password: password,
           full_name: fullName,
           company_name: companyName,
           industry,
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
             status: "success",
             message: "Account created successfully! Please check your email to verify your account.",
             user: userData,
+            is_new_user: backendData.is_new_user ?? true,
           });
 
           setAuthCookies(response, accessToken, refreshToken, userData);
