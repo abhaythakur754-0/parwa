@@ -22,10 +22,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // ── Backend Proxy Configuration ─────────────────────────────────
-const BACKEND_URL =
-  process.env.BACKEND_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  'http://localhost:8000';
+import { getBackendUrl } from '@/lib/backend-url';
+const BACKEND_URL = getBackendUrl();
 
 /**
  * Extract auth token from cookies (parwa_at) and/or Authorization header.

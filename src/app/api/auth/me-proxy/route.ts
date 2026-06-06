@@ -3,17 +3,22 @@
  *
  * Proxies /api/auth/me-proxy to the backend's /api/auth/me endpoint.
  * Forwards the parwa_at cookie as a Bearer token for JWT verification.
+ *
+ * This is used by the AuthContext to verify the current session.
+ * Since parwa_at now contains the BACKEND's JWT token, the backend
+ * can successfully verify it.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/lib/backend-url';
 
-const BACKEND_URL = getBackendUrl();
-
 export async function GET(req: NextRequest) {
   try {
+    const backendUrl = getBackendUrl();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'Origin': 'https://parwa.buzz',
+      'Referer': 'https://parwa.buzz/',
     };
 
     // Forward auth token from cookie
@@ -36,7 +41,14 @@ export async function GET(req: NextRequest) {
       headers['Authorization'] = authHeader;
     }
 
-    const res = await fetch(`${BACKEND_URL}/api/auth/me`, {
+    if (!headers['Authorization']) {
+      return NextResponse.json(
+        { status: 'error', message: 'Authentication required.' },
+        { status: 401 }
+      );
+    }
+
+    const res = await fetch(`${backendUrl}/api/auth/me`, {
       method: 'GET',
       headers,
       signal: AbortSignal.timeout(8000),

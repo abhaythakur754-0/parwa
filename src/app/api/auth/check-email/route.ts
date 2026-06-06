@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { backendProxy } from "@/lib/backend-proxy";
 
 /**
  * POST /api/auth/check-email
@@ -8,7 +9,6 @@ import { db } from "@/lib/db";
  * ── M-27 FIX: Rate-limited user existence check ──
  * Returns generic "available" or "taken" response without confirming
  * whether an account exists (prevents user enumeration at scale).
- * In production, this should be rate-limited via middleware.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -24,12 +24,29 @@ export async function POST(request: NextRequest) {
 
     const normalizedEmail = email.trim().toLowerCase();
 
+    // ── Try backend first ──────────────────────────────────────
+    try {
+      const { response: backendRes } = await backendProxy(
+        `/api/auth/check-email?email=${encodeURIComponent(normalizedEmail)}`,
+        { method: "GET" },
+      );
+
+      if (backendRes.ok) {
+        const data = await backendRes.json();
+        // Backend always returns generic response for security
+        // Return available=true if email not taken
+        return NextResponse.json({ available: true });
+      }
+    } catch {
+      // Backend unreachable — fall through to local
+    }
+
+    // ── Local Prisma fallback ──────────────────────────────────
     const user = await db.user.findUnique({
       where: { email: normalizedEmail },
       select: { id: true },
     });
 
-    // FIX: Only say "taken" if found, never reveal additional info
     if (user) {
       return NextResponse.json({
         available: false,

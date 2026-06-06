@@ -2,9 +2,9 @@
  * PARWA Register API Route
  *
  * Handles user registration by:
- * 1. Trying the backend first (with CSRF token handling)
- * 2. Falling back to local Prisma if backend is unreachable
- * 3. Always signs our own JWT tokens and sets httpOnly cookies
+ * 1. Forwarding registration data to the backend (primary)
+ * 2. Storing the backend's JWT tokens in httpOnly cookies
+ * 3. Falling back to local Prisma if backend is unreachable (dev only)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -53,57 +53,85 @@ export async function POST(request: NextRequest) {
           email: normalizedEmail,
           password,
           confirm_password: password,
-          full_name: fullName,
-          company_name: companyName,
-          industry,
+          full_name: fullName || "User",
+          company_name: companyName || `${fullName || "User"}'s Company`,
+          industry: industry || "general",
         }),
       });
 
       if (backendRes.ok) {
-        const backendData = await backendRes.json();
-        const user = backendData.user || backendData.data;
-        if (user) {
+        const data = await backendRes.json();
+
+        // Backend returns AuthResponse: { user, tokens, is_new_user }
+        if (data.user && data.tokens) {
           const userData = {
-            id: user.id || user.user_id,
-            email: user.email || normalizedEmail,
-            fullName: user.full_name || user.fullName || fullName,
-            isVerified: user.is_verified ?? user.isVerified ?? false,
+            id: data.user.id,
+            email: data.user.email || normalizedEmail,
+            fullName: data.user.full_name || fullName,
+            isVerified: data.user.is_verified ?? false,
           };
-
-          const jwtPayload = {
-            sub: userData.id,
-            email: userData.email,
-            role: "member",
-            company_id: user.company_name || user.companyName || companyName || undefined,
-            is_verified: userData.isVerified,
-          };
-
-          const accessToken = await signAccessToken(jwtPayload);
-          const refreshToken = await signRefreshToken(jwtPayload);
 
           const response = NextResponse.json({
             status: "success",
             message: "Account created successfully! Please check your email to verify your account.",
             user: userData,
-            is_new_user: backendData.is_new_user ?? true,
+            is_new_user: data.is_new_user ?? true,
           });
 
-          setAuthCookies(response, accessToken, refreshToken, userData);
+          // Store BACKEND's tokens in cookies
+          setAuthCookies(
+            response,
+            data.tokens.access_token,
+            data.tokens.refresh_token,
+            userData,
+            data.tokens.expires_in,
+          );
+
           return response;
         }
       }
 
       // Backend returned conflict (email exists)
       if (backendRes.status === 409) {
+        let errorData: Record<string, unknown> = {};
+        try { errorData = await backendRes.json(); } catch { /* ignore */ }
+        const detail = errorData.detail;
+        const message =
+          (typeof detail === "object" && detail !== null && "message" in detail)
+            ? String((detail as Record<string, unknown>).message)
+            : (typeof detail === "string" ? detail : null)
+            || (errorData as Record<string, unknown>).message
+            || "An account with this email already exists.";
         return NextResponse.json(
-          { status: "error", message: "An account with this email already exists." },
+          { status: "error", message },
           { status: 409 }
         );
       }
 
+      // Backend validation errors
+      if (backendRes.status === 422) {
+        let errorData: Record<string, unknown> = {};
+        try { errorData = await backendRes.json(); } catch { /* ignore */ }
+        const detail = errorData.detail;
+        let message = "Registration failed. Please check your inputs.";
+        if (typeof detail === "string") {
+          message = detail;
+        } else if (Array.isArray(detail)) {
+          message = detail.map((e: Record<string, unknown>) => e.msg || String(e)).join(". ");
+        } else if (typeof detail === "object" && detail !== null && "message" in detail) {
+          message = String((detail as Record<string, unknown>).message);
+        }
+        return NextResponse.json(
+          { status: "error", message },
+          { status: 400 }
+        );
+      }
+
       // Other backend errors — fall through to local
+      console.warn("[register] Backend returned", backendRes.status, "— falling back to local");
     } catch {
       // Backend unreachable — fall through to local DB
+      console.warn("[register] Backend unreachable — falling back to local");
     }
 
     // ── Local Prisma fallback ──────────────────────────────────
@@ -157,7 +185,7 @@ export async function POST(request: NextRequest) {
       console.error("Failed to send verification email:", emailError);
     }
 
-    // Sign JWT tokens
+    // Sign our own JWT tokens (local fallback only)
     const jwtPayload = {
       sub: user.id,
       email: user.email,

@@ -3,36 +3,54 @@
  *
  * All auth tokens should be set as httpOnly cookies to prevent XSS theft.
  * The frontend reads user data from a separate non-httpOnly cookie or from the /me endpoint.
+ *
+ * IMPORTANT: parwa_at and parwa_rt contain the BACKEND's JWT tokens (not
+ * frontend-signed ones). This ensures the backend can verify tokens when
+ * they are forwarded via me-proxy or other API proxy routes.
  */
+
 import { NextResponse } from "next/server";
 
 const COOKIE_OPTIONS = {
   path: "/",
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? ("strict" as const) : ("lax" as const),
-  maxAge: 15 * 60, // 15 minutes for access token
+  sameSite: process.env.NODE_ENV === "production" ? ("lax" as const) : ("lax" as const),
+  maxAge: 15 * 60, // 15 minutes default for access token
 };
 
 const REFRESH_COOKIE_OPTIONS = {
   path: "/",
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? ("strict" as const) : ("lax" as const),
+  sameSite: process.env.NODE_ENV === "production" ? ("lax" as const) : ("lax" as const),
   maxAge: 7 * 24 * 60 * 60, // 7 days for refresh token
 };
 
 /**
  * Set auth tokens on a response as httpOnly cookies.
  * Also sets a non-httpOnly user cookie so the frontend can read user info.
+ *
+ * @param response - The NextResponse to set cookies on
+ * @param accessToken - The BACKEND's access token (JWT)
+ * @param refreshToken - The BACKEND's refresh token
+ * @param userData - Non-sensitive user display data for frontend
+ * @param expiresIn - Access token expiry in seconds (defaults to 15 min)
  */
 export function setAuthCookies(
   response: NextResponse,
   accessToken: string,
   refreshToken: string,
-  userData: Record<string, unknown>
+  userData: Record<string, unknown>,
+  expiresIn?: number,
 ): NextResponse {
-  response.cookies.set("parwa_at", accessToken, COOKIE_OPTIONS);
+  // Access token cookie
+  response.cookies.set("parwa_at", accessToken, {
+    ...COOKIE_OPTIONS,
+    maxAge: expiresIn || COOKIE_OPTIONS.maxAge,
+  });
+
+  // Refresh token cookie
   response.cookies.set("parwa_rt", refreshToken, REFRESH_COOKIE_OPTIONS);
 
   // Non-httpOnly cookie for frontend user state (no secrets, just display info)
@@ -40,7 +58,7 @@ export function setAuthCookies(
     path: "/",
     httpOnly: false,
     secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? ("strict" as const) : ("lax" as const),
+    sameSite: process.env.NODE_ENV === "production" ? ("lax" as const) : ("lax" as const),
     maxAge: 7 * 24 * 60 * 60,
   });
 
@@ -71,6 +89,7 @@ export function clearAuthCookies(response: NextResponse): NextResponse {
 
 /**
  * Extract the access token from cookies in a request.
+ * Looks for the "parwa_at" cookie.
  */
 export function getAccessTokenFromCookies(
   request: Request
@@ -105,6 +124,7 @@ const ALLOWED_REDIRECT_PREFIXES = [
   "/profile",
   "/onboarding",
   "/monitoring",
+  "/dashboard",
 ];
 
 /** Default safe redirect target when validation fails. */

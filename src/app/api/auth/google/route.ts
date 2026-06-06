@@ -2,9 +2,14 @@
  * PARWA Google OAuth API Route
  *
  * Handles Google Sign-In by:
- * 1. Verifying the Google id_token with Google's tokeninfo endpoint
- * 2. Creating/finding the user (via backend proxy or local Prisma)
- * 3. Signing our own JWT tokens and setting httpOnly cookies
+ * 1. Forwarding the Google id_token to the backend (which verifies it and creates/finds user)
+ * 2. Storing the backend's JWT tokens in httpOnly cookies
+ * 3. Returning user data to the frontend
+ *
+ * If the backend is unreachable, falls back to:
+ * - Verifying the Google token ourselves
+ * - Creating/finding the user in local Prisma DB (dev only)
+ * - Signing our own JWT tokens
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -25,7 +30,69 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 1: Verify the token with Google
+    // ── Step 1: Forward the actual id_token to the backend ──────
+    // The backend will verify the token with Google and create/find the user.
+    try {
+      const { response: backendRes } = await backendProxy("/api/auth/google", {
+        method: "POST",
+        body: JSON.stringify({ id_token }), // Send REAL id_token, not "verified"
+      });
+
+      if (backendRes.ok) {
+        const data = await backendRes.json();
+
+        // Backend returns AuthResponse: { user, tokens, is_new_user }
+        if (data.user && data.tokens) {
+          const userData = {
+            id: data.user.id,
+            email: data.user.email,
+            fullName: data.user.full_name,
+            isVerified: data.user.is_verified,
+            industry: data.user.company_name ? undefined : undefined,
+            companyName: data.user.company_name,
+          };
+
+          const response = NextResponse.json({
+            status: "success",
+            is_new_user: data.is_new_user ?? false,
+            user: userData,
+          });
+
+          // Store BACKEND's tokens in cookies — the backend can verify these
+          setAuthCookies(
+            response,
+            data.tokens.access_token,
+            data.tokens.refresh_token,
+            userData,
+            data.tokens.expires_in,
+          );
+
+          return response;
+        }
+      }
+
+      // Backend returned an error — try to extract the message
+      if (backendRes.status === 401 || backendRes.status === 403) {
+        let errorData: Record<string, unknown> = {};
+        try { errorData = await backendRes.json(); } catch { /* ignore */ }
+        const message =
+          (errorData as Record<string, unknown>).detail
+          || (errorData as Record<string, unknown>).message
+          || "Google sign-in failed. Please try again.";
+        return NextResponse.json(
+          { status: "error", message: String(message) },
+          { status: backendRes.status }
+        );
+      }
+
+      // Other backend errors — fall through to local fallback
+      console.warn("[google-auth] Backend returned", backendRes.status, "— falling back to local");
+    } catch (backendError) {
+      console.warn("[google-auth] Backend unreachable — falling back to local:", backendError);
+    }
+
+    // ── Step 2: Local fallback (dev / backend down) ─────────────
+    // Verify the Google token ourselves, then use Prisma
     const googleRes = await fetch(
       `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(id_token)}`
     );
@@ -56,17 +123,16 @@ export async function POST(request: NextRequest) {
     const email = googleUser.email.trim().toLowerCase();
     const fullName = googleUser.name || googleUser.given_name || null;
 
-    // Step 2: Create/find user via backend or local DB
-    const userData = await findOrCreateUser(email, fullName);
+    const userData = await findOrCreateUserLocal(email, fullName);
 
     if (!userData) {
       return NextResponse.json(
-        { status: "error", message: "Failed to create or find user account." },
+        { status: "error", message: "Failed to create or find user account. The backend may be unavailable — please try again later." },
         { status: 500 }
       );
     }
 
-    // Step 3: Sign our own JWT tokens and set httpOnly cookies
+    // Sign our own JWT tokens (local fallback only)
     const jwtPayload = {
       sub: userData.id,
       email: userData.email,
@@ -108,10 +174,10 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Try to create/find user via backend proxy first.
- * If backend is unreachable, fall back to local Prisma.
+ * Local Prisma fallback for creating/finding a user.
+ * Only used when the backend is unreachable.
  */
-async function findOrCreateUser(
+async function findOrCreateUserLocal(
   email: string,
   fullName: string | null
 ): Promise<{
@@ -123,33 +189,6 @@ async function findOrCreateUser(
   company_name: string | null;
   is_new_user: boolean;
 } | null> {
-  // Try backend first (with CSRF token)
-  try {
-    const { response: res } = await backendProxy("/api/auth/google", {
-      method: "POST",
-      body: JSON.stringify({ id_token: "verified", email, full_name: fullName }),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data.user || data.data) {
-        const user = data.user || data.data;
-        return {
-          id: user.id || user.user_id,
-          email: user.email || email,
-          full_name: user.full_name || user.fullName || fullName,
-          is_verified: user.is_verified ?? user.isVerified ?? true,
-          industry: user.industry || null,
-          company_name: user.company_name || user.companyName || null,
-          is_new_user: data.is_new_user ?? false,
-        };
-      }
-    }
-  } catch {
-    // Backend unreachable — fall through to local
-  }
-
-  // Fallback: local Prisma
   try {
     let user = await db.user.findUnique({ where: { email } });
     const isNewUser = !user;

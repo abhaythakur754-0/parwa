@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyToken, getAccessTokenFromCookies } from "@/lib/jwt";
+import { getBackendUrl } from "@/lib/backend-url";
 
 /**
  * GET /api/auth/me
  * Returns the currently authenticated user's profile.
- * Verifies JWT from Authorization header or httpOnly cookie.
+ *
+ * Strategy:
+ * 1. First try to forward the token to the backend's /api/auth/me
+ *    (works when parwa_at contains a backend-issued JWT)
+ * 2. If backend is unreachable, verify the frontend-signed JWT locally
+ *    and look up user via Prisma (dev fallback only)
  */
 export async function GET(request: NextRequest) {
   try {
-    // ── C-02 FIX: Verify real JWT instead of returning hardcoded mock ──
-
-    // Try Authorization header first
+    // Extract token from cookie or Authorization header
     const authHeader = request.headers.get("authorization");
     let token: string | null = null;
 
@@ -19,7 +23,6 @@ export async function GET(request: NextRequest) {
       token = authHeader.slice(7);
     }
 
-    // Fall back to httpOnly cookie
     if (!token) {
       token = getAccessTokenFromCookies(request);
     }
@@ -31,6 +34,52 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // ── Try backend first ──────────────────────────────────────
+    try {
+      const backendUrl = getBackendUrl();
+      const res = await fetch(`${backendUrl}/api/auth/me`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+          "Origin": "https://parwa.buzz",
+        },
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        // Normalize backend response to frontend format
+        return NextResponse.json({
+          id: data.id,
+          email: data.email,
+          full_name: data.full_name,
+          phone: data.phone,
+          avatar_url: data.avatar_url,
+          role: data.role,
+          is_active: data.is_active,
+          is_verified: data.is_verified,
+          company_id: data.company_id,
+          company_name: data.company_name,
+          industry: data.industry,
+          created_at: data.created_at,
+        });
+      }
+
+      // Backend returned 401 — token is genuinely invalid
+      if (res.status === 401) {
+        return NextResponse.json(
+          { status: "error", message: "Token is invalid or expired." },
+          { status: 401 }
+        );
+      }
+
+      // Other errors — fall through to local verification
+    } catch {
+      // Backend unreachable — fall through to local verification
+    }
+
+    // ── Local fallback (dev only) ──────────────────────────────
     const verified = await verifyToken(token);
     if (!verified) {
       return NextResponse.json(
@@ -39,7 +88,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Look up user from database
+    // Look up user from local database
     const user = await db.user.findUnique({
       where: { id: verified.payload.sub },
       select: {

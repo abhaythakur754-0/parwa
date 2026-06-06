@@ -2,9 +2,9 @@
  * PARWA Login API Route
  *
  * Handles email/password login by:
- * 1. Trying the backend first (with CSRF token handling)
- * 2. Falling back to local Prisma if backend is unreachable
- * 3. Always signs our own JWT tokens and sets httpOnly cookies
+ * 1. Forwarding credentials to the backend (primary)
+ * 2. Storing the backend's JWT tokens in httpOnly cookies
+ * 3. Falling back to local Prisma if backend is unreachable (dev only)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -43,55 +43,59 @@ export async function POST(request: NextRequest) {
       });
 
       if (backendRes.ok) {
-        const backendData = await backendRes.json();
+        const data = await backendRes.json();
 
-        // Backend verified the credentials — sign our own JWT and set cookies
-        const user = backendData.user || backendData.data;
-        if (user) {
+        // Backend returns AuthResponse: { user, tokens, is_new_user }
+        if (data.user && data.tokens) {
           const userData = {
-            id: user.id || user.user_id,
-            email: user.email || normalizedEmail,
-            fullName: user.full_name || user.fullName,
-            isVerified: user.is_verified ?? user.isVerified ?? false,
+            id: data.user.id,
+            email: data.user.email || normalizedEmail,
+            fullName: data.user.full_name,
+            isVerified: data.user.is_verified ?? false,
           };
-
-          const jwtPayload = {
-            sub: userData.id,
-            email: userData.email,
-            role: "member",
-            company_id: user.company_name || user.companyName || undefined,
-            is_verified: userData.isVerified,
-          };
-
-          const accessToken = await signAccessToken(jwtPayload);
-          const refreshToken = await signRefreshToken(jwtPayload);
 
           const response = NextResponse.json({
             status: "success",
             message: "Login successful.",
             user: userData,
-            is_new_user: backendData.is_new_user ?? false,
+            is_new_user: data.is_new_user ?? false,
           });
 
-          setAuthCookies(response, accessToken, refreshToken, userData);
+          // Store BACKEND's tokens in cookies
+          setAuthCookies(
+            response,
+            data.tokens.access_token,
+            data.tokens.refresh_token,
+            userData,
+            data.tokens.expires_in,
+          );
+
           return response;
         }
       }
 
-      // Backend returned error (invalid credentials, etc.)
+      // Backend returned error (invalid credentials, locked, etc.)
       if (backendRes.status === 401 || backendRes.status === 403) {
-        const errorData = await backendRes.json().catch(() => ({}));
+        let errorData: Record<string, unknown> = {};
+        try { errorData = await backendRes.json(); } catch { /* ignore */ }
+        const detail = errorData.detail;
+        const message =
+          (typeof detail === "object" && detail !== null && "message" in detail)
+            ? String((detail as Record<string, unknown>).message)
+            : (typeof detail === "string" ? detail : null)
+            || (errorData as Record<string, unknown>).message
+            || "Invalid email or password.";
         return NextResponse.json(
-          {
-            status: "error",
-            message: errorData.message || errorData.detail || errorData.error?.message || "Invalid email or password.",
-          },
+          { status: "error", message },
           { status: backendRes.status === 403 ? 403 : 401 }
         );
       }
+
       // Other backend errors — fall through to local
+      console.warn("[login] Backend returned", backendRes.status, "— falling back to local");
     } catch {
       // Backend unreachable — fall through to local DB
+      console.warn("[login] Backend unreachable — falling back to local");
     }
 
     // ── Local Prisma fallback ──────────────────────────────────
@@ -131,7 +135,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Sign JWT tokens
+    // Sign our own JWT tokens (local fallback only)
     const jwtPayload = {
       sub: user.id,
       email: user.email,

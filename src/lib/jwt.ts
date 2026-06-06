@@ -249,11 +249,11 @@ export function validatePasswordStrength(
 
 /**
  * Extract the access token from httpOnly cookies in a NextRequest.
- * Looks for the "access_token" cookie.
+ * Looks for the "parwa_at" cookie.
  * Returns null if not found.
  */
 export function getAccessTokenFromCookies(request: NextRequest): string | null {
-  const token = request.cookies.get("access_token")?.value;
+  const token = request.cookies.get("parwa_at")?.value;
   return token || null;
 }
 

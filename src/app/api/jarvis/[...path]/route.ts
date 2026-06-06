@@ -29,7 +29,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // ── Backend Proxy Configuration ─────────────────────────────────
-const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || '';
+import { getBackendUrl } from '@/lib/backend-url';
+const BACKEND_URL = getBackendUrl();
 
 /**
  * Try to proxy a request to the backend FastAPI server.
@@ -50,6 +51,15 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]): Pro
 
     const headers = new Headers(request.headers);
     headers.delete('host');
+
+    // Forward auth token from parwa_at cookie as Bearer token
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      const cookieToken = request.cookies.get('parwa_at')?.value;
+      if (cookieToken) {
+        headers.set('Authorization', `Bearer ${cookieToken}`);
+      }
+    }
 
     const response = await fetch(fullUrl, {
       method: request.method,
