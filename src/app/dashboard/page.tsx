@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -212,11 +214,41 @@ function SkeletonSection({ rows = 2, cols = 4 }: { rows?: number; cols?: number 
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
   const [agentData, setAgentData] = useState<AgentMetrics[]>([]);
   const [dateRange, setDateRange] = useState<Partial<DateRange>>({});
   const [datePreset, setDatePreset] = useState('30d');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
+
+  // ── Onboarding redirect check ──────────────────────────────────────
+  useEffect(() => {
+    async function checkOnboarding() {
+      try {
+        const res = await fetch('/api/onboarding/state');
+        if (res.ok) {
+          const state = await res.json();
+          if (!state.first_victory_completed) {
+            router.replace('/onboarding');
+            return;
+          }
+        }
+      } catch {
+        // Onboarding check failed — allow dashboard access
+      }
+      setOnboardingChecked(true);
+    }
+    checkOnboarding();
+  }, [router]);
+
+  if (!onboardingChecked) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="w-6 h-6 animate-spin text-orange-400" />
+      </div>
+    );
+  }
 
   // ── AI / Cost / Sentiment state ──────────────────────────────────
   const [roiState, setRoiState] = useState<FetchState<ROISnapshot>>({ status: 'loading', data: null });

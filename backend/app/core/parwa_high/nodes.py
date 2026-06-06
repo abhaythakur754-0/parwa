@@ -103,6 +103,12 @@ _technique_router: Optional[Any] = None
 _smart_router: Optional[Any] = None
 _confidence_engine: Optional[Any] = None
 _high_llm_client: Optional[HighLLMClient] = None
+# Enhancement engine singletons
+_ei_engine: Optional[Any] = None
+_churn_engine: Optional[Any] = None
+_billing_engine: Optional[Any] = None
+_tech_diag_engine: Optional[Any] = None
+_shipping_engine: Optional[Any] = None
 
 # Tier 3 technique IDs (string-based for compatibility)
 HIGH_TIER3_TECHNIQUES = [
@@ -1380,7 +1386,12 @@ async def classify_node(state: ParwaGraphState) -> Dict[str, Any]:
             try:
                 engine = _get_classification_engine()
                 if engine:
-                    result = engine.classify(query)
+                    # ClassificationEngine.classify is async — must await
+                    import inspect
+                    if inspect.iscoroutinefunction(engine.classify):
+                        result = await engine.classify(query)
+                    else:
+                        result = engine.classify(query)
                     # IntentResult is a dataclass — convert to dict
                     if hasattr(result, "primary_intent"):
                         classification = {
@@ -1507,13 +1518,41 @@ def technique_select_node(state: ParwaGraphState) -> Dict[str, Any]:
         technique_result: Dict[str, Any] = {}
         if technique_router:
             try:
-                technique_result = technique_router.select(
-                    intent=classification.get("intent", "general"),
-                    complexity=complexity,
+                from app.core.technique_router import QuerySignals as TRQuerySignals
+                tr_signals = TRQuerySignals(
+                    query_complexity=signals.get("query_complexity", complexity),
+                    confidence_score=classification.get("confidence", 0.5),
+                    sentiment_score=signals.get("sentiment", 0.5),
                     frustration_score=frustration,
-                    variant_tier="parwa_high",
+                    customer_tier=state.get("customer_tier", "free"),
+                    monetary_value=signals.get("monetary_value", 0),
+                    turn_count=signals.get("turn_count", 1),
+                    intent_type=classification.get("intent", "general"),
+                    reasoning_loop_detected=signals.get("reasoning_loop_detected", False),
+                    resolution_path_count=signals.get("resolution_path_count", 1),
+                    external_data_required=signals.get("external_data_required", False),
+                    is_strategic_decision=signals.get("is_strategic_decision", False),
                 )
-            except Exception:
+                router_result = technique_router.route(tr_signals)
+                activated_ids = [a.technique_id.value for a in router_result.activated_techniques]
+                # Pick primary: prefer Tier 3 > Tier 2
+                tier3 = [a for a in router_result.activated_techniques if a.tier.value == "tier_3"]
+                tier2 = [a for a in router_result.activated_techniques if a.tier.value == "tier_2"]
+                if tier3:
+                    primary = tier3[0].technique_id.value
+                elif tier2:
+                    primary = tier2[0].technique_id.value
+                else:
+                    primary = "direct"
+                technique_result = {
+                    "primary_technique": primary,
+                    "activated_techniques": activated_ids,
+                    "model_tier": "heavy",
+                    "trigger_rules_matched": [a.triggered_by[0] if a.triggered_by else "auto" for a in router_result.activated_techniques],
+                    "method": "technique_router",
+                }
+            except Exception as e:
+                logger.warning("technique_router_route_failed: %s", e)
                 technique_result = {}
 
         if not technique_result:

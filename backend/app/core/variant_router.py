@@ -186,21 +186,16 @@ def route_after_extract_signals(state: dict) -> str:
 def route_after_technique_select(state: dict) -> str:
     """Decide what comes after technique select.
 
-    Pro:  technique_select → generate (no compression)
-    High: technique_select → context_compress (compress before generate)
+    Both Pro and High: technique_select → reasoning_chain
+    (execute selected reasoning techniques before generation)
 
     Returns:
         Next node name.
     """
     try:
-        variant_tier = state.get("variant_tier", "parwa")
-
-        if variant_tier == "parwa_high":
-            return NODE_CONTEXT_COMPRESS
-        else:
-            return NODE_GENERATE
+        return "reasoning_chain"
     except Exception:
-        return NODE_GENERATE
+        return "reasoning_chain"
 
 
 def route_after_context_compress(state: dict) -> str:

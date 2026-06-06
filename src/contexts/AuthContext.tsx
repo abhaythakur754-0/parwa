@@ -16,51 +16,26 @@ import { useAppStore } from '@/lib/store';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// ── Storage Keys ────────────────────────────────────────────────────────
-// Tokens are stored ONLY in httpOnly cookies (parwa_at, parwa_rt) set by the backend.
-// Only non-sensitive user display data is kept in localStorage / cookie.
-
 const USER_KEY = 'parwa_user';
 
-/** Read a cookie value by name (non-httpOnly cookies only). */
-function getCookie(name: string): string | null {
-  if (typeof document === 'undefined') return null;
-  const match = document.cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]*)'));
-  return match ? decodeURIComponent(match[1]) : null;
-}
-
-/** Read user data from the non-httpOnly parwa_user cookie, falling back to localStorage. */
+/** Read user data from localStorage (non-sensitive display data only). */
 function readUserData(): User | null {
-  // Try cookie first (set by backend)
-  const cookieVal = getCookie('parwa_user');
-  if (cookieVal) {
-    try {
-      const user = JSON.parse(cookieVal) as User;
-      if (user && user.email) return user;
-    } catch {
-      // corrupt cookie — fall through
-    }
-  }
-  // Fallback to localStorage
-  const stored = localStorage.getItem(USER_KEY);
-  if (stored) {
-    try {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem(USER_KEY);
+    if (stored) {
       const user = JSON.parse(stored) as User;
       if (user && user.email) return user;
-    } catch {
-      // corrupt data
     }
+  } catch {
+    // corrupt data
   }
   return null;
 }
 
 // ── Auth Provider ───────────────────────────────────────────────────────
 
-interface AuthProviderProps {
-  children: React.ReactNode;
-}
-
-export function AuthProvider({ children }: AuthProviderProps) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
     user: null,
     isAuthenticated: false,
@@ -69,21 +44,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
   });
 
   // ── Initialize Auth State ────────────────────────────────────────────
+  // CRITICAL: We must NOT trust stale localStorage data if the backend
+  // explicitly rejects the auth (401). This was causing infinite redirect
+  // loops because the client thought it was authenticated but the
+  // middleware kept rejecting requests (no valid cookie).
 
   const initializeAuth = useCallback(async () => {
     try {
-      // Read user data from cookie or localStorage
-      const user = readUserData();
+      const cachedUser = readUserData();
 
-      if (user) {
-        // Best-effort verification with the backend (httpOnly cookie carries the token)
-        try {
-          const currentUser = await Promise.race([
-            authApi.getMe(),
-            new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error('Auth check timeout')), 5000)
-            ),
-          ]);
+      if (!cachedUser) {
+        // No cached data — definitely not authenticated
+        setState({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+          isInitialized: true,
+        });
+        return;
+      }
+
+      // We have cached user data — verify with backend
+      try {
+        const response = await fetch('/api/auth/me-proxy', {
+          method: 'GET',
+          credentials: 'include', // Send httpOnly cookies
+        });
+
+        if (response.ok) {
+          // Backend confirmed — user is authenticated
+          const currentUser = await response.json();
           setState({
             user: currentUser,
             isAuthenticated: true,
@@ -91,13 +81,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
             isInitialized: true,
           });
           return;
-        } catch {
-          // Backend unreachable or token expired — still trust cached user data
         }
 
+        // Backend returned 401/403 — session is INVALID.
+        // MUST clear stale cache to prevent redirect loops.
+        console.warn('[AuthContext] Backend rejected auth — clearing stale cache');
+        localStorage.removeItem(USER_KEY);
+      } catch (networkError) {
+        // Network error (backend unreachable / cold start).
+        // In this case ONLY, tentatively trust cached data.
+        // But we mark that it's unverified so the login page doesn't
+        // auto-redirect to protected routes (which would loop).
+        console.warn('[AuthContext] Backend unreachable — using cached data (unverified)');
         setState({
-          user,
-          isAuthenticated: true,
+          user: cachedUser,
+          isAuthenticated: false, // Don't claim authenticated — prevents redirect loop
           isLoading: false,
           isInitialized: true,
         });
@@ -105,7 +103,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     } catch (error) {
       console.error('Auth initialization error:', error);
-      clearAuthStorage();
+      localStorage.removeItem(USER_KEY);
     }
 
     setState({
@@ -123,12 +121,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // ── Storage Helpers ──────────────────────────────────────────────────
 
   const storeAuthData = (authResponse: AuthResponse) => {
-    // Only store non-sensitive user data. Tokens live in httpOnly cookies.
     localStorage.setItem(USER_KEY, JSON.stringify(authResponse.user));
   };
 
   const clearAuthStorage = () => {
-    // Only clear user display data. Tokens are httpOnly cookies cleared by the backend.
     localStorage.removeItem(USER_KEY);
   };
 
@@ -205,8 +201,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = useCallback(async () => {
     try {
-      // Call logout API — backend clears httpOnly cookies (parwa_at, parwa_rt, parwa_user).
-      // The refresh token is read from the httpOnly cookie, not localStorage.
       await authApi.logout().catch(() => {});
     } catch (error) {
       console.error('Logout error:', error);
@@ -218,12 +212,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isLoading: false,
         isInitialized: true,
       });
-      // Use Zustand store for SPA navigation instead of hash routing
       if (typeof window !== 'undefined') {
         try {
           useAppStore.getState().setAuth(false);
         } catch {
-          // Store not available — silent fail
+          // Store not available
         }
       }
     }
@@ -233,8 +226,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const refreshSession = useCallback(async () => {
     try {
-      // Call refresh endpoint — backend reads refresh_token from httpOnly cookie (parwa_rt)
-      // and sets new httpOnly cookies automatically. No localStorage token handling.
       await authApi.refresh();
     } catch (error) {
       clearAuthStorage();
@@ -261,10 +252,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // ── Hydrate from localStorage ────────────────────────────────────────
   // Called after login/signup via Next.js API routes that write directly to localStorage.
+  // This ONLY sets authenticated=true if called right after a successful login.
 
   const hydrate = useCallback(() => {
     try {
-      // Read user from cookie first, then localStorage
       const user = readUserData();
       if (user) {
         setState({
@@ -288,8 +279,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // ── Context Value ────────────────────────────────────────────────────
 
+  const { user, isAuthenticated, isLoading, isInitialized } = state;
+
   const value = useMemo<AuthContextType>(() => ({
-    ...state,
+    user,
+    isAuthenticated,
+    isLoading,
+    isInitialized,
     login,
     register,
     loginWithGoogle,
@@ -298,7 +294,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     checkEmailAvailability,
     hydrate,
   }), [
-    state,
+    user,
+    isAuthenticated,
+    isLoading,
+    isInitialized,
     login,
     register,
     loginWithGoogle,
@@ -324,7 +323,5 @@ export function useAuth(): AuthContextType {
   }
   return context;
 }
-
-// ── Export ──────────────────────────────────────────────────────────────
 
 export default AuthContext;
