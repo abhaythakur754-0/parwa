@@ -2,8 +2,12 @@
 
 import Link from 'next/link';
 import { Home, ArrowLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Suspense } from 'react';
 
-export default function NotFoundPage() {
+function NotFoundContent() {
+  const router = useRouter();
+
   return (
     <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center p-4">
       <div className="max-w-md w-full text-center">
@@ -33,7 +37,7 @@ export default function NotFoundPage() {
           </Link>
 
           <button
-            onClick={() => window.history.back()}
+            onClick={() => router.back()}
             className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-sm font-medium text-zinc-400 hover:text-white bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.15] transition-all"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -42,5 +46,17 @@ export default function NotFoundPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function NotFoundPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center">
+        <div className="text-8xl font-black bg-gradient-to-r from-orange-500 to-amber-400 bg-clip-text text-transparent">404</div>
+      </div>
+    }>
+      <NotFoundContent />
+    </Suspense>
   );
 }

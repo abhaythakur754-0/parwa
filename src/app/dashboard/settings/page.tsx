@@ -20,7 +20,8 @@ import {
 } from 'lucide-react';
 
 // ── API Base ────────────────────────────────────────────────────────────
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Use relative URLs to hit our Next.js proxy routes
+const API_BASE = '';
 
 // ── Types ───────────────────────────────────────────────────────────────
 

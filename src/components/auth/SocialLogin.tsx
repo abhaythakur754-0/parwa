@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 interface SocialLoginProps {
   onGoogleLogin: (idToken: string) => Promise<void>;
@@ -11,57 +11,134 @@ interface SocialLoginProps {
 
 export function SocialLogin({ onGoogleLogin, isLoading = false, error, showDividerAfter = true }: SocialLoginProps) {
   const [setupMode, setSetupMode] = useState(false);
+  const [scriptLoaded, setScriptLoaded] = useState(false);
+  const [scriptError, setScriptError] = useState(false);
+  const buttonRef = useRef<HTMLDivElement>(null);
+  const initializedRef = useRef(false);
 
-  const handleGoogleSignIn = async () => {
-    // Check if Google Client ID is configured
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const isConfigured = !!clientId;
+
+  // Load Google Identity Services script
+  useEffect(() => {
+    if (!clientId || typeof window === 'undefined') return;
+
+    // Check if already loaded
+    if (window.google?.accounts?.id) {
+      setScriptLoaded(true);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => setScriptLoaded(true);
+    script.onerror = () => {
+      console.error('Failed to load Google Identity Services script');
+      setScriptError(true);
+    };
+    document.head.appendChild(script);
+
+    return () => {
+      // Don't remove the script on unmount — it's global
+    };
+  }, [clientId]);
+
+  // Initialize Google Sign-In once script is loaded
+  useEffect(() => {
+    if (!scriptLoaded || !clientId || !window.google?.accounts?.id || initializedRef.current) return;
+
+    try {
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: (response: { credential: string }) => {
+          if (response.credential) {
+            onGoogleLogin(response.credential);
+          }
+        },
+        cancel_on_tap_outside: false,
+      });
+      initializedRef.current = true;
+
+      // Render the button if container exists
+      if (buttonRef.current) {
+        window.google.accounts.id.renderButton(buttonRef.current, {
+          type: 'standard',
+          theme: 'filled_black',
+          size: 'large',
+          text: 'signin_with',
+          width: buttonRef.current.offsetWidth,
+          logo_alignment: 'center',
+        });
+      }
+    } catch (err) {
+      console.error('Google Sign-In initialization error:', err);
+      setScriptError(true);
+    }
+  }, [scriptLoaded, clientId, onGoogleLogin]);
+
+  const handleGoogleSignIn = useCallback(async () => {
     if (!clientId) {
       setSetupMode(true);
       return;
     }
 
-    try {
-      if (typeof window !== 'undefined' && !window.google) {
-        const script = document.createElement('script');
-        script.src = 'https://accounts.google.com/gsi/client';
-        script.async = true;
-        script.defer = true;
-        document.head.appendChild(script);
-        await new Promise<void>((resolve) => { script.onload = () => resolve(); });
-      }
-      window.google?.accounts?.id?.initialize({
-        client_id: clientId,
-        callback: async (response: { credential: string }) => {
-          if (response.credential) await onGoogleLogin(response.credential);
-        },
-      });
-      window.google?.accounts?.id?.prompt();
-    } catch (err) {
-      console.error('Google sign-in error:', err);
+    if (!scriptLoaded || scriptError) {
+      setScriptError(true);
+      return;
     }
-  };
 
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-  const isConfigured = !!clientId;
+    // Try One Tap prompt as fallback
+    try {
+      window.google?.accounts?.id?.prompt((notification: any) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          // One Tap was skipped — the rendered button is still available
+          console.log('Google One Tap skipped:', notification.getNotDisplayedReason?.() || notification.getSkippedReason?.());
+        }
+      });
+    } catch (err) {
+      console.error('Google sign-in prompt error:', err);
+    }
+  }, [clientId, scriptLoaded, scriptError]);
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-3">
-        <button
-          type="button"
-          onClick={handleGoogleSignIn}
-          disabled={isLoading}
-          className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl border border-white/15 bg-white/5 text-white hover:bg-white/10 hover:border-white/25 transition-all duration-300 font-medium text-sm"
-          style={{ backdropFilter: 'blur(10px)' }}
-        >
-          <svg className="w-5 h-5" viewBox="0 0 24 24">
-            <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-            <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-            <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-            <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-          </svg>
-          <span>{isLoading ? 'Signing in...' : 'Continue with Google'}</span>
-        </button>
+        {isConfigured && scriptLoaded && !scriptError ? (
+          /* ── Native Google Sign-In Button (rendered by GIS) ── */
+          <div className="relative">
+            <div
+              ref={buttonRef}
+              className="w-full flex items-center justify-center min-h-[48px]"
+              style={{ maxWidth: '100%' }}
+            />
+            {/* Fallback: custom button that triggers prompt */}
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              className="absolute inset-0 opacity-0 cursor-pointer"
+              aria-label="Sign in with Google"
+            />
+          </div>
+        ) : (
+          /* ── Custom Google Button (when GIS not loaded or not configured) ── */
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={isLoading}
+            className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl border border-white/15 bg-white/5 text-white hover:bg-white/10 hover:border-white/25 transition-all duration-300 font-medium text-sm"
+            style={{ backdropFilter: 'blur(10px)' }}
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+              <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+              <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+              <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+            </svg>
+            <span>{isLoading ? 'Signing in...' : 'Continue with Google'}</span>
+          </button>
+        )}
       </div>
 
       {/* Show setup instructions when Google Client ID is not configured */}
@@ -91,6 +168,23 @@ export function SocialLogin({ onGoogleLogin, isLoading = false, error, showDivid
         </div>
       )}
 
+      {/* Script load error */}
+      {scriptError && isConfigured && (
+        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20">
+          <p className="text-xs text-rose-300 font-medium">Google Sign-In unavailable</p>
+          <p className="text-xs text-rose-200/60 mt-1">
+            Could not load Google Identity Services. Please try again or sign in with email.
+          </p>
+          <button
+            type="button"
+            onClick={() => { setScriptError(false); setScriptLoaded(false); }}
+            className="mt-2 text-xs text-rose-400 hover:text-rose-300 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {error && <p className="text-sm text-rose-300 text-center">{error}</p>}
 
       {showDividerAfter && (
@@ -110,8 +204,23 @@ declare global {
     google?: {
       accounts: {
         id: {
-          initialize: (config: { client_id: string; callback: (response: { credential: string }) => void }) => void;
-          prompt: () => void;
+          initialize: (config: {
+            client_id: string;
+            callback: (response: { credential: string }) => void;
+            cancel_on_tap_outside?: boolean;
+          }) => void;
+          renderButton: (
+            container: HTMLElement,
+            options: {
+              type?: string;
+              theme?: string;
+              size?: string;
+              text?: string;
+              width?: number;
+              logo_alignment?: string;
+            }
+          ) => void;
+          prompt: (callback?: (notification: any) => void) => void;
         };
       };
     };

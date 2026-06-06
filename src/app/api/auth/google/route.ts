@@ -1,11 +1,21 @@
-import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-
 /**
- * Google OAuth endpoint.
- * Verifies the Google id_token, then creates or returns the local user.
- * Works standalone — no Parwa backend required.
+ * PARWA Google OAuth API Route
+ *
+ * Handles Google Sign-In by:
+ * 1. Verifying the Google id_token with Google's tokeninfo endpoint
+ * 2. Creating/finding the user (via backend proxy or local Prisma)
+ * 3. Signing our own JWT tokens and setting httpOnly cookies
+ *
+ * This ensures the middleware can verify the parwa_at cookie.
  */
+
+import { NextRequest, NextResponse } from "next/server";
+import { getBackendUrl } from "@/lib/backend-url";
+import { signAccessToken, signRefreshToken } from "@/lib/jwt";
+import { setAuthCookies } from "@/lib/auth-cookies";
+
+const BACKEND_URL = getBackendUrl();
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -32,7 +42,6 @@ export async function POST(request: NextRequest) {
 
     const googleUser = await googleRes.json();
 
-    // Google returns: sub, email, email_verified, name, given_name, family_name, picture
     if (!googleUser.email) {
       return NextResponse.json(
         { status: "error", message: "Could not get email from Google account." },
@@ -50,11 +59,107 @@ export async function POST(request: NextRequest) {
     const email = googleUser.email.trim().toLowerCase();
     const fullName = googleUser.name || googleUser.given_name || null;
 
-    // Step 2: Find or create user in local DB
-    let user = await db.user.findUnique({
-      where: { email },
+    // Step 2: Create/find user via backend or local DB
+    const userData = await findOrCreateUser(email, fullName);
+
+    if (!userData) {
+      return NextResponse.json(
+        { status: "error", message: "Failed to create or find user account." },
+        { status: 500 }
+      );
+    }
+
+    // Step 3: Sign our own JWT tokens and set httpOnly cookies
+    const jwtPayload = {
+      sub: userData.id,
+      email: userData.email,
+      role: "member",
+      company_id: userData.company_name || undefined,
+      is_verified: userData.is_verified,
+    };
+
+    const accessToken = await signAccessToken(jwtPayload);
+    const refreshToken = await signRefreshToken(jwtPayload);
+
+    const responseData = {
+      id: userData.id,
+      email: userData.email,
+      fullName: userData.full_name,
+      isVerified: userData.is_verified,
+      industry: userData.industry,
+      companyName: userData.company_name,
+    };
+
+    const response = NextResponse.json({
+      status: "success",
+      is_new_user: userData.is_new_user,
+      user: responseData,
     });
 
+    setAuthCookies(response, accessToken, refreshToken, responseData);
+
+    return response;
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "An unexpected error occurred";
+    console.error("Google auth error:", message);
+    return NextResponse.json(
+      { status: "error", message: "Google sign-in failed. Please try again." },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * Try to create/find user via backend proxy first.
+ * If backend is unreachable, fall back to local Prisma.
+ */
+async function findOrCreateUser(
+  email: string,
+  fullName: string | null
+): Promise<{
+  id: string;
+  email: string;
+  full_name: string | null;
+  is_verified: boolean;
+  industry: string | null;
+  company_name: string | null;
+  is_new_user: boolean;
+} | null> {
+  // Try backend first
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/auth/google`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id_token: "verified", email, full_name: fullName }),
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      // Backend might return user in different formats
+      if (data.user || data.data) {
+        const user = data.user || data.data;
+        return {
+          id: user.id || user.user_id,
+          email: user.email || email,
+          full_name: user.full_name || user.fullName || fullName,
+          is_verified: user.is_verified ?? user.isVerified ?? true,
+          industry: user.industry || null,
+          company_name: user.company_name || user.companyName || null,
+          is_new_user: data.is_new_user ?? false,
+        };
+      }
+    }
+    // Backend returned an error — fall through to local
+  } catch {
+    // Backend unreachable — fall through to local
+  }
+
+  // Fallback: local Prisma
+  try {
+    const { db } = await import("@/lib/db");
+    let user = await db.user.findUnique({ where: { email } });
     const isNewUser = !user;
 
     if (!user) {
@@ -65,11 +170,9 @@ export async function POST(request: NextRequest) {
           is_verified: true,
           industry: null,
           company_name: null,
-          // No password for Google users — they login via Google
         },
       });
     } else {
-      // Update name if we got one from Google and user doesn't have one
       if (fullName && !user.full_name) {
         await db.user.update({
           where: { email },
@@ -79,26 +182,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Step 3: Return user data
-    return NextResponse.json({
-      status: "success",
+    return {
+      ...user,
       is_new_user: isNewUser,
-      user: {
-        id: user.id,
-        email: user.email,
-        fullName: user.full_name,
-        isVerified: user.is_verified,
-        industry: user.industry,
-        companyName: user.company_name,
-      },
-    });
-  } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : "An unexpected error occurred";
-    console.error("Google auth error:", message);
-    return NextResponse.json(
-      { status: "error", message: "Google sign-in failed. Please try again." },
-      { status: 500 }
-    );
+    };
+  } catch (dbError) {
+    console.error("Local DB fallback failed:", dbError);
+    return null;
   }
 }

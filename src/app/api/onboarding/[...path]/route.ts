@@ -3,15 +3,12 @@
  *
  * Catches all /api/onboarding/* requests and proxies them to the backend.
  * When the backend is unavailable, returns mock responses for graceful degradation.
- *
- * Handles: /api/onboarding/state, /api/onboarding/prerequisites,
- *          /api/onboarding/complete-step, /api/onboarding/legal-consent,
- *          /api/onboarding/activate, /api/onboarding/first-victory, etc.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getBackendUrl } from '@/lib/backend-url';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const BACKEND_URL = getBackendUrl();
 
 async function proxyToBackend(req: NextRequest, path: string) {
   const url = `${BACKEND_URL}/api/onboarding${path}`;
@@ -46,6 +43,7 @@ async function proxyToBackend(req: NextRequest, path: string) {
       method,
       headers,
       body,
+      signal: AbortSignal.timeout(8000),
     });
 
     const data = await res.json();
@@ -55,18 +53,17 @@ async function proxyToBackend(req: NextRequest, path: string) {
   }
 }
 
-// GET handler — for /api/onboarding/state, /api/onboarding/prerequisites, etc.
+// GET handler
 export async function GET(req: NextRequest, { params }: { params: Promise<{ path?: string[] }> }) {
   const { path: pathSegments } = await params;
   const path = pathSegments ? `/${pathSegments.join('/')}` : '';
   const url = new URL(req.url);
   const searchParams = url.search;
 
-  // Try backend first
   const backendResponse = await proxyToBackend(req, `${path}${searchParams}`);
   if (backendResponse) return backendResponse;
 
-  // Mock fallback when backend is down
+  // Mock fallbacks
   if (path === '/state' || path === '') {
     return NextResponse.json({
       id: 'mock-onboarding',
@@ -90,78 +87,47 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ path
   }
 
   if (path === '/prerequisites') {
-    return NextResponse.json({
-      can_activate: true,
-      missing: [],
-    });
+    return NextResponse.json({ can_activate: true, missing: [] });
   }
 
-  return NextResponse.json(
-    { detail: 'Not found' },
-    { status: 404 }
-  );
+  return NextResponse.json({ detail: 'Not found' }, { status: 404 });
 }
 
-// POST handler — for complete-step, legal-consent, activate, first-victory, etc.
+// POST handler
 export async function POST(req: NextRequest, { params }: { params: Promise<{ path?: string[] }> }) {
   const { path: pathSegments } = await params;
   const path = pathSegments ? `/${pathSegments.join('/')}` : '';
   const url = new URL(req.url);
   const searchParams = url.search;
 
-  // Try backend first
   const backendResponse = await proxyToBackend(req, `${path}${searchParams}`);
   if (backendResponse) return backendResponse;
 
-  // Mock fallback when backend is down
   if (path.startsWith('/complete-step')) {
-    return NextResponse.json({
-      status: 'ok',
-      current_step: 1,
-      completed_steps: [1],
-    });
+    return NextResponse.json({ status: 'ok', current_step: 1, completed_steps: [1] });
   }
-
   if (path === '/legal-consent') {
-    return NextResponse.json({
-      status: 'ok',
-      legal_accepted: true,
-    });
+    return NextResponse.json({ status: 'ok', legal_accepted: true });
   }
-
   if (path === '/activate') {
-    return NextResponse.json({
-      status: 'ok',
-      activated: true,
-    });
+    return NextResponse.json({ status: 'ok', activated: true });
   }
-
   if (path === '/first-victory') {
-    return NextResponse.json({
-      status: 'ok',
-      first_victory_completed: true,
-    });
+    return NextResponse.json({ status: 'ok', first_victory_completed: true });
   }
 
-  return NextResponse.json(
-    { detail: 'Not found' },
-    { status: 404 }
-  );
+  return NextResponse.json({ detail: 'Not found' }, { status: 404 });
 }
 
-// PUT handler — for updating onboarding state
+// PUT handler
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ path?: string[] }> }) {
   const { path: pathSegments } = await params;
   const path = pathSegments ? `/${pathSegments.join('/')}` : '';
   const url = new URL(req.url);
   const searchParams = url.search;
 
-  // Try backend first
   const backendResponse = await proxyToBackend(req, `${path}${searchParams}`);
   if (backendResponse) return backendResponse;
 
-  return NextResponse.json(
-    { detail: 'Not found' },
-    { status: 404 }
-  );
+  return NextResponse.json({ detail: 'Not found' }, { status: 404 });
 }

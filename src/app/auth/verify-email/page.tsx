@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { MailCheck, MailX, RefreshCw, ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Use relative URLs to hit our Next.js proxy routes
+// This works on both Vercel and local development
 
 type VerifyState = 'loading' | 'success' | 'error' | 'expired';
 
@@ -37,7 +38,7 @@ function VerifyEmailContent() {
     if (!token) return;
     const verifyEmail = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/v1/auth/verify-email?token=${encodeURIComponent(token)}`, {
+        const res = await fetch(`/api/auth/verify-email?token=${encodeURIComponent(token)}`, {
           method: 'GET',
           credentials: 'include',
         });
@@ -60,7 +61,7 @@ function VerifyEmailContent() {
     setResending(true);
     setResendMessage(null);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/auth/verify-email/resend`, {
+      const res = await fetch('/api/auth/verify-email/resend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

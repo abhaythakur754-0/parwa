@@ -7,7 +7,8 @@ import { Loader2, Lock, ArrowLeft, CheckCircle, Eye, EyeOff } from 'lucide-react
 import toast from 'react-hot-toast';
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Use relative URLs so requests go through our Next.js proxy routes
+// This works on both Vercel and local development
 
 function ResetPasswordContent() {
   const router = useRouter();
@@ -42,7 +43,7 @@ function ResetPasswordContent() {
     setError(null);
     setIsLoading(true);
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/auth/reset-password`, {
+      const response = await axios.post(`/api/auth/reset-password`, {
         token: token, new_password: newPassword, confirm_password: confirmPassword,
       });
       if (response.data?.status === 'success') {

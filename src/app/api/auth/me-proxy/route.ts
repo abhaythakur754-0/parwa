@@ -3,14 +3,12 @@
  *
  * Proxies /api/auth/me-proxy to the backend's /api/auth/me endpoint.
  * Forwards the parwa_at cookie as a Bearer token for JWT verification.
- *
- * This is used by the AuthContext to verify the current session
- * without requiring database access from the Next.js server.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getBackendUrl } from '@/lib/backend-url';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const BACKEND_URL = getBackendUrl();
 
 export async function GET(req: NextRequest) {
   try {
@@ -41,6 +39,7 @@ export async function GET(req: NextRequest) {
     const res = await fetch(`${BACKEND_URL}/api/auth/me`, {
       method: 'GET',
       headers,
+      signal: AbortSignal.timeout(8000),
     });
 
     const data = await res.json();
