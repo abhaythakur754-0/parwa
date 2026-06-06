@@ -212,11 +212,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading: false,
         isInitialized: true,
       });
+      // Redirect to home page after logout
       if (typeof window !== 'undefined') {
         try {
           useAppStore.getState().setAuth(false);
         } catch {
           // Store not available
+        }
+        // Only redirect if we're on a protected page
+        if (window.location.pathname.startsWith('/dashboard') || window.location.pathname.startsWith('/onboarding')) {
+          window.location.href = '/';
         }
       }
     }

@@ -110,7 +110,7 @@ function VerifyEmailContent() {
   return (
     <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Link href="/auth/login" className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-white transition-colors mb-8">
+        <Link href="/login" className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-white transition-colors mb-8">
           <ArrowLeft className="w-4 h-4" /> Back to login
         </Link>
         <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8">
@@ -134,7 +134,7 @@ function VerifyEmailContent() {
           )}
 
           {(state === 'expired' || state === 'error') && !email && (
-            <Link href="/auth/login" className="w-full inline-flex items-center justify-center px-4 py-3 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 transition-all duration-200">
+            <Link href="/login" className="w-full inline-flex items-center justify-center px-4 py-3 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 transition-all duration-200">
               Go to Login
             </Link>
           )}

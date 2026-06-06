@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { Eye, EyeOff, Loader2, Mail, Lock, User, Building2, Briefcase } from 'lucide-react';
-import { useAppStore } from '@/lib/store';
+import { useRouter } from 'next/navigation';
 
 const MAX_EMAIL_LENGTH = 255;
 const MAX_NAME_LENGTH = 255;
@@ -97,7 +97,7 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emailChecking, setEmailChecking] = useState(false);
   const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null);
-  const navigate = useAppStore((s) => s.navigate);
+  const router = useRouter();
 
   const passwordStrength = useMemo(() => getPasswordStrength(password), [password]);
 
@@ -347,7 +347,7 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
       {/* Sign In Link */}
       <p className="text-center text-sm text-orange-200/40">
         Already have an account?{' '}
-        <button onClick={() => navigate('login')} className="text-orange-400 hover:text-orange-300 font-medium transition-colors">Sign in</button>
+        <button type="button" onClick={() => router.push('/login')} className="text-orange-400 hover:text-orange-300 font-medium transition-colors">Sign in</button>
       </p>
     </form>
   );

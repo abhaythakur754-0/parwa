@@ -83,7 +83,7 @@ export default function MFAVerifyPage() {
       <div className="w-full max-w-md">
         {/* Back link */}
         <Link
-          href="/auth/login"
+          href="/login"
           className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-white transition-colors mb-8"
         >
           <ArrowLeft className="w-4 h-4" />

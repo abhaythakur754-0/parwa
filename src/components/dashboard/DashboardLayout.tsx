@@ -12,8 +12,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { useAppStore } from '@/lib/store';
 import DashboardSidebar from './DashboardSidebar';
 import NotificationBell from '@/components/notifications/NotificationBell';
 import RealtimeToast from '@/components/notifications/RealtimeToast';
@@ -30,8 +30,7 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const navigate = useAppStore((s) => s.navigate);
-  const setAuth = useAppStore((s) => s.setAuth);
+  const router = useRouter();
   const { logout, isAuthenticated, isInitialized, isLoading } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -59,9 +58,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   // ── Auth Guard ───────────────────────────────────────────────────────
   useEffect(() => {
     if (isInitialized && !isLoading && !isAuthenticated) {
-      navigate('login');
+      router.push('/login');
     }
-  }, [isInitialized, isLoading, isAuthenticated, navigate]);
+  }, [isInitialized, isLoading, isAuthenticated, router]);
 
   const handleLogout = async () => {
     try {
@@ -71,9 +70,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       localStorage.removeItem('parwa_access_token');
       localStorage.removeItem('parwa_refresh_token');
     }
-    setAuth(false);
     toast.success('Logged out');
-    navigate('landing');
+    router.push('/');
   };
 
   // Show loading state while auth is initializing
