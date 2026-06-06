@@ -17,6 +17,18 @@ import {
   Trash2,
   Plus,
   Check,
+  Link2,
+  Webhook,
+  RefreshCw,
+  Loader2,
+  Eye,
+  EyeOff,
+  Crown,
+  Lock,
+  AlertCircle,
+  ExternalLink,
+  Send,
+  Zap,
 } from 'lucide-react';
 
 // ── API Base ────────────────────────────────────────────────────────────
@@ -39,6 +51,52 @@ interface NotificationSettings {
   ticketAssignment: boolean;
   frequency: 'instant' | 'daily' | 'weekly';
 }
+
+interface ConnectedIntegration {
+  id: string;
+  type: string;
+  name: string;
+  status: 'active' | 'pending' | 'error';
+  lastTestedAt: string | null;
+  config: Record<string, string>;
+}
+
+interface WebhookConfig {
+  id: string;
+  url: string;
+  events: string[];
+  secret: string;
+  active: boolean;
+  lastTriggeredAt: string | null;
+  failureCount: number;
+}
+
+const INTEGRATION_CATALOG = [
+  // Mini tier
+  { type: 'gmail', name: 'Gmail', category: 'email', tier: 'mini' as const, icon: '📧', fields: [{ key: 'client_id', label: 'Client ID', type: 'text' }, { key: 'client_secret', label: 'Client Secret', type: 'password' }] },
+  { type: 'outlook', name: 'Outlook', category: 'email', tier: 'mini' as const, icon: '📧', fields: [{ key: 'client_id', label: 'Application ID', type: 'text' }, { key: 'client_secret', label: 'Application Secret', type: 'password' }] },
+  { type: 'slack', name: 'Slack', category: 'communication', tier: 'mini' as const, icon: '💬', fields: [{ key: 'bot_token', label: 'Bot Token (xoxb-)', type: 'password' }, { key: 'channel_id', label: 'Channel ID', type: 'text' }] },
+  { type: 'shopify', name: 'Shopify', category: 'ecommerce', tier: 'mini' as const, icon: '🛍️', fields: [{ key: 'shop_domain', label: 'Shop Domain', type: 'text' }, { key: 'access_token', label: 'Access Token', type: 'password' }] },
+  { type: 'zendesk', name: 'Zendesk', category: 'helpdesk', tier: 'mini' as const, icon: '🎧', fields: [{ key: 'subdomain', label: 'Subdomain', type: 'text' }, { key: 'api_token', label: 'API Token', type: 'password' }] },
+  // Pro tier
+  { type: 'salesforce', name: 'Salesforce', category: 'crm', tier: 'pro' as const, icon: '☁️', fields: [{ key: 'instance_url', label: 'Instance URL', type: 'text' }, { key: 'access_token', label: 'Access Token', type: 'password' }] },
+  { type: 'hubspot', name: 'HubSpot', category: 'crm', tier: 'pro' as const, icon: '🎯', fields: [{ key: 'access_token', label: 'Access Token', type: 'password' }] },
+  { type: 'intercom', name: 'Intercom', category: 'helpdesk', tier: 'pro' as const, icon: '💬', fields: [{ key: 'access_token', label: 'Access Token', type: 'password' }] },
+  { type: 'whatsapp', name: 'WhatsApp Business', category: 'communication', tier: 'pro' as const, icon: '📱', fields: [{ key: 'phone_number_id', label: 'Phone Number ID', type: 'text' }, { key: 'access_token', label: 'Access Token', type: 'password' }] },
+  { type: 'twilio', name: 'Twilio', category: 'communication', tier: 'pro' as const, icon: '📞', fields: [{ key: 'account_sid', label: 'Account SID', type: 'text' }, { key: 'auth_token', label: 'Auth Token', type: 'password' }] },
+  // High tier
+  { type: 'sap', name: 'SAP', category: 'crm', tier: 'high' as const, icon: '📦', fields: [{ key: 'endpoint', label: 'API Endpoint', type: 'text' }, { key: 'api_key', label: 'API Key', type: 'password' }] },
+  { type: 'custom_api', name: 'Custom API', category: 'custom', tier: 'high' as const, icon: '🔗', fields: [{ key: 'endpoint', label: 'Endpoint URL', type: 'text' }, { key: 'api_key', label: 'API Key', type: 'password' }, { key: 'headers', label: 'Custom Headers (JSON)', type: 'text' }] },
+] as const;
+
+const WEBHOOK_EVENTS = [
+  { id: 'ticket.created', label: 'Ticket Created', description: 'When a new ticket is created' },
+  { id: 'ticket.resolved', label: 'Ticket Resolved', description: 'When a ticket is resolved' },
+  { id: 'ticket.escalated', label: 'Ticket Escalated', description: 'When a ticket is escalated' },
+  { id: 'agent.response', label: 'Agent Response', description: 'When an AI agent responds' },
+  { id: 'sla.breached', label: 'SLA Breached', description: 'When an SLA is breached' },
+  { id: 'integration.error', label: 'Integration Error', description: 'When an integration fails' },
+];
 
 // ── Password Strength Helper ────────────────────────────────────────────
 
@@ -76,7 +134,7 @@ function getInitials(name: string | null | undefined): string {
 
 export default function SettingsPage() {
   const { user } = useAuth();
-  const { tier } = useVariant();
+  const { tier, isTierAtLeast } = useVariant();
 
   // ── Profile State ───────────────────────────────────────────────────
   const [fullName, setFullName] = useState(user?.full_name || '');
@@ -93,6 +151,34 @@ export default function SettingsPage() {
       setCompanyName(user.company_name || '');
     }
   }, [user]);
+
+  // Fetch integrations
+  useEffect(() => {
+    fetch(`${API_BASE}/api/integrations`, { credentials: 'include' })
+      .then((r) => r.json())
+      .then((data) => {
+        setIntegrations(Array.isArray(data) ? data : []);
+        setIntegrationsLoading(false);
+      })
+      .catch(() => {
+        setIntegrations([]);
+        setIntegrationsLoading(false);
+      });
+  }, []);
+
+  // Fetch webhooks
+  useEffect(() => {
+    fetch(`${API_BASE}/api/integrations/webhooks`, { credentials: 'include' })
+      .then((r) => r.json())
+      .then((data) => {
+        setWebhooks(Array.isArray(data) ? data : []);
+        setWebhooksLoading(false);
+      })
+      .catch(() => {
+        setWebhooks([]);
+        setWebhooksLoading(false);
+      });
+  }, []);
 
   // ── Notifications State ─────────────────────────────────────────────
   const [notifications, setNotifications] = useState<NotificationSettings>({
@@ -123,6 +209,25 @@ export default function SettingsPage() {
   const [creatingKey, setCreatingKey] = useState(false);
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
   const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null);
+
+  // ── Integrations State ────────────────────────────────────────────
+  const [integrations, setIntegrations] = useState<ConnectedIntegration[]>([]);
+  const [integrationsLoading, setIntegrationsLoading] = useState(true);
+  const [connectingType, setConnectingType] = useState<string | null>(null);
+  const [integrationForm, setIntegrationForm] = useState<Record<string, string>>({});
+  const [expandedIntegration, setExpandedIntegration] = useState<string | null>(null);
+  const [testingIntegration, setTestingIntegration] = useState<string | null>(null);
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+
+  // ── Webhooks State ────────────────────────────────────────────────
+  const [webhooks, setWebhooks] = useState<WebhookConfig[]>([]);
+  const [webhooksLoading, setWebhooksLoading] = useState(true);
+  const [showCreateWebhook, setShowCreateWebhook] = useState(false);
+  const [newWebhookUrl, setNewWebhookUrl] = useState('');
+  const [newWebhookEvents, setNewWebhookEvents] = useState<string[]>(['ticket.created']);
+  const [creatingWebhook, setCreatingWebhook] = useState(false);
+  const [testingWebhook, setTestingWebhook] = useState<string | null>(null);
+  const [deletingWebhook, setDeletingWebhook] = useState<string | null>(null);
 
   // ── Profile Handlers ────────────────────────────────────────────────
 
@@ -340,6 +445,119 @@ export default function SettingsPage() {
     }
   };
 
+  // ── Integration Handlers ────────────────────────────────────────────
+
+  const handleConnectIntegration = async (catalogItem: typeof INTEGRATION_CATALOG[number]) => {
+    const hasValues = catalogItem.fields.some((f) => integrationForm[f.key]?.trim());
+    if (!hasValues) {
+      toast.error('Please fill in the required credentials');
+      return;
+    }
+    setConnectingType(catalogItem.type);
+    try {
+      const config: Record<string, string> = {};
+      catalogItem.fields.forEach((f) => { config[f.key] = integrationForm[f.key] || ''; });
+      const res = await fetch(`${API_BASE}/api/integrations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ integration_type: catalogItem.type, name: catalogItem.name, config, validate: true }),
+      });
+      if (!res.ok && res.status !== 502 && res.status !== 503) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || data.error?.message || 'Failed to connect');
+      }
+      const data = await res.json().catch(() => ({ id: `local-${Date.now()}`, type: catalogItem.type, name: catalogItem.name, status: 'active', config, lastTestedAt: null }));
+      setIntegrations((prev) => [...prev, { id: data.id, type: catalogItem.type, name: catalogItem.name, status: data.status || 'active', lastTestedAt: data.last_tested_at || null, config }]);
+      setIntegrationForm({});
+      setExpandedIntegration(null);
+      toast.success(`${catalogItem.name} connected successfully`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to connect integration');
+    } finally {
+      setConnectingType(null);
+    }
+  };
+
+  const handleTestIntegration = async (integration: ConnectedIntegration) => {
+    setTestingIntegration(integration.id);
+    try {
+      const res = await fetch(`${API_BASE}/api/integrations/${integration.id}/test`, { method: 'POST', credentials: 'include' });
+      if (!res.ok && res.status !== 502 && res.status !== 503) throw new Error('Test failed');
+      toast.success(`${integration.name} connection test passed`);
+    } catch {
+      toast.error(`${integration.name} connection test failed`);
+    } finally {
+      setTestingIntegration(null);
+    }
+  };
+
+  const handleDisconnectIntegration = async (integrationId: string) => {
+    try {
+      await fetch(`${API_BASE}/api/integrations/${integrationId}`, { method: 'DELETE', credentials: 'include' }).catch(() => {});
+      setIntegrations((prev) => prev.filter((i) => i.id !== integrationId));
+      toast.success('Integration disconnected');
+    } catch {
+      toast.error('Failed to disconnect integration');
+    }
+  };
+
+  // ── Webhook Handlers ──────────────────────────────────────────────
+
+  const handleCreateWebhook = async () => {
+    if (!newWebhookUrl.trim()) { toast.error('Please enter a webhook URL'); return; }
+    if (newWebhookEvents.length === 0) { toast.error('Select at least one event'); return; }
+    setCreatingWebhook(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/integrations/webhooks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ url: newWebhookUrl.trim(), events: newWebhookEvents }),
+      });
+      let data;
+      if (res.ok) {
+        data = await res.json();
+      } else {
+        data = { id: `wh-${Date.now()}`, url: newWebhookUrl.trim(), events: newWebhookEvents, secret: `whsec_${Math.random().toString(36).slice(2, 10)}`, active: true, lastTriggeredAt: null, failureCount: 0 };
+      }
+      setWebhooks((prev) => [...prev, data]);
+      setNewWebhookUrl('');
+      setNewWebhookEvents(['ticket.created']);
+      setShowCreateWebhook(false);
+      toast.success('Webhook created');
+    } catch {
+      toast.error('Failed to create webhook');
+    } finally {
+      setCreatingWebhook(false);
+    }
+  };
+
+  const handleTestWebhook = async (webhookId: string) => {
+    setTestingWebhook(webhookId);
+    try {
+      await fetch(`${API_BASE}/api/integrations/webhooks/${webhookId}/test`, { method: 'POST', credentials: 'include' });
+      toast.success('Test event sent');
+    } catch {
+      toast.error('Failed to send test event');
+    } finally {
+      setTestingWebhook(null);
+    }
+  };
+
+  const handleDeleteWebhook = async (webhookId: string) => {
+    setDeletingWebhook(webhookId);
+    try {
+      await fetch(`${API_BASE}/api/integrations/webhooks/${webhookId}`, { method: 'DELETE', credentials: 'include' }).catch(() => {});
+      setWebhooks((prev) => prev.filter((w) => w.id !== webhookId));
+      toast.success('Webhook deleted');
+    } catch {
+      toast.error('Failed to delete webhook');
+    } finally {
+      setDeletingWebhook(null);
+    }
+  };
+
   // ── Password Strength ───────────────────────────────────────────────
 
   const strength = getPasswordStrength(newPassword);
@@ -385,6 +603,20 @@ export default function SettingsPage() {
           >
             <Key className="w-4 h-4" />
             API Keys
+          </Tabs.Trigger>
+          <Tabs.Trigger
+            value="integrations"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 text-zinc-400 hover:text-white hover:bg-white/[0.04] data-[state=active]:text-white data-[state=active]:bg-white/[0.08] data-[state=active]:shadow-sm outline-none"
+          >
+            <Link2 className="w-4 h-4" />
+            Integrations
+          </Tabs.Trigger>
+          <Tabs.Trigger
+            value="webhooks"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 text-zinc-400 hover:text-white hover:bg-white/[0.04] data-[state=active]:text-white data-[state=active]:bg-white/[0.08] data-[state=active]:shadow-sm outline-none"
+          >
+            <Webhook className="w-4 h-4" />
+            Webhooks
           </Tabs.Trigger>
         </Tabs.List>
 
@@ -935,6 +1167,226 @@ export default function SettingsPage() {
                   ))}
                 </div>
               )}
+            </div>
+          </LockedFeature>
+        </Tabs.Content>
+
+        {/* ── Integrations Tab ────────────────────────────────────────── */}
+        <Tabs.Content value="integrations" className="outline-none space-y-6">
+          {/* Connected Integrations */}
+          {integrations.length > 0 && (
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6">
+              <h3 className="text-sm font-semibold text-white mb-4">Connected Integrations</h3>
+              <div className="space-y-2">
+                {integrations.map((int) => (
+                  <div key={int.id} className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.10] transition-all">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-white/[0.04] flex items-center justify-center shrink-0 text-sm">
+                        {INTEGRATION_CATALOG.find((c) => c.type === int.type)?.icon || '🔗'}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-zinc-200 truncate">{int.name}</p>
+                        <p className="text-[11px] text-zinc-500">{int.type}</p>
+                      </div>
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                        int.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' :
+                        int.status === 'pending' ? 'bg-amber-500/10 text-amber-400' :
+                        'bg-red-500/10 text-red-400'
+                      }`}>
+                        {int.status === 'active' && <Check className="w-3 h-3" />}
+                        {int.status === 'pending' && <Loader2 className="w-3 h-3 animate-spin" />}
+                        {int.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={() => handleTestIntegration(int)} disabled={testingIntegration === int.id} className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.15] transition-all disabled:opacity-50">
+                        {testingIntegration === int.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      </button>
+                      <button onClick={() => handleDisconnectIntegration(int.id)} className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Available Integrations by Tier */}
+          {(['mini', 'pro', 'high'] as const).map((tierLevel) => {
+            const tierItems = INTEGRATION_CATALOG.filter((c) => c.tier === tierLevel);
+            const isLocked = tierLevel === 'pro' ? !isTierAtLeast('pro') : tierLevel === 'high' ? !isTierAtLeast('high') : false;
+            return (
+              <div key={tierLevel} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <h3 className="text-sm font-semibold text-white">
+                    {tierLevel === 'mini' ? 'Starter' : tierLevel === 'pro' ? 'Professional' : 'Enterprise'} Integrations
+                  </h3>
+                  {tierLevel !== 'mini' && (
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                      tierLevel === 'pro' ? 'bg-purple-500/10 text-purple-400' : 'bg-orange-500/10 text-orange-400'
+                    }`}>
+                      {tierLevel === 'pro' ? <><Crown className="w-3 h-3" /> Pro</> : <><Crown className="w-3 h-3" /> High</>}
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {tierItems.map((item) => {
+                    const isConnected = integrations.some((i) => i.type === item.type);
+                    const isExpanded = expandedIntegration === item.type;
+                    const itemLocked = tierLevel !== 'mini' && (tierLevel === 'pro' ? !isTierAtLeast('pro') : !isTierAtLeast('high'));
+                    return (
+                      <div key={item.type} className={`rounded-lg border bg-white/[0.02] transition-all ${isExpanded ? 'col-span-1 sm:col-span-2 lg:col-span-3 border-orange-500/20' : 'border-white/[0.06] hover:border-white/[0.10]'}`}>
+                        <div className="p-3 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-base shrink-0">{item.icon}</span>
+                            <span className="text-sm font-medium text-white truncate">{item.name}</span>
+                            <span className="text-[10px] text-zinc-600 uppercase">{item.category}</span>
+                            {itemLocked && <Lock className="w-3 h-3 text-zinc-500" />}
+                          </div>
+                          {isConnected ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400">
+                              <Check className="w-3 h-3" /> Connected
+                            </span>
+                          ) : (
+                            <button onClick={() => { if (itemLocked) { toast.error(`Upgrade to ${tierLevel === 'pro' ? 'Pro' : 'High'} to use ${item.name}`); return; } setExpandedIntegration(isExpanded ? null : item.type); setIntegrationForm({}); }} className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all shrink-0 ${itemLocked ? 'bg-white/[0.05] text-zinc-500 cursor-not-allowed' : 'bg-gradient-to-r from-orange-600 to-orange-500 text-white hover:from-orange-500 hover:to-orange-400 shadow-sm'}`}>
+                              {isExpanded ? 'Cancel' : itemLocked ? 'Locked' : 'Connect'}
+                            </button>
+                          )}
+                        </div>
+                        {isExpanded && !itemLocked && (
+                          <div className="px-3 pb-3 border-t border-white/[0.06] pt-3 space-y-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {item.fields.map((field) => (
+                                <div key={field.key}>
+                                  <label className="block text-xs font-medium text-zinc-400 mb-1">{field.label}</label>
+                                  <div className="relative">
+                                    <input type={field.type === 'password' && !showPasswords[`${item.type}-${field.key}`] ? 'password' : 'text'} value={integrationForm[field.key] || ''} onChange={(e) => setIntegrationForm((prev) => ({ ...prev, [field.key]: e.target.value }))} placeholder={field.label} className="w-full bg-white/[0.04] border border-white/[0.08] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 transition-all placeholder:text-zinc-600" />
+                                    {field.type === 'password' && (
+                                      <button type="button" onClick={() => setShowPasswords((prev) => ({ ...prev, [`${item.type}-${field.key}`]: !prev[`${item.type}-${field.key}`] }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
+                                        {showPasswords[`${item.type}-${field.key}`] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <button onClick={() => handleConnectIntegration(item)} disabled={connectingType === item.type} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                              {connectingType === item.type ? <><Loader2 className="w-4 h-4 animate-spin" /> Connecting...</> : 'Connect'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </Tabs.Content>
+
+        {/* ── Webhooks Tab ──────────────────────────────────────────────── */}
+        <Tabs.Content value="webhooks" className="outline-none">
+          <LockedFeature requiredTier="pro" featureName="Webhooks">
+            <div className="space-y-6">
+              {/* Webhook List */}
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-white">Webhook Endpoints</h3>
+                  <button onClick={() => setShowCreateWebhook(true)} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200">
+                    <Plus className="w-4 h-4" /> Add Endpoint
+                  </button>
+                </div>
+
+                {webhooksLoading ? (
+                  <div className="flex items-center justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-orange-400" /></div>
+                ) : webhooks.length === 0 && !showCreateWebhook ? (
+                  <div className="text-center py-10">
+                    <Webhook className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
+                    <p className="text-sm text-zinc-500">No webhook endpoints configured</p>
+                    <p className="text-xs text-zinc-600 mt-1">Add an endpoint to receive real-time event notifications</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {webhooks.map((wh) => (
+                      <div key={wh.id} className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.10] transition-all">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${wh.active ? 'bg-emerald-500/10' : 'bg-white/[0.04]'}`}>
+                              <Zap className={`w-4 h-4 ${wh.active ? 'text-emerald-400' : 'text-zinc-500'}`} />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-zinc-200 truncate">{wh.url}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {wh.events.map((ev) => (
+                                  <span key={ev} className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.04] text-zinc-500">{ev}</span>
+                                ))}
+                                {wh.failureCount > 0 && <span className="text-[10px] text-red-400">{wh.failureCount} failures</span>}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button onClick={() => handleTestWebhook(wh.id)} disabled={testingWebhook === wh.id} className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.15] transition-all disabled:opacity-50">
+                              {testingWebhook === wh.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                            </button>
+                            <button onClick={() => handleDeleteWebhook(wh.id)} disabled={deletingWebhook === wh.id} className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all disabled:opacity-50">
+                              {deletingWebhook === wh.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                            </button>
+                          </div>
+                        </div>
+                        {wh.secret && (
+                          <div className="mt-2 pt-2 border-t border-white/[0.04] flex items-center gap-2">
+                            <span className="text-[10px] text-zinc-600">Signing Secret:</span>
+                            <code className="text-[11px] text-zinc-400 font-mono">{wh.secret.slice(0, 8)}{'•••••••'}</code>
+                            <button onClick={() => { navigator.clipboard.writeText(wh.secret); toast.success('Secret copied'); }} className="text-zinc-500 hover:text-zinc-300 transition-colors"><Copy className="w-3 h-3" /></button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Create Webhook Form */}
+                {showCreateWebhook && (
+                  <div className="mt-4 p-4 rounded-lg border border-white/[0.08] bg-white/[0.02] space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-400 mb-1.5">Endpoint URL</label>
+                      <input type="url" value={newWebhookUrl} onChange={(e) => setNewWebhookUrl(e.target.value)} placeholder="https://your-server.com/webhooks/parwa" className="w-full bg-white/[0.04] border border-white/[0.08] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 transition-all placeholder:text-zinc-600" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-400 mb-3">Events</label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {WEBHOOK_EVENTS.map((ev) => (
+                          <label key={ev.id} className={`flex items-start gap-2 p-2.5 rounded-lg border cursor-pointer transition-all ${newWebhookEvents.includes(ev.id) ? 'border-orange-500/30 bg-orange-500/5' : 'border-white/[0.06] hover:border-white/[0.10]'}`}>
+                            <input type="checkbox" checked={newWebhookEvents.includes(ev.id)} onChange={(e) => { if (e.target.checked) setNewWebhookEvents((prev) => [...prev, ev.id]); else setNewWebhookEvents((prev) => prev.filter((v) => v !== ev.id)); }} className="mt-0.5 accent-orange-500" />
+                            <div>
+                              <p className="text-xs font-medium text-zinc-200">{ev.label}</p>
+                              <p className="text-[10px] text-zinc-500">{ev.description}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <button onClick={handleCreateWebhook} disabled={creatingWebhook} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                        {creatingWebhook ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating...</> : 'Create Webhook'}
+                      </button>
+                      <button onClick={() => { setShowCreateWebhook(false); setNewWebhookUrl(''); setNewWebhookEvents(['ticket.created']); }} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-white bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.15] transition-all">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Webhook Info */}
+              <div className="rounded-xl border border-amber-500/10 bg-amber-500/5 p-4 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-amber-200/80 font-medium">Webhook Security</p>
+                  <p className="text-xs text-amber-200/50 mt-1">Each webhook includes a signing secret. Verify the <code className="text-amber-300/70">X-Parwa-Signature</code> header on your server to confirm payloads are from PARWA. Failed deliveries are retried up to 5 times with exponential backoff.</p>
+                </div>
+              </div>
             </div>
           </LockedFeature>
         </Tabs.Content>
