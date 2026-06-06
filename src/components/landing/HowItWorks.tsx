@@ -28,14 +28,14 @@ const steps = [
   },
   {
     icon: <PartyPopper className="w-6 h-6 sm:w-7 sm:h-7" />,
-    title: 'Everyone\'s Happy',
-    description: 'Task done, zero effort, instant resolution',
+    title: 'See the Result',
+    description: 'Task done, zero effort, instant resolution — see it happen live',
     color: 'orange',
   },
   {
     icon: <BarChart3 className="w-6 h-6 sm:w-7 sm:h-7" />,
-    title: 'See the Results',
-    description: 'Real-time dashboard shows resolution rates, savings, and satisfaction',
+    title: 'Move to Next Task',
+    description: 'No waiting, no follow-ups. Jarvis moves on — you stay focused',
     color: 'orange',
   },
 ] as const;
