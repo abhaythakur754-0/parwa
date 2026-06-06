@@ -1,14 +1,27 @@
 'use client';
 
-import { useState, useRef, useCallback, KeyboardEvent, ClipboardEvent } from 'react';
+import React, { useState, useRef, useCallback, useEffect, KeyboardEvent, ClipboardEvent, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMFAStore } from '@/lib/mfa-store';
-import { Shield, Copy, Check, ArrowLeft, Key } from 'lucide-react';
+import { Shield, Copy, Check, ArrowLeft, Key, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 const OTP_LENGTH = 6;
 
-export default function MFASetupPage() {
+// ── Loading Fallback ──────────────────────────────────────────────────
+function MFASetupLoading() {
+  return (
+    <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center p-4">
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
+        <p className="text-sm text-zinc-500">Loading&hellip;</p>
+      </div>
+    </div>
+  );
+}
+
+// ── MFA Setup Content ─────────────────────────────────────────────────
+function MFASetupContent() {
   const router = useRouter();
   const { initiateSetup, verifyAndEnroll, setupData, status, isEnrolled, error, resetError } = useMFAStore();
   const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''));
@@ -17,12 +30,16 @@ export default function MFASetupPage() {
   const [codesCopied, setCodesCopied] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
+  // Prevent SSR hydration issues
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   const code = digits.join('');
 
   // Initiate setup on mount
-  useState(() => {
+  useEffect(() => {
     if (!setupData) initiateSetup();
-  });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setDigit = useCallback((index: number, value: string) => {
     if (!/^\d*$/.test(value)) return;
@@ -33,34 +50,6 @@ export default function MFASetupPage() {
     });
     if (value && index < OTP_LENGTH - 1) {
       inputRefs.current[index + 1]?.focus();
-    }
-  }, []);
-
-  const handleKeyDown = useCallback(
-    (index: number, e: KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Backspace' && !digits[index] && index > 0) {
-        inputRefs.current[index - 1]?.focus();
-        setDigits((prev) => {
-          const next = [...prev];
-          next[index - 1] = '';
-          return next;
-        });
-      }
-      if (e.key === 'Enter' && code.length === OTP_LENGTH) {
-        handleVerify();
-      }
-    },
-    [digits, code]
-  );
-
-  const handlePaste = useCallback((e: ClipboardEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, OTP_LENGTH);
-    if (pasted.length > 0) {
-      const newDigits = [...Array(OTP_LENGTH).fill('')];
-      pasted.split('').forEach((d, i) => (newDigits[i] = d));
-      setDigits(newDigits);
-      inputRefs.current[Math.min(pasted.length, OTP_LENGTH - 1)]?.focus();
     }
   }, []);
 
@@ -76,6 +65,34 @@ export default function MFASetupPage() {
       // Success — show backup codes
     }
   };
+
+  const handleKeyDown = useCallback(
+    (index: number, e: KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Backspace' && !digits[index] && index > 0) {
+        inputRefs.current[index - 1]?.focus();
+        setDigits((prev) => {
+          const next = [...prev];
+          next[index - 1] = '';
+          return next;
+        });
+      }
+      if (e.key === 'Enter' && code.length === OTP_LENGTH) {
+        handleVerify();
+      }
+    },
+    [digits, code] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  const handlePaste = useCallback((e: ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, OTP_LENGTH);
+    if (pasted.length > 0) {
+      const newDigits = [...Array(OTP_LENGTH).fill('')];
+      pasted.split('').forEach((d, i) => (newDigits[i] = d));
+      setDigits(newDigits);
+      inputRefs.current[Math.min(pasted.length, OTP_LENGTH - 1)]?.focus();
+    }
+  }, []);
 
   const copySecret = () => {
     if (setupData?.secret) {
@@ -96,6 +113,8 @@ export default function MFASetupPage() {
   };
 
   const displayError = localError || error;
+
+  if (!mounted) return <MFASetupLoading />;
 
   return (
     <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center p-4">
@@ -248,5 +267,14 @@ export default function MFASetupPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Page Export ────────────────────────────────────────────────────────
+export default function MFASetupPage() {
+  return (
+    <Suspense fallback={<MFASetupLoading />}>
+      <MFASetupContent />
+    </Suspense>
   );
 }
