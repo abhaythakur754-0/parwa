@@ -12,6 +12,7 @@
  */
 import { SignJWT, jwtVerify, importSPKI, importPKCS8 } from "jose";
 import type { CryptoKey } from "jose";
+import type { NextRequest } from "next/server";
 
 const JWT_SECRET =
   process.env.JWT_SECRET_KEY || "dev-jwt-secret-key-change-in-prod-32c";
@@ -244,6 +245,16 @@ export function validatePasswordStrength(
   }
 
   return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Extract the access token from httpOnly cookies in a NextRequest.
+ * Looks for the "access_token" cookie.
+ * Returns null if not found.
+ */
+export function getAccessTokenFromCookies(request: NextRequest): string | null {
+  const token = request.cookies.get("access_token")?.value;
+  return token || null;
 }
 
 /**
