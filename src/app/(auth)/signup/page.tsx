@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, ArrowLeft } from 'lucide-react';
@@ -91,12 +91,11 @@ export default function SignupPage() {
     }
   };
 
-  const handleGoogleLogin = async (idToken: string) => {
+  const handleGoogleLogin = useCallback(async (idToken: string) => {
     setGoogleError(null);
     setIsSubmitting(true);
 
     try {
-      // Call local Next.js Google auth route
       const res = await fetch('/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -109,8 +108,6 @@ export default function SignupPage() {
         throw new Error(result.message || 'Google sign-in failed. Please try again.');
       }
 
-      // Store non-sensitive user display data only.
-      // Tokens live ONLY in httpOnly cookies set by the backend.
       if (result.user) {
         localStorage.setItem('parwa_user', JSON.stringify(result.user));
       }
@@ -126,7 +123,7 @@ export default function SignupPage() {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [hydrate, router]);
 
   const handleCheckEmail = async (email: string): Promise<boolean> => {
     try {

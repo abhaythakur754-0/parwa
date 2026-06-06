@@ -1,13 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Home, ArrowLeft } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { Suspense } from 'react';
+import { Home } from 'lucide-react';
 
-function NotFoundContent() {
-  const router = useRouter();
-
+export default function NotFoundPage() {
   return (
     <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center p-4">
       <div className="max-w-md w-full text-center">
@@ -36,27 +32,14 @@ function NotFoundContent() {
             Go to Dashboard
           </Link>
 
-          <button
-            onClick={() => router.back()}
+          <Link
+            href="/"
             className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-sm font-medium text-zinc-400 hover:text-white bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.15] transition-all"
           >
-            <ArrowLeft className="w-4 h-4" />
-            Go Back
-          </button>
+            Go to Home
+          </Link>
         </div>
       </div>
     </div>
-  );
-}
-
-export default function NotFoundPage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center">
-        <div className="text-8xl font-black bg-gradient-to-r from-orange-500 to-amber-400 bg-clip-text text-transparent">404</div>
-      </div>
-    }>
-      <NotFoundContent />
-    </Suspense>
   );
 }

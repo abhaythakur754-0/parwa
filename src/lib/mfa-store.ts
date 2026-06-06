@@ -8,7 +8,9 @@
 
 import { create } from 'zustand';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Use relative proxy routes to avoid CORS and expose internal URLs
+// The /api/mfa proxy route forwards to the backend
+const API_BASE = '/api/mfa';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -59,7 +61,7 @@ export const useMFAStore = create<MFAState>((set) => ({
   initiateSetup: async () => {
     set({ status: 'enrolling', error: null, isBackendUnavailable: false });
     try {
-      const res = await fetch(`${API_BASE}/api/v1/auth/mfa/setup`, {
+      const res = await fetch(`${API_BASE}/setup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -103,7 +105,7 @@ export const useMFAStore = create<MFAState>((set) => ({
     }
     set({ status: 'verifying', error: null });
     try {
-      const res = await fetch(`${API_BASE}/api/v1/auth/mfa/verify`, {
+      const res = await fetch(`${API_BASE}/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -145,8 +147,8 @@ export const useMFAStore = create<MFAState>((set) => ({
     set({ status: 'verifying', error: null });
     try {
       const endpoint = backupCode
-        ? `${API_BASE}/api/v1/auth/mfa/backup`
-        : `${API_BASE}/api/v1/auth/mfa/login`;
+        ? `${API_BASE}/backup`
+        : `${API_BASE}/login`;
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -184,7 +186,7 @@ export const useMFAStore = create<MFAState>((set) => ({
   disableMfa: async (password: string) => {
     set({ error: null });
     try {
-      const res = await fetch(`${API_BASE}/api/v1/auth/mfa/disable`, {
+      const res = await fetch(`${API_BASE}/disable`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

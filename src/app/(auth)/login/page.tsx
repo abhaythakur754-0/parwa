@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, ArrowLeft } from 'lucide-react';
@@ -116,9 +116,12 @@ function LoginContent() {
     }
   };
 
-  // ── Google Login Handler ──────────────────────────────────────────
+  // ── Google Login Handler (stable ref via useCallback) ──────────────
 
-  const handleGoogleLogin = async (idToken: string) => {
+  const redirectRef = useRef(redirectAfterLogin);
+  redirectRef.current = redirectAfterLogin;
+
+  const handleGoogleLogin = useCallback(async (idToken: string) => {
     setGoogleError(null);
     setIsSubmitting(true);
     try {
@@ -136,7 +139,7 @@ function LoginContent() {
       }
       hydrate();
       toast.success(result.is_new_user ? 'Account created with Google!' : 'Welcome back!');
-      await redirectAfterLogin(result.is_new_user);
+      await redirectRef.current(result.is_new_user);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Google sign-in failed. Please try again.';
       setGoogleError(message);
@@ -144,7 +147,7 @@ function LoginContent() {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [hydrate]);
 
   // ── Render ──────────────────────────────────────────────────────────
 

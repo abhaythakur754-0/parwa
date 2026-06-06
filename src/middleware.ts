@@ -50,6 +50,7 @@ const PUBLIC_PATHS = [
   "/api/analytics",
   "/api/voice",
   "/api/kb",
+  "/api/mfa",
   // Static assets
   "/_next",
   "/favicon.ico",

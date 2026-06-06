@@ -19,7 +19,13 @@ export function SocialLogin({ onGoogleLogin, isLoading = false, error, showDivid
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   const isConfigured = !!clientId;
 
-  // Load Google Identity Services script
+  // ── Stable ref for the callback (prevents re-init loop) ──
+  const onGoogleLoginRef = useRef(onGoogleLogin);
+  useEffect(() => {
+    onGoogleLoginRef.current = onGoogleLogin;
+  }, [onGoogleLogin]);
+
+  // ── Load Google Identity Services script ──
   useEffect(() => {
     if (!clientId || typeof window === 'undefined') return;
 
@@ -39,13 +45,9 @@ export function SocialLogin({ onGoogleLogin, isLoading = false, error, showDivid
       setScriptError(true);
     };
     document.head.appendChild(script);
-
-    return () => {
-      // Don't remove the script on unmount — it's global
-    };
   }, [clientId]);
 
-  // Initialize Google Sign-In once script is loaded
+  // ── Initialize Google Sign-In once script is loaded ──
   useEffect(() => {
     if (!scriptLoaded || !clientId || !window.google?.accounts?.id || initializedRef.current) return;
 
@@ -54,7 +56,7 @@ export function SocialLogin({ onGoogleLogin, isLoading = false, error, showDivid
         client_id: clientId,
         callback: (response: { credential: string }) => {
           if (response.credential) {
-            onGoogleLogin(response.credential);
+            onGoogleLoginRef.current(response.credential);
           }
         },
         cancel_on_tap_outside: false,
@@ -76,8 +78,9 @@ export function SocialLogin({ onGoogleLogin, isLoading = false, error, showDivid
       console.error('Google Sign-In initialization error:', err);
       setScriptError(true);
     }
-  }, [scriptLoaded, clientId, onGoogleLogin]);
+  }, [scriptLoaded, clientId]); // Removed onGoogleLogin — uses ref instead
 
+  // ── Fallback: trigger One Tap prompt ──
   const handleGoogleSignIn = useCallback(async () => {
     if (!clientId) {
       setSetupMode(true);
@@ -89,11 +92,9 @@ export function SocialLogin({ onGoogleLogin, isLoading = false, error, showDivid
       return;
     }
 
-    // Try One Tap prompt as fallback
     try {
       window.google?.accounts?.id?.prompt((notification: any) => {
         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          // One Tap was skipped — the rendered button is still available
           console.log('Google One Tap skipped:', notification.getNotDisplayedReason?.() || notification.getSkippedReason?.());
         }
       });
@@ -107,20 +108,11 @@ export function SocialLogin({ onGoogleLogin, isLoading = false, error, showDivid
       <div className="grid grid-cols-1 gap-3">
         {isConfigured && scriptLoaded && !scriptError ? (
           /* ── Native Google Sign-In Button (rendered by GIS) ── */
-          <div className="relative">
-            <div
-              ref={buttonRef}
-              className="w-full flex items-center justify-center min-h-[48px]"
-              style={{ maxWidth: '100%' }}
-            />
-            {/* Fallback: custom button that triggers prompt */}
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              className="absolute inset-0 opacity-0 cursor-pointer"
-              aria-label="Sign in with Google"
-            />
-          </div>
+          <div
+            ref={buttonRef}
+            className="w-full flex items-center justify-center min-h-[48px]"
+            style={{ maxWidth: '100%' }}
+          />
         ) : (
           /* ── Custom Google Button (when GIS not loaded or not configured) ── */
           <button
