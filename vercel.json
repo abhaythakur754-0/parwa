@@ -1,0 +1,16 @@
+{
+  "functions": {
+    "src/app/api/auth/*/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/auth/**/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/onboarding-jarvis/*/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/onboarding/*/route.ts": {
+      "maxDuration": 30
+    }
+  }
+}

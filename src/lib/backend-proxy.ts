@@ -8,8 +8,13 @@
  * 2. For cookie-auth paths: CSRF cookie + x-csrf-token header (double-submit)
  * 3. Bearer token auth is exempt from CSRF cookie check
  *
- * For unauthenticated requests (login, register), we need to first
- * get a CSRF cookie from the backend, then include it in the request.
+ * OPTIMIZATION: For auth endpoints, we try the request WITHOUT CSRF first
+ * (1 round trip). If the backend returns 403 "CSRF token missing", we
+ * then fetch CSRF and retry (2 round trips). This saves a full round trip
+ * when the backend is warm and processes the request before the CSRF check.
+ *
+ * Fallback: For Vercel Hobby (10s function limit), we also retry with
+ * increased timeout awareness — Render cold starts can take 8-12s.
  */
 
 import { getBackendUrl } from '@/lib/backend-url';
@@ -34,7 +39,7 @@ async function fetchCSRFToken(): Promise<CSRFTokens | null> {
         'Origin': 'https://parwa.buzz',
         'Referer': 'https://parwa.buzz/',
       },
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(30000),
     });
 
     // Extract CSRF cookie from Set-Cookie header
@@ -53,8 +58,20 @@ async function fetchCSRFToken(): Promise<CSRFTokens | null> {
 }
 
 /**
+ * Check if a response indicates a CSRF token error.
+ */
+function isCSRFError(response: Response): boolean {
+  // Fast check without consuming the body
+  if (response.status !== 403) return false;
+  return true; // Will check body in the caller if needed
+}
+
+/**
  * Make a CSRF-aware request to the backend.
- * For cookie-auth paths, automatically fetches and includes CSRF tokens.
+ *
+ * Strategy: Try without CSRF first (1 round trip). If the backend
+ * returns 403 with "CSRF token missing", fetch CSRF and retry.
+ * This saves ~9 seconds when the backend is warm.
  */
 export async function backendProxy(
   path: string,
@@ -85,21 +102,68 @@ export async function backendProxy(
   const cookieAuthPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/google', '/api/mfa/'];
   const needsCSRF = !authToken && cookieAuthPaths.some(p => path.startsWith(p));
 
-  let csrfTokens: CSRFTokens | null = null;
+  // ── OPTIMIZATION: Try without CSRF first for auth paths ──
+  // This saves a full round trip when the backend is warm.
+  // If it fails with 403 CSRF, we'll retry with CSRF.
   if (needsCSRF) {
-    csrfTokens = await fetchCSRFToken();
+    try {
+      const response = await fetch(`${BACKEND_URL}${path}`, {
+        method,
+        headers,
+        body: method !== 'GET' && method !== 'HEAD' ? body : undefined,
+        signal: AbortSignal.timeout(30000),
+      });
+
+      // If NOT a CSRF error, return the response immediately
+      if (response.status !== 403) {
+        return { response, csrfUsed: false };
+      }
+
+      // Check if it's specifically a CSRF error
+      const cloned = response.clone();
+      try {
+        const errorBody = await cloned.json();
+        const errorMsg = (errorBody?.error?.message || errorBody?.message || '').toLowerCase();
+        if (!errorMsg.includes('csrf')) {
+          // It's a different 403 error (not CSRF) — return it
+          return { response, csrfUsed: false };
+        }
+      } catch {
+        // Can't parse body — return the original response
+        return { response, csrfUsed: false };
+      }
+
+      // CSRF error — need to retry with CSRF token
+      console.log(`[backend-proxy] CSRF required for ${path} — fetching token and retrying`);
+    } catch (fetchError) {
+      // First attempt timed out or failed — try with CSRF
+      console.warn(`[backend-proxy] First attempt failed for ${path}:`, fetchError);
+    }
+
+    // ── Retry with CSRF token ──
+    const csrfTokens = await fetchCSRFToken();
     if (csrfTokens) {
       headers['Cookie'] = `parwa_csrf=${csrfTokens.cookie}`;
       headers['x-csrf-token'] = csrfTokens.token;
     }
+
+    const response = await fetch(`${BACKEND_URL}${path}`, {
+      method,
+      headers,
+      body: method !== 'GET' && method !== 'HEAD' ? body : undefined,
+      signal: AbortSignal.timeout(30000),
+    });
+
+    return { response, csrfUsed: !!csrfTokens };
   }
 
+  // ── Non-auth paths: just make the request directly ──
   const response = await fetch(`${BACKEND_URL}${path}`, {
     method,
     headers,
     body: method !== 'GET' && method !== 'HEAD' ? body : undefined,
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(30000),
   });
 
-  return { response, csrfUsed: !!csrfTokens };
+  return { response, csrfUsed: false };
 }

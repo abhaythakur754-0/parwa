@@ -99,70 +99,79 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Local Prisma fallback ──────────────────────────────────
-    const user = await db.user.findUnique({
-      where: { email: normalizedEmail },
-    });
+    try {
+      const user = await db.user.findUnique({
+        where: { email: normalizedEmail },
+      });
 
-    if (!user) {
+      if (!user) {
+        return NextResponse.json(
+          { status: "error", message: "Invalid email or password." },
+          { status: 401 }
+        );
+      }
+
+      if (!user.password_hash) {
+        return NextResponse.json(
+          { status: "error", message: "Invalid email or password." },
+          { status: 401 }
+        );
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+      if (!isPasswordValid) {
+        return NextResponse.json(
+          { status: "error", message: "Invalid email or password." },
+          { status: 401 }
+        );
+      }
+
+      if (!user.is_verified) {
+        return NextResponse.json(
+          {
+            status: "error",
+            message: "Please verify your email address before logging in.",
+          },
+          { status: 403 }
+        );
+      }
+
+      // Sign our own JWT tokens (local fallback only)
+      const jwtPayload = {
+        sub: user.id,
+        email: user.email,
+        role: "member",
+        company_id: user.company_name || undefined,
+        is_verified: user.is_verified,
+      };
+
+      const accessToken = await signAccessToken(jwtPayload);
+      const refreshToken = await signRefreshToken(jwtPayload);
+
+      const userData = {
+        id: user.id,
+        email: user.email,
+        fullName: user.full_name,
+        isVerified: user.is_verified,
+      };
+
+      const response = NextResponse.json({
+        status: "success",
+        message: "Login successful.",
+        user: userData,
+      });
+
+      setAuthCookies(response, accessToken, refreshToken, userData);
+
+      return response;
+    } catch (dbError) {
+      // Prisma/DB not available (e.g., on Vercel without DATABASE_URL)
+      console.error("[login] Local DB fallback failed:", dbError);
       return NextResponse.json(
-        { status: "error", message: "Invalid email or password." },
-        { status: 401 }
+        { status: "error", message: "The server is starting up — please wait a moment and try again." },
+        { status: 503 }
       );
     }
-
-    if (!user.password_hash) {
-      return NextResponse.json(
-        { status: "error", message: "Invalid email or password." },
-        { status: 401 }
-      );
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
-    if (!isPasswordValid) {
-      return NextResponse.json(
-        { status: "error", message: "Invalid email or password." },
-        { status: 401 }
-      );
-    }
-
-    if (!user.is_verified) {
-      return NextResponse.json(
-        {
-          status: "error",
-          message: "Please verify your email address before logging in.",
-        },
-        { status: 403 }
-      );
-    }
-
-    // Sign our own JWT tokens (local fallback only)
-    const jwtPayload = {
-      sub: user.id,
-      email: user.email,
-      role: "member",
-      company_id: user.company_name || undefined,
-      is_verified: user.is_verified,
-    };
-
-    const accessToken = await signAccessToken(jwtPayload);
-    const refreshToken = await signRefreshToken(jwtPayload);
-
-    const userData = {
-      id: user.id,
-      email: user.email,
-      fullName: user.full_name,
-      isVerified: user.is_verified,
-    };
-
-    const response = NextResponse.json({
-      status: "success",
-      message: "Login successful.",
-      user: userData,
-    });
-
-    setAuthCookies(response, accessToken, refreshToken, userData);
-
-    return response;
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "An unexpected error occurred";
