@@ -2,19 +2,17 @@
  * PARWA Login API Route
  *
  * Handles email/password login by:
- * 1. Trying the backend first (for Vercel deployment without local DB)
+ * 1. Trying the backend first (with CSRF token handling)
  * 2. Falling back to local Prisma if backend is unreachable
  * 3. Always signs our own JWT tokens and sets httpOnly cookies
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { getBackendUrl } from "@/lib/backend-url";
 import { db } from "@/lib/db";
 import { signAccessToken, signRefreshToken } from "@/lib/jwt";
 import { setAuthCookies } from "@/lib/auth-cookies";
-
-const BACKEND_URL = getBackendUrl();
+import { backendProxy } from "@/lib/backend-proxy";
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,23 +37,17 @@ export async function POST(request: NextRequest) {
 
     // ── Try backend first ──────────────────────────────────────
     try {
-      const backendRes = await fetch(`${BACKEND_URL}/api/auth/login`, {
+      const { response: backendRes } = await backendProxy("/api/auth/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Origin": "https://parwa.buzz",
-          "Referer": "https://parwa.buzz/login",
-        },
         body: JSON.stringify({ email: normalizedEmail, password }),
-        signal: AbortSignal.timeout(8000),
       });
 
       if (backendRes.ok) {
         const backendData = await backendRes.json();
 
         // Backend verified the credentials — sign our own JWT and set cookies
-        if (backendData.user || backendData.data) {
-          const user = backendData.user || backendData.data;
+        const user = backendData.user || backendData.data;
+        if (user) {
           const userData = {
             id: user.id || user.user_id,
             email: user.email || normalizedEmail,
@@ -85,15 +77,16 @@ export async function POST(request: NextRequest) {
           return response;
         }
       }
+
       // Backend returned error (invalid credentials, etc.)
       if (backendRes.status === 401 || backendRes.status === 403) {
         const errorData = await backendRes.json().catch(() => ({}));
         return NextResponse.json(
           {
             status: "error",
-            message: errorData.message || errorData.detail || "Invalid email or password.",
+            message: errorData.message || errorData.detail || errorData.error?.message || "Invalid email or password.",
           },
-          { status: backendRes.status }
+          { status: backendRes.status === 403 ? 403 : 401 }
         );
       }
       // Other backend errors — fall through to local

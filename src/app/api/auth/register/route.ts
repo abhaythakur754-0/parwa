@@ -2,7 +2,7 @@
  * PARWA Register API Route
  *
  * Handles user registration by:
- * 1. Trying the backend first (for Vercel deployment without local DB)
+ * 1. Trying the backend first (with CSRF token handling)
  * 2. Falling back to local Prisma if backend is unreachable
  * 3. Always signs our own JWT tokens and sets httpOnly cookies
  */
@@ -10,12 +10,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { getBackendUrl } from "@/lib/backend-url";
 import { db } from "@/lib/db";
 import { signAccessToken, signRefreshToken, validatePasswordStrength } from "@/lib/jwt";
 import { setAuthCookies } from "@/lib/auth-cookies";
-
-const BACKEND_URL = getBackendUrl();
+import { backendProxy } from "@/lib/backend-proxy";
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,13 +47,8 @@ export async function POST(request: NextRequest) {
 
     // ── Try backend first ──────────────────────────────────────
     try {
-      const backendRes = await fetch(`${BACKEND_URL}/api/auth/register`, {
+      const { response: backendRes } = await backendProxy("/api/auth/register", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Origin": "https://parwa.buzz",
-          "Referer": "https://parwa.buzz/signup",
-        },
         body: JSON.stringify({
           email: normalizedEmail,
           password,
@@ -63,13 +56,12 @@ export async function POST(request: NextRequest) {
           company_name: companyName,
           industry,
         }),
-        signal: AbortSignal.timeout(8000),
       });
 
       if (backendRes.ok) {
         const backendData = await backendRes.json();
-        if (backendData.user || backendData.data) {
-          const user = backendData.user || backendData.data;
+        const user = backendData.user || backendData.data;
+        if (user) {
           const userData = {
             id: user.id || user.user_id,
             email: user.email || normalizedEmail,
@@ -77,7 +69,6 @@ export async function POST(request: NextRequest) {
             isVerified: user.is_verified ?? user.isVerified ?? false,
           };
 
-          // Sign our own JWT for the frontend middleware
           const jwtPayload = {
             sub: userData.id,
             email: userData.email,
@@ -114,8 +105,6 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Local Prisma fallback ──────────────────────────────────
-
-    // Check if email already exists
     const existingUser = await db.user.findUnique({
       where: { email: normalizedEmail },
     });
@@ -151,7 +140,7 @@ export async function POST(request: NextRequest) {
     // Send verification email (non-blocking)
     try {
       const { sendEmail } = await import("@/lib/email");
-      const verificationUrl = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/auth/verify-email?token=${verificationToken}`;
+      const verificationUrl = `/api/auth/verify-email?token=${verificationToken}`;
       const htmlContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #E06A00;">Welcome to PARWA!</h2>
@@ -159,7 +148,6 @@ export async function POST(request: NextRequest) {
           <p>Please verify your email address by clicking the link below:</p>
           <p><a href="${verificationUrl}" style="display: inline-block; padding: 12px 24px; background: #E06A00; color: white; text-decoration: none; border-radius: 8px;">Verify Email</a></p>
           <p>This link expires in 24 hours.</p>
-          <p style="color: #888; font-size: 12px;">If you didn't create an account, please ignore this email.</p>
         </div>
       `;
       await sendEmail(normalizedEmail, "PARWA — Verify Your Email", htmlContent);

@@ -5,16 +5,13 @@
  * 1. Verifying the Google id_token with Google's tokeninfo endpoint
  * 2. Creating/finding the user (via backend proxy or local Prisma)
  * 3. Signing our own JWT tokens and setting httpOnly cookies
- *
- * This ensures the middleware can verify the parwa_at cookie.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getBackendUrl } from "@/lib/backend-url";
+import { db } from "@/lib/db";
 import { signAccessToken, signRefreshToken } from "@/lib/jwt";
 import { setAuthCookies } from "@/lib/auth-cookies";
-
-const BACKEND_URL = getBackendUrl();
+import { backendProxy } from "@/lib/backend-proxy";
 
 export async function POST(request: NextRequest) {
   try {
@@ -126,22 +123,15 @@ async function findOrCreateUser(
   company_name: string | null;
   is_new_user: boolean;
 } | null> {
-  // Try backend first
+  // Try backend first (with CSRF token)
   try {
-    const res = await fetch(`${BACKEND_URL}/api/auth/google`, {
+    const { response: res } = await backendProxy("/api/auth/google", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Origin": "https://parwa.buzz",
-        "Referer": "https://parwa.buzz/login",
-      },
       body: JSON.stringify({ id_token: "verified", email, full_name: fullName }),
-      signal: AbortSignal.timeout(8000),
     });
 
     if (res.ok) {
       const data = await res.json();
-      // Backend might return user in different formats
       if (data.user || data.data) {
         const user = data.user || data.data;
         return {
@@ -155,14 +145,12 @@ async function findOrCreateUser(
         };
       }
     }
-    // Backend returned an error — fall through to local
   } catch {
     // Backend unreachable — fall through to local
   }
 
   // Fallback: local Prisma
   try {
-    const { db } = await import("@/lib/db");
     let user = await db.user.findUnique({ where: { email } });
     const isNewUser = !user;
 
