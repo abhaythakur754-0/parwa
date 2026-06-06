@@ -1,8 +1,8 @@
 /**
- * PARWA Onboarding Jarvis Page — /onboarding
+ * PARWA Onboarding Page — /onboarding
  *
- * Full-page chat experience where potential clients interact with
- * Jarvis AI to demo the product before purchasing.
+ * Full-page onboarding experience where new users set up their account.
+ * Uses Jarvis chat for interactive onboarding.
  *
  * Auth-protected: redirects to /login if not authenticated.
  * Post-onboarding: redirects to /dashboard if already onboarded.
@@ -10,12 +10,26 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { OnboardingJarvisChat } from '@/components/onboarding-jarvis/OnboardingJarvisChat';
 
-export default function OnboardingPage() {
+// ── Loading Fallback ──────────────────────────────────────────────────
+function OnboardingLoading() {
+  return (
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="w-12 h-12 animate-spin text-orange-400" />
+        <p className="text-gray-400 text-sm">Loading Jarvis&hellip;</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Onboarding Content ────────────────────────────────────────────────
+function OnboardingContent() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -49,8 +63,8 @@ export default function OnboardingPage() {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-400 text-sm">Loading Jarvis...</p>
+          <Loader2 className="w-12 h-12 animate-spin text-orange-400" />
+          <p className="text-gray-400 text-sm">Loading Jarvis&hellip;</p>
         </div>
       </div>
     );
@@ -61,5 +75,14 @@ export default function OnboardingPage() {
       entrySource={entrySource}
       entryParams={Object.keys(entryParams).length > 0 ? entryParams : undefined}
     />
+  );
+}
+
+// ── Page Export ────────────────────────────────────────────────────────
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={<OnboardingLoading />}>
+      <OnboardingContent />
+    </Suspense>
   );
 }
