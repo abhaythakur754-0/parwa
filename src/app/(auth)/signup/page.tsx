@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -9,15 +9,21 @@ import toast from 'react-hot-toast';
 import { SignupForm, SignupFormData } from '@/components/auth/SignupForm';
 import { SocialLogin } from '@/components/auth/SocialLogin';
 import { useAuth } from '@/hooks/useAuth';
+import { getSafeRedirect } from '@/lib/auth-cookies';
 
-export default function SignupPage() {
+function SignupContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [alreadyLoggedIn, setAlreadyLoggedIn] = useState(false);
   const { hydrate, isAuthenticated } = useAuth();
+
+  const redirectTo = getSafeRedirect(searchParams.get('redirect')) || '/onboarding';
+  const source = searchParams.get('source') || '';
+  const industry = searchParams.get('industry') || '';
 
   // Check if already logged in via context or localStorage
   useEffect(() => {
@@ -80,8 +86,8 @@ export default function SignupPage() {
       // Sync AuthContext state from localStorage
       hydrate();
 
-      // Redirect to dashboard
-      router.push('/models');
+      // Redirect to onboarding or the specified redirect URL
+      router.push(redirectTo);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Registration failed. Please try again.';
       setError(message);
@@ -113,7 +119,7 @@ export default function SignupPage() {
       }
       hydrate();
       toast.success(result.is_new_user ? 'Account created with Google!' : 'Signed in with Google!');
-      router.push('/models');
+      router.push(redirectTo);
     } catch (err) {
       const message = err instanceof Error
         ? err.message
@@ -158,7 +164,7 @@ export default function SignupPage() {
           <h1 className="text-2xl font-bold text-white mb-2">You're already signed in! 👋</h1>
           <p className="text-sm text-orange-200/50 mb-6">Looks like you already have an account. No need to sign up again.</p>
           <div className="flex flex-col gap-3 max-w-xs mx-auto">
-            <Link href="/models" className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-500 shadow-lg shadow-orange-600/25">Go to Dashboard →</Link>
+            <Link href="/onboarding" className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-500 shadow-lg shadow-orange-600/25">Continue to Onboarding →</Link>
             <Link href="/login" className="text-sm text-orange-400 hover:text-orange-300 transition-colors">Or sign in with a different account</Link>
           </div>
         </div>
@@ -298,5 +304,22 @@ export default function SignupPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+// ── Loading Skeleton ──────────────────────────────────────────────────
+function SignupPageLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>
+      <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
+    </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<SignupPageLoading />}>
+      <SignupContent />
+    </Suspense>
   );
 }

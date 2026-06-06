@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import NavigationBar from '@/components/landing/NavigationBar';
 import Footer from '@/components/landing/Footer';
@@ -227,6 +228,7 @@ function hexToRgba(hex: string, alpha: number): string {
 
 export default function ModelsPage() {
   const { isAuthenticated } = useAuth();
+  const router = useRouter();
   const [selectedIndustry, setSelectedIndustry] = useState<Industry | null>(null);
   const [isAnnual, setIsAnnual] = useState(false);
   const pricingRef = useRef<HTMLDivElement>(null);
@@ -941,23 +943,91 @@ export default function ModelsPage() {
                             Book Instant Demo — Just $1
                           </div>
                         </button>
-                        <div
-                          className="group/cfm flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 overflow-hidden relative"
-                          style={{ background: `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.85) 100%)`, color: primary, boxShadow: `0 8px 24px rgba(${accentRgb},0.3)` }}
+                        <button
+                          onClick={() => {
+                            // Build pricing context and save to localStorage
+                            const selectedVariants = currentVariants
+                              ?.filter(v => quantities[v.id] > 0)
+                              .map(v => ({
+                                id: v.id,
+                                name: v.name,
+                                quantity: quantities[v.id],
+                                monthlyPrice: isAnnual ? v.annualPrice : v.monthlyPrice,
+                              })) || [];
+
+                            const pricingContext = {
+                              industry: selectedIndustry,
+                              isAnnual,
+                              variants: selectedVariants,
+                              totalMonthly,
+                              totalTickets,
+                              source: 'models_page',
+                              timestamp: Date.now(),
+                            };
+
+                            localStorage.setItem('parwa_pricing_context', JSON.stringify(pricingContext));
+                            localStorage.setItem('parwa_pricing_selection', JSON.stringify({
+                              plan: selectedVariants[0]?.id === 'starter' ? 'mini' : selectedVariants[0]?.id === 'high' ? 'high' : 'pro',
+                              industry: selectedIndustry,
+                              isAnnual,
+                              totalMonthly,
+                            }));
+
+                            // Build variant string for URL
+                            const variantString = selectedVariants.map(v => `${v.id}:${v.quantity}`).join(',');
+
+                            // Navigate to onboarding with context
+                            router.push(`/onboarding?source=models&industry=${selectedIndustry}&variant_id=${selectedVariants[0]?.id || ''}&variants=${encodeURIComponent(variantString)}`);
+                          }}
+                          disabled={!hasSelection}
+                          className="group/cfm flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 overflow-hidden relative disabled:opacity-50 disabled:cursor-not-allowed"
+                          style={{ background: `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.85) 100%)`, color: primary, boxShadow: hasSelection ? `0 8px 24px rgba(${accentRgb},0.3)` : 'none' }}
                         >
                           <div className="absolute inset-0 opacity-0 group-hover/cfm:opacity-100 transition-opacity duration-300" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 100%)' }} />
                           <div className="relative flex items-center gap-2">
                             <Check className="w-4 h-4" />
                             Confirm ${totalMonthly.toLocaleString()}/mo
                           </div>
-                        </div>
+                        </button>
                       </div>
                     ) : (
-                      <Link href="/signup" className="group relative flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-500 no-underline hover:-translate-y-0.5 overflow-hidden"
+                      <button
+                        onClick={() => {
+                          // Save pricing context before redirecting to signup
+                          const selectedVariants = currentVariants
+                            ?.filter(v => quantities[v.id] > 0)
+                            .map(v => ({
+                              id: v.id,
+                              name: v.name,
+                              quantity: quantities[v.id],
+                              monthlyPrice: isAnnual ? v.annualPrice : v.monthlyPrice,
+                            })) || [];
+
+                          if (selectedVariants.length > 0) {
+                            const pricingContext = {
+                              industry: selectedIndustry,
+                              isAnnual,
+                              variants: selectedVariants,
+                              totalMonthly,
+                              totalTickets,
+                              source: 'models_page',
+                              timestamp: Date.now(),
+                            };
+                            localStorage.setItem('parwa_pricing_context', JSON.stringify(pricingContext));
+                            localStorage.setItem('parwa_pricing_selection', JSON.stringify({
+                              plan: selectedVariants[0]?.id === 'starter' ? 'mini' : selectedVariants[0]?.id === 'high' ? 'high' : 'pro',
+                              industry: selectedIndustry,
+                              isAnnual,
+                              totalMonthly,
+                            }));
+                          }
+                          router.push(`/signup?redirect=/onboarding&source=models&industry=${selectedIndustry || ''}`);
+                        }}
+                        className="group relative flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-500 hover:-translate-y-0.5 overflow-hidden"
                         style={{ background: `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.85) 100%)`, color: primary, boxShadow: `0 8px 24px rgba(${accentRgb},0.3)` }}>
                         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 100%)' }} />
                         <div className="relative flex items-center gap-2">Sign Up & Hire Now <ArrowRight className="w-4 h-4" /></div>
-                      </Link>
+                      </button>
                     )}
                   </div>
                 </div>
