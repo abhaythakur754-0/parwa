@@ -130,7 +130,11 @@ async function findOrCreateUser(
   try {
     const res = await fetch(`${BACKEND_URL}/api/auth/google`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Origin": "https://parwa.buzz",
+        "Referer": "https://parwa.buzz/login",
+      },
       body: JSON.stringify({ id_token: "verified", email, full_name: fullName }),
       signal: AbortSignal.timeout(8000),
     });

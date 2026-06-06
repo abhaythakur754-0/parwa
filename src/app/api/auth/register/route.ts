@@ -51,7 +51,11 @@ export async function POST(request: NextRequest) {
     try {
       const backendRes = await fetch(`${BACKEND_URL}/api/auth/register`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Origin": "https://parwa.buzz",
+          "Referer": "https://parwa.buzz/signup",
+        },
         body: JSON.stringify({
           email: normalizedEmail,
           password,
