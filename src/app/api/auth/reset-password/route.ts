@@ -1,111 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
-import { db } from "@/lib/db";
-import { timingSafeEqual, validatePasswordStrength } from "@/lib/jwt";
 
 /**
  * POST /api/auth/reset-password
- * Resets the user's password after OTP verification.
- * Requires email + otp + new_password.
- * Uses timing-safe comparison and password complexity validation.
+ * Resets the user's password.
+ * Proxies to the Python backend at /api/auth/reset-password.
  */
+const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, otp, new_password, confirm_password } = body;
 
-    // Validate inputs
-    if (!email || typeof email !== "string" || !email.includes("@")) {
-      return NextResponse.json(
-        { status: "error", message: "A valid email address is required." },
-        { status: 400 }
-      );
-    }
-
-    if (!otp || typeof otp !== "string" || !/^\d{6}$/.test(otp)) {
-      return NextResponse.json(
-        { status: "error", message: "A valid 6-digit OTP is required." },
-        { status: 400 }
-      );
-    }
-
-    // ── M-22 FIX: Password complexity on reset ──
-    if (!new_password || typeof new_password !== "string") {
-      return NextResponse.json(
-        { status: "error", message: "New password is required." },
-        { status: 400 }
-      );
-    }
-
-    const passwordCheck = validatePasswordStrength(new_password);
-    if (!passwordCheck.valid) {
-      return NextResponse.json(
-        { status: "error", message: passwordCheck.errors.join(" ") },
-        { status: 400 }
-      );
-    }
-
-    if (new_password !== confirm_password) {
-      return NextResponse.json(
-        { status: "error", message: "Passwords do not match." },
-        { status: 400 }
-      );
-    }
-
-    const normalizedEmail = email.trim().toLowerCase();
-
-    // Find user by email
-    const user = await db.user.findUnique({
-      where: { email: normalizedEmail },
+    // Proxy to backend
+    const backendRes = await fetch(`${BACKEND_URL}/api/auth/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
     });
 
-    // ── M-27 FIX: Generic response prevents user enumeration ──
-    if (!user || !user.otp_code) {
+    const contentType = backendRes.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const data = await backendRes.json();
+      if (backendRes.ok) {
+        return NextResponse.json({
+          status: "success",
+          message: data.message || "Password has been reset successfully.",
+        });
+      }
       return NextResponse.json(
-        { status: "error", message: "Invalid email or OTP. Please try again." },
-        { status: 400 }
+        {
+          status: "error",
+          message: data.detail || data.message || "Password reset failed.",
+        },
+        { status: backendRes.status }
       );
     }
 
-    if (user.otp_expires && new Date() > user.otp_expires) {
-      await db.user.update({
-        where: { id: user.id },
-        data: { otp_code: null, otp_expires: null },
-      });
-      return NextResponse.json(
-        { status: "error", message: "OTP has expired. Please request a new one." },
-        { status: 400 }
-      );
-    }
-
-    // ── H-02 FIX: Timing-safe OTP comparison ──
-    if (!timingSafeEqual(user.otp_code, otp)) {
-      return NextResponse.json(
-        { status: "error", message: "Incorrect OTP. Please try again." },
-        { status: 400 }
-      );
-    }
-
-    // Hash new password
-    const salt = await bcrypt.genSalt(12);
-    const password_hash = await bcrypt.hash(new_password, salt);
-
-    // Update user — set new password and clear OTP
-    await db.user.update({
-      where: { id: user.id },
-      data: {
-        password_hash,
-        otp_code: null,
-        otp_expires: null,
-        reset_token: null,
-        reset_token_expires: null,
-      },
-    });
-
-    return NextResponse.json({
-      status: "success",
-      message: "Password has been reset successfully.",
-    });
+    const text = await backendRes.text();
+    return NextResponse.json(
+      { status: "error", message: text || "Password reset failed." },
+      { status: backendRes.status }
+    );
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "An unexpected error occurred";

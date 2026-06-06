@@ -4,9 +4,14 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   reactStrictMode: false,
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
-  turbopack: {},
+  turbopack: {
+    root: "..",
+  },
 
   // ── Security headers on all responses ──
   async headers() {

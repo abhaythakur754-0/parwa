@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+
+/**
+ * GET /api/auth/verify-email
+ * Verifies a user's email using a token.
+ * Proxies to the Python backend at /api/auth/verify.
+ */
+const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,43 +19,36 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Find user by verification token
-    const user = await db.user.findUnique({
-      where: { verification_token: token },
-    });
+    // Proxy to backend
+    const backendRes = await fetch(
+      `${BACKEND_URL}/api/auth/verify?token=${encodeURIComponent(token)}`,
+      { method: "GET" }
+    );
 
-    if (!user) {
+    const contentType = backendRes.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const data = await backendRes.json();
+      if (backendRes.ok) {
+        return NextResponse.json({
+          status: "success",
+          message: data.message || "Email verified successfully.",
+        });
+      }
       return NextResponse.json(
-        { status: "error", message: "Invalid or expired token." },
-        { status: 400 }
+        {
+          status: "error",
+          message: data.detail || data.message || "Invalid or expired token.",
+        },
+        { status: backendRes.status }
       );
     }
 
-    // Check if token is expired
-    if (
-      user.verification_token_expires &&
-      new Date() > user.verification_token_expires
-    ) {
-      return NextResponse.json(
-        { status: "error", message: "Verification token has expired. Please request a new one." },
-        { status: 400 }
-      );
-    }
-
-    // Mark user as verified and clear token
-    await db.user.update({
-      where: { id: user.id },
-      data: {
-        is_verified: true,
-        verification_token: null,
-        verification_token_expires: null,
-      },
-    });
-
-    return NextResponse.json({
-      status: "success",
-      message: "Email verified successfully.",
-    });
+    // Non-JSON response
+    const text = await backendRes.text();
+    return NextResponse.json(
+      { status: "error", message: text || "Verification failed." },
+      { status: backendRes.status }
+    );
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "An unexpected error occurred";

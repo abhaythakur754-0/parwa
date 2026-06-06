@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { timingSafeEqual } from "@/lib/jwt";
 
 /**
  * POST /api/auth/verify-otp
  * Verifies the 6-digit OTP sent to the user's email.
- * Uses timing-safe comparison to prevent timing attacks.
+ * Proxies to the Python backend.
  */
+const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -26,47 +26,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
-
-    // Find user by email
-    const user = await db.user.findUnique({
-      where: { email: normalizedEmail },
+    // Proxy to backend
+    const backendRes = await fetch(`${BACKEND_URL}/api/auth/phone/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim().toLowerCase(), code: otp }),
     });
 
-    // ── M-27 FIX: Generic response prevents user enumeration ──
-    if (!user || !user.otp_code) {
+    const contentType = backendRes.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const data = await backendRes.json();
+      if (backendRes.ok) {
+        return NextResponse.json({
+          status: "success",
+          message: data.message || "OTP verified successfully.",
+        });
+      }
       return NextResponse.json(
-        { status: "error", message: "Invalid email or OTP. Please try again." },
-        { status: 400 }
+        {
+          status: "error",
+          message: data.detail || data.message || "Invalid OTP. Please try again.",
+        },
+        { status: backendRes.status }
       );
     }
 
-    // Check if OTP is expired
-    if (user.otp_expires && new Date() > user.otp_expires) {
-      // Clear expired OTP
-      await db.user.update({
-        where: { id: user.id },
-        data: { otp_code: null, otp_expires: null },
-      });
-      return NextResponse.json(
-        { status: "error", message: "OTP has expired. Please request a new one." },
-        { status: 400 }
-      );
-    }
-
-    // ── H-02 FIX: Timing-safe OTP comparison ──
-    if (!timingSafeEqual(user.otp_code, otp)) {
-      return NextResponse.json(
-        { status: "error", message: "Incorrect OTP. Please try again." },
-        { status: 400 }
-      );
-    }
-
-    // OTP is valid — mark as verified by keeping the otp_code
-    return NextResponse.json({
-      status: "success",
-      message: "OTP verified successfully.",
-    });
+    return NextResponse.json(
+      { status: "error", message: "Invalid OTP. Please try again." },
+      { status: 400 }
+    );
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "An unexpected error occurred";
