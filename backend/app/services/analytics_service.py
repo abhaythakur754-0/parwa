@@ -405,8 +405,6 @@ def _stage_event_for_db(event: AnalyticsEvent) -> None:
     if not _DB_AVAILABLE:
         return
 
-    global _last_flush_time
-
     with _pending_lock:
         _pending_db_events.append(event)
         should_flush = (

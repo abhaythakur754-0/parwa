@@ -1920,13 +1920,16 @@ async def _exec_upgrade_plan(
         target_idx = plan_order.index(target_plan) if target_plan in plan_order else 1
 
         if target_idx <= current_idx:
+            higher_plans = ", ".join(plan_names[p] for p in plan_order[current_idx+1:])
+            if not higher_plans:
+                higher_plans = "none (you're on the top plan!)"
             return {
                 "success": False,
                 "data": {"current_plan": current_plan, "target_plan": target_plan},
                 "message": (
                     f"You're already on {plan_names.get(current_plan, current_plan)}. "
                     f"You can only upgrade to a higher plan. "
-                    f"Available upgrades: {', '.join(plan_names[p] for p in plan_order[current_idx+1:]) or 'none (you\'re on the top plan!)'}"
+                    f"Available upgrades: {higher_plans}"
                 ),
             }
 

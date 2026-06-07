@@ -73,17 +73,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (response.ok) {
           // Backend confirmed — user is authenticated
-          const currentUser = await response.json();
-          setState({
-            user: currentUser,
-            isAuthenticated: true,
-            isLoading: false,
-            isInitialized: true,
-          });
-          return;
+          // Safely parse JSON — guard against non-JSON responses
+          let currentUser: User | null = null;
+          try {
+            const text = await response.text();
+            currentUser = JSON.parse(text) as User;
+          } catch {
+            // Non-JSON response — treat as unverified
+            console.warn('[AuthContext] me-proxy returned non-JSON');
+          }
+          if (currentUser) {
+            setState({
+              user: currentUser,
+              isAuthenticated: true,
+              isLoading: false,
+              isInitialized: true,
+            });
+            return;
+          }
+          // JSON parse succeeded but no valid user — fall through
         }
 
-        // Backend returned 401/403 — session is INVALID.
+        // Backend returned 401/403 or non-JSON — session is INVALID.
         // MUST clear stale cache to prevent redirect loops.
         console.warn('[AuthContext] Backend rejected auth — clearing stale cache');
         localStorage.removeItem(USER_KEY);

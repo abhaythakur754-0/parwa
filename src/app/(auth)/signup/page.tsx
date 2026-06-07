@@ -167,7 +167,14 @@ function SignupContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-      const data = await res.json();
+      // Safely parse JSON — guard against non-JSON responses
+      let data: Record<string, unknown>;
+      try {
+        const text = await res.text();
+        data = JSON.parse(text);
+      } catch {
+        return false;
+      }
       return !data.exists;
     } catch {
       return false;

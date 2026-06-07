@@ -367,7 +367,7 @@ class Settings(BaseSettings):
     CELERY_TASK_TIME_LIMIT: int = 330  # 5.5 minutes (hard kill)
 
     # ── CORS (frontend origin) ─────────────────────────────────
-    CORS_ORIGINS: str = ""
+    CORS_ORIGINS: str = "http://localhost:3000,https://parwa.buzz,https://parwa.ai"
 
     # ── Frontend ────────────────────────────────────────────────
     FRONTEND_URL: str = "http://localhost:3000"

@@ -54,7 +54,19 @@ export async function GET(req: NextRequest) {
       signal: AbortSignal.timeout(8000),
     });
 
-    const data = await res.json();
+    // Safely parse JSON — guard against non-JSON responses (e.g. from proxy/gateway)
+    let data: Record<string, unknown>;
+    try {
+      const text = await res.text();
+      data = JSON.parse(text);
+    } catch {
+      console.error('[me-proxy] Backend returned non-JSON:', res.status);
+      return NextResponse.json(
+        { status: 'error', message: 'Authentication service unavailable.' },
+        { status: 502 },
+      );
+    }
+
     return NextResponse.json(data, { status: res.status });
   } catch (error) {
     console.error('[me-proxy] Backend unreachable:', error);

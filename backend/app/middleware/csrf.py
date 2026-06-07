@@ -38,6 +38,22 @@ _COOKIE_AUTH_PREFIXES = (
     "/api/refresh",
 )
 
+# Public auth endpoints that do NOT require CSRF tokens.
+# These are designed to be called without any prior session/cookies
+# (e.g. login, register, Google OAuth). Origin/Referer validation
+# is sufficient protection for these endpoints.
+_PUBLIC_AUTH_PATHS = (
+    "/api/auth/login",
+    "/api/auth/register",
+    "/api/auth/google",
+    "/api/auth/refresh",
+    "/api/auth/phone/send",
+    "/api/auth/phone/verify",
+    "/api/auth/forgot-password",
+    "/api/auth/reset-password",
+    "/api/auth/check-email",
+)
+
 # Webhook routes that skip CSRF checks (have their own HMAC verification)
 _WEBHOOK_SKIP_PREFIXES = ("/api/webhooks/",)
 
@@ -303,7 +319,15 @@ class CSRFSecurityMiddleware:
 
     @staticmethod
     def _is_cookie_auth_path(path: str) -> bool:
-        """Check if path is a cookie-based auth endpoint."""
+        """Check if path is a cookie-based auth endpoint that requires CSRF.
+
+        Public auth endpoints (login, register, google, etc.) are exempt
+        because they are designed to be called without any prior session.
+        Origin/Referer validation is sufficient protection for these.
+        """
+        # Public auth endpoints don't need CSRF tokens
+        if path in _PUBLIC_AUTH_PATHS:
+            return False
         for prefix in _COOKIE_AUTH_PREFIXES:
             # Strip trailing slash before appending to avoid double-slash
             base = prefix.rstrip("/")
