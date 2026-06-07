@@ -186,9 +186,29 @@ def google_login(
     L08: Returns is_new_user flag.
     L12: Also sets HTTP-only cookies for tokens.
     """
-    result = google_auth(db=db, id_token=body.id_token)
-    _set_token_cookies(response, result.tokens)
-    return result
+    try:
+        result = google_auth(db=db, id_token=body.id_token)
+        _set_token_cookies(response, result.tokens)
+        return result
+    except Exception as exc:
+        # Ensure we ALWAYS return a structured JSON error, never plain text.
+        # This prevents "Unexpected token" errors on the frontend when
+        # the backend encounters an unexpected condition (e.g. DB issues,
+        # import errors, missing env vars during Google token verification).
+        from app.exceptions import ParwaBaseError
+        if isinstance(exc, ParwaBaseError):
+            raise  # Already structured — let error handler middleware handle it
+        from app.logger import get_logger
+        get_logger("auth").error(
+            "google_auth_unexpected_error",
+            error_type=type(exc).__name__,
+            error_message=str(exc),
+        )
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=500,
+            detail="Google sign-in failed. Please try again.",
+        )
 
 
 # ── C5: Phone OTP Login ──────────────────────────────────────────

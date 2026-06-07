@@ -384,8 +384,69 @@ export const authApi = {
   
   /**
    * Login with Google OAuth.
+   *
+   * IMPORTANT: Always uses the Next.js API route (/api/auth/google) instead
+   * of going directly to the backend. The Next.js route handles backend
+   * unavailability, non-JSON responses, and local fallback gracefully.
+   * This prevents "Unexpected token" JSON parse errors when the backend
+   * returns non-JSON (e.g. Render proxy errors, cold start timeouts).
    */
-  googleAuth: (data: GoogleAuthRequest) => post<AuthResponse>('/api/auth/google', data),
+  googleAuth: async (data: GoogleAuthRequest): Promise<AuthResponse> => {
+    // Use fetch directly to the Next.js route — not through axios/apiClient.
+    // This ensures we always hit the Next.js API route which has robust
+    // error handling and always returns JSON, even when the backend is down.
+    const res = await fetch('/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    // Safe JSON parsing — handle non-JSON responses gracefully
+    let result: Record<string, unknown>;
+    try {
+      const text = await res.text();
+      try {
+        result = JSON.parse(text);
+      } catch {
+        throw new Error(
+          res.ok
+            ? 'Received an unexpected response from the server.'
+            : `Server error (${res.status}). Please try again.`
+        );
+      }
+    } catch (parseErr) {
+      throw parseErr instanceof Error ? parseErr : new Error('Failed to read server response.');
+    }
+
+    if (result.status === 'error') {
+      throw new Error(String(result.message || 'Google sign-in failed. Please try again.'));
+    }
+
+    // Map Next.js route response to AuthResponse format
+    const user = result.user as Record<string, unknown> | undefined;
+    return {
+      user: {
+        id: String(user?.id || ''),
+        email: String(user?.email || ''),
+        full_name: String(user?.fullName || user?.full_name || ''),
+        phone: null,
+        avatar_url: user?.avatarUrl ? String(user.avatarUrl) : null,
+        role: String(user?.role || 'member'),
+        is_active: Boolean(user?.isActive ?? user?.is_active ?? true),
+        is_verified: Boolean(user?.isVerified ?? user?.is_verified ?? true),
+        company_id: String(user?.companyId || user?.company_id || ''),
+        company_name: user?.companyName ? String(user.companyName) : null,
+        created_at: user?.createdAt ? String(user.createdAt) : null,
+      },
+      tokens: (result.tokens as TokenResponse) || {
+        access_token: '',
+        refresh_token: '',
+        token_type: 'bearer',
+        expires_in: 900,
+      },
+      is_new_user: Boolean(result.is_new_user),
+    } as AuthResponse;
+  },
   
   /**
    * Logout user.
