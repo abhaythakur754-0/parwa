@@ -79,3 +79,6 @@ worklog.md
 
 # Redis dumps
 dump.rdb
+
+# Graphify cache (large binary cache files)
+graphify-out/cache/
