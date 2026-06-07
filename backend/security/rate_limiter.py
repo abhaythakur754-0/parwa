@@ -19,7 +19,7 @@ import threading
 import time
 from typing import Optional
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("rate_limiter")
 
