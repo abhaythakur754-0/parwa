@@ -29,7 +29,7 @@ os.environ.setdefault("ENVIRONMENT", "production")
 
 def main():
     """Start the Celery worker with all PARWA queues."""
-    from backend.app.tasks.celery_app import app as celery_app
+    from app.tasks.celery_app import app as celery_app
 
     celery_app.worker_main([
         "worker",

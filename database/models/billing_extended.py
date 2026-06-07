@@ -31,7 +31,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from database.base import Base
-from backend.app.core.pricing_config import (
+from app.core.pricing_config import (
     VARIANT_LIMITS as _PC_VARIANT_LIMITS,
     VARIANT_PRICES as _PC_VARIANT_PRICES,
     normalize_variant_name as _normalize_variant_name,
@@ -282,7 +282,7 @@ def get_variant_limits(variant_name: str) -> Optional[dict]:
     except ValueError:
         return None
 
-    from backend.app.core.pricing_config import VariantType
+    from app.core.pricing_config import VariantType
     try:
         vt = VariantType(canonical)
     except ValueError:

@@ -15,7 +15,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from backend.app.logger import get_logger
+from app.logger import get_logger
 
 logger = get_logger("rag_reindexing")
 
@@ -156,7 +156,7 @@ class ReindexingService:
 
         try:
             cache_key = f"rag_index_time:{company_id}:{document_id}"
-            from backend.app.core.redis import cache_get
+            from app.core.redis import cache_get
             indexed_at = await cache_get(company_id, cache_key)
             
             if indexed_at and isinstance(indexed_at, dict):
@@ -208,7 +208,7 @@ class ReindexingService:
 
         try:
             cache_key = f"rag_context_time:{company_id}:{context_id}"
-            from backend.app.core.redis import cache_get
+            from app.core.redis import cache_get
             context_data = await cache_get(company_id, cache_key)
             
             if context_data and isinstance(context_data, dict):
@@ -288,7 +288,7 @@ class ReindexingService:
         """Invalidate cache entries for a single document."""
         invalidated = 0
         try:
-            from backend.app.core.redis import cache_delete
+            from app.core.redis import cache_delete
             # Delete the index time cache entry
             await cache_delete(company_id, f"rag_index_time:{company_id}:{document_id}")
             invalidated += 1
