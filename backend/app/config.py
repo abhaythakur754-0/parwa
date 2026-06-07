@@ -72,8 +72,12 @@ class Settings(BaseSettings):
     def normalize_database_url(cls, v: str) -> str:
         """Normalize DATABASE_URL for SQLAlchemy compatibility.
 
-        Prisma uses 'file:' prefix for SQLite which SQLAlchemy doesn't
-        understand. Convert 'file:/path' to 'sqlite:///path' format.
+        1. Prisma uses 'file:' prefix for SQLite which SQLAlchemy doesn't
+           understand. Convert 'file:/path' to 'sqlite:///path' format.
+        2. PostgreSQL URLs with '@' in the password need the '@' URL-encoded
+           as '%40' so SQLAlchemy's URL parser doesn't split the password
+           at the wrong position. This handles the common case where a
+           Supabase/Render DATABASE_URL has a password like 'Pass@123'.
         """
         if v and v.startswith("file:"):
             path = v[5:]  # strip 'file:'
@@ -82,6 +86,34 @@ class Settings(BaseSettings):
                 return f"sqlite:///{path}"
             # Handle file:relative/path → sqlite:///relative/path
             return f"sqlite:///{path}"
+
+        # PostgreSQL URL: fix unencoded '@' in password
+        # Strategy: count '@' symbols. A valid PG URL has exactly one '@'
+        # separating credentials from host. If there are 2+, the extra '@'
+        # must be in the password and needs encoding as %40.
+        if v and v.startswith("postgresql"):
+            at_count = v.count("@")
+            if at_count > 1:
+                # Find the scheme:// prefix end
+                scheme_end = v.find("://") + 3
+                rest = v[scheme_end:]
+                # Split from the RIGHT — last '@' is the credential/host separator
+                # Everything after the last '@' is host:port/db
+                last_at = rest.rfind("@")
+                credentials_part = rest[:last_at]
+                host_part = rest[last_at + 1:]  # skip the '@'
+                # Encode any '@' within credentials (user:password)
+                from urllib.parse import quote
+                credentials_encoded = credentials_part.replace("@", "%40")
+                # But wait — only the password should have @ encoded, not the
+                # user:password separator. Let's be more precise:
+                # credentials format: username:password
+                if ":" in credentials_encoded:
+                    user_part, pass_part = credentials_encoded.split(":", 1)
+                    pass_encoded = pass_part.replace("@", "%40")
+                    credentials_encoded = f"{user_part}:{pass_encoded}"
+                v = f"{v[:scheme_end]}{credentials_encoded}@{host_part}"
+
         return v
 
     # ── JWT (BC-011) ─────────────────────────────────────────────
