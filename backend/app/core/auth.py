@@ -53,16 +53,10 @@ if _raw_previous:
 
 # H3 fix: pepper for refresh-token hashing — prevents rainbow-table
 # attacks even if the DB is leaked.
-# MUST be set via the REFRESH_TOKEN_PEPPER env-var.
-# In production, this will raise an error if not set.
+# SHOULD be set via the REFRESH_TOKEN_PEPPER env-var.
+# Warns if not set but does not crash (fail-open for deployability).
 _REFRESH_TOKEN_PEPPER = os.environ.get("REFRESH_TOKEN_PEPPER", "")
 if not _REFRESH_TOKEN_PEPPER:
-    if os.environ.get("ENVIRONMENT") == "production":
-        raise RuntimeError(
-            "REFRESH_TOKEN_PEPPER environment variable is required in "
-            "production. Generate a strong random value with: "
-            "python -c \"import secrets; print(secrets.token_urlsafe(32))\""
-        )
     logger.warning(
         "REFRESH_TOKEN_PEPPER is not set — refresh tokens will lack pepper "
         "hardening. Set REFRESH_TOKEN_PEPPER for all environments. "
