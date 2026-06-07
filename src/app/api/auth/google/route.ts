@@ -38,14 +38,23 @@ export async function POST(request: NextRequest) {
       });
 
       if (backendRes.ok) {
-        const data = await backendRes.json();
+        // Safely parse JSON — the backend should always return JSON,
+        // but we guard against non-JSON responses (e.g. from a proxy/gateway)
+        let data: Record<string, unknown>;
+        try {
+          data = await backendRes.json();
+        } catch (parseErr) {
+          console.warn("[google-auth] Backend returned 200 but non-JSON body — falling back to local");
+          // Fall through to local fallback below
+          data = {} as Record<string, unknown>;
+        }
 
         // Backend returns AuthResponse: { user, tokens, is_new_user }
         // Some backend versions nest it under data, some return it flat
-        const authData = data.data || data;
-        const userObj = authData.user || data.user;
-        const tokensObj = authData.tokens || data.tokens;
-        const isNewUser = authData.is_new_user ?? data.is_new_user ?? false;
+        const authData = (data.data || data) as Record<string, unknown>;
+        const userObj = (authData.user || data.user) as Record<string, unknown> | undefined;
+        const tokensObj = (authData.tokens || data.tokens) as Record<string, unknown> | undefined;
+        const isNewUser = (authData.is_new_user ?? data.is_new_user ?? false) as boolean;
 
         if (userObj && tokensObj) {
           const userData = {
@@ -66,10 +75,10 @@ export async function POST(request: NextRequest) {
           // Store BACKEND's tokens in cookies — the backend can verify these
           setAuthCookies(
             response,
-            tokensObj.access_token,
-            tokensObj.refresh_token,
+            String(tokensObj.access_token),
+            String(tokensObj.refresh_token),
             userData,
-            tokensObj.expires_in,
+            Number(tokensObj.expires_in) || undefined,
           );
 
           return response;
@@ -78,12 +87,29 @@ export async function POST(request: NextRequest) {
         // Backend returned 200 but unexpected format — log and fall through
         console.warn("[google-auth] Backend returned 200 but unexpected format:", JSON.stringify(data).slice(0, 200));
       } else {
-        // Backend returned an error
+        // Backend returned an error — safely parse the error body
         let errorData: Record<string, unknown> = {};
-        try { errorData = await backendRes.json(); } catch { /* ignore */ }
+        try {
+          const text = await backendRes.text();
+          try {
+            errorData = JSON.parse(text);
+          } catch {
+            // Backend returned plain text error — wrap it
+            errorData = { error: { message: text } };
+          }
+        } catch {
+          // Can't read response body at all
+        }
 
-        const errorObj = (errorData.error || errorData) as Record<string, unknown>;
-        const message = String(errorObj.message || errorData.detail || errorData.message || "");
+        // Extract error message from backend's structured error format:
+        // {"error": {"code": "...", "message": "...", "details": ...}}
+        const errorWrapper = errorData.error as Record<string, unknown> | undefined;
+        const message = String(
+          errorWrapper?.message ||
+          errorData.detail ||
+          errorData.message ||
+          ""
+        );
 
         // Auth errors (invalid token, banned user, etc.) — don't fall through, return the error
         if (backendRes.status === 401 || backendRes.status === 403) {
@@ -108,35 +134,63 @@ export async function POST(request: NextRequest) {
     );
 
     if (!googleRes.ok) {
+      // Try to extract a helpful error message from Google's response
+      let googleErrorMsg = "Google token verification failed. Please try again.";
+      try {
+        const text = await googleRes.text();
+        try {
+          const errData = JSON.parse(text);
+          googleErrorMsg = errData.error_description || errData.error || googleErrorMsg;
+        } catch {
+          // Non-JSON response from Google — use default message
+          if (text) googleErrorMsg = text.slice(0, 200);
+        }
+      } catch {
+        // Can't read response body
+      }
       return NextResponse.json(
-        { status: "error", message: "Google token verification failed. Please try again." },
+        { status: "error", message: googleErrorMsg },
         { status: 401 }
       );
     }
 
-    const googleUser = await googleRes.json();
+    // Safely parse Google's JSON response
+    let googleUser: Record<string, unknown>;
+    try {
+      googleUser = await googleRes.json();
+    } catch {
+      return NextResponse.json(
+        { status: "error", message: "Failed to parse Google's response. Please try again." },
+        { status: 502 }
+      );
+    }
 
-    if (!googleUser.email) {
+    const gEmail = String(googleUser.email || "");
+    const gEmailVerified = googleUser.email_verified === true;
+    const gName = String(googleUser.name || googleUser.given_name || "");
+    const gSub = String(googleUser.sub || "");
+
+    if (!gEmail) {
       return NextResponse.json(
         { status: "error", message: "Could not get email from Google account." },
         { status: 400 }
       );
     }
 
-    if (!googleUser.email_verified) {
+    if (!gEmailVerified) {
       return NextResponse.json(
         { status: "error", message: "Please verify your email with Google first." },
         { status: 403 }
       );
     }
 
-    const email = googleUser.email.trim().toLowerCase();
-    const fullName = googleUser.name || googleUser.given_name || email.split("@")[0];
+    const email = gEmail.trim().toLowerCase();
+    const fullName = gName || email.split("@")[0];
 
     // Create a user session directly — no DB needed for Google-authenticated users
     // The Google token itself is proof of identity
     const userData = {
-      id: `google_${googleUser.sub || email.replace(/[^a-zA-Z0-9]/g, "_")}`,
+      id: `google_${gSub || email.replace(/[^a-zA-Z0-9]/g, "_")}`,
       email,
       fullName,
       isVerified: true, // Google already verified the email

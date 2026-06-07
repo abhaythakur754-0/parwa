@@ -67,7 +67,9 @@ const TIER_PRICES: Record<VariantTier, number> = {
   high: 3999,
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+// Backend billing router is at /api/billing (not /api/billing)
+// Use relative paths so Next.js proxy can forward correctly
 
 // ── Store ───────────────────────────────────────────────────────────
 
@@ -93,7 +95,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   fetchBilling: async () => {
     set({ isLoading: true, error: null });
     try {
-      const res = await fetch(`${API_BASE}/api/v1/billing/subscription`, {
+      const res = await fetch(`${API_BASE}/api/billing/subscription`, {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -129,7 +131,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
   fetchInvoices: async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/billing/invoices`, {
+      const res = await fetch(`${API_BASE}/api/billing/invoices`, {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -157,7 +159,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
   fetchUsage: async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/billing/usage`, {
+      const res = await fetch(`${API_BASE}/api/billing/usage`, {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -186,7 +188,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   changePlan: async (newTier: VariantTier) => {
     set({ isLoading: true, error: null });
     try {
-      const res = await fetch(`${API_BASE}/api/v1/billing/subscription`, {
+      const res = await fetch(`${API_BASE}/api/billing/subscription`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -214,7 +216,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   cancelSubscription: async () => {
     set({ isLoading: true, error: null });
     try {
-      const res = await fetch(`${API_BASE}/api/v1/billing/subscription`, {
+      const res = await fetch(`${API_BASE}/api/billing/subscription`, {
         method: 'DELETE',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

@@ -23,6 +23,8 @@ import {
   IntervalType,
 } from '@/types/analytics';
 
+// Backend analytics router is at /analytics/tickets (registered in main.py)
+// Frontend calls go through Next.js proxy at /api/analytics which forwards to backend
 const ANALYTICS_BASE = '/api/analytics';
 
 /**
@@ -254,6 +256,15 @@ export const analyticsApi = {
   },
 
   /**
+   * Get summary directly from backend (no Next.js proxy).
+   */
+  getSummaryDirect: async (dateRange?: Partial<DateRange>): Promise<TicketSummaryResponse> => {
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+    const qs = formatDateParams(dateRange);
+    return apiFetch<TicketSummaryResponse>(`${API_BASE}/analytics/tickets/summary${qs}`, generateMockSummary);
+  },
+
+  /**
    * Get ticket trend data over time.
    */
   getTrends: async (
@@ -268,6 +279,21 @@ export const analyticsApi = {
   },
 
   /**
+   * Get trends directly from backend.
+   */
+  getTrendsDirect: async (
+    interval: IntervalType = 'day',
+    dateRange?: Partial<DateRange>
+  ): Promise<TrendPointResponse> => {
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+    const qs = formatDateParams(dateRange);
+    return apiFetch<TrendPointResponse>(
+      `${API_BASE}/analytics/tickets/trends?interval=${interval}${qs ? '&' + qs.slice(1) : ''}`,
+      () => generateMockTrends(interval)
+    );
+  },
+
+  /**
    * Get ticket category distribution.
    */
   getCategories: async (dateRange?: Partial<DateRange>): Promise<CategoryDistributionResponse> => {
@@ -276,11 +302,29 @@ export const analyticsApi = {
   },
 
   /**
+   * Get categories directly from backend.
+   */
+  getCategoriesDirect: async (dateRange?: Partial<DateRange>): Promise<CategoryDistributionResponse> => {
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+    const qs = formatDateParams(dateRange);
+    return apiFetch<CategoryDistributionResponse>(`${API_BASE}/analytics/tickets/category${qs}`, generateMockCategories);
+  },
+
+  /**
    * Get SLA compliance metrics.
    */
   getSLA: async (dateRange?: Partial<DateRange>): Promise<SLAMetricsResponse> => {
     const qs = formatDateParams(dateRange);
     return apiFetch<SLAMetricsResponse>(`${ANALYTICS_BASE}/sla${qs}`, generateMockSLA);
+  },
+
+  /**
+   * Get SLA directly from backend.
+   */
+  getSLADirect: async (dateRange?: Partial<DateRange>): Promise<SLAMetricsResponse> => {
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+    const qs = formatDateParams(dateRange);
+    return apiFetch<SLAMetricsResponse>(`${API_BASE}/analytics/tickets/sla${qs}`, generateMockSLA);
   },
 
   /**
@@ -298,9 +342,39 @@ export const analyticsApi = {
   },
 
   /**
+   * Get agent metrics directly from backend.
+   */
+  getAgentsDirect: async (
+    limit: number = 50,
+    dateRange?: Partial<DateRange>
+  ): Promise<AgentMetrics[]> => {
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+    const qs = formatDateParams(dateRange);
+    return apiFetch<AgentMetrics[]>(
+      `${API_BASE}/analytics/tickets/agents?limit=${limit}${qs ? '&' + qs.slice(1) : ''}`,
+      generateMockAgents
+    );
+  },
+
+  /**
    * Get response time distribution.
    */
   getResponseTime: async (_dateRange?: Partial<DateRange>): Promise<ResponseTimeDistribution> => {
+    // Try backend first, fall back to computed mock
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+    try {
+      const qs = _dateRange ? formatDateParams(_dateRange) : '';
+      const res = await fetch(`${API_BASE}/analytics/tickets/response-time${qs}`, {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // Fall through to mock
+    }
     return {
       buckets: [
         { bucket: '0-15m', count: 342, label: '<15m' },

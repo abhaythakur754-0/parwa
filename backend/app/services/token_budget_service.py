@@ -24,9 +24,17 @@ import logging
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
+
+# ── DB write-through imports ────────────────────────────────────────
+try:
+    from database.base import get_db_context, SessionLocal
+    from database.models.variant_engine import AITokenBudget as AITokenBudgetModel
+    _DB_AVAILABLE = True
+except Exception:
+    _DB_AVAILABLE = False
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -202,6 +210,146 @@ class TokenBudgetService:
         self._reserve_script: Any = None
         self._finalize_script: Any = None
         self._add_script: Any = None
+
+    # ── DB Persistence Helpers ──────────────────────────────────────
+
+    def _persist_budget_to_db(
+        self,
+        conversation_id: str,
+        company_id: str,
+        variant_type: str,
+        max_tokens: int,
+        used_tokens: int,
+        budget_type: str = "daily",
+    ) -> None:
+        """Write-through: upsert the AITokenBudget row for this conversation.
+
+        Uses conversation_id as a logical key alongside company_id and
+        budget_period. Creates a new row if none exists; otherwise updates
+        used_tokens and max_tokens.
+
+        Args:
+            conversation_id: Unique conversation identifier.
+            company_id: Tenant identifier (BC-001).
+            variant_type: Variant type (mini_parwa, parwa, parwa_high).
+            max_tokens: Effective max tokens for this conversation.
+            used_tokens: Current used tokens.
+            budget_type: Budget period type (default 'daily').
+        """
+        if not _DB_AVAILABLE:
+            return
+
+        try:
+            today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            with get_db_context() as db:
+                existing = (
+                    db.query(AITokenBudgetModel)
+                    .filter_by(
+                        company_id=company_id,
+                        budget_type=budget_type,
+                        budget_period=today_str,
+                    )
+                    .first()
+                )
+                if existing is None:
+                    row = AITokenBudgetModel(
+                        company_id=company_id,
+                        budget_type=budget_type,
+                        budget_period=today_str,
+                        max_tokens=max_tokens,
+                        used_tokens=used_tokens,
+                        variant_default_limits=json.dumps({variant_type: {"max_tokens": max_tokens}}),
+                    )
+                    db.add(row)
+                else:
+                    existing.max_tokens = max_tokens
+                    existing.used_tokens = used_tokens
+                    existing.updated_at = datetime.now(timezone.utc)
+        except Exception as exc:
+            logger.warning(
+                "token_budget_db_persist_failed",
+                extra={
+                    "conversation_id": conversation_id,
+                    "company_id": company_id,
+                    "error": str(exc),
+                },
+            )
+
+    def _update_db_used_tokens(
+        self,
+        company_id: str,
+        used_delta: int,
+    ) -> None:
+        """Increment used_tokens on the AITokenBudget row for today.
+
+        Args:
+            company_id: Tenant identifier.
+            used_delta: Positive to add usage, negative to return tokens.
+        """
+        if not _DB_AVAILABLE or not company_id:
+            return
+
+        try:
+            today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            with get_db_context() as db:
+                existing = (
+                    db.query(AITokenBudgetModel)
+                    .filter_by(
+                        company_id=company_id,
+                        budget_type="daily",
+                        budget_period=today_str,
+                    )
+                    .first()
+                )
+                if existing is not None:
+                    existing.used_tokens = max(0, (existing.used_tokens or 0) + used_delta)
+                    existing.updated_at = datetime.now(timezone.utc)
+        except Exception as exc:
+            logger.warning(
+                "token_budget_db_update_failed",
+                extra={"company_id": company_id, "error": str(exc)},
+            )
+
+    def _read_budget_from_db(
+        self,
+        company_id: str,
+        budget_type: str = "daily",
+    ) -> Optional[dict[str, Any]]:
+        """Read the current AITokenBudget row for a company and period.
+
+        Returns:
+            Dict with max_tokens, used_tokens, budget_period, status or None.
+        """
+        if not _DB_AVAILABLE or not company_id:
+            return None
+
+        try:
+            today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            with get_db_context() as db:
+                row = (
+                    db.query(AITokenBudgetModel)
+                    .filter_by(
+                        company_id=company_id,
+                        budget_type=budget_type,
+                        budget_period=today_str,
+                    )
+                    .first()
+                )
+                if row is None:
+                    return None
+                return {
+                    "max_tokens": row.max_tokens,
+                    "used_tokens": row.used_tokens or 0,
+                    "budget_period": row.budget_period,
+                    "status": row.status,
+                    "alert_threshold_pct": row.alert_threshold_pct,
+                }
+        except Exception as exc:
+            logger.warning(
+                "token_budget_db_read_failed",
+                extra={"company_id": company_id, "error": str(exc)},
+            )
+            return None
 
     # ── Lua Script Loading ────────────────────────────────────────
 
@@ -463,6 +611,15 @@ class TokenBudgetService:
                 updated_at=now,
             )
 
+            # ── DB write-through: persist initialized budget ──────────
+            self._persist_budget_to_db(
+                conversation_id=conversation_id,
+                company_id=company_id,
+                variant_type=variant_type,
+                max_tokens=effective_max,
+                used_tokens=0,
+            )
+
             logger.info(
                 "token_budget_initialized",
                 extra={
@@ -600,6 +757,13 @@ class TokenBudgetService:
             },
         )
 
+        # ── DB write-through: reflect reservation in DB ────────
+        info = await self._redis_hgetall(self._key_info(conversation_id))
+        self._update_db_used_tokens(
+            company_id=info.get("company_id", ""),
+            used_delta=tokens,
+        )
+
         return ReserveResult(
             success=True,
             reserved_amount=tokens,
@@ -640,6 +804,13 @@ class TokenBudgetService:
             self._mem_set(conversation_id, "used", current_used + tokens)
             new_remaining = max(0, max_tokens - current_used - tokens)
 
+            # ── DB write-through: reflect reservation in DB ────────
+            info = self._mem_get_info(conversation_id)
+            self._update_db_used_tokens(
+                company_id=info.get("company_id", ""),
+                used_delta=tokens,
+            )
+
             return ReserveResult(
                 success=True,
                 reserved_amount=tokens,
@@ -676,6 +847,15 @@ class TokenBudgetService:
                 await self._finalize_tokens_redis(conversation_id, reserved, actual)
             else:
                 self._finalize_tokens_memory(conversation_id, reserved, actual)
+
+            # ── DB write-through: reflect finalization in DB ──────
+            # When reserved > actual, tokens are returned (negative delta).
+            # When actual > reserved, excess is charged (positive delta).
+            info = await self._get_info(conversation_id)
+            self._update_db_used_tokens(
+                company_id=info.get("company_id", ""),
+                used_delta=actual - reserved,
+            )
 
             logger.debug(
                 "token_finalize_success",

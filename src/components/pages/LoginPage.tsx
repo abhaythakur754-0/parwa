@@ -24,11 +24,20 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
       if (res.ok) {
-        const data = await res.json();
-        localStorage.setItem('parwa_user', JSON.stringify(data.user));
-        setAuth(true);
-        toast.success('Welcome back!');
-        return;
+        // Safely parse the response — guard against non-JSON responses
+        let data: Record<string, unknown> | null = null;
+        try {
+          const text = await res.text();
+          data = JSON.parse(text);
+        } catch {
+          // Non-JSON response — fall through to mock
+        }
+        if (data?.user) {
+          localStorage.setItem('parwa_user', JSON.stringify(data.user));
+          setAuth(true);
+          toast.success('Welcome back!');
+          return;
+        }
       }
     } catch {
       // Backend unreachable — fall through to mock check below

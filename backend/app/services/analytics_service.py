@@ -26,12 +26,21 @@ from __future__ import annotations
 import json
 import logging
 import threading
+import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from app.logger import get_logger
+
+# ── DB write-through imports ────────────────────────────────────────
+try:
+    from database.base import get_db_context, SessionLocal
+    from database.models.analytics import MetricAggregate
+    _DB_AVAILABLE = True
+except Exception:
+    _DB_AVAILABLE = False
 
 logger = get_logger("analytics_service")
 
@@ -69,6 +78,13 @@ _events: List[AnalyticsEvent] = []
 _event_counter = 0
 _lock = threading.Lock()
 _max_events = 10000  # Prevent unbounded memory growth
+
+# ── Periodic flush configuration ────────────────────────────────────
+_FLUSH_EVERY_N_EVENTS: int = 50       # batch-write to DB every N events
+_FLUSH_EVERY_M_SECONDS: float = 30.0  # batch-write to DB every M seconds
+_last_flush_time: float = time.monotonic()
+_pending_db_events: List[AnalyticsEvent] = []
+_pending_lock = threading.Lock()
 
 
 def track_event(
@@ -114,6 +130,9 @@ def track_event(
         # Trim old events if over limit
         if len(_events) > _max_events:
             del _events[: len(_events) - _max_events]
+
+    # ── Write-through: stage event for DB persistence ───────────────
+    _stage_event_for_db(event)
 
     logger.debug(
         "analytics_event",
@@ -323,6 +342,148 @@ def get_recent_events(
 
         recent = filtered[-limit:]
         return [e.to_dict() for e in recent]
+
+
+# ── DB Write-Through Helpers ────────────────────────────────────────
+
+
+def persist_event(event: AnalyticsEvent) -> bool:
+    """Write a single analytics event to the MetricAggregate DB table.
+
+    Maps the event to a MetricAggregate row with period='event' and
+    value=1.0 (each event is a single occurrence). Properties are
+    stored in metadata_json.
+
+    Args:
+        event: The AnalyticsEvent to persist.
+
+    Returns:
+        True if the write succeeded, False otherwise.
+    """
+    if not _DB_AVAILABLE:
+        return False
+
+    try:
+        with get_db_context() as db:
+            now = datetime.now(timezone.utc)
+            row = MetricAggregate(
+                company_id=event.company_id or "unknown",
+                metric_type=f"{event.event_category}:{event.event_type}",
+                period="event",
+                period_start=now,
+                period_end=now,
+                value=1.0,
+                metadata_json=json.dumps(
+                    {
+                        "event_id": event.event_id,
+                        "user_id": event.user_id,
+                        "session_id": event.session_id,
+                        "source": event.source,
+                        "properties": event.properties,
+                        "timestamp": event.timestamp,
+                    },
+                    default=str,
+                ),
+            )
+            db.add(row)
+        return True
+    except Exception as exc:
+        logger.warning(
+            "analytics_persist_event_failed",
+            extra={"event_id": event.event_id, "error": str(exc)},
+        )
+        return False
+
+
+def _stage_event_for_db(event: AnalyticsEvent) -> None:
+    """Stage an event for batch DB write and trigger flush if needed.
+
+    Flush is triggered when either:
+    - The pending buffer reaches _FLUSH_EVERY_N_EVENTS, or
+    - _FLUSH_EVERY_M_SECONDS have elapsed since the last flush.
+    """
+    if not _DB_AVAILABLE:
+        return
+
+    global _last_flush_time
+
+    with _pending_lock:
+        _pending_db_events.append(event)
+        should_flush = (
+            len(_pending_db_events) >= _FLUSH_EVERY_N_EVENTS
+            or (time.monotonic() - _last_flush_time) >= _FLUSH_EVERY_M_SECONDS
+        )
+
+    if should_flush:
+        flush_pending_events()
+
+
+def flush_pending_events() -> int:
+    """Batch-write all pending events to the MetricAggregate DB table.
+
+    Returns:
+        Number of events successfully flushed.
+    """
+    global _last_flush_time
+
+    if not _DB_AVAILABLE:
+        return 0
+
+    with _pending_lock:
+        batch = list(_pending_db_events)
+        _pending_db_events.clear()
+        _last_flush_time = time.monotonic()
+
+    if not batch:
+        return 0
+
+    flushed = 0
+    try:
+        with get_db_context() as db:
+            now = datetime.now(timezone.utc)
+            for event in batch:
+                try:
+                    row = MetricAggregate(
+                        company_id=event.company_id or "unknown",
+                        metric_type=f"{event.event_category}:{event.event_type}",
+                        period="event",
+                        period_start=now,
+                        period_end=now,
+                        value=1.0,
+                        metadata_json=json.dumps(
+                            {
+                                "event_id": event.event_id,
+                                "user_id": event.user_id,
+                                "session_id": event.session_id,
+                                "source": event.source,
+                                "properties": event.properties,
+                                "timestamp": event.timestamp,
+                            },
+                            default=str,
+                        ),
+                    )
+                    db.add(row)
+                    flushed += 1
+                except Exception as exc:
+                    logger.warning(
+                        "analytics_flush_single_failed",
+                        extra={"event_id": event.event_id, "error": str(exc)},
+                    )
+    except Exception as exc:
+        logger.error(
+            "analytics_flush_batch_failed",
+            extra={"batch_size": len(batch), "error": str(exc)},
+        )
+        # Re-queue un-flushed events (up to a reasonable limit)
+        with _pending_lock:
+            unflushed = batch[flushed:]
+            _pending_db_events.extend(unflushed[:_max_events])
+
+    logger.debug(
+        "analytics_flush_completed",
+        extra={"flushed": flushed, "batch_size": len(batch)},
+    )
+    return flushed
 
 
 # ── Helper ────────────────────────────────────────────────────────

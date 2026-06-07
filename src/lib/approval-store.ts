@@ -118,7 +118,8 @@ export const APPROVAL_STATUS_COLORS: Record<ApprovalStatus, string> = {
 
 // ── Constants ────────────────────────────────────────────────────────
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+// Backend approval routes are at /api/approvals
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -199,7 +200,7 @@ export const useApprovalStore = create<ApprovalState>((set, get) => ({
     });
 
     try {
-      const res = await fetch(`${API_BASE}/api/v1/approvals/${id}`, {
+      const res = await fetch(`${API_BASE}/api/approvals/${id}`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -240,7 +241,7 @@ export const useApprovalStore = create<ApprovalState>((set, get) => ({
     });
 
     try {
-      const res = await fetch(`${API_BASE}/api/v1/approvals/${id}`, {
+      const res = await fetch(`${API_BASE}/api/approvals/${id}`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -363,7 +364,7 @@ export const useApprovalStore = create<ApprovalState>((set, get) => ({
   fetchApprovals: async () => {
     set({ isLoading: true });
     try {
-      const res = await fetch(`${API_BASE}/api/v1/approvals`, {
+      const res = await fetch(`${API_BASE}/api/approvals`, {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -393,7 +394,7 @@ export const useApprovalStore = create<ApprovalState>((set, get) => ({
   fetchPendingApprovals: async () => {
     set({ isLoading: true });
     try {
-      const res = await fetch(`${API_BASE}/api/v1/approvals?status=pending`, {
+      const res = await fetch(`${API_BASE}/api/approvals?status=pending`, {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
       });

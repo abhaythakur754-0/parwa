@@ -104,7 +104,8 @@ export const AGENT_STATUS_LABELS: Record<AgentStatus, string> = {
 
 // ── Store ───────────────────────────────────────────────────────────
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+// Backend AI agent router is at /api/ai/agents (not /api/v1/ai/instances)
 
 export const useAgentsStore = create<AgentsState>((set, get) => ({
   agents: [],
@@ -114,7 +115,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
   fetchAgents: async () => {
     set({ isLoading: true, error: null });
     try {
-      const res = await fetch(`${API_BASE}/api/v1/ai/instances`, {
+      const res = await fetch(`${API_BASE}/api/ai/agents`, {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
       });

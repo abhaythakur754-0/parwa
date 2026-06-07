@@ -110,6 +110,8 @@ from app.api.ai_classification import router as ai_classification_router  # AI c
 from app.api.ai_signals import router as ai_signals_router  # AI signal extraction
 from app.api.rag import router as rag_router  # RAG retrieval
 from app.api.response import router as response_api_router  # Response generation + brand voice + assignment + migration
+from app.api.system_health import router as system_health_router  # System health monitoring for frontend dashboard
+from app.api.approval import router as approval_router  # Approval queue + auto-approve rules
 
 from app.api.deps import get_current_user
 from database.models.core import User
@@ -473,6 +475,12 @@ app.include_router(rag_router, tags=["rag"])  # prefix: /api/rag
 
 # Response generation + brand voice + AI assignment + migration
 app.include_router(response_api_router, tags=["response"])  # combined router with sub-routers
+
+# System health monitoring (consumed by frontend system-health-store)
+app.include_router(system_health_router, tags=["system-health"])  # prefix: /api/system/health
+
+# Approval queue + auto-approve rules (human-in-the-loop)
+app.include_router(approval_router, tags=["approvals"])  # prefix: /api/approvals (defined in router)
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───

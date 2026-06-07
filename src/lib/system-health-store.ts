@@ -117,7 +117,8 @@ export const ALERT_TYPE_COLORS: Record<SystemAlert['type'], string> = {
 
 // ── Constants ────────────────────────────────────────────────────────
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+// Backend system health route is at /api/system/health
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -266,7 +267,7 @@ export const useSystemHealthStore = create<SystemHealthState>((set, get) => ({
   fetchSystemHealth: async () => {
     set({ isLoading: true });
     try {
-      const res = await fetch(`${API_BASE}/api/v1/system/health`, {
+      const res = await fetch(`${API_BASE}/api/system/health`, {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
       });

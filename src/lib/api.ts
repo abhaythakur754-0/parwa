@@ -267,13 +267,13 @@ export const userDetailsApi = {
    * Send work email verification.
    */
   sendVerification: (work_email: string) => 
-    post('/api/user/verify-work-email', { work_email }),
+    post('/api/verification/send-otp', { email: work_email }),
   
   /**
    * Confirm work email verification.
    */
   confirmVerification: (token: string) => 
-    post('/api/user/verify-work-email/confirm', { token }),
+    post('/api/verification/verify-otp', { code: token }),
 };
 
 // ── Integration API Endpoints ──────────────────────────────────────────
@@ -307,6 +307,8 @@ export const integrationsApi = {
 };
 
 // ── Knowledge Base API Endpoints ───────────────────────────────────────
+// NOTE: Backend router uses /api/kb prefix (knowledge_base.py)
+// These endpoints map directly to the backend's /api/kb/* routes.
 
 export const knowledgeApi = {
   /**
@@ -316,7 +318,7 @@ export const knowledgeApi = {
     const formData = new FormData();
     formData.append('file', file);
     
-    const response = await apiClient.post('/api/knowledge/upload', formData, {
+    const response = await apiClient.post('/api/kb/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -334,17 +336,37 @@ export const knowledgeApi = {
   /**
    * List documents.
    */
-  list: () => get('/api/knowledge'),
+  list: () => get('/api/kb/documents'),
   
   /**
    * Get document status.
    */
-  getStatus: (id: string) => get(`/api/knowledge/${id}/status`),
+  getStatus: (id: string) => get(`/api/kb/documents/${id}`),
   
   /**
    * Delete document.
    */
-  delete: (id: string) => del(`/api/knowledge/${id}`),
+  delete: (id: string) => del(`/api/kb/documents/${id}`),
+  
+  /**
+   * Retry a failed document.
+   */
+  retry: (id: string) => post(`/api/kb/documents/${id}/retry`),
+  
+  /**
+   * Re-index a completed document.
+   */
+  reindex: (id: string) => post(`/api/kb/documents/${id}/reindex`),
+  
+  /**
+   * Get knowledge base statistics.
+   */
+  getStats: () => get('/api/kb/stats'),
+  
+  /**
+   * Retry all failed documents.
+   */
+  retryAllFailed: () => post('/api/kb/retry-failed'),
 };
 
 // ── Auth API Endpoints ──────────────────────────────────────────────────

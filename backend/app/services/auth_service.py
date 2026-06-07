@@ -21,6 +21,7 @@ Security controls:
 """
 
 import asyncio
+import json as _json
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -767,6 +768,11 @@ def _verify_google_token(id_token: str) -> dict:
 
         return data
 
+    except _json.JSONDecodeError:
+        raise AuthenticationError(
+            message="Google returned an invalid response",
+            details={"status": getattr(resp, 'status_code', None)},
+        )
     except TimeoutException:
         raise AuthenticationError(
             message="Google verification timed out"
@@ -778,6 +784,19 @@ def _verify_google_token(id_token: str) -> dict:
         )
     except AuthenticationError:
         raise
+    except Exception as exc:
+        # Catch any other unexpected error (e.g. network issues,
+        # SSL errors) so we always return a structured JSON error
+        # instead of letting FastAPI convert it to plain text.
+        logger.exception(
+            "google_token_verify_unexpected_error",
+            error_type=type(exc).__name__,
+            error_message=str(exc),
+        )
+        raise AuthenticationError(
+            message="Google verification failed. Please try again.",
+            details={"error": str(exc)},
+        )
 
 
 def _link_google_account(

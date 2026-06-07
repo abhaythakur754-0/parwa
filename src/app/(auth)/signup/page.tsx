@@ -63,22 +63,37 @@ function SignupContent() {
         }),
       });
 
-      const result = await res.json();
+      // Safely parse the response — guard against non-JSON responses
+      let result: Record<string, unknown>;
+      try {
+        const text = await res.text();
+        try {
+          result = JSON.parse(text);
+        } catch {
+          throw new Error(res.ok
+            ? 'Received an unexpected response from the server.'
+            : `Server error (${res.status}). Please try again.`
+          );
+        }
+      } catch (parseErr) {
+        throw parseErr instanceof Error ? parseErr : new Error('Failed to read server response.');
+      }
 
       if (!res.ok) {
-        throw new Error(result.message || 'Registration failed. Please try again.');
+        throw new Error(String(result.message || 'Registration failed. Please try again.'));
       }
 
       toast.success('Account created successfully!');
 
       // Store non-sensitive user display data only.
       // Tokens live ONLY in httpOnly cookies (parwa_at, parwa_rt) set by the backend.
-      if (result.user) {
+      const resultUser = result.user as Record<string, unknown> | undefined;
+      if (resultUser) {
         const user = {
-          id: result.user.id,
-          email: result.user.email,
-          full_name: result.user.fullName,
-          is_verified: result.user.isVerified,
+          id: resultUser.id,
+          email: resultUser.email,
+          full_name: resultUser.fullName,
+          is_verified: resultUser.isVerified,
         };
         localStorage.setItem('parwa_user', JSON.stringify(user));
       }
@@ -108,10 +123,24 @@ function SignupContent() {
         body: JSON.stringify({ id_token: idToken }),
       });
 
-      const result = await res.json();
+      // Safely parse the response — guard against non-JSON responses
+      let result: Record<string, unknown>;
+      try {
+        const text = await res.text();
+        try {
+          result = JSON.parse(text);
+        } catch {
+          throw new Error(res.ok
+            ? 'Received an unexpected response from the server.'
+            : `Server error (${res.status}). Please try again.`
+          );
+        }
+      } catch (parseErr) {
+        throw parseErr instanceof Error ? parseErr : new Error('Failed to read server response.');
+      }
 
       if (result.status !== 'success') {
-        throw new Error(result.message || 'Google sign-in failed. Please try again.');
+        throw new Error(String(result.message || 'Google sign-in failed. Please try again.'));
       }
 
       if (result.user) {
@@ -129,7 +158,7 @@ function SignupContent() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [hydrate, router]);
+  }, [hydrate, router, redirectTo]);
 
   const handleCheckEmail = async (email: string): Promise<boolean> => {
     try {

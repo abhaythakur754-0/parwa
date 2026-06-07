@@ -92,21 +92,38 @@ function LoginContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      const data = await res.json();
+
+      // Safely parse the response — guard against non-JSON responses
+      let data: Record<string, unknown>;
+      try {
+        const text = await res.text();
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error(res.ok
+            ? 'Received an unexpected response from the server.'
+            : `Server error (${res.status}). Please try again.`
+          );
+        }
+      } catch (parseErr) {
+        throw parseErr instanceof Error ? parseErr : new Error('Failed to read server response.');
+      }
+
       if (data.status !== 'success') {
-        throw new Error(data.message || 'Login failed. Please try again.');
+        throw new Error(String(data.message || 'Login failed. Please try again.'));
       }
       // Store non-sensitive user display data
+      const userData = data.user as Record<string, unknown>;
       const user = {
-        id: data.user.id,
-        email: data.user.email,
-        full_name: data.user.fullName,
-        is_verified: data.user.isVerified,
+        id: userData?.id,
+        email: userData?.email,
+        full_name: userData?.fullName,
+        is_verified: userData?.isVerified,
       };
       localStorage.setItem('parwa_user', JSON.stringify(user));
       hydrate();
       toast.success('Welcome back!');
-      await redirectAfterLogin(data.is_new_user);
+      await redirectAfterLogin(Boolean(data.is_new_user));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed. Please try again.';
       setError(message);
@@ -130,16 +147,34 @@ function LoginContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id_token: idToken }),
       });
-      const result = await res.json();
+
+      // Safely parse the response — guard against non-JSON responses
+      // (e.g. if the server returns HTML/text error pages)
+      let result: Record<string, unknown>;
+      try {
+        const text = await res.text();
+        try {
+          result = JSON.parse(text);
+        } catch {
+          // Server returned non-JSON (plain text / HTML error page)
+          throw new Error(res.ok
+            ? 'Received an unexpected response from the server.'
+            : `Server error (${res.status}). Please try again.`
+          );
+        }
+      } catch (parseErr) {
+        throw parseErr instanceof Error ? parseErr : new Error('Failed to read server response.');
+      }
+
       if (result.status !== 'success') {
-        throw new Error(result.message || 'Google sign-in failed. Please try again.');
+        throw new Error(String(result.message || 'Google sign-in failed. Please try again.'));
       }
       if (result.user) {
         localStorage.setItem('parwa_user', JSON.stringify(result.user));
       }
       hydrate();
       toast.success(result.is_new_user ? 'Account created with Google!' : 'Welcome back!');
-      await redirectRef.current(result.is_new_user);
+      await redirectRef.current(Boolean(result.is_new_user));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Google sign-in failed. Please try again.';
       setGoogleError(message);
