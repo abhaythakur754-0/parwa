@@ -37,12 +37,16 @@ export async function GET(request: NextRequest) {
     // ── Try backend first ──────────────────────────────────────
     try {
       const backendUrl = getBackendUrl();
+      // Dynamic origin — matches whatever deployment we're on
+      const origin = process.env.FRONTEND_URL
+        || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
+        || (process.env.NODE_ENV === 'production' ? 'https://parwa.ai' : 'http://localhost:3000');
       const res = await fetch(`${backendUrl}/api/auth/me`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`,
-          "Origin": "https://parwa.buzz",
+          "Origin": origin,
         },
         signal: AbortSignal.timeout(8000),
       });

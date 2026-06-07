@@ -15,10 +15,14 @@ import { getBackendUrl } from '@/lib/backend-url';
 export async function GET(req: NextRequest) {
   try {
     const backendUrl = getBackendUrl();
+    // Dynamic origin — matches whatever deployment we're on
+    const origin = process.env.FRONTEND_URL
+      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
+      || (process.env.NODE_ENV === 'production' ? 'https://parwa.ai' : 'http://localhost:3000');
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'Origin': 'https://parwa.buzz',
-      'Referer': 'https://parwa.buzz/',
+      'Origin': origin,
+      'Referer': `${origin}/`,
     };
 
     // Forward auth token from cookie

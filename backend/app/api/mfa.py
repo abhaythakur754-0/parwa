@@ -501,7 +501,7 @@ def get_sessions(
     """
     # Get current token hash for marking current session
     current_hash = None
-    refresh_token = request.cookies.get("parwa_refresh")
+    refresh_token = request.cookies.get("parwa_rt")
     if refresh_token:
         current_hash = hash_refresh_token(refresh_token)
 
@@ -528,7 +528,7 @@ def revoke_session_endpoint(
     F-017: Cannot revoke own current session.
     """
     current_hash = None
-    refresh_token = request.cookies.get("parwa_refresh")
+    refresh_token = request.cookies.get("parwa_rt")
     if refresh_token:
         current_hash = hash_refresh_token(refresh_token)
 
@@ -554,7 +554,7 @@ def revoke_others_endpoint(
 
     F-017: Keeps current session active.
     """
-    refresh_token = request.cookies.get("parwa_refresh")
+    refresh_token = request.cookies.get("parwa_rt")
     if not refresh_token:
         raise AuthenticationError(
             message="No active session found",

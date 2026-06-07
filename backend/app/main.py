@@ -383,6 +383,9 @@ except Exception:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
+    # Allow Vercel preview deployments (any *.vercel.app subdomain)
+    # e.g. chat1-fixes-parwa.vercel.app, chat3-langgraph-parwa.vercel.app
+    allow_origin_regex=r"https://[a-z0-9\-]+\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

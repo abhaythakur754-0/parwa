@@ -21,6 +21,7 @@ import hmac
 import json
 import logging
 import os
+import re
 import secrets
 import time
 from urllib.parse import urlparse
@@ -88,9 +89,10 @@ def _parse_trusted_origins() -> list:
     raw = os.environ.get("CSRF_TRUSTED_ORIGINS", "")
     if not raw:
         raw = os.environ.get("CORS_ORIGINS", "")
-    if not raw:
-        return []
     origins = [o.strip() for o in raw.split(",") if o.strip()]
+    # Always allow Vercel preview deployments for CSRF
+    # (they have dynamic subdomains like chat1-fixes-parwa.vercel.app)
+    # We can't enumerate them, so we add a wildcard check in _is_valid_origin
     if origins:
         logger.info(
             "csrf_trusted_origins_configured count=%d",
@@ -290,6 +292,7 @@ class CSRFSecurityMiddleware:
           origin must match.
         - If both are absent, reject (no origin information).
         - If no trusted origins are configured, allow (local dev).
+        - Always allow *.vercel.app origins (preview deployments).
         """
         # No trusted origins configured — allow (local dev)
         if not self._trusted_origins:
@@ -307,6 +310,10 @@ class CSRFSecurityMiddleware:
 
         if not check_origin:
             return False
+
+        # Allow any Vercel preview deployment (dynamic subdomains)
+        if re.match(r"^https://[a-z0-9\-]+\.vercel\.app$", check_origin):
+            return True
 
         # Check against trusted origins
         for trusted in self._trusted_origins:
@@ -467,7 +474,7 @@ class CSRFSecurityMiddleware:
                 if new_csrf_token:
                     csrf_cookie = (
                         f"{_CSRF_COOKIE_NAME}={new_csrf_token}; "
-                        f"Path=/; SameSite=Strict; "
+                        f"Path=/; SameSite=Lax; "
                         f"Max-Age={_CSRF_MAX_AGE}"
                     )
                     headers.append(

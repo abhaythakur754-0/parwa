@@ -212,17 +212,28 @@ class Settings(BaseSettings):
     def validate_encryption_key(cls, v) -> str:
         """BC-011: DATA_ENCRYPTION_KEY must be set and exactly 32 characters.
 
-        Raises RuntimeError in ALL environments if not set.
-        Users MUST set this in their .env file.
+        In development/staging/test: auto-generates a 32-char key if not set,
+        so the app doesn't crash on startup. Warns that it should be set.
+        In production: raises ValueError if not set or wrong length.
         """
+        env = os.environ.get("ENVIRONMENT", "development")
         if v is None or v == "":
-            raise RuntimeError(
-                "DATA_ENCRYPTION_KEY must be set. "
-                "Set a 32-character cryptographically random value via "
-                "the DATA_ENCRYPTION_KEY env var."
+            if env == "production":
+                raise ValueError(
+                    "DATA_ENCRYPTION_KEY must be set in production. "
+                    "Set a 32-character cryptographically random value via "
+                    "the DATA_ENCRYPTION_KEY env var."
+                )
+            # Auto-generate for dev/staging/test so app doesn't crash
+            import secrets as _secrets
+            v = _secrets.token_urlsafe(24)[:32]  # exactly 32 chars
+            warnings.warn(
+                "DATA_ENCRYPTION_KEY not set — auto-generated for development. "
+                "Set a 32-character value via DATA_ENCRYPTION_KEY env var in production!",
+                stacklevel=2,
             )
         if len(v) != 32:
-            if os.environ.get("ENVIRONMENT") == "production":
+            if env == "production":
                 raise ValueError(
                     f"DATA_ENCRYPTION_KEY must be 32 characters in production, got {len(v)}"
                 )
@@ -235,13 +246,29 @@ class Settings(BaseSettings):
     @field_validator("SECRET_KEY")
     @classmethod
     def validate_secret_key(cls, v) -> str:
+        """BC-011: SECRET_KEY must be set and strong in production.
+
+n        In development/staging/test: auto-generates a 32-char key if not set,
+        so the app doesn't crash on startup. Warns that it should be set.
+        In production: raises ValueError if not set or too weak.
+        """
+        env = os.environ.get("ENVIRONMENT", "development")
         if v is None or v == "":
-            raise RuntimeError(
-                "SECRET_KEY must be set. "
-                "Set a cryptographically random value via the SECRET_KEY env var."
+            if env == "production":
+                raise ValueError(
+                    "SECRET_KEY must be set in production. "
+                    "Set a cryptographically random value via the SECRET_KEY env var."
+                )
+            # Auto-generate for dev/staging/test so app doesn't crash
+            import secrets as _secrets
+            v = _secrets.token_urlsafe(32)
+            warnings.warn(
+                "SECRET_KEY not set — auto-generated for development. "
+                "Set a cryptographically random value via SECRET_KEY env var in production!",
+                stacklevel=2,
             )
         if v.startswith("dev-") or v == "change-me":
-            if os.environ.get("ENVIRONMENT") == "production":
+            if env == "production":
                 raise ValueError(
                     "SECRET_KEY must be changed from default in production. "
                     "Set a cryptographically random value via the SECRET_KEY env var."
@@ -251,7 +278,7 @@ class Settings(BaseSettings):
                 stacklevel=2,
             )
         # Enforce minimum key length in production
-        if os.environ.get("ENVIRONMENT") == "production" and len(v) < 32:
+        if env == "production" and len(v) < 32:
             raise ValueError(
                 f"SECRET_KEY must be at least 32 characters in production, "
                 f"got {len(v)}. Generate one with: "
@@ -262,16 +289,29 @@ class Settings(BaseSettings):
     @field_validator("JWT_SECRET_KEY")
     @classmethod
     def validate_jwt_key(cls, v) -> str:
-        """C-11 FIX: JWT_SECRET_KEY must be set and changed from default in production.
-        Also enforces minimum length in production (>=32 chars).
+        """BC-011: JWT_SECRET_KEY must be set and strong in production.
+
+        In development/staging/test: auto-generates a 32-char key if not set,
+        so the app doesn't crash on startup. Warns that it should be set.
+        In production: raises ValueError if not set or too weak.
         """
+        env = os.environ.get("ENVIRONMENT", "development")
         if v is None or v == "":
-            raise RuntimeError(
-                "JWT_SECRET_KEY must be set. "
-                "Set a cryptographically random value via the JWT_SECRET_KEY env var."
+            if env == "production":
+                raise ValueError(
+                    "JWT_SECRET_KEY must be set in production. "
+                    "Set a cryptographically random value via the JWT_SECRET_KEY env var."
+                )
+            # Auto-generate for dev/staging/test so app doesn't crash
+            import secrets as _secrets
+            v = _secrets.token_urlsafe(32)
+            warnings.warn(
+                "JWT_SECRET_KEY not set — auto-generated for development. "
+                "Set a cryptographically random value via JWT_SECRET_KEY env var in production!",
+                stacklevel=2,
             )
         if v.startswith("dev-") or v == "change-me":
-            if os.environ.get("ENVIRONMENT") == "production":
+            if env == "production":
                 raise ValueError(
                     "JWT_SECRET_KEY must be changed from default in production. "
                     "Set a cryptographically random value via the JWT_SECRET_KEY env var."
@@ -280,8 +320,8 @@ class Settings(BaseSettings):
                 "Using development JWT_SECRET_KEY — change in production!",
                 stacklevel=2,
             )
-        # C-11 FIX: Enforce minimum key length in production
-        if os.environ.get("ENVIRONMENT") == "production" and len(v) < 32:
+        # Enforce minimum key length in production
+        if env == "production" and len(v) < 32:
             raise ValueError(
                 f"JWT_SECRET_KEY must be at least 32 characters in production, "
                 f"got {len(v)}. Generate one with: "
@@ -336,7 +376,7 @@ class Settings(BaseSettings):
     CELERY_TASK_TIME_LIMIT: int = 330  # 5.5 minutes (hard kill)
 
     # ── CORS (frontend origin) ─────────────────────────────────
-    CORS_ORIGINS: str = "http://localhost:3000,https://parwa.buzz,https://parwa.ai"
+    CORS_ORIGINS: str = "http://localhost:3000,https://parwa.buzz,https://parwa.ai,https://parwa.vercel.app"
 
     # ── Frontend ────────────────────────────────────────────────
     FRONTEND_URL: str = "http://localhost:3000"

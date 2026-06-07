@@ -21,6 +21,29 @@ import { getBackendUrl } from '@/lib/backend-url';
 
 const BACKEND_URL = getBackendUrl();
 
+/**
+ * Get the Origin header for proxy requests.
+ *
+ * Dynamic based on VERCEL_URL or environment, never hardcoded.
+ * Falls back to http://localhost:3000 for local development.
+ */
+function getProxyOrigin(): string {
+  // Runtime env var — can be changed without rebuilding
+  if (process.env.FRONTEND_URL) {
+    return process.env.FRONTEND_URL;
+  }
+  // Vercel provides VERCEL_URL (e.g. parwa.vercel.app)
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  // Production default
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://parwa.ai';
+  }
+  // Local development
+  return 'http://localhost:3000';
+}
+
 interface CSRFTokens {
   cookie: string;
   token: string;
@@ -32,12 +55,13 @@ interface CSRFTokens {
  * so even a 404 will give us the cookie.
  */
 async function fetchCSRFToken(): Promise<CSRFTokens | null> {
+  const origin = getProxyOrigin();
   try {
     const res = await fetch(`${BACKEND_URL}/api/health`, {
       method: 'GET',
       headers: {
-        'Origin': 'https://parwa.buzz',
-        'Referer': 'https://parwa.buzz/',
+        'Origin': origin,
+        'Referer': `${origin}/`,
       },
       signal: AbortSignal.timeout(30000),
     });
@@ -86,10 +110,11 @@ export async function backendProxy(
 ): Promise<{ response: Response; csrfUsed: boolean }> {
   const { method, body, authToken, extraHeaders = {} } = options;
 
+  const origin = getProxyOrigin();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Origin': 'https://parwa.buzz',
-    'Referer': 'https://parwa.buzz/',
+    'Origin': origin,
+    'Referer': `${origin}/`,
     ...extraHeaders,
   };
 

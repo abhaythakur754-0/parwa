@@ -431,7 +431,15 @@ def _should_use_secure_cookies() -> bool:
 def _set_token_cookies(
     response: Response, tokens: TokenResponse
 ) -> None:
-    """L12: Set HTTP-only, Secure, SameSite=Strict cookies.
+    """L12: Set HTTP-only, Secure, SameSite=Lax cookies.
+
+    Cookie names match the frontend expectations:
+    - parwa_at (access token) — read by auth-cookies.ts
+    - parwa_rt (refresh token) — read by auth-cookies.ts
+
+    SameSite=Lax (not Strict) because:
+    - Strict drops cookies on cross-site navigation (e.g. Google OAuth redirect)
+    - Lax still prevents CSRF on POST/PUT/DELETE while allowing GET from links
 
     Secure flag is conditional on ENVIRONMENT:
     - production: Secure=True (HTTPS required)
@@ -439,21 +447,21 @@ def _set_token_cookies(
     """
     secure = _should_use_secure_cookies()
     response.set_cookie(
-        key="parwa_access",
+        key="parwa_at",
         value=tokens.access_token,
         max_age=tokens.expires_in,
         httponly=True,
         secure=secure,
-        samesite="strict",
+        samesite="lax",
         path="/",
     )
     response.set_cookie(
-        key="parwa_refresh",
+        key="parwa_rt",
         value=tokens.refresh_token,
         max_age=7 * 24 * 60 * 60,  # 7 days
         httponly=True,
         secure=secure,
-        samesite="strict",
+        samesite="lax",
         path="/",
     )
 
@@ -461,8 +469,8 @@ def _set_token_cookies(
 def _clear_token_cookies(response: Response) -> None:
     """L12: Clear auth cookies on logout."""
     response.delete_cookie(
-        key="parwa_access", path="/"
+        key="parwa_at", path="/"
     )
     response.delete_cookie(
-        key="parwa_refresh", path="/"
+        key="parwa_rt", path="/"
     )
