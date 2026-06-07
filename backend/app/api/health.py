@@ -33,8 +33,21 @@ router = APIRouter(tags=["Health"])
 # Track app start time for uptime calculation
 _start_time = time.monotonic()
 # R-05 FIX: Single source of truth — version comes from config.py Settings
-from app.config import get_settings as _get_health_settings
-APP_VERSION = _get_health_settings().APP_VERSION
+# Lazy-load to avoid crashing the entire app at import time if Settings
+# validation fails (e.g. missing env vars on first deploy).
+_APP_VERSION: Optional[str] = None
+
+
+def _get_app_version() -> str:
+    """Return APP_VERSION from config, cached after first call."""
+    global _APP_VERSION
+    if _APP_VERSION is None:
+        try:
+            from app.config import get_settings as _get_health_settings
+            _APP_VERSION = _get_health_settings().APP_VERSION
+        except Exception:
+            _APP_VERSION = os.environ.get("APP_VERSION", "0.1.0")
+    return _APP_VERSION
 
 
 def _get_uptime_seconds() -> float:
@@ -210,7 +223,7 @@ async def health_endpoint():
     response_data = {
         "status": result.status,
         "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
-        "version": APP_VERSION,
+        "version": _get_app_version(),
         "uptime_seconds": _get_uptime_seconds(),
         "subsystems": subsystems_summary,
         "checks_total": result.checks_total,
@@ -261,7 +274,7 @@ async def health_detail_endpoint():
     response_data = {
         "status": result.status,
         "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
-        "version": APP_VERSION,
+        "version": _get_app_version(),
         "uptime_seconds": _get_uptime_seconds(),
         "subsystems": subsystems_detail,
         "checks_total": result.checks_total,
@@ -348,7 +361,7 @@ async def metrics_endpoint(
     lines.append(
         f'# HELP parwa_build_info PARWA build information\n'
         f'# TYPE parwa_build_info gauge\n'
-        f'parwa_build_info{{version="{APP_VERSION}"}} 1'
+        f'parwa_build_info{{version="{_get_app_version()}"}} 1'
     )
 
     # Uptime
