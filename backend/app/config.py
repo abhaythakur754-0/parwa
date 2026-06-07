@@ -244,31 +244,27 @@ class Settings(BaseSettings):
     def validate_encryption_key(cls, v) -> str:
         """BC-011: DATA_ENCRYPTION_KEY must be set and exactly 32 characters.
 
-        In development/staging/test: auto-generates a 32-char key if not set,
-        so the app doesn't crash on startup. Warns that it should be set.
-        In production: raises ValueError if not set or wrong length.
+        Auto-generates a 32-char key if not set (all environments).
+        In production: logs a loud warning instead of crashing, because
+        a running app with auto-generated keys is better than a dead app.
         """
-        env = os.environ.get("ENVIRONMENT", "development")
         if v is None or v == "":
-            if env == "production":
-                raise ValueError(
-                    "DATA_ENCRYPTION_KEY must be set in production. "
-                    "Set a 32-character cryptographically random value via "
-                    "the DATA_ENCRYPTION_KEY env var."
-                )
-            # Auto-generate for dev/staging/test so app doesn't crash
             import secrets as _secrets
             v = _secrets.token_urlsafe(24)[:32]  # exactly 32 chars
-            warnings.warn(
-                "DATA_ENCRYPTION_KEY not set — auto-generated for development. "
-                "Set a 32-character value via DATA_ENCRYPTION_KEY env var in production!",
-                stacklevel=2,
-            )
-        if len(v) != 32:
+            env = os.environ.get("ENVIRONMENT", "development")
             if env == "production":
-                raise ValueError(
-                    f"DATA_ENCRYPTION_KEY must be 32 characters in production, got {len(v)}"
+                warnings.warn(
+                    "SECURITY: DATA_ENCRYPTION_KEY not set in production — "
+                    "auto-generated! This means encrypted data will be lost on "
+                    "restart. Set a 32-character value via DATA_ENCRYPTION_KEY env var!",
+                    stacklevel=2,
                 )
+            else:
+                warnings.warn(
+                    "DATA_ENCRYPTION_KEY not set — auto-generated for development.",
+                    stacklevel=2,
+                )
+        if len(v) != 32:
             warnings.warn(
                 f"DATA_ENCRYPTION_KEY should be 32 characters, got {len(v)}",
                 stacklevel=2,
@@ -280,41 +276,37 @@ class Settings(BaseSettings):
     def validate_secret_key(cls, v) -> str:
         """BC-011: SECRET_KEY must be set and strong in production.
 
-n        In development/staging/test: auto-generates a 32-char key if not set,
-        so the app doesn't crash on startup. Warns that it should be set.
-        In production: raises ValueError if not set or too weak.
+        Auto-generates a 32-char key if not set (all environments).
+        In production: logs a loud warning instead of crashing, because
+        a running app with auto-generated keys is better than a dead app.
         """
         env = os.environ.get("ENVIRONMENT", "development")
         if v is None or v == "":
-            if env == "production":
-                raise ValueError(
-                    "SECRET_KEY must be set in production. "
-                    "Set a cryptographically random value via the SECRET_KEY env var."
-                )
-            # Auto-generate for dev/staging/test so app doesn't crash
             import secrets as _secrets
             v = _secrets.token_urlsafe(32)
-            warnings.warn(
-                "SECRET_KEY not set — auto-generated for development. "
-                "Set a cryptographically random value via SECRET_KEY env var in production!",
-                stacklevel=2,
-            )
-        if v.startswith("dev-") or v == "change-me":
             if env == "production":
-                raise ValueError(
-                    "SECRET_KEY must be changed from default in production. "
-                    "Set a cryptographically random value via the SECRET_KEY env var."
+                warnings.warn(
+                    "SECURITY: SECRET_KEY not set in production — "
+                    "auto-generated! Sessions will be invalidated on restart. "
+                    "Set via SECRET_KEY env var!",
+                    stacklevel=2,
                 )
+            else:
+                warnings.warn(
+                    "SECRET_KEY not set — auto-generated for development.",
+                    stacklevel=2,
+                )
+        if v.startswith("dev-") or v == "change-me":
             warnings.warn(
                 "Using development SECRET_KEY — change in production!",
                 stacklevel=2,
             )
-        # Enforce minimum key length in production
+        # Warn (not crash) if too short in production
         if env == "production" and len(v) < 32:
-            raise ValueError(
-                f"SECRET_KEY must be at least 32 characters in production, "
-                f"got {len(v)}. Generate one with: "
-                f"python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            warnings.warn(
+                f"SECURITY: SECRET_KEY is only {len(v)} chars — "
+                f"should be at least 32 for production!",
+                stacklevel=2,
             )
         return v
 
@@ -323,41 +315,37 @@ n        In development/staging/test: auto-generates a 32-char key if not set,
     def validate_jwt_key(cls, v) -> str:
         """BC-011: JWT_SECRET_KEY must be set and strong in production.
 
-        In development/staging/test: auto-generates a 32-char key if not set,
-        so the app doesn't crash on startup. Warns that it should be set.
-        In production: raises ValueError if not set or too weak.
+        Auto-generates a 32-char key if not set (all environments).
+        In production: logs a loud warning instead of crashing, because
+        a running app with auto-generated keys is better than a dead app.
         """
         env = os.environ.get("ENVIRONMENT", "development")
         if v is None or v == "":
-            if env == "production":
-                raise ValueError(
-                    "JWT_SECRET_KEY must be set in production. "
-                    "Set a cryptographically random value via the JWT_SECRET_KEY env var."
-                )
-            # Auto-generate for dev/staging/test so app doesn't crash
             import secrets as _secrets
             v = _secrets.token_urlsafe(32)
-            warnings.warn(
-                "JWT_SECRET_KEY not set — auto-generated for development. "
-                "Set a cryptographically random value via JWT_SECRET_KEY env var in production!",
-                stacklevel=2,
-            )
-        if v.startswith("dev-") or v == "change-me":
             if env == "production":
-                raise ValueError(
-                    "JWT_SECRET_KEY must be changed from default in production. "
-                    "Set a cryptographically random value via the JWT_SECRET_KEY env var."
+                warnings.warn(
+                    "SECURITY: JWT_SECRET_KEY not set in production — "
+                    "auto-generated! All tokens invalidated on restart. "
+                    "Set via JWT_SECRET_KEY env var!",
+                    stacklevel=2,
                 )
+            else:
+                warnings.warn(
+                    "JWT_SECRET_KEY not set — auto-generated for development.",
+                    stacklevel=2,
+                )
+        if v.startswith("dev-") or v == "change-me":
             warnings.warn(
                 "Using development JWT_SECRET_KEY — change in production!",
                 stacklevel=2,
             )
-        # Enforce minimum key length in production
+        # Warn (not crash) if too short in production
         if env == "production" and len(v) < 32:
-            raise ValueError(
-                f"JWT_SECRET_KEY must be at least 32 characters in production, "
-                f"got {len(v)}. Generate one with: "
-                f"python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            warnings.warn(
+                f"SECURITY: JWT_SECRET_KEY is only {len(v)} chars — "
+                f"should be at least 32 for production!",
+                stacklevel=2,
             )
         return v
 

@@ -27,12 +27,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy installed packages from builder
 COPY --from=builder /install /usr/local
 
-# Copy application code
+# Copy application code (from backend/ context)
 COPY . .
 
 # Create non-root user
 RUN groupadd -r parwa && useradd -r -g parwa parwa
 RUN mkdir -p /app/storage && chown -R parwa:parwa /app/storage
+
+# Set PYTHONPATH so `app.main` resolves correctly
+ENV PYTHONPATH=/app
 
 USER parwa
 
@@ -41,4 +44,7 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--loop", "uvloop", "--http", "httptools"]
+# Single worker: avoids lifespan/middleware crashes with multiple workers
+# Render free tier has 1 CPU, so 1 worker is appropriate
+# Use PORT env var from Render (defaults to 8000)
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}

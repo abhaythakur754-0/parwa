@@ -11,8 +11,8 @@ services:
     name: parwa-backend
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
-    # Build context is repo root so requirements.txt is available
-    buildContext: .
+    # Build context is backend/ so COPY . . gets backend code
+    buildContext: ./backend
     plan: starter
     region: oregon
     branch: main
@@ -20,7 +20,7 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: PYTHONPATH
-        value: /app:/app/backend
+        value: /app
       - key: PORT
         value: 8000
       - key: DATABASE_URL
@@ -55,7 +55,7 @@ services:
     name: parwa-worker
     runtime: docker
     dockerfilePath: ./backend/Dockerfile.celery
-    buildContext: .
+    buildContext: ./backend
     plan: starter
     region: oregon
     branch: main
@@ -63,7 +63,7 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: PYTHONPATH
-        value: /app:/app/backend
+        value: /app
       - key: DATABASE_URL
         fromDatabase:
           name: parwa-db
