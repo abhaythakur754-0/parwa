@@ -222,10 +222,29 @@ export default function DashboardPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
 
-  // ── Onboarding bypassed — skip check entirely ──────────────────────
+  // ── Onboarding check ──────────────────────────────────────────────
   useEffect(() => {
-    setOnboardingChecked(true);
-  }, []);
+    async function checkOnboarding() {
+      try {
+        const res = await fetch('/api/onboarding/state', {
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          // If onboarding is NOT completed, redirect to onboarding wizard
+          if (!data.first_victory_completed && data.status !== 'completed') {
+            router.replace('/onboarding');
+            return;
+          }
+        }
+      } catch {
+        // On error, allow dashboard access (don't block on network failure)
+      }
+      setOnboardingChecked(true);
+    }
+    checkOnboarding();
+  }, [router]);
 
   if (!onboardingChecked) {
     return (

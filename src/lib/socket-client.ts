@@ -41,7 +41,9 @@ export interface MissedEvent {
 // ── Constants ────────────────────────────────────────────────────────
 
 const TOKEN_KEY = 'parwa_access_token';
-const DEFAULT_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Socket.io must connect directly to the backend (can't proxy WebSockets through Next.js API routes)
+// In production, use the backend URL; in development, fall back to localhost
+const DEFAULT_URL = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const DEFAULT_PATH = '/ws';
 const MAX_RECONNECT_DELAY = 30_000;
 const INITIAL_RECONNECT_DELAY = 1_000;

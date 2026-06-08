@@ -3,10 +3,23 @@ import { NextRequest, NextResponse } from 'next/server';
 /**
  * Billing proxy route.
  * Forwards /api/billing/* to backend /api/billing/*
+ * Includes Origin header and forwards auth cookie as Bearer token.
  */
 
 function getBackendUrl(): string {
   return process.env.BACKEND_URL || 'https://parwa-backend.onrender.com';
+}
+
+function getProxyOrigin(): string {
+  if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  if (process.env.NODE_ENV === 'production') return 'https://parwa.buzz';
+  return 'http://localhost:3000';
+}
+
+function getAccessTokenFromCookie(cookieHeader: string): string | null {
+  const match = cookieHeader.match(/(?:^|;\s*)parwa_at=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
 async function proxyRequest(
@@ -15,6 +28,7 @@ async function proxyRequest(
   pathSegments: string[],
 ) {
   const backendUrl = getBackendUrl();
+  const origin = getProxyOrigin();
   const fullPath = pathSegments.join('/');
   const url = new URL(request.url);
   const queryString = url.searchParams.toString();
@@ -26,17 +40,27 @@ async function proxyRequest(
       try { body = await request.text(); } catch { /* no body */ }
     }
 
+    const cookie = request.headers.get('cookie') || '';
+    const accessToken = getAccessTokenFromCookie(cookie);
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'Origin': origin,
+      'Referer': `${origin}/`,
     };
-    const cookie = request.headers.get('cookie');
-    if (cookie) headers.cookie = cookie;
+
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+    if (cookie) {
+      headers['Cookie'] = cookie;
+    }
 
     const backendRes = await fetch(`${backendUrl}${backendPath}`, {
       method,
       headers,
       body,
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(15000),
     });
 
     const text = await backendRes.text();

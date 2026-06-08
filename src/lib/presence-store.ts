@@ -13,7 +13,8 @@
 
 import { create } from 'zustand';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+// Use relative URLs so requests go through Next.js proxy (avoids CSRF 403)
 
 // ── Types ────────────────────────────────────────────────────────────
 

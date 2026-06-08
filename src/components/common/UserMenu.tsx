@@ -99,7 +99,7 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
 
   const handleLogout = async () => {
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/auth/logout`, {
+      await fetch(`/api/auth/logout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -120,7 +120,7 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
     }
     setIsDeleting(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/user/delete-account`, {
+      const res = await fetch(`/api/user/delete-account`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

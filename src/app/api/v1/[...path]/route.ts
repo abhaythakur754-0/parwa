@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
- * Approvals proxy route.
- * Forwards /api/approvals/* to backend /api/approvals/*
+ * V1 API proxy route.
+ * Forwards /api/v1/* to backend /api/v1/* (admin/roi, admin/sentiment, billing/*, notifications, presence, etc.)
  * Includes Origin header and forwards auth cookie as Bearer token.
  */
 
@@ -17,6 +17,9 @@ function getProxyOrigin(): string {
   return 'http://localhost:3000';
 }
 
+/**
+ * Extract access token from cookies.
+ */
 function getAccessTokenFromCookie(cookieHeader: string): string | null {
   const match = cookieHeader.match(/(?:^|;\s*)parwa_at=([^;]*)/);
   return match ? decodeURIComponent(match[1]) : null;
@@ -32,7 +35,7 @@ async function proxyRequest(
   const fullPath = pathSegments.join('/');
   const url = new URL(request.url);
   const queryString = url.searchParams.toString();
-  const backendPath = `/api/approvals/${fullPath}${queryString ? `?${queryString}` : ''}`;
+  const backendPath = `/api/v1/${fullPath}${queryString ? `?${queryString}` : ''}`;
 
   try {
     let body: string | null = null;
@@ -49,9 +52,12 @@ async function proxyRequest(
       'Referer': `${origin}/`,
     };
 
+    // Forward auth token — Bearer auth bypasses CSRF
     if (accessToken) {
       headers['Authorization'] = `Bearer ${accessToken}`;
     }
+
+    // Also forward cookies for session-based auth
     if (cookie) {
       headers['Cookie'] = cookie;
     }
@@ -75,7 +81,7 @@ async function proxyRequest(
     }
   } catch {
     return NextResponse.json(
-      { error: { message: 'Approvals service unavailable. Please try again later.' } },
+      { error: { message: 'V1 API service unavailable. Please try again later.' } },
       { status: 503 },
     );
   }
