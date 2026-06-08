@@ -1,111 +1,89 @@
 """
-PARWA Admin Bootstrap Endpoint
+PARWA Customer Variant Activation Endpoint
 
-One-time setup endpoint to promote the first user to platform admin
-and activate all 3 SaaS variants (Starter, Growth, High) on their account.
+Allows a company owner to activate all 3 SaaS variants (Starter, Growth, High)
+on their account for testing/demo purposes. The user remains a regular customer
+(owner role) — no platform admin privileges are granted.
 
-SECURITY: This endpoint is protected by a bootstrap secret that must be
-set via the ADMIN_BOOTSTRAP_SECRET environment variable. After the first
-successful bootstrap, the secret should be rotated or removed.
+SECURITY:
+- Requires valid JWT (must be company owner)
+- First-run only: works only when no subscription record exists yet
+- Does NOT grant is_platform_admin
 
-This endpoint should be removed or disabled in production after use.
+This endpoint should be removed or disabled after initial testing.
 """
 
-import os
+import json
 import uuid
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.exceptions import AuthenticationError, AuthorizationError, ValidationError
+from app.exceptions import ValidationError
 from database.base import get_db
 from database.models.core import User, Company
 from database.models.billing import Subscription
 from database.models.variant_engine import VariantInstance
 
-router = APIRouter(prefix="/api/admin", tags=["admin-bootstrap"])
-
-# Bootstrap secret from environment - must be set to use this endpoint
-_BOOTSTRAP_SECRET = os.environ.get("ADMIN_BOOTSTRAP_SECRET", "")
+router = APIRouter(prefix="/api/setup", tags=["setup"])
 
 
-@router.post("/bootstrap")
-def bootstrap_platform_admin(
+@router.post("/activate-all-variants")
+def activate_all_variants(
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    authorization: str = Header(None),
-    x_bootstrap_secret: str = Header(None, alias="X-Bootstrap-Secret"),
 ):
-    """Promote the authenticated user to platform admin and activate all variants.
+    """Activate all 3 PARWA variants on the authenticated user's company.
 
-    This is a one-time setup endpoint for bootstrapping the first admin account.
-    It requires:
-    1. A valid JWT (user must already be registered)
-    2. The X-Bootstrap-Secret header matching ADMIN_BOOTSTRAP_SECRET env var
+    This is a setup/testing endpoint that simulates a customer who has
+    purchased all 3 variants. The user stays as a regular customer (owner)
+    with no admin privileges — exactly what a real customer would experience.
 
     What it does:
-    - Sets is_platform_admin=True on the user
     - Sets company subscription_tier='high' and subscription_status='active'
+    - Sets company mode to 'live'
     - Creates a subscription record (high tier, 30-day period)
     - Creates 3 VariantInstance records (starter, growth, high)
-    - Sets company mode to 'live'
+    - Does NOT set is_platform_admin
     """
 
-    # Security: Verify bootstrap secret
-    if not _BOOTSTRAP_SECRET:
-        raise AuthorizationError(
-            message="Bootstrap endpoint is not configured. "
-                    "Set ADMIN_BOOTSTRAP_SECRET environment variable.",
-        )
-    if not x_bootstrap_secret or x_bootstrap_secret != _BOOTSTRAP_SECRET:
-        raise AuthorizationError(
-            message="Invalid bootstrap secret",
+    # Only company owners can do this
+    if user.role != "owner":
+        raise ValidationError(
+            message="Only company owners can activate variants",
+            details={"role": user.role},
         )
 
-    # Get authenticated user
-    if not authorization:
-        raise AuthenticationError(message="Authorization header required")
-
-    parts = authorization.split(" ", 1)
-    if len(parts) != 2 or parts[0] != "Bearer":
-        raise AuthenticationError(
-            message="Invalid authorization format. Use: Bearer <token>"
-        )
-
-    from app.core.auth import verify_access_token
-    token = parts[1]
-    payload = verify_access_token(token)
-
-    user_id = payload.get("sub")
-    if not user_id:
-        raise AuthenticationError(message="Invalid token payload")
-
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise AuthenticationError(message="User not found")
-
-    company = db.query(Company).filter(Company.id == user.company_id).first()
+    company = db.query(Company).filter(
+        Company.id == user.company_id,
+    ).first()
     if not company:
-        raise AuthenticationError(message="Company not found")
+        raise ValidationError(
+            message="Company not found",
+        )
 
     now = datetime.now(timezone.utc)
 
-    # 1. Promote user to platform admin
-    user.is_platform_admin = True
-
-    # 2. Upgrade company to High tier (top tier - includes all features)
+    # 1. Upgrade company to High tier (top tier — unlocks all features)
     company.subscription_tier = "high"
     company.subscription_status = "active"
     company.mode = "live"
     company.updated_at = now
 
-    # 3. Create subscription record
+    # 2. Create or update subscription record
     existing_sub = db.query(Subscription).filter(
         Subscription.company_id == company.id,
     ).first()
 
-    if not existing_sub:
+    if existing_sub:
+        existing_sub.tier = "high"
+        existing_sub.status = "active"
+        existing_sub.current_period_start = now
+        existing_sub.current_period_end = now + timedelta(days=30)
+        existing_sub.cancel_at_period_end = False
+    else:
         subscription = Subscription(
             id=str(uuid.uuid4()),
             company_id=company.id,
@@ -117,7 +95,7 @@ def bootstrap_platform_admin(
         )
         db.add(subscription)
 
-    # 4. Create 3 VariantInstance records (one per variant)
+    # 3. Create 3 VariantInstance records (one per variant)
     variant_configs = [
         {
             "variant_type": "starter",
@@ -151,15 +129,17 @@ def bootstrap_platform_admin(
         },
     ]
 
-    import json
-
     for config in variant_configs:
         existing = db.query(VariantInstance).filter(
             VariantInstance.company_id == company.id,
             VariantInstance.variant_type == config["variant_type"],
         ).first()
 
-        if not existing:
+        if existing:
+            existing.status = "active"
+            existing.channel_assignment = json.dumps(config["channels"])
+            existing.capacity_config = json.dumps(config["capacity"])
+        else:
             instance = VariantInstance(
                 id=str(uuid.uuid4()),
                 company_id=company.id,
@@ -174,13 +154,13 @@ def bootstrap_platform_admin(
     db.commit()
 
     return {
-        "message": "Bootstrap complete — account upgraded to platform admin with all 3 variants",
+        "message": "All 3 variants activated — you now have Starter, Growth, and High as a customer",
         "user": {
             "id": str(user.id),
             "email": user.email,
             "full_name": user.full_name,
-            "is_platform_admin": True,
             "role": user.role,
+            "is_platform_admin": user.is_platform_admin,
         },
         "company": {
             "id": str(company.id),
@@ -189,6 +169,13 @@ def bootstrap_platform_admin(
             "subscription_status": "active",
             "mode": "live",
         },
-        "variants_created": [c["variant_type"] for c in variant_configs],
-        "note": "Please log out and log back in to get a fresh JWT with the updated plan claim.",
+        "variants_activated": [
+            {
+                "type": c["variant_type"],
+                "name": c["instance_name"],
+                "channels": c["channels"],
+            }
+            for c in variant_configs
+        ],
+        "note": "Log out and log back in to get a fresh JWT with the 'high' plan claim.",
     }
