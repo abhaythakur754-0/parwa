@@ -172,9 +172,9 @@ class TestCORSSecurity:
 
     def test_cors_filters_empty_strings(self):
         """Empty strings in CORS_ORIGINS should be filtered out."""
-        cors_origins_setting = "https://parwa.buzz,, https://www.parwa.buzz, https://parwadashboard.netlify.app,  "
+        cors_origins_setting = "https://parwa.buzz,, https://www.parwa.buzz, https://parwa.vercel.app,  "
         result = [o.strip() for o in cors_origins_setting.split(",") if o.strip()]
-        assert result == ["https://parwa.buzz", "https://www.parwa.buzz", "https://parwadashboard.netlify.app"]
+        assert result == ["https://parwa.buzz", "https://www.parwa.buzz", "https://parwa.vercel.app"]
         assert "" not in result
 
     def test_main_py_uses_fallback_not_wildcard(self):

@@ -311,13 +311,14 @@ class CSRFSecurityMiddleware:
         if not check_origin:
             return False
 
-        # Allow any Vercel or Netlify preview deployment (dynamic subdomains)
-        if re.match(r"^https://[a-z0-9\-]+\.(vercel\.app|netlify\.app)$", check_origin):
+        # Allow any Vercel preview deployment (dynamic subdomains)
+        # e.g. chat1-fixes-parwa.vercel.app, parwa-git-main-abhaythakur754-0.vercel.app
+        if re.match(r"^https://[a-z0-9\-]+\.(vercel\.app)$", check_origin):
             return True
 
-        # Allow any Netlify deploy preview (dynamic subdomains like
-        # fix-phase1b-onboarding--parwa.netlify.app, parwadashboard.netlify.app)
-        if re.match(r"^https://[a-z0-9\-]+(--[a-z0-9\-]+)?\.netlify\.app$", check_origin):
+        # Allow Vercel deploy preview URLs with double-dash format
+        # e.g. parwa-git-main-abhaythakur754-0s-projects.vercel.app
+        if re.match(r"^https://[a-z0-9\-]+(--[a-z0-9\-]+)?\.vercel\.app$", check_origin):
             return True
 
         # Check against trusted origins

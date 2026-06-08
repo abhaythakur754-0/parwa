@@ -1,4 +1,5 @@
 {
+  "framework": "nextjs",
   "functions": {
     "src/app/api/auth/*/route.ts": {
       "maxDuration": 30

@@ -30,7 +30,7 @@ export default defineConfig({
     ['list'],
   ],
   use: {
-    baseURL: process.env.BASE_URL || 'https://parwadashboard.netlify.app',
+    baseURL: process.env.BASE_URL || 'https://parwa.vercel.app',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
       // CSRF / Origin errors — do NOT fall through to local Prisma
       // A 403 from the backend is a CSRF rejection, not a real auth error.
       // Falling through to Prisma causes a broken "server error" because
-      // Prisma isn't configured on Vercel/Netlify deployments.
+      // Prisma isn't configured on Vercel deployments.
       if (backendRes.status === 403) {
         let errorData: Record<string, unknown> = {};
         try { errorData = await backendRes.json(); } catch { /* ignore */ }

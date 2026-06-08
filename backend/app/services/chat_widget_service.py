@@ -784,7 +784,7 @@ class ChatWidgetService:
             Dict with embed info.
         """
         config = self.get_or_create_widget_config(company_id)
-        frontend_url = "https://parwadashboard.netlify.app"
+        frontend_url = "https://parwa.vercel.app"
 
         return {
             "company_id": company_id,

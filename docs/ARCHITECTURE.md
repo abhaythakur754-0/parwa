@@ -661,7 +661,7 @@ script-src 'self' https://cdn.paddle.com;
 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
 font-src 'self' https://fonts.gstatic.com;
 img-src 'self' data: https:;
-connect-src 'self' https://parwa.buzz wss://parwa.buzz https://parwadashboard.netlify.app;
+connect-src 'self' https://parwa.buzz wss://parwa.buzz https://parwa.vercel.app;
 frame-src 'self' https://cdn.paddle.com;
 object-src 'none';
 base-uri 'self';

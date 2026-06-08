@@ -62,7 +62,7 @@ spec:
         - www.parwa.buzz
       secretName: parwa-tls-secret
     - hosts:
-        - parwadashboard.netlify.app
+        - parwa.vercel.app
       secretName: parwa-dashboard-tls-secret
     - hosts:                            # #46: monitoring TLS
         - monitoring.parwa.buzz
@@ -109,7 +109,7 @@ spec:
                 name: frontend-svc
                 port:
                   number: 3000
-    - host: parwadashboard.netlify.app
+    - host: parwa.vercel.app
       http:
         paths:
           - path: /

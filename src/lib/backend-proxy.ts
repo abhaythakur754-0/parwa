@@ -28,7 +28,7 @@ const BACKEND_URL = getBackendUrl();
  * Falls back to http://localhost:3000 for local development.
  *
  * IMPORTANT: The production default must match the backend's CSRF_TRUSTED_ORIGINS.
- * The deployed backend trusts https://parwa.buzz and https://parwadashboard.netlify.app.
+ * The deployed backend trusts https://parwa.buzz and https://parwa.vercel.app.
  * Using the wrong origin causes a 403 CSRF rejection on auth endpoints.
  */
 function getProxyOrigin(): string {
@@ -60,8 +60,7 @@ function getFallbackOrigins(): string[] {
   // Add common PARWA domains as fallbacks (skip the primary to avoid duplicate)
   const allDomains = [
     'https://parwa.buzz',
-    'https://parwa.netlify.app',
-    'https://parwadashboard.netlify.app',
+    'https://parwa.vercel.app',
     'https://www.parwa.buzz',
   ];
   for (const domain of allDomains) {

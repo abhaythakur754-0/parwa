@@ -24,10 +24,10 @@ export function getBackendUrl(): string {
     return 'https://parwa-backend.onrender.com';
   }
 
-  // If NEXT_PUBLIC_API_URL points to the frontend itself (parwa.buzz, parwadashboard.netlify.app),
+  // If NEXT_PUBLIC_API_URL points to the frontend itself (parwa.buzz, parwa.vercel.app),
   // don't use it for backend proxying — that would create infinite loops.
   const publicUrl = process.env.NEXT_PUBLIC_API_URL || '';
-  const frontendHosts = ['parwa.buzz', 'parwadashboard.netlify.app', 'localhost:3000', 'vercel.app'];
+  const frontendHosts = ['parwa.buzz', 'parwa.vercel.app', 'localhost:3000', 'vercel.app'];
   const isFrontendUrl = frontendHosts.some(
     (host) => publicUrl.includes(host)
   );

@@ -29,7 +29,7 @@
 import { test, expect, Page } from '@playwright/test';
 
 // ── Configuration ──────────────────────────────────────────────
-const BASE_URL = process.env.BASE_URL || 'https://parwadashboard.netlify.app';
+const BASE_URL = process.env.BASE_URL || 'https://parwa.vercel.app';
 
 // Unique test user per run
 const TIMESTAMP = Date.now();

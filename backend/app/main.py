@@ -384,9 +384,9 @@ except Exception:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    # Allow Vercel & Netlify preview deployments
-    # e.g. chat1-fixes-parwa.vercel.app, fix-phase1b-onboarding--parwa.netlify.app
-    allow_origin_regex=r"https://[a-z0-9\-]+\.(vercel\.app|netlify\.app)|https://[a-z0-9\-]+--[a-z0-9\-]+\.netlify\.app",
+    # Allow Vercel preview deployments
+    # e.g. chat1-fixes-parwa.vercel.app, parwa-git-main-abhaythakur754-0.vercel.app
+    allow_origin_regex=r"https://[a-z0-9\-]+\.(vercel\.app)|https://[a-z0-9\-]+--[a-z0-9\-]+\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
