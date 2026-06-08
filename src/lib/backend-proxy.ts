@@ -90,7 +90,7 @@ async function fetchCSRFToken(): Promise<CSRFTokens | null> {
         'Origin': origin,
         'Referer': `${origin}/`,
       },
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(8000),
     });
 
     // Extract CSRF cookie from Set-Cookie header
@@ -177,13 +177,16 @@ export async function backendProxy(
   // ── OPTIMIZATION: Try without CSRF first for auth paths ──
   // This saves a full round trip when the backend is warm.
   // If it fails with 403 CSRF, we'll retry with CSRF.
+  // IMPORTANT: Vercel Hobby tier has 10s function limit, so we use 8s timeouts.
+  const PROXY_TIMEOUT = 8000;
+
   if (needsCSRF) {
     try {
       const response = await fetch(`${BACKEND_URL}${path}`, {
         method,
         headers,
         body: method !== 'GET' && method !== 'HEAD' ? body : undefined,
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(PROXY_TIMEOUT),
       });
 
       // If NOT a CSRF error, return the response immediately
@@ -214,7 +217,8 @@ export async function backendProxy(
 
     // ── Retry with CSRF token + fallback origins ──
     // Try primary origin with CSRF token first, then fallback origins
-    const originsToTry = [origin, ...getFallbackOrigins()];
+    // Limit to 1 retry to stay within Vercel's 10s function limit
+    const originsToTry = [origin]; // Only try primary origin to save time
     let lastResponse: Response | null = null;
 
     for (const tryOrigin of originsToTry) {
@@ -235,7 +239,7 @@ export async function backendProxy(
           method,
           headers: tryHeaders,
           body: method !== 'GET' && method !== 'HEAD' ? body : undefined,
-          signal: AbortSignal.timeout(30000),
+          signal: AbortSignal.timeout(PROXY_TIMEOUT),
         });
 
         // If this origin worked (not 403), return it
@@ -274,11 +278,12 @@ export async function backendProxy(
   }
 
   // ── Non-auth paths: try with primary origin, fallback on CSRF 403 ──
+  // Use 8s timeout to stay within Vercel's 10s function limit
   let response = await fetch(`${BACKEND_URL}${path}`, {
     method,
     headers,
     body: method !== 'GET' && method !== 'HEAD' ? body : undefined,
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(PROXY_TIMEOUT),
   });
 
   // If we get a CSRF 403 on a non-auth path, try fallback origins
@@ -296,7 +301,7 @@ export async function backendProxy(
             method,
             headers: fallbackHeaders,
             body: method !== 'GET' && method !== 'HEAD' ? body : undefined,
-            signal: AbortSignal.timeout(30000),
+            signal: AbortSignal.timeout(PROXY_TIMEOUT),
           });
           if (fallbackRes.status !== 403) {
             return { response: fallbackRes, csrfUsed: false };
