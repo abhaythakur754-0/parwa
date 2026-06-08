@@ -588,7 +588,7 @@ class TestHMACVerificationFunctional:
             import hmac, hashlib
             from app.security.hmac_verification import verify_twilio_signature
             token = "twilio_auth_token"
-            url = "https://parwa.ai/api/webhooks/twilio"
+            url = "https://parwa.buzz/api/webhooks/twilio"
             params = {"MessageSid": "SM123", "Body": "Hello"}
             sorted_params = sorted(params.items())
             data = url
@@ -623,7 +623,7 @@ class TestHMACVerificationFunctional:
             import hmac, hashlib
             from app.security.hmac_verification import verify_twilio_signature
             token = "token123"
-            url = "https://parwa.ai/webhook"
+            url = "https://parwa.buzz/webhook"
             sig1 = hmac.new(token.encode(), (url + "Aval1").encode(), hashlib.sha1).hexdigest()
             sig2 = hmac.new(token.encode(), (url + "Bval2").encode(), hashlib.sha1).hexdigest()
             assert sig1 != sig2

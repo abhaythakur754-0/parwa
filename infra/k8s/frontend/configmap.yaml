@@ -8,5 +8,5 @@ metadata:
     app.kubernetes.io/component: web
     app.kubernetes.io/part-of: parwa-platform
 data:
-  NEXT_PUBLIC_API_URL: "https://parwa.ai"
+  NEXT_PUBLIC_API_URL: "https://parwa.buzz"
   NEXT_PUBLIC_ENV: "production"

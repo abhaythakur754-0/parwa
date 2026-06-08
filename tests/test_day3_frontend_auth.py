@@ -140,7 +140,7 @@ test().catch(e => console.error('FAIL: ' + e.message));
         content = open("/home/z/my-project/parwa/src/app/api/auth/me/route.ts").read()
         assert "verifyToken" in content, "/me must verify JWT"
         assert "usr_mock" not in content, "/me must NOT return hardcoded mock user"
-        assert "demo@parwa.ai" not in content, "/me must NOT return hardcoded demo email"
+        assert "demo@parwa.buzz" not in content, "/me must NOT return hardcoded demo email"
 
     def test_c02b_me_route_checks_cookie_and_header(self):
         """/api/auth/me checks both cookie and Authorization header"""
@@ -512,8 +512,8 @@ test().catch(e => console.error('FAIL: ' + e.message));
     def test_scan_no_hardcoded_demo_users(self):
         """No hardcoded demo users in auth routes"""
         content = open("/home/z/my-project/parwa/src/app/api/auth/me/route.ts").read()
-        assert "demo@parwa.ai" not in content, \
-            "/me must NOT return hardcoded demo@parwa.ai"
+        assert "demo@parwa.buzz" not in content, \
+            "/me must NOT return hardcoded demo@parwa.buzz"
         assert "usr_mock" not in content, \
             "/me must NOT return hardcoded mock user IDs"
 

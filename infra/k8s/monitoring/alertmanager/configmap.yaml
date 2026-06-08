@@ -71,7 +71,7 @@ data:
 
       - name: email-critical
         email_configs:
-          - to: "oncall@parwa.ai"
+          - to: "oncall@parwa.buzz"
             headers:
               Subject: "[CRITICAL] {{ .GroupLabels.alertname }} - Parwa Production"
             html: >-
@@ -84,7 +84,7 @@ data:
 
       - name: email-warning
         email_configs:
-          - to: "team@parwa.ai"
+          - to: "team@parwa.buzz"
             headers:
               Subject: "[WARNING] {{ .GroupLabels.alertname }} - Parwa Production"
             html: >-
@@ -102,7 +102,7 @@ data:
 
       - name: dead-mans-switch
         webhook_configs:
-          - url: "https://healthchecks.parwa.ai/ping/dead-mans-switch"
+          - url: "https://healthchecks.parwa.buzz/ping/dead-mans-switch"
             send_resolved: false
 
     inhibit_rules:

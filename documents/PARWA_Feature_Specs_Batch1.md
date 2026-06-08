@@ -173,7 +173,7 @@ CREATE TABLE plans (
 
 | Edge Case | Handling |
 |-----------|----------|
-| Paddle SDK script fails to load | Show a graceful fallback: "Our payment system is temporarily unavailable. Please try again or contact sales@parwa.ai" with a mailto link. Never show a broken CTA. |
+| Paddle SDK script fails to load | Show a graceful fallback: "Our payment system is temporarily unavailable. Please try again or contact sales@parwa.buzz" with a mailto link. Never show a broken CTA. |
 | User selects a plan while on mobile | Cards stack vertically; toggle remains sticky at the top. CTA is full-width on mobile. |
 | Annual price calculation produces non-integer | Display as `$1,999/mo` — always round down and absorb any cents. The actual Paddle checkout handles precise amounts. |
 | User is already on an active subscription | The CTA text changes from "Get Started" to "Current Plan" (disabled) or "Upgrade"/"Downgrade" if the selected plan differs from their current plan. This requires reading the user's subscription from the session. |
@@ -367,7 +367,7 @@ An automated verification flow that sends a time-limited, single-use confirmatio
 ## User Journey
 1. After registration (F-010), the user sees a "Check your email" page at `/verify-email`.
 2. The page displays the user's email (masked: j***@company.com) and a "Resend email" button.
-3. User clicks the verification link in their email (e.g., `https://parwa.ai/verify?token=abc123`).
+3. User clicks the verification link in their email (e.g., `https://parwa.buzz/verify?token=abc123`).
 4. The backend validates the token: checks it exists, is not expired (24h), is not already used, and belongs to the expected user.
 5. If valid: `users.email_verified` is set to `true`. User is redirected to `/login` with a flash message "Email verified! You can now log in."
 6. If expired: User sees "This link has expired" with a button to request a new one.
@@ -875,7 +875,7 @@ No new tables are required for the checkout integration itself. The checkout ses
 
 | Edge Case | Handling |
 |-----------|----------|
-| Paddle SDK fails to load | The `PaddleProvider` dispatches a `paddle-sdk-error` event. All `CheckoutButton` components listen for this and render a fallback: "Payment system temporarily unavailable. Please contact sales@parwa.ai." |
+| Paddle SDK fails to load | The `PaddleProvider` dispatches a `paddle-sdk-error` event. All `CheckoutButton` components listen for this and render a fallback: "Payment system temporarily unavailable. Please contact sales@parwa.buzz." |
 | User has an active subscription and tries to checkout again | The backend checks the user's company subscription status. If already `active`, return 400 with `{ "message": "You already have an active subscription. Visit Settings to manage your plan." }`. Frontend checks this before opening Paddle checkout. |
 | User closes the Paddle overlay mid-checkout | Paddle's `cancelUrl` is triggered. The cancelled page is shown with options to retry or return to pricing. No partial state is created in PARWA's database. |
 | Paddle returns a checkout error (e.g., card declined) | Paddle handles this within their overlay. PARWA receives no webhook. No database state change occurs. The user can retry within Paddle's checkout. |
@@ -1317,8 +1317,8 @@ pre-recorded or artificial voice messages at the phone number(s) I have provided
 from PARWA AI ("Company") and its affiliates. I understand that consent is not a
 condition of purchasing any goods or services. Message and data rates may apply.
 I can revoke this consent at any time by texting STOP to the originating number,
-contacting support@parwa.ai, or updating my account settings. For more information,
-see our TCPA Policy at https://parwa.ai/legal/tcpa.
+contacting support@parwa.buzz, or updating my account settings. For more information,
+see our TCPA Policy at https://parwa.buzz/legal/tcpa.
 
 This consent was given on [DATE] from IP [IP_ADDRESS].
 ```
@@ -1330,7 +1330,7 @@ on behalf of my company (the Data Controller) for the processing of personal dat
 included in customer support interactions (names, email addresses, phone numbers,
 communication content, and related metadata). PARWA AI processes this data solely
 for the purpose of providing AI-powered customer support services as described in
-our Data Processing Agreement (DPA) at https://parwa.ai/legal/dpa.
+our Data Processing Agreement (DPA) at https://parwa.buzz/legal/dpa.
 
 I confirm that my company has the legal basis to share this personal data with
 PARWA AI and that appropriate data protection impact assessments have been
@@ -1338,7 +1338,7 @@ conducted where required under Article 35 of the GDPR.
 
 Data retention: Personal data is retained for the duration of the subscription
 plus 30 days, except for audit trail records retained for 5 years per applicable
-regulations. For data export or deletion requests, contact privacy@parwa.ai.
+regulations. For data export or deletion requests, contact privacy@parwa.buzz.
 
 This consent was given on [DATE] from IP [IP_ADDRESS].
 ```
@@ -1357,7 +1357,7 @@ announcement. I am responsible for ensuring compliance with applicable call
 recording laws in my jurisdiction, including one-party and two-party consent
 requirements.
 
-For our full Call Recording Policy, see https://parwa.ai/legal/call-recording.
+For our full Call Recording Policy, see https://parwa.buzz/legal/call-recording.
 
 This consent was given on [DATE] from IP [IP_ADDRESS].
 ```

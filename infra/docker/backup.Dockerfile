@@ -27,7 +27,7 @@
 # ────────────────────────────────────────────────────────────────────────
 FROM alpine:3.19
 
-LABEL maintainer="PARWA DevOps <devops@parwa.ai>"
+LABEL maintainer="PARWA DevOps <devops@parwa.buzz>"
 LABEL description="Automated PostgreSQL backup with rotation"
 LABEL version="1.0.0"
 

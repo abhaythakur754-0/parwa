@@ -510,13 +510,13 @@ class TestPIIScrubbingSentryIntegration:
             "level1": {
                 "level2": {
                     "email": "deep@nested.com",
-                    "data": "Contact support@parwa.ai",
+                    "data": "Contact support@parwa.buzz",
                 }
             }
         }
         result = _scrub_dict(data)
         assert "deep@nested.com" not in str(result)
-        assert "support@parwa.ai" not in str(result)
+        assert "support@parwa.buzz" not in str(result)
 
     def test_pii_scrubbing_never_crashes(self):
         """PII scrubbing must never crash even with invalid input."""

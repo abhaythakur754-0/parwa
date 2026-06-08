@@ -27,7 +27,7 @@ data:
   LOG_LEVEL: "INFO"
 
   # Frontend
-  NEXT_PUBLIC_API_URL: "https://parwa.ai"
+  NEXT_PUBLIC_API_URL: "https://parwa.buzz"
   NEXT_PUBLIC_ENV: "production"
 ---
 apiVersion: v1

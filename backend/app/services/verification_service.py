@@ -264,7 +264,7 @@ def resend_verification_email(
 
     # Send verification email
     verification_url = (
-        f"https://parwa.ai/verify?token={raw_token}"
+        f"https://parwa.buzz/verify?token={raw_token}"
     )
     sent = send_verification_email(
         user_email=user.email,
@@ -304,7 +304,7 @@ def send_verification_on_register(
     db.flush()  # ensure token is saved
 
     verification_url = (
-        f"https://parwa.ai/verify?token={raw_token}"
+        f"https://parwa.buzz/verify?token={raw_token}"
     )
     sent = send_verification_email(
         user_email=user.email,

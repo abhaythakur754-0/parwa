@@ -689,7 +689,7 @@ Inbound Email Parsing receives customer emails via Brevo's Parse Webhook, extrac
 
 ## User Journey / System Flow
 
-1. **Email received by Brevo** — Customer sends an email to the tenant's dedicated support address (e.g., support@company.parwa.ai). Brevo receives it and parses the raw email.
+1. **Email received by Brevo** — Customer sends an email to the tenant's dedicated support address (e.g., support@company.parwa.buzz). Brevo receives it and parses the raw email.
 2. **Brevo Parse Webhook fires** — Brevo POSTs the parsed email payload to PARWA's `/webhooks/brevo/inbound` endpoint. The payload includes: sender, recipients, subject, text body, HTML body, headers, attachments, and raw email ID.
 3. **IP allowlist verification** — The endpoint verifies the request originates from a Brevo IP address (BC-003 Rule 5). Non-allowlisted requests are rejected with 403.
 4. **Idempotency check** — The Brevo `message_id` header is checked against the `webhook_events` table. If already processed, return 200 with `already_processed` (BC-003 Rule 6).
@@ -705,15 +705,15 @@ Inbound Email Parsing receives customer emails via Brevo's Parse Webhook, extrac
 
 ```json
 {
-  "message_id": "<abc123@company.parwa.ai>",
+  "message_id": "<abc123@company.parwa.buzz>",
   "from": {"name": "John Doe", "email": "john@example.com"},
-  "to": [{"name": "Support", "email": "support@company.parwa.ai"}],
+  "to": [{"name": "Support", "email": "support@company.parwa.buzz"}],
   "subject": "Re: Order #12345 - Missing Item",
   "text": "Plain text body of the email...",
   "html": "<html><body>HTML body of the email...</body></html>",
   "headers": {
-    "In-Reply-To": "<msg-456@company.parwa.ai>",
-    "References": "<msg-123@company.parwa.ai> <msg-456@company.parwa.ai>",
+    "In-Reply-To": "<msg-456@company.parwa.buzz>",
+    "References": "<msg-123@company.parwa.buzz> <msg-456@company.parwa.buzz>",
     "X-Auto-Response-Suppress": null,
     "Auto-Submitted": null
   },
@@ -818,7 +818,7 @@ Inbound Email Parsing receives customer emails via Brevo's Parse Webhook, extrac
 
 ## Acceptance Criteria
 
-1. Given a customer sends an email to support@company.parwa.ai, When the Brevo Parse webhook fires, Then a new ticket is created with the email body, sender info, and subject within 10 seconds.
+1. Given a customer sends an email to support@company.parwa.buzz, When the Brevo Parse webhook fires, Then a new ticket is created with the email body, sender info, and subject within 10 seconds.
 2. Given a customer replies to an existing ticket email (with In-Reply-To header), When the webhook fires, Then the reply is appended to the existing ticket thread as a new message — no new ticket is created.
 3. Given an inbound email has X-Auto-Response-Suppress header, When the webhook processes it, Then no ticket is created and the response is `auto_reply_ignored`.
 4. Given an inbound email has 3 attachments (PDF, PNG, CSV), When processed, Then all attachments are uploaded to S3, linked to the ticket message, and viewable in the ticket detail modal.

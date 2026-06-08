@@ -45,7 +45,7 @@ class TestMFALoginFlowIntegration(unittest.TestCase):
         mock_retrieve.return_value = {
             "user_id": "u-integration",
             "company_id": "c-integration",
-            "email": "int@parwa.ai",
+            "email": "int@parwa.buzz",
             "role": "admin",
             "plan": "high",
             "expires_at": (
@@ -58,7 +58,7 @@ class TestMFALoginFlowIntegration(unittest.TestCase):
             token = await create_mfa_session_token(
                 user_id="u-integration",
                 company_id="c-integration",
-                email="int@parwa.ai",
+                email="int@parwa.buzz",
                 role="admin",
                 plan="high",
             )
@@ -72,7 +72,7 @@ class TestMFALoginFlowIntegration(unittest.TestCase):
         self.assertIsNotNone(session, "Session must be retrievable after creation")
         self.assertEqual(session["user_id"], "u-integration")
         self.assertEqual(session["company_id"], "c-integration")
-        self.assertEqual(session["email"], "int@parwa.ai")
+        self.assertEqual(session["email"], "int@parwa.buzz")
         self.assertEqual(session["role"], "admin")
         self.assertEqual(session["plan"], "high")
 
@@ -92,7 +92,7 @@ class TestMFALoginFlowIntegration(unittest.TestCase):
         async def run():
             token = await create_mfa_session_token(
                 user_id="u-expired", company_id="c-expired",
-                email="exp@parwa.ai", role="admin", plan="pro",
+                email="exp@parwa.buzz", role="admin", plan="pro",
             )
 
             # Manually expire the session
@@ -128,7 +128,7 @@ class TestMFALoginFlowIntegration(unittest.TestCase):
         async def run():
             token = await create_mfa_session_token(
                 user_id="u-onetime", company_id="c-onetime",
-                email="one@parwa.ai", role="admin", plan="pro",
+                email="one@parwa.buzz", role="admin", plan="pro",
             )
 
             # First retrieval should succeed

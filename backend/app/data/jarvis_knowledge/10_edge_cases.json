@@ -144,13 +144,13 @@
       "condition": "account_suspended",
       "description": "Prospect's trial or subscription has expired or been suspended",
       "behavior": "Allow access to general PARWA information only. Block account-specific features. Prompt to renew or contact sales.",
-      "user_message": "It looks like your account needs attention. To continue accessing all of PARWA's features, please contact our sales team at sales@parwa.ai or visit parwa.ai/pricing to review plan options. I'm still happy to answer general questions about PARWA's platform in the meantime."
+      "user_message": "It looks like your account needs attention. To continue accessing all of PARWA's features, please contact our sales team at sales@parwa.buzz or visit parwa.buzz/pricing to review plan options. I'm still happy to answer general questions about PARWA's platform in the meantime."
     },
     {
       "condition": "unsupported_language_detected",
       "description": "User message is in a language not supported by PARWA (<1% of training data coverage)",
       "behavior": "Attempt to process using multilingual model fallback. If unsuccessful, politely inform the user and offer English or supported language alternatives.",
-      "user_message": "I apologize, but I'm currently most effective in English and 50+ other supported languages. If you'd prefer, I can try to communicate in English, or you can visit parwa.ai for resources that may be available in your language. Which language would you prefer?"
+      "user_message": "I apologize, but I'm currently most effective in English and 50+ other supported languages. If you'd prefer, I can try to communicate in English, or you can visit parwa.buzz for resources that may be available in your language. Which language would you prefer?"
     },
     {
       "condition": "after_hours_configuration",
@@ -325,7 +325,7 @@
         {
           "turn": 1,
           "user": "What's your API architecture? REST or GraphQL?",
-          "jarvis_action": "Explain: RESTful API with JSON payloads, comprehensive Swagger/OpenAPI documentation available at docs.parwa.ai. Webhook support for event-driven integrations. No GraphQL currently but on the product consideration list."
+          "jarvis_action": "Explain: RESTful API with JSON payloads, comprehensive Swagger/OpenAPI documentation available at docs.parwa.buzz. Webhook support for event-driven integrations. No GraphQL currently but on the product consideration list."
         },
         {
           "turn": 2,

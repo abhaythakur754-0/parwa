@@ -457,7 +457,7 @@ class TestWeek3PIIRedaction:
         from app.core.pii_redaction_engine import PIIDetector, PII_EMAIL
 
         detector = PIIDetector()
-        matches = detector.detect("Contact us at support@parwa.ai for help")
+        matches = detector.detect("Contact us at support@parwa.buzz for help")
 
         email_matches = [m for m in matches if m.pii_type == PII_EMAIL]
         assert len(email_matches) > 0, "Should detect email address"

@@ -45,7 +45,7 @@ services:
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: CORS_ORIGINS
-        value: https://parwa.buzz,https://parwa.ai
+        value: https://parwa.buzz,https://parwadashboard.netlify.app
       - key: FRONTEND_URL
         value: https://parwa.buzz
     healthCheckPath: /health

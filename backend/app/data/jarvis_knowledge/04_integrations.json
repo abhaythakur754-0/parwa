@@ -401,7 +401,7 @@
           "setup_time_estimate": "Variable (depends on use case)",
           "setup_steps": [
             "Generate an API key from PARWA Dashboard > Settings > API Access",
-            "Review the API documentation at docs.parwa.ai/api-reference",
+            "Review the API documentation at docs.parwa.buzz/api-reference",
             "Configure API key permissions based on required access (tickets, analytics, agents, customers)",
             "Set up IP whitelisting for additional security (optional but recommended)",
             "Implement authentication headers (Authorization: Bearer <api_key>) in your application",

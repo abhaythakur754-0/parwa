@@ -47,7 +47,7 @@ class TestBrevoSDKMigration:
                 with patch("app.services.email_service.get_settings") as mock_settings:
                     mock_settings.return_value = MagicMock(
                         BREVO_API_KEY="test_key",
-                        FROM_EMAIL="noreply@parwa.ai",
+                        FROM_EMAIL="noreply@parwa.buzz",
                     )
                     with patch("app.services.email_service._is_circuit_open", return_value=False):
                         result = email_service.send_email(
@@ -77,7 +77,7 @@ class TestBrevoSDKMigration:
                             with patch("app.services.email_service.get_settings") as mock_settings:
                                 mock_settings.return_value = MagicMock(
                                     BREVO_API_KEY="test_key",
-                                    FROM_EMAIL="noreply@parwa.ai",
+                                    FROM_EMAIL="noreply@parwa.buzz",
                                 )
                                 with patch("app.services.email_service._is_circuit_open", return_value=False):
                                     result = email_service.send_email(
@@ -107,7 +107,7 @@ class TestBrevoSDKMigration:
                     with patch("app.services.email_service.get_settings") as mock_settings:
                         mock_settings.return_value = MagicMock(
                             BREVO_API_KEY="test_key",
-                            FROM_EMAIL="noreply@parwa.ai",
+                            FROM_EMAIL="noreply@parwa.buzz",
                         )
                         with patch("app.services.email_service._is_circuit_open", return_value=False):
                             result = email_service.send_email(
@@ -165,7 +165,7 @@ class TestNewEmailFunctions:
             user_name="John",
             plan_name="Pro Plan",
             amount="$49.00",
-            dashboard_url="https://parwa.ai/dashboard",
+            dashboard_url="https://parwa.buzz/dashboard",
         )
         assert result is True
         mock_render.assert_called_once()

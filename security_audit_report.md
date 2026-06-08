@@ -207,7 +207,7 @@ If the env var is unset, the well-known fallback is used. A DB dump + source cod
 
 ### H-01: Open Redirect on Login Page
 **File:** `src/app/(auth)/login/page.tsx:28`  
-The `redirect` query parameter is used directly without validation: `https://parwa.ai/login?redirect=https://evil.com`
+The `redirect` query parameter is used directly without validation: `https://parwa.buzz/login?redirect=https://evil.com`
 
 ### H-02: OTP Comparison NOT Timing-Safe
 **File:** `src/app/api/auth/verify-otp/route.ts:64`, `reset-password/route.ts:85`  

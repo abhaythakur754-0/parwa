@@ -1354,7 +1354,7 @@ async def _exec_create_ticket(
             customer = Customer(
                 company_id=company_id,
                 name=customer_name,
-                email=f"anon_{uuid.uuid4().hex[:8]}@generated.parwa.ai",
+                email=f"anon_{uuid.uuid4().hex[:8]}@generated.parwa.buzz",
             )
             db.add(customer)
             db.flush()

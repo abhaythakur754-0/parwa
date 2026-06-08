@@ -409,7 +409,7 @@ def test_backend_api():
     # 3. Auth login attempt
     try:
         login_data = json.dumps({
-            "email": "admin@parwa.ai",
+            "email": "admin@parwa.buzz",
             "password": "admin123"
         }).encode()
         req = urllib.request.Request(
@@ -448,7 +448,7 @@ def test_backend_api():
             # Try to extract token from a fresh login
             try:
                 login_data = json.dumps({
-                    "email": "admin@parwa.ai",
+                    "email": "admin@parwa.buzz",
                     "password": "admin123"
                 }).encode()
                 req = urllib.request.Request(

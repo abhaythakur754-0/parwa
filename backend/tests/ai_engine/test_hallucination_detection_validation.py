@@ -139,14 +139,14 @@ class TestP02FabricatedURLs:
          "dontexist.com"),
         ("Download from https://fakeurl.com/files/report.pdf.",
          "fakeurl.com"),
-        ("Access the admin panel at https://parwa.ai/admin/dashboard.",
-         "parwa.ai internal path"),
-        ("The API docs are at https://parwa.ai/internal/api/specs.",
-         "parwa.ai internal api"),
-        ("See https://example.com/docs and https://parwa.ai/dev/tools.",
+        ("Access the admin panel at https://parwa.buzz/admin/dashboard.",
+         "parwa.buzz internal path"),
+        ("The API docs are at https://parwa.buzz/internal/api/specs.",
+         "parwa.buzz internal api"),
+        ("See https://example.com/docs and https://parwa.buzz/dev/tools.",
          "mixed placeholder+internal"),
-        ("Debug info at https://parwa.ai/support/debug-panel.",
-         "parwa.ai support path"),
+        ("Debug info at https://parwa.buzz/support/debug-panel.",
+         "parwa.buzz support path"),
     ])
     def test_fabricated_url_detected(self, detector, response, desc):
         result = detector._detect_fabricated_urls(response)
@@ -157,7 +157,7 @@ class TestP02FabricatedURLs:
     @pytest.mark.parametrize("response,desc", [
         ("Visit https://www.google.com for more info.", "legitimate URL"),
         ("Check https://github.com/abhaythakur754-0/parwa for the repo.", "legitimate GitHub"),
-        ("Go to https://parwa.ai for our homepage.", "parwa.ai root OK"),
+        ("Go to https://parwa.buzz for our homepage.", "parwa.buzz root OK"),
         ("See https://docs.python.org/3/library/re.html.", "legitimate docs"),
         ("Our blog is at https://medium.com/parwa-ai.", "legitimate blog"),
     ])
@@ -171,7 +171,7 @@ class TestP02FabricatedURLs:
 
     def test_mixed_placeholder_internal_high_confidence(self, detector):
         result = detector._detect_fabricated_urls(
-            "See https://example.com/docs and https://parwa.ai/internal/api for info"
+            "See https://example.com/docs and https://parwa.buzz/internal/api for info"
         )
         assert result is not None
         assert result.confidence >= 0.90
@@ -679,10 +679,10 @@ class TestAggregateDetectionRate:
         ("Documentation at https://placeholder.com/guide.", "P02", "placeholder"),
         ("Internal tool at https://dontexist.com/admin.", "P02", "dontexist"),
         ("Download from https://fakeurl.com/files/report.pdf.", "P02", "fakeurl"),
-        ("Admin panel at https://parwa.ai/admin/dashboard.", "P02", "admin_path"),
-        ("API docs at https://parwa.ai/internal/api/specs.", "P02", "internal_api"),
-        ("See https://example.com/docs and https://parwa.ai/dev/tools.", "P02", "mixed_urls"),
-        ("Debug at https://parwa.ai/support/debug-panel.", "P02", "support_path"),
+        ("Admin panel at https://parwa.buzz/admin/dashboard.", "P02", "admin_path"),
+        ("API docs at https://parwa.buzz/internal/api/specs.", "P02", "internal_api"),
+        ("See https://example.com/docs and https://parwa.buzz/dev/tools.", "P02", "mixed_urls"),
+        ("Debug at https://parwa.buzz/support/debug-panel.", "P02", "support_path"),
         # P05 (10)
         ("Subscription started on 02/30/2023.", "P05", "feb30"),
         ("Renewal date is 13/15/2024.", "P05", "month13"),
@@ -857,7 +857,7 @@ class TestFalsePositiveRate:
         ("We leverage machine learning with 95% accuracy.", "numbers present"),
         ("Amazon Web Services provides cloud infrastructure.", "proper noun"),
         ("3 years from 2020 equals 2023.", "correct arithmetic"),
-        ("See our website at https://parwa.ai for details.", "parwa root"),
+        ("See our website at https://parwa.buzz for details.", "parwa root"),
         ("Date: 02/29/2024.", "leap year valid"),
     ]
 

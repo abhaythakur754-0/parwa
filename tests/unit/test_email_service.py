@@ -132,7 +132,7 @@ class TestTemplateEmails:
             user_email="test@example.com",
             user_name="Test",
             verification_url=(
-                "https://parwa.ai/verify?token=abc"
+                "https://parwa.buzz/verify?token=abc"
             ),
         )
         assert result is True
@@ -150,7 +150,7 @@ class TestTemplateEmails:
             user_email="test@example.com",
             user_name="Test",
             reset_url=(
-                "https://parwa.ai/reset?token=xyz"
+                "https://parwa.buzz/reset?token=xyz"
             ),
         )
         assert result is True

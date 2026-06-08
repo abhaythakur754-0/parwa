@@ -103,7 +103,7 @@ class BrevoEmailConnector:
         subject: str,
         html_content: str,
         sender_name: str = "PARWA Support",
-        sender_email: str = "support@parwa.ai",
+        sender_email: str = "support@parwa.buzz",
         reply_to: Optional[str] = None,
         tags: Optional[List[str]] = None,
         template_id: Optional[int] = None,

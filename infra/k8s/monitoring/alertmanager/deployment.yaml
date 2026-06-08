@@ -38,7 +38,7 @@ spec:
           args:
             - --config.file=/etc/alertmanager/alertmanager.yml
             - --storage.path=/alertmanager
-            - --web.external-url=https://monitoring.parwa.ai/alertmanager
+            - --web.external-url=https://monitoring.parwa.buzz/alertmanager
           resources:
             requests:
               cpu: 10m

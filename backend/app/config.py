@@ -152,7 +152,7 @@ class Settings(BaseSettings):
 
     # ── Email (Brevo) ────────────────────────────────────────────
     BREVO_API_KEY: str = ""
-    FROM_EMAIL: str = "noreply@parwa.ai"
+    FROM_EMAIL: str = "noreply@parwa.buzz"
     # Comma-separated CIDR ranges for Brevo inbound webhook IP allowlist.
     # Falls back to DEFAULT_BREVO_IPS in hmac_verification.py if empty.
     BREVO_INBOUND_IPS: str = ""
@@ -396,7 +396,7 @@ class Settings(BaseSettings):
     CELERY_TASK_TIME_LIMIT: int = 330  # 5.5 minutes (hard kill)
 
     # ── CORS (frontend origin) ─────────────────────────────────
-    CORS_ORIGINS: str = "http://localhost:3000,https://parwa.buzz,https://parwa.ai,https://parwa.vercel.app,https://parwa.netlify.app"
+    CORS_ORIGINS: str = "http://localhost:3000,https://parwa.buzz,https://parwa.vercel.app,https://parwa.netlify.app,https://parwadashboard.netlify.app"
 
     # ── Frontend ────────────────────────────────────────────────
     FRONTEND_URL: str = "http://localhost:3000"

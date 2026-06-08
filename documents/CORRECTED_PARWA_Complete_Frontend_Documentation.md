@@ -84,7 +84,7 @@
 ## A1. LANDING PAGE (/)
 
 ### Customer Perspective
-When a visitor arrives at parwa.ai, they immediately see a clean, professional landing page. The hero section presents the value proposition clearly. They can select their industry (E-commerce, SaaS, or Logistics) which changes the color theme and messaging. A gold banner at the top shows "Our support is powered by PARWA AI" - a trust signal. A live chat widget in the bottom-right corner lets them interact with the actual AI they would be using.
+When a visitor arrives at parwa.buzz, they immediately see a clean, professional landing page. The hero section presents the value proposition clearly. They can select their industry (E-commerce, SaaS, or Logistics) which changes the color theme and messaging. A gold banner at the top shows "Our support is powered by PARWA AI" - a trust signal. A live chat widget in the bottom-right corner lets them interact with the actual AI they would be using.
 
 ### Component Table
 

@@ -91,7 +91,7 @@ class TestMFASessionRaceConditionFix(unittest.TestCase):
             create_mfa_session_token(
                 user_id="user-123",
                 company_id="comp-456",
-                email="test@parwa.ai",
+                email="test@parwa.buzz",
                 role="admin",
                 plan="pro",
             )
@@ -121,7 +121,7 @@ class TestMFASessionRaceConditionFix(unittest.TestCase):
             create_mfa_session_token(
                 user_id="user-789",
                 company_id="comp-012",
-                email="fail@parwa.ai",
+                email="fail@parwa.buzz",
                 role="agent",
                 plan="mini",
             )
@@ -156,7 +156,7 @@ class TestMFASessionRaceConditionFix(unittest.TestCase):
             call_order.append("before_create")
             token = await create_mfa_session_token(
                 user_id="u-race", company_id="c-race",
-                email="race@parwa.ai", role="admin", plan="high",
+                email="race@parwa.buzz", role="admin", plan="high",
             )
             call_order.append("after_create")
             return token

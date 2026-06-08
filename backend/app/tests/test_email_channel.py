@@ -67,13 +67,13 @@ SAMPLE_OOO_EMAIL = {
 }
 
 SAMPLE_SELF_SENT_EMAIL = {
-    "sender_email": "noreply@parwa.ai",
+    "sender_email": "noreply@parwa.buzz",
     "sender_name": "PARWA AI",
     "recipient_email": "customer@example.com",
     "subject": "Re: Ticket Update",
     "body_html": "<p>Your ticket has been updated.</p>",
     "body_text": "Your ticket has been updated.",
-    "message_id": "<self101@parwa.ai>",
+    "message_id": "<self101@parwa.buzz>",
     "in_reply_to": "<abc123@example.com>",
     "references": None,
     "attachments": [],

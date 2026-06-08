@@ -153,7 +153,7 @@ def initiate_password_reset(
 
     # Send reset email
     reset_url = (
-        f"https://parwa.ai/reset-password?"
+        f"https://parwa.buzz/reset-password?"
         f"token={raw_token}"
     )
     sent = send_password_reset_email(

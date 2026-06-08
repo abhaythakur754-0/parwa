@@ -375,7 +375,7 @@ class TestIngress(unittest.TestCase):
             if ing:
                 for rule in ing["spec"].get("rules", []):
                     hosts.append(rule["host"])
-        self.assertIn("monitoring.parwa.ai", hosts)
+        self.assertIn("monitoring.parwa.buzz", hosts)
 
     def test_proxy_body_size_10m(self):
         """#48: proxy-body-size lowered to 10m"""

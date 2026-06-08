@@ -7,7 +7,17 @@
 [build.environment]
   NODE_VERSION = "20"
   NPM_FLAGS = "--legacy-peer-deps"
+  # Frontend URL for CSRF proxy Origin header — must match backend's trusted origins
+  FRONTEND_URL = "https://parwadashboard.netlify.app"
 
 # Next.js needs the Essential Next.js plugin
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Context-specific overrides for deploy previews
+[context.deploy-preview.environment]
+  # Deploy previews get their own URL like fix-branch--parwa.netlify.app
+  # The proxy will use the Netlify URL automatically via the fallback chain
+
+[context.production.environment]
+  FRONTEND_URL = "https://parwadashboard.netlify.app"

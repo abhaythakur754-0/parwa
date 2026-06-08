@@ -54,7 +54,7 @@ BC006_RATE_LIMIT_WINDOW_HOURS = 24
 
 # Known PARWA system email addresses (will never be from real customers)
 PARWA_SYSTEM_DOMAINS = [
-    "parwa.ai",
+    "parwa.buzz",
     "getparwa.com",
     "parwasupport.com",
 ]

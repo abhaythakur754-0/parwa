@@ -244,7 +244,7 @@ class TestM10JWTJtiClaim:
             token = auth_mod.create_access_token(
                 user_id="user-123",
                 company_id="company-456",
-                email="test@parwa.ai",
+                email="test@parwa.buzz",
                 role="agent",
                 plan="growth",
             )

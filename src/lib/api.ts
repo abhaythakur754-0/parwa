@@ -67,7 +67,13 @@ apiClient.interceptors.response.use(
     
     // Handle 403 Forbidden
     if (error.response?.status === 403) {
-      console.error('Access denied');
+      const errorData = error.response?.data as Record<string, unknown> | undefined;
+      const csrfMessage = (errorData?.error as Record<string, unknown>)?.message || errorData?.message || '';
+      if (typeof csrfMessage === 'string' && csrfMessage.toLowerCase().includes('csrf')) {
+        console.error('Access denied: CSRF validation failed. The request origin may not be trusted.');
+      } else {
+        console.error('Access denied:', csrfMessage || 'You do not have permission for this action.');
+      }
     }
     
     // Handle 429 Rate Limit
@@ -124,7 +130,13 @@ export function getErrorMessage(error: unknown): string {
     }
     
     if (status === 403) {
-      return 'Access denied.';
+      // Try to extract CSRF or specific error message
+      const errorData = error.response?.data as Record<string, unknown> | undefined;
+      const serverMsg = (errorData?.error as Record<string, unknown>)?.message || errorData?.message;
+      if (typeof serverMsg === 'string' && serverMsg) {
+        return serverMsg;
+      }
+      return 'Access denied. You may not have permission for this action, or the request origin is not trusted.';
     }
     
     // Return server's error message if available

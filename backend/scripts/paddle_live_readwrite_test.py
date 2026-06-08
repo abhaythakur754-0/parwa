@@ -287,7 +287,7 @@ async def test_write_permissions(customer_ids, subscription_ids, transaction_ids
 
     # ── Test 1: Create Customer (WRITE) ──
     print_info("Testing: POST /customers (Write permission)")
-    test_email = f"jarvis-test-{int(time.time())}@parwa.ai"
+    test_email = f"jarvis-test-{int(time.time())}@parwa.buzz"
     try:
         response = await make_request("POST", "/customers", data={
             "email": test_email,

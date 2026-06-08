@@ -191,43 +191,43 @@ class TestIsValidOrigin:
 
     def test_matching_origin_returns_true(self):
         """Origin that exactly matches a trusted origin is accepted."""
-        mw = _make_middleware(trusted_origins="https://app.parwa.ai")
-        assert mw._is_valid_origin("https://app.parwa.ai", "") is True
+        mw = _make_middleware(trusted_origins="https://parwadashboard.netlify.app")
+        assert mw._is_valid_origin("https://parwadashboard.netlify.app", "") is True
 
     def test_mismatched_origin_returns_false(self):
         """Origin not in trusted list is rejected."""
-        mw = _make_middleware(trusted_origins="https://app.parwa.ai")
+        mw = _make_middleware(trusted_origins="https://parwadashboard.netlify.app")
         assert mw._is_valid_origin("https://evil.com", "") is False
 
     def test_falls_back_to_referer_when_origin_missing(self):
         """When Origin is absent, Referer origin is extracted and checked."""
-        mw = _make_middleware(trusted_origins="https://app.parwa.ai")
-        result = mw._is_valid_origin("", "https://app.parwa.ai/dashboard")
+        mw = _make_middleware(trusted_origins="https://parwadashboard.netlify.app")
+        result = mw._is_valid_origin("", "https://parwadashboard.netlify.app/dashboard")
         assert result is True
 
     def test_referer_origin_mismatch(self):
         """Referer with wrong origin is rejected."""
-        mw = _make_middleware(trusted_origins="https://app.parwa.ai")
+        mw = _make_middleware(trusted_origins="https://parwadashboard.netlify.app")
         result = mw._is_valid_origin("", "https://evil.com/stuff")
         assert result is False
 
     def test_both_origin_and_referer_missing_rejects(self):
         """If no origin info at all and trusted origins are set, reject."""
-        mw = _make_middleware(trusted_origins="https://app.parwa.ai")
+        mw = _make_middleware(trusted_origins="https://parwadashboard.netlify.app")
         assert mw._is_valid_origin("", "") is False
 
     def test_origin_subpath_match(self):
         """Trusted origin with subpath is accepted."""
-        mw = _make_middleware(trusted_origins="https://app.parwa.ai")
-        assert mw._is_valid_origin("https://app.parwa.ai/extra", "") is True
+        mw = _make_middleware(trusted_origins="https://parwadashboard.netlify.app")
+        assert mw._is_valid_origin("https://parwadashboard.netlify.app/extra", "") is True
 
     def test_multiple_trusted_origins(self):
         """Any origin in a comma-separated list of trusted origins is accepted."""
         mw = _make_middleware(
-            trusted_origins="https://app.parwa.ai,https://admin.parwa.ai"
+            trusted_origins="https://parwadashboard.netlify.app,https://parwa.buzz"
         )
-        assert mw._is_valid_origin("https://admin.parwa.ai", "") is True
-        assert mw._is_valid_origin("https://app.parwa.ai", "") is True
+        assert mw._is_valid_origin("https://parwa.buzz", "") is True
+        assert mw._is_valid_origin("https://parwadashboard.netlify.app", "") is True
         assert mw._is_valid_origin("https://other.com", "") is False
 
 
@@ -345,7 +345,7 @@ class TestASGICsrfFlow:
 
     def test_get_request_passes_through(self):
         """Safe methods (GET) should pass through without CSRF checks."""
-        mw = _make_middleware(trusted_origins="https://app.parwa.ai")
+        mw = _make_middleware(trusted_origins="https://parwadashboard.netlify.app")
         scope = _make_scope(method="GET", path="/api/tickets")
         messages = asyncio.get_event_loop().run_until_complete(
             _call_middleware(mw, scope)
@@ -358,11 +358,11 @@ class TestASGICsrfFlow:
 
     def test_post_with_valid_origin_passes_through(self):
         """POST with a valid Origin header should pass through."""
-        mw = _make_middleware(trusted_origins="https://app.parwa.ai")
+        mw = _make_middleware(trusted_origins="https://parwadashboard.netlify.app")
         scope = _make_scope(
             method="POST",
             path="/api/tickets",
-            headers={"origin": "https://app.parwa.ai"},
+            headers={"origin": "https://parwadashboard.netlify.app"},
         )
         messages = asyncio.get_event_loop().run_until_complete(
             _call_middleware(mw, scope)
@@ -373,7 +373,7 @@ class TestASGICsrfFlow:
 
     def test_post_with_invalid_origin_returns_403(self):
         """POST with an untrusted Origin should get 403 JSON."""
-        mw = _make_middleware(trusted_origins="https://app.parwa.ai")
+        mw = _make_middleware(trusted_origins="https://parwadashboard.netlify.app")
         scope = _make_scope(
             method="POST",
             path="/api/tickets",
@@ -396,7 +396,7 @@ class TestASGICsrfFlow:
 
     def test_webhook_paths_skip_csrf(self):
         """Requests to /api/webhooks/ should skip CSRF verification."""
-        mw = _make_middleware(trusted_origins="https://app.parwa.ai")
+        mw = _make_middleware(trusted_origins="https://parwadashboard.netlify.app")
         scope = _make_scope(
             method="POST",
             path="/api/webhooks/stripe",
@@ -410,28 +410,28 @@ class TestASGICsrfFlow:
 
     def test_head_request_passes_through(self):
         """HEAD is a safe method and should pass through."""
-        mw = _make_middleware(trusted_origins="https://app.parwa.ai")
+        mw = _make_middleware(trusted_origins="https://parwadashboard.netlify.app")
         scope = _make_scope(method="HEAD", path="/api/tickets")
         asyncio.get_event_loop().run_until_complete(_call_middleware(mw, scope))
         mw.app.assert_awaited_once()
 
     def test_options_request_passes_through(self):
         """OPTIONS is a safe method and should pass through."""
-        mw = _make_middleware(trusted_origins="https://app.parwa.ai")
+        mw = _make_middleware(trusted_origins="https://parwadashboard.netlify.app")
         scope = _make_scope(method="OPTIONS", path="/api/tickets")
         asyncio.get_event_loop().run_until_complete(_call_middleware(mw, scope))
         mw.app.assert_awaited_once()
 
     def test_non_http_scope_passes_through(self):
         """Non-HTTP scopes (e.g. websocket, lifespan) pass through."""
-        mw = _make_middleware(trusted_origins="https://app.parwa.ai")
+        mw = _make_middleware(trusted_origins="https://parwadashboard.netlify.app")
         scope = {"type": "websocket", "path": "/ws"}
         asyncio.get_event_loop().run_until_complete(_call_middleware(mw, scope))
         mw.app.assert_awaited_once()
 
     def test_post_no_origin_no_referer_returns_403(self):
         """POST with no Origin and no Referer is rejected when origins configured."""
-        mw = _make_middleware(trusted_origins="https://app.parwa.ai")
+        mw = _make_middleware(trusted_origins="https://parwadashboard.netlify.app")
         scope = _make_scope(method="POST", path="/api/tickets", headers={})
         messages = asyncio.get_event_loop().run_until_complete(
             _call_middleware(mw, scope)
@@ -443,7 +443,7 @@ class TestASGICsrfFlow:
     def test_csrf_disabled_bypasses_all_checks(self):
         """When CSRF_ENABLED=false, all checks are bypassed."""
         mw = _make_middleware(
-            trusted_origins="https://app.parwa.ai",
+            trusted_origins="https://parwadashboard.netlify.app",
             enabled="false",
         )
         scope = _make_scope(
@@ -456,11 +456,11 @@ class TestASGICsrfFlow:
 
     def test_cookie_auth_path_requires_csrf_token(self):
         """Cookie auth paths require both CSRF cookie and header token."""
-        mw = _make_middleware(trusted_origins="https://app.parwa.ai")
+        mw = _make_middleware(trusted_origins="https://parwadashboard.netlify.app")
         scope = _make_scope(
             method="POST",
             path="/api/auth/login",
-            headers={"origin": "https://app.parwa.ai"},
+            headers={"origin": "https://parwadashboard.netlify.app"},
         )
         messages = asyncio.get_event_loop().run_until_complete(
             _call_middleware(mw, scope)
@@ -475,13 +475,13 @@ class TestASGICsrfFlow:
 
     def test_cookie_auth_path_with_valid_tokens_passes(self):
         """Cookie auth path with matching CSRF cookie + header passes."""
-        mw = _make_middleware(trusted_origins="https://app.parwa.ai")
+        mw = _make_middleware(trusted_origins="https://parwadashboard.netlify.app")
         token = secrets.token_hex(32)
         scope = _make_scope(
             method="POST",
             path="/api/auth/login",
             headers={
-                "origin": "https://app.parwa.ai",
+                "origin": "https://parwadashboard.netlify.app",
                 "cookie": f"parwa_csrf={token}",
                 "x-csrf-token": token,
             },
@@ -491,12 +491,12 @@ class TestASGICsrfFlow:
 
     def test_cookie_auth_path_mismatched_tokens_returns_403(self):
         """Cookie auth path with mismatched CSRF cookie + header gets 403."""
-        mw = _make_middleware(trusted_origins="https://app.parwa.ai")
+        mw = _make_middleware(trusted_origins="https://parwadashboard.netlify.app")
         scope = _make_scope(
             method="POST",
             path="/api/auth/login",
             headers={
-                "origin": "https://app.parwa.ai",
+                "origin": "https://parwadashboard.netlify.app",
                 "cookie": f"parwa_csrf={secrets.token_hex(32)}",
                 "x-csrf-token": secrets.token_hex(32),
             },
@@ -510,7 +510,7 @@ class TestASGICsrfFlow:
 
     def test_403_response_includes_correlation_id(self):
         """CSRF rejection must include a correlation ID for auditability."""
-        mw = _make_middleware(trusted_origins="https://app.parwa.ai")
+        mw = _make_middleware(trusted_origins="https://parwadashboard.netlify.app")
         scope = _make_scope(
             method="POST",
             path="/api/tickets",
@@ -526,7 +526,7 @@ class TestASGICsrfFlow:
 
     def test_403_response_content_type_is_json(self):
         """CSRF rejection must return application/json."""
-        mw = _make_middleware(trusted_origins="https://app.parwa.ai")
+        mw = _make_middleware(trusted_origins="https://parwadashboard.netlify.app")
         scope = _make_scope(
             method="POST",
             path="/api/tickets",
@@ -608,7 +608,7 @@ class TestBC008Robustness:
 
     def test_malformed_origin_header_does_not_crash(self):
         """Non-UTF-8 bytes in Origin header must not crash middleware."""
-        mw = _make_middleware(trusted_origins="https://app.parwa.ai")
+        mw = _make_middleware(trusted_origins="https://parwadashboard.netlify.app")
         scope = _make_scope(method="POST", path="/api/tickets")
         # Inject raw bytes for origin header
         scope["headers"] = [[b"origin", b"\xff\xfe invalid"]]

@@ -40,7 +40,7 @@ COPY . ./
 
 # Build arguments — these are BAKED INTO the build
 # NOT available at runtime in the container
-ARG NEXT_PUBLIC_API_URL=https://parwa.ai
+ARG NEXT_PUBLIC_API_URL=https://parwa.buzz
 ARG NEXT_PUBLIC_PADDLE_KEY=
 ARG NEXT_PUBLIC_ENV=production
 

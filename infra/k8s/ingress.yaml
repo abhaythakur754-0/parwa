@@ -58,14 +58,17 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - parwa.ai
-        - www.parwa.ai
+        - parwa.buzz
+        - www.parwa.buzz
       secretName: parwa-tls-secret
+    - hosts:
+        - parwadashboard.netlify.app
+      secretName: parwa-dashboard-tls-secret
     - hosts:                            # #46: monitoring TLS
-        - monitoring.parwa.ai
+        - monitoring.parwa.buzz
       secretName: monitoring-tls-secret
   rules:
-    - host: parwa.ai
+    - host: parwa.buzz
       http:
         paths:
           - path: /api
@@ -89,7 +92,7 @@ spec:
                 name: frontend-svc
                 port:
                   number: 3000
-    - host: www.parwa.ai
+    - host: www.parwa.buzz
       http:
         paths:
           - path: /api
@@ -106,8 +109,18 @@ spec:
                 name: frontend-svc
                 port:
                   number: 3000
+    - host: parwadashboard.netlify.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-svc
+                port:
+                  number: 3000
     # #46: Monitoring ingress with basic auth
-    - host: monitoring.parwa.ai
+    - host: monitoring.parwa.buzz
       http:
         paths:
           - path: /
@@ -145,10 +158,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - monitoring.parwa.ai
+        - monitoring.parwa.buzz
       secretName: monitoring-tls-secret
   rules:
-    - host: monitoring.parwa.ai
+    - host: monitoring.parwa.buzz
       http:
         paths:
           - path: /

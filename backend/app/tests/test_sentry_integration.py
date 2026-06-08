@@ -153,14 +153,14 @@ class TestPIIScrubbing:
         event = {
             "message": "User john.doe@example.com failed to login",
             "extra": {
-                "user_input": "Contact us at support@parwa.ai",
+                "user_input": "Contact us at support@parwa.buzz",
             },
         }
 
         result = scrub_pii(event, {})
 
         assert "john.doe@example.com" not in result["message"]
-        assert "support@parwa.ai" not in result["extra"]["user_input"]
+        assert "support@parwa.buzz" not in result["extra"]["user_input"]
         assert "[REDACTED]" in result["message"]
         assert "[REDACTED]" in result["extra"]["user_input"]
 

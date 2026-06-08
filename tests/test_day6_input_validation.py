@@ -46,7 +46,7 @@ class TestEmailValidationM04:
         for email in [
             "user@example.com",
             "user.name@company.co.uk",
-            "admin+test@parwa.ai",
+            "admin+test@parwa.buzz",
             "user@sub.domain.org",
         ]:
             result = validate_email(email, check_deliverability=False)

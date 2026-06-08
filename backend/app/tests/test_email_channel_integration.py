@@ -198,7 +198,7 @@ class TestReferencesParsing:
         # Test top-level references
         payload = {
             "sender": {"email": "test@example.com", "name": "Test"},
-            "recipient": {"email": "support@parwa.ai"},
+            "recipient": {"email": "support@parwa.buzz"},
             "subject": "Re: Help needed",
             "body_html": "<p>Reply</p>",
             "body_text": "Reply",
@@ -212,7 +212,7 @@ class TestReferencesParsing:
         # Test nested headers block
         payload2 = {
             "sender": {"email": "test@example.com", "name": "Test"},
-            "recipient": {"email": "support@parwa.ai"},
+            "recipient": {"email": "support@parwa.buzz"},
             "subject": "Re: Help needed",
             "body_html": "<p>Reply</p>",
             "body_text": "Reply",
@@ -355,12 +355,12 @@ class TestThreadingHeaderStorage:
 
         payload = {
             "sender": {"email": "customer@example.com", "name": "Customer"},
-            "recipient": {"email": "support@parwa.ai"},
+            "recipient": {"email": "support@parwa.buzz"},
             "subject": "Re: Issue #42",
             "body_html": "<p>Still having the issue</p>",
             "body_text": "Still having the issue",
             "message_id": "<reply-42@example.com>",
-            "in_reply_to": "<original-42@parwa.ai>",
+            "in_reply_to": "<original-42@parwa.buzz>",
             "references": "<orig@example.com> <reply-42@example.com>",
             "X-Auto-Response-Suppress": "No",
         }
@@ -389,7 +389,7 @@ class TestThreadingHeaderStorage:
 
         payload = {
             "sender": {"email": "customer@example.com", "name": "Customer"},
-            "recipient": {"email": "support@parwa.ai"},
+            "recipient": {"email": "support@parwa.buzz"},
             "subject": "New Issue",
             "body_html": "<p>Help</p>",
             "body_text": "Help",

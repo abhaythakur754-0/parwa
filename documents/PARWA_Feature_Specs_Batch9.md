@@ -240,7 +240,7 @@ Gated demo experience where unauthenticated visitors pay $1 via Stripe to test P
 | Visitor provides an invalid phone number | Twilio validates phone format during `/start-call`; invalid numbers return 422 with clear error; visitor can re-submit without re-payment (session remains `confirmed`) |
 | Demo call exceeds 3-minute duration | Twilio call is programmatically terminated; session status set to `completed`; `actual_duration_seconds` recorded; no additional charges |
 | Visitor requests a refund after the demo | Refund processed via Stripe within 24 hours; `refund_reason` logged; session status updated to `refunded`; $1 refund is non-negotiable per policy |
-| Same email attempts multiple demo sessions | Email is tracked; second attempt within 7 days shows "You've already tried the demo. Contact sales@parwa.ai for an extended trial." — prevents $1 farming |
+| Same email attempts multiple demo sessions | Email is tracked; second attempt within 7 days shows "You've already tried the demo. Contact sales@parwa.buzz for an extended trial." — prevents $1 farming |
 
 ## Acceptance Criteria
 1. **Given** an unauthenticated visitor initiates a voice demo **When** they complete the $1 Stripe payment **Then** the `payment_status` is updated to `confirmed`, the phone number input form is displayed, and the visitor's email and session data are stored with all monetary values as DECIMAL(10,2).

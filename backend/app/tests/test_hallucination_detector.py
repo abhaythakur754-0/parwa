@@ -157,13 +157,13 @@ class TestPatternFabricatedURLs:
         assert result.confidence >= 0.85
 
     def test_internal_path_detected(self, detector):
-        result = detector._detect_fabricated_urls("See https://parwa.ai/admin/settings for admin panel")
+        result = detector._detect_fabricated_urls("See https://parwa.buzz/admin/settings for admin panel")
         assert result is not None
         assert result.pattern_id == "P02_fabricated_urls"
 
     def test_multiple_suspicious_urls_higher_confidence(self, detector):
         result = detector._detect_fabricated_urls(
-            "See https://example.com/docs and https://parwa.ai/internal/api for info"
+            "See https://example.com/docs and https://parwa.buzz/internal/api for info"
         )
         assert result is not None
         assert result.confidence >= 0.90  # Both placeholder and internal

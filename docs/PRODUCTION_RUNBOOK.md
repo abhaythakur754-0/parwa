@@ -3,7 +3,7 @@
 > **Version:** 1.0  
 > **Last Updated:** 2025-07-10  
 > **Classification:** Internal — Operations Team  
-> **System:** PARWA AI Customer Care Platform (parwa.ai)
+> **System:** PARWA AI Customer Care Platform (parwa.buzz)
 
 ---
 
@@ -35,19 +35,19 @@
 | git | 2.40+ | Source control |
 
 **Domain Requirements:**
-- `parwa.ai` — Primary application domain
-- `www.parwa.ai` — WWW alias (CNAME to parwa.ai)
-- `monitoring.parwa.ai` — Grafana dashboard (A record)
-- `api.parwa.ai` — Reserved for future API gateway
+- `parwa.buzz` — Primary application domain
+- `www.parwa.buzz` — WWW alias (CNAME to parwa.buzz)
+- `monitoring.parwa.buzz` — Grafana dashboard (A record)
+- `api.parwa.buzz` — Reserved for future API gateway
 
 **DNS Records (example):**
 
 | Type | Name | Value |
 |------|------|-------|
-| A | parwa.ai | `<SERVER_IP>` |
-| A | www.parwa.ai | `<SERVER_IP>` |
-| A | monitoring.parwa.ai | `<SERVER_IP>` |
-| A | api.parwa.ai | `<SERVER_IP>` |
+| A | parwa.buzz | `<SERVER_IP>` |
+| A | www.parwa.buzz | `<SERVER_IP>` |
+| A | monitoring.parwa.buzz | `<SERVER_IP>` |
+| A | api.parwa.buzz | `<SERVER_IP>` |
 
 ### 1.2 Environment Variables
 
@@ -110,7 +110,7 @@ The production environment file is `.env.prod`. Below is the complete reference.
 | Variable | Required | Example | Description |
 |----------|----------|---------|-------------|
 | `BREVO_API_KEY` | No | `xkeysib-...` | Brevo (Sendinblue) API key |
-| `FROM_EMAIL` | No | `noreply@parwa.ai` | Sender email address |
+| `FROM_EMAIL` | No | `noreply@parwa.buzz` | Sender email address |
 
 #### SMS/Voice (Twilio)
 
@@ -143,7 +143,7 @@ The production environment file is `.env.prod`. Below is the complete reference.
 |----------|----------|---------|-------------|
 | `DATA_ENCRYPTION_KEY` | **Yes** | `<32-char-exactly>` | Fernet key for data encryption |
 | `PRICING_SIGNING_KEY` | **Yes** | `<32-char-exactly>` | HMAC key for pricing integrity |
-| `CORS_ORIGINS` | No | `https://parwa.ai` | Comma-separated CORS origins |
+| `CORS_ORIGINS` | No | `https://parwa.buzz` | Comma-separated CORS origins |
 | `IP_ALLOWLIST_ENABLED` | No | `false` | Enable IP allowlist middleware |
 
 #### Compliance
@@ -157,9 +157,9 @@ The production environment file is `.env.prod`. Below is the complete reference.
 
 | Variable | Required | Example | Description |
 |----------|----------|---------|-------------|
-| `NEXT_PUBLIC_API_URL` | No | `https://parwa.ai` | Public API URL for frontend |
+| `NEXT_PUBLIC_API_URL` | No | `https://parwa.buzz` | Public API URL for frontend |
 | `NEXT_PUBLIC_PADDLE_KEY` | No | `pk_live_...` | Paddle public key |
-| `FRONTEND_URL` | No | `https://parwa.ai` | Frontend URL (CORS) |
+| `FRONTEND_URL` | No | `https://parwa.buzz` | Frontend URL (CORS) |
 
 ### 1.3 Server Directory Structure
 
@@ -274,8 +274,8 @@ docker compose -f docker-compose.prod.yml up -d \
 
 # 5. Verify deployment
 docker compose -f docker-compose.prod.yml ps
-curl -sf https://parwa.ai/health
-curl -sf https://parwa.ai/api/health/ready | jq .
+curl -sf https://parwa.buzz/health
+curl -sf https://parwa.buzz/api/health/ready | jq .
 ```
 
 ### 2.3 Docker Image Tagging Strategy
@@ -375,8 +375,8 @@ cd /srv/parwa
 sudo bash nginx/ssl-setup.sh
 
 # With custom configuration
-sudo DOMAIN=parwa.ai \
-     EMAIL=admin@parwa.ai \
+sudo DOMAIN=parwa.buzz \
+     EMAIL=admin@parwa.buzz \
      SSL_DIR=/srv/parwa/nginx/ssl \
      bash nginx/ssl-setup.sh
 
@@ -399,22 +399,22 @@ The script (`nginx/ssl-setup.sh`) performs these steps:
 
 ```bash
 # 1. Verify SSL configuration locally
-openssl s_client -connect parwa.ai:443 -tls1_3 </dev/null 2>/dev/null | \
+openssl s_client -connect parwa.buzz:443 -tls1_3 </dev/null 2>/dev/null | \
   openssl x509 -noout -dates -issuer -subject
 
 # 2. Test HTTPS connection
-curl -vI https://parwa.ai 2>&1 | head -20
+curl -vI https://parwa.buzz 2>&1 | head -20
 
 # 3. Verify certificate chain
-openssl s_client -connect parwa.ai:443 -showcerts </dev/null 2>/dev/null | \
+openssl s_client -connect parwa.buzz:443 -showcerts </dev/null 2>/dev/null | \
   grep -E "subject=|issuer=|Verify return"
 
 # 4. Check TLS protocols
-openssl s_client -connect parwa.ai:443 -tls1_2 </dev/null 2>&1 | grep "Protocol"
-openssl s_client -connect parwa.ai:443 -tls1_3 </dev/null 2>&1 | grep "Protocol"
+openssl s_client -connect parwa.buzz:443 -tls1_2 </dev/null 2>&1 | grep "Protocol"
+openssl s_client -connect parwa.buzz:443 -tls1_3 </dev/null 2>&1 | grep "Protocol"
 
 # 5. Run SSL Labs test (external)
-# Visit: https://www.ssllabs.com/ssltest/analyze.html?d=parwa.ai
+# Visit: https://www.ssllabs.com/ssltest/analyze.html?d=parwa.buzz
 # Target: A+ rating
 ```
 
@@ -453,16 +453,16 @@ tail -20 /var/log/parwa/ssl-renewal.log
 
 # 1. Force immediate renewal
 sudo certbot certonly --force-renewal \
-  --domain parwa.ai \
-  --domain www.parwa.ai \
-  --email admin@parwa.ai \
+  --domain parwa.buzz \
+  --domain www.parwa.buzz \
+  --email admin@parwa.buzz \
   --webroot \
   --webroot-path /var/www/certbot
 
 # 2. Copy new certificate to nginx SSL directory
-sudo cp -L /etc/letsencrypt/live/parwa.ai/fullchain.pem \
+sudo cp -L /etc/letsencrypt/live/parwa.buzz/fullchain.pem \
   /srv/parwa/nginx/ssl/fullchain.pem
-sudo cp -L /etc/letsencrypt/live/parwa.ai/privkey.pem \
+sudo cp -L /etc/letsencrypt/live/parwa.buzz/privkey.pem \
   /srv/parwa/nginx/ssl/privkey.pem
 sudo chmod 600 /srv/parwa/nginx/ssl/privkey.pem
 
@@ -470,7 +470,7 @@ sudo chmod 600 /srv/parwa/nginx/ssl/privkey.pem
 sudo nginx -t && sudo nginx -s reload
 
 # 4. Verify new certificate
-openssl s_client -connect parwa.ai:443 </dev/null 2>/dev/null | \
+openssl s_client -connect parwa.buzz:443 </dev/null 2>/dev/null | \
   openssl x509 -noout -enddate
 ```
 
@@ -482,7 +482,7 @@ openssl s_client -connect parwa.ai:443 </dev/null 2>/dev/null | \
 
 | Property | Value |
 |----------|-------|
-| **URL** | `https://monitoring.parwa.ai` (or `http://<server-ip>:3000`) |
+| **URL** | `https://monitoring.parwa.buzz` (or `http://<server-ip>:3000`) |
 | **Default User** | `admin` |
 | **Default Password** | Change immediately on first login |
 
@@ -559,13 +559,13 @@ AlertManager runs at `alertmanager:9093` inside the Docker network.
 
 ```bash
 # Liveness (always 200 if process is running)
-curl -sf https://parwa.ai/api/health/live
+curl -sf https://parwa.buzz/api/health/live
 
 # Readiness (200 only when all critical subsystems healthy)
-curl -sf https://parwa.ai/api/health/ready | jq .
+curl -sf https://parwa.buzz/api/health/ready | jq .
 
 # Full health (detailed subsystem status, cached 10s)
-curl -sf https://parwa.ai/api/health | jq .
+curl -sf https://parwa.buzz/api/health | jq .
 ```
 
 **Subsystem health statuses:**
@@ -596,7 +596,7 @@ docker compose -f docker-compose.prod.yml up -d \
   --no-deps --build backend worker frontend
 
 # 4. Verify rollback
-curl -sf https://parwa.ai/api/health/ready | jq .
+curl -sf https://parwa.buzz/api/health/ready | jq .
 docker compose -f docker-compose.prod.yml ps
 
 # 5. If using specific image tag
@@ -636,9 +636,9 @@ docker compose -f docker-compose.prod.yml up -d
 
 ```bash
 # If new certificate causes issues, restore from Let's Encrypt archive
-sudo cp /etc/letsencrypt/archive/parwa.ai/fullchain1.pem \
+sudo cp /etc/letsencrypt/archive/parwa.buzz/fullchain1.pem \
   /srv/parwa/nginx/ssl/fullchain.pem
-sudo cp /etc/letsencrypt/archive/parwa.ai/privkey1.pem \
+sudo cp /etc/letsencrypt/archive/parwa.buzz/privkey1.pem \
   /srv/parwa/nginx/ssl/privkey.pem
 sudo chmod 600 /srv/parwa/nginx/ssl/privkey.pem
 sudo nginx -t && sudo nginx -s reload
@@ -671,7 +671,7 @@ git checkout HEAD~1 && \
 docker compose -f docker-compose.prod.yml up -d \
   --no-deps --build backend worker frontend && \
 echo "EMERGENCY ROLLBACK COMPLETE at $(date)" && \
-curl -sf https://parwa.ai/api/health/ready | jq .
+curl -sf https://parwa.buzz/api/health/ready | jq .
 
 # If database migration is the issue, also downgrade:
 docker compose -f docker-compose.prod.yml exec backend \
@@ -724,7 +724,7 @@ docker compose -f docker-compose.prod.yml exec backend \
 
 ```bash
 # Check pool usage via health endpoint
-curl -sf https://parwa.ai/api/health | jq '.subsystems.postgresql.details'
+curl -sf https://parwa.buzz/api/health | jq '.subsystems.postgresql.details'
 
 # Check active connections
 docker compose -f docker-compose.prod.yml exec db \
@@ -829,7 +829,7 @@ docker compose -f docker-compose.prod.yml restart worker
 
 ```bash
 # Check Smart Router health
-curl -sf https://parwa.ai/api/health | jq '.subsystems.external_*'
+curl -sf https://parwa.buzz/api/health | jq '.subsystems.external_*'
 
 # Check LLM provider status pages:
 # Google AI: https://status.cloud.google.com
@@ -918,7 +918,7 @@ docker compose -f docker-compose.prod.yml exec db \
    ORDER BY mean_exec_time DESC LIMIT 10;"
 
 # Check Celery backlog (tasks blocking API)
-curl -sf https://parwa.ai/api/health | jq '.subsystems.celery_queues.details'
+curl -sf https://parwa.buzz/api/health | jq '.subsystems.celery_queues.details'
 
 # Check Redis response time
 docker compose -f docker-compose.prod.yml exec redis \
@@ -926,7 +926,7 @@ docker compose -f docker-compose.prod.yml exec redis \
 
 # Profile a specific endpoint
 curl -w "\n\nTime: %{time_total}s\nDNS: %{time_namelookup}s\nConnect: %{time_connect}s\nTTFB: %{time_starttransfer}s\n" \
-  -o /dev/null -s https://parwa.ai/api/v1/tickets
+  -o /dev/null -s https://parwa.buzz/api/v1/tickets
 ```
 
 ---
@@ -1129,12 +1129,12 @@ print('PASS: No default secrets detected')
 
 - [ ] **HTTPS redirect working**
   ```bash
-  curl -sf -o /dev/null -w "%{redirect_url}" http://parwa.ai/health | grep -q "https://" && echo "PASS" || echo "FAIL"
+  curl -sf -o /dev/null -w "%{redirect_url}" http://parwa.buzz/health | grep -q "https://" && echo "PASS" || echo "FAIL"
   ```
 
 - [ ] **HSTS header present**
   ```bash
-  curl -sI https://parwa.ai | grep -i "strict-transport-security" | grep -q "max-age=63072000" && echo "PASS" || echo "FAIL"
+  curl -sI https://parwa.buzz | grep -i "strict-transport-security" | grep -q "max-age=63072000" && echo "PASS" || echo "FAIL"
   ```
 
 ### 8.3 Authentication & Authorization
@@ -1225,7 +1225,7 @@ print('PASS: Sentry DSN configured')
 # Full system status
 docker compose -f docker-compose.prod.yml ps
 docker stats --no-stream
-curl -sf https://parwa.ai/api/health | jq .
+curl -sf https://parwa.buzz/api/health | jq .
 
 # Restart everything
 docker compose -f docker-compose.prod.yml restart
@@ -1255,17 +1255,17 @@ docker compose -f docker-compose.prod.yml up -d
 
 | Role | Contact | Escalation Time |
 |------|---------|-----------------|
-| On-Call Engineer | <on-call@parwa.ai> | Immediate |
-| Engineering Lead | <lead@parwa.ai> | < 30 min |
-| Infrastructure | <infra@parwa.ai> | < 1 hour |
-| Security | <security@parwa.ai> | < 15 min (security incidents) |
+| On-Call Engineer | <on-call@parwa.buzz> | Immediate |
+| Engineering Lead | <lead@parwa.buzz> | < 30 min |
+| Infrastructure | <infra@parwa.buzz> | < 1 hour |
+| Security | <security@parwa.buzz> | < 15 min (security incidents) |
 
 ## Appendix C: Incident Response Flow
 
 ```
 1. Alert fires (Slack #alerts / email)
 2. Acknowledge alert in AlertManager
-3. Check health endpoint: curl https://parwa.ai/api/health
+3. Check health endpoint: curl https://parwa.buzz/api/health
 4. Identify affected subsystem from health check
 5. Follow relevant troubleshooting section (§6.x)
 6. If unresolvable in 15 min → escalate to Engineering Lead

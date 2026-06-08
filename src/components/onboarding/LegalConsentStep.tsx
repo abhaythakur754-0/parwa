@@ -93,7 +93,7 @@ We retain your data for as long as your account is active or as needed to provid
 We use essential cookies for authentication and session management, and analytics cookies to understand how our Service is used.
 
 8. CONTACT
-For privacy-related inquiries, contact our Data Protection Officer at privacy@parwa.ai.`,
+For privacy-related inquiries, contact our Data Protection Officer at privacy@parwa.buzz.`,
   },
   {
     id: 'ai_data' as const,

@@ -153,9 +153,9 @@ def test_mcp_cors_no_wildcard():
     assert origins == [], f"Expected empty list, got {origins}"
     
     # With configured origins
-    settings = mod.MCPSettings(CORS_ORIGINS="http://localhost:3000,https://app.parwa.ai")
+    settings = mod.MCPSettings(CORS_ORIGINS="http://localhost:3000,https://parwadashboard.netlify.app")
     origins = settings.cors_origin_list
-    assert origins == ["http://localhost:3000", "https://app.parwa.ai"]
+    assert origins == ["http://localhost:3000", "https://parwadashboard.netlify.app"]
 
 
 def test_mcp_auth_token_required_in_production():

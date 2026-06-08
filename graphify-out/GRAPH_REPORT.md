@@ -6640,7 +6640,7 @@ Nodes (5): F-142: Step-Back Prompting — Tier 2 Conditional  Day 3: LLM integra
 
 ### Community 1075 - "Community 1075"
 Cohesion: 0.15
-Nodes (7): Test Ingress configuration., Test that Ingress has TLS termination., Test that Ingress has rate limiting annotations., Test that /api/* routes to backend., Test that /* routes to frontend., Test that Ingress host is parwa.ai., TestK8sIngress
+Nodes (7): Test Ingress configuration., Test that Ingress has TLS termination., Test that Ingress has rate limiting annotations., Test that /api/* routes to backend., Test that /* routes to frontend., Test that Ingress host is parwa.buzz., TestK8sIngress
 
 ### Community 1077 - "Community 1077"
 Cohesion: 0.15

@@ -184,13 +184,13 @@ async def main():
 
         # ── Step 3: Create a test customer ──
         test_customer = {
-            "email": "test@parwa.ai",
+            "email": "test@parwa.buzz",
             "name": "Parwa Test Customer",
             "custom_data": {"type": "test", "source": "paddle_setup_script"},
         }
 
         # Check if test customer already exists
-        resp = await client.get(f"{base_url}customers", params={"email": "test@parwa.ai"})
+        resp = await client.get(f"{base_url}customers", params={"email": "test@parwa.buzz"})
         existing_custs = resp.json().get("data", []) if resp.status_code == 200 else []
         if existing_custs:
             customer = existing_custs[0]

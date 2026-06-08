@@ -793,11 +793,11 @@ class TestK8sIngress:
         assert root_found, "Root path (/) not found in Ingress rules"
 
     def test_ingress_host_is_parwa_ai(self):
-        """Test that Ingress host is parwa.ai."""
+        """Test that Ingress host is parwa.buzz."""
         docs = load_k8s_yaml(K8S_DIR / "ingress.yaml")
         ingress = next(d for d in docs if d.get("kind") == "Ingress")
         hosts = [rule["host"] for rule in ingress["spec"]["rules"]]
-        assert "parwa.ai" in hosts, "parwa.ai host not found in Ingress"
+        assert "parwa.buzz" in hosts, "parwa.buzz host not found in Ingress"
 
 
 class TestK8sPDB:

@@ -34,7 +34,7 @@ import time
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional, Tuple
 
-logger = logging.getLogger("parwa.ai_pipeline")
+logger = logging.getLogger("parwa.buzz_pipeline")
 
 
 # ── Pipeline Data Classes ─────────────────────────────────────────
