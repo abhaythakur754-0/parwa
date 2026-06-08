@@ -129,7 +129,7 @@ const ALLOWED_REDIRECT_PREFIXES = [
 ];
 
 /** Default safe redirect target when validation fails. */
-const SAFE_REDIRECT_DEFAULT = "/models";
+const SAFE_REDIRECT_DEFAULT = "/dashboard";
 
 /**
  * Decode a URL string iteratively until it stops changing.

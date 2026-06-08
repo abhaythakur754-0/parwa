@@ -58,22 +58,7 @@ function LoginContent() {
   // ── After successful login, check onboarding then redirect ──────
 
   async function redirectAfterLogin(_isNewUser?: boolean) {
-    // Check onboarding status — redirect new/incomplete users to onboarding
-    try {
-      const res = await fetch('/api/onboarding/state', {
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      if (res.ok) {
-        const onboardingData = await res.json();
-        if (!onboardingData.first_victory_completed && onboardingData.status !== 'completed') {
-          router.push('/onboarding');
-          return;
-        }
-      }
-    } catch {
-      // On network error, proceed to default redirect
-    }
+    // Onboarding bypassed — always go to dashboard
     router.push(redirectTo);
   }
 
