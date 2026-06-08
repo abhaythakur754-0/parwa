@@ -1,16 +1,21 @@
+# Netlify configuration for PARWA frontend (Next.js)
+# This ensures Netlify builds only the Next.js frontend and ignores Python backend deps
+
 [build]
   command = "npm run build"
   publish = ".next"
   base = "/"
 
-# Tell Netlify to IGNORE Python — we only want Node.js
+# Tell Netlify to use Node.js, NOT Python
 [build.environment]
   NODE_VERSION = "20"
   NPM_FLAGS = "--legacy-peer-deps"
+  # Prevent Netlify from auto-detecting and installing Python dependencies
+  PYTHON_VERSION = ""
   # Frontend URL for CSRF proxy Origin header — must match backend's trusted origins
   FRONTEND_URL = "https://parwadashboard.netlify.app"
 
-# Next.js needs the Essential Next.js plugin
+# Use the Essential Next.js plugin for proper SSR/ISR support
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 

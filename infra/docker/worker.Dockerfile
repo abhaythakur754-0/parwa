@@ -25,9 +25,9 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Install Python dependencies
-COPY requirements.txt .
+COPY backend-requirements.txt .
 RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+    pip install -r backend-requirements.txt
 
 # -----------------------------------------------------------------------------
 # Stage 2: Production - Minimal runtime image
