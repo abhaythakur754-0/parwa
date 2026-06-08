@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     // Dynamic origin — matches whatever deployment we're on
     const origin = process.env.FRONTEND_URL
       || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
-      || (process.env.NODE_ENV === 'production' ? 'https://parwa.ai' : 'http://localhost:3000');
+      || (process.env.NODE_ENV === 'production' ? 'https://parwa.buzz' : 'http://localhost:3000');
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Origin': origin,

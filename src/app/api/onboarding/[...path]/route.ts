@@ -2,55 +2,32 @@
  * PARWA Onboarding API Proxy (Catch-All)
  *
  * Catches all /api/onboarding/* requests and proxies them to the backend.
- * When the backend is unavailable, returns mock responses for graceful degradation.
+ * Uses backendProxy for CSRF-aware requests with Origin header handling.
+ * When the backend is unavailable or returns CSRF errors, falls back to
+ * mock responses for graceful degradation.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getBackendUrl } from '@/lib/backend-url';
+import { backendProxy } from '@/lib/backend-proxy';
 
-const BACKEND_URL = getBackendUrl();
+/**
+ * Extract auth token from request (cookie or Authorization header).
+ */
+function getAuthToken(req: NextRequest): string | undefined {
+  const authHeader = req.headers.get('authorization');
+  if (authHeader) return authHeader.replace('Bearer ', '');
 
-async function proxyToBackend(req: NextRequest, path: string) {
-  const url = `${BACKEND_URL}/api/onboarding${path}`;
-  const method = req.method;
-
-  try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-
-    // Forward auth token
-    const authHeader = req.headers.get('authorization');
-    if (authHeader) headers['Authorization'] = authHeader;
-
-    const cookieHeader = req.headers.get('cookie');
-    if (cookieHeader) {
-      const cookies = Object.fromEntries(
-        cookieHeader.split(';').map((c) => {
-          const [key, ...val] = c.trim().split('=');
-          return [key, val.join('=')];
-        })
-      );
-      if (cookies.parwa_at) headers['Authorization'] = `Bearer ${cookies.parwa_at}`;
-    }
-
-    let body: string | undefined;
-    if (method !== 'GET' && method !== 'HEAD') {
-      body = await req.text();
-    }
-
-    const res = await fetch(url, {
-      method,
-      headers,
-      body,
-      signal: AbortSignal.timeout(8000),
-    });
-
-    const data = await res.json();
-    return NextResponse.json(data, { status: res.status });
-  } catch {
-    return null; // Backend unavailable
+  const cookieHeader = req.headers.get('cookie');
+  if (cookieHeader) {
+    const cookies = Object.fromEntries(
+      cookieHeader.split(';').map((c) => {
+        const [key, ...val] = c.trim().split('=');
+        return [key, val.join('=')];
+      })
+    );
+    if (cookies.parwa_at) return cookies.parwa_at;
   }
+  return undefined;
 }
 
 // GET handler
@@ -59,9 +36,26 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ path
   const path = pathSegments ? `/${pathSegments.join('/')}` : '';
   const url = new URL(req.url);
   const searchParams = url.search;
+  const authToken = getAuthToken(req);
 
-  const backendResponse = await proxyToBackend(req, `${path}${searchParams}`);
-  if (backendResponse) return backendResponse;
+  // Try backend first (CSRF-aware)
+  try {
+    const { response } = await backendProxy(`/api/onboarding${path}${searchParams}`, {
+      method: 'GET',
+      authToken,
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return NextResponse.json(data);
+    }
+
+    if (response.status !== 403) {
+      console.warn(`[onboarding-proxy] GET ${path} returned ${response.status} — trying mock`);
+    }
+  } catch (err) {
+    console.warn(`[onboarding-proxy] GET ${path} failed:`, err);
+  }
 
   // Mock fallbacks
   if (path === '/state' || path === '') {
@@ -99,10 +93,38 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
   const path = pathSegments ? `/${pathSegments.join('/')}` : '';
   const url = new URL(req.url);
   const searchParams = url.search;
+  const authToken = getAuthToken(req);
 
-  const backendResponse = await proxyToBackend(req, `${path}${searchParams}`);
-  if (backendResponse) return backendResponse;
+  let body: string | undefined;
+  try {
+    body = await req.text();
+  } catch {
+    // No body
+  }
 
+  // Try backend first (CSRF-aware)
+  try {
+    const { response } = await backendProxy(`/api/onboarding${path}${searchParams}`, {
+      method: 'POST',
+      body: body || undefined,
+      authToken,
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return NextResponse.json(data);
+    }
+
+    if (response.status !== 403) {
+      console.warn(`[onboarding-proxy] POST ${path} returned ${response.status} — trying mock`);
+    } else {
+      console.warn(`[onboarding-proxy] POST ${path} got CSRF 403 — using mock fallback`);
+    }
+  } catch (err) {
+    console.warn(`[onboarding-proxy] POST ${path} failed:`, err);
+  }
+
+  // Mock fallbacks
   if (path.startsWith('/complete-step')) {
     return NextResponse.json({ status: 'ok', current_step: 1, completed_steps: [1] });
   }
@@ -125,9 +147,32 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ path
   const path = pathSegments ? `/${pathSegments.join('/')}` : '';
   const url = new URL(req.url);
   const searchParams = url.search;
+  const authToken = getAuthToken(req);
 
-  const backendResponse = await proxyToBackend(req, `${path}${searchParams}`);
-  if (backendResponse) return backendResponse;
+  let body: string | undefined;
+  try {
+    body = await req.text();
+  } catch {
+    // No body
+  }
+
+  // Try backend first (CSRF-aware)
+  try {
+    const { response } = await backendProxy(`/api/onboarding${path}${searchParams}`, {
+      method: 'PUT',
+      body: body || undefined,
+      authToken,
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return NextResponse.json(data);
+    }
+
+    console.warn(`[onboarding-proxy] PUT ${path} returned ${response.status}`);
+  } catch (err) {
+    console.warn(`[onboarding-proxy] PUT ${path} failed:`, err);
+  }
 
   return NextResponse.json({ detail: 'Not found' }, { status: 404 });
 }
