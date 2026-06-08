@@ -82,3 +82,4 @@ dump.rdb
 
 # Graphify cache (large binary cache files)
 graphify-out/cache/
+parwa/
