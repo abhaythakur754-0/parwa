@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import { useEffect } from 'react';
 
 /**
  * Dashboard Error Boundary
@@ -15,6 +15,10 @@ export default function DashboardError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    console.error('Dashboard error:', error);
+  }, [error]);
+
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>
       <div className="max-w-md w-full mx-auto p-8 text-center">

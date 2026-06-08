@@ -38,9 +38,13 @@ function LoginContent() {
   // Force logout to clear stale data and break the loop.
   const redirectAttempted = useRef(false);
   const loopDetected = useRef(false);
+  const loginInProgress = useRef(false);
 
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
+      // If login is in progress, don't redirect — let redirectAfterLogin handle it
+      if (loginInProgress.current) return;
+
       // If we already tried redirecting once and we're still here,
       // it means we got bounced back = REDIRECT LOOP
       if (redirectAttempted.current) {
@@ -67,6 +71,7 @@ function LoginContent() {
   const handleLogin = async (email: string, password: string) => {
     setError(null);
     setIsSubmitting(true);
+    loginInProgress.current = true;
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -109,6 +114,7 @@ function LoginContent() {
       const message = err instanceof Error ? err.message : 'Login failed. Please try again.';
       setError(message);
       toast.error(message);
+      loginInProgress.current = false;
     } finally {
       setIsSubmitting(false);
     }
