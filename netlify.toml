@@ -1,0 +1,13 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+  base = "/"
+
+# Tell Netlify to IGNORE Python — we only want Node.js
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--legacy-peer-deps"
+
+# Next.js needs the Essential Next.js plugin
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
