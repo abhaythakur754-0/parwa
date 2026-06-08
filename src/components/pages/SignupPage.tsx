@@ -32,7 +32,7 @@ export default function SignupPage() {
         localStorage.setItem('parwa_user', JSON.stringify(responseData.user));
         setAuth(true);
         toast.success('Account created successfully!');
-        router.push('/onboarding');
+        router.push('/dashboard');
         return;
       }
     } catch {
@@ -56,7 +56,7 @@ export default function SignupPage() {
     };
     localStorage.setItem('parwa_user', JSON.stringify(mockUser));
     setAuth(true);
-    router.push('/onboarding');
+    router.push('/dashboard');
     toast.success('Account created! (Demo mode)');
   };
 
