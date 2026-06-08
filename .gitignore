@@ -83,3 +83,4 @@ dump.rdb
 # Graphify cache (large binary cache files)
 graphify-out/cache/
 parwa/
+# Build test Mon Jun  8 21:04:12 UTC 2026
