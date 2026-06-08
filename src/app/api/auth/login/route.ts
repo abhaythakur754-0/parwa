@@ -74,8 +74,35 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Backend returned error (invalid credentials, locked, etc.)
-      if (backendRes.status === 401 || backendRes.status === 403) {
+      // Backend returned 403 — could be CSRF/origin error or forbidden
+      // Do NOT fall through to local Prisma — return a clear error instead
+      if (backendRes.status === 403) {
+        let errorData: Record<string, unknown> = {};
+        try { errorData = await backendRes.json(); } catch { /* ignore */ }
+        const detail = errorData.detail;
+        const errorMsg = (errorData?.error as Record<string, unknown>)?.message || errorData?.message;
+        const rawMessage =
+          (typeof detail === "object" && detail !== null && "message" in detail)
+            ? String((detail as Record<string, unknown>).message)
+            : (typeof detail === "string" ? detail : null)
+            || (typeof errorMsg === "string" ? errorMsg : null);
+        // If it's a CSRF/origin error, return 503 (service unavailable) not 403
+        const isCSRF = rawMessage?.toLowerCase().includes('csrf') ||
+          rawMessage?.toLowerCase().includes('invalid origin');
+        if (isCSRF) {
+          return NextResponse.json(
+            { status: "error", message: "Login temporarily unavailable. Please try again." },
+            { status: 503 }
+          );
+        }
+        return NextResponse.json(
+          { status: "error", message: rawMessage || "Access denied." },
+          { status: 403 }
+        );
+      }
+
+      // Backend returned 401 — invalid credentials
+      if (backendRes.status === 401) {
         let errorData: Record<string, unknown> = {};
         try { errorData = await backendRes.json(); } catch { /* ignore */ }
         const detail = errorData.detail;
@@ -87,7 +114,7 @@ export async function POST(request: NextRequest) {
             || "Invalid email or password.";
         return NextResponse.json(
           { status: "error", message },
-          { status: backendRes.status === 403 ? 403 : 401 }
+          { status: 401 }
         );
       }
 

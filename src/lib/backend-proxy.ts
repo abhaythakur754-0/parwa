@@ -26,6 +26,10 @@ const BACKEND_URL = getBackendUrl();
  *
  * Dynamic based on VERCEL_URL or environment, never hardcoded.
  * Falls back to http://localhost:3000 for local development.
+ *
+ * IMPORTANT: The production default must match the backend's CSRF_TRUSTED_ORIGINS.
+ * The deployed backend trusts https://parwa.buzz, NOT https://parwa.ai.
+ * Using the wrong origin causes a 403 CSRF rejection on auth endpoints.
  */
 function getProxyOrigin(): string {
   // Runtime env var — can be changed without rebuilding
@@ -36,12 +40,36 @@ function getProxyOrigin(): string {
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`;
   }
-  // Production default
+  // Production default — must match backend's CSRF_TRUSTED_ORIGINS
   if (process.env.NODE_ENV === 'production') {
-    return 'https://parwa.ai';
+    return 'https://parwa.buzz';
   }
   // Local development
   return 'http://localhost:3000';
+}
+
+/**
+ * Get fallback origins to try when the primary origin gets a 403 CSRF rejection.
+ *
+ * The backend may trust different origins than what the frontend defaults to.
+ * If a request fails with a CSRF 403, we retry with each fallback origin.
+ */
+function getFallbackOrigins(): string[] {
+  const primary = getProxyOrigin();
+  const fallbacks: string[] = [];
+  // Add common PARWA domains as fallbacks (skip the primary to avoid duplicate)
+  const allDomains = [
+    'https://parwa.buzz',
+    'https://parwa.ai',
+    'https://www.parwa.buzz',
+    'https://www.parwa.ai',
+  ];
+  for (const domain of allDomains) {
+    if (domain !== primary) {
+      fallbacks.push(domain);
+    }
+  }
+  return fallbacks;
 }
 
 interface CSRFTokens {
@@ -82,12 +110,32 @@ async function fetchCSRFToken(): Promise<CSRFTokens | null> {
 }
 
 /**
- * Check if a response indicates a CSRF token error.
+ * Check if a response indicates a CSRF-related error (origin or token).
  */
 function isCSRFError(response: Response): boolean {
   // Fast check without consuming the body
   if (response.status !== 403) return false;
   return true; // Will check body in the caller if needed
+}
+
+/**
+ * Check if a 403 response body contains a CSRF-related error message.
+ */
+async function isCSRFBodyError(response: Response): Promise<boolean> {
+  try {
+    const cloned = response.clone();
+    const errorBody = await cloned.json();
+    const errorMsg = (
+      errorBody?.error?.message || errorBody?.message || ''
+    ).toLowerCase();
+    return (
+      errorMsg.includes('csrf') ||
+      errorMsg.includes('invalid origin') ||
+      errorMsg.includes('origin not allowed')
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -158,37 +206,108 @@ export async function backendProxy(
         return { response, csrfUsed: false };
       }
 
-      // CSRF error — need to retry with CSRF token
-      console.log(`[backend-proxy] CSRF required for ${path} — fetching token and retrying`);
+      // CSRF error — need to retry with CSRF token or fallback origin
+      console.log(`[backend-proxy] CSRF required for ${path} — will retry with CSRF token and fallback origins`);
     } catch (fetchError) {
-      // First attempt timed out or failed — try with CSRF
+      // First attempt timed out or failed — try with CSRF + fallback
       console.warn(`[backend-proxy] First attempt failed for ${path}:`, fetchError);
     }
 
-    // ── Retry with CSRF token ──
-    const csrfTokens = await fetchCSRFToken();
-    if (csrfTokens) {
-      headers['Cookie'] = `parwa_csrf=${csrfTokens.cookie}`;
-      headers['x-csrf-token'] = csrfTokens.token;
+    // ── Retry with CSRF token + fallback origins ──
+    // Try primary origin with CSRF token first, then fallback origins
+    const originsToTry = [origin, ...getFallbackOrigins()];
+    let lastResponse: Response | null = null;
+
+    for (const tryOrigin of originsToTry) {
+      // Fetch fresh CSRF token for this attempt
+      const csrfTokens = await fetchCSRFToken();
+      const tryHeaders: Record<string, string> = {
+        ...headers,
+        'Origin': tryOrigin,
+        'Referer': `${tryOrigin}/`,
+      };
+      if (csrfTokens) {
+        tryHeaders['Cookie'] = `parwa_csrf=${csrfTokens.cookie}`;
+        tryHeaders['x-csrf-token'] = csrfTokens.token;
+      }
+
+      try {
+        lastResponse = await fetch(`${BACKEND_URL}${path}`, {
+          method,
+          headers: tryHeaders,
+          body: method !== 'GET' && method !== 'HEAD' ? body : undefined,
+          signal: AbortSignal.timeout(30000),
+        });
+
+        // If this origin worked (not 403), return it
+        if (lastResponse.status !== 403) {
+          return { response: lastResponse, csrfUsed: !!csrfTokens };
+        }
+
+        // Check if it's a CSRF 403 specifically — try next origin
+        const csrfBodyErr = await isCSRFBodyError(lastResponse);
+        if (csrfBodyErr) {
+          console.log(`[backend-proxy] Origin ${tryOrigin} got CSRF 403 — trying next fallback`);
+          continue;
+        }
+
+        // Non-CSRF 403 — return it (it's a real auth error)
+        return { response: lastResponse, csrfUsed: !!csrfTokens };
+      } catch (fetchErr) {
+        console.warn(`[backend-proxy] Retry with origin ${tryOrigin} failed:`, fetchErr);
+        continue;
+      }
     }
 
-    const response = await fetch(`${BACKEND_URL}${path}`, {
-      method,
-      headers,
-      body: method !== 'GET' && method !== 'HEAD' ? body : undefined,
-      signal: AbortSignal.timeout(30000),
-    });
+    // All origins failed — return the last response we got
+    if (lastResponse) {
+      return { response: lastResponse, csrfUsed: true };
+    }
 
-    return { response, csrfUsed: !!csrfTokens };
+    // No response at all — create a synthetic error response
+    return {
+      response: new Response(JSON.stringify({ error: { message: 'All proxy attempts failed' } }), {
+        status: 502,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+      csrfUsed: false,
+    };
   }
 
-  // ── Non-auth paths: just make the request directly ──
-  const response = await fetch(`${BACKEND_URL}${path}`, {
+  // ── Non-auth paths: try with primary origin, fallback on CSRF 403 ──
+  let response = await fetch(`${BACKEND_URL}${path}`, {
     method,
     headers,
     body: method !== 'GET' && method !== 'HEAD' ? body : undefined,
     signal: AbortSignal.timeout(30000),
   });
+
+  // If we get a CSRF 403 on a non-auth path, try fallback origins
+  if (response.status === 403) {
+    const csrfBodyErr = await isCSRFBodyError(response);
+    if (csrfBodyErr) {
+      for (const fallbackOrigin of getFallbackOrigins()) {
+        const fallbackHeaders = {
+          ...headers,
+          'Origin': fallbackOrigin,
+          'Referer': `${fallbackOrigin}/`,
+        };
+        try {
+          const fallbackRes = await fetch(`${BACKEND_URL}${path}`, {
+            method,
+            headers: fallbackHeaders,
+            body: method !== 'GET' && method !== 'HEAD' ? body : undefined,
+            signal: AbortSignal.timeout(30000),
+          });
+          if (fallbackRes.status !== 403) {
+            return { response: fallbackRes, csrfUsed: false };
+          }
+        } catch {
+          continue;
+        }
+      }
+    }
+  }
 
   return { response, csrfUsed: false };
 }

@@ -132,6 +132,27 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // CSRF / Origin errors — do NOT fall through to local Prisma
+      // A 403 from the backend is a CSRF rejection, not a real auth error.
+      // Falling through to Prisma causes a broken "server error" because
+      // Prisma isn't configured on Vercel/Netlify deployments.
+      if (backendRes.status === 403) {
+        let errorData: Record<string, unknown> = {};
+        try { errorData = await backendRes.json(); } catch { /* ignore */ }
+        const detail = errorData.detail;
+        const errorMsg = (errorData?.error as Record<string, unknown>)?.message || errorData?.message;
+        const message =
+          (typeof detail === "object" && detail !== null && "message" in detail)
+            ? String((detail as Record<string, unknown>).message)
+            : (typeof detail === "string" ? detail : null)
+            || (typeof errorMsg === "string" ? errorMsg : null)
+            || "Registration temporarily unavailable. Please try again.";
+        return NextResponse.json(
+          { status: "error", message },
+          { status: 503 }
+        );
+      }
+
       // Other backend errors — fall through to local
       console.warn("[register] Backend returned", backendRes.status, "— falling back to local");
     } catch {
