@@ -976,8 +976,8 @@ export default function ModelsPage() {
                             // Build variant string for URL
                             const variantString = selectedVariants.map(v => `${v.id}:${v.quantity}`).join(',');
 
-                            // Navigate to onboarding with context
-                            router.push(`/onboarding?source=models&industry=${selectedIndustry}&variant_id=${selectedVariants[0]?.id || ''}&variants=${encodeURIComponent(variantString)}`);
+                            // Navigate to details collection first, then onboarding wizard
+                            router.push(`/welcome/details?source=models&industry=${selectedIndustry}&variant_id=${selectedVariants[0]?.id || ''}&variants=${encodeURIComponent(variantString)}`);
                           }}
                           disabled={!hasSelection}
                           className="group/cfm flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 overflow-hidden relative disabled:opacity-50 disabled:cursor-not-allowed"

@@ -243,9 +243,9 @@ export default function PricingPage() {
       // localStorage unavailable — URL params still work
     }
 
-    // Navigate with URL params as well
+    // Navigate to details collection first, then onboarding wizard
     router.push(
-      `/onboarding?source=pricing&industry=${selectedIndustry}&variants=${encodeURIComponent(variantString)}`
+      `/welcome/details?source=pricing&industry=${selectedIndustry}&variants=${encodeURIComponent(variantString)}`
     );
   };
 
