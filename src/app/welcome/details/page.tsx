@@ -1,20 +1,57 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle, Loader2 } from 'lucide-react';
 
+import { useAuth } from '@/hooks/useAuth';
 import { DetailsForm } from '@/components/onboarding/DetailsForm';
 import { userDetailsApi, onboardingApi } from '@/lib/api';
 import { UserDetails, OnboardingState } from '@/types/onboarding';
 
-export default function WelcomeDetailsPage() {
+// ── Loading Fallback ──────────────────────────────────────────────────
+function DetailsLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>
+      <div className="text-center">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-400 mx-auto mb-4" />
+        <p className="text-orange-200/50">Loading...</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Details Content ────────────────────────────────────────────────────
+function DetailsContent() {
+  const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [initialData, setInitialData] = useState<UserDetails | null>(null);
   const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null);
+  const [ready, setReady] = useState(false);
 
+  // Auth gate: redirect to login if not authenticated
   useEffect(() => {
+    if (authLoading) return;
+
+    if (!user) {
+      // Preserve all query params (source, industry, variants) in the redirect URL
+      const currentParams = searchParams.toString();
+      const redirectPath = currentParams
+        ? `/welcome/details?${currentParams}`
+        : '/welcome/details';
+      router.push(`/login?redirect=${encodeURIComponent(redirectPath)}`);
+      return;
+    }
+
+    setReady(true);
+  }, [user, authLoading, router, searchParams]);
+
+  // Fetch initial data after auth is confirmed
+  useEffect(() => {
+    if (!ready) return;
+
     async function fetchInitialData() {
       try {
         const [details, state] = await Promise.all([
@@ -37,7 +74,7 @@ export default function WelcomeDetailsPage() {
       }
     }
     fetchInitialData();
-  }, [router]);
+  }, [ready, router]);
 
   const handleSubmit = (data: UserDetails) => { setInitialData(data); };
   const handleNext = () => {
@@ -49,15 +86,8 @@ export default function WelcomeDetailsPage() {
     router.push(redirectUrl);
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-orange-400 mx-auto mb-4" />
-          <p className="text-orange-200/50">Loading...</p>
-        </div>
-      </div>
-    );
+  if (authLoading || !ready || isLoading) {
+    return <DetailsLoading />;
   }
 
   return (
@@ -95,7 +125,7 @@ export default function WelcomeDetailsPage() {
 
         {/* Footer */}
         <div className="mt-8 text-center text-sm text-orange-200/30">
-          <p>Need help?{' '}<a href="mailto:support@parwa.io" className="text-orange-400 hover:text-orange-300 transition-colors">Contact Support</a></p>
+          <p>Need help?{' '}<a href="mailto:support@parwa.buzz" className="text-orange-400 hover:text-orange-300 transition-colors">Contact Support</a></p>
         </div>
       </div>
 
@@ -116,5 +146,14 @@ function Step({ number, label, isActive, isCompleted }: { number: number; label:
       </div>
       <span className={`mt-2 text-xs font-medium ${isActive ? 'text-orange-400' : 'text-orange-200/30'}`}>{label}</span>
     </div>
+  );
+}
+
+// ── Page Export ────────────────────────────────────────────────────────
+export default function WelcomeDetailsPage() {
+  return (
+    <Suspense fallback={<DetailsLoading />}>
+      <DetailsContent />
+    </Suspense>
   );
 }

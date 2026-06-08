@@ -123,6 +123,7 @@ const ALLOWED_REDIRECT_PREFIXES = [
   "/agents",
   "/profile",
   "/onboarding",
+  "/welcome",
   "/monitoring",
   "/dashboard",
 ];
