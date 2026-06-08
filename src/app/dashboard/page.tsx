@@ -220,45 +220,15 @@ export default function DashboardPage() {
   const [dateRange, setDateRange] = useState<Partial<DateRange>>({});
   const [datePreset, setDatePreset] = useState('30d');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState(true); // Bypassed — always true
 
-  // ── Onboarding check ──────────────────────────────────────────────
-  useEffect(() => {
-    async function checkOnboarding() {
-      try {
-        const res = await fetch('/api/onboarding/state', {
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          // If onboarding is NOT completed, redirect to onboarding wizard
-          if (!data.first_victory_completed && data.status !== 'completed') {
-            router.replace('/onboarding');
-            return;
-          }
-        }
-      } catch {
-        // On error, allow dashboard access (don't block on network failure)
-      }
-      setOnboardingChecked(true);
-    }
-    checkOnboarding();
-  }, [router]);
-
-  if (!onboardingChecked) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="w-6 h-6 animate-spin text-orange-400" />
-      </div>
-    );
-  }
-
-  // ── AI / Cost / Sentiment state ──────────────────────────────────
+  // ── AI / Cost / Sentiment state (MUST be above any conditional return) ──
   const [roiState, setRoiState] = useState<FetchState<ROISnapshot>>({ status: 'loading', data: null });
   const [costBudgetState, setCostBudgetState] = useState<FetchState<CostBudget>>({ status: 'loading', data: null });
   const [variantsState, setVariantsState] = useState<FetchState<VariantInstance[]>>({ status: 'loading', data: null });
   const [sentimentState, setSentimentState] = useState<FetchState<SentimentOverview>>({ status: 'loading', data: null });
+
+  // ── Onboarding bypassed — no redirect check needed ─────────────────────
 
   // ── Fetch Dashboard Data ──────────────────────────────────────────
 
