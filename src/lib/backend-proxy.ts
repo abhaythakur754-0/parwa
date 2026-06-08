@@ -61,6 +61,7 @@ function getFallbackOrigins(): string[] {
   const allDomains = [
     'https://parwa.buzz',
     'https://parwa.ai',
+    'https://parwa.netlify.app',
     'https://www.parwa.buzz',
     'https://www.parwa.ai',
   ];

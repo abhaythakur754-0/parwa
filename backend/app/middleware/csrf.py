@@ -315,6 +315,11 @@ class CSRFSecurityMiddleware:
         if re.match(r"^https://[a-z0-9\-]+\.vercel\.app$", check_origin):
             return True
 
+        # Allow any Netlify deploy preview (dynamic subdomains like
+        # fix-phase1b-onboarding--parwa.netlify.app)
+        if re.match(r"^https://[a-z0-9\-]+\.netlify\.app$", check_origin):
+            return True
+
         # Check against trusted origins
         for trusted in self._trusted_origins:
             if check_origin == trusted or check_origin.startswith(trusted + "/"):
