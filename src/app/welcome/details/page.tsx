@@ -61,11 +61,7 @@ function DetailsContent() {
         setInitialData(details);
         setOnboardingState(state);
         if (state?.details_completed) {
-          const params = new URLSearchParams(window.location.search);
-          const redirectUrl = params.has('source')
-            ? `/onboarding?${params.toString()}`
-            : '/onboarding';
-          router.push(redirectUrl);
+          router.push('/dashboard');
         }
       } catch (error) {
         console.error('Failed to fetch initial data:', error);
@@ -78,12 +74,7 @@ function DetailsContent() {
 
   const handleSubmit = (data: UserDetails) => { setInitialData(data); };
   const handleNext = () => {
-    // Preserve pricing context when navigating to onboarding wizard
-    const params = new URLSearchParams(window.location.search);
-    const redirectUrl = params.has('source')
-      ? `/onboarding?${params.toString()}`
-      : '/onboarding';
-    router.push(redirectUrl);
+    router.push('/dashboard');
   };
 
   if (authLoading || !ready || isLoading) {

@@ -1021,7 +1021,7 @@ export default function ModelsPage() {
                               totalMonthly,
                             }));
                           }
-                          router.push(`/signup?redirect=/onboarding&source=models&industry=${selectedIndustry || ''}`);
+                          router.push(`/signup?redirect=/dashboard&source=models&industry=${selectedIndustry || ''}`);
                         }}
                         className="group relative flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-500 hover:-translate-y-0.5 overflow-hidden"
                         style={{ background: `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.85) 100%)`, color: primary, boxShadow: `0 8px 24px rgba(${accentRgb},0.3)` }}>

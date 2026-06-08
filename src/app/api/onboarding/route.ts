@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
       details_completed: false,
       wizard_started: false,
       legal_accepted: false,
-      first_victory_completed: false,
+      first_victory_completed: true,
       ai_name: 'Jarvis',
       ai_tone: 'professional',
       ai_response_style: 'concise',

@@ -84,3 +84,4 @@ dump.rdb
 graphify-out/cache/
 test-results/
 test-results-*.png
+parwa/

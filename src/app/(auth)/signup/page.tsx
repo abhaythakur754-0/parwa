@@ -21,7 +21,7 @@ function SignupContent() {
   const [alreadyLoggedIn, setAlreadyLoggedIn] = useState(false);
   const { hydrate, isAuthenticated } = useAuth();
 
-  const redirectTo = getSafeRedirect(searchParams.get('redirect')) || '/onboarding';
+  const redirectTo = getSafeRedirect(searchParams.get('redirect')) || '/dashboard';
   const source = searchParams.get('source') || '';
   const industry = searchParams.get('industry') || '';
 
@@ -200,7 +200,7 @@ function SignupContent() {
           <h1 className="text-2xl font-bold text-white mb-2">You're already signed in! 👋</h1>
           <p className="text-sm text-orange-200/50 mb-6">Looks like you already have an account. No need to sign up again.</p>
           <div className="flex flex-col gap-3 max-w-xs mx-auto">
-            <Link href="/onboarding" className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-500 shadow-lg shadow-orange-600/25">Continue to Onboarding →</Link>
+            <Link href="/dashboard" className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-500 shadow-lg shadow-orange-600/25">Continue to Dashboard →</Link>
             <Link href="/login" className="text-sm text-orange-400 hover:text-orange-300 transition-colors">Or sign in with a different account</Link>
           </div>
         </div>
