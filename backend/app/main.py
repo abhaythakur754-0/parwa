@@ -53,6 +53,7 @@ from app.api.mfa import router as mfa_router
 from app.api.api_keys import router as api_keys_router
 from app.api.client import router as client_router
 from app.api.admin import router as admin_router
+from app.api.admin_bootstrap import router as admin_bootstrap_router
 from app.api.webhooks import router as webhook_router
 from app.api.health import router as health_router
 from app.api.user_details import router as user_details_router
@@ -400,6 +401,7 @@ app.include_router(mfa_router)
 app.include_router(api_keys_router)
 app.include_router(client_router)
 app.include_router(admin_router)
+app.include_router(admin_bootstrap_router)
 app.include_router(webhook_router)
 app.include_router(user_details_router)
 app.include_router(public_router)  # Public API for landing page (no auth required)
