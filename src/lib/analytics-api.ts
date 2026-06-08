@@ -259,7 +259,7 @@ export const analyticsApi = {
    * Get summary directly from backend (no Next.js proxy).
    */
   getSummaryDirect: async (dateRange?: Partial<DateRange>): Promise<TicketSummaryResponse> => {
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+    const API_BASE = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || '');
     const qs = formatDateParams(dateRange);
     return apiFetch<TicketSummaryResponse>(`${API_BASE}/analytics/tickets/summary${qs}`, generateMockSummary);
   },
@@ -285,7 +285,7 @@ export const analyticsApi = {
     interval: IntervalType = 'day',
     dateRange?: Partial<DateRange>
   ): Promise<TrendPointResponse> => {
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+    const API_BASE = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || '');
     const qs = formatDateParams(dateRange);
     return apiFetch<TrendPointResponse>(
       `${API_BASE}/analytics/tickets/trends?interval=${interval}${qs ? '&' + qs.slice(1) : ''}`,
@@ -305,7 +305,7 @@ export const analyticsApi = {
    * Get categories directly from backend.
    */
   getCategoriesDirect: async (dateRange?: Partial<DateRange>): Promise<CategoryDistributionResponse> => {
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+    const API_BASE = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || '');
     const qs = formatDateParams(dateRange);
     return apiFetch<CategoryDistributionResponse>(`${API_BASE}/analytics/tickets/category${qs}`, generateMockCategories);
   },
@@ -322,7 +322,7 @@ export const analyticsApi = {
    * Get SLA directly from backend.
    */
   getSLADirect: async (dateRange?: Partial<DateRange>): Promise<SLAMetricsResponse> => {
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+    const API_BASE = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || '');
     const qs = formatDateParams(dateRange);
     return apiFetch<SLAMetricsResponse>(`${API_BASE}/analytics/tickets/sla${qs}`, generateMockSLA);
   },
@@ -348,7 +348,7 @@ export const analyticsApi = {
     limit: number = 50,
     dateRange?: Partial<DateRange>
   ): Promise<AgentMetrics[]> => {
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+    const API_BASE = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || '');
     const qs = formatDateParams(dateRange);
     return apiFetch<AgentMetrics[]>(
       `${API_BASE}/analytics/tickets/agents?limit=${limit}${qs ? '&' + qs.slice(1) : ''}`,
@@ -361,7 +361,7 @@ export const analyticsApi = {
    */
   getResponseTime: async (_dateRange?: Partial<DateRange>): Promise<ResponseTimeDistribution> => {
     // Try backend first, fall back to computed mock
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+    const API_BASE = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || '');
     try {
       const qs = _dateRange ? formatDateParams(_dateRange) : '';
       const res = await fetch(`${API_BASE}/analytics/tickets/response-time${qs}`, {

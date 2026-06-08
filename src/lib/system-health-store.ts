@@ -117,7 +117,7 @@ export const ALERT_TYPE_COLORS: Record<SystemAlert['type'], string> = {
 
 // ── Constants ────────────────────────────────────────────────────────
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+const API_BASE = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || '');
 // Backend system health route is at /api/system/health
 
 // ── Helpers ──────────────────────────────────────────────────────────

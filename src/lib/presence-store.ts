@@ -13,7 +13,7 @@
 
 import { create } from 'zustand';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+const API_BASE = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || '');
 // Use relative URLs so requests go through Next.js proxy (avoids CSRF 403)
 
 // ── Types ────────────────────────────────────────────────────────────

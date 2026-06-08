@@ -23,9 +23,11 @@ import {
   MessageResponse,
 } from '@/types/auth';
 
-// API base URL from environment or default.
-// When the Python backend is not running, we proxy through Next.js mock API routes.
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
+// API base URL — client-side MUST use relative URLs so requests go through
+// the Next.js proxy routes (which handle CSRF, Origin, and auth headers).
+// NEXT_PUBLIC_API_URL may be set to the backend URL for server-side use,
+// but client-side axios should always use '' (relative URLs).
+const API_BASE_URL = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || '');
 
 /**
  * Create axios instance with default configuration.

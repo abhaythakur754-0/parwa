@@ -104,7 +104,7 @@ export const AGENT_STATUS_LABELS: Record<AgentStatus, string> = {
 
 // ── Store ───────────────────────────────────────────────────────────
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+const API_BASE = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || '');
 // Backend AI agent router is at /api/ai/agents (not /api/v1/ai/instances)
 
 export const useAgentsStore = create<AgentsState>((set, get) => ({

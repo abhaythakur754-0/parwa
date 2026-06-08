@@ -67,7 +67,7 @@ const TIER_PRICES: Record<VariantTier, number> = {
   high: 3999,
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+const API_BASE = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || '');
 // Backend billing router is at /api/billing (not /api/billing)
 // Use relative paths so Next.js proxy can forward correctly
 

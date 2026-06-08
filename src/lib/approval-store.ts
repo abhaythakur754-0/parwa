@@ -118,7 +118,7 @@ export const APPROVAL_STATUS_COLORS: Record<ApprovalStatus, string> = {
 
 // ── Constants ────────────────────────────────────────────────────────
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+const API_BASE = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || '');
 // Backend approval routes are at /api/approvals
 
 // ── Helpers ──────────────────────────────────────────────────────────

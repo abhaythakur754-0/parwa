@@ -45,7 +45,7 @@ export function usePollingFallback(
   const mountedRef = useRef(true);
 
   const fetchEndpoint = useCallback(async () => {
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const API_BASE = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || '');
     try {
       const res = await fetch(`${API_BASE}${endpoint}`, {
         credentials: 'include',
