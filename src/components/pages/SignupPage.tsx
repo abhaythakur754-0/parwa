@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { SignupForm } from '@/components/auth/SignupForm';
 import toast from 'react-hot-toast';
@@ -11,6 +12,7 @@ import toast from 'react-hot-toast';
 export default function SignupPage() {
   const navigate = useAppStore((s) => s.navigate);
   const setAuth = useAppStore((s) => s.setAuth);
+  const router = useRouter();
 
   const handleSignup = async (data: {
     email: string;
@@ -30,6 +32,7 @@ export default function SignupPage() {
         localStorage.setItem('parwa_user', JSON.stringify(responseData.user));
         setAuth(true);
         toast.success('Account created successfully!');
+        router.push('/onboarding');
         return;
       }
     } catch {
@@ -53,6 +56,7 @@ export default function SignupPage() {
     };
     localStorage.setItem('parwa_user', JSON.stringify(mockUser));
     setAuth(true);
+    router.push('/onboarding');
     toast.success('Account created! (Demo mode)');
   };
 

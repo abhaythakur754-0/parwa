@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { LoginForm } from '@/components/auth/LoginForm';
 import toast from 'react-hot-toast';
@@ -14,6 +15,7 @@ import toast from 'react-hot-toast';
 export default function LoginPage() {
   const navigate = useAppStore((s) => s.navigate);
   const setAuth = useAppStore((s) => s.setAuth);
+  const router = useRouter();
 
   const handleLogin = async (email: string, password: string) => {
     try {
@@ -36,6 +38,8 @@ export default function LoginPage() {
           localStorage.setItem('parwa_user', JSON.stringify(data.user));
           setAuth(true);
           toast.success('Welcome back!');
+          // Navigate to dashboard — router.push for Next.js file-based routing
+          router.push('/dashboard');
           return;
         }
       }
@@ -72,6 +76,7 @@ export default function LoginPage() {
     };
     localStorage.setItem('parwa_user', JSON.stringify(mockUser));
     setAuth(true);
+    router.push('/dashboard');
     toast.success('Welcome back! (Demo mode)');
   };
 
