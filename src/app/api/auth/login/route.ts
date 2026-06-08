@@ -164,11 +164,15 @@ export async function POST(request: NextRequest) {
       }
 
       // Sign our own JWT tokens (local fallback only)
+      // NOTE: company_id must be a UUID-like string for the backend's
+      // TenantMiddleware. The Prisma User model doesn't have a company_id
+      // column, so we derive one deterministically from the user's email
+      // to ensure consistency across login sessions.
       const jwtPayload = {
         sub: user.id,
         email: user.email,
         role: "member",
-        company_id: user.company_name || undefined,
+        company_id: user.id, // Use user.id as company_id (1:1 company per user)
         is_verified: user.is_verified,
       };
 

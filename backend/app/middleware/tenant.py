@@ -67,12 +67,17 @@ class TenantMiddleware(BaseHTTPMiddleware):
         "/docs",
         "/redoc",
         "/openapi.json",
+        "/api/health",
+        "/api/system/health",
     }
 
     # Prefixes that skip tenant check (auth handles its own
     # via route-level get_current_user dependency)
-    # SECURITY: /api/billing/ and /api/admin/ are NOT excluded here.
-    # They require explicit tenant isolation via route-level dependencies.
+    # SECURITY: /api/admin/ is NOT excluded here.
+    # It requires explicit tenant isolation via route-level dependencies.
+    # Onboarding, user details, integrations, verification, knowledge base,
+    # and billing paths all have route-level get_current_user deps that
+    # extract company_id from the JWT — tenant middleware is redundant for them.
     PUBLIC_PREFIXES = (
         "/api/auth/",
         "/api/public/",
@@ -84,6 +89,15 @@ class TenantMiddleware(BaseHTTPMiddleware):
         "/api/jarvis/",
         "/api/jarvis",
         "/api/pricing/",
+        "/api/onboarding",
+        "/api/onboarding-jarvis",
+        "/api/user/",
+        "/api/integrations",
+        "/api/verification",
+        "/api/kb/",
+        "/api/billing",
+        "/api/system/health",
+        "/api/admin/bootstrap",
         "/test/",
     )
 

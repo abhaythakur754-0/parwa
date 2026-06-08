@@ -213,11 +213,13 @@ export async function POST(request: NextRequest) {
       }
 
       // Sign our own JWT tokens (local fallback only)
+      // NOTE: company_id must be a UUID-like string for the backend's
+      // TenantMiddleware. Use user.id as company_id (1:1 company per user).
       const jwtPayload = {
         sub: user.id,
         email: user.email,
         role: "member",
-        company_id: user.company_name || undefined,
+        company_id: user.id,
         is_verified: user.is_verified,
       };
 
