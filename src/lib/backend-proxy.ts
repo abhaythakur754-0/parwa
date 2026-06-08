@@ -36,9 +36,9 @@ function getProxyOrigin(): string {
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`;
   }
-  // Production default
+  // Production default — must match a CORS-allowed origin on the backend
   if (process.env.NODE_ENV === 'production') {
-    return 'https://parwa.ai';
+    return 'https://parwa.buzz';
   }
   // Local development
   return 'http://localhost:3000';

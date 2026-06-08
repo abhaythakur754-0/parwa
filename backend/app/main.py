@@ -386,7 +386,8 @@ app.add_middleware(
     allow_origins=_cors_origins,
     # Allow Vercel preview deployments (any *.vercel.app subdomain)
     # e.g. chat1-fixes-parwa.vercel.app, chat3-langgraph-parwa.vercel.app
-    allow_origin_regex=r"https://[a-z0-9\-]+\.vercel\.app",
+    # Also allow Netlify deployments (any *.netlify.app subdomain)
+    allow_origin_regex=r"https://[a-z0-9\-]+\.(vercel\.app|netlify\.app)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

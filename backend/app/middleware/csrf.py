@@ -311,8 +311,8 @@ class CSRFSecurityMiddleware:
         if not check_origin:
             return False
 
-        # Allow any Vercel preview deployment (dynamic subdomains)
-        if re.match(r"^https://[a-z0-9\-]+\.vercel\.app$", check_origin):
+        # Allow any Vercel or Netlify preview deployment (dynamic subdomains)
+        if re.match(r"^https://[a-z0-9\-]+\.(vercel\.app|netlify\.app)$", check_origin):
             return True
 
         # Check against trusted origins
