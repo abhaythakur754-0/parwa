@@ -11,7 +11,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Component } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import DashboardSidebar from './DashboardSidebar';
@@ -24,6 +24,34 @@ import { SocketProvider } from '@/providers/SocketProvider';
 import { useNotificationStore } from '@/lib/notification-store';
 import { useApprovalStore } from '@/lib/approval-store';
 import toast from 'react-hot-toast';
+
+// ── Error Boundary for SocketProvider ────────────────────────────────
+
+class SocketErrorBoundary extends Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.warn('[SocketErrorBoundary] Caught error:', error.message);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      // Render children without the socket provider on error
+      return this.props.children;
+    }
+    return this.props.children;
+  }
+}
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -91,14 +119,20 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return null;
   }
 
-  // Get approval pending count for the sidebar badge
-  const approvalPendingCount = useApprovalStore.getState().pendingCount;
+  // Get approval pending count for the sidebar badge (safe access)
+  let approvalPendingCount = 0;
+  try {
+    approvalPendingCount = useApprovalStore.getState()?.pendingCount ?? 0;
+  } catch {
+    // Store not ready — default to 0
+  }
 
   // On mobile, we show a hamburger menu + overlay sidebar
   // On desktop, we show the persistent sidebar with collapse toggle
   return (
-    <SocketProvider>
-      <div className="min-h-screen bg-[#1A1A1A] flex">
+    <SocketErrorBoundary>
+      <SocketProvider>
+        <div className="min-h-screen bg-[#1A1A1A] flex">
         {/* Mobile overlay */}
         {isMobileOpen && (
           <div
@@ -193,7 +227,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
         {/* Realtime Toast Overlay */}
         <RealtimeToast />
-      </div>
-    </SocketProvider>
+        </div>
+      </SocketProvider>
+    </SocketErrorBoundary>
   );
 }
