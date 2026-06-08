@@ -1,6 +1,6 @@
 const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
-const FROM_EMAIL = process.env.FROM_EMAIL || "noreply@parwa.io";
+const FROM_EMAIL = process.env.FROM_EMAIL || "noreply@parwa.buzz";
 const FROM_NAME = "PARWA";
 
 export async function sendEmail(
