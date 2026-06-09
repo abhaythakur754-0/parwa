@@ -3,7 +3,6 @@
 import React from 'react';
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ONBOARDING_STEPS } from '@/types/onboarding';
-import { Button } from '@/components/ui/button';
 
 interface ProgressIndicatorProps {
   currentStep: number;
@@ -27,16 +26,14 @@ export function ProgressIndicator({
   return (
     <div className="flex items-center justify-between gap-2">
       {/* Back Button */}
-      <Button
-        variant="ghost"
-        size="sm"
+      <button
         onClick={onBack}
         disabled={!canGoBack}
-        className="shrink-0 text-muted-foreground hover:text-foreground"
+        className="shrink-0 text-xs text-orange-200/40 hover:text-orange-400 transition-colors flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed"
       >
-        <ChevronLeft className="h-4 w-4 mr-1" />
+        <ChevronLeft className="w-3.5 h-3.5" />
         Back
-      </Button>
+      </button>
 
       {/* Step Circles */}
       <div className="flex items-center justify-center gap-1 sm:gap-2">
@@ -52,32 +49,32 @@ export function ProgressIndicator({
               <div className="flex flex-col items-center">
                 <button
                   type="button"
-                  disabled={!isClickable && !onGoToStep}
+                  disabled={!isClickable}
                   onClick={() => {
-                    if ((isClickable || isCompleted) && onGoToStep) {
+                    if (isClickable && onGoToStep) {
                       onGoToStep(step.id);
                     }
                   }}
-                  className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
+                  className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-medium transition-all duration-200 ${
                     isClickable
-                      ? 'bg-primary text-primary-foreground cursor-pointer hover:ring-2 hover:ring-primary/30 hover:scale-110'
+                      ? 'bg-gradient-to-r from-orange-500 to-amber-400 text-white cursor-pointer hover:scale-110 hover:shadow-lg hover:shadow-orange-500/20'
                       : isCompleted
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'bg-gradient-to-r from-orange-500 to-amber-400 text-white'
                       : isActive
-                      ? 'bg-primary/20 text-primary ring-2 ring-primary'
-                      : 'bg-muted text-muted-foreground'
-                  } ${isClickable ? 'hover:shadow-md' : ''}`}
+                      ? 'bg-orange-500/20 text-orange-400 ring-2 ring-orange-500/40'
+                      : 'bg-white/[0.06] text-zinc-500'
+                  }`}
                   title={isClickable ? `Go back to ${step.title}` : step.title}
                 >
                   {isCompleted ? (
-                    <Check className="h-4 w-4" />
+                    <Check className="w-3.5 h-3.5" />
                   ) : (
                     step.id
                   )}
                 </button>
                 <span
-                  className={`text-xs mt-1 hidden sm:block ${
-                    isActive ? 'text-primary font-medium' : 'text-muted-foreground'
+                  className={`text-[10px] mt-1 hidden sm:block ${
+                    isActive ? 'text-orange-400 font-medium' : 'text-zinc-600'
                   }`}
                 >
                   {step.title}
@@ -86,8 +83,8 @@ export function ProgressIndicator({
               {/* Connector Line */}
               {idx < ONBOARDING_STEPS.length - 1 && (
                 <div
-                  className={`h-0.5 w-8 sm:w-16 transition-colors ${
-                    isPast || isCompleted ? 'bg-primary' : 'bg-muted'
+                  className={`h-0.5 w-6 sm:w-12 transition-colors rounded-full ${
+                    isPast || isCompleted ? 'bg-gradient-to-r from-orange-500 to-amber-400' : 'bg-white/[0.06]'
                   }`}
                 />
               )}
@@ -97,16 +94,14 @@ export function ProgressIndicator({
       </div>
 
       {/* Next Button */}
-      <Button
-        variant="ghost"
-        size="sm"
+      <button
         onClick={onNext}
         disabled={!canGoNext}
-        className="shrink-0 text-muted-foreground hover:text-foreground"
+        className="shrink-0 text-xs text-orange-200/40 hover:text-orange-400 transition-colors flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed"
       >
         Next
-        <ChevronRight className="h-4 w-4 ml-1" />
-      </Button>
+        <ChevronRight className="w-3.5 h-3.5" />
+      </button>
     </div>
   );
 }
