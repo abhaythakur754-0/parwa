@@ -35,9 +35,8 @@ def get_database_url() -> str:
 
 # Tables to PRESERVE (account structure + system config)
 KEEP_TABLES = {
-    # Core accounts
+    # Core structure (companies kept, users cleaned)
     "companies",
-    "users",
     "agents",
     "variant_instances",
     "company_settings",
@@ -108,6 +107,8 @@ CLEAN_TABLES = {
     # Chat widget sessions
     "chat_widget_sessions",
     "chat_widget_messages",
+    # Users / login accounts (wrongly created, clean them all)
+    "users",
     # Auth / tokens (session data)
     "refresh_tokens",
     "mfa_secrets",
