@@ -61,7 +61,8 @@ function DetailsContent() {
         setInitialData(details);
         setOnboardingState(state);
         if (state?.details_completed) {
-          router.push('/dashboard');
+          // Details already done — go to onboarding wizard
+          router.push('/onboarding');
         }
       } catch (error) {
         console.error('Failed to fetch initial data:', error);
@@ -74,7 +75,16 @@ function DetailsContent() {
 
   const handleSubmit = (data: UserDetails) => { setInitialData(data); };
   const handleNext = () => {
-    router.push('/dashboard');
+    // After details, go to the full onboarding wizard (integrations, knowledge, AI config)
+    const source = searchParams.get('source');
+    const industry = searchParams.get('industry');
+    const variants = searchParams.get('variants');
+    const params = new URLSearchParams();
+    if (source) params.set('source', source);
+    if (industry) params.set('industry', industry);
+    if (variants) params.set('variants', variants);
+    const qs = params.toString();
+    router.push(qs ? `/onboarding?${qs}` : '/onboarding');
   };
 
   if (authLoading || !ready || isLoading) {

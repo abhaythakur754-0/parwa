@@ -220,7 +220,7 @@ export default function DashboardPage() {
   const [dateRange, setDateRange] = useState<Partial<DateRange>>({});
   const [datePreset, setDatePreset] = useState('30d');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [onboardingChecked, setOnboardingChecked] = useState(true); // Bypassed — always true
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
 
   // ── AI / Cost / Sentiment state (MUST be above any conditional return) ──
   const [roiState, setRoiState] = useState<FetchState<ROISnapshot>>({ status: 'loading', data: null });
@@ -228,7 +228,38 @@ export default function DashboardPage() {
   const [variantsState, setVariantsState] = useState<FetchState<VariantInstance[]>>({ status: 'loading', data: null });
   const [sentimentState, setSentimentState] = useState<FetchState<SentimentOverview>>({ status: 'loading', data: null });
 
-  // ── Onboarding bypassed — no redirect check needed ─────────────────────
+  // ── Check onboarding status — redirect to /onboarding if not completed ──
+
+  useEffect(() => {
+    if (onboardingChecked) return;
+
+    async function checkOnboarding() {
+      try {
+        const res = await fetch('/api/onboarding/state');
+        if (res.ok) {
+          const state = await res.json();
+          if (state.status !== 'completed' && !state.first_victory_completed) {
+            router.push('/onboarding');
+            return;
+          }
+        }
+      } catch {
+        // API unavailable — allow dashboard access (graceful degradation)
+      }
+      setOnboardingChecked(true);
+    }
+
+    checkOnboarding();
+  }, [onboardingChecked, router]);
+
+  // Show loading while checking onboarding
+  if (!onboardingChecked) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-orange-400" />
+      </div>
+    );
+  }
 
   // ── Fetch Dashboard Data ──────────────────────────────────────────
 

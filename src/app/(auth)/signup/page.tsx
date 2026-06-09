@@ -101,8 +101,13 @@ function SignupContent() {
       // Sync AuthContext state from localStorage
       hydrate();
 
-      // Redirect to onboarding or the specified redirect URL
-      router.push(redirectTo);
+      // New users always go to onboarding first
+      // (unless they came from pricing with a specific redirect that includes /onboarding)
+      if (redirectTo === '/dashboard' || redirectTo === '/dashboard/') {
+        router.push('/onboarding');
+      } else {
+        router.push(redirectTo);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Registration failed. Please try again.';
       setError(message);

@@ -61,8 +61,27 @@ function LoginContent() {
 
   // ── After successful login, check onboarding then redirect ──────
 
-  async function redirectAfterLogin(_isNewUser?: boolean) {
-    // Onboarding bypassed — always go to dashboard
+  async function redirectAfterLogin(isNewUser?: boolean) {
+    // New users always go to onboarding
+    if (isNewUser) {
+      router.push('/onboarding');
+      return;
+    }
+
+    // Returning users — check if onboarding was completed
+    try {
+      const res = await fetch('/api/onboarding/state');
+      if (res.ok) {
+        const state = await res.json();
+        if (state.status !== 'completed' && !state.first_victory_completed) {
+          router.push('/onboarding');
+          return;
+        }
+      }
+    } catch {
+      // API unavailable — proceed to dashboard
+    }
+
     router.push(redirectTo);
   }
 
