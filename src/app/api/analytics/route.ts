@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 
 /**
- * Analytics proxy route.
- * Proxies /api/analytics/* to backend /analytics/tickets/*
+ * Analytics base proxy route.
+ * Proxies /api/analytics (no sub-path) to backend /analytics/tickets/dashboard
  * Falls back to mock data when backend is unavailable.
  */
 
@@ -17,70 +17,73 @@ export async function GET(request: NextRequest) {
 
   const backendUrl = getBackendUrl();
   const url = new URL(request.url);
-  const path = url.searchParams.toString() ? `?${url.searchParams.toString()}` : '';
+  const queryString = url.searchParams.toString();
+
+  const cookieHeader = request.headers.get('cookie') || '';
+  const authCookies = cookieHeader
+    .split(';')
+    .filter((c: string) => {
+      const name = c.trim().split('=')[0];
+      return name === 'parwa_at' || name === 'parwa_rt' || name === 'parwa_user';
+    })
+    .join('; ');
 
   try {
-    const backendRes = await fetch(`${backendUrl}/analytics/tickets/dashboard${path}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...Object.fromEntries(request.headers.entries()),
+    const backendRes = await fetch(
+      `${backendUrl}/analytics/tickets/dashboard${queryString ? '?' + queryString : ''}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: authCookies,
+          Origin: process.env.FRONTEND_URL || 'https://parwa.buzz',
+        },
+        signal: AbortSignal.timeout(15_000),
+        redirect: 'manual',
       },
-      signal: AbortSignal.timeout(8000),
-    });
+    );
 
-    if (backendRes.ok) {
-      const data = await backendRes.json();
-      return NextResponse.json({ data });
-    }
-  } catch {
+    const data = await backendRes.json();
+    return NextResponse.json(data, { status: backendRes.status });
+  } catch (err) {
     // Backend unavailable — fall through to mock
   }
 
   // Mock fallback
   const mockData = {
     summary: {
-      total_tickets: 1247,
-      open: 89,
-      in_progress: 156,
-      resolved: 834,
-      closed: 168,
-      awaiting_client: 45,
-      awaiting_human: 23,
-      critical: 12,
-      high: 67,
-      medium: 423,
-      low: 745,
-      resolution_rate: 87.3,
-      avg_resolution_time_hours: 2.4,
-      avg_first_response_time_hours: 0.3,
+      total_tickets: 0,
+      open: 0,
+      in_progress: 0,
+      resolved: 0,
+      closed: 0,
+      awaiting_client: 0,
+      awaiting_human: 0,
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+      resolution_rate: 0,
+      avg_resolution_time_hours: 0,
+      avg_first_response_time_hours: 0,
     },
     sla: {
-      total_tickets_with_sla: 1247,
-      breached_count: 23,
-      approaching_count: 45,
-      compliant_count: 1179,
-      compliance_rate: 94.5,
-      avg_first_response_minutes: 18,
-      avg_resolution_minutes: 144,
+      total_tickets_with_sla: 0,
+      breached_count: 0,
+      approaching_count: 0,
+      compliant_count: 0,
+      compliance_rate: 100,
+      avg_first_response_minutes: 0,
+      avg_resolution_minutes: 0,
     },
-    by_category: [
-      { category: 'Billing', count: 312, percentage: 25.0 },
-      { category: 'Technical', count: 280, percentage: 22.5 },
-      { category: 'Account', count: 198, percentage: 15.9 },
-      { category: 'Returns', count: 175, percentage: 14.0 },
-      { category: 'Shipping', count: 142, percentage: 11.4 },
-      { category: 'Other', count: 140, percentage: 11.2 },
-    ],
-    trend: Array.from({ length: 30 }, (_, i) => ({
-      timestamp: new Date(Date.now() - (29 - i) * 86400000).toISOString(),
-      count: Math.floor(30 + Math.random() * 40),
-      label: new Date(Date.now() - (29 - i) * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    })),
+    by_category: [],
+    trend: [],
     date_range: {
       start_date: new Date(Date.now() - 29 * 86400000).toISOString().split('T')[0],
       end_date: new Date().toISOString().split('T')[0],
     },
+    _mock: true,
   };
 
-  return NextResponse.json({ data: mockData, _mock: true });
+  return NextResponse.json(mockData);
 }
