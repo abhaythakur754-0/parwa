@@ -5,19 +5,21 @@ import { requireAuth } from '@/lib/auth';
  * Analytics catch-all proxy route.
  *
  * Proxies /api/analytics/* to backend /analytics/tickets/*
- * Examples:
- *   /api/analytics/dashboard  → /analytics/tickets/dashboard
- *   /api/analytics/summary    → /analytics/tickets/summary
- *   /api/analytics/agents     → /analytics/tickets/agents
- *   /api/analytics/trends     → /analytics/tickets/trends
- *   /api/analytics/sla        → /analytics/tickets/sla
- *   /api/analytics/category   → /analytics/tickets/category
- *
- * Falls back to mock data when backend is unavailable.
+ * Extracts JWT from cookie and forwards as Authorization: Bearer header
+ * because the backend's tenant middleware reads Bearer tokens, not cookies.
  */
 
 function getBackendUrl(): string {
   return process.env.BACKEND_URL || 'https://parwa-backend.onrender.com';
+}
+
+/**
+ * Extract the access token (JWT) from the parwa_at cookie.
+ */
+function extractBearerToken(request: NextRequest): string | null {
+  const cookieHeader = request.headers.get('cookie') || '';
+  const match = cookieHeader.match(/\bparwa_at=([^;]+)/);
+  return match ? match[1] : null;
 }
 
 export async function GET(request: NextRequest) {
@@ -37,24 +39,20 @@ export async function GET(request: NextRequest) {
   const queryString = url.searchParams.toString();
   const fullBackendUrl = `${backendUrl}/analytics/tickets/${backendPath}${queryString ? '?' + queryString : ''}`;
 
-  // Forward auth cookies to the backend
-  const cookieHeader = request.headers.get('cookie') || '';
-  const authCookies = cookieHeader
-    .split(';')
-    .filter((c: string) => {
-      const name = c.trim().split('=')[0];
-      return name === 'parwa_at' || name === 'parwa_rt' || name === 'parwa_user';
-    })
-    .join('; ');
+  // Get JWT from cookie for Authorization header
+  const token = extractBearerToken(request);
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Origin: process.env.FRONTEND_URL || 'https://parwa.buzz',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
   try {
     const backendRes = await fetch(fullBackendUrl, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: authCookies,
-        Origin: process.env.FRONTEND_URL || 'https://parwa.buzz',
-      },
+      headers,
       signal: AbortSignal.timeout(15_000),
       redirect: 'manual',
     });
@@ -62,7 +60,6 @@ export async function GET(request: NextRequest) {
     const data = await backendRes.json();
     return NextResponse.json(data, { status: backendRes.status });
   } catch (err) {
-    // Backend unavailable — return error so client can use mock fallback
     return NextResponse.json(
       { error: 'Backend unavailable', message: err instanceof Error ? err.message : 'Unknown error' },
       { status: 502 },
@@ -86,24 +83,20 @@ export async function POST(request: NextRequest) {
   const queryString = url.searchParams.toString();
   const fullBackendUrl = `${backendUrl}/analytics/tickets/${backendPath}${queryString ? '?' + queryString : ''}`;
 
-  const cookieHeader = request.headers.get('cookie') || '';
-  const authCookies = cookieHeader
-    .split(';')
-    .filter((c: string) => {
-      const name = c.trim().split('=')[0];
-      return name === 'parwa_at' || name === 'parwa_rt' || name === 'parwa_user';
-    })
-    .join('; ');
+  const token = extractBearerToken(request);
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Origin: process.env.FRONTEND_URL || 'https://parwa.buzz',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
   try {
     const body = await request.text();
     const backendRes = await fetch(fullBackendUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: authCookies,
-        Origin: process.env.FRONTEND_URL || 'https://parwa.buzz',
-      },
+      headers,
       body,
       signal: AbortSignal.timeout(15_000),
       redirect: 'manual',

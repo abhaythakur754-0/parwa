@@ -4,11 +4,17 @@ import { requireAuth } from '@/lib/auth';
 /**
  * Analytics base proxy route.
  * Proxies /api/analytics (no sub-path) to backend /analytics/tickets/dashboard
- * Falls back to mock data when backend is unavailable.
+ * Extracts JWT from cookie and forwards as Authorization: Bearer header.
  */
 
 function getBackendUrl(): string {
   return process.env.BACKEND_URL || 'https://parwa-backend.onrender.com';
+}
+
+function extractBearerToken(request: NextRequest): string | null {
+  const cookieHeader = request.headers.get('cookie') || '';
+  const match = cookieHeader.match(/\bparwa_at=([^;]+)/);
+  return match ? match[1] : null;
 }
 
 export async function GET(request: NextRequest) {
@@ -19,25 +25,21 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const queryString = url.searchParams.toString();
 
-  const cookieHeader = request.headers.get('cookie') || '';
-  const authCookies = cookieHeader
-    .split(';')
-    .filter((c: string) => {
-      const name = c.trim().split('=')[0];
-      return name === 'parwa_at' || name === 'parwa_rt' || name === 'parwa_user';
-    })
-    .join('; ');
+  const token = extractBearerToken(request);
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Origin: process.env.FRONTEND_URL || 'https://parwa.buzz',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
   try {
     const backendRes = await fetch(
       `${backendUrl}/analytics/tickets/dashboard${queryString ? '?' + queryString : ''}`,
       {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Cookie: authCookies,
-          Origin: process.env.FRONTEND_URL || 'https://parwa.buzz',
-        },
+        headers,
         signal: AbortSignal.timeout(15_000),
         redirect: 'manual',
       },
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest) {
     // Backend unavailable — fall through to mock
   }
 
-  // Mock fallback
+  // Mock fallback (zeros — no fake data)
   const mockData = {
     summary: {
       total_tickets: 0,
