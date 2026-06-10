@@ -12,6 +12,8 @@ from typing import Any
 from parwa.state import IntentType, TicketComplexity
 from parwa.utils.llm import MOCK_MODE, ainvoke_llm
 from parwa.utils.node_base import safe_node
+from parwa.utils.output_parser import parse_intent_response
+from parwa.utils.sanitizer import build_safe_prompt
 
 logger = logging.getLogger("parwa.node.intent_classifier")
 
@@ -50,18 +52,21 @@ def _classify_intent_rule_based(message: str) -> tuple[str, float]:
 
 
 async def _classify_intent_llm(message: str) -> tuple[str, float]:
-    """Classify intent using LLM (async). Returns (intent, confidence)."""
-    prompt = (
-        f"Classify the following customer message into one of these intents: "
-        f"order_status, refund_request, cancellation, billing_issue, "
-        f"technical_support, faq_question, complaint, account_modification, "
-        f"escalation, general_inquiry.\n\n"
-        f"Customer message: {message}\n\n"
-        f"Reply with ONLY: intent|confidence (e.g. refund_request|0.95)"
+    """Classify intent using LLM (async). Returns (intent, confidence).
+
+    Uses structured output parsing instead of fragile split("|").
+    Uses sanitized prompt to prevent injection.
+    """
+    system_instructions = (
+        "Classify the following customer message into one of these intents: "
+        "order_status, refund_request, cancellation, billing_issue, "
+        "technical_support, faq_question, complaint, account_modification, "
+        "escalation, general_inquiry.\n\n"
+        "Reply with ONLY: intent|confidence (e.g. refund_request|0.95)"
     )
-    text = await ainvoke_llm(prompt)
-    parts = text.strip().split("|")
-    return parts[0], float(parts[1]) if len(parts) > 1 else 0.75
+    prompt = build_safe_prompt(system_instructions, message)
+    text = await ainvoke_llm(prompt, node_name="INTENT_CLASSIFIER")
+    return parse_intent_response(text)
 
 
 def _determine_complexity(confidence: float) -> str:

@@ -84,13 +84,13 @@ async def tree_of_thoughts(state: dict[str, Any]) -> dict[str, Any]:
             best_confidence = p["confidence"]
             selected = p
 
-    # Add framework tracking
-    active_frameworks = list(state.get("active_frameworks", []))
-    if "tree_of_thoughts" not in active_frameworks:
-        active_frameworks.append("tree_of_thoughts")
+    # Add framework tracking — return ONLY new frameworks (reducer appends)
+    new_frameworks = []
+    if "tree_of_thoughts" not in state.get("active_frameworks", []):
+        new_frameworks.append("tree_of_thoughts")
 
     return {
         "reasoning_paths": paths,
         "selected_path": selected,
-        "active_frameworks": active_frameworks,
+        "active_frameworks": new_frameworks,
     }

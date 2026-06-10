@@ -28,8 +28,9 @@ Pipeline flow:
 from __future__ import annotations
 
 import logging
+import threading
 import uuid
-from typing import Any, Annotated
+from typing import Any, Annotated, AsyncGenerator
 
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
@@ -44,9 +45,11 @@ logger = logging.getLogger("parwa.graph")
 # All other list keys use REPLACE semantics (node returns the full list)
 _APPEND_KEYS = frozenset({
     "pipeline_errors",     # errors accumulate across nodes
-    "active_frameworks",   # frameworks activated accumulate
-    "reasoning_chain",     # reasoning steps accumulate
+    "active_frameworks",   # frameworks activated accumulate (nodes return ONLY new items)
 })
+# NOTE: reasoning_chain uses REPLACE semantics — each reasoning engine run
+# produces a complete chain that replaces the previous one. This avoids
+# duplication on loop-back and keeps the chain meaningful.
 
 
 def _merge_dicts(left: dict, right: dict) -> dict:
@@ -399,8 +402,9 @@ def build_parwa_graph(
 
 # ─── Convenience functions ─────────────────────────────────────────────────────────
 
-# Compiled graph singleton
+# Compiled graph singleton (thread-safe)
 _compiled_graph = None
+_graph_lock = threading.Lock()
 
 
 def get_parwa_graph(
@@ -408,7 +412,10 @@ def get_parwa_graph(
     use_checkpointer: bool = True,
     interrupt_before_action: bool = False,
 ):
-    """Get or create the compiled PARWA graph singleton.
+    """Get or create the compiled PARWA graph singleton (thread-safe).
+
+    Uses a lock to prevent race conditions when multiple threads
+    try to create the graph simultaneously.
 
     Args:
         use_checkpointer: Enable MemorySaver for crash recovery.
@@ -419,10 +426,13 @@ def get_parwa_graph(
     """
     global _compiled_graph
     if _compiled_graph is None:
-        _compiled_graph = build_parwa_graph(
-            use_checkpointer=use_checkpointer,
-            interrupt_before_action=interrupt_before_action,
-        )
+        with _graph_lock:
+            # Double-check after acquiring lock
+            if _compiled_graph is None:
+                _compiled_graph = build_parwa_graph(
+                    use_checkpointer=use_checkpointer,
+                    interrupt_before_action=interrupt_before_action,
+                )
     return _compiled_graph
 
 
@@ -571,3 +581,68 @@ async def aprocess_ticket(
         )
 
     return result
+
+
+async def astream_ticket(
+    raw_message: str,
+    customer_id: str = "",
+    channel: str = "email",
+    variant: str = "parwa",
+    *,
+    thread_id: str | None = None,
+    interrupt_before_action: bool = False,
+) -> AsyncGenerator[dict[str, Any], None]:
+    """Stream ticket processing through the full PARWA pipeline (async).
+
+    Yields state updates as each node completes, enabling real-time
+    progress tracking and partial result display. Uses LangGraph's
+    astream_events() for granular event streaming.
+
+    This is ideal for:
+    - Real-time UI updates (showing which node is processing)
+    - Progress tracking (e.g., "Classifying intent... 3/22 nodes done")
+    - Early termination if intermediate results are unacceptable
+
+    Args:
+        raw_message: The customer's message
+        customer_id: Customer identifier
+        channel: Communication channel (email, chat, social, voice)
+        variant: PARWA variant (mini, parwa, high)
+        thread_id: Optional thread ID for checkpointing
+        interrupt_before_action: Pause before action for human approval
+
+    Yields:
+        State dict after each node completes.
+    """
+    graph = get_parwa_graph(interrupt_before_action=interrupt_before_action)
+
+    # Validate input
+    if not raw_message or not isinstance(raw_message, str):
+        yield {
+            "error": "raw_message is required and must be a string",
+            "final_response": "Error: No message provided.",
+        }
+        return
+
+    if variant not in ("mini", "parwa", "high"):
+        logger.warning("astream_ticket: invalid variant '%s', defaulting to 'parwa'", variant)
+        variant = "parwa"
+
+    initial_state = {
+        "raw_message": raw_message,
+        "customer_id": customer_id,
+        "channel": channel,
+        "variant": variant,
+    }
+
+    config = _make_thread_config(thread_id)
+
+    try:
+        async for event in graph.astream(initial_state, config=config):
+            yield event
+    except Exception as exc:
+        logger.error("astream_ticket: graph.astream failed: %s", exc, exc_info=True)
+        yield {
+            "error": f"Pipeline streaming failed: {exc}",
+            "pipeline_errors": [{"node": "graph_engine", "error": str(exc), "error_type": type(exc).__name__}],
+        }

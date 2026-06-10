@@ -6,6 +6,9 @@ For development/testing, supports mock mode.
 Production features:
 - Retry with exponential backoff on LLM failures (sync + async)
 - Rate limiting to prevent API overload (sync + async)
+- Circuit breaker to fail fast when LLM service is down
+- TurboQuant token budget checking before LLM calls
+- Prompt injection sanitization
 - Async support for concurrent ticket processing
 - Structured logging for all LLM calls
 """
@@ -31,9 +34,13 @@ _llm_cache: dict[str, BaseChatModel] = {}
 MOCK_MODE = os.getenv("PARWA_MOCK_MODE", "true").lower() == "true"
 
 
-@retry_with_backoff(max_retries=3, base_delay=1.0, retryable_exceptions=(ConnectionError, TimeoutError, OSError))
 def _invoke_llm(llm: BaseChatModel, prompt: str | list) -> Any:
-    """Invoke LLM with retry and rate limiting (sync).
+    """Invoke LLM with rate limiting and circuit breaker (sync).
+
+    Rate limiting is checked first (our own throttle — not a circuit failure).
+    Circuit breaker wraps only the actual LLM call (external service failure).
+
+    Retry is handled by the caller (invoke_llm) via retry_with_backoff.
 
     Args:
         llm: The LLM instance.
@@ -44,19 +51,26 @@ def _invoke_llm(llm: BaseChatModel, prompt: str | list) -> Any:
 
     Raises:
         TimeoutError: If rate limiter times out waiting for a token.
+        CircuitOpenError: If LLM circuit breaker is open.
     """
+    # Rate limiting first — this is our own throttle, not a service failure
     limiter = get_llm_rate_limiter()
     if not limiter.acquire(timeout=30.0):
         raise TimeoutError("LLM rate limiter timeout — too many concurrent requests")
-    return llm.invoke(prompt)
+
+    # Circuit breaker wraps the actual LLM call — service failures count here
+    from parwa.utils.circuit_breaker import get_llm_circuit_breaker
+    breaker = get_llm_circuit_breaker()
+    return breaker.call(lambda: llm.invoke(prompt))
 
 
-@async_retry_with_backoff(max_retries=3, base_delay=1.0, retryable_exceptions=(ConnectionError, TimeoutError, OSError))
 async def _ainvoke_llm(llm: BaseChatModel, prompt: str | list) -> Any:
-    """Invoke LLM with retry and rate limiting (async).
+    """Invoke LLM with rate limiting and circuit breaker (async).
 
-    Non-blocking version of _invoke_llm for async nodes.
-    Uses ainvoke and async_acquire to avoid blocking the event loop.
+    Rate limiting is checked first (our own throttle — not a circuit failure).
+    Circuit breaker wraps only the actual LLM call (external service failure).
+
+    Retry is handled by the caller (ainvoke_llm) via async_retry_with_backoff.
 
     Args:
         llm: The LLM instance.
@@ -67,11 +81,17 @@ async def _ainvoke_llm(llm: BaseChatModel, prompt: str | list) -> Any:
 
     Raises:
         TimeoutError: If rate limiter times out waiting for a token.
+        CircuitOpenError: If LLM circuit breaker is open.
     """
+    # Rate limiting first — this is our own throttle, not a service failure
     limiter = get_llm_rate_limiter()
     if not await limiter.async_acquire(timeout=30.0):
         raise TimeoutError("LLM rate limiter timeout — too many concurrent requests")
-    return await llm.ainvoke(prompt)
+
+    # Circuit breaker wraps the actual LLM call — service failures count here
+    from parwa.utils.circuit_breaker import get_llm_circuit_breaker
+    breaker = get_llm_circuit_breaker()
+    return await breaker.acall(lambda: llm.ainvoke(prompt))
 
 
 def get_llm(model: str = "gpt-4o-mini", temperature: float = 0.1) -> BaseChatModel:
@@ -111,6 +131,62 @@ def _estimate_tokens(text: str) -> int:
     return max(1, len(text) // _CHARS_PER_TOKEN)
 
 
+def _check_token_budget(
+    node_name: str, variant: str, estimated_tokens: int,
+) -> bool:
+    """Check if the node has enough token budget remaining.
+
+    Integrates TurboQuant budget checking into the LLM call path.
+    If the node has exceeded its budget, returns False to skip the LLM call.
+
+    Args:
+        node_name: The calling node name.
+        variant: The PARWA variant.
+        estimated_tokens: Estimated tokens for this call.
+
+    Returns:
+        True if budget is available, False if over budget.
+    """
+    try:
+        from parwa.turboquant.token_budget import get_node_budget
+        budget = get_node_budget(node_name, variant)
+        if not budget.can_spend(estimated_tokens):
+            logger.warning(
+                "token_budget: node=%s over budget (remaining=%d, need=%d, variant=%s) "
+                "— skipping LLM call",
+                node_name, budget.remaining, estimated_tokens, variant,
+            )
+            return False
+        return True
+    except Exception:
+        # If budget check fails, allow the call (don't block pipeline)
+        return True
+
+
+def _record_token_spend(
+    node_name: str, variant: str, tokens_used: int,
+) -> None:
+    """Record token spend against the node's budget after a successful LLM call.
+
+    Args:
+        node_name: The calling node name.
+        variant: The PARWA variant.
+        tokens_used: Actual tokens used.
+    """
+    try:
+        from parwa.turboquant.token_budget import get_node_budget
+        budget = get_node_budget(node_name, variant)
+        over = not budget.can_spend(tokens_used)
+        budget.spend(tokens_used)
+        if over:
+            logger.warning(
+                "token_budget: node=%s exceeded budget (used=%d, allocated=%d, variant=%s)",
+                node_name, budget.used, budget.allocated, variant,
+            )
+    except Exception:
+        pass
+
+
 def _track_mock_usage(
     ticket_id: str, node_name: str, variant: str,
     prompt: str, response: str, model: str,
@@ -129,6 +205,9 @@ def _track_mock_usage(
             completion_tokens=completion_tokens,
             model=model,
         )
+
+        # Record against budget
+        _record_token_spend(node_name, variant, prompt_tokens + completion_tokens)
     except Exception:
         # Never let tracking break the pipeline
         pass
@@ -171,11 +250,15 @@ def _track_response_usage(
             completion_tokens=completion_tokens,
             model=model,
         )
+
+        # Record against budget
+        _record_token_spend(node_name, variant, prompt_tokens + completion_tokens)
     except Exception:
         # Never let tracking break the pipeline
         pass
 
 
+@retry_with_backoff(max_retries=3, base_delay=1.0, retryable_exceptions=(ConnectionError, TimeoutError, OSError))
 def invoke_llm(
     prompt: str,
     model: str = "gpt-4o-mini",
@@ -185,11 +268,12 @@ def invoke_llm(
     ticket_id: str = "",
     variant: str = "parwa",
 ) -> str:
-    """High-level sync LLM invocation with retry, rate limiting, and TurboQuant tracking.
+    """High-level sync LLM invocation with full production hardening.
 
-    This is the recommended way to call LLMs in sync PARWA nodes.
+    Includes: retry, rate limiting, circuit breaker, TurboQuant budget check,
+    and token tracking.
+
     In MOCK_MODE, returns deterministic responses from MockLLM.
-    Automatically tracks token usage via TurboQuant.
 
     Args:
         prompt: The prompt to send.
@@ -207,6 +291,16 @@ def invoke_llm(
         text = mock.invoke(prompt)
         _track_mock_usage(ticket_id, node_name, variant, prompt, text, model)
         return text
+
+    # Check token budget before making the call
+    estimated = _estimate_tokens(prompt) + 200  # prompt + estimated response
+    if not _check_token_budget(node_name, variant, estimated):
+        logger.warning(
+            "invoke_llm: token budget exceeded for node=%s variant=%s — "
+            "returning budget-exceeded response",
+            node_name, variant,
+        )
+        return "Token budget exceeded. Using rule-based fallback."
 
     try:
         llm = get_llm(model=model, temperature=temperature)
@@ -220,6 +314,7 @@ def invoke_llm(
         raise
 
 
+@async_retry_with_backoff(max_retries=3, base_delay=1.0, retryable_exceptions=(ConnectionError, TimeoutError, OSError))
 async def ainvoke_llm(
     prompt: str,
     model: str = "gpt-4o-mini",
@@ -229,11 +324,12 @@ async def ainvoke_llm(
     ticket_id: str = "",
     variant: str = "parwa",
 ) -> str:
-    """High-level async LLM invocation with retry, rate limiting, and TurboQuant tracking.
+    """High-level async LLM invocation with full production hardening.
 
-    This is the recommended way to call LLMs in async PARWA nodes.
+    Includes: retry, rate limiting, circuit breaker, TurboQuant budget check,
+    and token tracking.
+
     In MOCK_MODE, returns deterministic responses from MockLLM.
-    Automatically tracks token usage via TurboQuant.
 
     Args:
         prompt: The prompt to send.
@@ -251,6 +347,16 @@ async def ainvoke_llm(
         text = mock.invoke(prompt)
         _track_mock_usage(ticket_id, node_name, variant, prompt, text, model)
         return text
+
+    # Check token budget before making the call
+    estimated = _estimate_tokens(prompt) + 200  # prompt + estimated response
+    if not _check_token_budget(node_name, variant, estimated):
+        logger.warning(
+            "ainvoke_llm: token budget exceeded for node=%s variant=%s — "
+            "returning budget-exceeded response",
+            node_name, variant,
+        )
+        return "Token budget exceeded. Using rule-based fallback."
 
     try:
         llm = get_llm(model=model, temperature=temperature)

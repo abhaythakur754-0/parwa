@@ -67,10 +67,10 @@ async def reverse_thinker(state: dict[str, Any]) -> dict[str, Any]:
 
     validation = _reverse_think_rule_based(conclusion, kb_results, integration_data)
 
-    # Add framework tracking
-    active_frameworks = list(state.get("active_frameworks", []))
-    if "reverse_thinking" not in active_frameworks:
-        active_frameworks.append("reverse_thinking")
+    # Add framework tracking — return ONLY new frameworks (reducer appends)
+    new_frameworks = []
+    if "reverse_thinking" not in state.get("active_frameworks", []):
+        new_frameworks.append("reverse_thinking")
 
     # If validation fails and we haven't exceeded max loops, trigger loop-back
     loop_count = state.get("loop_count", 0)
@@ -79,6 +79,6 @@ async def reverse_thinker(state: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "reverse_validation": validation,
-        "active_frameworks": active_frameworks,
+        "active_frameworks": new_frameworks,
         "should_loop_back": should_loop,
     }

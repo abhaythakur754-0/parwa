@@ -12,6 +12,8 @@ from typing import Any
 from parwa.state import SentimentType, TicketComplexity, IntentType
 from parwa.utils.llm import MOCK_MODE, ainvoke_llm
 from parwa.utils.node_base import safe_node
+from parwa.utils.output_parser import parse_escalation_response
+from parwa.utils.sanitizer import build_safe_prompt
 
 logger = logging.getLogger("parwa.node.escalation_decision")
 
@@ -49,20 +51,18 @@ async def _should_escalate_llm(
     complexity: str,
     intent: str,
 ) -> tuple[bool, str]:
-    """Determine escalation using LLM (async). Returns (should_escalate, reason)."""
-    prompt = (
-        f"Should this customer ticket be escalated to a human agent?\n\n"
-        f"Message: {message}\n"
-        f"Sentiment: {sentiment}\n"
-        f"Complexity: {complexity}\n"
-        f"Intent: {intent}\n\n"
-        f"Reply with ONLY: true|reason or false|"
+    """Determine escalation using LLM (async). Returns (should_escalate, reason).
+
+    Uses structured output parsing and sanitized prompt.
+    """
+    system_instructions = (
+        "Should this customer ticket be escalated to a human agent?\n\n"
+        f"Context — Sentiment: {sentiment}, Complexity: {complexity}, Intent: {intent}\n\n"
+        "Reply with ONLY: true|reason or false|"
     )
-    text = await ainvoke_llm(prompt)
-    parts = text.strip().split("|")
-    should = parts[0].lower() == "true"
-    reason = parts[1] if len(parts) > 1 else ""
-    return should, reason
+    prompt = build_safe_prompt(system_instructions, message)
+    text = await ainvoke_llm(prompt, node_name="ESCALATION_DECISION")
+    return parse_escalation_response(text)
 
 
 @safe_node("ESCALATION_DECISION", fallback={"should_escalate": False, "escalation_reason": "node_error"})

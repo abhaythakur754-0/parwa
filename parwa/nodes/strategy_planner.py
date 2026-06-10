@@ -70,12 +70,12 @@ async def strategy_planner(state: dict[str, Any]) -> dict[str, Any]:
 
     plan = _plan_strategy_rule_based(intent, conclusion, selected_path)
 
-    # Add framework tracking
-    active_frameworks = list(state.get("active_frameworks", []))
-    if "maker_planning" not in active_frameworks:
-        active_frameworks.append("maker_planning")
+    # Add framework tracking — return ONLY new frameworks (reducer appends)
+    new_frameworks = []
+    if "maker_planning" not in state.get("active_frameworks", []):
+        new_frameworks.append("maker_planning")
 
     return {
         "strategy_plan": plan,
-        "active_frameworks": active_frameworks,
+        "active_frameworks": new_frameworks,
     }

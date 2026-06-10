@@ -70,8 +70,6 @@ class AdaptiveBudgetManager:
         Returns:
             List of reallocation records (empty if none happened).
         """
-    def check_and_reallocate(self, completed_node: str) -> list[ReallocationRecord]:
-        """After a node completes, reallocate its unused tokens to needy nodes."""
         records = []
         completed_budget = self.budget.get_node_budget(completed_node)
 

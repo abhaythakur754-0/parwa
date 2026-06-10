@@ -11,6 +11,7 @@ from typing import Any
 
 from parwa.utils.llm import MOCK_MODE, get_mock_llm, ainvoke_llm
 from parwa.utils.node_base import safe_node
+from parwa.utils.sanitizer import build_safe_prompt
 
 logger = logging.getLogger("parwa.node.reasoning_engine")
 
@@ -83,13 +84,13 @@ async def _reason_llm(
         evidence_parts.append(f"CRM: {integration_data}")
 
     evidence = "\n".join(evidence_parts)
-    prompt = (
-        f"Think step-by-step about this customer issue.\n\n"
-        f"Customer message: {message}\n"
+    system_instructions = (
+        "Think step-by-step about this customer issue.\n\n"
         f"Intent: {intent}\n"
         f"Evidence:\n{evidence}\n\n"
-        f"Provide a step-by-step reasoning chain, ending with: Conclusion: <your conclusion>"
+        "Provide a step-by-step reasoning chain, ending with: Conclusion: <your conclusion>"
     )
+    prompt = build_safe_prompt(system_instructions, message)
     text = await ainvoke_llm(
         prompt,
         node_name="REASONING_ENGINE",
@@ -150,13 +151,13 @@ async def reasoning_engine(state: dict[str, Any]) -> dict[str, Any]:
                 len(chain), conclusion[:50], exc,
             )
 
-    # Add framework tracking
-    active_frameworks = list(state.get("active_frameworks", []))
-    if "chain_of_thought" not in active_frameworks:
-        active_frameworks.append("chain_of_thought")
+    # Add framework tracking — return ONLY new frameworks (reducer appends)
+    new_frameworks = []
+    if "chain_of_thought" not in state.get("active_frameworks", []):
+        new_frameworks.append("chain_of_thought")
 
     return {
         "reasoning_chain": chain,
         "reasoning_conclusion": conclusion,
-        "active_frameworks": active_frameworks,
+        "active_frameworks": new_frameworks,
     }

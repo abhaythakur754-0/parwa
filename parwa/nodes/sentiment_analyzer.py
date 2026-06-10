@@ -12,6 +12,8 @@ from typing import Any
 from parwa.state import SentimentType
 from parwa.utils.llm import MOCK_MODE, ainvoke_llm
 from parwa.utils.node_base import safe_node
+from parwa.utils.output_parser import parse_sentiment_response
+from parwa.utils.sanitizer import build_safe_prompt
 
 logger = logging.getLogger("parwa.node.sentiment_analyzer")
 
@@ -43,21 +45,18 @@ def _analyze_sentiment_rule_based(message: str) -> tuple[str, float]:
 
 
 async def _analyze_sentiment_llm(message: str) -> tuple[str, float]:
-    """Analyze sentiment using LLM (async). Returns (sentiment, urgency)."""
-    prompt = (
-        f"Analyze the sentiment of this customer message.\n\n"
-        f"Customer message: {message}\n\n"
-        f"Reply with ONLY: sentiment|urgency where sentiment is one of: "
-        f"happy, neutral, frustrated, angry and urgency is 0.0-1.0"
+    """Analyze sentiment using LLM (async). Returns (sentiment, urgency).
+
+    Uses structured output parsing and sanitized prompt.
+    """
+    system_instructions = (
+        "Analyze the sentiment of the customer message.\n\n"
+        "Reply with ONLY: sentiment|urgency where sentiment is one of: "
+        "happy, neutral, frustrated, angry and urgency is 0.0-1.0"
     )
-    text = await ainvoke_llm(prompt)
-    parts = text.strip().split("|")
-    sentiment = parts[0].lower() if parts else "neutral"
-    try:
-        urgency = float(parts[1]) if len(parts) > 1 else 0.5
-    except (ValueError, IndexError):
-        urgency = 0.5
-    return sentiment, urgency
+    prompt = build_safe_prompt(system_instructions, message)
+    text = await ainvoke_llm(prompt, node_name="SENTIMENT_ANALYZER")
+    return parse_sentiment_response(text)
 
 
 @safe_node("SENTIMENT_ANALYZER", fallback={"sentiment": "neutral", "sentiment_urgency": 0.3})

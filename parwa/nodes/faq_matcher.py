@@ -12,6 +12,8 @@ from typing import Any
 from parwa.state import KnowledgeResult
 from parwa.utils.llm import MOCK_MODE, ainvoke_llm
 from parwa.utils.node_base import safe_node
+from parwa.utils.output_parser import parse_faq_response
+from parwa.utils.sanitizer import build_safe_prompt
 
 logger = logging.getLogger("parwa.node.faq_matcher")
 
@@ -56,27 +58,24 @@ def _match_faq_rule_based(message: str) -> KnowledgeResult | None:
 
 
 async def _match_faq_llm(message: str) -> KnowledgeResult | None:
-    """Match against FAQs using LLM (async)."""
+    """Match against FAQs using LLM (async).
+
+    Uses structured output parsing and sanitized prompt.
+    """
     faq_list = "\n".join(f"- {f['id']}: {f['question']}" for f in _MOCK_FAQS)
-    prompt = (
-        f"Match this customer message against our FAQs.\n\n"
+    system_instructions = (
+        "Match the customer message against our FAQs.\n\n"
         f"FAQs:\n{faq_list}\n\n"
-        f"Customer message: {message}\n\n"
-        f"Reply with ONLY: faq_id|relevance_score|answer or no_match|0.00|"
+        "Reply with ONLY: faq_id|relevance_score|answer or no_match|0.00|"
     )
-    text = await ainvoke_llm(prompt)
-    parts = text.strip().split("|")
-    if parts[0] == "no_match":
-        return None
-    try:
-        score = float(parts[1]) if len(parts) > 1 else 0.0
-    except (ValueError, IndexError):
-        score = 0.0
-    if score < 0.3:
+    prompt = build_safe_prompt(system_instructions, message)
+    text = await ainvoke_llm(prompt, node_name="FAQ_MATCHER")
+    faq_id, score, content = parse_faq_response(text)
+    if faq_id == "no_match" or score < 0.3:
         return None
     return KnowledgeResult(
-        source=f"faq:{parts[0]}",
-        content=parts[2] if len(parts) > 2 else "",
+        source=f"faq:{faq_id}",
+        content=content,
         relevance_score=score,
     )
 
