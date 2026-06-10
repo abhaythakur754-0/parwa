@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
+from parwa.utils.node_base import safe_node
 
 
 def _reason_rule_based(
@@ -106,6 +107,7 @@ def _reason_llm(
     return chain, conclusion
 
 
+@safe_node("REASONING_ENGINE")
 def reasoning_engine(state: dict[str, Any]) -> dict[str, Any]:
     """Reason through the problem using Chain of Thought.
 

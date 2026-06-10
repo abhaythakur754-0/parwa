@@ -9,7 +9,10 @@ from __future__ import annotations
 import datetime
 from typing import Any
 
+from parwa.utils.node_base import safe_node
 
+
+@safe_node("AUDIT_LOGGER")
 def audit_logger(state: dict[str, Any]) -> dict[str, Any]:
     """Log all actions and decisions for audit trail.
 

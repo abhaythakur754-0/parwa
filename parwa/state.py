@@ -175,4 +175,68 @@ class TicketState(BaseModel):
     loop_count: int = 0
     max_loops: int = 2
 
-    model_config = ConfigDict(use_enum_values=True)
+    # ─── Production metadata (error tracking) ────────────────
+    pipeline_errors: list[dict[str, Any]] = Field(default_factory=list)
+    node_error: dict[str, Any] | None = None
+
+    model_config = ConfigDict(use_enum_values=True, extra="allow")
+
+
+def validate_state(state: dict[str, Any]) -> tuple[bool, list[str]]:
+    """Validate a state dict against the TicketState schema.
+
+    Performs both Pydantic schema validation AND business rule validation
+    (valid variant, valid channel, required fields for pipeline entry).
+
+    Returns:
+        Tuple of (is_valid, list_of_issues).
+    """
+    issues: list[str] = []
+
+    # Pydantic schema validation
+    try:
+        TicketState(**state)
+    except Exception as exc:
+        issues.append(f"State validation error: {exc}")
+
+    # Business rule validation
+    variant = state.get("variant", "parwa")
+    if variant not in ("mini", "parwa", "high"):
+        issues.append(f"variant must be mini/parwa/high, got '{variant}'")
+
+    channel = state.get("channel", "email")
+    if channel not in ("email", "chat", "social", "voice"):
+        issues.append(f"channel must be email/chat/social/voice, got '{channel}'")
+
+    raw_message = state.get("raw_message", "")
+    if raw_message and not isinstance(raw_message, str):
+        issues.append(f"raw_message must be str, got {type(raw_message).__name__}")
+
+    return len(issues) == 0, issues
+
+
+def state_to_dict(state: TicketState) -> dict[str, Any]:
+    """Convert a TicketState Pydantic model to a plain dict for LangGraph.
+
+    Args:
+        state: The TicketState instance.
+
+    Returns:
+        A plain dict with all state fields.
+    """
+    return state.model_dump()
+
+
+def dict_to_state(data: dict[str, Any]) -> TicketState:
+    """Convert a plain dict to a TicketState Pydantic model.
+
+    Args:
+        data: The state dict.
+
+    Returns:
+        A validated TicketState instance.
+
+    Raises:
+        ValidationError: If the dict doesn't match the schema.
+    """
+    return TicketState(**data)

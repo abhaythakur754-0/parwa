@@ -10,6 +10,7 @@ from typing import Any
 
 from parwa.state import SentimentType, TicketComplexity, IntentType
 from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
+from parwa.utils.node_base import safe_node
 
 
 def _should_escalate_rule_based(
@@ -71,6 +72,7 @@ def _should_escalate_llm(
     return should, reason
 
 
+@safe_node("ESCALATION_DECISION")
 def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
     """Decide whether to escalate this ticket to a human.
 

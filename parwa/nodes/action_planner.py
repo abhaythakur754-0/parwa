@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from parwa.state import ActionType, ActionPlan
+from parwa.utils.node_base import safe_node
 
 
 def _plan_actions_rule_based(
@@ -78,6 +79,7 @@ def _plan_actions_rule_based(
     return actions
 
 
+@safe_node("ACTION_PLANNER")
 def action_planner(state: dict[str, Any]) -> dict[str, Any]:
     """Plan actions based on reasoning conclusion and strategy.
 

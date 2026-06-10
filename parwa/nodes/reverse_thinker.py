@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
+from parwa.utils.node_base import safe_node
 
 
 def _reverse_think_rule_based(
@@ -47,6 +48,7 @@ def _reverse_think_rule_based(
     }
 
 
+@safe_node("REVERSE_THINKER")
 def reverse_thinker(state: dict[str, Any]) -> dict[str, Any]:
     """Validate the reasoning conclusion by working backwards.
 

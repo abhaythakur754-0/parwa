@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
+from parwa.utils.node_base import safe_node
 
 
 def _plan_strategy_rule_based(intent: str, conclusion: str, selected_path: dict | None) -> list[str]:
@@ -48,6 +49,7 @@ def _plan_strategy_rule_based(intent: str, conclusion: str, selected_path: dict 
         ]
 
 
+@safe_node("STRATEGY_PLANNER")
 def strategy_planner(state: dict[str, Any]) -> dict[str, Any]:
     """Create a multi-step execution plan.
 

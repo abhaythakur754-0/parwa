@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from parwa.state import ProactiveInsight
+from parwa.utils.node_base import safe_node
 
 
 def _predict_issues_rule_based(intent: str, integration_data: dict, sentiment: str) -> list[dict]:
@@ -54,6 +55,7 @@ def _predict_issues_rule_based(intent: str, integration_data: dict, sentiment: s
     return predictions
 
 
+@safe_node("PREDICTION_ENGINE")
 def prediction_engine(state: dict[str, Any]) -> dict[str, Any]:
     """Forecast future issues or follow-up needs.
 

@@ -10,6 +10,7 @@ from typing import Any
 
 from parwa.state import IntentType, TicketComplexity
 from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
+from parwa.utils.node_base import safe_node
 
 
 # Keyword-based intent mapping for mock/rule-based classification
@@ -79,6 +80,7 @@ def _determine_complexity(confidence: float) -> str:
     return TicketComplexity.CRITICAL
 
 
+@safe_node("INTENT_CLASSIFIER")
 def intent_classifier(state: dict[str, Any]) -> dict[str, Any]:
     """Classify the intent of the customer's message.
 

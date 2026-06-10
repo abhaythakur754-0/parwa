@@ -10,6 +10,7 @@ from typing import Any
 
 from parwa.state import SentimentType
 from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
+from parwa.utils.node_base import safe_node
 
 
 # Keyword-based sentiment detection
@@ -64,6 +65,7 @@ def _analyze_sentiment_llm(message: str) -> tuple[str, float]:
     return sentiment, urgency
 
 
+@safe_node("SENTIMENT_ANALYZER")
 def sentiment_analyzer(state: dict[str, Any]) -> dict[str, Any]:
     """Analyze customer sentiment and urgency.
 

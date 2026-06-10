@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
+from parwa.utils.node_base import safe_node
 
 
 def _format_response_rule_based(
@@ -65,6 +66,7 @@ def _format_response_rule_based(
     return response
 
 
+@safe_node("RESPONSE_FORMATTER")
 def response_formatter(state: dict[str, Any]) -> dict[str, Any]:
     """Craft the final customer-facing response.
 

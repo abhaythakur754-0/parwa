@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from parwa.utils.node_base import safe_node
+
 
 def _verify_execution(execution_results: list[dict]) -> bool:
     """Verify that all executed actions completed successfully."""
@@ -37,6 +39,7 @@ def _verify_recommendation(recommendation: dict | None) -> bool:
     return True
 
 
+@safe_node("ACTION_VERIFIER")
 def action_verifier(state: dict[str, Any]) -> dict[str, Any]:
     """Verify that actions were executed or recommendations are complete.
 

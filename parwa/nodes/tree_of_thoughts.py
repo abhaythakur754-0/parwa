@@ -10,6 +10,7 @@ from typing import Any
 
 from parwa.state import ReasoningPath
 from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
+from parwa.utils.node_base import safe_node
 
 
 def _explore_paths_rule_based(intent: str, conclusion: str) -> list[dict]:
@@ -54,6 +55,7 @@ def _explore_paths_rule_based(intent: str, conclusion: str) -> list[dict]:
     return [p.model_dump() for p in paths]
 
 
+@safe_node("TREE_OF_THOUGHTS")
 def tree_of_thoughts(state: dict[str, Any]) -> dict[str, Any]:
     """Explore multiple solution paths and select the best one.
 

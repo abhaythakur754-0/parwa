@@ -10,6 +10,7 @@ from typing import Any
 
 from parwa.state import KnowledgeResult
 from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
+from parwa.utils.node_base import safe_node
 
 
 # Mock knowledge base documents
@@ -62,6 +63,7 @@ def _retrieve_kb_rule_based(message: str, intent: str) -> list[dict[str, Any]]:
     return [r.model_dump() for r in results[:3]]
 
 
+@safe_node("KB_RETRIEVER")
 def kb_retriever(state: dict[str, Any]) -> dict[str, Any]:
     """Search the knowledge base for relevant documents.
 

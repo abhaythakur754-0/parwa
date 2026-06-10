@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from parwa.utils.node_base import safe_node
+
 
 def _generate_feedback_signal(
     intent: str,
@@ -45,6 +47,7 @@ def _generate_feedback_signal(
     }
 
 
+@safe_node("FEEDBACK_LOOP")
 def feedback_loop(state: dict[str, Any]) -> dict[str, Any]:
     """Capture feedback signal for continuous improvement.
 

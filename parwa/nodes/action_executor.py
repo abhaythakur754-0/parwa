@@ -12,6 +12,7 @@ from typing import Any
 
 from parwa.config import get_permission
 from parwa.state import ActionType, ExecutionMode
+from parwa.utils.node_base import safe_node
 
 
 def _execute_action(action_plan: dict, state: dict) -> dict[str, Any]:
@@ -47,6 +48,7 @@ def _create_recommendation(action_plan: dict, state: dict) -> dict[str, Any]:
     }
 
 
+@safe_node("ACTION_EXECUTOR")
 def action_executor(state: dict[str, Any]) -> dict[str, Any]:
     """Execute or recommend actions based on variant permissions.
 

@@ -10,6 +10,7 @@ import json
 from typing import Any
 
 from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
+from parwa.utils.node_base import safe_node
 
 
 # Mock CRM data per customer
@@ -59,6 +60,7 @@ def _lookup_integration_rule_based(customer_id: str, intent: str) -> dict[str, A
     return data
 
 
+@safe_node("INTEGRATION_LOOKUP")
 def integration_lookup(state: dict[str, Any]) -> dict[str, Any]:
     """Query external systems for relevant data.
 

@@ -8,7 +8,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from parwa.utils.node_base import safe_node
 
+
+@safe_node("CONTEXT_MANAGER")
 def context_manager(state: dict[str, Any]) -> dict[str, Any]:
     """Manage conversation context and history.
 

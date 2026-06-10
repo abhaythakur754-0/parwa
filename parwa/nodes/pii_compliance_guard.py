@@ -10,6 +10,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from parwa.utils.node_base import safe_node
+
 
 # PII detection patterns
 _PII_PATTERNS = {
@@ -49,6 +51,7 @@ def _redact_pii(text: str) -> str:
     return text
 
 
+@safe_node("PII_COMPLIANCE_GUARD")
 def pii_compliance_guard(state: dict[str, Any]) -> dict[str, Any]:
     """Detect and redact PII from the response.
 

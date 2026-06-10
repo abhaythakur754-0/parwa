@@ -10,6 +10,7 @@ from typing import Any
 
 from parwa.state import KnowledgeResult
 from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
+from parwa.utils.node_base import safe_node
 
 
 # Pre-built FAQ database for mock mode
@@ -85,6 +86,7 @@ def _match_faq_llm(message: str) -> KnowledgeResult | None:
     )
 
 
+@safe_node("FAQ_MATCHER")
 def faq_matcher(state: dict[str, Any]) -> dict[str, Any]:
     """Match the ticket against known FAQs.
 

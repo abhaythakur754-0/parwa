@@ -4,6 +4,13 @@ This is the SKELETON of the entire PARWA system. LangGraph is the traffic cop
 that routes tickets between 22 nodes, 6 agents, and handles conditional branching
 and quality loop-backs. LangGraph ROUTES — it does NOT think.
 
+Production features:
+- MemorySaver checkpointer for crash recovery
+- State validation at entry and exit
+- Human-in-the-loop interrupt for Mini PARWA recommendations
+- Structured logging for every routing decision
+- Error tracking through pipeline
+
 Pipeline flow:
   INGEST → INTENT_CLASSIFIER → SENTIMENT_ANALYZER
       → (branch) ESCALATION_DECISION / FAQ_MATCHER
@@ -19,9 +26,15 @@ Pipeline flow:
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Annotated
 
 from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.memory import MemorySaver
+
+from parwa.state import validate_state
+
+logger = logging.getLogger("parwa.graph")
 
 
 def _merge_dicts(left: dict, right: dict) -> dict:
@@ -73,7 +86,9 @@ def _after_sentiment(state: dict[str, Any]) -> str:
     complexity = state.get("complexity", "simple")
 
     if sentiment in ("angry", "frustrated") and complexity in ("complex", "critical"):
+        logger.info("route: sentiment→escalation (sentiment=%s, complexity=%s)", sentiment, complexity)
         return "escalation_decision"
+    logger.debug("route: sentiment→faq_matcher (sentiment=%s)", sentiment)
     return "faq_matcher"
 
 
@@ -84,7 +99,9 @@ def _after_escalation(state: dict[str, Any]) -> str:
     Should not escalate → continue to FAQ matcher
     """
     if state.get("should_escalate", False):
+        logger.info("route: escalation→pii_compliance_guard (escalated)")
         return "pii_compliance_guard"
+    logger.debug("route: escalation→faq_matcher (not escalated)")
     return "faq_matcher"
 
 
@@ -96,7 +113,9 @@ def _after_faq_matcher(state: dict[str, Any]) -> str:
     """
     faq_match = state.get("faq_match")
     if faq_match and faq_match.get("relevance_score", 0) > 0.8:
+        logger.info("route: faq→reasoning (high relevance=%.2f)", faq_match.get("relevance_score", 0))
         return "reasoning_engine"
+    logger.debug("route: faq→kb_retriever (no high match)")
     return "kb_retriever"
 
 
@@ -107,14 +126,16 @@ def _after_reasoning(state: dict[str, Any]) -> str:
     Complex problem → explore multiple paths (ToT, Reverse, Strategy)
     After a loop-back → always go to action_planner (already reasoned once)
     """
-    # If we looped back, skip advanced reasoning — just go to action planner
     loop_count = state.get("loop_count", 0)
     if loop_count > 0:
+        logger.info("route: reasoning→action_planner (loop_back, count=%d)", loop_count)
         return "action_planner"
 
     complexity = state.get("complexity", "simple")
     if complexity in ("simple",):
+        logger.debug("route: reasoning→action_planner (simple)")
         return "action_planner"
+    logger.debug("route: reasoning→reverse_thinker (complex)")
     return "reverse_thinker"
 
 
@@ -140,6 +161,7 @@ def _after_action_verifier(state: dict[str, Any]) -> str:
     Passed → proactive checker
     """
     if state.get("should_loop_back", False):
+        logger.info("route: verifier→reasoning (loop_back)")
         return "reasoning_engine"
     return "proactive_checker"
 
@@ -155,10 +177,12 @@ def _after_quality_scorer(state: dict[str, Any]) -> str:
     should_loop = state.get("should_loop_back", False)
 
     if quality_score >= 80:
+        logger.info("route: quality→response_formatter (score=%.1f)", quality_score)
         return "response_formatter"
     if should_loop:
+        logger.info("route: quality→reasoning (score=%.1f, loop_back)", quality_score)
         return "reasoning_engine"
-    # Max loops reached — send what we have
+    logger.warning("route: quality→response_formatter (score=%.1f, max_loops reached)", quality_score)
     return "response_formatter"
 
 
@@ -167,13 +191,23 @@ def _after_quality_scorer(state: dict[str, Any]) -> str:
 def _handle_loop_back(state: dict[str, Any]) -> dict[str, Any]:
     """Increment loop counter when looping back to reasoning."""
     loop_count = state.get("loop_count", 0)
+    logger.info("loop_back_handler: incrementing loop_count %d→%d", loop_count, loop_count + 1)
     return {"loop_count": loop_count + 1, "should_loop_back": False}
 
 
 # ─── Build the Graph ──────────────────────────────────────────────────────────────
 
-def build_parwa_graph() -> StateGraph:
+def build_parwa_graph(
+    *,
+    use_checkpointer: bool = True,
+    interrupt_before_action: bool = False,
+) -> StateGraph:
     """Build the complete PARWA LangGraph with all 22 nodes and conditional edges.
+
+    Args:
+        use_checkpointer: Enable MemorySaver for crash recovery (default True).
+        interrupt_before_action: Pause before action_executor for human approval
+            (useful for Mini PARWA recommendations in production).
 
     Returns:
         A compiled StateGraph ready for execution.
@@ -316,7 +350,25 @@ def build_parwa_graph() -> StateGraph:
     # Response formatter → END
     graph.add_edge("response_formatter", END)
 
-    return graph.compile()
+    # ─── Compile with optional features ──────────────────────────────────────
+    checkpointer = MemorySaver() if use_checkpointer else None
+
+    # Human-in-the-loop: interrupt before action_executor for Mini variant
+    interrupt_nodes = []
+    if interrupt_before_action:
+        interrupt_nodes = ["action_executor"]
+
+    compiled = graph.compile(
+        checkpointer=checkpointer,
+        interrupt_before=interrupt_nodes if interrupt_nodes else None,
+    )
+
+    logger.info(
+        "build_parwa_graph: compiled graph with 22 nodes, checkpointer=%s, interrupt=%s",
+        use_checkpointer, interrupt_before_action,
+    )
+
+    return compiled
 
 
 # ─── Convenience function ─────────────────────────────────────────────────────────
@@ -325,12 +377,33 @@ def build_parwa_graph() -> StateGraph:
 _compiled_graph = None
 
 
-def get_parwa_graph():
-    """Get or create the compiled PARWA graph singleton."""
+def get_parwa_graph(
+    *,
+    use_checkpointer: bool = True,
+    interrupt_before_action: bool = False,
+):
+    """Get or create the compiled PARWA graph singleton.
+
+    Args:
+        use_checkpointer: Enable MemorySaver for crash recovery.
+        interrupt_before_action: Pause before action for human approval.
+
+    Returns:
+        A compiled StateGraph.
+    """
     global _compiled_graph
     if _compiled_graph is None:
-        _compiled_graph = build_parwa_graph()
+        _compiled_graph = build_parwa_graph(
+            use_checkpointer=use_checkpointer,
+            interrupt_before_action=interrupt_before_action,
+        )
     return _compiled_graph
+
+
+def reset_parwa_graph() -> None:
+    """Reset the compiled graph singleton (useful for testing with different configs)."""
+    global _compiled_graph
+    _compiled_graph = None
 
 
 def process_ticket(
@@ -338,6 +411,9 @@ def process_ticket(
     customer_id: str = "",
     channel: str = "email",
     variant: str = "parwa",
+    *,
+    thread_id: str | None = None,
+    interrupt_before_action: bool = False,
 ) -> dict[str, Any]:
     """Process a single ticket through the full PARWA pipeline.
 
@@ -346,11 +422,24 @@ def process_ticket(
         customer_id: Customer identifier
         channel: Communication channel (email, chat, social, voice)
         variant: PARWA variant (mini, parwa, high)
+        thread_id: Optional thread ID for checkpointing (auto-generated if None)
+        interrupt_before_action: Pause before action for human approval
 
     Returns:
         The final ticket state after processing through all 22 nodes
     """
-    graph = get_parwa_graph()
+    graph = get_parwa_graph(interrupt_before_action=interrupt_before_action)
+
+    # Validate input
+    if not raw_message or not isinstance(raw_message, str):
+        return {
+            "error": "raw_message is required and must be a string",
+            "final_response": "Error: No message provided.",
+        }
+
+    if variant not in ("mini", "parwa", "high"):
+        logger.warning("process_ticket: invalid variant '%s', defaulting to 'parwa'", variant)
+        variant = "parwa"
 
     initial_state = {
         "raw_message": raw_message,
@@ -359,5 +448,32 @@ def process_ticket(
         "variant": variant,
     }
 
-    result = graph.invoke(initial_state)
+    # Validate initial state
+    is_valid, issues = validate_state(initial_state)
+    if not is_valid:
+        logger.warning("process_ticket: input validation issues: %s", issues)
+
+    # Configure thread for checkpointing
+    config = {}
+    if thread_id:
+        config["configurable"] = {"thread_id": thread_id}
+    else:
+        import uuid
+        config["configurable"] = {"thread_id": f"ticket-{uuid.uuid4().hex[:8]}"}
+
+    result = graph.invoke(initial_state, config=config)
+
+    # Validate output
+    is_valid, issues = validate_state(result)
+    if not is_valid:
+        logger.warning("process_ticket: output validation issues: %s", issues)
+
+    # Check for pipeline errors
+    errors = result.get("pipeline_errors", [])
+    if errors:
+        logger.warning(
+            "process_ticket: %d node errors encountered: %s",
+            len(errors), [e.get("node", "?") for e in errors],
+        )
+
     return result

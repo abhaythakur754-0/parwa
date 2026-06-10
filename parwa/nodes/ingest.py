@@ -11,8 +11,10 @@ from typing import Any
 
 from parwa.config import get_variant_channels
 from parwa.state import TicketChannel
+from parwa.utils.node_base import safe_node
 
 
+@safe_node("INGEST")
 def ingest(state: dict[str, Any]) -> dict[str, Any]:
     """Receive and validate a raw ticket.
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
+from parwa.utils.node_base import safe_node
 
 
 def _score_quality_rule_based(
@@ -50,6 +51,7 @@ def _score_quality_rule_based(
     return score, issues
 
 
+@safe_node("QUALITY_SCORER")
 def quality_scorer(state: dict[str, Any]) -> dict[str, Any]:
     """Score the quality of the response before sending.
 
