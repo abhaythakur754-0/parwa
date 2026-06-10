@@ -18,7 +18,7 @@
  */
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = process.env.BASE_URL || 'https://parwa.vercel.app';
+const BASE_URL = (process.env.BASE_URL || 'https://parwa.vercel.app').replace('localhost', '127.0.0.1');
 
 test.describe('Phase 2: Industry & Integration — E2E Tests', () => {
 

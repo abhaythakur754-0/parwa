@@ -344,7 +344,7 @@ CATALOG: List[IntegrationDefinition] = [
         auth_schema=AuthSchema(AuthType.API_KEY_HEADER, [
             AuthField("api_key", "API Key", "text", True),
             AuthField("secret_key", "Secret Key", "password", True),
-        ]),
+        ], header_name="Authorization"),
         test_connection=TestConnectionConfig("GET", "https://amplitude.com/api/2/usersearch?user=test", success_check="status_200", success_message="Connected to Amplitude"),
         suggested_industries=[ParwaIndustry.SAAS, ParwaIndustry.OTHER],
         icon_id="amplitude", color_gradient="from-blue-600 to-blue-500",

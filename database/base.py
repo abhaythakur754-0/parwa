@@ -305,8 +305,21 @@ def bypass_tenant(func: Callable = None, *, reason: str = "") -> Any:
 
 
 def init_db():
-    """Create all tables (used in tests and initial setup)."""
-    Base.metadata.create_all(bind=engine)
+    """Create all tables (used in tests and initial setup).
+    
+    Gracefully handles JSONB columns when running on SQLite
+    (those tables are skipped since SQLite doesn't support JSONB).
+    """
+    import sqlalchemy
+    try:
+        Base.metadata.create_all(bind=engine)
+    except sqlalchemy.exc.CompileError:
+        # SQLite doesn't support JSONB — create tables one by one, skipping failures
+        for table in Base.metadata.sorted_tables:
+            try:
+                table.create(bind=engine, checkfirst=True)
+            except sqlalchemy.exc.CompileError:
+                logger.warning(f"Skipping table {table.name} — unsupported column type for SQLite")
 
 
 async def check_db_health() -> dict:

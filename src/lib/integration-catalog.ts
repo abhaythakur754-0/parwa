@@ -440,6 +440,7 @@ export const INTEGRATION_CATALOG: IntegrationDefinition[] = [
     tier: 'tier1_prebuilt',
     authSchema: {
       type: 'api_key_header',
+      headerName: 'Authorization',
       fields: [
         { name: 'api_key', label: 'API Key', type: 'text', required: true },
         { name: 'secret_key', label: 'Secret Key', type: 'password', required: true },

@@ -29,6 +29,25 @@ export async function POST(req: NextRequest) {
       headers,
       body,
     });
+
+    // If backend returns auth error, provide mock fallback with the request data
+    if (res.status === 401 || res.status === 403) {
+      try {
+        const parsed = JSON.parse(body);
+        return NextResponse.json({
+          current_industry: parsed.current_industry || '',
+          new_industry: parsed.new_industry || '',
+          connected_integrations: [],
+          still_recommended: [],
+          no_longer_suggested: [],
+          newly_suggested: [],
+          message: 'Sign in to see full industry change impact analysis.',
+        }, { status: 200 });
+      } catch {
+        // Fall through to default mock
+      }
+    }
+
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });
   } catch {

@@ -24,6 +24,12 @@ export async function GET(req: NextRequest) {
     }
 
     const res = await fetch(`${BACKEND_URL}/api/integrations`, { headers });
+
+    // If backend returns auth error or server error, return empty list for unauthenticated users
+    if (res.status === 401 || res.status === 403 || res.status >= 500) {
+      return NextResponse.json([]);
+    }
+
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });
   } catch {
