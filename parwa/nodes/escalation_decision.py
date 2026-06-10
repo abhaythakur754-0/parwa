@@ -6,11 +6,14 @@ Escalation is too important to be buried inside Action Planner.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from parwa.state import SentimentType, TicketComplexity, IntentType
 from parwa.utils.llm import MOCK_MODE, ainvoke_llm
 from parwa.utils.node_base import safe_node
+
+logger = logging.getLogger("parwa.node.escalation_decision")
 
 
 def _should_escalate_rule_based(
@@ -76,13 +79,27 @@ async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
     intent = state.get("intent", "general_inquiry")
     intent_confidence = state.get("intent_confidence", 0.5)
 
+    # Guard: ensure numeric types
+    if not isinstance(sentiment_urgency, (int, float)):
+        sentiment_urgency = 0.0
+    if not isinstance(intent_confidence, (int, float)):
+        intent_confidence = 0.5
+
     should_escalate, reason = _should_escalate_rule_based(
         sentiment, sentiment_urgency, complexity, intent, intent_confidence
     )
 
-    # If rules say no but complexity is high, try LLM for nuance
+    # If rules say no but complexity is high, try LLM for nuance with graceful degradation
     if not should_escalate and complexity in (TicketComplexity.COMPLEX, TicketComplexity.CRITICAL, "complex", "critical") and not MOCK_MODE:
-        should_escalate, reason = await _should_escalate_llm(raw_message, sentiment, complexity, intent)
+        try:
+            should_escalate, reason = await _should_escalate_llm(raw_message, sentiment, complexity, intent)
+        except Exception as exc:
+            # LLM failed — keep the rule-based result (graceful degradation)
+            logger.warning(
+                "ESCALATION_DECISION: LLM escalation check failed, "
+                "falling back to rule-based result (should_escalate=%s): %s",
+                should_escalate, exc,
+            )
 
     return {
         "should_escalate": should_escalate,

@@ -58,6 +58,12 @@ async def action_executor(state: dict[str, Any]) -> dict[str, Any]:
     variant = state.get("variant", "parwa")
     action_plans = state.get("action_plans", [])
 
+    # Guard: ensure types
+    if not isinstance(variant, str):
+        variant = "parwa"
+    if not isinstance(action_plans, list):
+        action_plans = []
+
     execution_results = []
     recommendation = None
 
@@ -67,11 +73,19 @@ async def action_executor(state: dict[str, Any]) -> dict[str, Any]:
         # Get the ActionType enum
         try:
             action_type = ActionType(action_type_str)
-        except ValueError:
+        except (ValueError, TypeError):
             action_type = ActionType.SEND_REPLY
 
         # Check variant permissions
-        permission = get_permission(variant, action_type)
+        try:
+            permission = get_permission(variant, action_type)
+        except (ValueError, KeyError) as exc:
+            import logging
+            logging.getLogger("parwa.node.action_executor").warning(
+                "ACTION_EXECUTOR: permission check failed for variant=%s action=%s: %s",
+                variant, action_type_str, exc,
+            )
+            permission = ExecutionMode.DENY
 
         if permission == ExecutionMode.EXECUTE:
             result = _execute_action(plan, state)

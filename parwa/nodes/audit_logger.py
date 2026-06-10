@@ -29,21 +29,46 @@ async def audit_logger(state: dict[str, Any]) -> dict[str, Any]:
 
     existing_log = list(state.get("audit_log", []))
 
+    # Guard: ensure types
+    if not isinstance(ticket_id, str):
+        ticket_id = "UNKNOWN"
+    if not isinstance(action_plans, list):
+        action_plans = []
+    if not isinstance(execution_results, list):
+        execution_results = []
+    if not isinstance(quality_score, (int, float)):
+        quality_score = 0.0
+    if not isinstance(existing_log, list):
+        existing_log = []
+
     # Create audit entry
-    audit_entry = {
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "ticket_id": ticket_id,
-        "variant": variant,
-        "intent": intent,
-        "actions_planned": [a.get("action_type", "") for a in action_plans],
-        "actions_executed": [
-            {"action": r.get("action_type", ""), "status": r.get("status", "")}
-            for r in execution_results
-        ],
-        "recommendation_created": recommendation is not None,
-        "quality_score": quality_score,
-        "node": "audit_logger",
-    }
+    try:
+        audit_entry = {
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "ticket_id": ticket_id,
+            "variant": variant,
+            "intent": intent,
+            "actions_planned": [a.get("action_type", "") for a in action_plans if isinstance(a, dict)],
+            "actions_executed": [
+                {"action": r.get("action_type", ""), "status": r.get("status", "")}
+                for r in execution_results if isinstance(r, dict)
+            ],
+            "recommendation_created": recommendation is not None,
+            "quality_score": quality_score,
+            "node": "audit_logger",
+        }
+    except Exception as exc:
+        import logging
+        logging.getLogger("parwa.node.audit_logger").warning(
+            "AUDIT_LOGGER: Failed to create full audit entry: %s", exc,
+        )
+        audit_entry = {
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "ticket_id": ticket_id,
+            "variant": variant,
+            "node": "audit_logger",
+            "error": str(exc),
+        }
 
     existing_log.append(audit_entry)
 

@@ -66,6 +66,14 @@ async def prediction_engine(state: dict[str, Any]) -> dict[str, Any]:
     integration_data = state.get("integration_data", {})
     sentiment = state.get("sentiment", "neutral")
 
+    # Guard: ensure types
+    if not isinstance(intent, str):
+        intent = "general_inquiry"
+    if not isinstance(integration_data, dict):
+        integration_data = {}
+    if not isinstance(sentiment, str):
+        sentiment = "neutral"
+
     predictions = _predict_issues_rule_based(intent, integration_data, sentiment)
 
     return {"predictions": predictions}

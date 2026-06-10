@@ -49,6 +49,12 @@ async def action_verifier(state: dict[str, Any]) -> dict[str, Any]:
     execution_results = state.get("execution_results", [])
     recommendation = state.get("recommendation")
 
+    # Guard: ensure types
+    if not isinstance(execution_results, list):
+        execution_results = []
+    if recommendation is not None and not isinstance(recommendation, dict):
+        recommendation = None
+
     exec_ok = _verify_execution(execution_results)
     rec_ok = _verify_recommendation(recommendation)
     verification_passed = exec_ok and rec_ok

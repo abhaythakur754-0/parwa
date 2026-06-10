@@ -65,6 +65,12 @@ async def tree_of_thoughts(state: dict[str, Any]) -> dict[str, Any]:
     intent = state.get("intent", "general_inquiry")
     conclusion = state.get("reasoning_conclusion", "")
 
+    # Guard: ensure types
+    if not isinstance(intent, str):
+        intent = "general_inquiry"
+    if not isinstance(conclusion, str):
+        conclusion = str(conclusion) if conclusion else ""
+
     paths = _explore_paths_rule_based(intent, conclusion)
 
     # Select the path with selected=True, or the highest confidence

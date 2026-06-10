@@ -6,11 +6,14 @@ Also determines the ticket complexity based on confidence.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from parwa.state import IntentType, TicketComplexity
 from parwa.utils.llm import MOCK_MODE, ainvoke_llm
 from parwa.utils.node_base import safe_node
+
+logger = logging.getLogger("parwa.node.intent_classifier")
 
 
 # Keyword-based intent mapping for mock/rule-based classification
@@ -81,17 +84,35 @@ async def intent_classifier(state: dict[str, Any]) -> dict[str, Any]:
     """
     raw_message = state.get("raw_message", "")
 
+    # Guard: empty or non-string message
+    if not isinstance(raw_message, str) or not raw_message.strip():
+        return {
+            "intent": IntentType.GENERAL_INQUIRY,
+            "intent_confidence": 0.0,
+            "complexity": TicketComplexity.SIMPLE,
+        }
+
     # Try rule-based first, then LLM fallback
     intent_str, confidence = _classify_intent_rule_based(raw_message)
 
-    # If low confidence, try LLM
+    # If low confidence, try LLM with graceful degradation
     if confidence < 0.8 and not MOCK_MODE:
-        intent_str, confidence = await _classify_intent_llm(raw_message)
+        try:
+            intent_str, confidence = await _classify_intent_llm(raw_message)
+        except Exception as exc:
+            # LLM failed — keep the rule-based result (graceful degradation)
+            logger.warning(
+                "INTENT_CLASSIFIER: LLM classification failed, "
+                "falling back to rule-based result (intent=%s, confidence=%.2f): %s",
+                intent_str, confidence, exc,
+            )
 
     # Validate intent against enum values
     valid_intents = {e.value for e in IntentType}
     if intent_str not in valid_intents:
         intent_str = IntentType.GENERAL_INQUIRY
+    if not isinstance(confidence, (int, float)) or confidence < 0:
+        confidence = 0.0
 
     complexity = _determine_complexity(confidence)
 

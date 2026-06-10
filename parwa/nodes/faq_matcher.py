@@ -6,11 +6,14 @@ to enable quick resolution for common questions.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from parwa.state import KnowledgeResult
 from parwa.utils.llm import MOCK_MODE, ainvoke_llm
 from parwa.utils.node_base import safe_node
+
+logger = logging.getLogger("parwa.node.faq_matcher")
 
 
 # Pre-built FAQ database for mock mode
@@ -87,9 +90,21 @@ async def faq_matcher(state: dict[str, Any]) -> dict[str, Any]:
     """
     raw_message = state.get("raw_message", "")
 
+    # Guard: empty or non-string message
+    if not isinstance(raw_message, str) or not raw_message.strip():
+        return {"faq_match": None}
+
     result = _match_faq_rule_based(raw_message)
 
     if result is None and not MOCK_MODE:
-        result = await _match_faq_llm(raw_message)
+        try:
+            result = await _match_faq_llm(raw_message)
+        except Exception as exc:
+            # LLM failed — no FAQ match is acceptable (graceful degradation)
+            logger.warning(
+                "FAQ_MATCHER: LLM FAQ matching failed, "
+                "no rule-based match available: %s",
+                exc,
+            )
 
     return {"faq_match": result.model_dump() if result else None}

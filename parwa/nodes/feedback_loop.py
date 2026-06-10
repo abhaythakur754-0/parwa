@@ -59,6 +59,16 @@ async def feedback_loop(state: dict[str, Any]) -> dict[str, Any]:
     verification_passed = state.get("verification_passed", False)
     recommendation = state.get("recommendation")
 
+    # Guard: ensure types
+    if not isinstance(intent, str):
+        intent = "general_inquiry"
+    if not isinstance(quality_score, (int, float)):
+        quality_score = 0.0
+    if not isinstance(verification_passed, bool):
+        verification_passed = False
+    if recommendation is not None and not isinstance(recommendation, dict):
+        recommendation = None
+
     feedback = _generate_feedback_signal(
         intent, quality_score, verification_passed, recommendation
     )

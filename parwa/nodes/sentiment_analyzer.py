@@ -6,11 +6,14 @@ and tone of the response. Angry customers get different handling.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from parwa.state import SentimentType
 from parwa.utils.llm import MOCK_MODE, ainvoke_llm
 from parwa.utils.node_base import safe_node
+
+logger = logging.getLogger("parwa.node.sentiment_analyzer")
 
 
 # Keyword-based sentiment detection
@@ -66,16 +69,33 @@ async def sentiment_analyzer(state: dict[str, Any]) -> dict[str, Any]:
     """
     raw_message = state.get("raw_message", "")
 
+    # Guard: empty or non-string message
+    if not isinstance(raw_message, str) or not raw_message.strip():
+        return {
+            "sentiment": SentimentType.NEUTRAL,
+            "sentiment_urgency": 0.3,
+        }
+
     sentiment_str, urgency = _analyze_sentiment_rule_based(raw_message)
 
-    # If neutral and not in mock mode, try LLM for nuance
+    # If neutral and not in mock mode, try LLM for nuance with graceful degradation
     if sentiment_str == SentimentType.NEUTRAL and not MOCK_MODE:
-        sentiment_str, urgency = await _analyze_sentiment_llm(raw_message)
+        try:
+            sentiment_str, urgency = await _analyze_sentiment_llm(raw_message)
+        except Exception as exc:
+            # LLM failed — keep the rule-based result (graceful degradation)
+            logger.warning(
+                "SENTIMENT_ANALYZER: LLM sentiment analysis failed, "
+                "falling back to rule-based result (sentiment=%s, urgency=%.2f): %s",
+                sentiment_str, urgency, exc,
+            )
 
     # Validate sentiment against enum values
     valid_sentiments = {e.value for e in SentimentType}
     if sentiment_str not in valid_sentiments:
         sentiment_str = SentimentType.NEUTRAL
+    if not isinstance(urgency, (int, float)) or urgency < 0:
+        urgency = 0.3
 
     return {
         "sentiment": sentiment_str,

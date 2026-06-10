@@ -60,6 +60,14 @@ async def strategy_planner(state: dict[str, Any]) -> dict[str, Any]:
     conclusion = state.get("reasoning_conclusion", "")
     selected_path = state.get("selected_path")
 
+    # Guard: ensure types
+    if not isinstance(intent, str):
+        intent = "general_inquiry"
+    if not isinstance(conclusion, str):
+        conclusion = str(conclusion) if conclusion else ""
+    if selected_path is not None and not isinstance(selected_path, dict):
+        selected_path = None
+
     plan = _plan_strategy_rule_based(intent, conclusion, selected_path)
 
     # Add framework tracking

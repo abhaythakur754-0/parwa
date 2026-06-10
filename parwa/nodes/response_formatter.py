@@ -79,6 +79,20 @@ async def response_formatter(state: dict[str, Any]) -> dict[str, Any]:
     proactive_insights = state.get("proactive_insights", [])
     variant = state.get("variant", "parwa")
 
+    # Guard: ensure types
+    if not isinstance(intent, str):
+        intent = "general_inquiry"
+    if not isinstance(conclusion, str):
+        conclusion = str(conclusion) if conclusion else ""
+    if not isinstance(execution_results, list):
+        execution_results = []
+    if recommendation is not None and not isinstance(recommendation, dict):
+        recommendation = None
+    if not isinstance(proactive_insights, list):
+        proactive_insights = []
+    if not isinstance(variant, str):
+        variant = "parwa"
+
     response = _format_response_rule_based(
         intent, conclusion, execution_results,
         recommendation, proactive_insights, variant

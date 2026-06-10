@@ -91,6 +91,16 @@ async def action_planner(state: dict[str, Any]) -> dict[str, Any]:
     strategy_plan = state.get("strategy_plan", [])
     integration_data = state.get("integration_data", {})
 
+    # Guard: ensure types
+    if not isinstance(intent, str):
+        intent = "general_inquiry"
+    if not isinstance(conclusion, str):
+        conclusion = str(conclusion) if conclusion else ""
+    if not isinstance(strategy_plan, list):
+        strategy_plan = []
+    if not isinstance(integration_data, dict):
+        integration_data = {}
+
     actions = _plan_actions_rule_based(intent, conclusion, strategy_plan, integration_data)
 
     return {"action_plans": actions}

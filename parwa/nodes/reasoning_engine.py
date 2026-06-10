@@ -6,10 +6,13 @@ using available evidence from knowledge and integration data.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
 from parwa.utils.node_base import safe_node
+
+logger = logging.getLogger("parwa.node.reasoning_engine")
 
 
 def _reason_rule_based(
@@ -120,9 +123,33 @@ async def reasoning_engine(state: dict[str, Any]) -> dict[str, Any]:
     kb_results = state.get("kb_results", [])
     integration_data = state.get("integration_data", {})
 
+    # Guard: ensure list types
+    if not isinstance(kb_results, list):
+        kb_results = []
+    if not isinstance(integration_data, dict):
+        integration_data = {}
+
     chain, conclusion = _reason_rule_based(
         raw_message, intent, faq_match, kb_results, integration_data
     )
+
+    # Try LLM reasoning if not in mock mode (with graceful degradation)
+    if not MOCK_MODE:
+        try:
+            llm_chain, llm_conclusion = await _reason_llm(
+                raw_message, intent, faq_match, kb_results, integration_data
+            )
+            # Use LLM result if it produced a conclusion
+            if llm_conclusion:
+                chain = llm_chain
+                conclusion = llm_conclusion
+        except Exception as exc:
+            # LLM failed — keep the rule-based result (graceful degradation)
+            logger.warning(
+                "REASONING_ENGINE: LLM reasoning failed, "
+                "falling back to rule-based chain (%d steps, conclusion='%s'): %s",
+                len(chain), conclusion[:50], exc,
+            )
 
     # Add framework tracking
     active_frameworks = list(state.get("active_frameworks", []))

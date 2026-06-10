@@ -25,12 +25,25 @@ async def context_manager(state: dict[str, Any]) -> dict[str, Any]:
     existing_history = state.get("context_history", [])
     raw_message = state.get("raw_message", "")
 
+    # Guard: ensure types
+    if not isinstance(existing_history, list):
+        existing_history = []
+    if not isinstance(raw_message, str):
+        raw_message = str(raw_message) if raw_message else ""
+
     # Build context entry for this message
-    current_entry = {
-        "role": "customer",
-        "content": raw_message,
-        "timestamp": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
-    }
+    try:
+        current_entry = {
+            "role": "customer",
+            "content": raw_message,
+            "timestamp": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+        }
+    except Exception:
+        current_entry = {
+            "role": "customer",
+            "content": raw_message,
+            "timestamp": "unknown",
+        }
 
     # Keep the last 10 entries max to avoid context bloat
     updated_history = list(existing_history) + [current_entry]

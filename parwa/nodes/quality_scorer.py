@@ -63,6 +63,18 @@ async def quality_scorer(state: dict[str, Any]) -> dict[str, Any]:
     recommendation = state.get("recommendation")
     variant = state.get("variant", "parwa")
 
+    # Guard: ensure types
+    if not isinstance(intent, str):
+        intent = "general_inquiry"
+    if not isinstance(conclusion, str):
+        conclusion = str(conclusion) if conclusion else ""
+    if not isinstance(verification_passed, bool):
+        verification_passed = False
+    if not isinstance(variant, str):
+        variant = "parwa"
+    if recommendation is not None and not isinstance(recommendation, dict):
+        recommendation = None
+
     score, issues = _score_quality_rule_based(
         intent, conclusion, verification_passed,
         recommendation is not None, variant

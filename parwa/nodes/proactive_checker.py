@@ -72,6 +72,12 @@ async def proactive_checker(state: dict[str, Any]) -> dict[str, Any]:
     intent = state.get("intent", "general_inquiry")
     integration_data = state.get("integration_data", {})
 
+    # Guard: ensure types
+    if not isinstance(intent, str):
+        intent = "general_inquiry"
+    if not isinstance(integration_data, dict):
+        integration_data = {}
+
     insights = _check_proactive_rule_based(intent, integration_data)
 
     return {"proactive_insights": insights}

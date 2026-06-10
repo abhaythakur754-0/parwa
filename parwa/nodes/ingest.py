@@ -27,6 +27,16 @@ async def ingest(state: dict[str, Any]) -> dict[str, Any]:
     channel = state.get("channel", "email")
     variant = state.get("variant", "parwa")
 
+    # Guard: ensure types
+    if not isinstance(raw_message, str):
+        raw_message = str(raw_message) if raw_message else ""
+    if not isinstance(customer_id, str):
+        customer_id = str(customer_id) if customer_id else ""
+    if not isinstance(channel, str):
+        channel = "email"
+    if not isinstance(variant, str):
+        variant = "parwa"
+
     # Validate channel is available for this variant
     try:
         allowed_channels = get_variant_channels(variant)
@@ -36,8 +46,11 @@ async def ingest(state: dict[str, Any]) -> dict[str, Any]:
             # Fall back to first available channel
             first = allowed_channels[0]
             channel = first.value if hasattr(first, "value") else first
-    except ValueError:
+    except (ValueError, IndexError, KeyError) as exc:
+        import logging
+        logging.getLogger("parwa.node.ingest").warning("INGEST: variant/channel validation failed: %s", exc)
         variant = "parwa"  # fallback
+        channel = "email"
 
     return {
         "ticket_id": ticket_id,

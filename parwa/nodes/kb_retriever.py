@@ -72,6 +72,16 @@ async def kb_retriever(state: dict[str, Any]) -> dict[str, Any]:
     raw_message = state.get("raw_message", "")
     intent = state.get("intent", "general_inquiry")
 
+    # Guard: ensure types
+    if not isinstance(raw_message, str):
+        raw_message = str(raw_message) if raw_message else ""
+    if not isinstance(intent, str):
+        intent = "general_inquiry"
+
     results = _retrieve_kb_rule_based(raw_message, intent)
+
+    # Guard: ensure results is a list
+    if not isinstance(results, list):
+        results = []
 
     return {"kb_results": results}

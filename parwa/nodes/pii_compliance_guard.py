@@ -61,8 +61,21 @@ async def pii_compliance_guard(state: dict[str, Any]) -> dict[str, Any]:
     # Check the message that will be sent
     message = state.get("final_response") or state.get("raw_message", "")
 
-    pii_detected, found_items = _detect_pii(message)
-    redacted_message = _redact_pii(message) if pii_detected else message
+    # Guard: ensure message is a string
+    if not isinstance(message, str):
+        message = str(message) if message else ""
+
+    try:
+        pii_detected, found_items = _detect_pii(message)
+        redacted_message = _redact_pii(message) if pii_detected else message
+    except Exception as exc:
+        import logging
+        logging.getLogger("parwa.node.pii_compliance_guard").warning(
+            "PII_COMPLIANCE_GUARD: PII detection/redaction failed: %s", exc,
+        )
+        # If PII detection fails, return the message as-is (don't block the pipeline)
+        pii_detected = False
+        redacted_message = message
 
     return {
         "pii_detected": pii_detected,

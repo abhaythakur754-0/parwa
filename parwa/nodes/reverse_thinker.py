@@ -59,6 +59,12 @@ async def reverse_thinker(state: dict[str, Any]) -> dict[str, Any]:
     kb_results = state.get("kb_results", [])
     integration_data = state.get("integration_data", {})
 
+    # Guard: ensure types
+    if not isinstance(kb_results, list):
+        kb_results = []
+    if not isinstance(integration_data, dict):
+        integration_data = {}
+
     validation = _reverse_think_rule_based(conclusion, kb_results, integration_data)
 
     # Add framework tracking

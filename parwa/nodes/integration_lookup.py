@@ -68,6 +68,23 @@ async def integration_lookup(state: dict[str, Any]) -> dict[str, Any]:
     customer_id = state.get("customer_id", "default")
     intent = state.get("intent", "general_inquiry")
 
-    data = _lookup_integration_rule_based(customer_id, intent)
+    # Guard: ensure types
+    if not isinstance(customer_id, str):
+        customer_id = "default"
+    if not isinstance(intent, str):
+        intent = "general_inquiry"
+
+    try:
+        data = _lookup_integration_rule_based(customer_id, intent)
+    except Exception as exc:
+        import logging
+        logging.getLogger("parwa.node.integration_lookup").warning(
+            "INTEGRATION_LOOKUP: CRM lookup failed: %s", exc,
+        )
+        data = {}
+
+    # Guard: ensure result is a dict
+    if not isinstance(data, dict):
+        data = {}
 
     return {"integration_data": data}
