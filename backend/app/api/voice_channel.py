@@ -434,13 +434,18 @@ async def create_voice_config(
     except Exception:
         return _error_response("BAD_REQUEST", "Invalid JSON body", 400)
 
-    required_fields = ["twilio_account_sid", "twilio_auth_token", "twilio_phone_number"]
-    missing = [f for f in required_fields if not body.get(f)]
-    if missing:
-        return _error_response(
-            "VALIDATION_ERROR",
-            f"Missing required fields: {', '.join(missing)}",
-        )
+    # D3: Required fields depend on number_source mode.
+    # For "parwa_provided", no Twilio credentials needed (Parwa provisions them).
+    # For "bring_own", all three Twilio fields are required.
+    number_source = body.get("number_source", "parwa_provided")
+    if number_source == "bring_own":
+        required_fields = ["twilio_account_sid", "twilio_auth_token", "twilio_phone_number"]
+        missing = [f for f in required_fields if not body.get(f)]
+        if missing:
+            return _error_response(
+                "VALIDATION_ERROR",
+                f"Missing required fields for bring_own: {', '.join(missing)}",
+            )
 
     try:
         db = _get_db(request)

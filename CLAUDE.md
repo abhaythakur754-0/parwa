@@ -121,10 +121,10 @@ These are INVIOLABLE. Do not break them:
 4. **All Knowledge MCP servers (FAQ, RAG, KB) are stubs** — no vector store connection
 5. **All Tool MCP servers (Analytics, Monitoring, Notifications, Compliance, SLA) are stubs**
 6. **Carrier API Connector is simulated** — random tracking data, no real carrier APIs
-7. **ProviderFactory._load_credentials() raises NotImplementedError** — broken credential loading
-8. **Three duplicate integration layers** — ExternalToolBus, ProductionConnector, and frontend direct calls
+7. ~~**ProviderFactory._load_credentials() raises NotImplementedError**~~ — **FIXED in Phase 1**: Multi-path import + provider_config.py added to top-level database/
+8. ~~**Three duplicate integration layers**~~ — **FIXED in Phase 1**: Single canonical ExternalToolBus at `backend/app/core/external_tool_bus.py`, ProductionConnector and ExternalToolExecutor delegate to it
 9. **Frontend email.ts/sms.ts bypass provider registry** — call Brevo/Twilio directly from Next.js server
-10. **Mailgun variable typo** — `MAILGRID_BASE_URL` should be `MAILGUN_BASE_URL`
+10. ~~**Mailgun variable typo** — `MAILGRID_BASE_URL` should be `MAILGUN_BASE_URL`~~ — **FIXED in Phase 1**: Code already uses correct `MAILGUN_BASE_URL`
 
 ---
 

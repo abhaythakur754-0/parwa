@@ -53,6 +53,8 @@ _VOICE_STATUSES = (
 )
 _VOICE_ROLES = "'agent','bot','system','visitor'"
 _VOICE_VARIANT_TIERS = "'mini_parwa','parwa','parwa_high'"
+_VOICE_NUMBER_SOURCES = "'parwa_provided','bring_own'"
+_VOICE_GREETING_STYLES = "'professional','friendly','casual'"
 
 
 class VoiceCall(Base):
@@ -322,6 +324,10 @@ class VoiceChannelConfig(Base):
     Stores encrypted Twilio credentials and voice channel settings
     including recording, TTS, rate limits, and business hours.
 
+    D3: Supports two number source modes:
+    - "parwa_provided": Parwa provisions a number using our Twilio account
+    - "bring_own": Client provides their own Twilio credentials
+
     BC-001: One config per company.
     BC-011: Credentials encrypted at rest.
     """
@@ -337,10 +343,33 @@ class VoiceChannelConfig(Base):
         index=True,
     )
 
+    # Number source: "parwa_provided" (default) or "bring_own" (D3)
+    number_source = Column(
+        String(20), nullable=False, default="parwa_provided",
+    )
+
+    # Caller ID name (D3 requirement)
+    caller_id_name = Column(String(100), nullable=True)
+
+    # Greeting style: "professional", "friendly", "casual" (D3 requirement)
+    greeting_style = Column(
+        String(20), nullable=False, default="professional",
+    )
+
+    # Language preference for TTS (D3 requirement)
+    language_preference = Column(
+        String(10), nullable=False, default="en-US",
+    )
+
+    # Parwa-provided number info (populated when number_source="parwa_provided")
+    parwa_phone_number = Column(String(30), nullable=True)   # The Parwa-provisioned number
+    parwa_number_sid = Column(String(64), nullable=True)     # Twilio number SID for cleanup
+
     # Twilio credentials (encrypted in production via BC-011)
-    twilio_account_sid = Column(String(64), nullable=False)
-    twilio_auth_token_encrypted = Column(Text, nullable=False)
-    twilio_phone_number = Column(String(30), nullable=False)
+    # Nullable because only required for "bring_own" mode
+    twilio_account_sid = Column(String(64), nullable=True)
+    twilio_auth_token_encrypted = Column(Text, nullable=True)
+    twilio_phone_number = Column(String(30), nullable=True)
 
     # Channel settings
     is_enabled = Column(Boolean, nullable=False, default=True)
@@ -380,6 +409,14 @@ class VoiceChannelConfig(Base):
             name="ck_voice_cfg_variant",
         ),
         CheckConstraint(
+            f"number_source IN ({_VOICE_NUMBER_SOURCES})",
+            name="ck_voice_cfg_number_source",
+        ),
+        CheckConstraint(
+            f"greeting_style IN ({_VOICE_GREETING_STYLES})",
+            name="ck_voice_cfg_greeting_style",
+        ),
+        CheckConstraint(
             "max_call_duration_minutes > 0",
             name="ck_voice_cfg_max_duration",
         ),
@@ -398,6 +435,7 @@ class VoiceChannelConfig(Base):
         """Serialize voice config for API responses (no secrets).
 
         H-17 FIX: twilio_account_sid is masked to prevent credential leakage.
+        D3: Handles both parwa_provided and bring_own number sources.
         """
         def _mask_sid(sid: str) -> str:
             """Mask a Twilio SID, showing only last 4 chars."""
@@ -405,11 +443,13 @@ class VoiceChannelConfig(Base):
                 return "********"
             return f"****{sid[-4:]}"
 
-        return {
+        result = {
             "id": self.id,
             "company_id": self.company_id,
-            "twilio_account_sid": _mask_sid(self.twilio_account_sid),
-            "twilio_phone_number": self.twilio_phone_number,
+            "number_source": self.number_source,
+            "caller_id_name": self.caller_id_name,
+            "greeting_style": self.greeting_style,
+            "language_preference": self.language_preference,
             "is_enabled": self.is_enabled,
             "default_variant": self.default_variant,
             "max_call_duration_minutes": self.max_call_duration_minutes,
@@ -429,3 +469,15 @@ class VoiceChannelConfig(Base):
                 self.updated_at.isoformat() if self.updated_at else None
             ),
         }
+
+        if self.number_source == "parwa_provided":
+            # Show the Parwa-provisioned number, mask Parwa's account SID
+            result["twilio_account_sid"] = _mask_sid(self.twilio_account_sid or "")
+            result["twilio_phone_number"] = self.parwa_phone_number or self.twilio_phone_number
+            result["parwa_phone_number"] = self.parwa_phone_number
+        else:
+            # Bring own — show their number, mask their SID
+            result["twilio_account_sid"] = _mask_sid(self.twilio_account_sid or "")
+            result["twilio_phone_number"] = self.twilio_phone_number
+
+        return result

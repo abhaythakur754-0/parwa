@@ -202,6 +202,12 @@ function mockResponse(pathSegments: string[], request: NextRequest): NextRespons
     return NextResponse.json({
       id: 'vcfg_mock_1',
       company_id: 'comp_1',
+      number_source: 'parwa_provided',
+      caller_id_name: 'Parwa Demo',
+      greeting_style: 'professional',
+      language_preference: 'en-US',
+      parwa_phone_number: '+17752583673',
+      twilio_account_sid: '****6789',
       twilio_phone_number: '+17752583673',
       is_enabled: true,
       default_variant: 'parwa',
@@ -210,6 +216,8 @@ function mockResponse(pathSegments: string[], request: NextRequest): NextRespons
       speech_language: 'en',
       tts_voice: 'Polly.Matthew',
       transfer_number: '+919652852014',
+      max_calls_per_hour: 10,
+      max_calls_per_day: 100,
       created_at: new Date(Date.now() - 604800000).toISOString(),
     });
   }
@@ -217,32 +225,54 @@ function mockResponse(pathSegments: string[], request: NextRequest): NextRespons
   // POST /config — Create config
   if (method === 'POST' && path === 'config') {
     return NextResponse.json({
-      id: 'vcfg_mock_new',
-      company_id: 'comp_1',
-      twilio_phone_number: '+17752583673',
-      is_enabled: true,
-      default_variant: 'parwa',
-      max_call_duration_minutes: 30,
-      enable_recording: true,
-      speech_language: 'en',
-      tts_voice: 'Polly.Matthew',
-      created_at: new Date().toISOString(),
+      status: 'created',
+      config: {
+        id: 'vcfg_mock_new',
+        company_id: 'comp_1',
+        number_source: 'parwa_provided',
+        caller_id_name: 'My Company',
+        greeting_style: 'professional',
+        language_preference: 'en-US',
+        parwa_phone_number: '+17752583673',
+        twilio_account_sid: '****6789',
+        twilio_phone_number: '+17752583673',
+        is_enabled: true,
+        default_variant: 'parwa',
+        max_call_duration_minutes: 30,
+        enable_recording: true,
+        speech_language: 'en',
+        tts_voice: 'Polly.Matthew',
+        max_calls_per_hour: 10,
+        max_calls_per_day: 100,
+        created_at: new Date().toISOString(),
+      },
     });
   }
 
   // PUT /config — Update config
   if (method === 'PUT' && path === 'config') {
     return NextResponse.json({
-      id: 'vcfg_mock_1',
-      company_id: 'comp_1',
-      twilio_phone_number: '+17752583673',
-      is_enabled: true,
-      default_variant: 'parwa',
-      max_call_duration_minutes: 30,
-      enable_recording: true,
-      speech_language: 'en',
-      tts_voice: 'Polly.Matthew',
-      created_at: new Date(Date.now() - 604800000).toISOString(),
+      status: 'updated',
+      config: {
+        id: 'vcfg_mock_1',
+        company_id: 'comp_1',
+        number_source: 'parwa_provided',
+        caller_id_name: 'My Company',
+        greeting_style: 'professional',
+        language_preference: 'en-US',
+        parwa_phone_number: '+17752583673',
+        twilio_account_sid: '****6789',
+        twilio_phone_number: '+17752583673',
+        is_enabled: true,
+        default_variant: 'parwa',
+        max_call_duration_minutes: 30,
+        enable_recording: true,
+        speech_language: 'en',
+        tts_voice: 'Polly.Matthew',
+        max_calls_per_hour: 10,
+        max_calls_per_day: 100,
+        created_at: new Date(Date.now() - 604800000).toISOString(),
+      },
     });
   }
 

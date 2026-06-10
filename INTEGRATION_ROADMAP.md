@@ -873,11 +873,11 @@ function calculateVariantMix(variants, ticketCount) { ... }
 
 ## PHASES (Updated with 15 Gaps)
 
-### Phase 1: Foundation Fixes
-- [ ] Fix ProviderFactory._load_credentials() NotImplementedError
-- [ ] Fix Mailgun typo (MAILGRID_BASE_URL → MAILGUN_BASE_URL)
-- [ ] Consolidate 3 duplicate integration layers → single ExternalToolBus
-- [ ] Make Voice a Parwa-provided channel with both options (Parwa number / bring own)
+### Phase 1: Foundation Fixes ✅
+- [x] Fix ProviderFactory._load_credentials() NotImplementedError — multi-path import + provider_config.py in top-level database/
+- [x] Fix Mailgun typo (MAILGRID_BASE_URL → MAILGUN_BASE_URL) — already correct in code, docs updated
+- [x] Consolidate 3 duplicate integration layers → single ExternalToolBus — canonical bus at backend/app/core/external_tool_bus.py
+- [x] Make Voice a Parwa-provided channel with both options (Parwa number / bring own) — number_source, provision_parwa_number(), D3 fields added
 
 ### Phase 2: Industry-Aware Integration System
 - [ ] Create industry-to-integration mapping (GAP 3 — full catalog per industry)

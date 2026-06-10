@@ -840,12 +840,135 @@ class VoiceChannelService:
             .first()
         )
 
+    def provision_parwa_number(
+        self,
+        company_id: str,
+        area_code: str = "",
+        country: str = "US",
+    ) -> dict:
+        """Provision a Twilio phone number for a company using Parwa's Twilio account.
+
+        Uses PARWA's Twilio credentials (from environment) to buy and configure
+        a phone number for the client. This is Option A from D3.
+
+        Args:
+            company_id: Tenant company ID.
+            area_code: Preferred area code (optional).
+            country: ISO country code (default US).
+
+        Returns:
+            Dict with phone_number and number_sid, or error.
+        """
+        try:
+            from twilio.rest import Client
+            from app.config import get_settings
+
+            settings = get_settings()
+            # Use PARWA's Twilio credentials (not client's)
+            account_sid = settings.TWILIO_ACCOUNT_SID
+            auth_token = settings.TWILIO_AUTH_TOKEN
+
+            if not account_sid or not auth_token:
+                return {"status": "error", "error": "Parwa Twilio credentials not configured"}
+
+            client = Client(account_sid, auth_token)
+
+            # Search for available numbers
+            search_kwargs = {"limit": 1}
+            if area_code:
+                search_kwargs["area_code"] = area_code
+
+            available = client.available_phone_numbers(country).local.list(
+                **search_kwargs,
+            )
+
+            if not available:
+                error_msg = f"No available numbers in {country}"
+                if area_code:
+                    error_msg += f" area code {area_code}"
+                return {"status": "error", "error": error_msg}
+
+            # Purchase the number
+            number = client.incoming_phone_numbers.create(
+                phone_number=available[0].phone_number,
+                friendly_name=f"Parwa Voice - {company_id[:8]}",
+                voice_url=f"{settings.BASE_URL}/api/v1/voice/twilio-webhook",
+                status_callback=f"{settings.BASE_URL}/api/v1/voice/twilio-status",
+            )
+
+            logger.info(
+                "parwa_number_provisioned",
+                extra={
+                    "company_id": company_id,
+                    "phone_number": number.phone_number,
+                    "number_sid": number.sid,
+                },
+            )
+
+            return {
+                "status": "provisioned",
+                "phone_number": number.phone_number,
+                "number_sid": number.sid,
+            }
+        except Exception as exc:
+            logger.error("parwa_number_provision_failed: %s", str(exc)[:200])
+            return {"status": "error", "error": f"Failed to provision number: {str(exc)[:200]}"}
+
+    def release_parwa_number(
+        self,
+        company_id: str,
+    ) -> dict:
+        """Release a Parwa-provisioned Twilio number back to Twilio.
+
+        Called when a company disables voice or deletes their config.
+        Only releases numbers that were provisioned by Parwa (number_source="parwa_provided").
+
+        Args:
+            company_id: Tenant company ID.
+
+        Returns:
+            Dict with status.
+        """
+        config = self.get_voice_config(company_id)
+        if not config or config.number_source != "parwa_provided":
+            return {"status": "skipped", "message": "No Parwa-provisioned number to release"}
+
+        if not config.parwa_number_sid:
+            return {"status": "skipped", "message": "No number SID found"}
+
+        try:
+            from twilio.rest import Client
+            from app.config import get_settings
+
+            settings = get_settings()
+            account_sid = settings.TWILIO_ACCOUNT_SID
+            auth_token = settings.TWILIO_AUTH_TOKEN
+
+            if not account_sid or not auth_token:
+                return {"status": "error", "error": "Parwa Twilio credentials not configured"}
+
+            client = Client(account_sid, auth_token)
+            client.incoming_phone_numbers(config.parwa_number_sid).delete()
+
+            logger.info(
+                "parwa_number_released",
+                extra={"company_id": company_id, "number_sid": config.parwa_number_sid},
+            )
+            return {"status": "released", "number_sid": config.parwa_number_sid}
+        except Exception as exc:
+            logger.error("parwa_number_release_failed: %s", str(exc)[:200])
+            return {"status": "error", "error": f"Failed to release number: {str(exc)[:200]}"}
+
     def create_voice_config(
         self,
         company_id: str,
         data: dict,
     ) -> dict:
         """Create voice channel config for a company.
+
+        Supports two modes (D3):
+        - "parwa_provided": Parwa provisions a number using our Twilio account
+        - "bring_own": Client provides their own Twilio credentials
 
         Encrypts Twilio auth token (BC-011).
 
@@ -860,35 +983,101 @@ class VoiceChannelService:
         if existing:
             return {"status": "error", "error": "Voice config already exists"}
 
-        encrypted_token = self._encrypt_credential(
-            data.get("twilio_auth_token", ""),
-        )
+        number_source = data.get("number_source", "parwa_provided")
 
-        config = VoiceChannelConfig(
-            company_id=company_id,
-            twilio_account_sid=data.get("twilio_account_sid", ""),
-            twilio_auth_token_encrypted=encrypted_token,
-            twilio_phone_number=data.get("twilio_phone_number", ""),
-            is_enabled=data.get("is_enabled", True),
-            default_variant=data.get("default_variant", "parwa"),
-            max_call_duration_minutes=data.get("max_call_duration_minutes", 30),
-            enable_recording=data.get("enable_recording", False),
-            speech_language=data.get("speech_language", "en-IN"),
-            tts_voice=data.get("tts_voice", "Polly.Aditi"),
-            transfer_number=data.get("transfer_number"),
-            max_calls_per_hour=data.get("max_calls_per_hour", 10),
-            max_calls_per_day=data.get("max_calls_per_day", 100),
-            greeting_message=data.get("greeting_message"),
-            after_hours_message=data.get("after_hours_message"),
-            business_hours_json=data.get("business_hours_json", "{}"),
-        )
+        if number_source == "parwa_provided":
+            # Option A: Use Parwa's Twilio infrastructure
+            provision_result = self.provision_parwa_number(
+                company_id=company_id,
+                area_code=data.get("area_code", ""),
+                country=data.get("country", "US"),
+            )
+
+            if provision_result.get("status") == "error":
+                return provision_result
+
+            # Use Parwa's credentials for the config
+            from app.config import get_settings
+            settings = get_settings()
+
+            config = VoiceChannelConfig(
+                company_id=company_id,
+                number_source="parwa_provided",
+                # Parwa's Twilio credentials
+                twilio_account_sid=settings.TWILIO_ACCOUNT_SID or "",
+                twilio_auth_token_encrypted=self._encrypt_credential(settings.TWILIO_AUTH_TOKEN or ""),
+                twilio_phone_number=provision_result["phone_number"],
+                # Parwa-provisioned number info
+                parwa_phone_number=provision_result["phone_number"],
+                parwa_number_sid=provision_result["number_sid"],
+                # Channel settings
+                is_enabled=data.get("is_enabled", True),
+                default_variant=data.get("default_variant", "parwa"),
+                max_call_duration_minutes=data.get("max_call_duration_minutes", 30),
+                enable_recording=data.get("enable_recording", False),
+                # Speech settings
+                speech_language=data.get("language_preference", data.get("speech_language", "en-US")),
+                tts_voice=data.get("tts_voice", "Polly.Aditi"),
+                # D3 fields
+                caller_id_name=data.get("caller_id_name", ""),
+                greeting_style=data.get("greeting_style", "professional"),
+                language_preference=data.get("language_preference", "en-US"),
+                # Other settings
+                transfer_number=data.get("transfer_number"),
+                max_calls_per_hour=data.get("max_calls_per_hour", 10),
+                max_calls_per_day=data.get("max_calls_per_day", 100),
+                greeting_message=data.get("greeting_message"),
+                after_hours_message=data.get("after_hours_message"),
+                business_hours_json=data.get("business_hours_json", "{}"),
+            )
+        else:
+            # Option B: Bring your own number
+            required_fields = ["twilio_account_sid", "twilio_auth_token", "twilio_phone_number"]
+            missing = [f for f in required_fields if not data.get(f)]
+            if missing:
+                return {
+                    "status": "error",
+                    "error": f"Missing required fields for bring_own: {', '.join(missing)}",
+                }
+
+            encrypted_token = self._encrypt_credential(
+                data.get("twilio_auth_token", ""),
+            )
+
+            config = VoiceChannelConfig(
+                company_id=company_id,
+                number_source="bring_own",
+                twilio_account_sid=data.get("twilio_account_sid", ""),
+                twilio_auth_token_encrypted=encrypted_token,
+                twilio_phone_number=data.get("twilio_phone_number", ""),
+                # Channel settings
+                is_enabled=data.get("is_enabled", True),
+                default_variant=data.get("default_variant", "parwa"),
+                max_call_duration_minutes=data.get("max_call_duration_minutes", 30),
+                enable_recording=data.get("enable_recording", False),
+                # Speech settings
+                speech_language=data.get("language_preference", data.get("speech_language", "en-IN")),
+                tts_voice=data.get("tts_voice", "Polly.Aditi"),
+                # D3 fields
+                caller_id_name=data.get("caller_id_name", ""),
+                greeting_style=data.get("greeting_style", "professional"),
+                language_preference=data.get("language_preference", "en-US"),
+                # Other settings
+                transfer_number=data.get("transfer_number"),
+                max_calls_per_hour=data.get("max_calls_per_hour", 10),
+                max_calls_per_day=data.get("max_calls_per_day", 100),
+                greeting_message=data.get("greeting_message"),
+                after_hours_message=data.get("after_hours_message"),
+                business_hours_json=data.get("business_hours_json", "{}"),
+            )
+
         self.db.add(config)
         self.db.commit()
         self.db.refresh(config)
 
         logger.info(
             "voice_config_created",
-            extra={"company_id": company_id},
+            extra={"company_id": company_id, "number_source": number_source},
         )
 
         return {"status": "created", "config": config.to_dict()}
@@ -917,6 +1106,8 @@ class VoiceChannelService:
             "transfer_number", "max_calls_per_hour", "max_calls_per_day",
             "greeting_message", "after_hours_message",
             "business_hours_json", "twilio_phone_number",
+            # D3 fields
+            "caller_id_name", "greeting_style", "language_preference",
         ]
 
         for field in allowed_fields:
@@ -949,6 +1140,8 @@ class VoiceChannelService:
     ) -> dict:
         """Delete voice channel config for a company.
 
+        If the number was Parwa-provisioned, releases it back to Twilio first.
+
         Args:
             company_id: Tenant company ID.
 
@@ -958,6 +1151,15 @@ class VoiceChannelService:
         config = self.get_voice_config(company_id)
         if not config:
             return {"status": "error", "error": "Voice config not found"}
+
+        # Release Parwa-provisioned number if applicable
+        if config.number_source == "parwa_provided":
+            release_result = self.release_parwa_number(company_id)
+            if release_result.get("status") == "error":
+                logger.warning(
+                    "Failed to release Parwa number during config deletion: %s",
+                    release_result.get("error"),
+                )
 
         self.db.delete(config)
         self.db.commit()

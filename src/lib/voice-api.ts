@@ -3,6 +3,10 @@
  *
  * Typed API client for voice channel endpoints.
  * All requests go through the Next.js proxy route at /api/voice/*.
+ *
+ * D3: Supports two number source modes:
+ * - "parwa_provided": Parwa provisions a number instantly
+ * - "bring_own": Client provides their own Twilio credentials
  */
 
 import type {
@@ -117,15 +121,15 @@ export const voiceApi = {
   getConfig: (): Promise<VoiceChannelConfig> =>
     request('/config'),
 
-  /** Create voice channel config */
-  createConfig: (data: CreateVoiceConfigRequest): Promise<VoiceChannelConfig> =>
+  /** Create voice channel config (D3: supports parwa_provided and bring_own modes) */
+  createConfig: (data: CreateVoiceConfigRequest): Promise<{ status: string; config: VoiceChannelConfig }> =>
     request('/config', { method: 'POST', body: JSON.stringify(data) }),
 
   /** Update voice channel config */
-  updateConfig: (data: UpdateVoiceConfigRequest): Promise<VoiceChannelConfig> =>
+  updateConfig: (data: UpdateVoiceConfigRequest): Promise<{ status: string; config: VoiceChannelConfig }> =>
     request('/config', { method: 'PUT', body: JSON.stringify(data) }),
 
-  /** Delete voice channel config */
+  /** Delete voice channel config (also releases Parwa-provisioned number) */
   deleteConfig: (): Promise<{ status: string }> =>
     request('/config', { method: 'DELETE' }),
 

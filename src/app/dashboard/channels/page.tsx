@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/api';
 import { voiceApi } from '@/lib/voice-api';
-import { Phone, Settings, Loader2 } from 'lucide-react';
+import { Phone, Settings, Loader2, Sparkles, Key } from 'lucide-react';
 import type { ChannelInfo, ChannelConfig, ChannelType } from '@/types/analytics';
-import type { VoiceChannelConfig } from '@/types/voice';
+import type { VoiceChannelConfig, NumberSource } from '@/types/voice';
+import { VoiceConfigCard } from '@/components/dashboard/VoiceConfigCard';
 
 // ── Channel Metadata ──────────────────────────────────────────────────
 
@@ -23,7 +23,7 @@ const channelMeta: ChannelMeta[] = [
   { type: 'email', name: 'Email', description: 'Inbound/outbound email support via Brevo', emoji: '\u2709\uFE0F' },
   { type: 'chat', name: 'Live Chat', description: 'Real-time chat widget on your website', emoji: '\uD83D\uDCAC' },
   { type: 'sms', name: 'SMS', description: 'Text messaging via Twilio', emoji: '\uD83D\uDCF1' },
-  { type: 'voice', name: 'Voice', description: 'AI-powered voice calls via Twilio', emoji: '\uD83C\uDF99\uFE0F' },
+  { type: 'voice', name: 'Voice', description: 'AI-powered voice calls via Parwa or your Twilio', emoji: '\uD83C\uDF99\uFE0F' },
 ];
 
 // ── Channel Card Component ────────────────────────────────────────────
@@ -92,7 +92,7 @@ function ChannelCard({
             {isEnabled ? 'Active' : 'Disabled'}
           </span>
         </div>
-        {isEnabled && (
+        {isEnabled && channel.type !== 'voice' && (
           <button
             onClick={() => onTest(channel.type)}
             disabled={isLoading}
@@ -117,6 +117,7 @@ export default function ChannelsPage() {
   const [voiceConfig, setVoiceConfig] = useState<VoiceChannelConfig | null>(null);
   const [recentCallCount, setRecentCallCount] = useState(0);
   const [testCallLoading, setTestCallLoading] = useState(false);
+  const [voiceConfigOpen, setVoiceConfigOpen] = useState(false);
 
   // ── Load channel config ────────────────────────────────────────────
 
@@ -170,6 +171,34 @@ export default function ChannelsPage() {
   // ── Toggle Channel ─────────────────────────────────────────────────
 
   const handleToggle = useCallback(async (type: ChannelType, enabled: boolean) => {
+    // Voice channel: open the config card instead of direct toggle
+    if (type === 'voice') {
+      if (!voiceConfig && enabled) {
+        // No config yet — open setup
+        setVoiceConfigOpen(true);
+        return;
+      }
+      if (voiceConfig && enabled !== voiceConfig.is_enabled) {
+        // Toggle via config update
+        try {
+          await voiceApi.updateConfig({ is_enabled: enabled });
+          setVoiceConfig((prev) => prev ? { ...prev, is_enabled: enabled } : null);
+          setEnabledChannels((prev) => {
+            const next = new Set(prev);
+            if (enabled) next.add(type);
+            else next.delete(type);
+            return next;
+          });
+          toast.success(`Voice ${enabled ? 'enabled' : 'disabled'}`);
+        } catch (err) {
+          toast.error(getErrorMessage(err));
+        }
+        return;
+      }
+      return;
+    }
+
+    // Other channels
     try {
       const response = await fetch(`/api/v1/channels/config/${type}`, {
         method: 'PUT',
@@ -195,7 +224,7 @@ export default function ChannelsPage() {
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
-  }, []);
+  }, [voiceConfig]);
 
   // ── Test Connection ────────────────────────────────────────────────
 
@@ -264,6 +293,8 @@ export default function ChannelsPage() {
                     recentCallCount={recentCallCount}
                     testCallLoading={testCallLoading}
                     onTestCall={handleTestCall}
+                    onConfigure={() => setVoiceConfigOpen(true)}
+                    onSetupVoice={() => setVoiceConfigOpen(true)}
                   />
                 ) : undefined
               }
@@ -285,6 +316,16 @@ export default function ChannelsPage() {
           </div>
         </div>
       </div>
+
+      {/* Voice Config Card (modal) */}
+      <VoiceConfigCard
+        open={voiceConfigOpen}
+        onClose={() => {
+          setVoiceConfigOpen(false);
+          // Reload voice data after config changes
+          loadVoiceData();
+        }}
+      />
     </div>
   );
 }
@@ -296,21 +337,59 @@ function VoiceChannelExtra({
   recentCallCount,
   testCallLoading,
   onTestCall,
+  onConfigure,
+  onSetupVoice,
 }: {
   config: VoiceChannelConfig | null;
   recentCallCount: number;
   testCallLoading: boolean;
   onTestCall: () => void;
+  onConfigure: () => void;
+  onSetupVoice: () => void;
 }) {
+  // No config yet — show setup prompt
+  if (!config) {
+    return (
+      <div className="mt-3 pt-3 border-t border-white/[0.04] space-y-3">
+        <p className="text-[10px] text-zinc-600">
+          Voice is not configured yet. Choose how to get your number:
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onSetupVoice}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400 hover:text-emerald-300 transition-colors bg-emerald-500/5 border border-emerald-500/20 rounded-lg px-3 py-1.5"
+          >
+            <Sparkles className="w-3 h-3" />
+            Setup Voice
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Config exists — show status
   return (
     <div className="mt-3 pt-3 border-t border-white/[0.04] space-y-2.5">
-      {/* Voice Config Status */}
-      {config && (
-        <div className="flex items-center gap-2 text-[10px] text-zinc-600">
-          <Phone className="w-3 h-3" />
-          <span>Number: {config.twilio_phone_number}</span>
-        </div>
-      )}
+      {/* Number source badge */}
+      <div className="flex items-center gap-2 text-[10px]">
+        {config.number_source === 'parwa_provided' ? (
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <Sparkles className="w-2.5 h-2.5" />
+            Parwa Number
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            <Key className="w-2.5 h-2.5" />
+            Your Twilio
+          </span>
+        )}
+      </div>
+
+      {/* Voice number */}
+      <div className="flex items-center gap-2 text-[10px] text-zinc-600">
+        <Phone className="w-3 h-3" />
+        <span>Number: {config.twilio_phone_number || config.parwa_phone_number}</span>
+      </div>
 
       {/* Recent Calls */}
       <div className="flex items-center justify-between">
@@ -319,13 +398,13 @@ function VoiceChannelExtra({
         </span>
         <div className="flex items-center gap-2">
           {/* Configure Link */}
-          <Link
-            href="/dashboard/calls"
+          <button
+            onClick={onConfigure}
             className="inline-flex items-center gap-1 text-[10px] font-medium text-orange-400 hover:text-orange-300 transition-colors"
           >
             <Settings className="w-3 h-3" />
             Configure
-          </Link>
+          </button>
 
           {/* Test Call */}
           <button
