@@ -128,4 +128,119 @@ These are INVIOLABLE. Do not break them:
 
 ---
 
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+## 5. Never Stop Until It Actually Works
+
+**Do not say "it works" unless you have PROVEN it works. No premature success declarations.**
+
+- "It works" means: you ran it, you saw the correct output, you verified the side effects, the UI renders correctly, the API returns the right data.
+- If you say "it works" but haven't tested it — that's a failure, not a success.
+- If a test fails → FIX it → retest → if it still fails → FIX again → repeat until it passes.
+- There is no "it should work" — there is only "I tested it and it works" or "I tested it and it failed, here's what I'm fixing."
+- The loop NEVER ends early: Code → Test → Fail → Fix → Test → Pass. Always complete the loop.
+
+### This Rule Is Violated When:
+- You say "this should work now" without running a test
+- You mark a task as complete without verifying the actual output
+- You write code and move on without testing it
+- You assume a change is correct because it "looks right"
+- You skip testing because "it's a small change"
+
+---
+
+## 6. Testing Protocol — Every Phase Must Pass All Three Levels
+
+**After EVERY phase, three levels of testing are MANDATORY. No exceptions. No skipping.**
+
+### Level 1: Unit Testing
+- Test every function, method, and class that was created or modified in this phase
+- Each test must have a clear expected input → expected output
+- Cover: happy path, edge cases, error cases
+- Run with: `pytest` (backend), `jest` / `vitest` (frontend)
+- ALL unit tests must pass before moving to Level 2
+
+### Level 2: Integration Testing
+- Test that the new code works WITH the rest of the system
+- API endpoint tests: send real HTTP requests → verify real responses
+- Database tests: verify data is written/read correctly
+- MCP server tests: verify tools return real data, not stubs
+- Frontend-to-backend: verify BFF routes connect to backend APIs
+- ALL integration tests must pass before moving to Level 3
+
+### Level 3: Manual Testing with Playwright
+- **Playwright is MANDATORY for all manual testing.** No exceptions.
+- Write a Playwright script that simulates a human clicking through the UI
+- Every button, every form, every page that was touched in this phase gets a Playwright test
+- The test must: navigate to the page → interact with elements → verify the correct result appears
+- If Playwright test fails → it means a real human would also see a bug → FIX it → retest
+- Screenshot capture on failure for debugging
+
+### Playwright Testing Standards:
+```
+For each feature in the phase:
+1. Write a Playwright test that covers the user flow
+2. Run the test against the running application
+3. If test fails:
+   a. Read the error + screenshot
+   b. Fix the code
+   c. Re-run the Playwright test
+   d. Repeat until pass
+4. Only when Playwright passes → phase is complete
+```
+
+### Phase Completion Checklist:
+```
+[ ] All unit tests pass (pytest / jest)
+[ ] All integration tests pass (API + DB + MCP)
+[ ] All Playwright manual tests pass (UI click-through)
+[ ] No mock data in new code
+[ ] No stubs in new code
+[ ] No "TODO" or "FIXME" left behind
+[ ] Code pushed to `onboarding` branch on GitHub
+```
+
+---
+
+## 7. Use the Provided Environment
+
+**Always use the project's environment. Never guess or assume config.**
+
+- Use the `.env` files provided in the project — do not create new ones
+- Use the database that's configured — do not spin up separate instances
+- Use the running dev server — test against it, not against mocks
+- Use the real API endpoints — if they're not running, start them first
+- If something requires a service that isn't running, say so — don't skip the test
+
+---
+
+## 8. WHEN TO READ THIS FILE
+
+**This CLAUDE.md must be read at these specific moments:**
+
+| When | Why |
+|------|-----|
+| **Before starting ANY phase** | Read the full file to remember all rules before writing a single line |
+| **Before writing any new code** | Quick scan of rules 1-4 (think, simplify, surgical, goal-driven) |
+| **Before writing any test** | Check rules 5-6 (never stop, testing protocol) |
+| **After a test fails** | Re-read rule 5 (never stop until it works) — fix loop, don't skip |
+| **Before committing code** | Check phase completion checklist (rule 6) |
+| **Before saying "it works"** | Re-read rule 5 — have you actually PROVEN it works? |
+| **When touching existing code** | Check rule 3 (surgical changes) and building codes |
+
+**Minimum reading frequency**: At minimum, read the FULL CLAUDE.md before starting each phase. The rules only work if you actually remember them.
+
+---
+
+## Integration Roadmap Reference
+
+The full Integration Roadmap with all 15 gaps resolved lives at: `INTEGRATION_ROADMAP.md`
+
+**Read it**: Before starting any phase to understand what that phase requires end-to-end.
+
+**Key decisions locked in the roadmap** (D1-D13):
+- D13: NO extra billing calls — buy another variant if they need more
+- All 15 gaps documented with architecture decisions
+- 16 phases defined with clear deliverables
+
+---
+
+**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, clarifying questions come before implementation rather than after mistakes, and — most importantly — when you say "it works," it ACTUALLY works because you tested it with Playwright.
