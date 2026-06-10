@@ -21,3 +21,25 @@ Stage Summary:
 - Onboarding API returns first_victory_completed: true (bypass working)
 - Render backend cold start is slow (8-30s) which causes Vercel function timeouts
 - All fixes pushed to main branch and deployed on Vercel
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Add Karpathy's CLAUDE.md behavioral guidelines to PARWA repo
+
+Work Log:
+- Web searched for Andrej Karpathy's CLAUDE.md file (91K+ GitHub stars, 4 behavioral rules)
+- Read full content from GitHub repo: multica-ai/andrej-karpathy-skills
+- Read supporting articles from TowardsDeepLearning and LevelUpCoding
+- Extracted the 4 core rules: Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution
+- Created PARWA-specific CLAUDE.md with Karpathy's 4 rules + PARWA project context
+- Added PARWA-specific guidance under each rule (e.g., "docs lie in this project", "verify against actual code")
+- Included full project context section: tech stack, deployment, key directories, known issues, working state
+- Committed and pushed to main branch
+
+Stage Summary:
+- CLAUDE.md created at /home/z/my-project/parwa/CLAUDE.md
+- Contains 4 Karpathy behavioral rules + PARWA-specific guidance per rule
+- Contains full project context (tech stack, directories, known issues, working state)
+- Pushed to GitHub main branch (commit ced529c)
+- GitHub reported 63 vulnerabilities on default branch (2 critical, 23 high, 34 moderate, 4 low)

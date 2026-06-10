@@ -1,21 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
+import { getBackendUrl } from '@/lib/backend-url';
+import { getBearerToken, getProxyOrigin } from '@/lib/bff-proxy';
 
 /**
  * Analytics base proxy route.
  * Proxies /api/analytics (no sub-path) to backend /analytics/tickets/dashboard
- * Extracts JWT from cookie and forwards as Authorization: Bearer header.
  */
-
-function getBackendUrl(): string {
-  return process.env.BACKEND_URL || 'https://parwa-backend.onrender.com';
-}
-
-function extractBearerToken(request: NextRequest): string | null {
-  const cookieHeader = request.headers.get('cookie') || '';
-  const match = cookieHeader.match(/\bparwa_at=([^;]+)/);
-  return match ? match[1] : null;
-}
 
 export async function GET(request: NextRequest) {
   const authError = await requireAuth(request);
@@ -25,10 +16,10 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const queryString = url.searchParams.toString();
 
-  const token = extractBearerToken(request);
+  const token = getBearerToken(request);
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    Origin: process.env.FRONTEND_URL || 'https://parwa.buzz',
+    Origin: getProxyOrigin(),
   };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;

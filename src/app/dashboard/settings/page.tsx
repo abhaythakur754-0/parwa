@@ -341,7 +341,7 @@ export default function SettingsPage() {
   const handleMfaSetup = async () => {
     setMfaSetupSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/auth/mfa/setup`, {
+      const res = await fetch(`/api/mfa/setup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

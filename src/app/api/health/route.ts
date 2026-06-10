@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getBackendUrl } from '@/lib/backend-url';
 
 /**
  * Health-check proxy — forwards to the Render backend's /health endpoint.
@@ -7,7 +8,7 @@ import { NextResponse } from 'next/server';
  */
 export async function GET() {
   try {
-    const backendUrl = process.env.BACKEND_URL || 'https://parwa-backend.onrender.com';
+    const backendUrl = getBackendUrl();
     const res = await fetch(`${backendUrl}/health`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },

@@ -5,7 +5,8 @@ import { NextRequest, NextResponse } from "next/server";
  * Verifies a user's email using a token.
  * Proxies to the Python backend at /api/auth/verify.
  */
-const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { getBackendUrl } from '@/lib/backend-url';
+const BACKEND_URL = getBackendUrl();
 
 export async function GET(request: NextRequest) {
   try {

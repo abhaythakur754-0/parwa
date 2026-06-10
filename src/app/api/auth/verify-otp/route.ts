@@ -5,7 +5,8 @@ import { NextRequest, NextResponse } from "next/server";
  * Verifies the 6-digit OTP sent to the user's email.
  * Proxies to the Python backend.
  */
-const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { getBackendUrl } from '@/lib/backend-url';
+const BACKEND_URL = getBackendUrl();
 
 export async function POST(request: NextRequest) {
   try {

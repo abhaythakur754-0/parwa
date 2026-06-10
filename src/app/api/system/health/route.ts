@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getBackendUrl } from '@/lib/backend-url';
 
 /**
  * System health proxy route.
  * Forwards /api/system/health to backend /api/system/health
  */
-
-function getBackendUrl(): string {
-  return process.env.BACKEND_URL || 'https://parwa-backend.onrender.com';
-}
 
 export async function GET(request: NextRequest) {
   const backendUrl = getBackendUrl();

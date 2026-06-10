@@ -5,7 +5,8 @@ import { NextRequest, NextResponse } from "next/server";
  * Sends a password reset email/OTP to the user.
  * Proxies to the Python backend at /api/auth/forgot-password.
  */
-const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { getBackendUrl } from '@/lib/backend-url';
+const BACKEND_URL = getBackendUrl();
 
 export async function POST(request: NextRequest) {
   try {

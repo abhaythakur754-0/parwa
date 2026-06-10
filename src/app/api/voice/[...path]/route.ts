@@ -21,8 +21,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getBackendUrl } from '@/lib/backend-url';
+import { getBearerToken, getProxyOrigin } from '@/lib/bff-proxy';
 
-const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || '';
+const BACKEND_URL = getBackendUrl();
 
 async function proxyToBackend(request: NextRequest, pathSegments: string[]): Promise<Response> {
   const backendPath = `${BACKEND_URL}/api/v1/voice/${pathSegments.join('/')}`;
@@ -30,18 +32,20 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]): Pro
   const searchParams = url.searchParams.toString();
   const fullUrl = searchParams ? `${backendPath}?${searchParams}` : backendPath;
 
-  // If no backend URL, return mock responses for development
-  if (!BACKEND_URL) {
-    return mockResponse(pathSegments, request);
-  }
-
   try {
     const body = ['POST', 'PATCH', 'PUT'].includes(request.method)
       ? await request.arrayBuffer()
       : undefined;
 
+    const origin = getProxyOrigin();
+    const token = getBearerToken(request);
     const headers = new Headers(request.headers);
     headers.delete('host');
+    headers.set('Origin', origin);
+    headers.set('Referer', `${origin}/`);
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
 
     const response = await fetch(fullUrl, {
       method: request.method,
