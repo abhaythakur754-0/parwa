@@ -62,7 +62,7 @@ def _retrieve_kb_rule_based(message: str, intent: str) -> list[dict[str, Any]]:
     return [r.model_dump() for r in results[:3]]
 
 
-@safe_node("KB_RETRIEVER")
+@safe_node("KB_RETRIEVER", fallback={"kb_results": []})
 async def kb_retriever(state: dict[str, Any]) -> dict[str, Any]:
     """Search the knowledge base for relevant documents (async).
 

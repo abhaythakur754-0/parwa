@@ -62,7 +62,7 @@ async def _should_escalate_llm(
     return should, reason
 
 
-@safe_node("ESCALATION_DECISION")
+@safe_node("ESCALATION_DECISION", fallback={"should_escalate": False, "escalation_reason": "node_error"})
 async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
     """Decide whether to escalate this ticket to a human (async).
 

@@ -11,7 +11,7 @@ from typing import Any
 from parwa.utils.node_base import safe_node
 
 
-@safe_node("CONTEXT_MANAGER")
+@safe_node("CONTEXT_MANAGER", fallback={"context_history": []})
 async def context_manager(state: dict[str, Any]) -> dict[str, Any]:
     """Manage conversation context and history (async).
 

@@ -14,7 +14,7 @@ from parwa.state import TicketChannel
 from parwa.utils.node_base import safe_node
 
 
-@safe_node("INGEST")
+@safe_node("INGEST", fallback={"ticket_id": "TKT-ERROR", "raw_message": "", "customer_id": "", "channel": "email", "variant": "parwa"})
 async def ingest(state: dict[str, Any]) -> dict[str, Any]:
     """Receive and validate a raw ticket (async).
 

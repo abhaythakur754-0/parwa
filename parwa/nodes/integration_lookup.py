@@ -58,7 +58,7 @@ def _lookup_integration_rule_based(customer_id: str, intent: str) -> dict[str, A
     return data
 
 
-@safe_node("INTEGRATION_LOOKUP")
+@safe_node("INTEGRATION_LOOKUP", fallback={"integration_data": {}})
 async def integration_lookup(state: dict[str, Any]) -> dict[str, Any]:
     """Query external systems for relevant data (async).
 

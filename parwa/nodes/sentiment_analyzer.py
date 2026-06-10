@@ -57,7 +57,7 @@ async def _analyze_sentiment_llm(message: str) -> tuple[str, float]:
     return sentiment, urgency
 
 
-@safe_node("SENTIMENT_ANALYZER")
+@safe_node("SENTIMENT_ANALYZER", fallback={"sentiment": "neutral", "sentiment_urgency": 0.3})
 async def sentiment_analyzer(state: dict[str, Any]) -> dict[str, Any]:
     """Analyze customer sentiment and urgency (async).
 

@@ -47,7 +47,7 @@ def _generate_feedback_signal(
     }
 
 
-@safe_node("FEEDBACK_LOOP")
+@safe_node("FEEDBACK_LOOP", fallback={"feedback_signal": {"resolved": False, "satisfaction": "low", "improvement_areas": ["node_failed"], "intent": "unknown", "quality_score": 0.0}})
 async def feedback_loop(state: dict[str, Any]) -> dict[str, Any]:
     """Capture feedback signal for continuous improvement (async).
 

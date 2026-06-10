@@ -62,7 +62,7 @@ def _check_proactive_rule_based(intent: str, integration_data: dict) -> list[dic
     return insights
 
 
-@safe_node("PROACTIVE_CHECKER")
+@safe_node("PROACTIVE_CHECKER", fallback={"proactive_insights": []})
 async def proactive_checker(state: dict[str, Any]) -> dict[str, Any]:
     """Anticipate what the customer might ask next (async).
 

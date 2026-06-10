@@ -107,7 +107,7 @@ async def _reason_llm(
     return chain, conclusion
 
 
-@safe_node("REASONING_ENGINE")
+@safe_node("REASONING_ENGINE", fallback={"reasoning_chain": [], "reasoning_conclusion": "", "active_frameworks": []})
 async def reasoning_engine(state: dict[str, Any]) -> dict[str, Any]:
     """Reason through the problem using Chain of Thought (async).
 

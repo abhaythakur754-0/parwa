@@ -78,7 +78,7 @@ async def _match_faq_llm(message: str) -> KnowledgeResult | None:
     )
 
 
-@safe_node("FAQ_MATCHER")
+@safe_node("FAQ_MATCHER", fallback={"faq_match": None})
 async def faq_matcher(state: dict[str, Any]) -> dict[str, Any]:
     """Match the ticket against known FAQs (async).
 

@@ -55,7 +55,7 @@ def _explore_paths_rule_based(intent: str, conclusion: str) -> list[dict]:
     return [p.model_dump() for p in paths]
 
 
-@safe_node("TREE_OF_THOUGHTS")
+@safe_node("TREE_OF_THOUGHTS", fallback={"reasoning_paths": [], "selected_path": None, "active_frameworks": []})
 async def tree_of_thoughts(state: dict[str, Any]) -> dict[str, Any]:
     """Explore multiple solution paths and select the best one (async).
 

@@ -72,7 +72,7 @@ def _determine_complexity(confidence: float) -> str:
     return TicketComplexity.CRITICAL
 
 
-@safe_node("INTENT_CLASSIFIER")
+@safe_node("INTENT_CLASSIFIER", fallback={"intent": "general_inquiry", "intent_confidence": 0.0, "complexity": "simple"})
 async def intent_classifier(state: dict[str, Any]) -> dict[str, Any]:
     """Classify the intent of the customer's message (async).
 

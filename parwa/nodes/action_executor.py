@@ -48,7 +48,7 @@ def _create_recommendation(action_plan: dict, state: dict) -> dict[str, Any]:
     }
 
 
-@safe_node("ACTION_EXECUTOR")
+@safe_node("ACTION_EXECUTOR", fallback={"execution_results": [], "recommendation": None})
 async def action_executor(state: dict[str, Any]) -> dict[str, Any]:
     """Execute or recommend actions based on variant permissions (async).
 

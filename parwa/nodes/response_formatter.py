@@ -65,7 +65,7 @@ def _format_response_rule_based(
     return response
 
 
-@safe_node("RESPONSE_FORMATTER")
+@safe_node("RESPONSE_FORMATTER", fallback={"final_response": "We apologize, but we encountered an issue processing your request. A human agent will follow up shortly."})
 async def response_formatter(state: dict[str, Any]) -> dict[str, Any]:
     """Craft the final customer-facing response (async).
 

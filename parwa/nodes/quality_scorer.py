@@ -50,7 +50,7 @@ def _score_quality_rule_based(
     return score, issues
 
 
-@safe_node("QUALITY_SCORER")
+@safe_node("QUALITY_SCORER", fallback={"quality_score": 0.0, "quality_issues": ["node_failed"], "should_loop_back": False})
 async def quality_scorer(state: dict[str, Any]) -> dict[str, Any]:
     """Score the quality of the response before sending (async).
 

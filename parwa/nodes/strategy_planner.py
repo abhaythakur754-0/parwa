@@ -49,7 +49,7 @@ def _plan_strategy_rule_based(intent: str, conclusion: str, selected_path: dict 
         ]
 
 
-@safe_node("STRATEGY_PLANNER")
+@safe_node("STRATEGY_PLANNER", fallback={"strategy_plan": [], "active_frameworks": []})
 async def strategy_planner(state: dict[str, Any]) -> dict[str, Any]:
     """Create a multi-step execution plan (async).
 

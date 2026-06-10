@@ -55,7 +55,7 @@ def _predict_issues_rule_based(intent: str, integration_data: dict, sentiment: s
     return predictions
 
 
-@safe_node("PREDICTION_ENGINE")
+@safe_node("PREDICTION_ENGINE", fallback={"predictions": []})
 async def prediction_engine(state: dict[str, Any]) -> dict[str, Any]:
     """Forecast future issues or follow-up needs (async).
 

@@ -48,7 +48,7 @@ def _reverse_think_rule_based(
     }
 
 
-@safe_node("REVERSE_THINKER")
+@safe_node("REVERSE_THINKER", fallback={"reverse_validation": {"passed": False, "trace": "node_failed", "evidence_found": False}, "active_frameworks": [], "should_loop_back": False})
 async def reverse_thinker(state: dict[str, Any]) -> dict[str, Any]:
     """Validate the reasoning conclusion by working backwards (async).
 

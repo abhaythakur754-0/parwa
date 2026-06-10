@@ -12,7 +12,7 @@ from typing import Any
 from parwa.utils.node_base import safe_node
 
 
-@safe_node("AUDIT_LOGGER")
+@safe_node("AUDIT_LOGGER", fallback={"audit_log": []})
 async def audit_logger(state: dict[str, Any]) -> dict[str, Any]:
     """Log all actions and decisions for audit trail (async).
 

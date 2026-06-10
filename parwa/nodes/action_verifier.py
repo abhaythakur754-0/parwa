@@ -39,7 +39,7 @@ def _verify_recommendation(recommendation: dict | None) -> bool:
     return True
 
 
-@safe_node("ACTION_VERIFIER")
+@safe_node("ACTION_VERIFIER", fallback={"verification_passed": False, "should_loop_back": False})
 async def action_verifier(state: dict[str, Any]) -> dict[str, Any]:
     """Verify that actions were executed or recommendations are complete (async).
 

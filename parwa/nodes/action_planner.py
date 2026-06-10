@@ -79,7 +79,7 @@ def _plan_actions_rule_based(
     return actions
 
 
-@safe_node("ACTION_PLANNER")
+@safe_node("ACTION_PLANNER", fallback={"action_plans": []})
 async def action_planner(state: dict[str, Any]) -> dict[str, Any]:
     """Plan actions based on reasoning conclusion and strategy (async).
 

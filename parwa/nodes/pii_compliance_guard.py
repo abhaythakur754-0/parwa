@@ -51,7 +51,7 @@ def _redact_pii(text: str) -> str:
     return text
 
 
-@safe_node("PII_COMPLIANCE_GUARD")
+@safe_node("PII_COMPLIANCE_GUARD", fallback={"pii_detected": False, "pii_redacted_message": ""})
 async def pii_compliance_guard(state: dict[str, Any]) -> dict[str, Any]:
     """Detect and redact PII from the response (async).
 
