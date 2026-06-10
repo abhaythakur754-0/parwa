@@ -87,6 +87,16 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  // Phase 4: cost-breakdown GET mock fallback
+  if (path === '/cost-breakdown') {
+    return NextResponse.json({
+      variants: [],
+      addOns: { voice: { price: 199, enabled: false }, customApi: { price: 49, enabled: false } },
+      totalMonthly: 0,
+      savingsVsHuman: { agentsReplaced: 0, humanCost: 0, savings: 0, savingsPercent: 0 },
+    });
+  }
+
   return NextResponse.json(
     { detail: 'Not found' },
     { status: 404 }
@@ -158,6 +168,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       status: 'ok',
       first_victory_completed: true,
+    });
+  }
+
+  // Phase 4: industry-variant POST mock fallback
+  if (path === '/industry-variant') {
+    return NextResponse.json({
+      status: 'ok',
+      industry: 'other',
+      variant: 'parwa',
+    });
+  }
+
+  // Phase 4: checkout POST mock fallback
+  if (path === '/checkout') {
+    return NextResponse.json({
+      status: 'ok',
+      checkout_url: null,
+      session_id: 'mock-session-' + Date.now(),
+      message: 'Checkout session created (mock)',
     });
   }
 

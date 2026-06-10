@@ -1,12 +1,14 @@
 /**
  * PARWA Onboarding Page — /onboarding
  *
- * Shows the 5-step onboarding wizard:
- *   1. Welcome
+ * Shows the 7-step onboarding wizard:
+ *   1. Industry + Variant Selection
  *   2. Legal compliance
  *   3. Integration setup
  *   4. Knowledge base upload
  *   5. AI configuration
+ *   6. Cost breakdown review
+ *   7. First Victory celebration
  *
  * After completing all steps, the user sees a "First Victory" celebration
  * and is redirected to the dashboard.

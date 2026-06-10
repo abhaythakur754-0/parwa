@@ -197,8 +197,8 @@ export interface OnboardingStep {
 export const ONBOARDING_STEPS: Omit<OnboardingStep, 'isCompleted' | 'isActive'>[] = [
   {
     id: 1,
-    title: 'Welcome',
-    description: 'Get started with PARWA',
+    title: 'Plan',
+    description: 'Choose industry and variant',
     isOptional: false,
   },
   {
@@ -215,7 +215,7 @@ export const ONBOARDING_STEPS: Omit<OnboardingStep, 'isCompleted' | 'isActive'>[
   },
   {
     id: 4,
-    title: 'Knowledge Base',
+    title: 'Knowledge',
     description: 'Upload your documentation',
     isOptional: true,
   },
@@ -223,6 +223,18 @@ export const ONBOARDING_STEPS: Omit<OnboardingStep, 'isCompleted' | 'isActive'>[
     id: 5,
     title: 'AI Setup',
     description: 'Configure your AI assistant',
+    isOptional: false,
+  },
+  {
+    id: 6,
+    title: 'Review',
+    description: 'Review costs and checkout',
+    isOptional: false,
+  },
+  {
+    id: 7,
+    title: 'Launch',
+    description: 'First victory celebration',
     isOptional: false,
   },
 ];

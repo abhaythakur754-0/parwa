@@ -3,15 +3,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ProgressIndicator } from './ProgressIndicator';
+import { IndustryVariantStep } from './IndustryVariantStep';
 import { LegalCompliance } from './LegalCompliance';
 import { IntegrationStep } from './IntegrationStep';
 import { KnowledgeUpload } from './KnowledgeUpload';
 import { AIConfig } from './AIConfig';
+import { CostBreakdownStep } from './CostBreakdownStep';
 import { FirstVictory } from './FirstVictory';
 import { Loader2, ArrowLeft, LogOut } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 import type { OnboardingState } from '@/types/onboarding';
+import type { ParwaVariant } from './IndustryVariantStep';
+import { mapIndustryToParwaIndustry, type ParwaIndustry } from '@/lib/integration-catalog';
+
+const TOTAL_STEPS = 7;
 
 interface OnboardingWizardProps {
   initialState?: OnboardingState;
@@ -24,6 +30,10 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null);
   const [aiName, setAiName] = useState('Jarvis');
   const [aiGreeting, setAiGreeting] = useState<string | null>(null);
+
+  // Phase 4: industry + variant from Step 1
+  const [selectedIndustry, setSelectedIndustry] = useState<ParwaIndustry | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<ParwaVariant | null>(null);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -53,11 +63,35 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
         if (fallback.completed_steps) setCompletedSteps(fallback.completed_steps);
       })
       .finally(() => setLoading(false));
+
+    // Restore industry/variant from localStorage
+    try {
+      const stored = localStorage.getItem('parwa_pricing_context');
+      if (stored) {
+        const ctx = JSON.parse(stored) as { industry?: ParwaIndustry; variant?: ParwaVariant };
+        if (ctx.industry) setSelectedIndustry(ctx.industry);
+        if (ctx.variant) setSelectedVariant(ctx.variant);
+      }
+    } catch {
+      // ignore
+    }
   }, [initialState]);
 
   const completeStep = useCallback(async (step: number) => {
     setCompletedSteps((prev) => [...prev.filter((s) => s !== step), step]);
-    setCurrentStep(step + 1);
+
+    // Step 6 (CostBreakdown) completes the onboarding and goes to FirstVictory (Step 7)
+    if (step === 6) {
+      // Mark onboarding as completed
+      try {
+        await fetch('/api/onboarding/activate', { method: 'POST' });
+      } catch {
+        // Continue locally even if API fails
+      }
+      setCurrentStep(7);
+    } else {
+      setCurrentStep(step + 1);
+    }
 
     try {
       await fetch(`/api/onboarding/complete-step?step=${step}`, {
@@ -81,23 +115,26 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   }, [currentStep]);
 
   const handleNext = useCallback(() => {
-    if (completedSteps.includes(currentStep) && currentStep < 5) {
+    if (completedSteps.includes(currentStep) && currentStep < TOTAL_STEPS) {
       setCurrentStep((prev) => prev + 1);
     }
   }, [currentStep, completedSteps]);
 
   const canGoBack = currentStep > 1;
-  const canGoNext = completedSteps.includes(currentStep) && currentStep < 5;
+  const canGoNext = completedSteps.includes(currentStep) && currentStep < TOTAL_STEPS;
 
   const handleLogout = async () => {
     try { await logout(); } catch { /* ignore */ }
     router.push('/');
   };
 
-  // Read pricing context from URL params
+  // Read pricing context from URL params (legacy support)
   const source = searchParams.get('source');
-  const industry = searchParams.get('industry');
+  const industryParam = searchParams.get('industry');
   const cameFromPricing = source === 'pricing';
+
+  // Resolve industry: Step 1 state > URL param > localStorage
+  const resolvedIndustry = selectedIndustry || (industryParam ? mapIndustryToParwaIndustry(industryParam) : undefined);
 
   if (loading) {
     return (
@@ -110,8 +147,8 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
     );
   }
 
-  // Show first victory if onboarding is completed
-  if (onboardingState?.status === 'completed' && !onboardingState.first_victory_completed) {
+  // Step 7: Show FirstVictory directly (outside the card wrapper)
+  if (currentStep === 7 || (onboardingState?.status === 'completed' && !onboardingState.first_victory_completed)) {
     return <FirstVictory aiName={aiName} aiGreeting={aiGreeting} />;
   }
 
@@ -214,44 +251,33 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
           {/* Decorative glow */}
           <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(255,127,17,0.08)' }} />
 
+          {/* Step 1: Industry + Variant Selection */}
           {currentStep === 1 && (
-            <div className="text-center py-8">
-              <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center shadow-xl shadow-orange-500/20 mb-6">
-                <svg className="w-10 h-10" viewBox="0 0 40 40" fill="none">
-                  <path d="M6 7h24a4 4 0 014 4v13a4 4 0 01-4 4h-8l-3 6-2-6H6a4 4 0 01-4-4V11a4 4 0 014-4z" stroke="white" strokeWidth="2.8" strokeLinejoin="round" />
-                  <path d="M22 11l-6 8h4.5L17 28l8-10h-4.5l3.5-7z" fill="white" />
-                </svg>
-              </div>
-              <h2 className="text-3xl font-bold text-white mb-3">Welcome to PARWA</h2>
-              <p className="text-orange-200/50 mb-2 max-w-md mx-auto">
-                Let&apos;s set up your AI-powered customer support platform in a few simple steps.
-              </p>
-              {industry && (
-                <p className="text-sm text-orange-400/60 mb-6">
-                  Industry: <span className="text-orange-400 font-medium capitalize">{industry}</span>
-                </p>
-              )}
-              <button
-                onClick={() => completeStep(1)}
-                className="px-8 py-3 bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-400 hover:to-amber-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 text-sm"
-              >
-                Let&apos;s Get Started
-              </button>
-            </div>
+            <IndustryVariantStep
+              onComplete={(data) => {
+                setSelectedIndustry(data.industry);
+                setSelectedVariant(data.variant);
+                completeStep(1);
+              }}
+            />
           )}
 
+          {/* Step 2: Legal Compliance */}
           {currentStep === 2 && (
             <LegalCompliance onComplete={() => completeStep(2)} />
           )}
 
+          {/* Step 3: Integration Setup — receives industry from Step 1 */}
           {currentStep === 3 && (
-            <IntegrationStep onNext={() => completeStep(3)} industry={industry || undefined} />
+            <IntegrationStep onNext={() => completeStep(3)} industry={resolvedIndustry} />
           )}
 
+          {/* Step 4: Knowledge Upload */}
           {currentStep === 4 && (
             <KnowledgeUpload onComplete={() => completeStep(4)} />
           )}
 
+          {/* Step 5: AI Config */}
           {currentStep === 5 && (
             <AIConfig
               onComplete={() => completeStep(5)}
@@ -261,6 +287,14 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
                 ai_response_style: onboardingState?.ai_response_style || 'concise',
                 ai_greeting: onboardingState?.ai_greeting || undefined,
               }}
+            />
+          )}
+
+          {/* Step 6: Cost Breakdown Review */}
+          {currentStep === 6 && (
+            <CostBreakdownStep
+              variant={selectedVariant || 'parwa'}
+              onComplete={() => completeStep(6)}
             />
           )}
         </div>

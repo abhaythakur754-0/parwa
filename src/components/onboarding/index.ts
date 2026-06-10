@@ -14,3 +14,5 @@ export { IntegrationSetup } from './IntegrationSetup';
 export { KnowledgeUpload } from './KnowledgeUpload';
 export { AIConfig } from './AIConfig';
 export { FirstVictory } from './FirstVictory';
+export { IndustryVariantStep } from './IndustryVariantStep';
+export { CostBreakdownStep } from './CostBreakdownStep';
