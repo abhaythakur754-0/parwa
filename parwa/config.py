@@ -7,7 +7,7 @@ The difference is Volume x Channels x Concurrency x Action Permissions.
 
 from __future__ import annotations
 
-from parva.state import ActionType, ExecutionMode, TicketChannel
+from parwa.state import ActionType, ExecutionMode, TicketChannel
 
 
 # ─── Variant Definitions ────────────────────────────────────────────────────────

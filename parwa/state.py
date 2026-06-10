@@ -9,7 +9,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class TicketChannel(str, Enum):
@@ -175,6 +175,4 @@ class TicketState(BaseModel):
     loop_count: int = 0
     max_loops: int = 2
 
-    class Config:
-        """Pydantic config."""
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)

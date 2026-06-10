@@ -1,0 +1,363 @@
+"""PARWA LangGraph pipeline — The main StateGraph definition.
+
+This is the SKELETON of the entire PARWA system. LangGraph is the traffic cop
+that routes tickets between 22 nodes, 6 agents, and handles conditional branching
+and quality loop-backs. LangGraph ROUTES — it does NOT think.
+
+Pipeline flow:
+  INGEST → INTENT_CLASSIFIER → SENTIMENT_ANALYZER
+      → (branch) ESCALATION_DECISION / FAQ_MATCHER
+      → KB_RETRIEVER → CONTEXT_MANAGER → INTEGRATION_LOOKUP
+      → REASONING_ENGINE
+      → (parallel) REVERSE_THINKER / TREE_OF_THOUGHTS / STRATEGY_PLANNER
+      → ACTION_PLANNER → ACTION_EXECUTOR → ACTION_VERIFIER
+      → (parallel) PROACTIVE_CHECKER / PREDICTION_ENGINE / FEEDBACK_LOOP
+      → PII_COMPLIANCE_GUARD → AUDIT_LOGGER → QUALITY_SCORER
+      → (if score >= 80) RESPONSE_FORMATTER → END
+      → (if score < 80) loop back to REASONING_ENGINE
+"""
+
+from __future__ import annotations
+
+from typing import Any, Annotated
+
+from langgraph.graph import StateGraph, END
+
+
+def _merge_dicts(left: dict, right: dict) -> dict:
+    """Reducer function that merges right dict into left dict.
+    This ensures state accumulates across nodes instead of being replaced.
+    """
+    merged = dict(left)
+    merged.update(right)
+    return merged
+
+
+# State type with merge reducer — each node returns a partial dict,
+# and LangGraph merges it into the accumulated state
+GraphState = Annotated[dict, _merge_dicts]
+
+from parwa.nodes.ingest import ingest
+from parwa.nodes.intent_classifier import intent_classifier
+from parwa.nodes.sentiment_analyzer import sentiment_analyzer
+from parwa.nodes.escalation_decision import escalation_decision
+from parwa.nodes.faq_matcher import faq_matcher
+from parwa.nodes.kb_retriever import kb_retriever
+from parwa.nodes.context_manager import context_manager
+from parwa.nodes.integration_lookup import integration_lookup
+from parwa.nodes.reasoning_engine import reasoning_engine
+from parwa.nodes.reverse_thinker import reverse_thinker
+from parwa.nodes.tree_of_thoughts import tree_of_thoughts
+from parwa.nodes.strategy_planner import strategy_planner
+from parwa.nodes.action_planner import action_planner
+from parwa.nodes.action_executor import action_executor
+from parwa.nodes.action_verifier import action_verifier
+from parwa.nodes.proactive_checker import proactive_checker
+from parwa.nodes.prediction_engine import prediction_engine
+from parwa.nodes.feedback_loop import feedback_loop
+from parwa.nodes.pii_compliance_guard import pii_compliance_guard
+from parwa.nodes.audit_logger import audit_logger
+from parwa.nodes.quality_scorer import quality_scorer
+from parwa.nodes.response_formatter import response_formatter
+
+
+# ─── Conditional Edge Functions ──────────────────────────────────────────────────
+
+def _after_sentiment(state: dict[str, Any]) -> str:
+    """Route after sentiment analysis.
+
+    Angry + critical → escalation decision first
+    Normal → FAQ matcher
+    """
+    sentiment = state.get("sentiment", "neutral")
+    complexity = state.get("complexity", "simple")
+
+    if sentiment in ("angry", "frustrated") and complexity in ("complex", "critical"):
+        return "escalation_decision"
+    return "faq_matcher"
+
+
+def _after_escalation(state: dict[str, Any]) -> str:
+    """Route after escalation decision.
+
+    Should escalate → skip to compliance (quick exit for human-handled tickets)
+    Should not escalate → continue to FAQ matcher
+    """
+    if state.get("should_escalate", False):
+        return "pii_compliance_guard"
+    return "faq_matcher"
+
+
+def _after_faq_matcher(state: dict[str, Any]) -> str:
+    """Route after FAQ matching.
+
+    High confidence FAQ match → skip to reasoning (FAQ has the context)
+    No match → search KB
+    """
+    faq_match = state.get("faq_match")
+    if faq_match and faq_match.get("relevance_score", 0) > 0.8:
+        return "reasoning_engine"
+    return "kb_retriever"
+
+
+def _after_reasoning(state: dict[str, Any]) -> str:
+    """Route after reasoning engine.
+
+    Simple problem → skip advanced reasoning, go to action planner
+    Complex problem → explore multiple paths (ToT, Reverse, Strategy)
+    After a loop-back → always go to action_planner (already reasoned once)
+    """
+    # If we looped back, skip advanced reasoning — just go to action planner
+    loop_count = state.get("loop_count", 0)
+    if loop_count > 0:
+        return "action_planner"
+
+    complexity = state.get("complexity", "simple")
+    if complexity in ("simple",):
+        return "action_planner"
+    return "reverse_thinker"
+
+
+def _after_reverse_thinker(state: dict[str, Any]) -> str:
+    """After reverse thinking, go to tree of thoughts."""
+    return "tree_of_thoughts"
+
+
+def _after_tree_of_thoughts(state: dict[str, Any]) -> str:
+    """After tree of thoughts, go to strategy planner."""
+    return "strategy_planner"
+
+
+def _after_strategy_planner(state: dict[str, Any]) -> str:
+    """After strategy planner, go to action planner."""
+    return "action_planner"
+
+
+def _after_action_verifier(state: dict[str, Any]) -> str:
+    """Route after action verification.
+
+    Failed + can loop → back to reasoning engine
+    Passed → proactive checker
+    """
+    if state.get("should_loop_back", False):
+        return "reasoning_engine"
+    return "proactive_checker"
+
+
+def _after_quality_scorer(state: dict[str, Any]) -> str:
+    """Route after quality scoring.
+
+    Score >= 80 → format the response
+    Score < 80 and can loop → back to reasoning engine
+    Score < 80 and max loops → format anyway (best effort)
+    """
+    quality_score = state.get("quality_score", 0.0)
+    should_loop = state.get("should_loop_back", False)
+
+    if quality_score >= 80:
+        return "response_formatter"
+    if should_loop:
+        return "reasoning_engine"
+    # Max loops reached — send what we have
+    return "response_formatter"
+
+
+# ─── Loop-back handler ────────────────────────────────────────────────────────────
+
+def _handle_loop_back(state: dict[str, Any]) -> dict[str, Any]:
+    """Increment loop counter when looping back to reasoning."""
+    loop_count = state.get("loop_count", 0)
+    return {"loop_count": loop_count + 1, "should_loop_back": False}
+
+
+# ─── Build the Graph ──────────────────────────────────────────────────────────────
+
+def build_parwa_graph() -> StateGraph:
+    """Build the complete PARWA LangGraph with all 22 nodes and conditional edges.
+
+    Returns:
+        A compiled StateGraph ready for execution.
+    """
+    graph = StateGraph(GraphState)
+
+    # ─── Add all 22 nodes ────────────────────────────────────────────────────
+    # Router Agent nodes
+    graph.add_node("ingest", ingest)
+    graph.add_node("intent_classifier", intent_classifier)
+    graph.add_node("sentiment_analyzer", sentiment_analyzer)
+    graph.add_node("escalation_decision", escalation_decision)
+
+    # Knowledge Agent nodes
+    graph.add_node("faq_matcher", faq_matcher)
+    graph.add_node("kb_retriever", kb_retriever)
+    graph.add_node("context_manager", context_manager)
+    graph.add_node("integration_lookup", integration_lookup)
+
+    # Reasoning Agent nodes
+    graph.add_node("reasoning_engine", reasoning_engine)
+    graph.add_node("reverse_thinker", reverse_thinker)
+    graph.add_node("tree_of_thoughts", tree_of_thoughts)
+    graph.add_node("strategy_planner", strategy_planner)
+
+    # Action Agent nodes
+    graph.add_node("action_planner", action_planner)
+    graph.add_node("action_executor", action_executor)
+    graph.add_node("action_verifier", action_verifier)
+
+    # Proactive Agent nodes
+    graph.add_node("proactive_checker", proactive_checker)
+    graph.add_node("prediction_engine", prediction_engine)
+    graph.add_node("feedback_loop", feedback_loop)
+
+    # Compliance Agent nodes
+    graph.add_node("pii_compliance_guard", pii_compliance_guard)
+    graph.add_node("audit_logger", audit_logger)
+    graph.add_node("quality_scorer", quality_scorer)
+    graph.add_node("response_formatter", response_formatter)
+
+    # Loop-back handler node
+    graph.add_node("loop_back_handler", _handle_loop_back)
+
+    # ─── Set entry point ─────────────────────────────────────────────────────
+    graph.set_entry_point("ingest")
+
+    # ─── Add edges (linear + conditional) ────────────────────────────────────
+
+    # Linear pipeline: INGEST → INTENT_CLASSIFIER → SENTIMENT_ANALYZER
+    graph.add_edge("ingest", "intent_classifier")
+    graph.add_edge("intent_classifier", "sentiment_analyzer")
+
+    # Conditional: After SENTIMENT → escalation or FAQ
+    graph.add_conditional_edges(
+        "sentiment_analyzer",
+        _after_sentiment,
+        {
+            "escalation_decision": "escalation_decision",
+            "faq_matcher": "faq_matcher",
+        },
+    )
+
+    # Conditional: After ESCALATION → human or continue
+    graph.add_conditional_edges(
+        "escalation_decision",
+        _after_escalation,
+        {
+            "pii_compliance_guard": "pii_compliance_guard",
+            "faq_matcher": "faq_matcher",
+        },
+    )
+
+    # Conditional: After FAQ → reasoning or KB
+    graph.add_conditional_edges(
+        "faq_matcher",
+        _after_faq_matcher,
+        {
+            "reasoning_engine": "reasoning_engine",
+            "kb_retriever": "kb_retriever",
+        },
+    )
+
+    # Knowledge pipeline: KB → CONTEXT → INTEGRATION → REASONING
+    graph.add_edge("kb_retriever", "context_manager")
+    graph.add_edge("context_manager", "integration_lookup")
+    graph.add_edge("integration_lookup", "reasoning_engine")
+
+    # Conditional: After REASONING → simple (action) or complex (advanced reasoning)
+    graph.add_conditional_edges(
+        "reasoning_engine",
+        _after_reasoning,
+        {
+            "action_planner": "action_planner",
+            "reverse_thinker": "reverse_thinker",
+        },
+    )
+
+    # Advanced reasoning chain: REVERSE → TOT → STRATEGY → ACTION_PLANNER
+    graph.add_edge("reverse_thinker", "tree_of_thoughts")
+    graph.add_edge("tree_of_thoughts", "strategy_planner")
+    graph.add_edge("strategy_planner", "action_planner")
+
+    # Action pipeline: PLANNER → EXECUTOR → VERIFIER
+    graph.add_edge("action_planner", "action_executor")
+    graph.add_edge("action_executor", "action_verifier")
+
+    # Conditional: After VERIFIER → loop back or proactive
+    graph.add_conditional_edges(
+        "action_verifier",
+        _after_action_verifier,
+        {
+            "reasoning_engine": "loop_back_handler",
+            "proactive_checker": "proactive_checker",
+        },
+    )
+
+    # Loop-back handler → reasoning engine
+    graph.add_edge("loop_back_handler", "reasoning_engine")
+
+    # Proactive pipeline: CHECKER → PREDICTION → FEEDBACK (sequential)
+    graph.add_edge("proactive_checker", "prediction_engine")
+    graph.add_edge("prediction_engine", "feedback_loop")
+    graph.add_edge("feedback_loop", "pii_compliance_guard")
+
+    # Compliance pipeline: PII → AUDIT → QUALITY
+    graph.add_edge("pii_compliance_guard", "audit_logger")
+    graph.add_edge("audit_logger", "quality_scorer")
+
+    # Conditional: After QUALITY → format or loop back
+    graph.add_conditional_edges(
+        "quality_scorer",
+        _after_quality_scorer,
+        {
+            "response_formatter": "response_formatter",
+            "reasoning_engine": "loop_back_handler",
+        },
+    )
+
+    # Response formatter → END
+    graph.add_edge("response_formatter", END)
+
+    return graph.compile()
+
+
+# ─── Convenience function ─────────────────────────────────────────────────────────
+
+# Compiled graph singleton
+_compiled_graph = None
+
+
+def get_parwa_graph():
+    """Get or create the compiled PARWA graph singleton."""
+    global _compiled_graph
+    if _compiled_graph is None:
+        _compiled_graph = build_parwa_graph()
+    return _compiled_graph
+
+
+def process_ticket(
+    raw_message: str,
+    customer_id: str = "",
+    channel: str = "email",
+    variant: str = "parwa",
+) -> dict[str, Any]:
+    """Process a single ticket through the full PARWA pipeline.
+
+    Args:
+        raw_message: The customer's message
+        customer_id: Customer identifier
+        channel: Communication channel (email, chat, social, voice)
+        variant: PARWA variant (mini, parwa, high)
+
+    Returns:
+        The final ticket state after processing through all 22 nodes
+    """
+    graph = get_parwa_graph()
+
+    initial_state = {
+        "raw_message": raw_message,
+        "customer_id": customer_id,
+        "channel": channel,
+        "variant": variant,
+    }
+
+    result = graph.invoke(initial_state)
+    return result
