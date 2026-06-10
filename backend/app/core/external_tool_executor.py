@@ -35,30 +35,17 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, Dict, List, Optional
+
+from app.core.channel_permissions import Channel, VARIANT_CHANNEL_PERMISSIONS, is_channel_allowed
 
 logger = logging.getLogger("parwa.external_tool_executor")
 
 
 # ═══════════════════════════════════════════════════════════════════
-# Variant-Channel Permission Matrix (mirrors MCP server)
+# Variant-Channel Permission Matrix
+# (Imported from shared module: app.core.channel_permissions)
 # ═══════════════════════════════════════════════════════════════════
-
-class Channel(str, Enum):
-    EMAIL = "email"
-    CHAT = "chat"
-    SMS = "sms"
-    VOICE = "voice"
-    PUSH = "push"
-    WEBHOOK = "webhook"
-
-
-VARIANT_CHANNEL_PERMISSIONS: Dict[str, set] = {
-    "mini_parwa": {Channel.EMAIL, Channel.CHAT},
-    "parwa": {Channel.EMAIL, Channel.CHAT, Channel.SMS, Channel.VOICE},
-    "parwa_high": {Channel.EMAIL, Channel.CHAT, Channel.SMS, Channel.VOICE, Channel.PUSH, Channel.WEBHOOK},
-}
 
 
 @dataclass
@@ -107,9 +94,7 @@ ACTION_TOOL_MAP = {
 }
 
 
-def _is_channel_allowed(variant: str, channel: Channel) -> bool:
-    """Check if variant tier allows this channel."""
-    return channel in VARIANT_CHANNEL_PERMISSIONS.get(variant, set())
+# _is_channel_allowed removed — use is_channel_allowed from channel_permissions
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -157,6 +142,8 @@ async def _call_mcp_tool(tool_name: str, parameters: Dict[str, Any]) -> Dict[str
 
 # ═══════════════════════════════════════════════════════════════════
 # Direct Provider Fallbacks (when MCP server is unreachable)
+# DEPRECATED: Direct API fallback — will be replaced by ProviderFactory in Phase 13
+# For now, these exist as safety fallbacks when MCP server is unreachable
 # ═══════════════════════════════════════════════════════════════════
 
 async def _send_sms_direct(to: str, body: str) -> ToolExecutionResult:
@@ -371,7 +358,7 @@ async def execute_pipeline_actions(
             continue
 
         # Check variant permission
-        if not _is_channel_allowed(variant_tier, channel):
+        if not is_channel_allowed(variant_tier, channel):
             results[action_type] = ToolExecutionResult(
                 channel=channel.value,
                 success=False,
@@ -435,7 +422,7 @@ async def _send_ticket_notification(
     notification_body = response_text[:200] if response_text else f"Your ticket status has been updated to: {status}."
 
     # Email notification
-    if customer_email and _is_channel_allowed(variant_tier, Channel.EMAIL):
+    if customer_email and is_channel_allowed(variant_tier, Channel.EMAIL):
         subject = f"{prefix}: Ticket Update — {status.replace('_', ' ').title()}"
 
         # Try MCP first, then direct
@@ -459,7 +446,7 @@ async def _send_ticket_notification(
             results["email_notification"] = result
 
     # SMS notification
-    if customer_phone and _is_channel_allowed(variant_tier, Channel.SMS):
+    if customer_phone and is_channel_allowed(variant_tier, Channel.SMS):
         sms_body = f"{prefix}: {notification_body}"[:160]
 
         mcp_result = await _call_mcp_tool("sms_send", {
@@ -481,7 +468,7 @@ async def _send_ticket_notification(
             results["sms_notification"] = result
 
     # Voice notification (parwa_high priority escalation only)
-    if (customer_phone and _is_channel_allowed(variant_tier, Channel.VOICE)
+    if (customer_phone and is_channel_allowed(variant_tier, Channel.VOICE)
             and status == "escalated"):
         mcp_result = await _call_mcp_tool("voice_initiate_call", {
             "to": customer_phone,

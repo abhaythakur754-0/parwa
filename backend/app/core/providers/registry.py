@@ -256,7 +256,7 @@ class ProviderFactory:
         """
         try:
             # Late import to avoid circular dependency at module level
-            provider_config_module = importlib.import_module("app.models.provider_config")
+            provider_config_module = importlib.import_module("database.models.provider_config")
             ProviderConfiguration = provider_config_module.ProviderConfiguration
         except (ImportError, AttributeError):
             logger.warning(
@@ -267,7 +267,7 @@ class ProviderFactory:
             # Fallback: attempt generic query pattern
             raise NotImplementedError(
                 "ProviderConfiguration ORM model not found. "
-                "Implement app.models.provider_config.ProviderConfiguration "
+                "Implement database.models.provider_config.ProviderConfiguration "
                 "or override ProviderFactory._load_credentials."
             )
 
@@ -289,6 +289,4 @@ class ProviderFactory:
                 f"in company {company_id}"
             )
 
-        # ``config.credentials`` should already be decrypted by the ORM
-        # hybrid property or a dedicated encryption layer.
-        return config.credentials if isinstance(config.credentials, dict) else {}
+        return config.decrypt_credentials()

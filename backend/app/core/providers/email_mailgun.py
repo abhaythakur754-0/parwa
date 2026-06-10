@@ -15,7 +15,7 @@ from .base import ConnectionStatus, EmailProvider, ProviderResult
 
 logger = logging.getLogger(__name__)
 
-MAILGRID_BASE_URL = "https://api.mailgun.net/v3"
+MAILGUN_BASE_URL = "https://api.mailgun.net/v3"
 
 
 class MailgunProvider(EmailProvider):
@@ -79,7 +79,7 @@ class MailgunProvider(EmailProvider):
         region = self._credentials.get("region", "us")
         if region == "eu":
             return "https://api.eu.mailgun.net/v3"
-        return MAILGRID_BASE_URL
+        return MAILGUN_BASE_URL
 
     # ── Credential validation (no network) ───────────────────────────────
 
@@ -106,7 +106,7 @@ class MailgunProvider(EmailProvider):
         domain = credentials.get("domain", "")
 
         region = credentials.get("region", "us")
-        base = "https://api.eu.mailgun.net/v3" if region == "eu" else MAILGRID_BASE_URL
+        base = "https://api.eu.mailgun.net/v3" if region == "eu" else MAILGUN_BASE_URL
 
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:

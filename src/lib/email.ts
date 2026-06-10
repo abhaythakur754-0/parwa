@@ -1,46 +1,45 @@
-const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
-const BREVO_API_KEY = process.env.BREVO_API_KEY;
-const FROM_EMAIL = process.env.FROM_EMAIL || "noreply@parwa.buzz";
-const FROM_NAME = "PARWA";
+/**
+ * PARWA Email Service — Backend Proxy
+ *
+ * Sends emails by calling the Parwa backend API,
+ * which routes through the ProviderRegistry.
+ *
+ * SECURITY: Never calls Brevo/SendGrid directly from the frontend.
+ * All external API calls go through: Frontend → BFF → Backend → ProviderRegistry → External API
+ */
+
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5100';
 
 export async function sendEmail(
   to: string,
   subject: string,
   htmlContent: string
 ): Promise<{ success: boolean; error?: string }> {
-  if (!BREVO_API_KEY) {
-    console.error("BREVO_API_KEY not set in environment variables");
-    return { success: false, error: "Email service is not configured" };
-  }
-
   try {
-    const response = await fetch(BREVO_API_URL, {
-      method: "POST",
+    const response = await fetch(`${BACKEND_URL}/api/v1/email/send`, {
+      method: 'POST',
       headers: {
-        "api-key": BREVO_API_KEY,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        sender: {
-          name: FROM_NAME,
-          email: FROM_EMAIL,
-        },
-        to: [{ email: to }],
+        to: [to],
         subject,
-        htmlContent,
+        body: htmlContent,
+        html_body: htmlContent,
       }),
     });
 
-    if (response.ok) {
+    const data = await response.json();
+
+    if (response.ok && data.success) {
       return { success: true };
     }
 
-    const errorData = await response.text();
-    console.error("Brevo API error:", response.status, errorData);
-    return { success: false, error: `Brevo API error: ${response.status}` };
+    console.error('[Email] Backend error:', response.status, JSON.stringify(data));
+    return { success: false, error: data.error || data.message || `Backend returned ${response.status}` };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("Email send error:", message);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[Email] Send error:', message);
     return { success: false, error: message };
   }
 }

@@ -24,48 +24,21 @@ import asyncio
 import logging
 import os
 import re
+import sys
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, Optional
+
+# Add backend to path so we can import shared module
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'backend'))
+from app.core.channel_permissions import Channel, VARIANT_CHANNEL_PERMISSIONS, is_channel_allowed, get_allowed_channels
 
 logger = logging.getLogger("parwa.external_tool_bus")
 
 
 # ═══════════════════════════════════════════════════════════════════
 # Variant-Channel Permission Matrix
+# (Imported from shared module: backend/app/core/channel_permissions.py)
 # ═══════════════════════════════════════════════════════════════════
-
-class Channel(str, Enum):
-    """External communication channels."""
-    EMAIL = "email"
-    CHAT = "chat"
-    SMS = "sms"
-    VOICE = "voice"
-    PUSH = "push"           # Mobile push notifications
-    WEBHOOK = "webhook"     # Outbound webhook
-
-
-# Which channels each variant tier can access
-VARIANT_CHANNEL_PERMISSIONS: dict[str, set[Channel]] = {
-    "mini_parwa": {
-        Channel.EMAIL,
-        Channel.CHAT,
-    },
-    "parwa": {
-        Channel.EMAIL,
-        Channel.CHAT,
-        Channel.SMS,
-        Channel.VOICE,
-    },
-    "parwa_high": {
-        Channel.EMAIL,
-        Channel.CHAT,
-        Channel.SMS,
-        Channel.VOICE,
-        Channel.PUSH,
-        Channel.WEBHOOK,
-    },
-}
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -218,13 +191,11 @@ class ExternalToolBus:
 
     def is_channel_allowed(self, variant: str, channel: Channel) -> bool:
         """Check if a variant tier is allowed to use a channel."""
-        allowed = VARIANT_CHANNEL_PERMISSIONS.get(variant, set())
-        return channel in allowed
+        return is_channel_allowed(variant, channel)
 
     def get_allowed_channels(self, variant: str) -> list[str]:
         """Get list of channels allowed for a variant tier."""
-        allowed = VARIANT_CHANNEL_PERMISSIONS.get(variant, set())
-        return sorted(ch.value for ch in allowed)
+        return get_allowed_channels(variant)
 
     def is_channel_configured(self, channel: Channel) -> bool:
         """Check if a channel's provider is configured."""
@@ -328,6 +299,9 @@ class ExternalToolBus:
                     data=data,
                 )
         return None
+
+    # DEPRECATED: Direct API fallback — will be replaced by ProviderFactory in Phase 13
+    # For now, these exist as safety fallbacks when backend is unreachable
 
     async def _send_sms_via_twilio(self, to: str, body: str) -> ToolResult:
         """Send SMS directly via Twilio REST API (fallback)."""
@@ -485,6 +459,9 @@ class ExternalToolBus:
                 )
         return None
 
+    # DEPRECATED: Direct API fallback — will be replaced by ProviderFactory in Phase 13
+    # For now, these exist as safety fallbacks when backend is unreachable
+
     async def _send_email_via_brevo(
         self,
         recipients: list[str],
@@ -640,6 +617,9 @@ class ExternalToolBus:
                     data=data,
                 )
         return None
+
+    # DEPRECATED: Direct API fallback — will be replaced by ProviderFactory in Phase 13
+    # For now, these exist as safety fallbacks when backend is unreachable
 
     async def _make_call_via_twilio(
         self, to: str, message: str, variant: str,
