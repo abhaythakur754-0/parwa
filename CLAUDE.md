@@ -20,6 +20,8 @@ Before implementing ANY change:
 - The spec documents (in `/documents/`) describe what SHOULD exist — not what actually works.
 - Always verify against actual code, not against docs. Docs lie in this project.
 - When you find a discrepancy between docs and code, flag it explicitly.
+- **Don't assume a frontend page connects to the backend — CHECK it.** Many pages have API calls that 404 or hit dead routes. Trace the full path: frontend store → Next.js proxy → backend router → service → DB.
+- **Don't assume a backend route is registered — CHECK main.py.** Several router files exist but are never imported (shadow_mode.py, jarvis_chat.py). A file existing does NOT mean the route works.
 
 ---
 
@@ -40,6 +42,7 @@ Before implementing ANY change:
 - Prefer fixing what exists over building new abstractions.
 - If a component imports 20 things and renders nothing useful, it needs surgery, not wrapping.
 - No new npm packages without explicit justification.
+- **Don't create a new integration layer when one already exists.** Check `backend-proxy.ts`, `api.ts`, and the Zustand stores before building any new API client. There are already 3 different HTTP patterns in this codebase — don't add a 4th.
 
 ---
 
@@ -64,6 +67,7 @@ The test: Every changed line should trace directly to the user's request.
 - Fix the specific bug, don't restructure the entire routing system.
 - When fixing a component, don't touch other components in the same folder.
 - The project has duplicate directories (`/database/` AND `/backend/database/`). Note it, don't merge it unless asked.
+- **Every database query MUST be scoped to the customer's company (BC-001).** This is a multi-tenant SaaS. If you write any backend query, it MUST filter by `company_id`. A missing company_id filter means data leakage between customers. No exceptions.
 
 ---
 
@@ -144,3 +148,19 @@ AI-powered customer support workforce platform. 3 subscription tiers:
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+---
+
+## PARWA Building Codes (BC) — Rules That Must NEVER Be Broken
+
+These are non-negotiable. Violating any of these is a critical bug, not a style choice.
+
+| Code | Rule | Why |
+|------|------|-----|
+| **BC-001** | Every DB query MUST be scoped to `company_id` | Multi-tenant isolation. Missing filter = data leakage between customers. |
+| **BC-002** | Don't assume a frontend page connects to the backend — CHECK it | Many pages call APIs that 404 or hit dead routes. Trace the full path. |
+| **BC-003** | Don't assume a backend route is registered — CHECK main.py | Several router files exist but are never imported (shadow_mode.py, jarvis_chat.py). |
+| **BC-004** | Don't create a new integration layer when one already exists | Check `backend-proxy.ts`, `api.ts`, and existing stores before building new API clients. |
+| **BC-005** | Never trust frontend-only data as source of truth | localStorage/Zustand without backend sync = data that disappears. Ticket store is the worst offender. |
+| **BC-006** | API path prefixes must match between frontend and backend | `/api/billing/*` vs `/api/v1/billing/*` will cause 404s. Verify the actual backend path before calling. |
+| **BC-007** | Mock data must be clearly labeled in the UI | Users must know when they're seeing demo data vs real data. The `_mock` flag must be surfaced. |
