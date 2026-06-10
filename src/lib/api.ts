@@ -193,6 +193,18 @@ export async function patch<T>(url: string, data?: unknown, config?: AxiosReques
 }
 
 /**
+ * Generic PUT request with safe parsing.
+ */
+export async function put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  try {
+    const response = await apiClient.put<T>(url, data, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
+  }
+}
+
+/**
  * Generic DELETE request with safe parsing.
  */
 export async function del<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
@@ -297,6 +309,12 @@ export const integrationsApi = {
    * Get available integrations.
    */
   getAvailable: () => get('/api/integrations/available'),
+
+  /**
+   * Get integration catalog with optional industry filter.
+   */
+  getCatalog: (industry?: string) =>
+    get(`/api/integrations/catalog${industry ? `?industry=${industry}` : ''}`),
   
   /**
    * Get user's integrations.
@@ -318,6 +336,78 @@ export const integrationsApi = {
    * Delete integration.
    */
   delete: (id: string) => del(`/api/integrations/${id}`),
+
+  /**
+   * Check industry change impact on integrations.
+   */
+  industryChangeImpact: (currentIndustry: string, newIndustry: string) =>
+    post('/api/integrations/industry-change-impact', {
+      current_industry: currentIndustry,
+      new_industry: newIndustry,
+    }),
+
+  // ── Custom Connectors (Tier 3) ───────────────────────────────
+
+  /**
+   * Create a custom REST connector (Tier 3).
+   */
+  createCustomConnector: (data: {
+    name: string;
+    base_url: string;
+    auth_type: string;
+    auth_config: Record<string, unknown>;
+    actions: Record<string, unknown>[];
+    description?: string;
+    test_endpoint?: string;
+  }) => post('/api/integrations/custom/connector', data),
+
+  /**
+   * List custom connectors.
+   */
+  listCustomConnectors: () => get('/api/integrations/custom/connectors'),
+
+  /**
+   * Get a custom connector.
+   */
+  getCustomConnector: (id: string) => get(`/api/integrations/custom/connectors/${id}`),
+
+  /**
+   * Update a custom connector.
+   */
+  updateCustomConnector: (id: string, data: Record<string, unknown>) =>
+    put(`/api/integrations/custom/connectors/${id}`, data),
+
+  /**
+   * Delete a custom connector.
+   */
+  deleteCustomConnector: (id: string) => del(`/api/integrations/custom/connectors/${id}`),
+
+  /**
+   * Test a custom connector.
+   */
+  testCustomConnector: (id: string) => post(`/api/integrations/custom/connectors/${id}/test`),
+
+  // ── OpenAPI Import (Tier 2) ──────────────────────────────────
+
+  /**
+   * Import an OpenAPI spec (parse only, don't save).
+   */
+  importOpenAPI: (data: {
+    url?: string;
+    file_content?: string;
+    filename?: string;
+    name?: string;
+    base_url?: string;
+    auth_type?: string;
+    auth_config?: Record<string, unknown>;
+    actions?: Record<string, unknown>[];
+  }) => post('/api/integrations/openapi-import', data),
+
+  /**
+   * Save an OpenAPI import as a connector.
+   */
+  saveOpenAPIImport: (data: Record<string, unknown>) =>
+    post('/api/integrations/openapi-import/save', data),
 };
 
 // ── Knowledge Base API Endpoints ───────────────────────────────────────

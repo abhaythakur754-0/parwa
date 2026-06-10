@@ -4,21 +4,16 @@ PARWA Integration Service
 Business logic for third-party integration management.
 
 Uses real database persistence via SQLAlchemy (Integration model).
-
-Supported Integrations:
-- Zendesk
-- Shopify
-- Slack
-- Gmail
-- Freshdesk
-- Intercom
-- Custom
+Uses the unified integration catalog (app.core.integration_catalog)
+for validation and test connections per D6 (pre-written HTTP calls, NO AI).
 
 BC-001: All operations scoped to company_id.
 """
 
 import json
+import base64
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 
@@ -28,41 +23,15 @@ from sqlalchemy import and_
 
 from app.exceptions import ValidationError
 from app.logger import get_logger
+from app.core.integration_catalog import (
+    get_integration_by_key,
+    get_catalog,
+    get_catalog_for_industry,
+    CATALOG,
+)
 from database.models.integration import Integration
 
 logger = get_logger("integration_service")
-
-# Integration types and their required config fields
-INTEGRATION_TYPES: Dict[str, Dict[str, Any]] = {
-    "zendesk": {
-        "required_fields": ["subdomain", "api_token", "email"],
-        "test_url": "https://{subdomain}.zendesk.com/api/v2/users/me.json",
-    },
-    "shopify": {
-        "required_fields": ["shop_domain", "access_token"],
-        "test_url": "https://{shop_domain}/admin/api/2024-01/shop.json",
-    },
-    "slack": {
-        "required_fields": ["bot_token", "channel_id"],
-        "test_url": "https://slack.com/api/auth.test",
-    },
-    "gmail": {
-        "required_fields": ["client_id", "client_secret", "refresh_token"],
-        "test_url": "https://gmail.googleapis.com/gmail/v1/users/me/profile",
-    },
-    "freshdesk": {
-        "required_fields": ["domain", "api_key"],
-        "test_url": "https://{domain}.freshdesk.com/api/v2/agents/me",
-    },
-    "intercom": {
-        "required_fields": ["access_token"],
-        "test_url": "https://api.intercom.io/me",
-    },
-    "custom": {
-        "required_fields": [],
-        "test_url": None,
-    },
-}
 
 # Status values for integrations
 STATUS_PENDING = "pending"
@@ -87,18 +56,21 @@ class IntegrationService:
         config: Dict[str, Any],
         validate: bool = True,
     ) -> Dict[str, Any]:
-        """Create a new integration with optional credential validation."""
-        # Validate integration type
-        if integration_type not in INTEGRATION_TYPES:
+        """Create a new integration with optional credential validation.
+
+        Uses the unified catalog for field validation and test connections.
+        """
+        # Validate integration type against catalog
+        catalog_entry = get_integration_by_key(integration_type)
+        if not catalog_entry:
+            valid_keys = [i.key for i in CATALOG]
             raise ValidationError(
                 message=f"Invalid integration type: {integration_type}",
-                details={"valid_types": list(INTEGRATION_TYPES.keys())},
+                details={"valid_types": valid_keys},
             )
 
-        type_config = INTEGRATION_TYPES[integration_type]
-        required_fields = type_config["required_fields"]
-
-        # Validate required fields
+        # Validate required fields from catalog auth schema
+        required_fields = [f.name for f in catalog_entry.auth_schema.fields if f.required]
         missing_fields = [f for f in required_fields if not config.get(f)]
         if missing_fields:
             raise ValidationError(
@@ -295,203 +267,81 @@ class IntegrationService:
         """Get integrations filtered by type."""
         return self.get_integrations(company_id, integration_type=integration_type)
 
-    # ── Connection Test Methods ───────────────────────────────────
+    # ── Connection Test Methods (D6 — Generic, Catalog-Driven) ────
 
     def _test_credentials(
         self,
         integration_type: str,
         config: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """Test integration credentials by making a real API call."""
-        if integration_type not in INTEGRATION_TYPES:
+        """Test integration credentials using the catalog's pre-written test call.
+
+        Per D6: Pre-written HTTP test calls — NO AI tokens spent.
+        1-2 second response. Clear error messages.
+        """
+        catalog_entry = get_integration_by_key(integration_type)
+        if not catalog_entry:
             return {"success": False, "message": f"Unknown integration type: {integration_type}"}
 
-        try:
-            if integration_type == "zendesk":
-                return self._test_zendesk(config)
-            elif integration_type == "shopify":
-                return self._test_shopify(config)
-            elif integration_type == "slack":
-                return self._test_slack(config)
-            elif integration_type == "gmail":
-                return self._test_gmail(config)
-            elif integration_type == "freshdesk":
-                return self._test_freshdesk(config)
-            elif integration_type == "intercom":
-                return self._test_intercom(config)
-            else:
-                return {"success": True, "message": f"{integration_type} integration config saved"}
-        except Exception as e:
-            return {"success": False, "message": f"Connection test failed: {str(e)}"}
+        tc = catalog_entry.test_connection
 
-    def _test_zendesk(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Test Zendesk API connectivity."""
-        subdomain = config.get("subdomain")
-        api_token = config.get("api_token") or config.get("access_token")
-        email = config.get("email")
+        # Build URL by replacing {field_name} with config values
+        url = tc.url_template
+        for key, value in config.items():
+            url = url.replace(f"{{{key}}}", str(value))
 
-        if not all([subdomain, api_token, email]):
-            return {"success": False, "message": "Missing required fields: subdomain, api_token, email"}
+        # Build headers by replacing {field_name} with config values
+        headers: Dict[str, str] = {}
+        for hk, hv in tc.headers_template.items():
+            for key, value in config.items():
+                hv = hv.replace(f"{{{key}}}", str(value))
+            headers[hk] = hv
 
-        url = f"https://{subdomain}.zendesk.com/api/v2/users/me.json"
-        headers = {"Authorization": f"Basic {_encode_basic_auth(email + '/token', api_token)}"}
+        # Add auth headers based on auth type
+        auth_schema = catalog_entry.auth_schema
+        if auth_schema.auth_type.value == "basic_auth":
+            # Build basic auth from the first text + first password fields
+            text_fields = [f for f in auth_schema.fields if f.type == "text" and f.name not in ("subdomain", "domain", "store_url", "store_hash", "company_domain", "base_url")]
+            pass_fields = [f for f in auth_schema.fields if f.type == "password"]
+            if text_fields and pass_fields:
+                username = config.get(text_fields[0].name, "")
+                password = config.get(pass_fields[0].name, "")
+                if username or password:
+                    encoded = base64.b64encode(f"{username}:{password}".encode()).decode()
+                    headers["Authorization"] = f"Basic {encoded}"
 
         try:
             with httpx.Client(timeout=10) as client:
-                response = client.get(url, headers=headers)
-                if response.status_code == 200:
-                    data = response.json()
-                    return {
-                        "success": True,
-                        "message": f"Connected to Zendesk account: {data.get('user', {}).get('name', 'Unknown')}",
-                    }
+                if tc.method == "POST":
+                    response = client.post(url, headers=headers)
                 else:
-                    return {
-                        "success": False,
-                        "message": f"Zendesk API returned {response.status_code}: {response.text[:200]}",
-                    }
+                    response = client.get(url, headers=headers)
+
+                # Check success based on catalog config
+                if tc.success_check == "json_ok_true":
+                    try:
+                        data = response.json()
+                        if data.get("ok"):
+                            return {"success": True, "message": tc.success_message}
+                        else:
+                            return {"success": False, "message": f"API returned error: {data.get('error', 'Unknown')}"}
+                    except Exception:
+                        return {"success": False, "message": f"Invalid JSON response (status {response.status_code})"}
+                elif tc.success_check == "status_200_or_201":
+                    if response.status_code in (200, 201):
+                        return {"success": True, "message": tc.success_message}
+                    else:
+                        return {"success": False, "message": f"API returned {response.status_code}: {response.text[:200]}"}
+                else:  # status_200
+                    if response.status_code == 200:
+                        return {"success": True, "message": tc.success_message}
+                    else:
+                        return {"success": False, "message": f"API returned {response.status_code}: {response.text[:200]}"}
+
         except httpx.TimeoutException:
-            return {"success": False, "message": "Connection to Zendesk timed out"}
+            return {"success": False, "message": f"Connection to {catalog_entry.name} timed out"}
         except Exception as e:
-            return {"success": False, "message": f"Zendesk connection failed: {str(e)}"}
-
-    def _test_shopify(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Test Shopify API connectivity."""
-        shop_domain = config.get("shop_domain")
-        access_token = config.get("access_token")
-
-        if not all([shop_domain, access_token]):
-            return {"success": False, "message": "Missing required fields: shop_domain, access_token"}
-
-        shop_domain = shop_domain.replace("https://", "").replace("http://", "").rstrip("/")
-        url = f"https://{shop_domain}/admin/api/2024-01/shop.json"
-        headers = {"X-Shopify-Access-Token": access_token}
-
-        try:
-            with httpx.Client(timeout=10) as client:
-                response = client.get(url, headers=headers)
-                if response.status_code == 200:
-                    data = response.json()
-                    return {
-                        "success": True,
-                        "message": f"Connected to Shopify store: {data.get('shop', {}).get('name', 'Unknown')}",
-                    }
-                else:
-                    return {
-                        "success": False,
-                        "message": f"Shopify API returned {response.status_code}: {response.text[:200]}",
-                    }
-        except httpx.TimeoutException:
-            return {"success": False, "message": "Connection to Shopify timed out"}
-        except Exception as e:
-            return {"success": False, "message": f"Shopify connection failed: {str(e)}"}
-
-    def _test_slack(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Test Slack API connectivity."""
-        bot_token = config.get("bot_token") or config.get("access_token")
-
-        if not bot_token:
-            return {"success": False, "message": "Missing required field: bot_token or access_token"}
-
-        url = "https://slack.com/api/auth.test"
-        headers = {"Authorization": f"Bearer {bot_token}"}
-
-        try:
-            with httpx.Client(timeout=10) as client:
-                response = client.post(url, headers=headers)
-                data = response.json()
-                if data.get("ok"):
-                    return {
-                        "success": True,
-                        "message": f"Connected to Slack workspace: {data.get('team', 'Unknown')}",
-                    }
-                else:
-                    return {"success": False, "message": f"Slack API error: {data.get('error', 'Unknown error')}"}
-        except Exception as e:
-            return {"success": False, "message": f"Slack connection failed: {str(e)}"}
-
-    def _test_gmail(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Test Gmail API connectivity."""
-        access_token = config.get("access_token") or config.get("refresh_token")
-
-        if not access_token:
-            return {"success": False, "message": "Missing required field: access_token or refresh_token"}
-
-        url = "https://www.googleapis.com/gmail/v1/users/me/profile"
-        headers = {"Authorization": f"Bearer {access_token}"}
-
-        try:
-            with httpx.Client(timeout=10) as client:
-                response = client.get(url, headers=headers)
-                if response.status_code == 200:
-                    data = response.json()
-                    return {
-                        "success": True,
-                        "message": f"Connected to Gmail: {data.get('emailAddress', 'Unknown')}",
-                    }
-                elif response.status_code == 401:
-                    return {"success": False, "message": "Gmail token expired or invalid. Please re-authenticate."}
-                else:
-                    return {"success": False, "message": f"Gmail API returned {response.status_code}"}
-        except Exception as e:
-            return {"success": False, "message": f"Gmail connection failed: {str(e)}"}
-
-    def _test_freshdesk(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Test Freshdesk API connectivity."""
-        domain = config.get("domain")
-        api_key = config.get("api_key")
-
-        if not all([domain, api_key]):
-            return {"success": False, "message": "Missing required fields: domain, api_key"}
-
-        domain = domain.replace("https://", "").replace("http://", "").rstrip("/")
-        url = f"https://{domain}.freshdesk.com/api/v2/agents/me"
-        # Freshdesk uses API key as username with "X" as password
-        headers = {"Authorization": f"Basic {_encode_basic_auth(api_key, 'X')}"}
-
-        try:
-            with httpx.Client(timeout=10) as client:
-                response = client.get(url, headers=headers)
-                if response.status_code == 200:
-                    data = response.json()
-                    return {
-                        "success": True,
-                        "message": f"Connected to Freshdesk: {data.get('contact', {}).get('name', 'Unknown')}",
-                    }
-                else:
-                    return {"success": False, "message": f"Freshdesk API returned {response.status_code}"}
-        except Exception as e:
-            return {"success": False, "message": f"Freshdesk connection failed: {str(e)}"}
-
-    def _test_intercom(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Test Intercom API connectivity."""
-        access_token = config.get("access_token")
-
-        if not access_token:
-            return {"success": False, "message": "Missing required field: access_token"}
-
-        url = "https://api.intercom.io/me"
-        headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Accept": "application/json",
-        }
-
-        try:
-            with httpx.Client(timeout=10) as client:
-                response = client.get(url, headers=headers)
-                if response.status_code == 200:
-                    data = response.json()
-                    return {
-                        "success": True,
-                        "message": f"Connected to Intercom: {data.get('name', data.get('email', 'Unknown'))}",
-                    }
-                else:
-                    return {
-                        "success": False,
-                        "message": f"Intercom API returned {response.status_code}: {response.text[:200]}",
-                    }
-        except Exception as e:
-            return {"success": False, "message": f"Intercom connection failed: {str(e)}"}
+            return {"success": False, "message": f"{catalog_entry.name} connection failed: {str(e)}"}
 
     # ── Helpers ───────────────────────────────────────────────────
 
@@ -533,18 +383,12 @@ class IntegrationService:
 # ── Module-level Helper Functions ───────────────────────────────────
 
 
-def _encode_basic_auth(username: str, password: str) -> str:
-    """Encode credentials for Basic Auth header."""
-    import base64
-    credentials = f"{username}:{password}"
-    return base64.b64encode(credentials.encode()).decode()
-
-
 def _mask_config(config: Dict[str, Any]) -> Dict[str, Any]:
     """Mask sensitive fields in config for API responses."""
     sensitive_keys = {
         "api_key", "api_token", "token", "access_token", "secret",
         "password", "refresh_token", "bot_token", "client_secret",
+        "consumer_secret", "private_api_key", "api_secret",
     }
     masked = {}
     for key, value in config.items():

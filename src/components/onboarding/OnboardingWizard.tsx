@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ProgressIndicator } from './ProgressIndicator';
 import { LegalCompliance } from './LegalCompliance';
-import { IntegrationSetup } from './IntegrationSetup';
+import { IntegrationStep } from './IntegrationStep';
 import { KnowledgeUpload } from './KnowledgeUpload';
 import { AIConfig } from './AIConfig';
 import { FirstVictory } from './FirstVictory';
@@ -245,7 +245,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
           )}
 
           {currentStep === 3 && (
-            <IntegrationSetup onComplete={() => completeStep(3)} />
+            <IntegrationStep onNext={() => completeStep(3)} industry={industry || undefined} />
           )}
 
           {currentStep === 4 && (

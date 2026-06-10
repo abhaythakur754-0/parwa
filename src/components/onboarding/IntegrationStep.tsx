@@ -16,52 +16,42 @@ import {
   EyeOff,
   Unplug,
   AlertTriangle,
+  Zap,
+  FileJson,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { integrationsApi, onboardingApi, getErrorMessage } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Integration, IntegrationStatus } from '@/types/onboarding';
+import {
+  INTEGRATION_CATALOG,
+  CATEGORY_META,
+  getIntegrationsForIndustry,
+  mapIndustryToParwaIndustry,
+  type IntegrationDefinition,
+  type IntegrationCategory,
+} from '@/lib/integration-catalog';
+import { CustomConnectorForm } from './CustomConnectorForm';
 
-/**
- * Integration provider definition. Each provider has a unique key,
- * display name, category, icon component, and a list of credential
- * fields required for connection.
- */
-interface IntegrationProvider {
-  key: string;
-  name: string;
-  category: 'email' | 'helpdesk' | 'chat' | 'ecommerce' | 'custom';
-  icon: React.ElementType;
-  fields: { key: string; label: string; type: 'text' | 'password' }[];
-}
-
-const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
-  { key: 'gmail', name: 'Gmail', category: 'email', icon: Mail, fields: [{ key: 'api_key', label: 'OAuth Client Secret', type: 'password' }] },
-  { key: 'outlook', name: 'Outlook', category: 'email', icon: Mail, fields: [{ key: 'api_key', label: 'Application Secret', type: 'password' }] },
-  { key: 'brevo', name: 'Brevo', category: 'email', icon: Mail, fields: [{ key: 'api_key', label: 'API Key', type: 'password' }] },
-  { key: 'sendgrid', name: 'SendGrid', category: 'email', icon: Mail, fields: [{ key: 'api_key', label: 'API Key', type: 'password' }] },
-  { key: 'zendesk', name: 'Zendesk', category: 'helpdesk', icon: HeadphonesIcon, fields: [{ key: 'api_key', label: 'API Token', type: 'password' }, { key: 'subdomain', label: 'Subdomain', type: 'text' }] },
-  { key: 'intercom', name: 'Intercom', category: 'helpdesk', icon: HeadphonesIcon, fields: [{ key: 'api_key', label: 'Access Token', type: 'password' }] },
-  { key: 'freshdesk', name: 'Freshdesk', category: 'helpdesk', icon: HeadphonesIcon, fields: [{ key: 'api_key', label: 'API Key', type: 'password' }, { key: 'subdomain', label: 'Subdomain', type: 'text' }] },
-  { key: 'helpscout', name: 'HelpScout', category: 'helpdesk', icon: HeadphonesIcon, fields: [{ key: 'api_key', label: 'App ID', type: 'password' }] },
-  { key: 'slack', name: 'Slack', category: 'chat', icon: MessageSquare, fields: [{ key: 'api_key', label: 'Bot Token', type: 'password' }] },
-  { key: 'whatsapp', name: 'WhatsApp', category: 'chat', icon: MessageSquare, fields: [{ key: 'api_key', label: 'API Key', type: 'password' }, { key: 'phone_number', label: 'Phone Number ID', type: 'text' }] },
-  { key: 'discord', name: 'Discord', category: 'chat', icon: MessageSquare, fields: [{ key: 'api_key', label: 'Bot Token', type: 'password' }] },
-  { key: 'shopify', name: 'Shopify', category: 'ecommerce', icon: ShoppingBag, fields: [{ key: 'api_key', label: 'Access Token', type: 'password' }, { key: 'subdomain', label: 'Store URL', type: 'text' }] },
-  { key: 'woocommerce', name: 'WooCommerce', category: 'ecommerce', icon: ShoppingBag, fields: [{ key: 'api_key', label: 'Consumer Key', type: 'password' }, { key: 'subdomain', label: 'Store URL', type: 'text' }] },
-  { key: 'custom_api', name: 'Custom API', category: 'custom', icon: Code, fields: [{ key: 'api_key', label: 'API Key', type: 'password' }, { key: 'subdomain', label: 'Endpoint URL', type: 'text' }] },
-];
-
-const CATEGORIES = [
-  { key: 'email', label: 'Email', icon: Mail },
-  { key: 'helpdesk', label: 'Helpdesk', icon: HeadphonesIcon },
-  { key: 'chat', label: 'Chat', icon: MessageSquare },
-  { key: 'ecommerce', label: 'E-commerce', icon: ShoppingBag },
-  { key: 'custom', label: 'Custom', icon: Code },
-] as const;
+// Category icon mapping
+const CATEGORY_ICONS: Record<IntegrationCategory, React.ElementType> = {
+  crm: HeadphonesIcon,
+  ecommerce: ShoppingBag,
+  helpdesk: HeadphonesIcon,
+  communication: MessageSquare,
+  analytics: Code,
+  marketing: Mail,
+  payments: Code,
+  shipping: ShoppingBag,
+  dev_tools: Code,
+  productivity: Code,
+  custom: Code,
+};
 
 interface IntegrationStepProps {
   onNext: () => void;
+  /** Current industry from onboarding — used to filter suggested integrations */
+  industry?: string;
 }
 
 /**
@@ -74,15 +64,25 @@ interface IntegrationStepProps {
  * the connection is pending, active, or in an error state. The step
  * allows skipping with a warning about limited AI functionality.
  */
-export function IntegrationStep({ onNext }: IntegrationStepProps) {
+export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
   const [existingIntegrations, setExistingIntegrations] = useState<Integration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Get industry-filtered integrations from the unified catalog
+  const parwaIndustry = industry ? mapIndustryToParwaIndustry(industry) : 'other';
+  const filteredCatalog = getIntegrationsForIndustry(parwaIndustry);
+
+  // Group by category in display order
+  const orderedCategories = Object.entries(CATEGORY_META)
+    .filter(([key]) => filteredCatalog.some((i) => i.category === key))
+    .sort(([, a], [, b]) => a.order - b.order);
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
   const [formValues, setFormValues] = useState<Record<string, Record<string, string>>>({});
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [connectingProvider, setConnectingProvider] = useState<string | null>(null);
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
   const [showSkipWarning, setShowSkipWarning] = useState(false);
+  const [showCustomForm, setShowCustomForm] = useState<'custom' | 'openapi' | null>(null);
 
   useEffect(() => {
     async function loadIntegrations() {
@@ -106,19 +106,20 @@ export function IntegrationStep({ onNext }: IntegrationStepProps) {
     [existingIntegrations]
   );
 
-  const handleConnect = async (provider: IntegrationProvider) => {
+  const handleConnect = async (provider: IntegrationDefinition) => {
     const values = formValues[provider.key] || {};
-    const hasValues = provider.fields.some((f) => values[f.key]?.trim());
-    if (!hasValues) {
-      toast.error('Please fill in the required credentials');
+    const requiredFields = provider.authSchema.fields.filter((f) => f.required);
+    const hasAllRequired = requiredFields.every((f) => values[f.name]?.trim());
+    if (!hasAllRequired) {
+      toast.error('Please fill in all required credentials');
       return;
     }
 
     setConnectingProvider(provider.key);
     try {
       const config: Record<string, unknown> = {};
-      provider.fields.forEach((f) => {
-        config[f.key] = values[f.key] || '';
+      provider.authSchema.fields.forEach((f) => {
+        config[f.name] = values[f.name] || '';
       });
 
       await integrationsApi.create({
@@ -188,24 +189,23 @@ export function IntegrationStep({ onNext }: IntegrationStepProps) {
         </p>
       </div>
 
-      {/* Integration categories */}
+      {/* Integration categories — filtered by industry */}
       <div className="space-y-8">
-        {CATEGORIES.map((category) => {
-          const providers = INTEGRATION_PROVIDERS.filter((p) => p.category === category.key);
-          const CatIcon = category.icon;
+        {orderedCategories.map(([catKey, catMeta]) => {
+          const providers = filteredCatalog.filter((p) => p.category === catKey);
+          const CatIcon = CATEGORY_ICONS[catKey as IntegrationCategory] || Code;
 
           return (
-            <div key={category.key}>
+            <div key={catKey}>
               <div className="flex items-center gap-2 mb-3">
                 <CatIcon className="w-4 h-4 text-orange-400" />
                 <h3 className="text-sm font-semibold text-orange-200/60 uppercase tracking-wider">
-                  {category.label}
+                  {catMeta.label}
                 </h3>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {providers.map((provider) => {
-                  const ProviderIcon = provider.icon;
                   const status = getIntegrationStatus(provider.key);
                   const isExpanded = expandedProvider === provider.key;
                   const isConnecting = connectingProvider === provider.key;
@@ -222,8 +222,8 @@ export function IntegrationStep({ onNext }: IntegrationStepProps) {
                       {/* Provider card (collapsed) */}
                       <div className="p-4 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
-                            <ProviderIcon className="w-4 h-4 text-orange-300/70" />
+                          <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br', provider.colorGradient)}>
+                            <span className="text-white text-xs font-bold">{provider.name.charAt(0)}</span>
                           </div>
                           <span className="text-sm font-medium text-white truncate">
                             {provider.name}
@@ -259,29 +259,31 @@ export function IntegrationStep({ onNext }: IntegrationStepProps) {
                         </button>
                       </div>
 
-                      {/* Expanded inline form */}
+                      {/* Expanded inline form — uses catalog authSchema fields */}
                       {isExpanded && (
                         <div className="px-4 pb-4 border-t border-white/5 pt-4">
+                          <p className="text-xs text-orange-200/40 mb-3">{provider.description}</p>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {provider.fields.map((field) => (
-                              <div key={field.key}>
+                            {provider.authSchema.fields.map((field) => (
+                              <div key={field.name}>
                                 <label className="label-parwa text-xs">
                                   {field.label}
+                                  {field.required && <span className="text-red-400 ml-1">*</span>}
                                 </label>
                                 <div className="relative">
                                   <input
-                                    type={field.type === 'password' && !showPasswords[`${provider.key}-${field.key}`] ? 'password' : 'text'}
-                                    value={formValues[provider.key]?.[field.key] || ''}
+                                    type={field.type === 'password' && !showPasswords[`${provider.key}-${field.name}`] ? 'password' : 'text'}
+                                    value={formValues[provider.key]?.[field.name] || ''}
                                     onChange={(e) =>
                                       setFormValues((prev) => ({
                                         ...prev,
                                         [provider.key]: {
                                           ...prev[provider.key],
-                                          [field.key]: e.target.value,
+                                          [field.name]: e.target.value,
                                         },
                                       }))
                                     }
-                                    placeholder={field.label}
+                                    placeholder={field.placeholder || field.label}
                                     className="input-parwa text-sm"
                                   />
                                   {field.type === 'password' && (
@@ -290,12 +292,12 @@ export function IntegrationStep({ onNext }: IntegrationStepProps) {
                                       onClick={() =>
                                         setShowPasswords((prev) => ({
                                           ...prev,
-                                          [`${provider.key}-${field.key}`]: !prev[`${provider.key}-${field.key}`],
+                                          [`${provider.key}-${field.name}`]: !prev[`${provider.key}-${field.name}`],
                                         }))
                                       }
                                       className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
                                     >
-                                      {showPasswords[`${provider.key}-${field.key}`] ? (
+                                      {showPasswords[`${provider.key}-${field.name}`] ? (
                                         <EyeOff className="w-4 h-4" />
                                       ) : (
                                         <Eye className="w-4 h-4" />
@@ -352,6 +354,40 @@ export function IntegrationStep({ onNext }: IntegrationStepProps) {
           );
         })}
       </div>
+
+      {/* Custom Connector & OpenAPI Import */}
+      {!showCustomForm ? (
+        <div className="mt-8 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowCustomForm('custom')}
+            className="flex items-center gap-2 py-2.5 px-4 rounded-xl border border-dashed border-white/10 text-sm text-white/40 hover:text-white/60 hover:border-white/20 transition-colors"
+          >
+            <Zap className="w-4 h-4" />
+            Add Custom REST Connector
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCustomForm('openapi')}
+            className="flex items-center gap-2 py-2.5 px-4 rounded-xl border border-dashed border-white/10 text-sm text-white/40 hover:text-white/60 hover:border-white/20 transition-colors"
+          >
+            <FileJson className="w-4 h-4" />
+            Import OpenAPI Spec
+          </button>
+        </div>
+      ) : (
+        <div className="mt-8">
+          <CustomConnectorForm
+            mode={showCustomForm}
+            onSaved={async () => {
+              setShowCustomForm(null);
+              const updated = await integrationsApi.list();
+              setExistingIntegrations(Array.isArray(updated) ? updated : []);
+            }}
+            onClose={() => setShowCustomForm(null)}
+          />
+        </div>
+      )}
 
       {/* Action buttons */}
       <div className="mt-10 flex items-center justify-center gap-3">
