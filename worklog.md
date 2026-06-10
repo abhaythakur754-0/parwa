@@ -43,3 +43,34 @@ Stage Summary:
 - Contains full project context (tech stack, directories, known issues, working state)
 - Pushed to GitHub main branch (commit ced529c)
 - GitHub reported 63 vulnerabilities on default branch (2 critical, 23 high, 34 moderate, 4 low)
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Fix API path consistency + unified HTTP client (BC-006 foundation)
+
+Work Log:
+- Audited ALL frontend API patterns: found 6 different URL resolution patterns, 5 cookie extraction patterns, mixed /api/ and /api/v1/ prefixes
+- Created src/lib/bff-proxy.ts shared utility with: getProxyOrigin(), getBearerToken(), buildProxyHeaders(), proxyToBackend()
+- Replaced 8 inline getBackendUrl() definitions in BFF routes with import from @/lib/backend-url
+- Replaced 5 different cookie extraction regex patterns with centralized getAccessTokenFromCookies()
+- Fixed voice/[...path]/route.ts to use getBackendUrl() instead of unique NEXT_PUBLIC_BACKEND_URL env var
+- Added Origin + Authorization header forwarding to voice proxy (was missing auth)
+- Fixed MFA path mismatch: settings page was calling /api/v1/auth/mfa/setup directly instead of /api/mfa/setup BFF proxy
+- Refactored 4 catch-all BFF routes (v1, ai, billing, approvals) to use proxyToBackend() — reduced each from ~120 lines to ~42 lines
+- Fixed auth routes (verify-otp, verify-email, reset-password, forgot-password) to use getBackendUrl()
+- Fixed system/health and health routes to use getBackendUrl()
+- Fixed analytics routes to use getBearerToken() and getProxyOrigin() from shared helper
+- Added 15 unit tests for bff-proxy.ts — all passing
+- Verified next build compiles with zero errors
+- Pushed to main (commit ab64398)
+
+Stage Summary:
+- BEFORE: 6 different URL resolution patterns, 5 cookie extraction patterns across 12+ files
+- AFTER: Single getBackendUrl() for URLs, single getAccessTokenFromCookies() for auth, single bff-proxy.ts for proxy logic
+- Files simplified: v1 (-65%), ai (-65%), billing (-63%), approvals (-63%)
+- Bug fixed: MFA setup in settings page was hitting wrong API path
+- Bug fixed: Voice proxy was missing auth token forwarding
+- Build proof: next build succeeds
+- Test proof: 15/15 new tests pass, 336/338 existing tests pass (2 pre-existing failures unrelated)
+- BC-006 compliance: All BFF routes now use consistent path prefixes
