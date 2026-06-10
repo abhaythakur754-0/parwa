@@ -92,58 +92,164 @@ def clear_llm_cache() -> None:
     _llm_cache.clear()
 
 
-def invoke_llm(prompt: str, model: str = "gpt-4o-mini", temperature: float = 0.1) -> str:
-    """High-level sync LLM invocation with retry, rate limiting, and error handling.
+# ─── TurboQuant Token Tracking Helpers ─────────────────────────────────────────────
+
+# Rough estimate: 1 token ≈ 4 characters for English text
+_CHARS_PER_TOKEN = 4
+
+
+def _estimate_tokens(text: str) -> int:
+    """Estimate token count from text length (rough approximation)."""
+    return max(1, len(text) // _CHARS_PER_TOKEN)
+
+
+def _track_mock_usage(
+    ticket_id: str, node_name: str, variant: str,
+    prompt: str, response: str, model: str,
+) -> None:
+    """Track token usage for mock LLM calls (estimated tokens)."""
+    try:
+        from parwa.turboquant.token_tracker import get_token_tracker
+        tracker = get_token_tracker()
+        prompt_tokens = _estimate_tokens(prompt)
+        completion_tokens = _estimate_tokens(response)
+        tracker.record(
+            ticket_id=ticket_id or "UNKNOWN",
+            node_name=node_name or "unknown",
+            variant=variant or "parwa",
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            model=model,
+        )
+    except Exception:
+        # Never let tracking break the pipeline
+        pass
+
+
+def _track_response_usage(
+    ticket_id: str, node_name: str, variant: str,
+    response: Any, model: str,
+) -> None:
+    """Track token usage from real LLM response metadata."""
+    try:
+        from parwa.turboquant.token_tracker import get_token_tracker
+        tracker = get_token_tracker()
+
+        # Try to get actual token counts from response metadata
+        prompt_tokens = 0
+        completion_tokens = 0
+
+        if hasattr(response, 'usage_metadata') and response.usage_metadata:
+            prompt_tokens = response.usage_metadata.get('input_tokens', 0)
+            completion_tokens = response.usage_metadata.get('output_tokens', 0)
+        elif hasattr(response, 'response_metadata'):
+            meta = response.response_metadata
+            if 'token_usage' in meta:
+                usage = meta['token_usage']
+                prompt_tokens = usage.get('prompt_tokens', 0)
+                completion_tokens = usage.get('completion_tokens', 0)
+
+        # Fallback to estimation if no metadata available
+        if prompt_tokens == 0 and completion_tokens == 0:
+            text = response.content if hasattr(response, 'content') else str(response)
+            prompt_tokens = 50  # rough estimate for prompt
+            completion_tokens = _estimate_tokens(text)
+
+        tracker.record(
+            ticket_id=ticket_id or "UNKNOWN",
+            node_name=node_name or "unknown",
+            variant=variant or "parwa",
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            model=model,
+        )
+    except Exception:
+        # Never let tracking break the pipeline
+        pass
+
+
+def invoke_llm(
+    prompt: str,
+    model: str = "gpt-4o-mini",
+    temperature: float = 0.1,
+    *,
+    node_name: str = "",
+    ticket_id: str = "",
+    variant: str = "parwa",
+) -> str:
+    """High-level sync LLM invocation with retry, rate limiting, and TurboQuant tracking.
 
     This is the recommended way to call LLMs in sync PARWA nodes.
     In MOCK_MODE, returns deterministic responses from MockLLM.
+    Automatically tracks token usage via TurboQuant.
 
     Args:
         prompt: The prompt to send.
         model: The model name to use.
         temperature: Sampling temperature.
+        node_name: Calling node name (for TurboQuant budget tracking).
+        ticket_id: Current ticket ID (for TurboQuant tracking).
+        variant: Current variant (for TurboQuant budget allocation).
 
     Returns:
         The LLM response as a string.
     """
     if MOCK_MODE:
         mock = get_mock_llm()
-        return mock.invoke(prompt)
+        text = mock.invoke(prompt)
+        _track_mock_usage(ticket_id, node_name, variant, prompt, text, model)
+        return text
 
     try:
         llm = get_llm(model=model, temperature=temperature)
         response = _invoke_llm(llm, prompt)
         text = response.content if hasattr(response, "content") else str(response)
         logger.debug("invoke_llm: prompt_len=%d response_len=%d", len(prompt), len(text))
+        _track_response_usage(ticket_id, node_name, variant, response, model)
         return text
     except Exception as exc:
         logger.error("invoke_llm: LLM call failed: %s", exc)
         raise
 
 
-async def ainvoke_llm(prompt: str, model: str = "gpt-4o-mini", temperature: float = 0.1) -> str:
-    """High-level async LLM invocation with retry, rate limiting, and error handling.
+async def ainvoke_llm(
+    prompt: str,
+    model: str = "gpt-4o-mini",
+    temperature: float = 0.1,
+    *,
+    node_name: str = "",
+    ticket_id: str = "",
+    variant: str = "parwa",
+) -> str:
+    """High-level async LLM invocation with retry, rate limiting, and TurboQuant tracking.
 
     This is the recommended way to call LLMs in async PARWA nodes.
     In MOCK_MODE, returns deterministic responses from MockLLM.
+    Automatically tracks token usage via TurboQuant.
 
     Args:
         prompt: The prompt to send.
         model: The model name to use.
         temperature: Sampling temperature.
+        node_name: Calling node name (for TurboQuant budget tracking).
+        ticket_id: Current ticket ID (for TurboQuant tracking).
+        variant: Current variant (for TurboQuant budget allocation).
 
     Returns:
         The LLM response as a string.
     """
     if MOCK_MODE:
         mock = get_mock_llm()
-        return mock.invoke(prompt)
+        text = mock.invoke(prompt)
+        _track_mock_usage(ticket_id, node_name, variant, prompt, text, model)
+        return text
 
     try:
         llm = get_llm(model=model, temperature=temperature)
         response = await _ainvoke_llm(llm, prompt)
         text = response.content if hasattr(response, "content") else str(response)
         logger.debug("ainvoke_llm: prompt_len=%d response_len=%d", len(prompt), len(text))
+        _track_response_usage(ticket_id, node_name, variant, response, model)
         return text
     except Exception as exc:
         logger.error("ainvoke_llm: LLM call failed: %s", exc)

@@ -179,6 +179,12 @@ class TicketState(BaseModel):
     pipeline_errors: list[dict[str, Any]] = Field(default_factory=list)
     node_error: dict[str, Any] | None = None
 
+    # ─── TurboQuant token tracking ─────────────────────────
+    token_budget_total: int = 0
+    token_budget_used: int = 0
+    token_budget_remaining: int = 0
+    token_usage_by_node: dict[str, dict[str, Any]] = Field(default_factory=dict)
+
     model_config = ConfigDict(use_enum_values=True, extra="allow")
 
 
