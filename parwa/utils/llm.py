@@ -41,9 +41,13 @@ def _invoke_llm(llm: BaseChatModel, prompt: str | list) -> Any:
 
     Returns:
         The LLM response.
+
+    Raises:
+        TimeoutError: If rate limiter times out waiting for a token.
     """
     limiter = get_llm_rate_limiter()
-    limiter.acquire(timeout=30.0)
+    if not limiter.acquire(timeout=30.0):
+        raise TimeoutError("LLM rate limiter timeout — too many concurrent requests")
     return llm.invoke(prompt)
 
 
@@ -60,9 +64,13 @@ async def _ainvoke_llm(llm: BaseChatModel, prompt: str | list) -> Any:
 
     Returns:
         The LLM response.
+
+    Raises:
+        TimeoutError: If rate limiter times out waiting for a token.
     """
     limiter = get_llm_rate_limiter()
-    await limiter.async_acquire(timeout=30.0)
+    if not await limiter.async_acquire(timeout=30.0):
+        raise TimeoutError("LLM rate limiter timeout — too many concurrent requests")
     return await llm.ainvoke(prompt)
 
 

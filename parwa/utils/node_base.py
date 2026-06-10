@@ -85,37 +85,76 @@ def _build_error_result(
 
     This is shared between sync and async wrappers so both
     produce identical error tracking behavior.
+
+    Protected by its own try/except to ensure it never raises,
+    even if state is corrupted or fallback is invalid.
     """
-    tb = traceback.format_exc()
+    try:
+        tb = traceback.format_exc()
 
-    logger.error(
-        "node=%s ticket=%s status=FAILED elapsed=%.3fs "
-        "error_type=%s error=%s\n%s",
-        node_name, state.get("ticket_id", "UNKNOWN"), elapsed,
-        type(exc).__name__, str(exc), tb,
-    )
+        # Safely extract ticket_id from state
+        try:
+            ticket_id = state.get("ticket_id", "UNKNOWN") if isinstance(state, dict) else "UNKNOWN"
+        except Exception:
+            ticket_id = "UNKNOWN"
 
-    # Build error-safe result
-    error_result = dict(fallback) if fallback else {}
-    error_result["node_error"] = {
-        "node": node_name,
-        "error_type": type(exc).__name__,
-        "error_message": str(exc),
-        "traceback": tb,
-        "elapsed_seconds": elapsed,
-    }
+        logger.error(
+            "node=%s ticket=%s status=FAILED elapsed=%.3fs "
+            "error_type=%s error=%s\n%s",
+            node_name, ticket_id, elapsed,
+            type(exc).__name__, str(exc), tb,
+        )
 
-    # Track errors in state for debugging
-    existing_errors = state.get("pipeline_errors", [])
-    error_result["pipeline_errors"] = existing_errors + [
-        {
+        # Build error-safe result — use deep copy of fallback to avoid mutation
+        try:
+            import copy
+            error_result = copy.deepcopy(fallback) if fallback else {}
+        except Exception:
+            error_result = {}
+
+        error_result["node_error"] = {
             "node": node_name,
-            "error": str(exc),
             "error_type": type(exc).__name__,
+            "error_message": str(exc),
+            "traceback": tb,
+            "elapsed_seconds": elapsed,
         }
-    ]
 
-    return error_result
+        # Track errors in state for debugging
+        # The graph's merge reducer now concatenates lists, so we only
+        # return the NEW error — the reducer handles accumulation.
+        error_result["pipeline_errors"] = [
+            {
+                "node": node_name,
+                "error": str(exc),
+                "error_type": type(exc).__name__,
+            }
+        ]
+
+        return error_result
+
+    except Exception as inner_exc:
+        # Last resort — if _build_error_result itself fails, return a minimal safe dict
+        logger.critical(
+            "node=%s _build_error_result FAILED: %s — returning minimal error result",
+            node_name, inner_exc,
+        )
+        return {
+            "node_error": {
+                "node": node_name,
+                "error_type": "ErrorBuilderFailed",
+                "error_message": f"Original: {exc}; Builder: {inner_exc}",
+                "traceback": "",
+                "elapsed_seconds": elapsed,
+            },
+            "pipeline_errors": [
+                {
+                    "node": node_name,
+                    "error": f"Original: {exc}; Builder: {inner_exc}",
+                    "error_type": "ErrorBuilderFailed",
+                }
+            ],
+        }
 
 
 def safe_node(

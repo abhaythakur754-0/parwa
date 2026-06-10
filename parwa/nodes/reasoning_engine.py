@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
+from parwa.utils.llm import MOCK_MODE, get_mock_llm, ainvoke_llm
 from parwa.utils.node_base import safe_node
 
 logger = logging.getLogger("parwa.node.reasoning_engine")
@@ -67,20 +67,13 @@ async def _reason_llm(
     faq_match: dict | None,
     kb_results: list[dict],
     integration_data: dict,
+    ticket_id: str = "",
+    variant: str = "parwa",
 ) -> tuple[list[str], str]:
-    """Reason using LLM chain of thought (async). Returns (chain, conclusion)."""
-    if MOCK_MODE:
-        mock = get_mock_llm()
-        response = await mock.ainvoke(f"Reason about: {message}")
-        # Parse mock response into chain
-        chain = [step.strip() for step in response.split("Step ") if step.strip()]
-        if not chain:
-            chain = [response]
-        # Last line is conclusion
-        conclusion = chain[-1].replace("Conclusion: ", "") if chain else "Analysis complete."
-        return chain, conclusion
+    """Reason using LLM chain of thought (async). Returns (chain, conclusion).
 
-    llm = get_llm()
+    Uses ainvoke_llm() for automatic retry + rate limiting.
+    """
     evidence_parts = []
     if faq_match:
         evidence_parts.append(f"FAQ: {faq_match.get('content', '')}")
@@ -97,8 +90,12 @@ async def _reason_llm(
         f"Evidence:\n{evidence}\n\n"
         f"Provide a step-by-step reasoning chain, ending with: Conclusion: <your conclusion>"
     )
-    response = await llm.ainvoke(prompt)
-    text = response.content if hasattr(response, "content") else str(response)
+    text = await ainvoke_llm(
+        prompt,
+        node_name="REASONING_ENGINE",
+        ticket_id=ticket_id,
+        variant=variant,
+    )
     chain = [line.strip() for line in text.strip().split("\n") if line.strip()]
     conclusion = ""
     for line in chain:
@@ -137,7 +134,9 @@ async def reasoning_engine(state: dict[str, Any]) -> dict[str, Any]:
     if not MOCK_MODE:
         try:
             llm_chain, llm_conclusion = await _reason_llm(
-                raw_message, intent, faq_match, kb_results, integration_data
+                raw_message, intent, faq_match, kb_results, integration_data,
+                ticket_id=state.get("ticket_id", ""),
+                variant=state.get("variant", "parwa"),
             )
             # Use LLM result if it produced a conclusion
             if llm_conclusion:

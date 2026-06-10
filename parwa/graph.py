@@ -35,16 +35,35 @@ from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 
 from parwa.state import validate_state
+from parwa.utils.node_base import safe_node
 
 logger = logging.getLogger("parwa.graph")
 
 
+# Keys that should be APPENDED (concatenated) across nodes
+# All other list keys use REPLACE semantics (node returns the full list)
+_APPEND_KEYS = frozenset({
+    "pipeline_errors",     # errors accumulate across nodes
+    "active_frameworks",   # frameworks activated accumulate
+    "reasoning_chain",     # reasoning steps accumulate
+})
+
+
 def _merge_dicts(left: dict, right: dict) -> dict:
     """Reducer function that merges right dict into left dict.
-    This ensures state accumulates across nodes instead of being replaced.
+
+    For keys in _APPEND_KEYS, lists are concatenated instead of replaced.
+    All other keys use standard replacement semantics.
+    This ensures pipeline_errors accumulate without duplication,
+    while nodes that manage their own lists (context_history, audit_log)
+    can return the complete list without double-counting.
     """
     merged = dict(left)
-    merged.update(right)
+    for k, v in right.items():
+        if k in _APPEND_KEYS and isinstance(v, list) and isinstance(merged.get(k), list):
+            merged[k] = merged[k] + v
+        else:
+            merged[k] = v
     return merged
 
 
@@ -190,9 +209,14 @@ def _after_quality_scorer(state: dict[str, Any]) -> str:
 
 # ─── Loop-back handler ────────────────────────────────────────────────────────────
 
+@safe_node("LOOP_BACK_HANDLER", fallback={"loop_count": 1, "should_loop_back": False})
 async def _handle_loop_back(state: dict[str, Any]) -> dict[str, Any]:
     """Increment loop counter when looping back to reasoning (async)."""
     loop_count = state.get("loop_count", 0)
+    # Guard: ensure loop_count is numeric
+    if not isinstance(loop_count, (int, float)):
+        loop_count = 0
+    loop_count = int(loop_count)
     logger.info("loop_back_handler: incrementing loop_count %d→%d", loop_count, loop_count + 1)
     return {"loop_count": loop_count + 1, "should_loop_back": False}
 
@@ -522,7 +546,16 @@ async def aprocess_ticket(
         logger.warning("aprocess_ticket: input validation issues: %s", issues)
 
     config = _make_thread_config(thread_id)
-    result = await graph.ainvoke(initial_state, config=config)
+
+    try:
+        result = await graph.ainvoke(initial_state, config=config)
+    except Exception as exc:
+        logger.error("aprocess_ticket: graph.ainvoke failed: %s", exc, exc_info=True)
+        return {
+            "error": f"Pipeline execution failed: {exc}",
+            "final_response": "We apologize, but an internal error occurred while processing your request. A human agent will follow up shortly.",
+            "pipeline_errors": [{"node": "graph_engine", "error": str(exc), "error_type": type(exc).__name__}],
+        }
 
     # Validate output
     is_valid, issues = validate_state(result)

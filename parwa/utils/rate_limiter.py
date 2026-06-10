@@ -142,12 +142,27 @@ def get_llm_rate_limiter() -> RateLimiter:
 
     Default: 60 requests per minute (1 per second) with burst of 10.
     Configurable via PARWA_LLM_RATE and PARWA_LLM_PERIOD env vars.
+    Invalid env var values are silently ignored with a warning log.
     """
     global _llm_limiter
     if _llm_limiter is None:
         import os
-        rate = float(os.getenv("PARWA_LLM_RATE", "60"))
-        period = float(os.getenv("PARWA_LLM_PERIOD", "60"))
+        rate = 60.0
+        period = 60.0
+        try:
+            rate = float(os.getenv("PARWA_LLM_RATE", "60"))
+        except (ValueError, TypeError) as exc:
+            import logging
+            logging.getLogger("parwa.rate_limiter").warning(
+                "Invalid PARWA_LLM_RATE env var, using default 60: %s", exc,
+            )
+        try:
+            period = float(os.getenv("PARWA_LLM_PERIOD", "60"))
+        except (ValueError, TypeError) as exc:
+            import logging
+            logging.getLogger("parwa.rate_limiter").warning(
+                "Invalid PARWA_LLM_PERIOD env var, using default 60: %s", exc,
+            )
         _llm_limiter = RateLimiter(rate=rate, period=period, capacity=10)
     return _llm_limiter
 
@@ -157,11 +172,26 @@ def get_api_rate_limiter() -> RateLimiter:
 
     Default: 120 requests per minute (2 per second) with burst of 20.
     Configurable via PARWA_API_RATE and PARWA_API_PERIOD env vars.
+    Invalid env var values are silently ignored with a warning log.
     """
     global _api_limiter
     if _api_limiter is None:
         import os
-        rate = float(os.getenv("PARWA_API_RATE", "120"))
-        period = float(os.getenv("PARWA_API_PERIOD", "60"))
+        rate = 120.0
+        period = 60.0
+        try:
+            rate = float(os.getenv("PARWA_API_RATE", "120"))
+        except (ValueError, TypeError) as exc:
+            import logging
+            logging.getLogger("parwa.rate_limiter").warning(
+                "Invalid PARWA_API_RATE env var, using default 120: %s", exc,
+            )
+        try:
+            period = float(os.getenv("PARWA_API_PERIOD", "60"))
+        except (ValueError, TypeError) as exc:
+            import logging
+            logging.getLogger("parwa.rate_limiter").warning(
+                "Invalid PARWA_API_PERIOD env var, using default 60: %s", exc,
+            )
         _api_limiter = RateLimiter(rate=rate, period=period, capacity=20)
     return _api_limiter
