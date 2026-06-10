@@ -1,11 +1,12 @@
 """Rate limiter for PARWA LLM and API calls.
 
 Token bucket rate limiter to prevent overwhelming external APIs.
-Thread-safe implementation for concurrent ticket processing.
+Thread-safe and async-safe implementation for concurrent ticket processing.
 """
 
 from __future__ import annotations
 
+import asyncio
 import threading
 import time
 from typing import Any
@@ -16,6 +17,8 @@ class RateLimiter:
 
     Allows up to `rate` requests per `period` seconds.
     Bursts up to `capacity` requests are allowed, then throttled.
+
+    Supports both sync (acquire) and async (async_acquire) operations.
 
     Example:
         limiter = RateLimiter(rate=10, period=60)  # 10 requests per minute
@@ -52,7 +55,7 @@ class RateLimiter:
         self._last_refill = now
 
     def acquire(self, timeout: float | None = None) -> bool:
-        """Acquire a token, blocking if necessary.
+        """Acquire a token, blocking if necessary (sync).
 
         Args:
             timeout: Maximum time to wait in seconds. None = wait forever.
@@ -77,6 +80,36 @@ class RateLimiter:
 
             wait_time = min(0.1, self.period / self.rate) if self.rate > 0 else 0.1
             time.sleep(wait_time)
+
+    async def async_acquire(self, timeout: float | None = None) -> bool:
+        """Acquire a token, async-waiting if necessary (async).
+
+        Non-blocking alternative to acquire() for async code.
+        Uses asyncio.sleep instead of time.sleep to avoid blocking the event loop.
+
+        Args:
+            timeout: Maximum time to wait in seconds. None = wait forever.
+
+        Returns:
+            True if token acquired, False if timed out.
+        """
+        deadline = None
+        if timeout is not None:
+            deadline = time.monotonic() + timeout
+
+        while True:
+            with self._lock:
+                self._refill()
+                if self._tokens >= 1.0:
+                    self._tokens -= 1.0
+                    return True
+
+            # No token available — async wait to avoid blocking event loop
+            if deadline is not None and time.monotonic() >= deadline:
+                return False
+
+            wait_time = min(0.1, self.period / self.rate) if self.rate > 0 else 0.1
+            await asyncio.sleep(wait_time)
 
     def try_acquire(self) -> bool:
         """Try to acquire a token without blocking.

@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import Any
 
 from parwa.state import ProactiveInsight
-from parwa.utils.llm import MOCK_MODE, get_mock_llm
 from parwa.utils.node_base import safe_node
 
 
@@ -64,8 +63,8 @@ def _check_proactive_rule_based(intent: str, integration_data: dict) -> list[dic
 
 
 @safe_node("PROACTIVE_CHECKER")
-def proactive_checker(state: dict[str, Any]) -> dict[str, Any]:
-    """Anticipate what the customer might ask next.
+async def proactive_checker(state: dict[str, Any]) -> dict[str, Any]:
+    """Anticipate what the customer might ask next (async).
 
     Reads: intent, integration_data
     Writes: proactive_insights

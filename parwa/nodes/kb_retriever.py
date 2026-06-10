@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import Any
 
 from parwa.state import KnowledgeResult
-from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
 from parwa.utils.node_base import safe_node
 
 
@@ -64,8 +63,8 @@ def _retrieve_kb_rule_based(message: str, intent: str) -> list[dict[str, Any]]:
 
 
 @safe_node("KB_RETRIEVER")
-def kb_retriever(state: dict[str, Any]) -> dict[str, Any]:
-    """Search the knowledge base for relevant documents.
+async def kb_retriever(state: dict[str, Any]) -> dict[str, Any]:
+    """Search the knowledge base for relevant documents (async).
 
     Reads: raw_message, intent
     Writes: kb_results

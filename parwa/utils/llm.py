@@ -4,8 +4,8 @@ Uses LangChain's ChatOpenAI for LLM interactions.
 For development/testing, supports mock mode.
 
 Production features:
-- Retry with exponential backoff on LLM failures
-- Rate limiting to prevent API overload
+- Retry with exponential backoff on LLM failures (sync + async)
+- Rate limiting to prevent API overload (sync + async)
 - Async support for concurrent ticket processing
 - Structured logging for all LLM calls
 """
@@ -20,7 +20,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 
 from parwa.utils.rate_limiter import get_llm_rate_limiter
-from parwa.utils.retry import retry_with_backoff
+from parwa.utils.retry import retry_with_backoff, async_retry_with_backoff
 
 logger = logging.getLogger("parwa.llm")
 
@@ -33,7 +33,7 @@ MOCK_MODE = os.getenv("PARWA_MOCK_MODE", "true").lower() == "true"
 
 @retry_with_backoff(max_retries=3, base_delay=1.0, retryable_exceptions=(ConnectionError, TimeoutError, OSError))
 def _invoke_llm(llm: BaseChatModel, prompt: str | list) -> Any:
-    """Invoke LLM with retry and rate limiting.
+    """Invoke LLM with retry and rate limiting (sync).
 
     Args:
         llm: The LLM instance.
@@ -45,6 +45,25 @@ def _invoke_llm(llm: BaseChatModel, prompt: str | list) -> Any:
     limiter = get_llm_rate_limiter()
     limiter.acquire(timeout=30.0)
     return llm.invoke(prompt)
+
+
+@async_retry_with_backoff(max_retries=3, base_delay=1.0, retryable_exceptions=(ConnectionError, TimeoutError, OSError))
+async def _ainvoke_llm(llm: BaseChatModel, prompt: str | list) -> Any:
+    """Invoke LLM with retry and rate limiting (async).
+
+    Non-blocking version of _invoke_llm for async nodes.
+    Uses ainvoke and async_acquire to avoid blocking the event loop.
+
+    Args:
+        llm: The LLM instance.
+        prompt: The prompt to send.
+
+    Returns:
+        The LLM response.
+    """
+    limiter = get_llm_rate_limiter()
+    await limiter.async_acquire(timeout=30.0)
+    return await llm.ainvoke(prompt)
 
 
 def get_llm(model: str = "gpt-4o-mini", temperature: float = 0.1) -> BaseChatModel:
@@ -74,9 +93,9 @@ def clear_llm_cache() -> None:
 
 
 def invoke_llm(prompt: str, model: str = "gpt-4o-mini", temperature: float = 0.1) -> str:
-    """High-level LLM invocation with retry, rate limiting, and error handling.
+    """High-level sync LLM invocation with retry, rate limiting, and error handling.
 
-    This is the recommended way to call LLMs in PARWA nodes.
+    This is the recommended way to call LLMs in sync PARWA nodes.
     In MOCK_MODE, returns deterministic responses from MockLLM.
 
     Args:
@@ -102,10 +121,40 @@ def invoke_llm(prompt: str, model: str = "gpt-4o-mini", temperature: float = 0.1
         raise
 
 
+async def ainvoke_llm(prompt: str, model: str = "gpt-4o-mini", temperature: float = 0.1) -> str:
+    """High-level async LLM invocation with retry, rate limiting, and error handling.
+
+    This is the recommended way to call LLMs in async PARWA nodes.
+    In MOCK_MODE, returns deterministic responses from MockLLM.
+
+    Args:
+        prompt: The prompt to send.
+        model: The model name to use.
+        temperature: Sampling temperature.
+
+    Returns:
+        The LLM response as a string.
+    """
+    if MOCK_MODE:
+        mock = get_mock_llm()
+        return mock.invoke(prompt)
+
+    try:
+        llm = get_llm(model=model, temperature=temperature)
+        response = await _ainvoke_llm(llm, prompt)
+        text = response.content if hasattr(response, "content") else str(response)
+        logger.debug("ainvoke_llm: prompt_len=%d response_len=%d", len(prompt), len(text))
+        return text
+    except Exception as exc:
+        logger.error("ainvoke_llm: LLM call failed: %s", exc)
+        raise
+
+
 class MockLLM:
     """Mock LLM for testing without API calls.
 
     Returns deterministic responses based on the input prompt.
+    Works in both sync and async contexts.
     """
 
     def invoke(self, prompt: str | list, **kwargs: Any) -> str:
@@ -197,6 +246,10 @@ class MockLLM:
 
         # Default response
         return "Analysis complete. No specific pattern matched."
+
+    async def ainvoke(self, prompt: str | list, **kwargs: Any) -> str:
+        """Async mock — returns same deterministic response as invoke."""
+        return self.invoke(prompt, **kwargs)
 
 
 # Singleton mock instance

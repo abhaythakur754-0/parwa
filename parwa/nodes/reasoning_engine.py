@@ -58,17 +58,17 @@ def _reason_rule_based(
     return chain, conclusion
 
 
-def _reason_llm(
+async def _reason_llm(
     message: str,
     intent: str,
     faq_match: dict | None,
     kb_results: list[dict],
     integration_data: dict,
 ) -> tuple[list[str], str]:
-    """Reason using LLM chain of thought. Returns (chain, conclusion)."""
+    """Reason using LLM chain of thought (async). Returns (chain, conclusion)."""
     if MOCK_MODE:
         mock = get_mock_llm()
-        response = mock.invoke(f"Reason about: {message}")
+        response = await mock.ainvoke(f"Reason about: {message}")
         # Parse mock response into chain
         chain = [step.strip() for step in response.split("Step ") if step.strip()]
         if not chain:
@@ -94,7 +94,7 @@ def _reason_llm(
         f"Evidence:\n{evidence}\n\n"
         f"Provide a step-by-step reasoning chain, ending with: Conclusion: <your conclusion>"
     )
-    response = llm.invoke(prompt)
+    response = await llm.ainvoke(prompt)
     text = response.content if hasattr(response, "content") else str(response)
     chain = [line.strip() for line in text.strip().split("\n") if line.strip()]
     conclusion = ""
@@ -108,8 +108,8 @@ def _reason_llm(
 
 
 @safe_node("REASONING_ENGINE")
-def reasoning_engine(state: dict[str, Any]) -> dict[str, Any]:
-    """Reason through the problem using Chain of Thought.
+async def reasoning_engine(state: dict[str, Any]) -> dict[str, Any]:
+    """Reason through the problem using Chain of Thought (async).
 
     Reads: raw_message, intent, faq_match, kb_results, integration_data
     Writes: reasoning_chain, reasoning_conclusion, active_frameworks (append)

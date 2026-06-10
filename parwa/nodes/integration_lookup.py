@@ -6,10 +6,8 @@ shipping providers) to provide evidence for reasoning and action.
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
-from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
 from parwa.utils.node_base import safe_node
 
 
@@ -61,8 +59,8 @@ def _lookup_integration_rule_based(customer_id: str, intent: str) -> dict[str, A
 
 
 @safe_node("INTEGRATION_LOOKUP")
-def integration_lookup(state: dict[str, Any]) -> dict[str, Any]:
-    """Query external systems for relevant data.
+async def integration_lookup(state: dict[str, Any]) -> dict[str, Any]:
+    """Query external systems for relevant data (async).
 
     Reads: customer_id, intent
     Writes: integration_data

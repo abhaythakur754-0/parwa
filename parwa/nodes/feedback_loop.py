@@ -48,8 +48,8 @@ def _generate_feedback_signal(
 
 
 @safe_node("FEEDBACK_LOOP")
-def feedback_loop(state: dict[str, Any]) -> dict[str, Any]:
-    """Capture feedback signal for continuous improvement.
+async def feedback_loop(state: dict[str, Any]) -> dict[str, Any]:
+    """Capture feedback signal for continuous improvement (async).
 
     Reads: intent, quality_score, verification_passed, recommendation
     Writes: feedback_signal

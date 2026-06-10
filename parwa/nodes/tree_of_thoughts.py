@@ -56,8 +56,8 @@ def _explore_paths_rule_based(intent: str, conclusion: str) -> list[dict]:
 
 
 @safe_node("TREE_OF_THOUGHTS")
-def tree_of_thoughts(state: dict[str, Any]) -> dict[str, Any]:
-    """Explore multiple solution paths and select the best one.
+async def tree_of_thoughts(state: dict[str, Any]) -> dict[str, Any]:
+    """Explore multiple solution paths and select the best one (async).
 
     Reads: intent, reasoning_conclusion
     Writes: reasoning_paths, selected_path, active_frameworks (append)

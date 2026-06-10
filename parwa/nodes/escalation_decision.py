@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from parwa.state import SentimentType, TicketComplexity, IntentType
-from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
+from parwa.utils.llm import MOCK_MODE, ainvoke_llm
 from parwa.utils.node_base import safe_node
 
 
@@ -40,22 +40,13 @@ def _should_escalate_rule_based(
     return False, ""
 
 
-def _should_escalate_llm(
+async def _should_escalate_llm(
     message: str,
     sentiment: str,
     complexity: str,
     intent: str,
 ) -> tuple[bool, str]:
-    """Determine escalation using LLM. Returns (should_escalate, reason)."""
-    if MOCK_MODE:
-        mock = get_mock_llm()
-        response = mock.invoke(f"Should escalate? Message: {message}, Sentiment: {sentiment}, Complexity: {complexity}")
-        parts = response.split("|")
-        should = parts[0].lower() == "true"
-        reason = parts[1] if len(parts) > 1 else ""
-        return should, reason
-
-    llm = get_llm()
+    """Determine escalation using LLM (async). Returns (should_escalate, reason)."""
     prompt = (
         f"Should this customer ticket be escalated to a human agent?\n\n"
         f"Message: {message}\n"
@@ -64,8 +55,7 @@ def _should_escalate_llm(
         f"Intent: {intent}\n\n"
         f"Reply with ONLY: true|reason or false|"
     )
-    response = llm.invoke(prompt)
-    text = response.content if hasattr(response, "content") else str(response)
+    text = await ainvoke_llm(prompt)
     parts = text.strip().split("|")
     should = parts[0].lower() == "true"
     reason = parts[1] if len(parts) > 1 else ""
@@ -73,8 +63,8 @@ def _should_escalate_llm(
 
 
 @safe_node("ESCALATION_DECISION")
-def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
-    """Decide whether to escalate this ticket to a human.
+async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
+    """Decide whether to escalate this ticket to a human (async).
 
     Reads: raw_message, sentiment, sentiment_urgency, complexity, intent, intent_confidence
     Writes: should_escalate, escalation_reason
@@ -92,7 +82,7 @@ def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
 
     # If rules say no but complexity is high, try LLM for nuance
     if not should_escalate and complexity in (TicketComplexity.COMPLEX, TicketComplexity.CRITICAL, "complex", "critical") and not MOCK_MODE:
-        should_escalate, reason = _should_escalate_llm(raw_message, sentiment, complexity, intent)
+        should_escalate, reason = await _should_escalate_llm(raw_message, sentiment, complexity, intent)
 
     return {
         "should_escalate": should_escalate,

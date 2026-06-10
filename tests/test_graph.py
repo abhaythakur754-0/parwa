@@ -1,7 +1,7 @@
 """Integration tests for the PARWA LangGraph pipeline.
 
 Tests the full graph flow end-to-end, including:
-- Complete ticket processing through all 22 nodes
+- Complete ticket processing through all 22 nodes (async)
 - Variant differentiation (same thinking, different actions)
 - Mini PARWA recommendation flow
 - Quality score loop-back
@@ -9,12 +9,14 @@ Tests the full graph flow end-to-end, including:
 - Checkpointing and crash recovery
 - Error handling resilience
 - State validation
+- Sync process_ticket and async aprocess_ticket convenience functions
+- Concurrent ticket processing
 """
 
 import pytest
 import uuid
 
-from parwa.graph import build_parwa_graph, process_ticket, reset_parwa_graph
+from parwa.graph import build_parwa_graph, process_ticket, aprocess_ticket, reset_parwa_graph
 
 
 @pytest.fixture
@@ -29,14 +31,15 @@ def _config(thread_id: str | None = None) -> dict:
     return {"configurable": {"thread_id": thread_id or f"test-{uuid.uuid4().hex[:8]}"}}
 
 
-# ─── Full Pipeline Tests ──────────────────────────────────────────────────────────
+# ─── Full Pipeline Tests (Async) ──────────────────────────────────────────────────
 
 class TestFullPipeline:
     """Test complete ticket processing through the full graph."""
 
-    def test_refund_ticket_parwa(self, parwa_graph):
+    @pytest.mark.asyncio
+    async def test_refund_ticket_parwa(self, parwa_graph):
         """Test a refund ticket on PARWA variant — should execute refund."""
-        result = parwa_graph.invoke({
+        result = await parwa_graph.ainvoke({
             "raw_message": "I was charged twice, I want a refund",
             "customer_id": "default",
             "channel": "email",
@@ -55,9 +58,10 @@ class TestFullPipeline:
         # Should have audit log
         assert len(result.get("audit_log", [])) > 0
 
-    def test_order_status_ticket(self, parwa_graph):
+    @pytest.mark.asyncio
+    async def test_order_status_ticket(self, parwa_graph):
         """Test a simple order status inquiry."""
-        result = parwa_graph.invoke({
+        result = await parwa_graph.ainvoke({
             "raw_message": "Where is my order?",
             "customer_id": "default",
             "channel": "chat",
@@ -67,9 +71,10 @@ class TestFullPipeline:
         assert result["intent"] == "order_status"
         assert result["final_response"] != ""
 
-    def test_cancellation_ticket(self, parwa_graph):
+    @pytest.mark.asyncio
+    async def test_cancellation_ticket(self, parwa_graph):
         """Test a cancellation request."""
-        result = parwa_graph.invoke({
+        result = await parwa_graph.ainvoke({
             "raw_message": "I want to cancel my order",
             "customer_id": "default",
             "channel": "email",
@@ -85,9 +90,10 @@ class TestFullPipeline:
 class TestVariantDifferentiation:
     """Test that variants think identically but act differently."""
 
-    def test_mini_recommends_refund(self, parwa_graph):
+    @pytest.mark.asyncio
+    async def test_mini_recommends_refund(self, parwa_graph):
         """Mini PARWA should RECOMMEND refund, not execute."""
-        result = parwa_graph.invoke({
+        result = await parwa_graph.ainvoke({
             "raw_message": "I was charged twice, I want a refund",
             "customer_id": "default",
             "channel": "email",
@@ -98,9 +104,10 @@ class TestVariantDifferentiation:
         assert result.get("recommendation") is not None
         assert result["recommendation"].get("pending_approval") is True
 
-    def test_parwa_executes_refund(self, parwa_graph):
+    @pytest.mark.asyncio
+    async def test_parwa_executes_refund(self, parwa_graph):
         """PARWA should EXECUTE refund directly."""
-        result = parwa_graph.invoke({
+        result = await parwa_graph.ainvoke({
             "raw_message": "I was charged twice, I want a refund",
             "customer_id": "default",
             "channel": "email",
@@ -111,9 +118,10 @@ class TestVariantDifferentiation:
         executed = [r for r in result.get("execution_results", []) if r.get("status") == "executed"]
         assert len(executed) > 0
 
-    def test_high_executes_refund(self, parwa_graph):
+    @pytest.mark.asyncio
+    async def test_high_executes_refund(self, parwa_graph):
         """PARWA High should EXECUTE refund directly."""
-        result = parwa_graph.invoke({
+        result = await parwa_graph.ainvoke({
             "raw_message": "I was charged twice, I want a refund",
             "customer_id": "default",
             "channel": "email",
@@ -123,7 +131,8 @@ class TestVariantDifferentiation:
         executed = [r for r in result.get("execution_results", []) if r.get("status") == "executed"]
         assert len(executed) > 0
 
-    def test_same_thinking_across_variants(self, parwa_graph):
+    @pytest.mark.asyncio
+    async def test_same_thinking_across_variants(self, parwa_graph):
         """All variants should have identical thinking (intent, sentiment, reasoning)."""
         base_input = {
             "raw_message": "I was charged twice, I want a refund",
@@ -133,7 +142,7 @@ class TestVariantDifferentiation:
 
         results = {}
         for variant in ("mini", "parwa", "high"):
-            results[variant] = parwa_graph.invoke(
+            results[variant] = await parwa_graph.ainvoke(
                 {**base_input, "variant": variant},
                 config=_config(f"variant-test-{variant}"),
             )
@@ -156,9 +165,10 @@ class TestVariantDifferentiation:
 class TestEscalation:
     """Test that escalation routing works correctly."""
 
-    def test_angry_critical_escalates(self, parwa_graph):
+    @pytest.mark.asyncio
+    async def test_angry_critical_escalates(self, parwa_graph):
         """Angry + Critical tickets should be flagged for escalation."""
-        result = parwa_graph.invoke({
+        result = await parwa_graph.ainvoke({
             "raw_message": "I am furious about this unacceptable service! This is ridiculous!",
             "customer_id": "default",
             "channel": "email",
@@ -174,9 +184,10 @@ class TestEscalation:
 class TestQualityLoopBack:
     """Test that quality scoring loop-back works."""
 
-    def test_quality_score_present(self, parwa_graph):
+    @pytest.mark.asyncio
+    async def test_quality_score_present(self, parwa_graph):
         """Every response should have a quality score."""
-        result = parwa_graph.invoke({
+        result = await parwa_graph.ainvoke({
             "raw_message": "Where is my order?",
             "customer_id": "default",
             "channel": "chat",
@@ -186,9 +197,10 @@ class TestQualityLoopBack:
         assert "quality_score" in result
         assert result["quality_score"] >= 0
 
-    def test_audit_log_present(self, parwa_graph):
+    @pytest.mark.asyncio
+    async def test_audit_log_present(self, parwa_graph):
         """Every response should have an audit log."""
-        result = parwa_graph.invoke({
+        result = await parwa_graph.ainvoke({
             "raw_message": "I need help",
             "customer_id": "default",
             "channel": "email",
@@ -203,9 +215,10 @@ class TestQualityLoopBack:
 class TestErrorHandling:
     """Test that error handling works — nodes never crash the pipeline."""
 
-    def test_no_pipeline_errors_on_normal_ticket(self, parwa_graph):
+    @pytest.mark.asyncio
+    async def test_no_pipeline_errors_on_normal_ticket(self, parwa_graph):
         """Normal tickets should have no pipeline errors."""
-        result = parwa_graph.invoke({
+        result = await parwa_graph.ainvoke({
             "raw_message": "Where is my order?",
             "customer_id": "default",
             "channel": "chat",
@@ -215,24 +228,24 @@ class TestErrorHandling:
         errors = result.get("pipeline_errors", [])
         assert len(errors) == 0, f"Unexpected pipeline errors: {errors}"
 
-    def test_node_error_tracking_on_bad_state(self):
+    @pytest.mark.asyncio
+    async def test_node_error_tracking_on_bad_state(self):
         """If a node fails, error should be tracked not crash the pipeline."""
-        # Test that safe_node catches exceptions
         from parwa.nodes.ingest import ingest
-        # Normal call should work fine
-        result = ingest({"raw_message": "test"})
+        result = await ingest({"raw_message": "test"})
         assert "ticket_id" in result
 
 
 class TestCheckpointing:
     """Test that checkpointing works for crash recovery."""
 
-    def test_checkpointer_saves_state(self, parwa_graph):
+    @pytest.mark.asyncio
+    async def test_checkpointer_saves_state(self, parwa_graph):
         """Verify the checkpointer persists state."""
         thread_id = f"checkpoint-test-{uuid.uuid4().hex[:8]}"
         cfg = _config(thread_id)
 
-        result = parwa_graph.invoke({
+        result = await parwa_graph.ainvoke({
             "raw_message": "I want a refund",
             "customer_id": "default",
             "channel": "email",
@@ -271,10 +284,10 @@ class TestStateValidation:
 # ─── Convenience Function Tests ────────────────────────────────────────────────────
 
 class TestProcessTicket:
-    """Test the process_ticket convenience function."""
+    """Test the process_ticket convenience function (sync wrapper)."""
 
     def test_process_ticket_basic(self):
-        """Test basic ticket processing."""
+        """Test basic ticket processing via sync wrapper."""
         result = process_ticket(
             raw_message="I was charged twice",
             customer_id="default",
@@ -287,7 +300,7 @@ class TestProcessTicket:
         assert result["final_response"] != ""
 
     def test_process_ticket_mini(self):
-        """Test Mini PARWA ticket processing."""
+        """Test Mini PARWA ticket processing via sync wrapper."""
         result = process_ticket(
             raw_message="I want a refund for the duplicate charge",
             customer_id="default",
@@ -309,3 +322,67 @@ class TestProcessTicket:
             variant="enterprise",
         )
         assert result["variant"] == "parwa"
+
+
+class TestAprocessTicket:
+    """Test the aprocess_ticket async convenience function."""
+
+    @pytest.mark.asyncio
+    async def test_aprocess_ticket_basic(self):
+        """Test basic async ticket processing."""
+        result = await aprocess_ticket(
+            raw_message="I was charged twice",
+            customer_id="default",
+            channel="email",
+            variant="parwa",
+        )
+
+        assert result["ticket_id"].startswith("TKT-")
+        assert result["intent"] == "refund_request"
+        assert result["final_response"] != ""
+
+    @pytest.mark.asyncio
+    async def test_aprocess_ticket_mini(self):
+        """Test Mini PARWA async ticket processing."""
+        result = await aprocess_ticket(
+            raw_message="I want a refund for the duplicate charge",
+            customer_id="default",
+            channel="chat",
+            variant="mini",
+        )
+
+        assert result["intent"] == "refund_request"
+        assert result.get("recommendation") is not None
+
+    @pytest.mark.asyncio
+    async def test_aprocess_ticket_empty_message(self):
+        """Empty message should return error, not crash — async."""
+        result = await aprocess_ticket(raw_message="")
+        assert "error" in result or "final_response" in result
+
+    @pytest.mark.asyncio
+    async def test_aprocess_ticket_invalid_variant(self):
+        """Invalid variant should default to parwa — async."""
+        result = await aprocess_ticket(
+            raw_message="I need help",
+            variant="enterprise",
+        )
+        assert result["variant"] == "parwa"
+
+    @pytest.mark.asyncio
+    async def test_aprocess_ticket_concurrent(self):
+        """Test processing multiple tickets concurrently — the async advantage."""
+        import asyncio
+
+        tickets = [
+            aprocess_ticket(raw_message="I was charged twice", variant="parwa"),
+            aprocess_ticket(raw_message="Where is my order?", variant="parwa"),
+            aprocess_ticket(raw_message="I want to cancel", variant="mini"),
+        ]
+
+        results = await asyncio.gather(*tickets)
+
+        assert len(results) == 3
+        assert results[0]["intent"] == "refund_request"
+        assert results[1]["intent"] == "order_status"
+        assert results[2]["intent"] == "cancellation"

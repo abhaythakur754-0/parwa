@@ -50,8 +50,8 @@ def _plan_strategy_rule_based(intent: str, conclusion: str, selected_path: dict 
 
 
 @safe_node("STRATEGY_PLANNER")
-def strategy_planner(state: dict[str, Any]) -> dict[str, Any]:
-    """Create a multi-step execution plan.
+async def strategy_planner(state: dict[str, Any]) -> dict[str, Any]:
+    """Create a multi-step execution plan (async).
 
     Reads: intent, reasoning_conclusion, selected_path
     Writes: strategy_plan, active_frameworks (append)

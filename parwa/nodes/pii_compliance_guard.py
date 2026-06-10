@@ -52,8 +52,8 @@ def _redact_pii(text: str) -> str:
 
 
 @safe_node("PII_COMPLIANCE_GUARD")
-def pii_compliance_guard(state: dict[str, Any]) -> dict[str, Any]:
-    """Detect and redact PII from the response.
+async def pii_compliance_guard(state: dict[str, Any]) -> dict[str, Any]:
+    """Detect and redact PII from the response (async).
 
     Reads: final_response (or raw_message if no response yet)
     Writes: pii_detected, pii_redacted_message

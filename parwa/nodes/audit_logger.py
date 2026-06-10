@@ -13,8 +13,8 @@ from parwa.utils.node_base import safe_node
 
 
 @safe_node("AUDIT_LOGGER")
-def audit_logger(state: dict[str, Any]) -> dict[str, Any]:
-    """Log all actions and decisions for audit trail.
+async def audit_logger(state: dict[str, Any]) -> dict[str, Any]:
+    """Log all actions and decisions for audit trail (async).
 
     Reads: ticket_id, intent, action_plans, execution_results, recommendation, quality_score
     Writes: audit_log (appends)

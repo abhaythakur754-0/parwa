@@ -12,8 +12,8 @@ from parwa.utils.node_base import safe_node
 
 
 @safe_node("CONTEXT_MANAGER")
-def context_manager(state: dict[str, Any]) -> dict[str, Any]:
-    """Manage conversation context and history.
+async def context_manager(state: dict[str, Any]) -> dict[str, Any]:
+    """Manage conversation context and history (async).
 
     Reads: customer_id, raw_message
     Writes: context_history

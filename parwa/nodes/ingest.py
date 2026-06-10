@@ -15,8 +15,8 @@ from parwa.utils.node_base import safe_node
 
 
 @safe_node("INGEST")
-def ingest(state: dict[str, Any]) -> dict[str, Any]:
-    """Receive and validate a raw ticket.
+async def ingest(state: dict[str, Any]) -> dict[str, Any]:
+    """Receive and validate a raw ticket (async).
 
     Reads: raw_message, customer_id, channel, variant
     Writes: ticket_id, raw_message, customer_id, channel, variant

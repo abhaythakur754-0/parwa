@@ -49,8 +49,8 @@ def _reverse_think_rule_based(
 
 
 @safe_node("REVERSE_THINKER")
-def reverse_thinker(state: dict[str, Any]) -> dict[str, Any]:
-    """Validate the reasoning conclusion by working backwards.
+async def reverse_thinker(state: dict[str, Any]) -> dict[str, Any]:
+    """Validate the reasoning conclusion by working backwards (async).
 
     Reads: reasoning_conclusion, kb_results, integration_data
     Writes: reverse_validation, active_frameworks (append), should_loop_back

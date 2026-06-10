@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from parwa.state import IntentType, TicketComplexity
-from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
+from parwa.utils.llm import MOCK_MODE, ainvoke_llm
 from parwa.utils.node_base import safe_node
 
 
@@ -46,15 +46,8 @@ def _classify_intent_rule_based(message: str) -> tuple[str, float]:
     return best_intent, best_confidence
 
 
-def _classify_intent_llm(message: str) -> tuple[str, float]:
-    """Classify intent using LLM. Returns (intent, confidence)."""
-    if MOCK_MODE:
-        mock = get_mock_llm()
-        response = mock.invoke(f"Classify intent for: {message}")
-        parts = response.split("|")
-        return parts[0], float(parts[1]) if len(parts) > 1 else 0.75
-
-    llm = get_llm()
+async def _classify_intent_llm(message: str) -> tuple[str, float]:
+    """Classify intent using LLM (async). Returns (intent, confidence)."""
     prompt = (
         f"Classify the following customer message into one of these intents: "
         f"order_status, refund_request, cancellation, billing_issue, "
@@ -63,8 +56,7 @@ def _classify_intent_llm(message: str) -> tuple[str, float]:
         f"Customer message: {message}\n\n"
         f"Reply with ONLY: intent|confidence (e.g. refund_request|0.95)"
     )
-    response = llm.invoke(prompt)
-    text = response.content if hasattr(response, "content") else str(response)
+    text = await ainvoke_llm(prompt)
     parts = text.strip().split("|")
     return parts[0], float(parts[1]) if len(parts) > 1 else 0.75
 
@@ -81,8 +73,8 @@ def _determine_complexity(confidence: float) -> str:
 
 
 @safe_node("INTENT_CLASSIFIER")
-def intent_classifier(state: dict[str, Any]) -> dict[str, Any]:
-    """Classify the intent of the customer's message.
+async def intent_classifier(state: dict[str, Any]) -> dict[str, Any]:
+    """Classify the intent of the customer's message (async).
 
     Reads: raw_message
     Writes: intent, intent_confidence, complexity
@@ -94,7 +86,7 @@ def intent_classifier(state: dict[str, Any]) -> dict[str, Any]:
 
     # If low confidence, try LLM
     if confidence < 0.8 and not MOCK_MODE:
-        intent_str, confidence = _classify_intent_llm(raw_message)
+        intent_str, confidence = await _classify_intent_llm(raw_message)
 
     # Validate intent against enum values
     valid_intents = {e.value for e in IntentType}

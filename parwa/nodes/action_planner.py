@@ -80,8 +80,8 @@ def _plan_actions_rule_based(
 
 
 @safe_node("ACTION_PLANNER")
-def action_planner(state: dict[str, Any]) -> dict[str, Any]:
-    """Plan actions based on reasoning conclusion and strategy.
+async def action_planner(state: dict[str, Any]) -> dict[str, Any]:
+    """Plan actions based on reasoning conclusion and strategy (async).
 
     Reads: intent, reasoning_conclusion, strategy_plan, integration_data
     Writes: action_plans

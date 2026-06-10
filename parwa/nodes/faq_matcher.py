@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from parwa.state import KnowledgeResult
-from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
+from parwa.utils.llm import MOCK_MODE, ainvoke_llm
 from parwa.utils.node_base import safe_node
 
 
@@ -52,21 +52,8 @@ def _match_faq_rule_based(message: str) -> KnowledgeResult | None:
     return None
 
 
-def _match_faq_llm(message: str) -> KnowledgeResult | None:
-    """Match against FAQs using LLM."""
-    if MOCK_MODE:
-        mock = get_mock_llm()
-        response = mock.invoke(f"FAQ match for: {message}")
-        parts = response.split("|")
-        if parts[0] == "no_match" or float(parts[1]) < 0.3:
-            return None
-        return KnowledgeResult(
-            source=f"faq:{parts[0]}",
-            content=parts[2] if len(parts) > 2 else "",
-            relevance_score=float(parts[1]),
-        )
-
-    llm = get_llm()
+async def _match_faq_llm(message: str) -> KnowledgeResult | None:
+    """Match against FAQs using LLM (async)."""
     faq_list = "\n".join(f"- {f['id']}: {f['question']}" for f in _MOCK_FAQS)
     prompt = (
         f"Match this customer message against our FAQs.\n\n"
@@ -74,21 +61,26 @@ def _match_faq_llm(message: str) -> KnowledgeResult | None:
         f"Customer message: {message}\n\n"
         f"Reply with ONLY: faq_id|relevance_score|answer or no_match|0.00|"
     )
-    response = llm.invoke(prompt)
-    text = response.content if hasattr(response, "content") else str(response)
+    text = await ainvoke_llm(prompt)
     parts = text.strip().split("|")
-    if parts[0] == "no_match" or float(parts[1]) < 0.3:
+    if parts[0] == "no_match":
+        return None
+    try:
+        score = float(parts[1]) if len(parts) > 1 else 0.0
+    except (ValueError, IndexError):
+        score = 0.0
+    if score < 0.3:
         return None
     return KnowledgeResult(
         source=f"faq:{parts[0]}",
         content=parts[2] if len(parts) > 2 else "",
-        relevance_score=float(parts[1]),
+        relevance_score=score,
     )
 
 
 @safe_node("FAQ_MATCHER")
-def faq_matcher(state: dict[str, Any]) -> dict[str, Any]:
-    """Match the ticket against known FAQs.
+async def faq_matcher(state: dict[str, Any]) -> dict[str, Any]:
+    """Match the ticket against known FAQs (async).
 
     Reads: raw_message, intent
     Writes: faq_match
@@ -98,6 +90,6 @@ def faq_matcher(state: dict[str, Any]) -> dict[str, Any]:
     result = _match_faq_rule_based(raw_message)
 
     if result is None and not MOCK_MODE:
-        result = _match_faq_llm(raw_message)
+        result = await _match_faq_llm(raw_message)
 
     return {"faq_match": result.model_dump() if result else None}

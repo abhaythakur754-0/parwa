@@ -10,6 +10,7 @@ Production features:
 - Human-in-the-loop interrupt for Mini PARWA recommendations
 - Structured logging for every routing decision
 - Error tracking through pipeline
+- Full async support for concurrent ticket processing
 
 Pipeline flow:
   INGEST → INTENT_CLASSIFIER → SENTIMENT_ANALYZER
@@ -27,6 +28,7 @@ Pipeline flow:
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Any, Annotated
 
 from langgraph.graph import StateGraph, END
@@ -188,8 +190,8 @@ def _after_quality_scorer(state: dict[str, Any]) -> str:
 
 # ─── Loop-back handler ────────────────────────────────────────────────────────────
 
-def _handle_loop_back(state: dict[str, Any]) -> dict[str, Any]:
-    """Increment loop counter when looping back to reasoning."""
+async def _handle_loop_back(state: dict[str, Any]) -> dict[str, Any]:
+    """Increment loop counter when looping back to reasoning (async)."""
     loop_count = state.get("loop_count", 0)
     logger.info("loop_back_handler: incrementing loop_count %d→%d", loop_count, loop_count + 1)
     return {"loop_count": loop_count + 1, "should_loop_back": False}
@@ -364,14 +366,14 @@ def build_parwa_graph(
     )
 
     logger.info(
-        "build_parwa_graph: compiled graph with 22 nodes, checkpointer=%s, interrupt=%s",
+        "build_parwa_graph: compiled graph with 22 nodes (all async), checkpointer=%s, interrupt=%s",
         use_checkpointer, interrupt_before_action,
     )
 
     return compiled
 
 
-# ─── Convenience function ─────────────────────────────────────────────────────────
+# ─── Convenience functions ─────────────────────────────────────────────────────────
 
 # Compiled graph singleton
 _compiled_graph = None
@@ -406,6 +408,20 @@ def reset_parwa_graph() -> None:
     _compiled_graph = None
 
 
+def _make_thread_config(thread_id: str | None = None) -> dict:
+    """Create a LangGraph config dict with thread_id for checkpointing.
+
+    Args:
+        thread_id: Optional thread ID (auto-generated if None).
+
+    Returns:
+        Config dict with configurable.thread_id set.
+    """
+    if thread_id:
+        return {"configurable": {"thread_id": thread_id}}
+    return {"configurable": {"thread_id": f"ticket-{uuid.uuid4().hex[:8]}"}}
+
+
 def process_ticket(
     raw_message: str,
     customer_id: str = "",
@@ -415,7 +431,59 @@ def process_ticket(
     thread_id: str | None = None,
     interrupt_before_action: bool = False,
 ) -> dict[str, Any]:
-    """Process a single ticket through the full PARWA pipeline.
+    """Process a single ticket through the full PARWA pipeline (sync wrapper).
+
+    Since all PARWA nodes are async, this runs aprocess_ticket in an event loop.
+    For production async code, prefer using aprocess_ticket directly.
+
+    Args:
+        raw_message: The customer's message
+        customer_id: Customer identifier
+        channel: Communication channel (email, chat, social, voice)
+        variant: PARWA variant (mini, parwa, high)
+        thread_id: Optional thread ID for checkpointing (auto-generated if None)
+        interrupt_before_action: Pause before action for human approval
+
+    Returns:
+        The final ticket state after processing through all 22 nodes
+    """
+    import asyncio
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    coro = aprocess_ticket(
+        raw_message, customer_id, channel, variant,
+        thread_id=thread_id,
+        interrupt_before_action=interrupt_before_action,
+    )
+
+    if loop and loop.is_running():
+        # We're inside an existing event loop — create a new thread
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, coro).result()
+    else:
+        # No event loop running — safe to use asyncio.run
+        return asyncio.run(coro)
+
+
+async def aprocess_ticket(
+    raw_message: str,
+    customer_id: str = "",
+    channel: str = "email",
+    variant: str = "parwa",
+    *,
+    thread_id: str | None = None,
+    interrupt_before_action: bool = False,
+) -> dict[str, Any]:
+    """Process a single ticket through the full PARWA pipeline (async).
+
+    Non-blocking version of process_ticket. Uses LangGraph's ainvoke()
+    to run all 22 async nodes without blocking the event loop.
+    This is the recommended way to process tickets in production.
 
     Args:
         raw_message: The customer's message
@@ -438,7 +506,7 @@ def process_ticket(
         }
 
     if variant not in ("mini", "parwa", "high"):
-        logger.warning("process_ticket: invalid variant '%s', defaulting to 'parwa'", variant)
+        logger.warning("aprocess_ticket: invalid variant '%s', defaulting to 'parwa'", variant)
         variant = "parwa"
 
     initial_state = {
@@ -451,28 +519,21 @@ def process_ticket(
     # Validate initial state
     is_valid, issues = validate_state(initial_state)
     if not is_valid:
-        logger.warning("process_ticket: input validation issues: %s", issues)
+        logger.warning("aprocess_ticket: input validation issues: %s", issues)
 
-    # Configure thread for checkpointing
-    config = {}
-    if thread_id:
-        config["configurable"] = {"thread_id": thread_id}
-    else:
-        import uuid
-        config["configurable"] = {"thread_id": f"ticket-{uuid.uuid4().hex[:8]}"}
-
-    result = graph.invoke(initial_state, config=config)
+    config = _make_thread_config(thread_id)
+    result = await graph.ainvoke(initial_state, config=config)
 
     # Validate output
     is_valid, issues = validate_state(result)
     if not is_valid:
-        logger.warning("process_ticket: output validation issues: %s", issues)
+        logger.warning("aprocess_ticket: output validation issues: %s", issues)
 
     # Check for pipeline errors
     errors = result.get("pipeline_errors", [])
     if errors:
         logger.warning(
-            "process_ticket: %d node errors encountered: %s",
+            "aprocess_ticket: %d node errors encountered: %s",
             len(errors), [e.get("node", "?") for e in errors],
         )
 

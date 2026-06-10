@@ -56,8 +56,8 @@ def _predict_issues_rule_based(intent: str, integration_data: dict, sentiment: s
 
 
 @safe_node("PREDICTION_ENGINE")
-def prediction_engine(state: dict[str, Any]) -> dict[str, Any]:
-    """Forecast future issues or follow-up needs.
+async def prediction_engine(state: dict[str, Any]) -> dict[str, Any]:
+    """Forecast future issues or follow-up needs (async).
 
     Reads: intent, integration_data, sentiment
     Writes: predictions

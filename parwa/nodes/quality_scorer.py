@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
 from parwa.utils.node_base import safe_node
 
 
@@ -52,8 +51,8 @@ def _score_quality_rule_based(
 
 
 @safe_node("QUALITY_SCORER")
-def quality_scorer(state: dict[str, Any]) -> dict[str, Any]:
-    """Score the quality of the response before sending.
+async def quality_scorer(state: dict[str, Any]) -> dict[str, Any]:
+    """Score the quality of the response before sending (async).
 
     Reads: intent, reasoning_conclusion, verification_passed, recommendation, variant
     Writes: quality_score, quality_issues, should_loop_back

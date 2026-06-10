@@ -8,11 +8,14 @@ Every node in PARWA should use @safe_node to get:
 - Structured logging with node name, ticket_id, and timing
 - State validation before and after each node
 - Error tracking in state for debugging
+- Full async support — async nodes get async safe_node automatically
 """
 
 from __future__ import annotations
 
+import asyncio
 import functools
+import inspect
 import logging
 import time
 import traceback
@@ -71,6 +74,50 @@ def _validate_state_dict(state: dict[str, Any]) -> list[str]:
     return issues
 
 
+def _build_error_result(
+    node_name: str,
+    exc: Exception,
+    fallback: dict[str, Any] | None,
+    state: dict[str, Any],
+    elapsed: float,
+) -> dict[str, Any]:
+    """Build a safe error result dict when a node fails.
+
+    This is shared between sync and async wrappers so both
+    produce identical error tracking behavior.
+    """
+    tb = traceback.format_exc()
+
+    logger.error(
+        "node=%s ticket=%s status=FAILED elapsed=%.3fs "
+        "error_type=%s error=%s\n%s",
+        node_name, state.get("ticket_id", "UNKNOWN"), elapsed,
+        type(exc).__name__, str(exc), tb,
+    )
+
+    # Build error-safe result
+    error_result = dict(fallback) if fallback else {}
+    error_result["node_error"] = {
+        "node": node_name,
+        "error_type": type(exc).__name__,
+        "error_message": str(exc),
+        "traceback": tb,
+        "elapsed_seconds": elapsed,
+    }
+
+    # Track errors in state for debugging
+    existing_errors = state.get("pipeline_errors", [])
+    error_result["pipeline_errors"] = existing_errors + [
+        {
+            "node": node_name,
+            "error": str(exc),
+            "error_type": type(exc).__name__,
+        }
+    ]
+
+    return error_result
+
+
 def safe_node(
     node_name: str,
     *,
@@ -87,6 +134,7 @@ def safe_node(
     3. Errors are tracked in state['_errors'] for debugging
     4. Node execution time is logged
     5. State is validated before and after the node runs
+    6. Supports BOTH sync and async node functions automatically
 
     Args:
         node_name: Human-readable node name (e.g. "INTENT_CLASSIFIER").
@@ -97,94 +145,129 @@ def safe_node(
 
     Example:
         @safe_node("INTENT_CLASSIFIER")
-        def intent_classifier(state: dict[str, Any]) -> dict[str, Any]:
+        async def intent_classifier(state: dict[str, Any]) -> dict[str, Any]:
             ...
     """
     def decorator(func: F) -> F:
-        @functools.wraps(func)
-        def wrapper(state: dict[str, Any]) -> dict[str, Any]:
-            ticket_id = state.get("ticket_id", "UNKNOWN")
-            start_time = time.monotonic()
+        if inspect.iscoroutinefunction(func):
+            # ─── Async wrapper ─────────────────────────────────────────
+            @functools.wraps(func)
+            async def async_wrapper(state: dict[str, Any]) -> dict[str, Any]:
+                ticket_id = state.get("ticket_id", "UNKNOWN")
+                start_time = time.monotonic()
 
-            # Pre-validation
-            if validate_input:
-                issues = _validate_state_dict(state)
-                if issues:
-                    logger.warning(
-                        "node=%s ticket=%s input_validation_issues=%s",
-                        node_name, ticket_id, issues,
-                    )
-
-            # Execute node with error handling
-            try:
-                logger.log(
-                    log_level,
-                    "node=%s ticket=%s status=started",
-                    node_name, ticket_id,
-                )
-
-                result = func(state)
-
-                # Ensure result is a dict
-                if not isinstance(result, dict):
-                    logger.error(
-                        "node=%s ticket=%s error=non_dict_return type=%s",
-                        node_name, ticket_id, type(result).__name__,
-                    )
-                    result = fallback or {}
-
-                # Post-validation
-                if validate_output:
-                    output_issues = _validate_state_dict({**state, **result})
-                    if output_issues:
+                # Pre-validation
+                if validate_input:
+                    issues = _validate_state_dict(state)
+                    if issues:
                         logger.warning(
-                            "node=%s ticket=%s output_validation_issues=%s",
-                            node_name, ticket_id, output_issues,
+                            "node=%s ticket=%s input_validation_issues=%s",
+                            node_name, ticket_id, issues,
                         )
 
-                elapsed = time.monotonic() - start_time
-                logger.log(
-                    log_level,
-                    "node=%s ticket=%s status=completed elapsed=%.3fs keys=%s",
-                    node_name, ticket_id, elapsed, list(result.keys()),
-                )
+                # Execute node with error handling
+                try:
+                    logger.log(
+                        log_level,
+                        "node=%s ticket=%s status=started (async)",
+                        node_name, ticket_id,
+                    )
 
-                return result
+                    result = await func(state)
 
-            except Exception as exc:
-                elapsed = time.monotonic() - start_time
-                tb = traceback.format_exc()
+                    # Ensure result is a dict
+                    if not isinstance(result, dict):
+                        logger.error(
+                            "node=%s ticket=%s error=non_dict_return type=%s",
+                            node_name, ticket_id, type(result).__name__,
+                        )
+                        result = fallback or {}
 
-                logger.error(
-                    "node=%s ticket=%s status=FAILED elapsed=%.3fs "
-                    "error_type=%s error=%s\n%s",
-                    node_name, ticket_id, elapsed,
-                    type(exc).__name__, str(exc), tb,
-                )
+                    # Post-validation
+                    if validate_output:
+                        output_issues = _validate_state_dict({**state, **result})
+                        if output_issues:
+                            logger.warning(
+                                "node=%s ticket=%s output_validation_issues=%s",
+                                node_name, ticket_id, output_issues,
+                            )
 
-                # Build error-safe result
-                error_result = dict(fallback) if fallback else {}
-                error_result["node_error"] = {
-                    "node": node_name,
-                    "error_type": type(exc).__name__,
-                    "error_message": str(exc),
-                    "traceback": tb,
-                    "elapsed_seconds": elapsed,
-                }
+                    elapsed = time.monotonic() - start_time
+                    logger.log(
+                        log_level,
+                        "node=%s ticket=%s status=completed elapsed=%.3fs keys=%s (async)",
+                        node_name, ticket_id, elapsed, list(result.keys()),
+                    )
 
-                # Track errors in state for debugging
-                existing_errors = state.get("pipeline_errors", [])
-                error_result["pipeline_errors"] = existing_errors + [
-                    {
-                        "node": node_name,
-                        "error": str(exc),
-                        "error_type": type(exc).__name__,
-                    }
-                ]
+                    return result
 
-                return error_result
+                except Exception as exc:
+                    elapsed = time.monotonic() - start_time
+                    return _build_error_result(
+                        node_name, exc, fallback, state, elapsed,
+                    )
 
-        return wrapper  # type: ignore[return-value]
+            return async_wrapper  # type: ignore[return-value]
+
+        else:
+            # ─── Sync wrapper ─────────────────────────────────────────
+            @functools.wraps(func)
+            def wrapper(state: dict[str, Any]) -> dict[str, Any]:
+                ticket_id = state.get("ticket_id", "UNKNOWN")
+                start_time = time.monotonic()
+
+                # Pre-validation
+                if validate_input:
+                    issues = _validate_state_dict(state)
+                    if issues:
+                        logger.warning(
+                            "node=%s ticket=%s input_validation_issues=%s",
+                            node_name, ticket_id, issues,
+                        )
+
+                # Execute node with error handling
+                try:
+                    logger.log(
+                        log_level,
+                        "node=%s ticket=%s status=started",
+                        node_name, ticket_id,
+                    )
+
+                    result = func(state)
+
+                    # Ensure result is a dict
+                    if not isinstance(result, dict):
+                        logger.error(
+                            "node=%s ticket=%s error=non_dict_return type=%s",
+                            node_name, ticket_id, type(result).__name__,
+                        )
+                        result = fallback or {}
+
+                    # Post-validation
+                    if validate_output:
+                        output_issues = _validate_state_dict({**state, **result})
+                        if output_issues:
+                            logger.warning(
+                                "node=%s ticket=%s output_validation_issues=%s",
+                                node_name, ticket_id, output_issues,
+                            )
+
+                    elapsed = time.monotonic() - start_time
+                    logger.log(
+                        log_level,
+                        "node=%s ticket=%s status=completed elapsed=%.3fs keys=%s",
+                        node_name, ticket_id, elapsed, list(result.keys()),
+                    )
+
+                    return result
+
+                except Exception as exc:
+                    elapsed = time.monotonic() - start_time
+                    return _build_error_result(
+                        node_name, exc, fallback, state, elapsed,
+                    )
+
+            return wrapper  # type: ignore[return-value]
 
     return decorator
 
