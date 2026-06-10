@@ -1,13 +1,17 @@
 """
-PARWA MCP — Knowledge Base Server
+PARWA MCP — Knowledge Base Server (v2.0.0 — Wired to Real Backend)
 
 Provides knowledge base document query tools.
-Supports semantic, keyword, and hybrid search across
-one or more knowledge bases.
+Wired to real backend KB API via httpx.
+
+Backend routes: /api/kb/*
 """
 
 from __future__ import annotations
 
+import os
+
+import httpx
 from fastapi import APIRouter
 
 from mcp_server.base_server import MCPServerBase, MCPRegistry, get_logger
@@ -21,14 +25,16 @@ from mcp_server.models import (
 
 logger = get_logger("mcp.kb_server")
 
+BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:5100")
+
 
 class KBServer(MCPServerBase):
-    """MCP sub-server for knowledge base document queries."""
+    """MCP sub-server for knowledge base document queries — wired to real backend."""
 
     name = "kb_server"
-    description = "Knowledge base document search and retrieval"
+    description = "Knowledge base document search and retrieval — wired to backend"
     category = ToolCategory.KNOWLEDGE
-    version = "1.0.0"
+    version = "2.0.0"
 
     def register_tools(self, registry: MCPRegistry) -> None:
         """Register KB tools."""
@@ -104,6 +110,17 @@ class KBServer(MCPServerBase):
             handler=self._invoke_kb_list_bases,
         )
 
+        registry.register_tool(
+            ToolDefinition(
+                name="kb_stats",
+                description="Get knowledge base statistics (document counts, processing status, etc.).",
+                category=self.category,
+                server=self.name,
+                tags=["knowledge_base", "stats", "metrics"],
+            ),
+            handler=self._invoke_kb_stats,
+        )
+
     def get_router(self) -> APIRouter:
         """Return the KB REST router."""
         router = APIRouter(prefix="/knowledge/kb", tags=["Knowledge — KB"])
@@ -126,98 +143,164 @@ class KBServer(MCPServerBase):
 
         return router
 
-    # ── Tool Handlers (placeholder implementations) ─────────────
+    async def _backend_call(
+        self, method: str, path: str, json_data: dict | None = None, params: dict | None = None,
+    ) -> dict | None:
+        """Make an httpx call to the backend KB API."""
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                url = f"{BACKEND_URL}{path}"
+                resp = await client.request(method, url, json=json_data, params=params)
+                if resp.status_code in (200, 201):
+                    return resp.json()
+                logger.warning(
+                    "kb_backend_error",
+                    path=path,
+                    status=resp.status_code,
+                    body=resp.text[:200],
+                )
+        except Exception as exc:
+            logger.warning("kb_backend_failed", path=path, error=str(exc)[:200])
+        return None
 
     async def _invoke_kb_search(
         self, parameters: dict | None = None, context: dict | None = None
     ) -> ToolInvokeResponse:
-        """Handle kb_search tool invocation."""
+        """Handle kb_search tool invocation — wired to backend RAG search."""
         params = parameters or {}
         query = params.get("query", "")
-        kb_ids = params.get("knowledge_base_ids", [])
         search_type = params.get("search_type", "hybrid")
         limit = params.get("limit", 10)
 
-        logger.info(
-            "kb_search_invoked",
-            query=query,
-            search_type=search_type,
-            kb_ids=kb_ids,
-            limit=limit,
-        )
+        logger.info("kb_search_invoked", query=query, search_type=search_type, limit=limit)
 
-        mock_docs = [
-            KBDocument(
-                id=f"doc-{i + 1}",
-                title=f"Sample Document {i + 1}: {query}",
-                content=(
-                    f"Placeholder document content relevant to '{query}'. "
-                    f"This would be retrieved from the knowledge base using "
-                    f"{search_type} search in production."
-                ),
-                knowledge_base_id=kb_ids[0] if kb_ids else "default_kb",
-                relevance_score=max(0.4, 0.95 - (i * 0.15)),
+        # Use RAG search as the backend KB search endpoint
+        payload = {"query": query, "top_k": limit}
+        data = await self._backend_call("POST", "/api/rag/search", json_data=payload)
+        if data:
+            results = data.get("results", data.get("chunks", []))
+            if isinstance(data, list):
+                results = data
+            # Convert RAG results to KB document format
+            kb_docs = []
+            for i, r in enumerate(results):
+                if isinstance(r, dict):
+                    kb_docs.append({
+                        "id": r.get("document_id", r.get("id", f"doc-{i + 1}")),
+                        "title": r.get("title", r.get("source", f"Document {i + 1}")),
+                        "content": r.get("content", r.get("text", "")),
+                        "knowledge_base_id": r.get("knowledge_base_id", params.get("knowledge_base_ids", ["default"])[0] if params.get("knowledge_base_ids") else "default"),
+                        "relevance_score": r.get("score", r.get("relevance_score", 0.0)),
+                        "metadata": r.get("metadata", {}),
+                    })
+            return ToolInvokeResponse(
+                success=True,
+                tool_name="kb_search",
+                data=kb_docs,
                 metadata={
+                    "query": query,
                     "search_type": search_type,
-                    "chunk_index": i,
+                    "result_count": len(kb_docs),
+                    "source": "backend",
                 },
             )
-            for i in range(min(limit, 3))
-        ]
 
+        # Fallback: no mock — honest empty response
         return ToolInvokeResponse(
             success=True,
             tool_name="kb_search",
-            data=[d.model_dump() for d in mock_docs],
+            data=[],
             metadata={
                 "query": query,
-                "search_type": search_type,
-                "result_count": len(mock_docs),
-                "status": "placeholder",
+                "result_count": 0,
+                "source": "fallback",
+                "reason": "backend_unreachable",
             },
         )
 
     async def _invoke_kb_get_document(
         self, parameters: dict | None = None, context: dict | None = None
     ) -> ToolInvokeResponse:
-        """Handle kb_get_document tool invocation."""
+        """Handle kb_get_document tool invocation — wired to backend."""
         params = parameters or {}
         doc_id = params.get("document_id", "")
-        kb_id = params.get("knowledge_base_id", "")
 
-        logger.info("kb_get_document_invoked", document_id=doc_id, kb_id=kb_id)
+        logger.info("kb_get_document_invoked", document_id=doc_id)
+
+        data = await self._backend_call("GET", f"/api/kb/documents/{doc_id}")
+        if data:
+            return ToolInvokeResponse(
+                success=True,
+                tool_name="kb_get_document",
+                data=data,
+                metadata={"source": "backend"},
+            )
 
         return ToolInvokeResponse(
-            success=True,
+            success=False,
             tool_name="kb_get_document",
-            data={
-                "id": doc_id,
-                "title": f"Document {doc_id}",
-                "content": "Placeholder document content. In production, "
-                           "this would be fetched from the knowledge base.",
-                "knowledge_base_id": kb_id,
-                "metadata": {},
-            },
-            metadata={"status": "placeholder"},
+            error=f"Document '{doc_id}' not found or backend unreachable",
+            metadata={"source": "fallback"},
         )
 
     async def _invoke_kb_list_bases(
         self, parameters: dict | None = None, context: dict | None = None
     ) -> ToolInvokeResponse:
-        """Handle kb_list_bases tool invocation."""
+        """Handle kb_list_bases tool invocation — wired to backend."""
         logger.info("kb_list_bases_invoked")
 
-        mock_bases = [
-            {"id": "kb_default", "name": "Default Knowledge Base", "doc_count": 150},
-            {"id": "kb_product", "name": "Product Documentation", "doc_count": 89},
-            {"id": "kb_policies", "name": "Company Policies", "doc_count": 42},
-        ]
+        data = await self._backend_call("GET", "/api/kb/documents")
+        if data is not None:
+            # Backend returns list of documents; extract unique KB IDs
+            docs = data if isinstance(data, list) else data.get("documents", [])
+            kb_ids = set()
+            for doc in docs:
+                if isinstance(doc, dict) and doc.get("knowledge_base_id"):
+                    kb_ids.add(doc["knowledge_base_id"])
 
+            bases = []
+            if kb_ids:
+                for kb_id in kb_ids:
+                    bases.append({"id": kb_id, "name": kb_id, "doc_count": 0})
+            else:
+                # If no documents, still return a default base
+                bases = [{"id": "default", "name": "Default Knowledge Base", "doc_count": 0}]
+
+            return ToolInvokeResponse(
+                success=True,
+                tool_name="kb_list_bases",
+                data=bases,
+                metadata={"count": len(bases), "source": "backend"},
+            )
+
+        # Fallback
         return ToolInvokeResponse(
             success=True,
             tool_name="kb_list_bases",
-            data=mock_bases,
-            metadata={"count": len(mock_bases), "status": "placeholder"},
+            data=[{"id": "default", "name": "Default Knowledge Base", "doc_count": 0}],
+            metadata={"count": 1, "source": "fallback", "reason": "backend_unreachable"},
+        )
+
+    async def _invoke_kb_stats(
+        self, parameters: dict | None = None, context: dict | None = None
+    ) -> ToolInvokeResponse:
+        """Handle kb_stats tool invocation — wired to backend."""
+        logger.info("kb_stats_invoked")
+
+        data = await self._backend_call("GET", "/api/kb/stats")
+        if data:
+            return ToolInvokeResponse(
+                success=True,
+                tool_name="kb_stats",
+                data=data,
+                metadata={"source": "backend"},
+            )
+
+        return ToolInvokeResponse(
+            success=True,
+            tool_name="kb_stats",
+            data={"total_documents": 0, "total_chunks": 0, "status": "unknown"},
+            metadata={"source": "fallback", "reason": "backend_unreachable"},
         )
 
 

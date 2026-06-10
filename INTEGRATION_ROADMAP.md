@@ -888,19 +888,19 @@ function calculateVariantMix(variants, ticketCount) { ... }
 - [ ] Add Tier 3: Custom REST Connector for PARWA and PARWA High (GAP 4)
 - [ ] Allow going back to change industry/variant anytime (GAP 10 — industry change impact)
 
-### Phase 3: Wire ALL MCP Stubs to Real Backend
-- [ ] CRM Server → real HubSpot/Salesforce/Pipedrive API passthrough
-- [ ] Ecommerce Server → real Shopify/WooCommerce/BigCommerce API passthrough
-- [ ] Ticketing Server → real backend ticket APIs (20+ endpoints)
-- [ ] FAQ Server → real backend FAQ search
-- [ ] RAG Server → real vector search + CLARA pipeline
-- [ ] KB Server → real knowledge base API
-- [ ] Analytics Server → real backend analytics
-- [ ] Monitoring Server → real backend health checks
-- [ ] Notification Server → real notification dispatch
-- [ ] Compliance Server → real PII scanning engine
-- [ ] SLA Server → real SLA tracking
-- [ ] Carrier Server → real shipping API passthrough
+### Phase 3: Wire ALL MCP Stubs to Real Backend ✅
+- [x] CRM Server → real HubSpot/Salesforce/Pipedrive API passthrough (v2.0.0 — httpx to backend, honest "not connected" when no integration)
+- [x] Ecommerce Server → real Shopify/WooCommerce/BigCommerce API passthrough (v2.0.0 — httpx to backend, honest "not connected" when no integration)
+- [x] Ticketing Server → real backend ticket APIs (20+ endpoints) (v2.0.0 — httpx to /api/v1/tickets/*)
+- [x] FAQ Server → real backend FAQ search (v2.0.0 — httpx to /api/rag/search + local FAQ file fallback)
+- [x] RAG Server → real vector search + CLARA pipeline (v2.0.0 — httpx to /api/rag/*, local rerank fallback)
+- [x] KB Server → real knowledge base API (v2.0.0 — httpx to /api/kb/* + /api/rag/search)
+- [x] Analytics Server → real backend analytics (v2.0.0 — httpx to /analytics/tickets/*)
+- [x] Monitoring Server → real backend health checks (v2.0.0 — httpx to /health/detail + /api/system/health)
+- [x] Notification Server → real notification dispatch (v2.0.0 — httpx to /api/v1/notifications/*)
+- [x] Compliance Server → real PII scanning engine (v2.0.0 — httpx to /api/v1/tickets/scan-pii + local regex fallback)
+- [x] SLA Server → real SLA tracking (v2.0.0 — httpx to /api/v1/sla/*)
+- [x] Carrier Server → real shipping API passthrough (v2.0.0 — NEW, httpx to /api/v1/carrier/* + local pattern matching)
 
 ### Phase 4: Customer Journey — Configure First, Pay After
 - [ ] Step 1: Explore (free) — landing, demo, ROI calculator (existing Jarvis)
