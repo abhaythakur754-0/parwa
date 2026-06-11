@@ -159,6 +159,10 @@ class TicketState(BaseModel):
     verification_passed: bool = False
     recommendation: dict[str, Any] | None = None
 
+    # ─── MAKER decomposition tracking (Phase 5) ────────────
+    maker_steps: list[dict[str, Any]] = Field(default_factory=list)
+    maker_verification_passed: bool = False
+
     # ─── Proactive Agent outputs (Nodes 13, 14, 22) ───────
     proactive_insights: list[ProactiveInsight] = Field(default_factory=list)
     predictions: list[ProactiveInsight] = Field(default_factory=list)

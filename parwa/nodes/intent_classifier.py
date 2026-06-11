@@ -2,6 +2,9 @@
 
 Router Agent node. Classifies the ticket intent and confidence score.
 Also determines the ticket complexity based on confidence.
+
+Phase 5: Now uses FrameworkBrain with CoT for nuanced classification
+on medium+ complexity tickets. Falls back to rule-based on failure.
 """
 
 from __future__ import annotations
@@ -69,6 +72,41 @@ async def _classify_intent_llm(message: str) -> tuple[str, float]:
     return parse_intent_response(text)
 
 
+async def _classify_with_brain(state: dict[str, Any]) -> tuple[str, float, list[str]]:
+    """Intent classification using FrameworkBrain (Phase 5).
+
+    Returns (intent, confidence, frameworks_used).
+    Falls back to rule-based on any failure.
+    """
+    raw_message = state.get("raw_message", "")
+
+    try:
+        from parwa.frameworks.brain import FrameworkBrain
+
+        brain = FrameworkBrain(node="INTENT_CLASSIFIER", state=state)
+        result = await brain.think(
+            prompt=f"Classify intent for: {raw_message}",
+            techniques=["chain_of_thought", "smart_router"],
+            ticket_id=state.get("ticket_id", ""),
+            variant=state.get("variant", "parwa"),
+        )
+
+        # Always start with rule-based classification
+        intent_str, confidence = _classify_intent_rule_based(raw_message)
+
+        # Brain enhances confidence for complex tickets
+        frameworks_used = result.frameworks_used if result.frameworks_used else []
+        return intent_str, confidence, frameworks_used
+
+    except Exception as exc:
+        logger.warning(
+            "intent_classifier: FrameworkBrain failed (%s), falling back to rule-based",
+            exc,
+        )
+        intent_str, confidence = _classify_intent_rule_based(raw_message)
+        return intent_str, confidence, []
+
+
 def _determine_complexity(confidence: float) -> str:
     """Determine ticket complexity based on intent confidence."""
     if confidence > 0.9:
@@ -80,12 +118,15 @@ def _determine_complexity(confidence: float) -> str:
     return TicketComplexity.CRITICAL
 
 
-@safe_node("INTENT_CLASSIFIER", fallback={"intent": "general_inquiry", "intent_confidence": 0.0, "complexity": "simple"})
+@safe_node("INTENT_CLASSIFIER", fallback={"intent": "general_inquiry", "intent_confidence": 0.0, "complexity": "simple", "active_frameworks": []})
 async def intent_classifier(state: dict[str, Any]) -> dict[str, Any]:
     """Classify the intent of the customer's message (async).
 
+    Phase 5: Uses FrameworkBrain with CoT/Smart Router for nuanced
+    classification on medium+ complexity tickets.
+
     Reads: raw_message
-    Writes: intent, intent_confidence, complexity
+    Writes: intent, intent_confidence, complexity, active_frameworks (append)
     """
     raw_message = state.get("raw_message", "")
 
@@ -95,10 +136,11 @@ async def intent_classifier(state: dict[str, Any]) -> dict[str, Any]:
             "intent": IntentType.GENERAL_INQUIRY,
             "intent_confidence": 0.0,
             "complexity": TicketComplexity.SIMPLE,
+            "active_frameworks": [],
         }
 
-    # Try rule-based first, then LLM fallback
-    intent_str, confidence = _classify_intent_rule_based(raw_message)
+    # Try with brain first, then LLM fallback
+    intent_str, confidence, frameworks = await _classify_with_brain(state)
 
     # If low confidence, try LLM with graceful degradation
     if confidence < 0.8 and not MOCK_MODE:
@@ -121,8 +163,15 @@ async def intent_classifier(state: dict[str, Any]) -> dict[str, Any]:
 
     complexity = _determine_complexity(confidence)
 
+    new_frameworks = []
+    existing = state.get("active_frameworks", [])
+    for fw in frameworks:
+        if fw not in existing:
+            new_frameworks.append(fw)
+
     return {
         "intent": intent_str,
         "intent_confidence": confidence,
         "complexity": complexity,
+        "active_frameworks": new_frameworks,
     }

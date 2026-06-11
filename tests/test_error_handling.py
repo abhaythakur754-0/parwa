@@ -252,7 +252,8 @@ class TestSafeNodeFallbackActionExecutor:
 
     @pytest.mark.asyncio
     async def test_returns_fallback_on_crash(self):
-        with patch("parwa.nodes.action_executor.get_permission", side_effect=RuntimeError("Crash")):
+        with patch("parwa.nodes.action_executor._execute_with_brain", side_effect=RuntimeError("Crash")), \
+             patch("parwa.nodes.action_executor._execute_rule_based", side_effect=RuntimeError("Crash")):
             result = await action_executor({
                 "variant": "parwa",
                 "action_plans": [{"action_type": "send_reply", "description": "Reply", "parameters": {}, "evidence": [], "risk_level": "low"}],
@@ -266,7 +267,8 @@ class TestSafeNodeFallbackActionVerifier:
 
     @pytest.mark.asyncio
     async def test_returns_fallback_on_crash(self):
-        with patch("parwa.nodes.action_verifier._verify_execution", side_effect=RuntimeError("Crash")):
+        with patch("parwa.nodes.action_verifier._verify_with_brain", side_effect=RuntimeError("Crash")), \
+             patch("parwa.nodes.action_verifier._verify_execution", side_effect=RuntimeError("Crash")):
             result = await action_verifier({
                 "execution_results": [{"status": "executed"}],
                 "recommendation": None, "loop_count": 0, "max_loops": 2,

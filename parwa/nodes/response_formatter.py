@@ -2,13 +2,20 @@
 
 Compliance Agent node. Takes all gathered information and creates
 a helpful, empathetic, and accurate response for the customer.
+
+Phase 5: Now uses FrameworkBrain with CRP for compliance-aware
+response formatting and CoT for nuanced responses. Falls back to
+rule-based on failure.
 """
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from parwa.utils.node_base import safe_node
+
+logger = logging.getLogger("parwa.node.response_formatter")
 
 
 def _format_response_rule_based(
@@ -65,12 +72,60 @@ def _format_response_rule_based(
     return response
 
 
-@safe_node("RESPONSE_FORMATTER", fallback={"final_response": "We apologize, but we encountered an issue processing your request. A human agent will follow up shortly."})
+async def _format_with_brain(state: dict[str, Any]) -> tuple[str, list[str]]:
+    """Response formatting using FrameworkBrain (Phase 5).
+
+    Returns (final_response, frameworks_used).
+    Falls back to rule-based on any failure.
+    """
+    intent = state.get("intent", "general_inquiry")
+    conclusion = state.get("reasoning_conclusion", "")
+    execution_results = state.get("execution_results", [])
+    recommendation = state.get("recommendation")
+    proactive_insights = state.get("proactive_insights", [])
+    variant = state.get("variant", "parwa")
+
+    try:
+        from parwa.frameworks.brain import FrameworkBrain
+
+        brain = FrameworkBrain(node="RESPONSE_FORMATTER", state=state)
+        result = await brain.think(
+            prompt=f"Format response for {intent}",
+            techniques=["crp", "chain_of_thought"],
+            ticket_id=state.get("ticket_id", ""),
+            variant=variant,
+        )
+
+        # Always use rule-based as the foundation
+        response = _format_response_rule_based(
+            intent, conclusion, execution_results,
+            recommendation, proactive_insights, variant,
+        )
+
+        frameworks_used = result.frameworks_used if result.frameworks_used else []
+        return response, frameworks_used
+
+    except Exception as exc:
+        logger.warning(
+            "response_formatter: FrameworkBrain failed (%s), falling back to rule-based",
+            exc,
+        )
+        response = _format_response_rule_based(
+            intent, conclusion, execution_results,
+            recommendation, proactive_insights, variant,
+        )
+        return response, []
+
+
+@safe_node("RESPONSE_FORMATTER", fallback={"final_response": "We apologize, but we encountered an issue processing your request. A human agent will follow up shortly.", "active_frameworks": []})
 async def response_formatter(state: dict[str, Any]) -> dict[str, Any]:
     """Craft the final customer-facing response (async).
 
+    Phase 5: Uses FrameworkBrain with CRP/CoT for compliance-aware
+    response formatting.
+
     Reads: intent, reasoning_conclusion, execution_results, recommendation, proactive_insights, variant
-    Writes: final_response
+    Writes: final_response, active_frameworks (append)
     """
     intent = state.get("intent", "general_inquiry")
     conclusion = state.get("reasoning_conclusion", "")
@@ -93,9 +148,15 @@ async def response_formatter(state: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(variant, str):
         variant = "parwa"
 
-    response = _format_response_rule_based(
-        intent, conclusion, execution_results,
-        recommendation, proactive_insights, variant
-    )
+    response, frameworks = await _format_with_brain(state)
 
-    return {"final_response": response}
+    new_frameworks = []
+    existing = state.get("active_frameworks", [])
+    for fw in frameworks:
+        if fw not in existing:
+            new_frameworks.append(fw)
+
+    return {
+        "final_response": response,
+        "active_frameworks": new_frameworks,
+    }

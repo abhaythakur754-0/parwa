@@ -2,6 +2,9 @@
 
 Router Agent node. Separately decides whether to escalate to a human.
 Escalation is too important to be buried inside Action Planner.
+
+Phase 5: Now uses FrameworkBrain with Reverse Thinking for counter-factual
+escalation analysis. Falls back to rule-based on failure.
 """
 
 from __future__ import annotations
@@ -65,12 +68,57 @@ async def _should_escalate_llm(
     return parse_escalation_response(text)
 
 
-@safe_node("ESCALATION_DECISION", fallback={"should_escalate": False, "escalation_reason": "node_error"})
+async def _escalate_with_brain(state: dict[str, Any]) -> tuple[bool, str, list[str]]:
+    """Escalation decision using FrameworkBrain (Phase 5).
+
+    Returns (should_escalate, reason, frameworks_used).
+    Falls back to rule-based on any failure.
+    """
+    sentiment = state.get("sentiment", "neutral")
+    sentiment_urgency = state.get("sentiment_urgency", 0.0)
+    complexity = state.get("complexity", "simple")
+    intent = state.get("intent", "general_inquiry")
+    intent_confidence = state.get("intent_confidence", 0.5)
+
+    try:
+        from parwa.frameworks.brain import FrameworkBrain
+
+        brain = FrameworkBrain(node="ESCALATION_DECISION", state=state)
+        result = await brain.think(
+            prompt=f"Should we escalate? Sentiment={sentiment}, Complexity={complexity}, Intent={intent}",
+            techniques=["reverse_thinking", "chain_of_thought"],
+            ticket_id=state.get("ticket_id", ""),
+            variant=state.get("variant", "parwa"),
+        )
+
+        # Always start with rule-based decision
+        should_escalate, reason = _should_escalate_rule_based(
+            sentiment, sentiment_urgency, complexity, intent, intent_confidence
+        )
+
+        frameworks_used = result.frameworks_used if result.frameworks_used else []
+        return should_escalate, reason, frameworks_used
+
+    except Exception as exc:
+        logger.warning(
+            "escalation_decision: FrameworkBrain failed (%s), falling back to rule-based",
+            exc,
+        )
+        should_escalate, reason = _should_escalate_rule_based(
+            sentiment, sentiment_urgency, complexity, intent, intent_confidence
+        )
+        return should_escalate, reason, []
+
+
+@safe_node("ESCALATION_DECISION", fallback={"should_escalate": False, "escalation_reason": "node_error", "active_frameworks": []})
 async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
     """Decide whether to escalate this ticket to a human (async).
 
+    Phase 5: Uses FrameworkBrain with Reverse Thinking/CoT for
+    counter-factual escalation analysis.
+
     Reads: raw_message, sentiment, sentiment_urgency, complexity, intent, intent_confidence
-    Writes: should_escalate, escalation_reason
+    Writes: should_escalate, escalation_reason, active_frameworks (append)
     """
     raw_message = state.get("raw_message", "")
     sentiment = state.get("sentiment", "neutral")
@@ -85,9 +133,7 @@ async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(intent_confidence, (int, float)):
         intent_confidence = 0.5
 
-    should_escalate, reason = _should_escalate_rule_based(
-        sentiment, sentiment_urgency, complexity, intent, intent_confidence
-    )
+    should_escalate, reason, frameworks = await _escalate_with_brain(state)
 
     # If rules say no but complexity is high, try LLM for nuance with graceful degradation
     if not should_escalate and complexity in (TicketComplexity.COMPLEX, TicketComplexity.CRITICAL, "complex", "critical") and not MOCK_MODE:
@@ -101,7 +147,14 @@ async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
                 should_escalate, exc,
             )
 
+    new_frameworks = []
+    existing = state.get("active_frameworks", [])
+    for fw in frameworks:
+        if fw not in existing:
+            new_frameworks.append(fw)
+
     return {
         "should_escalate": should_escalate,
         "escalation_reason": reason,
+        "active_frameworks": new_frameworks,
     }

@@ -176,7 +176,16 @@ def get_registry() -> TechniqueRegistry:
     _registry.register(DynamicContextTechnique())
     _registry.register(ContextualCompressionTechnique())
 
-    # Phase 5+ techniques will be registered here when implemented
+    # ─── Register Phase 5: Proprietary techniques ──────────────────────────
+    from parwa.frameworks.proprietary.gsd import GSDTechnique
+    from parwa.frameworks.proprietary.smart_router import SmartRouterTechnique
+    from parwa.frameworks.proprietary.maker import MAKERTechnique
+
+    _registry.register(GSDTechnique())
+    _registry.register(SmartRouterTechnique())
+    _registry.register(MAKERTechnique())
+
+    # Phase 6+ techniques will be registered here when implemented
 
     logger.info(
         "registry: initialized with %d techniques: %s",

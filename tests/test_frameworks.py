@@ -134,7 +134,7 @@ class TestTechniqueRegistry:
         registry = get_registry()
         summary = registry.summary()
         # Phase 2: 6 reasoning + Phase 3: 4 RAG + 4 quality + Phase 4: 3 memory = 17 total
-        assert summary["total_techniques"] == 17
+        assert summary["total_techniques"] == 20
         assert "reasoning" in summary["by_category"]
         assert "rag" in summary["by_category"]
         assert "quality" in summary["by_category"]

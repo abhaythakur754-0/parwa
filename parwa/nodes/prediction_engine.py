@@ -2,14 +2,20 @@
 
 Proactive Agent node. Predicts potential future problems based on
 customer history and current interaction patterns.
+
+Phase 5: Now uses FrameworkBrain with Dynamic Context for pattern
+recognition and predictions. Falls back to rule-based on failure.
 """
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from parwa.state import ProactiveInsight
 from parwa.utils.node_base import safe_node
+
+logger = logging.getLogger("parwa.node.prediction_engine")
 
 
 def _predict_issues_rule_based(intent: str, integration_data: dict, sentiment: str) -> list[dict]:
@@ -55,12 +61,55 @@ def _predict_issues_rule_based(intent: str, integration_data: dict, sentiment: s
     return predictions
 
 
-@safe_node("PREDICTION_ENGINE", fallback={"predictions": []})
+async def _predict_with_brain(state: dict[str, Any]) -> tuple[list[dict], list[str]]:
+    """Prediction using FrameworkBrain (Phase 5).
+
+    Returns (predictions, frameworks_used).
+    Falls back to rule-based on any failure.
+    """
+    intent = state.get("intent", "general_inquiry")
+    integration_data = state.get("integration_data", {})
+    sentiment = state.get("sentiment", "neutral")
+
+    try:
+        from parwa.frameworks.brain import FrameworkBrain
+
+        brain = FrameworkBrain(node="PREDICTION_ENGINE", state=state)
+        result = await brain.think(
+            prompt=f"Predict future issues for {intent} with sentiment {sentiment}",
+            techniques=["dynamic_context", "chain_of_thought"],
+            ticket_id=state.get("ticket_id", ""),
+            variant=state.get("variant", "parwa"),
+        )
+
+        predictions = _predict_issues_rule_based(intent, integration_data, sentiment)
+
+        if result.confidence > 0.5 and result.frameworks_used:
+            for pred in predictions:
+                if isinstance(pred, dict):
+                    pred["brain_enhanced"] = True
+
+        frameworks_used = result.frameworks_used if result.frameworks_used else []
+        return predictions, frameworks_used
+
+    except Exception as exc:
+        logger.warning(
+            "prediction_engine: FrameworkBrain failed (%s), falling back to rule-based",
+            exc,
+        )
+        predictions = _predict_issues_rule_based(intent, integration_data, sentiment)
+        return predictions, []
+
+
+@safe_node("PREDICTION_ENGINE", fallback={"predictions": [], "active_frameworks": []})
 async def prediction_engine(state: dict[str, Any]) -> dict[str, Any]:
     """Forecast future issues or follow-up needs (async).
 
+    Phase 5: Uses FrameworkBrain with Dynamic Context/CoT for
+    pattern recognition and predictions.
+
     Reads: intent, integration_data, sentiment
-    Writes: predictions
+    Writes: predictions, active_frameworks (append)
     """
     intent = state.get("intent", "general_inquiry")
     integration_data = state.get("integration_data", {})
@@ -74,6 +123,18 @@ async def prediction_engine(state: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(sentiment, str):
         sentiment = "neutral"
 
-    predictions = _predict_issues_rule_based(intent, integration_data, sentiment)
+    predictions, frameworks = await _predict_with_brain(state)
 
-    return {"predictions": predictions}
+    if not isinstance(predictions, list):
+        predictions = []
+
+    new_frameworks = []
+    existing = state.get("active_frameworks", [])
+    for fw in frameworks:
+        if fw not in existing:
+            new_frameworks.append(fw)
+
+    return {
+        "predictions": predictions,
+        "active_frameworks": new_frameworks,
+    }

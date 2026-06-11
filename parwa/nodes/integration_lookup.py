@@ -2,13 +2,19 @@
 
 Knowledge Agent node. Pulls data from external systems (CRM, payment gateways,
 shipping providers) to provide evidence for reasoning and action.
+
+Phase 5: Now uses FrameworkBrain with HyDE/CLARA for smart data filtering.
+Falls back to rule-based on failure.
 """
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from parwa.utils.node_base import safe_node
+
+logger = logging.getLogger("parwa.node.integration_lookup")
 
 
 # Mock CRM data per customer
@@ -58,12 +64,53 @@ def _lookup_integration_rule_based(customer_id: str, intent: str) -> dict[str, A
     return data
 
 
-@safe_node("INTEGRATION_LOOKUP", fallback={"integration_data": {}})
+async def _lookup_with_brain(state: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """Integration lookup using FrameworkBrain (Phase 5).
+
+    Returns (integration_data, frameworks_used).
+    Falls back to rule-based on any failure.
+    """
+    customer_id = state.get("customer_id", "default")
+    intent = state.get("intent", "general_inquiry")
+
+    try:
+        from parwa.frameworks.brain import FrameworkBrain
+
+        brain = FrameworkBrain(node="INTEGRATION_LOOKUP", state=state)
+        result = await brain.think(
+            prompt=f"Lookup relevant data for {intent}",
+            techniques=["hyde", "clara"],
+            ticket_id=state.get("ticket_id", ""),
+            variant=state.get("variant", "parwa"),
+        )
+
+        data = _lookup_integration_rule_based(customer_id, intent)
+
+        if result.confidence > 0.5 and result.frameworks_used:
+            if isinstance(data, dict):
+                data["brain_enhanced"] = True
+                data["frameworks_used"] = result.frameworks_used
+
+        frameworks_used = result.frameworks_used if result.frameworks_used else []
+        return data, frameworks_used
+
+    except Exception as exc:
+        logger.warning(
+            "integration_lookup: FrameworkBrain failed (%s), falling back to rule-based",
+            exc,
+        )
+        data = _lookup_integration_rule_based(customer_id, intent)
+        return data, []
+
+
+@safe_node("INTEGRATION_LOOKUP", fallback={"integration_data": {}, "active_frameworks": []})
 async def integration_lookup(state: dict[str, Any]) -> dict[str, Any]:
     """Query external systems for relevant data (async).
 
+    Phase 5: Uses FrameworkBrain with HyDE/CLARA for smart data filtering.
+
     Reads: customer_id, intent
-    Writes: integration_data
+    Writes: integration_data, active_frameworks (append)
     """
     customer_id = state.get("customer_id", "default")
     intent = state.get("intent", "general_inquiry")
@@ -74,17 +121,19 @@ async def integration_lookup(state: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(intent, str):
         intent = "general_inquiry"
 
-    try:
-        data = _lookup_integration_rule_based(customer_id, intent)
-    except Exception as exc:
-        import logging
-        logging.getLogger("parwa.node.integration_lookup").warning(
-            "INTEGRATION_LOOKUP: CRM lookup failed: %s", exc,
-        )
-        data = {}
+    data, frameworks = await _lookup_with_brain(state)
 
     # Guard: ensure result is a dict
     if not isinstance(data, dict):
         data = {}
 
-    return {"integration_data": data}
+    new_frameworks = []
+    existing = state.get("active_frameworks", [])
+    for fw in frameworks:
+        if fw not in existing:
+            new_frameworks.append(fw)
+
+    return {
+        "integration_data": data,
+        "active_frameworks": new_frameworks,
+    }

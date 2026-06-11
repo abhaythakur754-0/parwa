@@ -445,4 +445,4 @@ class TestFrameworkBrainPhase4:
         assert registry.get("dynamic_context") is not None
         assert registry.get("contextual_compression") is not None
         # Total: 6 reasoning + 4 RAG + 4 quality + 3 memory = 17
-        assert registry.count() == 17
+        assert registry.count() == 20

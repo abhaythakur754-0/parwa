@@ -3,14 +3,20 @@
 Compliance Agent node. Detects and redacts personally identifiable
 information (email, phone, SSN, credit card) from the response
 before it's sent to the customer or stored in logs.
+
+Phase 5: Now uses FrameworkBrain with CRP for compliance-aware
+redaction. Falls back to regex-based on failure.
 """
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any
 
 from parwa.utils.node_base import safe_node
+
+logger = logging.getLogger("parwa.node.pii_compliance_guard")
 
 
 # PII detection patterns
@@ -51,33 +57,64 @@ def _redact_pii(text: str) -> str:
     return text
 
 
-@safe_node("PII_COMPLIANCE_GUARD", fallback={"pii_detected": False, "pii_redacted_message": ""})
-async def pii_compliance_guard(state: dict[str, Any]) -> dict[str, Any]:
-    """Detect and redact PII from the response (async).
+async def _check_pii_with_brain(state: dict[str, Any]) -> tuple[bool, str, list[str]]:
+    """PII checking using FrameworkBrain (Phase 5).
 
-    Reads: final_response (or raw_message if no response yet)
-    Writes: pii_detected, pii_redacted_message
+    Returns (pii_detected, redacted_message, frameworks_used).
+    Falls back to regex-based on any failure.
     """
-    # Check the message that will be sent
     message = state.get("final_response") or state.get("raw_message", "")
 
-    # Guard: ensure message is a string
     if not isinstance(message, str):
         message = str(message) if message else ""
 
     try:
+        from parwa.frameworks.brain import FrameworkBrain
+
+        brain = FrameworkBrain(node="PII_COMPLIANCE_GUARD", state=state)
+        result = await brain.think(
+            prompt="Check for PII and compliance violations",
+            techniques=["crp"],
+            ticket_id=state.get("ticket_id", ""),
+            variant=state.get("variant", "parwa"),
+        )
+
+        # Always use regex-based detection as the foundation
         pii_detected, found_items = _detect_pii(message)
         redacted_message = _redact_pii(message) if pii_detected else message
+
+        frameworks_used = result.frameworks_used if result.frameworks_used else []
+        return pii_detected, redacted_message, frameworks_used
+
     except Exception as exc:
-        import logging
-        logging.getLogger("parwa.node.pii_compliance_guard").warning(
-            "PII_COMPLIANCE_GUARD: PII detection/redaction failed: %s", exc,
+        logger.warning(
+            "pii_compliance_guard: FrameworkBrain failed (%s), falling back to regex-based",
+            exc,
         )
-        # If PII detection fails, return the message as-is (don't block the pipeline)
-        pii_detected = False
-        redacted_message = message
+        pii_detected, found_items = _detect_pii(message)
+        redacted_message = _redact_pii(message) if pii_detected else message
+        return pii_detected, redacted_message, []
+
+
+@safe_node("PII_COMPLIANCE_GUARD", fallback={"pii_detected": False, "pii_redacted_message": "", "active_frameworks": []})
+async def pii_compliance_guard(state: dict[str, Any]) -> dict[str, Any]:
+    """Detect and redact PII from the response (async).
+
+    Phase 5: Uses FrameworkBrain with CRP for compliance-aware redaction.
+
+    Reads: final_response (or raw_message if no response yet)
+    Writes: pii_detected, pii_redacted_message, active_frameworks (append)
+    """
+    pii_detected, redacted_message, frameworks = await _check_pii_with_brain(state)
+
+    new_frameworks = []
+    existing = state.get("active_frameworks", [])
+    for fw in frameworks:
+        if fw not in existing:
+            new_frameworks.append(fw)
 
     return {
         "pii_detected": pii_detected,
         "pii_redacted_message": redacted_message,
+        "active_frameworks": new_frameworks,
     }

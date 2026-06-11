@@ -2,6 +2,9 @@
 
 Router Agent node. Analyzes customer sentiment to influence routing
 and tone of the response. Angry customers get different handling.
+
+Phase 5: Now uses FrameworkBrain with CoT for nuanced sentiment
+analysis on complex tickets. Falls back to rule-based on failure.
 """
 
 from __future__ import annotations
@@ -59,12 +62,49 @@ async def _analyze_sentiment_llm(message: str) -> tuple[str, float]:
     return parse_sentiment_response(text)
 
 
-@safe_node("SENTIMENT_ANALYZER", fallback={"sentiment": "neutral", "sentiment_urgency": 0.3})
+async def _analyze_with_brain(state: dict[str, Any]) -> tuple[str, float, list[str]]:
+    """Sentiment analysis using FrameworkBrain (Phase 5).
+
+    Returns (sentiment, urgency, frameworks_used).
+    Falls back to rule-based on any failure.
+    """
+    raw_message = state.get("raw_message", "")
+
+    try:
+        from parwa.frameworks.brain import FrameworkBrain
+
+        brain = FrameworkBrain(node="SENTIMENT_ANALYZER", state=state)
+        result = await brain.think(
+            prompt=f"Analyze sentiment for: {raw_message}",
+            techniques=["chain_of_thought"],
+            ticket_id=state.get("ticket_id", ""),
+            variant=state.get("variant", "parwa"),
+        )
+
+        # Always start with rule-based sentiment
+        sentiment_str, urgency = _analyze_sentiment_rule_based(raw_message)
+
+        frameworks_used = result.frameworks_used if result.frameworks_used else []
+        return sentiment_str, urgency, frameworks_used
+
+    except Exception as exc:
+        logger.warning(
+            "sentiment_analyzer: FrameworkBrain failed (%s), falling back to rule-based",
+            exc,
+        )
+        sentiment_str, urgency = _analyze_sentiment_rule_based(raw_message)
+        return sentiment_str, urgency, []
+
+
+@safe_node("SENTIMENT_ANALYZER", fallback={"sentiment": "neutral", "sentiment_urgency": 0.3, "active_frameworks": []})
 async def sentiment_analyzer(state: dict[str, Any]) -> dict[str, Any]:
     """Analyze customer sentiment and urgency (async).
 
+    Phase 5: Uses FrameworkBrain with CoT for nuanced sentiment
+    analysis on complex tickets.
+
     Reads: raw_message
-    Writes: sentiment, sentiment_urgency
+    Writes: sentiment, sentiment_urgency, active_frameworks (append)
     """
     raw_message = state.get("raw_message", "")
 
@@ -73,9 +113,10 @@ async def sentiment_analyzer(state: dict[str, Any]) -> dict[str, Any]:
         return {
             "sentiment": SentimentType.NEUTRAL,
             "sentiment_urgency": 0.3,
+            "active_frameworks": [],
         }
 
-    sentiment_str, urgency = _analyze_sentiment_rule_based(raw_message)
+    sentiment_str, urgency, frameworks = await _analyze_with_brain(state)
 
     # If neutral and not in mock mode, try LLM for nuance with graceful degradation
     if sentiment_str == SentimentType.NEUTRAL and not MOCK_MODE:
@@ -96,7 +137,14 @@ async def sentiment_analyzer(state: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(urgency, (int, float)) or urgency < 0:
         urgency = 0.3
 
+    new_frameworks = []
+    existing = state.get("active_frameworks", [])
+    for fw in frameworks:
+        if fw not in existing:
+            new_frameworks.append(fw)
+
     return {
         "sentiment": sentiment_str,
         "sentiment_urgency": urgency,
+        "active_frameworks": new_frameworks,
     }
