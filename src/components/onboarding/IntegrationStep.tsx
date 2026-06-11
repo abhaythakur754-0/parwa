@@ -159,10 +159,11 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
   const handleContinue = async () => {
     try {
       await onboardingApi.completeStep(3);
-      onNext();
     } catch (error) {
-      toast.error(getErrorMessage(error));
+      console.warn('Step 3 complete API failed, continuing locally:', error);
     }
+    // Always advance — never block on API failure
+    onNext();
   };
 
   if (isLoading) {

@@ -30,26 +30,27 @@ export function FirstVictory({ aiName = 'Jarvis', aiGreeting }: FirstVictoryProp
   const goToDashboard = () => {
     // Variant-aware dashboard redirect
     try {
-      const stored = localStorage.getItem('parwa_pricing_selection');
-      if (stored) {
-        const pricing = JSON.parse(stored) as Record<string, unknown>;
-        const plan = String(pricing.plan || '').toLowerCase();
-        if (plan === 'starter') {
+      const ctx = localStorage.getItem('parwa_pricing_context');
+      if (ctx) {
+        const pricing = JSON.parse(ctx) as Record<string, unknown>;
+        const variant = String(pricing.variant || '').toLowerCase();
+        if (variant === 'mini' || variant === 'mini-parwa') {
           router.push('/dashboard?variant=mini');
           return;
         }
-        if (plan === 'high') {
+        if (variant === 'parwa-high' || variant === 'high') {
           router.push('/dashboard?variant=high');
           return;
         }
-        if (plan === 'growth') {
+        // Default PARWA variant
+        if (variant) {
           router.push('/dashboard?variant=pro');
           return;
         }
       }
     } catch { /* ignore */ }
 
-    // Also check pricing context from localStorage
+    // Fallback: check pricing context again for variants info
     try {
       const ctx = localStorage.getItem('parwa_pricing_context');
       if (ctx) {

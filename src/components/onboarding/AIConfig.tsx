@@ -207,7 +207,7 @@ export function AIConfig({ onComplete, initialConfig }: AIConfigProps) {
       <div className="flex justify-end">
         <button
           onClick={handleActivate}
-          disabled={activating || activated || (prerequisites !== null && !prerequisites.can_activate)}
+          disabled={activating || activated}
           className="px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-400 hover:to-amber-300 disabled:from-zinc-700 disabled:to-zinc-700 text-[#1A1A1A] disabled:text-zinc-500 font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-orange-500/25 disabled:shadow-none text-sm flex items-center gap-2"
         >
           {activating ? (
