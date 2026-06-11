@@ -4,7 +4,8 @@ The registry is the single source of truth for which techniques exist,
 which nodes they apply to, and their metadata. FrameworkBrain queries
 the registry to find available techniques for a given node.
 
-Phase 2 registers 6 reasoning techniques. Phases 3-5 register the rest.
+Phase 2 registers 6 reasoning techniques. Phase 3 registers 8 RAG + Quality
+techniques. Phases 4-5 register the rest.
 """
 
 from __future__ import annotations
@@ -143,6 +144,30 @@ def get_registry() -> TechniqueRegistry:
     _registry.register(GraphOfStrategicThoughtTechnique())
 
     # Phase 3-5 techniques will be registered here when implemented
+
+    # ─── Register Phase 3: RAG techniques ──────────────────────────────────
+    from parwa.frameworks.rag.clara import ClaraTechnique
+    from parwa.frameworks.rag.hyde import HyDETechnique
+    from parwa.frameworks.rag.multi_query import MultiQueryTechnique
+    from parwa.frameworks.rag.step_back import StepBackTechnique
+
+    _registry.register(ClaraTechnique())
+    _registry.register(HyDETechnique())
+    _registry.register(MultiQueryTechnique())
+    _registry.register(StepBackTechnique())
+
+    # ─── Register Phase 3: Quality techniques ──────────────────────────────
+    from parwa.frameworks.quality.reflexion import ReflexionTechnique
+    from parwa.frameworks.quality.self_consistency import SelfConsistencyTechnique
+    from parwa.frameworks.quality.crp import ConstrainedResponseTechnique
+    from parwa.frameworks.quality.least_to_most import LeastToMostTechnique
+
+    _registry.register(ReflexionTechnique())
+    _registry.register(SelfConsistencyTechnique())
+    _registry.register(ConstrainedResponseTechnique())
+    _registry.register(LeastToMostTechnique())
+
+    # Phase 4-5 techniques will be registered here when implemented
 
     logger.info(
         "registry: initialized with %d techniques: %s",

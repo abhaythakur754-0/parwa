@@ -120,7 +120,9 @@ class TestSafeNodeFallbackFaqMatcher:
 
     @pytest.mark.asyncio
     async def test_returns_fallback_on_crash(self):
-        with patch("parwa.nodes.faq_matcher._match_faq_rule_based", side_effect=RuntimeError("Crash")):
+        # Patch both FrameworkBrain path and rule-based fallback to force crash
+        with patch("parwa.nodes.faq_matcher._match_faq_with_brain", side_effect=RuntimeError("Crash")), \
+             patch("parwa.nodes.faq_matcher._match_faq_rule_based", side_effect=RuntimeError("Crash")):
             result = await faq_matcher({"raw_message": "test"})
         assert result["faq_match"] is None
 
@@ -130,7 +132,9 @@ class TestSafeNodeFallbackKbRetriever:
 
     @pytest.mark.asyncio
     async def test_returns_fallback_on_crash(self):
-        with patch("parwa.nodes.kb_retriever._retrieve_kb_rule_based", side_effect=RuntimeError("Crash")):
+        # Patch both FrameworkBrain path and rule-based fallback to force crash
+        with patch("parwa.nodes.kb_retriever._retrieve_with_brain", side_effect=RuntimeError("Crash")), \
+             patch("parwa.nodes.kb_retriever._retrieve_kb_rule_based", side_effect=RuntimeError("Crash")):
             result = await kb_retriever({"raw_message": "test", "intent": "general_inquiry"})
         assert result["kb_results"] == []
 
@@ -188,7 +192,9 @@ class TestSafeNodeFallbackReverseThinker:
 
     @pytest.mark.asyncio
     async def test_returns_fallback_on_crash(self):
-        with patch("parwa.nodes.reverse_thinker._reverse_think_rule_based", side_effect=RuntimeError("Crash")):
+        # Patch both FrameworkBrain path and rule-based fallback to force crash
+        with patch("parwa.nodes.reverse_thinker._reverse_think_with_brain", side_effect=RuntimeError("Crash")), \
+             patch("parwa.nodes.reverse_thinker._reverse_think_rule_based", side_effect=RuntimeError("Crash")):
             result = await reverse_thinker({
                 "reasoning_conclusion": "test", "kb_results": [],
                 "integration_data": {}, "active_frameworks": [],
@@ -218,7 +224,9 @@ class TestSafeNodeFallbackStrategyPlanner:
 
     @pytest.mark.asyncio
     async def test_returns_fallback_on_crash(self):
-        with patch("parwa.nodes.strategy_planner._plan_strategy_rule_based", side_effect=RuntimeError("Crash")):
+        # Patch both FrameworkBrain path and rule-based fallback to force crash
+        with patch("parwa.nodes.strategy_planner._plan_with_brain", side_effect=RuntimeError("Crash")), \
+             patch("parwa.nodes.strategy_planner._plan_strategy_rule_based", side_effect=RuntimeError("Crash")):
             result = await strategy_planner({
                 "intent": "refund_request", "reasoning_conclusion": "test",
                 "selected_path": None, "active_frameworks": [],
@@ -343,7 +351,9 @@ class TestSafeNodeFallbackQualityScorer:
 
     @pytest.mark.asyncio
     async def test_returns_fallback_on_crash(self):
-        with patch("parwa.nodes.quality_scorer._score_quality_rule_based", side_effect=RuntimeError("Crash")):
+        # Patch both FrameworkBrain path and rule-based fallback to force crash
+        with patch("parwa.nodes.quality_scorer._score_with_brain", side_effect=RuntimeError("Crash")), \
+             patch("parwa.nodes.quality_scorer._score_quality_rule_based", side_effect=RuntimeError("Crash")):
             result = await quality_scorer({
                 "intent": "refund_request", "reasoning_conclusion": "test",
                 "verification_passed": True, "recommendation": None,

@@ -1,4 +1,4 @@
-"""Unit tests for FrameworkBrain, TechniqueRegistry, and all 6 reasoning techniques.
+"""Unit tests for FrameworkBrain, TechniqueRegistry, and all 14 techniques.
 
 Tests cover:
   - TechniqueResult model validation
@@ -7,6 +7,8 @@ Tests cover:
   - FrameworkBrain technique selection and execution
   - Each technique's think() method in MOCK_MODE
   - Complexity-based activation logic
+  - Phase 2: 6 reasoning techniques
+  - Phase 3: 4 RAG techniques + 4 quality techniques
 """
 
 import pytest
@@ -131,18 +133,25 @@ class TestTechniqueRegistry:
     def test_summary(self):
         registry = get_registry()
         summary = registry.summary()
-        assert summary["total_techniques"] == 6
+        # Phase 2: 6 reasoning + Phase 3: 4 RAG + 4 quality = 14 total
+        assert summary["total_techniques"] == 14
         assert "reasoning" in summary["by_category"]
+        assert "rag" in summary["by_category"]
+        assert "quality" in summary["by_category"]
         assert "REASONING_ENGINE" in summary["by_node"]
 
     def test_all_techniques_registered(self):
         registry = get_registry()
         names = registry.get_technique_names()
-        expected = [
+        # Phase 2: Reasoning
+        expected_reasoning = [
             "chain_of_thought", "react", "tree_of_thoughts",
             "reverse_thinking", "uncertainty_of_thought", "graph_of_strategic_thought",
         ]
-        for name in expected:
+        # Phase 3: RAG + Quality
+        expected_rag = ["clara", "hyde", "multi_query", "step_back"]
+        expected_quality = ["reflexion", "self_consistency", "crp", "least_to_most"]
+        for name in expected_reasoning + expected_rag + expected_quality:
             assert name in names, f"Expected technique '{name}' not registered"
 
 

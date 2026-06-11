@@ -83,7 +83,9 @@ class TestSingleNodeFailure:
     @pytest.mark.asyncio
     async def test_reasoning_engine_failure_pipeline_continues(self, parwa_graph):
         """Pipeline continues when reasoning_engine crashes."""
-        with patch("parwa.nodes.reasoning_engine._reason_rule_based", side_effect=RuntimeError("LLM timeout")):
+        # Patch both FrameworkBrain path and rule-based fallback to force crash
+        with patch("parwa.nodes.reasoning_engine._reason_with_brain", side_effect=RuntimeError("LLM timeout")), \
+             patch("parwa.nodes.reasoning_engine._reason_rule_based", side_effect=RuntimeError("LLM timeout")):
             result = await parwa_graph.ainvoke({
                 "raw_message": "I was charged twice",
                 "customer_id": "default",
@@ -180,7 +182,9 @@ class TestMultipleNodeFailures:
     async def test_reasoning_agent_failure_pipeline_continues(self, parwa_graph):
         """When all Reasoning Agent nodes (Reasoning, Reverse, ToT, Strategy) fail."""
         with (
+            patch("parwa.nodes.reasoning_engine._reason_with_brain", side_effect=RuntimeError("Reasoning down")),
             patch("parwa.nodes.reasoning_engine._reason_rule_based", side_effect=RuntimeError("Reasoning down")),
+            patch("parwa.nodes.reverse_thinker._reverse_think_with_brain", side_effect=RuntimeError("Reverse down")),
             patch("parwa.nodes.reverse_thinker._reverse_think_rule_based", side_effect=RuntimeError("Reverse down")),
         ):
             result = await parwa_graph.ainvoke({
@@ -385,6 +389,7 @@ class TestCatastrophicFailure:
         with (
             patch("parwa.nodes.faq_matcher._match_faq_rule_based", side_effect=RuntimeError("FAQ down")),
             patch("parwa.nodes.kb_retriever._retrieve_kb_rule_based", side_effect=RuntimeError("KB down")),
+            patch("parwa.nodes.reasoning_engine._reason_with_brain", side_effect=RuntimeError("Reasoning down")),
             patch("parwa.nodes.reasoning_engine._reason_rule_based", side_effect=RuntimeError("Reasoning down")),
         ):
             result = await parwa_graph.ainvoke({

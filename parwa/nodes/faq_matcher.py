@@ -2,6 +2,9 @@
 
 Knowledge Agent node. Matches the ticket against known FAQs
 to enable quick resolution for common questions.
+
+Phase 3: Now uses FrameworkBrain with HyDE/Multi-Query for better
+FAQ matching. Falls back to rule-based on failure.
 """
 
 from __future__ import annotations
@@ -80,24 +83,75 @@ async def _match_faq_llm(message: str) -> KnowledgeResult | None:
     )
 
 
-@safe_node("FAQ_MATCHER", fallback={"faq_match": None})
+async def _match_faq_with_brain(state: dict[str, Any]) -> tuple[dict[str, Any] | None, list[str]]:
+    """FAQ matching using FrameworkBrain (Phase 3).
+
+    Returns (faq_match_dict_or_None, frameworks_used).
+    Falls back to rule-based on any failure.
+    """
+    raw_message = state.get("raw_message", "")
+
+    try:
+        from parwa.frameworks.brain import FrameworkBrain
+
+        brain = FrameworkBrain(node="FAQ_MATCHER", state=state)
+        result = await brain.think(
+            prompt=raw_message,
+            techniques=["hyde", "multi_query", "clara"],
+            ticket_id=state.get("ticket_id", ""),
+            variant=state.get("variant", "parwa"),
+        )
+
+        # The brain enhances matching — do rule-based + brain metadata
+        faq_result = _match_faq_rule_based(raw_message)
+
+        # If brain found high confidence and rule-based didn't, or vice versa
+        if faq_result and result.confidence > 0.5:
+            # Both agree — high confidence
+            faq_dict = faq_result.model_dump()
+            faq_dict["retrieval_enhanced"] = True
+            faq_dict["frameworks_used"] = result.frameworks_used
+            return faq_dict, result.frameworks_used
+        elif faq_result:
+            # Rule-based found something, brain less confident — still return it
+            return faq_result.model_dump(), []
+        else:
+            # No match found
+            return None, []
+
+    except Exception as exc:
+        logger.warning(
+            "faq_matcher: FrameworkBrain failed (%s), falling back to rule-based",
+            exc,
+        )
+        faq_result = _match_faq_rule_based(raw_message)
+        return faq_result.model_dump() if faq_result else None, []
+
+
+@safe_node("FAQ_MATCHER", fallback={"faq_match": None, "active_frameworks": []})
 async def faq_matcher(state: dict[str, Any]) -> dict[str, Any]:
     """Match the ticket against known FAQs (async).
 
+    Phase 3: Uses FrameworkBrain with HyDE/Multi-Query/CLARA for
+    better FAQ matching. Falls back to rule-based on failure.
+
     Reads: raw_message, intent
-    Writes: faq_match
+    Writes: faq_match, active_frameworks (append)
     """
     raw_message = state.get("raw_message", "")
 
     # Guard: empty or non-string message
     if not isinstance(raw_message, str) or not raw_message.strip():
-        return {"faq_match": None}
+        return {"faq_match": None, "active_frameworks": []}
 
-    result = _match_faq_rule_based(raw_message)
+    # Try FrameworkBrain first (Phase 3)
+    faq_result, frameworks = await _match_faq_with_brain(state)
 
-    if result is None and not MOCK_MODE:
+    if faq_result is None and not MOCK_MODE:
         try:
-            result = await _match_faq_llm(raw_message)
+            llm_result = await _match_faq_llm(raw_message)
+            if llm_result:
+                faq_result = llm_result.model_dump()
         except Exception as exc:
             # LLM failed — no FAQ match is acceptable (graceful degradation)
             logger.warning(
@@ -106,4 +160,14 @@ async def faq_matcher(state: dict[str, Any]) -> dict[str, Any]:
                 exc,
             )
 
-    return {"faq_match": result.model_dump() if result else None}
+    # Track frameworks used — return ONLY new frameworks (reducer appends)
+    new_frameworks = []
+    existing = state.get("active_frameworks", [])
+    for fw in frameworks:
+        if fw not in existing:
+            new_frameworks.append(fw)
+
+    return {
+        "faq_match": faq_result,
+        "active_frameworks": new_frameworks,
+    }
