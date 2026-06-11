@@ -11,6 +11,7 @@ Production features:
 - Prompt injection sanitization
 - Async support for concurrent ticket processing
 - Structured logging for all LLM calls
+- Phase 4: Smart Router — selects the right LLM model based on task complexity
 """
 
 from __future__ import annotations
@@ -368,6 +369,99 @@ async def ainvoke_llm(
     except Exception as exc:
         logger.error("ainvoke_llm: LLM call failed: %s", exc)
         raise
+
+
+# ─── Phase 4: Smart Router ──────────────────────────────────────────────────────
+
+# Model tiers based on complexity
+_MODEL_TIERS = {
+    "simple": "gpt-4o-mini",     # Cheap, fast — for simple classification/routing
+    "medium": "gpt-4o",          # Balanced — for reasoning, RAG, quality checks
+    "complex": "gpt-4o",         # Capable — for complex reasoning, multi-framework
+    "critical": "o1-preview",    # Best — for legal threats, regulatory, data breaches
+}
+
+# Node-specific model overrides (some nodes always use cheap/expensive models)
+_NODE_MODEL_OVERRIDES = {
+    "INGEST": "gpt-4o-mini",                # Simple — just structuring
+    "INTENT_CLASSIFIER": "gpt-4o-mini",     # Simple classification
+    "SENTIMENT_ANALYZER": "gpt-4o-mini",    # Simple classification
+    "ESCALATION_DECISION": "gpt-4o-mini",   # Simple routing
+    "FAQ_MATCHER": "gpt-4o-mini",           # Simple matching
+    "KB_RETRIEVER": "gpt-4o",               # Medium — needs semantic understanding
+    "CONTEXT_MANAGER": "gpt-4o-mini",       # Simple — just history management
+    "INTEGRATION_LOOKUP": "gpt-4o-mini",    # Simple — structured data
+    "REASONING_ENGINE": "gpt-4o",           # Medium/Complex — core reasoning
+    "REVERSE_THINKER": "gpt-4o",            # Medium — verification reasoning
+    "TREE_OF_THOUGHTS": "gpt-4o",           # Complex — multi-path exploration
+    "STRATEGY_PLANNER": "gpt-4o",           # Complex — strategic planning
+    "ACTION_PLANNER": "gpt-4o",             # Medium — action planning
+    "ACTION_EXECUTOR": "gpt-4o-mini",       # Simple — structured execution
+    "ACTION_VERIFIER": "gpt-4o-mini",       # Simple — verification check
+    "PROACTIVE_CHECKER": "gpt-4o-mini",     # Simple — pattern matching
+    "PREDICTION_ENGINE": "gpt-4o",          # Medium — prediction needs reasoning
+    "FEEDBACK_LOOP": "gpt-4o-mini",         # Simple — signal generation
+    "PII_COMPLIANCE_GUARD": "gpt-4o-mini",  # Simple — pattern detection
+    "AUDIT_LOGGER": "gpt-4o-mini",          # Simple — logging
+    "QUALITY_SCORER": "gpt-4o",             # Medium — quality evaluation
+    "RESPONSE_FORMATTER": "gpt-4o",         # Medium — creative formatting
+    # FrameworkBrain technique nodes
+    "FRAMEWORKBRAIN_COT": "gpt-4o",         # Reasoning
+    "FRAMEWORKBRAIN_REACT": "gpt-4o",       # Reasoning with verification
+    "FRAMEWORKBRAIN_CLARA": "gpt-4o",       # RAG confidence evaluation
+    "FRAMEWORKBRAIN_HYDE": "gpt-4o",        # Hypothetical doc generation
+    "FRAMEWORKBRAIN_MULTI_QUERY": "gpt-4o", # Query variation generation
+    "FRAMEWORKBRAIN_STEP_BACK": "gpt-4o",   # Concept abstraction
+    "FRAMEWORKBRAIN_REFLEXION": "gpt-4o",   # Self-review
+    "FRAMEWORKBRAIN_SC_1": "gpt-4o",        # Self-consistency sample
+    "FRAMEWORKBRAIN_SC_2": "gpt-4o",        # Self-consistency sample
+    "FRAMEWORKBRAIN_SC_3": "gpt-4o",        # Self-consistency sample
+    "FRAMEWORKBRAIN_CRP": "gpt-4o",         # Constrained generation
+    "FRAMEWORKBRAIN_LTM_DECOMP": "gpt-4o",  # Problem decomposition
+    "FRAMEWORKBRAIN_LTM_SOLVE": "gpt-4o",   # Sub-problem solving
+}
+
+
+def smart_route_model(
+    node_name: str,
+    *,
+    complexity: str = "simple",
+    variant: str = "parwa",
+) -> str:
+    """Select the right LLM model based on node name and complexity.
+
+    The Smart Router is woven into the LLM call path. Every ainvoke_llm
+    call now goes through Smart Router for model selection.
+
+    Rules:
+    1. Node-specific overrides take priority (some nodes always use a specific model)
+    2. If no override, use complexity-based tier selection
+    3. Mini variant always uses gpt-4o-mini (cost optimization)
+    4. PARWA High uses the best model for the complexity level
+
+    Args:
+        node_name: The calling node name (e.g. "REASONING_ENGINE").
+        complexity: Ticket complexity (simple/medium/complex/critical).
+        variant: PARWA variant (mini/parwa/high).
+
+    Returns:
+        The model name to use for this LLM call.
+    """
+    # Rule 3: Mini variant always uses cheap model (cost optimization)
+    if variant == "mini":
+        logger.debug("smart_router: node=%s → gpt-4o-mini (mini variant)", node_name)
+        return "gpt-4o-mini"
+
+    # Rule 1: Node-specific overrides
+    if node_name in _NODE_MODEL_OVERRIDES:
+        model = _NODE_MODEL_OVERRIDES[node_name]
+        logger.debug("smart_router: node=%s → %s (override)", node_name, model)
+        return model
+
+    # Rule 2: Complexity-based tier selection
+    model = _MODEL_TIERS.get(complexity, "gpt-4o-mini")
+    logger.debug("smart_router: node=%s complexity=%s → %s", node_name, complexity, model)
+    return model
 
 
 class MockLLM:

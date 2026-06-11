@@ -2,6 +2,11 @@
 
 This is the central state object that flows through every node.
 Each node reads from and writes to this state.
+
+Phase 4: GSD (Global State Decompression) is woven into state management.
+GSD compresses state between nodes (12,000→180 tokens) for efficient
+passing. Nodes always see FULL state — compression only affects
+serialization between nodes.
 """
 
 from __future__ import annotations

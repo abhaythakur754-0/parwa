@@ -629,8 +629,8 @@ class TestFrameworkBrainPhase3:
         assert registry.get("self_consistency") is not None
         assert registry.get("crp") is not None
         assert registry.get("least_to_most") is not None
-        # Total: 6 reasoning + 4 RAG + 4 quality = 14
-        assert registry.count() == 14
+        # Total: 6 reasoning + 4 RAG + 4 quality + 3 memory = 17
+        assert registry.count() == 17
 
     @pytest.mark.asyncio
     async def test_brain_kb_retriever_techniques_from_registry(self):

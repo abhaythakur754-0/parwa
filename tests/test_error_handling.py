@@ -301,7 +301,9 @@ class TestSafeNodeFallbackFeedbackLoop:
 
     @pytest.mark.asyncio
     async def test_returns_fallback_on_crash(self):
-        with patch("parwa.nodes.feedback_loop._generate_feedback_signal", side_effect=RuntimeError("Crash")):
+        # Patch both FrameworkBrain path and rule-based fallback to force crash
+        with patch("parwa.nodes.feedback_loop._feedback_with_brain", side_effect=RuntimeError("Crash")), \
+             patch("parwa.nodes.feedback_loop._generate_feedback_signal", side_effect=RuntimeError("Crash")):
             result = await feedback_loop({
                 "intent": "refund_request", "quality_score": 85,
                 "verification_passed": True, "recommendation": None,

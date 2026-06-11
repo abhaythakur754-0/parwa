@@ -167,7 +167,16 @@ def get_registry() -> TechniqueRegistry:
     _registry.register(ConstrainedResponseTechnique())
     _registry.register(LeastToMostTechnique())
 
-    # Phase 4-5 techniques will be registered here when implemented
+    # ─── Register Phase 4: Memory techniques ──────────────────────────────
+    from parwa.frameworks.memory.thot import ThreadOfThoughtTechnique
+    from parwa.frameworks.memory.dynamic_context import DynamicContextTechnique
+    from parwa.frameworks.memory.contextual_compression import ContextualCompressionTechnique
+
+    _registry.register(ThreadOfThoughtTechnique())
+    _registry.register(DynamicContextTechnique())
+    _registry.register(ContextualCompressionTechnique())
+
+    # Phase 5+ techniques will be registered here when implemented
 
     logger.info(
         "registry: initialized with %d techniques: %s",

@@ -133,8 +133,8 @@ class TestTechniqueRegistry:
     def test_summary(self):
         registry = get_registry()
         summary = registry.summary()
-        # Phase 2: 6 reasoning + Phase 3: 4 RAG + 4 quality = 14 total
-        assert summary["total_techniques"] == 14
+        # Phase 2: 6 reasoning + Phase 3: 4 RAG + 4 quality + Phase 4: 3 memory = 17 total
+        assert summary["total_techniques"] == 17
         assert "reasoning" in summary["by_category"]
         assert "rag" in summary["by_category"]
         assert "quality" in summary["by_category"]
@@ -151,7 +151,9 @@ class TestTechniqueRegistry:
         # Phase 3: RAG + Quality
         expected_rag = ["clara", "hyde", "multi_query", "step_back"]
         expected_quality = ["reflexion", "self_consistency", "crp", "least_to_most"]
-        for name in expected_reasoning + expected_rag + expected_quality:
+        # Phase 4: Memory
+        expected_memory = ["thread_of_thought", "dynamic_context", "contextual_compression"]
+        for name in expected_reasoning + expected_rag + expected_quality + expected_memory:
             assert name in names, f"Expected technique '{name}' not registered"
 
 
