@@ -3,6 +3,8 @@
 Reasoning Agent node. Validates the reasoning conclusion by tracing
 backwards from the goal to the evidence. If validation fails,
 triggers a loop-back to the Reasoning Engine.
+
+Phase 2: Now uses FrameworkBrain with Reverse Thinking technique.
 """
 
 from __future__ import annotations
@@ -11,6 +13,10 @@ from typing import Any
 
 from parwa.utils.llm import MOCK_MODE, get_mock_llm, get_llm
 from parwa.utils.node_base import safe_node
+
+import logging
+
+logger = logging.getLogger("parwa.node.reverse_thinker")
 
 
 def _reverse_think_rule_based(
@@ -48,28 +54,69 @@ def _reverse_think_rule_based(
     }
 
 
+async def _reverse_think_with_brain(state: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """Reverse think using FrameworkBrain (Phase 2).
+
+    Returns (validation_dict, frameworks_used).
+    Falls back to rule-based on any failure.
+    """
+    try:
+        from parwa.frameworks.brain import FrameworkBrain
+
+        brain = FrameworkBrain(node="REVERSE_THINKER", state=state)
+        result = await brain.think_single(
+            "reverse_thinking",
+            prompt=state.get("reasoning_conclusion", ""),
+            ticket_id=state.get("ticket_id", ""),
+            variant=state.get("variant", "parwa"),
+        )
+
+        passed = result.metadata.get("passed", False)
+        validation = {
+            "passed": passed,
+            "trace": " -> ".join(result.chain) if result.chain else "Reverse trace via FrameworkBrain",
+            "evidence_found": passed,
+            "framework_brain": True,
+            "confidence": result.confidence,
+        }
+
+        return validation, result.frameworks_used
+
+    except Exception as exc:
+        logger.warning(
+            "reverse_thinker: FrameworkBrain failed (%s), falling back to rule-based",
+            exc,
+        )
+        validation = _reverse_think_rule_based(
+            state.get("reasoning_conclusion", ""),
+            state.get("kb_results", []),
+            state.get("integration_data", {}),
+        )
+        return validation, ["reverse_thinking"]
+
+
 @safe_node("REVERSE_THINKER", fallback={"reverse_validation": {"passed": False, "trace": "node_failed", "evidence_found": False}, "active_frameworks": [], "should_loop_back": False})
 async def reverse_thinker(state: dict[str, Any]) -> dict[str, Any]:
     """Validate the reasoning conclusion by working backwards (async).
 
+    Phase 2: Uses FrameworkBrain with Reverse Thinking technique.
+    Falls back to rule-based on FrameworkBrain failure.
+
     Reads: reasoning_conclusion, kb_results, integration_data
     Writes: reverse_validation, active_frameworks (append), should_loop_back
     """
-    conclusion = state.get("reasoning_conclusion", "")
-    kb_results = state.get("kb_results", [])
-    integration_data = state.get("integration_data", {})
-
-    # Guard: ensure types
-    if not isinstance(kb_results, list):
-        kb_results = []
-    if not isinstance(integration_data, dict):
-        integration_data = {}
-
-    validation = _reverse_think_rule_based(conclusion, kb_results, integration_data)
+    # Try FrameworkBrain first (Phase 2)
+    validation, frameworks = await _reverse_think_with_brain(state)
 
     # Add framework tracking — return ONLY new frameworks (reducer appends)
     new_frameworks = []
-    if "reverse_thinking" not in state.get("active_frameworks", []):
+    existing = state.get("active_frameworks", [])
+    for fw in frameworks:
+        if fw not in existing:
+            new_frameworks.append(fw)
+
+    # Ensure at least reverse_thinking is tracked
+    if not new_frameworks and "reverse_thinking" not in existing:
         new_frameworks.append("reverse_thinking")
 
     # If validation fails and we haven't exceeded max loops, trigger loop-back

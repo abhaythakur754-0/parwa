@@ -171,7 +171,9 @@ class TestSafeNodeFallbackReasoningEngine:
 
     @pytest.mark.asyncio
     async def test_returns_fallback_on_crash(self):
-        with patch("parwa.nodes.reasoning_engine._reason_rule_based", side_effect=RuntimeError("Crash")):
+        # Patch both FrameworkBrain path and rule-based fallback to force crash
+        with patch("parwa.nodes.reasoning_engine._reason_with_brain", side_effect=RuntimeError("Crash")), \
+             patch("parwa.nodes.reasoning_engine._reason_rule_based", side_effect=RuntimeError("Crash")):
             result = await reasoning_engine({
                 "raw_message": "test", "intent": "general_inquiry",
                 "faq_match": None, "kb_results": [], "integration_data": {},
@@ -200,7 +202,9 @@ class TestSafeNodeFallbackTreeOfThoughts:
 
     @pytest.mark.asyncio
     async def test_returns_fallback_on_crash(self):
-        with patch("parwa.nodes.tree_of_thoughts._explore_paths_rule_based", side_effect=RuntimeError("Crash")):
+        # Patch both FrameworkBrain path and rule-based fallback to force crash
+        with patch("parwa.nodes.tree_of_thoughts._tot_with_brain", side_effect=RuntimeError("Crash")), \
+             patch("parwa.nodes.tree_of_thoughts._explore_paths_rule_based", side_effect=RuntimeError("Crash")):
             result = await tree_of_thoughts({
                 "intent": "refund_request", "reasoning_conclusion": "test",
                 "active_frameworks": [],
@@ -851,7 +855,9 @@ class TestErrorTracking:
     @pytest.mark.asyncio
     async def test_node_error_has_full_details(self):
         """node_error should have error_type, error_message, traceback, elapsed."""
-        with patch("parwa.nodes.reasoning_engine._reason_rule_based", side_effect=RuntimeError("Crash")):
+        # Patch both FrameworkBrain path and rule-based fallback to force crash
+        with patch("parwa.nodes.reasoning_engine._reason_with_brain", side_effect=RuntimeError("Crash")), \
+             patch("parwa.nodes.reasoning_engine._reason_rule_based", side_effect=RuntimeError("Crash")):
             result = await reasoning_engine({
                 "raw_message": "test", "intent": "general_inquiry",
                 "faq_match": None, "kb_results": [], "integration_data": {},
