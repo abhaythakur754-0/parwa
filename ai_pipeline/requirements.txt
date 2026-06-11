@@ -1,0 +1,17 @@
+# PARWA — AI Customer Support System
+# Python Dependencies
+
+# Core
+pydantic>=2.0.0
+
+# LangGraph pipeline
+langgraph>=0.2.0
+langchain-core>=0.3.0
+langchain-openai>=0.2.0
+
+# Async
+asyncio
+
+# Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
