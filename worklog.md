@@ -1,6 +1,66 @@
 # PARWA Production Hardening — Complete Worklog
 
 ---
+Task ID: 6
+Agent: Main Agent
+Task: Phase 6 — Agent Orchestration Layer
+
+Work Log:
+- Created parwa/agents/context.py — AgentContext class (per-agent state accumulation across owned nodes)
+  - Tracks node outputs, timings, frameworks used, errors
+  - Supports serialization/deserialization for TicketState storage
+  - Append-only design (nodes can't corrupt upstream context)
+- Created parwa/agents/metrics.py — AgentMetrics class (per-agent performance tracking)
+  - Thread-safe singleton with lock-protected data
+  - Tracks: total runs, latency (avg/min/max), error rate, framework usage, confidence scores, node timings
+  - Summary endpoint for dashboard monitoring
+- Created parwa/agents/recovery.py — AgentRecovery class (agent-level error recovery)
+  - 5 recovery strategies: RETRY, SKIP, REDIRECT, DEGRADE, ESCALATE
+  - Per-agent critical vs optional node classification
+  - Redirect targets for fallback within same agent
+  - Transient error detection (timeout, rate limit, connection errors)
+  - Max 2 retries per node before escalating
+- Created parwa/agents/orchestrator.py — AgentOrchestrator class (main coordination engine)
+  - Maps all 22 nodes to their owning agent
+  - orchestrated_node() wraps node functions with middleware that:
+    - Identifies which agent owns the current node
+    - Gets/creates agent context
+    - Detects agent handoffs (finalizes previous agent)
+    - Records node start/output/timing in agent context
+    - Detects last node per agent (finalizes + records metrics)
+  - Cross-agent context sharing (read-only from other agents)
+  - Agent summary endpoint for debugging/auditing
+- Updated parwa/agents/__init__.py — Exports all new classes, maintains backward compatibility with existing Agent dataclasses
+- Updated parwa/state.py — Added agent_contexts and _current_agent fields to TicketState
+- Updated parwa/graph.py — Integrated orchestrator via orchestrated_node() wrapper
+  - Added use_orchestrator parameter to build_parwa_graph() (default True)
+  - Added _DICT_MERGE_KEYS for agent_contexts (deep merge instead of replace)
+  - Updated _merge_dicts to handle dict merge semantics
+- Created tests/test_agents_phase6.py — 68 comprehensive tests
+  - TestAgentContext: 15 tests (creation, lifecycle, serialization, error tracking)
+  - TestAgentRecovery: 10 tests (strategies, retries, redirects, history)
+  - TestAgentMetrics: 10 tests (recording, summaries, confidence, windowing)
+  - TestAgentOrchestrator: 12 tests (mapping, context, handoffs, cross-agent)
+  - TestOrchestratedGraphIntegration: 8 tests (full pipeline with orchestrator)
+  - TestAgentDefinitions: 5 tests (6 agents, 22 nodes, no overlaps)
+  - TestStateAgentFields: 3 tests (new TicketState fields)
+  - TestGraphMergeWithAgentContexts: 4 tests (merge semantics)
+  - Fixed 4 test expectation mismatches (non-transient error for redirect, retry count logic, Proactive Agent has no critical nodes, node name casing)
+
+Stage Summary:
+- Phase 6 COMPLETE — Agent Orchestration Layer implemented and tested
+- New files: agents/context.py, agents/metrics.py, agents/recovery.py, agents/orchestrator.py, tests/test_agents_phase6.py
+- Modified files: agents/__init__.py, state.py, graph.py
+- 6 agents transformed from passive dataclass definitions to active orchestrators
+- Agent handoff detection and finalization working
+- Cross-agent context sharing (read-only) implemented
+- Agent-level error recovery with 5 strategies
+- Per-agent metrics tracking (latency, errors, frameworks, confidence)
+- Full pipeline integration via orchestrated_node() wrapper — zero graph structure changes
+- All 566 existing tests still pass — zero regressions
+- Total test count: 634 (566 original + 68 new)
+
+---
 Task ID: 2
 Agent: Main Agent
 Task: Phase 2 — FrameworkBrain + 6 Reasoning Techniques

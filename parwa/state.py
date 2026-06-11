@@ -179,6 +179,10 @@ class TicketState(BaseModel):
     # ─── Framework activation tracking ─────────────────────
     active_frameworks: list[str] = Field(default_factory=list)
 
+    # ─── Agent Orchestration (Phase 6) ────────────────────
+    agent_contexts: dict[str, Any] = Field(default_factory=dict)
+    _current_agent: str = ""
+
     # ─── Internal routing flags ────────────────────────────
     should_loop_back: bool = False
     loop_count: int = 0
