@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "This page is a landing page for the AI tool \"Jarvis\" by Farwa, showcasing its chat - based control capabilities for business tasks, with a headline emphasizing \"Control Everything with Just a Chat\" and examples of handling refund requests. It features a dark - themed design, navigation links, a \"Get Started\" button, and a call - to - action to \"See How It Works\", targeting businesses with the promise of instant, no - training - needed task execution.",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1781295048,
+  "id": "2026061304104683489c96dd1e4c2a",
+  "model": "glm-4.6v",
+  "object": "chat.completion",
+  "request_id": "2026061304104683489c96dd1e4c2a",
+  "usage": {
+    "completion_tokens": 97,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 991,
+    "prompt_tokens_details": {
+      "cached_tokens": 7
+    },
+    "total_tokens": 1088
+  }
+}

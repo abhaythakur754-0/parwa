@@ -8,7 +8,6 @@ import {
   ShoppingBag,
   Code,
   ArrowRight,
-  ArrowLeft,
   Loader2,
   CheckCircle,
   XCircle,
@@ -18,9 +17,13 @@ import {
   AlertTriangle,
   Zap,
   FileJson,
+  KeyRound,
+  RefreshCw,
+  Ban,
+  FlaskConical,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { integrationsApi, onboardingApi, getErrorMessage } from '@/lib/api';
+import { integrationsApi, onboardingApi, getErrorMessage, post, get, del } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Integration, IntegrationStatus } from '@/types/onboarding';
 import {
@@ -48,6 +51,16 @@ const CATEGORY_ICONS: Record<IntegrationCategory, React.ElementType> = {
   custom: Code,
 };
 
+// ── Phase 13: API Key types ──────────────────────────────────────────
+
+interface ApiKeyInfo {
+  integration_id: string;
+  auth_type: string;
+  masked_key: string;
+  created_at?: string;
+  rotated_at?: string;
+}
+
 interface IntegrationStepProps {
   onNext: () => void;
   /** Current industry from onboarding — used to filter suggested integrations */
@@ -63,6 +76,9 @@ interface IntegrationStepProps {
  * Each connection can be tested, and status indicators show whether
  * the connection is pending, active, or in an error state. The step
  * allows skipping with a warning about limited AI functionality.
+ *
+ * Phase 13: Now also stores credentials via the API Key system
+ * (AES-256-GCM encrypted) and shows key management controls.
  */
 export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
   const [existingIntegrations, setExistingIntegrations] = useState<Integration[]>([]);
@@ -85,6 +101,10 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
   const [showSkipWarning, setShowSkipWarning] = useState(false);
   const [showCustomForm, setShowCustomForm] = useState<'custom' | 'openapi' | null>(null);
 
+  // ── Phase 13: API Key state ──────────────────────────────────────────
+  const [apiKeys, setApiKeys] = useState<Record<string, ApiKeyInfo>>({});
+  const [keyActionLoading, setKeyActionLoading] = useState<Record<string, string>>({}); // provider -> action name
+
   // Fetch catalog from backend API, fall back to local catalog on 503
   useEffect(() => {
     async function loadCatalog() {
@@ -101,6 +121,7 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
     loadCatalog();
   }, [parwaIndustry]);
 
+  // Fetch existing integrations AND api keys on mount
   useEffect(() => {
     async function loadIntegrations() {
       try {
@@ -115,6 +136,27 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
     loadIntegrations();
   }, []);
 
+  // Fetch API keys after integrations are loaded
+  useEffect(() => {
+    if (existingIntegrations.length === 0) return;
+    async function loadApiKeys() {
+      try {
+        const result = await get<ApiKeyInfo[]>('/api/api-keys/list');
+        if (Array.isArray(result)) {
+          const keyMap: Record<string, ApiKeyInfo> = {};
+          result.forEach((key) => {
+            keyMap[key.integration_id] = key;
+          });
+          setApiKeys(keyMap);
+        }
+      } catch {
+        // Keys endpoint unavailable — non-critical
+        console.warn('[IntegrationStep] API keys list unavailable');
+      }
+    }
+    loadApiKeys();
+  }, [existingIntegrations]);
+
   const getIntegrationStatus = useCallback(
     (providerKey: string): IntegrationStatus | null => {
       const integration = existingIntegrations.find((i) => i.type === providerKey);
@@ -122,6 +164,125 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
     },
     [existingIntegrations]
   );
+
+  const getIntegrationId = useCallback(
+    (providerKey: string): string | null => {
+      const integration = existingIntegrations.find((i) => i.type === providerKey);
+      return integration?.id || null;
+    },
+    [existingIntegrations]
+  );
+
+  // ── Phase 13: Key management handlers ──────────────────────────────
+
+  const handleRotateKey = async (providerKey: string) => {
+    const integrationId = getIntegrationId(providerKey);
+    if (!integrationId) {
+      toast.error('Integration not found');
+      return;
+    }
+
+    // For rotation, we need new credentials from the user
+    const values = formValues[providerKey] || {};
+    const hasNewCredentials = Object.values(values).some((v) => v.trim());
+    if (!hasNewCredentials) {
+      toast.error('Enter new credentials in the form fields above, then click Rotate Key');
+      return;
+    }
+
+    setKeyActionLoading((prev) => ({ ...prev, [providerKey]: 'rotate' }));
+    try {
+      const newCredentials: Record<string, string> = {};
+      Object.entries(values).forEach(([k, v]) => {
+        if (v.trim()) newCredentials[k] = v;
+      });
+
+      await post('/api/api-keys/rotate', {
+        integration_id: integrationId,
+        new_credentials: newCredentials,
+      });
+
+      // Refresh keys list
+      const result = await get<ApiKeyInfo[]>('/api/api-keys/list');
+      if (Array.isArray(result)) {
+        const keyMap: Record<string, ApiKeyInfo> = {};
+        result.forEach((key) => {
+          keyMap[key.integration_id] = key;
+        });
+        setApiKeys(keyMap);
+      }
+
+      // Clear form values after rotation
+      setFormValues((prev) => {
+        const next = { ...prev };
+        delete next[providerKey];
+        return next;
+      });
+
+      toast.success('API key rotated successfully');
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setKeyActionLoading((prev) => ({ ...prev, [providerKey]: '' }));
+    }
+  };
+
+  const handleRevokeKey = async (providerKey: string) => {
+    const integrationId = getIntegrationId(providerKey);
+    if (!integrationId) {
+      toast.error('Integration not found');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to revoke this API key? The integration will lose access.')) {
+      return;
+    }
+
+    setKeyActionLoading((prev) => ({ ...prev, [providerKey]: 'revoke' }));
+    try {
+      await del('/api/api-keys/revoke', {
+        data: { integration_id: integrationId },
+      } as Parameters<typeof del>[1]);
+
+      // Remove from local state
+      setApiKeys((prev) => {
+        const next = { ...prev };
+        delete next[integrationId];
+        return next;
+      });
+
+      toast.success('API key revoked');
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setKeyActionLoading((prev) => ({ ...prev, [providerKey]: '' }));
+    }
+  };
+
+  const handleTestKey = async (providerKey: string) => {
+    const integrationId = getIntegrationId(providerKey);
+    if (!integrationId) {
+      toast.error('Integration not found');
+      return;
+    }
+
+    setKeyActionLoading((prev) => ({ ...prev, [providerKey]: 'test' }));
+    try {
+      const result = await post<{ valid?: boolean; detail?: string }>('/api/api-keys/test', {
+        integration_id: integrationId,
+      });
+
+      if (result.valid === false) {
+        toast.error('API key test failed — key may be invalid or expired');
+      } else {
+        toast.success('API key test passed');
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setKeyActionLoading((prev) => ({ ...prev, [providerKey]: '' }));
+    }
+  };
 
   const handleConnect = async (provider: IntegrationDefinition) => {
     const values = formValues[provider.key] || {};
@@ -139,6 +300,7 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
         config[f.name] = values[f.name] || '';
       });
 
+      // Create integration (existing flow)
       await integrationsApi.create({
         type: provider.key,
         name: provider.name,
@@ -147,6 +309,34 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
 
       const updated = await integrationsApi.list();
       setExistingIntegrations(Array.isArray(updated) ? updated : []);
+
+      // ── Phase 13: Store credentials via API Key system ──────────────
+      try {
+        // Determine auth_type from the schema
+        const hasPassword = provider.authSchema.fields.some((f) => f.type === 'password');
+        const authType = hasPassword ? 'api_key' : 'oauth2';
+
+        await post('/api/api-keys/store', {
+          integration_id: provider.key,
+          auth_type: authType,
+          credentials: config,
+        });
+
+        // Refresh key list to show the masked key
+        const keyResult = await get<ApiKeyInfo[]>('/api/api-keys/list');
+        if (Array.isArray(keyResult)) {
+          const keyMap: Record<string, ApiKeyInfo> = {};
+          keyResult.forEach((key) => {
+            keyMap[key.integration_id] = key;
+          });
+          setApiKeys(keyMap);
+        }
+      } catch (keyError) {
+        // Key storage failure is non-critical — the integration is already created
+        console.warn('[IntegrationStep] API key storage failed:', keyError);
+        toast('Integration connected, but key storage failed', { icon: '⚠️' });
+      }
+
       toast.success(`${provider.name} connected successfully`);
       setExpandedProvider(null);
     } catch (error) {
@@ -228,6 +418,9 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
                   const isExpanded = expandedProvider === provider.key;
                   const isConnecting = connectingProvider === provider.key;
                   const isTesting = testingProvider === provider.key;
+                  const integrationId = getIntegrationId(provider.key);
+                  const apiKeyInfo = integrationId ? apiKeys[integrationId] : null;
+                  const isKeyActionLoading = keyActionLoading[provider.key];
 
                   return (
                     <div
@@ -362,6 +555,76 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
                               </button>
                             )}
                           </div>
+
+                          {/* ── Phase 13: Key Management Section ──────────────── */}
+                          {status === 'active' && (
+                            <div className="mt-5 pt-4 border-t border-white/5">
+                              <div className="flex items-center gap-2 mb-3">
+                                <KeyRound className="w-3.5 h-3.5 text-orange-400" />
+                                <h4 className="text-xs font-semibold text-orange-200/60 uppercase tracking-wider">
+                                  Key Management
+                                </h4>
+                              </div>
+
+                              {/* Masked key display */}
+                              <div className="flex items-center gap-3 mb-3 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                                <span className="text-xs text-zinc-500">Stored Key:</span>
+                                <span className="text-sm font-mono text-orange-200/70">
+                                  {apiKeyInfo?.masked_key || '••••••••••••'}
+                                </span>
+                                {apiKeyInfo?.auth_type && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-zinc-500 uppercase">
+                                    {apiKeyInfo.auth_type}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Key action buttons */}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRotateKey(provider.key)}
+                                  disabled={!!isKeyActionLoading}
+                                  className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 transition-colors disabled:opacity-50"
+                                >
+                                  {isKeyActionLoading === 'rotate' ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="w-3 h-3" />
+                                  )}
+                                  Rotate Key
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleTestKey(provider.key)}
+                                  disabled={!!isKeyActionLoading}
+                                  className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                                >
+                                  {isKeyActionLoading === 'test' ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <FlaskConical className="w-3 h-3" />
+                                  )}
+                                  Test Key
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleRevokeKey(provider.key)}
+                                  disabled={!!isKeyActionLoading}
+                                  className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                                >
+                                  {isKeyActionLoading === 'revoke' ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Ban className="w-3 h-3" />
+                                  )}
+                                  Revoke Key
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

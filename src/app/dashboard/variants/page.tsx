@@ -1,8 +1,12 @@
 /**
- * Variant Engine Page (/dashboard/variants) — Phase 5 Upgrade
+ * Variant Engine Page (/dashboard/variants) — Phase 5 + Phase 14 Upgrade
  *
- * Replaces "Coming Soon" with full variant management UI.
- * Instance list, status, capacity, orchestration controls.
+ * Full variant management UI with:
+ * - Instance list, status, capacity, orchestration controls (Phase 5)
+ * - Variant Router section (Phase 14)
+ * - Route Ticket test panel (Phase 14)
+ * - Variant Usage section (Phase 14)
+ * - Add/Remove Variant controls (Phase 14)
  */
 
 'use client';
@@ -12,8 +16,17 @@ import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { VariantInstanceCard, type VariantInstanceData } from '@/components/jarvis-cc/VariantInstanceCard';
 import { MetricCard } from '@/components/jarvis-cc/MetricCard';
-import { get } from '@/lib/api';
+import { get, post, del } from '@/lib/api';
 import { toast } from 'sonner';
+import {
+  Loader2,
+  Route,
+  Plus,
+  Trash2,
+  BarChart3,
+  Compass,
+  ArrowRight,
+} from 'lucide-react';
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -29,6 +42,29 @@ interface VariantInstance {
   created_at: string;
 }
 
+// Phase 14 types
+interface VariantInfo {
+  id: string;
+  variant_type: 'mini' | 'parwa' | 'parwa_high';
+  status: string;
+  config?: Record<string, unknown>;
+  created_at?: string;
+}
+
+interface VariantUsageEntry {
+  variant_id: string;
+  variant_type: string;
+  ticket_count: number;
+  avg_quality_score?: number;
+  avg_latency_ms?: number;
+}
+
+interface RouteTicketResult {
+  variant_id: string;
+  variant_type: string;
+  reason?: string;
+}
+
 // ── Icons ───────────────────────────────────────────────────────────
 
 const ChipIcon = () => (
@@ -39,12 +75,14 @@ const ChipIcon = () => (
 
 const tierNames: Record<string, string> = {
   mini_parwa: 'Mini Parwa',
+  mini: 'Mini Parwa',
   parwa: 'Parwa Standard',
   parwa_high: 'Parwa High',
 };
 
 const tierDescriptions: Record<string, string> = {
   mini_parwa: 'Lightweight agent for simple queries and FAQ handling',
+  mini: 'Lightweight agent for simple queries and FAQ handling',
   parwa: 'Standard agent with full technique suite and RAG support',
   parwa_high: 'Premium agent with advanced reasoning and escalation capabilities',
 };
@@ -57,6 +95,20 @@ export default function VariantsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Phase 14 state
+  const [phase14Variants, setPhase14Variants] = useState<VariantInfo[]>([]);
+  const [variantUsage, setVariantUsage] = useState<VariantUsageEntry[]>([]);
+  const [routeTicketIntent, setRouteTicketIntent] = useState('');
+  const [routeTicketComplexity, setRouteTicketComplexity] = useState(5);
+  const [routeTicketResult, setRouteTicketResult] = useState<RouteTicketResult | null>(null);
+  const [isRouting, setIsRouting] = useState(false);
+  const [isAddingVariant, setIsAddingVariant] = useState(false);
+  const [addVariantType, setAddVariantType] = useState<'mini' | 'parwa' | 'parwa_high'>('mini');
+  const [isRemovingVariant, setIsRemovingVariant] = useState<string | null>(null);
+  const [isLoadingVariants, setIsLoadingVariants] = useState(true);
+  const [isLoadingUsage, setIsLoadingUsage] = useState(true);
+
+  // ── Fetch instances (Phase 5 existing) ──────────────────────────────
   const fetchInstances = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -64,16 +116,13 @@ export default function VariantsPage() {
       const result = await get<VariantInstance[]>('/api/ai/instances');
       setInstances(Array.isArray(result) ? result : []);
     } catch {
-      // Fallback: try the awareness snapshot for variant data
       try {
         const sessionId = localStorage.getItem('jarvis_cc_session_id');
         if (sessionId) {
-          const snap = await get<{ state: { active_agents: number; agent_pool_capacity: number; agent_pool_utilization: number } }>(`/api/jarvis/cc/awareness/snapshot?session_id=${sessionId}`);
-          // We got awareness data but not instance details — show overview
+          await get(`/api/jarvis/cc/awareness/snapshot?session_id=${sessionId}`);
           setInstances([]);
         }
       } catch {
-        // No data available
         setInstances([]);
       }
     } finally {
@@ -81,9 +130,98 @@ export default function VariantsPage() {
     }
   }, []);
 
+  // ── Phase 14: Fetch variants from /api/variants/list ───────────────
+  const fetchPhase14Variants = useCallback(async () => {
+    setIsLoadingVariants(true);
+    try {
+      const result = await get<VariantInfo[]>('/api/variants/list');
+      setPhase14Variants(Array.isArray(result) ? result : []);
+    } catch {
+      // Phase 14 endpoint unavailable — non-critical
+      setPhase14Variants([]);
+    } finally {
+      setIsLoadingVariants(false);
+    }
+  }, []);
+
+  // ── Phase 14: Fetch usage from /api/variants/usage ─────────────────
+  const fetchVariantUsage = useCallback(async () => {
+    setIsLoadingUsage(true);
+    try {
+      const result = await get<VariantUsageEntry[]>('/api/variants/usage');
+      setVariantUsage(Array.isArray(result) ? result : []);
+    } catch {
+      setVariantUsage([]);
+    } finally {
+      setIsLoadingUsage(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchInstances();
   }, [fetchInstances]);
+
+  useEffect(() => {
+    fetchPhase14Variants();
+    fetchVariantUsage();
+  }, [fetchPhase14Variants, fetchVariantUsage]);
+
+  // ── Phase 14: Route Ticket ──────────────────────────────────────────
+  const handleRouteTicket = async () => {
+    if (!routeTicketIntent.trim()) {
+      toast.error('Please enter a ticket intent');
+      return;
+    }
+
+    setIsRouting(true);
+    setRouteTicketResult(null);
+    try {
+      const result = await post<RouteTicketResult>('/api/variants/route-ticket', {
+        intent: routeTicketIntent,
+        complexity_score: routeTicketComplexity,
+      });
+      setRouteTicketResult(result);
+      toast.success(`Routed to ${tierNames[result.variant_type] || result.variant_type}`);
+    } catch (err) {
+      toast.error('Failed to route ticket');
+    } finally {
+      setIsRouting(false);
+    }
+  };
+
+  // ── Phase 14: Add Variant ───────────────────────────────────────────
+  const handleAddVariant = async () => {
+    setIsAddingVariant(true);
+    try {
+      await post('/api/variants/add', {
+        variant_type: addVariantType,
+      });
+      toast.success(`${tierNames[addVariantType]} variant added`);
+      await fetchPhase14Variants();
+    } catch (err) {
+      toast.error('Failed to add variant');
+    } finally {
+      setIsAddingVariant(false);
+    }
+  };
+
+  // ── Phase 14: Remove Variant ────────────────────────────────────────
+  const handleRemoveVariant = async (variantId: string) => {
+    if (!confirm('Are you sure you want to remove this variant?')) return;
+
+    setIsRemovingVariant(variantId);
+    try {
+      await del('/api/variants/remove', {
+        data: { variant_id: variantId },
+      } as Parameters<typeof del>[1]);
+      toast.success('Variant removed');
+      await fetchPhase14Variants();
+    } catch (err) {
+      toast.error('Failed to remove variant');
+    } finally {
+      setIsRemovingVariant(null);
+    }
+  };
 
   // Compute metrics
   const totalActive = instances.filter(i => i.status === 'active').length;
@@ -114,30 +252,25 @@ export default function VariantsPage() {
   }, {} as Record<string, VariantInstanceData[]>);
 
   const handleEscalate = (instanceId: string) => {
-    // Find the instance to escalate
     const instance = instances.find((i) => i.id === instanceId);
     if (!instance) return;
 
-    // Determine the next tier up for escalation
     const tierOrder = ['mini_parwa', 'parwa', 'parwa_high'] as const;
     const currentIdx = tierOrder.indexOf(instance.variant_tier as typeof tierOrder[number]);
     const nextTier = currentIdx < tierOrder.length - 1 ? tierOrder[currentIdx + 1] : null;
 
-    // Update the instance status in local state
     setInstances((prev) =>
       prev.map((inst) =>
         inst.id === instanceId
           ? {
               ...inst,
               status: 'active',
-              // On escalate, bump capacity to next-tier default
               capacity: nextTier === 'parwa' ? 5000 : nextTier === 'parwa_high' ? 99999 : inst.capacity,
             }
           : inst
       )
     );
 
-    // Persist escalation intent to localStorage for cross-page awareness
     try {
       const escalations = JSON.parse(localStorage.getItem('parwa_variant_escalations') || '[]');
       escalations.push({
@@ -164,7 +297,6 @@ export default function VariantsPage() {
   };
 
   const handleShadowMode = (instanceId: string, tier: string) => {
-    // Determine the next tier up as the shadow variant
     const tierOrder = ['mini_parwa', 'parwa', 'parwa_high'] as const;
     const currentIdx = tierOrder.indexOf(tier as typeof tierOrder[number]);
     const shadowTier = currentIdx < tierOrder.length - 1 ? tierOrder[currentIdx + 1] : null;
@@ -179,16 +311,13 @@ export default function VariantsPage() {
       });
     }
 
-    // Navigate to shadow mode page with context
     router.push('/dashboard/shadow-mode');
   };
 
   const handleRebalance = (instanceId: string) => {
-    // Find the instance to rebalance
     const instance = instances.find((i) => i.id === instanceId);
     if (!instance) return;
 
-    // Redistribute active tickets more evenly across same-tier instances
     const sameTierInstances = instances.filter(
       (i) => i.variant_tier === instance.variant_tier && i.id !== instanceId && i.status === 'active'
     );
@@ -200,7 +329,6 @@ export default function VariantsPage() {
       return;
     }
 
-    // Calculate redistribution: spread overload evenly
     const overload = instance.active_tickets - Math.floor(instance.capacity * 0.6);
     if (overload <= 0) {
       toast.info('Instance is within healthy load', {
@@ -212,7 +340,6 @@ export default function VariantsPage() {
     const perInstance = Math.floor(overload / sameTierInstances.length);
     const remainder = overload % sameTierInstances.length;
 
-    // Update local state to reflect redistribution
     setInstances((prev) =>
       prev.map((inst) => {
         if (inst.id === instanceId) {
@@ -229,7 +356,6 @@ export default function VariantsPage() {
       })
     );
 
-    // Persist rebalance log
     try {
       const rebalances = JSON.parse(localStorage.getItem('parwa_variant_rebalances') || '[]');
       rebalances.push({
@@ -260,7 +386,7 @@ export default function VariantsPage() {
           </p>
         </div>
         <button
-          onClick={fetchInstances}
+          onClick={() => { fetchInstances(); fetchPhase14Variants(); fetchVariantUsage(); }}
           disabled={isLoading}
           className="text-xs px-3 py-1.5 rounded-lg bg-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/[0.08] transition-colors disabled:opacity-50"
         >
@@ -310,7 +436,223 @@ export default function VariantsPage() {
         </div>
       </div>
 
-      {/* Instance List by Tier */}
+      {/* ══════════════════════════════════════════════════════════════════
+          Phase 14: Variant Router Section
+         ══════════════════════════════════════════════════════════════════ */}
+      <div className="rounded-xl border border-orange-500/10 bg-[#1A1A1A] overflow-hidden">
+        <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
+          <Compass className="w-4 h-4 text-orange-400" />
+          <h3 className="text-sm font-semibold text-white">Variant Router</h3>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 uppercase tracking-wider">Phase 14</span>
+        </div>
+        <div className="p-4">
+          {/* Active variants list */}
+          {isLoadingVariants ? (
+            <div className="flex items-center gap-2 py-4 justify-center">
+              <Loader2 className="w-4 h-4 animate-spin text-orange-400" />
+              <span className="text-xs text-zinc-500">Loading variants...</span>
+            </div>
+          ) : phase14Variants.length === 0 ? (
+            <div className="text-center py-6">
+              <p className="text-sm text-zinc-500 mb-2">No active variants configured</p>
+              <p className="text-xs text-zinc-600">Add a variant below to get started</p>
+            </div>
+          ) : (
+            <div className="space-y-2 mb-4">
+              {phase14Variants.map((v) => (
+                <div
+                  key={v.id}
+                  className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:border-white/[0.08] transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={cn(
+                      'w-2 h-2 rounded-full',
+                      v.status === 'active' ? 'bg-emerald-400' : v.status === 'idle' ? 'bg-zinc-500' : 'bg-red-400'
+                    )} />
+                    <span className="text-sm text-white font-medium">
+                      {tierNames[v.variant_type] || v.variant_type}
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-zinc-500 uppercase">
+                      {v.status}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveVariant(v.id)}
+                    disabled={isRemovingVariant === v.id}
+                    className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                  >
+                    {isRemovingVariant === v.id ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3 h-3" />
+                    )}
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add Variant */}
+          <div className="flex items-center gap-2 pt-3 border-t border-white/[0.04]">
+            <select
+              value={addVariantType}
+              onChange={(e) => setAddVariantType(e.target.value as 'mini' | 'parwa' | 'parwa_high')}
+              className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-orange-500/30"
+            >
+              <option value="mini">Mini Parwa</option>
+              <option value="parwa">Parwa Standard</option>
+              <option value="parwa_high">Parwa High</option>
+            </select>
+            <button
+              onClick={handleAddVariant}
+              disabled={isAddingVariant}
+              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-600 to-orange-500 text-white hover:from-orange-500 hover:to-orange-400 transition-all disabled:opacity-50 shadow-sm"
+            >
+              {isAddingVariant ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Plus className="w-3 h-3" />
+              )}
+              Add Variant
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          Phase 14: Route Ticket Test Panel
+         ══════════════════════════════════════════════════════════════════ */}
+      <div className="rounded-xl border border-orange-500/10 bg-[#1A1A1A] overflow-hidden">
+        <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
+          <Route className="w-4 h-4 text-orange-400" />
+          <h3 className="text-sm font-semibold text-white">Route Ticket</h3>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 uppercase tracking-wider">Test</span>
+        </div>
+        <div className="p-4">
+          <p className="text-xs text-zinc-500 mb-4">
+            Enter a ticket intent and complexity score to test which variant the router would assign.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="text-xs text-zinc-500 mb-1.5 block">Ticket Intent</label>
+              <input
+                type="text"
+                value={routeTicketIntent}
+                onChange={(e) => setRouteTicketIntent(e.target.value)}
+                placeholder="e.g., Customer refund request"
+                className="w-full bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/30"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-zinc-500 mb-1.5 block">
+                Complexity Score: <span className="text-orange-400 font-medium">{routeTicketComplexity}</span>
+              </label>
+              <input
+                type="range"
+                min={1}
+                max={10}
+                value={routeTicketComplexity}
+                onChange={(e) => setRouteTicketComplexity(Number(e.target.value))}
+                className="w-full h-2 bg-white/5 rounded-full appearance-none cursor-pointer accent-orange-500"
+              />
+              <div className="flex justify-between text-[10px] text-zinc-600 mt-1">
+                <span>Simple (1)</span>
+                <span>Complex (10)</span>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={handleRouteTicket}
+            disabled={isRouting || !routeTicketIntent.trim()}
+            className="inline-flex items-center gap-2 text-xs px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-orange-500 text-white hover:from-orange-500 hover:to-orange-400 transition-all disabled:opacity-50 shadow-sm"
+          >
+            {isRouting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Route className="w-3.5 h-3.5" />
+            )}
+            Route Ticket
+          </button>
+
+          {/* Route result */}
+          {routeTicketResult && (
+            <div className="mt-4 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+              <div className="flex items-center gap-2">
+                <ArrowRight className="w-4 h-4 text-emerald-400" />
+                <span className="text-sm text-white font-medium">
+                  Routed to: {tierNames[routeTicketResult.variant_type] || routeTicketResult.variant_type}
+                </span>
+              </div>
+              {routeTicketResult.reason && (
+                <p className="text-xs text-zinc-400 mt-1 ml-6">{routeTicketResult.reason}</p>
+              )}
+              <p className="text-[10px] text-zinc-600 mt-1 ml-6">
+                Variant ID: {routeTicketResult.variant_id}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          Phase 14: Variant Usage Section
+         ══════════════════════════════════════════════════════════════════ */}
+      <div className="rounded-xl border border-orange-500/10 bg-[#1A1A1A] overflow-hidden">
+        <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 text-orange-400" />
+          <h3 className="text-sm font-semibold text-white">Variant Usage</h3>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 uppercase tracking-wider">Phase 14</span>
+        </div>
+        <div className="p-4">
+          {isLoadingUsage ? (
+            <div className="flex items-center gap-2 py-4 justify-center">
+              <Loader2 className="w-4 h-4 animate-spin text-orange-400" />
+              <span className="text-xs text-zinc-500">Loading usage data...</span>
+            </div>
+          ) : variantUsage.length === 0 ? (
+            <div className="text-center py-6">
+              <p className="text-sm text-zinc-500">No usage data available yet</p>
+              <p className="text-xs text-zinc-600 mt-1">Usage data will appear once tickets are routed to variants</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-white/[0.06]">
+                    <th className="text-left px-3 py-2 text-zinc-500 font-medium">Variant</th>
+                    <th className="text-center px-3 py-2 text-zinc-500 font-medium">Tickets</th>
+                    <th className="text-center px-3 py-2 text-zinc-500 font-medium">Avg Quality</th>
+                    <th className="text-center px-3 py-2 text-zinc-500 font-medium">Avg Latency</th>
+                  </tr>
+                </thead>
+                <tbody className="text-zinc-400">
+                  {variantUsage.map((entry) => (
+                    <tr key={entry.variant_id} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
+                      <td className="px-3 py-2.5 text-white font-medium">
+                        {tierNames[entry.variant_type] || entry.variant_type}
+                      </td>
+                      <td className="px-3 py-2.5 text-center">{entry.ticket_count}</td>
+                      <td className="px-3 py-2.5 text-center">
+                        {entry.avg_quality_score !== undefined
+                          ? `${Math.round(entry.avg_quality_score * 100)}%`
+                          : '--'}
+                      </td>
+                      <td className="px-3 py-2.5 text-center">
+                        {entry.avg_latency_ms !== undefined
+                          ? `${entry.avg_latency_ms}ms`
+                          : '--'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Instance List by Tier (existing Phase 5) */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
