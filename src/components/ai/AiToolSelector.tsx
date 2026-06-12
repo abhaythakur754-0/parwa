@@ -1,11 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import {
   Bot,
   Search,
@@ -16,6 +11,7 @@ import {
   Plug,
   Sparkles,
   ArrowRight,
+  CheckCircle2,
 } from "lucide-react";
 
 interface Tool {
@@ -112,30 +108,26 @@ export function AiToolSelector() {
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="p-6 flex items-center justify-center">
-          <Loader2 className="h-5 w-5 animate-spin text-emerald-500" />
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center py-10">
+        <Loader2 className="w-5 h-5 animate-spin text-orange-400" />
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
       {/* Available Tools */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Wrench className="h-4 w-4" />
-            Available AI Tools
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="rounded-xl border border-orange-500/10 bg-[#1A1A1A] overflow-hidden">
+        <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
+          <Wrench className="w-4 h-4 text-orange-400" />
+          <h3 className="text-sm font-semibold text-white">Available AI Tools</h3>
+        </div>
+        <div className="p-4">
           {tools.length === 0 ? (
-            <div className="text-center py-6">
-              <Bot className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">No tools available yet</p>
-              <p className="text-xs text-muted-foreground">
+            <div className="text-center py-8">
+              <Bot className="w-8 h-8 text-zinc-700 mx-auto mb-2" />
+              <p className="text-sm text-zinc-500">No tools available yet</p>
+              <p className="text-xs text-zinc-600">
                 Connect integrations and upload knowledge base documents to enable tools.
               </p>
             </div>
@@ -150,20 +142,20 @@ export function AiToolSelector() {
                 .map((tool) => {
                   const Icon = toolTypeIcons[tool.type] || Bot;
                   return (
-                    <div key={tool.id} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
-                      <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                        <Icon className="h-4 w-4 text-emerald-500" />
+                    <div key={tool.id} className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                      <div className="h-8 w-8 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+                        <Icon className="h-4 w-4 text-orange-400" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{tool.name}</span>
-                          <Badge variant="outline" className="text-[10px]">
+                          <span className="text-sm font-medium text-white">{tool.name}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.04] text-zinc-500 uppercase tracking-wider">
                             {toolTypeLabels[tool.type] || tool.type}
-                          </Badge>
+                          </span>
                         </div>
-                        <p className="text-xs text-muted-foreground truncate">{tool.description}</p>
+                        <p className="text-xs text-zinc-500 truncate">{tool.description}</p>
                       </div>
-                      <span className="text-xs text-muted-foreground">Priority {priorityOrder.indexOf(tool.type) + 1}</span>
+                      <span className="text-xs text-zinc-500">Priority {priorityOrder.indexOf(tool.type) + 1}</span>
                     </div>
                   );
                 })}
@@ -171,76 +163,77 @@ export function AiToolSelector() {
           )}
 
           {/* Tool Selection Priority */}
-          <div className="mt-4 p-3 bg-muted/50 rounded-lg">
-            <p className="text-xs font-medium mb-2">Tool Selection Priority:</p>
+          <div className="mt-4 p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+            <p className="text-xs font-medium text-zinc-400 mb-2">Tool Selection Priority:</p>
             <div className="flex items-center gap-1 text-xs">
-              <Badge variant="secondary" className="text-[10px]">FAQ</Badge>
-              <ArrowRight className="h-3 w-3 text-muted-foreground" />
-              <Badge variant="secondary" className="text-[10px]">KB</Badge>
-              <ArrowRight className="h-3 w-3 text-muted-foreground" />
-              <Badge variant="secondary" className="text-[10px]">RAG</Badge>
-              <ArrowRight className="h-3 w-3 text-muted-foreground" />
-              <Badge variant="secondary" className="text-[10px]">External</Badge>
+              <span className="px-2 py-0.5 rounded bg-orange-500/10 text-orange-400 text-[10px]">FAQ</span>
+              <ArrowRight className="h-3 w-3 text-zinc-600" />
+              <span className="px-2 py-0.5 rounded bg-orange-500/10 text-orange-400 text-[10px]">KB</span>
+              <ArrowRight className="h-3 w-3 text-zinc-600" />
+              <span className="px-2 py-0.5 rounded bg-orange-500/10 text-orange-400 text-[10px]">RAG</span>
+              <ArrowRight className="h-3 w-3 text-zinc-600" />
+              <span className="px-2 py-0.5 rounded bg-orange-500/10 text-orange-400 text-[10px]">External</span>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Test Intent */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Search className="h-4 w-4" />
-            Test Tool Selection
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <div className="rounded-xl border border-orange-500/10 bg-[#1A1A1A] overflow-hidden">
+        <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
+          <Search className="w-4 h-4 text-orange-400" />
+          <h3 className="text-sm font-semibold text-white">Test Tool Selection</h3>
+        </div>
+        <div className="p-4 space-y-3">
           <div className="flex gap-2">
-            <Input
+            <input
               placeholder="Enter a ticket intent (e.g. 'Where is my order?')"
               value={testIntent}
               onChange={(e) => setTestIntent(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleTestIntent()}
+              className="flex-1 bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/30"
             />
-            <Button onClick={handleTestIntent} disabled={testing || !testIntent.trim()}>
+            <button
+              onClick={handleTestIntent}
+              disabled={testing || !testIntent.trim()}
+              className="inline-flex items-center gap-2 text-xs px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-orange-500 text-white hover:from-orange-500 hover:to-orange-400 transition-all disabled:opacity-50 shadow-sm"
+            >
               {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-            </Button>
+            </button>
           </div>
 
           {selectedTools && (
             <div className="space-y-2">
-              <p className="text-sm font-medium">Selected tools for &quot;{testIntent}&quot;:</p>
+              <p className="text-sm font-medium text-white">Selected tools for &quot;{testIntent}&quot;:</p>
               {selectedTools.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No tools selected for this intent.</p>
+                <p className="text-xs text-zinc-500">No tools selected for this intent.</p>
               ) : (
                 selectedTools.map((st) => (
-                  <div key={st.tool_id} className="flex items-center gap-3 p-3 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg">
-                    <Badge variant="default" className="text-xs">Priority {st.priority}</Badge>
-                    <span className="text-sm font-medium">{st.tool_name}</span>
-                    <span className="text-xs text-muted-foreground">{st.reason}</span>
+                  <div key={st.tool_id} className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400">Priority {st.priority}</span>
+                    <span className="text-sm font-medium text-white">{st.tool_name}</span>
+                    <span className="text-xs text-zinc-500 ml-auto">{st.reason}</span>
                   </div>
                 ))
               )}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* System Prompt Preview */}
       {systemPrompt && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Bot className="h-4 w-4" />
-              Dynamic System Prompt
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <pre className="text-xs bg-muted/50 p-3 rounded-lg overflow-auto max-h-48 whitespace-pre-wrap">
+        <div className="rounded-xl border border-orange-500/10 bg-[#1A1A1A] overflow-hidden">
+          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
+            <Bot className="w-4 h-4 text-orange-400" />
+            <h3 className="text-sm font-semibold text-white">Dynamic System Prompt</h3>
+          </div>
+          <div className="p-4">
+            <pre className="text-xs bg-white/[0.02] border border-white/[0.04] p-3 rounded-lg overflow-auto max-h-48 whitespace-pre-wrap font-mono text-zinc-300">
               {systemPrompt}
             </pre>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
     </div>
   );

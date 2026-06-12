@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { NavigationBar, Footer } from '@/components/landing';
 import { useAppStore } from '@/lib/store';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Star, Check, Phone, Mail, MessageSquare,
   Video, ShoppingCart, Cloud, Truck, Briefcase, Zap, Shield, Sparkles,
+  ArrowRight, X,
 } from 'lucide-react';
 
 type Industry = 'ecommerce' | 'saas' | 'logistics' | 'others';
@@ -87,11 +89,14 @@ const trustIndicators = [
 ];
 
 export default function ModelsPage() {
+  const router = useRouter();
   const navigate = useAppStore((s) => s.navigate);
   const { isAuthenticated } = useAuth();
   const [selectedIndustry, setSelectedIndustry] = useState<Industry | null>(null);
   const [isAnnual, setIsAnnual] = useState(false);
   const [quantities, setQuantities] = useState<Record<VariantId, number>>({ starter: 0, growth: 0, high: 0 });
+  const [selectedVariant, setSelectedVariant] = useState<VariantId | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleIndustryClick = (id: Industry) => {
     setSelectedIndustry(selectedIndustry === id ? null : id);
@@ -220,7 +225,14 @@ export default function ModelsPage() {
                         </div>
                       )}
 
-                      <button onClick={() => navigate(isAuthenticated ? 'dashboard' : 'signup')} className="w-full py-3.5 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] hover:from-orange-400 hover:to-orange-300 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all">
+                      <button onClick={() => {
+                        if (!isAuthenticated) {
+                          navigate('signup');
+                        } else {
+                          setSelectedVariant(variant.id);
+                          setShowConfirm(true);
+                        }
+                      }} className="w-full py-3.5 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] hover:from-orange-400 hover:to-orange-300 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all">
                         {isAuthenticated ? 'Hire Agent' : 'Get Started'}
                       </button>
                     </div>
@@ -231,6 +243,71 @@ export default function ModelsPage() {
           </section>
         )}
       </main>
+
+      {/* ═══ Confirmation Modal ═══ */}
+      {showConfirm && selectedVariant && selectedIndustry && (() => {
+        const variant = variantData[selectedIndustry]?.find(v => v.id === selectedVariant);
+        if (!variant) return null;
+        const parwaIndustryMap: Record<Industry, string> = { ecommerce: 'ecommerce', saas: 'saas', logistics: 'logistics', others: 'other' };
+        const parwaVariantMap: Record<VariantId, string> = { starter: 'mini_parwa', growth: 'parwa', high: 'parwa_high' };
+
+        const handleConfirm = () => {
+          // Store pricing context in localStorage so onboarding can pick it up
+          localStorage.setItem('parwa_pricing_context', JSON.stringify({
+            industry: parwaIndustryMap[selectedIndustry],
+            variant: parwaVariantMap[selectedVariant],
+            addOns: { voice: false, customApi: false },
+            totalMonthly: variant.monthlyPrice,
+            timestamp: new Date().toISOString(),
+          }));
+          router.push('/onboarding?source=pricing');
+        };
+
+        return (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setShowConfirm(false)}>
+            <div className="w-full max-w-md rounded-2xl border-2 border-orange-500/30 p-6" style={{ background: 'linear-gradient(135deg, rgba(26,26,26,0.98) 0%, rgba(42,26,10,0.98) 100%)', boxShadow: '0 25px 60px rgba(0,0,0,0.6), 0 0 80px rgba(255,127,17,0.08)' }} onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-xl font-bold text-white">Confirm Selection</h3>
+                <button onClick={() => setShowConfirm(false)} className="text-zinc-500 hover:text-white transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-3 mb-6">
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-400">Variant</span>
+                  <span className="text-white font-semibold">{variant.name}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-400">Industry</span>
+                  <span className="text-white font-semibold">{industries.find(i => i.id === selectedIndustry)?.label}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-400">Monthly Price</span>
+                  <span className="text-orange-400 font-bold text-lg">${variant.monthlyPrice.toLocaleString()}/mo</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-400">Tickets/mo</span>
+                  <span className="text-white">{variant.ticketsPerMonth.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div className="border-t border-white/10 pt-4">
+                <p className="text-xs text-zinc-500 mb-4">You'll be taken to the onboarding setup where you can configure your AI agent.</p>
+                <div className="flex gap-3">
+                  <button onClick={() => setShowConfirm(false)} className="flex-1 py-3 rounded-xl text-sm font-medium border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 transition-all">
+                    Cancel
+                  </button>
+                  <button onClick={handleConfirm} className="flex-1 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] hover:from-orange-400 hover:to-orange-300 shadow-lg shadow-orange-500/25 transition-all flex items-center justify-center gap-2">
+                    Continue <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       <Footer />
     </div>
   );

@@ -1,10 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { PRICES, VARIANT_LIMITS } from "@/lib/config";
+import { VARIANT_PRICES, VARIANT_LIMITS, VARIANT_DISPLAY_NAMES, type VariantTier } from "@/lib/pricing-config";
 import {
   Zap,
   TrendingUp,
@@ -17,21 +14,24 @@ import {
 
 const variantIcons: Record<string, typeof Zap> = {
   mini: Zap,
+  mini_parwa: Zap,
   parwa: TrendingUp,
   parwa_high: Sparkles,
 };
 
 const variantNames: Record<string, string> = {
   mini: "Mini PARWA",
+  mini_parwa: "Mini PARWA",
   parwa: "PARWA",
   parwa_high: "PARWA High",
 };
 
-const variantPrices: Record<string, number> = {
-  mini: PRICES.mini_parwa.monthly,
-  parwa: PRICES.parwa.monthly,
-  parwa_high: PRICES.parwa_high.monthly,
-};
+/** Map from backend variant_type to pricing-config VariantTier key */
+function toTier(v: string): VariantTier {
+  if (v === 'mini' || v === 'mini_parwa' || v === 'starter') return 'starter';
+  if (v === 'parwa_high' || v === 'high') return 'high';
+  return 'growth';
+}
 
 interface VariantData {
   id: string;
@@ -106,7 +106,7 @@ export function VariantMixer() {
   };
 
   const totalCost = useMemo(
-    () => variants.filter((v) => v.status !== "scheduled_removal").reduce((sum, v) => sum + (variantPrices[v.variant_type] || 0), 0),
+    () => variants.filter((v) => v.status !== "scheduled_removal").reduce((sum, v) => sum + (VARIANT_PRICES[toTier(v.variant_type)] || 0), 0),
     [variants]
   );
 
@@ -116,33 +116,38 @@ export function VariantMixer() {
   );
 
   const activeVariantTypes = variants.filter((v) => v.status !== "scheduled_removal").map((v) => v.variant_type);
-  const availableToAdd = (["mini", "parwa", "parwa_high"] as const).filter((type) => !activeVariantTypes.includes(type));
+  const availableToAdd = (["mini_parwa", "parwa", "parwa_high"] as const).filter((type) => !activeVariantTypes.includes(type));
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="p-6 flex items-center justify-center">
-          <Loader2 className="h-5 w-5 animate-spin text-emerald-500" />
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center py-10">
+        <Loader2 className="w-5 h-5 animate-spin text-orange-400" />
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Zap className="h-4 w-4" />
-            Variant Mixer
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Active Variants */}
+      {/* Active Variants */}
+      <div className="rounded-xl border border-orange-500/10 bg-[#1A1A1A] overflow-hidden">
+        <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
+          <Zap className="w-4 h-4 text-orange-400" />
+          <h3 className="text-sm font-semibold text-white">Variant Mixer</h3>
+        </div>
+        <div className="p-4 space-y-3">
+          {variants.length === 0 && (
+            <div className="text-center py-8">
+              <Zap className="w-8 h-8 text-zinc-700 mx-auto mb-2" />
+              <p className="text-sm text-zinc-500">No active variants</p>
+              <p className="text-xs text-zinc-600">Add a variant below to get started</p>
+            </div>
+          )}
+
           {variants.map((variant) => {
             const Icon = variantIcons[variant.variant_type] || Zap;
-            const limits = VARIANT_LIMITS[variant.variant_type as keyof typeof VARIANT_LIMITS];
-            const usagePct = limits ? (variant.tickets_used / limits.tickets) * 100 : 0;
+            const tier = toTier(variant.variant_type);
+            const limits = VARIANT_LIMITS[tier];
+            const usagePct = limits ? (variant.tickets_used / limits.monthlyTickets) * 100 : 0;
             const isScheduledRemoval = variant.status === "scheduled_removal";
 
             return (
@@ -150,55 +155,53 @@ export function VariantMixer() {
                 key={variant.id}
                 className={`p-4 rounded-lg border ${
                   isScheduledRemoval
-                    ? "border-amber-300 bg-amber-50/50 dark:border-amber-700 dark:bg-amber-950/20"
-                    : "border-border bg-background"
+                    ? "border-amber-500/20 bg-amber-500/5"
+                    : "border-white/[0.06] bg-white/[0.02]"
                 }`}
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <Icon className="h-5 w-5 text-emerald-500" />
-                    <span className="font-medium text-sm">{variantNames[variant.variant_type] || variant.variant_type}</span>
+                    <Icon className="h-5 w-5 text-orange-400" />
+                    <span className="font-medium text-sm text-white">{variantNames[variant.variant_type] || variant.variant_type}</span>
                     {isScheduledRemoval && (
-                      <Badge variant="secondary" className="text-[10px] text-amber-600">
-                        <AlertTriangle className="h-3 w-3 mr-0.5" />
+                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 uppercase tracking-wider">
+                        <AlertTriangle className="h-3 w-3" />
                         Scheduled Removal
-                      </Badge>
+                      </span>
                     )}
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold">
-                      ${((variantPrices[variant.variant_type] || 0) / 100).toFixed(2)}/mo
+                    <span className="text-sm font-semibold text-white">
+                      ${VARIANT_PRICES[tier].toLocaleString()}/mo
                     </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs text-destructive hover:text-destructive"
-                      disabled={removing === variant.id}
+                    <button
                       onClick={() => handleRemove(variant.id)}
+                      disabled={removing === variant.id}
+                      className="h-7 w-7 rounded-lg flex items-center justify-center text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
                     >
                       {removing === variant.id ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
                       ) : (
                         <Minus className="h-3 w-3" />
                       )}
-                    </Button>
+                    </button>
                   </div>
                 </div>
 
                 {/* Ticket Usage Bar */}
                 <div className="space-y-1.5">
-                  <div className="flex justify-between text-xs text-muted-foreground">
+                  <div className="flex justify-between text-xs text-zinc-500">
                     <span>Tickets: {variant.tickets_used} / {variant.ticket_limit.toLocaleString()}</span>
                     <span>{usagePct.toFixed(1)}%</span>
                   </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div className="h-2 bg-white/[0.04] rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all ${
                         usagePct > 90
-                          ? "bg-destructive"
+                          ? "bg-red-500"
                           : usagePct > 70
                           ? "bg-amber-500"
-                          : "bg-gradient-to-r from-emerald-500 to-teal-500"
+                          : "bg-gradient-to-r from-orange-500 to-amber-400"
                       }`}
                       style={{ width: `${Math.min(usagePct, 100)}%` }}
                     />
@@ -206,7 +209,7 @@ export function VariantMixer() {
                 </div>
 
                 {/* Multi-variant Rules */}
-                <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                <div className="flex gap-4 mt-2 text-xs text-zinc-500">
                   <span>AI Steps: {Array.isArray(variant.ai_pipeline_steps) ? variant.ai_pipeline_steps.length : variant.ai_pipeline_steps}</span>
                   <span>Concurrent: {variant.concurrent_ai}</span>
                 </div>
@@ -218,43 +221,41 @@ export function VariantMixer() {
           {availableToAdd.length > 0 && (
             <div className="flex gap-2 pt-2">
               {availableToAdd.map((type) => (
-                <Button
+                <button
                   key={type}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs flex-1"
-                  disabled={adding === type}
                   onClick={() => handleAdd(type)}
+                  disabled={adding === type}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-white/[0.06] bg-white/[0.02] text-zinc-400 hover:text-white hover:border-orange-500/30 hover:bg-orange-500/5 transition-colors disabled:opacity-50"
                 >
                   {adding === type ? (
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
-                    <Plus className="h-3 w-3 mr-1" />
+                    <Plus className="h-3 w-3" />
                   )}
-                  Add {variantNames[type]}
-                </Button>
+                  Add {variantNames[type] || type}
+                </button>
               ))}
             </div>
           )}
 
           {/* Total */}
-          <div className="p-3 bg-muted/50 rounded-lg">
+          <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
             <div className="flex justify-between text-sm">
-              <span className="font-medium">Total Monthly Cost</span>
-              <span className="font-bold">${(totalCost / 100).toFixed(2)}</span>
+              <span className="font-medium text-zinc-400">Total Monthly Cost</span>
+              <span className="font-bold text-white">${totalCost.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between text-xs text-muted-foreground mt-1">
+            <div className="flex justify-between text-xs text-zinc-500 mt-1">
               <span>Total ticket capacity</span>
               <span>{totalTickets.toLocaleString()}/mo</span>
             </div>
           </div>
 
           {/* D13 Compliance Notice */}
-          <p className="text-xs text-emerald-600 dark:text-emerald-400">
+          <p className="text-xs text-orange-400/60">
             Need more tickets? Add another variant to increase your capacity.
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

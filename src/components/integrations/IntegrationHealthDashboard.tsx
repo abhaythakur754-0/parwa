@@ -1,10 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Activity,
   CheckCircle2,
@@ -60,107 +56,101 @@ export function IntegrationHealthDashboard() {
     setRefreshing(false);
   };
 
-  const getOverallBadge = () => {
-    if (!health || health.total === 0) return { label: "No Integrations", variant: "secondary" as const, icon: Activity };
-    if (health.unhealthy === 0) return { label: "Healthy", variant: "default" as const, icon: CheckCircle2 };
-    if (health.healthy > health.unhealthy) return { label: "Degraded", variant: "secondary" as const, icon: AlertTriangle };
-    return { label: "Unhealthy", variant: "destructive" as const, icon: XCircle };
-  };
-
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "active": return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
-      case "error": return <XCircle className="h-4 w-4 text-destructive" />;
-      case "disconnected": return <AlertTriangle className="h-4 w-4 text-amber-500" />;
-      default: return <Activity className="h-4 w-4 text-muted-foreground" />;
+      case "active": return <CheckCircle2 className="h-4 w-4 text-emerald-400" />;
+      case "error": return <XCircle className="h-4 w-4 text-red-400" />;
+      case "disconnected": return <AlertTriangle className="h-4 w-4 text-amber-400" />;
+      default: return <Activity className="h-4 w-4 text-zinc-500" />;
     }
   };
 
   const getCircuitBreakerBadge = (state: string) => {
     switch (state) {
-      case "closed": return <Badge variant="default" className="text-[10px] bg-emerald-500">Closed (Healthy)</Badge>;
-      case "open": return <Badge variant="destructive" className="text-[10px]">Open (Failing)</Badge>;
-      case "half-open": return <Badge variant="secondary" className="text-[10px]">Half-Open (Testing)</Badge>;
-      default: return <Badge variant="secondary" className="text-[10px]">{state}</Badge>;
+      case "closed": return <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 uppercase tracking-wider">Closed (Healthy)</span>;
+      case "open": return <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 uppercase tracking-wider">Open (Failing)</span>;
+      case "half-open": return <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 uppercase tracking-wider">Half-Open (Testing)</span>;
+      default: return <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.04] text-zinc-500 uppercase tracking-wider">{state}</span>;
     }
   };
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="p-6 flex items-center justify-center">
-          <Loader2 className="h-5 w-5 animate-spin text-emerald-500" />
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center py-10">
+        <Loader2 className="w-5 h-5 animate-spin text-orange-400" />
+      </div>
     );
   }
 
-  const overall = getOverallBadge();
-  const OverallIcon = overall.icon;
+  const isHealthy = health && health.unhealthy === 0;
+  const isDegraded = health && health.unhealthy > 0 && health.healthy > health.unhealthy;
 
   return (
     <div className="space-y-4">
       {/* Overall Health */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Activity className="h-4 w-4" />
-            Integration Health
-          </CardTitle>
+      <div className="rounded-xl border border-orange-500/10 bg-[#1A1A1A] overflow-hidden">
+        <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <OverallIcon className="h-4 w-4" />
-            <Badge variant={overall.variant} className="text-xs">{overall.label}</Badge>
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleRefresh}>
-              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-            </Button>
+            <Activity className="w-4 h-4 text-orange-400" />
+            <h3 className="text-sm font-semibold text-white">Integration Health</h3>
           </div>
-        </CardHeader>
-        <CardContent>
+          <div className="flex items-center gap-2">
+            {!health || health.total === 0 ? (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.04] text-zinc-500 uppercase tracking-wider">No Integrations</span>
+            ) : isHealthy ? (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 uppercase tracking-wider flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Healthy</span>
+            ) : isDegraded ? (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 uppercase tracking-wider flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Degraded</span>
+            ) : (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 uppercase tracking-wider flex items-center gap-1"><XCircle className="w-3 h-3" /> Unhealthy</span>
+            )}
+            <button onClick={handleRefresh} className="h-7 w-7 rounded-lg flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/[0.04] transition-colors">
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+            </button>
+          </div>
+        </div>
+        <div className="p-4">
           {health && health.total > 0 ? (
             <div className="flex gap-4 text-sm">
-              <span className="text-emerald-600 font-medium">{health.healthy} healthy</span>
-              <span className="text-destructive font-medium">{health.unhealthy} unhealthy</span>
-              <span className="text-muted-foreground">{health.total} total</span>
+              <span className="text-emerald-400 font-medium">{health.healthy} healthy</span>
+              <span className="text-red-400 font-medium">{health.unhealthy} unhealthy</span>
+              <span className="text-zinc-500">{health.total} total</span>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No integrations connected yet.</p>
+            <p className="text-sm text-zinc-500">No integrations connected yet.</p>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Per-Integration Health */}
       {health && health.integrations.length > 0 && (
         <div className="space-y-2">
           {health.integrations.map((ih) => (
-            <Card key={ih.integration_id}>
-              <CardContent className="p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    {getStatusIcon(ih.status)}
-                    <span className="text-sm font-medium">{ih.integration_name}</span>
-                  </div>
-                  {ih.status === "error" && (
-                    <Alert variant="destructive" className="py-1 px-2 text-xs">
-                      <AlertDescription className="text-xs flex items-center gap-1">
-                        <Shield className="h-3 w-3" />
-                        Key may need rotation
-                      </AlertDescription>
-                    </Alert>
-                  )}
+            <div key={ih.integration_id} className="p-3 rounded-lg border border-white/[0.06] bg-white/[0.02]">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  {getStatusIcon(ih.status)}
+                  <span className="text-sm font-medium text-white">{ih.integration_name}</span>
                 </div>
-                <div className="flex items-center gap-3 text-xs">
-                  {getCircuitBreakerBadge(ih.circuit_breaker)}
-                  <Badge variant="outline" className="text-[10px]">
-                    Rate limit: {ih.rate_limit}
-                  </Badge>
-                  {ih.last_tested_at && (
-                    <span className="text-muted-foreground">
-                      Last tested: {new Date(ih.last_tested_at).toLocaleDateString()}
-                    </span>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                {ih.status === "error" && (
+                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400">
+                    <Shield className="h-3 w-3" />
+                    Key may need rotation
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3 text-xs">
+                {getCircuitBreakerBadge(ih.circuit_breaker)}
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.04] text-zinc-500">
+                  Rate limit: {ih.rate_limit}
+                </span>
+                {ih.last_tested_at && (
+                  <span className="text-zinc-500">
+                    Last tested: {new Date(ih.last_tested_at).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+            </div>
           ))}
         </div>
       )}

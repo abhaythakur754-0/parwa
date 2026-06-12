@@ -46,7 +46,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ path
 
   // Try backend first (CSRF-aware)
   try {
-    const { response } = await backendProxy(`/api/user${path}${searchParams}`, {
+    const { response } = await backendProxy(`/api/v1/user${path}${searchParams}`, {
       method: 'GET',
       authToken,
     });
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
 
   // Try backend first (CSRF-aware)
   try {
-    const { response } = await backendProxy(`/api/user${path}${searchParams}`, {
+    const { response } = await backendProxy(`/api/v1/user${path}${searchParams}`, {
       method: 'POST',
       body: body || undefined,
       authToken,
@@ -172,7 +172,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ pa
 
   // Try backend first (CSRF-aware)
   try {
-    const { response } = await backendProxy(`/api/user${path}${searchParams}`, {
+    const { response } = await backendProxy(`/api/v1/user${path}${searchParams}`, {
       method: 'PATCH',
       body: body || undefined,
       authToken,

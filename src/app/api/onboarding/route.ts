@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
 
   // Try backend first (CSRF-aware)
   try {
-    const { response } = await backendProxy(`/api/onboarding${path}${searchParams}`, {
+    const { response } = await backendProxy(`/api/v1/onboarding${path}${searchParams}`, {
       method: 'GET',
       authToken,
     });
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
 
   // Try backend first (CSRF-aware)
   try {
-    const { response } = await backendProxy(`/api/onboarding${path}${searchParams}`, {
+    const { response } = await backendProxy(`/api/v1/onboarding${path}${searchParams}`, {
       method: 'POST',
       body: body || undefined,
       authToken,

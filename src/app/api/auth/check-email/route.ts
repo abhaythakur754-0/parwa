@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     // ── Try backend first ──────────────────────────────────────
     try {
       const { response: backendRes } = await backendProxy(
-        `/api/auth/check-email?email=${encodeURIComponent(normalizedEmail)}`,
+        `/api/v1/auth/check-email?email=${encodeURIComponent(normalizedEmail)}`,
         { method: "GET" },
       );
 

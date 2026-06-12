@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
     // ── Try backend first ──────────────────────────────────────
     try {
-      const { response: backendRes } = await backendProxy("/api/auth/login", {
+      const { response: backendRes } = await backendProxy("/api/v1/auth/login", {
         method: "POST",
         body: JSON.stringify({ email: normalizedEmail, password }),
       });
@@ -45,13 +45,19 @@ export async function POST(request: NextRequest) {
       if (backendRes.ok) {
         const data = await backendRes.json();
 
-        // Backend returns AuthResponse: { user, tokens, is_new_user }
-        if (data.user && data.tokens) {
+        // Backend returns: { access_token, refresh_token, token_type, user }
+        // Also support nested format: { tokens: { access_token, refresh_token } }
+        const accessToken = data.access_token || data.tokens?.access_token;
+        const refreshToken = data.refresh_token || data.tokens?.refresh_token;
+        const userObj = data.user;
+        const expiresIn = data.expires_in || data.tokens?.expires_in;
+
+        if (userObj && accessToken) {
           const userData = {
-            id: data.user.id,
-            email: data.user.email || normalizedEmail,
-            fullName: data.user.full_name,
-            isVerified: data.user.is_verified ?? false,
+            id: userObj.id,
+            email: userObj.email || normalizedEmail,
+            fullName: userObj.full_name || userObj.name,
+            isVerified: userObj.is_verified ?? false,
           };
 
           const response = NextResponse.json({
@@ -64,10 +70,10 @@ export async function POST(request: NextRequest) {
           // Store BACKEND's tokens in cookies
           setAuthCookies(
             response,
-            data.tokens.access_token,
-            data.tokens.refresh_token,
+            accessToken,
+            refreshToken,
             userData,
-            data.tokens.expires_in,
+            expiresIn,
           );
 
           return response;

@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     // ── Try backend first ──────────────────────────────────────
     try {
-      const { response: backendRes } = await backendProxy("/api/auth/register", {
+      const { response: backendRes } = await backendProxy("/api/v1/auth/register", {
         method: "POST",
         body: JSON.stringify({
           email: normalizedEmail,

@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     // ── Step 1: Forward the actual id_token to the backend ──────
     // The backend will verify the token with Google and create/find the user.
     try {
-      const { response: backendRes } = await backendProxy("/api/auth/google", {
+      const { response: backendRes } = await backendProxy("/api/v1/auth/google", {
         method: "POST",
         body: JSON.stringify({ id_token }),
       });
