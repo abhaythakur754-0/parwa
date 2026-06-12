@@ -1,5 +1,5 @@
 """
-PARWA Phase 3 — FastAPI Application Entry Point
+PARWA — FastAPI Application Entry Point (Phase 1-5 Complete)
 
 CORS middleware, all API routers, health check, and startup/shutdown events.
 
@@ -28,6 +28,9 @@ from app.api.knowledge import router as knowledge_router
 from app.api.industry import router as industry_router
 from app.api.connectors import router as connectors_router
 from app.api.auth import router as auth_router
+from app.api.variants import router as variants_router
+from app.api.voice import router as voice_router
+from app.api.monitoring import router as monitoring_router
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +87,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="PARWA Phase 3 — Multi-tenant AI customer support platform",
+    description="PARWA — Multi-tenant AI customer support platform (Phase 1-5 Complete)",
     lifespan=lifespan,
 )
 
@@ -113,6 +116,9 @@ app.include_router(knowledge_router, prefix=settings.API_V1_PREFIX)
 app.include_router(industry_router, prefix=settings.API_V1_PREFIX)
 app.include_router(connectors_router, prefix=settings.API_V1_PREFIX)
 app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
+app.include_router(variants_router, prefix=settings.API_V1_PREFIX)
+app.include_router(voice_router, prefix=settings.API_V1_PREFIX)
+app.include_router(monitoring_router, prefix=settings.API_V1_PREFIX)
 
 
 # ---------------------------------------------------------------------------
