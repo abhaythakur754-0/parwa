@@ -1,4 +1,8 @@
-"""Integration routes for PARWA backend."""
+"""Integration routes for PARWA backend.
+
+Phase 15: Integration test endpoint now uses ExternalToolBus for
+retry, circuit breaker, and cache support.
+"""
 import json
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -8,6 +12,7 @@ from app.database import get_db
 from app.models import User, IntegrationCredential, AuditLog
 from app.auth import get_current_user
 from app.encryption import encrypt_data, decrypt_data, mask_key
+from app.services.external_tool_bus import get_tool_bus
 
 router = APIRouter(prefix="/api/v1/integrations", tags=["integrations"])
 
@@ -759,9 +764,14 @@ async def test_integration(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Test an integration connection by making an HTTP call."""
-    import httpx
+    """Test an integration connection using the ExternalToolBus.
 
+    Phase 15: Now uses ExternalToolBus with:
+    - 3x exponential backoff retry
+    - Circuit breaker (auto-open after 5 failures)
+    - Response caching
+    - Structured error propagation with degraded data fallback
+    """
     cred = (
         db.query(IntegrationCredential)
         .filter(
@@ -819,58 +829,61 @@ async def test_integration(
             auth_pass = auth_pass.replace(f"{{{c_key}}}", str(c_value))
         auth = (auth_user, auth_pass) if auth_user else None
 
-    # Make test call
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            if method.upper() == "GET":
-                resp = await client.get(url, headers=headers, auth=auth)
-            elif method.upper() == "POST":
-                body = test_config.get("body", "")
-                for c_key, c_value in credentials.items():
-                    body = body.replace(f"{{{c_key}}}", str(c_value))
-                resp = await client.post(url, headers=headers, content=body, auth=auth)
-            else:
-                resp = await client.request(method, url, headers=headers, auth=auth)
+    # Handle POST body
+    body = None
+    if method.upper() == "POST":
+        body = test_config.get("body", "")
+        for c_key, c_value in credentials.items():
+            body = body.replace(f"{{{c_key}}}", str(c_value))
 
-        success = 200 <= resp.status_code < 300
+    # Use ExternalToolBus for the call (Phase 15)
+    bus = get_tool_bus()
+    result = await bus.call(
+        integration_id=req.integration_id,
+        method=method,
+        url=url,
+        headers=headers,
+        auth=auth,
+        body=body,
+        data_type="realtime",
+        use_cache=False,  # Don't cache test calls
+        tenant_id=current_user.tenant_id,
+        actor=current_user.email,
+        db=db,
+    )
 
-        # Update last tested
+    # Update credential status based on result
+    if result.get("success"):
         cred.last_tested_at = datetime.utcnow()
-        cred.status = "active" if success else "error"
-        db.commit()
-
-        # Log audit
-        audit = AuditLog(
-            tenant_id=current_user.tenant_id,
-            action="integration.tested",
-            actor=current_user.email,
-            resource_type="integration",
-            resource_id=req.integration_id,
-            details=json.dumps({
-                "success": success,
-                "status_code": resp.status_code,
-            }),
-            severity="info" if success else "warning",
-        )
-        db.add(audit)
+        cred.status = "active"
         db.commit()
 
         return {
-            "success": success,
-            "status_code": resp.status_code,
-            "message": "Connection successful" if success else f"Connection failed with status {resp.status_code}",
+            "success": True,
+            "status_code": result.get("status_code"),
+            "message": "Connection successful",
+            "from_cache": result.get("from_cache", False),
         }
-
-    except Exception as e:
-        cred.status = "error"
+    else:
         cred.last_tested_at = datetime.utcnow()
+        # Only set error status if it's not a retriable/circuit issue
+        error_code = result.get("error", "unknown")
+        if error_code not in ["circuit_open", "all_retries_failed"]:
+            cred.status = "error"
         db.commit()
 
-        return {
+        response = {
             "success": False,
-            "error": str(e),
-            "message": f"Connection test failed: {str(e)}",
+            "error": error_code,
+            "message": result.get("message", "Connection test failed"),
+            "is_retriable": result.get("is_retriable", False),
         }
+        if result.get("degraded"):
+            response["degraded"] = True
+            response["data_age"] = result.get("data_age")
+        if result.get("retry_attempts"):
+            response["retry_attempts"] = result.get("retry_attempts")
+        return response
 
 
 @router.get("/health")
@@ -878,21 +891,32 @@ def get_integration_health(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get integration health status including circuit breaker states."""
+    """Get integration health status including circuit breaker states.
+
+    Phase 15: Now includes actual circuit breaker state from ExternalToolBus.
+    """
+    from app.services.external_tool_bus import get_tool_bus
+
     creds = (
         db.query(IntegrationCredential)
         .filter(IntegrationCredential.tenant_id == current_user.tenant_id)
         .all()
     )
 
+    bus = get_tool_bus()
+    circuit_states = bus.get_circuit_states()
+    cache_stats = bus.get_cache_stats()
+
     health_data = []
     for cred in creds:
+        circuit_info = circuit_states.get(cred.integration_id, {})
         health_data.append({
             "integration_id": cred.integration_id,
             "integration_name": cred.integration_name,
             "status": cred.status,
             "last_tested_at": cred.last_tested_at.isoformat() if cred.last_tested_at else None,
-            "circuit_breaker": "closed" if cred.status == "active" else "open",
+            "circuit_breaker": circuit_info.get("state", "closed" if cred.status == "active" else "open"),
+            "circuit_breaker_failures": circuit_info.get("failure_count", 0),
             "rate_limit": "normal",
         })
 
@@ -901,6 +925,13 @@ def get_integration_health(
         "total": len(health_data),
         "healthy": sum(1 for h in health_data if h["status"] == "active"),
         "unhealthy": sum(1 for h in health_data if h["status"] != "active"),
+        "circuit_breaker_summary": {
+            "total_tracked": len(circuit_states),
+            "open": sum(1 for c in circuit_states.values() if c.get("state") == "open"),
+            "half_open": sum(1 for c in circuit_states.values() if c.get("state") == "half_open"),
+            "closed": sum(1 for c in circuit_states.values() if c.get("state") == "closed"),
+        },
+        "cache_summary": cache_stats,
     }
 
 

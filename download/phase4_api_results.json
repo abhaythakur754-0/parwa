@@ -1,0 +1,87 @@
+[
+  {
+    "name": "Login",
+    "status": "PASS",
+    "code": 200
+  },
+  {
+    "name": "Get State",
+    "status": "PASS",
+    "code": 200
+  },
+  {
+    "name": "Start",
+    "status": "PASS",
+    "code": 200
+  },
+  {
+    "name": "Save Industry/Variant",
+    "status": "PASS",
+    "code": 200
+  },
+  {
+    "name": "Legal Consent",
+    "status": "PASS",
+    "code": 200
+  },
+  {
+    "name": "Complete Step 1",
+    "status": "PASS",
+    "code": 200
+  },
+  {
+    "name": "Complete Step 2",
+    "status": "PASS",
+    "code": 200
+  },
+  {
+    "name": "Complete Step 3",
+    "status": "PASS",
+    "code": 200
+  },
+  {
+    "name": "Save Integrations",
+    "status": "PASS",
+    "code": 200
+  },
+  {
+    "name": "KB Stats",
+    "status": "PASS",
+    "code": 200
+  },
+  {
+    "name": "Complete KB Step",
+    "status": "PASS",
+    "code": 200
+  },
+  {
+    "name": "Prerequisites",
+    "status": "PASS",
+    "code": 200
+  },
+  {
+    "name": "Activate AI",
+    "status": "PASS",
+    "code": 200
+  },
+  {
+    "name": "Get First Victory",
+    "status": "PASS",
+    "code": 200
+  },
+  {
+    "name": "Complete Step 5",
+    "status": "PASS",
+    "code": 200
+  },
+  {
+    "name": "Mark First Victory",
+    "status": "PASS",
+    "code": 200
+  },
+  {
+    "name": "Final State",
+    "status": "PASS",
+    "code": 200
+  }
+]

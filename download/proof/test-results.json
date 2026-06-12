@@ -1,0 +1,54 @@
+{
+  "login": {
+    "status": "PARTIAL",
+    "details": "Login form submitted but landed on: http://localhost:3000/login"
+  },
+  "onboarding_redirect": {
+    "status": "PASS",
+    "details": "Onboarding page loaded at: http://localhost:3000/onboarding"
+  },
+  "step1_industry_variant": {
+    "status": "FAIL",
+    "details": "No industry or variant options found"
+  },
+  "step2_legal": {
+    "status": "PARTIAL",
+    "details": "May have been skipped or auto-accepted"
+  },
+  "step3_integrations": {
+    "status": "PARTIAL",
+    "details": "Integration step reached but no integrations visible"
+  },
+  "step4_knowledge": {
+    "status": "PARTIAL",
+    "details": "Knowledge step reached but upload area not clearly visible"
+  },
+  "step5_ai_config": {
+    "status": "PARTIAL",
+    "details": "AI config step reached but elements not clearly visible"
+  },
+  "step6_cost_breakdown_paddle": {
+    "status": "FAIL",
+    "details": "No cost breakdown or Paddle elements found"
+  },
+  "step7_launch": {
+    "status": "PARTIAL",
+    "details": "Step 7 reached but no celebration elements found"
+  },
+  "dashboard_after_onboarding": {
+    "status": "PARTIAL",
+    "details": "Not on dashboard. URL: http://localhost:3000/onboarding"
+  },
+  "fake_tickets": {
+    "status": "FAIL",
+    "details": "Error: page.goto: Timeout 15000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:3000/dashboard/tickets\", waiting until \"networkidle\"\n"
+  },
+  "variant_display": {
+    "status": "FAIL",
+    "details": "Error: page.goto: Timeout 15000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:3000/dashboard\", waiting until \"networkidle\"\n"
+  },
+  "ai_resolution_metrics": {
+    "status": "FAIL",
+    "details": "Error: page.goto: Timeout 15000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:3000/dashboard\", waiting until \"networkidle\"\n"
+  }
+}

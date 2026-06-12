@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-06-11T19:42:39.894064",
+  "test_type": "Backend API + BFF Proxy Verification",
+  "results": {
+    "login": {
+      "status": 200,
+      "success": true,
+      "user_email": "dashboard@test.io",
+      "user_role": "owner",
+      "company_id": "f569968b-b9fc-4867-8023-3605d4014929",
+      "is_verified": true
+    },
+    "onboarding_state": {
+      "status": 200,
+      "success": true,
+      "data_preview": "{\"id\": \"82a4aade-4c82-4f5d-adfc-390ebdb66fe4\", \"user_id\": \"8e74719c-885f-4706-8aa3-de2fa5741d62\", \"company_id\": \"f569968b-b9fc-4867-8023-3605d4014929\", \"current_step\": 2, \"completed_steps\": [1], \"status\": \"in_progress\", \"details_completed\": true, \"wizard_started\": false, \"legal_accepted\": false, \"first_victory_completed\": true, \"ai_name\": \"Jarvis\", \"ai_tone\": \"professional\", \"ai_response_style\": \"concise\", \"ai_greeting\": null, \"created_at\": \"2026-06-11T15:07:02.262519\", \"updated_at\": \"2026-06-11"
+    },
+    "onboarding_prerequisites": {
+      "status": 200,
+      "success": true,
+      "data_preview": "{\"can_activate\": false, \"missing\": [\"legal_consent_required\", \"integration_or_kb_required\"], \"details_completed\": true, \"legal_accepted\": false, \"has_integration\": false, \"has_knowledge_base\": false, \"work_email_provided\": false, \"email_verified\": true}"
+    },
+    "integration_catalog_saas": {
+      "status": 200,
+      "success": true,
+      "data_preview": "[{\"key\": \"hubspot\", \"name\": \"HubSpot\", \"description\": \"Look up customers, deals, and contact info from HubSpot CRM.\", \"category\": \"crm\", \"tier\": \"tier1_prebuilt\", \"authSchema\": {\"type\": \"bearer\", \"fields\": [{\"name\": \"api_key\", \"label\": \"HubSpot API Key\", \"type\": \"password\", \"required\": true, \"placeholder\": \"pat-xxx-xxx\"}]}, \"testConnection\": {\"method\": \"GET\", \"urlTemplate\": \"https://api.hubapi.com/crm/v3/contacts?limit=1\", \"headersTemplate\": {\"Authorization\": \"Bearer {api_key}\"}, \"successCheck\":"
+    },
+    "available_integrations": {
+      "status": 200,
+      "success": true,
+      "data_preview": "[{\"key\": \"hubspot\", \"name\": \"HubSpot\", \"description\": \"Look up customers, deals, and contact info from HubSpot CRM.\", \"category\": \"crm\", \"tier\": \"tier1_prebuilt\", \"authSchema\": {\"type\": \"bearer\", \"fields\": [{\"name\": \"api_key\", \"label\": \"HubSpot API Key\", \"type\": \"password\", \"required\": true, \"placeholder\": \"pat-xxx-xxx\"}]}, \"testConnection\": {\"method\": \"GET\", \"urlTemplate\": \"https://api.hubapi.com/crm/v3/contacts?limit=1\", \"headersTemplate\": {\"Authorization\": \"Bearer {api_key}\"}, \"successCheck\":"
+    },
+    "pricing_industries": {
+      "status": 200,
+      "success": true,
+      "data_preview": "[{\"id\": \"ecommerce\", \"name\": \"E-commerce\", \"description\": \"Online retail, marketplaces, D2C brands\", \"color\": \"teal\"}, {\"id\": \"saas\", \"name\": \"SaaS\", \"description\": \"Software companies, tech startups\", \"color\": \"blue\"}, {\"id\": \"logistics\", \"name\": \"Logistics\", \"description\": \"Shipping, warehousing, supply chain\", \"color\": \"orange\"}, {\"id\": \"others\", \"name\": \"Others\", \"description\": \"Healthcare, Finance, Education, etc.\", \"color\": \"purple\"}]"
+    },
+    "pricing_variants_saas": {
+      "status": 200,
+      "success": true,
+      "data_preview": "[{\"id\": \"saas-tech\", \"name\": \"Technical Support\", \"description\": \"Bug reports, troubleshooting\", \"tickets_per_month\": 400, \"price_per_month\": 129, \"features\": [\"Bug triage\", \"Troubleshooting guides\", \"Known issues response\", \"Escalation routing\"], \"popular\": true}, {\"id\": \"saas-billing\", \"name\": \"Billing Support\", \"description\": \"Subscription, invoice questions\", \"tickets_per_month\": 200, \"price_per_month\": 69, \"features\": [\"Subscription changes\", \"Invoice inquiries\", \"Refund requests\", \"Plan co"
+    },
+    "ai_instances": {
+      "status": 200,
+      "success": true,
+      "data_preview": "{\"items\": [{\"id\": \"634e2998-a904-412b-bcf4-e7335ee7e962\", \"company_id\": \"f569968b-b9fc-4867-8023-3605d4014929\", \"instance_name\": \"PARWA\", \"variant_type\": \"parwa\", \"status\": \"active\", \"channel_assignment\": [\"email\", \"chat\", \"sms\"], \"capacity_config\": {\"max_concurrent\": 200}, \"celery_queue_namespace\": null, \"redis_partition_key\": null, \"active_tickets_count\": 0, \"total_tickets_handled\": 0, \"last_activity_at\": \"2026-06-11T17:29:09\", \"created_at\": \"2026-06-11T17:29:09\", \"updated_at\": \"2026-06-11T17:"
+    },
+    "billing_status": {
+      "status": 200,
+      "success": true,
+      "data_preview": "{\"subscription_status\": \"none\", \"has_subscription\": false, \"variant\": null, \"cancel_at_period_end\": false, \"current_period_end\": null}"
+    },
+    "billing_subscription": {
+      "status": 200,
+      "success": true,
+      "data_preview": "{\"subscription\": null, \"has_subscription\": false}"
+    },
+    "auth_me": {
+      "status": 200,
+      "success": true,
+      "data_preview": "{\"id\": \"8e74719c-885f-4706-8aa3-de2fa5741d62\", \"email\": \"dashboard@test.io\", \"full_name\": \"User\", \"phone\": null, \"avatar_url\": null, \"role\": \"owner\", \"is_active\": true, \"is_verified\": true, \"company_id\": \"f569968b-b9fc-4867-8023-3605d4014929\", \"company_name\": null, \"created_at\": \"2026-06-11T15:04:28.776915\"}"
+    }
+  },
+  "issues": []
+}

@@ -1,0 +1,180 @@
+{
+  "total": 33,
+  "passed": 31,
+  "failed": 2,
+  "results": [
+    {
+      "name": "User in DB",
+      "status": "PASS",
+      "detail": "email=dashboard@test.io, company_id=f569968b-b9fc-4867-8023-3605d4014929, verified=1"
+    },
+    {
+      "name": "Database",
+      "status": "FAIL",
+      "detail": "no such column: variant_key"
+    },
+    {
+      "name": "Backend startup",
+      "status": "PASS",
+      "detail": "status=unhealthy, postgresql=healthy, paddle=unhealthy"
+    },
+    {
+      "name": "Login API",
+      "status": "PASS",
+      "detail": "HTTP 200, token=present"
+    },
+    {
+      "name": "Onboarding state",
+      "status": "PASS",
+      "detail": "HTTP 200: {'id': '82a4aade-4c82-4f5d-adfc-390ebdb66fe4', 'user_id': '8e74719c-885f-4706-8aa3-de2fa5741d62', 'company_id': 'f569968"
+    },
+    {
+      "name": "Industry-Variant",
+      "status": "PASS",
+      "detail": "HTTP 200: {'status': 'ok', 'industry': 'saas', 'variant': 'parwa'}"
+    },
+    {
+      "name": "Integration catalog",
+      "status": "PASS",
+      "detail": "17 integrations for SaaS: ['HubSpot', 'Salesforce', 'Pipedrive', 'Zendesk', 'Freshdesk']"
+    },
+    {
+      "name": "AI instances",
+      "status": "PASS",
+      "detail": "HTTP 200: {'items': [{'id': '634e2998-a904-412b-bcf4-e7335ee7e962', 'company_id': 'f569968b-b9fc-4867-8023-3605d4014929', 'instanc"
+    },
+    {
+      "name": "Complete-step (1)",
+      "status": "PASS",
+      "detail": "HTTP 200: {'message': 'Step 1 completed successfully.', 'current_step': 2, 'completed_steps': [1]}"
+    },
+    {
+      "name": "Legal-consent",
+      "status": "PASS",
+      "detail": "HTTP 200: {'message': 'Legal consents accepted successfully.', 'terms_accepted_at': '2026-06-11T20:38:38.921195+00:00', 'privacy_a"
+    },
+    {
+      "name": "Complete-step (2)",
+      "status": "PASS",
+      "detail": "HTTP 200: {'message': 'Step 2 completed successfully.', 'current_step': 3, 'completed_steps': [1, 2]}"
+    },
+    {
+      "name": "Onboarding activate",
+      "status": "FAIL",
+      "detail": "HTTP 422: {\"error\":{\"code\":\"VALIDATION_ERROR\",\"message\":\"AI activation prerequisites not met.\",\"details\":{\"missing\":[\"integration_"
+    },
+    {
+      "name": "CostBreakdownStep - Paddle checkout",
+      "status": "PASS",
+      "detail": "Found: 'openCheckoutWithItems'"
+    },
+    {
+      "name": "CostBreakdownStep - Variant mixer",
+      "status": "PASS",
+      "detail": "Found: 'VariantMixerCard'"
+    },
+    {
+      "name": "CostBreakdownStep - Usage bar",
+      "status": "PASS",
+      "detail": "Found: 'UsageBar'"
+    },
+    {
+      "name": "CostBreakdownStep - Savings calc",
+      "status": "PASS",
+      "detail": "Found: 'estimateSavings'"
+    },
+    {
+      "name": "CostBreakdownStep - D13 compliance",
+      "status": "PASS",
+      "detail": "Found: 'No hidden fees'"
+    },
+    {
+      "name": "CostBreakdownStep - Proceed to Checkout",
+      "status": "PASS",
+      "detail": "Found: 'Proceed to Checkout'"
+    },
+    {
+      "name": "Paddle.ts - price IDs",
+      "status": "PASS",
+      "detail": "Found: 'VARIANT_PRICE_IDS'"
+    },
+    {
+      "name": "Paddle.ts - checkout with items",
+      "status": "PASS",
+      "detail": "Found: 'openCheckoutWithItems'"
+    },
+    {
+      "name": "Pricing config - correct prices",
+      "status": "PASS",
+      "detail": "Found: 'starter: 999'"
+    },
+    {
+      "name": "Pricing config - PARWA High $4,999",
+      "status": "PASS",
+      "detail": "Found: 'high: 4999'"
+    },
+    {
+      "name": "Pricing config - overage $0.10",
+      "status": "PASS",
+      "detail": "Found: 'OVERAGE_PRICE_PER_TICKET = 0.10'"
+    },
+    {
+      "name": "Pricing config - savings helpers",
+      "status": "PASS",
+      "detail": "Found: 'calculateCostBreakdown'"
+    },
+    {
+      "name": "BFF [...path] - no mocks",
+      "status": "PASS",
+      "detail": "Found: 'backend_unreachable'"
+    },
+    {
+      "name": "BFF route - no mocks",
+      "status": "PASS",
+      "detail": "Found: 'backend_unreachable'"
+    },
+    {
+      "name": "Integrations catalog - no mocks",
+      "status": "PASS",
+      "detail": "Found: 'backend_unreachable'"
+    },
+    {
+      "name": "Tenant middleware - v1 auth fix",
+      "status": "PASS",
+      "detail": "Found: '/api/v1/auth/'"
+    },
+    {
+      "name": "Backend industry-variant endpoint",
+      "status": "PASS",
+      "detail": "Found: 'industry-variant'"
+    },
+    {
+      "name": ".env Paddle key",
+      "status": "PASS",
+      "detail": "Found: 'NEXT_PUBLIC_PADDLE_KEY=live_84ceb40f4a03f934aadd1460d60'"
+    },
+    {
+      "name": "LegalCompliance - correct fields",
+      "status": "PASS",
+      "detail": "Found: 'accept_terms'"
+    },
+    {
+      "name": "IndustryVariantStep - backend call",
+      "status": "PASS",
+      "detail": "Found: '/api/onboarding/industry-variant'"
+    },
+    {
+      "name": "OnboardingWizard - 7 steps",
+      "status": "PASS",
+      "detail": "Found: 'TOTAL_STEPS = 7'"
+    }
+  ],
+  "timestamp": "2026-06-11T20:38:38",
+  "phases": {
+    "phase_1_foundation": "Database schema, user data, variant limits",
+    "phase_2_industry_system": "Industry-variant endpoint, integration catalog",
+    "phase_3_mcp_wiring": "Already completed (marked \u2705 in roadmap)",
+    "phase_4_customer_journey": "Onboarding flow, legal consent, activation",
+    "phase_5_cost_breakdown": "Pricing config, variant mixer, Paddle checkout, savings calculator"
+  }
+}

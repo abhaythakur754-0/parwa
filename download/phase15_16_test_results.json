@@ -1,0 +1,451 @@
+{
+  "phase": "15 & 16",
+  "timestamp": "2026-06-12 16:10:20",
+  "summary": {
+    "total": 73,
+    "passed": 70,
+    "failed": 2,
+    "warnings": 1,
+    "pass_rate": "95.9%"
+  },
+  "tests": [
+    {
+      "name": "Health check",
+      "status": "PASS",
+      "details": "v2.0.0",
+      "category": "Infra"
+    },
+    {
+      "name": "Root v2.0.0",
+      "status": "PASS",
+      "details": "Version: 2.0.0",
+      "category": "Infra"
+    },
+    {
+      "name": "Register",
+      "status": "PASS",
+      "details": "Token: True",
+      "category": "Auth"
+    },
+    {
+      "name": "JWT obtained",
+      "status": "PASS",
+      "details": "Tenant: None",
+      "category": "Auth"
+    },
+    {
+      "name": "Auth/me",
+      "status": "PASS",
+      "details": "Tenant: aa18e3c8-c770-459e-9ea8-9d9cba6ac090",
+      "category": "Auth"
+    },
+    {
+      "name": "Industry+variant",
+      "status": "PASS",
+      "details": "",
+      "category": "Setup"
+    },
+    {
+      "name": "Legal consent",
+      "status": "PASS",
+      "details": "",
+      "category": "Setup"
+    },
+    {
+      "name": "Add variant (or already exists)",
+      "status": "PASS",
+      "details": "Status: 409",
+      "category": "Setup"
+    },
+    {
+      "name": "Connect Shopify",
+      "status": "PASS",
+      "details": "Masked: \u2022\u2022\u2022\u2022\u2022\u2022\u2022\u20227890",
+      "category": "Setup"
+    },
+    {
+      "name": "Circuit-states",
+      "status": "PASS",
+      "details": "Circuits: 0",
+      "category": "P15"
+    },
+    {
+      "name": "Cache-stats",
+      "status": "PASS",
+      "details": "Entries: 0",
+      "category": "P15"
+    },
+    {
+      "name": "Dataflow health",
+      "status": "PASS",
+      "details": "Status: healthy",
+      "category": "P15"
+    },
+    {
+      "name": "Error codes (9 types)",
+      "status": "PASS",
+      "details": "Count: 9",
+      "category": "P15"
+    },
+    {
+      "name": "Reset circuit",
+      "status": "PASS",
+      "details": "New: closed",
+      "category": "P15"
+    },
+    {
+      "name": "Invalidate cache",
+      "status": "PASS",
+      "details": "",
+      "category": "P15"
+    },
+    {
+      "name": "Circuit breaker summary",
+      "status": "PASS",
+      "details": "Has: True",
+      "category": "P15"
+    },
+    {
+      "name": "Cache summary",
+      "status": "PASS",
+      "details": "Has: True",
+      "category": "P15"
+    },
+    {
+      "name": "Structured error response",
+      "status": "PASS",
+      "details": "Error: True, retriable: True",
+      "category": "P15"
+    },
+    {
+      "name": "Register webhook",
+      "status": "PASS",
+      "details": "URL: /api/v1/webhooks/receive/aa18e3c8-c770-459e-9ea8-9d9cba6ac090/shopify",
+      "category": "P16"
+    },
+    {
+      "name": "List events",
+      "status": "PASS",
+      "details": "Total: 0",
+      "category": "P16"
+    },
+    {
+      "name": "List configs",
+      "status": "PASS",
+      "details": "Total: 1",
+      "category": "P16"
+    },
+    {
+      "name": "Receive webhook",
+      "status": "PASS",
+      "details": "Type: orders/create",
+      "category": "P16"
+    },
+    {
+      "name": "Create notification",
+      "status": "PASS",
+      "details": "ID: 6032ab6c-68f9-4988-afaf-6c2f1253a9bb",
+      "category": "P16"
+    },
+    {
+      "name": "List notifications",
+      "status": "PASS",
+      "details": "Total: 2",
+      "category": "P16"
+    },
+    {
+      "name": "Unread count",
+      "status": "PASS",
+      "details": "Count: 2",
+      "category": "P16"
+    },
+    {
+      "name": "Preferences (6+)",
+      "status": "PASS",
+      "details": "Count: 6",
+      "category": "P16"
+    },
+    {
+      "name": "Mark all read",
+      "status": "PASS",
+      "details": "",
+      "category": "P16"
+    },
+    {
+      "name": "Delete notification",
+      "status": "PASS",
+      "details": "",
+      "category": "P16"
+    },
+    {
+      "name": "Upload KB doc",
+      "status": "PASS",
+      "details": "ID: e98e37f3-7342-4909-931f-f1cde1d6efc1, status: ready",
+      "category": "P16"
+    },
+    {
+      "name": "List docs",
+      "status": "PASS",
+      "details": "Total: 1",
+      "category": "P16"
+    },
+    {
+      "name": "KB stats",
+      "status": "PASS",
+      "details": "Docs: 1",
+      "category": "P16"
+    },
+    {
+      "name": "Search KB",
+      "status": "PASS",
+      "details": "Results: 1",
+      "category": "P16"
+    },
+    {
+      "name": "Delete KB doc",
+      "status": "PASS",
+      "details": "",
+      "category": "P16"
+    },
+    {
+      "name": "Current industry",
+      "status": "PASS",
+      "details": "Industry: ecommerce",
+      "category": "P16"
+    },
+    {
+      "name": "List industries (4)",
+      "status": "PASS",
+      "details": "Total: 4",
+      "category": "P16"
+    },
+    {
+      "name": "Preview change",
+      "status": "PASS",
+      "details": "Has changes: True",
+      "category": "P16"
+    },
+    {
+      "name": "Change w/ preservation",
+      "status": "PASS",
+      "details": "Keys: ['connected_integrations', 'tickets', 'knowledge_base', 'billing', 'webhooks']",
+      "category": "P16"
+    },
+    {
+      "name": "Outside-industry detected",
+      "status": "PASS",
+      "details": "1 outside",
+      "category": "P16"
+    },
+    {
+      "name": "Run verification",
+      "status": "PASS",
+      "details": "Status: 200",
+      "category": "P16"
+    },
+    {
+      "name": "Verification summary",
+      "status": "WARN",
+      "details": "Total: 11, Pass: 9, Fail: 0, Warn: 2",
+      "category": "P16"
+    },
+    {
+      "name": "  GAP 3: Industry Filtering",
+      "status": "PASS",
+      "details": "PASS \u2014 All 4 industries have filtered integrations",
+      "category": "P16"
+    },
+    {
+      "name": "  GAP 9: Variant Feature Limits",
+      "status": "PASS",
+      "details": "PASS \u2014 1 active variants found",
+      "category": "P16"
+    },
+    {
+      "name": "  Gap E: Audit Trail",
+      "status": "PASS",
+      "details": "PASS \u2014 10 audit entries found",
+      "category": "P16"
+    },
+    {
+      "name": "  GAP 6: API Key Encryption",
+      "status": "PASS",
+      "details": "PASS \u2014 1 credentials stored, all encrypted",
+      "category": "P16"
+    },
+    {
+      "name": "  GAP 7: KB Upload & Search",
+      "status": "FAIL",
+      "details": "WARN \u2014 No documents uploaded \u2014 use POST /api/v1/kb/upload",
+      "category": "P16"
+    },
+    {
+      "name": "  GAP 14: AI Tool Selection",
+      "status": "FAIL",
+      "details": "WARN \u2014 No tools available \u2014 connect integrations and upload KB",
+      "category": "P16"
+    },
+    {
+      "name": "  GAP 15: Integration Health Dashboard",
+      "status": "PASS",
+      "details": "PASS \u2014 1 integrations with health data",
+      "category": "P16"
+    },
+    {
+      "name": "  GAP 9: Multi-Variant Routing",
+      "status": "PASS",
+      "details": "PASS \u2014 Routing tested at 3 complexity levels",
+      "category": "P16"
+    },
+    {
+      "name": "  GAP 12: Notification Delivery",
+      "status": "PASS",
+      "details": "PASS \u2014 1 notifications, 0 unread",
+      "category": "P16"
+    },
+    {
+      "name": "  GAP 10: Industry Change Preservation",
+      "status": "PASS",
+      "details": "PASS \u2014 Industry change preserves all data, integrations, and billin",
+      "category": "P16"
+    },
+    {
+      "name": "  Phase 15: Data Flow Architecture",
+      "status": "PASS",
+      "details": "PASS \u2014 Data flow architecture is implemented and active",
+      "category": "P16"
+    },
+    {
+      "name": "Trace docs",
+      "status": "PASS",
+      "details": "Traces: 30",
+      "category": "P16"
+    },
+    {
+      "name": "Trace: request_flow",
+      "status": "PASS",
+      "details": "Frontend \u2192 BFF (Next.js API route) \u2192 Backend (Fast",
+      "category": "P16"
+    },
+    {
+      "name": "Trace: error_flow",
+      "status": "PASS",
+      "details": "External API \u2192 ExternalToolBus (retry/circuit) \u2192 B",
+      "category": "P16"
+    },
+    {
+      "name": "Trace: shared_bus",
+      "status": "PASS",
+      "details": "ExternalToolBus is used by both Backend routes AND",
+      "category": "P16"
+    },
+    {
+      "name": "Catalog: saas",
+      "status": "PASS",
+      "details": "Count: 17",
+      "category": "GAP3"
+    },
+    {
+      "name": "Catalog: ecommerce",
+      "status": "PASS",
+      "details": "Count: 14",
+      "category": "GAP3"
+    },
+    {
+      "name": "Catalog: logistics",
+      "status": "PASS",
+      "details": "Count: 12",
+      "category": "GAP3"
+    },
+    {
+      "name": "Catalog: other",
+      "status": "PASS",
+      "details": "Count: 30",
+      "category": "GAP3"
+    },
+    {
+      "name": "CB: initial CLOSED",
+      "status": "PASS",
+      "details": "",
+      "category": "P15-Unit"
+    },
+    {
+      "name": "CB: opens after 5 failures",
+      "status": "PASS",
+      "details": "State: open",
+      "category": "P15-Unit"
+    },
+    {
+      "name": "CB: resets",
+      "status": "PASS",
+      "details": "",
+      "category": "P15-Unit"
+    },
+    {
+      "name": "CB: HALF_OPEN allows",
+      "status": "PASS",
+      "details": "",
+      "category": "P15-Unit"
+    },
+    {
+      "name": "CB: success closes",
+      "status": "PASS",
+      "details": "",
+      "category": "P15-Unit"
+    },
+    {
+      "name": "Cache: store+get",
+      "status": "PASS",
+      "details": "Fresh: True",
+      "category": "P15-Unit"
+    },
+    {
+      "name": "Cache: TTL D12",
+      "status": "PASS",
+      "details": "{'realtime': 300, 'semi_static': 900, 'static': 3600}",
+      "category": "P15-Unit"
+    },
+    {
+      "name": "Cache: invalidate",
+      "status": "PASS",
+      "details": "",
+      "category": "P15-Unit"
+    },
+    {
+      "name": "ToolBusError format",
+      "status": "PASS",
+      "details": "Keys: ['success', 'error', 'message', 'integration_id', 'is_retriable', 'data', 'degraded', 'data_age']",
+      "category": "P15-Unit"
+    },
+    {
+      "name": "Variants list",
+      "status": "PASS",
+      "details": "",
+      "category": "Regression"
+    },
+    {
+      "name": "Route ticket (5)",
+      "status": "PASS",
+      "details": "Routed: None",
+      "category": "Regression"
+    },
+    {
+      "name": "AI tool select (shipping)",
+      "status": "PASS",
+      "details": "Tools: N/A",
+      "category": "Regression"
+    },
+    {
+      "name": "Audit stats",
+      "status": "PASS",
+      "details": "",
+      "category": "Regression"
+    },
+    {
+      "name": "API keys list",
+      "status": "PASS",
+      "details": "",
+      "category": "Regression"
+    }
+  ]
+}

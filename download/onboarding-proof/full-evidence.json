@@ -1,0 +1,70 @@
+{
+  "timestamp": "2026-06-11T19:59:14",
+  "backend_apis": {
+    "login": {
+      "status": 200,
+      "success": true
+    },
+    "onboarding_state": {
+      "status": 200,
+      "success": true
+    },
+    "onboarding_prerequisites": {
+      "status": 200,
+      "success": true
+    },
+    "integration_catalog": {
+      "status": 200,
+      "success": true
+    },
+    "ai_instances": {
+      "status": 200,
+      "success": true
+    },
+    "billing_status": {
+      "status": 200,
+      "success": true
+    },
+    "pricing_industries": {
+      "status": 200,
+      "success": true
+    },
+    "auth_me": {
+      "status": 200,
+      "success": true
+    }
+  },
+  "bff_proxy_apis": {
+    "login": {
+      "status": 200,
+      "success": true,
+      "message": "Login successful."
+    },
+    "onboarding_state": {
+      "status": 200,
+      "success": true,
+      "is_mock": false,
+      "data_preview": "{\"id\": \"82a4aade-4c82-4f5d-adfc-390ebdb66fe4\", \"user_id\": \"8e74719c-885f-4706-8aa3-de2fa5741d62\", \"company_id\": \"f569968b-b9fc-4867-8023-3605d4014929\", \"current_step\": 2, \"completed_steps\": [1], \"stat"
+    },
+    "ai_instances": {
+      "status": 200,
+      "success": true,
+      "is_mock": false,
+      "data_preview": "{\"items\": [{\"id\": \"634e2998-a904-412b-bcf4-e7335ee7e962\", \"company_id\": \"f569968b-b9fc-4867-8023-3605d4014929\", \"instance_name\": \"PARWA\", \"variant_type\": \"parwa\", \"status\": \"active\", \"channel_assignme"
+    },
+    "integration_catalog": {
+      "status": 200,
+      "success": true,
+      "is_mock": false,
+      "data_preview": "[{\"key\": \"hubspot\", \"name\": \"HubSpot\", \"description\": \"Look up customers, deals, and contact info from HubSpot CRM.\", \"category\": \"crm\", \"tier\": \"tier1_prebuilt\", \"authSchema\": {\"type\": \"bearer\", \"fie"
+    },
+    "billing_status": {
+      "status": 200,
+      "success": true,
+      "is_mock": false,
+      "data_preview": "{\"subscription_status\": \"none\", \"has_subscription\": false, \"variant\": null, \"cancel_at_period_end\": false, \"current_period_end\": null}"
+    }
+  },
+  "issues": [],
+  "verdict": "Backend: 8/8 pass | BFF: 5/5 pass"
+}

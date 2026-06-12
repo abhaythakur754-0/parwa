@@ -1,0 +1,187 @@
+{
+  "timestamp": "2026-06-11T19:36:11.818Z",
+  "steps": [
+    {
+      "step": 1,
+      "name": "Landing Page",
+      "status": "FAIL",
+      "detail": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/\nCall log:\n  - navigating to \"http://localhost:3000/\", waiting until \"networkidle\"\n"
+    },
+    {
+      "step": 2,
+      "name": "Login",
+      "status": "FAIL",
+      "detail": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/auth/login\nCall log:\n  - navigating to \"http://localhost:3000/auth/login\", waiting until \"networkidle\"\n"
+    },
+    {
+      "step": 3,
+      "name": "Dashboard",
+      "status": "SKIP",
+      "detail": "Not logged in"
+    },
+    {
+      "step": 4,
+      "name": "Onboarding Page",
+      "status": "FAIL",
+      "detail": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/onboarding\nCall log:\n  - navigating to \"http://localhost:3000/onboarding\", waiting until \"networkidle\"\n"
+    },
+    {
+      "step": 5,
+      "name": "Backend APIs (Direct)",
+      "status": "PARTIAL",
+      "detail": "4/9 APIs working",
+      "passing": 4,
+      "total": 9
+    },
+    {
+      "step": 6,
+      "name": "BFF Proxy APIs",
+      "status": "FAIL",
+      "detail": "0/5 BFF proxies working",
+      "has_auth_cookie": false,
+      "passing": 0,
+      "total": 5
+    },
+    {
+      "step": 7,
+      "name": "Wizard Interaction",
+      "status": "FAIL",
+      "detail": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/onboarding\nCall log:\n  - navigating to \"http://localhost:3000/onboarding\", waiting until \"networkidle\"\n"
+    },
+    {
+      "step": 8,
+      "name": "Cost Breakdown Page",
+      "status": "FAIL",
+      "detail": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/dashboard/cost-breakdown\nCall log:\n  - navigating to \"http://localhost:3000/dashboard/cost-breakdown\", waiting until \"networkidle\"\n"
+    },
+    {
+      "step": 9,
+      "name": "Billing Page",
+      "status": "FAIL",
+      "detail": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/dashboard/billing\nCall log:\n  - navigating to \"http://localhost:3000/dashboard/billing\", waiting until \"networkidle\"\n"
+    },
+    {
+      "step": 10,
+      "name": "Variants Page",
+      "status": "FAIL",
+      "detail": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/dashboard/variants\nCall log:\n  - navigating to \"http://localhost:3000/dashboard/variants\", waiting until \"networkidle\"\n"
+    }
+  ],
+  "api_calls": [
+    {
+      "method": "POST",
+      "url": "http://localhost:8000/api/auth/login",
+      "status": 200,
+      "success": true,
+      "response": "{\"user\":{\"id\":\"8e74719c-885f-4706-8aa3-de2fa5741d62\",\"email\":\"dashboard@test.io\",\"full_name\":\"User\",\"phone\":null,\"avatar_url\":null,\"role\":\"owner\",\"is_active\":true,\"is_verified\":true,\"company_id\":\"f569968b-b9fc-4867-8023-3605d4014929\",\"company_name\":\"User's Company\",\"created_at\":\"2026-06-11T15:04:28.776915\"},\"tokens\":{\"access_token\":\"eyJhbGciOiJIUzI1NiIsImtpZCI6InBhcndhLWtleS12MSIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4ZTc0NzE5Yy04ODVmLTQ3MDYtOGFhMy1kZTJmYTU3NDFkNjIiLCJjb21wYW55X2lkIjoiZjU2OTk2OGItYjlmYy00"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/api/onboarding/state",
+      "status": 401,
+      "success": false,
+      "response": "{\"error\":{\"code\":\"AUTHENTICATION_ERROR\",\"message\":\"Authorization header required\",\"details\":null},\"correlation_id\":\"f9bc7561-c9c2-4b99-9079-c527e76d8bb6\"}"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/api/onboarding/prerequisites",
+      "status": 401,
+      "success": false,
+      "response": "{\"error\":{\"code\":\"AUTHENTICATION_ERROR\",\"message\":\"Authorization header required\",\"details\":null},\"correlation_id\":\"7f308550-ac0f-4153-b518-b471a7379958\"}"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/api/integrations/catalog?industry=saas",
+      "status": 200,
+      "success": true,
+      "response": "[{\"key\":\"hubspot\",\"name\":\"HubSpot\",\"description\":\"Look up customers, deals, and contact info from HubSpot CRM.\",\"category\":\"crm\",\"tier\":\"tier1_prebuilt\",\"authSchema\":{\"type\":\"bearer\",\"fields\":[{\"name\":\"api_key\",\"label\":\"HubSpot API Key\",\"type\":\"password\",\"required\":true,\"placeholder\":\"pat-xxx-xxx\"}]},\"testConnection\":{\"method\":\"GET\",\"urlTemplate\":\"https://api.hubapi.com/crm/v3/contacts?limit=1\",\"headersTemplate\":{\"Authorization\":\"Bearer {api_key}\"},\"successCheck\":\"status_200\",\"successMessage\":\"C"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/api/integrations/available",
+      "status": 200,
+      "success": true,
+      "response": "[{\"key\":\"hubspot\",\"name\":\"HubSpot\",\"description\":\"Look up customers, deals, and contact info from HubSpot CRM.\",\"category\":\"crm\",\"tier\":\"tier1_prebuilt\",\"authSchema\":{\"type\":\"bearer\",\"fields\":[{\"name\":\"api_key\",\"label\":\"HubSpot API Key\",\"type\":\"password\",\"required\":true,\"placeholder\":\"pat-xxx-xxx\"}]},\"testConnection\":{\"method\":\"GET\",\"urlTemplate\":\"https://api.hubapi.com/crm/v3/contacts?limit=1\",\"headersTemplate\":{\"Authorization\":\"Bearer {api_key}\"},\"successCheck\":\"status_200\",\"successMessage\":\"C"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/api/pricing/industries",
+      "status": 200,
+      "success": true,
+      "response": "[{\"id\":\"ecommerce\",\"name\":\"E-commerce\",\"description\":\"Online retail, marketplaces, D2C brands\",\"color\":\"teal\"},{\"id\":\"saas\",\"name\":\"SaaS\",\"description\":\"Software companies, tech startups\",\"color\":\"blue\"},{\"id\":\"logistics\",\"name\":\"Logistics\",\"description\":\"Shipping, warehousing, supply chain\",\"color\":\"orange\"},{\"id\":\"others\",\"name\":\"Others\",\"description\":\"Healthcare, Finance, Education, etc.\",\"color\":\"purple\"}]"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/api/pricing/variants/saas",
+      "status": 200,
+      "success": true,
+      "response": "[{\"id\":\"saas-tech\",\"name\":\"Technical Support\",\"description\":\"Bug reports, troubleshooting\",\"tickets_per_month\":400,\"price_per_month\":129,\"features\":[\"Bug triage\",\"Troubleshooting guides\",\"Known issues response\",\"Escalation routing\"],\"popular\":true},{\"id\":\"saas-billing\",\"name\":\"Billing Support\",\"description\":\"Subscription, invoice questions\",\"tickets_per_month\":200,\"price_per_month\":69,\"features\":[\"Subscription changes\",\"Invoice inquiries\",\"Refund requests\",\"Plan comparisons\"],\"popular\":false},{\""
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/api/ai/instances",
+      "status": 403,
+      "success": false,
+      "response": "{\"error\":{\"code\":\"AUTHORIZATION_ERROR\",\"message\":\"Tenant identification required\",\"details\":null}}"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/api/billing/status",
+      "status": 401,
+      "success": false,
+      "response": "{\"error\":{\"code\":\"AUTHENTICATION_ERROR\",\"message\":\"Authorization header required\",\"details\":null},\"correlation_id\":\"3742842d-040c-4944-9cc8-9a566e4d9229\"}"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/api/billing/subscription",
+      "status": 401,
+      "success": false,
+      "response": "{\"error\":{\"code\":\"AUTHENTICATION_ERROR\",\"message\":\"Authorization header required\",\"details\":null},\"correlation_id\":\"5103c8a0-f687-46d9-8df5-621cf73d22ae\"}"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:3000/api/onboarding/state",
+      "status": 0,
+      "success": false,
+      "response": "fetch failed"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:3000/api/integrations/catalog?industry=saas",
+      "status": 0,
+      "success": false,
+      "response": "fetch failed"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:3000/api/integrations/available",
+      "status": 0,
+      "success": false,
+      "response": "fetch failed"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:3000/api/ai/instances",
+      "status": 0,
+      "success": false,
+      "response": "fetch failed"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:3000/api/billing/status",
+      "status": 0,
+      "success": false,
+      "response": "fetch failed"
+    }
+  ],
+  "honest_verdict": "MAJOR ISSUES — Only 0/10 steps pass. 8 failures found. Onboarding is NOT fully working.",
+  "failures": [
+    "Landing page: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/\nCall log:\n  - navigating to \"http://localhost:3000/\", waiting until \"networkidle\"\n",
+    "Login: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/auth/login\nCall log:\n  - navigating to \"http://localhost:3000/auth/login\", waiting until \"networkidle\"\n",
+    "Onboarding page: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/onboarding\nCall log:\n  - navigating to \"http://localhost:3000/onboarding\", waiting until \"networkidle\"\n"
+  ],
+  "total_steps": 10,
+  "passed_steps": 0,
+  "failed_steps": 8,
+  "partial_steps": 2
+}

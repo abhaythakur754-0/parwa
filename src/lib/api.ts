@@ -222,6 +222,154 @@ export const aiTools = {
   getPrompt: () => request("/api/ai-tools/prompt"),
 };
 
+// ==========================================
+// Data Flow API (PHASE 15 — GAP 13)
+// ==========================================
+export const dataflow = {
+  getCircuitStates: () => request("/api/dataflow/circuit-states"),
+
+  resetCircuit: (integrationId: string) =>
+    request("/api/dataflow/reset-circuit", {
+      method: "POST",
+      body: JSON.stringify({ integration_id: integrationId }),
+    }),
+
+  getCacheStats: () => request("/api/dataflow/cache-stats"),
+
+  invalidateCache: (integrationId: string, path?: string) =>
+    request("/api/dataflow/invalidate-cache", {
+      method: "POST",
+      body: JSON.stringify({ integration_id: integrationId, path }),
+    }),
+
+  getHealth: () => request("/api/dataflow/health"),
+
+  getErrorCodes: () => request("/api/dataflow/error-codes"),
+};
+
+// ==========================================
+// Webhooks API (PHASE 16 — Gap A)
+// ==========================================
+export const webhooks = {
+  register: (integrationId: string, events: string[] = []) =>
+    request("/api/webhooks/register", {
+      method: "POST",
+      body: JSON.stringify({ integration_id: integrationId, events }),
+    }),
+
+  getEvents: (params?: { source?: string; event_type?: string; status?: string; limit?: number; offset?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) searchParams.set(key, String(value));
+      });
+    }
+    return request(`/api/webhooks/events?${searchParams.toString()}`);
+  },
+
+  retryEvent: (eventId: string) =>
+    request(`/api/webhooks/events/${eventId}/retry`, { method: "POST" }),
+
+  getConfigs: () => request("/api/webhooks/configs"),
+};
+
+// ==========================================
+// Notifications API (PHASE 16 — GAP 12)
+// ==========================================
+export const notifications = {
+  list: (params?: { category?: string; severity?: string; read?: boolean; limit?: number; offset?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) searchParams.set(key, String(value));
+      });
+    }
+    return request(`/api/notifications/list?${searchParams.toString()}`);
+  },
+
+  getUnreadCount: () => request("/api/notifications/unread-count"),
+
+  markRead: (notificationId?: string) =>
+    request("/api/notifications/mark-read", {
+      method: "POST",
+      body: JSON.stringify({ notification_id: notificationId || null }),
+    }),
+
+  create: (category: string, title: string, body?: string, severity: string = "info", actionUrl?: string) =>
+    request("/api/notifications/create", {
+      method: "POST",
+      body: JSON.stringify({ category, severity, title, body, action_url: actionUrl }),
+    }),
+
+  getPreferences: () => request("/api/notifications/preferences"),
+
+  delete: (notificationId: string) =>
+    request(`/api/notifications/${notificationId}`, { method: "DELETE" }),
+};
+
+// ==========================================
+// Knowledge Base API (PHASE 16 — GAP 7)
+// ==========================================
+export const kb = {
+  upload: async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/kb/upload", { method: "POST", body: formData });
+    return { data: await res.json(), status: res.status };
+  },
+
+  listDocuments: (params?: { status?: string; limit?: number; offset?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) searchParams.set(key, String(value));
+      });
+    }
+    return request(`/api/kb/documents?${searchParams.toString()}`);
+  },
+
+  deleteDocument: (documentId: string) =>
+    request(`/api/kb/documents/${documentId}`, { method: "DELETE" }),
+
+  search: (query: string, topK: number = 5) =>
+    request("/api/kb/search", {
+      method: "POST",
+      body: JSON.stringify({ query, top_k: topK }),
+    }),
+
+  getStats: () => request("/api/kb/stats"),
+};
+
+// ==========================================
+// Industry API (PHASE 16 — GAP 10)
+// ==========================================
+export const industry = {
+  getCurrent: () => request("/api/industry/current"),
+
+  list: () => request("/api/industry/list"),
+
+  previewChange: (newIndustry: string) =>
+    request("/api/industry/preview-change", {
+      method: "POST",
+      body: JSON.stringify({ industry: newIndustry }),
+    }),
+
+  change: (newIndustry: string) =>
+    request("/api/industry/change", {
+      method: "POST",
+      body: JSON.stringify({ industry: newIndustry }),
+    }),
+};
+
+// ==========================================
+// Verification API (PHASE 16 — E2E Proof)
+// ==========================================
+export const verification = {
+  run: () => request("/api/verification/run"),
+
+  getTrace: () => request("/api/verification/trace"),
+};
+
 export const api = {
   auth,
   onboarding,
@@ -230,4 +378,10 @@ export const api = {
   audit,
   variants,
   aiTools,
+  dataflow,
+  webhooks,
+  notifications,
+  kb,
+  industry,
+  verification,
 };

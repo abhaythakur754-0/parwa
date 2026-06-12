@@ -1,0 +1,92 @@
+[
+  {
+    "url": "https://levelup.gitconnected.com/the-4-lines-every-claude-md-needs-2717a46866f6",
+    "name": "The 4 Lines Every CLAUDE.md Needs - Level Up Coding",
+    "snippet": "Just a CLAUDE.md file with four behavioral guidelines derived from something Andrej Karpathy posted in January. What 60,000 developers ...",
+    "host_name": "levelup.gitconnected.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md",
+    "name": "CLAUDE.md - multica-ai/andrej-karpathy-skills · GitHub",
+    "snippet": "A single CLAUDE.md file to improve Claude Code behavior, derived from Andrej Karpathy's observations on LLM coding pitfalls.",
+    "host_name": "github.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://medium.com/the-ai-studio/what-is-andrej-karpathys-claude-md-file-7ca12ef0ecec",
+    "name": "What Is Andrej Karpathy's CLAUDE.md File? | by Ai studio - Medium",
+    "snippet": "Discover how Andrej Karpathy's CLAUDE.md file improves Claude Code workflow, reduces coding errors, and boosts AI developer productivity.",
+    "host_name": "medium.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://miraflow.ai/blog/karpathy-claude-md-100k-github-stars-ai-coding-2026",
+    "name": "Andrej Karpathy's CLAUDE.md: The 65-Line File With 100K GitHub",
+    "snippet": "There are two main ways to install the Karpathy guidelines. The recommended method is as a Claude Code plugin, which makes the skills available ...",
+    "host_name": "miraflow.ai",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=-E3WmGHMbkE",
+    "name": "Claude Code 10x Fix: Karpathy's 4 Rules (2026) - YouTube",
+    "snippet": "Andrej Karpathy's 4 AI coding rules fix the most common Claude Code failures in 30 seconds — wrong assumptions, scope creep, ...",
+    "host_name": "www.youtube.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.towardsdeeplearning.com/a-single-claude-md-file-went-viral-the-reason-is-embarrassingly-simple-5b515c9e4cca",
+    "name": "A Single CLAUDE.md File Went Viral. The Reason Is",
+    "snippet": "Forrest Chang took four observations Andrej Karpathy made about how LLMs fail at coding, and turned them into a CLAUDE.md that Claude Code reads ...",
+    "host_name": "www.towardsdeeplearning.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://x.com/dickiebush/status/2055269792479866971",
+    "name": "Karpathy's 4 CLAUDE.md rules cut Claude mistakes from 41% to 11",
+    "snippet": "The 8 added rules don't replace Karpathy's 4. They patch the gaps where his model, January 2026, autocomplete-style coding, doesn't match May ...",
+    "host_name": "x.com",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://alphasignalai.substack.com/p/karpathy-inspired-claudemd-how-to",
+    "name": "Karpathy-Inspired CLAUDE.md. How to Add It to Any Project in 30",
+    "snippet": "A Trending 65-line behavioral file for Claude Code, authored by Forrest Chang and derived from Andrej Karpathy's January 2026 observations ...",
+    "host_name": "alphasignalai.substack.com",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.reddit.com/r/AskVibecoders/comments/1ta7yr8/karpathys_claudemd_cuts_claude_mistakes_to_11",
+    "name": "Karpathy's CLAUDE.md cuts Claude mistakes to 11%. Here  - Reddit",
+    "snippet": "Karpathy's CLAUDE.md cuts Claude mistakes to 11%. Here are the 8 rules that get it to 3%.",
+    "host_name": "www.reddit.com",
+    "rank": 8,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://uxplanet.org/claude-md-best-practices-1ef4f861ce7c",
+    "name": "CLAUDE.md Best Practices - UX Planet",
+    "snippet": "CLAUDE.md is a critical file for providing project-specific context to Claude Code. It serves an onboarding guide for AI to your project ...",
+    "host_name": "uxplanet.org",
+    "rank": 9,
+    "date": "",
+    "favicon": ""
+  }
+]

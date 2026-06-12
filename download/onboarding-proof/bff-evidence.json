@@ -1,0 +1,58 @@
+{
+  "timestamp": "2026-06-11T19:44:09.834Z",
+  "results": {
+    "login": {
+      "status": 401,
+      "success": false,
+      "data": {
+        "status": "error",
+        "message": "Invalid email or password."
+      }
+    },
+    "onboarding_state": {
+      "status": 200,
+      "success": true,
+      "data_type": "MOCK_FALLBACK",
+      "preview": "{\"id\":\"mock-onboarding\",\"user_id\":\"mock-user\",\"company_id\":\"mock-company\",\"current_step\":1,\"completed_steps\":[],\"status\":\"not_started\",\"details_completed\":false,\"wizard_started\":false,\"legal_accepted\":false,\"first_victory_completed\":true,\"ai_name\":\"Jarvis\",\"ai_tone\":\"professional\",\"ai_response_style"
+    },
+    "onboarding_prerequisites": {
+      "status": 200,
+      "success": true,
+      "data_type": "REAL_BACKEND",
+      "preview": "{\"can_activate\":true,\"missing\":[]}"
+    },
+    "integration_catalog": {
+      "status": 200,
+      "success": true,
+      "data_type": "REAL_BACKEND",
+      "preview": "[{\"key\":\"hubspot\",\"name\":\"HubSpot\",\"description\":\"Look up customers, deals, and contact info from HubSpot CRM.\",\"category\":\"crm\",\"tier\":\"tier1_prebuilt\",\"authSchema\":{\"type\":\"bearer\",\"fields\":[{\"name\":\"api_key\",\"label\":\"HubSpot API Key\",\"type\":\"password\",\"required\":true,\"placeholder\":\"pat-xxx-xxx\"}]"
+    },
+    "available_integrations": {
+      "status": 0,
+      "success": false,
+      "error": "Unexpected end of JSON input"
+    },
+    "ai_instances": {
+      "status": 200,
+      "success": true,
+      "data_type": "REAL_BACKEND",
+      "preview": "{\"items\":[],\"total\":0}"
+    },
+    "billing_status": {
+      "status": 401,
+      "success": false,
+      "data_type": "REAL_BACKEND",
+      "preview": "{\"status\":\"error\",\"message\":\"Authentication required.\"}"
+    },
+    "pricing_industries": {
+      "status": 0,
+      "success": false,
+      "error": "Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON"
+    },
+    "pricing_variants": {
+      "status": 0,
+      "success": false,
+      "error": "Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+PASS: 0
+FAIL: 4
+TOTAL: 4
+Rate: 0%
+
+Details:
+✗ Landing page — page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/
+Call log:
+  - navigating to "http:/
+✗ Login page — page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/login
+Call log:
+  - navigating to "h
+✗ Dashboard — page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/dashboard
+Call log:
+  - navigating t
+✗ Onboarding — page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/onboarding
+Call log:
+  - navigating 

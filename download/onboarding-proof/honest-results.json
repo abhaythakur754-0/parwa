@@ -1,0 +1,250 @@
+{
+  "timestamp": "2026-06-11T19:38:57.846Z",
+  "steps": [
+    {
+      "step": 1,
+      "name": "Backend Login",
+      "status": "PASS",
+      "detail": "Status: 200, Token obtained: true"
+    },
+    {
+      "step": 2,
+      "name": "Onboarding State",
+      "status": "PASS",
+      "detail": "HTTP 200, Response: {\"id\":\"82a4aade-4c82-4f5d-adfc-390ebdb66fe4\",\"user_id\":\"8e74719c-885f-4706-8aa3-de2fa5741d62\",\"compa"
+    },
+    {
+      "step": 3,
+      "name": "Onboarding Prerequisites",
+      "status": "PASS",
+      "detail": "HTTP 200, Response: {\"can_activate\":false,\"missing\":[\"legal_consent_required\",\"integration_or_kb_required\"],\"details_com"
+    },
+    {
+      "step": 4,
+      "name": "Integration Catalog (SaaS)",
+      "status": "PASS",
+      "detail": "HTTP 200, Response: [{\"key\":\"hubspot\",\"name\":\"HubSpot\",\"description\":\"Look up customers, deals, and contact info from Hu"
+    },
+    {
+      "step": 5,
+      "name": "Available Integrations",
+      "status": "PASS",
+      "detail": "HTTP 200, Response: [{\"key\":\"hubspot\",\"name\":\"HubSpot\",\"description\":\"Look up customers, deals, and contact info from Hu"
+    },
+    {
+      "step": 6,
+      "name": "Pricing Industries",
+      "status": "PASS",
+      "detail": "HTTP 200, Response: [{\"id\":\"ecommerce\",\"name\":\"E-commerce\",\"description\":\"Online retail, marketplaces, D2C brands\",\"colo"
+    },
+    {
+      "step": 7,
+      "name": "Pricing Variants (SaaS)",
+      "status": "PASS",
+      "detail": "HTTP 200, Response: [{\"id\":\"saas-tech\",\"name\":\"Technical Support\",\"description\":\"Bug reports, troubleshooting\",\"tickets_"
+    },
+    {
+      "step": 8,
+      "name": "AI Instances",
+      "status": "PASS",
+      "detail": "HTTP 200, Response: {\"items\":[{\"id\":\"634e2998-a904-412b-bcf4-e7335ee7e962\",\"company_id\":\"f569968b-b9fc-4867-8023-3605d40"
+    },
+    {
+      "step": 9,
+      "name": "Billing Status",
+      "status": "PASS",
+      "detail": "HTTP 200, Response: {\"subscription_status\":\"none\",\"has_subscription\":false,\"variant\":null,\"cancel_at_period_end\":false,\""
+    },
+    {
+      "step": 10,
+      "name": "Billing Subscription",
+      "status": "PASS",
+      "detail": "HTTP 200, Response: {\"subscription\":null,\"has_subscription\":false}"
+    },
+    {
+      "step": 11,
+      "name": "Auth/Me",
+      "status": "PASS",
+      "detail": "HTTP 200, Response: {\"id\":\"8e74719c-885f-4706-8aa3-de2fa5741d62\",\"email\":\"dashboard@test.io\",\"full_name\":\"User\",\"phone\":"
+    },
+    {
+      "step": 12,
+      "name": "Landing Page (Browser)",
+      "status": "FAIL",
+      "detail": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/\nCall log:\n  - navigating to \"http:/"
+    },
+    {
+      "step": 13,
+      "name": "Login (Browser)",
+      "status": "FAIL",
+      "detail": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/auth/login\nCall log:\n  - navigating "
+    },
+    {
+      "step": 14,
+      "name": "Onboarding Page (Browser)",
+      "status": "FAIL",
+      "detail": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/onboarding\nCall log:\n  - navigating "
+    },
+    {
+      "step": 15,
+      "name": "Cost Breakdown (Browser)",
+      "status": "FAIL",
+      "detail": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/dashboard/cost-breakdown\nCall log:\n "
+    },
+    {
+      "step": 16,
+      "name": "BFF Onboarding State",
+      "status": "FAIL",
+      "detail": "HTTP 0, Error: fetch failed"
+    },
+    {
+      "step": 17,
+      "name": "BFF Integration Catalog",
+      "status": "FAIL",
+      "detail": "HTTP 0, Error: fetch failed"
+    },
+    {
+      "step": 18,
+      "name": "BFF Available Integrations",
+      "status": "FAIL",
+      "detail": "HTTP 0, Error: fetch failed"
+    },
+    {
+      "step": 19,
+      "name": "BFF Pricing Industries",
+      "status": "FAIL",
+      "detail": "HTTP 0, Error: fetch failed"
+    },
+    {
+      "step": 20,
+      "name": "BFF AI Instances",
+      "status": "FAIL",
+      "detail": "HTTP 0, Error: fetch failed"
+    }
+  ],
+  "api_evidence": [
+    {
+      "method": "POST",
+      "url": "http://localhost:8000/api/auth/login",
+      "status": 200,
+      "success": true,
+      "response": "{\"user\":{\"id\":\"8e74719c-885f-4706-8aa3-de2fa5741d62\",\"email\":\"dashboard@test.io\",\"full_name\":\"User\",\"phone\":null,\"avatar_url\":null,\"role\":\"owner\",\"is_active\":true,\"is_verified\":true,\"company_id\":\"f569968b-b9fc-4867-8023-3605d4014929\",\"company_name\":\"User's Company\",\"created_at\":\"2026-06-11T15:04:28.776915\"},\"tokens\":{\"access_token\":\"eyJhbGciOiJIUzI1NiIsImtpZCI6InBhcndhLWtleS12MSIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4ZTc0NzE5Yy04ODVmLTQ3MDYtOGFhMy1kZTJmYTU3NDFkNjIiLCJjb21wYW55X2lkIjoiZjU2OTk2OGItYjlmYy00ODY3LTgwMjMtMzYwNWQ0MDE0OTI5IiwiZW1haWwiOiJkYXNoYm9hcmRAdGVzdC5pbyIsInJvbGUiOiJvd25lciIsInBsYW4iOiJzdGFydGVyIiwidHlwZSI6ImFjY2VzcyIsImV4cCI6MTc4MTIwNzYzOCwiaWF0IjoxNzgxMjA2NzM4LCJuYmYiOjE3ODEyMDY3MzgsImp0aSI6ImFxX3hubUxkdGkta2p1Yko5cHc1T0EifQ.Dg5HIkyrVxgjZco3HPXbQDXc4I1pNE5rJRWqhmZ5OYo\",\"refresh_token\":\"GYvw7gfhZjycC2K3YttV48CpDmjMIDog50dY8Mx-Ya0\",\"token_type\":\"bearer\",\"expires_in\":900},\"is_new_user\":false}"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/api/onboarding/state",
+      "status": 200,
+      "success": true,
+      "response": "{\"id\":\"82a4aade-4c82-4f5d-adfc-390ebdb66fe4\",\"user_id\":\"8e74719c-885f-4706-8aa3-de2fa5741d62\",\"company_id\":\"f569968b-b9fc-4867-8023-3605d4014929\",\"current_step\":2,\"completed_steps\":[1],\"status\":\"in_progress\",\"details_completed\":true,\"wizard_started\":false,\"legal_accepted\":false,\"first_victory_completed\":true,\"ai_name\":\"Jarvis\",\"ai_tone\":\"professional\",\"ai_response_style\":\"concise\",\"ai_greeting\":null,\"created_at\":\"2026-06-11T15:07:02.262519\",\"updated_at\":\"2026-06-11T18:37:46.532269\",\"completed_at\":null}"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/api/onboarding/prerequisites",
+      "status": 200,
+      "success": true,
+      "response": "{\"can_activate\":false,\"missing\":[\"legal_consent_required\",\"integration_or_kb_required\"],\"details_completed\":true,\"legal_accepted\":false,\"has_integration\":false,\"has_knowledge_base\":false,\"work_email_provided\":false,\"email_verified\":true}"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/api/integrations/catalog?industry=saas",
+      "status": 200,
+      "success": true,
+      "response": "[{\"key\":\"hubspot\",\"name\":\"HubSpot\",\"description\":\"Look up customers, deals, and contact info from HubSpot CRM.\",\"category\":\"crm\",\"tier\":\"tier1_prebuilt\",\"authSchema\":{\"type\":\"bearer\",\"fields\":[{\"name\":\"api_key\",\"label\":\"HubSpot API Key\",\"type\":\"password\",\"required\":true,\"placeholder\":\"pat-xxx-xxx\"}]},\"testConnection\":{\"method\":\"GET\",\"urlTemplate\":\"https://api.hubapi.com/crm/v3/contacts?limit=1\",\"headersTemplate\":{\"Authorization\":\"Bearer {api_key}\"},\"successCheck\":\"status_200\",\"successMessage\":\"Connected to HubSpot CRM\"},\"suggestedIndustries\":[\"saas\",\"ecommerce\",\"logistics\",\"other\"],\"iconId\":\"hubspot\",\"colorGradient\":\"from-orange-500 to-orange-400\",\"available\":true},{\"key\":\"salesforce\",\"name\":\"Salesforce\",\"description\":\"Access customer records, opportunities, and cases from Salesforce.\",\"category\":\"crm\",\"tier\":\"tier1_prebuilt\",\"authSchema\":{\"type\":\"oauth2\",\"fields\":[{\"name\":\"client_id\",\"label\":\"Consumer Key\",\"type\":\"text\",\"required\":true,\"placeholder\":\"3MVG9...\"},{\"name\":\"client_secret\",\"label\":\"Consumer Secret\",\"type\":\"password\",\"required\":true,\"placeholder\":\"\"},{\"name\":\"instance_url\",\"label\":\"Instance URL\",\"type\":\"url\",\"required\":true,\"placeholder\":\"https://na1.salesforce.com\"},{\"name\":\"refresh_token\",\"label\":\"Refresh Token\",\"type\":\"password\",\"required\":true,\"placeholder\":\"\"}]},\"testConnection\":{\"method\":\"GET\",\"urlTemplate\":\"{instance_url}/services/data/v60.0/\",\"headersTemplate\":{\"Authorization\":\"Bearer {refresh_token}\"},\"successCheck\":\"status_200\",\"successMessage\":\"Connected to Salesforce\"},\"suggestedIndustries\":[\"saas\",\"logistics\",\"other\"],\"iconId\":\"salesforce\",\"colorGradient\":\"from-blue-500 to-blue-400\",\"available\":true},{\"key\":\"pipedrive\",\"name\":\"Pipedrive\",\"description\":\"Manage deals, contacts, and pipelines from Pipedrive CRM.\",\"category\":\"crm\",\"tier\":\"tier1_prebuilt\",\"authSchema\":{\"type\":\"api_key_query\",\"fields\":[{\"name\":\"api_token\",\"label\":\"API Token\",\"type\":\"password\",\"required\":true,\"placeholder\":\"xxx123abc\"},{\"name\":\"company_domain\",\"label\":\"Company Doma"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/api/integrations/available",
+      "status": 200,
+      "success": true,
+      "response": "[{\"key\":\"hubspot\",\"name\":\"HubSpot\",\"description\":\"Look up customers, deals, and contact info from HubSpot CRM.\",\"category\":\"crm\",\"tier\":\"tier1_prebuilt\",\"authSchema\":{\"type\":\"bearer\",\"fields\":[{\"name\":\"api_key\",\"label\":\"HubSpot API Key\",\"type\":\"password\",\"required\":true,\"placeholder\":\"pat-xxx-xxx\"}]},\"testConnection\":{\"method\":\"GET\",\"urlTemplate\":\"https://api.hubapi.com/crm/v3/contacts?limit=1\",\"headersTemplate\":{\"Authorization\":\"Bearer {api_key}\"},\"successCheck\":\"status_200\",\"successMessage\":\"Connected to HubSpot CRM\"},\"suggestedIndustries\":[\"saas\",\"ecommerce\",\"logistics\",\"other\"],\"iconId\":\"hubspot\",\"colorGradient\":\"from-orange-500 to-orange-400\",\"available\":true},{\"key\":\"salesforce\",\"name\":\"Salesforce\",\"description\":\"Access customer records, opportunities, and cases from Salesforce.\",\"category\":\"crm\",\"tier\":\"tier1_prebuilt\",\"authSchema\":{\"type\":\"oauth2\",\"fields\":[{\"name\":\"client_id\",\"label\":\"Consumer Key\",\"type\":\"text\",\"required\":true,\"placeholder\":\"3MVG9...\"},{\"name\":\"client_secret\",\"label\":\"Consumer Secret\",\"type\":\"password\",\"required\":true,\"placeholder\":\"\"},{\"name\":\"instance_url\",\"label\":\"Instance URL\",\"type\":\"url\",\"required\":true,\"placeholder\":\"https://na1.salesforce.com\"},{\"name\":\"refresh_token\",\"label\":\"Refresh Token\",\"type\":\"password\",\"required\":true,\"placeholder\":\"\"}]},\"testConnection\":{\"method\":\"GET\",\"urlTemplate\":\"{instance_url}/services/data/v60.0/\",\"headersTemplate\":{\"Authorization\":\"Bearer {refresh_token}\"},\"successCheck\":\"status_200\",\"successMessage\":\"Connected to Salesforce\"},\"suggestedIndustries\":[\"saas\",\"logistics\",\"other\"],\"iconId\":\"salesforce\",\"colorGradient\":\"from-blue-500 to-blue-400\",\"available\":true},{\"key\":\"pipedrive\",\"name\":\"Pipedrive\",\"description\":\"Manage deals, contacts, and pipelines from Pipedrive CRM.\",\"category\":\"crm\",\"tier\":\"tier1_prebuilt\",\"authSchema\":{\"type\":\"api_key_query\",\"fields\":[{\"name\":\"api_token\",\"label\":\"API Token\",\"type\":\"password\",\"required\":true,\"placeholder\":\"xxx123abc\"},{\"name\":\"company_domain\",\"label\":\"Company Doma"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/api/pricing/industries",
+      "status": 200,
+      "success": true,
+      "response": "[{\"id\":\"ecommerce\",\"name\":\"E-commerce\",\"description\":\"Online retail, marketplaces, D2C brands\",\"color\":\"teal\"},{\"id\":\"saas\",\"name\":\"SaaS\",\"description\":\"Software companies, tech startups\",\"color\":\"blue\"},{\"id\":\"logistics\",\"name\":\"Logistics\",\"description\":\"Shipping, warehousing, supply chain\",\"color\":\"orange\"},{\"id\":\"others\",\"name\":\"Others\",\"description\":\"Healthcare, Finance, Education, etc.\",\"color\":\"purple\"}]"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/api/pricing/variants/saas",
+      "status": 200,
+      "success": true,
+      "response": "[{\"id\":\"saas-tech\",\"name\":\"Technical Support\",\"description\":\"Bug reports, troubleshooting\",\"tickets_per_month\":400,\"price_per_month\":129,\"features\":[\"Bug triage\",\"Troubleshooting guides\",\"Known issues response\",\"Escalation routing\"],\"popular\":true},{\"id\":\"saas-billing\",\"name\":\"Billing Support\",\"description\":\"Subscription, invoice questions\",\"tickets_per_month\":200,\"price_per_month\":69,\"features\":[\"Subscription changes\",\"Invoice inquiries\",\"Refund requests\",\"Plan comparisons\"],\"popular\":false},{\"id\":\"saas-feature\",\"name\":\"Feature Requests\",\"description\":\"Feature questions, roadmap\",\"tickets_per_month\":300,\"price_per_month\":89,\"features\":[\"Feature inquiries\",\"Roadmap updates\",\"Workaround guidance\",\"Feedback collection\"],\"popular\":false},{\"id\":\"saas-api\",\"name\":\"API Support\",\"description\":\"API documentation, integration help\",\"tickets_per_month\":250,\"price_per_month\":99,\"features\":[\"API documentation\",\"Integration guidance\",\"Rate limit inquiries\",\"Webhook support\"],\"popular\":false},{\"id\":\"saas-account\",\"name\":\"Account Issues\",\"description\":\"Login, permissions, settings\",\"tickets_per_month\":350,\"price_per_month\":79,\"features\":[\"Account recovery\",\"Permission issues\",\"Settings help\",\"Team management\"],\"popular\":false}]"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/api/ai/instances",
+      "status": 200,
+      "success": true,
+      "response": "{\"items\":[{\"id\":\"634e2998-a904-412b-bcf4-e7335ee7e962\",\"company_id\":\"f569968b-b9fc-4867-8023-3605d4014929\",\"instance_name\":\"PARWA\",\"variant_type\":\"parwa\",\"status\":\"active\",\"channel_assignment\":[\"email\",\"chat\",\"sms\"],\"capacity_config\":{\"max_concurrent\":200},\"celery_queue_namespace\":null,\"redis_partition_key\":null,\"active_tickets_count\":0,\"total_tickets_handled\":0,\"last_activity_at\":\"2026-06-11T17:29:09\",\"created_at\":\"2026-06-11T17:29:09\",\"updated_at\":\"2026-06-11T17:29:09\"}],\"total\":1}"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/api/billing/status",
+      "status": 200,
+      "success": true,
+      "response": "{\"subscription_status\":\"none\",\"has_subscription\":false,\"variant\":null,\"cancel_at_period_end\":false,\"current_period_end\":null}"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/api/billing/subscription",
+      "status": 200,
+      "success": true,
+      "response": "{\"subscription\":null,\"has_subscription\":false}"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/api/auth/me",
+      "status": 200,
+      "success": true,
+      "response": "{\"id\":\"8e74719c-885f-4706-8aa3-de2fa5741d62\",\"email\":\"dashboard@test.io\",\"full_name\":\"User\",\"phone\":null,\"avatar_url\":null,\"role\":\"owner\",\"is_active\":true,\"is_verified\":true,\"company_id\":\"f569968b-b9fc-4867-8023-3605d4014929\",\"company_name\":null,\"created_at\":\"2026-06-11T15:04:28.776915\"}"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:3000/api/onboarding/state",
+      "status": 0,
+      "success": false,
+      "response": "fetch failed"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:3000/api/integrations/catalog?industry=saas",
+      "status": 0,
+      "success": false,
+      "response": "fetch failed"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:3000/api/integrations/available",
+      "status": 0,
+      "success": false,
+      "response": "fetch failed"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:3000/api/pricing/industries",
+      "status": 0,
+      "success": false,
+      "response": "fetch failed"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:3000/api/ai/instances",
+      "status": 0,
+      "success": false,
+      "response": "fetch failed"
+    }
+  ],
+  "honest_verdict": "FAILURES: Only 11/20 pass. 9 failures. NOT ready for Phase 5.",
+  "issues_found": [
+    "BFF Onboarding State: HTTP 0",
+    "BFF Integration Catalog: HTTP 0",
+    "BFF Available Integrations: HTTP 0",
+    "BFF Pricing Industries: HTTP 0",
+    "BFF AI Instances: HTTP 0"
+  ],
+  "total_steps": 20,
+  "passed_steps": 11,
+  "failed_steps": 9
+}

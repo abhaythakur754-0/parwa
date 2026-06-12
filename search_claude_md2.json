@@ -1,0 +1,92 @@
+[
+  {
+    "url": "https://levelup.gitconnected.com/the-4-lines-every-claude-md-needs-2717a46866f6",
+    "name": "The 4 Lines Every CLAUDE.md Needs - Level Up Coding",
+    "snippet": "Just a CLAUDE.md file with four behavioral guidelines derived from something Andrej Karpathy posted in January. What 60,000 developers ...\nThe complete behavioral section of a CLAUDE.md file that 55,000 developers decided was worth starring: 1. Don't assume. Don't hide confusion.",
+    "host_name": "levelup.gitconnected.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md",
+    "name": "CLAUDE.md - multica-ai/andrej-karpathy-skills · GitHub",
+    "snippet": "A single CLAUDE.md file to improve Claude Code behavior, derived from Andrej Karpathy's observations on LLM coding pitfalls.",
+    "host_name": "github.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.towardsdeeplearning.com/a-single-claude-md-file-went-viral-the-reason-is-embarrassingly-simple-5b515c9e4cca",
+    "name": "A Single CLAUDE.md File Went Viral. The Reason Is",
+    "snippet": "The four rules · Think before coding. State your assumptions out loud. If the request is ambiguous, ask. · Simplicity first. Write the minimum ...\nJust one file called CLAUDE.md with four behavioral rules inside it. And the rules are not novel. That is what bothered me. They are things ...",
+    "host_name": "www.towardsdeeplearning.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://x.com/dickiebush/status/2055269792479866971",
+    "name": "Karpathy's 4 CLAUDE.md rules cut Claude mistakes from 41% to 11",
+    "snippet": "Below: the full 12-rule CLAUDE.md, why each one earned its place, and the 4 places where the original Karpathy template silently breaks. If ...",
+    "host_name": "x.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://alphasignalai.substack.com/p/karpathy-inspired-claudemd-how-to",
+    "name": "Karpathy-Inspired CLAUDE.md. How to Add It to Any Project in 30",
+    "snippet": "A Trending 65-line behavioral file for Claude Code, authored by Forrest Chang and derived from Andrej Karpathy's January 2026 observations ...",
+    "host_name": "alphasignalai.substack.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=-E3WmGHMbkE",
+    "name": "Claude Code 10x Fix: Karpathy's 4 Rules (2026) - YouTube",
+    "snippet": "Andrej Karpathy's 4 AI coding rules fix the most common Claude Code failures in 30 seconds — wrong assumptions, scope creep, ...",
+    "host_name": "www.youtube.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.linkedin.com/posts/m-namakshenas_karpathys-4-claudemd-rules-cut-claudes-activity-7459146348857278464-FJKk",
+    "name": "Karpathy's 4 CLAUDE rules with 8 additional rules for  - LinkedIn",
+    "snippet": "Karpathy's 4 CLAUDE.md rules cut Claude's mistakes from 41% to 11%. There are even 8 more to cut 11% to 3% [statistically verified]: In late ...",
+    "host_name": "www.linkedin.com",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.developersdigest.tech/blog/karpathy-claude-md-skills-menu",
+    "name": "Karpathy CLAUDE.md Skills: Use the Viral Rules as a Menu, Not a",
+    "snippet": "The full file is only about 65 lines, which is part of why it spread. Developers can understand it, copy it, and argue with it in one sitting.\nIt is a GitHub repo that packages a CLAUDE.md file, Cursor rule, and Claude Code plugin around four coding-agent principles inspired by Andrej ...",
+    "host_name": "www.developersdigest.tech",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://medium.com/@joe.njenga/i-tried-andrej-karpathy-claude-md-file-that-got-157k-github-stars-6f079f400ad9",
+    "name": "I Tried Andrej Karpathy CLAUDE.MD File (That Got 157K GitHub",
+    "snippet": "This combination of behavioral principles and project-specific rules is what is practical for my projects. What does your CLAUDE.md look like?",
+    "host_name": "medium.com",
+    "rank": 8,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.reddit.com/r/AskVibecoders/comments/1ta7yr8/karpathys_claudemd_cuts_claude_mistakes_to_11",
+    "name": "Karpathy's CLAUDE.md cuts Claude mistakes to 11%. Here  - Reddit",
+    "snippet": "## Rule 4 — Goal-Driven Execution Define success criteria. Loop until verified. Strong success criteria let Claude loop independently. The 8 ...\nThe 4 rules were written for single-shot, one-codebase autocomplete sessions. They don't cover agent loops, multi-step tasks, or silent failures ...",
+    "host_name": "www.reddit.com",
+    "rank": 9,
+    "date": "",
+    "favicon": ""
+  }
+]

@@ -1,0 +1,7 @@
+PARWA FAQ
+
+Q: What is PARWA?
+A: AI customer support platform.
+
+Q: How to connect?
+A: Settings → Integrations.

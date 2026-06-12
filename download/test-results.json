@@ -1,0 +1,14 @@
+{
+  "loginWorked": false,
+  "onboardingAccessible": false,
+  "costBreakdownShowedVariant": false,
+  "paddleCheckoutStatus": "unknown",
+  "dashboardShowedActiveVariants": false,
+  "apiInstancesResponse": null,
+  "errors": [
+    "Test error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/login\nCall log:\n  - navigating to \"http://localhost:3000/login\", waiting until \"networkidle\"\n"
+  ],
+  "screenshots": [
+    "error-state.png"
+  ]
+}
