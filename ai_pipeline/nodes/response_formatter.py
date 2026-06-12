@@ -247,8 +247,8 @@ async def _format_response_with_brain(state: dict[str, Any]) -> tuple[str, list[
 async def response_formatter(state: dict[str, Any]) -> dict[str, Any]:
     """Craft the final customer-facing response (async).
 
-    Phase 5: Uses FrameworkBrain with CRP for constrained output generation.
-    Falls back to rule-based on FrameworkBrain failure.
+    Month 3: Now uses V2 context-aware, persona-based formatter by default.
+    Falls back to V1 rule-based on V2 failure.
 
     Reads: intent, reasoning_conclusion, execution_results, recommendation, proactive_insights, variant
     Writes: final_response, active_frameworks (append)
@@ -274,8 +274,22 @@ async def response_formatter(state: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(variant, str):
         variant = "parwa"
 
-    # Try FrameworkBrain first (Phase 5)
-    response, frameworks = await _format_response_with_brain(state)
+    # ─── Month 3: Try V2 context-aware formatter first ─────────────
+    try:
+        from parwa.nodes.response_formatter_v2 import format_response_v2
+        v2_result = await format_response_v2(state)
+        if v2_result and v2_result.get("final_response"):
+            response = v2_result["final_response"]
+            frameworks = v2_result.get("active_frameworks", ["persona_engine", "context_aware"])
+        else:
+            raise ValueError("V2 returned empty response")
+    except Exception as exc:
+        logger.warning(
+            "response_formatter: V2 failed (%s), falling back to V1",
+            exc,
+        )
+        # Fall back to V1 FrameworkBrain + rule-based
+        response, frameworks = await _format_response_with_brain(state)
 
     # Track frameworks used — return ONLY new frameworks (reducer appends)
     new_frameworks = []
