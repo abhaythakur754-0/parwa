@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "This is a login page for the PARWA application with a warm, dark brown gradient background that transitions from a deeper brown at the edges to a slightly lighter brown in the center. The page has a clean, centered layout with a prominent login form as the focal point.\n\n**Header Section:**\nAt the top left, there's a \"Back to Home\" link in a light orange color with a left-facing arrow icon. Below this, centered on the page, is the PARWA logo - an orange square icon with a white lightning bolt symbol inside, followed by the text \"PARWA\" in white.\n\n**Main Content:**\nThe main heading \"Welcome back\" appears in large, bold white text, centered below the logo. Underneath is a smaller, lighter gray text that reads \"Sign in to your account to continue\".\n\n**Login Form:**\nThe login form is contained within a semi-transparent dark brown rounded rectangle with a subtle border. The form contains:\n\n1. A \"Continue with Google\" button - a gray rounded rectangle with the Google \"G\" logo on the left and white text\n2. A divider text \"or continue with email\" in light gray, centered\n3. An \"Email address\" field - a dark brown rounded rectangle with an orange envelope icon on the left and pre-filled text \"test@parwa.ai\" in white\n4. A \"Password\" field - a dark brown rounded rectangle with an orange lock icon on the left, showing dots for the password, and an eye icon on the right to toggle visibility\n5. A \"Forgot password?\" link in orange text, aligned right next to the password field\n6. A bright orange \"Sign in\" button with white text, spanning the full width of the form\n7. A \"Don't have an account? Sign up\" text at the bottom, with \"Sign up\" in orange and the rest in light gray\n\n**Footer:**\nAt the bottom of the page, there's a \"Need help? Contact Support\" text in light gray, with \"Contact Support\" in orange.\n\n**Additional Elements:**\nIn the bottom left corner, there's a small black circular button with a white \"N\" inside, likely a notification or help button.\n\nThe overall design uses a warm color palette with orange accents against the dark brown background, creating a professional yet inviting login experience. The form fields have a semi-transparent appearance that allows the background to show through slightly, giving depth to the interface.",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1781292394,
+  "id": "202606130326253f17311de4914fe2",
+  "model": "glm-4.6v",
+  "object": "chat.completion",
+  "request_id": "202606130326253f17311de4914fe2",
+  "usage": {
+    "completion_tokens": 506,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 1513,
+    "prompt_tokens_details": {
+      "cached_tokens": 6
+    },
+    "total_tokens": 2019
+  }
+}

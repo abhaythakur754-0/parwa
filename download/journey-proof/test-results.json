@@ -1,0 +1,168 @@
+{
+  "test_name": "PARWA Complete E2E Journey",
+  "timestamp": "2026-06-12T19:23:11.748460",
+  "steps": [
+    {
+      "step": 0,
+      "name": "API: Register",
+      "passed": true,
+      "details": "email=parwa-api-1781292205@test.io"
+    },
+    {
+      "step": 0,
+      "name": "API: Login",
+      "passed": true,
+      "details": "type=bearer"
+    },
+    {
+      "step": 0,
+      "name": "API: Get Me",
+      "passed": true,
+      "details": "name=API Test"
+    },
+    {
+      "step": 0,
+      "name": "API: Industry/Variant",
+      "passed": true,
+      "details": "industry=saas"
+    },
+    {
+      "step": 0,
+      "name": "API: Legal Consent",
+      "passed": true,
+      "details": "accepted=True"
+    },
+    {
+      "step": 0,
+      "name": "API: Complete Step 3",
+      "passed": true,
+      "details": "current_step=4"
+    },
+    {
+      "step": 0,
+      "name": "API: Complete Step 4",
+      "passed": true,
+      "details": "current_step=5"
+    },
+    {
+      "step": 0,
+      "name": "API: Complete Step 5",
+      "passed": true,
+      "details": "current_step=6"
+    },
+    {
+      "step": 0,
+      "name": "API: Onboarding State",
+      "passed": true,
+      "details": "step=6, kb=True, ai=True"
+    },
+    {
+      "step": 0,
+      "name": "API: Activate",
+      "passed": true,
+      "details": "msg=Account activated successfully"
+    },
+    {
+      "step": 0,
+      "name": "API: Variants",
+      "passed": true,
+      "details": "count=1"
+    },
+    {
+      "step": 0,
+      "name": "API: Audit",
+      "passed": true,
+      "details": "entries=0"
+    },
+    {
+      "step": 1,
+      "name": "Landing Page",
+      "passed": true,
+      "details": "heading=Transform Support with Intelligent AI"
+    },
+    {
+      "step": 2,
+      "name": "Signup Page",
+      "passed": true,
+      "details": "Form fields present"
+    },
+    {
+      "step": 3,
+      "name": "Signup \u2192 Redirect",
+      "passed": true,
+      "details": "url=http://127.0.0.1:3000/onboarding"
+    },
+    {
+      "step": 4,
+      "name": "Step 1: Industry & Variant",
+      "passed": true,
+      "details": "SaaS + PARWA"
+    },
+    {
+      "step": 5,
+      "name": "Step 2: Legal Consent",
+      "passed": true,
+      "details": "Accepted"
+    },
+    {
+      "step": 6,
+      "name": "Step 3: Integrations",
+      "passed": true,
+      "details": "connect_btns=17"
+    },
+    {
+      "step": 7,
+      "name": "Step 4: Knowledge Base",
+      "passed": true,
+      "details": "FAQ added"
+    },
+    {
+      "step": 8,
+      "name": "Step 5: AI Config",
+      "passed": true,
+      "details": "Friendly + Detailed"
+    },
+    {
+      "step": 9,
+      "name": "Step 6: Cost Breakdown",
+      "passed": true,
+      "details": "total=True, savings=True"
+    },
+    {
+      "step": 10,
+      "name": "Step 7: Go Live",
+      "passed": false,
+      "details": "url=http://127.0.0.1:3000/onboarding"
+    },
+    {
+      "step": 11,
+      "name": "Dashboard Overview",
+      "passed": false,
+      "details": "welcome=True, cards=False, quick=False, sidebar=True"
+    },
+    {
+      "step": 12,
+      "name": "Dashboard Settings",
+      "passed": true,
+      "details": "Page loaded"
+    },
+    {
+      "step": 13,
+      "name": "Login Page",
+      "passed": true,
+      "details": "email=True, pw=True, signin=True"
+    },
+    {
+      "step": 14,
+      "name": "Login \u2192 Dashboard/Onboarding",
+      "passed": true,
+      "details": "url=http://127.0.0.1:3000/dashboard"
+    }
+  ],
+  "total_passed": 24,
+  "total_failed": 2,
+  "console_errors": [
+    "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+  ],
+  "api_tests": []
+}

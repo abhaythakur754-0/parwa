@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "This is a modern, minimalist login page with a warm, dark brown gradient background that transitions from deep brown at the edges to a slightly lighter amber-brown in the center, creating a subtle vignette effect. The entire page has a clean, centered layout with all elements aligned vertically in the middle of the screen.\n\n**Header Section:**\nAt the top, there's a \"Back to Home\" link in a warm orange color with a left-facing arrow icon, positioned slightly above the center. Below this, the brand logo appears - a square orange icon with a white lightning bolt symbol inside, followed by the brand name \"PARWA\" in bold, white, uppercase letters. The logo is centered and serves as a focal point.\n\n**Main Content:**\nThe main content area is contained within a semi-transparent dark brown card with rounded corners and a subtle shadow, creating a floating effect against the background. The card has a slight opacity, allowing the gradient background to show through.\n\nInside the card:\n- A large, bold white heading \"Welcome back\" is centered at the top of the card\n- Below it, a smaller gray text reads \"Sign in to your account to continue\"\n\n**Form Elements:**\nThe login form contains several elements arranged vertically:\n- A \"Continue with Google\" button with a white Google \"G\" icon on the left, gray background, and white text\n- A thin divider line with the text \"or continue with email\" in gray, centered\n- An email address field with a light brown background, orange envelope icon on the left, and placeholder text \"you@example.com\" in gray\n- A password field with a light brown background, orange lock icon on the left, and placeholder text \"Enter your password\" in gray. This field has an eye icon on the right for showing/hiding the password\n- A \"Forgot password?\" link in orange, positioned to the right of the password field label\n- A prominent orange \"Sign in\" button with white text, spanning the full width of the form\n- At the bottom, a text link \"Don't have an account? Sign up\" with \"Sign up\" in orange and the rest in gray\n\n**Footer:**\nBelow the card, centered at the bottom of the page, is a \"Need help? Contact Support\" link in gray, with \"Contact Support\" in orange.\n\n**Additional Elements:**\nIn the bottom left corner, there's a small black circular button with a white \"N\" inside, likely a notification or help button.\n\nThe color scheme is dominated by warm browns and oranges, creating a cohesive and professional appearance. The design uses plenty of white space and clear visual hierarchy to guide the user through the login process.",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1781292357,
+  "id": "202606130325484c4401f26c5d48fe",
+  "model": "glm-4.6v",
+  "object": "chat.completion",
+  "request_id": "202606130325484c4401f26c5d48fe",
+  "usage": {
+    "completion_tokens": 555,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 1517,
+    "prompt_tokens_details": {
+      "cached_tokens": 6
+    },
+    "total_tokens": 2072
+  }
+}

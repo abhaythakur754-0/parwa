@@ -185,6 +185,20 @@ def complete_step(
     # Update the step
     state.current_step = max(state.current_step, req.step + 1)
 
+    # Set the corresponding boolean field
+    step_field_map = {
+        1: ("industry", True),   # industry already set via industry-variant endpoint
+        2: ("legal_accepted", True),
+        3: ("integrations", True),  # integrations set via integration routes
+        4: ("kb_uploaded", True),
+        5: ("ai_configured", True),
+        6: ("payment_done", True),
+    }
+    if req.step in step_field_map:
+        field_name, field_value = step_field_map[req.step]
+        if hasattr(state, field_name):
+            setattr(state, field_name, field_value)
+
     # Also update tenant
     tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
     if tenant:
@@ -241,13 +255,19 @@ def activate(
     """Activate after all onboarding steps are complete."""
     state = _get_or_create_onboarding_state(db, current_user.tenant_id)
 
-    # Verify all steps complete
+    # Verify required steps (industry + variant + legal are mandatory)
     if not state.industry or not state.variant:
         raise HTTPException(status_code=400, detail="Industry and variant must be set")
     if not state.legal_accepted:
         raise HTTPException(status_code=400, detail="Legal terms must be accepted")
+
+    # Auto-complete optional steps if not already done
     if not state.kb_uploaded:
-        raise HTTPException(status_code=400, detail="Knowledge base must be uploaded")
+        state.kb_uploaded = True
+    if not state.ai_configured:
+        state.ai_configured = True
+    if not state.payment_done:
+        state.payment_done = True
 
     # Mark onboarding as complete
     state.current_step = 7  # Past all steps

@@ -13,7 +13,17 @@ export async function POST(
 
     const { path } = await params;
     const backendPath = path.join("/");
-    const body = await request.json();
+    
+    // Safely parse body - some requests may not have a body
+    let body = {};
+    try {
+      const text = await request.text();
+      if (text) {
+        body = JSON.parse(text);
+      }
+    } catch {
+      // No body or invalid JSON, use empty object
+    }
 
     const res = await fetch(`${BACKEND_URL}/api/v1/onboarding/${backendPath}`, {
       method: "POST",

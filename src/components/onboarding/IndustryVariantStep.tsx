@@ -49,19 +49,34 @@ export function IndustryVariantStep() {
   const { industry, variant, setIndustry, setVariant } = useOnboardingStore();
   const [saving, setSaving] = useState(false);
 
-  const handleIndustrySelect = (id: string) => {
+  const handleIndustrySelect = async (id: string) => {
     setIndustry(id);
+    // Also save to backend if variant is already selected
+    const currentVariant = useOnboardingStore.getState().variant;
+    if (currentVariant) {
+      try {
+        await fetch("/api/onboarding/industry-variant", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ industry: id, variant: currentVariant }),
+        });
+      } catch {
+        // Error handled silently
+      }
+    }
   };
 
   const handleVariantSelect = async (id: string) => {
     setVariant(id);
-    if (industry) {
+    // Get the latest industry from the store (may have just been set)
+    const currentIndustry = useOnboardingStore.getState().industry;
+    if (currentIndustry) {
       setSaving(true);
       try {
         await fetch("/api/onboarding/industry-variant", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ industry, variant: id }),
+          body: JSON.stringify({ industry: currentIndustry, variant: id }),
         });
       } catch {
         // Error handled silently

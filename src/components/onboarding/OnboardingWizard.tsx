@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboardingStore } from "@/store/onboarding-store";
 import { IndustryVariantStep } from "./IndustryVariantStep";
@@ -121,16 +122,25 @@ export function OnboardingWizard() {
 function CompletionStep() {
   const router = useRouter();
   const { nextStep } = useOnboardingStore();
+  const [activating, setActivating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleActivate = async () => {
+    setActivating(true);
+    setError(null);
     try {
-      const res = await fetch("/api/onboarding/activate", { method: "POST" });
+      const res = await fetch("/api/onboarding/activate", { method: "POST", credentials: "include" });
       if (res.ok) {
         nextStep();
         router.push("/dashboard");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.detail || "Activation failed. Please try again.");
       }
     } catch {
-      // Handle error silently
+      setError("Network error. Please try again.");
+    } finally {
+      setActivating(false);
     }
   };
 
@@ -145,10 +155,14 @@ function CompletionStep() {
       </p>
       <button
         onClick={handleActivate}
-        className="px-8 py-3 text-base font-semibold rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 transition-all"
+        disabled={activating}
+        className="px-8 py-3 text-base font-semibold rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 transition-all disabled:opacity-50"
       >
-        Activate & Go to Dashboard
+        {activating ? "Activating..." : "Activate & Go to Dashboard"}
       </button>
+      {error && (
+        <p className="text-sm text-red-500 mt-4">{error}</p>
+      )}
     </div>
   );
 }
