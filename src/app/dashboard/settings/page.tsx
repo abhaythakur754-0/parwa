@@ -334,7 +334,7 @@ export default function SettingsPage() {
       params.set('offset', String(page * 20));
       params.set('limit', '20');
 
-      const res = await fetch(`${API_BASE}/api/v1/audit/entries?${params}`, { credentials: 'include' });
+      const res = await fetch(`${API_BASE}/api/audit/entries?${params}`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setAuditEntries(data.items || data || []);
@@ -349,7 +349,7 @@ export default function SettingsPage() {
 
   const fetchAuditStats = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/audit/stats`, { credentials: 'include' });
+      const res = await fetch(`${API_BASE}/api/audit/stats`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setAuditStats(data);
@@ -361,7 +361,7 @@ export default function SettingsPage() {
 
   const fetchAuditAlerts = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/audit/alerts`, { credentials: 'include' });
+      const res = await fetch(`${API_BASE}/api/audit/alerts`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setAuditAlerts(Array.isArray(data) ? data : data.alerts || []);
@@ -387,7 +387,7 @@ export default function SettingsPage() {
       if (filterDateTo) params.set('date_to', filterDateTo);
       params.set('format', format);
 
-      const res = await fetch(`${API_BASE}/api/v1/audit/export?${params}`, { credentials: 'include' });
+      const res = await fetch(`${API_BASE}/api/audit/export?${params}`, { credentials: 'include' });
       if (res.ok) {
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
@@ -413,7 +413,7 @@ export default function SettingsPage() {
     setIntegrityChecking(true);
     setIntegrityResult(null);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/audit/integrity`, { credentials: 'include' });
+      const res = await fetch(`${API_BASE}/api/audit/integrity`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setIntegrityResult({ valid: data.valid ?? data.integrity_ok ?? true, message: data.message || (data.valid ? 'Audit log integrity verified' : 'Integrity check failed') });

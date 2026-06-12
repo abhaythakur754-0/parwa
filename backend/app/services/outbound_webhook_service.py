@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 from sqlalchemy.orm import Session
 
-from app.tasks.celery_app import celery_app
+from app.tasks.celery_app import app as celery_app
 from database.base import get_db_context
 from database.models.outbound_webhook import OutboundWebhook
 
