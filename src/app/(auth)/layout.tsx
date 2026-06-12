@@ -1,13 +1,16 @@
+/**
+ * Auth Layout
+ *
+ * Layout for all auth pages (login, signup, forgot-password, reset-password).
+ * AuthProvider is already in the root layout — no need to double-wrap.
+ */
+
+export const dynamic = 'force-dynamic';
+
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/30 p-4">
-      <div className="w-full max-w-md">
-        {children}
-      </div>
-    </div>
-  );
+  return <>{children}</>;
 }

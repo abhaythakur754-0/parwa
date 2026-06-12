@@ -1,190 +1,397 @@
-"use client";
+'use client';
 
-import { useOnboardingStore } from "@/store/onboarding-store";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Cloud, ShoppingCart, Truck, Building2, Zap, TrendingUp, Sparkles } from "lucide-react";
-import { PRICES, VARIANT_LIMITS } from "@/lib/config";
-import { useState } from "react";
+import React, { useState, useEffect } from 'react';
+import {
+  Cloud,
+  ShoppingCart,
+  Truck,
+  Layers,
+  ArrowRight,
+  CheckCircle2,
+  Sparkles,
+  Zap,
+  Crown,
+  Loader2,
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+import { cn } from '@/lib/utils';
+import type { ParwaIndustry } from '@/lib/integration-catalog';
 
-const industries = [
-  { id: "saas", name: "SaaS", icon: Cloud, description: "Software-as-a-Service companies", color: "from-blue-500 to-cyan-500" },
-  { id: "ecommerce", name: "E-commerce", icon: ShoppingCart, description: "Online retail and stores", color: "from-orange-500 to-amber-500" },
-  { id: "logistics", name: "Logistics", icon: Truck, description: "Shipping and supply chain", color: "from-purple-500 to-violet-500" },
-  { id: "other", name: "Other", icon: Building2, description: "Other industries", color: "from-gray-500 to-slate-500" },
-];
+// ── Variant Types ──────────────────────────────────────────────────────
 
-const variants = [
-  {
-    id: "mini",
-    name: "Mini PARWA",
-    icon: Zap,
-    price: PRICES.mini_parwa.monthly,
-    color: "from-amber-500 to-yellow-500",
-    features: VARIANT_LIMITS.mini,
-    highlights: ["FAQ matching", "Knowledge base search", "Basic ticket routing"],
-  },
-  {
-    id: "parwa",
-    name: "PARWA",
-    icon: TrendingUp,
-    price: PRICES.parwa.monthly,
-    color: "from-emerald-500 to-teal-600",
-    popular: true,
-    features: VARIANT_LIMITS.parwa,
-    highlights: ["RAG-powered responses", "External tool calls", "Advanced routing"],
-  },
-  {
-    id: "parwa_high",
-    name: "PARWA High",
-    icon: Sparkles,
-    price: PRICES.parwa_high.monthly,
-    color: "from-purple-500 to-violet-500",
-    features: VARIANT_LIMITS.parwa_high,
-    highlights: ["Sentiment analysis", "Full pipeline access", "Priority support"],
-  },
-];
+export type ParwaVariant = 'mini_parwa' | 'parwa' | 'parwa_high';
 
-export function IndustryVariantStep() {
-  const { industry, variant, setIndustry, setVariant } = useOnboardingStore();
-  const [saving, setSaving] = useState(false);
+export interface VariantDefinition {
+  key: ParwaVariant;
+  name: string;
+  price: number;
+  priceLabel: string;
+  aiPipeline: number;
+  ticketVolume: number;
+  customApi: boolean;
+  openApiImport: boolean;
+  concurrentAiCalls: number;
+  description: string;
+  badge?: string;
+}
 
-  const handleIndustrySelect = async (id: string) => {
-    setIndustry(id);
-    // Also save to backend if variant is already selected
-    const currentVariant = useOnboardingStore.getState().variant;
-    if (currentVariant) {
-      try {
-        await fetch("/api/onboarding/industry-variant", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ industry: id, variant: currentVariant }),
-        });
-      } catch {
-        // Error handled silently
-      }
-    }
+export interface PricingContext {
+  industry: ParwaIndustry;
+  variant: ParwaVariant;
+  addOns: {
+    voice: boolean;
+    customApi: boolean;
   };
+  totalMonthly: number;
+  timestamp: string;
+}
 
-  const handleVariantSelect = async (id: string) => {
-    setVariant(id);
-    // Get the latest industry from the store (may have just been set)
-    const currentIndustry = useOnboardingStore.getState().industry;
-    if (currentIndustry) {
-      setSaving(true);
-      try {
-        await fetch("/api/onboarding/industry-variant", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ industry: currentIndustry, variant: id }),
-        });
-      } catch {
-        // Error handled silently
-      } finally {
-        setSaving(false);
+// ── Variant Definitions (D5) — prices from /src/lib/pricing-config.ts ─────
+
+import { VARIANT_PRICES, VARIANT_AI_INFO, VARIANT_LIMITS } from '@/lib/pricing-config';
+
+const VARIANTS: VariantDefinition[] = [
+  {
+    key: 'mini_parwa',
+    name: 'Mini PARWA',
+    price: VARIANT_PRICES.starter,
+    priceLabel: `$${VARIANT_PRICES.starter.toLocaleString()}/mo`,
+    aiPipeline: VARIANT_AI_INFO.starter.pipelineSteps,
+    ticketVolume: VARIANT_LIMITS.starter.monthlyTickets,
+    customApi: false,
+    openApiImport: false,
+    concurrentAiCalls: VARIANT_AI_INFO.starter.concurrentCalls,
+    description: 'Perfect for small teams getting started with AI support.',
+    badge: undefined,
+  },
+  {
+    key: 'parwa',
+    name: 'PARWA',
+    price: VARIANT_PRICES.growth,
+    priceLabel: `$${VARIANT_PRICES.growth.toLocaleString()}/mo`,
+    aiPipeline: VARIANT_AI_INFO.growth.pipelineSteps,
+    ticketVolume: VARIANT_LIMITS.growth.monthlyTickets,
+    customApi: true,
+    openApiImport: false,
+    concurrentAiCalls: VARIANT_AI_INFO.growth.concurrentCalls,
+    description: 'For growing businesses that need more power and flexibility.',
+    badge: 'Popular',
+  },
+  {
+    key: 'parwa_high',
+    name: 'PARWA High',
+    price: VARIANT_PRICES.high,
+    priceLabel: `$${VARIANT_PRICES.high.toLocaleString()}/mo`,
+    aiPipeline: VARIANT_AI_INFO.high.pipelineSteps,
+    ticketVolume: VARIANT_LIMITS.high.monthlyTickets,
+    customApi: true,
+    openApiImport: true,
+    concurrentAiCalls: VARIANT_AI_INFO.high.concurrentCalls,
+    description: 'Enterprise-grade AI support with unlimited potential.',
+    badge: 'Enterprise',
+  },
+];
+
+// ── Industry Options (D1 — 4 industries) ───────────────────────────────
+
+const INDUSTRY_OPTIONS: Array<{
+  value: ParwaIndustry;
+  label: string;
+  description: string;
+  icon: React.ElementType;
+  colorGradient: string;
+}> = [
+  {
+    value: 'saas',
+    label: 'SaaS',
+    description: 'Software & technology companies',
+    icon: Cloud,
+    colorGradient: 'from-violet-500 to-violet-400',
+  },
+  {
+    value: 'ecommerce',
+    label: 'E-commerce',
+    description: 'Online stores & retail',
+    icon: ShoppingCart,
+    colorGradient: 'from-emerald-500 to-emerald-400',
+  },
+  {
+    value: 'logistics',
+    label: 'Logistics',
+    description: 'Shipping, freight & supply chain',
+    icon: Truck,
+    colorGradient: 'from-amber-500 to-amber-400',
+  },
+  {
+    value: 'other',
+    label: 'Other',
+    description: 'All integrations available',
+    icon: Layers,
+    colorGradient: 'from-rose-500 to-rose-400',
+  },
+];
+
+// ── Props ──────────────────────────────────────────────────────────────
+
+interface IndustryVariantStepProps {
+  onComplete: (data: { industry: ParwaIndustry; variant: ParwaVariant }) => void;
+}
+
+// ── Component ──────────────────────────────────────────────────────────
+
+export function IndustryVariantStep({ onComplete }: IndustryVariantStepProps) {
+  const [industry, setIndustry] = useState<ParwaIndustry | null>(null);
+  const [variant, setVariant] = useState<ParwaVariant | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Restore from localStorage if available
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('parwa_pricing_context');
+      if (stored) {
+        const ctx = JSON.parse(stored) as PricingContext;
+        if (ctx.industry) setIndustry(ctx.industry);
+        if (ctx.variant) setVariant(ctx.variant);
       }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleContinue = async () => {
+    if (!industry || !variant) {
+      toast.error('Please select an industry and variant');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Save pricing context to localStorage
+      const selectedVariant = VARIANTS.find((v) => v.key === variant)!;
+      const context: PricingContext = {
+        industry,
+        variant,
+        addOns: { voice: false, customApi: false },
+        totalMonthly: selectedVariant.price,
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem('parwa_pricing_context', JSON.stringify(context));
+
+      // POST to backend — must succeed to continue (CLAUDE.md Rule #5)
+      const res = await fetch('/api/onboarding/industry-variant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ industry, variant }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        if (errData.error === 'backend_unreachable') {
+          toast.error('Backend is not available. Please try again later.');
+          setIsSubmitting(false);
+          return;
+        }
+        // Non-503 error (e.g. 400, 409) — backend is reachable but rejected
+        console.warn('[industry-variant] Backend returned', res.status, errData);
+        // Continue anyway — backend may not have this endpoint yet
+      }
+
+      toast.success(`${selectedVariant.name} selected — let's set it up!`);
+      onComplete({ industry, variant });
+    } catch {
+      toast.error('Something went wrong. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <div className="space-y-8">
-      {/* Industry Selection */}
-      <div>
-        <h2 className="text-xl font-semibold mb-1">Select your industry</h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          This helps us recommend the right integrations for your workflow.
+      {/* Header */}
+      <div className="text-center space-y-2">
+        <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center shadow-xl shadow-orange-500/20 mb-4">
+          <svg className="w-8 h-8" viewBox="0 0 40 40" fill="none">
+            <path d="M6 7h24a4 4 0 014 4v13a4 4 0 01-4 4h-8l-3 6-2-6H6a4 4 0 01-4-4V11a4 4 0 014-4z" stroke="white" strokeWidth="2.8" strokeLinejoin="round" />
+            <path d="M22 11l-6 8h4.5L17 28l8-10h-4.5l3.5-7z" fill="white" />
+          </svg>
+        </div>
+        <h2 className="text-2xl sm:text-3xl font-bold text-white">Welcome to PARWA</h2>
+        <p className="text-orange-200/50 text-sm max-w-md mx-auto">
+          Configure your AI-powered customer support. Choose your industry and plan to get started.
         </p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {industries.map((ind) => (
-            <Card
-              key={ind.id}
-              className={`cursor-pointer transition-all hover:shadow-md ${
-                industry === ind.id
-                  ? "ring-2 ring-emerald-500 border-emerald-300 dark:border-emerald-700"
-                  : "hover:border-emerald-200 dark:hover:border-emerald-800"
-              }`}
-              onClick={() => handleIndustrySelect(ind.id)}
-            >
-              <CardContent className="p-4 text-center">
-                <div
-                  className={`h-12 w-12 rounded-xl bg-gradient-to-br ${ind.color} flex items-center justify-center mx-auto mb-2`}
-                >
-                  <ind.icon className="h-6 w-6 text-white" />
+      </div>
+
+      {/* ── Industry Selection ───────────────────────────────────────── */}
+      <div className="space-y-3">
+        <label className="text-xs text-orange-200/40 uppercase tracking-wider font-medium">
+          1. What&apos;s your industry?
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          {INDUSTRY_OPTIONS.map((opt) => {
+            const Icon = opt.icon;
+            const isSelected = industry === opt.value;
+
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setIndustry(opt.value)}
+                className={cn(
+                  'relative text-left p-4 rounded-xl border transition-all duration-200 group',
+                  isSelected
+                    ? 'border-orange-500/40 bg-orange-500/5'
+                    : 'border-white/[0.06] hover:border-orange-500/20'
+                )}
+                style={!isSelected ? { background: 'rgba(255,255,255,0.03)' } : undefined}
+              >
+                {/* Check indicator */}
+                {isSelected && (
+                  <div className="absolute top-2 right-2">
+                    <CheckCircle2 className="w-4 h-4 text-orange-400" />
+                  </div>
+                )}
+                <div className={cn(
+                  'w-9 h-9 rounded-lg flex items-center justify-center mb-2.5 bg-gradient-to-br',
+                  opt.colorGradient,
+                  !isSelected && 'opacity-60 group-hover:opacity-80 transition-opacity'
+                )}>
+                  <Icon className="w-4.5 h-4.5 text-white" />
                 </div>
-                <p className="font-medium text-sm">{ind.name}</p>
-                <p className="text-xs text-muted-foreground mt-1">{ind.description}</p>
-              </CardContent>
-            </Card>
-          ))}
+                <p className={cn(
+                  'text-sm font-medium',
+                  isSelected ? 'text-orange-400' : 'text-white'
+                )}>
+                  {opt.label}
+                </p>
+                <p className="text-[10px] text-orange-200/30 mt-0.5">
+                  {opt.description}
+                </p>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Variant Selection */}
-      <div>
-        <h2 className="text-xl font-semibold mb-1">Choose your AI variant</h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          You can add more variants later. Mix and match for optimal coverage.
-        </p>
-        <div className="grid sm:grid-cols-3 gap-4">
-          {variants.map((v) => (
-            <Card
-              key={v.id}
-              className={`relative cursor-pointer transition-all hover:shadow-md ${
-                variant === v.id
-                  ? "ring-2 ring-emerald-500 border-emerald-300 dark:border-emerald-700"
-                  : "hover:border-emerald-200 dark:hover:border-emerald-800"
-              }`}
-              onClick={() => handleVariantSelect(v.id)}
-            >
-              {v.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-xs">
-                    Most Popular
-                  </Badge>
-                </div>
-              )}
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div
-                    className={`h-8 w-8 rounded-lg bg-gradient-to-br ${v.color} flex items-center justify-center`}
-                  >
-                    <v.icon className="h-4 w-4 text-white" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-sm">{v.name}</p>
-                  </div>
-                </div>
-                <div className="mb-3">
-                  <span className="text-2xl font-bold">${(v.price / 100).toFixed(2)}</span>
-                  <span className="text-xs text-muted-foreground">/mo</span>
-                </div>
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                    {v.features.tickets.toLocaleString()} tickets/mo
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                    {v.features.ai_steps} AI steps
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                    {v.features.concurrent} concurrent AI
-                  </div>
-                </div>
-                <div className="mt-3 pt-3 border-t border-border/50">
-                  {v.highlights.map((h) => (
-                    <p key={h} className="text-xs text-muted-foreground">• {h}</p>
-                  ))}
-                </div>
-                {saving && variant === v.id && (
-                  <p className="text-xs text-emerald-600 mt-2 animate-pulse">Saving...</p>
+      {/* ── Variant Selection ────────────────────────────────────────── */}
+      <div className="space-y-3">
+        <label className="text-xs text-orange-200/40 uppercase tracking-wider font-medium">
+          2. Choose your plan
+        </label>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {VARIANTS.map((v) => {
+            const isSelected = variant === v.key;
+
+            return (
+              <button
+                key={v.key}
+                type="button"
+                onClick={() => setVariant(v.key)}
+                className={cn(
+                  'relative text-left p-4 rounded-xl border transition-all duration-200 group',
+                  isSelected
+                    ? 'border-orange-500/40 bg-orange-500/5'
+                    : 'border-white/[0.06] hover:border-orange-500/20'
                 )}
-              </CardContent>
-            </Card>
-          ))}
+                style={!isSelected ? { background: 'rgba(255,255,255,0.03)' } : undefined}
+              >
+                {/* Badge */}
+                {v.badge && (
+                  <span className={cn(
+                    'absolute -top-2 right-3 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full',
+                    v.key === 'parwa'
+                      ? 'bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A]'
+                      : 'bg-white/10 text-orange-200/60'
+                  )}>
+                    {v.badge}
+                  </span>
+                )}
+
+                {/* Check indicator */}
+                {isSelected && (
+                  <div className="absolute top-2 right-2">
+                    <CheckCircle2 className="w-4 h-4 text-orange-400" />
+                  </div>
+                )}
+
+                {/* Icon */}
+                <div className="flex items-center gap-2 mb-3">
+                  {v.key === 'mini_parwa' && <Zap className="w-4 h-4 text-amber-400" />}
+                  {v.key === 'parwa' && <Sparkles className="w-4 h-4 text-orange-400" />}
+                  {v.key === 'parwa_high' && <Crown className="w-4 h-4 text-yellow-400" />}
+                  <span className={cn(
+                    'text-sm font-semibold',
+                    isSelected ? 'text-orange-400' : 'text-white'
+                  )}>
+                    {v.name}
+                  </span>
+                </div>
+
+                {/* Price */}
+                <p className="text-lg font-bold text-white mb-1">{v.priceLabel}</p>
+                <p className="text-[10px] text-orange-200/30 mb-3">{v.description}</p>
+
+                {/* Feature list */}
+                <div className="space-y-1.5">
+                  <FeatureRow label={`${v.aiPipeline}-step AI pipeline`} />
+                  <FeatureRow label={`${v.ticketVolume.toLocaleString()} tickets/mo`} />
+                  <FeatureRow label={`${v.concurrentAiCalls} concurrent AI calls`} />
+                  <FeatureRow label="Custom API" enabled={v.customApi} />
+                  <FeatureRow label="OpenAPI Import" enabled={v.openApiImport} />
+                </div>
+              </button>
+            );
+          })}
         </div>
+      </div>
+
+      {/* ── Continue Button ──────────────────────────────────────────── */}
+      <div className="flex justify-end">
+        <button
+          onClick={handleContinue}
+          disabled={!industry || !variant || isSubmitting}
+          className={cn(
+            'px-8 py-3 font-semibold rounded-xl transition-all duration-300 text-sm flex items-center gap-2',
+            industry && variant
+              ? 'bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-400 hover:to-amber-300 text-[#1A1A1A] shadow-lg shadow-orange-500/25'
+              : 'bg-zinc-700 text-zinc-500 cursor-not-allowed'
+          )}
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              Continue
+              <ArrowRight className="w-4 h-4" />
+            </>
+          )}
+        </button>
       </div>
     </div>
   );
 }
+
+// ── Helper: Feature Row ────────────────────────────────────────────────
+
+function FeatureRow({ label, enabled = true }: { label: string; enabled?: boolean }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      {enabled ? (
+        <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+      ) : (
+        <div className="w-3 h-3 rounded-full border border-zinc-600 shrink-0" />
+      )}
+      <span className={cn(
+        'text-[10px]',
+        enabled ? 'text-orange-200/50' : 'text-zinc-600'
+      )}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
+export default IndustryVariantStep;

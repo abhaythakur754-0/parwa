@@ -1,387 +1,600 @@
-import type { AuthType } from "./integration-catalog";
+/**
+ * PARWA API Client
+ * 
+ * Centralized API client for making requests to the backend.
+ * 
+ * Security Features (GAP-002 Fix):
+ * - Safe JSON parsing for malformed responses
+ * - Proper error handling for all HTTP status codes
+ * - Timeout handling with retry support
+ */
 
-// ==========================================
-// BFF API Client - All calls go through Next.js API routes
-// Never calls FastAPI (port 8000) directly
-// ==========================================
+import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { useAppStore } from '@/lib/store';
+import { UserDetails, OnboardingState } from '@/types/onboarding';
+import {
+  User,
+  AuthResponse,
+  TokenResponse,
+  LoginRequest,
+  RegisterRequest,
+  GoogleAuthRequest,
+  EmailCheckResponse,
+  MessageResponse,
+} from '@/types/auth';
 
-interface ApiResponse<T = unknown> {
-  data?: T;
-  error?: string;
-  status: number;
+// API base URL — client-side MUST use relative URLs so requests go through
+// the Next.js proxy routes (which handle CSRF, Origin, and auth headers).
+// NEXT_PUBLIC_API_URL may be set to the backend URL for server-side use,
+// but client-side axios should always use '' (relative URLs).
+const API_BASE_URL = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || '');
+
+/**
+ * Create axios instance with default configuration.
+ */
+const apiClient: AxiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  withCredentials: true, // Include cookies for session auth
+});
+
+/**
+ * Response interceptor for handling errors.
+ * C-03 FIX: No request interceptor — auth tokens are sent as httpOnly cookies
+ * automatically by the browser via withCredentials: true.
+ * GAP-002: Handle malformed responses gracefully.
+ */
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError) => {
+    // Handle 401 Unauthorized — clear user display data and trigger navigation.
+    // Tokens are httpOnly cookies cleared by the backend; we only clean up localStorage.
+    if (error.response?.status === 401) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('parwa_user');
+        // Use Zustand store for SPA navigation instead of window.location
+        try {
+          const store = useAppStore.getState();
+          if (store && !['login', 'signup', 'forgot-password'].includes(store.currentPage)) {
+            store.setAuth(false);
+          }
+        } catch {
+          // Store not available (SSR or early init) — silent fail
+        }
+      }
+    }
+    
+    // Handle 403 Forbidden
+    if (error.response?.status === 403) {
+      const errorData = error.response?.data as Record<string, unknown> | undefined;
+      const csrfMessage = (errorData?.error as Record<string, unknown>)?.message || errorData?.message || '';
+      if (typeof csrfMessage === 'string' && csrfMessage.toLowerCase().includes('csrf')) {
+        console.error('Access denied: CSRF validation failed. The request origin may not be trusted.');
+      } else {
+        console.error('Access denied:', csrfMessage || 'You do not have permission for this action.');
+      }
+    }
+    
+    // Handle 429 Rate Limit
+    if (error.response?.status === 429) {
+      const retryAfter = error.response.headers['retry-after'];
+      console.warn(`Rate limited. Retry after ${retryAfter} seconds`);
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+// ── GAP-002: Safe Response Parsing ───────────────────────────────────────
+
+/**
+ * Safely parse response data, handling malformed JSON.
+ */
+function safeParseResponse<T>(response: AxiosResponse): T {
+  // If response is already parsed by axios, return it
+  if (response.data !== undefined) {
+    return response.data as T;
+  }
+  throw new Error('Empty response from server');
 }
 
-async function request<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<ApiResponse<T>> {
-  try {
-    const res = await fetch(path, {
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-      ...options,
-    });
+/**
+ * Handle API errors with user-friendly messages.
+ */
+export function getErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    // Network error (no response)
+    if (!error.response) {
+      if (error.code === 'ECONNABORTED') {
+        return 'Request timed out. Please try again.';
+      }
+      return 'Network error. Please check your connection.';
+    }
+    
+    // Server responded with error
+    const status = error.response.status;
+    const detail = error.response?.data?.detail;
+    
+    if (status === 429) {
+      const retryAfter = error.response.headers['retry-after'] || 60;
+      return `Too many requests. Please try again in ${retryAfter} seconds.`;
+    }
+    
+    if (status >= 500) {
+      return 'Server error. Please try again later.';
+    }
+    
+    if (status === 401) {
+      return 'Session expired. Please log in again.';
+    }
+    
+    if (status === 403) {
+      // Try to extract CSRF or specific error message
+      const errorData = error.response?.data as Record<string, unknown> | undefined;
+      const serverMsg = (errorData?.error as Record<string, unknown>)?.message || errorData?.message;
+      if (typeof serverMsg === 'string' && serverMsg) {
+        return serverMsg;
+      }
+      return 'Access denied. You may not have permission for this action, or the request origin is not trusted.';
+    }
+    
+    // Return server's error message if available
+    if (detail) {
+      return detail;
+    }
+    
+    return `Request failed with status ${status}`;
+  }
+  
+  if (error instanceof Error) {
+    return error.message;
+  }
+  
+  return 'An unexpected error occurred. Please try again.';
+}
 
-    const data = await res.json();
-    return { data, status: res.status };
-  } catch {
-    return { error: "Network error. Please try again.", status: 503 };
+/**
+ * Generic GET request with safe parsing.
+ */
+export async function get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
+  try {
+    const response = await apiClient.get<T>(url, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
   }
 }
 
-// ==========================================
-// Auth API
-// ==========================================
-export const auth = {
-  register: (email: string, name: string, password: string) =>
-    request("/api/auth/register", {
-      method: "POST",
-      body: JSON.stringify({ email, name, password }),
-    }),
+/**
+ * Generic POST request with safe parsing.
+ */
+export async function post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  try {
+    const response = await apiClient.post<T>(url, data, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
+  }
+}
 
-  login: (email: string, password: string) =>
-    request("/api/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    }),
+/**
+ * Generic PATCH request with safe parsing.
+ */
+export async function patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  try {
+    const response = await apiClient.patch<T>(url, data, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
+  }
+}
 
-  me: () => request("/api/auth/me"),
+/**
+ * Generic PUT request with safe parsing.
+ */
+export async function put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  try {
+    const response = await apiClient.put<T>(url, data, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
+  }
+}
 
-  refresh: (refreshToken: string) =>
-    request("/api/auth/refresh", {
-      method: "POST",
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    }),
+/**
+ * Generic DELETE request with safe parsing.
+ */
+export async function del<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
+  try {
+    const response = await apiClient.delete<T>(url, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
+  }
+}
 
-  logout: () =>
-    request("/api/auth/logout", { method: "POST" }),
+// ── Onboarding API Endpoints ───────────────────────────────────────────
+
+export const onboardingApi = {
+  /**
+   * Get current onboarding state.
+   */
+  getState: () => get<OnboardingState>('/api/onboarding/state'),
+  
+  /**
+   * Start onboarding wizard.
+   */
+  start: () => post<OnboardingState>('/api/onboarding/start'),
+  
+  /**
+   * Complete a step.
+   */
+  completeStep: (step: number) => post<OnboardingState>(`/api/onboarding/step/${step}`),
+  
+  /**
+   * Submit legal consents.
+   */
+  submitLegal: (consents: { terms: boolean; privacy: boolean; ai_data: boolean }) => 
+    post<OnboardingState>('/api/onboarding/legal', consents),
+  
+  /**
+   * Activate AI assistant.
+   */
+  activateAI: (config?: { ai_name?: string; ai_tone?: string; ai_response_style?: string }) => 
+    post<OnboardingState>('/api/onboarding/activate', config),
+  
+  /**
+   * Get first victory status.
+   */
+  getVictory: () => get('/api/onboarding/first-victory'),
+  
+  /**
+   * Mark first victory complete.
+   */
+  completeVictory: () => post('/api/onboarding/first-victory'),
 };
 
-// ==========================================
-// Onboarding API
-// ==========================================
-export const onboarding = {
-  getState: () => request("/api/onboarding"),
+// ── User Details API Endpoints ────────────────────────────────────────
 
-  setIndustryVariant: (industry: string, variant: string) =>
-    request("/api/onboarding/industry-variant", {
-      method: "POST",
-      body: JSON.stringify({ industry, variant }),
-    }),
-
-  acceptLegal: (accepted: boolean) =>
-    request("/api/onboarding/legal-consent", {
-      method: "POST",
-      body: JSON.stringify({ accepted }),
-    }),
-
-  completeStep: (step: number) =>
-    request("/api/onboarding/complete-step", {
-      method: "POST",
-      body: JSON.stringify({ step }),
-    }),
-
-  activate: () =>
-    request("/api/onboarding/activate", { method: "POST" }),
-
-  getFirstVictory: () => request("/api/onboarding/first-victory"),
-
-  getPrerequisites: () => request("/api/onboarding/prerequisites"),
+export const userDetailsApi = {
+  /**
+   * Get current user details.
+   */
+  get: () => get<UserDetails>('/api/user/details'),
+  
+  /**
+   * Create user details.
+   */
+  create: (data: {
+    full_name: string;
+    company_name: string;
+    work_email?: string;
+    industry: string;
+    company_size?: string;
+    website?: string;
+  }) => post<UserDetails>('/api/user/details', data),
+  
+  /**
+   * Update user details.
+   */
+  update: (data: Partial<{
+    full_name: string;
+    company_name: string;
+    work_email: string;
+    industry: string;
+    company_size: string;
+    website: string;
+  }>) => patch<UserDetails>('/api/user/details', data),
+  
+  /**
+   * Send work email verification.
+   */
+  sendVerification: (work_email: string) => 
+    post('/api/verification/send-otp', { email: work_email }),
+  
+  /**
+   * Confirm work email verification.
+   */
+  confirmVerification: (token: string) => 
+    post('/api/verification/verify-otp', { code: token }),
 };
 
-// ==========================================
-// Integrations API
-// ==========================================
-export const integrations = {
+// ── Integration API Endpoints ──────────────────────────────────────────
+
+export const integrationsApi = {
+  /**
+   * Get available integrations.
+   */
+  getAvailable: () => get('/api/integrations/available'),
+
+  /**
+   * Get integration catalog with optional industry filter.
+   */
   getCatalog: (industry?: string) =>
-    request(`/api/integrations/catalog${industry ? `?industry=${industry}` : ""}`),
+    get(`/api/integrations/catalog${industry ? `?industry=${industry}` : ''}`),
+  
+  /**
+   * Get user's integrations.
+   */
+  list: () => get('/api/integrations'),
+  
+  /**
+   * Create integration.
+   */
+  create: (data: { type: string; name: string; config: Record<string, unknown> }) => 
+    post('/api/integrations', data),
+  
+  /**
+   * Test integration connection.
+   */
+  test: (id: string) => post(`/api/integrations/${id}/test`),
+  
+  /**
+   * Delete integration.
+   */
+  delete: (id: string) => del(`/api/integrations/${id}`),
 
-  connect: (integrationId: string, authType: AuthType, credentials: Record<string, string>) =>
-    request("/api/integrations/connect", {
-      method: "POST",
-      body: JSON.stringify({ integration_id: integrationId, auth_type: authType, credentials }),
+  /**
+   * Check industry change impact on integrations.
+   */
+  industryChangeImpact: (currentIndustry: string, newIndustry: string) =>
+    post('/api/integrations/industry-change-impact', {
+      current_industry: currentIndustry,
+      new_industry: newIndustry,
     }),
 
-  disconnect: (integrationId: string) =>
-    request("/api/integrations/disconnect", {
-      method: "POST",
-      body: JSON.stringify({ integration_id: integrationId }),
-    }),
+  // ── Custom Connectors (Tier 3) ───────────────────────────────
 
-  test: (integrationId: string) =>
-    request("/api/integrations/test", {
-      method: "POST",
-      body: JSON.stringify({ integration_id: integrationId }),
-    }),
+  /**
+   * Create a custom REST connector (Tier 3).
+   */
+  createCustomConnector: (data: {
+    name: string;
+    base_url: string;
+    auth_type: string;
+    auth_config: Record<string, unknown>;
+    actions: Record<string, unknown>[];
+    description?: string;
+    test_endpoint?: string;
+  }) => post('/api/integrations/custom/connector', data),
 
-  getHealth: () => request("/api/integrations/health"),
+  /**
+   * List custom connectors.
+   */
+  listCustomConnectors: () => get('/api/integrations/custom/connectors'),
 
-  list: () => request("/api/integrations/list"),
+  /**
+   * Get a custom connector.
+   */
+  getCustomConnector: (id: string) => get(`/api/integrations/custom/connectors/${id}`),
+
+  /**
+   * Update a custom connector.
+   */
+  updateCustomConnector: (id: string, data: Record<string, unknown>) =>
+    put(`/api/integrations/custom/connectors/${id}`, data),
+
+  /**
+   * Delete a custom connector.
+   */
+  deleteCustomConnector: (id: string) => del(`/api/integrations/custom/connectors/${id}`),
+
+  /**
+   * Test a custom connector.
+   */
+  testCustomConnector: (id: string) => post(`/api/integrations/custom/connectors/${id}/test`),
+
+  // ── OpenAPI Import (Tier 2) ──────────────────────────────────
+
+  /**
+   * Import an OpenAPI spec (parse only, don't save).
+   */
+  importOpenAPI: (data: {
+    url?: string;
+    file_content?: string;
+    filename?: string;
+    name?: string;
+    base_url?: string;
+    auth_type?: string;
+    auth_config?: Record<string, unknown>;
+    actions?: Record<string, unknown>[];
+  }) => post('/api/integrations/openapi-import', data),
+
+  /**
+   * Save an OpenAPI import as a connector.
+   */
+  saveOpenAPIImport: (data: Record<string, unknown>) =>
+    post('/api/integrations/openapi-import/save', data),
 };
 
-// ==========================================
-// API Keys API (PHASE 13)
-// ==========================================
-export const apiKeys = {
-  store: (integrationId: string, authType: AuthType, credentials: Record<string, string>) =>
-    request("/api/api-keys/store", {
-      method: "POST",
-      body: JSON.stringify({ integration_id: integrationId, auth_type: authType, credentials }),
-    }),
+// ── Knowledge Base API Endpoints ───────────────────────────────────────
+// NOTE: Backend router uses /api/kb prefix (knowledge_base.py)
+// These endpoints map directly to the backend's /api/kb/* routes.
 
-  rotate: (integrationId: string, newCredentials: Record<string, string>) =>
-    request("/api/api-keys/rotate", {
-      method: "POST",
-      body: JSON.stringify({ integration_id: integrationId, new_credentials: newCredentials }),
-    }),
-
-  revoke: (integrationId: string) =>
-    request("/api/api-keys/revoke", {
-      method: "DELETE",
-      body: JSON.stringify({ integration_id: integrationId }),
-    }),
-
-  test: (integrationId: string) =>
-    request("/api/api-keys/test", {
-      method: "POST",
-      body: JSON.stringify({ integration_id: integrationId }),
-    }),
-
-  list: () => request("/api/api-keys/list"),
-};
-
-// ==========================================
-// Audit API (Phase 9)
-// ==========================================
-export const audit = {
-  getEntries: (params?: { category?: string; severity?: string; date_from?: string; date_to?: string; limit?: number; offset?: number }) => {
-    const searchParams = new URLSearchParams();
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined) searchParams.set(key, String(value));
-      });
-    }
-    return request(`/api/audit/entries?${searchParams.toString()}`);
-  },
-
-  getStats: () => request("/api/audit/stats"),
-
-  exportLogs: (format: "json" | "csv" = "json") =>
-    request(`/api/audit/export?format=${format}`),
-
-  getAlerts: () => request("/api/audit/alerts"),
-
-  log: (action: string, actor?: string, resourceType?: string, resourceId?: string, details?: Record<string, unknown>, severity: string = "info") =>
-    request("/api/audit/log", {
-      method: "POST",
-      body: JSON.stringify({ action, actor, resource_type: resourceType, resource_id: resourceId, details, severity }),
-    }),
-};
-
-// ==========================================
-// Variants API (PHASE 14)
-// ==========================================
-export const variants = {
-  list: () => request("/api/variants/list"),
-
-  add: (variantType: string) =>
-    request("/api/variants/add", {
-      method: "POST",
-      body: JSON.stringify({ variant_type: variantType }),
-    }),
-
-  remove: (variantId: string) =>
-    request("/api/variants/remove", {
-      method: "DELETE",
-      body: JSON.stringify({ variant_id: variantId }),
-    }),
-
-  getUsage: () => request("/api/variants/usage"),
-
-  routeTicket: (intent: string, complexityScore: number) =>
-    request("/api/variants/route-ticket", {
-      method: "POST",
-      body: JSON.stringify({ intent, complexity_score: complexityScore }),
-    }),
-};
-
-// ==========================================
-// AI Tools API (PHASE 14)
-// ==========================================
-export const aiTools = {
-  getAvailable: () => request("/api/ai-tools/available"),
-
-  selectTool: (ticketIntent: string) =>
-    request("/api/ai-tools/select", {
-      method: "POST",
-      body: JSON.stringify({ ticket_intent: ticketIntent }),
-    }),
-
-  getPrompt: () => request("/api/ai-tools/prompt"),
-};
-
-// ==========================================
-// Data Flow API (PHASE 15 — GAP 13)
-// ==========================================
-export const dataflow = {
-  getCircuitStates: () => request("/api/dataflow/circuit-states"),
-
-  resetCircuit: (integrationId: string) =>
-    request("/api/dataflow/reset-circuit", {
-      method: "POST",
-      body: JSON.stringify({ integration_id: integrationId }),
-    }),
-
-  getCacheStats: () => request("/api/dataflow/cache-stats"),
-
-  invalidateCache: (integrationId: string, path?: string) =>
-    request("/api/dataflow/invalidate-cache", {
-      method: "POST",
-      body: JSON.stringify({ integration_id: integrationId, path }),
-    }),
-
-  getHealth: () => request("/api/dataflow/health"),
-
-  getErrorCodes: () => request("/api/dataflow/error-codes"),
-};
-
-// ==========================================
-// Webhooks API (PHASE 16 — Gap A)
-// ==========================================
-export const webhooks = {
-  register: (integrationId: string, events: string[] = []) =>
-    request("/api/webhooks/register", {
-      method: "POST",
-      body: JSON.stringify({ integration_id: integrationId, events }),
-    }),
-
-  getEvents: (params?: { source?: string; event_type?: string; status?: string; limit?: number; offset?: number }) => {
-    const searchParams = new URLSearchParams();
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined) searchParams.set(key, String(value));
-      });
-    }
-    return request(`/api/webhooks/events?${searchParams.toString()}`);
-  },
-
-  retryEvent: (eventId: string) =>
-    request(`/api/webhooks/events/${eventId}/retry`, { method: "POST" }),
-
-  getConfigs: () => request("/api/webhooks/configs"),
-};
-
-// ==========================================
-// Notifications API (PHASE 16 — GAP 12)
-// ==========================================
-export const notifications = {
-  list: (params?: { category?: string; severity?: string; read?: boolean; limit?: number; offset?: number }) => {
-    const searchParams = new URLSearchParams();
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined) searchParams.set(key, String(value));
-      });
-    }
-    return request(`/api/notifications/list?${searchParams.toString()}`);
-  },
-
-  getUnreadCount: () => request("/api/notifications/unread-count"),
-
-  markRead: (notificationId?: string) =>
-    request("/api/notifications/mark-read", {
-      method: "POST",
-      body: JSON.stringify({ notification_id: notificationId || null }),
-    }),
-
-  create: (category: string, title: string, body?: string, severity: string = "info", actionUrl?: string) =>
-    request("/api/notifications/create", {
-      method: "POST",
-      body: JSON.stringify({ category, severity, title, body, action_url: actionUrl }),
-    }),
-
-  getPreferences: () => request("/api/notifications/preferences"),
-
-  delete: (notificationId: string) =>
-    request(`/api/notifications/${notificationId}`, { method: "DELETE" }),
-};
-
-// ==========================================
-// Knowledge Base API (PHASE 16 — GAP 7)
-// ==========================================
-export const kb = {
-  upload: async (file: File) => {
+export const knowledgeApi = {
+  /**
+   * Upload document.
+   */
+  upload: async (file: File, onProgress?: (progress: number) => void) => {
     const formData = new FormData();
-    formData.append("file", file);
-    const res = await fetch("/api/kb/upload", { method: "POST", body: formData });
-    return { data: await res.json(), status: res.status };
+    formData.append('file', file);
+    
+    const response = await apiClient.post('/api/kb/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(progress);
+        }
+      },
+    });
+    
+    return response.data;
   },
+  
+  /**
+   * List documents.
+   */
+  list: () => get('/api/kb/documents'),
+  
+  /**
+   * Get document status.
+   */
+  getStatus: (id: string) => get(`/api/kb/documents/${id}`),
+  
+  /**
+   * Delete document.
+   */
+  delete: (id: string) => del(`/api/kb/documents/${id}`),
+  
+  /**
+   * Retry a failed document.
+   */
+  retry: (id: string) => post(`/api/kb/documents/${id}/retry`),
+  
+  /**
+   * Re-index a completed document.
+   */
+  reindex: (id: string) => post(`/api/kb/documents/${id}/reindex`),
+  
+  /**
+   * Get knowledge base statistics.
+   */
+  getStats: () => get('/api/kb/stats'),
+  
+  /**
+   * Retry all failed documents.
+   */
+  retryAllFailed: () => post('/api/kb/retry-failed'),
+};
 
-  listDocuments: (params?: { status?: string; limit?: number; offset?: number }) => {
-    const searchParams = new URLSearchParams();
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined) searchParams.set(key, String(value));
-      });
+// ── Auth API Endpoints ──────────────────────────────────────────────────
+
+export const authApi = {
+  /**
+   * Register a new user.
+   */
+  register: (data: RegisterRequest) => post<AuthResponse>('/api/auth/register', data),
+  
+  /**
+   * Login with email and password.
+   */
+  login: (data: LoginRequest) => post<AuthResponse>('/api/auth/login', data),
+  
+  /**
+   * Login with Google OAuth.
+   *
+   * IMPORTANT: Always uses the Next.js API route (/api/auth/google) instead
+   * of going directly to the backend. The Next.js route handles backend
+   * unavailability, non-JSON responses, and local fallback gracefully.
+   * This prevents "Unexpected token" JSON parse errors when the backend
+   * returns non-JSON (e.g. Render proxy errors, cold start timeouts).
+   */
+  googleAuth: async (data: GoogleAuthRequest): Promise<AuthResponse> => {
+    // Use fetch directly to the Next.js route — not through axios/apiClient.
+    // This ensures we always hit the Next.js API route which has robust
+    // error handling and always returns JSON, even when the backend is down.
+    const res = await fetch('/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    // Safe JSON parsing — handle non-JSON responses gracefully
+    let result: Record<string, unknown>;
+    try {
+      const text = await res.text();
+      try {
+        result = JSON.parse(text);
+      } catch {
+        throw new Error(
+          res.ok
+            ? 'Received an unexpected response from the server.'
+            : `Server error (${res.status}). Please try again.`
+        );
+      }
+    } catch (parseErr) {
+      throw parseErr instanceof Error ? parseErr : new Error('Failed to read server response.');
     }
-    return request(`/api/kb/documents?${searchParams.toString()}`);
+
+    if (result.status === 'error') {
+      throw new Error(String(result.message || 'Google sign-in failed. Please try again.'));
+    }
+
+    // Map Next.js route response to AuthResponse format
+    const user = result.user as Record<string, unknown> | undefined;
+    return {
+      user: {
+        id: String(user?.id || ''),
+        email: String(user?.email || ''),
+        full_name: String(user?.fullName || user?.full_name || ''),
+        phone: null,
+        avatar_url: user?.avatarUrl ? String(user.avatarUrl) : null,
+        role: String(user?.role || 'member'),
+        is_active: Boolean(user?.isActive ?? user?.is_active ?? true),
+        is_verified: Boolean(user?.isVerified ?? user?.is_verified ?? true),
+        company_id: String(user?.companyId || user?.company_id || ''),
+        company_name: user?.companyName ? String(user.companyName) : null,
+        created_at: user?.createdAt ? String(user.createdAt) : null,
+      },
+      tokens: (result.tokens as TokenResponse) || {
+        access_token: '',
+        refresh_token: '',
+        token_type: 'bearer',
+        expires_in: 900,
+      },
+      is_new_user: Boolean(result.is_new_user),
+    } as AuthResponse;
   },
-
-  deleteDocument: (documentId: string) =>
-    request(`/api/kb/documents/${documentId}`, { method: "DELETE" }),
-
-  search: (query: string, topK: number = 5) =>
-    request("/api/kb/search", {
-      method: "POST",
-      body: JSON.stringify({ query, top_k: topK }),
-    }),
-
-  getStats: () => request("/api/kb/stats"),
+  
+  /**
+   * Logout user.
+   * C-03 FIX: Backend reads refresh_token from httpOnly cookie (parwa_rt).
+   */
+  logout: () => post<MessageResponse>('/api/auth/logout', {}),
+  
+  /**
+   * Refresh tokens.
+   * C-03 FIX: Backend reads refresh_token from httpOnly cookie (parwa_rt)
+   * and sets new httpOnly cookies in the response.
+   */
+  refresh: () => post<TokenResponse>('/api/auth/refresh', {}),
+  
+  /**
+   * Get current user profile.
+   */
+  getMe: () => get<User>('/api/auth/me'),
+  
+  /**
+   * Check email availability.
+   */
+  checkEmail: (email: string) => get<EmailCheckResponse>(`/api/auth/check-email?email=${encodeURIComponent(email)}`),
+  
+  /**
+   * Verify email with token.
+   */
+  verifyEmail: (token: string) => get<MessageResponse>(`/api/auth/verify?token=${encodeURIComponent(token)}`),
+  
+  /**
+   * Resend verification email.
+   */
+  resendVerification: (email: string) => post<MessageResponse>('/api/auth/resend-verification', { email }),
+  
+  /**
+   * Request password reset.
+   */
+  forgotPassword: (email: string) => post<MessageResponse>('/api/auth/forgot-password', { email }),
+  
+  /**
+   * Reset password with token.
+   */
+  resetPassword: (token: string, new_password: string) => 
+    post<MessageResponse>('/api/auth/reset-password', { token, new_password }),
 };
 
-// ==========================================
-// Industry API (PHASE 16 — GAP 10)
-// ==========================================
-export const industry = {
-  getCurrent: () => request("/api/industry/current"),
-
-  list: () => request("/api/industry/list"),
-
-  previewChange: (newIndustry: string) =>
-    request("/api/industry/preview-change", {
-      method: "POST",
-      body: JSON.stringify({ industry: newIndustry }),
-    }),
-
-  change: (newIndustry: string) =>
-    request("/api/industry/change", {
-      method: "POST",
-      body: JSON.stringify({ industry: newIndustry }),
-    }),
-};
-
-// ==========================================
-// Verification API (PHASE 16 — E2E Proof)
-// ==========================================
-export const verification = {
-  run: () => request("/api/verification/run"),
-
-  getTrace: () => request("/api/verification/trace"),
-};
-
-export const api = {
-  auth,
-  onboarding,
-  integrations,
-  apiKeys,
-  audit,
-  variants,
-  aiTools,
-  dataflow,
-  webhooks,
-  notifications,
-  kb,
-  industry,
-  verification,
-};
+export default apiClient;

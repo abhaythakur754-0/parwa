@@ -1,51 +1,30 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import { Toaster } from "@/components/ui/toaster";
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { ClientToaster } from '@/components/ClientToaster';
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+const inter = Inter({ subsets: ['latin'] });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: "PARWA - AI-Powered Customer Support Platform",
-  description: "Transform your customer support with PARWA. AI-powered ticket routing, knowledge base search, and 30+ integrations. Save up to 70% compared to hiring human agents.",
-  keywords: ["PARWA", "AI", "Customer Support", "Helpdesk", "Automation", "Next.js", "TypeScript"],
-  authors: [{ name: "PARWA Team" }],
-  icons: {
-    icon: "/logo.svg",
-  },
-  openGraph: {
-    title: "PARWA - AI-Powered Customer Support",
-    description: "Transform your customer support with intelligent AI",
-    siteName: "PARWA",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "PARWA - AI-Powered Customer Support",
-    description: "Transform your customer support with intelligent AI",
-  },
+  title: 'PARWA - AI Customer Support',
+  description: 'AI-powered customer support platform',
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
-      >
-        {children}
-        <Toaster />
+    <html lang="en">
+      <body className={inter.className}>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+        <ClientToaster />
       </body>
     </html>
   );

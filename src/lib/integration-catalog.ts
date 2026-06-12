@@ -1,639 +1,992 @@
-export type AuthType = "bearer" | "header" | "query" | "basic" | "oauth2";
+/**
+ * PARWA Unified Integration Catalog
+ *
+ * SINGLE SOURCE OF TRUTH for all integration metadata.
+ * Used by: Onboarding IntegrationStep, Settings Integrations tab, BFF routes.
+ *
+ * Per D2: All variants get UNLIMITED integrations.
+ * Per D4: Three integration tiers — Pre-built, OpenAPI Import, Custom REST.
+ * Per D6: Each integration has a pre-written HTTP test call (NO AI).
+ * Per GAP 2: Universal API key system with 5 auth types.
+ * Per GAP 3: Full catalog per industry (suggestions, not restrictions).
+ */
 
-export interface AuthSchemaField {
+// ── Auth Types (GAP 2) ──────────────────────────────────────────────────
+
+export type AuthType = 'bearer' | 'api_key_header' | 'api_key_query' | 'basic_auth' | 'oauth2';
+
+export interface AuthField {
   name: string;
   label: string;
-  type: "text" | "password" | "email";
+  type: 'text' | 'password' | 'url';
   required: boolean;
+  placeholder?: string;
 }
 
 export interface AuthSchema {
-  fields: AuthSchemaField[];
+  type: AuthType;
+  fields: AuthField[];
+  /** Header name for api_key_header auth */
+  headerName?: string;
+  /** Query param name for api_key_query auth */
+  queryParamName?: string;
+  /** OAuth2 redirect URI */
+  redirectUri?: string;
 }
 
-export interface TestConfig {
-  method: string;
-  url: string;
-  headers?: Record<string, string>;
-  auth?: { username: string; password: string };
-  body?: string;
-}
+// ── Integration Category ────────────────────────────────────────────────
 
-export interface Integration {
-  id: string;
+export type IntegrationCategory =
+  | 'crm'
+  | 'ecommerce'
+  | 'helpdesk'
+  | 'communication'
+  | 'analytics'
+  | 'marketing'
+  | 'payments'
+  | 'shipping'
+  | 'dev_tools'
+  | 'productivity'
+  | 'custom';
+
+// ── Integration Tier (D4) ──────────────────────────────────────────────
+
+export type IntegrationTier = 'tier1_prebuilt' | 'tier2_openapi' | 'tier3_custom';
+
+// ── Industry (D1 — 4 industries only) ──────────────────────────────────
+
+export type ParwaIndustry = 'saas' | 'ecommerce' | 'logistics' | 'other';
+
+// ── Integration Definition ─────────────────────────────────────────────
+
+export interface IntegrationDefinition {
+  /** Machine key — also used as integration_type in DB */
+  key: string;
+  /** Display name */
   name: string;
-  category: string;
-  auth_type: AuthType;
-  auth_schema: AuthSchema;
-  test_config: TestConfig;
-  tier: number;
+  /** Short description for UI */
   description: string;
-  industries: string[];
+  /** Category for grouping in UI */
+  category: IntegrationCategory;
+  /** Which tier this belongs to */
+  tier: IntegrationTier;
+  /** Auth schema — defines the credential form (GAP 2) */
+  authSchema: AuthSchema;
+  /** Pre-written test call (D6 — NO AI) */
+  testConnection: {
+    method: 'GET' | 'POST';
+    /** URL template — {field_name} replaced with credential values */
+    urlTemplate: string;
+    /** Header template — {field_name} replaced with credential values */
+    headersTemplate?: Record<string, string>;
+    /** How to interpret the response */
+    successCheck: 'status_200' | 'json_ok_true' | 'status_200_or_201';
+    /** What to show on success — {response_json_path} for dynamic values */
+    successMessage?: string;
+  };
+  /** Industries where this integration is SUGGESTED (not restricted to) */
+  suggestedIndustries: ParwaIndustry[];
+  /** Which variants can use this (empty = all) */
+  availableForVariants?: ('mini_parwa' | 'parwa' | 'parwa_high')[];
+  /** Icon identifier for frontend rendering */
+  iconId: string;
+  /** Icon color gradient for frontend */
+  colorGradient: string;
+  /** Whether this integration is available */
+  available: boolean;
 }
 
-export const INTEGRATION_CATALOG: Integration[] = [
-  // ===== CRM =====
+// ── The Unified Catalog ────────────────────────────────────────────────
+
+export const INTEGRATION_CATALOG: IntegrationDefinition[] = [
+  // ─── CRM ───────────────────────────────────────────────────────
   {
-    id: "hubspot",
-    name: "HubSpot",
-    category: "crm",
-    auth_type: "bearer",
-    auth_schema: {
-      fields: [{ name: "api_key", label: "HubSpot API Key", type: "password", required: true }],
-    },
-    test_config: {
-      method: "GET",
-      url: "https://api.hubapi.com/crm/v3/contacts?limit=1",
-      headers: { Authorization: "Bearer {api_key}" },
-    },
-    tier: 1,
-    description: "CRM platform for managing contacts, deals, and customer relationships",
-    industries: ["saas", "ecommerce", "logistics", "other"],
-  },
-  {
-    id: "salesforce",
-    name: "Salesforce",
-    category: "crm",
-    auth_type: "bearer",
-    auth_schema: {
+    key: 'hubspot',
+    name: 'HubSpot',
+    description: 'Look up customers, deals, and contact info from HubSpot CRM.',
+    category: 'crm',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'bearer',
       fields: [
-        { name: "access_token", label: "Salesforce Access Token", type: "password", required: true },
-        { name: "instance_url", label: "Instance URL", type: "text", required: true },
+        { name: 'api_key', label: 'HubSpot API Key', type: 'password', required: true, placeholder: 'pat-xxx-xxx' },
       ],
     },
-    test_config: {
-      method: "GET",
-      url: "{instance_url}/services/data/v58.0/query?q=SELECT+Id+FROM+Account+LIMIT+1",
-      headers: { Authorization: "Bearer {access_token}" },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://api.hubapi.com/crm/v3/contacts?limit=1',
+      headersTemplate: { 'Authorization': 'Bearer {api_key}' },
+      successCheck: 'status_200',
+      successMessage: 'Connected to HubSpot CRM',
     },
-    tier: 1,
-    description: "Enterprise CRM for sales, service, and marketing automation",
-    industries: ["saas", "logistics", "other"],
+    suggestedIndustries: ['saas', 'ecommerce', 'logistics', 'other'],
+    iconId: 'hubspot',
+    colorGradient: 'from-orange-500 to-orange-400',
+    available: true,
   },
   {
-    id: "pipedrive",
-    name: "Pipedrive",
-    category: "crm",
-    auth_type: "query",
-    auth_schema: {
-      fields: [{ name: "api_token", label: "Pipedrive API Token", type: "password", required: true }],
-    },
-    test_config: {
-      method: "GET",
-      url: "https://api.pipedrive.com/v1/users/me?api_token={api_token}",
-    },
-    tier: 1,
-    description: "Sales CRM for managing pipelines and deals",
-    industries: ["saas", "other"],
-  },
-  // ===== E-commerce =====
-  {
-    id: "shopify",
-    name: "Shopify",
-    category: "ecommerce",
-    auth_type: "header",
-    auth_schema: {
+    key: 'salesforce',
+    name: 'Salesforce',
+    description: 'Access customer records, opportunities, and cases from Salesforce.',
+    category: 'crm',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'oauth2',
       fields: [
-        { name: "access_token", label: "Shopify Access Token", type: "password", required: true },
-        { name: "shop_domain", label: "Shop Domain (e.g. mystore.myshopify.com)", type: "text", required: true },
+        { name: 'client_id', label: 'Consumer Key', type: 'text', required: true, placeholder: '3MVG9...' },
+        { name: 'client_secret', label: 'Consumer Secret', type: 'password', required: true },
+        { name: 'instance_url', label: 'Instance URL', type: 'url', required: true, placeholder: 'https://na1.salesforce.com' },
+        { name: 'refresh_token', label: 'Refresh Token', type: 'password', required: true },
       ],
     },
-    test_config: {
-      method: "GET",
-      url: "https://{shop_domain}/admin/api/2024-01/shop.json",
-      headers: { "X-Shopify-Access-Token": "{access_token}" },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: '{instance_url}/services/data/v60.0/',
+      headersTemplate: { 'Authorization': 'Bearer {refresh_token}' },
+      successCheck: 'status_200',
+      successMessage: 'Connected to Salesforce',
     },
-    tier: 1,
-    description: "E-commerce platform for online stores and retail",
-    industries: ["ecommerce", "other"],
+    suggestedIndustries: ['saas', 'logistics', 'other'],
+    iconId: 'salesforce',
+    colorGradient: 'from-blue-500 to-blue-400',
+    available: true,
   },
   {
-    id: "woocommerce",
-    name: "WooCommerce",
-    category: "ecommerce",
-    auth_type: "basic",
-    auth_schema: {
+    key: 'pipedrive',
+    name: 'Pipedrive',
+    description: 'Manage deals, contacts, and pipelines from Pipedrive CRM.',
+    category: 'crm',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'api_key_query',
       fields: [
-        { name: "consumer_key", label: "Consumer Key", type: "password", required: true },
-        { name: "consumer_secret", label: "Consumer Secret", type: "password", required: true },
-        { name: "store_url", label: "Store URL", type: "text", required: true },
+        { name: 'api_token', label: 'API Token', type: 'password', required: true, placeholder: 'xxx123abc' },
+        { name: 'company_domain', label: 'Company Domain', type: 'text', required: true, placeholder: 'yourcompany' },
       ],
     },
-    test_config: {
-      method: "GET",
-      url: "{store_url}/wp-json/wc/v3/system_status",
-      auth: { username: "{consumer_key}", password: "{consumer_secret}" },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://{company_domain}.pipedrive.com/api/v1/users/me?api_token={api_token}',
+      successCheck: 'json_ok_true',
+      successMessage: 'Connected to Pipedrive',
     },
-    tier: 1,
-    description: "WordPress-based e-commerce platform",
-    industries: ["ecommerce", "other"],
+    suggestedIndustries: ['saas', 'other'],
+    iconId: 'pipedrive',
+    colorGradient: 'from-green-500 to-green-400',
+    available: true,
+  },
+
+  // ─── ECOMMERCE ─────────────────────────────────────────────────
+  {
+    key: 'shopify',
+    name: 'Shopify',
+    description: 'Look up orders, products, and inventory from your Shopify store.',
+    category: 'ecommerce',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'api_key_header',
+      fields: [
+        { name: 'store_url', label: 'Store URL', type: 'url', required: true, placeholder: 'your-store.myshopify.com' },
+        { name: 'access_token', label: 'Access Token', type: 'password', required: true, placeholder: 'shpat_xxx' },
+      ],
+      headerName: 'X-Shopify-Access-Token',
+    },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://{store_url}/admin/api/2024-01/shop.json',
+      headersTemplate: { 'X-Shopify-Access-Token': '{access_token}' },
+      successCheck: 'status_200',
+      successMessage: 'Connected to Shopify store',
+    },
+    suggestedIndustries: ['ecommerce', 'other'],
+    iconId: 'shopify',
+    colorGradient: 'from-green-500 to-emerald-400',
+    available: true,
   },
   {
-    id: "bigcommerce",
-    name: "BigCommerce",
-    category: "ecommerce",
-    auth_type: "bearer",
-    auth_schema: {
+    key: 'woocommerce',
+    name: 'WooCommerce',
+    description: 'Access orders, products, and customers from your WooCommerce store.',
+    category: 'ecommerce',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'basic_auth',
       fields: [
-        { name: "access_token", label: "BigCommerce Access Token", type: "password", required: true },
-        { name: "store_hash", label: "Store Hash", type: "text", required: true },
+        { name: 'store_url', label: 'Store URL', type: 'url', required: true, placeholder: 'https://yourstore.com' },
+        { name: 'consumer_key', label: 'Consumer Key', type: 'text', required: true, placeholder: 'ck_xxx' },
+        { name: 'consumer_secret', label: 'Consumer Secret', type: 'password', required: true, placeholder: 'cs_xxx' },
       ],
     },
-    test_config: {
-      method: "GET",
-      url: "https://api.bigcommerce.com/stores/{store_hash}/v2/store",
-      headers: { "X-Auth-Token": "{access_token}", Accept: "application/json" },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: '{store_url}/wp-json/wc/v3/system_status',
+      successCheck: 'status_200',
+      successMessage: 'Connected to WooCommerce',
     },
-    tier: 1,
-    description: "Enterprise e-commerce platform for growing businesses",
-    industries: ["ecommerce", "other"],
+    suggestedIndustries: ['ecommerce', 'other'],
+    iconId: 'woocommerce',
+    colorGradient: 'from-purple-500 to-purple-400',
+    available: true,
   },
-  // ===== Helpdesk =====
   {
-    id: "zendesk",
-    name: "Zendesk",
-    category: "helpdesk",
-    auth_type: "basic",
-    auth_schema: {
+    key: 'bigcommerce',
+    name: 'BigCommerce',
+    description: 'Manage products, orders, and customers from your BigCommerce store.',
+    category: 'ecommerce',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'api_key_header',
       fields: [
-        { name: "email", label: "Zendesk Email", type: "email", required: true },
-        { name: "api_token", label: "API Token", type: "password", required: true },
-        { name: "subdomain", label: "Subdomain", type: "text", required: true },
+        { name: 'store_hash', label: 'Store Hash', type: 'text', required: true, placeholder: 'abc123' },
+        { name: 'access_token', label: 'Access Token', type: 'password', required: true, placeholder: 'xxx' },
+      ],
+      headerName: 'X-Auth-Token',
+    },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://api.bigcommerce.com/stores/{store_hash}/v2/store',
+      headersTemplate: { 'X-Auth-Token': '{access_token}', 'Accept': 'application/json' },
+      successCheck: 'status_200',
+      successMessage: 'Connected to BigCommerce',
+    },
+    suggestedIndustries: ['ecommerce', 'other'],
+    iconId: 'bigcommerce',
+    colorGradient: 'from-indigo-500 to-indigo-400',
+    available: true,
+  },
+
+  // ─── HELPDESK ──────────────────────────────────────────────────
+  {
+    key: 'zendesk',
+    name: 'Zendesk',
+    description: 'Manage tickets, contacts, and knowledge base from Zendesk.',
+    category: 'helpdesk',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'basic_auth',
+      fields: [
+        { name: 'subdomain', label: 'Subdomain', type: 'text', required: true, placeholder: 'your-company' },
+        { name: 'email', label: 'Email', type: 'text', required: true, placeholder: 'admin@company.com' },
+        { name: 'api_token', label: 'API Token', type: 'password', required: true, placeholder: 'zendesk_api_token' },
       ],
     },
-    test_config: {
-      method: "GET",
-      url: "https://{subdomain}.zendesk.com/api/v2/tickets/count",
-      auth: { username: "{email}/token", password: "{api_token}" },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://{subdomain}.zendesk.com/api/v2/users/me.json',
+      successCheck: 'status_200',
+      successMessage: 'Connected to Zendesk',
     },
-    tier: 1,
-    description: "Customer support and ticketing platform",
-    industries: ["saas", "ecommerce", "logistics", "other"],
+    suggestedIndustries: ['saas', 'ecommerce', 'logistics', 'other'],
+    iconId: 'zendesk',
+    colorGradient: 'from-green-500 to-green-400',
+    available: true,
   },
   {
-    id: "freshdesk",
-    name: "Freshdesk",
-    category: "helpdesk",
-    auth_type: "basic",
-    auth_schema: {
+    key: 'freshdesk',
+    name: 'Freshdesk',
+    description: 'Access tickets, contacts, and solutions from Freshdesk.',
+    category: 'helpdesk',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'basic_auth',
       fields: [
-        { name: "api_key", label: "Freshdesk API Key", type: "password", required: true },
-        { name: "domain", label: "Domain (e.g. mycompany.freshdesk.com)", type: "text", required: true },
+        { name: 'domain', label: 'Domain', type: 'text', required: true, placeholder: 'yourcompany' },
+        { name: 'api_key', label: 'API Key', type: 'password', required: true, placeholder: 'freshdesk_api_key' },
       ],
     },
-    test_config: {
-      method: "GET",
-      url: "https://{domain}/api/v2/tickets?per_page=1",
-      auth: { username: "{api_key}", password: "X" },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://{domain}.freshdesk.com/api/v2/agents/me',
+      successCheck: 'status_200',
+      successMessage: 'Connected to Freshdesk',
     },
-    tier: 1,
-    description: "Freshworks customer support platform",
-    industries: ["saas", "logistics", "other"],
+    suggestedIndustries: ['saas', 'logistics', 'other'],
+    iconId: 'freshdesk',
+    colorGradient: 'from-blue-500 to-blue-400',
+    available: true,
   },
   {
-    id: "intercom",
-    name: "Intercom",
-    category: "helpdesk",
-    auth_type: "bearer",
-    auth_schema: {
-      fields: [{ name: "access_token", label: "Intercom Access Token", type: "password", required: true }],
-    },
-    test_config: {
-      method: "GET",
-      url: "https://api.intercom.io/admins",
-      headers: { Authorization: "Bearer {access_token}", Accept: "application/json" },
-    },
-    tier: 1,
-    description: "Customer messaging and engagement platform",
-    industries: ["saas", "other"],
-  },
-  {
-    id: "gorgias",
-    name: "Gorgias",
-    category: "helpdesk",
-    auth_type: "basic",
-    auth_schema: {
+    key: 'intercom',
+    name: 'Intercom',
+    description: 'Access conversations, contacts, and help center from Intercom.',
+    category: 'helpdesk',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'bearer',
       fields: [
-        { name: "email", label: "Gorgias Email", type: "email", required: true },
-        { name: "api_key", label: "API Key", type: "password", required: true },
-        { name: "domain", label: "Domain (e.g. mycompany.gorgias.com)", type: "text", required: true },
+        { name: 'access_token', label: 'Access Token', type: 'password', required: true, placeholder: 'dG9rZW4...' },
       ],
     },
-    test_config: {
-      method: "GET",
-      url: "https://{domain}/api/tickets/?limit=1",
-      auth: { username: "{email}", password: "{api_key}" },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://api.intercom.io/me',
+      headersTemplate: { 'Authorization': 'Bearer {access_token}', 'Accept': 'application/json' },
+      successCheck: 'status_200',
+      successMessage: 'Connected to Intercom',
     },
-    tier: 1,
-    description: "E-commerce helpdesk with automation",
-    industries: ["ecommerce", "other"],
-  },
-  // ===== Analytics =====
-  {
-    id: "mixpanel",
-    name: "Mixpanel",
-    category: "analytics",
-    auth_type: "basic",
-    auth_schema: {
-      fields: [{ name: "api_secret", label: "Mixpanel API Secret", type: "password", required: true }],
-    },
-    test_config: {
-      method: "GET",
-      url: "https://mixpanel.com/api/2.0/engage?project_id=test",
-      auth: { username: "{api_secret}", password: "" },
-    },
-    tier: 2,
-    description: "Product analytics for user behavior tracking",
-    industries: ["saas", "other"],
+    suggestedIndustries: ['saas', 'other'],
+    iconId: 'intercom',
+    colorGradient: 'from-blue-600 to-blue-500',
+    available: true,
   },
   {
-    id: "amplitude",
-    name: "Amplitude",
-    category: "analytics",
-    auth_type: "bearer",
-    auth_schema: {
-      fields: [{ name: "api_key", label: "Amplitude API Key", type: "password", required: true }],
-    },
-    test_config: {
-      method: "POST",
-      url: "https://amplitude.com/api/2/userprivacy/deletion",
-      headers: { Authorization: "Bearer {api_key}" },
-    },
-    tier: 2,
-    description: "Digital analytics and product intelligence platform",
-    industries: ["saas", "other"],
-  },
-  {
-    id: "google_analytics",
-    name: "Google Analytics",
-    category: "analytics",
-    auth_type: "oauth2",
-    auth_schema: {
+    key: 'gorgias',
+    name: 'Gorgias',
+    description: 'Manage e-commerce support tickets from Gorgias.',
+    category: 'helpdesk',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'basic_auth',
       fields: [
-        { name: "access_token", label: "Google OAuth Access Token", type: "password", required: true },
-        { name: "refresh_token", label: "Google OAuth Refresh Token", type: "password", required: true },
-        { name: "property_id", label: "GA4 Property ID", type: "text", required: true },
+        { name: 'domain', label: 'Domain', type: 'text', required: true, placeholder: 'yourcompany' },
+        { name: 'email', label: 'Email', type: 'text', required: true, placeholder: 'admin@company.com' },
+        { name: 'api_key', label: 'API Key', type: 'password', required: true },
       ],
     },
-    test_config: {
-      method: "GET",
-      url: "https://analyticsdata.googleapis.com/v1beta/properties/{property_id}/metadata",
-      headers: { Authorization: "Bearer {access_token}" },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://{domain}.gorgias.com/api/users/me',
+      successCheck: 'status_200',
+      successMessage: 'Connected to Gorgias',
     },
-    tier: 2,
-    description: "Web analytics and reporting platform",
-    industries: ["ecommerce", "other"],
+    suggestedIndustries: ['ecommerce', 'other'],
+    iconId: 'gorgias',
+    colorGradient: 'from-teal-500 to-teal-400',
+    available: true,
   },
-  // ===== Email Marketing =====
+
+  // ─── COMMUNICATION ─────────────────────────────────────────────
   {
-    id: "klaviyo",
-    name: "Klaviyo",
-    category: "email_marketing",
-    auth_type: "bearer",
-    auth_schema: {
-      fields: [{ name: "api_key", label: "Klaviyo Private API Key", type: "password", required: true }],
-    },
-    test_config: {
-      method: "GET",
-      url: "https://a.klaviyo.com/api/profiles/?page[size]=1",
-      headers: { Authorization: "Klaviyo-API-Key {api_key}", accept: "application/json", revision: "2024-02-15" },
-    },
-    tier: 2,
-    description: "Email marketing and SMS platform for e-commerce",
-    industries: ["ecommerce", "other"],
-  },
-  {
-    id: "mailchimp",
-    name: "Mailchimp",
-    category: "email_marketing",
-    auth_type: "bearer",
-    auth_schema: {
-      fields: [{ name: "api_key", label: "Mailchimp API Key", type: "password", required: true }],
-    },
-    test_config: {
-      method: "GET",
-      url: "https://us1.api.mailchimp.com/3.0/ping",
-      headers: { Authorization: "Bearer {api_key}" },
-    },
-    tier: 2,
-    description: "Email marketing and automation platform",
-    industries: ["saas", "ecommerce", "other"],
-  },
-  {
-    id: "brevo",
-    name: "Brevo",
-    category: "email_marketing",
-    auth_type: "bearer",
-    auth_schema: {
-      fields: [{ name: "api_key", label: "Brevo API Key", type: "password", required: true }],
-    },
-    test_config: {
-      method: "GET",
-      url: "https://api.brevo.com/v3/account",
-      headers: { "api-key": "{api_key}" },
-    },
-    tier: 2,
-    description: "Email marketing, SMS, and CRM platform",
-    industries: ["saas", "other"],
-  },
-  // ===== Payments =====
-  {
-    id: "stripe",
-    name: "Stripe",
-    category: "payments",
-    auth_type: "bearer",
-    auth_schema: {
-      fields: [{ name: "api_key", label: "Stripe Secret Key", type: "password", required: true }],
-    },
-    test_config: {
-      method: "GET",
-      url: "https://api.stripe.com/v1/balance",
-      headers: { Authorization: "Bearer {api_key}" },
-    },
-    tier: 1,
-    description: "Online payment processing platform",
-    industries: ["saas", "ecommerce", "logistics", "other"],
-  },
-  {
-    id: "paddle",
-    name: "Paddle",
-    category: "payments",
-    auth_type: "bearer",
-    auth_schema: {
-      fields: [{ name: "api_key", label: "Paddle API Key", type: "password", required: true }],
-    },
-    test_config: {
-      method: "GET",
-      url: "https://sandbox-api.paddle.com/transactions",
-      headers: { Authorization: "Bearer {api_key}" },
-    },
-    tier: 1,
-    description: "SaaS billing and payment platform",
-    industries: ["saas", "other"],
-  },
-  {
-    id: "paypal",
-    name: "PayPal",
-    category: "payments",
-    auth_type: "oauth2",
-    auth_schema: {
+    key: 'slack',
+    name: 'Slack',
+    description: 'Receive alerts, manage tickets, and respond from Slack.',
+    category: 'communication',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'bearer',
       fields: [
-        { name: "client_id", label: "PayPal Client ID", type: "text", required: true },
-        { name: "client_secret", label: "PayPal Client Secret", type: "password", required: true },
+        { name: 'bot_token', label: 'Bot Token', type: 'password', required: true, placeholder: 'xoxb-xxx' },
       ],
     },
-    test_config: {
-      method: "POST",
-      url: "https://api-m.sandbox.paypal.com/v1/oauth2/token",
-      auth: { username: "{client_id}", password: "{client_secret}" },
+    testConnection: {
+      method: 'POST',
+      urlTemplate: 'https://slack.com/api/auth.test',
+      headersTemplate: { 'Authorization': 'Bearer {bot_token}' },
+      successCheck: 'json_ok_true',
+      successMessage: 'Connected to Slack workspace',
     },
-    tier: 1,
-    description: "Global online payment platform",
-    industries: ["ecommerce", "other"],
-  },
-  // ===== Dev Tools =====
-  {
-    id: "github",
-    name: "GitHub",
-    category: "dev_tools",
-    auth_type: "bearer",
-    auth_schema: {
-      fields: [{ name: "api_key", label: "GitHub Personal Access Token", type: "password", required: true }],
-    },
-    test_config: {
-      method: "GET",
-      url: "https://api.github.com/user",
-      headers: { Authorization: "Bearer {api_key}" },
-    },
-    tier: 2,
-    description: "Code hosting and collaboration platform",
-    industries: ["saas", "other"],
+    suggestedIndustries: ['saas', 'ecommerce', 'logistics', 'other'],
+    iconId: 'slack',
+    colorGradient: 'from-purple-500 to-purple-400',
+    available: true,
   },
   {
-    id: "jira",
-    name: "Jira",
-    category: "dev_tools",
-    auth_type: "basic",
-    auth_schema: {
+    key: 'gmail',
+    name: 'Gmail',
+    description: 'Sync email conversations and auto-respond via AI.',
+    category: 'communication',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'oauth2',
       fields: [
-        { name: "email", label: "Atlassian Email", type: "email", required: true },
-        { name: "api_token", label: "API Token", type: "password", required: true },
-        { name: "domain", label: "Domain (e.g. mycompany.atlassian.net)", type: "text", required: true },
+        { name: 'client_id', label: 'Client ID', type: 'text', required: true, placeholder: 'xxx.apps.googleusercontent.com' },
+        { name: 'client_secret', label: 'Client Secret', type: 'password', required: true },
+        { name: 'refresh_token', label: 'Refresh Token', type: 'password', required: true },
       ],
     },
-    test_config: {
-      method: "GET",
-      url: "https://{domain}/rest/api/3/myself",
-      auth: { username: "{email}", password: "{api_token}" },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://www.googleapis.com/gmail/v1/users/me/profile',
+      headersTemplate: { 'Authorization': 'Bearer {refresh_token}' },
+      successCheck: 'status_200',
+      successMessage: 'Connected to Gmail',
     },
-    tier: 2,
-    description: "Project management and issue tracking",
-    industries: ["saas", "other"],
+    suggestedIndustries: ['saas', 'ecommerce', 'logistics', 'other'],
+    iconId: 'gmail',
+    colorGradient: 'from-red-500 to-red-400',
+    available: true,
   },
+
+  // ─── ANALYTICS ─────────────────────────────────────────────────
   {
-    id: "linear",
-    name: "Linear",
-    category: "dev_tools",
-    auth_type: "bearer",
-    auth_schema: {
-      fields: [{ name: "api_key", label: "Linear API Key", type: "password", required: true }],
-    },
-    test_config: {
-      method: "POST",
-      url: "https://api.linear.app/graphql",
-      headers: { Authorization: "{api_key}" },
-      body: '{"query": "{ viewer { id } }"}',
-    },
-    tier: 2,
-    description: "Modern project management for software teams",
-    industries: ["saas", "other"],
-  },
-  // ===== Shipping =====
-  {
-    id: "shipstation",
-    name: "ShipStation",
-    category: "shipping",
-    auth_type: "basic",
-    auth_schema: {
+    key: 'mixpanel',
+    name: 'Mixpanel',
+    description: 'Query user events and analytics data from Mixpanel.',
+    category: 'analytics',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'basic_auth',
       fields: [
-        { name: "api_key", label: "ShipStation API Key", type: "password", required: true },
-        { name: "api_secret", label: "ShipStation API Secret", type: "password", required: true },
+        { name: 'api_secret', label: 'API Secret', type: 'password', required: true },
       ],
     },
-    test_config: {
-      method: "GET",
-      url: "https://ssapi.shipstation.com/orders?pageSize=1",
-      auth: { username: "{api_key}", password: "{api_secret}" },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://mixpanel.com/api/2.0/engage?project_id=0',
+      headersTemplate: {},
+      successCheck: 'status_200_or_201',
+      successMessage: 'Connected to Mixpanel',
     },
-    tier: 1,
-    description: "Shipping and order fulfillment platform",
-    industries: ["ecommerce", "logistics", "other"],
+    suggestedIndustries: ['saas', 'other'],
+    iconId: 'mixpanel',
+    colorGradient: 'from-blue-500 to-indigo-400',
+    available: true,
   },
   {
-    id: "aftership",
-    name: "AfterShip",
-    category: "shipping",
-    auth_type: "bearer",
-    auth_schema: {
-      fields: [{ name: "api_key", label: "AfterShip API Key", type: "password", required: true }],
-    },
-    test_config: {
-      method: "GET",
-      url: "https://api.aftership.com/v4/couriers",
-      headers: { "aftership-api-key": "{api_key}" },
-    },
-    tier: 1,
-    description: "Shipment tracking and notification platform",
-    industries: ["ecommerce", "logistics", "other"],
-  },
-  {
-    id: "easypost",
-    name: "EasyPost",
-    category: "shipping",
-    auth_type: "bearer",
-    auth_schema: {
-      fields: [{ name: "api_key", label: "EasyPost API Key", type: "password", required: true }],
-    },
-    test_config: {
-      method: "GET",
-      url: "https://api.easypost.com/v2/users",
-    },
-    tier: 1,
-    description: "Shipping API and logistics platform",
-    industries: ["logistics", "other"],
-  },
-  {
-    id: "fedex",
-    name: "FedEx",
-    category: "shipping",
-    auth_type: "oauth2",
-    auth_schema: {
+    key: 'amplitude',
+    name: 'Amplitude',
+    description: 'Access product analytics and user behavior data from Amplitude.',
+    category: 'analytics',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'api_key_header',
+      headerName: 'Authorization',
       fields: [
-        { name: "client_id", label: "FedEx Client ID", type: "text", required: true },
-        { name: "client_secret", label: "FedEx Client Secret", type: "password", required: true },
+        { name: 'api_key', label: 'API Key', type: 'text', required: true },
+        { name: 'secret_key', label: 'Secret Key', type: 'password', required: true },
       ],
     },
-    test_config: {
-      method: "POST",
-      url: "https://apis-sandbox.fedex.com/oauth/token",
-      body: "grant_type=client_credentials&client_id={client_id}&client_secret={client_secret}",
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://amplitude.com/api/2/usersearch?user=test',
+      successCheck: 'status_200',
+      successMessage: 'Connected to Amplitude',
     },
-    tier: 1,
-    description: "FedEx shipping and logistics services",
-    industries: ["logistics", "other"],
+    suggestedIndustries: ['saas', 'other'],
+    iconId: 'amplitude',
+    colorGradient: 'from-blue-600 to-blue-500',
+    available: true,
   },
   {
-    id: "ups",
-    name: "UPS",
-    category: "shipping",
-    auth_type: "oauth2",
-    auth_schema: {
+    key: 'google_analytics',
+    name: 'Google Analytics',
+    description: 'Access traffic, conversion, and user data from Google Analytics.',
+    category: 'analytics',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'oauth2',
       fields: [
-        { name: "client_id", label: "UPS Client ID", type: "text", required: true },
-        { name: "client_secret", label: "UPS Client Secret", type: "password", required: true },
+        { name: 'client_id', label: 'Client ID', type: 'text', required: true },
+        { name: 'client_secret', label: 'Client Secret', type: 'password', required: true },
+        { name: 'refresh_token', label: 'Refresh Token', type: 'password', required: true },
       ],
     },
-    test_config: {
-      method: "POST",
-      url: "https://wwwcie.ups.com/security/v1/oauth/token",
-      body: "grant_type=client_credentials",
-      headers: { Authorization: "Basic {base64(client_id:client_secret)}" },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://analyticsreporting.googleapis.com/v4/userActivity:search',
+      headersTemplate: { 'Authorization': 'Bearer {refresh_token}' },
+      successCheck: 'status_200',
+      successMessage: 'Connected to Google Analytics',
     },
-    tier: 1,
-    description: "UPS shipping and logistics services",
-    industries: ["logistics", "other"],
+    suggestedIndustries: ['ecommerce', 'other'],
+    iconId: 'google-analytics',
+    colorGradient: 'from-orange-500 to-yellow-400',
+    available: true,
+  },
+
+  // ─── MARKETING ─────────────────────────────────────────────────
+  {
+    key: 'mailchimp',
+    name: 'Mailchimp',
+    description: 'Access subscribers, campaigns, and automation data.',
+    category: 'marketing',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'bearer',
+      fields: [
+        { name: 'api_key', label: 'API Key', type: 'password', required: true, placeholder: 'xxx-us1' },
+      ],
+    },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://us1.api.mailchimp.com/3.0/',
+      headersTemplate: { 'Authorization': 'Bearer {api_key}' },
+      successCheck: 'status_200',
+      successMessage: 'Connected to Mailchimp',
+    },
+    suggestedIndustries: ['ecommerce', 'other'],
+    iconId: 'mailchimp',
+    colorGradient: 'from-yellow-500 to-yellow-400',
+    available: true,
   },
   {
-    id: "dhl",
-    name: "DHL",
-    category: "shipping",
-    auth_type: "bearer",
-    auth_schema: {
-      fields: [{ name: "api_key", label: "DHL API Key", type: "password", required: true }],
+    key: 'klaviyo',
+    name: 'Klaviyo',
+    description: 'Access email marketing, flows, and customer data from Klaviyo.',
+    category: 'marketing',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'api_key_query',
+      fields: [
+        { name: 'private_api_key', label: 'Private API Key', type: 'password', required: true },
+      ],
+      queryParamName: 'api_key',
     },
-    test_config: {
-      method: "GET",
-      url: "https://api.dhl.com/location-finder/v1/find-by-address?countryCode=US",
-      headers: { "DHL-API-Key": "{api_key}" },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://a.klaviyo.com/api/accounts/?api_key={private_api_key}',
+      headersTemplate: { 'Accept': 'application/json' },
+      successCheck: 'status_200',
+      successMessage: 'Connected to Klaviyo',
     },
-    tier: 1,
-    description: "DHL shipping and logistics services",
-    industries: ["logistics", "other"],
-  },
-  // ===== Communication =====
-  {
-    id: "slack",
-    name: "Slack",
-    category: "communication",
-    auth_type: "bearer",
-    auth_schema: {
-      fields: [{ name: "bot_token", label: "Slack Bot Token (xoxb-...)", type: "password", required: true }],
-    },
-    test_config: {
-      method: "GET",
-      url: "https://slack.com/api/auth.test",
-      headers: { Authorization: "Bearer {bot_token}" },
-    },
-    tier: 1,
-    description: "Team communication and collaboration platform",
-    industries: ["saas", "ecommerce", "logistics", "other"],
+    suggestedIndustries: ['ecommerce', 'other'],
+    iconId: 'klaviyo',
+    colorGradient: 'from-green-600 to-green-500',
+    available: true,
   },
   {
-    id: "notion",
-    name: "Notion",
-    category: "communication",
-    auth_type: "bearer",
-    auth_schema: {
-      fields: [{ name: "api_key", label: "Notion Integration Token", type: "password", required: true }],
+    key: 'brevo',
+    name: 'Brevo',
+    description: 'Send transactional emails and manage contacts via Brevo.',
+    category: 'marketing',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'bearer',
+      fields: [
+        { name: 'api_key', label: 'API Key', type: 'password', required: true, placeholder: 'xkeysib-xxx' },
+      ],
     },
-    test_config: {
-      method: "GET",
-      url: "https://api.notion.com/v1/users/me",
-      headers: { Authorization: "Bearer {api_key}", "Notion-Version": "2022-06-28" },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://api.brevo.com/v3/account',
+      headersTemplate: { 'api-key': '{api_key}' },
+      successCheck: 'status_200',
+      successMessage: 'Connected to Brevo',
     },
-    tier: 2,
-    description: "All-in-one workspace for notes, docs, and collaboration",
-    industries: ["saas", "other"],
+    suggestedIndustries: ['ecommerce', 'saas', 'other'],
+    iconId: 'brevo',
+    colorGradient: 'from-blue-500 to-blue-400',
+    available: true,
+  },
+
+  // ─── PAYMENTS ──────────────────────────────────────────────────
+  {
+    key: 'stripe',
+    name: 'Stripe',
+    description: 'Access payments, subscriptions, and customer billing data.',
+    category: 'payments',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'bearer',
+      fields: [
+        { name: 'api_key', label: 'Secret Key', type: 'password', required: true, placeholder: 'sk_live_xxx' },
+      ],
+    },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://api.stripe.com/v1/balance',
+      headersTemplate: { 'Authorization': 'Bearer {api_key}' },
+      successCheck: 'status_200',
+      successMessage: 'Connected to Stripe',
+    },
+    suggestedIndustries: ['saas', 'ecommerce', 'other'],
+    iconId: 'stripe',
+    colorGradient: 'from-indigo-500 to-indigo-400',
+    available: true,
+  },
+  {
+    key: 'paddle',
+    name: 'Paddle',
+    description: 'Access subscriptions, transactions, and pricing data from Paddle.',
+    category: 'payments',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'bearer',
+      fields: [
+        { name: 'api_key', label: 'API Key', type: 'password', required: true, placeholder: 'pd_live_xxx' },
+      ],
+    },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://sandbox-api.paddle.com/transactions',
+      headersTemplate: { 'Authorization': 'Bearer {api_key}' },
+      successCheck: 'status_200',
+      successMessage: 'Connected to Paddle',
+    },
+    suggestedIndustries: ['saas', 'other'],
+    iconId: 'paddle',
+    colorGradient: 'from-cyan-500 to-cyan-400',
+    available: true,
+  },
+  {
+    key: 'paypal',
+    name: 'PayPal',
+    description: 'Access transactions, refunds, and dispute data from PayPal.',
+    category: 'payments',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'oauth2',
+      fields: [
+        { name: 'client_id', label: 'Client ID', type: 'text', required: true },
+        { name: 'client_secret', label: 'Client Secret', type: 'password', required: true },
+        { name: 'base_url', label: 'Base URL', type: 'url', required: true, placeholder: 'https://api-m.paypal.com' },
+      ],
+    },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: '{base_url}/v1/identity/oauth2/userinfo?schema=paypalv1.1',
+      successCheck: 'status_200',
+      successMessage: 'Connected to PayPal',
+    },
+    suggestedIndustries: ['ecommerce', 'other'],
+    iconId: 'paypal',
+    colorGradient: 'from-blue-600 to-blue-500',
+    available: true,
+  },
+
+  // ─── SHIPPING ──────────────────────────────────────────────────
+  {
+    key: 'shipstation',
+    name: 'ShipStation',
+    description: 'Access shipments, orders, and fulfillment data from ShipStation.',
+    category: 'shipping',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'basic_auth',
+      fields: [
+        { name: 'api_key', label: 'API Key', type: 'text', required: true },
+        { name: 'api_secret', label: 'API Secret', type: 'password', required: true },
+      ],
+    },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://ssapi.shipstation.com/stores',
+      successCheck: 'status_200',
+      successMessage: 'Connected to ShipStation',
+    },
+    suggestedIndustries: ['ecommerce', 'logistics', 'other'],
+    iconId: 'shipstation',
+    colorGradient: 'from-blue-500 to-blue-400',
+    available: true,
+  },
+  {
+    key: 'aftership',
+    name: 'AfterShip',
+    description: 'Track shipments and delivery status across carriers via AfterShip.',
+    category: 'shipping',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'bearer',
+      fields: [
+        { name: 'api_key', label: 'API Key', type: 'password', required: true, placeholder: 'as_xxx' },
+      ],
+    },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://api.aftership.com/v4/couriers',
+      headersTemplate: { 'aftership-api-key': '{api_key}' },
+      successCheck: 'status_200',
+      successMessage: 'Connected to AfterShip',
+    },
+    suggestedIndustries: ['ecommerce', 'logistics', 'other'],
+    iconId: 'aftership',
+    colorGradient: 'from-teal-500 to-teal-400',
+    available: true,
+  },
+  {
+    key: 'easypost',
+    name: 'EasyPost',
+    description: 'Generate labels, verify addresses, and track packages via EasyPost.',
+    category: 'shipping',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'bearer',
+      fields: [
+        { name: 'api_key', label: 'API Key', type: 'password', required: true, placeholder: 'EZAK_xxx' },
+      ],
+    },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://api.easypost.com/v2/users',
+      headersTemplate: { 'Authorization': 'Bearer {api_key}' },
+      successCheck: 'status_200',
+      successMessage: 'Connected to EasyPost',
+    },
+    suggestedIndustries: ['logistics', 'other'],
+    iconId: 'easypost',
+    colorGradient: 'from-green-500 to-green-400',
+    available: true,
+  },
+  {
+    key: 'fedex',
+    name: 'FedEx',
+    description: 'Track shipments, get rates, and manage deliveries via FedEx API.',
+    category: 'shipping',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'bearer',
+      fields: [
+        { name: 'api_key', label: 'API Key', type: 'text', required: true, placeholder: 'l7xx...' },
+        { name: 'secret_key', label: 'Secret Key', type: 'password', required: true },
+      ],
+    },
+    testConnection: {
+      method: 'POST',
+      urlTemplate: 'https://apis.fedex.com/oauth/token',
+      headersTemplate: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      successCheck: 'status_200',
+      successMessage: 'Connected to FedEx',
+    },
+    suggestedIndustries: ['logistics', 'other'],
+    iconId: 'fedex',
+    colorGradient: 'from-purple-600 to-purple-500',
+    available: true,
+  },
+  {
+    key: 'ups',
+    name: 'UPS',
+    description: 'Track packages, get shipping rates, and validate addresses via UPS API.',
+    category: 'shipping',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'oauth2',
+      fields: [
+        { name: 'client_id', label: 'Client ID', type: 'text', required: true, placeholder: 'xxx' },
+        { name: 'client_secret', label: 'Client Secret', type: 'password', required: true },
+      ],
+    },
+    testConnection: {
+      method: 'POST',
+      urlTemplate: 'https://onlinetools.ups.com/security/v1/oauth/token',
+      successCheck: 'status_200',
+      successMessage: 'Connected to UPS',
+    },
+    suggestedIndustries: ['logistics', 'other'],
+    iconId: 'ups',
+    colorGradient: 'from-amber-600 to-amber-500',
+    available: true,
+  },
+  {
+    key: 'dhl',
+    name: 'DHL',
+    description: 'Track shipments and get delivery updates via DHL API.',
+    category: 'shipping',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'bearer',
+      fields: [
+        { name: 'api_key', label: 'DHL API Key', type: 'password', required: true, placeholder: 'demo-key' },
+      ],
+    },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://api-eu.dhl.com/track/shipments?trackingNumber=0',
+      headersTemplate: { 'DHL-API-Key': '{api_key}' },
+      successCheck: 'status_200',
+      successMessage: 'Connected to DHL',
+    },
+    suggestedIndustries: ['logistics', 'other'],
+    iconId: 'dhl',
+    colorGradient: 'from-yellow-500 to-yellow-400',
+    available: true,
+  },
+
+  // ─── DEV TOOLS ─────────────────────────────────────────────────
+  {
+    key: 'github',
+    name: 'GitHub',
+    description: 'Access issues, pull requests, and repository data from GitHub.',
+    category: 'dev_tools',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'bearer',
+      fields: [
+        { name: 'api_key', label: 'Personal Access Token', type: 'password', required: true, placeholder: 'ghp_xxx' },
+      ],
+    },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://api.github.com/user',
+      headersTemplate: { 'Authorization': 'Bearer {api_key}' },
+      successCheck: 'status_200',
+      successMessage: 'Connected to GitHub',
+    },
+    suggestedIndustries: ['saas', 'other'],
+    availableForVariants: ['parwa', 'parwa_high'],
+    iconId: 'github',
+    colorGradient: 'from-gray-600 to-gray-500',
+    available: true,
+  },
+  {
+    key: 'jira',
+    name: 'Jira',
+    description: 'Access issues, projects, and sprint data from Jira.',
+    category: 'dev_tools',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'basic_auth',
+      fields: [
+        { name: 'domain', label: 'Domain', type: 'text', required: true, placeholder: 'yourcompany' },
+        { name: 'email', label: 'Email', type: 'text', required: true },
+        { name: 'api_token', label: 'API Token', type: 'password', required: true },
+      ],
+    },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://{domain}.atlassian.net/rest/api/3/myself',
+      successCheck: 'status_200',
+      successMessage: 'Connected to Jira',
+    },
+    suggestedIndustries: ['saas', 'other'],
+    availableForVariants: ['parwa', 'parwa_high'],
+    iconId: 'jira',
+    colorGradient: 'from-blue-500 to-blue-400',
+    available: true,
+  },
+  {
+    key: 'linear',
+    name: 'Linear',
+    description: 'Access issues, projects, and cycles from Linear.',
+    category: 'dev_tools',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'bearer',
+      fields: [
+        { name: 'api_key', label: 'API Key', type: 'password', required: true, placeholder: 'lin_api_xxx' },
+      ],
+    },
+    testConnection: {
+      method: 'POST',
+      urlTemplate: 'https://api.linear.app/graphql',
+      headersTemplate: { 'Authorization': '{api_key}', 'Content-Type': 'application/json' },
+      successCheck: 'status_200',
+      successMessage: 'Connected to Linear',
+    },
+    suggestedIndustries: ['saas', 'other'],
+    availableForVariants: ['parwa', 'parwa_high'],
+    iconId: 'linear',
+    colorGradient: 'from-violet-500 to-violet-400',
+    available: true,
+  },
+
+  // ─── PRODUCTIVITY ──────────────────────────────────────────────
+  {
+    key: 'notion',
+    name: 'Notion',
+    description: 'Access pages, databases, and content from Notion workspace.',
+    category: 'productivity',
+    tier: 'tier1_prebuilt',
+    authSchema: {
+      type: 'bearer',
+      fields: [
+        { name: 'api_key', label: 'Internal Integration Token', type: 'password', required: true, placeholder: 'ntn_xxx' },
+      ],
+    },
+    testConnection: {
+      method: 'GET',
+      urlTemplate: 'https://api.notion.com/v1/users/me',
+      headersTemplate: { 'Authorization': 'Bearer {api_key}', 'Notion-Version': '2022-06-28' },
+      successCheck: 'status_200',
+      successMessage: 'Connected to Notion',
+    },
+    suggestedIndustries: ['saas', 'other'],
+    availableForVariants: ['parwa', 'parwa_high'],
+    iconId: 'notion',
+    colorGradient: 'from-gray-500 to-gray-400',
+    available: true,
   },
 ];
 
-export const CATEGORY_LABELS: Record<string, string> = {
-  crm: "CRM",
-  ecommerce: "E-commerce",
-  helpdesk: "Helpdesk",
-  analytics: "Analytics",
-  email_marketing: "Email Marketing",
-  payments: "Payments",
-  dev_tools: "Dev Tools",
-  shipping: "Shipping",
-  communication: "Communication",
+// ── Category Metadata ───────────────────────────────────────────────────
+
+export const CATEGORY_META: Record<IntegrationCategory, { label: string; order: number }> = {
+  crm: { label: 'CRM', order: 1 },
+  ecommerce: { label: 'E-Commerce', order: 2 },
+  helpdesk: { label: 'Helpdesk', order: 3 },
+  communication: { label: 'Communication', order: 4 },
+  analytics: { label: 'Analytics', order: 5 },
+  marketing: { label: 'Marketing', order: 6 },
+  payments: { label: 'Payments', order: 7 },
+  shipping: { label: 'Shipping', order: 8 },
+  dev_tools: { label: 'Dev Tools', order: 9 },
+  productivity: { label: 'Productivity', order: 10 },
+  custom: { label: 'Custom', order: 11 },
 };
 
-export const CATEGORY_ICONS: Record<string, string> = {
-  crm: "Users",
-  ecommerce: "ShoppingCart",
-  helpdesk: "HeadphonesIcon",
-  analytics: "BarChart3",
-  email_marketing: "Mail",
-  payments: "CreditCard",
-  dev_tools: "Code2",
-  shipping: "Truck",
-  communication: "MessageSquare",
-};
+// ── Industry Filtering (GAP 3) ──────────────────────────────────────────
 
-export function getIntegrationsByIndustry(industry: string): Integration[] {
-  if (!industry || industry === "other") return INTEGRATION_CATALOG;
-  return INTEGRATION_CATALOG.filter((i) => i.industries.includes(industry));
+/**
+ * Get integrations suggested for a specific industry.
+ * Per D1/D3: "Other" shows ALL integrations (no filtering).
+ * Per D3: Suggestions are NOT restrictions — clients can always connect outside their industry.
+ */
+export function getIntegrationsForIndustry(
+  industry: ParwaIndustry
+): IntegrationDefinition[] {
+  if (industry === 'other') {
+    return INTEGRATION_CATALOG.filter((i) => i.available);
+  }
+  return INTEGRATION_CATALOG.filter(
+    (i) => i.available && i.suggestedIndustries.includes(industry)
+  );
 }
 
-export function getIntegrationsByCategory(category: string): Integration[] {
-  return INTEGRATION_CATALOG.filter((i) => i.category === category);
+/**
+ * Get integrations grouped by category for a specific industry.
+ */
+export function getIntegrationsGroupedByCategory(
+  industry: ParwaIndustry
+): Record<IntegrationCategory, IntegrationDefinition[]> {
+  const filtered = getIntegrationsForIndustry(industry);
+  const grouped: Record<string, IntegrationDefinition[]> = {};
+
+  for (const integration of filtered) {
+    if (!grouped[integration.category]) {
+      grouped[integration.category] = [];
+    }
+    grouped[integration.category].push(integration);
+  }
+
+  return grouped as Record<IntegrationCategory, IntegrationDefinition[]>;
 }
 
-export function getIntegrationById(id: string): Integration | undefined {
-  return INTEGRATION_CATALOG.find((i) => i.id === id);
+/**
+ * Get a single integration by key.
+ */
+export function getIntegrationByKey(key: string): IntegrationDefinition | undefined {
+  return INTEGRATION_CATALOG.find((i) => i.key === key);
 }
 
-export function getCategories(): string[] {
-  return [...new Set(INTEGRATION_CATALOG.map((i) => i.category))];
+/**
+ * Check if an integration is available for a specific variant.
+ * Per D2: ALL variants get unlimited integrations.
+ * availableForVariants is ONLY for tier-gating (Custom API, OpenAPI).
+ */
+export function isIntegrationAvailableForVariant(
+  integration: IntegrationDefinition,
+  _variant: 'mini_parwa' | 'parwa' | 'parwa_high'
+): boolean {
+  // Per D2: All variants get UNLIMITED integrations.
+  // availableForVariants is only used for feature gating, not count limits.
+  if (!integration.availableForVariants || integration.availableForVariants.length === 0) {
+    return true;
+  }
+  return integration.availableForVariants.includes(_variant);
+}
+
+/**
+ * Map frontend Industry type (14 values) to ParwaIndustry (4 values).
+ * Mirrors backend's map_onboarding_industry_to_enum().
+ */
+export function mapIndustryToParwaIndustry(
+  industry: string
+): ParwaIndustry {
+  const mapping: Record<string, ParwaIndustry> = {
+    ecommerce: 'ecommerce',
+    retail: 'ecommerce',
+    hospitality: 'ecommerce',
+    logistics: 'logistics',
+    saas: 'saas',
+    technology: 'saas',
+    finance: 'saas',
+    healthcare: 'saas',
+    education: 'saas',
+    real_estate: 'other',
+    manufacturing: 'other',
+    consulting: 'other',
+    agency: 'other',
+    nonprofit: 'other',
+    other: 'other',
+  };
+  return mapping[industry.toLowerCase()] || 'other';
 }
