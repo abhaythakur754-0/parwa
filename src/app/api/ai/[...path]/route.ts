@@ -4,6 +4,9 @@ import { NextRequest, NextResponse } from 'next/server';
  * AI proxy route.
  * Forwards /api/ai/* to backend /api/ai/* (instances, cost/budget, agents, etc.)
  * Includes Origin header and forwards auth cookie as Bearer token.
+ *
+ * NOTE: /api/ai/instances has a dedicated route with local DB fallback.
+ * This catch-all handles all other /api/ai/* paths.
  */
 
 function getBackendUrl(): string {
@@ -69,6 +72,21 @@ async function proxyRequest(
       signal: AbortSignal.timeout(15000),
     });
 
+    // If backend returned a successful response, pass it through
+    if (backendRes.ok) {
+      const text = await backendRes.text();
+      try {
+        const data = JSON.parse(text);
+        return NextResponse.json(data, { status: backendRes.status });
+      } catch {
+        return NextResponse.json(
+          { error: { message: text || 'Backend returned non-JSON response' } },
+          { status: backendRes.status },
+        );
+      }
+    }
+
+    // Backend returned an error — return it to the client
     const text = await backendRes.text();
     try {
       const data = JSON.parse(text);

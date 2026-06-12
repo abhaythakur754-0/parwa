@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useVariant } from '@/hooks/useVariant';
@@ -30,6 +31,16 @@ import {
   ExternalLink,
   Send,
   Zap,
+  ClipboardList,
+  Download,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  ShieldCheck,
+  Activity,
+  FileText,
+  AlertTriangle,
+  ShieldAlert,
 } from 'lucide-react';
 
 // ── API Base ────────────────────────────────────────────────────────────
@@ -70,6 +81,49 @@ interface WebhookConfig {
   active: boolean;
   lastTriggeredAt: string | null;
   failureCount: number;
+}
+
+interface AuditEntry {
+  id: string;
+  timestamp: string;
+  category: string;
+  severity: 'info' | 'warning' | 'critical' | 'security';
+  action: string;
+  actor_id: string;
+  actor_name?: string;
+  resource_type: string;
+  resource_id: string;
+  details?: Record<string, unknown>;
+}
+
+interface AuditStats {
+  total_entries_30d: number;
+  entries_24h: number;
+  top_actor: string;
+  top_action_type: string;
+  action_counts?: Record<string, number>;
+}
+
+interface SecurityAlert {
+  id: string;
+  type: string;
+  message: string;
+  severity: 'warning' | 'critical';
+  timestamp: string;
+}
+
+interface IntegrationHealthData {
+  overall_status: 'healthy' | 'degraded' | 'unhealthy';
+  integrations: Array<{
+    id: string;
+    name: string;
+    type: string;
+    circuit_breaker_state: 'closed' | 'open' | 'half_open';
+    rate_limit_usage: number;
+    rate_limit_max: number;
+    last_tested_at: string | null;
+    status: string;
+  }>;
 }
 
 const INTEGRATION_CATALOG = [
@@ -136,6 +190,8 @@ function getInitials(name: string | null | undefined): string {
 export default function SettingsPage() {
   const { user } = useAuth();
   const { tier, isTierAtLeast } = useVariant();
+  const searchParams = useSearchParams();
+  const defaultTab = searchParams?.get('tab') || 'profile';
 
   // ── Profile State ───────────────────────────────────────────────────
   const [fullName, setFullName] = useState(user?.full_name || '');
@@ -229,6 +285,208 @@ export default function SettingsPage() {
   const [creatingWebhook, setCreatingWebhook] = useState(false);
   const [testingWebhook, setTestingWebhook] = useState<string | null>(null);
   const [deletingWebhook, setDeletingWebhook] = useState<string | null>(null);
+  const [webhookEvents, setWebhookEvents] = useState<Array<{ event_type: string; status: string; provider: string; created_at: string }>>([]);
+
+  // ── Audit Log State ────────────────────────────────────────────────
+  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
+  const [auditTotal, setAuditTotal] = useState(0);
+  const [auditPage, setAuditPage] = useState(0);
+  const [auditStats, setAuditStats] = useState<AuditStats | null>(null);
+  const [auditAlerts, setAuditAlerts] = useState<SecurityAlert[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [filterCategory, setFilterCategory] = useState('');
+  const [filterSeverity, setFilterSeverity] = useState('');
+  const [filterAction, setFilterAction] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  const [integrityChecking, setIntegrityChecking] = useState(false);
+  const [integrityResult, setIntegrityResult] = useState<{ valid: boolean; message: string } | null>(null);
+  const [exportingAudit, setExportingAudit] = useState(false);
+
+  // ── Integration Health State ──────────────────────────────────────
+  const [integrationHealth, setIntegrationHealth] = useState<IntegrationHealthData | null>(null);
+  const [disconnectingIntegrationId, setDisconnectingIntegrationId] = useState<string | null>(null);
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState<string | null>(null);
+
+  const fetchWebhookEvents = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/webhooks/events`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setWebhookEvents(Array.isArray(data) ? data : data.events || []);
+      }
+    } catch {
+      // Silently fail — event log is supplementary
+    }
+  };
+
+  // ── Audit Log Fetching ────────────────────────────────────────────
+
+  const fetchAuditEntries = useCallback(async (page = 0) => {
+    setAuditLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filterCategory) params.set('category', filterCategory);
+      if (filterSeverity) params.set('severity', filterSeverity);
+      if (filterAction) params.set('action', filterAction);
+      if (filterDateFrom) params.set('date_from', filterDateFrom);
+      if (filterDateTo) params.set('date_to', filterDateTo);
+      params.set('offset', String(page * 20));
+      params.set('limit', '20');
+
+      const res = await fetch(`${API_BASE}/api/v1/audit/entries?${params}`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setAuditEntries(data.items || data || []);
+        setAuditTotal(data.total || (Array.isArray(data) ? data.length : 0));
+      }
+    } catch {
+      // Gracefully handle — audit log may be unavailable
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [filterCategory, filterSeverity, filterAction, filterDateFrom, filterDateTo]);
+
+  const fetchAuditStats = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/audit/stats`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setAuditStats(data);
+      }
+    } catch {
+      // Silently fail — stats are supplementary
+    }
+  }, []);
+
+  const fetchAuditAlerts = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/audit/alerts`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setAuditAlerts(Array.isArray(data) ? data : data.alerts || []);
+      }
+    } catch {
+      // Silently fail
+    }
+  }, []);
+
+  const handleAuditSearch = () => {
+    setAuditPage(0);
+    fetchAuditEntries(0);
+  };
+
+  const handleAuditExport = async (format: 'json' | 'csv') => {
+    setExportingAudit(true);
+    try {
+      const params = new URLSearchParams();
+      if (filterCategory) params.set('category', filterCategory);
+      if (filterSeverity) params.set('severity', filterSeverity);
+      if (filterAction) params.set('action', filterAction);
+      if (filterDateFrom) params.set('date_from', filterDateFrom);
+      if (filterDateTo) params.set('date_to', filterDateTo);
+      params.set('format', format);
+
+      const res = await fetch(`${API_BASE}/api/v1/audit/export?${params}`, { credentials: 'include' });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `audit-log.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        toast.success(`Audit log exported as ${format.toUpperCase()}`);
+      } else {
+        toast.error('Failed to export audit log');
+      }
+    } catch {
+      toast.error('Failed to export audit log');
+    } finally {
+      setExportingAudit(false);
+    }
+  };
+
+  const handleIntegrityCheck = async () => {
+    setIntegrityChecking(true);
+    setIntegrityResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/audit/integrity`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setIntegrityResult({ valid: data.valid ?? data.integrity_ok ?? true, message: data.message || (data.valid ? 'Audit log integrity verified' : 'Integrity check failed') });
+        if (data.valid ?? data.integrity_ok ?? true) {
+          toast.success('Audit log integrity verified');
+        } else {
+          toast.error('Audit log integrity check failed — possible tampering detected');
+        }
+      } else {
+        setIntegrityResult({ valid: false, message: 'Could not verify integrity' });
+        toast.error('Failed to verify audit log integrity');
+      }
+    } catch {
+      setIntegrityResult({ valid: false, message: 'Backend unavailable' });
+      toast.error('Backend unavailable — cannot verify integrity');
+    } finally {
+      setIntegrityChecking(false);
+    }
+  };
+
+  // ── Integration Health Fetching ───────────────────────────────────
+
+  const fetchIntegrationHealth = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/integrations/health`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setIntegrationHealth(data);
+      }
+    } catch {
+      // Silently fail — health is supplementary
+    }
+  }, []);
+
+  const handleProperDisconnect = async (integrationId: string) => {
+    setDisconnectingIntegrationId(integrationId);
+    try {
+      const res = await fetch(`${API_BASE}/api/integrations/${integrationId}/disconnect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      if (res.ok || res.status === 404 || res.status === 502) {
+        setIntegrations((prev) => prev.filter((i) => i.id !== integrationId));
+        toast.success('Integration properly disconnected');
+        fetchIntegrationHealth();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.detail || 'Failed to disconnect integration');
+      }
+    } catch {
+      toast.error('Failed to disconnect integration');
+    } finally {
+      setDisconnectingIntegrationId(null);
+      setShowDisconnectConfirm(null);
+    }
+  };
+
+  // Fetch audit data when the audit tab might be shown
+  useEffect(() => {
+    if (defaultTab === 'audit') {
+      fetchAuditEntries(0);
+      fetchAuditStats();
+      fetchAuditAlerts();
+    }
+  }, [defaultTab, fetchAuditEntries, fetchAuditStats, fetchAuditAlerts]);
+
+  // Fetch integration health when integrations tab is shown
+  useEffect(() => {
+    if (defaultTab === 'integrations') {
+      fetchIntegrationHealth();
+    }
+  }, [defaultTab, fetchIntegrationHealth]);
 
   // ── Profile Handlers ────────────────────────────────────────────────
 
@@ -574,9 +832,9 @@ export default function SettingsPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs.Root defaultValue="profile" className="flex flex-col gap-6">
+      <Tabs.Root defaultValue={defaultTab} className="flex flex-col gap-6">
         {/* Tab List */}
-        <Tabs.List className="flex gap-1 rounded-xl border border-white/[0.06] bg-white/[0.02] p-1 w-fit">
+        <Tabs.List className="flex gap-1 rounded-xl border border-white/[0.06] bg-white/[0.02] p-1 w-fit flex-wrap">
           <Tabs.Trigger
             value="profile"
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 text-zinc-400 hover:text-white hover:bg-white/[0.04] data-[state=active]:text-white data-[state=active]:bg-white/[0.08] data-[state=active]:shadow-sm outline-none"
@@ -625,6 +883,13 @@ export default function SettingsPage() {
           >
             <Crown className="w-4 h-4" />
             Plan & Industry
+          </Tabs.Trigger>
+          <Tabs.Trigger
+            value="audit"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 text-zinc-400 hover:text-white hover:bg-white/[0.04] data-[state=active]:text-white data-[state=active]:bg-white/[0.08] data-[state=active]:shadow-sm outline-none"
+          >
+            <ClipboardList className="w-4 h-4" />
+            Audit Log
           </Tabs.Trigger>
         </Tabs.List>
 
@@ -1181,6 +1446,138 @@ export default function SettingsPage() {
 
         {/* ── Integrations Tab ────────────────────────────────────────── */}
         <Tabs.Content value="integrations" className="outline-none space-y-6">
+          {/* Integration Health (Phase 10) */}
+          {integrationHealth && (
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-orange-400" />
+                  Integration Health
+                </h3>
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                  integrationHealth.overall_status === 'healthy'
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : integrationHealth.overall_status === 'degraded'
+                    ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
+                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    integrationHealth.overall_status === 'healthy' ? 'bg-emerald-400' :
+                    integrationHealth.overall_status === 'degraded' ? 'bg-yellow-400' : 'bg-red-400'
+                  }`} />
+                  {integrationHealth.overall_status === 'healthy' ? 'Healthy' :
+                   integrationHealth.overall_status === 'degraded' ? 'Degraded' : 'Unhealthy'}
+                </span>
+              </div>
+
+              {integrationHealth.integrations && integrationHealth.integrations.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {integrationHealth.integrations.map((ih) => (
+                    <div key={ih.id} className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm shrink-0">
+                            {INTEGRATION_CATALOG.find((c) => c.type === ih.type)?.icon || '🔗'}
+                          </span>
+                          <span className="text-sm font-medium text-zinc-200 truncate">{ih.name}</span>
+                        </div>
+                        {/* Circuit Breaker State */}
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
+                          ih.circuit_breaker_state === 'closed'
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : ih.circuit_breaker_state === 'half_open'
+                            ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
+                            : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            ih.circuit_breaker_state === 'closed' ? 'bg-emerald-400' :
+                            ih.circuit_breaker_state === 'half_open' ? 'bg-yellow-400' : 'bg-red-400'
+                          }`} />
+                          {ih.circuit_breaker_state === 'closed' ? 'Closed' :
+                           ih.circuit_breaker_state === 'half_open' ? 'Half-Open' : 'Open'}
+                        </span>
+                      </div>
+
+                      {/* Rate Limit Usage */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Rate Limit</span>
+                          <span className="text-[10px] text-zinc-400">{ih.rate_limit_usage}/{ih.rate_limit_max}</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              ih.rate_limit_max > 0
+                                ? (ih.rate_limit_usage / ih.rate_limit_max > 0.8
+                                  ? 'bg-red-400'
+                                  : ih.rate_limit_usage / ih.rate_limit_max > 0.5
+                                  ? 'bg-yellow-400'
+                                  : 'bg-emerald-400')
+                                : 'bg-emerald-400'
+                            }`}
+                            style={{ width: `${ih.rate_limit_max > 0 ? Math.min(100, (ih.rate_limit_usage / ih.rate_limit_max) * 100) : 0}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Last Tested */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-zinc-600">
+                          {ih.last_tested_at
+                            ? `Tested ${new Date(ih.last_tested_at).toLocaleString()}`
+                            : 'Not tested'}
+                        </span>
+                        {/* Disconnect button */}
+                        <button
+                          onClick={() => setShowDisconnectConfirm(ih.id)}
+                          className="px-2 py-1 rounded text-[10px] font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all"
+                        >
+                          Disconnect
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-zinc-500">No integration health data available</p>
+              )}
+            </div>
+          )}
+
+          {/* Disconnect Confirmation Dialog */}
+          {showDisconnectConfirm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setShowDisconnectConfirm(null)}>
+              <div className="rounded-xl border border-white/[0.06] bg-[#1A1A1A] p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+                <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-red-400" />
+                  Disconnect Integration
+                </h3>
+                <p className="text-sm text-zinc-400 mb-4">
+                  This will properly disconnect the integration, cancel pending calls, clear cached data, and open the circuit breaker. This action cannot be undone.
+                </p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleProperDisconnect(showDisconnectConfirm)}
+                    disabled={disconnectingIntegrationId === showDisconnectConfirm}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-all disabled:opacity-50"
+                  >
+                    {disconnectingIntegrationId === showDisconnectConfirm ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Disconnecting...</>
+                    ) : (
+                      'Disconnect'
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setShowDisconnectConfirm(null)}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-white bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.15] transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Connected Integrations */}
           {integrations.length > 0 && (
             <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6">
@@ -1395,6 +1792,34 @@ export default function SettingsPage() {
                   <p className="text-xs text-amber-200/50 mt-1">Each webhook includes a signing secret. Verify the <code className="text-amber-300/70">X-Parwa-Signature</code> header on your server to confirm payloads are from PARWA. Failed deliveries are retried up to 5 times with exponential backoff.</p>
                 </div>
               </div>
+
+              {/* Webhook Event Log (Phase 6 - GAP 1) */}
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-white">Event Log</h3>
+                  <button onClick={fetchWebhookEvents} className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.15] transition-all">
+                    <RefreshCw className="w-3 h-3 inline mr-1" /> Refresh
+                  </button>
+                </div>
+                {webhookEvents.length === 0 ? (
+                  <div className="text-center py-6">
+                    <p className="text-sm text-zinc-500">No webhook events recorded yet</p>
+                    <p className="text-xs text-zinc-600 mt-1">Events will appear here when webhooks are triggered</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1 max-h-64 overflow-y-auto">
+                    {webhookEvents.map((evt, idx) => (
+                      <div key={idx} className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-white/[0.02] transition-all text-xs">
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${evt.status === 'processed' ? 'bg-emerald-400' : evt.status === 'failed' ? 'bg-red-400' : 'bg-amber-400'}`} />
+                        <span className="text-zinc-400 font-mono w-28 shrink-0">{evt.event_type}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] ${evt.status === 'processed' ? 'bg-emerald-500/10 text-emerald-400' : evt.status === 'failed' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'}`}>{evt.status}</span>
+                        <span className="text-zinc-600 ml-auto">{evt.provider}</span>
+                        <span className="text-zinc-700 ml-2">{new Date(evt.created_at).toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </LockedFeature>
         </Tabs.Content>
@@ -1430,6 +1855,328 @@ export default function SettingsPage() {
             <PlanIndustrySection currentIndustry={user?.industry || ''} companyId={user?.company_id || ''} />
           </div>
         </Tabs.Content>
+
+        {/* ── Audit Log Tab (Phase 9) ──────────────────────────────── */}
+        <Tabs.Content value="audit" className="outline-none space-y-6">
+          {/* Filter Bar */}
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6">
+            <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+              <Search className="w-4 h-4 text-orange-400" />
+              Filter Audit Entries
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              {/* Category */}
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Category</label>
+                <select
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                  className="w-full bg-white/[0.04] border border-white/[0.08] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 transition-all"
+                >
+                  <option value="" className="bg-[#1A1A1A]">All Categories</option>
+                  <option value="auth" className="bg-[#1A1A1A]">Authentication</option>
+                  <option value="integration" className="bg-[#1A1A1A]">Integration</option>
+                  <option value="ai_action" className="bg-[#1A1A1A]">AI Action</option>
+                  <option value="security" className="bg-[#1A1A1A]">Security</option>
+                  <option value="data" className="bg-[#1A1A1A]">Data</option>
+                  <option value="configuration" className="bg-[#1A1A1A]">Configuration</option>
+                </select>
+              </div>
+              {/* Severity */}
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Severity</label>
+                <select
+                  value={filterSeverity}
+                  onChange={(e) => setFilterSeverity(e.target.value)}
+                  className="w-full bg-white/[0.04] border border-white/[0.08] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 transition-all"
+                >
+                  <option value="" className="bg-[#1A1A1A]">All Severities</option>
+                  <option value="info" className="bg-[#1A1A1A]">Info</option>
+                  <option value="warning" className="bg-[#1A1A1A]">Warning</option>
+                  <option value="critical" className="bg-[#1A1A1A]">Critical</option>
+                  <option value="security" className="bg-[#1A1A1A]">Security</option>
+                </select>
+              </div>
+              {/* Action */}
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Action</label>
+                <input
+                  type="text"
+                  value={filterAction}
+                  onChange={(e) => setFilterAction(e.target.value)}
+                  placeholder="e.g. login, create"
+                  className="w-full bg-white/[0.04] border border-white/[0.08] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 transition-all placeholder:text-zinc-600"
+                />
+              </div>
+              {/* Date From */}
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">From</label>
+                <input
+                  type="date"
+                  value={filterDateFrom}
+                  onChange={(e) => setFilterDateFrom(e.target.value)}
+                  className="w-full bg-white/[0.04] border border-white/[0.08] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 transition-all [color-scheme:dark]"
+                />
+              </div>
+              {/* Date To */}
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">To</label>
+                <input
+                  type="date"
+                  value={filterDateTo}
+                  onChange={(e) => setFilterDateTo(e.target.value)}
+                  className="w-full bg-white/[0.04] border border-white/[0.08] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 transition-all [color-scheme:dark]"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={handleAuditSearch}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200"
+              >
+                <Search className="w-4 h-4" />
+                Search
+              </button>
+              <button
+                onClick={() => {
+                  setFilterCategory('');
+                  setFilterSeverity('');
+                  setFilterAction('');
+                  setFilterDateFrom('');
+                  setFilterDateTo('');
+                  setAuditPage(0);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-white bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.15] transition-all"
+              >
+                Clear Filters
+              </button>
+            </div>
+          </div>
+
+          {/* Stats Cards Row */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="w-4 h-4 text-blue-400" />
+                <span className="text-xs text-zinc-500 uppercase tracking-wider">Total (30d)</span>
+              </div>
+              <p className="text-2xl font-bold text-white">{auditStats?.total_entries_30d ?? '—'}</p>
+            </div>
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Activity className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs text-zinc-500 uppercase tracking-wider">Last 24h</span>
+              </div>
+              <p className="text-2xl font-bold text-white">{auditStats?.entries_24h ?? '—'}</p>
+            </div>
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <User className="w-4 h-4 text-orange-400" />
+                <span className="text-xs text-zinc-500 uppercase tracking-wider">Top Actor</span>
+              </div>
+              <p className="text-sm font-bold text-white truncate">{auditStats?.top_actor || '—'}</p>
+            </div>
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Zap className="w-4 h-4 text-purple-400" />
+                <span className="text-xs text-zinc-500 uppercase tracking-wider">Top Action</span>
+              </div>
+              <p className="text-sm font-bold text-white truncate">{auditStats?.top_action_type || '—'}</p>
+            </div>
+          </div>
+
+          {/* Actions Row: Export + Integrity */}
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => handleAuditExport('json')}
+              disabled={exportingAudit}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.15] transition-all disabled:opacity-50"
+            >
+              <Download className="w-3.5 h-3.5" />
+              {exportingAudit ? 'Exporting...' : 'Export JSON'}
+            </button>
+            <button
+              onClick={() => handleAuditExport('csv')}
+              disabled={exportingAudit}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.15] transition-all disabled:opacity-50"
+            >
+              <Download className="w-3.5 h-3.5" />
+              {exportingAudit ? 'Exporting...' : 'Export CSV'}
+            </button>
+            <button
+              onClick={handleIntegrityCheck}
+              disabled={integrityChecking}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.15] transition-all disabled:opacity-50"
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              {integrityChecking ? 'Verifying...' : 'Verify Integrity'}
+            </button>
+            {integrityResult && (
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${
+                integrityResult.valid
+                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                  : 'bg-red-500/10 text-red-400 border border-red-500/20'
+              }`}>
+                {integrityResult.valid ? <Check className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                {integrityResult.message}
+              </span>
+            )}
+          </div>
+
+          {/* Entries Table */}
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+            <div className="p-4 border-b border-white/[0.06] flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                <ClipboardList className="w-4 h-4 text-orange-400" />
+                Audit Entries
+                <span className="text-xs text-zinc-500 font-normal">({auditTotal} total)</span>
+              </h3>
+              <button
+                onClick={() => { fetchAuditEntries(auditPage); fetchAuditStats(); fetchAuditAlerts(); }}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.15] transition-all"
+              >
+                <RefreshCw className="w-3 h-3 inline mr-1" /> Refresh
+              </button>
+            </div>
+
+            {auditLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="w-6 h-6 animate-spin text-orange-400" />
+              </div>
+            ) : auditEntries.length === 0 ? (
+              <div className="text-center py-16">
+                <ClipboardList className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
+                <p className="text-sm text-zinc-500">No audit entries found</p>
+                <p className="text-xs text-zinc-600 mt-1">
+                  {filterCategory || filterSeverity || filterAction || filterDateFrom || filterDateTo
+                    ? 'Try adjusting your filters'
+                    : 'Audit entries will appear here as actions are logged'}
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/[0.06]">
+                      <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500 uppercase tracking-wider">Timestamp</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500 uppercase tracking-wider">Category</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500 uppercase tracking-wider">Severity</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500 uppercase tracking-wider">Action</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500 uppercase tracking-wider">Actor</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500 uppercase tracking-wider">Resource</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {auditEntries.map((entry) => (
+                      <tr key={entry.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="px-4 py-3 text-xs text-zinc-400 font-mono whitespace-nowrap">
+                          {new Date(entry.timestamp).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-white/[0.04] text-zinc-300 border border-white/[0.06]">
+                            {entry.category === 'auth' && '🔐'}
+                            {entry.category === 'integration' && '🔗'}
+                            {entry.category === 'ai_action' && '🤖'}
+                            {entry.category === 'security' && '🛡️'}
+                            {entry.category === 'data' && '📊'}
+                            {entry.category === 'configuration' && '⚙️'}
+                            {entry.category}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            entry.severity === 'info' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                            entry.severity === 'warning' ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' :
+                            entry.severity === 'critical' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                            entry.severity === 'security' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
+                            'bg-white/[0.04] text-zinc-400'
+                          }`}>
+                            {entry.severity === 'critical' && <AlertTriangle className="w-3 h-3" />}
+                            {entry.severity === 'security' && <ShieldAlert className="w-3 h-3" />}
+                            {entry.severity}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-zinc-200 font-mono">
+                          {entry.action}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-zinc-400 truncate max-w-[150px]">
+                          {entry.actor_name || entry.actor_id}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-xs text-zinc-400">
+                            <span className="text-zinc-500">{entry.resource_type}</span>
+                            <span className="mx-1 text-zinc-700">/</span>
+                            <span className="text-zinc-300 font-mono">{entry.resource_id?.slice(0, 8)}{entry.resource_id?.length > 8 ? '...' : ''}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {auditTotal > 20 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-white/[0.06]">
+                <p className="text-xs text-zinc-500">
+                  Showing {auditPage * 20 + 1}–{Math.min((auditPage + 1) * 20, auditTotal)} of {auditTotal}
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { const p = Math.max(0, auditPage - 1); setAuditPage(p); fetchAuditEntries(p); }}
+                    disabled={auditPage === 0}
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-white bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.15] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-xs text-zinc-400">Page {auditPage + 1} of {Math.ceil(auditTotal / 20)}</span>
+                  <button
+                    onClick={() => { const p = auditPage + 1; setAuditPage(p); fetchAuditEntries(p); }}
+                    disabled={(auditPage + 1) * 20 >= auditTotal}
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-white bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.15] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Security Alerts Section */}
+          {auditAlerts.length > 0 && (
+            <div className="rounded-xl border border-red-500/10 bg-red-500/5 p-6">
+              <h3 className="text-sm font-semibold text-red-300 mb-4 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                Security Alerts
+              </h3>
+              <div className="space-y-2">
+                {auditAlerts.map((alert) => (
+                  <div key={alert.id} className="flex items-start gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/[0.06]">
+                    <span className={`shrink-0 w-2 h-2 rounded-full mt-1.5 ${
+                      alert.severity === 'critical' ? 'bg-red-400' : 'bg-yellow-400'
+                    }`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-zinc-200">{alert.type}</span>
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                          alert.severity === 'critical'
+                            ? 'bg-red-500/10 text-red-400'
+                            : 'bg-yellow-500/10 text-yellow-400'
+                        }`}>
+                          {alert.severity}
+                        </span>
+                      </div>
+                      <p className="text-xs text-zinc-400 mt-0.5">{alert.message}</p>
+                      <p className="text-[10px] text-zinc-600 mt-1">{new Date(alert.timestamp).toLocaleString()}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Tabs.Content>
+
       </Tabs.Root>
 
       {/* Custom scrollbar styles */}

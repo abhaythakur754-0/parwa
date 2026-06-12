@@ -23,14 +23,16 @@ Design Principles:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import json
 import logging
 import os
 import re
+import uuid
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from app.core.channel_permissions import (
     Channel,
@@ -40,6 +42,20 @@ from app.core.channel_permissions import (
 )
 
 logger = logging.getLogger("parwa.external_tool_bus")
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Integration Name Mapping (Channel → Integration)
+# ═══════════════════════════════════════════════════════════════════
+
+CHANNEL_INTEGRATION_MAP: dict[Channel, str] = {
+    Channel.SMS: "twilio",
+    Channel.VOICE: "twilio",
+    Channel.EMAIL: "brevo",
+    Channel.CHAT: "parwa_chat",
+    Channel.PUSH: "firebase",
+    Channel.WEBHOOK: "http_webhook",
+}
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -249,9 +265,22 @@ class ExternalToolBus:
                       f"Upgrade to 'parwa' or 'parwa_high' to access SMS.",
             )
 
+        integration_name = self._get_integration_name(Channel.SMS)
+
+        # Circuit breaker check
+        degraded = self._check_circuit_breaker(integration_name, Channel.SMS)
+        if degraded:
+            return degraded
+
+        # Rate limit check
+        rate_limited = self._check_rate_limit(integration_name, company_id, Channel.SMS)
+        if rate_limited:
+            return rate_limited
+
         # Provider check
         if not self.is_channel_configured(Channel.SMS):
             cfg = self._providers[Channel.SMS]
+            self._record_failure(integration_name)
             return ToolResult(
                 success=False,
                 channel=Channel.SMS,
@@ -263,13 +292,18 @@ class ExternalToolBus:
         try:
             result = await self._send_sms_via_provider(company_id, to, body)
             if result:
+                self._record_success(integration_name)
                 return result
         except Exception as exc:
             logger.warning("sms_provider_failed: %s", str(exc)[:200])
 
         # Last-resort fallback: env-var-based direct Twilio call
         try:
-            return await self._send_sms_via_env(to, body)
+            result = await self._retry_call(
+                lambda: self._send_sms_via_env(to, body),
+                integration_name, company_id,
+            )
+            return result
         except Exception as exc:
             logger.error("sms_send_failed: to=%s err=%s", to, str(exc)[:200])
             return ToolResult(
@@ -392,9 +426,22 @@ class ExternalToolBus:
                 error=f"Channel 'email' not available for variant '{variant}'.",
             )
 
+        integration_name = self._get_integration_name(Channel.EMAIL)
+
+        # Circuit breaker check
+        degraded = self._check_circuit_breaker(integration_name, Channel.EMAIL)
+        if degraded:
+            return degraded
+
+        # Rate limit check
+        rate_limited = self._check_rate_limit(integration_name, company_id, Channel.EMAIL)
+        if rate_limited:
+            return rate_limited
+
         # Provider check
         if not self.is_channel_configured(Channel.EMAIL):
             cfg = self._providers[Channel.EMAIL]
+            self._record_failure(integration_name)
             return ToolResult(
                 success=False,
                 channel=Channel.EMAIL,
@@ -411,15 +458,20 @@ class ExternalToolBus:
                 company_id, recipients, subject, body, html_body, cc, bcc,
             )
             if result:
+                self._record_success(integration_name)
                 return result
         except Exception as exc:
             logger.warning("email_provider_failed: %s", str(exc)[:200])
 
         # Last-resort fallback: env-var-based direct Brevo call
         try:
-            return await self._send_email_via_env(
-                recipients, subject, body, html_body, cc, bcc,
+            result = await self._retry_call(
+                lambda: self._send_email_via_env(
+                    recipients, subject, body, html_body, cc, bcc,
+                ),
+                integration_name, company_id,
             )
+            return result
         except Exception as exc:
             logger.error("email_send_failed: %s", str(exc)[:200])
             return ToolResult(
@@ -568,19 +620,36 @@ class ExternalToolBus:
                       f"Upgrade to 'parwa' or 'parwa_high' to access Voice calls.",
             )
 
+        integration_name = self._get_integration_name(Channel.VOICE)
+
+        # Circuit breaker check
+        degraded = self._check_circuit_breaker(integration_name, Channel.VOICE)
+        if degraded:
+            return degraded
+
+        # Rate limit check
+        rate_limited = self._check_rate_limit(integration_name, company_id, Channel.VOICE)
+        if rate_limited:
+            return rate_limited
+
         # Try ProviderFactory first
         try:
             result = await self._make_call_via_provider(
                 company_id, to, message, language, ticket_id, variant,
             )
             if result:
+                self._record_success(integration_name)
                 return result
         except Exception as exc:
             logger.warning("voice_provider_failed: %s", str(exc)[:200])
 
         # Last-resort fallback: env-var-based direct Twilio call
         try:
-            return await self._make_call_via_env(to, message, variant)
+            result = await self._retry_call(
+                lambda: self._make_call_via_env(to, message, variant),
+                integration_name, company_id,
+            )
+            return result
         except Exception as exc:
             logger.error("voice_call_failed: to=%s err=%s", to, str(exc)[:200])
             return ToolResult(
@@ -815,6 +884,18 @@ class ExternalToolBus:
                 error=f"Channel 'webhook' not available for variant '{variant}'.",
             )
 
+        integration_name = self._get_integration_name(Channel.WEBHOOK)
+
+        # Circuit breaker check
+        degraded = self._check_circuit_breaker(integration_name, Channel.WEBHOOK)
+        if degraded:
+            return degraded
+
+        # Rate limit check
+        rate_limited = self._check_rate_limit(integration_name, company_id, Channel.WEBHOOK)
+        if rate_limited:
+            return rate_limited
+
         try:
             import httpx
 
@@ -830,6 +911,7 @@ class ExternalToolBus:
 
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.post(url, json=payload, headers=headers)
+                self._record_success(integration_name)
                 return ToolResult(
                     success=200 <= resp.status_code < 300,
                     channel=Channel.WEBHOOK,
@@ -840,6 +922,7 @@ class ExternalToolBus:
                     },
                 )
         except Exception as exc:
+            self._record_failure(integration_name)
             return ToolResult(
                 success=False,
                 channel=Channel.WEBHOOK,
@@ -903,6 +986,161 @@ class ExternalToolBus:
             )
 
         return results
+
+    # ── Rate Limiting & Circuit Breaker Integration ────────────────
+
+    def _get_integration_name(self, channel: Channel) -> str:
+        """Get the integration name for a channel."""
+        return CHANNEL_INTEGRATION_MAP.get(channel, "custom")
+
+    def _check_circuit_breaker(self, integration_name: str, channel: Channel) -> Optional[ToolResult]:
+        """Check if the circuit breaker is open for an integration.
+
+        Returns a degraded ToolResult if circuit is open, None if OK to proceed.
+        """
+        try:
+            from app.core.circuit_breaker_manager import get_circuit_breaker_manager
+            cb_manager = get_circuit_breaker_manager()
+            if not cb_manager.is_available(integration_name):
+                return self._degraded_result(channel, integration_name)
+        except Exception:
+            logger.warning("circuit_breaker_check_failed integration=%s", integration_name)
+        return None
+
+    def _check_rate_limit(self, integration_name: str, company_id: str, channel: Channel) -> Optional[ToolResult]:
+        """Check if rate limit is exceeded for an integration.
+
+        Returns a rate-limited ToolResult if exceeded, None if OK to proceed.
+        """
+        try:
+            from app.core.integration_rate_limiter import get_integration_rate_limiter
+            rate_limiter = get_integration_rate_limiter()
+            if not rate_limiter.check_rate_limit(integration_name, company_id):
+                return ToolResult(
+                    success=False,
+                    channel=channel,
+                    provider=integration_name,
+                    error=f"Rate limit exceeded for {integration_name}. Please retry in a moment.",
+                )
+            # Consume quota
+            rate_limiter.record_call(integration_name, company_id)
+        except Exception:
+            logger.warning("rate_limit_check_failed integration=%s", integration_name)
+        return None
+
+    def _record_success(self, integration_name: str) -> None:
+        """Record a successful call to the circuit breaker."""
+        try:
+            from app.core.circuit_breaker_manager import get_circuit_breaker_manager
+            cb_manager = get_circuit_breaker_manager()
+            cb_manager.record_success(integration_name)
+        except Exception:
+            pass  # BC-008: Never crash
+
+    def _record_failure(self, integration_name: str) -> None:
+        """Record a failed call to the circuit breaker."""
+        try:
+            from app.core.circuit_breaker_manager import get_circuit_breaker_manager
+            cb_manager = get_circuit_breaker_manager()
+            cb_manager.record_failure(integration_name)
+        except Exception:
+            pass  # BC-008: Never crash
+
+    def _degraded_result(
+        self, channel: Channel, integration_name: str, cached_data: Optional[dict] = None,
+    ) -> ToolResult:
+        """Return a degraded result with cached data fallback."""
+        message = f"{integration_name} is temporarily unavailable."
+        if cached_data:
+            message += " Showing cached data."
+        return ToolResult(
+            success=bool(cached_data),
+            channel=channel,
+            provider=integration_name,
+            data=cached_data or {},
+            error=message if not cached_data else "",
+        )
+
+    async def _retry_call(
+        self,
+        call_fn: Callable,
+        integration_name: str,
+        company_id: str,
+        max_retries: int = 3,
+    ) -> Any:
+        """Retry an external call with exponential backoff for transient errors.
+
+        Only retries on transient errors (429, timeouts, connection errors).
+        Non-transient errors are raised immediately.
+        """
+        for attempt in range(max_retries + 1):
+            try:
+                result = await call_fn()
+                self._record_success(integration_name)
+                return result
+            except Exception as exc:
+                is_transient = self._is_transient_error(exc)
+                if not is_transient or attempt == max_retries:
+                    self._record_failure(integration_name)
+                    raise
+                backoff = min(2 ** attempt, 8)  # 1s, 2s, 4s max
+                logger.warning(
+                    "retry_%s attempt=%d backoff=%ds err=%s",
+                    integration_name, attempt + 1, backoff, str(exc)[:100],
+                )
+                await asyncio.sleep(backoff)
+
+    @staticmethod
+    def _is_transient_error(exc: Exception) -> bool:
+        """Check if an exception is transient (retryable)."""
+        try:
+            from app.core.langgraph.retry import is_transient_error
+            return is_transient_error(exc)
+        except ImportError:
+            pass
+
+        # Fallback: basic classification
+        status_code = getattr(exc, "status_code", None) or getattr(exc, "http_status", None)
+        if status_code is not None:
+            try:
+                code = int(status_code)
+                if code == 429 or code >= 500:
+                    return True
+                return False
+            except (ValueError, TypeError):
+                pass
+
+        if isinstance(exc, (ConnectionError, TimeoutError, asyncio.TimeoutError)):
+            return True
+
+        exc_name = type(exc).__name__.lower()
+        return any(p in exc_name for p in ("timeout", "connection", "ratelimit", "throttl"))
+
+    def register_integration_circuit_breaker(
+        self, integration_name: str, failure_threshold: int = 5, timeout: int = 60,
+    ) -> None:
+        """Register a circuit breaker for a new integration.
+
+        Allows dynamic registration for custom connectors and new integrations.
+        """
+        try:
+            from app.core.circuit_breaker_manager import (
+                CircuitBreakerConfig,
+                get_circuit_breaker_manager,
+            )
+            cb_manager = get_circuit_breaker_manager()
+            cb_manager.register(
+                integration_name,
+                CircuitBreakerConfig(failure_threshold=failure_threshold, timeout=timeout),
+            )
+            logger.info(
+                "integration_circuit_breaker_registered name=%s threshold=%d timeout=%d",
+                integration_name, failure_threshold, timeout,
+            )
+        except Exception:
+            logger.exception(
+                "register_integration_circuit_breaker_failed name=%s", integration_name,
+            )
 
     # ── Bulk / Broadcast ────────────────────────────────────────
 

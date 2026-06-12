@@ -170,9 +170,15 @@ export async function backendProxy(
     headers['Authorization'] = `Bearer ${authToken}`;
   }
 
-  // For cookie-auth paths without a Bearer token, we need CSRF
-  const cookieAuthPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/google', '/api/mfa/'];
-  const needsCSRF = !authToken && cookieAuthPaths.some(p => path.startsWith(p));
+  // Public auth endpoints that are exempt from CSRF cookie checks on the backend.
+  // They only need Origin/Referer validation, not double-submit CSRF tokens.
+  // These paths should be tried directly — if Origin is correct, they'll succeed.
+  const publicAuthPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/google', '/api/auth/refresh', '/api/auth/forgot-password', '/api/auth/reset-password'];
+  const isPublicAuthPath = publicAuthPaths.some(p => path === p || path.startsWith(p + '/'));
+
+  // Cookie-auth paths that truly need CSRF token (not public endpoints)
+  const cookieAuthPaths = ['/api/mfa/'];
+  const needsCSRF = !authToken && !isPublicAuthPath && cookieAuthPaths.some(p => path.startsWith(p));
 
   // ── OPTIMIZATION: Try without CSRF first for auth paths ──
   // This saves a full round trip when the backend is warm.

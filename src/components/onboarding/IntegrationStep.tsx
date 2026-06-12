@@ -69,8 +69,9 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   // Get industry-filtered integrations from the unified catalog
+  // Try the backend API first; if 503, fall back to local catalog import
   const parwaIndustry = industry ? mapIndustryToParwaIndustry(industry) : 'other';
-  const filteredCatalog = getIntegrationsForIndustry(parwaIndustry);
+  const [filteredCatalog, setFilteredCatalog] = useState<IntegrationDefinition[]>(() => getIntegrationsForIndustry(parwaIndustry));
 
   // Group by category in display order
   const orderedCategories = Object.entries(CATEGORY_META)
@@ -83,6 +84,22 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
   const [showSkipWarning, setShowSkipWarning] = useState(false);
   const [showCustomForm, setShowCustomForm] = useState<'custom' | 'openapi' | null>(null);
+
+  // Fetch catalog from backend API, fall back to local catalog on 503
+  useEffect(() => {
+    async function loadCatalog() {
+      try {
+        const res = await integrationsApi.getCatalog(parwaIndustry);
+        if (Array.isArray(res) && res.length > 0) {
+          setFilteredCatalog(res as unknown as IntegrationDefinition[]);
+        }
+      } catch {
+        // Backend unreachable (503) — local catalog already set as initial state
+        console.warn('[IntegrationStep] Backend catalog unavailable, using local catalog');
+      }
+    }
+    loadCatalog();
+  }, [parwaIndustry]);
 
   useEffect(() => {
     async function loadIntegrations() {

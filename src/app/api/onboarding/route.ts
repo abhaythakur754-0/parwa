@@ -57,48 +57,19 @@ export async function GET(req: NextRequest) {
     console.warn(`[onboarding-proxy] GET ${path} failed:`, err);
   }
 
-  // Mock fallback when backend is down or returned error
-  if (path === '/state' || path === '') {
-    return NextResponse.json({
-      id: 'mock-onboarding',
-      user_id: 'mock-user',
-      company_id: 'mock-company',
-      current_step: 1,
-      completed_steps: [],
-      status: 'not_started',
-      details_completed: false,
-      wizard_started: false,
-      legal_accepted: false,
-      first_victory_completed: false,
-      ai_name: 'Jarvis',
-      ai_tone: 'professional',
-      ai_response_style: 'concise',
-      ai_greeting: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      completed_at: null,
-    });
-  }
-
-  if (path === '/prerequisites') {
-    return NextResponse.json({
-      can_activate: true,
-      missing: [],
-    });
-  }
-
-  // Phase 4: cost-breakdown GET mock fallback
-  if (path === '/cost-breakdown') {
-    return NextResponse.json({
-      variants: [],
-      addOns: { voice: { price: 199, enabled: false }, customApi: { price: 49, enabled: false } },
-      totalMonthly: 0,
-      savingsVsHuman: { agentsReplaced: 0, humanCost: 0, savings: 0, savingsPercent: 0 },
-    });
-  }
-
+  // NO MORE SILENT MOCK FALLBACKS — per CLAUDE.md Rule #5
+  // If the backend is unreachable, return an explicit error so the
+  // developer knows the frontend is NOT connected to the backend.
+  console.error(`[onboarding-proxy] GET ${path} — backend unreachable, returning error (no mock fallback)`);
+  
   return NextResponse.json(
-    { detail: 'Not found' },
+    { error: 'backend_unreachable', message: 'Backend is not available. Onboarding data cannot be loaded.' },
+    { status: 503 }
+  );
+
+  // Unreachable code after the return above, but kept for reference
+  return NextResponse.json(
+    { error: 'not_found', message: 'Endpoint not found' },
     { status: 404 }
   );
 }
@@ -141,57 +112,13 @@ export async function POST(req: NextRequest) {
     console.warn(`[onboarding-proxy] POST ${path} failed:`, err);
   }
 
-  // Mock fallback when backend is down or returned CSRF error
-  if (path.startsWith('/complete-step')) {
-    return NextResponse.json({
-      status: 'ok',
-      current_step: 1,
-      completed_steps: [1],
-    });
-  }
-
-  if (path === '/legal-consent') {
-    return NextResponse.json({
-      status: 'ok',
-      legal_accepted: true,
-    });
-  }
-
-  if (path === '/activate') {
-    return NextResponse.json({
-      status: 'ok',
-      activated: true,
-    });
-  }
-
-  if (path === '/first-victory') {
-    return NextResponse.json({
-      status: 'ok',
-      first_victory_completed: true,
-    });
-  }
-
-  // Phase 4: industry-variant POST mock fallback
-  if (path === '/industry-variant') {
-    return NextResponse.json({
-      status: 'ok',
-      industry: 'other',
-      variant: 'parwa',
-    });
-  }
-
-  // Phase 4: checkout POST mock fallback
-  if (path === '/checkout') {
-    return NextResponse.json({
-      status: 'ok',
-      checkout_url: null,
-      session_id: 'mock-session-' + Date.now(),
-      message: 'Checkout session created (mock)',
-    });
-  }
-
+  // NO MORE SILENT MOCK FALLBACKS — per CLAUDE.md Rule #5
+  // If backend is unreachable, return an explicit error instead of
+  // silently returning fake "ok" responses that hide the broken connection.
+  console.error(`[onboarding-proxy] POST ${path} — backend unreachable, returning error (no mock fallback)`);
+  
   return NextResponse.json(
-    { detail: 'Not found' },
-    { status: 404 }
+    { error: 'backend_unreachable', message: `Cannot save onboarding data for ${path}. Backend is not available.` },
+    { status: 503 }
   );
 }

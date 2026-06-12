@@ -78,13 +78,19 @@ function timeUntilExpiry(expiresAt: string): string {
 // ── ApprovalWatcher Component ─────────────────────────────────────────
 
 export function ApprovalWatcher() {
-  const pendingApprovals = useApprovalStore((s) => s.getPendingApprovals());
+  // Use stable selectors to avoid infinite re-renders.
+  // getPendingApprovals() returns a new array each time, which breaks
+  // Zustand's shallow comparison and causes an infinite update loop.
+  const approvals = useApprovalStore((s) => s.approvals);
   const pendingCount = useApprovalStore((s) => s.pendingCount);
   const approve = useApprovalStore((s) => s.approve);
   const reject = useApprovalStore((s) => s.reject);
   const fetchApprovals = useApprovalStore((s) => s.fetchApprovals);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
+
+  // Derive pending approvals from the stable approvals array
+  const pendingApprovals = approvals.filter((a) => a.status === 'pending');
 
   // Fetch approvals on mount
   useEffect(() => {

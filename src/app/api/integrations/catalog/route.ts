@@ -3,36 +3,17 @@
  *
  * GET /api/integrations/catalog?industry=saas
  * Proxies to backend /api/integrations/catalog with optional industry filter.
- * Falls back to the frontend catalog when backend is unreachable.
+ *
+ * NO MOCK FALLBACK — per CLAUDE.md Rule #5:
+ * If backend is unreachable, return 503 so the developer knows.
+ * The frontend IntegrationStep component can fall back to its
+ * local catalog import client-side (which is the same data).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/lib/backend-url';
-import {
-  INTEGRATION_CATALOG,
-  getIntegrationsForIndustry,
-  type ParwaIndustry,
-} from '@/lib/integration-catalog';
 
 const BACKEND_URL = getBackendUrl();
-
-/** Convert frontend IntegrationDefinition to the JSON shape the API returns */
-function catalogToJson(items: typeof INTEGRATION_CATALOG) {
-  return items.map((i) => ({
-    key: i.key,
-    name: i.name,
-    description: i.description,
-    category: i.category,
-    tier: i.tier,
-    authSchema: i.authSchema,
-    testConnection: i.testConnection,
-    suggestedIndustries: i.suggestedIndustries,
-    availableForVariants: i.availableForVariants || [],
-    iconId: i.iconId,
-    colorGradient: i.colorGradient,
-    available: i.available,
-  }));
-}
 
 export async function GET(req: NextRequest) {
   const industry = req.nextUrl.searchParams.get('industry');
@@ -57,20 +38,30 @@ export async function GET(req: NextRequest) {
 
     if (res.ok) {
       const data = await res.json();
-      // If backend returns empty array, fall back to frontend catalog
       if (Array.isArray(data) && data.length > 0) {
         return NextResponse.json(data, { status: 200 });
       }
+      // Backend returned empty array — return it (no mock fallback)
+      return NextResponse.json(data, { status: 200 });
     }
-    // Backend returned error or empty — fall through to frontend catalog
-  } catch {
-    // Backend unreachable — fall through to frontend catalog
+
+    // Backend returned error — forward the status
+    const errorBody = await res.text().catch(() => '{}');
+    try {
+      return NextResponse.json(JSON.parse(errorBody), { status: res.status });
+    } catch {
+      return NextResponse.json(
+        { error: 'backend_error', message: `Backend returned ${res.status}` },
+        { status: res.status }
+      );
+    }
+  } catch (err) {
+    console.error('[integrations-catalog] Backend unreachable:', err);
   }
 
-  // Fallback: use frontend catalog
-  if (industry) {
-    const parwaIndustry = industry as ParwaIndustry;
-    return NextResponse.json(catalogToJson(getIntegrationsForIndustry(parwaIndustry)));
-  }
-  return NextResponse.json(catalogToJson(INTEGRATION_CATALOG));
+  // NO MOCK FALLBACK — return explicit 503
+  return NextResponse.json(
+    { error: 'backend_unreachable', message: 'Backend is not available. Integration catalog cannot be loaded from backend.' },
+    { status: 503 }
+  );
 }

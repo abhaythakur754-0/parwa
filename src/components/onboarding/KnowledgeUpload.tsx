@@ -71,19 +71,22 @@ export function KnowledgeUpload({ onComplete }: KnowledgeUploadProps) {
       });
 
       if (!res.ok) {
-        // Mock: save locally even on API failure
+        // NO MOCK FALLBACK — per CLAUDE.md Rule #5
+        const errorData = await res.json().catch(() => ({}));
+        const errorMsg = errorData?.error?.message || errorData?.message || `Upload failed (${res.status})`;
         setDocuments((prev) => [
           ...prev,
           {
-            id: `doc-${Date.now()}`,
+            id: `doc-failed-${Date.now()}`,
             filename: file.name,
             file_size: file.size,
-            status: 'completed',
-            chunk_count: 5,
-            error_message: null,
+            status: 'failed',
+            chunk_count: null,
+            error_message: errorMsg,
             created_at: new Date().toISOString(),
           },
         ]);
+        setError(errorMsg);
         return;
       }
 
@@ -101,19 +104,22 @@ export function KnowledgeUpload({ onComplete }: KnowledgeUploadProps) {
         },
       ]);
     } catch (err) {
-      // Mock: save locally on network error
+      // NO MOCK FALLBACK — per CLAUDE.md Rule #5
+      // Show real error instead of faking success
+      const errorMsg = err instanceof Error ? err.message : 'Network error — backend may be unreachable';
       setDocuments((prev) => [
         ...prev,
         {
-          id: `doc-${Date.now()}`,
+          id: `doc-failed-${Date.now()}`,
           filename: file.name,
           file_size: file.size,
-          status: 'completed',
-          chunk_count: 5,
-          error_message: null,
+          status: 'failed',
+          chunk_count: null,
+          error_message: errorMsg,
           created_at: new Date().toISOString(),
         },
       ]);
+      setError(errorMsg);
     } finally {
       setUploading(false);
     }

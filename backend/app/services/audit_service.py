@@ -68,6 +68,11 @@ class AuditAction(str, enum.Enum):
     API_KEY_REVOKE = "api_key_revoke"
     WEBHOOK_DELIVERED = "webhook_delivered"
     WEBHOOK_FAILED = "webhook_failed"
+    AI_ACTION = "ai_action"
+    AI_TOOL_CALL = "ai_tool_call"
+    AI_DECISION = "ai_decision"
+    INTEGRATION_CALL = "integration_call"
+    INTEGRATION_DISCONNECT = "integration_disconnect"
 
 
 VALID_ACTOR_TYPES = {t.value for t in ActorType}
@@ -602,10 +607,10 @@ def export_audit_trail(
     if not company_id:
         raise ValueError("company_id is required for audit export (BC-001)")
 
-    if format not in ("json",):
+    if format not in ("json", "csv"):
         raise ValueError(
             f"Unsupported export format '{format}'. "
-            f"Only 'json' is currently supported."
+            f"Supported formats: 'json', 'csv'."
         )
 
     query = db.query(AuditTrail).filter(AuditTrail.company_id == company_id)

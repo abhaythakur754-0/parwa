@@ -6,9 +6,18 @@
  * and usage limits. Server-verified — never trusts localStorage for tier data.
  *
  * Tiers: mini ($999/mo) | pro ($2,499/mo) | high ($3,999/mo)
+ * Prices sourced from: /src/lib/pricing-config.ts (matches backend SSOT)
  */
 
 import { create } from 'zustand';
+import {
+  VARIANT_PRICES,
+  VARIANT_DISPLAY_NAMES,
+  VARIANT_TIER_ORDER as PRICING_TIER_ORDER,
+  type VariantTier as CanonicalTier,
+  LEGACY_TO_CANONICAL,
+  CANONICAL_TO_LEGACY,
+} from './pricing-config';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -145,12 +154,8 @@ export function getTierLabel(tier: VariantTier): string {
 }
 
 export function getTierPrice(tier: VariantTier): string {
-  const prices: Record<VariantTier, string> = {
-    mini: '$999/mo',
-    pro: '$2,499/mo',
-    high: '$3,999/mo',
-  };
-  return prices[tier];
+  const canonical = LEGACY_TO_CANONICAL[tier] || 'starter';
+  return `$${VARIANT_PRICES[canonical].toLocaleString()}/mo`;
 }
 
 export function getTierColor(tier: VariantTier): string {

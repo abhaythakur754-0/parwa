@@ -46,45 +46,47 @@ export interface PricingContext {
   timestamp: string;
 }
 
-// ── Variant Definitions (D5) ───────────────────────────────────────────
+// ── Variant Definitions (D5) — prices from /src/lib/pricing-config.ts ─────
+
+import { VARIANT_PRICES, VARIANT_AI_INFO, VARIANT_LIMITS } from '@/lib/pricing-config';
 
 const VARIANTS: VariantDefinition[] = [
   {
     key: 'mini_parwa',
     name: 'Mini PARWA',
-    price: 999,
-    priceLabel: '$999/mo',
-    aiPipeline: 3,
-    ticketVolume: 500,
+    price: VARIANT_PRICES.starter,
+    priceLabel: `$${VARIANT_PRICES.starter.toLocaleString()}/mo`,
+    aiPipeline: VARIANT_AI_INFO.starter.pipelineSteps,
+    ticketVolume: VARIANT_LIMITS.starter.monthlyTickets,
     customApi: false,
     openApiImport: false,
-    concurrentAiCalls: 2,
+    concurrentAiCalls: VARIANT_AI_INFO.starter.concurrentCalls,
     description: 'Perfect for small teams getting started with AI support.',
     badge: undefined,
   },
   {
     key: 'parwa',
     name: 'PARWA',
-    price: 2499,
-    priceLabel: '$2,499/mo',
-    aiPipeline: 6,
-    ticketVolume: 2000,
+    price: VARIANT_PRICES.growth,
+    priceLabel: `$${VARIANT_PRICES.growth.toLocaleString()}/mo`,
+    aiPipeline: VARIANT_AI_INFO.growth.pipelineSteps,
+    ticketVolume: VARIANT_LIMITS.growth.monthlyTickets,
     customApi: true,
     openApiImport: false,
-    concurrentAiCalls: 3,
+    concurrentAiCalls: VARIANT_AI_INFO.growth.concurrentCalls,
     description: 'For growing businesses that need more power and flexibility.',
     badge: 'Popular',
   },
   {
     key: 'parwa_high',
     name: 'PARWA High',
-    price: 4999,
-    priceLabel: '$4,999/mo',
-    aiPipeline: 9,
-    ticketVolume: 10000,
+    price: VARIANT_PRICES.high,
+    priceLabel: `$${VARIANT_PRICES.high.toLocaleString()}/mo`,
+    aiPipeline: VARIANT_AI_INFO.high.pipelineSteps,
+    ticketVolume: VARIANT_LIMITS.high.monthlyTickets,
     customApi: true,
     openApiImport: true,
-    concurrentAiCalls: 5,
+    concurrentAiCalls: VARIANT_AI_INFO.high.concurrentCalls,
     description: 'Enterprise-grade AI support with unlimited potential.',
     badge: 'Enterprise',
   },
@@ -176,15 +178,23 @@ export function IndustryVariantStep({ onComplete }: IndustryVariantStepProps) {
       };
       localStorage.setItem('parwa_pricing_context', JSON.stringify(context));
 
-      // POST to backend (fire-and-forget; local state is source of truth)
-      try {
-        await fetch('/api/onboarding/industry-variant', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ industry, variant }),
-        });
-      } catch {
-        // API unavailable — continue with local state
+      // POST to backend — must succeed to continue (CLAUDE.md Rule #5)
+      const res = await fetch('/api/onboarding/industry-variant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ industry, variant }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        if (errData.error === 'backend_unreachable') {
+          toast.error('Backend is not available. Please try again later.');
+          setIsSubmitting(false);
+          return;
+        }
+        // Non-503 error (e.g. 400, 409) — backend is reachable but rejected
+        console.warn('[industry-variant] Backend returned', res.status, errData);
+        // Continue anyway — backend may not have this endpoint yet
       }
 
       toast.success(`${selectedVariant.name} selected — let's set it up!`);

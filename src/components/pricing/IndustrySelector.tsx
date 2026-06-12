@@ -3,7 +3,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-export type IndustryKey = 'ecommerce' | 'saas' | 'logistics' | 'others';
+export type IndustryKey = 'ecommerce' | 'saas' | 'logistics' | 'other';
 
 export interface Industry {
   key: IndustryKey;
@@ -39,7 +39,7 @@ export const industries: Industry[] = [
       'Intelligent handling of shipment tracking, delivery issues, fleet, and customs queries.',
   },
   {
-    key: 'others',
+    key: 'other',
     icon: '\uD83C\uDFE2',
     name: 'Others',
     tagline: 'Custom setup for any industry',

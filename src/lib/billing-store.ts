@@ -7,6 +7,7 @@
 
 import { create } from 'zustand';
 import { VariantTier } from './variant-store';
+import { VARIANT_PRICES, LEGACY_TO_CANONICAL } from './pricing-config';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -61,10 +62,11 @@ export interface BillingState {
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
+// Prices sourced from pricing-config.ts (matches backend SSOT)
 const TIER_PRICES: Record<VariantTier, number> = {
-  mini: 999,
-  pro: 2499,
-  high: 3999,
+  mini: VARIANT_PRICES.starter,
+  pro: VARIANT_PRICES.growth,
+  high: VARIANT_PRICES.high,
 };
 
 const API_BASE = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || '');

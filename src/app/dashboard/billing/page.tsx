@@ -32,11 +32,14 @@ interface Invoice {
 
 // ── Plan Data ────────────────────────────────────────────────────────
 
+// Prices from /src/lib/pricing-config.ts (matches backend SSOT)
+import { VARIANT_PRICES } from '@/lib/pricing-config';
+
 const PLANS: PlanTier[] = [
   {
     key: 'mini',
     name: 'Mini PARWA',
-    monthlyPrice: 999,
+    monthlyPrice: VARIANT_PRICES.starter,
     description: 'For small teams getting started with AI support',
     agents: 1,
     techniques: 'Tier 1 only',
@@ -46,7 +49,7 @@ const PLANS: PlanTier[] = [
   {
     key: 'pro',
     name: 'PARWA',
-    monthlyPrice: 2499,
+    monthlyPrice: VARIANT_PRICES.growth,
     description: 'For growing teams that need full AI capabilities',
     agents: 3,
     techniques: 'Tier 1 + Tier 2',
@@ -57,7 +60,7 @@ const PLANS: PlanTier[] = [
   {
     key: 'high',
     name: 'PARWA High',
-    monthlyPrice: 3999,
+    monthlyPrice: VARIANT_PRICES.high,
     description: 'For enterprises that demand the best',
     agents: 5,
     techniques: 'All techniques',

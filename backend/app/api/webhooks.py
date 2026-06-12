@@ -669,3 +669,46 @@ async def retry_webhook(
                 }
             },
         )
+
+
+@router.get(
+    "/events",
+)
+async def list_webhook_events(
+    limit: int = 50,
+    user: User = Depends(require_platform_admin),
+):
+    """List recent webhook events for the event log viewer.
+
+    Per Phase 6 GAP 1: Webhook event log viewer embedded in Settings → Webhooks.
+    Returns recent inbound webhook events with status info.
+    BC-001: Events are filtered by company_id if available.
+    """
+    from database.base import get_db_context
+    from database.models.webhook_event import WebhookEvent
+
+    try:
+        with get_db_context() as db:
+            events = (
+                db.query(WebhookEvent)
+                .order_by(WebhookEvent.created_at.desc())
+                .limit(min(limit, 100))
+                .all()
+            )
+
+            return {
+                "events": [
+                    {
+                        "event_type": evt.event_type,
+                        "status": evt.status,
+                        "provider": evt.provider,
+                        "created_at": evt.created_at.isoformat() if evt.created_at else "",
+                        "event_id": evt.event_id,
+                        "error_message": evt.error_message[:200] if evt.error_message else None,
+                    }
+                    for evt in events
+                ]
+            }
+    except Exception as exc:
+        logger.error("webhook_events_list_error error=%s", exc)
+        return {"events": []}

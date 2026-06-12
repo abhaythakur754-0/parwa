@@ -80,6 +80,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
     # extract company_id from the JWT — tenant middleware is redundant for them.
     PUBLIC_PREFIXES = (
         "/api/auth/",
+        "/api/v1/auth/",
         "/api/public/",
         "/public/",
         "/api/api-keys",

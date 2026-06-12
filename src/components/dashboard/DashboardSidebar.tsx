@@ -110,6 +110,11 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
     </svg>
   ),
+  auditLog: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15a2.25 2.25 0 012.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+    </svg>
+  ),
 };
 
 // ── DashboardSidebar Component ───────────────────────────────────────
@@ -128,6 +133,7 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
     { label: 'Channels', href: '/dashboard/channels', icon: Icons.channels, requiredTier: undefined },
     { label: 'Calls', href: '/dashboard/calls', icon: Icons.calls },
     { label: 'Billing', href: '/dashboard/billing', icon: Icons.billing },
+    { label: 'Cost Breakdown', href: '/dashboard/cost-breakdown', icon: Icons.billing },
     { label: 'Agents', href: '/dashboard/agents', icon: Icons.agents },
     { label: 'Knowledge Base', href: '/dashboard/knowledge', icon: Icons.knowledge },
     { label: 'Shadow Mode', href: '/dashboard/shadow-mode', icon: Icons.shadowMode, requiredTier: 'pro' as VariantTier },
@@ -135,12 +141,30 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
   ];
 
   const bottomItems: NavItem[] = [
+    { label: 'Audit Log', href: '/dashboard/settings?tab=audit', icon: Icons.auditLog },
     { label: 'Settings', href: '/dashboard/settings', icon: Icons.settings },
   ];
 
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard';
-    return pathname === href;
+    // For links with query params (like ?tab=audit), match base path + params
+    const basePath = href.split('?')[0];
+    const queryPart = href.includes('?') ? href.split('?')[1] : null;
+    if (queryPart) {
+      // Only active if both the path matches AND the query param matches
+      if (pathname !== basePath) return false;
+      // Check if current URL has the expected query param
+      if (typeof window !== 'undefined') {
+        const currentParams = new URLSearchParams(window.location.search);
+        const expectedParams = new URLSearchParams(queryPart);
+        for (const [key, value] of expectedParams.entries()) {
+          if (currentParams.get(key) !== value) return false;
+        }
+        return true;
+      }
+      return false;
+    }
+    return pathname === basePath;
   };
 
   const handleLogout = async () => {

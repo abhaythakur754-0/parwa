@@ -82,9 +82,18 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
 
     // Step 6 (CostBreakdown) completes the onboarding and goes to FirstVictory (Step 7)
     if (step === 6) {
-      // Mark onboarding as completed
+      // Mark onboarding as completed — send variant + industry so backend can create instance
       try {
-        await fetch('/api/onboarding/activate', { method: 'POST' });
+        const pricingContext = localStorage.getItem('parwa_pricing_context');
+        const ctx = pricingContext ? JSON.parse(pricingContext) : {};
+        await fetch('/api/onboarding/activate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            variant: selectedVariant || ctx.variant || 'parwa',
+            industry: selectedIndustry || ctx.industry || 'other',
+          }),
+        });
       } catch {
         // Continue locally even if API fails
       }
@@ -100,7 +109,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
     } catch {
       // Step completed locally even if API fails
     }
-  }, []);
+  }, [selectedVariant, selectedIndustry]);
 
   const handleGoToStep = useCallback((step: number) => {
     if (completedSteps.includes(step) && step !== currentStep) {
@@ -294,6 +303,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
           {currentStep === 6 && (
             <CostBreakdownStep
               variant={selectedVariant || 'parwa'}
+              industry={resolvedIndustry || undefined}
               onComplete={() => completeStep(6)}
             />
           )}
