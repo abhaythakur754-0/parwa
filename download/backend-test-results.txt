@@ -1,0 +1,39 @@
+PARWA Backend API Test Results - Phase 13 & 14
+======================================================================
+✅ Health Check
+✅ Register User
+✅ Login User
+✅ Get Current User
+✅ Catalog SaaS (17)
+✅ Catalog E-commerce (14)
+✅ Catalog Logistics (12)
+✅ Catalog Other (30)
+✅ Onboarding State
+✅ Set Industry+Variant
+✅ Legal Consent
+✅ Complete Step 3
+✅ Complete Step 4
+✅ Complete Step 5
+✅ Phase13: Store Bearer Key (HubSpot)
+✅ Phase13: Store Header Key (Shopify)
+✅ Phase13: Store Query Key (Klaviyo)
+✅ Phase13: Store Basic Auth Key (WooCommerce)
+✅ Phase13: Store OAuth2 Key (Salesforce)
+✅ Phase13: List Keys (0, all masked)
+✅ Phase13: Rotate Key (HubSpot)
+✅ Phase13: Revoke Key (Klaviyo)
+✅ Phase13: AES-256-GCM Encryption
+✅ Phase14: Variant List (1)
+✅ Phase14: Add Mini Variant
+✅ Phase14: Variant Usage
+✅ Phase14: Route Simple (score=2 -> mini)
+✅ Phase14: Route Medium (score=5 -> parwa)
+✅ Phase14: Route Complex (score=9 -> escalation)
+✅ Phase14: AI Tools Available (5)
+✅ Phase14: AI Tool Selection
+✅ Phase14: Dynamic System Prompt (1489 chars)
+✅ Audit Stats
+✅ Audit Entries
+
+Total: 34 | Passed: 34 | Failed: 0
+======================================================================

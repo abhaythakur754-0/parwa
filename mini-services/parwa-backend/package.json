@@ -1,0 +1,7 @@
+{
+  "name": "parwa-backend",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "cd /home/z/my-project/mini-services/parwa-backend && python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload 2>&1"
+  }
+}

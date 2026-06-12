@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// PARWA DATABASE SCHEMA
+// ==========================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  password_hash String?
+  is_verified   Boolean   @default(false)
+  tenant_id     String?
+  role          String    @default("client") // client | admin
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  tenant        Tenant?   @relation(fields: [tenant_id], references: [id])
+}
+
+model Tenant {
+  id              String   @id @default(cuid())
+  name            String
+  industry        String   @default("saas") // saas | ecommerce | logistics | other
+  onboarding_step Int      @default(0)
+  onboarding_complete Boolean @default(false)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  users           User[]
+  variants        AIVariant[]
+  integrations    IntegrationCredential[]
+  custom_connectors CustomConnector[]
+  audit_logs      AuditLog[]
+  notifications   Notification[]
+  faq_entries     FAQEntry[]
+  kb_documents    KBDocument[]
+}
+
+model AIVariant {
+  id              String   @id @default(cuid())
+  tenant_id       String
+  variant_type    String   // mini | parwa | parwa_high
+  status          String   @default("active") // active | suspended | pending_cancel
+  ticket_limit    Int      // 500 | 2000 | 10000
+  tickets_used    Int      @default(0)
+  ai_pipeline_steps Int    // 3 | 6 | 9
+  concurrent_ai   Int      // 2 | 3 | 5
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  tenant          Tenant   @relation(fields: [tenant_id], references: [id])
+}
+
+model IntegrationCredential {
+  id              String   @id @default(cuid())
+  tenant_id       String
+  integration_id  String   // hubspot | shopify | salesforce | slack | etc.
+  integration_name String
+  auth_type       String   // bearer | header | query | basic | oauth2
+  encrypted_data  String   // AES-256-GCM encrypted JSONB
+  status          String   @default("active") // active | error | disconnected
+  last_tested_at  DateTime?
+  last_4_chars    String?  // Last 4 chars of primary key for display
+  created_at      DateTime @default(now())
+  rotated_at      DateTime?
+  rotated_by      String?
+
+  tenant          Tenant   @relation(fields: [tenant_id], references: [id])
+}
+
+model CustomConnector {
+  id              String   @id @default(cuid())
+  tenant_id       String
+  name            String
+  base_url        String
+  auth_type       String
+  encrypted_auth  String   // AES-256-GCM encrypted
+  actions         String   // JSON string of action definitions
+  source          String   @default("custom") // custom | openapi_import
+  status          String   @default("active")
+  test_endpoint   String?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  tenant          Tenant   @relation(fields: [tenant_id], references: [id])
+}
+
+model AuditLog {
+  id              String   @id @default(cuid())
+  tenant_id       String
+  action          String   // AI_ACTION | INTEGRATION_CALL | INTEGRATION_DISCONNECT | etc.
+  actor           String?
+  resource_type   String?
+  resource_id     String?
+  details         String?  // JSON string
+  severity        String   @default("info") // info | warning | critical | security
+  ip_address      String?
+  checksum        String?  // SHA-256 for integrity
+  created_at      DateTime @default(now())
+
+  tenant          Tenant   @relation(fields: [tenant_id], references: [id])
+}
+
+model Notification {
+  id              String   @id @default(cuid())
+  tenant_id       String
+  category        String   // integration_health | billing | webhook | ai_action | compliance | system
+  severity        String   // low | medium | high | critical
+  title           String
+  body            String?
+  action_url      String?
+  read            Boolean  @default(false)
+  created_at      DateTime @default(now())
+
+  tenant          Tenant   @relation(fields: [tenant_id], references: [id])
+}
+
+model FAQEntry {
+  id              String   @id @default(cuid())
+  tenant_id       String
+  question        String
+  answer          String
+  category        String?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  tenant          Tenant   @relation(fields: [tenant_id], references: [id])
+}
+
+model KBDocument {
+  id              String   @id @default(cuid())
+  tenant_id       String
+  filename        String
+  file_type       String   // pdf | docx | txt | csv | html | json | md
+  file_size       Int
+  chunk_count     Int      @default(0)
+  status          String   @default("processing") // processing | ready | failed
+  error_message   String?
+  created_at      DateTime @default(now())
+
+  tenant          Tenant   @relation(fields: [tenant_id], references: [id])
+}
+
+model OnboardingState {
+  id              String   @id @default(cuid())
+  tenant_id       String   @unique
+  current_step    Int      @default(0)
+  industry        String?
+  variant         String?
+  legal_accepted  Boolean  @default(false)
+  integrations    String?  // JSON array of connected integration IDs
+  kb_uploaded     Boolean  @default(false)
+  ai_configured   Boolean  @default(false)
+  payment_done    Boolean  @default(false)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+}
