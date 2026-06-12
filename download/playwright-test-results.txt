@@ -1,0 +1,62 @@
+PARWA E2E Test Results — Phase 13 & 14
+======================================================================
+
+❌ Backend Health Check — fetch failed
+❌ Register User — fetch failed
+❌ Login User — fetch failed
+❌ Catalog SaaS — fetch failed
+❌ Catalog All Industries — fetch failed
+❌ Store Bearer Key — fetch failed
+❌ Store Header Key — fetch failed
+❌ Store Basic Auth Key — fetch failed
+❌ Store OAuth2 Key — fetch failed
+❌ Store Query Param Key — fetch failed
+❌ List Keys — fetch failed
+❌ Rotate Key — fetch failed
+❌ Revoke Key — fetch failed
+❌ Set Industry+Variant — fetch failed
+❌ Variant List — fetch failed
+❌ Add Mini Variant — fetch failed
+❌ Route Simple — fetch failed
+❌ Route Medium — fetch failed
+❌ Route Complex — fetch failed
+❌ AI Tools Available — fetch failed
+❌ AI Tool Selection — fetch failed
+❌ Dynamic System Prompt — fetch failed
+❌ Landing Page Loads — page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:3000/
+Call log:
+  - navigating to "http://127.0.0.1:3000/", waiting until "networkidle"
+
+❌ Landing Page Has PARWA Branding — No PARWA text found
+❌ Login Page Loads — page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:3000/login
+Call log:
+  - navigating to "http://127.0.0.1:3000/login", waiting until "networkidle"
+
+❌ Signup Page Loads — page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:3000/signup
+Call log:
+  - navigating to "http://127.0.0.1:3000/signup", waiting until "networkidle"
+
+❌ Login Form Works — page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:3000/login
+Call log:
+  - navigating to "http://127.0.0.1:3000/login", waiting until "networkidle"
+
+❌ Onboarding Page Loads — page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:3000/onboarding
+Call log:
+  - navigating to "http://127.0.0.1:3000/onboarding", waiting until "networkidle"
+
+❌ Dashboard Page — page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:3000/dashboard
+Call log:
+  - navigating to "http://127.0.0.1:3000/dashboard", waiting until "networkidle"
+
+❌ Settings Page — page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:3000/dashboard/settings
+Call log:
+  - navigating to "http://127.0.0.1:3000/dashboard/settings", waiting until "networkidle"
+
+✅ No Critical Console Errors
+❌ BFF Auth Route — fetch failed
+❌ BFF Onboarding Route — fetch failed
+❌ BFF Catalog Route — fetch failed
+❌ No Plaintext Keys — fetch failed
+❌ Auth Required — fetch failed
+
+Total: 36 | Passed: 1 | Failed: 35 | Warned: 0
