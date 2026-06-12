@@ -22,7 +22,7 @@ from parwa.nodes.escalation_decision import escalation_decision, _should_escalat
 from parwa.nodes.faq_matcher import faq_matcher, _match_faq_rule_based
 from parwa.nodes.kb_retriever import kb_retriever, _retrieve_kb_rule_based
 from parwa.nodes.context_manager import context_manager
-from parwa.nodes.integration_lookup import integration_lookup, _lookup_integration_rule_based
+from parwa.nodes.integration_lookup import integration_lookup, _lookup_from_crm
 from parwa.nodes.reasoning_engine import reasoning_engine, _reason_rule_based
 from parwa.nodes.reverse_thinker import reverse_thinker, _reverse_think_rule_based
 from parwa.nodes.tree_of_thoughts import tree_of_thoughts, _explore_paths_rule_based
@@ -164,10 +164,11 @@ class TestSafeNodeFallbackIntegrationLookup:
 
     @pytest.mark.asyncio
     async def test_returns_fallback_on_crash(self):
-        with patch("parwa.nodes.integration_lookup._lookup_integration_rule_based", side_effect=RuntimeError("Crash")):
+        with patch("parwa.nodes.integration_lookup._lookup_from_crm", side_effect=RuntimeError("Crash")):
             result = await integration_lookup({"customer_id": "default", "intent": "refund_request"})
-        # Inner try/except catches it, returns {}
-        assert result["integration_data"] == {}
+        # Node catches the error and provides default fallback data
+        assert "integration_data" in result
+        assert result["integration_data"].get("found") is True
 
 
 class TestSafeNodeFallbackReasoningEngine:
@@ -252,8 +253,7 @@ class TestSafeNodeFallbackActionExecutor:
 
     @pytest.mark.asyncio
     async def test_returns_fallback_on_crash(self):
-        with patch("parwa.nodes.action_executor._execute_with_brain", side_effect=RuntimeError("Crash")), \
-             patch("parwa.nodes.action_executor._execute_rule_based", side_effect=RuntimeError("Crash")):
+        with patch("parwa.nodes.action_executor.get_permission", side_effect=RuntimeError("Crash")):
             result = await action_executor({
                 "variant": "parwa",
                 "action_plans": [{"action_type": "send_reply", "description": "Reply", "parameters": {}, "evidence": [], "risk_level": "low"}],
@@ -267,8 +267,7 @@ class TestSafeNodeFallbackActionVerifier:
 
     @pytest.mark.asyncio
     async def test_returns_fallback_on_crash(self):
-        with patch("parwa.nodes.action_verifier._verify_with_brain", side_effect=RuntimeError("Crash")), \
-             patch("parwa.nodes.action_verifier._verify_execution", side_effect=RuntimeError("Crash")):
+        with patch("parwa.nodes.action_verifier._verify_execution", side_effect=RuntimeError("Crash")):
             result = await action_verifier({
                 "execution_results": [{"status": "executed"}],
                 "recommendation": None, "loop_count": 0, "max_loops": 2,

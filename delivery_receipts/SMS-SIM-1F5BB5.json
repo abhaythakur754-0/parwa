@@ -1,0 +1,10 @@
+{
+  "message_id": "SMS-SIM-1F5BB5",
+  "channel": "sms",
+  "recipient": "+1-555-012-3456",
+  "message_preview": "ReAct verified: Conclusion consistent with available data for account_modification.",
+  "simulated_at": "2026-06-11T23:55:25.756019",
+  "provider": "simulation",
+  "status": "simulated",
+  "note": "This SMS was NOT actually delivered. Configure Twilio for real delivery."
+}

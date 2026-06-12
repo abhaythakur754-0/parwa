@@ -15,6 +15,7 @@ from typing import Any
 
 from parwa.utils.llm import MOCK_MODE, get_mock_llm, ainvoke_llm
 from parwa.utils.node_base import safe_node
+from parwa.utils.output_parser import parse_reasoning_response
 from parwa.utils.sanitizer import build_safe_prompt
 
 logger = logging.getLogger("parwa.node.reasoning_engine")
@@ -101,14 +102,7 @@ async def _reason_llm(
         ticket_id=ticket_id,
         variant=variant,
     )
-    chain = [line.strip() for line in text.strip().split("\n") if line.strip()]
-    conclusion = ""
-    for line in chain:
-        if line.lower().startswith("conclusion:"):
-            conclusion = line[len("conclusion:"):].strip()
-            break
-    if not conclusion and chain:
-        conclusion = chain[-1]
+    chain, conclusion = parse_reasoning_response(text)
     return chain, conclusion
 
 

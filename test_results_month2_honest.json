@@ -1,0 +1,2044 @@
+{
+  "timestamp": "2026-06-11T23:43:43.560643",
+  "total_tickets": 15,
+  "variants": [
+    "mini",
+    "parwa",
+    "high"
+  ],
+  "results": [
+    {
+      "ticket_id": "GEN-01",
+      "ticket_name": "Duplicate charge refund",
+      "variant": "mini",
+      "elapsed_seconds": 2.57,
+      "success": true,
+      "intent": "refund_request",
+      "intent_match": true,
+      "sentiment": "neutral",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "process_refund"
+      ],
+      "execution_results": [
+        {
+          "action_type": "process_refund",
+          "status": "recommended",
+          "message": "Action 'ActionType.PROCESS_REFUND' requires human approval for variant 'mini'"
+        }
+      ],
+      "recommendation": {
+        "pending_approval": true,
+        "action_type": "process_refund",
+        "description": "Process refund of $49.99",
+        "evidence": [
+          "ReAct warning: Refund claim cannot be verified without CRM charge data.",
+          "CRM shows duplicate charges of $49.99"
+        ],
+        "parameters": {
+          "amount": 49.99,
+          "reason": "duplicate_charge"
+        },
+        "risk_level": "low",
+        "quality_score": 0,
+        "message": "Recommended action 'ActionType.PROCESS_REFUND' pending human approval for this variant."
+      },
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": true
+      },
+      "expected_actions": [
+        "process_refund"
+      ],
+      "variant_expectation": "recommend",
+      "expectation_met": true,
+      "final_response": "I found that you were indeed charged twice. I've verified you're eligible for a $49.99 refund and have submitted this for approval. You'll receive confirmation within 2 hours. Is there anything else you'd like to know?"
+    },
+    {
+      "ticket_id": "GEN-01",
+      "ticket_name": "Duplicate charge refund",
+      "variant": "parwa",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "refund_request",
+      "intent_match": true,
+      "sentiment": "neutral",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "process_refund"
+      ],
+      "execution_results": [
+        {
+          "action_type": "process_refund",
+          "status": "executed",
+          "message": "Refund of $49.99 processed. Refund ID: REF-4904AF. Will appear in 3-5 business days.",
+          "parameters": {
+            "amount": 49.99,
+            "reason": "duplicate_charge"
+          },
+          "details": {
+            "refund_id": "REF-4904AF",
+            "amount": 49.99,
+            "payment_id": "PAY-3002"
+          }
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 1,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 0,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "process_refund"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "Your $49.99 refund has been processed. It will appear in 3-5 business days. Is there anything else you'd like to know?"
+    },
+    {
+      "ticket_id": "GEN-01",
+      "ticket_name": "Duplicate charge refund",
+      "variant": "high",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "refund_request",
+      "intent_match": true,
+      "sentiment": "neutral",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "process_refund"
+      ],
+      "execution_results": [
+        {
+          "action_type": "process_refund",
+          "status": "executed",
+          "message": "Refund of $49.99 processed. Refund ID: REF-60B1B0. Will appear in 3-5 business days.",
+          "parameters": {
+            "amount": 49.99,
+            "reason": "duplicate_charge"
+          },
+          "details": {
+            "refund_id": "REF-60B1B0",
+            "amount": 49.99,
+            "payment_id": "PAY-3002"
+          }
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 1,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 0,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "process_refund"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "Your $49.99 refund has been processed. It will appear in 3-5 business days. Is there anything else you'd like to know?"
+    },
+    {
+      "ticket_id": "GEN-02",
+      "ticket_name": "Order status inquiry",
+      "variant": "mini",
+      "elapsed_seconds": 4.53,
+      "success": true,
+      "intent": "order_status",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 75.0,
+      "actions_taken": [
+        "share_policy"
+      ],
+      "execution_results": [
+        {
+          "action_type": "share_policy",
+          "status": "executed",
+          "message": "Policy information shared: relevant policy",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 3,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "share_policy",
+        "send_reply"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "Your order has been located. Based on our records, it's currently being processed."
+    },
+    {
+      "ticket_id": "GEN-02",
+      "ticket_name": "Order status inquiry",
+      "variant": "parwa",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "order_status",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "share_policy"
+      ],
+      "execution_results": [
+        {
+          "action_type": "share_policy",
+          "status": "executed",
+          "message": "Policy information shared: relevant policy",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "share_policy",
+        "send_reply"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "Your order has been located. Based on our records, it's currently being processed."
+    },
+    {
+      "ticket_id": "GEN-02",
+      "ticket_name": "Order status inquiry",
+      "variant": "high",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "order_status",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "share_policy"
+      ],
+      "execution_results": [
+        {
+          "action_type": "share_policy",
+          "status": "executed",
+          "message": "Policy information shared: relevant policy",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "share_policy",
+        "send_reply"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "Your order has been located. Based on our records, it's currently being processed."
+    },
+    {
+      "ticket_id": "GEN-03",
+      "ticket_name": "Account suspended - payment failed",
+      "variant": "mini",
+      "elapsed_seconds": 4.54,
+      "success": true,
+      "intent": "billing_issue",
+      "intent_match": false,
+      "sentiment": "frustrated",
+      "quality_score": 75.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 3,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "modify_account"
+      ],
+      "variant_expectation": "recommend",
+      "expectation_met": false,
+      "final_response": "We've reviewed your billing concern. Our team will investigate the charges and get back to you within 24 hours."
+    },
+    {
+      "ticket_id": "GEN-03",
+      "ticket_name": "Account suspended - payment failed",
+      "variant": "parwa",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "billing_issue",
+      "intent_match": false,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "modify_account"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "We've reviewed your billing concern. Our team will investigate the charges and get back to you within 24 hours."
+    },
+    {
+      "ticket_id": "GEN-03",
+      "ticket_name": "Account suspended - payment failed",
+      "variant": "high",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "billing_issue",
+      "intent_match": false,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "modify_account"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "We've reviewed your billing concern. Our team will investigate the charges and get back to you within 24 hours."
+    },
+    {
+      "ticket_id": "GEN-04",
+      "ticket_name": "Cancel processing order",
+      "variant": "mini",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "cancellation",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "cancel_order"
+      ],
+      "execution_results": [
+        {
+          "action_type": "cancel_order",
+          "status": "recommended",
+          "message": "Action 'ActionType.CANCEL_ORDER' requires human approval for variant 'mini'"
+        }
+      ],
+      "recommendation": {
+        "pending_approval": true,
+        "action_type": "cancel_order",
+        "description": "Cancel the customer's order",
+        "evidence": [
+          "ReAct verified: Conclusion consistent with available data for cancellation."
+        ],
+        "parameters": {
+          "reason": "customer_request"
+        },
+        "risk_level": "medium",
+        "quality_score": 0,
+        "message": "Recommended action 'ActionType.CANCEL_ORDER' pending human approval for this variant."
+      },
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": true
+      },
+      "expected_actions": [
+        "cancel_order"
+      ],
+      "variant_expectation": "recommend",
+      "expectation_met": true,
+      "final_response": "I've submitted your cancellation request for approval. You'll be notified once it's processed."
+    },
+    {
+      "ticket_id": "GEN-04",
+      "ticket_name": "Cancel processing order",
+      "variant": "parwa",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "cancellation",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "cancel_order"
+      ],
+      "execution_results": [
+        {
+          "action_type": "cancel_order",
+          "status": "executed",
+          "message": "Order ORD-2003 cancelled successfully",
+          "parameters": {
+            "reason": "customer_request"
+          }
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 1,
+        "new_crm_notes": 0,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "cancel_order"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "Your order has been cancelled successfully. You'll receive a confirmation email shortly."
+    },
+    {
+      "ticket_id": "GEN-04",
+      "ticket_name": "Cancel processing order",
+      "variant": "high",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "cancellation",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "cancel_order"
+      ],
+      "execution_results": [
+        {
+          "action_type": "cancel_order",
+          "status": "executed",
+          "message": "Order ORD-2003 cancelled successfully",
+          "parameters": {
+            "reason": "customer_request"
+          }
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 1,
+        "new_crm_notes": 0,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "cancel_order"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "Your order has been cancelled successfully. You'll receive a confirmation email shortly."
+    },
+    {
+      "ticket_id": "GEN-05",
+      "ticket_name": "FAQ - return policy",
+      "variant": "mini",
+      "elapsed_seconds": 4.53,
+      "success": true,
+      "intent": "faq_question",
+      "intent_match": true,
+      "sentiment": "angry",
+      "quality_score": 75.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 1,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 3,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "share_faq",
+        "share_policy",
+        "send_reply"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "We've found information related to your question. Please let us know if you need more details."
+    },
+    {
+      "ticket_id": "GEN-05",
+      "ticket_name": "FAQ - return policy",
+      "variant": "parwa",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "faq_question",
+      "intent_match": true,
+      "sentiment": "angry",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 1,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "share_faq",
+        "share_policy",
+        "send_reply"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "We've found information related to your question. Please let us know if you need more details."
+    },
+    {
+      "ticket_id": "GEN-05",
+      "ticket_name": "FAQ - return policy",
+      "variant": "high",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "faq_question",
+      "intent_match": true,
+      "sentiment": "angry",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 1,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "share_faq",
+        "share_policy",
+        "send_reply"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "We've found information related to your question. Please let us know if you need more details."
+    },
+    {
+      "ticket_id": "GEN-06",
+      "ticket_name": "Technical support - plugin crash",
+      "variant": "mini",
+      "elapsed_seconds": 0.02,
+      "success": true,
+      "intent": "technical_support",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 75.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 3,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "send_reply",
+        "create_note"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "We've analyzed your technical issue. Our support team is working on a resolution and will update you shortly."
+    },
+    {
+      "ticket_id": "GEN-06",
+      "ticket_name": "Technical support - plugin crash",
+      "variant": "parwa",
+      "elapsed_seconds": 0.01,
+      "success": true,
+      "intent": "technical_support",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "send_reply",
+        "create_note"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "We've analyzed your technical issue. Our support team is working on a resolution and will update you shortly."
+    },
+    {
+      "ticket_id": "GEN-06",
+      "ticket_name": "Technical support - plugin crash",
+      "variant": "high",
+      "elapsed_seconds": 0.01,
+      "success": true,
+      "intent": "technical_support",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "send_reply",
+        "create_note"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "We've analyzed your technical issue. Our support team is working on a resolution and will update you shortly."
+    },
+    {
+      "ticket_id": "GEN-07",
+      "ticket_name": "Billing - overcharged",
+      "variant": "mini",
+      "elapsed_seconds": 4.53,
+      "success": true,
+      "intent": "billing_issue",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 75.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 3,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "send_reply",
+        "create_note"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "We've reviewed your billing concern. Our team will investigate the charges and get back to you within 24 hours."
+    },
+    {
+      "ticket_id": "GEN-07",
+      "ticket_name": "Billing - overcharged",
+      "variant": "parwa",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "billing_issue",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "send_reply",
+        "create_note"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "We've reviewed your billing concern. Our team will investigate the charges and get back to you within 24 hours."
+    },
+    {
+      "ticket_id": "GEN-07",
+      "ticket_name": "Billing - overcharged",
+      "variant": "high",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "billing_issue",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "send_reply",
+        "create_note"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "We've reviewed your billing concern. Our team will investigate the charges and get back to you within 24 hours."
+    },
+    {
+      "ticket_id": "GEN-08",
+      "ticket_name": "Complaint - slow shipping",
+      "variant": "mini",
+      "elapsed_seconds": 0.02,
+      "success": true,
+      "intent": "complaint",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 75.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 3,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "send_reply",
+        "create_note"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "We take your concerns seriously and apologize for the inconvenience. A member of our team will reach out to you personally."
+    },
+    {
+      "ticket_id": "GEN-08",
+      "ticket_name": "Complaint - slow shipping",
+      "variant": "parwa",
+      "elapsed_seconds": 0.01,
+      "success": true,
+      "intent": "complaint",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "send_reply",
+        "create_note"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "We take your concerns seriously and apologize for the inconvenience. A member of our team will reach out to you personally."
+    },
+    {
+      "ticket_id": "GEN-08",
+      "ticket_name": "Complaint - slow shipping",
+      "variant": "high",
+      "elapsed_seconds": 0.01,
+      "success": true,
+      "intent": "complaint",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "send_reply",
+        "create_note"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "We take your concerns seriously and apologize for the inconvenience. A member of our team will reach out to you personally."
+    },
+    {
+      "ticket_id": "GEN-09",
+      "ticket_name": "Account modification - add seats",
+      "variant": "mini",
+      "elapsed_seconds": 3.02,
+      "success": true,
+      "intent": "account_modification",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "modify_account"
+      ],
+      "execution_results": [
+        {
+          "action_type": "modify_account",
+          "status": "recommended",
+          "message": "Action 'ActionType.MODIFY_ACCOUNT' requires human approval for variant 'mini'"
+        }
+      ],
+      "recommendation": {
+        "pending_approval": true,
+        "action_type": "modify_account",
+        "description": "Modify customer account as requested",
+        "evidence": [
+          "ReAct verified: Conclusion consistent with available data for account_modification."
+        ],
+        "parameters": {
+          "reason": "customer_request"
+        },
+        "risk_level": "medium",
+        "quality_score": 0,
+        "message": "Recommended action 'ActionType.MODIFY_ACCOUNT' pending human approval for this variant."
+      },
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": true
+      },
+      "expected_actions": [
+        "modify_account"
+      ],
+      "variant_expectation": "recommend",
+      "expectation_met": true,
+      "final_response": "I've submitted your account modification request for approval. You'll be notified once it's processed."
+    },
+    {
+      "ticket_id": "GEN-09",
+      "ticket_name": "Account modification - add seats",
+      "variant": "parwa",
+      "elapsed_seconds": 3.02,
+      "success": true,
+      "intent": "account_modification",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "modify_account"
+      ],
+      "execution_results": [
+        {
+          "action_type": "modify_account",
+          "status": "executed",
+          "message": "Account modification note added",
+          "parameters": {
+            "reason": "customer_request"
+          }
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "modify_account"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "Your account modification has been processed successfully."
+    },
+    {
+      "ticket_id": "GEN-09",
+      "ticket_name": "Account modification - add seats",
+      "variant": "high",
+      "elapsed_seconds": 3.02,
+      "success": true,
+      "intent": "account_modification",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "modify_account"
+      ],
+      "execution_results": [
+        {
+          "action_type": "modify_account",
+          "status": "executed",
+          "message": "Account modification note added",
+          "parameters": {
+            "reason": "customer_request"
+          }
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "modify_account"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "Your account modification has been processed successfully."
+    },
+    {
+      "ticket_id": "GEN-10",
+      "ticket_name": "General inquiry",
+      "variant": "mini",
+      "elapsed_seconds": 6.04,
+      "success": true,
+      "intent": "faq_question",
+      "intent_match": true,
+      "sentiment": "neutral",
+      "quality_score": 75.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 1,
+        "orders_actually_cancelled": 1,
+        "new_crm_notes": 3,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "share_faq",
+        "send_reply"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "We've found information related to your question. Please let us know if you need more details."
+    },
+    {
+      "ticket_id": "GEN-10",
+      "ticket_name": "General inquiry",
+      "variant": "parwa",
+      "elapsed_seconds": 3.02,
+      "success": true,
+      "intent": "faq_question",
+      "intent_match": true,
+      "sentiment": "neutral",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 1,
+        "orders_actually_cancelled": 1,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "share_faq",
+        "send_reply"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "We've found information related to your question. Please let us know if you need more details."
+    },
+    {
+      "ticket_id": "GEN-10",
+      "ticket_name": "General inquiry",
+      "variant": "high",
+      "elapsed_seconds": 3.02,
+      "success": true,
+      "intent": "faq_question",
+      "intent_match": true,
+      "sentiment": "neutral",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 1,
+        "orders_actually_cancelled": 1,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "share_faq",
+        "send_reply"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "We've found information related to your question. Please let us know if you need more details."
+    },
+    {
+      "ticket_id": "ACT-01",
+      "ticket_name": "Voice call request",
+      "variant": "mini",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "refund_request",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "process_refund",
+        "voice_call"
+      ],
+      "execution_results": [
+        {
+          "action_type": "process_refund",
+          "status": "recommended",
+          "message": "Action 'ActionType.PROCESS_REFUND' requires human approval for variant 'mini'"
+        },
+        {
+          "action_type": "voice_call",
+          "status": "denied",
+          "message": "Action 'ActionType.VOICE_CALL' is not available for variant 'mini'"
+        }
+      ],
+      "recommendation": {
+        "pending_approval": true,
+        "action_type": "process_refund",
+        "description": "Process refund of $49.99",
+        "evidence": [
+          "ReAct warning: Refund claim cannot be verified without CRM charge data.",
+          "CRM shows duplicate charges of $49.99"
+        ],
+        "parameters": {
+          "amount": 49.99,
+          "reason": "duplicate_charge"
+        },
+        "risk_level": "low",
+        "quality_score": 0,
+        "message": "Recommended action 'ActionType.PROCESS_REFUND' pending human approval for this variant."
+      },
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": true
+      },
+      "expected_actions": [
+        "process_refund",
+        "voice_call"
+      ],
+      "variant_expectation": "deny_voice_call",
+      "expectation_met": true,
+      "final_response": "I found that you were indeed charged twice. I've verified you're eligible for a $49.99 refund and have submitted this for approval. You'll receive confirmation within 2 hours. Is there anything else you'd like to know?"
+    },
+    {
+      "ticket_id": "ACT-01",
+      "ticket_name": "Voice call request",
+      "variant": "parwa",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "refund_request",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "process_refund",
+        "voice_call"
+      ],
+      "execution_results": [
+        {
+          "action_type": "process_refund",
+          "status": "executed",
+          "message": "Refund of $49.99 processed. Refund ID: REF-10EB8C. Will appear in 3-5 business days.",
+          "parameters": {
+            "amount": 49.99,
+            "reason": "duplicate_charge"
+          },
+          "details": {
+            "refund_id": "REF-10EB8C",
+            "amount": 49.99,
+            "payment_id": "PAY-3002"
+          }
+        },
+        {
+          "action_type": "voice_call",
+          "status": "denied",
+          "message": "Action 'ActionType.VOICE_CALL' is not available for variant 'parwa'"
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 1,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 0,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "process_refund",
+        "voice_call"
+      ],
+      "variant_expectation": "deny_voice_call",
+      "expectation_met": true,
+      "final_response": "Your $49.99 refund has been processed. It will appear in 3-5 business days. Is there anything else you'd like to know?"
+    },
+    {
+      "ticket_id": "ACT-01",
+      "ticket_name": "Voice call request",
+      "variant": "high",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "refund_request",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "process_refund",
+        "voice_call"
+      ],
+      "execution_results": [
+        {
+          "action_type": "process_refund",
+          "status": "executed",
+          "message": "Refund of $49.99 processed. Refund ID: REF-3C0B29. Will appear in 3-5 business days.",
+          "parameters": {
+            "amount": 49.99,
+            "reason": "duplicate_charge"
+          },
+          "details": {
+            "refund_id": "REF-3C0B29",
+            "amount": 49.99,
+            "payment_id": "PAY-3002"
+          }
+        },
+        {
+          "action_type": "voice_call",
+          "status": "executed",
+          "message": "Voice call scheduled to +91-98765-43210 (Call ID: CALL-81498D)",
+          "parameters": {
+            "reason": "customer_request"
+          },
+          "details": {
+            "call_id": "CALL-81498D",
+            "phone": "+91-98765-43210",
+            "customer_name": "Priya Sharma",
+            "reason": "customer_request",
+            "honest_note": "Call record logged in CRM. Actual dial requires telephony provider integration (Twilio/Vonage)."
+          }
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 1,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": true,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "process_refund",
+        "voice_call"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "Your $49.99 refund has been processed. It will appear in 3-5 business days. Is there anything else you'd like to know?"
+    },
+    {
+      "ticket_id": "ACT-02",
+      "ticket_name": "SMS notification request",
+      "variant": "mini",
+      "elapsed_seconds": 6.04,
+      "success": true,
+      "intent": "order_status",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 75.0,
+      "actions_taken": [
+        "share_policy",
+        "send_sms"
+      ],
+      "execution_results": [
+        {
+          "action_type": "share_policy",
+          "status": "executed",
+          "message": "Policy information shared: relevant policy",
+          "parameters": {}
+        },
+        {
+          "action_type": "send_sms",
+          "status": "executed",
+          "message": "SMS sent to customer",
+          "parameters": {
+            "message": "ReAct verified: Order status available from CRM data.",
+            "reason": "customer_request"
+          }
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 6,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": true,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "send_sms",
+        "send_reply"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "Your order has been located. Based on our records, it's currently being processed."
+    },
+    {
+      "ticket_id": "ACT-02",
+      "ticket_name": "SMS notification request",
+      "variant": "parwa",
+      "elapsed_seconds": 3.02,
+      "success": true,
+      "intent": "order_status",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "share_policy",
+        "send_sms"
+      ],
+      "execution_results": [
+        {
+          "action_type": "share_policy",
+          "status": "executed",
+          "message": "Policy information shared: relevant policy",
+          "parameters": {}
+        },
+        {
+          "action_type": "send_sms",
+          "status": "executed",
+          "message": "SMS sent to customer",
+          "parameters": {
+            "message": "ReAct verified: Order status available from CRM data.",
+            "reason": "customer_request"
+          }
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 2,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": true,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "send_sms",
+        "send_reply"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "Your order has been located. Based on our records, it's currently being processed."
+    },
+    {
+      "ticket_id": "ACT-02",
+      "ticket_name": "SMS notification request",
+      "variant": "high",
+      "elapsed_seconds": 3.02,
+      "success": true,
+      "intent": "order_status",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "share_policy",
+        "send_sms"
+      ],
+      "execution_results": [
+        {
+          "action_type": "share_policy",
+          "status": "executed",
+          "message": "Policy information shared: relevant policy",
+          "parameters": {}
+        },
+        {
+          "action_type": "send_sms",
+          "status": "executed",
+          "message": "SMS sent to customer",
+          "parameters": {
+            "message": "ReAct verified: Order status available from CRM data.",
+            "reason": "customer_request"
+          }
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 2,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": true,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "send_sms",
+        "send_reply"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "Your order has been located. Based on our records, it's currently being processed."
+    },
+    {
+      "ticket_id": "ACT-03",
+      "ticket_name": "Payment refund with escalation",
+      "variant": "mini",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "escalation",
+      "intent_match": false,
+      "sentiment": "angry",
+      "quality_score": 75.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 2,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "escalate_to_human",
+        "create_note"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "Thank you for reaching out. ReAct verified: Conclusion consistent with available data for escalation."
+    },
+    {
+      "ticket_id": "ACT-03",
+      "ticket_name": "Payment refund with escalation",
+      "variant": "parwa",
+      "elapsed_seconds": 1.51,
+      "success": true,
+      "intent": "escalation",
+      "intent_match": false,
+      "sentiment": "angry",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "escalate_to_human",
+        "create_note"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "Thank you for reaching out. ReAct verified: Conclusion consistent with available data for escalation."
+    },
+    {
+      "ticket_id": "ACT-03",
+      "ticket_name": "Payment refund with escalation",
+      "variant": "high",
+      "elapsed_seconds": 1.51,
+      "success": true,
+      "intent": "escalation",
+      "intent_match": false,
+      "sentiment": "angry",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "send_reply"
+      ],
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": false,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "escalate_to_human",
+        "create_note"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "Thank you for reaching out. ReAct verified: Conclusion consistent with available data for escalation."
+    },
+    {
+      "ticket_id": "ACT-04",
+      "ticket_name": "Cancel + SMS combo",
+      "variant": "mini",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "cancellation",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "cancel_order",
+        "send_sms"
+      ],
+      "execution_results": [
+        {
+          "action_type": "cancel_order",
+          "status": "recommended",
+          "message": "Action 'ActionType.CANCEL_ORDER' requires human approval for variant 'mini'"
+        },
+        {
+          "action_type": "send_sms",
+          "status": "executed",
+          "message": "SMS sent to customer",
+          "parameters": {
+            "message": "ReAct verified: Conclusion consistent with available data for cancellation.",
+            "reason": "customer_request"
+          }
+        }
+      ],
+      "recommendation": {
+        "pending_approval": true,
+        "action_type": "cancel_order",
+        "description": "Cancel the customer's order",
+        "evidence": [
+          "ReAct verified: Conclusion consistent with available data for cancellation."
+        ],
+        "parameters": {
+          "reason": "customer_request"
+        },
+        "risk_level": "medium",
+        "quality_score": 0,
+        "message": "Recommended action 'ActionType.CANCEL_ORDER' pending human approval for this variant."
+      },
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 2,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": true,
+        "pending_approval_in_crm": true
+      },
+      "expected_actions": [
+        "cancel_order",
+        "send_sms"
+      ],
+      "variant_expectation": "recommend_cancel_execute_sms",
+      "expectation_met": true,
+      "final_response": "I've submitted your cancellation request for approval. You'll be notified once it's processed."
+    },
+    {
+      "ticket_id": "ACT-04",
+      "ticket_name": "Cancel + SMS combo",
+      "variant": "parwa",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "cancellation",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "cancel_order",
+        "send_sms"
+      ],
+      "execution_results": [
+        {
+          "action_type": "cancel_order",
+          "status": "executed",
+          "message": "Order ORD-2003 cancelled successfully",
+          "parameters": {
+            "reason": "customer_request"
+          }
+        },
+        {
+          "action_type": "send_sms",
+          "status": "executed",
+          "message": "SMS sent to customer",
+          "parameters": {
+            "message": "ReAct verified: Conclusion consistent with available data for cancellation.",
+            "reason": "customer_request"
+          }
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 1,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": true,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "cancel_order",
+        "send_sms"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "Your order has been cancelled successfully. You'll receive a confirmation email shortly."
+    },
+    {
+      "ticket_id": "ACT-04",
+      "ticket_name": "Cancel + SMS combo",
+      "variant": "high",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "cancellation",
+      "intent_match": true,
+      "sentiment": "frustrated",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "cancel_order",
+        "send_sms"
+      ],
+      "execution_results": [
+        {
+          "action_type": "cancel_order",
+          "status": "executed",
+          "message": "Order ORD-2003 cancelled successfully",
+          "parameters": {
+            "reason": "customer_request"
+          }
+        },
+        {
+          "action_type": "send_sms",
+          "status": "executed",
+          "message": "SMS sent to customer",
+          "parameters": {
+            "message": "ReAct verified: Conclusion consistent with available data for cancellation.",
+            "reason": "customer_request"
+          }
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 1,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": true,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "cancel_order",
+        "send_sms"
+      ],
+      "variant_expectation": "execute",
+      "expectation_met": true,
+      "final_response": "Your order has been cancelled successfully. You'll receive a confirmation email shortly."
+    },
+    {
+      "ticket_id": "ACT-05",
+      "ticket_name": "Full stack - refund + call + SMS",
+      "variant": "mini",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "refund_request",
+      "intent_match": true,
+      "sentiment": "angry",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "process_refund",
+        "voice_call",
+        "send_sms"
+      ],
+      "execution_results": [
+        {
+          "action_type": "process_refund",
+          "status": "recommended",
+          "message": "Action 'ActionType.PROCESS_REFUND' requires human approval for variant 'mini'"
+        },
+        {
+          "action_type": "voice_call",
+          "status": "denied",
+          "message": "Action 'ActionType.VOICE_CALL' is not available for variant 'mini'"
+        },
+        {
+          "action_type": "send_sms",
+          "status": "executed",
+          "message": "SMS sent to customer",
+          "parameters": {
+            "message": "ReAct warning: Refund claim cannot be verified without CRM charge data.",
+            "reason": "customer_request"
+          }
+        }
+      ],
+      "recommendation": {
+        "pending_approval": true,
+        "action_type": "process_refund",
+        "description": "Process refund of $49.99",
+        "evidence": [
+          "ReAct warning: Refund claim cannot be verified without CRM charge data.",
+          "CRM shows duplicate charges of $49.99"
+        ],
+        "parameters": {
+          "amount": 49.99,
+          "reason": "duplicate_charge"
+        },
+        "risk_level": "low",
+        "quality_score": 0,
+        "message": "Recommended action 'ActionType.PROCESS_REFUND' pending human approval for this variant."
+      },
+      "verification": {
+        "refunds_actually_processed": 0,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 2,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": true,
+        "pending_approval_in_crm": true
+      },
+      "expected_actions": [
+        "process_refund",
+        "voice_call",
+        "send_sms"
+      ],
+      "variant_expectation": "recommend_refund_deny_voice_execute_sms",
+      "expectation_met": true,
+      "final_response": "I found that you were indeed charged twice. I've verified you're eligible for a $49.99 refund and have submitted this for approval. You'll receive confirmation within 2 hours. Is there anything else you'd like to know?"
+    },
+    {
+      "ticket_id": "ACT-05",
+      "ticket_name": "Full stack - refund + call + SMS",
+      "variant": "parwa",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "refund_request",
+      "intent_match": true,
+      "sentiment": "angry",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "process_refund",
+        "voice_call",
+        "send_sms"
+      ],
+      "execution_results": [
+        {
+          "action_type": "process_refund",
+          "status": "executed",
+          "message": "Refund of $49.99 processed. Refund ID: REF-B574C3. Will appear in 3-5 business days.",
+          "parameters": {
+            "amount": 49.99,
+            "reason": "duplicate_charge"
+          },
+          "details": {
+            "refund_id": "REF-B574C3",
+            "amount": 49.99,
+            "payment_id": "PAY-3002"
+          }
+        },
+        {
+          "action_type": "voice_call",
+          "status": "denied",
+          "message": "Action 'ActionType.VOICE_CALL' is not available for variant 'parwa'"
+        },
+        {
+          "action_type": "send_sms",
+          "status": "executed",
+          "message": "SMS sent to customer",
+          "parameters": {
+            "message": "ReAct warning: Refund claim cannot be verified without CRM charge data.",
+            "reason": "customer_request"
+          }
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 1,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 1,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": false,
+        "sms_in_crm": true,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "process_refund",
+        "voice_call",
+        "send_sms"
+      ],
+      "variant_expectation": "execute_refund_deny_voice_execute_sms",
+      "expectation_met": true,
+      "final_response": "Your $49.99 refund has been processed. It will appear in 3-5 business days. Is there anything else you'd like to know?"
+    },
+    {
+      "ticket_id": "ACT-05",
+      "ticket_name": "Full stack - refund + call + SMS",
+      "variant": "high",
+      "elapsed_seconds": 2.52,
+      "success": true,
+      "intent": "refund_request",
+      "intent_match": true,
+      "sentiment": "angry",
+      "quality_score": 80.0,
+      "actions_taken": [
+        "process_refund",
+        "voice_call",
+        "send_sms"
+      ],
+      "execution_results": [
+        {
+          "action_type": "process_refund",
+          "status": "executed",
+          "message": "Refund of $49.99 processed. Refund ID: REF-E8BFF4. Will appear in 3-5 business days.",
+          "parameters": {
+            "amount": 49.99,
+            "reason": "duplicate_charge"
+          },
+          "details": {
+            "refund_id": "REF-E8BFF4",
+            "amount": 49.99,
+            "payment_id": "PAY-3002"
+          }
+        },
+        {
+          "action_type": "voice_call",
+          "status": "executed",
+          "message": "Voice call scheduled to +91-98765-43210 (Call ID: CALL-9A5E60)",
+          "parameters": {
+            "reason": "customer_request"
+          },
+          "details": {
+            "call_id": "CALL-9A5E60",
+            "phone": "+91-98765-43210",
+            "customer_name": "Priya Sharma",
+            "reason": "customer_request",
+            "honest_note": "Call record logged in CRM. Actual dial requires telephony provider integration (Twilio/Vonage)."
+          }
+        },
+        {
+          "action_type": "send_sms",
+          "status": "executed",
+          "message": "SMS sent to customer",
+          "parameters": {
+            "message": "ReAct warning: Refund claim cannot be verified without CRM charge data.",
+            "reason": "customer_request"
+          }
+        }
+      ],
+      "recommendation": null,
+      "verification": {
+        "refunds_actually_processed": 1,
+        "orders_actually_cancelled": 0,
+        "new_crm_notes": 2,
+        "new_crm_tickets": 0,
+        "voice_call_in_crm": true,
+        "sms_in_crm": true,
+        "pending_approval_in_crm": false
+      },
+      "expected_actions": [
+        "process_refund",
+        "voice_call",
+        "send_sms"
+      ],
+      "variant_expectation": "execute_all",
+      "expectation_met": true,
+      "final_response": "Your $49.99 refund has been processed. It will appear in 3-5 business days. Is there anything else you'd like to know?"
+    }
+  ]
+}

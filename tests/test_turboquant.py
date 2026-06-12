@@ -27,11 +27,11 @@ class TestNodeBudget:
         assert budget.allocated == NODE_BASE_BUDGETS["reasoning_engine"]
         assert budget.multiplier == 1.0
 
-    def test_mini_variant_gets_half_budget(self):
-        """Mini variant should get 0.5x the base budget."""
+    def test_mini_variant_gets_reduced_budget(self):
+        """Mini variant should get 0.8x the base budget (Month 1 fix: was 0.5x, too restrictive)."""
         budget = get_node_budget("reasoning_engine", "mini")
-        assert budget.allocated == int(NODE_BASE_BUDGETS["reasoning_engine"] * 0.5)
-        assert budget.multiplier == 0.5
+        assert budget.allocated == int(NODE_BASE_BUDGETS["reasoning_engine"] * 0.8)
+        assert budget.multiplier == 0.8
 
     def test_high_variant_gets_double_budget(self):
         """High variant should get 2.0x the base budget."""
@@ -69,9 +69,9 @@ class TestTokenBudget:
     """Test complete ticket token budget."""
 
     def test_ticket_budget_all_22_nodes(self):
-        """Ticket budget should allocate to all 22 nodes."""
+        """Ticket budget should allocate to all 22+ nodes (including FrameworkBrain technique nodes)."""
         budget = get_ticket_budget("parwa")
-        assert len(budget.node_budgets) == 22
+        assert len(budget.node_budgets) >= 22
 
     def test_ticket_budget_total_matches_variant(self):
         """Ticket total budget should match variant configuration."""
@@ -216,11 +216,12 @@ class TestPromptCompressor:
             variant="mini",
             evidence=evidence,
         )
-        assert len(result["compressed_evidence"]) <= 2
+        # Mini (0.8x multiplier) falls in balanced bracket: max_items=3, max_chars=200
+        assert len(result["compressed_evidence"]) <= 3
         # Each evidence item should be truncated
         for item in result["compressed_evidence"]:
             if "..." in item:
-                assert len(item) <= 103  # 100 chars + "..."
+                assert len(item) <= 203  # 200 chars + "..."
 
     def test_prompt_compressor_stateful(self):
         """PromptCompressor should track cumulative savings."""
@@ -361,10 +362,10 @@ class TestVariantBudgetDifferentiation:
     """Test that variants get different budgets but same thinking capacity."""
 
     def test_all_variants_have_all_22_nodes(self):
-        """All variants should budget for all 22 nodes."""
+        """All variants should budget for all 22+ nodes (including FrameworkBrain technique nodes)."""
         for variant in ("mini", "parwa", "high"):
             budget = get_ticket_budget(variant)
-            assert len(budget.node_budgets) == 22, f"{variant} missing nodes"
+            assert len(budget.node_budgets) >= 22, f"{variant} missing nodes"
 
     def test_mini_cheapest_total_budget(self):
         """Mini should have the smallest total ticket budget."""

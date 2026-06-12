@@ -1,0 +1,551 @@
+{
+  "timestamp": "2026-06-11 18:07:08",
+  "mock_mode": false,
+  "total": 90,
+  "passed": 78,
+  "failed": 6,
+  "warnings": 6,
+  "elapsed_seconds": 106.23355841636658,
+  "results": [
+    {
+      "category": "ZAI SDK",
+      "test": "Direct call returns content",
+      "status": "PASS",
+      "detail": "model=glm-4-plus, content=refund_request|0.95"
+    },
+    {
+      "category": "ZAI SDK",
+      "test": "Returns real token counts",
+      "status": "PASS",
+      "detail": "tokens={'completion_tokens': 7, 'prompt_tokens': 93, 'total_tokens': 100}"
+    },
+    {
+      "category": "Pipeline [mini]",
+      "test": "ANGRY DUPLICATE CHARGE",
+      "status": "PASS",
+      "detail": "response='I found that you were indeed charged twice. I've verified you're eligible for a $49.99 refund and ha...' (0.1s)"
+    },
+    {
+      "category": "Pipeline [mini]",
+      "test": "COMPLEX BILLING DISPUTE",
+      "status": "PASS",
+      "detail": "response='Thank you for reaching out. Token budget exceeded. Using rule-based fallback....' (0.0s)"
+    },
+    {
+      "category": "Pipeline [mini]",
+      "test": "TECHNICAL INTEGRATION FAILURE",
+      "status": "PASS",
+      "detail": "response='Thank you for reaching out. Token budget exceeded. Using rule-based fallback....' (0.0s)"
+    },
+    {
+      "category": "Pipeline [mini]",
+      "test": "ORDER STATUS + CANCELLATION REQUEST",
+      "status": "PASS",
+      "detail": "response='I've submitted your cancellation request for approval. You'll be notified once it's processed....' (0.0s)"
+    },
+    {
+      "category": "Pipeline [mini]",
+      "test": "VIP ACCOUNT MODIFICATION",
+      "status": "PASS",
+      "detail": "response='Thank you for reaching out. Token budget exceeded. Using rule-based fallback....' (0.0s)"
+    },
+    {
+      "category": "Pipeline [mini]",
+      "test": "HAPPY CUSTOMER WITH FAQ",
+      "status": "PASS",
+      "detail": "response='Thank you for reaching out. Token budget exceeded. Using rule-based fallback....' (0.0s)"
+    },
+    {
+      "category": "Pipeline [parwa]",
+      "test": "ANGRY DUPLICATE CHARGE",
+      "status": "PASS",
+      "detail": "response='Your $49.99 refund has been processed. It will appear in 3-5 business days. Is there anything else y...' (20.8s)"
+    },
+    {
+      "category": "Pipeline [parwa]",
+      "test": "COMPLEX BILLING DISPUTE",
+      "status": "PASS",
+      "detail": "response='Thank you for reaching out. Token budget exceeded. Using rule-based fallback....' (19.4s)"
+    },
+    {
+      "category": "Pipeline [parwa]",
+      "test": "TECHNICAL INTEGRATION FAILURE",
+      "status": "PASS",
+      "detail": "response='Thank you for reaching out. Token budget exceeded. Using rule-based fallback....' (18.3s)"
+    },
+    {
+      "category": "Pipeline [parwa]",
+      "test": "ORDER STATUS + CANCELLATION REQUEST",
+      "status": "PASS",
+      "detail": "response='Your order has been cancelled successfully. You'll receive a confirmation email shortly....' (28.2s)"
+    },
+    {
+      "category": "Pipeline [parwa]",
+      "test": "VIP ACCOUNT MODIFICATION",
+      "status": "PASS",
+      "detail": "response='Thank you for reaching out. no_match|0.00|...' (5.1s)"
+    },
+    {
+      "category": "Pipeline [parwa]",
+      "test": "HAPPY CUSTOMER WITH FAQ",
+      "status": "PASS",
+      "detail": "response='Thank you for reaching out. true|legal_threat...' (1.0s)"
+    },
+    {
+      "category": "Pipeline [high]",
+      "test": "ANGRY DUPLICATE CHARGE",
+      "status": "PASS",
+      "detail": "response='Your $49.99 refund has been processed. It will appear in 3-5 business days. Is there anything else y...' (1.7s)"
+    },
+    {
+      "category": "Pipeline [high]",
+      "test": "COMPLEX BILLING DISPUTE",
+      "status": "PASS",
+      "detail": "response='Thank you for reaching out. refund_policy|0.90|Refunds are available within 30 days of purchase for ...' (1.7s)"
+    },
+    {
+      "category": "Pipeline [high]",
+      "test": "TECHNICAL INTEGRATION FAILURE",
+      "status": "PASS",
+      "detail": "response='Thank you for reaching out. true|legal_threat...' (1.8s)"
+    },
+    {
+      "category": "Pipeline [high]",
+      "test": "ORDER STATUS + CANCELLATION REQUEST",
+      "status": "PASS",
+      "detail": "response='Your order has been cancelled successfully. You'll receive a confirmation email shortly....' (0.9s)"
+    },
+    {
+      "category": "Pipeline [high]",
+      "test": "VIP ACCOUNT MODIFICATION",
+      "status": "PASS",
+      "detail": "response='Thank you for reaching out. no_match|0.00|...' (1.2s)"
+    },
+    {
+      "category": "Pipeline [high]",
+      "test": "HAPPY CUSTOMER WITH FAQ",
+      "status": "PASS",
+      "detail": "response='Thank you for reaching out. true|legal_threat...' (1.8s)"
+    },
+    {
+      "category": "Intent Accuracy",
+      "test": "ANGRY DUPLICATE CHARGE",
+      "status": "PASS",
+      "detail": "expected=refund_request, got='refund_request|0.97'"
+    },
+    {
+      "category": "Intent Accuracy",
+      "test": "COMPLEX BILLING DISPUTE",
+      "status": "WARN",
+      "detail": "expected=billing_issue, got='refund_request|0.97' (close but not exact)"
+    },
+    {
+      "category": "Intent Accuracy",
+      "test": "TECHNICAL INTEGRATION FAILURE",
+      "status": "FAIL",
+      "detail": "expected=technical_support, got='refund_request|0.97'"
+    },
+    {
+      "category": "Intent Accuracy",
+      "test": "ORDER STATUS + CANCELLATION REQUEST",
+      "status": "WARN",
+      "detail": "expected=cancellation, got='refund_request|0.97' (close but not exact)"
+    },
+    {
+      "category": "Intent Accuracy",
+      "test": "VIP ACCOUNT MODIFICATION",
+      "status": "FAIL",
+      "detail": "expected=account_modification, got='refund_request|0.97'"
+    },
+    {
+      "category": "Intent Accuracy",
+      "test": "HAPPY CUSTOMER WITH FAQ",
+      "status": "FAIL",
+      "detail": "expected=faq_question, got='refund_request|0.97'"
+    },
+    {
+      "category": "Sentiment Accuracy",
+      "test": "ANGRY DUPLICATE CHARGE",
+      "status": "WARN",
+      "detail": "expected=angry, got='frustrated|0.85' (found: ['frustrated'])"
+    },
+    {
+      "category": "Sentiment Accuracy",
+      "test": "COMPLEX BILLING DISPUTE",
+      "status": "PASS",
+      "detail": "expected=frustrated, got='frustrated|0.85'"
+    },
+    {
+      "category": "Sentiment Accuracy",
+      "test": "TECHNICAL INTEGRATION FAILURE",
+      "status": "PASS",
+      "detail": "expected=frustrated, got='frustrated|0.85'"
+    },
+    {
+      "category": "Sentiment Accuracy",
+      "test": "ORDER STATUS + CANCELLATION REQUEST",
+      "status": "PASS",
+      "detail": "expected=frustrated, got='frustrated|0.85'"
+    },
+    {
+      "category": "Sentiment Accuracy",
+      "test": "VIP ACCOUNT MODIFICATION",
+      "status": "WARN",
+      "detail": "expected=neutral, got='frustrated|0.85' (found: ['frustrated'])"
+    },
+    {
+      "category": "Sentiment Accuracy",
+      "test": "HAPPY CUSTOMER WITH FAQ",
+      "status": "WARN",
+      "detail": "expected=happy, got='frustrated|0.85' (found: ['frustrated'])"
+    },
+    {
+      "category": "Escalation Accuracy",
+      "test": "ANGRY DUPLICATE CHARGE",
+      "status": "FAIL",
+      "detail": "expected_escalate=True, got='false|'"
+    },
+    {
+      "category": "Escalation Accuracy",
+      "test": "COMPLEX BILLING DISPUTE",
+      "status": "PASS",
+      "detail": "expected_escalate=False, got='false|'"
+    },
+    {
+      "category": "Escalation Accuracy",
+      "test": "TECHNICAL INTEGRATION FAILURE",
+      "status": "FAIL",
+      "detail": "expected_escalate=True, got='false|'"
+    },
+    {
+      "category": "Escalation Accuracy",
+      "test": "ORDER STATUS + CANCELLATION REQUEST",
+      "status": "PASS",
+      "detail": "expected_escalate=False, got='false|'"
+    },
+    {
+      "category": "Escalation Accuracy",
+      "test": "VIP ACCOUNT MODIFICATION",
+      "status": "PASS",
+      "detail": "expected_escalate=False, got='false|'"
+    },
+    {
+      "category": "Escalation Accuracy",
+      "test": "HAPPY CUSTOMER WITH FAQ",
+      "status": "PASS",
+      "detail": "expected_escalate=False, got='false|'"
+    },
+    {
+      "category": "PII Detection",
+      "test": "SSN detected in message",
+      "status": "PASS",
+      "detail": "redacted snippet: 'I am FURIOUS! I was charged $149.99 TWICE for the same order #ORD-78291 on January 3rd AND January 3...'"
+    },
+    {
+      "category": "PII Detection",
+      "test": "SSN redacted from output",
+      "status": "PASS",
+      "detail": "SSN removed from redacted message"
+    },
+    {
+      "category": "PII Detection",
+      "test": "Email/Phone detected in VIP message",
+      "status": "PASS",
+      "detail": "redacted snippet: 'This is Sarah Chen, VP of Operations at Meridian Corp. We have an enterprise account with you (ENT-9...'"
+    },
+    {
+      "category": "PII Detection",
+      "test": "No false positive on clean message",
+      "status": "PASS",
+      "detail": "Correctly no PII detected"
+    },
+    {
+      "category": "FrameworkBrain",
+      "test": "Chain of Thought produces output",
+      "status": "PASS",
+      "detail": "output_len=47, confidence=0.80"
+    },
+    {
+      "category": "FrameworkBrain",
+      "test": "CoT tracked in frameworks_used",
+      "status": "PASS",
+      "detail": "frameworks=['chain_of_thought']"
+    },
+    {
+      "category": "FrameworkBrain",
+      "test": "ReAct produces output",
+      "status": "PASS",
+      "detail": "output_len=194, confidence=0.85"
+    },
+    {
+      "category": "FrameworkBrain",
+      "test": "Reflexion produces result",
+      "status": "PASS",
+      "detail": "confidence=0.70, output_len=194"
+    },
+    {
+      "category": "FrameworkBrain",
+      "test": "CRP produces response",
+      "status": "PASS",
+      "detail": "confidence=0.50, output='Step 1: Verify duplicate charge in CRM. Step 2: Calculate refund amount ($49.99)...'"
+    },
+    {
+      "category": "Smart Router",
+      "test": "Node INTENT_CLASSIFIER tier",
+      "status": "PASS",
+      "detail": "tier=light"
+    },
+    {
+      "category": "Smart Router",
+      "test": "Node REASONING_ENGINE tier",
+      "status": "PASS",
+      "detail": "tier=medium"
+    },
+    {
+      "category": "Smart Router",
+      "test": "Node QUALITY_SCORER tier",
+      "status": "PASS",
+      "detail": "tier=medium"
+    },
+    {
+      "category": "Smart Router",
+      "test": "Node INGEST tier",
+      "status": "PASS",
+      "detail": "tier=light"
+    },
+    {
+      "category": "Smart Router",
+      "test": "mini/REASONING_ENGINE model selection",
+      "status": "PASS",
+      "detail": "model=cerebras/llama-3.1-8b, fallbacks=3"
+    },
+    {
+      "category": "Smart Router",
+      "test": "parwa/REASONING_ENGINE model selection",
+      "status": "PASS",
+      "detail": "model=gemini/gemini-2.0-flash-lite, fallbacks=4"
+    },
+    {
+      "category": "Smart Router",
+      "test": "high/REASONING_ENGINE model selection",
+      "status": "PASS",
+      "detail": "model=gemini/gemini-2.0-flash-lite, fallbacks=4"
+    },
+    {
+      "category": "Smart Router",
+      "test": "Mini downgrade for REASONING_ENGINE",
+      "status": "PASS",
+      "detail": "model=cerebras/llama-3.1-8b (light tier)"
+    },
+    {
+      "category": "Smart Router",
+      "test": "Mini downgrade for KB_RETRIEVER",
+      "status": "PASS",
+      "detail": "model=cerebras/llama-3.1-8b (light tier)"
+    },
+    {
+      "category": "Smart Router",
+      "test": "Mini downgrade for QUALITY_SCORER",
+      "status": "PASS",
+      "detail": "model=cerebras/llama-3.1-8b (light tier)"
+    },
+    {
+      "category": "GSD Compression",
+      "test": "Compression runs without error",
+      "status": "PASS",
+      "detail": "original=6089 chars (~1522 tokens), compressed=5621 chars (~1405 tokens)"
+    },
+    {
+      "category": "GSD Compression",
+      "test": "Reduction > 50%",
+      "status": "FAIL",
+      "detail": "7.7% reduction (ratio=0.923)"
+    },
+    {
+      "category": "GSD Compression",
+      "test": "Reduction > 90% (claim is ~98%)",
+      "status": "WARN",
+      "detail": "7.7% reduction \u2014 claim is 98%"
+    },
+    {
+      "category": "GSD Compression",
+      "test": "Critical fields preserved",
+      "status": "PASS",
+      "detail": "All 8 critical fields intact"
+    },
+    {
+      "category": "GSD Compression",
+      "test": "reasoning_chain summarized",
+      "status": "PASS",
+      "detail": "count=10, first_item present=True"
+    },
+    {
+      "category": "GSD Compression",
+      "test": "kb_results summarized",
+      "status": "PASS",
+      "detail": "count=3, first_item present=True"
+    },
+    {
+      "category": "GSD Compression",
+      "test": "audit_log summarized",
+      "status": "PASS",
+      "detail": "count=5, first_item present=True"
+    },
+    {
+      "category": "GSD Compression",
+      "test": "Decompression restores state",
+      "status": "PASS",
+      "detail": "ticket_id preserved through compress\u2192decompress"
+    },
+    {
+      "category": "TurboQuant",
+      "test": "Token usage recorded",
+      "status": "PASS",
+      "detail": "prompt=7, completion=11, total=18, model=gemini/gemini-2.0-flash-lite"
+    },
+    {
+      "category": "TurboQuant",
+      "test": "Budget allocation for mini",
+      "status": "PASS",
+      "detail": "total=6000, nodes=33"
+    },
+    {
+      "category": "TurboQuant",
+      "test": "Budget allocation for parwa",
+      "status": "PASS",
+      "detail": "total=12000, nodes=33"
+    },
+    {
+      "category": "TurboQuant",
+      "test": "Budget allocation for high",
+      "status": "PASS",
+      "detail": "total=24000, nodes=33"
+    },
+    {
+      "category": "TurboQuant",
+      "test": "Mini budget 0.5x for reasoning_engine",
+      "status": "PASS",
+      "detail": "allocated=500"
+    },
+    {
+      "category": "TurboQuant",
+      "test": "PARWA budget 1.0x for reasoning_engine",
+      "status": "PASS",
+      "detail": "allocated=1000"
+    },
+    {
+      "category": "TurboQuant",
+      "test": "High budget 2.0x for reasoning_engine",
+      "status": "PASS",
+      "detail": "allocated=2000"
+    },
+    {
+      "category": "TurboQuant",
+      "test": "Mini budget 0.5x for intent_classifier",
+      "status": "PASS",
+      "detail": "allocated=250"
+    },
+    {
+      "category": "TurboQuant",
+      "test": "PARWA budget 1.0x for intent_classifier",
+      "status": "PASS",
+      "detail": "allocated=500"
+    },
+    {
+      "category": "TurboQuant",
+      "test": "High budget 2.0x for intent_classifier",
+      "status": "PASS",
+      "detail": "allocated=1000"
+    },
+    {
+      "category": "TurboQuant",
+      "test": "Mini budget 0.5x for response_formatter",
+      "status": "PASS",
+      "detail": "allocated=400"
+    },
+    {
+      "category": "TurboQuant",
+      "test": "PARWA budget 1.0x for response_formatter",
+      "status": "PASS",
+      "detail": "allocated=800"
+    },
+    {
+      "category": "TurboQuant",
+      "test": "High budget 2.0x for response_formatter",
+      "status": "PASS",
+      "detail": "allocated=1600"
+    },
+    {
+      "category": "TurboQuant",
+      "test": "Node summary aggregation",
+      "status": "PASS",
+      "detail": "1 nodes tracked"
+    },
+    {
+      "category": "Quality Scoring",
+      "test": "Good state scores >= 70",
+      "status": "PASS",
+      "detail": "score=100.0"
+    },
+    {
+      "category": "Quality Scoring",
+      "test": "Bad state scores < good state",
+      "status": "PASS",
+      "detail": "bad_score=70.0 vs good_score=100.0"
+    },
+    {
+      "category": "Quality Scoring",
+      "test": "Bad state scores < 80 (should trigger loop)",
+      "status": "PASS",
+      "detail": "score=70.0"
+    },
+    {
+      "category": "Quality Scoring",
+      "test": "Scores vary (not always 85)",
+      "status": "PASS",
+      "detail": "good=100.0, bad=70.0"
+    },
+    {
+      "category": "Quality Scoring",
+      "test": "Loop-back triggers on low score",
+      "status": "PASS",
+      "detail": "should_loop_back=True"
+    },
+    {
+      "category": "Variant Enforcement",
+      "test": "Mini: refund is RECOMMEND",
+      "status": "PASS",
+      "detail": "mode=ExecutionMode.RECOMMEND"
+    },
+    {
+      "category": "Variant Enforcement",
+      "test": "PARWA: refund is EXECUTE",
+      "status": "PASS",
+      "detail": "mode=ExecutionMode.EXECUTE"
+    },
+    {
+      "category": "Variant Enforcement",
+      "test": "High: bulk is EXECUTE",
+      "status": "PASS",
+      "detail": "mode=ExecutionMode.EXECUTE"
+    },
+    {
+      "category": "Variant Enforcement",
+      "test": "Mini: bulk is DENY",
+      "status": "PASS",
+      "detail": "mode=ExecutionMode.DENY"
+    },
+    {
+      "category": "Variant Enforcement",
+      "test": "can_execute(mini, refund) = False",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "category": "Variant Enforcement",
+      "test": "can_execute(parwa, refund) = True",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

@@ -18,52 +18,91 @@ from parwa.utils.node_base import safe_node
 logger = logging.getLogger("parwa.node.kb_retriever")
 
 
-# Mock knowledge base documents
-_MOCK_KB: list[dict[str, str]] = [
-    {"id": "refund_policy_doc", "title": "Refund Policy", "content": "Full refunds are available within 30 days for duplicate charges. Partial refunds for damaged items within 14 days.", "category": "billing"},
-    {"id": "shipping_policy_doc", "title": "Shipping Policy", "content": "Standard shipping: 3-5 business days. Express: 1-2 business days. International: 7-14 business days.", "category": "shipping"},
-    {"id": "cancellation_policy_doc", "title": "Cancellation Policy", "content": "Orders can be cancelled within 24 hours. After shipment, returns must follow the refund process.", "category": "orders"},
-    {"id": "account_policy_doc", "title": "Account Management", "content": "Account modifications require identity verification. Email changes need 48-hour confirmation period.", "category": "account"},
-    {"id": "escalation_policy_doc", "title": "Escalation Policy", "content": "Legal threats must be escalated immediately. Regulatory complaints require manager review within 4 hours.", "category": "compliance"},
-]
+# KB data is now loaded from the Fake CRM
+# The CRM has 10 comprehensive KB articles with realistic procedures
+
+
+def _get_crm_kb() -> list[dict[str, str]]:
+    """Get KB articles from the Fake CRM."""
+    try:
+        from parwa.fake_crm.database import get_crm
+        crm = get_crm()
+        return crm._kb
+    except Exception:
+        return [
+            {"id": "refund_policy_doc", "title": "Refund Policy", "content": "Full refunds are available within 30 days for duplicate charges.", "category": "billing"},
+            {"id": "shipping_policy_doc", "title": "Shipping Policy", "content": "Standard shipping: 3-5 business days.", "category": "shipping"},
+            {"id": "cancellation_policy_doc", "title": "Cancellation Policy", "content": "Orders can be cancelled before shipment.", "category": "orders"},
+        ]
 
 
 def _retrieve_kb_rule_based(message: str, intent: str) -> list[dict[str, Any]]:
-    """Retrieve KB documents using keyword and intent matching."""
+    """Retrieve KB documents using the Fake CRM search."""
+    # Try CRM-based search first (much more realistic)
+    try:
+        from parwa.fake_crm.database import get_crm
+        crm = get_crm()
+        
+        # Enhance search query with intent-related keywords for better matching
+        intent_keywords = {
+            "refund_request": "duplicate charge refund payment",
+            "billing_issue": "payment billing charge invoice",
+            "cancellation": "cancel cancellation order",
+            "order_status": "shipping order tracking delivery",
+            "technical_support": "error bug technical integration",
+            "account_modification": "account modify update change",
+            "complaint": "complaint issue problem defective",
+            "escalation": "escalation manager supervisor legal",
+            "faq_question": "policy FAQ question help",
+        }
+        
+        # Search with enhanced query
+        search_query = message
+        extra_keywords = intent_keywords.get(intent, "")
+        if extra_keywords:
+            search_query = f"{message} {extra_keywords}"
+        
+        results = crm.search_kb(search_query, top_k=3)
+        
+        # If no results with enhanced query, try intent-only search
+        if not results and intent in intent_keywords:
+            results = crm.search_kb(intent_keywords[intent], top_k=3)
+        
+        if results:
+            return [
+                KnowledgeResult(
+                    source=f"kb:{r['id']}",
+                    content=r["content"],
+                    relevance_score=r.get("relevance_score", 0.5),
+                    metadata={"title": r.get("title", ""), "category": r.get("category", "")},
+                ).model_dump()
+                for r in results
+            ]
+    except Exception:
+        pass
+
+    # Fallback: basic keyword + intent matching
     message_lower = message.lower()
+    kb_articles = _get_crm_kb()
     results = []
 
-    # Map intents to likely KB categories
-    intent_category_map = {
-        "refund_request": "billing",
-        "billing_issue": "billing",
-        "cancellation": "orders",
-        "order_status": "shipping",
-        "account_modification": "account",
-        "escalation": "compliance",
-        "complaint": "billing",
-    }
-    target_category = intent_category_map.get(intent, "")
-
-    for doc in _MOCK_KB:
+    for doc in kb_articles:
         score = 0.0
-        # Category match
-        if doc["category"] == target_category:
-            score += 0.5
         # Keyword match
         for word in message_lower.split():
-            if word in doc["content"].lower():
+            if len(word) > 3 and word in doc.get("content", "").lower():
                 score += 0.1
+            if len(word) > 3 and word in doc.get("title", "").lower():
+                score += 0.3
         score = min(0.99, score)
-        if score >= 0.3:
+        if score >= 0.2:
             results.append(KnowledgeResult(
                 source=f"kb:{doc['id']}",
                 content=doc["content"],
                 relevance_score=score,
-                metadata={"title": doc["title"], "category": doc["category"]},
+                metadata={"title": doc.get("title", ""), "category": doc.get("category", "")},
             ))
 
-    # Sort by relevance, return top 3
     results.sort(key=lambda x: x.relevance_score, reverse=True)
     return [r.model_dump() for r in results[:3]]
 

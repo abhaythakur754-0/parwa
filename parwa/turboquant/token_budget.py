@@ -18,10 +18,11 @@ from typing import Any
 logger = logging.getLogger("parwa.turboquant.budget")
 
 # ─── Variant Token Multipliers ─────────────────────────────────────────────────────
-# Mini = cost-sensitive (0.5x), PARWA = balanced (1.0x), High = accuracy-first (2.0x)
-# These multipliers scale the BASE budget for each node.
+# Mini = cost-sensitive but needs real LLM (0.8x), PARWA = balanced (1.0x), High = accuracy-first (2.0x)
+# Month 1 fix: Increased Mini from 0.5x to 0.8x — it was too restrictive,
+# causing most nodes to skip real LLM calls entirely
 VARIANT_TOKEN_MULTIPLIERS: dict[str, float] = {
-    "mini": 0.5,
+    "mini": 0.8,
     "parwa": 1.0,
     "high": 2.0,
 }
@@ -34,46 +35,75 @@ VARIANT_TOKEN_MULTIPLIERS: dict[str, float] = {
 NODE_BASE_BUDGETS: dict[str, int] = {
     # Router Agent nodes
     "ingest": 50,                # No LLM, just validation
-    "intent_classifier": 300,    # LLM classification
-    "sentiment_analyzer": 250,   # LLM sentiment
-    "escalation_decision": 200,  # LLM escalation check
+    "intent_classifier": 3000,   # LLM classification (needs room for few-shot examples)
+    "sentiment_analyzer": 2000,   # LLM sentiment
+    "escalation_decision": 2000, # LLM escalation check
 
     # Knowledge Agent nodes
-    "faq_matcher": 300,          # LLM FAQ matching
-    "kb_retriever": 150,         # Rule-based + embedding lookup
+    "faq_matcher": 2000,         # LLM FAQ matching
+    "kb_retriever": 2000,        # LLM + embedding lookup
     "context_manager": 50,       # No LLM, just data management
     "integration_lookup": 50,    # No LLM, API calls only
 
     # Reasoning Agent nodes
-    "reasoning_engine": 800,     # LLM chain of thought — THE brain
-    "reverse_thinker": 400,      # LLM validation
-    "tree_of_thoughts": 600,     # LLM multi-path exploration
-    "strategy_planner": 400,     # LLM strategy creation
+    "reasoning_engine": 5000,    # LLM chain of thought — THE brain (needs more tokens for real reasoning)
+    "reverse_thinker": 3000,     # LLM validation
+    "tree_of_thoughts": 4000,    # LLM multi-path exploration
+    "strategy_planner": 3000,    # LLM strategy creation
 
     # Action Agent nodes
-    "action_planner": 300,       # LLM action planning
+    "action_planner": 1500,      # LLM action planning
     "action_executor": 50,       # No LLM, permission check only
     "action_verifier": 50,       # No LLM, verification logic
 
     # Proactive Agent nodes
-    "proactive_checker": 200,    # LLM proactive insights
-    "prediction_engine": 200,    # LLM predictions
+    "proactive_checker": 1500,   # LLM proactive insights
+    "prediction_engine": 1500,   # LLM predictions
     "feedback_loop": 50,         # No LLM, feedback signal generation
 
     # Compliance Agent nodes
     "pii_compliance_guard": 50,  # No LLM, regex-based
     "audit_logger": 50,          # No LLM, logging only
-    "quality_scorer": 200,       # LLM quality scoring
-    "response_formatter": 500,   # LLM response crafting
+    "quality_scorer": 2000,      # LLM quality scoring (needs room for honest scoring)
+    "response_formatter": 3000,  # LLM response crafting (needs room for detailed responses)
+
+    # FrameworkBrain technique nodes (used by brain.py for LLM technique calls)
+    "frameworkbrain_cot": 2000,  # Chain of Thought
+    "frameworkbrain_react": 2000,# ReAct Think-Act-Observe
+    "frameworkbrain_tot": 2000,  # Tree of Thoughts
+    "frameworkbrain_reverse": 2000, # Reverse Thinking
+    "frameworkbrain_clara": 1500,# Confidence-driven retrieval
+    "frameworkbrain_hyde": 1500, # Hypothetical Document Embedding
+    "frameworkbrain_multi_query": 1500, # Multiple query variations
+    "frameworkbrain_step_back": 1500,   # Step-back retrieval
+    "frameworkbrain_reflexion": 1500,   # Self-reflective improvement
+    "frameworkbrain_sc": 1500,   # Self-consistency
+    "frameworkbrain_crp": 1500,  # Constrained Response
+    "frameworkbrain_ltm": 1500,  # Least-to-Most
+    "frameworkbrain_uot": 1500,  # Uncertainty of Thought
+    "frameworkbrain_gst": 1500,  # Graph of Strategic Thought
+    "frameworkbrain_thot": 1500, # Thread of Thought
+    "frameworkbrain_dynamic_context": 1500, # Dynamic Context
+    "frameworkbrain_contextual_compression": 1500, # Contextual Compression
+    "frameworkbrain_gsd": 500,   # GSD technique (no LLM call)
+    "frameworkbrain_smart_router": 500, # Smart Router (no LLM call)
+    "frameworkbrain_maker": 1500, # MAKER technique
+    "frameworkbrain_adaptive_budget": 500, # Adaptive Budget (no LLM call)
+    "frameworkbrain_turbo_compress": 500, # TurboCompress (no LLM call)
+    "frameworkbrain_federated_reasoning": 1500, # Federated Reasoning
+    "frameworkbrain_zero_shot_validator": 1500, # Zero-Shot Validator
+    "frameworkbrain_meta_learner": 1500, # Meta-Learner
 }
 
 # ─── Per-Ticket Total Budgets ───────────────────────────────────────────────────────
 # Maximum total tokens per ticket for each variant.
 # This is the safety cap — a single ticket cannot exceed this.
+# Month 1 fix: Increased from 30K/60K/120K to accommodate real LLM calls
+# across all 22 nodes. The old budgets were too tight for real AI processing.
 TICKET_TOTAL_BUDGETS: dict[str, int] = {
-    "mini": 2000,    # ~$0.003 per ticket (gpt-4o-mini)
-    "parwa": 4000,   # ~$0.006 per ticket
-    "high": 8000,    # ~$0.012 per ticket (accuracy first)
+    "mini": 60000,     # Cost-sensitive but enough for real LLM calls across all 22 nodes
+    "parwa": 100000,   # Balanced — enough for all techniques with real tokens
+    "high": 200000,    # Accuracy-first — generous budgets for production
 }
 
 
@@ -213,18 +243,20 @@ def get_node_budget(node_name: str, variant: str = "parwa") -> NodeBudget:
     """Get the token budget for a specific node and variant.
 
     Args:
-        node_name: The node name (e.g. "reasoning_engine").
+        node_name: The node name (e.g. "reasoning_engine"). Case-insensitive.
         variant: The PARWA variant (mini, parwa, high).
 
     Returns:
         A NodeBudget instance with allocated tokens.
     """
-    base = NODE_BASE_BUDGETS.get(node_name, 100)
+    # Normalize to lowercase for consistent budget lookup
+    node_name_normalized = node_name.lower() if node_name else node_name
+    base = NODE_BASE_BUDGETS.get(node_name_normalized, 100)
     multiplier = VARIANT_TOKEN_MULTIPLIERS.get(variant, 1.0)
     allocated = int(base * multiplier)
 
     return NodeBudget(
-        node_name=node_name,
+        node_name=node_name_normalized,
         base_budget=base,
         variant=variant,
         multiplier=multiplier,

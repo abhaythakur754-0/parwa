@@ -2,7 +2,7 @@
 
 GSD is NOT a node. It's woven into state.py as a compression layer that
 compresses the full ticket state between nodes, reducing state-passing
-token cost from ~12,000 tokens to ~180 tokens (~98% reduction).
+token cost for large states.
 
 How it works:
   1. After each node runs, GSD compresses the state
@@ -10,6 +10,11 @@ How it works:
   3. Verbose fields (reasoning chains, KB content) are summarized
   4. Before a node runs, GSD decompresses the state back to full
   5. The node gets everything it needs, but state-passing is cheap
+
+Compression ratio varies by state size:
+  - Small states (~30 fields, typical after 5 nodes): ~7-15% reduction
+  - Medium states (~50 fields, typical after 12 nodes): ~40-60% reduction
+  - Large states (~70+ fields with long lists): ~70-90% reduction
 
 Key principle: Nodes always see the FULL state. Compression only
 affects what gets serialized between nodes (in LangGraph's state

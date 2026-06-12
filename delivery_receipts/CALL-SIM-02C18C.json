@@ -1,0 +1,10 @@
+{
+  "call_id": "CALL-SIM-02C18C",
+  "channel": "voice",
+  "recipient": "+1-555-987-6543",
+  "reason": "customer_request",
+  "simulated_at": "2026-06-11T23:53:41.646510",
+  "provider": "simulation",
+  "status": "simulated",
+  "note": "This call was NOT actually made. Configure Twilio for real delivery."
+}

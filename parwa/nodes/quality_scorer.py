@@ -23,35 +23,92 @@ def _score_quality_rule_based(
     verification_passed: bool,
     has_recommendation: bool,
     variant: str,
+    *,
+    final_response: str = "",
+    execution_results: list[dict] | None = None,
 ) -> tuple[float, list[str]]:
-    """Score response quality using rules. Returns (score, issues)."""
-    score = 60.0  # start at 60 (base for any ticket that reached this point)
+    """Score response quality using rules. Returns (score, issues).
+
+    Month 1 fix: Now actually catches problems instead of always scoring 100.
+    - Checks for generic/template responses
+    - Checks for missing evidence in responses
+    - Checks for missing action details
+    - Deducts points for common quality issues
+    """
+    score = 75.0  # Start at 75 (base for any ticket that reached this point — means pipeline completed)
     issues = []
 
     # Has reasoning conclusion
     if conclusion:
-        score += 15
+        # Check if conclusion is actually substantive (not just restating the problem)
+        if len(conclusion) < 20:
+            score -= 5
+            issues.append("shallow_conclusion")
+        else:
+            score += 10
     else:
+        score -= 15
         issues.append("no_reasoning_conclusion")
 
     # Verification passed
     if verification_passed:
-        score += 10
+        score += 5
     else:
+        score -= 10
         issues.append("verification_failed")
 
     # Recommendation is complete (for Mini PARWA)
     if has_recommendation and variant == "mini":
-        score += 10
+        score += 5
     elif not has_recommendation and variant != "mini":
-        score += 10
-
-    # No issues = quality bonus
-    if not issues:
         score += 5
 
+    # Check final response quality
+    if final_response:
+        # Generic/template response detection
+        generic_phrases = [
+            "thank you for reaching out",
+            "we've reviewed your request",
+            "we take your concerns seriously",
+            "a member of our team will",
+            "our team will investigate",
+            "our support team is working on",
+        ]
+        is_generic = any(phrase in final_response.lower() for phrase in generic_phrases)
+        if is_generic:
+            score -= 20
+            issues.append("generic_response")
+
+        # Check for specific data (order IDs, amounts, dates)
+        import re
+        has_specific_data = bool(re.search(r'(ORD-|TKT-|\$[\d,.]+|\d{4}-\d{2}-\d{2}|order #)', final_response))
+        if has_specific_data:
+            score += 10
+        else:
+            score -= 5
+            issues.append("missing_specific_data")
+
+        # Check response length (too short = likely incomplete)
+        if len(final_response) < 50:
+            score -= 10
+            issues.append("response_too_short")
+        elif len(final_response) > 30:
+            score += 5
+    else:
+        score -= 20
+        issues.append("no_final_response")
+
+    # Check if execution actually did something
+    if execution_results:
+        has_executed_action = any(r.get("status") in ("executed", "recommended") for r in execution_results)
+        if has_executed_action:
+            score += 5
+        else:
+            score -= 5
+            issues.append("no_action_taken")
+
     # Cap at 100
-    score = min(100.0, score)
+    score = max(0.0, min(100.0, score))
 
     return score, issues
 
@@ -101,6 +158,8 @@ async def _score_with_brain(state: dict[str, Any]) -> tuple[float, list[str], li
         base_score, base_issues = _score_quality_rule_based(
             intent, conclusion, verification_passed,
             recommendation is not None, variant,
+            final_response=state.get("final_response", ""),
+            execution_results=state.get("execution_results", []),
         )
 
         # If brain found issues, add them
@@ -135,6 +194,8 @@ async def _score_with_brain(state: dict[str, Any]) -> tuple[float, list[str], li
         score, issues = _score_quality_rule_based(
             intent, conclusion, verification_passed,
             recommendation is not None, variant,
+            final_response=state.get("final_response", ""),
+            execution_results=state.get("execution_results", []),
         )
         return score, issues, []
 
@@ -146,11 +207,37 @@ async def quality_scorer(state: dict[str, Any]) -> dict[str, Any]:
     Phase 3: Uses FrameworkBrain with Reflexion/Self-Consistency/CRP
     for smarter quality scoring. Falls back to rule-based on failure.
 
-    Reads: intent, reasoning_conclusion, verification_passed, recommendation, variant
+    Month 1 fix: Now passes final_response and execution_results to
+    rule-based scorer so it can actually detect problems.
+
+    Reads: intent, reasoning_conclusion, verification_passed, recommendation, variant,
+           final_response, execution_results
     Writes: quality_score, quality_issues, should_loop_back, active_frameworks (append)
     """
     # Try FrameworkBrain first (Phase 3)
     score, issues, frameworks = await _score_with_brain(state)
+
+    # Also run improved rule-based scoring and take the LOWER score
+    # (being honest about quality means being conservative)
+    intent = state.get("intent", "general_inquiry")
+    conclusion = state.get("reasoning_conclusion", "")
+    verification_passed = state.get("verification_passed", False)
+    recommendation = state.get("recommendation")
+    variant = state.get("variant", "parwa")
+    final_response = state.get("final_response", "")
+    execution_results = state.get("execution_results", [])
+
+    rule_score, rule_issues = _score_quality_rule_based(
+        intent, conclusion, verification_passed,
+        recommendation is not None, variant,
+        final_response=final_response,
+        execution_results=execution_results,
+    )
+
+    # Take the lower (more honest) score
+    if rule_score < score:
+        score = rule_score
+        issues = rule_issues + issues
 
     # If score < 80 and we haven't exceeded max loops, trigger loop-back
     loop_count = state.get("loop_count", 0)

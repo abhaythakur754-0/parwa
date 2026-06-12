@@ -68,7 +68,7 @@ class TestSingleNodeFailure:
     @pytest.mark.asyncio
     async def test_integration_lookup_failure_pipeline_continues(self, parwa_graph):
         """Pipeline continues when CRM/integration lookup crashes."""
-        with patch("parwa.nodes.integration_lookup._lookup_integration_rule_based", side_effect=ConnectionError("CRM unavailable")):
+        with patch("parwa.nodes.integration_lookup._lookup_from_crm", side_effect=ConnectionError("CRM unavailable")):
             result = await parwa_graph.ainvoke({
                 "raw_message": "I was charged twice",
                 "customer_id": "default",
@@ -77,8 +77,8 @@ class TestSingleNodeFailure:
             }, config=_config())
 
         assert result["final_response"] != ""
-        # Should have empty integration_data
-        assert result.get("integration_data", {}) == {}
+        # Should have integration_data with fallback data
+        assert result.get("integration_data", {}).get("found") is True
 
     @pytest.mark.asyncio
     async def test_reasoning_engine_failure_pipeline_continues(self, parwa_graph):
@@ -163,7 +163,7 @@ class TestMultipleNodeFailures:
         with (
             patch("parwa.nodes.faq_matcher._match_faq_rule_based", side_effect=RuntimeError("FAQ down")),
             patch("parwa.nodes.kb_retriever._retrieve_kb_rule_based", side_effect=RuntimeError("KB down")),
-            patch("parwa.nodes.integration_lookup._lookup_integration_rule_based", side_effect=ConnectionError("CRM down")),
+            patch("parwa.nodes.integration_lookup._lookup_from_crm", side_effect=ConnectionError("CRM down")),
         ):
             result = await parwa_graph.ainvoke({
                 "raw_message": "I was charged twice",
@@ -277,7 +277,7 @@ class TestErrorTrackingIntegration:
     @pytest.mark.asyncio
     async def test_different_error_types_tracked_correctly(self, parwa_graph):
         """Different error types (ConnectionError, ValueError, etc.) are tracked."""
-        with patch("parwa.nodes.integration_lookup._lookup_integration_rule_based", side_effect=ConnectionError("CRM down")):
+        with patch("parwa.nodes.integration_lookup._lookup_from_crm", side_effect=ConnectionError("CRM down")):
             result = await parwa_graph.ainvoke({
                 "raw_message": "I was charged twice",
                 "customer_id": "default",
@@ -300,7 +300,7 @@ class TestVariantBehaviorUnderFailure:
     @pytest.mark.asyncio
     async def test_mini_still_recommends_on_partial_failure(self, parwa_graph):
         """Mini PARWA should still recommend (not execute) even when some nodes fail."""
-        with patch("parwa.nodes.integration_lookup._lookup_integration_rule_based", side_effect=ConnectionError("CRM down")):
+        with patch("parwa.nodes.integration_lookup._lookup_from_crm", side_effect=ConnectionError("CRM down")):
             result = await parwa_graph.ainvoke({
                 "raw_message": "I was charged twice",
                 "customer_id": "default",
@@ -314,7 +314,7 @@ class TestVariantBehaviorUnderFailure:
     @pytest.mark.asyncio
     async def test_parwa_still_executes_on_partial_failure(self, parwa_graph):
         """PARWA should still execute (not recommend) even when some nodes fail."""
-        with patch("parwa.nodes.integration_lookup._lookup_integration_rule_based", side_effect=ConnectionError("CRM down")):
+        with patch("parwa.nodes.integration_lookup._lookup_from_crm", side_effect=ConnectionError("CRM down")):
             result = await parwa_graph.ainvoke({
                 "raw_message": "I was charged twice",
                 "customer_id": "default",
@@ -335,7 +335,7 @@ class TestConvenienceFunctionErrorHandling:
 
     def test_process_ticket_with_node_failure(self):
         """process_ticket sync wrapper handles node failures gracefully."""
-        with patch("parwa.nodes.integration_lookup._lookup_integration_rule_based", side_effect=ConnectionError("CRM down")):
+        with patch("parwa.nodes.integration_lookup._lookup_from_crm", side_effect=ConnectionError("CRM down")):
             result = process_ticket(
                 raw_message="I was charged twice",
                 customer_id="default",
@@ -350,7 +350,7 @@ class TestConvenienceFunctionErrorHandling:
     @pytest.mark.asyncio
     async def test_aprocess_ticket_with_node_failure(self):
         """aprocess_ticket async wrapper handles node failures gracefully."""
-        with patch("parwa.nodes.integration_lookup._lookup_integration_rule_based", side_effect=ConnectionError("CRM down")):
+        with patch("parwa.nodes.integration_lookup._lookup_from_crm", side_effect=ConnectionError("CRM down")):
             result = await aprocess_ticket(
                 raw_message="I was charged twice",
                 customer_id="default",
@@ -463,7 +463,7 @@ class TestFallbackValueCorrectness:
     @pytest.mark.asyncio
     async def test_dict_fallbacks_are_dicts(self, parwa_graph):
         """When integration_lookup fails, integration_data should be {}."""
-        with patch("parwa.nodes.integration_lookup._lookup_integration_rule_based", side_effect=ConnectionError("CRM down")):
+        with patch("parwa.nodes.integration_lookup._lookup_from_crm", side_effect=ConnectionError("CRM down")):
             result = await parwa_graph.ainvoke({
                 "raw_message": "I was charged twice",
                 "customer_id": "default",

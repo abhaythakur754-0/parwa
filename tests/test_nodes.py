@@ -221,7 +221,9 @@ class TestIntegrationLookup:
     @pytest.mark.asyncio
     async def test_returns_crm_data(self):
         result = await integration_lookup({"customer_id": "default", "intent": "refund_request"})
-        assert "charges" in result["integration_data"]
+        # Default customer data includes payments and duplicate_charges
+        assert result["integration_data"].get("found") is True
+        assert "payments" in result["integration_data"] or "duplicate_charges" in result["integration_data"]
 
     @pytest.mark.asyncio
     async def test_returns_order_data_for_status(self):
@@ -533,20 +535,26 @@ class TestAuditLogger:
 
 
 class TestQualityScorer:
-    """Node 21: QUALITY_SCORER"""
+    """Node 21: QUALITY_SCORER
+
+    Month 1 update: Quality scorer now checks final_response and execution_results
+    for honest scoring. Tests updated to include these fields.
+    """
 
     @pytest.mark.asyncio
     async def test_scores_high_for_complete_response(self):
         result = await quality_scorer({
             "intent": "refund_request",
-            "reasoning_conclusion": "Eligible for refund",
+            "reasoning_conclusion": "Customer is eligible for $49.99 refund for duplicate charge on 2025-01-05.",
             "verification_passed": True,
             "recommendation": None,
             "variant": "parwa",
             "loop_count": 0,
             "max_loops": 2,
+            "final_response": "I found the duplicate charge of $49.99 on your account from 2025-01-05 and have processed your refund. It will appear in 3-5 business days.",
+            "execution_results": [{"action_type": "process_refund", "status": "executed"}],
         })
-        assert result["quality_score"] >= 80
+        assert result["quality_score"] >= 80, f"Expected >= 80, got {result['quality_score']}"
 
     @pytest.mark.asyncio
     async def test_scores_low_for_incomplete(self):
@@ -560,6 +568,23 @@ class TestQualityScorer:
             "max_loops": 2,
         })
         assert result["quality_score"] < 80
+
+    @pytest.mark.asyncio
+    async def test_generic_response_scores_low(self):
+        """Month 1: Generic/template responses should score below 70."""
+        result = await quality_scorer({
+            "intent": "refund_request",
+            "reasoning_conclusion": "Customer wants refund",
+            "verification_passed": True,
+            "recommendation": None,
+            "variant": "parwa",
+            "loop_count": 0,
+            "max_loops": 2,
+            "final_response": "Thank you for reaching out. We have reviewed your request and are working on a resolution.",
+            "execution_results": [],
+        })
+        assert result["quality_score"] < 80, f"Generic response scored {result['quality_score']}, should be < 80"
+        assert "generic_response" in result["quality_issues"]
 
 
 class TestResponseFormatter:

@@ -1,0 +1,10 @@
+{
+  "message_id": "SMS-SIM-7CFFCE",
+  "channel": "sms",
+  "recipient": "+91-98765-43210",
+  "message_preview": "ReAct verified: Order status available from CRM data.",
+  "simulated_at": "2026-06-11T23:53:44.991466",
+  "provider": "simulation",
+  "status": "simulated",
+  "note": "This SMS was NOT actually delivered. Configure Twilio for real delivery."
+}

@@ -290,6 +290,58 @@ def parse_pii_response(text: str) -> tuple[bool, str]:
     return detected, description
 
 
+def parse_reasoning_response(text: str) -> tuple[list[str], str]:
+    """Parse a reasoning chain LLM response.
+
+    Extracts the reasoning chain (step-by-step lines) and the conclusion
+    from an LLM reasoning response. Replaces the fragile manual string
+    split on "conclusion:" that was previously in reasoning_engine.
+
+    Expected format:
+        Step 1: ...
+        Step 2: ...
+        Conclusion: <the conclusion>
+
+    Args:
+        text: The raw LLM reasoning response.
+
+    Returns:
+        Tuple of (chain_list, conclusion_str).
+    """
+    if not text or not isinstance(text, str):
+        return [], ""
+
+    lines = [line.strip() for line in text.strip().split("\n") if line.strip()]
+
+    conclusion = ""
+    chain = []
+
+    for line in lines:
+        # Check for conclusion patterns
+        lower = line.lower()
+        if lower.startswith("conclusion:"):
+            conclusion = line[len("conclusion:"):].strip()
+        elif lower.startswith("conclusion :"):
+            conclusion = line[len("conclusion :"):].strip()
+        elif "conclusion:" in lower:
+            # Conclusion embedded in a line
+            idx = lower.index("conclusion:")
+            conclusion = line[idx + len("conclusion:"):].strip()
+            # Add the part before conclusion to chain
+            before = line[:idx].strip()
+            if before:
+                chain.append(before)
+            continue
+        else:
+            chain.append(line)
+
+    # If no explicit conclusion found, use the last line
+    if not conclusion and chain:
+        conclusion = chain[-1]
+
+    return chain, conclusion
+
+
 def try_parse_json(text: str) -> dict[str, Any] | None:
     """Try to parse text as JSON, with common LLM formatting fixes.
 

@@ -5,7 +5,8 @@ which nodes they apply to, and their metadata. FrameworkBrain queries
 the registry to find available techniques for a given node.
 
 Phase 2 registers 6 reasoning techniques. Phase 3 registers 8 RAG + Quality
-techniques. Phases 4-5 register the rest.
+techniques. Phase 4 registers 3 Memory techniques. Phase 5 registers 8
+Proprietary techniques. Total: 25 techniques.
 """
 
 from __future__ import annotations
@@ -143,8 +144,6 @@ def get_registry() -> TechniqueRegistry:
     _registry.register(UncertaintyOfThoughtTechnique())
     _registry.register(GraphOfStrategicThoughtTechnique())
 
-    # Phase 3-5 techniques will be registered here when implemented
-
     # ─── Register Phase 3: RAG techniques ──────────────────────────────────
     from parwa.frameworks.rag.clara import ClaraTechnique
     from parwa.frameworks.rag.hyde import HyDETechnique
@@ -176,16 +175,24 @@ def get_registry() -> TechniqueRegistry:
     _registry.register(DynamicContextTechnique())
     _registry.register(ContextualCompressionTechnique())
 
-    # ─── Register Phase 5: Proprietary techniques ──────────────────────────
+    # ─── Register Phase 5: Proprietary techniques ─────────────────────────
     from parwa.frameworks.proprietary.gsd import GSDTechnique
     from parwa.frameworks.proprietary.smart_router import SmartRouterTechnique
     from parwa.frameworks.proprietary.maker import MAKERTechnique
+    from parwa.frameworks.proprietary.adaptive_budget import AdaptiveBudgetTechnique
+    from parwa.frameworks.proprietary.turbo_compress import TurboCompressTechnique
+    from parwa.frameworks.proprietary.federated_reasoning import FederatedReasoningTechnique
+    from parwa.frameworks.proprietary.zero_shot_validator import ZeroShotValidatorTechnique
+    from parwa.frameworks.proprietary.meta_learner import MetaLearnerTechnique
 
     _registry.register(GSDTechnique())
     _registry.register(SmartRouterTechnique())
     _registry.register(MAKERTechnique())
-
-    # Phase 6+ techniques will be registered here when implemented
+    _registry.register(AdaptiveBudgetTechnique())
+    _registry.register(TurboCompressTechnique())
+    _registry.register(FederatedReasoningTechnique())
+    _registry.register(ZeroShotValidatorTechnique())
+    _registry.register(MetaLearnerTechnique())
 
     logger.info(
         "registry: initialized with %d techniques: %s",

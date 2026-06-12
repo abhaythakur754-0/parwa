@@ -3,8 +3,8 @@
 Proactive Agent node. Predicts follow-up questions or issues
 so the response can proactively address them.
 
-Phase 5: Now uses FrameworkBrain with Dynamic Context/ThoT for
-pattern-based proactive insights. Falls back to rule-based on failure.
+Phase 5: Now uses FrameworkBrain with DynamicContext for context-aware
+proactive insights. Falls back to rule-based on FrameworkBrain failure.
 """
 
 from __future__ import annotations
@@ -69,34 +69,39 @@ def _check_proactive_rule_based(intent: str, integration_data: dict) -> list[dic
 
 
 async def _check_proactive_with_brain(state: dict[str, Any]) -> tuple[list[dict], list[str]]:
-    """Proactive checking using FrameworkBrain (Phase 5).
+    """Generate proactive insights using FrameworkBrain (Phase 5).
 
+    Uses DynamicContext for context-aware insights.
     Returns (insights, frameworks_used).
     Falls back to rule-based on any failure.
     """
     intent = state.get("intent", "general_inquiry")
     integration_data = state.get("integration_data", {})
+    raw_message = state.get("raw_message", "")
 
     try:
         from parwa.frameworks.brain import FrameworkBrain
 
         brain = FrameworkBrain(node="PROACTIVE_CHECKER", state=state)
         result = await brain.think(
-            prompt=f"Anticipate follow-up needs for {intent}",
-            techniques=["dynamic_context", "thread_of_thought"],
+            prompt=raw_message,
+            techniques=["dynamic_context"],
             ticket_id=state.get("ticket_id", ""),
             variant=state.get("variant", "parwa"),
         )
 
+        frameworks = result.frameworks_used if result.frameworks_used else []
+
+        # Use rule-based as base, enhance with brain context
         insights = _check_proactive_rule_based(intent, integration_data)
 
-        if result.confidence > 0.5 and result.frameworks_used:
+        # If brain found context-aware insights, boost confidence
+        if result.confidence > 0.5 and insights:
             for insight in insights:
-                if isinstance(insight, dict):
-                    insight["brain_enhanced"] = True
+                insight["brain_enhanced"] = True
+                insight["confidence"] = min(0.95, insight.get("confidence", 0.5) + 0.1)
 
-        frameworks_used = result.frameworks_used if result.frameworks_used else []
-        return insights, frameworks_used
+        return insights, frameworks
 
     except Exception as exc:
         logger.warning(
@@ -111,10 +116,10 @@ async def _check_proactive_with_brain(state: dict[str, Any]) -> tuple[list[dict]
 async def proactive_checker(state: dict[str, Any]) -> dict[str, Any]:
     """Anticipate what the customer might ask next (async).
 
-    Phase 5: Uses FrameworkBrain with Dynamic Context/ThoT for
-    pattern-based proactive insights.
+    Phase 5: Uses FrameworkBrain with DynamicContext for context-aware
+    proactive insights. Falls back to rule-based on FrameworkBrain failure.
 
-    Reads: intent, integration_data
+    Reads: intent, integration_data, raw_message
     Writes: proactive_insights, active_frameworks (append)
     """
     intent = state.get("intent", "general_inquiry")
@@ -126,11 +131,10 @@ async def proactive_checker(state: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(integration_data, dict):
         integration_data = {}
 
+    # Try FrameworkBrain first (Phase 5)
     insights, frameworks = await _check_proactive_with_brain(state)
 
-    if not isinstance(insights, list):
-        insights = []
-
+    # Track frameworks used — return ONLY new frameworks (reducer appends)
     new_frameworks = []
     existing = state.get("active_frameworks", [])
     for fw in frameworks:

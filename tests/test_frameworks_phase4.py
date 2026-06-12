@@ -113,41 +113,47 @@ class TestGSDCompressor:
 
 class TestSmartRouter:
 
-    def test_simple_nodes_use_mini_model(self):
+    def test_simple_nodes_use_light_tier(self):
         from parwa.utils.llm import smart_route_model
-        assert smart_route_model("INGEST") == "gpt-4o-mini"
-        assert smart_route_model("INTENT_CLASSIFIER") == "gpt-4o-mini"
-        assert smart_route_model("SENTIMENT_ANALYZER") == "gpt-4o-mini"
+        from parwa.config import MODEL_TIERS
+        # Simple nodes (light tier) should use light models for default parwa variant
+        assert smart_route_model("INGEST") in MODEL_TIERS["light"]
+        assert smart_route_model("INTENT_CLASSIFIER") in MODEL_TIERS["light"]
+        assert smart_route_model("SENTIMENT_ANALYZER") in MODEL_TIERS["light"]
 
-    def test_reasoning_nodes_use_better_model(self):
+    def test_reasoning_nodes_use_medium_tier(self):
         from parwa.utils.llm import smart_route_model
-        assert smart_route_model("REASONING_ENGINE") == "gpt-4o"
-        assert smart_route_model("TREE_OF_THOUGHTS") == "gpt-4o"
-        assert smart_route_model("QUALITY_SCORER") == "gpt-4o"
+        from parwa.config import MODEL_TIERS
+        # Medium tier nodes should use medium models for default parwa variant
+        assert smart_route_model("REASONING_ENGINE") in MODEL_TIERS["medium"]
+        assert smart_route_model("TREE_OF_THOUGHTS") in MODEL_TIERS["medium"]
+        assert smart_route_model("QUALITY_SCORER") in MODEL_TIERS["medium"]
 
-    def test_mini_variant_always_cheap(self):
+    def test_mini_variant_always_light(self):
         from parwa.utils.llm import smart_route_model
-        # Even reasoning nodes should use gpt-4o-mini for mini variant
-        assert smart_route_model("REASONING_ENGINE", variant="mini") == "gpt-4o-mini"
-        assert smart_route_model("TREE_OF_THOUGHTS", variant="mini") == "gpt-4o-mini"
+        from parwa.config import MODEL_TIERS
+        # Even reasoning nodes should use light models for mini variant
+        assert smart_route_model("REASONING_ENGINE", variant="mini") in MODEL_TIERS["light"]
+        assert smart_route_model("TREE_OF_THOUGHTS", variant="mini") in MODEL_TIERS["light"]
 
-    def test_critical_complexity_uses_best_model(self):
+    def test_unknown_node_uses_available_tier(self):
         from parwa.utils.llm import smart_route_model
-        # Unknown node with critical complexity → o1-preview
-        assert smart_route_model("UNKNOWN_NODE", complexity="critical") == "o1-preview"
-
-    def test_simple_complexity_default(self):
-        from parwa.utils.llm import smart_route_model
-        assert smart_route_model("UNKNOWN_NODE", complexity="simple") == "gpt-4o-mini"
+        from parwa.config import MODEL_TIERS
+        # Unknown node gets light tier (default) for parwa variant
+        model = smart_route_model("UNKNOWN_NODE", complexity="simple")
+        assert model in MODEL_TIERS["light"]
 
     def test_frameworkbrain_nodes_routed(self):
         from parwa.utils.llm import smart_route_model
-        assert smart_route_model("FRAMEWORKBRAIN_COT") == "gpt-4o"
-        assert smart_route_model("FRAMEWORKBRAIN_REACT") == "gpt-4o"
-        assert smart_route_model("FRAMEWORKBRAIN_CLARA") == "gpt-4o"
+        from parwa.config import MODEL_TIERS
+        # FrameworkBrain nodes are medium tier for parwa variant
+        assert smart_route_model("FRAMEWORKBRAIN_COT") in MODEL_TIERS["medium"]
+        assert smart_route_model("FRAMEWORKBRAIN_REACT") in MODEL_TIERS["medium"]
+        assert smart_route_model("FRAMEWORKBRAIN_CLARA") in MODEL_TIERS["medium"]
 
     def test_all_22_nodes_have_model_assignment(self):
-        from parwa.utils.llm import smart_route_model, _NODE_MODEL_OVERRIDES
+        from parwa.utils.llm import smart_route_model
+        from parwa.config import MODEL_TIERS
         expected_nodes = [
             "INGEST", "INTENT_CLASSIFIER", "SENTIMENT_ANALYZER", "ESCALATION_DECISION",
             "FAQ_MATCHER", "KB_RETRIEVER", "CONTEXT_MANAGER", "INTEGRATION_LOOKUP",
@@ -156,9 +162,12 @@ class TestSmartRouter:
             "PROACTIVE_CHECKER", "PREDICTION_ENGINE", "FEEDBACK_LOOP",
             "PII_COMPLIANCE_GUARD", "AUDIT_LOGGER", "QUALITY_SCORER", "RESPONSE_FORMATTER",
         ]
+        all_valid_models = set()
+        for tier_models in MODEL_TIERS.values():
+            all_valid_models.update(tier_models)
         for node in expected_nodes:
             model = smart_route_model(node)
-            assert model in ("gpt-4o-mini", "gpt-4o", "o1-preview"), f"Node {node} got unexpected model {model}"
+            assert model in all_valid_models, f"Node {node} got unexpected model {model}"
 
 
 # ─── ThoT (Thread of Thought) Tests ──────────────────────────────────────────
@@ -444,5 +453,5 @@ class TestFrameworkBrainPhase4:
         assert registry.get("thread_of_thought") is not None
         assert registry.get("dynamic_context") is not None
         assert registry.get("contextual_compression") is not None
-        # Total: 6 reasoning + 4 RAG + 4 quality + 3 memory = 17
-        assert registry.count() == 20
+        # Total: 6 reasoning + 4 RAG + 4 quality + 3 memory + 8 proprietary = 25
+        assert registry.count() == 25

@@ -67,6 +67,7 @@ class ActionType(str, Enum):
     CREATE_NOTE = "create_note"
     POST_SOCIAL = "post_social"
     VOICE_CALL = "voice_call"
+    SEND_SMS = "send_sms"
     BULK_OPERATION = "bulk_operation"
     API_WEBHOOK = "api_webhook"
     CUSTOM_INTEGRATION = "custom_integration"
@@ -159,10 +160,6 @@ class TicketState(BaseModel):
     verification_passed: bool = False
     recommendation: dict[str, Any] | None = None
 
-    # ─── MAKER decomposition tracking (Phase 5) ────────────
-    maker_steps: list[dict[str, Any]] = Field(default_factory=list)
-    maker_verification_passed: bool = False
-
     # ─── Proactive Agent outputs (Nodes 13, 14, 22) ───────
     proactive_insights: list[ProactiveInsight] = Field(default_factory=list)
     predictions: list[ProactiveInsight] = Field(default_factory=list)
@@ -178,10 +175,6 @@ class TicketState(BaseModel):
 
     # ─── Framework activation tracking ─────────────────────
     active_frameworks: list[str] = Field(default_factory=list)
-
-    # ─── Agent Orchestration (Phase 6) ────────────────────
-    agent_contexts: dict[str, Any] = Field(default_factory=dict)
-    _current_agent: str = ""
 
     # ─── Internal routing flags ────────────────────────────
     should_loop_back: bool = False

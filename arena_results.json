@@ -1,0 +1,748 @@
+{
+  "total_tickets": 15,
+  "elapsed_seconds": 6.89,
+  "tickets_per_minute": 130.53,
+  "human_effort_eliminated_pct": 90.7,
+  "variant_summary": {
+    "mini": {
+      "total": 5,
+      "executed": 3,
+      "recommended": 2,
+      "denied": 0,
+      "simulated": 0,
+      "real_delivered": 0
+    },
+    "parwa": {
+      "total": 5,
+      "executed": 5,
+      "recommended": 0,
+      "denied": 0,
+      "simulated": 0,
+      "real_delivered": 2
+    },
+    "high": {
+      "total": 5,
+      "executed": 5,
+      "recommended": 0,
+      "denied": 0,
+      "simulated": 0,
+      "real_delivered": 4
+    }
+  },
+  "twilio_delivery_proofs": [
+    {
+      "ticket_id": "ACT-01",
+      "action_type": "voice_call",
+      "provider_sid": "CAd611342cdc6d1c54cea38d17e1b2f429",
+      "delivery_status": "delivery_pending",
+      "recipient": "+919652852014"
+    },
+    {
+      "ticket_id": "ACT-05",
+      "action_type": "send_sms",
+      "provider_sid": "SMc8e448d623b6f94d317b027d0cc24d0c",
+      "delivery_status": "delivery_pending",
+      "recipient": "+919652852014"
+    },
+    {
+      "ticket_id": "ACT-02",
+      "action_type": "send_sms",
+      "provider_sid": "SMdbbd2b8d82a4821444eccba852f3fd95",
+      "delivery_status": "delivery_pending",
+      "recipient": "+919652852014"
+    }
+  ],
+  "results": [
+    {
+      "ticket_id": "GEN-04",
+      "variant": "mini",
+      "customer_id": "CUST-1007",
+      "expected_action": "escalate_to_human",
+      "intent": "technical_support",
+      "sentiment": "frustrated",
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "quality_score": 75.0,
+      "final_response": "We've analyzed your technical issue. Our support team is working on a resolution and will update you shortly."
+    },
+    {
+      "ticket_id": "GEN-02",
+      "variant": "parwa",
+      "customer_id": "CUST-1005",
+      "expected_action": "send_reply",
+      "intent": "order_status",
+      "sentiment": "frustrated",
+      "execution_results": [
+        {
+          "action_type": "share_policy",
+          "status": "executed",
+          "message": "Policy information shared: relevant policy",
+          "parameters": {}
+        }
+      ],
+      "quality_score": 80.0,
+      "final_response": "Your order has been located. Based on our records, it's currently being processed."
+    },
+    {
+      "ticket_id": "GEN-08",
+      "variant": "parwa",
+      "customer_id": "CUST-1006",
+      "expected_action": "cancel_order",
+      "intent": "cancellation",
+      "sentiment": "neutral",
+      "execution_results": [
+        {
+          "action_type": "cancel_order",
+          "status": "executed",
+          "message": "Order ORD-2052 cancelled successfully",
+          "parameters": {
+            "reason": "customer_request"
+          }
+        }
+      ],
+      "quality_score": 80.0,
+      "final_response": "Your order has been cancelled successfully. You'll receive a confirmation email shortly."
+    },
+    {
+      "ticket_id": "GEN-09",
+      "variant": "high",
+      "customer_id": "CUST-1007",
+      "expected_action": "escalate_to_human",
+      "intent": "technical_support",
+      "sentiment": "angry",
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "quality_score": 80.0,
+      "final_response": "We've analyzed your technical issue. Our support team is working on a resolution and will update you shortly."
+    },
+    {
+      "ticket_id": "ACT-03",
+      "variant": "mini",
+      "customer_id": "CUST-1001",
+      "expected_action": "process_refund",
+      "intent": "refund_request",
+      "sentiment": "frustrated",
+      "execution_results": [
+        {
+          "action_type": "process_refund",
+          "status": "recommended",
+          "message": "Action 'ActionType.PROCESS_REFUND' requires human approval for variant 'mini'"
+        }
+      ],
+      "quality_score": 80.0,
+      "final_response": "I found that you were indeed charged twice. I've verified you're eligible for a $49.99 refund and have submitted this for approval. You'll receive confirmation within 2 hours. Is there anything else y"
+    },
+    {
+      "ticket_id": "GEN-05",
+      "variant": "parwa",
+      "customer_id": "CUST-1003",
+      "expected_action": "modify_account",
+      "intent": "general_inquiry",
+      "sentiment": "neutral",
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "quality_score": 80.0,
+      "final_response": "Thank you for reaching out. ReAct verified: Conclusion consistent with available data for general_inquiry."
+    },
+    {
+      "ticket_id": "GEN-06",
+      "variant": "high",
+      "customer_id": "CUST-1008",
+      "expected_action": "send_reply",
+      "intent": "technical_support",
+      "sentiment": "neutral",
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "quality_score": 80.0,
+      "final_response": "We've analyzed your technical issue. Our support team is working on a resolution and will update you shortly."
+    },
+    {
+      "ticket_id": "GEN-10",
+      "variant": "parwa",
+      "customer_id": "CUST-1004",
+      "expected_action": "modify_account",
+      "intent": "billing_issue",
+      "sentiment": "frustrated",
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "quality_score": 80.0,
+      "final_response": "We've reviewed your billing concern. Our team will investigate the charges and get back to you within 24 hours."
+    },
+    {
+      "ticket_id": "GEN-03",
+      "variant": "high",
+      "customer_id": "CUST-1004",
+      "expected_action": "modify_account",
+      "intent": "complaint",
+      "sentiment": "frustrated",
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "quality_score": 80.0,
+      "final_response": "We take your concerns seriously and apologize for the inconvenience. A member of our team will reach out to you personally."
+    },
+    {
+      "ticket_id": "ACT-01",
+      "variant": "high",
+      "customer_id": "CUST-1001",
+      "expected_action": "voice_call",
+      "intent": "refund_request",
+      "sentiment": "frustrated",
+      "execution_results": [
+        {
+          "action_type": "process_refund",
+          "status": "executed",
+          "message": "Refund of $49.99 processed. Refund ID: REF-C6C4D2. Will appear in 3-5 business days.",
+          "parameters": {
+            "amount": 49.99,
+            "reason": "duplicate_charge"
+          },
+          "details": {
+            "refund_id": "REF-C6C4D2",
+            "amount": 49.99,
+            "payment_id": "PAY-3002"
+          }
+        },
+        {
+          "action_type": "voice_call",
+          "status": "delivery_pending",
+          "message": "Voice call initiated to +919652852014 (SID: CAd611342cdc6d1c54cea38d17e1b2f429)",
+          "parameters": {
+            "reason": "customer_request"
+          },
+          "details": {
+            "delivery_status": "delivery_pending",
+            "channel": "voice",
+            "recipient": "+919652852014",
+            "provider": "twilio",
+            "message_id": "VOICE-599D76",
+            "timestamp": "2026-06-12T00:16:22.581241",
+            "actually_delivered": false,
+            "provider_sid": "CAd611342cdc6d1c54cea38d17e1b2f429",
+            "metadata": {
+              "twilio_status": "queued",
+              "reason": "customer_request",
+              "customer_id": "CUST-1001",
+              "customer_name": "Priya Sharma"
+            }
+          }
+        }
+      ],
+      "quality_score": 80.0,
+      "final_response": "Your $49.99 refund has been processed. It will appear in 3-5 business days. Is there anything else you'd like to know?"
+    },
+    {
+      "ticket_id": "ACT-05",
+      "variant": "high",
+      "customer_id": "CUST-1001",
+      "expected_action": "modify_account",
+      "intent": "general_inquiry",
+      "sentiment": "neutral",
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        },
+        {
+          "action_type": "send_sms",
+          "status": "delivery_pending",
+          "message": "SMS sent to +919652852014, awaiting delivery confirmation (SID: SMc8e448d623b6f94d317b027d0cc24d0c)",
+          "parameters": {
+            "message": "ReAct verified: Conclusion consistent with available data for general_inquiry.",
+            "reason": "customer_request"
+          },
+          "details": {
+            "delivery_status": "delivery_pending",
+            "channel": "sms",
+            "recipient": "+919652852014",
+            "provider": "twilio",
+            "message_id": "SMS-55F5DA",
+            "timestamp": "2026-06-12T00:16:22.634199",
+            "actually_delivered": false,
+            "provider_sid": "SMc8e448d623b6f94d317b027d0cc24d0c",
+            "metadata": {
+              "twilio_status": "queued",
+              "customer_id": "CUST-1001",
+              "customer_name": "Priya Sharma"
+            }
+          }
+        }
+      ],
+      "quality_score": 80.0,
+      "final_response": "Thank you for reaching out. ReAct verified: Conclusion consistent with available data for general_inquiry."
+    },
+    {
+      "ticket_id": "GEN-07",
+      "variant": "mini",
+      "customer_id": "CUST-1002",
+      "expected_action": "share_faq",
+      "intent": "faq_question",
+      "sentiment": "neutral",
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "quality_score": 75.0,
+      "final_response": "We've found information related to your question. Please let us know if you need more details."
+    },
+    {
+      "ticket_id": "ACT-04",
+      "variant": "mini",
+      "customer_id": "CUST-1005",
+      "expected_action": "cancel_order",
+      "intent": "cancellation",
+      "sentiment": "neutral",
+      "execution_results": [
+        {
+          "action_type": "cancel_order",
+          "status": "recommended",
+          "message": "Action 'ActionType.CANCEL_ORDER' requires human approval for variant 'mini'"
+        }
+      ],
+      "quality_score": 80.0,
+      "final_response": "I've submitted your cancellation request for approval. You'll be notified once it's processed."
+    },
+    {
+      "ticket_id": "ACT-02",
+      "variant": "parwa",
+      "customer_id": "CUST-1001",
+      "expected_action": "send_sms",
+      "intent": "refund_request",
+      "sentiment": "neutral",
+      "execution_results": [
+        {
+          "action_type": "process_refund",
+          "status": "executed",
+          "message": "Refund of $49.99 processed. Refund ID: REF-C3B564. Will appear in 3-5 business days.",
+          "parameters": {
+            "amount": 49.99,
+            "reason": "duplicate_charge"
+          },
+          "details": {
+            "refund_id": "REF-C3B564",
+            "amount": 49.99,
+            "payment_id": "PAY-3003"
+          }
+        },
+        {
+          "action_type": "send_sms",
+          "status": "delivery_pending",
+          "message": "SMS sent to +919652852014, awaiting delivery confirmation (SID: SMdbbd2b8d82a4821444eccba852f3fd95)",
+          "parameters": {
+            "message": "ReAct warning: Refund claim cannot be verified without CRM charge data.",
+            "reason": "customer_request"
+          },
+          "details": {
+            "delivery_status": "delivery_pending",
+            "channel": "sms",
+            "recipient": "+919652852014",
+            "provider": "twilio",
+            "message_id": "SMS-91804C",
+            "timestamp": "2026-06-12T00:16:25.167132",
+            "actually_delivered": false,
+            "provider_sid": "SMdbbd2b8d82a4821444eccba852f3fd95",
+            "metadata": {
+              "twilio_status": "queued",
+              "customer_id": "CUST-1001",
+              "customer_name": "Priya Sharma"
+            }
+          }
+        }
+      ],
+      "quality_score": 80.0,
+      "final_response": "Your $49.99 refund has been processed. It will appear in 3-5 business days. Is there anything else you'd like to know?"
+    },
+    {
+      "ticket_id": "GEN-01",
+      "variant": "mini",
+      "customer_id": "CUST-1001",
+      "expected_action": "process_refund",
+      "intent": "general_inquiry",
+      "sentiment": "neutral",
+      "execution_results": [
+        {
+          "action_type": "send_reply",
+          "status": "executed",
+          "message": "Reply sent to customer",
+          "parameters": {}
+        }
+      ],
+      "quality_score": 75.0,
+      "final_response": "Thank you for reaching out. ReAct verified: Conclusion consistent with available data for general_inquiry."
+    }
+  ],
+  "twilio_verification": [
+    {
+      "type": "sms",
+      "sid": "SMc8e448d623b6f94d317b027d0cc24d0c",
+      "to": "+919652852014",
+      "from": "+59039149",
+      "status": "sent",
+      "date_sent": "Fri, 12 Jun 2026 00:16:22 +0000",
+      "body_preview": "Sent from your Twilio trial account - ReAct verified: Conclusion consistent with available data for "
+    },
+    {
+      "type": "sms",
+      "sid": "SM0c5d769db3ee6cb520757cb1be9e60e5",
+      "to": "+919652852014",
+      "from": "+59039149",
+      "status": "delivered",
+      "date_sent": "Fri, 12 Jun 2026 00:09:47 +0000",
+      "body_preview": "Sent from your Twilio trial account - ReAct warning: Refund claim cannot be verified without CRM cha"
+    },
+    {
+      "type": "sms",
+      "sid": "SMd1aa22f313e116dddeaaea21800409ed",
+      "to": "+91-99887-76655",
+      "from": "+17752583673",
+      "status": "failed",
+      "date_sent": "Fri, 12 Jun 2026 00:09:47 +0000",
+      "body_preview": "ReAct verified: Conclusion consistent with available data for account_modification."
+    },
+    {
+      "type": "sms",
+      "sid": "SM723adbbe3dc4e213072d99f7ce159a6e",
+      "to": "+919652852014",
+      "from": "+59039149",
+      "status": "delivered",
+      "date_sent": "Mon, 18 May 2026 08:15:32 +0000",
+      "body_preview": "Sent from your Twilio trial account - Hello from PARWA! This is a test SMS from the Jarvis voice int"
+    },
+    {
+      "type": "sms",
+      "sid": "SMa435b9e5c8eb2a19b40a8aa1d710f2e2",
+      "to": "+919652852014",
+      "from": "+59039149",
+      "status": "delivered",
+      "date_sent": "Mon, 18 May 2026 05:56:03 +0000",
+      "body_preview": "Sent from your Twilio trial account - PARWA Test: SMS from AI customer service platform. Your Twilio"
+    },
+    {
+      "type": "sms",
+      "sid": "SMc9f376c8bd10c8c06da773f36928f4c8",
+      "to": "+919652852014",
+      "from": "+59039149",
+      "status": "delivered",
+      "date_sent": "Mon, 18 May 2026 05:38:28 +0000",
+      "body_preview": "Sent from your Twilio trial account - Hello from PARWA! This is a test SMS from your AI customer ser"
+    },
+    {
+      "type": "sms",
+      "sid": "SM3afe471557c8b0fab0c4b5739e470a6b",
+      "to": "+919652852014",
+      "from": "+59039149",
+      "status": "delivered",
+      "date_sent": "Thu, 07 May 2026 22:14:59 +0000",
+      "body_preview": "Sent from your Twilio trial account - [PARWA] AI Workforce Platform - SMS Integration is LIVE! Your "
+    },
+    {
+      "type": "sms",
+      "sid": "SMdb3c4242103b9493ecf1b22687cb7e44",
+      "to": "+919652852014",
+      "from": "+1234567890",
+      "status": "failed",
+      "date_sent": "Thu, 07 May 2026 22:14:27 +0000",
+      "body_preview": "[PARWA] AI Workforce Platform - SMS Integration is LIVE! Your ticket notifications will be sent to t"
+    },
+    {
+      "type": "sms",
+      "sid": "SM8ea17fdd66746c6baab4114b3aca7d17",
+      "to": "+1234567890",
+      "from": "+1234567890",
+      "status": "failed",
+      "date_sent": "Thu, 07 May 2026 22:13:13 +0000",
+      "body_preview": "[PARWA] Test SMS - Integration working! Your ticket notifications are now active."
+    },
+    {
+      "type": "sms",
+      "sid": "SM4477cf757edb904f0e6a1836e4ef189e",
+      "to": "+919652852014",
+      "from": "+59039149",
+      "status": "delivered",
+      "date_sent": "Wed, 06 May 2026 17:11:26 +0000",
+      "body_preview": "Sent from your Twilio trial account - Parwa Production Test: All 3 variants (Mini/Pro/High) operatio"
+    },
+    {
+      "type": "sms",
+      "sid": "SM38354215afeacba27fac131b9ec4e5e3",
+      "to": "+917702082540",
+      "from": "+17752583673",
+      "status": "failed",
+      "date_sent": "Wed, 06 May 2026 17:11:15 +0000",
+      "body_preview": "Parwa Production Test: All 3 variants (Mini/Pro/High) operational. Paddle returns/cashback/billing t"
+    },
+    {
+      "type": "sms",
+      "sid": "SM79bcabb0f66c6711ec5def65ae7a23b3",
+      "to": "+917702082540",
+      "from": "+17752583673",
+      "status": "failed",
+      "date_sent": "Wed, 06 May 2026 17:10:57 +0000",
+      "body_preview": "Parwa Production Test: All 3 variants (Mini/Pro/High) operational. Paddle returns/cashback/billing t"
+    },
+    {
+      "type": "sms",
+      "sid": "SMf75e50b5c64da998f7dfe96285d14654",
+      "to": "+919652852014",
+      "from": "+59039149",
+      "status": "delivered",
+      "date_sent": "Wed, 06 May 2026 16:45:05 +0000",
+      "body_preview": "Sent from your Twilio trial account - PARWA CALLING: Pick up! Incoming call from +17752583673 in 10 "
+    },
+    {
+      "type": "sms",
+      "sid": "SM41d5b3e671ab93ab99f8cfbb23c26a1a",
+      "to": "+917702082540",
+      "from": "+17752583673",
+      "status": "failed",
+      "date_sent": "Wed, 06 May 2026 16:43:10 +0000",
+      "body_preview": "Hello from Parwa AI! Your calling integration test is successful. All 3 variants (Mini, Pro, High) a"
+    },
+    {
+      "type": "sms",
+      "sid": "SM5622badc0fe03f8da2f47704a596ac49",
+      "to": "+919652852014",
+      "from": "+59039149",
+      "status": "delivered",
+      "date_sent": "Wed, 06 May 2026 16:35:57 +0000",
+      "body_preview": "Sent from your Twilio trial account - Hello from Parwa AI! Your calling integration test was success"
+    },
+    {
+      "type": "sms",
+      "sid": "SM21f7404a2b45f1e67b61b23662d98a70",
+      "to": "+919876543210",
+      "from": "+1234567890",
+      "status": "failed",
+      "date_sent": "Wed, 06 May 2026 15:42:01 +0000",
+      "body_preview": "PARWA Test: Integration test. Ignore."
+    },
+    {
+      "type": "sms",
+      "sid": "SMe97c21888424392d8bd14aad38c8abbe",
+      "to": "+919876543210",
+      "from": "+17752583673",
+      "status": "failed",
+      "date_sent": "Sat, 25 Apr 2026 09:44:19 +0000",
+      "body_preview": "PARWA SMS Test - Integration working!"
+    },
+    {
+      "type": "sms",
+      "sid": "SMfe28e796fc9511dd638c8419b1f1cc31",
+      "to": "+17752583673",
+      "from": "+17752583673",
+      "status": "failed",
+      "date_sent": "Sat, 25 Apr 2026 09:43:54 +0000",
+      "body_preview": "PARWA Test: SMS integration working! Test message from PARWA system."
+    },
+    {
+      "type": "sms",
+      "sid": "SM31f301574e4a4c7146072a823b99f521",
+      "to": "+919652852014",
+      "from": "+17752583673",
+      "status": "undelivered",
+      "date_sent": "Sat, 25 Apr 2026 05:29:07 +0000",
+      "body_preview": "Sent from your Twilio trial account - \ud83c\udf89 Hello from PARWA! Your SMS Channel is working perfectly! Thi"
+    },
+    {
+      "type": "voice_call",
+      "sid": "CAd611342cdc6d1c54cea38d17e1b2f429",
+      "to": "+919652852014",
+      "from": "+17752583673",
+      "status": "ringing",
+      "date_updated": "Fri, 12 Jun 2026 00:16:24 +0000"
+    },
+    {
+      "type": "voice_call",
+      "sid": "CAf26b239744d2159c2b69dd0ddd1bc85c",
+      "to": "+17752583673",
+      "from": "+919652852014",
+      "status": "completed",
+      "date_updated": "Fri, 12 Jun 2026 00:14:33 +0000"
+    },
+    {
+      "type": "voice_call",
+      "sid": "CA45036048e21284a4e5df92cfd92c62d1",
+      "to": "+919652852014",
+      "from": "+17752583673",
+      "status": "no-answer",
+      "date_updated": "Fri, 12 Jun 2026 00:10:40 +0000"
+    },
+    {
+      "type": "voice_call",
+      "sid": "CAd834478b3a488b460dc1229dbe7588f9",
+      "to": "+17752583673",
+      "from": "+17752583673",
+      "status": "busy",
+      "date_updated": "Sun, 24 May 2026 11:11:22 +0000"
+    },
+    {
+      "type": "voice_call",
+      "sid": "CA5c207fa4f5c16f7786dcc00c27c06be9",
+      "to": "+17752583673",
+      "from": "+17752583673",
+      "status": "busy",
+      "date_updated": "Sun, 24 May 2026 11:11:21 +0000"
+    },
+    {
+      "type": "voice_call",
+      "sid": "CA827f7e4d8b37042f4798fb458c7773c6",
+      "to": "+17752583673",
+      "from": "+17752583673",
+      "status": "completed",
+      "date_updated": "Sun, 24 May 2026 11:11:34 +0000"
+    },
+    {
+      "type": "voice_call",
+      "sid": "CAb6154bd4f281ff765c851edc7493dfb2",
+      "to": "+17752583673",
+      "from": "+17752583673",
+      "status": "completed",
+      "date_updated": "Sun, 24 May 2026 11:11:34 +0000"
+    },
+    {
+      "type": "voice_call",
+      "sid": "CAd1ee3c363d10a5bc160ec6ce6d5ae870",
+      "to": "+17752583673",
+      "from": "+17752583673",
+      "status": "busy",
+      "date_updated": "Sun, 24 May 2026 11:11:26 +0000"
+    },
+    {
+      "type": "voice_call",
+      "sid": "CA4b4766b97a7b93e23771b905f05d142b",
+      "to": "+17752583673",
+      "from": "+17752583673",
+      "status": "completed",
+      "date_updated": "Sun, 24 May 2026 11:11:33 +0000"
+    },
+    {
+      "type": "voice_call",
+      "sid": "CA05c0f13dacb4b99ca60a6f17e90ad42e",
+      "to": "+17752583673",
+      "from": "+17752583673",
+      "status": "completed",
+      "date_updated": "Sun, 24 May 2026 11:11:33 +0000"
+    },
+    {
+      "type": "voice_call",
+      "sid": "CA72bf96ca1e1035a99827124fc1f6a2ef",
+      "to": "+919652852014",
+      "from": "+17752583673",
+      "status": "completed",
+      "date_updated": "Mon, 18 May 2026 08:17:57 +0000"
+    },
+    {
+      "type": "voice_call",
+      "sid": "CAca8188a676c799669a9465bfcd4d70c7",
+      "to": "+919652852014",
+      "from": "+17752583673",
+      "status": "completed",
+      "date_updated": "Mon, 18 May 2026 08:15:00 +0000"
+    },
+    {
+      "type": "voice_call",
+      "sid": "CA361b771ee417387b52c7f1ee5b833a8d",
+      "to": "+919652852014",
+      "from": "+17752583673",
+      "status": "no-answer",
+      "date_updated": "Mon, 18 May 2026 05:56:58 +0000"
+    },
+    {
+      "type": "voice_call",
+      "sid": "CA7b19429cfd1d42f4f290c3254d8d3d23",
+      "to": "+919652852014",
+      "from": "+17752583673",
+      "status": "completed",
+      "date_updated": "Mon, 18 May 2026 05:39:13 +0000"
+    },
+    {
+      "type": "voice_call",
+      "sid": "CAece27e87cb5abc01603d8f6f8a845881",
+      "to": "+919652852014",
+      "from": "+17752583673",
+      "status": "no-answer",
+      "date_updated": "Wed, 06 May 2026 17:11:29 +0000"
+    },
+    {
+      "type": "voice_call",
+      "sid": "CA310113e0e0f9e74a02f90ee022afbf5a",
+      "to": "+919652852014",
+      "from": "+17752583673",
+      "status": "no-answer",
+      "date_updated": "Wed, 06 May 2026 16:45:17 +0000"
+    },
+    {
+      "type": "voice_call",
+      "sid": "CAf7546977c09fd340120c783e00dbd0c8",
+      "to": "+919652852014",
+      "from": "+17752583673",
+      "status": "no-answer",
+      "date_updated": "Wed, 06 May 2026 16:44:26 +0000"
+    },
+    {
+      "type": "voice_call",
+      "sid": "CAe7a577c8c1b7dbfde907f7a9d064d2b1",
+      "to": "+919652852014",
+      "from": "+17752583673",
+      "status": "no-answer",
+      "date_updated": "Wed, 06 May 2026 16:38:47 +0000"
+    },
+    {
+      "type": "voice_call",
+      "sid": "CA8e47a03039c3a41e4dd0f2a6515b53c3",
+      "to": "+919652852014",
+      "from": "+17752583673",
+      "status": "no-answer",
+      "date_updated": "Wed, 06 May 2026 16:35:24 +0000"
+    },
+    {
+      "type": "voice_call",
+      "sid": "CAf9bb6a2495afee93ae6971aa1da8bfed",
+      "to": "+919652852014",
+      "from": "+17752583673",
+      "status": "no-answer",
+      "date_updated": "Wed, 06 May 2026 16:34:54 +0000"
+    }
+  ]
+}

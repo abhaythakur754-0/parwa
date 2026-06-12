@@ -1,0 +1,369 @@
+{
+  "timestamp": "2026-06-11T22:49:18.849835",
+  "mode": "rule",
+  "dataset_stats": {
+    "total_messages": 219,
+    "intent_dataset": 100,
+    "sentiment_dataset": 50,
+    "escalation_dataset": 50,
+    "edge_case_dataset": 19,
+    "intent_distribution": {
+      "refund_request": 10,
+      "order_status": 10,
+      "cancellation": 10,
+      "technical_support": 10,
+      "billing_issue": 10,
+      "account_modification": 10,
+      "faq_question": 10,
+      "complaint": 10,
+      "escalation": 10,
+      "general_inquiry": 10
+    },
+    "sentiment_distribution": {
+      "angry": 15,
+      "frustrated": 15,
+      "happy": 10,
+      "neutral": 10
+    },
+    "escalation_should_escalate": 25,
+    "escalation_should_not_escalate": 25
+  },
+  "targets": {
+    "intent_accuracy": 80,
+    "sentiment_accuracy": 75,
+    "escalation_accuracy": 80,
+    "autonomous_resolution": 55,
+    "human_effort_elimination": 15,
+    "avg_quality_score": 70
+  },
+  "intent_eval": {
+    "accuracy": 89.0,
+    "correct": 89,
+    "total": 100,
+    "per_intent": {
+      "refund_request": {
+        "accuracy": "100.0%",
+        "total": 10,
+        "misclassifications": {}
+      },
+      "order_status": {
+        "accuracy": "80.0%",
+        "total": 10,
+        "misclassifications": {
+          "faq_question": 1,
+          "general_inquiry": 1
+        }
+      },
+      "cancellation": {
+        "accuracy": "60.0%",
+        "total": 10,
+        "misclassifications": {
+          "general_inquiry": 1,
+          "billing_issue": 1,
+          "account_modification": 1,
+          "refund_request": 1
+        }
+      },
+      "technical_support": {
+        "accuracy": "90.0%",
+        "total": 10,
+        "misclassifications": {
+          "general_inquiry": 1
+        }
+      },
+      "billing_issue": {
+        "accuracy": "100.0%",
+        "total": 10,
+        "misclassifications": {}
+      },
+      "account_modification": {
+        "accuracy": "100.0%",
+        "total": 10,
+        "misclassifications": {}
+      },
+      "faq_question": {
+        "accuracy": "90.0%",
+        "total": 10,
+        "misclassifications": {
+          "refund_request": 1
+        }
+      },
+      "complaint": {
+        "accuracy": "100.0%",
+        "total": 10,
+        "misclassifications": {}
+      },
+      "escalation": {
+        "accuracy": "70.0%",
+        "total": 10,
+        "misclassifications": {
+          "general_inquiry": 3
+        }
+      },
+      "general_inquiry": {
+        "accuracy": "100.0%",
+        "total": 10,
+        "misclassifications": {}
+      }
+    }
+  },
+  "sentiment_eval": {
+    "accuracy": 84.0,
+    "correct": 42,
+    "total": 50
+  },
+  "escalation_eval": {
+    "accuracy": 100.0,
+    "correct": 50,
+    "total": 50,
+    "should_escalate_accuracy": 100.0,
+    "should_not_escalate_accuracy": 100.0
+  },
+  "edge_eval": {
+    "intent_accuracy": 68.4,
+    "sentiment_accuracy": 73.7,
+    "total": 19,
+    "results": [
+      {
+        "message": "Cancel my order AND refund the payment. The product was damaged on arrival.",
+        "expected_intent": "cancellation",
+        "predicted_intent": "cancellation",
+        "intent_correct": true,
+        "expected_sentiment": "frustrated",
+        "predicted_sentiment": "neutral",
+        "sentiment_correct": false,
+        "tags": [
+          "multi_intent"
+        ]
+      },
+      {
+        "message": "I want a refund for the overcharge and I need my account reactivated.",
+        "expected_intent": "refund_request",
+        "predicted_intent": "refund_request",
+        "intent_correct": true,
+        "expected_sentiment": "frustrated",
+        "predicted_sentiment": "frustrated",
+        "sentiment_correct": true,
+        "tags": [
+          "multi_intent"
+        ]
+      },
+      {
+        "message": "Fix the bug in your app and also update my billing address while you're at it.",
+        "expected_intent": "technical_support",
+        "predicted_intent": "account_modification",
+        "intent_correct": false,
+        "expected_sentiment": "neutral",
+        "predicted_sentiment": "neutral",
+        "sentiment_correct": true,
+        "tags": [
+          "multi_intent"
+        ]
+      },
+      {
+        "message": "The product is defective, I want a refund, and I need to speak to someone about ",
+        "expected_intent": "refund_request",
+        "predicted_intent": "refund_request",
+        "intent_correct": true,
+        "expected_sentiment": "frustrated",
+        "predicted_sentiment": "frustrated",
+        "sentiment_correct": true,
+        "tags": [
+          "multi_intent"
+        ]
+      },
+      {
+        "message": "I have a question about my account",
+        "expected_intent": "general_inquiry",
+        "predicted_intent": "general_inquiry",
+        "intent_correct": true,
+        "expected_sentiment": "neutral",
+        "predicted_sentiment": "neutral",
+        "sentiment_correct": true,
+        "tags": [
+          "ambiguous"
+        ]
+      },
+      {
+        "message": "Something went wrong with my order",
+        "expected_intent": "order_status",
+        "predicted_intent": "general_inquiry",
+        "intent_correct": false,
+        "expected_sentiment": "neutral",
+        "predicted_sentiment": "neutral",
+        "sentiment_correct": true,
+        "tags": [
+          "ambiguous"
+        ]
+      },
+      {
+        "message": "I'm not happy",
+        "expected_intent": "complaint",
+        "predicted_intent": "complaint",
+        "intent_correct": true,
+        "expected_sentiment": "frustrated",
+        "predicted_sentiment": "frustrated",
+        "sentiment_correct": true,
+        "tags": [
+          "ambiguous"
+        ]
+      },
+      {
+        "message": "Help",
+        "expected_intent": "general_inquiry",
+        "predicted_intent": "general_inquiry",
+        "intent_correct": true,
+        "expected_sentiment": "neutral",
+        "predicted_sentiment": "neutral",
+        "sentiment_correct": true,
+        "tags": [
+          "ambiguous",
+          "very_short"
+        ]
+      },
+      {
+        "message": "Refund please",
+        "expected_intent": "refund_request",
+        "predicted_intent": "refund_request",
+        "intent_correct": true,
+        "expected_sentiment": "neutral",
+        "predicted_sentiment": "neutral",
+        "sentiment_correct": true,
+        "tags": [
+          "very_short"
+        ]
+      },
+      {
+        "message": "Where's my order?",
+        "expected_intent": "order_status",
+        "predicted_intent": "general_inquiry",
+        "intent_correct": false,
+        "expected_sentiment": "neutral",
+        "predicted_sentiment": "neutral",
+        "sentiment_correct": true,
+        "tags": [
+          "very_short"
+        ]
+      },
+      {
+        "message": "Cancel it",
+        "expected_intent": "cancellation",
+        "predicted_intent": "cancellation",
+        "intent_correct": true,
+        "expected_sentiment": "neutral",
+        "predicted_sentiment": "neutral",
+        "sentiment_correct": true,
+        "tags": [
+          "very_short"
+        ]
+      },
+      {
+        "message": "Broken app",
+        "expected_intent": "technical_support",
+        "predicted_intent": "technical_support",
+        "intent_correct": true,
+        "expected_sentiment": "neutral",
+        "predicted_sentiment": "frustrated",
+        "sentiment_correct": false,
+        "tags": [
+          "very_short"
+        ]
+      },
+      {
+        "message": "Oh great, another billing error. Just what I needed today.",
+        "expected_intent": "billing_issue",
+        "predicted_intent": "billing_issue",
+        "intent_correct": true,
+        "expected_sentiment": "frustrated",
+        "predicted_sentiment": "frustrated",
+        "sentiment_correct": true,
+        "tags": [
+          "sarcastic"
+        ]
+      },
+      {
+        "message": "Wow, 3 weeks for shipping. That's some kind of record, isn't it?",
+        "expected_intent": "complaint",
+        "predicted_intent": "general_inquiry",
+        "intent_correct": false,
+        "expected_sentiment": "frustrated",
+        "predicted_sentiment": "frustrated",
+        "sentiment_correct": true,
+        "tags": [
+          "sarcastic"
+        ]
+      },
+      {
+        "message": "My SSN is 123-45-6789 and I need to update my account. Someone used my identity.",
+        "expected_intent": "account_modification",
+        "predicted_intent": "account_modification",
+        "intent_correct": true,
+        "expected_sentiment": "frustrated",
+        "predicted_sentiment": "frustrated",
+        "sentiment_correct": true,
+        "tags": [
+          "pii",
+          "identity_theft"
+        ]
+      },
+      {
+        "message": "My credit card 4111-1111-1111-1111 was charged without authorization. My email i",
+        "expected_intent": "billing_issue",
+        "predicted_intent": "billing_issue",
+        "intent_correct": true,
+        "expected_sentiment": "frustrated",
+        "predicted_sentiment": "neutral",
+        "sentiment_correct": false,
+        "tags": [
+          "pii"
+        ]
+      },
+      {
+        "message": "I need ayuda with my order por favor. It hasn't arrived yet.",
+        "expected_intent": "order_status",
+        "predicted_intent": "general_inquiry",
+        "intent_correct": false,
+        "expected_sentiment": "neutral",
+        "predicted_sentiment": "frustrated",
+        "sentiment_correct": false,
+        "tags": [
+          "mixed_language"
+        ]
+      },
+      {
+        "message": "Mon compte est suspendu, please help reactivate my account.",
+        "expected_intent": "account_modification",
+        "predicted_intent": "account_modification",
+        "intent_correct": true,
+        "expected_sentiment": "neutral",
+        "predicted_sentiment": "neutral",
+        "sentiment_correct": true,
+        "tags": [
+          "mixed_language"
+        ]
+      },
+      {
+        "message": "I purchased your premium wireless headphones (model WH-1000XM5, serial number SN",
+        "expected_intent": "refund_request",
+        "predicted_intent": "escalation",
+        "intent_correct": false,
+        "expected_sentiment": "frustrated",
+        "predicted_sentiment": "angry",
+        "sentiment_correct": false,
+        "tags": [
+          "detailed",
+          "long"
+        ]
+      }
+    ]
+  },
+  "pipeline_eval": null,
+  "human_effort": {
+    "autonomous_resolution_rate": 60.5,
+    "human_effort_elimination": 47.8,
+    "simple_automation": 75.6,
+    "medium_automation": 58.8,
+    "complex_automation": 25.2
+  },
+  "all_targets_met": true
+}

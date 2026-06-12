@@ -178,22 +178,15 @@ class ChainOfThoughtTechnique(BaseTechnique):
     ) -> tuple[list[str], str, float]:
         """Real LLM-based CoT reasoning."""
         try:
+            from parwa.utils.output_parser import parse_reasoning_response
+
             text = await ainvoke_llm(
                 prompt,
                 node_name="FRAMEWORKBRAIN_COT",
                 ticket_id=ticket_id,
                 variant=variant,
             )
-            chain = [line.strip() for line in text.strip().split("\n") if line.strip()]
-
-            conclusion = ""
-            for line in chain:
-                if line.lower().startswith("conclusion:"):
-                    conclusion = line[len("conclusion:"):].strip()
-                    break
-
-            if not conclusion and chain:
-                conclusion = chain[-1]
+            chain, conclusion = parse_reasoning_response(text)
 
             confidence = 0.80  # Default confidence for LLM output
             if "insufficient" in conclusion.lower() or "uncertain" in conclusion.lower():

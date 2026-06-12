@@ -51,31 +51,20 @@ _APPEND_KEYS = frozenset({
 # produces a complete chain that replaces the previous one. This avoids
 # duplication on loop-back and keeps the chain meaningful.
 
-# Keys that should be MERGED (dict deep-merge) across nodes
-# These are dicts where each node adds/updates keys without losing
-# previous nodes' entries
-_DICT_MERGE_KEYS = frozenset({
-    "agent_contexts",      # Phase 6: agent contexts accumulate across nodes
-})
-
 
 def _merge_dicts(left: dict, right: dict) -> dict:
     """Reducer function that merges right dict into left dict.
 
     For keys in _APPEND_KEYS, lists are concatenated instead of replaced.
-    For keys in _DICT_MERGE_KEYS, dicts are deep-merged (right wins per key).
     All other keys use standard replacement semantics.
     This ensures pipeline_errors accumulate without duplication,
-    agent contexts merge across nodes, while nodes that manage their
-    own lists (context_history, audit_log) can return the complete
-    list without double-counting.
+    while nodes that manage their own lists (context_history, audit_log)
+    can return the complete list without double-counting.
     """
     merged = dict(left)
     for k, v in right.items():
         if k in _APPEND_KEYS and isinstance(v, list) and isinstance(merged.get(k), list):
             merged[k] = merged[k] + v
-        elif k in _DICT_MERGE_KEYS and isinstance(v, dict) and isinstance(merged.get(k), dict):
-            merged[k] = {**merged[k], **v}
         else:
             merged[k] = v
     return merged
@@ -114,15 +103,42 @@ from parwa.nodes.response_formatter import response_formatter
 def _after_sentiment(state: dict[str, Any]) -> str:
     """Route after sentiment analysis.
 
-    Angry + critical → escalation decision first
-    Normal → FAQ matcher
+    Check escalation for:
+    - Angry + complex/critical
+    - Angry + high urgency
+    - Messages with legal/escalation keywords
+    Otherwise → FAQ matcher
     """
     sentiment = state.get("sentiment", "neutral")
     complexity = state.get("complexity", "simple")
+    urgency = state.get("sentiment_urgency", 0.0)
 
+    # Check message content for escalation triggers
+    raw_message = (state.get("raw_message", "") or "").lower()
+    escalation_keywords = ["attorney", "lawyer", "lawsuit", "legal action", "court",
+                          "fraud", "speak to manager", "supervisor", "human agent",
+                          "third email", "nobody has responded", "still not resolved"]
+    # Note: "sue" checked separately with word boundary to avoid matching "issue"
+    import re
+    has_escalation_keyword = (
+        any(kw in raw_message for kw in escalation_keywords)
+        or bool(re.search(r'\bsue\b', raw_message))
+    )
+
+    if has_escalation_keyword:
+        logger.info("route: sentiment→escalation (escalation keyword detected)")
+        return "escalation_decision"
+
+    # Angry + complex/critical → always escalate
     if sentiment in ("angry", "frustrated") and complexity in ("complex", "critical"):
         logger.info("route: sentiment→escalation (sentiment=%s, complexity=%s)", sentiment, complexity)
         return "escalation_decision"
+
+    # Angry + high urgency → escalate even without critical complexity
+    if sentiment == "angry" and isinstance(urgency, (int, float)) and urgency >= 0.8:
+        logger.info("route: sentiment→escalation (angry, urgency=%.2f)", urgency)
+        return "escalation_decision"
+
     logger.debug("route: sentiment→faq_matcher (sentiment=%s)", sentiment)
     return "faq_matcher"
 
@@ -241,7 +257,6 @@ def build_parwa_graph(
     *,
     use_checkpointer: bool = True,
     interrupt_before_action: bool = False,
-    use_orchestrator: bool = True,
 ) -> StateGraph:
     """Build the complete PARWA LangGraph with all 22 nodes and conditional edges.
 
@@ -249,63 +264,46 @@ def build_parwa_graph(
         use_checkpointer: Enable MemorySaver for crash recovery (default True).
         interrupt_before_action: Pause before action_executor for human approval
             (useful for Mini PARWA recommendations in production).
-        use_orchestrator: Wrap nodes with AgentOrchestrator middleware (Phase 6).
-            When True, each node is wrapped with agent-awareness that tracks
-            agent contexts, handoffs, and metrics.
 
     Returns:
         A compiled StateGraph ready for execution.
     """
     graph = StateGraph(GraphState)
 
-    # ─── Agent Orchestrator (Phase 6) ──────────────────────────────────────
-    # Wraps each node function with agent-awareness middleware
-    if use_orchestrator:
-        from parwa.agents.orchestrator import get_orchestrator
-        _orc = get_orchestrator()
-    else:
-        _orc = None
-
-    def _o(node_func, node_name: str):
-        """Wrap a node with orchestrator if enabled, else return as-is."""
-        if _orc is not None:
-            return _orc.orchestrated_node(node_func, node_name)
-        return node_func
-
-    # ─── Add all 22 nodes (orchestrated) ───────────────────────────────────
+    # ─── Add all 22 nodes ────────────────────────────────────────────────────
     # Router Agent nodes
-    graph.add_node("ingest", _o(ingest, "ingest"))
-    graph.add_node("intent_classifier", _o(intent_classifier, "intent_classifier"))
-    graph.add_node("sentiment_analyzer", _o(sentiment_analyzer, "sentiment_analyzer"))
-    graph.add_node("escalation_decision", _o(escalation_decision, "escalation_decision"))
+    graph.add_node("ingest", ingest)
+    graph.add_node("intent_classifier", intent_classifier)
+    graph.add_node("sentiment_analyzer", sentiment_analyzer)
+    graph.add_node("escalation_decision", escalation_decision)
 
     # Knowledge Agent nodes
-    graph.add_node("faq_matcher", _o(faq_matcher, "faq_matcher"))
-    graph.add_node("kb_retriever", _o(kb_retriever, "kb_retriever"))
-    graph.add_node("context_manager", _o(context_manager, "context_manager"))
-    graph.add_node("integration_lookup", _o(integration_lookup, "integration_lookup"))
+    graph.add_node("faq_matcher", faq_matcher)
+    graph.add_node("kb_retriever", kb_retriever)
+    graph.add_node("context_manager", context_manager)
+    graph.add_node("integration_lookup", integration_lookup)
 
     # Reasoning Agent nodes
-    graph.add_node("reasoning_engine", _o(reasoning_engine, "reasoning_engine"))
-    graph.add_node("reverse_thinker", _o(reverse_thinker, "reverse_thinker"))
-    graph.add_node("tree_of_thoughts", _o(tree_of_thoughts, "tree_of_thoughts"))
-    graph.add_node("strategy_planner", _o(strategy_planner, "strategy_planner"))
+    graph.add_node("reasoning_engine", reasoning_engine)
+    graph.add_node("reverse_thinker", reverse_thinker)
+    graph.add_node("tree_of_thoughts", tree_of_thoughts)
+    graph.add_node("strategy_planner", strategy_planner)
 
     # Action Agent nodes
-    graph.add_node("action_planner", _o(action_planner, "action_planner"))
-    graph.add_node("action_executor", _o(action_executor, "action_executor"))
-    graph.add_node("action_verifier", _o(action_verifier, "action_verifier"))
+    graph.add_node("action_planner", action_planner)
+    graph.add_node("action_executor", action_executor)
+    graph.add_node("action_verifier", action_verifier)
 
     # Proactive Agent nodes
-    graph.add_node("proactive_checker", _o(proactive_checker, "proactive_checker"))
-    graph.add_node("prediction_engine", _o(prediction_engine, "prediction_engine"))
-    graph.add_node("feedback_loop", _o(feedback_loop, "feedback_loop"))
+    graph.add_node("proactive_checker", proactive_checker)
+    graph.add_node("prediction_engine", prediction_engine)
+    graph.add_node("feedback_loop", feedback_loop)
 
     # Compliance Agent nodes
-    graph.add_node("pii_compliance_guard", _o(pii_compliance_guard, "pii_compliance_guard"))
-    graph.add_node("audit_logger", _o(audit_logger, "audit_logger"))
-    graph.add_node("quality_scorer", _o(quality_scorer, "quality_scorer"))
-    graph.add_node("response_formatter", _o(response_formatter, "response_formatter"))
+    graph.add_node("pii_compliance_guard", pii_compliance_guard)
+    graph.add_node("audit_logger", audit_logger)
+    graph.add_node("quality_scorer", quality_scorer)
+    graph.add_node("response_formatter", response_formatter)
 
     # Loop-back handler node
     graph.add_node("loop_back_handler", _handle_loop_back)

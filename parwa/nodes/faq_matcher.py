@@ -21,28 +21,60 @@ from parwa.utils.sanitizer import build_safe_prompt
 logger = logging.getLogger("parwa.node.faq_matcher")
 
 
-# Pre-built FAQ database for mock mode
-_MOCK_FAQS: list[dict[str, str]] = [
-    {"id": "refund_policy", "question": "What is the refund policy?", "answer": "Refunds are available within 30 days of purchase for duplicate charges.", "keywords": ["refund", "money back", "return"]},
-    {"id": "shipping_time", "question": "How long does shipping take?", "answer": "Standard shipping takes 3-5 business days.", "keywords": ["shipping", "delivery", "how long"]},
-    {"id": "cancel_order", "question": "How do I cancel my order?", "answer": "Orders can be cancelled within 24 hours of placement.", "keywords": ["cancel", "cancel order"]},
-    {"id": "account_update", "question": "How do I update my account?", "answer": "Account settings can be updated from the Profile page.", "keywords": ["account", "update", "profile"]},
-    {"id": "payment_methods", "question": "What payment methods are accepted?", "answer": "We accept Visa, Mastercard, PayPal, and Apple Pay.", "keywords": ["payment", "pay", "credit card"]},
-]
+# FAQ data is now loaded from the Fake CRM
+# The CRM has 8 comprehensive FAQs with realistic answers
+
+
+def _get_crm_faqs() -> list[dict[str, str]]:
+    """Get FAQs from the Fake CRM."""
+    try:
+        from parwa.fake_crm.database import get_crm
+        crm = get_crm()
+        return [faq for faq in crm._faqs.values()]
+    except Exception:
+        # Fallback to minimal FAQs if CRM is not available
+        return [
+            {"id": "refund_policy", "question": "What is the refund policy?", "answer": "Refunds are available within 30 days of purchase for duplicate charges.", "keywords": ["refund", "money back", "return"]},
+            {"id": "shipping_policy", "question": "What are the shipping options?", "answer": "Standard shipping takes 3-5 business days.", "keywords": ["shipping", "delivery"]},
+            {"id": "cancellation_policy", "question": "Can I cancel my order?", "answer": "Orders can be cancelled within 24 hours of placement.", "keywords": ["cancel"]},
+        ]
 
 
 def _match_faq_rule_based(message: str) -> KnowledgeResult | None:
-    """Match against FAQs using keyword matching."""
+    """Match against FAQs from the Fake CRM using keyword matching."""
+    # Try CRM-based search first (much more realistic)
+    try:
+        from parwa.fake_crm.database import get_crm
+        crm = get_crm()
+        results = crm.search_faqs(message, top_k=1)
+        if results:
+            best = results[0]
+            if best.get("relevance_score", 0) >= 0.3:
+                return KnowledgeResult(
+                    source=f"faq:{best['id']}",
+                    content=best["answer"],
+                    relevance_score=best["relevance_score"],
+                    metadata={"question": best.get("question", "")},
+                )
+    except Exception:
+        pass
+
+    # Fallback: basic keyword matching on static FAQs
     message_lower = message.lower()
+    faqs = _get_crm_faqs()
 
     best_match = None
     best_score = 0.0
 
-    for faq in _MOCK_FAQS:
+    for faq in faqs:
         score = 0.0
-        for kw in faq["keywords"]:
-            if kw in message_lower:
-                score += 0.3
+        # Check question and answer for keyword matches
+        for word in message_lower.split():
+            if len(word) > 3:
+                if word in faq.get("question", "").lower():
+                    score += 0.3
+                if word in faq.get("answer", "").lower():
+                    score += 0.1
         score = min(0.99, score)
 
         if score > best_score and score >= 0.3:
@@ -54,7 +86,7 @@ def _match_faq_rule_based(message: str) -> KnowledgeResult | None:
             source=f"faq:{best_match['id']}",
             content=best_match["answer"],
             relevance_score=best_score,
-            metadata={"question": best_match["question"]},
+            metadata={"question": best_match.get("question", "")},
         )
 
     return None
@@ -65,7 +97,7 @@ async def _match_faq_llm(message: str) -> KnowledgeResult | None:
 
     Uses structured output parsing and sanitized prompt.
     """
-    faq_list = "\n".join(f"- {f['id']}: {f['question']}" for f in _MOCK_FAQS)
+    faq_list = "\n".join(f"- {f['id']}: {f['question']}" for f in _get_crm_faqs())
     system_instructions = (
         "Match the customer message against our FAQs.\n\n"
         f"FAQs:\n{faq_list}\n\n"

@@ -1,0 +1,355 @@
+{
+  "accuracy": 0.64,
+  "results": [
+    {
+      "message": "I was charged twice for the same order, I want my money back",
+      "expected": "refund_request",
+      "got": "refund_request",
+      "confidence": 0.97,
+      "correct": true
+    },
+    {
+      "message": "You charged me $49.99 twice on January 5th, refund it immedi",
+      "expected": "refund_request",
+      "got": "refund_request",
+      "confidence": 0.95,
+      "correct": true
+    },
+    {
+      "message": "I need a refund for the defective product I received last we",
+      "expected": "refund_request",
+      "got": "refund_request",
+      "confidence": 0.95,
+      "correct": true
+    },
+    {
+      "message": "Double charge on my account, please process a refund",
+      "expected": "refund_request",
+      "got": "refund_request",
+      "confidence": 0.97,
+      "correct": true
+    },
+    {
+      "message": "I want my money back, this product is nothing like what was ",
+      "expected": "refund_request",
+      "got": "refund_request",
+      "confidence": 0.97,
+      "correct": true
+    },
+    {
+      "message": "Where is my order? It has been 10 days since I placed it",
+      "expected": "order_status",
+      "got": "order_status",
+      "confidence": 0.95,
+      "correct": true
+    },
+    {
+      "message": "Can you tell me the delivery status of order #ORD-12345?",
+      "expected": "order_status",
+      "got": "order_status",
+      "confidence": 0.95,
+      "correct": true
+    },
+    {
+      "message": "Has my package shipped yet? I need it by Friday",
+      "expected": "order_status",
+      "got": "order_status",
+      "confidence": 0.95,
+      "correct": true
+    },
+    {
+      "message": "Tracking number shows no updates for a week, where is my ord",
+      "expected": "order_status",
+      "got": "order_status",
+      "confidence": 0.95,
+      "correct": true
+    },
+    {
+      "message": "I ordered 5 days ago and still no shipping confirmation",
+      "expected": "order_status",
+      "got": "general_inquiry",
+      "confidence": 0.75,
+      "correct": false
+    },
+    {
+      "message": "I want to cancel my subscription effective immediately",
+      "expected": "cancellation",
+      "got": "cancellation",
+      "confidence": 0.92,
+      "correct": true
+    },
+    {
+      "message": "Please cancel order #ORD-67890, I no longer need it",
+      "expected": "cancellation",
+      "got": "cancellation",
+      "confidence": 0.92,
+      "correct": true
+    },
+    {
+      "message": "Cancel my account, I am done with this service",
+      "expected": "cancellation",
+      "got": "cancellation",
+      "confidence": 0.92,
+      "correct": true
+    },
+    {
+      "message": "I need to cancel my recurring billing, it was supposed to st",
+      "expected": "cancellation",
+      "got": "cancellation",
+      "confidence": 0.92,
+      "correct": true
+    },
+    {
+      "message": "How do I cancel my plan? I want to switch providers",
+      "expected": "cancellation",
+      "got": "cancellation",
+      "confidence": 0.92,
+      "correct": true
+    },
+    {
+      "message": "Your app keeps crashing when I try to open settings",
+      "expected": "technical_support",
+      "got": "technical_support",
+      "confidence": 0.9,
+      "correct": true
+    },
+    {
+      "message": "The integration with Slack is broken and not syncing message",
+      "expected": "technical_support",
+      "got": "technical_support",
+      "confidence": 0.9,
+      "correct": true
+    },
+    {
+      "message": "I cannot log in to my account, it shows a 500 error",
+      "expected": "technical_support",
+      "got": "technical_support",
+      "confidence": 0.9,
+      "correct": true
+    },
+    {
+      "message": "The API is returning unexpected results, it worked fine yest",
+      "expected": "technical_support",
+      "got": "general_inquiry",
+      "confidence": 0.75,
+      "correct": false
+    },
+    {
+      "message": "My dashboard is not loading, I see a blank screen",
+      "expected": "technical_support",
+      "got": "general_inquiry",
+      "confidence": 0.75,
+      "correct": false
+    },
+    {
+      "message": "My invoice shows the wrong amount, I was charged $200 instea",
+      "expected": "billing_issue",
+      "got": "billing_issue",
+      "confidence": 0.9,
+      "correct": true
+    },
+    {
+      "message": "I was overcharged on my last bill, can you explain these cha",
+      "expected": "billing_issue",
+      "got": "billing_issue",
+      "confidence": 0.9,
+      "correct": true
+    },
+    {
+      "message": "Why is there a $29.99 charge on my statement I did not autho",
+      "expected": "billing_issue",
+      "got": "billing_issue",
+      "confidence": 0.85,
+      "correct": true
+    },
+    {
+      "message": "My payment method was charged but I did not receive a receip",
+      "expected": "billing_issue",
+      "got": "billing_issue",
+      "confidence": 0.85,
+      "correct": true
+    },
+    {
+      "message": "The billing cycle changed without notice, my invoice is diff",
+      "expected": "billing_issue",
+      "got": "billing_issue",
+      "confidence": 0.9,
+      "correct": true
+    },
+    {
+      "message": "Can you update my email address from old@example.com to new@",
+      "expected": "account_modification",
+      "got": "account_modification",
+      "confidence": 0.88,
+      "correct": true
+    },
+    {
+      "message": "I need to change the phone number on my account",
+      "expected": "account_modification",
+      "got": "account_modification",
+      "confidence": 0.88,
+      "correct": true
+    },
+    {
+      "message": "Update my billing address to 123 New Street, New York, NY 10",
+      "expected": "account_modification",
+      "got": "billing_issue",
+      "confidence": 0.9,
+      "correct": false
+    },
+    {
+      "message": "Please add 5 more seats to my team plan",
+      "expected": "account_modification",
+      "got": "general_inquiry",
+      "confidence": 0.75,
+      "correct": false
+    },
+    {
+      "message": "I want to upgrade from the basic plan to the professional pl",
+      "expected": "account_modification",
+      "got": "general_inquiry",
+      "confidence": 0.75,
+      "correct": false
+    },
+    {
+      "message": "What is your return policy?",
+      "expected": "faq_question",
+      "got": "faq_question",
+      "confidence": 0.85,
+      "correct": true
+    },
+    {
+      "message": "How do I reset my password?",
+      "expected": "faq_question",
+      "got": "faq_question",
+      "confidence": 0.85,
+      "correct": true
+    },
+    {
+      "message": "Can you tell me about your shipping options?",
+      "expected": "faq_question",
+      "got": "faq_question",
+      "confidence": 0.85,
+      "correct": true
+    },
+    {
+      "message": "What are your business hours for phone support?",
+      "expected": "faq_question",
+      "got": "general_inquiry",
+      "confidence": 0.75,
+      "correct": false
+    },
+    {
+      "message": "Do you offer refunds for digital products?",
+      "expected": "faq_question",
+      "got": "refund_request",
+      "confidence": 0.95,
+      "correct": false
+    },
+    {
+      "message": "This is the worst service I have ever experienced, absolutel",
+      "expected": "complaint",
+      "got": "complaint",
+      "confidence": 0.88,
+      "correct": true
+    },
+    {
+      "message": "I am extremely disappointed with the quality of your product",
+      "expected": "complaint",
+      "got": "general_inquiry",
+      "confidence": 0.75,
+      "correct": false
+    },
+    {
+      "message": "Your customer service is unacceptable, I have been waiting f",
+      "expected": "complaint",
+      "got": "complaint",
+      "confidence": 0.88,
+      "correct": true
+    },
+    {
+      "message": "The product arrived damaged and no one is responding to my e",
+      "expected": "complaint",
+      "got": "general_inquiry",
+      "confidence": 0.75,
+      "correct": false
+    },
+    {
+      "message": "I have never dealt with such an unprofessional company",
+      "expected": "complaint",
+      "got": "general_inquiry",
+      "confidence": 0.75,
+      "correct": false
+    },
+    {
+      "message": "I need to speak to a manager right now",
+      "expected": "escalation",
+      "got": "escalation",
+      "confidence": 0.9,
+      "correct": true
+    },
+    {
+      "message": "Connect me with a supervisor immediately",
+      "expected": "escalation",
+      "got": "escalation",
+      "confidence": 0.9,
+      "correct": true
+    },
+    {
+      "message": "I want to talk to someone who can actually resolve this",
+      "expected": "escalation",
+      "got": "general_inquiry",
+      "confidence": 0.75,
+      "correct": false
+    },
+    {
+      "message": "Transfer me to a human agent, this chatbot is not helping",
+      "expected": "escalation",
+      "got": "general_inquiry",
+      "confidence": 0.75,
+      "correct": false
+    },
+    {
+      "message": "Let me speak to your manager, I have been dealing with this ",
+      "expected": "escalation",
+      "got": "escalation",
+      "confidence": 0.9,
+      "correct": true
+    },
+    {
+      "message": "I will contact my attorney about this fraud",
+      "expected": "escalation",
+      "got": "general_inquiry",
+      "confidence": 0.75,
+      "correct": false
+    },
+    {
+      "message": "This is illegal and I am going to take legal action",
+      "expected": "escalation",
+      "got": "general_inquiry",
+      "confidence": 0.75,
+      "correct": false
+    },
+    {
+      "message": "I will sue your company for breach of contract",
+      "expected": "escalation",
+      "got": "general_inquiry",
+      "confidence": 0.75,
+      "correct": false
+    },
+    {
+      "message": "My lawyer will be in touch regarding this matter",
+      "expected": "escalation",
+      "got": "general_inquiry",
+      "confidence": 0.75,
+      "correct": false
+    },
+    {
+      "message": "This is fraud and I am reporting you to the authorities",
+      "expected": "escalation",
+      "got": "general_inquiry",
+      "confidence": 0.75,
+      "correct": false
+    }
+  ]
+}

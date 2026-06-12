@@ -1,36 +1,13 @@
-"""PARWA Agent definitions and orchestration layer.
+"""PARWA Agent definitions.
 
 6 Agents, each owning specific nodes. All 6 agents work simultaneously
 on every ticket on every variant. The concurrency number (3/4/6) refers
 to concurrent TICKETS, not agents.
-
-Phase 6: Added Agent Orchestration Layer:
-  - AgentContext: Per-agent state that accumulates across owned nodes
-  - AgentOrchestrator: Coordinates agents, manages handoffs & cross-agent sharing
-  - AgentRecovery: Agent-level error recovery (retry/skip/redirect/degrade/escalate)
-  - AgentMetrics: Per-agent performance tracking (latency, errors, frameworks)
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-
-from parwa.agents.context import AgentContext
-from parwa.agents.orchestrator import (
-    AgentOrchestrator,
-    get_orchestrator,
-    reset_orchestrator,
-)
-from parwa.agents.metrics import (
-    AgentMetrics,
-    get_agent_metrics,
-    reset_agent_metrics,
-)
-from parwa.agents.recovery import (
-    AgentRecovery,
-    RecoveryStrategy,
-    RecoveryDecision,
-)
 
 
 @dataclass
@@ -100,27 +77,3 @@ NODE_TO_AGENT: dict[int, Agent] = {}
 for agent in ALL_AGENTS:
     for nid in agent.node_ids:
         NODE_TO_AGENT[nid] = agent
-
-__all__ = [
-    # Agent definitions
-    "Agent",
-    "ROUTER_AGENT",
-    "KNOWLEDGE_AGENT",
-    "REASONING_AGENT",
-    "ACTION_AGENT",
-    "COMPLIANCE_AGENT",
-    "PROACTIVE_AGENT",
-    "ALL_AGENTS",
-    "NODE_TO_AGENT",
-    # Phase 6: Agent Orchestration
-    "AgentContext",
-    "AgentOrchestrator",
-    "get_orchestrator",
-    "reset_orchestrator",
-    "AgentMetrics",
-    "get_agent_metrics",
-    "reset_agent_metrics",
-    "AgentRecovery",
-    "RecoveryStrategy",
-    "RecoveryDecision",
-]

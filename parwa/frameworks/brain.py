@@ -83,6 +83,18 @@ class FrameworkBrain:
             if technique.can_apply(self.node, complexity):
                 activated.append(technique)
 
+        # Rate limit: max 2 techniques per node to avoid API rate limits
+        # This trades depth for reliability — in production with own API keys,
+        # this limit can be increased.
+        MAX_TECHNIQUES_PER_NODE = 2
+        if len(activated) > MAX_TECHNIQUES_PER_NODE:
+            logger.debug(
+                "brain: limiting %s from %d to %d techniques for node=%s",
+                [t.name for t in activated], len(activated),
+                MAX_TECHNIQUES_PER_NODE, self.node,
+            )
+            activated = activated[:MAX_TECHNIQUES_PER_NODE]
+
         if not activated:
             logger.debug("brain: no techniques activated for node=%s complexity=%s", self.node, complexity)
             return TechniqueResult(
@@ -107,8 +119,13 @@ class FrameworkBrain:
         best_confidence = 0.0
         last_error: str | None = None
 
-        for technique in activated:
+        for i, technique in enumerate(activated):
             try:
+                # Rate limit: add small delay between technique calls to avoid 429s
+                if i > 0:
+                    import asyncio
+                    await asyncio.sleep(0.5)
+
                 result = await technique.think(
                     prompt,
                     self.state,
