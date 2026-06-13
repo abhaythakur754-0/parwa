@@ -10,12 +10,18 @@ import { ChatWidget } from '@/components/chat/ChatWidget';
 import { BookDemoModal } from '@/components/demo/BookDemoModal';
 import { useAuth } from '@/contexts/AuthContext';
 import {
+  validateCoupon,
+  applyCouponDiscount,
+  formatDiscount,
+  type Coupon,
+} from '@/lib/coupon-config';
+import {
   Star, Check, Phone, Mail, MessageSquare,
   Hash, Video, ShoppingCart, Cloud, Truck, Briefcase,
   ArrowRight, Zap, Shield, TrendingUp, Sparkles,
   CalendarClock, CreditCard, Info, XCircle, X,
   Bot, ShieldCheck, Minus, Plus, Calendar, Eye,
-  Ticket, Users, DollarSign, BarChart3,
+  Ticket, Users, DollarSign, BarChart3, Tag, Loader2,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -234,6 +240,10 @@ export default function ModelsPage() {
   const pricingRef = useRef<HTMLDivElement>(null);
   const [demoModalOpen, setDemoModalOpen] = useState(false);
   const [demoVariant, setDemoVariant] = useState<string>('');
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponValidating, setCouponValidating] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
 
   // Track page visit for context-aware Jarvis routing
   useEffect(() => {
@@ -318,6 +328,33 @@ export default function ModelsPage() {
     setDemoVariant(variantName);
     setDemoModalOpen(true);
   };
+
+  const handleApplyCoupon = () => {
+    if (!couponCode.trim()) return;
+    setCouponValidating(true);
+    setCouponError(null);
+    setTimeout(() => {
+      const coupon = validateCoupon(couponCode);
+      if (coupon) {
+        setAppliedCoupon(coupon);
+        setCouponCode('');
+        setCouponError(null);
+      } else {
+        setCouponError('Invalid coupon code. Please check and try again.');
+      }
+      setCouponValidating(false);
+    }, 300);
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    setCouponError(null);
+  };
+
+  // Calculate discounted total for display
+  const discountedTotal = appliedCoupon ? applyCouponDiscount(totalMonthly, appliedCoupon) : totalMonthly;
+  const isFreeCheckout = discountedTotal === 0;
 
   const activeIndustry = selectedIndustry ? industries.find(i => i.id === selectedIndustry)! : null;
   const primary = activeIndustry?.primary || defaultPrimary;
@@ -903,7 +940,16 @@ export default function ModelsPage() {
                           <DollarSign className="w-4 h-4" style={{ color: accent }} />
                           <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Monthly Cost</span>
                         </div>
-                        <span className="text-xl font-black" style={{ color: accent }}>${totalMonthly.toLocaleString()}</span>
+                        <span className="text-xl font-black" style={{ color: accent }}>
+                          {appliedCoupon && discountedTotal < totalMonthly ? (
+                            <>
+                              <span className="text-white/30 line-through text-sm mr-1">${totalMonthly.toLocaleString()}</span>
+                              ${discountedTotal.toLocaleString()}
+                            </>
+                          ) : (
+                            <span>${totalMonthly.toLocaleString()}</span>
+                          )}
+                        </span>
                       </div>
                       {/* Human Cost Replaced */}
                       <div className="px-4 py-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -942,6 +988,73 @@ export default function ModelsPage() {
                       </div>
                     )}
 
+                    {/* Coupon Code */}
+                    <div className="mb-4">
+                      {appliedCoupon ? (
+                        <div className="rounded-xl border border-emerald-500/30 p-4" style={{ background: 'rgba(16,185,129,0.06)' }}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+                                <Ticket className="w-4 h-4 text-emerald-400" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold text-emerald-400">{appliedCoupon.code}</span>
+                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
+                                    {formatDiscount(appliedCoupon)}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-orange-200/30 mt-0.5">{appliedCoupon.description}</p>
+                              </div>
+                            </div>
+                            <button onClick={handleRemoveCoupon} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-orange-200/30 hover:text-red-400 transition-all" title="Remove coupon">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                          {isFreeCheckout && (
+                            <div className="mt-3 flex items-start gap-2 rounded-lg p-2.5" style={{ background: 'rgba(16,185,129,0.08)' }}>
+                              <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                              <div>
+                                <p className="text-[10px] font-medium text-emerald-300">Free checkout — $0.00 total</p>
+                                <p className="text-[9px] text-orange-200/25 mt-0.5">Paddle will process a $0 transaction. Your subscription will be activated after confirmation.</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-white/[0.08] p-4 space-y-3" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                          <div className="flex items-center gap-2">
+                            <Tag className="w-4 h-4 text-orange-400" />
+                            <span className="text-xs text-orange-200/50 uppercase tracking-wider font-medium">Have a coupon code?</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={couponCode}
+                              onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError(null); }}
+                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleApplyCoupon(); } }}
+                              placeholder="Enter coupon code"
+                              className={`flex-1 h-10 rounded-lg bg-white/[0.04] border px-3 text-sm text-white placeholder-orange-200/20 focus:outline-none focus:border-orange-500/50 transition-all ${couponError ? 'border-red-500/40' : 'border-white/[0.08]'}`}
+                            />
+                            <button
+                              onClick={handleApplyCoupon}
+                              disabled={!couponCode.trim() || couponValidating}
+                              className="h-10 px-4 rounded-lg bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] text-xs font-semibold hover:from-orange-400 hover:to-amber-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+                            >
+                              {couponValidating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                              Apply
+                            </button>
+                          </div>
+                          {couponError && (
+                            <p className="text-[10px] text-red-400 flex items-center gap-1">
+                              <XCircle className="w-3 h-3" />
+                              {couponError}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
                     {/* CTA */}
                     {isAuthenticated ? (
                       <div className="flex gap-3">
@@ -976,6 +1089,9 @@ export default function ModelsPage() {
                               totalTickets,
                               source: 'models_page',
                               timestamp: Date.now(),
+                              couponCode: appliedCoupon?.code || null,
+                              discountedTotal,
+                              isFreeCheckout,
                             };
 
                             localStorage.setItem('parwa_pricing_context', JSON.stringify(pricingContext));
@@ -999,7 +1115,7 @@ export default function ModelsPage() {
                           <div className="absolute inset-0 opacity-0 group-hover/cfm:opacity-100 transition-opacity duration-300" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 100%)' }} />
                           <div className="relative flex items-center gap-2">
                             <Check className="w-4 h-4" />
-                            Confirm ${totalMonthly.toLocaleString()}/mo
+                            Confirm ${isFreeCheckout ? '0' : discountedTotal.toLocaleString()}/mo
                           </div>
                         </button>
                       </div>
@@ -1025,6 +1141,9 @@ export default function ModelsPage() {
                               totalTickets,
                               source: 'models_page',
                               timestamp: Date.now(),
+                              couponCode: appliedCoupon?.code || null,
+                              discountedTotal,
+                              isFreeCheckout,
                             };
                             localStorage.setItem('parwa_pricing_context', JSON.stringify(pricingContext));
                             localStorage.setItem('parwa_pricing_selection', JSON.stringify({

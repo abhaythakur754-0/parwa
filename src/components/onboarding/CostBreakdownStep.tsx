@@ -499,6 +499,13 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
           }
           setVariantQuantities(newQuantities);
         }
+        // Restore coupon from ModelsPage
+        if (ctx.couponCode && typeof ctx.couponCode === 'string') {
+          const coupon = validateCoupon(ctx.couponCode);
+          if (coupon) {
+            setAppliedCoupon(coupon);
+          }
+        }
       }
     } catch {
       // ignore
