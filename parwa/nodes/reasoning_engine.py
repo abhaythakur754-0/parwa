@@ -156,7 +156,7 @@ async def _reason_with_brain(state: dict[str, Any]) -> tuple[list[str], str, lis
         return chain, conclusion, ["chain_of_thought"]
 
 
-@safe_node("REASONING_ENGINE", fallback={"reasoning_chain": [], "reasoning_conclusion": "", "active_frameworks": []})
+@safe_node("REASONING_ENGINE", fallback={"reasoning_chain": [], "reasoning_conclusion": "", "active_frameworks": [], "evidence_chain": []})
 async def reasoning_engine(state: dict[str, Any]) -> dict[str, Any]:
     """Reason through the problem using FrameworkBrain (Phase 2).
 
@@ -167,8 +167,10 @@ async def reasoning_engine(state: dict[str, Any]) -> dict[str, Any]:
       - Complex/Critical: CoT + ReAct + UoT
       - Falls back to rule-based reasoning on any FrameworkBrain failure
 
+    P0: Now also writes structured evidence_chain entries.
+
     Reads: raw_message, intent, faq_match, kb_results, integration_data, complexity
-    Writes: reasoning_chain, reasoning_conclusion, active_frameworks (append)
+    Writes: reasoning_chain, reasoning_conclusion, active_frameworks (append), evidence_chain (append)
     """
     # Try FrameworkBrain first (Phase 2)
     chain, conclusion, frameworks = await _reason_with_brain(state)
@@ -184,8 +186,59 @@ async def reasoning_engine(state: dict[str, Any]) -> dict[str, Any]:
     if not new_frameworks and "chain_of_thought" not in existing:
         new_frameworks.append("chain_of_thought")
 
+    # P0: Build evidence chain entries from this node's reasoning
+    new_evidence = []
+    if conclusion:
+        # Main reasoning claim
+        sources = chain[:-1] if len(chain) > 1 else chain  # All steps except the conclusion
+        new_evidence.append({
+            "claim": conclusion,
+            "sources": sources,
+            "confidence": 0.8,  # Base confidence for reasoning
+            "technique": frameworks[0] if frameworks else "chain_of_thought",
+            "category": "reasoning",
+            "node": "REASONING_ENGINE",
+        })
+
+    # Also add per-evidence-source entries (KB, FAQ, CRM)
+    faq_match = state.get("faq_match")
+    if faq_match and isinstance(faq_match, dict) and faq_match.get("relevance_score", 0) > 0.5:
+        new_evidence.append({
+            "claim": f"FAQ match: {faq_match.get('content', '')[:100]}",
+            "sources": ["FAQ_MATCHER"],
+            "confidence": faq_match.get("relevance_score", 0.5),
+            "technique": "faq_lookup",
+            "category": "knowledge",
+            "node": "REASONING_ENGINE",
+        })
+
+    kb_results = state.get("kb_results", [])
+    if kb_results:
+        for kb in kb_results[:2]:
+            if isinstance(kb, dict):
+                new_evidence.append({
+                    "claim": f"KB evidence: {kb.get('content', '')[:100]}",
+                    "sources": [kb.get("source", "KB_RETRIEVER")],
+                    "confidence": kb.get("relevance_score", 0.5),
+                    "technique": "kb_retrieval",
+                    "category": "knowledge",
+                    "node": "REASONING_ENGINE",
+                })
+
+    integration_data = state.get("integration_data", {})
+    if integration_data and isinstance(integration_data, dict) and len(integration_data) > 0:
+        new_evidence.append({
+            "claim": f"CRM data available: {list(integration_data.keys())}",
+            "sources": ["INTEGRATION_LOOKUP"],
+            "confidence": 0.9,
+            "technique": "crm_lookup",
+            "category": "knowledge",
+            "node": "REASONING_ENGINE",
+        })
+
     return {
         "reasoning_chain": chain,
         "reasoning_conclusion": conclusion,
         "active_frameworks": new_frameworks,
+        "evidence_chain": new_evidence,
     }

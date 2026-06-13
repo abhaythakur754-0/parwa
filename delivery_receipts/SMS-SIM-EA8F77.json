@@ -1,0 +1,10 @@
+{
+  "message_id": "SMS-SIM-EA8F77",
+  "channel": "sms",
+  "recipient": "+91-99887-76655",
+  "message_preview": "ReAct verified: Conclusion consistent with available data for billing_issue.",
+  "simulated_at": "2026-06-13T02:53:07.601208",
+  "provider": "simulation",
+  "status": "simulated",
+  "note": "This SMS was NOT actually delivered. Configure Twilio for real delivery."
+}

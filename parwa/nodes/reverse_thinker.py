@@ -95,15 +95,17 @@ async def _reverse_think_with_brain(state: dict[str, Any]) -> tuple[dict[str, An
         return validation, ["reverse_thinking"]
 
 
-@safe_node("REVERSE_THINKER", fallback={"reverse_validation": {"passed": False, "trace": "node_failed", "evidence_found": False}, "active_frameworks": [], "should_loop_back": False})
+@safe_node("REVERSE_THINKER", fallback={"reverse_validation": {"passed": False, "trace": "node_failed", "evidence_found": False}, "active_frameworks": [], "should_loop_back": False, "evidence_chain": []})
 async def reverse_thinker(state: dict[str, Any]) -> dict[str, Any]:
     """Validate the reasoning conclusion by working backwards (async).
 
     Phase 2: Uses FrameworkBrain with Reverse Thinking technique.
     Falls back to rule-based on FrameworkBrain failure.
 
-    Reads: reasoning_conclusion, kb_results, integration_data
-    Writes: reverse_validation, active_frameworks (append), should_loop_back
+    P0: Now reads evidence_chain from upstream nodes and adds validation evidence.
+
+    Reads: reasoning_conclusion, kb_results, integration_data, evidence_chain
+    Writes: reverse_validation, active_frameworks (append), should_loop_back, evidence_chain (append)
     """
     # Try FrameworkBrain first (Phase 2)
     validation, frameworks = await _reverse_think_with_brain(state)
@@ -124,8 +126,31 @@ async def reverse_thinker(state: dict[str, Any]) -> dict[str, Any]:
     max_loops = state.get("max_loops", 2)
     should_loop = not validation["passed"] and loop_count < max_loops
 
+    # P0: Build evidence chain entries for this validation
+    new_evidence = []
+    conclusion = state.get("reasoning_conclusion", "")
+    if conclusion:
+        # Read upstream evidence to cross-reference
+        upstream_claims = []
+        existing_chain = state.get("evidence_chain", [])
+        for entry in existing_chain:
+            if isinstance(entry, dict):
+                upstream_claims.append(entry.get("claim", ""))
+
+        new_evidence.append({
+            "claim": f"Reverse validation: {'PASSED' if validation['passed'] else 'FAILED'} for '{conclusion[:80]}'",
+            "sources": validation.get("trace", "").split(" -> ") if validation.get("trace") else [],
+            "confidence": validation.get("confidence", 0.5),
+            "technique": "reverse_thinking",
+            "category": "validation",
+            "node": "REVERSE_THINKER",
+            "upstream_claims_verified": len([c for c in upstream_claims if c]),
+            "passed": validation["passed"],
+        })
+
     return {
         "reverse_validation": validation,
         "active_frameworks": new_frameworks,
         "should_loop_back": should_loop,
+        "evidence_chain": new_evidence,
     }

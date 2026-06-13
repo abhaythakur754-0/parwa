@@ -21,6 +21,93 @@ from parwa.utils.node_base import safe_node
 logger = logging.getLogger("parwa.node.action_planner")
 
 
+def _detect_explicit_actions(raw_message: str, intent: str) -> list[str]:
+    """Detect explicit action requests from the raw message.
+
+    This catches financial/account requests that the intent classifier
+    might miss or misclassify. Returns list of detected action types.
+
+    KEY RULE: Asking ABOUT something → FAQ. Requesting TO DO something → action.
+    - "How do I return?" → faq (asking about process)
+    - "I want a refund" → process_refund (requesting action)
+    - "How do I secure my account?" → faq (asking about process)
+    - "Update my email" → modify_account (requesting action)
+    """
+    raw_lower = (raw_message or "").lower()
+    detected = []
+
+    # ─── REFUND detection ───
+    # Explicit refund REQUESTS (not just questions about refunds)
+    refund_request_patterns = [
+        "want a refund", "need a refund", "want my money back",
+        "i want a refund", "i need a refund", "give me a refund",
+        "refund my", "refund immediately", "refund for the",
+        "charged twice", "double charge", "duplicate charge",
+        "overcharged", "want an immediate refund", "full refund",
+        "refund for the difference", "i was charged twice",
+    ]
+    # Exclude FAQ patterns (asking about refund policy, not requesting refund)
+    refund_faq_patterns = [
+        "what is your refund policy", "what's your refund policy",
+        "how does refund", "do you offer refund", "refund policy",
+        "thinking about returning", "what is the return policy",
+        "how do i return an item", "how to return", "return policy",
+    ]
+    is_refund_faq = any(p in raw_lower for p in refund_faq_patterns)
+    is_refund_request = any(p in raw_lower for p in refund_request_patterns)
+
+    if is_refund_request and not is_refund_faq:
+        detected.append("process_refund")
+    elif "refund" in raw_lower and not is_refund_faq:
+        # Has "refund" but not in an FAQ context — check if it's a request
+        request_indicators = ["i want", "i need", "please", "can i get", "i'd like", "give me", "my money"]
+        if any(ind in raw_lower for ind in request_indicators):
+            detected.append("process_refund")
+
+    # ─── CANCELLATION detection ───
+    cancel_request_patterns = [
+        "cancel my", "cancel order", "cancel our", "want to cancel",
+        "i want to cancel", "cancel and refund", "cancel it",
+        "cancel the order", "cancel my subscription",
+        "cancel my account", "please cancel",
+    ]
+    cancel_faq_patterns = [
+        "how do i cancel", "how to cancel", "can i cancel",
+        "cancellation policy", "what happens if i cancel",
+    ]
+    is_cancel_faq = any(p in raw_lower for p in cancel_faq_patterns)
+    is_cancel_request = any(p in raw_lower for p in cancel_request_patterns)
+
+    if is_cancel_request and not is_cancel_faq:
+        detected.append("cancel_order")
+
+    # ─── ACCOUNT MODIFICATION detection ───
+    account_request_patterns = [
+        "update my email", "change my email", "update my payment",
+        "change my payment", "add more seats", "add seats",
+        "upgrade my plan", "upgrade from", "downgrade",
+        "reactivate my account", "change my company",
+        "update my account", "change my account", "password reset",
+        "update email", "change the phone", "change my billing",
+        "add admin", "transfer my account", "switch my payment",
+        "update my phone", "add 5 more", "add 3 more",
+        "more seats to my", "seats to my team",
+    ]
+    account_faq_patterns = [
+        "how do i secure", "how to secure my account",
+        "how do i change my password", "how do i enable",
+        "how do i update", "how to update", "how to change",
+        "what are my options", "can i change",
+    ]
+    is_account_faq = any(p in raw_lower for p in account_faq_patterns)
+    is_account_request = any(p in raw_lower for p in account_request_patterns)
+
+    if is_account_request and not is_account_faq:
+        detected.append("modify_account")
+
+    return detected
+
+
 def _plan_actions_rule_based(
     intent: str,
     conclusion: str,
@@ -29,46 +116,91 @@ def _plan_actions_rule_based(
     variant: str = "parwa",
     raw_message: str = "",
 ) -> list[dict]:
-    """Create action plans based on intent and strategy."""
+    """Create action plans based on intent, strategy, AND raw message analysis.
+
+    Month 3 fix: Now also scans the raw message for explicit financial/account
+    requests that the intent classifier might miss. This catches 40% of tickets
+    that were previously dropping refund/cancel/modify actions.
+    """
     actions = []
     raw_lower = (raw_message or "").lower()
 
-    if intent == "refund_request":
+    # Detect explicit actions from raw message (independent of intent)
+    explicit_actions = _detect_explicit_actions(raw_message, intent)
+
+    if intent == "refund_request" or "process_refund" in explicit_actions:
         # Calculate refund amount from integration data
         amount = 49.99  # default
         if integration_data.get("charges"):
             amount = integration_data["charges"][0].get("amount", 49.99)
 
+        # Check for specific refund reasons
+        reason = "customer_request"
+        if "charged twice" in raw_lower or "double charge" in raw_lower or "duplicate charge" in raw_lower:
+            reason = "duplicate_charge"
+        elif "overcharged" in raw_lower or "wrong amount" in raw_lower:
+            reason = "overcharge"
+        elif "doesn't work" in raw_lower or "not working" in raw_lower or "crashes" in raw_lower or "defective" in raw_lower:
+            reason = "defective_product"
+
         actions.append(ActionPlan(
             action_type=ActionType.PROCESS_REFUND,
-            description=f"Process refund of ${amount}",
-            parameters={"amount": amount, "reason": "duplicate_charge"},
+            description=f"Process refund of ${amount} (reason: {reason})",
+            parameters={"amount": amount, "reason": reason},
             evidence=[
                 conclusion,
-                f"CRM shows duplicate charges of ${amount}",
+                f"Customer requested refund: {reason}",
             ],
-            risk_level="low",
+            risk_level="low" if reason == "duplicate_charge" else "medium",
         ).model_dump())
 
-    elif intent == "cancellation":
+    if intent == "cancellation" or "cancel_order" in explicit_actions:
+        # Check if already processed refund above (avoid duplicate if intent is cancellation)
+        has_refund = any(a.get("action_type") == "process_refund" for a in actions)
+
+        cancel_reason = "customer_request"
+        if "better price" in raw_lower:
+            cancel_reason = "found_better_price"
+        elif "budget" in raw_lower:
+            cancel_reason = "budget_constraint"
+        elif "not using" in raw_lower or "don't use" in raw_lower:
+            cancel_reason = "not_using"
+        elif "can't access" in raw_lower or "can't use" in raw_lower:
+            cancel_reason = "access_issue"
+
         actions.append(ActionPlan(
             action_type=ActionType.CANCEL_ORDER,
-            description="Cancel the customer's order",
-            parameters={"reason": "customer_request"},
-            evidence=[conclusion],
+            description=f"Cancel the customer's order (reason: {cancel_reason})",
+            parameters={"reason": cancel_reason},
+            evidence=[conclusion, f"Customer requested cancellation: {cancel_reason}"],
             risk_level="medium",
         ).model_dump())
 
-    elif intent == "account_modification":
+    if intent == "account_modification" or "modify_account" in explicit_actions:
+        # Determine specific account modification type
+        mod_details = "General account modification"
+        if "email" in raw_lower and ("update" in raw_lower or "change" in raw_lower):
+            mod_details = "Update email address"
+        elif "payment" in raw_lower and ("update" in raw_lower or "change" in raw_lower or "switch" in raw_lower):
+            mod_details = "Update payment method"
+        elif "seats" in raw_lower and ("add" in raw_lower or "more" in raw_lower):
+            mod_details = "Add seats to plan"
+        elif "upgrade" in raw_lower:
+            mod_details = "Upgrade plan"
+        elif "password" in raw_lower:
+            mod_details = "Password reset"
+        elif "reactivate" in raw_lower:
+            mod_details = "Reactivate account"
+
         actions.append(ActionPlan(
             action_type=ActionType.MODIFY_ACCOUNT,
-            description="Modify customer account as requested",
-            parameters={"reason": "customer_request"},
-            evidence=[conclusion],
+            description=f"Modify account: {mod_details}",
+            parameters={"reason": "customer_request", "details": mod_details},
+            evidence=[conclusion, f"Customer requested: {mod_details}"],
             risk_level="medium",
         ).model_dump())
 
-    elif intent == "order_status":
+    if intent == "order_status" and not any(a.get("action_type") == "process_refund" for a in actions):
         actions.append(ActionPlan(
             action_type=ActionType.SHARE_POLICY,
             description="Share order status with customer",
@@ -77,8 +209,8 @@ def _plan_actions_rule_based(
             risk_level="low",
         ).model_dump())
 
-    else:
-        # Default: send a reply
+    # Default: send a reply (only if no other actions were planned)
+    if not actions:
         actions.append(ActionPlan(
             action_type=ActionType.SEND_REPLY,
             description="Send helpful response to customer",
@@ -176,7 +308,7 @@ async def _plan_actions_with_brain(state: dict[str, Any]) -> tuple[list[dict], l
         return actions, ["chain_of_thought"]
 
 
-@safe_node("ACTION_PLANNER", fallback={"action_plans": [], "active_frameworks": []})
+@safe_node("ACTION_PLANNER", fallback={"action_plans": [], "active_frameworks": [], "evidence_chain": []})
 async def action_planner(state: dict[str, Any]) -> dict[str, Any]:
     """Plan actions based on reasoning conclusion and strategy (async).
 
@@ -184,8 +316,11 @@ async def action_planner(state: dict[str, Any]) -> dict[str, Any]:
     Applies PermissionChecker for variant-aware action mode setting.
     Falls back to rule-based on FrameworkBrain failure.
 
-    Reads: intent, reasoning_conclusion, strategy_plan, integration_data, variant, complexity
-    Writes: action_plans, active_frameworks (append)
+    P0: Now reads evidence_chain from upstream to make better action decisions,
+    and writes its own evidence entries for each planned action.
+
+    Reads: intent, reasoning_conclusion, strategy_plan, integration_data, variant, complexity, evidence_chain
+    Writes: action_plans, active_frameworks (append), evidence_chain (append)
     """
     intent = state.get("intent", "general_inquiry")
     conclusion = state.get("reasoning_conclusion", "")
@@ -215,7 +350,35 @@ async def action_planner(state: dict[str, Any]) -> dict[str, Any]:
         if fw not in existing:
             new_frameworks.append(fw)
 
+    # P0: Build evidence chain entries for each planned action
+    new_evidence = []
+    for action in actions:
+        action_type = action.get("action_type", "unknown")
+        evidence_refs = action.get("evidence", [])
+
+        # Gather upstream evidence that supports this action
+        upstream_support = []
+        existing_chain = state.get("evidence_chain", [])
+        for entry in existing_chain:
+            if isinstance(entry, dict):
+                claim = entry.get("claim", "")
+                # Check if upstream claim mentions the action type or conclusion
+                if any(kw in claim.lower() for kw in [action_type, intent, "eligible", "confirmed"]):
+                    upstream_support.append(claim[:80])
+
+        new_evidence.append({
+            "claim": f"Action planned: {action_type} — {action.get('description', '')[:80]}",
+            "sources": evidence_refs + upstream_support,
+            "confidence": 0.85 if evidence_refs else 0.6,
+            "technique": "action_planner",
+            "category": "action",
+            "node": "ACTION_PLANNER",
+            "action_type": action_type,
+            "risk_level": action.get("risk_level", "low"),
+        })
+
     return {
         "action_plans": actions,
         "active_frameworks": new_frameworks,
+        "evidence_chain": new_evidence,
     }

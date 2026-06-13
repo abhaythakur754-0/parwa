@@ -1,0 +1,10 @@
+{
+  "message_id": "SMS-SIM-7BAC35",
+  "channel": "sms",
+  "recipient": "+919652852014",
+  "message_preview": "ReAct verified: Conclusion consistent with available data for general_inquiry.",
+  "simulated_at": "2026-06-13T02:52:58.544228",
+  "provider": "simulation",
+  "status": "simulated",
+  "note": "This SMS was NOT actually delivered. Configure Twilio for real delivery."
+}

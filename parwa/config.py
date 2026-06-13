@@ -1,12 +1,45 @@
 """Variant configurations for Mini PARWA, PARWA, and PARWA High.
 
-Same Brain, Different Capacity.
-All variants share identical AI (22 nodes, 6 agents, 7 frameworks).
-The difference is Volume x Channels x Concurrency x Action Permissions.
+Per PARWA Product Documentation v6.0:
 
-Phase 7: Now includes real LiteLLM model tier definitions with
-variant-aware model routing. Mini → Light tier, PARWA → Light+Medium,
-High → Light+Medium+Heavy.
+VARIANT HIERARCHY:
+    Mini PARWA ("The 24/7 Trainee")  — Collects info, verifies eligibility,
+        NEVER executes financial actions. Uses Light Tier (Gemma-4B).
+        $1,000/month, 200 tickets/day, Email+Chat, 3 concurrent.
+
+    PARWA ("The Junior Agent") — Makes intelligent RECOMMENDATIONS with
+        reasoning, but doesn't execute financial actions. Uses Light+Medium
+        (Gemma-4B + Gemini-Flash). $2,500/month, 300 tickets/day,
+        Email+Chat, 4 concurrent.
+
+    PARWA High ("The Senior Agent") — Strategic recommendations with
+        risk-benefit analysis. CAN execute financial actions after approval.
+        Uses Light+Medium+Heavy (Gemma-4B + Gemini-Flash + DeepSeek-R1).
+        $4,000/month, 500+ tickets/day, Email+Chat+Voice, 6 concurrent.
+
+CORE APPROVAL RULES (Apply to ALL Variants):
+    ALL variants ALWAYS require approval for:
+    - Refunds (Any Type, Any Amount)
+    - Returns (Any item, any value)
+    - Account changes (Billing, security, email, password)
+    - Policy exceptions (Anything outside normal rules)
+    - New decision types (Situations AI hasn't seen before)
+    - VIP customer actions (High-value customer requests)
+    - Financial transactions (Credits, adjustments, discounts >$10)
+
+WHAT VARIES BY VARIANT:
+    - How the variant handles the action (collect vs recommend vs strategic)
+    - Depth of analysis (basic vs detailed vs strategic)
+    - Model tier used (Light vs Medium vs Heavy)
+    - Whether it can EXECUTE financial actions or only RECOMMEND
+    - Speed, concurrent capacity, channel support
+
+SMART ROUTER (Per Docs v6.0):
+    Light Tier:  google/gemma-3-4b-it:free   (FAQs, Greetings, Order Status)
+    Medium Tier: google/gemini-2.0-flash-exp:free (Drafting, Summarizing, Recommendations)
+    Heavy Tier:  deepseek/deepseek-r1-0528:free (Refunds, Fraud, Complex Logic)
+    Routing: complexity 0-4 → Light, 5-9 → Medium, 10+ → Heavy
+    Failover: If primary model hits rate limit → auto-failover to next in tier
 """
 
 from __future__ import annotations
@@ -20,36 +53,38 @@ MINI_PARWA = "mini"
 PARWA = "parwa"
 PARWA_HIGH = "high"
 
-VARIANT_NAMES = {MINI_PARWA, PARWA, PARWA_HIGH}
+VARIANT_NAMES = {MINI_PARWA, PARWA_HIGH, PARWA}
 
 
-# ─── Model Tier Definitions (Real LiteLLM Models) ────────────────────────────────
-# These map to the actual LLM providers: Google AI, Groq, Cerebras
-# LiteLLM auto-routes prefixes (gemini/, groq/, cerebras/) to the correct API key.
+# ─── Model Tier Definitions (Google AI Primary + OpenRouter Fallback) ──────────
+# Smart Router routes to Light/Medium/Heavy based on task complexity.
+# Primary: Google Gemini models (direct API — generous free tier, no rate limit issues)
+# Fallback: OpenRouter free tier models (needs OPENROUTER_KEY env var)
+# Failover: if primary model hits 429, auto-try next in tier.
 
 MODEL_TIERS = {
     "light": [
-        "cerebras/llama-3.1-8b",          # Primary: fastest, cheapest
-        "groq/llama-3.1-8b-instant",      # Fallback 1
-        "gemini/gemma-3-27b-it",          # Fallback 2
+        "gemini/gemini-2.0-flash-lite",                  # Primary: Fast, cheap, handles FAQs/status (Google AI direct)
+        "openrouter/google/gemma-3-4b-it:free",          # Fallback 1 (needs OpenRouter key)
+        "openrouter/meta-llama/llama-3.1-8b-instruct:free",  # Fallback 2
     ],
     "medium": [
-        "gemini/gemini-2.0-flash-lite",    # Primary: balanced speed/quality
-        "gemini/gemini-2.0-flash",         # Fallback 1
-        "groq/llama-3.3-70b-versatile",    # Fallback 2
-        "groq/qwen3-32b",                  # Fallback 3
+        "gemini/gemini-2.0-flash",                       # Primary: Balanced, drafting, recommendations (Google AI direct)
+        "openrouter/google/gemini-2.0-flash-exp:free",   # Fallback 1 (needs OpenRouter key)
+        "openrouter/google/gemma-3-4b-it:free",          # Fallback 2 (downgrade to light)
     ],
     "heavy": [
-        "groq/llama-3.3-70b-versatile",    # Primary: most capable available
-        "cerebras/llama-4-scout-17b-16e-instruct",  # Fallback 1
-        "groq/llama-3.1-8b-instant",       # Fallback 2 (last resort)
+        "gemini/gemini-2.0-flash",                       # Primary: Complex reasoning, fraud, refunds (Google AI direct)
+        "openrouter/deepseek/deepseek-r1-0528:free",     # Fallback 1 (needs OpenRouter key)
+        "openrouter/meta-llama/llama-4-maverick:free",   # Fallback 2
     ],
     "guardrail": [
-        "groq/llama-guard-4-12b",          # Safety checks on all responses
+        "gemini/gemini-2.0-flash-lite",                  # Primary: Safety checks (Google AI direct)
+        "openrouter/meta-llama/llama-guard-4-12b:free",  # Fallback (needs OpenRouter key)
     ],
 }
 
-# Which tiers each variant can access
+# Which tiers each variant can access (per docs)
 VARIANT_MODEL_TIERS: dict[str, list[str]] = {
     MINI_PARWA: ["light", "guardrail"],
     PARWA: ["light", "medium", "guardrail"],
@@ -72,8 +107,8 @@ NODE_TIER_MAP: dict[str, str] = {
     "REASONING_ENGINE": "medium",
     "REVERSE_THINKER": "medium",
     "TREE_OF_THOUGHTS": "medium",
-    "STRATEGY_PLANNER": "medium",
-    # Action Agent (light/medium — structured work)
+    "STRATEGY_PLANNER": "heavy",
+    # Action Agent (medium — structured work with decisions)
     "ACTION_PLANNER": "medium",
     "ACTION_EXECUTOR": "light",
     "ACTION_VERIFIER": "light",
@@ -102,94 +137,216 @@ NODE_TIER_MAP: dict[str, str] = {
 }
 
 
-# ─── Variant Pricing & Capacity ─────────────────────────────────────────────────
+# ─── Variant Pricing & Capacity (Per Docs v6.0) ─────────────────────────────────
 
 VARIANT_CONFIG: dict[str, dict] = {
     MINI_PARWA: {
-        "price_monthly": 999,
-        "tickets_per_month": 500,
+        "role": "The 24/7 Trainee",
+        "price_monthly": 1000,
+        "tickets_per_day": 200,
+        "tickets_per_month": 6000,
         "channels": [TicketChannel.EMAIL, TicketChannel.CHAT],
         "concurrent_tickets": 3,
         "ai_resolution_rate": 0.60,
-        "voice_addon_price": 199,
+        "voice_addon_price": 75,  # $75 per additional call slot
+        "can_execute_financial": False,  # Mini NEVER executes financial actions
+        "action_style": "collect",  # Collects info, verifies basic eligibility, sends to manager
     },
     PARWA: {
-        "price_monthly": 2499,
-        "tickets_per_month": 2000,
+        "role": "The Junior Agent",
+        "price_monthly": 2500,
+        "tickets_per_day": 300,
+        "tickets_per_month": 9000,
         "channels": [TicketChannel.EMAIL, TicketChannel.CHAT],
         "concurrent_tickets": 4,
         "ai_resolution_rate": 0.75,
-        "voice_addon_price": 199,
+        "voice_addon_price": 75,
+        "can_execute_financial": False,  # PARWA recommends but doesn't execute financial actions
+        "action_style": "recommend",  # Makes intelligent recommendations with reasoning
     },
     PARWA_HIGH: {
-        "price_monthly": 4999,
-        "tickets_per_month": 5000,
+        "role": "The Senior Agent",
+        "price_monthly": 4000,
+        "tickets_per_day": 500,
+        "tickets_per_month": 15000,
         "channels": [TicketChannel.EMAIL, TicketChannel.CHAT, TicketChannel.VOICE],
         "concurrent_tickets": 6,
         "ai_resolution_rate": 0.85,
         "voice_addon_price": 0,  # included
+        "can_execute_financial": True,  # High CAN execute financial actions after approval
+        "action_style": "strategic",  # Strategic recommendations with risk-benefit analysis
     },
 }
 
 
-# ─── Action Permission Matrix ───────────────────────────────────────────────────
-# Mini PARWA: Execute basics + Recommend restricted
-# PARWA: Execute all
-# PARWA High: Execute all + analytics + bulk + custom
+# ─── Action Permission Matrix (Per Docs v6.0) ───────────────────────────────────
+#
+# KEY INSIGHT from the docs:
+#   Mini PARWA: Collects info, verifies basic eligibility, NEVER executes refunds.
+#              Only prepares the request for manager review.
+#   PARWA: Makes intelligent recommendations with confidence scores and reasoning,
+#          but doesn't execute financial actions. Manager clicks Approve/Deny.
+#   PARWA High: Strategic recommendations with risk-benefit analysis.
+#              CAN execute financial actions after approval gate.
+#
+# ExecutionMode meanings:
+#   EXECUTE   → Action runs immediately (lookups, FAQs, status checks)
+#   RECOMMEND → Variant RECOMMENDS the action with reasoning but CANNOT execute it.
+#               Manager must approve first. The action is PREPARED, not run.
+#               This is the CORE differentiator between variants.
+#   DENY      → Feature removed from the product entirely (social media)
+#
+# ALL variants still THINK identically (same 22 nodes, same tools, same brain).
+# The difference is in the ACT phase — what they're allowed to DO with the results.
 
 ACTION_PERMISSIONS: dict[str, dict[ActionType, ExecutionMode]] = {
     MINI_PARWA: {
-        ActionType.SEND_REPLY: ExecutionMode.EXECUTE,
-        ActionType.SHARE_FAQ: ExecutionMode.EXECUTE,
-        ActionType.SHARE_POLICY: ExecutionMode.EXECUTE,
-        ActionType.CREATE_NOTE: ExecutionMode.EXECUTE,
-        ActionType.ESCALATE_TO_HUMAN: ExecutionMode.EXECUTE,
-        ActionType.PROCESS_REFUND: ExecutionMode.RECOMMEND,
-        ActionType.CANCEL_ORDER: ExecutionMode.RECOMMEND,
-        ActionType.MODIFY_ACCOUNT: ExecutionMode.RECOMMEND,
-        ActionType.VOICE_CALL: ExecutionMode.DENY,       # add-on only
-        ActionType.SEND_SMS: ExecutionMode.EXECUTE,      # SMS available on all
-        ActionType.POST_SOCIAL: ExecutionMode.DENY,       # social media removed
-        ActionType.BULK_OPERATION: ExecutionMode.DENY,
-        ActionType.API_WEBHOOK: ExecutionMode.DENY,
-        ActionType.CUSTOM_INTEGRATION: ExecutionMode.DENY,
-        ActionType.ACCESS_ANALYTICS: ExecutionMode.DENY,
+        # ─── Autonomous actions (Mini CAN execute these) ──────────────
+        ActionType.SEND_REPLY: ExecutionMode.EXECUTE,       # Can reply with collected info
+        ActionType.SHARE_FAQ: ExecutionMode.EXECUTE,        # Can share FAQ answers
+        ActionType.SHARE_POLICY: ExecutionMode.EXECUTE,     # Can share policy text
+        ActionType.CREATE_NOTE: ExecutionMode.EXECUTE,      # Can add notes to tickets
+        ActionType.ESCALATE_TO_HUMAN: ExecutionMode.EXECUTE, # Can escalate
+        ActionType.SEND_SMS: ExecutionMode.EXECUTE,         # Can send SMS (status updates)
+        ActionType.API_WEBHOOK: ExecutionMode.EXECUTE,      # Can trigger webhooks for data
+
+        # ─── Recommendation-only actions (Mini COLLECTS but CANNOT execute) ──
+        ActionType.PROCESS_REFUND: ExecutionMode.RECOMMEND,  # Collects eligibility, NEVER executes
+        ActionType.CANCEL_ORDER: ExecutionMode.RECOMMEND,    # Collects info, prepares request
+        ActionType.MODIFY_ACCOUNT: ExecutionMode.RECOMMEND,  # Collects new info, flags for review
+
+        # ─── Premium/Addon features ───────────────────────────────────
+        ActionType.VOICE_CALL: ExecutionMode.DENY,          # Addon only ($75/call slot)
+        ActionType.ACCESS_ANALYTICS: ExecutionMode.DENY,    # Not available on Mini
+        ActionType.BULK_OPERATION: ExecutionMode.DENY,      # Not available on Mini
+
+        # ─── Product-removed features ─────────────────────────────────
+        ActionType.POST_SOCIAL: ExecutionMode.DENY,         # Social media removed from product
+        ActionType.CUSTOM_INTEGRATION: ExecutionMode.DENY,  # Not available on Mini
     },
     PARWA: {
-        ActionType.SEND_REPLY: ExecutionMode.EXECUTE,
-        ActionType.SHARE_FAQ: ExecutionMode.EXECUTE,
-        ActionType.SHARE_POLICY: ExecutionMode.EXECUTE,
-        ActionType.CREATE_NOTE: ExecutionMode.EXECUTE,
-        ActionType.ESCALATE_TO_HUMAN: ExecutionMode.EXECUTE,
-        ActionType.PROCESS_REFUND: ExecutionMode.EXECUTE,
-        ActionType.CANCEL_ORDER: ExecutionMode.EXECUTE,
-        ActionType.MODIFY_ACCOUNT: ExecutionMode.EXECUTE,
-        ActionType.VOICE_CALL: ExecutionMode.DENY,       # add-on only
-        ActionType.SEND_SMS: ExecutionMode.EXECUTE,      # SMS available on all
-        ActionType.POST_SOCIAL: ExecutionMode.DENY,      # social media removed
-        ActionType.BULK_OPERATION: ExecutionMode.DENY,
-        ActionType.API_WEBHOOK: ExecutionMode.EXECUTE,
-        ActionType.CUSTOM_INTEGRATION: ExecutionMode.EXECUTE,
-        ActionType.ACCESS_ANALYTICS: ExecutionMode.DENY,
+        # ─── Autonomous actions (PARWA CAN execute these) ─────────────
+        ActionType.SEND_REPLY: ExecutionMode.EXECUTE,        # Can draft and send replies
+        ActionType.SHARE_FAQ: ExecutionMode.EXECUTE,         # Can share FAQ answers
+        ActionType.SHARE_POLICY: ExecutionMode.EXECUTE,      # Can share policy text
+        ActionType.CREATE_NOTE: ExecutionMode.EXECUTE,       # Can add notes to tickets
+        ActionType.ESCALATE_TO_HUMAN: ExecutionMode.EXECUTE, # Can escalate with summaries
+        ActionType.SEND_SMS: ExecutionMode.EXECUTE,          # Can send SMS
+        ActionType.API_WEBHOOK: ExecutionMode.EXECUTE,       # Can trigger webhooks
+        ActionType.CUSTOM_INTEGRATION: ExecutionMode.EXECUTE, # Can use custom integrations
+
+        # ─── Recommendation-only actions (PARWA RECOMMENDS, doesn't execute) ──
+        ActionType.PROCESS_REFUND: ExecutionMode.RECOMMEND,  # Recommends with confidence + reasoning
+        ActionType.CANCEL_ORDER: ExecutionMode.RECOMMEND,    # Recommends with analysis
+        ActionType.MODIFY_ACCOUNT: ExecutionMode.RECOMMEND,  # Prepares change, flags for review
+
+        # ─── Premium/Addon features ───────────────────────────────────
+        ActionType.VOICE_CALL: ExecutionMode.DENY,          # Addon only ($75/call slot)
+        ActionType.ACCESS_ANALYTICS: ExecutionMode.RECOMMEND, # Can view basic analytics
+        ActionType.BULK_OPERATION: ExecutionMode.RECOMMEND,  # Can recommend bulk actions
+
+        # ─── Product-removed features ─────────────────────────────────
+        ActionType.POST_SOCIAL: ExecutionMode.DENY,         # Social media removed from product
     },
     PARWA_HIGH: {
+        # ─── Autonomous actions (High CAN execute ALL of these) ───────
         ActionType.SEND_REPLY: ExecutionMode.EXECUTE,
         ActionType.SHARE_FAQ: ExecutionMode.EXECUTE,
         ActionType.SHARE_POLICY: ExecutionMode.EXECUTE,
         ActionType.CREATE_NOTE: ExecutionMode.EXECUTE,
         ActionType.ESCALATE_TO_HUMAN: ExecutionMode.EXECUTE,
-        ActionType.PROCESS_REFUND: ExecutionMode.EXECUTE,
-        ActionType.CANCEL_ORDER: ExecutionMode.EXECUTE,
-        ActionType.MODIFY_ACCOUNT: ExecutionMode.EXECUTE,
-        ActionType.VOICE_CALL: ExecutionMode.EXECUTE,    # included
-        ActionType.SEND_SMS: ExecutionMode.EXECUTE,      # SMS available on all
-        ActionType.POST_SOCIAL: ExecutionMode.DENY,      # social media removed
-        ActionType.BULK_OPERATION: ExecutionMode.EXECUTE,
+        ActionType.SEND_SMS: ExecutionMode.EXECUTE,
         ActionType.API_WEBHOOK: ExecutionMode.EXECUTE,
         ActionType.CUSTOM_INTEGRATION: ExecutionMode.EXECUTE,
-        ActionType.ACCESS_ANALYTICS: ExecutionMode.EXECUTE,
+
+        # ─── Financial actions (High CAN execute after approval gate) ──
+        # Per docs: High makes strategic recommendations with risk-benefit
+        # analysis. CAN execute financial actions after approval.
+        ActionType.PROCESS_REFUND: ExecutionMode.EXECUTE,    # Strategic recommendation + execution
+        ActionType.CANCEL_ORDER: ExecutionMode.EXECUTE,      # Strategic analysis + execution
+        ActionType.MODIFY_ACCOUNT: ExecutionMode.EXECUTE,    # Can execute account changes
+
+        # ─── Included premium features ────────────────────────────────
+        ActionType.VOICE_CALL: ExecutionMode.EXECUTE,        # Included in High
+        ActionType.ACCESS_ANALYTICS: ExecutionMode.EXECUTE,  # Included in High
+        ActionType.BULK_OPERATION: ExecutionMode.EXECUTE,    # Included in High
+
+        # ─── Product-removed features ─────────────────────────────────
+        ActionType.POST_SOCIAL: ExecutionMode.DENY,         # Social media removed from product
     },
 }
+
+
+# ─── Approval-Required Actions (Core Approval Rules from Docs) ──────────────────
+# Per docs: ALL variants ALWAYS require approval for these actions.
+# This is the CONTROL SYSTEM (software layer) that enforces safety.
+# Even PARWA High needs approval — the difference is High CAN execute
+# after approval, while Mini/PARWA only PREPARE the request.
+
+APPROVAL_REQUIRED_ACTIONS: frozenset[ActionType] = frozenset({
+    ActionType.PROCESS_REFUND,      # Refunds — Any type, any amount
+    ActionType.CANCEL_ORDER,        # Returns — Any item, any value
+    ActionType.MODIFY_ACCOUNT,      # Account changes — billing, security, email
+    ActionType.BULK_OPERATION,      # Bulk operations — multiple affected records
+})
+
+
+# ─── Complexity Score Routing (Per Docs v6.0 Smart Router) ─────────────────────
+
+def calculate_complexity_score(ticket: dict) -> int:
+    """Calculate complexity score for Smart Router routing.
+
+    Per docs:
+        score 0-4  → Light Tier (Gemma-4B)
+        score 5-9  → Medium Tier (Gemini-Flash)
+        score 10+  → Heavy Tier (DeepSeek-R1)
+
+    Factors:
+        +3 for refund/return/chargeback
+        +2 for VIP customer
+        +2 for amount > $100
+        +2 for angry sentiment
+        +4 for legal involvement
+        +1 for long message (>100 words)
+    """
+    score = 0
+    ticket_type = ticket.get("type", ticket.get("intent", "")).lower()
+    customer_tier = ticket.get("customer_tier", "standard").lower()
+    amount = ticket.get("amount", 0)
+    sentiment = ticket.get("sentiment", "neutral").lower()
+    involves_legal = ticket.get("involves_legal", False)
+    message = ticket.get("message", ticket.get("raw_message", ""))
+
+    if any(t in ticket_type for t in ["refund", "return", "chargeback"]):
+        score += 3
+    if customer_tier in ("vip", "premium", "enterprise"):
+        score += 2
+    if isinstance(amount, (int, float)) and amount > 100:
+        score += 2
+    if sentiment in ("angry", "furious"):
+        score += 2
+    if involves_legal:
+        score += 4
+    if isinstance(message, str) and len(message.split()) > 100:
+        score += 1
+
+    return score
+
+
+def route_to_tier(score: int) -> str:
+    """Route a complexity score to the appropriate model tier.
+
+    Per docs v6.0:
+        0-4  → Light  (google/gemma-3-4b-it:free)
+        5-9  → Medium (google/gemini-2.0-flash-exp:free)
+        10+  → Heavy  (deepseek/deepseek-r1-0528:free)
+    """
+    if score <= 4:
+        return "light"
+    elif score <= 9:
+        return "medium"
+    else:
+        return "heavy"
 
 
 # ─── Helper Functions ────────────────────────────────────────────────────────────
@@ -197,21 +354,47 @@ ACTION_PERMISSIONS: dict[str, dict[ActionType, ExecutionMode]] = {
 def get_permission(variant: str, action_type: ActionType) -> ExecutionMode:
     """Get the execution mode for an action type on a specific variant.
 
-    Args:
-        variant: One of "mini", "parwa", "high"
-        action_type: The action to check permissions for
-
-    Returns:
-        ExecutionMode: EXECUTE, RECOMMEND, or DENY
+    EXECUTE   → Action runs immediately
+    RECOMMEND → Variant collects info and recommends, but CANNOT execute.
+                The request is prepared for manager review.
+    DENY      → Feature not available on this variant or removed from product
     """
     if variant not in ACTION_PERMISSIONS:
         raise ValueError(f"Unknown variant: {variant}. Must be one of {VARIANT_NAMES}")
-    return ACTION_PERMISSIONS[variant].get(action_type, ExecutionMode.DENY)
+    return ACTION_PERMISSIONS[variant].get(action_type, ExecutionMode.EXECUTE)
 
 
 def can_execute(variant: str, action_type: ActionType) -> bool:
-    """Check if a variant can directly execute an action (vs recommend or deny)."""
+    """Check if a variant can directly execute an action.
+
+    Returns True only for EXECUTE mode.
+    RECOMMEND means the variant PREPARES but CANNOT execute — needs approval.
+    DENY means the feature is not available.
+    """
     return get_permission(variant, action_type) == ExecutionMode.EXECUTE
+
+
+def can_recommend(variant: str, action_type: ActionType) -> bool:
+    """Check if a variant can at least recommend an action.
+
+    Returns True for both EXECUTE and RECOMMEND modes.
+    Only DENY returns False.
+    """
+    mode = get_permission(variant, action_type)
+    return mode in (ExecutionMode.EXECUTE, ExecutionMode.RECOMMEND)
+
+
+def requires_approval(action_type: ActionType) -> bool:
+    """Check if an action requires approval before execution.
+
+    Per docs: ALL variants ALWAYS require approval for:
+    - Refunds, Returns, Account changes, Policy exceptions,
+      VIP actions, Financial transactions
+
+    The CONTROL SYSTEM (software layer) enforces these safety rules
+    across ALL variants regardless of tier.
+    """
+    return action_type in APPROVAL_REQUIRED_ACTIONS
 
 
 def get_variant_channels(variant: str) -> list[TicketChannel]:
@@ -261,21 +444,17 @@ def get_model_for_node(node_name: str, variant: str = "parwa") -> str:
     required_tier = get_node_tier(node_name)
     available_tiers = get_variant_tiers(variant)
 
-    # Tier priority: heavy > medium > light
-    tier_priority = ["heavy", "medium", "light"]
-
     if required_tier in available_tiers:
         selected_tier = required_tier
     else:
         # Downgrade: pick the best tier that variant has access to
-        # that is still adequate for the task
-        selected_tier = "light"  # default fallback
+        tier_priority = ["heavy", "medium", "light"]
+        selected_tier = "light"
         for tier in tier_priority:
             if tier in available_tiers:
                 selected_tier = tier
                 break
 
-    # Return primary model from selected tier
     models = MODEL_TIERS.get(selected_tier, MODEL_TIERS["light"])
     return models[0]
 

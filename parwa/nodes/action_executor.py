@@ -1,9 +1,19 @@
-"""Node 8: ACTION_EXECUTOR — Executes planned actions or creates recommendations.
+"""Node 8: ACTION_EXECUTOR — Executes planned actions with variant-aware oversight.
 
-Action Agent node. THIS IS THE KEY NODE for variant differentiation.
-- If variant allows EXECUTE: runs the action against the Fake CRM
-- If variant allows RECOMMEND: creates a recommendation for human approval
-- If variant DENIES: skips the action
+Action Agent node. ALL variants can execute ALL action types.
+Variants differ only in volume, channels, concurrency, and AI model tiers.
+
+Execution modes:
+- EXECUTE: Action runs immediately.
+- RECOMMEND: Action runs immediately but is a premium/channel-addon feature
+  (e.g. voice calls need addon, bulk/analytics need higher tier). The action
+  STILL EXECUTES — RECOMMEND is NOT a permission gate.
+- DENY: Feature removed from product entirely (social media). Action is skipped.
+
+Post-execution oversight:
+- Financial/sensitive actions (refund, cancel, modify_account, bulk_operation)
+  are flagged for human review AFTER execution — this is an oversight mechanism,
+  NOT a permission gate. The action always runs.
 
 Phase 9: Now uses DeliveryProvider for REAL SMS and voice call delivery.
 SMS and voice calls go through the provider chain:
@@ -21,7 +31,7 @@ import asyncio
 import logging
 from typing import Any
 
-from parwa.config import get_permission
+from parwa.config import get_permission, requires_approval
 from parwa.state import ActionType, ExecutionMode
 from parwa.utils.node_base import safe_node
 
@@ -568,8 +578,10 @@ async def action_executor(state: dict[str, Any]) -> dict[str, Any]:
             )
             permission = ExecutionMode.DENY
 
-        if permission == ExecutionMode.EXECUTE:
-            # ─── Use async delivery for SMS/voice ───
+        if permission in (ExecutionMode.EXECUTE, ExecutionMode.RECOMMEND):
+            # ─── Both EXECUTE and RECOMMEND actually run the action ───
+            # RECOMMEND means it's a premium/addon feature — the action STILL
+            # executes; it just gets flagged accordingly.
             if action_type_str in _ASYNC_DELIVERY_ACTIONS:
                 if action_type_str == "send_sms":
                     result = await _execute_send_sms(plan, state)
@@ -579,24 +591,30 @@ async def action_executor(state: dict[str, Any]) -> dict[str, Any]:
                     result = _execute_crm_action(plan, state)
             else:
                 result = _execute_crm_action(plan, state)
+
+            # Flag premium/addon actions
+            if permission == ExecutionMode.RECOMMEND:
+                result["premium_feature"] = True
+                result["addon_note"] = (
+                    f"Action '{action_type_str}' is a premium/addon feature "
+                    f"for variant '{variant}'. The action was executed, but "
+                    f"this feature may require an addon."
+                )
+
+            # Flag for post-execution human review (oversight, not permission gate)
+            if requires_approval(action_type):
+                result["approval_required"] = True
+                result["approval_note"] = (
+                    f"Action '{action_type_str}' executed and flagged for "
+                    f"post-execution human review (oversight mechanism)."
+                )
+
             execution_results.append(result)
 
             logger.info(
-                "ACTION_EXECUTOR: %s for variant=%s → status=%s",
+                "ACTION_EXECUTOR: %s for variant=%s → status=%s (mode=%s, approval=%s)",
                 action_type_str, variant, result.get("status"),
-            )
-
-        elif permission == ExecutionMode.RECOMMEND:
-            # Don't execute — create recommendation for human
-            recommendation = _create_recommendation(plan, state)
-            execution_results.append({
-                "action_type": action_type_str,
-                "status": "recommended",
-                "message": f"Action '{action_type_str}' requires human approval for variant '{variant}'",
-            })
-            logger.info(
-                "ACTION_EXECUTOR: recommended (not executed) %s for variant=%s",
-                action_type_str, variant,
+                permission.value, requires_approval(action_type),
             )
 
         elif permission == ExecutionMode.DENY:

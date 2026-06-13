@@ -156,6 +156,24 @@ def _classify_intent_rule_based(message: str) -> tuple[str, float]:
     best_intent_str = max(intent_scores, key=intent_scores.get)
     best_score = intent_scores[best_intent_str]
 
+    # ─── FAQ vs Action Override ───
+    # Month 3 fix: If the message is ASKING about something (how, what, can I, do you),
+    # it should be FAQ, NOT an action intent like refund_request or account_modification.
+    # Only override if the FAQ score is significant (not just a weak match).
+    faq_score = intent_scores.get("faq_question", 0)
+    question_indicators = ["how do i", "how to", "what is", "what's", "what are",
+                           "can you tell me", "do you offer", "do you accept",
+                           "can i return", "how long does", "how does"]
+    is_question = any(qi in message_lower for qi in question_indicators)
+
+    if is_question and best_intent_str in ("refund_request", "account_modification", "cancellation"):
+        # The message is asking ABOUT a topic, not requesting an action
+        # Boost FAQ score and re-evaluate
+        faq_score += 2.0  # Strong boost for question patterns
+        if faq_score > best_score:
+            best_intent_str = "faq_question"
+            best_score = faq_score
+
     # Convert score to confidence (0.6 - 0.99)
     # Higher scores = higher confidence, capped at 0.99
     confidence = min(0.99, 0.6 + best_score * 0.05)
@@ -202,7 +220,13 @@ async def _classify_intent_llm(message: str, *, ticket_id: str = "", variant: st
         "- If the customer mentions lawyer, attorney, lawsuit, legal action, sue, fraud, court → escalation (NOT general_inquiry)\n"
         "- If the customer asks to speak to manager, supervisor, human agent → escalation\n"
         "- If the customer expresses strong dissatisfaction without requesting action → complaint\n"
-        "- If the customer asks a general question about policies/offers → faq_question (NOT general_inquiry)\n\n"
+        "- If the customer asks a general question about policies/offers → faq_question (NOT general_inquiry)\n"
+        "- ASKING about how to do something → faq_question (NOT refund_request, NOT account_modification)\n"
+        "- REQUESTING something to be done → the relevant action intent\n"
+        "- 'How do I return an item?' → faq_question (asking about the process)\n"
+        "- 'I want a refund for my order' → refund_request (requesting action)\n"
+        "- 'How do I secure my account?' → faq_question (asking about process)\n"
+        "- 'Update my email address' → account_modification (requesting action)\n\n"
         "Examples:\n"
         "Customer: 'I was charged twice for the same order' → refund_request|0.97\n"
         "Customer: 'Where is my order? It has been 10 days' → order_status|0.95\n"

@@ -3,8 +3,14 @@
 Knowledge Agent node. Retrieves relevant knowledge base documents
 to provide evidence for the Reasoning Agent.
 
-Phase 3: Now uses FrameworkBrain with CLARA, HyDE, Multi-Query, Step-Back
-RAG techniques for smarter retrieval. Falls back to rule-based on failure.
+Per PARWA Docs v6.0: The Knowledge Base uses RAG (Retrieval Augmented
+Generation) with pgvector for semantic search. AI searches this knowledge
+when reasoning about tickets.
+
+Uses the KnowledgeBridge to connect to:
+1. Real backend KnowledgeService (when available)
+2. In-memory product docs (from kb_product_docs.md)
+3. Fake CRM KB (last resort for legacy compatibility)
 """
 
 from __future__ import annotations
@@ -18,32 +24,64 @@ from parwa.utils.node_base import safe_node
 logger = logging.getLogger("parwa.node.kb_retriever")
 
 
-# KB data is now loaded from the Fake CRM
-# The CRM has 10 comprehensive KB articles with realistic procedures
+async def _retrieve_from_bridge(message: str, intent: str, company_id: str = "comp-test-001") -> list[dict[str, Any]]:
+    """Retrieve KB documents using the KnowledgeBridge.
 
-
-def _get_crm_kb() -> list[dict[str, str]]:
-    """Get KB articles from the Fake CRM."""
+    This uses the real KnowledgeService when available, falls back to
+    product docs, and finally to Fake CRM data.
+    """
     try:
-        from parwa.fake_crm.database import get_crm
-        crm = get_crm()
-        return crm._kb
-    except Exception:
-        return [
-            {"id": "refund_policy_doc", "title": "Refund Policy", "content": "Full refunds are available within 30 days for duplicate charges.", "category": "billing"},
-            {"id": "shipping_policy_doc", "title": "Shipping Policy", "content": "Standard shipping: 3-5 business days.", "category": "shipping"},
-            {"id": "cancellation_policy_doc", "title": "Cancellation Policy", "content": "Orders can be cancelled before shipment.", "category": "orders"},
-        ]
+        from parwa.knowledge_bridge import get_knowledge_bridge
+        bridge = get_knowledge_bridge(company_id=company_id)
+
+        # Enhance search query with intent-related keywords for better matching
+        intent_keywords = {
+            "refund_request": "duplicate charge refund payment policy",
+            "billing_issue": "payment billing charge invoice subscription",
+            "cancellation": "cancel cancellation order policy",
+            "order_status": "shipping order tracking delivery status",
+            "technical_support": "error bug technical integration troubleshooting",
+            "account_modification": "account modify update change billing address",
+            "complaint": "complaint issue problem defective quality",
+            "escalation": "escalation manager supervisor legal",
+            "faq_question": "policy FAQ question help knowledge base",
+        }
+
+        search_query = message
+        extra_keywords = intent_keywords.get(intent, "")
+        if extra_keywords:
+            search_query = f"{message} {extra_keywords}"
+
+        results = await bridge.search(search_query, top_k=5)
+
+        if not results and intent in intent_keywords:
+            results = await bridge.search(intent_keywords[intent], top_k=3)
+
+        if results:
+            return [
+                KnowledgeResult(
+                    source=f"kb:{r.get('id', 'unknown')}",
+                    content=r.get("content", ""),
+                    relevance_score=r.get("relevance_score", 0.5),
+                    metadata={
+                        "title": r.get("title", ""),
+                        "category": r.get("category", ""),
+                    },
+                ).model_dump()
+                for r in results
+            ]
+    except Exception as exc:
+        logger.warning("kb_retriever: KnowledgeBridge search failed: %s", exc)
+
+    return []
 
 
 def _retrieve_kb_rule_based(message: str, intent: str) -> list[dict[str, Any]]:
-    """Retrieve KB documents using the Fake CRM search."""
-    # Try CRM-based search first (much more realistic)
+    """Fallback: Retrieve KB documents using Fake CRM search (synchronous)."""
     try:
         from parwa.fake_crm.database import get_crm
         crm = get_crm()
-        
-        # Enhance search query with intent-related keywords for better matching
+
         intent_keywords = {
             "refund_request": "duplicate charge refund payment",
             "billing_issue": "payment billing charge invoice",
@@ -55,19 +93,17 @@ def _retrieve_kb_rule_based(message: str, intent: str) -> list[dict[str, Any]]:
             "escalation": "escalation manager supervisor legal",
             "faq_question": "policy FAQ question help",
         }
-        
-        # Search with enhanced query
+
         search_query = message
         extra_keywords = intent_keywords.get(intent, "")
         if extra_keywords:
             search_query = f"{message} {extra_keywords}"
-        
+
         results = crm.search_kb(search_query, top_k=3)
-        
-        # If no results with enhanced query, try intent-only search
+
         if not results and intent in intent_keywords:
             results = crm.search_kb(intent_keywords[intent], top_k=3)
-        
+
         if results:
             return [
                 KnowledgeResult(
@@ -81,21 +117,26 @@ def _retrieve_kb_rule_based(message: str, intent: str) -> list[dict[str, Any]]:
     except Exception:
         pass
 
-    # Fallback: basic keyword + intent matching
+    # Last resort: basic keyword matching
     message_lower = message.lower()
-    kb_articles = _get_crm_kb()
-    results = []
+    kb_articles = [
+        {"id": "refund_policy", "title": "Refund Policy", "content": "Full refunds available within 30 days for duplicate charges. All refunds require manager approval per Control System rules.", "category": "billing"},
+        {"id": "shipping_policy", "title": "Shipping Policy", "content": "Standard shipping: 3-5 business days. Express: 1-2 business days. Tracking provided for all shipments.", "category": "shipping"},
+        {"id": "cancellation_policy", "title": "Cancellation Policy", "content": "Orders can be cancelled before shipment. After shipment, return policy applies. All cancellations require approval.", "category": "orders"},
+        {"id": "variant_system", "title": "Variant System", "content": "Mini PARWA collects and verifies but never executes financial actions. PARWA recommends with reasoning. PARWA High provides strategic analysis and can execute after approval.", "category": "product"},
+        {"id": "account_changes", "title": "Account Changes", "content": "Account modifications (billing, security, email, password) always require approval on all variants per Control System rules.", "category": "account"},
+    ]
 
+    results = []
     for doc in kb_articles:
         score = 0.0
-        # Keyword match
         for word in message_lower.split():
-            if len(word) > 3 and word in doc.get("content", "").lower():
-                score += 0.1
-            if len(word) > 3 and word in doc.get("title", "").lower():
+            if len(word) > 3 and word in doc["content"].lower():
+                score += 0.15
+            if len(word) > 3 and word in doc["title"].lower():
                 score += 0.3
         score = min(0.99, score)
-        if score >= 0.2:
+        if score >= 0.1:
             results.append(KnowledgeResult(
                 source=f"kb:{doc['id']}",
                 content=doc["content"],
@@ -111,43 +152,46 @@ async def _retrieve_with_brain(state: dict[str, Any]) -> tuple[list[dict[str, An
     """KB retrieval using FrameworkBrain (Phase 3).
 
     Returns (kb_results, frameworks_used).
-    Falls back to rule-based on any failure.
+    Falls back to KnowledgeBridge/rule-based on any failure.
     """
     raw_message = state.get("raw_message", "")
     intent = state.get("intent", "general_inquiry")
+    company_id = state.get("company_id", "comp-test-001")
 
-    try:
-        from parwa.frameworks.brain import FrameworkBrain
+    # Always try KnowledgeBridge first (real KB + product docs)
+    bridge_results = await _retrieve_from_bridge(raw_message, intent, company_id)
+    if bridge_results:
+        # Try FrameworkBrain for enhanced retrieval
+        try:
+            from parwa.frameworks.brain import FrameworkBrain
 
-        brain = FrameworkBrain(node="KB_RETRIEVER", state=state)
-        result = await brain.think(
-            prompt=raw_message,
-            techniques=["clara", "hyde", "multi_query", "step_back"],
-            ticket_id=state.get("ticket_id", ""),
-            variant=state.get("variant", "parwa"),
-        )
+            brain = FrameworkBrain(node="KB_RETRIEVER", state=state)
+            result = await brain.think(
+                prompt=raw_message,
+                techniques=["clara", "hyde", "multi_query", "step_back"],
+                ticket_id=state.get("ticket_id", ""),
+                variant=state.get("variant", "parwa"),
+            )
 
-        # The brain enhances the retrieval with RAG techniques
-        # but we still need the actual KB results
-        kb_results = _retrieve_kb_rule_based(raw_message, intent)
+            # If brain produced metadata about improved retrieval, boost scores
+            if result.confidence > 0.7 and result.frameworks_used:
+                for kb in bridge_results:
+                    if isinstance(kb, dict):
+                        kb["retrieval_enhanced"] = True
+                        kb["frameworks_used"] = result.frameworks_used
 
-        # If brain produced metadata about improved retrieval, boost scores
-        if result.confidence > 0.7 and result.frameworks_used:
-            # Brain techniques improved our search — reflect in metadata
-            for kb in kb_results:
-                if isinstance(kb, dict):
-                    kb["retrieval_enhanced"] = True
-                    kb["frameworks_used"] = result.frameworks_used
+            return bridge_results, result.frameworks_used if result.frameworks_used else []
 
-        return kb_results, result.frameworks_used if result.frameworks_used else []
+        except Exception as exc:
+            logger.warning(
+                "kb_retriever: FrameworkBrain failed (%s), using bridge results directly",
+                exc,
+            )
+            return bridge_results, []
 
-    except Exception as exc:
-        logger.warning(
-            "kb_retriever: FrameworkBrain failed (%s), falling back to rule-based",
-            exc,
-        )
-        kb_results = _retrieve_kb_rule_based(raw_message, intent)
-        return kb_results, []
+    # Fall back to rule-based if bridge returned nothing
+    kb_results = _retrieve_kb_rule_based(raw_message, intent)
+    return kb_results, []
 
 
 @safe_node("KB_RETRIEVER", fallback={"kb_results": []})
@@ -155,10 +199,11 @@ async def kb_retriever(state: dict[str, Any]) -> dict[str, Any]:
     """Search the knowledge base for relevant documents (async).
 
     Phase 3: Uses FrameworkBrain with RAG techniques (CLARA, HyDE,
-    Multi-Query, Step-Back) for smarter retrieval. Falls back to
-    rule-based on FrameworkBrain failure.
+    Multi-Query, Step-Back) for smarter retrieval.
+    Uses KnowledgeBridge for real KB + product docs access.
+    Falls back to rule-based on any failure.
 
-    Reads: raw_message, intent
+    Reads: raw_message, intent, company_id
     Writes: kb_results
     """
     raw_message = state.get("raw_message", "")
@@ -170,7 +215,7 @@ async def kb_retriever(state: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(intent, str):
         intent = "general_inquiry"
 
-    # Try FrameworkBrain first (Phase 3)
+    # Try KnowledgeBridge + FrameworkBrain
     results, frameworks = await _retrieve_with_brain(state)
 
     # Guard: ensure results is a list

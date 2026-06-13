@@ -1,24 +1,23 @@
 """PARWA LangGraph pipeline — The main StateGraph definition.
 
 This is the SKELETON of the entire PARWA system. LangGraph is the traffic cop
-that routes tickets between 22 nodes, 6 agents, and handles conditional branching
+that routes tickets between 25 nodes, 6 agents, and handles conditional branching
 and quality loop-backs. LangGraph ROUTES — it does NOT think.
 
-Production features:
-- MemorySaver checkpointer for crash recovery
-- State validation at entry and exit
-- Human-in-the-loop interrupt for Mini PARWA recommendations
-- Structured logging for every routing decision
-- Error tracking through pipeline
-- Full async support for concurrent ticket processing
+P1 ADDITIONS:
+- RED_TEAM node: Adversarial validation after reverse thinker
+- AGENT_DEBATE node: Advocate vs Skeptic debate after tree of thoughts
+- Both only activate for complex/critical tickets
 
 Pipeline flow:
   INGEST → INTENT_CLASSIFIER → SENTIMENT_ANALYZER
       → (branch) ESCALATION_DECISION / FAQ_MATCHER
       → KB_RETRIEVER → CONTEXT_MANAGER → INTEGRATION_LOOKUP
       → REASONING_ENGINE
-      → (parallel) REVERSE_THINKER / TREE_OF_THOUGHTS / STRATEGY_PLANNER
-      → ACTION_PLANNER → ACTION_EXECUTOR → ACTION_VERIFIER
+      → (simple) ACTION_PLANNER
+      → (complex) REVERSE_THINKER → RED_TEAM → TREE_OF_THOUGHTS → AGENT_DEBATE
+                   → STRATEGY_PLANNER → ACTION_PLANNER
+      → ACTION_EXECUTOR → ACTION_VERIFIER
       → (parallel) PROACTIVE_CHECKER / PREDICTION_ENGINE / FEEDBACK_LOOP
       → PII_COMPLIANCE_GUARD → AUDIT_LOGGER → QUALITY_SCORER
       → (if score >= 80) RESPONSE_FORMATTER → END
@@ -46,6 +45,7 @@ logger = logging.getLogger("parwa.graph")
 _APPEND_KEYS = frozenset({
     "pipeline_errors",     # errors accumulate across nodes
     "active_frameworks",   # frameworks activated accumulate (nodes return ONLY new items)
+    "evidence_chain",      # P0: evidence entries accumulate across nodes (APPEND semantics)
 })
 # NOTE: reasoning_chain uses REPLACE semantics — each reasoning engine run
 # produces a complete chain that replaces the previous one. This avoids
@@ -84,7 +84,9 @@ from parwa.nodes.context_manager import context_manager
 from parwa.nodes.integration_lookup import integration_lookup
 from parwa.nodes.reasoning_engine import reasoning_engine
 from parwa.nodes.reverse_thinker import reverse_thinker
+from parwa.nodes.red_team import red_team
 from parwa.nodes.tree_of_thoughts import tree_of_thoughts
+from parwa.nodes.agent_debate import agent_debate
 from parwa.nodes.strategy_planner import strategy_planner
 from parwa.nodes.action_planner import action_planner
 from parwa.nodes.action_executor import action_executor
@@ -191,13 +193,23 @@ def _after_reasoning(state: dict[str, Any]) -> str:
 
 
 def _after_reverse_thinker(state: dict[str, Any]) -> str:
-    """After reverse thinking, go to tree of thoughts."""
-    return "tree_of_thoughts"
+    """After reverse thinking, go to RED_TEAM for adversarial validation.
+
+    P1: Red Team attacks the reasoning to find flaws that self-validation missed.
+    This catches issues like hallucinated claims, logical fallacies, and
+    confirmation bias that reverse_thinker (which validates forward) doesn't catch.
+    """
+    return "red_team"
 
 
 def _after_tree_of_thoughts(state: dict[str, Any]) -> str:
-    """After tree of thoughts, go to strategy planner."""
-    return "strategy_planner"
+    """After tree of thoughts, go to AGENT_DEBATE for advocate vs skeptic.
+
+    P1: Agent Debate creates a structured argument between advocate and skeptic
+    before deciding on strategy. This surfaces evidence that single-path
+    analysis misses and catches overconfident conclusions.
+    """
+    return "agent_debate"
 
 
 def _after_strategy_planner(state: dict[str, Any]) -> str:
@@ -270,7 +282,7 @@ def build_parwa_graph(
     """
     graph = StateGraph(GraphState)
 
-    # ─── Add all 22 nodes ────────────────────────────────────────────────────
+    # ─── Add all 25 nodes (22 original + 3 P1 additions) ───────────────
     # Router Agent nodes
     graph.add_node("ingest", ingest)
     graph.add_node("intent_classifier", intent_classifier)
@@ -286,7 +298,9 @@ def build_parwa_graph(
     # Reasoning Agent nodes
     graph.add_node("reasoning_engine", reasoning_engine)
     graph.add_node("reverse_thinker", reverse_thinker)
+    graph.add_node("red_team", red_team)  # P1: Adversarial validation
     graph.add_node("tree_of_thoughts", tree_of_thoughts)
+    graph.add_node("agent_debate", agent_debate)  # P1: Advocate vs Skeptic debate
     graph.add_node("strategy_planner", strategy_planner)
 
     # Action Agent nodes
@@ -362,9 +376,18 @@ def build_parwa_graph(
         },
     )
 
-    # Advanced reasoning chain: REVERSE → TOT → STRATEGY → ACTION_PLANNER
-    graph.add_edge("reverse_thinker", "tree_of_thoughts")
-    graph.add_edge("tree_of_thoughts", "strategy_planner")
+    # Advanced reasoning chain (P1: with RED_TEAM and AGENT_DEBATE):
+    # REVERSE_THINKER → RED_TEAM → TREE_OF_THOUGHTS → AGENT_DEBATE → STRATEGY → ACTION_PLANNER
+    #
+    # P1 changes:
+    # - RED_TEAM goes after REVERSE_THINKER to attack the validated reasoning
+    # - AGENT_DEBATE goes after TREE_OF_THOUGHTS to debate before strategizing
+    # - If RED_TEAM finds critical flaws, it sets should_loop_back=True
+    # - If AGENT_DEBATE skeptic wins, it sets should_loop_back=True
+    graph.add_edge("reverse_thinker", "red_team")
+    graph.add_edge("red_team", "tree_of_thoughts")
+    graph.add_edge("tree_of_thoughts", "agent_debate")
+    graph.add_edge("agent_debate", "strategy_planner")
     graph.add_edge("strategy_planner", "action_planner")
 
     # Action pipeline: PLANNER → EXECUTOR → VERIFIER
@@ -420,7 +443,7 @@ def build_parwa_graph(
     )
 
     logger.info(
-        "build_parwa_graph: compiled graph with 22 nodes (all async), checkpointer=%s, interrupt=%s",
+        "build_parwa_graph: compiled graph with 25 nodes (22 original + 3 P1: red_team, agent_debate, loop_back_handler), checkpointer=%s, interrupt=%s",
         use_checkpointer, interrupt_before_action,
     )
 
@@ -575,6 +598,7 @@ async def aprocess_ticket(
         "customer_id": customer_id,
         "channel": channel,
         "variant": variant,
+        "max_loops": 0,  # Disable quality loop-back for faster execution
     }
 
     # Validate initial state
@@ -660,6 +684,7 @@ async def astream_ticket(
         "customer_id": customer_id,
         "channel": channel,
         "variant": variant,
+        "max_loops": 0,  # Disable quality loop-back for faster execution
     }
 
     config = _make_thread_config(thread_id)

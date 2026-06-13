@@ -1,25 +1,29 @@
 #!/usr/bin/env node
 /**
- * ZAI LLM Bridge — Persistent HTTP server wrapping z-ai-web-dev-sdk.
+ * PARWA LLM Bridge — Persistent HTTP server with ZAI SDK (primary) + Google Gemini (fallback).
  *
  * Python PARWA pipeline sends POST /v1/chat with prompt + node_name,
- * this server calls zai SDK chat.completions.create() and returns the response.
+ * this server calls ZAI SDK first, falls back to Google Gemini API.
  *
  * Usage: node scripts/start-bridge.js
  * Bridge runs on port 4789 (override with ZAI_BRIDGE_PORT env var)
  */
 
 const http = require('http');
+const https = require('https');
 const ZAI = require('z-ai-web-dev-sdk').default;
 
 const PORT = parseInt(process.env.ZAI_BRIDGE_PORT || '4789', 10);
 const HOST = '127.0.0.1';
+const GOOGLE_AI_KEY = process.env.GOOGLE_AI_KEY || 'AIzaSyATHbcolmlaNufj6ZHR6tebMmlqqcmCsEs';
+const GOOGLE_AI_HOST = 'generativelanguage.googleapis.com';
 
 let zaiInstance = null;
 let callCount = 0;
 let errorCount = 0;
+let googleDisabled = false;
 
-// System prompts per node — tells the AI what structured output format to use
+// System prompts per node
 const SYSTEM_PROMPTS = {
   INTENT_CLASSIFIER: 'Classify this customer message into ONE intent: order_status, refund_request, cancellation, billing_issue, technical_support, faq_question, complaint, account_modification, escalation, general_inquiry. Reply with ONLY: intent|confidence (e.g. refund_request|0.95)',
   SENTIMENT_ANALYZER: 'Analyze the sentiment of this customer message. Reply with ONLY: sentiment|urgency where sentiment is one of: happy, neutral, frustrated, angry and urgency is 0.0-1.0 (e.g. frustrated|0.8)',
@@ -43,38 +47,77 @@ const SYSTEM_PROMPTS = {
 async function initZAI() {
   if (!zaiInstance) {
     zaiInstance = await ZAI.create();
-    process.stderr.write('[zai-bridge] ZAI SDK initialized\n');
+    process.stderr.write('[parwa-bridge] ZAI SDK initialized (primary)\n');
   }
   return zaiInstance;
 }
 
+function callGemini(systemPrompt, userPrompt, options = {}) {
+  return new Promise((resolve, reject) => {
+    if (googleDisabled) return reject(new Error('Google AI disabled (region not supported)'));
+    const model = options.model || 'gemini-2.0-flash-lite';
+    const maxTokens = options.max_tokens || 500;
+    const temperature = options.temperature || 0.1;
+    const payload = {
+      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+      generationConfig: { temperature, maxOutputTokens: maxTokens },
+    };
+    if (systemPrompt) payload.systemInstruction = { parts: [{ text: systemPrompt }] };
+    const payloadStr = JSON.stringify(payload);
+    const req = https.request({
+      hostname: GOOGLE_AI_HOST, port: 443,
+      path: `/v1beta/models/${model}:generateContent?key=${GOOGLE_AI_KEY}`,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payloadStr) },
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          try {
+            const parsed = JSON.parse(data);
+            const candidates = parsed.candidates || [];
+            let content = '';
+            if (candidates.length > 0) content = (candidates[0].content?.parts || []).map(p => p.text || '').join('');
+            const u = parsed.usageMetadata || {};
+            resolve({ content, model: `google/${model}`, usage: { prompt_tokens: u.promptTokenCount || 0, completion_tokens: u.candidatesTokenCount || 0, total_tokens: u.totalTokenCount || 0 } });
+          } catch (e) { reject(e); }
+        } else if (res.statusCode === 400 && data.includes('location')) {
+          googleDisabled = true;
+          reject(new Error('Google AI: region not supported — disabled'));
+        } else if (res.statusCode === 429) {
+          reject(new Error('Google Gemini rate limited (429)'));
+        } else {
+          reject(new Error(`Gemini API ${res.statusCode}: ${data.substring(0, 200)}`));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(60000, () => { req.destroy(); reject(new Error('Gemini timeout')); });
+    req.write(payloadStr);
+    req.end();
+  });
+}
+
 const server = http.createServer((req, res) => {
-  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204);
-    res.end();
-    return;
-  }
+  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
-  // Health check
   if (req.method === 'GET' && req.url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ok', calls: callCount, errors: errorCount, zai_ready: !!zaiInstance }));
+    res.end(JSON.stringify({ status: 'ok', calls: callCount, errors: errorCount, primary: 'zai-sdk', fallback: googleDisabled ? 'disabled' : 'google-gemini' }));
     return;
   }
 
-  // Stats
   if (req.method === 'GET' && req.url === '/stats') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ calls: callCount, errors: errorCount, zai_ready: !!zaiInstance }));
+    res.end(JSON.stringify({ calls: callCount, errors: errorCount, zai_ready: !!zaiInstance, google_available: !googleDisabled }));
     return;
   }
 
-  // Chat completion endpoint
   if (req.method === 'POST' && req.url === '/v1/chat') {
     let body = '';
     req.on('data', chunk => { body += chunk; });
@@ -82,40 +125,50 @@ const server = http.createServer((req, res) => {
       try {
         const p = JSON.parse(body);
         callCount++;
-        process.stderr.write(`[zai-bridge] #${callCount} node=${p.node_name || '?'} variant=${p.variant || '?'}\n`);
+        process.stderr.write(`[parwa-bridge] #${callCount} node=${p.node_name || '?'} variant=${p.variant || '?'}\n`);
 
-        const zai = await initZAI();
         const baseSystem = SYSTEM_PROMPTS[p.node_name] || 'Process this input and provide a clear, structured response.';
         const system = baseSystem + (p.variant ? ` [Variant: ${p.variant}]` : '') + (p.complexity ? ` [Complexity: ${p.complexity}]` : '');
 
-        const completion = await zai.chat.completions.create({
-          messages: [
-            { role: 'system', content: system },
-            { role: 'user', content: String(p.prompt || '') },
-          ],
-          temperature: p.temperature || 0.1,
-          max_tokens: p.max_tokens || 500,
-        });
+        // Try ZAI SDK first (primary)
+        try {
+          const zai = await initZAI();
+          const completion = await zai.chat.completions.create({
+            messages: [
+              { role: 'system', content: system },
+              { role: 'user', content: String(p.prompt || '') },
+            ],
+            temperature: p.temperature || 0.1,
+            max_tokens: p.max_tokens || 500,
+          });
+          const content = completion.choices?.[0]?.message?.content || '';
+          const usage = completion.usage || {};
+          process.stderr.write(`[parwa-bridge] #${callCount} [zai] response: ${content.substring(0, 80)}\n`);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ content, model: completion.model || 'zai', usage: { prompt_tokens: usage.prompt_tokens || 0, completion_tokens: usage.completion_tokens || 0, total_tokens: usage.total_tokens || 0 }, call_id: callCount, backend: 'zai-sdk' }));
+          return;
+        } catch (zaiErr) {
+          process.stderr.write(`[parwa-bridge] ZAI SDK failed: ${zaiErr.message} — trying Google Gemini\n`);
+        }
 
-        const content = completion.choices?.[0]?.message?.content || '';
-        const usage = completion.usage || {};
-
-        process.stderr.write(`[zai-bridge] #${callCount} response: ${content.substring(0, 80)}\n`);
-
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          content: content,
-          model: completion.model || 'zai',
-          usage: {
-            prompt_tokens: usage.prompt_tokens || 0,
-            completion_tokens: usage.completion_tokens || 0,
-            total_tokens: usage.total_tokens || 0,
-          },
-          call_id: callCount,
-        }));
+        // Fallback: Google Gemini
+        try {
+          const result = await callGemini(system, String(p.prompt || ''), {
+            temperature: p.temperature || 0.1,
+            max_tokens: p.max_tokens || 500,
+          });
+          process.stderr.write(`[parwa-bridge] #${callCount} [gemini] response: ${result.content.substring(0, 80)}\n`);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ content: result.content, model: result.model, usage: result.usage, call_id: callCount, backend: 'google-gemini' }));
+        } catch (geminiErr) {
+          errorCount++;
+          process.stderr.write(`[parwa-bridge] Error #${errorCount}: Both backends failed. Gemini: ${geminiErr.message}\n`);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: `Both backends failed. ZAI: unavailable. Gemini: ${geminiErr.message}`, content: null }));
+        }
       } catch (e) {
         errorCount++;
-        process.stderr.write(`[zai-bridge] Error #${errorCount}: ${e.message}\n`);
+        process.stderr.write(`[parwa-bridge] Error #${errorCount}: ${e.message}\n`);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: e.message, content: null }));
       }
@@ -129,7 +182,7 @@ const server = http.createServer((req, res) => {
 
 // Graceful shutdown
 function shutdown() {
-  process.stderr.write('[zai-bridge] Shutting down...\n');
+  process.stderr.write('[parwa-bridge] Shutting down...\n');
   server.close();
   process.exit(0);
 }
@@ -137,12 +190,15 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 // Start
+process.stderr.write(`[parwa-bridge] Starting — Primary: ZAI SDK | Fallback: Google Gemini API\n`);
 initZAI().then(() => {
   server.listen(PORT, HOST, () => {
-    process.stderr.write(`[zai-bridge] HTTP server running on http://${HOST}:${PORT}\n`);
-    process.stderr.write(`[zai-bridge] Endpoints: POST /v1/chat, GET /health, GET /stats\n`);
+    process.stderr.write(`[parwa-bridge] HTTP server running on http://${HOST}:${PORT}\n`);
+    process.stderr.write(`[parwa-bridge] Endpoints: POST /v1/chat, GET /health, GET /stats\n`);
   });
 }).catch(e => {
-  process.stderr.write(`[zai-bridge] Fatal: ${e.message}\n`);
-  process.exit(1);
+  process.stderr.write(`[parwa-bridge] Warning: ZAI init failed: ${e.message} — will use Google Gemini fallback\n`);
+  server.listen(PORT, HOST, () => {
+    process.stderr.write(`[parwa-bridge] HTTP server running on http://${HOST}:${PORT} (ZAI unavailable, Gemini only)\n`);
+  });
 });

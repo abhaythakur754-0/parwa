@@ -31,6 +31,7 @@ from app.api.auth import router as auth_router
 from app.api.variants import router as variants_router
 from app.api.voice import router as voice_router
 from app.api.monitoring import router as monitoring_router
+from app.api.tickets import router as tickets_router
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +120,7 @@ app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
 app.include_router(variants_router, prefix=settings.API_V1_PREFIX)
 app.include_router(voice_router, prefix=settings.API_V1_PREFIX)
 app.include_router(monitoring_router, prefix=settings.API_V1_PREFIX)
+app.include_router(tickets_router, prefix=settings.API_V1_PREFIX)
 
 
 # ---------------------------------------------------------------------------

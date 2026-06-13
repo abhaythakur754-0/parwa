@@ -108,6 +108,22 @@ class ReasoningPath(BaseModel):
     selected: bool = False
 
 
+class EvidenceEntry(BaseModel):
+    """A single piece of structured evidence from a technique or node.
+
+    P0 EVIDENCE CHAIN: Instead of passing just conclusion strings between
+    nodes, we pass structured (claim, source, confidence, technique) entries.
+    This lets downstream nodes verify, cross-reference, and build upon
+    the reasoning of upstream nodes instead of trusting bare strings.
+    """
+    claim: str = ""  # What this evidence claims (the conclusion)
+    sources: list[str] = Field(default_factory=list)  # What supports the claim
+    confidence: float = 0.0  # How confident (0.0-1.0)
+    technique: str = ""  # Which technique produced this
+    category: str = ""  # Technique category (reasoning, rag, quality, etc.)
+    node: str = ""  # Which node produced this (filled by the node)
+
+
 class ProactiveInsight(BaseModel):
     """A proactive prediction or follow-up insight."""
     type: str = "follow_up"  # follow_up, prediction, cross_sell
@@ -153,6 +169,19 @@ class TicketState(BaseModel):
     reverse_validation: dict[str, Any] = Field(default_factory=dict)
     strategy_plan: list[str] = Field(default_factory=list)
     selected_path: ReasoningPath | None = None
+
+    # ─── P1: Red Team and Agent Debate outputs ───────────────────────────
+    # Red Team: Adversarial validation that actively tries to break reasoning
+    red_team_report: dict[str, Any] = Field(default_factory=dict)
+    # Agent Debate: Advocate vs Skeptic debate results
+    debate_result: dict[str, Any] = Field(default_factory=dict)
+
+    # ─── P0: Cross-node Evidence Chain ───────────────────────────
+    # Structured evidence that flows between ALL nodes. Each node reads
+    # from this chain to understand what upstream nodes concluded and WHY.
+    # Each node also ADDS its own evidence entries.
+    # This replaces the old pattern of passing bare conclusion strings.
+    evidence_chain: list[dict[str, Any]] = Field(default_factory=list)
 
     # ─── Action Agent outputs (Nodes 7, 8, 9) ─────────────
     action_plans: list[ActionPlan] = Field(default_factory=list)

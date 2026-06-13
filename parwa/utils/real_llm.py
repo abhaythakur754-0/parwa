@@ -1,15 +1,20 @@
-"""Production LLM client using real API providers: Google AI, Cerebras, Groq.
+"""Production LLM client using Google AI direct (primary) + OpenRouter (fallback).
 
-Replaces ZAI SDK subprocess calls with direct HTTP API calls.
-Uses the Smart Router tier system: Light → Medium → Heavy with automatic failover.
+Per PARWA Product Documentation v6.0 Smart Router:
+- Light Tier:  gemini-2.0-flash-lite           (FAQs, Greetings, Order Status)
+- Medium Tier: gemini-2.0-flash                (Drafting, Summarizing, Recommendations)
+- Heavy Tier:  gemini-2.0-flash                (Refunds, Fraud, Complex Logic)
+
+Routing: complexity 0-4 → Light, 5-9 → Medium, 10+ → Heavy
+Failover: If primary model hits rate limit → auto-failover to next in tier.
 
 API Keys (from environment variables):
-- Google AI: GOOGLE_AI_KEY
-- Cerebras: CEREBRAS_KEY
-- Groq: GROQ_KEY
+- GOOGLE_AI_KEY: Primary — Google Gemini direct calls (generous free tier)
+- OPENROUTER_KEY: Fallback — OpenRouter free tier models (if set)
 
 Features:
 - Direct HTTP calls via httpx (no subprocess, no ZAI SDK dependency)
+- Google Gemini as primary backend (no rate limit issues)
 - Automatic failover: if primary model fails, try next in tier chain
 - Rate limit handling with retry-after
 - Circuit breaker per provider
@@ -31,47 +36,42 @@ logger = logging.getLogger("parwa.real_llm")
 
 # ─── API Keys (from environment or defaults) ────────────────────────────────────
 
-GOOGLE_AI_KEY = os.getenv("GOOGLE_AI_KEY", "")
-CEREBRAS_KEY = os.getenv("CEREBRAS_KEY", "")
-GROQ_KEY = os.getenv("GROQ_KEY", "")
+OPENROUTER_KEY = os.getenv("OPENROUTER_KEY", "")  # Fallback — only used if key is set
+GOOGLE_AI_KEY = os.getenv("GOOGLE_AI_KEY", "AIzaSyATHbcolmlaNufj6ZHR6tebMmlqqcmCsEs")  # Primary
 
 # ─── Provider Endpoints ─────────────────────────────────────────────────────────
 
-GOOGLE_AI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-CEREBRAS_URL = "https://api.cerebras.ai/v1/chat/completions"
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+GOOGLE_AI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
-# ─── Model Definitions (aligned with config.py MODEL_TIERS) ─────────────────────
+# ─── Model Definitions (aligned with config.py MODEL_TIERS per Docs v6.0) ───────
 
-# Maps our model names to provider + actual model ID
 MODEL_MAP: dict[str, dict[str, str]] = {
-    # Light tier
-    "cerebras/llama-3.1-8b": {"provider": "cerebras", "model": "llama-3.1-8b"},
-    "groq/llama-3.1-8b-instant": {"provider": "groq", "model": "llama-3.1-8b-instant"},
-    "gemini/gemma-3-27b-it": {"provider": "google", "model": "gemma-3-27b-it"},
-    # Medium tier
+    # Light tier (Per docs: google/gemma-3-4b-it:free)
+    "openrouter/google/gemma-3-4b-it:free": {"provider": "openrouter", "model": "google/gemma-3-4b-it:free"},
+    "openrouter/meta-llama/llama-3.1-8b-instruct:free": {"provider": "openrouter", "model": "meta-llama/llama-3.1-8b-instruct:free"},
     "gemini/gemini-2.0-flash-lite": {"provider": "google", "model": "gemini-2.0-flash-lite"},
+    # Medium tier (Per docs: google/gemini-2.0-flash-exp:free)
+    "openrouter/google/gemini-2.0-flash-exp:free": {"provider": "openrouter", "model": "google/gemini-2.0-flash-exp:free"},
     "gemini/gemini-2.0-flash": {"provider": "google", "model": "gemini-2.0-flash"},
-    "groq/llama-3.3-70b-versatile": {"provider": "groq", "model": "llama-3.3-70b-versatile"},
-    "groq/qwen3-32b": {"provider": "groq", "model": "qwen3-32b"},
-    # Heavy tier
-    "cerebras/llama-4-scout-17b-16e-instruct": {"provider": "cerebras", "model": "llama-4-scout-17b-16e-instruct"},
+    "openrouter/google/gemma-3-4b-it:free_fallback": {"provider": "openrouter", "model": "google/gemma-3-4b-it:free"},
+    # Heavy tier (Per docs: deepseek/deepseek-r1-0528:free)
+    "openrouter/deepseek/deepseek-r1-0528:free": {"provider": "openrouter", "model": "deepseek/deepseek-r1-0528:free"},
+    "openrouter/meta-llama/llama-4-maverick:free": {"provider": "openrouter", "model": "meta-llama/llama-4-maverick:free"},
     # Guardrail
-    "groq/llama-guard-4-12b": {"provider": "groq", "model": "llama-guard-4-12b"},
+    "openrouter/meta-llama/llama-guard-4-12b:free": {"provider": "openrouter", "model": "meta-llama/llama-guard-4-12b:free"},
 }
 
 # Provider → API key mapping
 PROVIDER_KEYS: dict[str, str] = {
+    "openrouter": OPENROUTER_KEY,
     "google": GOOGLE_AI_KEY,
-    "cerebras": CEREBRAS_KEY,
-    "groq": GROQ_KEY,
 }
 
 # Provider → URL mapping
 PROVIDER_URLS: dict[str, str] = {
+    "openrouter": OPENROUTER_URL,
     "google": GOOGLE_AI_URL,
-    "cerebras": CEREBRAS_URL,
-    "groq": GROQ_URL,
 }
 
 # ─── Circuit Breaker ────────────────────────────────────────────────────────────
@@ -86,18 +86,15 @@ class CircuitBreaker:
         self._open_until: dict[str, float] = {}
 
     def is_open(self, provider: str) -> bool:
-        """Check if the circuit is open (provider is down)."""
         if provider not in self._open_until:
             return False
         if time.time() < self._open_until[provider]:
             return True
-        # Timeout passed — reset
         del self._open_until[provider]
         self._failures[provider] = 0
         return False
 
     def record_failure(self, provider: str) -> None:
-        """Record a failure for this provider."""
         self._failures[provider] = self._failures.get(provider, 0) + 1
         if self._failures[provider] >= self.failure_threshold:
             self._open_until[provider] = time.time() + self.reset_timeout
@@ -105,13 +102,12 @@ class CircuitBreaker:
                           provider, self._failures[provider], self.reset_timeout)
 
     def record_success(self, provider: str) -> None:
-        """Record a success — reset failure count."""
         self._failures[provider] = 0
         if provider in self._open_until:
             del self._open_until[provider]
 
 
-_circuit_breaker = CircuitBreaker()
+_circuit_breaker = CircuitBreaker(failure_threshold=5, reset_timeout=30.0)  # More lenient — rate limits are temporary
 
 # ─── Rate Limiter (simple per-provider) ─────────────────────────────────────────
 
@@ -120,13 +116,180 @@ MIN_CALL_INTERVAL = 0.3  # seconds between calls to same provider
 
 
 async def _rate_limit_wait(provider: str) -> None:
-    """Wait if needed to respect per-provider rate limits."""
     now = time.time()
     last = _last_call_time.get(provider, 0)
     elapsed = now - last
     if elapsed < MIN_CALL_INTERVAL:
         await asyncio.sleep(MIN_CALL_INTERVAL - elapsed)
     _last_call_time[provider] = time.time()
+
+
+# ─── Google AI Native Call ──────────────────────────────────────────────────────
+
+async def _call_google_ai_native(
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    temperature: float = 0.1,
+    max_tokens: int = 500,
+) -> dict[str, Any]:
+    """Call Google AI using the native generateContent endpoint."""
+    if not GOOGLE_AI_KEY:
+        raise ValueError("No Google AI API key configured")
+
+    if _circuit_breaker.is_open("google"):
+        raise ConnectionError("Circuit breaker open for Google AI")
+
+    await _rate_limit_wait("google")
+
+    url = GOOGLE_AI_URL.format(model=model) + f"?key={GOOGLE_AI_KEY}"
+
+    system_instruction = None
+    if system_prompt:
+        system_instruction = {"parts": [{"text": system_prompt}]}
+
+    contents = [{"role": "user", "parts": [{"text": user_prompt}]}]
+
+    payload = {
+        "contents": contents,
+        "generationConfig": {
+            "temperature": temperature,
+            "maxOutputTokens": max_tokens,
+        },
+    }
+    if system_instruction:
+        payload["systemInstruction"] = system_instruction
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(url, json=payload)
+
+        if resp.status_code == 429:
+            retry_after = float(resp.headers.get("retry-after", "5"))
+            logger.warning("rate_limit: Google AI returned 429, retry after %.1fs", retry_after)
+            await asyncio.sleep(min(retry_after, 10))
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                resp = await client.post(url, json=payload)
+
+        if resp.status_code != 200:
+            error_body = resp.text[:500]
+            logger.error("google_ai: %s returned %d: %s", model, resp.status_code, error_body)
+            _circuit_breaker.record_failure("google")
+            raise RuntimeError(f"Google AI returned {resp.status_code}: {error_body}")
+
+        data = resp.json()
+        content = ""
+        candidates = data.get("candidates", [])
+        if candidates:
+            parts = candidates[0].get("content", {}).get("parts", [])
+            content = "".join(p.get("text", "") for p in parts)
+
+        usage_meta = data.get("usageMetadata", {})
+        usage = {
+            "prompt_tokens": usage_meta.get("promptTokenCount", 0),
+            "completion_tokens": usage_meta.get("candidatesTokenCount", 0),
+            "total_tokens": usage_meta.get("totalTokenCount", 0),
+        }
+
+        _circuit_breaker.record_success("google")
+
+        return {
+            "content": content,
+            "model": f"google/{model}",
+            "usage": usage,
+        }
+
+    except httpx.TimeoutException:
+        _circuit_breaker.record_failure("google")
+        raise TimeoutError("Google AI timed out after 60s")
+    except httpx.ConnectError:
+        _circuit_breaker.record_failure("google")
+        raise ConnectionError("Cannot connect to Google AI")
+    except Exception as exc:
+        _circuit_breaker.record_failure("google")
+        raise
+
+
+# ─── OpenRouter Call ─────────────────────────────────────────────────────────────
+
+async def _call_openrouter(
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    temperature: float = 0.1,
+    max_tokens: int = 500,
+) -> dict[str, Any]:
+    """Call OpenRouter API for free-tier models."""
+    if not OPENROUTER_KEY:
+        raise ValueError("No OpenRouter API key configured")
+
+    if _circuit_breaker.is_open("openrouter"):
+        raise ConnectionError("Circuit breaker open for OpenRouter")
+
+    await _rate_limit_wait("openrouter")
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {OPENROUTER_KEY}",
+        "HTTP-Referer": "https://parwa.ai",
+        "X-Title": "PARWA AI Customer Support",
+    }
+
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(OPENROUTER_URL, headers=headers, json=payload)
+
+        if resp.status_code == 429:
+            retry_after = float(resp.headers.get("retry-after", "5"))
+            logger.warning("rate_limit: OpenRouter returned 429, retry after %.1fs", retry_after)
+            await asyncio.sleep(min(retry_after, 10))
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                resp = await client.post(OPENROUTER_URL, headers=headers, json=payload)
+
+        if resp.status_code != 200:
+            error_body = resp.text[:500]
+            logger.error("openrouter: %s returned %d: %s", model, resp.status_code, error_body)
+            _circuit_breaker.record_failure("openrouter")
+            raise RuntimeError(f"OpenRouter returned {resp.status_code}: {error_body}")
+
+        data = resp.json()
+        content = ""
+        if "choices" in data and data["choices"]:
+            content = data["choices"][0].get("message", {}).get("content", "")
+
+        usage = data.get("usage", {})
+        if not usage:
+            usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+
+        _circuit_breaker.record_success("openrouter")
+
+        return {
+            "content": content,
+            "model": f"openrouter/{model}",
+            "usage": usage,
+        }
+
+    except httpx.TimeoutException:
+        _circuit_breaker.record_failure("openrouter")
+        raise TimeoutError("OpenRouter timed out after 60s")
+    except httpx.ConnectError:
+        _circuit_breaker.record_failure("openrouter")
+        raise ConnectionError("Cannot connect to OpenRouter")
+    except Exception as exc:
+        _circuit_breaker.record_failure("openrouter")
+        raise
 
 
 # ─── Core LLM Call ──────────────────────────────────────────────────────────────
@@ -139,19 +302,11 @@ async def call_llm(
     temperature: float = 0.1,
     max_tokens: int = 500,
 ) -> dict[str, Any]:
-    """Call an LLM via direct HTTP API. Returns {content, model, usage}.
+    """Call an LLM via the appropriate provider. Returns {content, model, usage}.
 
-    Uses OpenAI-compatible API format (supported by all 3 providers).
-
-    Args:
-        model_name: Our model key (e.g. "cerebras/llama-3.1-8b")
-        system_prompt: System instructions
-        user_prompt: User message
-        temperature: Sampling temperature
-        max_tokens: Max response tokens
-
-    Returns:
-        Dict with content, model, usage (prompt_tokens, completion_tokens, total_tokens)
+    Routes to:
+    1. OpenRouter (for openrouter/ prefixed models — free tier)
+    2. Google AI direct (for gemini/ prefixed models — direct API)
     """
     model_info = MODEL_MAP.get(model_name)
     if not model_info:
@@ -159,86 +314,19 @@ async def call_llm(
 
     provider = model_info["provider"]
     actual_model = model_info["model"]
-    api_key = PROVIDER_KEYS.get(provider, "")
-    base_url = PROVIDER_URLS.get(provider, "")
 
-    if not api_key:
-        raise ValueError(f"No API key for provider: {provider}")
-
-    # Circuit breaker check
-    if _circuit_breaker.is_open(provider):
-        raise ConnectionError(f"Circuit breaker open for {provider}")
-
-    # Rate limit
-    await _rate_limit_wait(provider)
-
-    # Build request
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}",
-    }
-
-    payload = {
-        "model": actual_model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }
-
-    # Google AI uses a different auth header
-    if provider == "google":
-        headers["Authorization"] = f"Bearer {api_key}"
-
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(base_url, headers=headers, json=payload)
-
-        if resp.status_code == 429:
-            # Rate limited — extract retry-after
-            retry_after = float(resp.headers.get("retry-after", "5"))
-            logger.warning("rate_limit: %s returned 429, retry after %.1fs", provider, retry_after)
-            await asyncio.sleep(retry_after)
-            # Retry once
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.post(base_url, headers=headers, json=payload)
-
-        if resp.status_code != 200:
-            error_body = resp.text[:500]
-            logger.error("llm_call: %s/%s returned %d: %s", provider, actual_model, resp.status_code, error_body)
-            _circuit_breaker.record_failure(provider)
-            raise RuntimeError(f"{provider} API returned {resp.status_code}: {error_body}")
-
-        data = resp.json()
-
-        # Parse OpenAI-compatible response
-        content = ""
-        if "choices" in data and data["choices"]:
-            content = data["choices"][0].get("message", {}).get("content", "")
-
-        usage = data.get("usage", {})
-        if not usage:
-            usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
-
-        _circuit_breaker.record_success(provider)
-
-        return {
-            "content": content,
-            "model": f"{provider}/{actual_model}",
-            "usage": usage,
-        }
-
-    except httpx.TimeoutException:
-        _circuit_breaker.record_failure(provider)
-        raise TimeoutError(f"{provider} API timed out after 30s")
-    except httpx.ConnectError:
-        _circuit_breaker.record_failure(provider)
-        raise ConnectionError(f"Cannot connect to {provider} API")
-    except Exception as exc:
-        _circuit_breaker.record_failure(provider)
-        raise
+    if provider == "openrouter":
+        return await _call_openrouter(
+            actual_model, system_prompt, user_prompt,
+            temperature=temperature, max_tokens=max_tokens,
+        )
+    elif provider == "google":
+        return await _call_google_ai_native(
+            actual_model, system_prompt, user_prompt,
+            temperature=temperature, max_tokens=max_tokens,
+        )
+    else:
+        raise ValueError(f"Unknown provider: {provider}")
 
 
 async def call_llm_with_failover(
@@ -256,6 +344,14 @@ async def call_llm_with_failover(
     """
     last_error = None
     for model_name in model_chain:
+        # Skip models we don't have keys for
+        model_info = MODEL_MAP.get(model_name)
+        if model_info:
+            provider = model_info["provider"]
+            api_key = PROVIDER_KEYS.get(provider, "")
+            if not api_key:
+                continue
+
         try:
             result = await call_llm(
                 model_name, system_prompt, user_prompt,
@@ -275,70 +371,103 @@ async def call_llm_with_failover(
 async def test_provider(provider: str) -> dict[str, Any]:
     """Test if a provider's API key works by making a simple call."""
     api_key = PROVIDER_KEYS.get(provider)
-    base_url = PROVIDER_URLS.get(provider)
 
-    if not api_key or not base_url:
-        return {"provider": provider, "status": "error", "message": "No API key or URL"}
+    if not api_key:
+        return {"provider": provider, "status": "error", "message": "No API key configured"}
 
-    # Pick a model for this provider
     test_models = {
-        "google": "gemma-3-27b-it",
-        "cerebras": "llama-3.1-8b",
-        "groq": "llama-3.1-8b-instant",
+        "openrouter": "google/gemma-3-4b-it:free",
+        "google": "gemini-2.0-flash-lite",
     }
-    model = test_models.get(provider, "llama-3.1-8b")
-
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}",
-    }
-
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "user", "content": "Say hello in one word."},
-        ],
-        "max_tokens": 10,
-        "temperature": 0.1,
-    }
+    model = test_models.get(provider, "google/gemma-3-4b-it:free")
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            start = time.time()
-            resp = await client.post(base_url, headers=headers, json=payload)
-            elapsed = time.time() - start
-
-        if resp.status_code == 200:
-            data = resp.json()
-            content = ""
-            if "choices" in data and data["choices"]:
-                content = data["choices"][0].get("message", {}).get("content", "")
-            return {
-                "provider": provider,
-                "status": "ok",
-                "latency_ms": round(elapsed * 1000),
-                "response": content[:100],
+        if provider == "openrouter":
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+                "HTTP-Referer": "https://parwa.ai",
+                "X-Title": "PARWA AI Test",
+            }
+            payload = {
                 "model": model,
+                "messages": [{"role": "user", "content": "Say hello in one word."}],
+                "max_tokens": 10,
+                "temperature": 0.1,
             }
-        else:
-            return {
-                "provider": provider,
-                "status": "error",
-                "status_code": resp.status_code,
-                "message": resp.text[:200],
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                start = time.time()
+                resp = await client.post(OPENROUTER_URL, headers=headers, json=payload)
+                elapsed = time.time() - start
+
+            if resp.status_code == 200:
+                data = resp.json()
+                content = ""
+                if "choices" in data and data["choices"]:
+                    content = data["choices"][0].get("message", {}).get("content", "")
+                return {
+                    "provider": provider,
+                    "status": "ok",
+                    "latency_ms": round(elapsed * 1000),
+                    "response": content[:100],
+                    "model": model,
+                }
+            else:
+                return {
+                    "provider": provider,
+                    "status": "error",
+                    "status_code": resp.status_code,
+                    "message": resp.text[:200],
+                }
+
+        elif provider == "google":
+            url = GOOGLE_AI_URL.format(model=model) + f"?key={api_key}"
+            payload = {
+                "contents": [{"role": "user", "parts": [{"text": "Say hello in one word."}]}],
+                "generationConfig": {"maxOutputTokens": 10, "temperature": 0.1},
             }
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                start = time.time()
+                resp = await client.post(url, json=payload)
+                elapsed = time.time() - start
+
+            if resp.status_code == 200:
+                data = resp.json()
+                content = ""
+                candidates = data.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    content = "".join(p.get("text", "") for p in parts)
+                return {
+                    "provider": provider,
+                    "status": "ok",
+                    "latency_ms": round(elapsed * 1000),
+                    "response": content[:100],
+                    "model": model,
+                }
+            else:
+                return {
+                    "provider": provider,
+                    "status": "error",
+                    "status_code": resp.status_code,
+                    "message": resp.text[:200],
+                }
+
     except Exception as exc:
-        return {
-            "provider": provider,
-            "status": "error",
-            "message": str(exc)[:200],
-        }
+        return {"provider": provider, "status": "error", "message": str(exc)[:200]}
 
 
 async def test_all_providers() -> dict[str, dict[str, Any]]:
     """Test all providers and return results."""
     results = {}
-    tasks = [test_provider(p) for p in ["cerebras", "groq", "google"]]
+    providers_to_test = []
+
+    if OPENROUTER_KEY:
+        providers_to_test.append("openrouter")
+    if GOOGLE_AI_KEY:
+        providers_to_test.append("google")
+
+    tasks = [test_provider(p) for p in providers_to_test]
     responses = await asyncio.gather(*tasks, return_exceptions=True)
     for resp in responses:
         if isinstance(resp, Exception):
@@ -365,7 +494,6 @@ def call_llm_sync(
         loop = None
 
     if loop and loop.is_running():
-        # We're in an async context already — use nest_asyncio or run in thread
         import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor() as pool:
             future = pool.submit(
@@ -373,7 +501,7 @@ def call_llm_sync(
                 call_llm(model_name, system_prompt, user_prompt,
                         temperature=temperature, max_tokens=max_tokens)
             )
-            return future.result(timeout=35)
+            return future.result(timeout=65)
     else:
         return asyncio.run(
             call_llm(model_name, system_prompt, user_prompt,

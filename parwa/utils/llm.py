@@ -1,11 +1,14 @@
 """LLM client utilities for PARWA nodes.
 
-Supports THREE backends (priority order):
-1. Real LLM APIs (Google AI, Cerebras, Groq) — direct HTTP calls, no subprocess
-2. MockLLM (fallback) — deterministic responses for testing without any LLM
+Supports FOUR backends (priority order):
+1. NVIDIA API (primary) — DeepSeek-V4-Pro via OpenAI-compatible client, 40 req/min, native Python
+2. ZAI SDK (fallback 1) — subprocess-based, works globally including HK
+3. Google Gemini (fallback 2) — direct HTTP calls, only works in supported regions (US/EU)
+4. MockLLM (last resort) — deterministic responses for testing without any LLM
 
 Production features:
-- Direct HTTP calls to Google AI, Cerebras, Groq (no subprocess overhead)
+- ZAI SDK as primary backend (works everywhere, no region restrictions)
+- Direct HTTP calls to Google AI as fallback (region-restricted)
 - Automatic failover: Light → Medium → Heavy tier chain
 - Retry with exponential backoff on LLM failures (sync + async)
 - Rate limiting to prevent API overload (sync + async)
@@ -35,8 +38,23 @@ logger = logging.getLogger("parwa.llm")
 # ─── Configuration ─────────────────────────────────────────────────────────────
 
 # Mock mode: when True, returns deterministic responses from MockLLM
-# Set PARWA_MOCK_MODE=false to use real LLM APIs
-MOCK_MODE = os.getenv("PARWA_MOCK_MODE", "true").lower() == "true"
+# Set PARWA_MOCK_MODE=true to use mock mode (for testing without LLM)
+MOCK_MODE = os.getenv("PARWA_MOCK_MODE", "false").lower() == "true"
+
+# NVIDIA API Configuration (PRIMARY — 40 req/min, Llama-3.1-8B + DeepSeek-V4-Pro)
+NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "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")
+NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
+NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "meta/llama-3.1-8b-instruct")
+NVIDIA_MODEL_HEAVY = os.getenv("NVIDIA_MODEL_HEAVY", "deepseek-ai/deepseek-v4-pro")
+NVIDIA_RATE_LIMIT_SECONDS = float(os.getenv("NVIDIA_RATE_LIMIT_SECONDS", "2.0"))  # 40/min, 2.0s between calls for safety
+_nvidia_disabled = False  # Auto-disabled on repeated failures
+
+# Google AI Configuration (fallback — region-restricted, only works in US/EU)
+GOOGLE_AI_KEY = os.getenv("GOOGLE_AI_KEY", "AIzaSyATHbcolmlaNufj6ZHR6tebMmlqqcmCsEs")
+GOOGLE_AI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
+# Track if Google AI is available (disabled if region not supported)
+_google_ai_disabled = False
 
 
 def is_real_llm_active() -> bool:
@@ -123,7 +141,7 @@ def _track_response_usage(
     response_text: str, model: str,
     prompt_tokens: int = 0, completion_tokens: int = 0,
 ) -> None:
-    """Track token usage from LLM response. Supports real token counts from ZAI Bridge."""
+    """Track token usage from LLM response. Supports real token counts from ZAI SDK or Google Gemini."""
     try:
         from parwa.turboquant.token_tracker import get_token_tracker
         tracker = get_token_tracker()
@@ -146,10 +164,9 @@ def _track_response_usage(
         pass
 
 
-# ─── ZAI SDK Direct Call (subprocess) ────────────────────────────────────────
+# ─── ZAI SDK Direct Call (subprocess) — PRIMARY BACKEND ────────────────────────
 
 # System prompts per node — tells the AI what structured output format to use
-# Month 1: Reordered alphabetically, added few-shot examples for top nodes
 _NODE_SYSTEM_PROMPTS = {
     "INTENT_CLASSIFIER": (
         "Classify this customer message into ONE intent: "
@@ -212,50 +229,145 @@ _NODE_SYSTEM_PROMPTS = {
     "FEEDBACK_LOOP": "Analyze customer satisfaction. Reply: resolved: true/false, satisfaction: high/medium/low, improvement_areas",
 }
 
-# Per-node max_tokens for LLM calls — controls response length per node type
-# Classification nodes need very few tokens, reasoning nodes need more
+# Per-node max_tokens for LLM calls
 _NODE_MAX_TOKENS: dict[str, int] = {
-    "INTENT_CLASSIFIER": 50,      # Just intent|confidence
-    "SENTIMENT_ANALYZER": 50,     # Just sentiment|urgency
-    "ESCALATION_DECISION": 50,    # Just true/false|reason
-    "FAQ_MATCHER": 100,           # faq_id|score|content
-    "KB_RETRIEVER": 300,          # Short factual answer
-    "INTEGRATION_LOOKUP": 200,    # JSON data
-    "REASONING_ENGINE": 500,      # Reasoning chain
-    "REVERSE_THINKER": 400,       # Validation trace
-    "TREE_OF_THOUGHTS": 400,      # Multiple paths
-    "STRATEGY_PLANNER": 300,      # Step-by-step plan
-    "ACTION_PLANNER": 200,        # Action list
-    "ACTION_EXECUTOR": 100,       # Execution result
-    "ACTION_VERIFIER": 100,       # Verification result
-    "PROACTIVE_CHECKER": 150,     # Proactive insights
-    "PREDICTION_ENGINE": 150,     # Prediction
-    "QUALITY_SCORER": 50,         # Just score|issues
-    "PII_COMPLIANCE_GUARD": 50,   # Just true/false|details
-    "RESPONSE_FORMATTER": 500,    # Full response text
-    "FEEDBACK_LOOP": 100,         # Feedback signal
-    # FrameworkBrain technique nodes
+    "INTENT_CLASSIFIER": 50,
+    "SENTIMENT_ANALYZER": 50,
+    "ESCALATION_DECISION": 50,
+    "FAQ_MATCHER": 100,
+    "KB_RETRIEVER": 300,
+    "INTEGRATION_LOOKUP": 200,
+    "REASONING_ENGINE": 500,
+    "REVERSE_THINKER": 400,
+    "TREE_OF_THOUGHTS": 400,
+    "STRATEGY_PLANNER": 300,
+    "ACTION_PLANNER": 200,
+    "ACTION_EXECUTOR": 100,
+    "ACTION_VERIFIER": 100,
+    "PROACTIVE_CHECKER": 150,
+    "PREDICTION_ENGINE": 150,
+    "QUALITY_SCORER": 50,
+    "PII_COMPLIANCE_GUARD": 50,
+    "RESPONSE_FORMATTER": 500,
+    "FEEDBACK_LOOP": 100,
     "FRAMEWORKBRAIN_COT": 400,
     "FRAMEWORKBRAIN_REACT": 400,
     "FRAMEWORKBRAIN_TOT": 400,
     "FRAMEWORKBRAIN_REFLEXION": 300,
 }
 
-# Path to the zai-llm-bridge.js script
-_BRIDGE_SCRIPT = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "scripts", "start-bridge.js")
+# Path to parwa root
 _PARWA_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+
+# ─── NVIDIA API Call (PRIMARY — fast, 40 req/min, native Python) ──────────────
+
+def _call_nvidia(
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    model: str = "",
+    temperature: float = 0.1,
+    max_tokens: int = 500,
+) -> dict[str, Any]:
+    """Call NVIDIA API (DeepSeek-V4-Pro) via OpenAI-compatible client (sync, with rate limit).
+
+    PRIMARY backend — fast native Python, no subprocess, 40 req/min.
+    """
+    import time as _time
+    _time.sleep(NVIDIA_RATE_LIMIT_SECONDS)  # Rate limit: 40 req/min
+    return _call_nvidia_no_wait(
+        system_prompt, user_prompt,
+        model=model, temperature=temperature, max_tokens=max_tokens,
+    )
+
+
+def _call_nvidia_no_wait(
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    model: str = "",
+    temperature: float = 0.1,
+    max_tokens: int = 500,
+) -> dict[str, Any]:
+    """NVIDIA API call without rate limit sleep (used by async wrapper).
+
+    Uses meta/llama-3.1-8b-instruct as primary (fast, 0.2-1.5s/call),
+    deepseek-ai/deepseek-v4-pro for heavy reasoning when explicitly requested.
+    """
+    global _nvidia_disabled
+    if _nvidia_disabled:
+        raise RuntimeError("NVIDIA API disabled (repeated failures)")
+
+    from openai import OpenAI
+
+    client = OpenAI(
+        base_url=NVIDIA_BASE_URL,
+        api_key=NVIDIA_API_KEY,
+        max_retries=1,  # Don't waste time on retries
+        timeout=30.0,
+    )
+
+    use_model = model or NVIDIA_MODEL
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": str(user_prompt)})
+
+    resp = client.chat.completions.create(
+        model=use_model,
+        messages=messages,
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
+
+    text = resp.choices[0].message.content or ""
+    usage = resp.usage
+    return {
+        "content": text,
+        "model": resp.model or use_model,
+        "usage": {
+            "prompt_tokens": getattr(usage, "prompt_tokens", 0) or 0,
+            "completion_tokens": getattr(usage, "completion_tokens", 0) or 0,
+            "total_tokens": getattr(usage, "total_tokens", 0) or 0,
+        },
+    }
+
+
+async def _acall_nvidia(
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    model: str = "",
+    temperature: float = 0.1,
+    max_tokens: int = 500,
+) -> dict[str, Any]:
+    """Call NVIDIA API (DeepSeek-V4-Pro) via OpenAI-compatible client (async).
+
+    PRIMARY backend — fast native Python, no subprocess, 40 req/min.
+    Uses asyncio.to_thread to avoid blocking the event loop.
+    """
+    global _nvidia_disabled
+    if _nvidia_disabled:
+        raise RuntimeError("NVIDIA API disabled (repeated failures)")
+
+    import asyncio
+    await asyncio.sleep(NVIDIA_RATE_LIMIT_SECONDS)  # Rate limit: 40 req/min
+    return await asyncio.to_thread(
+        _call_nvidia_no_wait, system_prompt, user_prompt,
+        model=model, temperature=temperature, max_tokens=max_tokens,
+    )
+
+
+# ─── ZAI SDK Call (FALLBACK — subprocess-based, slow) ─────────────────────────
 
 def _call_zai_sdk(prompt: str, *, node_name: str = "", variant: str = "parwa",
                   complexity: str = "simple", temperature: float = 0.1,
                   max_tokens: int = 0) -> dict[str, Any]:
     """Call the ZAI SDK directly via Node.js subprocess (sync).
 
-    This bypasses the HTTP bridge entirely — calls z-ai-web-dev-sdk
-    directly from Python via subprocess. More reliable than HTTP bridge
-    since Python and Node run in the same process namespace.
-
-    Returns dict with: content, model, usage (prompt_tokens, completion_tokens, total_tokens)
+    PRIMARY backend — works globally including HK.
+    Returns dict with: content, model, usage
     """
     system_prompt = _NODE_SYSTEM_PROMPTS.get(node_name, "Process this and give a clear, structured response.")
     if variant:
@@ -263,11 +375,8 @@ def _call_zai_sdk(prompt: str, *, node_name: str = "", variant: str = "parwa",
     if complexity:
         system_prompt += f" [Complexity: {complexity}]"
 
-    # Escape strings for Node.js
     system_escaped = json.dumps(system_prompt)
     user_escaped = json.dumps(str(prompt))
-
-    # Node-specific max_tokens overrides default
     actual_max_tokens = max_tokens if max_tokens > 0 else _NODE_MAX_TOKENS.get(node_name, 500)
 
     node_script = f"""const ZAI = require("z-ai-web-dev-sdk").default;
@@ -302,9 +411,7 @@ main().catch(e => {{ console.error(JSON.stringify({{error:e.message}})); process
         error_msg = result.stderr.strip() if result.stderr else f"Node exited with code {result.returncode}"
         raise RuntimeError(f"ZAI SDK call failed: {error_msg}")
 
-    # Parse the JSON output from stdout (ignore any stderr logging)
     stdout = result.stdout.strip()
-    # Find the JSON line (might have npm warnings before it)
     for line in stdout.split("\n"):
         line = line.strip()
         if line.startswith("{"):
@@ -321,7 +428,7 @@ async def _acall_zai_sdk(prompt: str, *, node_name: str = "", variant: str = "pa
                          max_tokens: int = 0) -> dict[str, Any]:
     """Call the ZAI SDK via Node.js subprocess (async).
 
-    Uses asyncio.create_subprocess_exec for non-blocking calls.
+    PRIMARY backend — works globally including HK.
     """
     import asyncio
 
@@ -333,8 +440,6 @@ async def _acall_zai_sdk(prompt: str, *, node_name: str = "", variant: str = "pa
 
     system_escaped = json.dumps(system_prompt)
     user_escaped = json.dumps(str(prompt))
-
-    # Node-specific max_tokens overrides default
     actual_max_tokens = max_tokens if max_tokens > 0 else _NODE_MAX_TOKENS.get(node_name, 500)
 
     node_script = f"""const ZAI = require("z-ai-web-dev-sdk").default;
@@ -382,7 +487,153 @@ main().catch(e => {{ console.error(JSON.stringify({{error:e.message}})); process
     raise RuntimeError(f"ZAI SDK: no JSON output in: {stdout[:200]}")
 
 
-# ─── Legacy ChatOpenAI (kept for backward compat, not used with ZAI Bridge) ───
+# ─── Google Gemini Direct Call — FALLBACK BACKEND ──────────────────────────────
+
+def _call_google_gemini(
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    model: str = "gemini-2.0-flash-lite",
+    temperature: float = 0.1,
+    max_tokens: int = 500,
+) -> dict[str, Any]:
+    """Call Google Gemini via native HTTP API (sync).
+
+    FALLBACK backend — only works in supported regions (US/EU etc.).
+    Will auto-disable if region not supported (HK etc.).
+    """
+    global _google_ai_disabled
+    if _google_ai_disabled:
+        raise RuntimeError("Google AI disabled (region not supported)")
+
+    url = GOOGLE_AI_URL.format(model=model) + f"?key={GOOGLE_AI_KEY}"
+
+    system_instruction = None
+    if system_prompt:
+        system_instruction = {"parts": [{"text": system_prompt}]}
+
+    contents = [{"role": "user", "parts": [{"text": str(user_prompt)}]}]
+
+    payload = {
+        "contents": contents,
+        "generationConfig": {
+            "temperature": temperature,
+            "maxOutputTokens": max_tokens,
+        },
+    }
+    if system_instruction:
+        payload["systemInstruction"] = system_instruction
+
+    data_bytes = json.dumps(payload).encode("utf-8")
+    req = Request(url, data=data_bytes, headers={"Content-Type": "application/json"})
+
+    try:
+        resp = urlopen(req, timeout=30)
+    except URLError as e:
+        if hasattr(e, 'code'):
+            if e.code == 429:
+                raise RuntimeError("Google Gemini rate limited (429)")
+            elif e.code == 400:
+                _google_ai_disabled = True
+                raise RuntimeError("Google AI: region not supported — disabled permanently")
+        raise
+
+    resp_data = json.loads(resp.read().decode("utf-8"))
+
+    content = ""
+    candidates = resp_data.get("candidates", [])
+    if candidates:
+        parts = candidates[0].get("content", {}).get("parts", [])
+        content = "".join(p.get("text", "") for p in parts)
+
+    usage_meta = resp_data.get("usageMetadata", {})
+    usage = {
+        "prompt_tokens": usage_meta.get("promptTokenCount", 0),
+        "completion_tokens": usage_meta.get("candidatesTokenCount", 0),
+        "total_tokens": usage_meta.get("totalTokenCount", 0),
+    }
+
+    return {
+        "content": content,
+        "model": f"google/{model}",
+        "usage": usage,
+    }
+
+
+async def _acall_google_gemini(
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    model: str = "gemini-2.0-flash-lite",
+    temperature: float = 0.1,
+    max_tokens: int = 500,
+) -> dict[str, Any]:
+    """Call Google Gemini via native HTTP API (async).
+
+    FALLBACK backend — only works in supported regions (US/EU etc.).
+    """
+    import asyncio
+    import httpx
+
+    global _google_ai_disabled
+    if _google_ai_disabled:
+        raise RuntimeError("Google AI disabled (region not supported)")
+
+    url = GOOGLE_AI_URL.format(model=model) + f"?key={GOOGLE_AI_KEY}"
+
+    system_instruction = None
+    if system_prompt:
+        system_instruction = {"parts": [{"text": system_prompt}]}
+
+    contents = [{"role": "user", "parts": [{"text": str(user_prompt)}]}]
+
+    payload = {
+        "contents": contents,
+        "generationConfig": {
+            "temperature": temperature,
+            "maxOutputTokens": max_tokens,
+        },
+    }
+    if system_instruction:
+        payload["systemInstruction"] = system_instruction
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.post(url, json=payload)
+
+    if resp.status_code == 429:
+        raise RuntimeError("Google Gemini rate limited (429)")
+    elif resp.status_code == 400:
+        error_msg = resp.text[:200]
+        if "location" in error_msg.lower() or "region" in error_msg.lower():
+            _google_ai_disabled = True
+            raise RuntimeError("Google AI: region not supported — disabled permanently")
+        raise RuntimeError(f"Google Gemini returned 400: {error_msg}")
+    elif resp.status_code != 200:
+        raise RuntimeError(f"Google Gemini returned {resp.status_code}: {resp.text[:300]}")
+
+    resp_data = resp.json()
+
+    content = ""
+    candidates = resp_data.get("candidates", [])
+    if candidates:
+        parts = candidates[0].get("content", {}).get("parts", [])
+        content = "".join(p.get("text", "") for p in parts)
+
+    usage_meta = resp_data.get("usageMetadata", {})
+    usage = {
+        "prompt_tokens": usage_meta.get("promptTokenCount", 0),
+        "completion_tokens": usage_meta.get("candidatesTokenCount", 0),
+        "total_tokens": usage_meta.get("totalTokenCount", 0),
+    }
+
+    return {
+        "content": content,
+        "model": f"google/{model}",
+        "usage": usage,
+    }
+
+
+# ─── Legacy ChatOpenAI (kept for backward compat, not actively used) ────────
 
 try:
     from langchain_core.language_models.chat_models import BaseChatModel
@@ -395,7 +646,7 @@ _llm_cache: dict[str, Any] = {}
 
 
 def get_llm(model: str = "gpt-4o-mini", temperature: float = 0.1) -> Any:
-    """Get or create a cached LLM instance (legacy — only used if ZAI Bridge is down)."""
+    """Get or create a cached LLM instance (legacy — only used as last resort)."""
     if not _LANGCHAIN_AVAILABLE:
         return None
     cache_key = f"{model}_{temperature}"
@@ -421,9 +672,9 @@ def smart_route_model(
 ) -> str:
     """Select the right LLM model based on node, complexity, and variant.
 
-    When using ZAI Bridge, the model name is logged but the actual model
-    selection is done by the zai SDK. The Smart Router still tracks which
-    tier SHOULD be used for audit/logging purposes.
+    When using ZAI SDK (primary), the model name is logged but the actual
+    model selection is done by the zai SDK. The Smart Router still tracks
+    which tier SHOULD be used for audit/logging purposes.
     """
     from parwa.config import get_model_for_node
 
@@ -461,7 +712,7 @@ def invoke_llm(
 ) -> str:
     """High-level sync LLM invocation with full production hardening.
 
-    Uses ZAI Bridge if available, otherwise falls back to MockLLM.
+    Uses ZAI SDK (primary) → Google Gemini (fallback) → MockLLM (last resort).
 
     Args:
         prompt: The prompt to send.
@@ -487,7 +738,33 @@ def invoke_llm(
     if not _check_token_budget(node_name, variant, estimated):
         return "Token budget exceeded. Using rule-based fallback."
 
-    # ─── Try Real LLM (when not in MOCK_MODE) ───
+    # ─── Try NVIDIA API (primary — fast, 40 req/min, native Python) ───
+    if not MOCK_MODE:
+        try:
+            system_prompt = _NODE_SYSTEM_PROMPTS.get(node_name, "Process this and give a clear, structured response.")
+            if variant:
+                system_prompt += f" [Variant: {variant}]"
+            if complexity:
+                system_prompt += f" [Complexity: {complexity}]"
+            actual_max_tokens = _NODE_MAX_TOKENS.get(node_name, 500)
+            result = _call_nvidia(
+                system_prompt, prompt,
+                model="", temperature=temperature,
+                max_tokens=actual_max_tokens,
+            )
+            text = result.get("content", "")
+            usage = result.get("usage", {})
+            _track_response_usage(
+                ticket_id, node_name, variant, text, model,
+                prompt_tokens=usage.get("prompt_tokens", 0),
+                completion_tokens=usage.get("completion_tokens", 0),
+            )
+            logger.debug("invoke_llm [nvidia]: node=%s response_len=%d", node_name, len(text))
+            return text
+        except Exception as exc:
+            logger.warning("invoke_llm: NVIDIA API failed: %s — trying ZAI SDK", exc)
+
+    # ─── Try ZAI SDK (fallback — slow subprocess) ───
     if not MOCK_MODE:
         try:
             import time as _time
@@ -495,6 +772,7 @@ def invoke_llm(
             result = _call_zai_sdk(
                 prompt, node_name=node_name, variant=variant,
                 complexity=complexity, temperature=temperature,
+                max_tokens=0,  # Use node-specific defaults
             )
             text = result.get("content", "")
             usage = result.get("usage", {})
@@ -506,31 +784,20 @@ def invoke_llm(
             logger.debug("invoke_llm [zai-sdk]: node=%s response_len=%d", node_name, len(text))
             return text
         except Exception as exc:
-            logger.warning("invoke_llm: ZAI SDK failed: %s — trying real LLM APIs", exc)
-            # Try direct API providers as fallback
+            logger.warning("invoke_llm: ZAI SDK failed: %s — trying Google Gemini", exc)
+            # Try Google Gemini as fallback
             try:
-                from parwa.utils.real_llm import call_llm_sync
-                from parwa.config import get_all_models_for_node
                 system_prompt = _NODE_SYSTEM_PROMPTS.get(node_name, "Process this and give a clear, structured response.")
                 if variant:
                     system_prompt += f" [Variant: {variant}]"
                 if complexity:
                     system_prompt += f" [Complexity: {complexity}]"
                 actual_max_tokens = _NODE_MAX_TOKENS.get(node_name, 500)
-                model_chain = get_all_models_for_node(node_name, variant)
-                last_err = None
-                for mdl in model_chain:
-                    try:
-                        result = call_llm_sync(
-                            mdl, system_prompt, prompt,
-                            temperature=temperature, max_tokens=actual_max_tokens,
-                        )
-                        break
-                    except Exception as inner_exc:
-                        logger.debug("invoke_llm failover: %s failed: %s", mdl, inner_exc)
-                        last_err = inner_exc
-                else:
-                    raise RuntimeError(f"All API models failed. Last: {last_err}")
+                result = _call_google_gemini(
+                    system_prompt, prompt,
+                    model="gemini-2.0-flash-lite", temperature=temperature,
+                    max_tokens=actual_max_tokens,
+                )
                 text = result.get("content", "")
                 usage = result.get("usage", {})
                 _track_response_usage(
@@ -538,10 +805,45 @@ def invoke_llm(
                     prompt_tokens=usage.get("prompt_tokens", 0),
                     completion_tokens=usage.get("completion_tokens", 0),
                 )
-                logger.debug("invoke_llm [real-api]: node=%s model=%s response_len=%d", node_name, result.get("model", "?"), len(text))
+                logger.debug("invoke_llm [google-gemini]: node=%s response_len=%d", node_name, len(text))
                 return text
-            except Exception as exc2:
-                logger.warning("invoke_llm: Real API also failed: %s — falling back to MockLLM", exc2)
+            except Exception as gemini_exc:
+                logger.warning("invoke_llm: Google Gemini also failed: %s — trying real LLM APIs", gemini_exc)
+                # Try real_llm.py providers as final API fallback
+                try:
+                    from parwa.utils.real_llm import call_llm_sync
+                    from parwa.config import get_all_models_for_node
+                    system_prompt = _NODE_SYSTEM_PROMPTS.get(node_name, "Process this and give a clear, structured response.")
+                    if variant:
+                        system_prompt += f" [Variant: {variant}]"
+                    if complexity:
+                        system_prompt += f" [Complexity: {complexity}]"
+                    actual_max_tokens = _NODE_MAX_TOKENS.get(node_name, 500)
+                    model_chain = get_all_models_for_node(node_name, variant)
+                    last_err = None
+                    for mdl in model_chain:
+                        try:
+                            result = call_llm_sync(
+                                mdl, system_prompt, prompt,
+                                temperature=temperature, max_tokens=actual_max_tokens,
+                            )
+                            break
+                        except Exception as inner_exc:
+                            logger.debug("invoke_llm failover: %s failed: %s", mdl, inner_exc)
+                            last_err = inner_exc
+                    else:
+                        raise RuntimeError(f"All API models failed. Last: {last_err}")
+                    text = result.get("content", "")
+                    usage = result.get("usage", {})
+                    _track_response_usage(
+                        ticket_id, node_name, variant, text, model,
+                        prompt_tokens=usage.get("prompt_tokens", 0),
+                        completion_tokens=usage.get("completion_tokens", 0),
+                    )
+                    logger.debug("invoke_llm [real-api]: node=%s model=%s response_len=%d", node_name, result.get("model", "?"), len(text))
+                    return text
+                except Exception as exc2:
+                    logger.warning("invoke_llm: All APIs failed: %s — falling back to MockLLM", exc2)
 
     # ─── Fallback: MockLLM ───
     mock = get_mock_llm()
@@ -566,12 +868,7 @@ async def ainvoke_llm(
 ) -> str:
     """High-level async LLM invocation with full production hardening.
 
-    Uses ZAI Bridge if available, otherwise falls back to MockLLM.
-
-    Month 1 fixes:
-    - REMOVED _TECHNIQUE_ONLY_NODES skip list — all nodes use real LLM
-    - Added max_tokens parameter for per-node token limits
-    - Reduced rate limit delay from 1.0s to 0.5s for better throughput
+    Uses ZAI SDK (primary) → Google Gemini (fallback) → real_llm APIs → MockLLM.
     """
     # Smart Router
     if node_name:
@@ -584,11 +881,37 @@ async def ainvoke_llm(
     if not _check_token_budget(node_name, variant, estimated):
         return "Token budget exceeded. Using rule-based fallback."
 
-    # ─── Try Real LLM (when not in MOCK_MODE) ───
+    # ─── Try NVIDIA API (primary — fast, 40 req/min, native Python) ───
+    if not MOCK_MODE:
+        try:
+            system_prompt = _NODE_SYSTEM_PROMPTS.get(node_name, "Process this and give a clear, structured response.")
+            if variant:
+                system_prompt += f" [Variant: {variant}]"
+            if complexity:
+                system_prompt += f" [Complexity: {complexity}]"
+            actual_max_tokens = max_tokens if max_tokens > 0 else _NODE_MAX_TOKENS.get(node_name, 500)
+            result = await _acall_nvidia(
+                system_prompt, prompt,
+                model="", temperature=temperature,
+                max_tokens=actual_max_tokens,
+            )
+            text = result.get("content", "")
+            usage = result.get("usage", {})
+            _track_response_usage(
+                ticket_id, node_name, variant, text, model,
+                prompt_tokens=usage.get("prompt_tokens", 0),
+                completion_tokens=usage.get("completion_tokens", 0),
+            )
+            logger.debug("ainvoke_llm [nvidia]: node=%s response_len=%d", node_name, len(text))
+            return text
+        except Exception as exc:
+            logger.warning("ainvoke_llm: NVIDIA API failed: %s — trying ZAI SDK", exc)
+
+    # ─── Try ZAI SDK (fallback — slow subprocess) ───
     if not MOCK_MODE:
         try:
             import asyncio as _asyncio
-            await _asyncio.sleep(0.5)  # Rate limit
+            await _asyncio.sleep(0.8)  # ZAI SDK rate limit delay
             result = await _acall_zai_sdk(
                 prompt, node_name=node_name, variant=variant,
                 complexity=complexity, temperature=temperature,
@@ -604,21 +927,19 @@ async def ainvoke_llm(
             logger.debug("ainvoke_llm [zai-sdk]: node=%s response_len=%d", node_name, len(text))
             return text
         except Exception as exc:
-            logger.warning("ainvoke_llm: ZAI SDK failed: %s — trying real LLM APIs", exc)
-            # Try direct API providers as fallback
+            logger.warning("ainvoke_llm: ZAI SDK failed: %s — trying Google Gemini", exc)
+            # Try Google Gemini as fallback
             try:
-                from parwa.utils.real_llm import call_llm_with_failover
-                from parwa.config import get_all_models_for_node
                 system_prompt = _NODE_SYSTEM_PROMPTS.get(node_name, "Process this and give a clear, structured response.")
                 if variant:
                     system_prompt += f" [Variant: {variant}]"
                 if complexity:
                     system_prompt += f" [Complexity: {complexity}]"
                 actual_max_tokens = max_tokens if max_tokens > 0 else _NODE_MAX_TOKENS.get(node_name, 500)
-                model_chain = get_all_models_for_node(node_name, variant)
-                result = await call_llm_with_failover(
-                    model_chain, system_prompt, prompt,
-                    temperature=temperature, max_tokens=actual_max_tokens,
+                result = await _acall_google_gemini(
+                    system_prompt, prompt,
+                    model="gemini-2.0-flash-lite", temperature=temperature,
+                    max_tokens=actual_max_tokens,
                 )
                 text = result.get("content", "")
                 usage = result.get("usage", {})
@@ -627,10 +948,36 @@ async def ainvoke_llm(
                     prompt_tokens=usage.get("prompt_tokens", 0),
                     completion_tokens=usage.get("completion_tokens", 0),
                 )
-                logger.debug("ainvoke_llm [real-api]: node=%s model=%s response_len=%d", node_name, result.get("model", "?"), len(text))
+                logger.debug("ainvoke_llm [google-gemini]: node=%s response_len=%d", node_name, len(text))
                 return text
-            except Exception as exc2:
-                logger.warning("ainvoke_llm: Real API also failed: %s — falling back to MockLLM", exc2)
+            except Exception as gemini_exc:
+                logger.warning("ainvoke_llm: Google Gemini also failed: %s — trying real LLM APIs", gemini_exc)
+                # Try real_llm.py providers as final API fallback
+                try:
+                    from parwa.utils.real_llm import call_llm_with_failover
+                    from parwa.config import get_all_models_for_node
+                    system_prompt = _NODE_SYSTEM_PROMPTS.get(node_name, "Process this and give a clear, structured response.")
+                    if variant:
+                        system_prompt += f" [Variant: {variant}]"
+                    if complexity:
+                        system_prompt += f" [Complexity: {complexity}]"
+                    actual_max_tokens = max_tokens if max_tokens > 0 else _NODE_MAX_TOKENS.get(node_name, 500)
+                    model_chain = get_all_models_for_node(node_name, variant)
+                    result = await call_llm_with_failover(
+                        model_chain, system_prompt, prompt,
+                        temperature=temperature, max_tokens=actual_max_tokens,
+                    )
+                    text = result.get("content", "")
+                    usage = result.get("usage", {})
+                    _track_response_usage(
+                        ticket_id, node_name, variant, text, model,
+                        prompt_tokens=usage.get("prompt_tokens", 0),
+                        completion_tokens=usage.get("completion_tokens", 0),
+                    )
+                    logger.debug("ainvoke_llm [real-api]: node=%s model=%s response_len=%d", node_name, result.get("model", "?"), len(text))
+                    return text
+                except Exception as exc2:
+                    logger.warning("ainvoke_llm: All APIs failed: %s — falling back to MockLLM", exc2)
 
     # ─── Fallback: MockLLM ───
     mock = get_mock_llm()
@@ -639,33 +986,18 @@ async def ainvoke_llm(
     return text
 
 
-# ─── MockLLM (unchanged) ─────────────────────────────────────────────────────
+# ─── MockLLM ──────────────────────────────────────────────────────────────────
 
 class MockLLM:
     """Mock LLM for testing without API calls.
 
     Returns deterministic responses based on the input prompt.
     Works in both sync and async contexts.
-
-    IMPORTANT: System instructions often contain intent/sentiment keywords
-    (e.g. "refund_request" is listed as a valid intent). To avoid false matches,
-    we split the prompt into system and user parts, and only match keywords
-    in the USER portion (the actual customer message).
     """
 
     @staticmethod
     def _extract_user_message(prompt_str: str) -> str:
-        """Extract the user message from a prompt that may contain system instructions.
-
-        The prompt format from build_safe_prompt() wraps user input in:
-            --- BEGIN CUSTOMER MESSAGE ---
-            <actual message>
-            --- END CUSTOMER MESSAGE ---
-
-        We want to return just the user/customer portion so keyword matching
-        doesn't get confused by keywords in the system instructions.
-        """
-        # Primary: look for BEGIN/END CUSTOMER MESSAGE markers
+        """Extract the user message from a prompt that may contain system instructions."""
         begin_marker = "--- BEGIN CUSTOMER MESSAGE ---"
         end_marker = "--- END CUSTOMER MESSAGE ---"
         begin_idx = prompt_str.find(begin_marker)
@@ -673,16 +1005,13 @@ class MockLLM:
             end_idx = prompt_str.find(end_marker, begin_idx)
             if end_idx >= 0:
                 return prompt_str[begin_idx + len(begin_marker):end_idx].strip()
-            # No end marker — take everything after begin
             return prompt_str[begin_idx + len(begin_marker):].strip()
 
-        # Fallback: look for other common delimiters
         for marker in ["User: ", "Customer Message: ", "\n\nUser: ", "\n\nCustomer Message: "]:
             idx = prompt_str.rfind(marker)
             if idx >= 0:
                 return prompt_str[idx + len(marker):]
 
-        # Last resort: return the whole thing
         return prompt_str
 
     def invoke(self, prompt: str | list, **kwargs: Any) -> str:
@@ -693,14 +1022,10 @@ class MockLLM:
             prompt_str = str(prompt)
 
         prompt_lower = prompt_str.lower()
-
-        # Extract just the user/customer message for keyword matching
-        # to avoid false positives from system instruction keywords
         user_msg = self._extract_user_message(prompt_str).lower()
 
-        # Intent classification — match ONLY on user message content
+        # Intent classification
         if "intent" in prompt_lower and "classify" in prompt_lower:
-            # Check user message for specific intent patterns (most specific first)
             if "cancel" in user_msg or "terminate" in user_msg or "stop order" in user_msg:
                 return "cancellation|0.92"
             if "where is my order" in user_msg or "order status" in user_msg or "tracking" in user_msg or "shipped" in user_msg or "delivery" in user_msg:
@@ -719,16 +1044,14 @@ class MockLLM:
                 return "escalation|0.90"
             if "complaint" in user_msg or "unacceptable" in user_msg or "terrible" in user_msg or "worst" in user_msg:
                 return "complaint|0.88"
-            # If the user message mentions refund but doesn't match specific patterns above
             if "refund" in user_msg:
                 return "refund_request|0.95"
             if "charge" in user_msg or "payment" in user_msg:
                 return "billing_issue|0.85"
             return "general_inquiry|0.75"
 
-        # Sentiment — match ONLY on user message content
+        # Sentiment
         if "sentiment" in prompt_lower or "emotion" in prompt_lower:
-            # Check for anger indicators FIRST (before frustrated)
             if "furious" in user_msg or "outraged" in user_msg or "lawyer" in user_msg or "lawsuit" in user_msg or "attorney" in user_msg or "disgusted" in user_msg or "legal action" in user_msg:
                 return "angry|0.95"
             if "angry" in user_msg or "unacceptable" in user_msg or "ridiculous" in user_msg or "upset" in user_msg or "disappointed" in user_msg or "terrible" in user_msg or "worst" in user_msg or "frustrated" in user_msg:
@@ -737,9 +1060,8 @@ class MockLLM:
                 return "happy|0.80"
             return "neutral|0.30"
 
-        # Escalation — match on full prompt context (system instructions give context)
+        # Escalation
         if "escalat" in prompt_lower:
-            # Check user message for escalation triggers
             if "legal" in user_msg or "attorney" in user_msg or "lawyer" in user_msg or "lawsuit" in user_msg or "sue" in user_msg or "court" in user_msg or "fraud" in user_msg:
                 return "true|legal_threat"
             if "manager" in user_msg or "supervisor" in user_msg or "human agent" in user_msg:
@@ -750,7 +1072,7 @@ class MockLLM:
                 return "true|high_urgency"
             return "false|"
 
-        # FAQ matching — match on user message
+        # FAQ
         if "faq" in prompt_lower:
             if "refund" in user_msg or "charged twice" in user_msg or "money back" in user_msg:
                 return "refund_policy|0.90|Refunds are available within 30 days of purchase for duplicate charges."
@@ -804,7 +1126,6 @@ class MockLLM:
         if "proactive" in prompt_lower or "predict" in prompt_lower or "next" in prompt_lower:
             return "Customer may ask about shipping status next (confidence: 0.80)."
 
-        # Default response
         return "Analysis complete. No specific pattern matched."
 
     async def ainvoke(self, prompt: str | list, **kwargs: Any) -> str:
