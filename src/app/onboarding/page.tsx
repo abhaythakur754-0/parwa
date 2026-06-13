@@ -1,14 +1,13 @@
 /**
  * PARWA Onboarding Page — /onboarding
  *
- * Shows the 7-step onboarding wizard:
- *   1. Industry + Variant Selection
- *   2. Legal compliance
- *   3. Integration setup
- *   4. Knowledge base upload
- *   5. AI configuration
- *   6. Cost breakdown review
- *   7. First Victory celebration
+ * Shows the 6-step onboarding wizard:
+ *   1. Legal compliance
+ *   2. Integration setup
+ *   3. Knowledge base upload
+ *   4. AI configuration
+ *   5. Cost breakdown & checkout
+ *   6. First Victory celebration
  *
  * After completing all steps, the user sees a "First Victory" celebration
  * and is redirected to the dashboard.
@@ -27,10 +26,10 @@ import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard';
 // ── Loading Fallback ──────────────────────────────────────────────────
 function OnboardingLoading() {
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>
       <div className="flex flex-col items-center gap-4">
         <Loader2 className="w-12 h-12 animate-spin text-orange-400" />
-        <p className="text-gray-400 text-sm">Loading onboarding&hellip;</p>
+        <p className="text-orange-200/50 text-sm">Loading onboarding&hellip;</p>
       </div>
     </div>
   );

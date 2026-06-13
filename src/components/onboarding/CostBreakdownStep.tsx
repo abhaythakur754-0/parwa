@@ -186,19 +186,22 @@ function UsageBar({
 function VariantMixerCard({
   tier,
   isActive,
+  quantity,
   onToggle,
+  onQuantityChange,
 }: {
   tier: VariantTier;
   isActive: boolean;
+  quantity: number;
   onToggle: () => void;
+  onQuantityChange: (qty: number) => void;
 }) {
   const info = VARIANT_DISPLAY[tier];
   const limits = VARIANT_LIMITS[tier];
   const aiInfo = VARIANT_AI_INFO[tier];
 
   return (
-    <button
-      onClick={onToggle}
+    <div
       className={cn(
         'w-full text-left p-4 rounded-xl border transition-all duration-200',
         isActive
@@ -210,12 +213,14 @@ function VariantMixerCard({
       <div className="flex items-center justify-between mb-2">
         <div>
           <div className="flex items-center gap-2">
-            <span className={cn(
-              'text-sm font-semibold',
-              isActive ? 'text-orange-400' : 'text-white'
-            )}>
-              {info.name}
-            </span>
+            <button onClick={onToggle} className="focus:outline-none">
+              <span className={cn(
+                'text-sm font-semibold',
+                isActive ? 'text-orange-400' : 'text-white'
+              )}>
+                {info.name}
+              </span>
+            </button>
             {isActive && (
               <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
                 Active
@@ -241,19 +246,35 @@ function VariantMixerCard({
         </div>
       </div>
 
-      <div className={cn(
-        'w-full h-8 rounded-lg flex items-center justify-center gap-1.5 text-xs font-medium transition-all',
-        isActive
-          ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
-          : 'bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] shadow-lg shadow-orange-500/20'
-      )}>
-        {isActive ? (
-          <><Minus className="w-3.5 h-3.5" /> Remove</>
-        ) : (
-          <><Plus className="w-3.5 h-3.5" /> Add Variant</>
-        )}
-      </div>
-    </button>
+      {/* Quantity selector when active, or add button when inactive */}
+      {isActive ? (
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] text-orange-200/30">Qty:</span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onQuantityChange(quantity - 1); }}
+            className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center justify-center text-sm"
+          >−</button>
+          <span className="text-sm font-bold text-white w-6 text-center">{quantity}</span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onQuantityChange(quantity + 1); }}
+            className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center justify-center text-sm"
+          >+</button>
+          <button
+            onClick={onToggle}
+            className="ml-auto px-3 py-1.5 rounded-lg text-[10px] font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all flex items-center gap-1"
+          >
+            <Minus className="w-3 h-3" /> Remove
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={onToggle}
+          className="w-full h-8 rounded-lg flex items-center justify-center gap-1.5 text-xs font-medium transition-all bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] shadow-lg shadow-orange-500/20"
+        >
+          <Plus className="w-3.5 h-3.5" /> Add Variant
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -270,6 +291,7 @@ interface CostBreakdownStepProps {
 export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProps) {
   const initialTier = ONBOARDING_TO_TIER[variant] || 'growth';
   const [activeVariants, setActiveVariants] = useState<VariantTier[]>([initialTier]);
+  const [variantQuantities, setVariantQuantities] = useState<Record<VariantTier, number>>({ starter: 1, growth: 1, high: 1 });
   const [addOns, setAddOns] = useState<{ voice: boolean; customApi: boolean }>({ voice: false, customApi: false });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paddleStatus, setPaddleStatus] = useState<'unknown' | 'ready' | 'unavailable'>('unknown');
@@ -302,13 +324,13 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
   // ── Calculations (pure math — D7, D10) ──────────────────────────────
 
   const totalTicketLimit = useMemo(
-    () => activeVariants.reduce((sum, tier) => sum + VARIANT_LIMITS[tier].monthlyTickets, 0),
-    [activeVariants]
+    () => activeVariants.reduce((sum, tier) => sum + (VARIANT_LIMITS[tier].monthlyTickets * (variantQuantities[tier] || 1)), 0),
+    [activeVariants, variantQuantities]
   );
 
   const baseSubscription = useMemo(
-    () => activeVariants.reduce((sum, tier) => sum + VARIANT_PRICES[tier], 0),
-    [activeVariants]
+    () => activeVariants.reduce((sum, tier) => sum + (VARIANT_PRICES[tier] * (variantQuantities[tier] || 1)), 0),
+    [activeVariants, variantQuantities]
   );
 
   const addOnTotal = useMemo(() => {
@@ -349,6 +371,11 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
     });
   };
 
+  const updateQuantity = (tier: VariantTier, qty: number) => {
+    const newQty = Math.max(1, Math.min(qty, 10));
+    setVariantQuantities((prev) => ({ ...prev, [tier]: newQty }));
+  };
+
   const toggleAddOn = (key: 'voice' | 'customApi') => {
     setAddOns((prev) => ({ ...prev, [key]: !prev[key] }));
   };
@@ -384,12 +411,13 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
       // ── Paddle Checkout Flow ──────────────────────────────────────
       const checkoutItems: Array<{ priceId: string; quantity: number }> = [];
 
-      // Add each active variant as a Paddle line item
+      // Add each active variant as a Paddle line item (with quantity)
       for (const tier of activeVariants) {
         const onboardingVariant = TIER_TO_ONBOARDING[tier];
         const variantPriceId = VARIANT_PRICE_IDS[onboardingVariant];
+        const qty = variantQuantities[tier] || 1;
         if (variantPriceId) {
-          checkoutItems.push({ priceId: variantPriceId, quantity: 1 });
+          checkoutItems.push({ priceId: variantPriceId, quantity: qty });
         }
       }
 
@@ -407,6 +435,7 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
         source: 'parwa_onboarding',
         variant: primaryOnboardingVariant,
         activeVariants: activeVariants.map((t) => TIER_TO_ONBOARDING[t]),
+        variantQuantities,
         addOns,
         industry: context.industry,
         totalMonthly,
@@ -423,6 +452,7 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
           body: JSON.stringify({
             variant: primaryOnboardingVariant,
             activeVariants: activeVariants.map((t) => TIER_TO_ONBOARDING[t]),
+            variantQuantities,
             addOns,
             totalMonthly,
             industry: context.industry,
@@ -463,8 +493,10 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
         }
       }
 
-      // Fallback: No Paddle available — save configuration and proceed
-      toast.success('Configuration saved! Complete payment to activate your plan.');
+      // No Paddle available — save configuration and proceed
+      // User must complete payment later to activate their plan
+      localStorage.setItem('parwa_payment_pending', JSON.stringify({ activeVariants, addOns, totalMonthly, variantQuantities, pendingAt: new Date().toISOString() }));
+      toast.success('Configuration saved! Complete payment to activate your plan. You\'ll be redirected to set up payment from the dashboard.');
       onComplete();
     } catch (err) {
       console.error('[cost-breakdown] Error:', err);
@@ -525,7 +557,9 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
               key={tier}
               tier={tier}
               isActive={activeVariants.includes(tier)}
+              quantity={variantQuantities[tier] || 1}
               onToggle={() => toggleVariant(tier)}
+              onQuantityChange={(qty) => updateQuantity(tier, qty)}
             />
           ))}
         </div>
@@ -641,18 +675,25 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
         style={{ background: 'rgba(255,255,255,0.03)' }}
       >
         {/* Per-variant breakdown */}
-        {activeVariants.map((tier) => (
-          <div key={tier} className="flex items-center justify-between">
-            <span className="text-sm text-orange-200/50 flex items-center gap-1.5">
-              <div className={cn(
-                'w-2 h-2 rounded-full',
-                tier === 'starter' ? 'bg-emerald-400' : tier === 'growth' ? 'bg-orange-400' : 'bg-purple-400'
-              )} />
-              {VARIANT_DISPLAY[tier].name}
-            </span>
-            <span className="text-sm text-white">${VARIANT_PRICES[tier].toLocaleString()}/mo</span>
-          </div>
-        ))}
+        {activeVariants.map((tier) => {
+          const qty = variantQuantities[tier] || 1;
+          return (
+            <div key={tier} className="flex items-center justify-between">
+              <span className="text-sm text-orange-200/50 flex items-center gap-1.5">
+                <div className={cn(
+                  'w-2 h-2 rounded-full',
+                  tier === 'starter' ? 'bg-emerald-400' : tier === 'growth' ? 'bg-orange-400' : 'bg-purple-400'
+                )} />
+                {VARIANT_DISPLAY[tier].name}
+                {qty > 1 && <span className="text-orange-200/30"> × {qty}</span>}
+              </span>
+              <span className="text-sm text-white">
+                ${VARIANT_PRICES[tier].toLocaleString()}/mo
+                {qty > 1 && <span className="text-orange-200/30"> × {qty} = ${(VARIANT_PRICES[tier] * qty).toLocaleString()}/mo</span>}
+              </span>
+            </div>
+          );
+        })}
 
         {/* Add-ons */}
         {addOns.voice && !activeVariants.some((t) => ADD_ONS.find(a => a.key === 'voice')!.includedIn.includes(t)) && (

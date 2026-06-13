@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/api';
 import { voiceApi } from '@/lib/voice-api';
-import { Phone, Settings, Loader2, Sparkles, Key } from 'lucide-react';
+import { Phone, Settings, Loader2, Sparkles, Key, Plug, CheckCircle2, XCircle, TestTube, Trash2, Plus } from 'lucide-react';
 import type { ChannelInfo, ChannelConfig, ChannelType } from '@/types/analytics';
 import type { VoiceChannelConfig, NumberSource } from '@/types/voice';
 import { VoiceConfigCard } from '@/components/dashboard/VoiceConfigCard';
@@ -315,6 +315,9 @@ export default function ChannelsPage() {
             </div>
           </div>
         </div>
+
+        {/* ── Connected Integrations ──────────────────────────────────── */}
+        <ConnectedIntegrations />
       </div>
 
       {/* Voice Config Card (modal) */}
@@ -326,6 +329,181 @@ export default function ChannelsPage() {
           loadVoiceData();
         }}
       />
+    </div>
+  );
+}
+
+// ── Connected Integrations Section ─────────────────────────────────────
+
+interface DashboardIntegration {
+  id: string;
+  name: string;
+  platform: string;
+  authType: string;
+  status: 'active' | 'error' | 'pending';
+  testedAt?: string;
+  testResult?: 'success' | 'failed';
+}
+
+function ConnectedIntegrations() {
+  const [integrations, setIntegrations] = useState<DashboardIntegration[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [testingId, setTestingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch('/api/integrations');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setIntegrations(data.map((i: Record<string, unknown>) => ({
+              id: String(i.id || i.integration_id || ''),
+              name: String(i.name || i.integration_type || ''),
+              platform: String(i.integration_type || i.platform || ''),
+              authType: String(i.auth_type || 'bearer'),
+              status: (i.status as DashboardIntegration['status']) || 'active',
+              testedAt: i.tested_at ? String(i.tested_at) : undefined,
+              testResult: i.test_result as 'success' | 'failed' | undefined,
+            })));
+          }
+        }
+      } catch {
+        // Backend unavailable
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const handleTest = async (integration: DashboardIntegration) => {
+    setTestingId(integration.id);
+    try {
+      const res = await fetch('/api/integrations/test-local', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          integration_type: integration.platform,
+          auth_type: integration.authType,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const success = data.success !== false;
+        setIntegrations((prev) => prev.map((i) =>
+          i.id === integration.id
+            ? { ...i, testResult: success ? 'success' : 'failed', testedAt: new Date().toISOString(), status: success ? 'active' : 'error' }
+            : i
+        ));
+        toast[success ? 'success' : 'error'](success ? `${integration.name} connected!` : `Connection failed — check your credentials`);
+      } else {
+        toast.error('Test failed — server error');
+      }
+    } catch {
+      toast.error('Could not reach server');
+    } finally {
+      setTestingId(null);
+    }
+  };
+
+  const handleRemove = async (id: string) => {
+    try { await fetch(`/api/integrations/${id}`, { method: 'DELETE' }); } catch { /* */ }
+    setIntegrations((prev) => prev.filter((i) => i.id !== id));
+    toast.success('Integration removed');
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="pb-4 border-b border-white/[0.06]">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Plug className="w-5 h-5 text-orange-400" />
+              Connected Integrations
+            </h2>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              Manage your platform API keys and verify connector health from the dashboard.
+            </p>
+          </div>
+          <a
+            href="/dashboard/settings"
+            className="text-xs font-medium text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1.5"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add Integration
+          </a>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-orange-400" />
+        </div>
+      ) : integrations.length === 0 ? (
+        <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-6 text-center">
+          <Plug className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
+          <p className="text-sm text-zinc-400">No integrations connected yet</p>
+          <p className="text-xs text-zinc-600 mt-1">Add integrations during onboarding or from Settings</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {integrations.map((intg) => (
+            <div
+              key={intg.id}
+              className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-4"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-400 flex items-center justify-center shrink-0">
+                    <Plug className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-white">{intg.name}</p>
+                    <p className="text-[10px] text-zinc-600">
+                      {intg.authType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                      {intg.testResult === 'success' && <span className="text-emerald-400"> · Verified</span>}
+                      {intg.testResult === 'failed' && <span className="text-red-400"> · Failed</span>}
+                      {!intg.testResult && <span> · Not tested</span>}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {intg.testResult === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                  {intg.testResult === 'failed' && <XCircle className="w-4 h-4 text-red-400" />}
+                  {!intg.testResult && <div className="w-2 h-2 rounded-full bg-zinc-600" />}
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-white/[0.04]">
+                <span className={cn(
+                  'text-[10px] font-medium',
+                  intg.status === 'active' ? 'text-emerald-400' : intg.status === 'error' ? 'text-red-400' : 'text-zinc-500'
+                )}>
+                  {intg.status === 'active' ? 'Active' : intg.status === 'error' ? 'Error' : 'Pending'}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleTest(intg)}
+                    disabled={testingId === intg.id}
+                    className="text-[10px] font-medium text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1 disabled:opacity-50"
+                  >
+                    {testingId === intg.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <TestTube className="w-3 h-3" />}
+                    Test
+                  </button>
+                  <button
+                    onClick={() => handleRemove(intg.id)}
+                    className="text-[10px] font-medium text-zinc-500 hover:text-red-400 transition-colors flex items-center gap-1"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
