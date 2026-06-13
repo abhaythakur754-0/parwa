@@ -14,25 +14,13 @@ import {
   Plus,
   Minus,
   AlertTriangle,
-  Sparkles,
   Brain,
   BarChart3,
-  Tag,
   Check,
-  X,
-  Ticket,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import { openCheckoutWithItems, getPaddleInstance, VARIANT_PRICE_IDS } from '@/lib/paddle';
-import {
-  validateCoupon,
-  applyCouponDiscount,
-  getPaddleDiscountCode,
-  getPaddleDiscountId,
-  formatDiscount,
-  type Coupon,
-} from '@/lib/coupon-config';
 import type { ParwaVariant } from './IndustryVariantStep';
 import type { PricingContext } from './IndustryVariantStep';
 import {
@@ -46,7 +34,6 @@ import {
   OVERAGE_PRICE_PER_TICKET,
   normalizeTier,
   type VariantTier,
-  type OnboardingVariant,
 } from '@/lib/pricing-config';
 
 // ── Onboarding variant → VariantTier mapping ────────────────────────
@@ -130,7 +117,7 @@ const ADD_ONS: AddOn[] = [
   },
 ];
 
-// ── Savings Calculation (uses AGENT_COST_MONTHLY from pricing-config) ──
+// ── Savings Calculation ──────────────────────────────────────────────────
 
 function estimateSavings(ticketVolume: number, monthlyCost: number): {
   agentsReplaced: number;
@@ -145,54 +132,6 @@ function estimateSavings(ticketVolume: number, monthlyCost: number): {
   return { agentsReplaced, humanCost, savings, savingsPercent };
 }
 
-// ── Usage Bar Component ────────────────────────────────────────────────
-
-function UsageBar({
-  used,
-  total,
-  label,
-  unit,
-  overageRate,
-}: {
-  used: number;
-  total: number;
-  label: string;
-  unit: string;
-  overageRate?: string;
-}) {
-  const pct = total > 0 ? Math.min((used / total) * 100, 100) : 0;
-  const isOverLimit = used > total;
-
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] text-orange-200/40">{label}</span>
-        <span className={cn(
-          'text-[10px] font-medium',
-          isOverLimit ? 'text-red-400' : 'text-orange-200/50'
-        )}>
-          {used.toLocaleString()} / {total.toLocaleString()} {unit}
-        </span>
-      </div>
-      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-        <div
-          className={cn(
-            'h-full rounded-full transition-all duration-700',
-            isOverLimit ? 'bg-gradient-to-r from-red-500 to-red-400' : 'bg-gradient-to-r from-emerald-500 to-emerald-400'
-          )}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      {isOverLimit && overageRate && (
-        <p className="text-[9px] text-red-400 flex items-center gap-1">
-          <AlertTriangle className="w-2.5 h-2.5" />
-          Over limit — {(used - total).toLocaleString()} overage at {overageRate}/ticket
-        </p>
-      )}
-    </div>
-  );
-}
-
 // ── Variant Mixer Card ─────────────────────────────────────────────────
 
 function VariantMixerCard({
@@ -201,20 +140,16 @@ function VariantMixerCard({
   quantity,
   onToggle,
   onQuantityChange,
-  discountedPrice,
 }: {
   tier: VariantTier;
   isActive: boolean;
   quantity: number;
   onToggle: () => void;
   onQuantityChange: (qty: number) => void;
-  discountedPrice?: number;
 }) {
   const info = VARIANT_DISPLAY[tier];
   const limits = VARIANT_LIMITS[tier];
   const aiInfo = VARIANT_AI_INFO[tier];
-  const displayPrice = discountedPrice !== undefined ? discountedPrice : info.price;
-  const isFree = displayPrice === 0;
 
   return (
     <div
@@ -242,21 +177,10 @@ function VariantMixerCard({
                 Active
               </span>
             )}
-            {isActive && isFree && (
-              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400">
-                FREE
-              </span>
-            )}
           </div>
         </div>
-        <span className={cn(
-          'text-base font-bold',
-          isFree ? 'text-emerald-400' : 'text-white'
-        )}>
-          {isFree ? '$0/mo' : `$${displayPrice.toLocaleString()}/mo`}
-          {isFree && discountedPrice !== undefined && discountedPrice !== info.price && (
-            <span className="text-[10px] text-orange-200/25 line-through ml-1">${info.price.toLocaleString()}</span>
-          )}
+        <span className="text-base font-bold text-white">
+          ${info.price.toLocaleString()}/mo
         </span>
       </div>
 
@@ -307,141 +231,6 @@ function VariantMixerCard({
   );
 }
 
-// ── Coupon Code Input Component ──────────────────────────────────────
-
-function CouponCodeInput({
-  appliedCoupon,
-  onApply,
-  onRemove,
-}: {
-  appliedCoupon: Coupon | null;
-  onApply: (coupon: Coupon) => void;
-  onRemove: () => void;
-}) {
-  const [code, setCode] = useState('');
-  const [isValidating, setIsValidating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleApply = () => {
-    if (!code.trim()) return;
-    setIsValidating(true);
-    setError(null);
-
-    // Simulate brief validation delay
-    setTimeout(() => {
-      const coupon = validateCoupon(code);
-      if (coupon) {
-        onApply(coupon);
-        toast.success(`Coupon applied: ${formatDiscount(coupon)}`);
-      } else {
-        setError('Invalid coupon code. Please check and try again.');
-        toast.error('Invalid coupon code');
-      }
-      setIsValidating(false);
-    }, 300);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleApply();
-    }
-  };
-
-  if (appliedCoupon) {
-    return (
-      <div className="rounded-xl border border-emerald-500/30 p-4" style={{ background: 'rgba(16,185,129,0.06)' }}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
-              <Ticket className="w-4 h-4 text-emerald-400" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-emerald-400">
-                  {appliedCoupon.code}
-                </span>
-                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
-                  {formatDiscount(appliedCoupon)}
-                </span>
-              </div>
-              <p className="text-[10px] text-orange-200/30 mt-0.5">
-                {appliedCoupon.description}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onRemove}
-            className="p-1.5 rounded-lg hover:bg-white/[0.06] text-orange-200/30 hover:text-red-400 transition-all"
-            title="Remove coupon"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        {appliedCoupon.discountPercent === 100 && (
-          <div className="mt-3 flex items-start gap-2 rounded-lg p-2.5" style={{ background: 'rgba(16,185,129,0.08)' }}>
-            <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-[10px] font-medium text-emerald-300">
-                Free checkout — $0.00 total
-              </p>
-              <p className="text-[9px] text-orange-200/25 mt-0.5">
-                Paddle will process a $0 transaction. Your subscription will be activated after confirmation.
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-xl border border-white/[0.08] p-4 space-y-3" style={{ background: 'rgba(255,255,255,0.03)' }}>
-      <div className="flex items-center gap-2">
-        <Tag className="w-4 h-4 text-orange-400" />
-        <span className="text-xs text-orange-200/50 uppercase tracking-wider font-medium">
-          Have a coupon code?
-        </span>
-      </div>
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={code}
-          onChange={(e) => {
-            setCode(e.target.value.toUpperCase());
-            setError(null);
-          }}
-          onKeyDown={handleKeyDown}
-          placeholder="Enter coupon code"
-          className={cn(
-            'flex-1 h-10 rounded-lg bg-white/[0.04] border px-3 text-sm text-white placeholder-orange-200/20',
-            'focus:outline-none focus:border-orange-500/50 transition-all',
-            error ? 'border-red-500/40' : 'border-white/[0.08]'
-          )}
-        />
-        <button
-          onClick={handleApply}
-          disabled={!code.trim() || isValidating}
-          className="h-10 px-4 rounded-lg bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] text-xs font-semibold hover:from-orange-400 hover:to-amber-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
-        >
-          {isValidating ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <Check className="w-3.5 h-3.5" />
-          )}
-          Apply
-        </button>
-      </div>
-      {error && (
-        <p className="text-[10px] text-red-400 flex items-center gap-1">
-          <AlertCircle className="w-3 h-3" />
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
 // ── Props ──────────────────────────────────────────────────────────────
 
 interface CostBreakdownStepProps {
@@ -460,7 +249,6 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paddleStatus, setPaddleStatus] = useState<'unknown' | 'ready' | 'unavailable'>('unknown');
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
-  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
 
   // Restore add-ons and multi-variant selections from localStorage
@@ -475,7 +263,7 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
         if (ctx.addOns) {
           setAddOns(ctx.addOns);
         }
-        // Restore multiple variants if selected on ModelsPage
+        // Restore multiple variants if selected on Pricing page
         if (ctx.selectedVariants && Array.isArray(ctx.selectedVariants) && ctx.selectedVariants.length > 0) {
           const tiers: VariantTier[] = ctx.selectedVariants
             .map((v: string) => {
@@ -514,7 +302,7 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
     });
   }, []);
 
-  // ── Calculations (pure math — D7, D10) ──────────────────────────────
+  // ── Calculations ──────────────────────────────────────────────────
 
   const totalTicketLimit = useMemo(
     () => activeVariants.reduce((sum, tier) => sum + (VARIANT_LIMITS[tier].monthlyTickets * (variantQuantities[tier] || 1)), 0),
@@ -545,29 +333,7 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
 
   const totalMonthly = baseSubscription + addOnTotal;
 
-  // ── Coupon-discounted total ──────────────────────────────────────
-  const discountedTotal = useMemo(
-    () => applyCouponDiscount(totalMonthly, appliedCoupon),
-    [totalMonthly, appliedCoupon]
-  );
-  const isFreeCheckout = discountedTotal === 0;
-
-  // Per-variant discounted prices
-  const variantDiscountedPrices = useMemo(() => {
-    const prices: Record<VariantTier, number> = { starter: 0, growth: 0, high: 0 };
-    for (const tier of activeVariants) {
-      const variantPrice = VARIANT_PRICES[tier] * (variantQuantities[tier] || 1);
-      prices[tier] = applyCouponDiscount(variantPrice, appliedCoupon);
-    }
-    return prices;
-  }, [activeVariants, variantQuantities, appliedCoupon]);
-
-  const savings = estimateSavings(totalTicketLimit, discountedTotal);
-
-  // Overage projection (estimates at 80% utilization)
-  const projectedTickets = Math.round(totalTicketLimit * 0.8);
-  const overageTickets = Math.max(0, projectedTickets - totalTicketLimit);
-  const overageCost = overageTickets * OVERAGE_PRICE_PER_TICKET;
+  const savings = estimateSavings(totalTicketLimit, totalMonthly);
 
   const toggleVariant = (tier: VariantTier) => {
     setActiveVariants((prev) => {
@@ -591,25 +357,11 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
     setAddOns((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleApplyCoupon = (coupon: Coupon) => {
-    setAppliedCoupon(coupon);
-    setCheckoutError(null);
-  };
-
-  const handleRemoveCoupon = () => {
-    setAppliedCoupon(null);
-    toast('Coupon removed');
-  };
-
   // ── Payment success handler — ONLY called after Paddle confirms ──
   const handlePaymentSuccess = () => {
     setPaymentConfirmed(true);
     localStorage.removeItem('parwa_payment_pending');
-    if (isFreeCheckout) {
-      toast.success('Subscription activated! Welcome to PARWA!');
-    } else {
-      toast.success('Payment successful! Welcome to PARWA!');
-    }
+    toast.success('Payment successful! Welcome to PARWA!');
     // Only trigger onboarding completion AFTER Paddle confirms
     onComplete();
   };
@@ -673,14 +425,7 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
         addOns,
         industry: context.industry,
         totalMonthly,
-        couponCode: appliedCoupon?.code || null,
-        discountedTotal,
-        isFreeCheckout,
       };
-
-      // Get Paddle discount code/ID if a coupon is applied
-      const paddleDiscountCode = getPaddleDiscountCode(appliedCoupon);
-      const paddleDiscountId = getPaddleDiscountId(appliedCoupon);
 
       // ── Step 1: Try server-side checkout (backend creates Paddle transaction) ──
       let checkoutUrl: string | null = null;
@@ -696,11 +441,6 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
             addOns,
             totalMonthly,
             industry: context.industry,
-            couponCode: appliedCoupon?.code || null,
-            discountCode: paddleDiscountCode,
-            discountId: paddleDiscountId,
-            discountedTotal,
-            isFreeCheckout,
           }),
         });
 
@@ -716,7 +456,6 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
       if (checkoutUrl) {
         localStorage.setItem('parwa_payment_pending', JSON.stringify({
           activeVariants, addOns, totalMonthly, variantQuantities,
-          couponCode: appliedCoupon?.code || null,
           pendingAt: new Date().toISOString(),
         }));
         window.location.href = checkoutUrl;
@@ -724,7 +463,6 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
       }
 
       // ── Step 2: Client-side Paddle checkout (items-based overlay) ──
-      // Re-check Paddle availability (might have loaded since initial check)
       const paddle = await getPaddleInstance();
 
       if (paddle && checkoutItems.length > 0) {
@@ -739,9 +477,6 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
             toast('Checkout closed — payment is required to activate your plan.', { icon: '⚠️' });
             setIsSubmitting(false);
           },
-          // Pass Paddle discount code/ID for pre-applied discounts
-          paddleDiscountCode,
-          paddleDiscountId,
         );
 
         if (opened) {
@@ -750,7 +485,6 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
       }
 
       // ── Step 3: Paddle unavailable — try re-initializing ──
-      // Sometimes Paddle fails on first load but works on retry
       try {
         const retryPaddle = await getPaddleInstance();
         if (retryPaddle && checkoutItems.length > 0) {
@@ -763,8 +497,6 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
               toast('Checkout closed — payment is required to activate your plan.', { icon: '⚠️' });
               setIsSubmitting(false);
             },
-            paddleDiscountCode,
-            paddleDiscountId,
           );
           if (opened) return;
         }
@@ -772,30 +504,17 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
         // Paddle truly unavailable
       }
 
-      // ── Step 4: Paddle unavailable — handle based on checkout type ──
+      // ── Step 4: Paddle unavailable — block with error ──
       setPaddleStatus('unavailable');
       localStorage.setItem('parwa_payment_pending', JSON.stringify({
         activeVariants, addOns, totalMonthly, variantQuantities,
-        couponCode: appliedCoupon?.code || null,
         pendingAt: new Date().toISOString(),
       }));
-
-      if (isFreeCheckout) {
-        // $0 checkout (100% coupon) — Paddle gateway is unavailable but the total is $0.
-        // We still want to confirm the subscription through Paddle if possible, but if
-        // Paddle is down, we can safely activate the free subscription since no money
-        // is changing hands. The user applied a valid 100% coupon (e.g. "durga754").
-        console.log('[cost-breakdown] Free checkout ($0) with Paddle unavailable — activating subscription');
-        toast.success('Free plan activated! Welcome to PARWA!');
-        handlePaymentSuccess();
-      } else {
-        // Paid checkout — payment gateway is REQUIRED. Block and show error.
-        setCheckoutError(
-          'Payment gateway is currently unavailable. Your plan configuration has been saved. ' +
-          'Please refresh the page and try again, or contact support@parwa.buzz to complete your subscription.'
-        );
-        toast.error('Payment gateway unavailable — please try again or contact support.');
-      }
+      setCheckoutError(
+        'Payment gateway is currently unavailable. Your plan configuration has been saved. ' +
+        'Please refresh the page and try again, or contact support@parwa.buzz to complete your subscription.'
+      );
+      toast.error('Payment gateway unavailable — please try again or contact support.');
     } catch (err) {
       console.error('[cost-breakdown] Error:', err);
       setCheckoutError('Something went wrong. Please try again.');
@@ -858,47 +577,12 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
               quantity={variantQuantities[tier] || 1}
               onToggle={() => toggleVariant(tier)}
               onQuantityChange={(qty) => updateQuantity(tier, qty)}
-              discountedPrice={activeVariants.includes(tier) ? variantDiscountedPrices[tier] : undefined}
             />
           ))}
         </div>
       </div>
 
-      {/* ── 2. Live Usage Bar & Overage Projection ──────────────────── */}
-      <div className="rounded-xl border border-white/[0.06] p-4 space-y-4" style={{ background: 'rgba(255,255,255,0.03)' }}>
-        <div className="flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-orange-400" />
-          <span className="text-xs text-orange-200/50 uppercase tracking-wider font-medium">
-            Live Usage & Overage Projection
-          </span>
-        </div>
-        <UsageBar
-          used={projectedTickets}
-          total={totalTicketLimit}
-          label="Ticket Usage (projected at 80%)"
-          unit="tickets"
-          overageRate={`$${OVERAGE_PRICE_PER_TICKET}`}
-        />
-        {overageCost > 0 && (
-          <div className="rounded-lg border border-red-500/20 p-3 flex items-start gap-2" style={{ background: 'rgba(239,68,68,0.05)' }}>
-            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-xs font-medium text-red-400">Overage Projected</p>
-              <p className="text-[10px] text-orange-200/30 mt-0.5">
-                At 80% utilization, projected overage: ${overageCost.toFixed(2)} ({overageTickets.toLocaleString()} tickets × ${OVERAGE_PRICE_PER_TICKET}/ticket). Overage charged at end of billing cycle.
-              </p>
-            </div>
-          </div>
-        )}
-        {overageCost === 0 && (
-          <div className="rounded-lg border border-emerald-500/20 p-3 flex items-center gap-2" style={{ background: 'rgba(16,185,129,0.04)' }}>
-            <Shield className="w-3.5 h-3.5 text-emerald-400" />
-            <p className="text-[10px] text-emerald-400">Within limits at projected usage. No overage charges.</p>
-          </div>
-        )}
-      </div>
-
-      {/* ── 3. Add-Ons ───────────────────────────────────────────────── */}
+      {/* ── 2. Add-Ons ───────────────────────────────────────────────── */}
       <div className="space-y-3">
         <label className="text-xs text-orange-200/40 uppercase tracking-wider font-medium">
           Optional Add-Ons
@@ -949,11 +633,8 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
               </div>
               <div className="flex flex-col items-end shrink-0 gap-1">
                 {showPrice && (
-                  <p className={cn(
-                    'text-sm font-semibold',
-                    isFreeCheckout ? 'text-emerald-400' : 'text-white'
-                  )}>
-                    {isFreeCheckout ? '$0/mo' : `$${addOn.price}/mo`}
+                  <p className="text-sm font-semibold text-white">
+                    ${addOn.price}/mo
                   </p>
                 )}
                 <div className={cn(
@@ -973,14 +654,7 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
         })}
       </div>
 
-      {/* ── 4. Coupon Code ─────────────────────────────────────────────── */}
-      <CouponCodeInput
-        appliedCoupon={appliedCoupon}
-        onApply={handleApplyCoupon}
-        onRemove={handleRemoveCoupon}
-      />
-
-      {/* ── 5. Cost Summary (pure math — D7) ──────────────────────────── */}
+      {/* ── 3. Cost Summary ────────────────────────────────────────────── */}
       <div
         className="rounded-xl border border-white/[0.08] p-5 space-y-3"
         style={{ background: 'rgba(255,255,255,0.03)' }}
@@ -988,9 +662,7 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
         {/* Per-variant breakdown */}
         {activeVariants.map((tier) => {
           const qty = variantQuantities[tier] || 1;
-          const discounted = variantDiscountedPrices[tier];
-          const originalPrice = VARIANT_PRICES[tier] * qty;
-          const hasDiscount = discounted < originalPrice;
+          const price = VARIANT_PRICES[tier] * qty;
 
           return (
             <div key={tier} className="flex items-center justify-between">
@@ -1002,16 +674,8 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
                 {VARIANT_DISPLAY[tier].name}
                 {qty > 1 && <span className="text-orange-200/30"> × {qty}</span>}
               </span>
-              <span className={cn(
-                'text-sm',
-                hasDiscount ? 'text-emerald-400' : 'text-white'
-              )}>
-                {hasDiscount && (
-                  <span className="text-orange-200/25 line-through mr-1.5">
-                    ${originalPrice.toLocaleString()}/mo
-                  </span>
-                )}
-                ${discounted.toLocaleString()}/mo
+              <span className="text-sm text-white">
+                ${price.toLocaleString()}/mo
               </span>
             </div>
           );
@@ -1021,66 +685,26 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
         {addOns.voice && !activeVariants.some((t) => ADD_ONS.find(a => a.key === 'voice')!.includedIn.includes(t)) && (
           <div className="flex items-center justify-between">
             <span className="text-sm text-orange-200/50">Voice Channel</span>
-            <span className={cn(
-              'text-sm',
-              isFreeCheckout ? 'text-emerald-400' : 'text-white'
-            )}>
-              {isFreeCheckout ? (
-                <><span className="text-orange-200/25 line-through mr-1.5">$199/mo</span>$0/mo</>
-              ) : '$199/mo'}
-            </span>
+            <span className="text-sm text-white">$199/mo</span>
           </div>
         )}
         {addOns.customApi && !activeVariants.some((t) => ADD_ONS.find(a => a.key === 'customApi')!.includedIn.includes(t)) && (
           <div className="flex items-center justify-between">
             <span className="text-sm text-orange-200/50">Custom API Connector</span>
-            <span className={cn(
-              'text-sm',
-              isFreeCheckout ? 'text-emerald-400' : 'text-white'
-            )}>
-              {isFreeCheckout ? (
-                <><span className="text-orange-200/25 line-through mr-1.5">$49/mo</span>$0/mo</>
-              ) : '$49/mo'}
-            </span>
+            <span className="text-sm text-white">$49/mo</span>
           </div>
         )}
 
-        {/* Integrations = $0 (D13) */}
+        {/* Integrations = $0 */}
         <div className="flex items-center justify-between">
           <span className="text-sm text-orange-200/50">Integrations</span>
           <span className="text-sm text-emerald-400">$0 (free)</span>
         </div>
 
-        {/* Coupon discount line */}
-        {appliedCoupon && discountedTotal < totalMonthly && (
-          <div className="flex items-center justify-between py-1">
-            <span className="text-sm text-emerald-400 flex items-center gap-1.5">
-              <Tag className="w-3 h-3" />
-              Coupon: {appliedCoupon.code} ({formatDiscount(appliedCoupon)})
-            </span>
-            <span className="text-sm text-emerald-400 font-medium">
-              −${(totalMonthly - discountedTotal).toLocaleString()}/mo
-            </span>
-          </div>
-        )}
-
-        <div className={cn(
-          'border-t pt-3 flex items-center justify-between',
-          isFreeCheckout ? 'border-emerald-500/20' : 'border-white/[0.06]'
-        )}>
+        <div className="border-t border-white/[0.06] pt-3 flex items-center justify-between">
           <span className="text-sm font-semibold text-white">Total Monthly</span>
-          <span className={cn(
-            'text-lg font-bold',
-            isFreeCheckout ? 'text-emerald-400' : 'text-orange-400'
-          )}>
-            {isFreeCheckout ? (
-              <>
-                <span className="text-orange-200/25 line-through text-sm mr-2">${totalMonthly.toLocaleString()}/mo</span>
-                $0/mo
-              </>
-            ) : (
-              `$${discountedTotal.toLocaleString()}/mo`
-            )}
+          <span className="text-lg font-bold text-orange-400">
+            ${totalMonthly.toLocaleString()}/mo
           </span>
         </div>
 
@@ -1091,7 +715,7 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
         </div>
       </div>
 
-      {/* ── 6. Savings Comparison (D10 — reuse ROI Calculator logic) ──── */}
+      {/* ── 4. Savings Comparison ──────────────────────────────────────── */}
       <div
         className="rounded-xl border border-emerald-500/20 p-4"
         style={{ background: 'rgba(16,185,129,0.04)' }}
@@ -1107,13 +731,13 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
             <p className="text-[10px] text-orange-200/30 mt-1">
               PARWA handles {totalTicketLimit.toLocaleString()} tickets/mo — equivalent to{' '}
               {savings.agentsReplaced} full-time support agent{savings.agentsReplaced > 1 ? 's' : ''} at ~${AGENT_COST_MONTHLY.toLocaleString()}/mo each.
-              That&apos;s ${savings.humanCost.toLocaleString()}/mo in human costs vs ${discountedTotal.toLocaleString()}/mo with PARWA.
+              That&apos;s ${savings.humanCost.toLocaleString()}/mo in human costs vs ${totalMonthly.toLocaleString()}/mo with PARWA.
             </p>
           </div>
         </div>
       </div>
 
-      {/* ── No Hidden Fees (D13) ──────────────────────────────────────── */}
+      {/* ── No Hidden Fees ─────────────────────────────────────────────── */}
       <div className="flex items-center justify-center gap-2 text-[10px] text-orange-200/25">
         <Shield className="w-3 h-3" />
         <span>No hidden fees. Need more? Add another variant.</span>
@@ -1147,9 +771,7 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
           disabled={isSubmitting || paymentConfirmed}
           className={cn(
             'px-8 py-3 font-semibold rounded-xl transition-all duration-300 shadow-lg text-sm flex items-center gap-2 disabled:cursor-not-allowed',
-            isFreeCheckout
-              ? 'bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-[#1A1A1A] shadow-emerald-500/25'
-              : 'bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-400 hover:to-amber-300 text-[#1A1A1A] shadow-orange-500/25',
+            'bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-400 hover:to-amber-300 text-[#1A1A1A] shadow-orange-500/25',
             (isSubmitting || paymentConfirmed) && 'opacity-60'
           )}
         >
@@ -1163,15 +785,9 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
               <Shield className="w-4 h-4" />
               Activated — Redirecting...
             </>
-          ) : isFreeCheckout ? (
-            <>
-              <Sparkles className="w-4 h-4" />
-              Activate Free Plan ($0/mo)
-              <ArrowRight className="w-4 h-4" />
-            </>
           ) : (
             <>
-              Pay ${discountedTotal.toLocaleString()}/mo & Activate
+              Pay ${totalMonthly.toLocaleString()}/mo & Activate
               <ArrowRight className="w-4 h-4" />
             </>
           )}

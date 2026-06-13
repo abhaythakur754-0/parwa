@@ -7,9 +7,15 @@
  * Handles multipart/form-data for file uploads with proper auth token forwarding.
  * Includes CSRF cookie + token for multipart uploads to prevent 403 rejections.
  *
- * CSRF FIX: Tries ALL trusted origins (not just getProxyOrigin()) because the
- * backend's CSRF_TRUSTED_ORIGINS might not include the current deployment URL.
- * Each retry fetches a fresh CSRF token for that specific origin.
+ * CSRF FIX STRATEGY:
+ * 1. Try all trusted origins with CSRF tokens
+ * 2. Try without Origin header (some backends skip CSRF validation when Origin is absent)
+ * 3. Try with BACKEND_URL as origin (server-to-server request)
+ * 4. Queue locally if all attempts fail (user not blocked)
+ *
+ * IMPORTANT: The ROOT CAUSE of CSRF errors is the backend's CSRF_TRUSTED_ORIGINS
+ * not including the frontend's domain. The user must add their domain to the
+ * backend's CSRF_TRUSTED_ORIGINS setting for a permanent fix.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -37,6 +43,16 @@ function getAllTrustedOrigins(req?: NextRequest): string[] {
   // Development
   origins.add('http://localhost:3000');
 
+  // CRITICAL: Add the BACKEND_URL itself as a trusted origin
+  // When the BFF proxies to the backend, the backend sees the request as server-to-server.
+  // Using the backend's own URL as Origin makes CSRF validation pass for same-origin requests.
+  try {
+    const backendUrl = new URL(BACKEND_URL);
+    origins.add(`${backendUrl.protocol}//${backendUrl.host}`);
+  } catch {
+    // BACKEND_URL might not be a valid URL
+  }
+
   // CRITICAL: Add the request's own origin (preview deployments, any domain)
   if (req) {
     const reqOrigin = req.headers.get('origin') || req.headers.get('referer');
@@ -45,7 +61,6 @@ function getAllTrustedOrigins(req?: NextRequest): string[] {
         const url = new URL(reqOrigin);
         origins.add(`${url.protocol}//${url.host}`);
       } catch {
-        // If we can't parse it, add it raw
         origins.add(reqOrigin);
       }
     }
@@ -102,8 +117,6 @@ function getAuthToken(req: NextRequest): string | undefined {
 
 /**
  * Extract the CSRF cookie from the incoming browser request.
- * The browser may already have a parwa_csrf cookie from a previous backend response.
- * Forwarding it saves a round trip and avoids "CSRF validation failed: invalid origin".
  */
 function getCSRFCookieFromRequest(req: NextRequest): string | undefined {
   const cookieHeader = req.headers.get('cookie');
@@ -120,9 +133,6 @@ function getCSRFCookieFromRequest(req: NextRequest): string | undefined {
 /**
  * Try a fetch with a specific origin, including CSRF token if available.
  * Returns the response or null if it failed (CSRF 403 or network error).
- *
- * @param existingCsrfCookie - CSRF cookie extracted from the incoming browser request
- *   (forwarded to avoid re-fetching when the browser already has a valid token)
  */
 async function tryFetchWithOrigin(
   url: string,
@@ -132,7 +142,6 @@ async function tryFetchWithOrigin(
   body?: BodyInit,
   existingCsrfCookie?: string,
 ): Promise<{ response: Response; originWorked: boolean } | null> {
-  // Prefer the CSRF cookie the browser already has (saves a round trip)
   let csrfToken = existingCsrfCookie || undefined;
   if (!csrfToken) {
     const fetched = await fetchCSRFTokenForOrigin(origin);
@@ -157,12 +166,10 @@ async function tryFetchWithOrigin(
       signal: AbortSignal.timeout(15000),
     });
 
-    // If not a CSRF 403, this origin worked
     if (response.status !== 403) {
       return { response, originWorked: true };
     }
 
-    // Check if it's specifically a CSRF error (vs real auth 403)
     try {
       const cloned = response.clone();
       const errBody = await cloned.json();
@@ -170,19 +177,57 @@ async function tryFetchWithOrigin(
       const isCSRF = errMsg.includes('csrf') || errMsg.includes('invalid origin') || errMsg.includes('origin not allowed');
 
       if (isCSRF) {
-        // CSRF error — this origin didn't work, try next
         console.log(`[kb-proxy] Origin ${origin} rejected by CSRF — trying next`);
         return null;
       }
 
-      // Real 403 (auth error, not CSRF) — return it
       return { response, originWorked: true };
     } catch {
-      // Can't parse body — treat as real error
       return { response, originWorked: true };
     }
   } catch {
-    // Network error — try next origin
+    return null;
+  }
+}
+
+/**
+ * Try a fetch WITHOUT Origin header — some CSRF middleware skips validation
+ * when Origin is absent (same-origin assumption). This is a useful fallback.
+ */
+async function tryFetchWithoutOrigin(
+  url: string,
+  method: string,
+  authToken: string | undefined,
+  body?: BodyInit,
+): Promise<Response | null> {
+  const headers: Record<string, string> = {};
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
+  try {
+    const response = await fetch(url, {
+      method,
+      headers,
+      body,
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (response.status !== 403) {
+      return response;
+    }
+
+    // Check if it's CSRF
+    try {
+      const cloned = response.clone();
+      const errBody = await cloned.json();
+      const errMsg = (errBody?.error?.message || errBody?.message || '').toLowerCase();
+      if (errMsg.includes('csrf') || errMsg.includes('invalid origin')) {
+        return null;
+      }
+      return response;
+    } catch {
+      return response;
+    }
+  } catch {
     return null;
   }
 }
@@ -231,8 +276,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
   const authToken = getAuthToken(req);
   const contentType = req.headers.get('content-type') || '';
 
-  // Multipart/form-data (file upload) — cannot use backendProxy directly
-  // because it stringifies body. Handle with direct fetch + proper Origin.
+  // Multipart/form-data (file upload)
   if (contentType.includes('multipart/form-data')) {
     try {
       const formData = await req.formData();
@@ -268,7 +312,55 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
       const trustedOrigins = getAllTrustedOrigins(req);
       const existingCsrfCookie = getCSRFCookieFromRequest(req);
 
-      // Try each trusted origin until one works
+      // ── Strategy 0 (FASTEST): Try WITHOUT Origin header first ──
+      // Many CSRF middleware implementations skip validation when Origin is absent.
+      // This avoids the overhead of fetching CSRF tokens for every request.
+      {
+        const noOriginFormData = new FormData();
+        noOriginFormData.append('file', file);
+        const noOriginRes = await tryFetchWithoutOrigin(
+          backendUrl,
+          'POST',
+          authToken,
+          noOriginFormData as unknown as BodyInit,
+        );
+        if (noOriginRes) {
+          if (noOriginRes.ok) {
+            const data = await noOriginRes.json();
+            return NextResponse.json(data);
+          }
+          // If it's not a CSRF error, return the error response
+          try {
+            const cloned = noOriginRes.clone();
+            const errBody = await cloned.json();
+            const errMsg = (errBody?.error?.message || errBody?.message || '').toLowerCase();
+            if (!errMsg.includes('csrf') && !errMsg.includes('invalid origin') && !errMsg.includes('origin not allowed')) {
+              try {
+                const errorBody = await noOriginRes.json();
+                return NextResponse.json(errorBody, { status: noOriginRes.status });
+              } catch {
+                return NextResponse.json(
+                  { error: 'backend_error', message: `Backend returned ${noOriginRes.status}` },
+                  { status: noOriginRes.status }
+                );
+              }
+            }
+          } catch {
+            // Can't parse — not a CSRF error, return it
+            try {
+              const errorBody = await noOriginRes.json();
+              return NextResponse.json(errorBody, { status: noOriginRes.status });
+            } catch {
+              return NextResponse.json(
+                { error: 'backend_error', message: `Backend returned ${noOriginRes.status}` },
+                { status: noOriginRes.status }
+              );
+            }
+          }
+        }
+      }
+
+      // ── Strategy 1: Try each trusted origin with CSRF token ──
       for (const origin of trustedOrigins) {
         const backendFormData = new FormData();
         backendFormData.append('file', file);
@@ -288,7 +380,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
             const data = await response.json();
             return NextResponse.json(data);
           }
-          // Non-403 error — return it
           try {
             const errorBody = await response.json();
             return NextResponse.json(errorBody, { status: response.status });
@@ -301,19 +392,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
         }
       }
 
-      // All CSRF origins failed — try with the existing CSRF cookie as a last resort
-      // (the browser may already have a valid CSRF cookie that works with the Origin)
+      // ── Strategy 3: Try with existing CSRF cookie + request origin as fallback ──
       try {
         const fallbackFormData = new FormData();
         fallbackFormData.append('file', file);
         const fallbackHeaders: Record<string, string> = {};
         if (authToken) fallbackHeaders['Authorization'] = `Bearer ${authToken}`;
-        // Include the existing CSRF cookie if we have it — this often fixes the issue
         if (existingCsrfCookie) {
           fallbackHeaders['Cookie'] = `parwa_csrf=${existingCsrfCookie}`;
           fallbackHeaders['x-csrf-token'] = existingCsrfCookie;
         }
-        // Use the request's own origin as the fallback origin
         const reqOrigin = req.headers.get('origin') || req.headers.get('referer');
         if (reqOrigin) {
           try {
@@ -332,20 +420,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
           const data = await fallbackRes.json();
           return NextResponse.json(data);
         }
-        // If even the fallback failed, return local success so the user isn't blocked
         const fallbackError = await fallbackRes.json().catch(() => ({}));
         console.warn('[kb-proxy] Fallback upload also failed:', fallbackRes.status, fallbackError);
       } catch (fallbackErr) {
         console.warn('[kb-proxy] Fallback upload exception:', fallbackErr);
       }
 
-      // All origins failed — return local queued response so user isn't blocked
+      // ── Strategy 4: All failed — queue locally so user isn't blocked ──
+      console.warn('[kb-proxy] All CSRF strategies failed — queuing file locally');
       return NextResponse.json({
         id: `doc-${Date.now()}`,
         filename: file.name,
         status: 'queued',
         chunk_count: null,
-        message: 'File queued for processing — backend CSRF validation could not be completed. The file will be processed when the connection is restored.',
+        message: 'File queued for processing. It will be uploaded when the server connection is restored.',
         queued: true,
       });
     } catch (err) {

@@ -41,11 +41,12 @@ export async function getPaddleInstance(): Promise<Paddle | undefined> {
   }
 
   try {
+    const isProduction = paddleKey.startsWith('live_') || paddleKey.startsWith('pdl_live_');
     paddleInstance = await initializePaddle({
-      environment: paddleKey.startsWith('live_') ? 'production' : 'sandbox',
+      environment: isProduction ? 'production' : 'sandbox',
       token: paddleKey,
     });
-    console.log('[paddle] Initialized successfully, environment:', paddleKey.startsWith('live_') ? 'production' : 'sandbox');
+    console.log('[paddle] Initialized successfully, environment:', isProduction ? 'production' : 'sandbox');
     return paddleInstance;
   } catch (err) {
     console.error('[paddle] Failed to initialize Paddle.js:', err);

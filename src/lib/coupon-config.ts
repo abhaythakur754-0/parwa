@@ -2,137 +2,82 @@
  * PARWA Coupon Code Configuration
  * ═══════════════════════════════════════════════════════════════════
  *
- * Manages coupon codes for discounts during checkout.
- * Primarily used for testing — 100% off coupons let you walk
- * through the entire Paddle checkout flow at $0.
+ * Pricing is simple: $999 / $2,499 / $3,999 — no discounts shown on the frontend.
  *
- * Paddle Terminology:
- * - Paddle calls coupons "discounts"
- * - A discount has a `code` (what users type) and an `id` (Paddle internal)
- * - In Checkout.open, use `discountCode` (human code) or `discountId` (Paddle ID)
+ * Coupons are kept for MANUAL TESTING purposes. For example:
+ * - A 100% off coupon "PARWAFREE" lets you test the full checkout flow without paying
+ * - Create coupons in Paddle Dashboard → Catalog → Discounts
+ * - Pass coupon code at checkout to apply them
  *
- * How to set up a test coupon:
- * 1. Go to Paddle Dashboard → Catalog → Discounts
- * 2. Create a discount:
- *    - Code: "PARWAFREE"
- *    - Type: Percentage
- *    - Amount: 100%
- *    - Recurring: Yes (so it applies every billing cycle)
- * 3. Copy the discount code and optionally the Paddle discount ID
- * 4. Add it to the COUPONS list below, or set env var NEXT_PUBLIC_PADDLE_FREE_DISCOUNT_CODE
- *
- * ⚠️  IMPORTANT: For $0 transactions to work, make sure:
- *     - You're using Paddle Sandbox for testing
- *     - Sandbox allows $0 transactions by default
- *     - If using Live, ensure "Allow free transactions" is enabled
+ * The frontend does NOT display discount fields or coupon inputs on the pricing page.
+ * Coupons are only applied during the Paddle checkout overlay.
  */
 
-// ── Coupon Definition ──────────────────────────────────────────────
-
 export interface Coupon {
-  /** Human-readable code the user types (e.g. "PARWAFREE") */
   code: string;
-  /** Discount percentage (0-100). 100 = completely free */
   discountPercent: number;
-  /** Paddle discount ID (e.g. "dsc_01xxxxxx") — pass as discountId to Checkout.open */
   paddleDiscountId?: string;
-  /** Short description shown in UI */
   description: string;
-  /** Whether this coupon is active */
   active: boolean;
-  /** Max times this coupon can be used (undefined = unlimited) */
   maxUses?: number;
-  /** ISO date when coupon expires (undefined = never) */
   expiresAt?: string;
 }
 
-// ── Registered Coupons ─────────────────────────────────────────────
+// ── Active Coupons (for manual testing) ──────────────────────────────
+// Add coupons here that should be available for manual checkout testing.
+// They are NOT displayed on the pricing page — only applied at Paddle checkout.
 
-/**
- * Add your Paddle discounts/coupons here.
- *
- * To add a new test coupon:
- * 1. Create it in Paddle Dashboard → Catalog → Discounts
- * 2. Copy the discount code and/or Paddle discount ID
- * 3. Add an entry below
- *
- * The env var NEXT_PUBLIC_PADDLE_FREE_DISCOUNT_CODE can override
- * the discount code at deploy time.
- * The env var NEXT_PUBLIC_PADDLE_FREE_DISCOUNT_ID can override
- * the Paddle discount ID at deploy time.
- */
 export const COUPONS: Coupon[] = [
-  {
-    code: process.env.NEXT_PUBLIC_PADDLE_FREE_DISCOUNT_CODE || 'durga754',
-    discountPercent: 100,
-    // Override via env var, or hardcode your Paddle discount ID here
-    paddleDiscountId: process.env.NEXT_PUBLIC_PADDLE_FREE_DISCOUNT_ID || undefined,
-    description: '100% off — Full testing access (all variants free)',
-    active: true,
-  },
+  // Example: 100% off for testing the full checkout flow
+  // Uncomment and set the actual Paddle discount code when created:
+  // {
+  //   code: 'PARWAFREE',
+  //   discountPercent: 100,
+  //   paddleDiscountId: 'dsc_01xxx',
+  //   description: '100% off — testing only',
+  //   active: true,
+  //   maxUses: 100,
+  // },
 ];
 
-// ── Coupon Lookup ──────────────────────────────────────────────────
-
 /**
- * Validate a coupon code (case-insensitive).
- * Returns the coupon if valid and active, or null.
+ * Validate a coupon code.
+ * Returns the Coupon if valid, null otherwise.
+ * This is used to pass the coupon to Paddle checkout — not for UI display.
  */
 export function validateCoupon(code: string): Coupon | null {
-  if (!code || code.trim().length === 0) return null;
-  const normalized = code.trim().toUpperCase();
+  if (!code?.trim()) return null;
   const coupon = COUPONS.find(
-    (c) => c.active && c.code.toUpperCase() === normalized
+    (c) => c.code.toLowerCase() === code.toLowerCase() && c.active
   );
-  if (!coupon) return null;
-
-  // Check expiry
-  if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
-    return null;
-  }
-
-  return coupon;
+  return coupon || null;
 }
 
 /**
  * Apply a coupon discount to a price.
- * Returns the discounted price (never below 0).
+ * Returns the discounted price, or the original price if no coupon.
  */
-export function applyCouponDiscount(
-  price: number,
-  coupon: Coupon | null
-): number {
+export function applyCouponDiscount(price: number, coupon: Coupon | null): number {
   if (!coupon) return price;
-  const discount = price * (coupon.discountPercent / 100);
-  return Math.max(0, Math.round((price - discount) * 100) / 100);
+  return Math.round(price * (1 - coupon.discountPercent / 100));
 }
 
 /**
- * Get the Paddle discount code for a validated coupon.
- * This is the human-readable code passed to Checkout.open as `discountCode`.
+ * Get the Paddle discount code for a coupon (for checkout pre-fill).
  */
 export function getPaddleDiscountCode(coupon: Coupon | null): string | undefined {
-  if (!coupon) return undefined;
-  return coupon.code;
+  return coupon?.code || undefined;
 }
 
 /**
- * Get the Paddle discount ID for a validated coupon.
- * This is the internal Paddle ID passed to Checkout.open as `discountId`.
- * Only used if discountCode is not available.
+ * Get the Paddle internal discount ID for a coupon (alternative to code).
  */
 export function getPaddleDiscountId(coupon: Coupon | null): string | undefined {
-  if (!coupon) return undefined;
-  return (
-    coupon.paddleDiscountId ||
-    process.env.NEXT_PUBLIC_PADDLE_FREE_DISCOUNT_ID ||
-    undefined
-  );
+  return coupon?.paddleDiscountId || undefined;
 }
 
 /**
- * Format the discount label for display.
- * e.g. "100% off" or "50% off"
+ * Format a coupon's discount for display (only in checkout context).
  */
 export function formatDiscount(coupon: Coupon): string {
   return `${coupon.discountPercent}% off`;

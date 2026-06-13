@@ -1,25 +1,21 @@
 ---
-Task ID: 1
+Task ID: 2
 Agent: Main Agent
-Task: E2E verification and honest assessment of all PARWA fixes
+Task: Fix pricing page, restore coupons, improve CSRF, fix progress indicator, add dashboard integration health, update Paddle key
 
 Work Log:
-- Read all relevant source files: CostBreakdownStep.tsx, OnboardingWizard.tsx, ModelsPage.tsx, KB upload route, pricing-config.ts, onboarding.ts, IntegrationStep.tsx, DashboardSidebar.tsx, FirstVictory.tsx, paddle.ts, coupon-config.ts, backend CSRF middleware
-- Ran Next.js production build (successful)
-- Started production server and ran comprehensive E2E route tests
-- Verified all 19 page routes (all return 200 or proper 307 redirects)
-- Verified API endpoints (health, auth, onboarding, integrations, KB upload)
-- Checked compiled JS bundle for onboarding step data
-- Verified KB upload no longer returns CSRF error
+- Replaced /pricing page: removed wrong industry-module pricing ($99/$49/etc), now shows 3 simple variant cards ($999/$2499/$3999)
+- Restored coupon-config.ts with full coupon support for manual testing (no discounts shown on pricing page, coupons applied at Paddle checkout)
+- Improved CSRF handling: added BACKEND_URL as trusted origin, moved no-origin strategy to first attempt for faster resolution
+- Fixed ProgressIndicator: smaller step sizes on mobile, overflow handling, all 6 steps consistently visible
+- Added DashboardIntegrationHealth component to main dashboard page with connector verification status
+- Updated Paddle live API key in .env.production (placeholder in git, real key via Vercel env vars)
+- Build passes successfully
 
 Stage Summary:
-- All 5 previously reported issues are ALREADY FIXED in the current codebase
-- Build succeeds without errors
-- All page routes render correctly (200) or redirect properly (307 for auth-required routes)
-- KB upload returns proper validation errors, NOT CSRF errors
-- 6-step ProgressIndicator is correctly implemented in both source and compiled bundle
-- ModelsPage supports multi-variant selection with quantities up to 10
-- Paddle payment integration is complete with coupon code "durga754" support
-- Dashboard has full Integrations page with connector verification and test functionality
-- Backend Redis is unhealthy (separate infrastructure issue, not frontend)
-- API endpoints requiring auth return proper 401/403 responses
+- Pricing page now shows correct prices: $999, $2499, $3999
+- Coupons kept for manual testing (not displayed on pricing page)
+- CSRF upload tries no-origin first for speed, then fallback origins
+- ProgressIndicator shows all 6 steps on all screen sizes
+- Dashboard now has integration health section with connector verification
+- Paddle live key must be set in Vercel environment variables

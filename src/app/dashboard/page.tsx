@@ -853,8 +853,146 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ── Row 6: Agent Performance Table ─────────────────────────── */}
+      {/* ── Row 6: Integration Connectors Health ─────────────────────── */}
+      <DashboardIntegrationHealth />
+
+      {/* ── Row 7: Agent Performance Table ─────────────────────────── */}
       <AgentPerformanceTable data={agentData} />
+    </div>
+  );
+}
+
+// ── Dashboard Integration Health Component ──────────────────────────────
+
+function DashboardIntegrationHealth() {
+  const [integrations, setIntegrations] = useState<Array<{
+    id: string;
+    name: string;
+    platform: string;
+    status: string;
+    testResult?: 'success' | 'failed';
+    testedAt?: string;
+  }>>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch('/api/integrations');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setIntegrations(data.map((i: Record<string, unknown>) => ({
+              id: String(i.id || i.integration_id || ''),
+              name: String(i.name || i.integration_type || ''),
+              platform: String(i.integration_type || i.platform || ''),
+              status: String(i.status || 'active'),
+              testResult: i.test_result as 'success' | 'failed' | undefined,
+              testedAt: i.tested_at ? String(i.tested_at) : undefined,
+            })));
+          }
+        }
+      } catch {
+        // Backend unavailable
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const activeCount = integrations.filter((i) => i.status === 'active').length;
+  const verifiedCount = integrations.filter((i) => i.testResult === 'success').length;
+  const errorCount = integrations.filter((i) => i.status === 'error' || i.testResult === 'failed').length;
+
+  return (
+    <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.06a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L5.25 9.503" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-white">Integration Connectors</h3>
+            <p className="text-[10px] text-zinc-600">Connected platforms and their verification status</p>
+          </div>
+        </div>
+        <a
+          href="/dashboard/integrations"
+          className="text-[10px] text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1"
+        >
+          Manage
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+          </svg>
+        </a>
+      </div>
+
+      {isLoading ? (
+        <div className="h-20 animate-pulse bg-white/[0.02] rounded-lg" />
+      ) : integrations.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-white/[0.08] p-6 text-center">
+          <p className="text-xs text-zinc-500">No integrations connected yet</p>
+          <a href="/dashboard/integrations" className="text-xs text-orange-400 hover:text-orange-300 mt-2 inline-block">
+            Add your first integration →
+          </a>
+        </div>
+      ) : (
+        <>
+          {/* Stats Row */}
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="rounded-lg p-2.5" style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.15)' }}>
+              <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Active</p>
+              <p className="text-lg font-bold text-emerald-400">{activeCount}</p>
+            </div>
+            <div className="rounded-lg p-2.5" style={{ background: 'rgba(249,115,22,0.04)', border: '1px solid rgba(249,115,22,0.15)' }}>
+              <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Verified</p>
+              <p className="text-lg font-bold text-orange-400">{verifiedCount}</p>
+            </div>
+            <div className="rounded-lg p-2.5" style={{ background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.15)' }}>
+              <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Errors</p>
+              <p className="text-lg font-bold text-red-400">{errorCount}</p>
+            </div>
+          </div>
+
+          {/* Connector List */}
+          <div className="space-y-2 max-h-[200px] overflow-y-auto">
+            {integrations.slice(0, 6).map((integration) => (
+              <div
+                key={integration.id}
+                className="flex items-center justify-between p-2.5 rounded-lg"
+                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-2 h-2 rounded-full ${
+                    integration.testResult === 'success' ? 'bg-emerald-400' :
+                    integration.testResult === 'failed' || integration.status === 'error' ? 'bg-red-400' :
+                    'bg-amber-400'
+                  }`} />
+                  <span className="text-xs text-white font-medium">{integration.name}</span>
+                  <span className="text-[9px] text-zinc-600">{integration.platform}</span>
+                </div>
+                <span className={`text-[9px] font-medium uppercase tracking-wider ${
+                  integration.testResult === 'success' ? 'text-emerald-400' :
+                  integration.testResult === 'failed' ? 'text-red-400' :
+                  'text-amber-400'
+                }`}>
+                  {integration.testResult === 'success' ? 'Verified' :
+                   integration.testResult === 'failed' ? 'Failed' :
+                   integration.status === 'error' ? 'Error' : 'Connected'}
+                </span>
+              </div>
+            ))}
+            {integrations.length > 6 && (
+              <a href="/dashboard/integrations" className="text-[10px] text-orange-400 hover:text-orange-300 block text-center py-1">
+                +{integrations.length - 6} more integrations →
+              </a>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

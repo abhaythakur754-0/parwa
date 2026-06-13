@@ -24,7 +24,7 @@ export function ProgressIndicator({
   canGoNext = false,
 }: ProgressIndicatorProps) {
   return (
-    <div className="flex items-center justify-between gap-2 w-full max-w-xl">
+    <div className="flex items-center gap-2 w-full">
       {/* Back Button */}
       <button
         onClick={onBack}
@@ -36,7 +36,7 @@ export function ProgressIndicator({
       </button>
 
       {/* Step Circles — always show all 6 steps */}
-      <div className="flex items-center justify-center gap-0 sm:gap-1 flex-1 min-w-0 overflow-x-auto">
+      <div className="flex items-center justify-center gap-0.5 sm:gap-1.5 flex-1 min-w-0 overflow-x-auto">
         {ONBOARDING_STEPS.map((step, idx) => {
           const isCompleted = completedSteps.includes(step.id);
           const isActive = currentStep === step.id;
@@ -46,7 +46,7 @@ export function ProgressIndicator({
           return (
             <React.Fragment key={step.id}>
               {/* Step Circle */}
-              <div className="flex flex-col items-center min-w-0 shrink-0">
+              <div className="flex flex-col items-center shrink-0">
                 <button
                   type="button"
                   disabled={!isClickable}
@@ -55,7 +55,7 @@ export function ProgressIndicator({
                       onGoToStep(step.id);
                     }
                   }}
-                  className={`h-5 w-5 sm:h-7 sm:w-7 rounded-full flex items-center justify-center text-[9px] sm:text-xs font-medium transition-all duration-200 ${
+                  className={`h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 rounded-full flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs font-medium transition-all duration-200 ${
                     isClickable
                       ? 'bg-gradient-to-r from-orange-500 to-amber-400 text-white cursor-pointer hover:scale-110 hover:shadow-lg hover:shadow-orange-500/20'
                       : isCompleted
@@ -67,13 +67,13 @@ export function ProgressIndicator({
                   title={isClickable ? `Go back to ${step.title}` : step.title}
                 >
                   {isCompleted ? (
-                    <Check className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" />
+                    <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-3.5 md:h-3.5" />
                   ) : (
                     step.id
                   )}
                 </button>
                 <span
-                  className={`text-[7px] sm:text-[10px] mt-0.5 truncate max-w-[36px] sm:max-w-none text-center leading-tight ${
+                  className={`text-[7px] sm:text-[8px] md:text-[10px] mt-0.5 text-center leading-tight whitespace-nowrap max-w-[32px] sm:max-w-[40px] md:max-w-none ${
                     isActive ? 'text-orange-400 font-medium' : 'text-zinc-600'
                   }`}
                 >
@@ -83,7 +83,7 @@ export function ProgressIndicator({
               {/* Connector Line */}
               {idx < ONBOARDING_STEPS.length - 1 && (
                 <div
-                  className={`h-0.5 w-2 sm:w-6 mt-[-12px] sm:mt-[-16px] transition-colors rounded-full shrink-0 ${
+                  className={`h-0.5 flex-1 min-w-1 sm:min-w-2 md:min-w-4 mt-[-10px] sm:mt-[-12px] md:mt-[-16px] transition-colors rounded-full ${
                     isPast || isCompleted ? 'bg-gradient-to-r from-orange-500 to-amber-400' : 'bg-white/[0.06]'
                   }`}
                 />

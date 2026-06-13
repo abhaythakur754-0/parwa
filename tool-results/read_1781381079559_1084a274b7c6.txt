@@ -1,0 +1,423 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import React, { useState } from 'react';
+     4→     4→import { useRouter } from 'next/navigation';
+     5→     5→import { NavigationBar, Footer } from '@/components/landing';
+     6→     6→import { useAuth } from '@/contexts/AuthContext';
+     7→     7→import {
+     8→     8→  Star, Check, Phone, Mail, MessageSquare,
+     9→     9→  Video, ShoppingCart, Cloud, Truck, Briefcase, Zap, Shield, Sparkles,
+    10→    10→  ArrowRight, X,
+    11→    11→} from 'lucide-react';
+    12→    12→import { cn } from '@/lib/utils';
+    13→    13→
+    14→    14→type Industry = 'ecommerce' | 'saas' | 'logistics' | 'others';
+    15→    15→type VariantId = 'starter' | 'growth' | 'high';
+    16→    16→
+    17→    17→interface IndustryConfig {
+    18→    18→  id: Industry;
+    19→    19→  label: string;
+    20→    20→  description: string;
+    21→    21→  icon: React.ReactNode;
+    22→    22→  heroText: string;
+    23→    23→}
+    24→    24→
+    25→    25→interface VariantData {
+    26→    26→  id: VariantId;
+    27→    27→  name: string;
+    28→    28→  tagline: string;
+    29→    29→  monthlyPrice: number;
+    30→    30→  annualPrice: number;
+    31→    31→  ticketsPerMonth: number;
+    32→    32→  badge?: string;
+    33→    33→  channels: { label: string; icon: React.ReactNode }[];
+    34→    34→  commonFeatures: string[];
+    35→    35→  uniqueFeatures: string[];
+    36→    36→  roi: string;
+    37→    37→  bestFor: string;
+    38→    38→  coreLimitation?: string;
+    39→    39→  coreCapability?: string;
+    40→    40→  keyAdvantage?: string;
+    41→    41→  smartDecisions?: string;
+    42→    42→}
+    43→    43→
+    44→    44→const industries: IndustryConfig[] = [
+    45→    45→  { id: 'ecommerce', label: 'E-commerce', description: 'Online retail & D2C brands', icon: <ShoppingCart className="w-7 h-7" />, heroText: 'Automate order tracking, returns, cart recovery & fraud detection with AI built for online retail.' },
+    46→    46→  { id: 'saas', label: 'SaaS', description: 'Software & tech companies', icon: <Cloud className="w-7 h-7" />, heroText: 'Handle technical support, API troubleshooting, churn prediction & in-app guidance.' },
+    47→    47→  { id: 'logistics', label: 'Logistics', description: 'Shipping & supply chain', icon: <Truck className="w-7 h-7" />, heroText: 'Track shipments, coordinate drivers, manage proof of delivery automatically.' },
+    48→    48→  { id: 'others', label: 'Others', description: 'All other industries', icon: <Briefcase className="w-7 h-7" />, heroText: "PARWA adapts to any industry. Tell us your needs and we'll tailor the perfect AI solution." },
+    49→    49→];
+    50→    50→
+    51→    51→const commonFeatures: Record<VariantId, string[]> = {
+    52→    52→  starter: ['Up to 3 AI agents', '1,000 tickets/month', 'Email & Chat channels', 'FAQ handling from knowledge base', 'Phone — 2 concurrent calls', 'Automated data collection & intake'],
+    53→    53→  growth: ['Up to 8 AI agents', '5,000 tickets/month', 'Email, Chat, SMS & Voice', 'AI decision recommendations', 'Smart Router — 3-tier LLM routing', 'Agent Lightning — continuous learning', 'Batch approval system', 'Advanced analytics & ROI tracking'],
+    54→    54→  high: ['Up to 15 AI agents', '15,000 tickets/month', 'Email, Chat, SMS & Voice channels', 'Quality coaching system', 'Churn prediction & proactive retention', 'Video support & screen sharing', 'Up to 5 concurrent voice calls', 'Strategic insights & revenue analytics', 'Custom integrations & API access', 'Peer review system', 'Priority support', 'Full autonomous operations'],
+    55→    55→};
+    56→    56→
+    57→    57→const uniqueFeatures: Record<Industry, Record<VariantId, string[]>> = {
+    58→    58→  ecommerce: { starter: ['Order status & tracking automation', 'Return eligibility checking'], growth: ['Cart abandonment detection', 'Visual Damage Verification', 'Recommends refunds based on policy'], high: ['Cart Recovery Intelligence', 'Sizing Anomaly Detection', 'Fraud pattern detection'] },
+    59→    59→  saas: { starter: ['Technical FAQ handling', 'Subscription status checking'], growth: ['Technical Troubleshooting Flow', 'API Error Diagnosis', 'In-App Guidance'], high: ['Churn Prediction Engine', 'Complex technical troubleshooting', 'Feature adoption strategies'] },
+    60→    60→  logistics: { starter: ['Shipping FAQ handling', 'Delivery tracking via APIs'], growth: ['GPS Tracking Integration', 'Driver Coordination', 'Route optimization'], high: ['Proof of Delivery Management', 'Hazmat Protocol', 'Freight Damage Claims'] },
+    61→    61→  others: { starter: ['General inquiry handling', 'Billing & payment status'], growth: ['Multi-department routing', 'Custom workflow automation'], high: ['Full custom workflow engine', 'Advanced pattern recognition', 'Cross-department coordination'] },
+    62→    62→};
+    63→    63→
+    64→    64→const variantData: Record<Industry, VariantData[]> = {
+    65→    65→  ecommerce: [
+    66→    66→    { id: 'starter', name: 'PARWA Starter', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 1000, channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'SMS', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'Phone', icon: <Phone className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.starter, uniqueFeatures: uniqueFeatures.ecommerce.starter, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'E-commerce SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
+    67→    67→    { id: 'growth', name: 'PARWA Growth', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 5000, badge: 'Recommended', channels: [{ label: 'All Starter + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.growth, uniqueFeatures: uniqueFeatures.ecommerce.growth, keyAdvantage: 'Cuts review time by 80%', smartDecisions: 'Recommends refunds based on policy', roi: 'Replaces ~$18k/month in junior agent salaries', bestFor: 'E-commerce SMBs with 200–500 daily tickets', coreCapability: 'Everything Starter does + Intelligent Recommendations.' },
+    68→    68→    { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 15000, channels: [{ label: 'All Growth + Video', icon: <Video className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.high, uniqueFeatures: uniqueFeatures.ecommerce.high, keyAdvantage: 'Approves returns up to $50', roi: 'Replaces ~$28k/month in senior agent salaries', bestFor: 'E-commerce SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support.' },
+    69→    69→  ],
+    70→    70→  saas: [
+    71→    71→    { id: 'starter', name: 'PARWA Starter', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 1000, channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.starter, uniqueFeatures: uniqueFeatures.saas.starter, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'SaaS SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
+    72→    72→    { id: 'growth', name: 'PARWA Growth', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 5000, badge: 'Recommended', channels: [{ label: 'All Starter + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.growth, uniqueFeatures: uniqueFeatures.saas.growth, keyAdvantage: 'Cuts review time by 80%', roi: 'Replaces ~$18k/month in junior agent salaries', bestFor: 'SaaS SMBs with 200–500 daily tickets', coreCapability: 'Everything Starter does + Intelligent Recommendations.' },
+    73→    73→    { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 15000, channels: [{ label: 'All Growth + Video', icon: <Video className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.high, uniqueFeatures: uniqueFeatures.saas.high, keyAdvantage: 'Churn prediction engine', roi: 'Replaces ~$28k/month in senior agent salaries', bestFor: 'SaaS SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support.' },
+    74→    74→  ],
+    75→    75→  logistics: [
+    76→    76→    { id: 'starter', name: 'PARWA Starter', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 1000, channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'SMS', icon: <Phone className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.starter, uniqueFeatures: uniqueFeatures.logistics.starter, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'Logistics SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
+    77→    77→    { id: 'growth', name: 'PARWA Growth', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 5000, badge: 'Recommended', channels: [{ label: 'All Starter + Voice', icon: <Zap className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.growth, uniqueFeatures: uniqueFeatures.logistics.growth, keyAdvantage: 'GPS tracking, driver coordination', roi: 'Replaces ~$18k/month in junior coordinator salaries', bestFor: 'Logistics SMBs with 200–500 daily tickets', coreCapability: 'Everything Starter does + Intelligent Recommendations.' },
+    78→    78→    { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 15000, channels: [{ label: 'All Growth + Video', icon: <Video className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.high, uniqueFeatures: uniqueFeatures.logistics.high, keyAdvantage: 'POD management, hazmat protocol', roi: 'Replaces ~$28k/month in senior coordinator salaries', bestFor: 'Logistics SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support.' },
+    79→    79→  ],
+    80→    80→  others: [
+    81→    81→    { id: 'starter', name: 'PARWA Starter', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 1000, channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.starter, uniqueFeatures: uniqueFeatures.others.starter, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
+    82→    82→    { id: 'growth', name: 'PARWA Growth', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 5000, badge: 'Recommended', channels: [{ label: 'All Starter + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.growth, uniqueFeatures: uniqueFeatures.others.growth, keyAdvantage: 'Intelligent routing, adaptive learning', roi: 'Replaces ~$18k/month in junior agent salaries', bestFor: 'SMBs with 200–500 daily tickets', coreCapability: 'Everything Starter does + Intelligent Recommendations.' },
+    83→    83→    { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 15000, channels: [{ label: 'All Growth + Video', icon: <Video className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.high, uniqueFeatures: uniqueFeatures.others.high, keyAdvantage: 'Custom workflows, cross-department coordination', roi: 'Replaces ~$28k/month in senior agent salaries', bestFor: 'SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support.' },
+    84→    84→  ],
+    85→    85→};
+    86→    86→
+    87→    87→const trustIndicators = [
+    88→    88→  { icon: Zap, label: 'AI-Powered' },
+    89→    89→  { icon: Shield, label: 'Enterprise Ready' },
+    90→    90→  { icon: Sparkles, label: 'Continuous Learning' },
+    91→    91→];
+    92→    92→
+    93→    93→export default function ModelsPage() {
+    94→    94→  const router = useRouter();
+    95→    95→  const { isAuthenticated } = useAuth();
+    96→    96→  const [selectedIndustry, setSelectedIndustry] = useState<Industry | null>(null);
+    97→    97→  const [isAnnual, setIsAnnual] = useState(false);
+    98→    98→  const [quantities, setQuantities] = useState<Record<VariantId, number>>({ starter: 0, growth: 0, high: 0 });
+    99→    99→  const [selectedVariants, setSelectedVariants] = useState<VariantId[]>([]);
+   100→   100→  const [showConfirm, setShowConfirm] = useState(false);
+   101→   101→
+   102→   102→  const handleIndustryClick = (id: Industry) => {
+   103→   103→    setSelectedIndustry(selectedIndustry === id ? null : id);
+   104→   104→    setQuantities({ starter: 0, growth: 0, high: 0 });
+   105→   105→    setSelectedVariants([]);
+   106→   106→  };
+   107→   107→
+   108→   108→  const handleQuantityChange = (vid: VariantId, qty: number) => {
+   109→   109→    const newQty = Math.max(0, Math.min(qty, 10));
+   110→   110→    setQuantities((prev) => ({ ...prev, [vid]: newQty }));
+   111→   111→    // When quantity drops to 0, remove the variant from selectedVariants
+   112→   112→    if (newQty === 0) {
+   113→   113→      setSelectedVariants((prev) => prev.filter((id) => id !== vid));
+   114→   114→    }
+   115→   115→    // When quantity goes from 0 to >0, add to selectedVariants if not already there
+   116→   116→    if (newQty > 0 && !selectedVariants.includes(vid)) {
+   117→   117→      setSelectedVariants((prev) => [...prev, vid]);
+   118→   118→    }
+   119→   119→  };
+   120→   120→
+   121→   121→  const activeIndustry = selectedIndustry ? industries.find((i) => i.id === selectedIndustry) : null;
+   122→   122→  const currentVariants = selectedIndustry ? variantData[selectedIndustry] : null;
+   123→   123→
+   124→   124→  return (
+   125→   125→    <div className="min-h-screen flex flex-col" style={{ background: '#0A0A0A' }}>
+   126→   126→      <NavigationBar />
+   127→   127→      <main className="flex-grow relative">
+   128→   128→        {/* Background */}
+   129→   129→        <div className="absolute inset-0 pointer-events-none">
+   130→   130→          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full blur-[150px]" style={{ backgroundColor: 'rgba(255,127,17,0.08)' }} />
+   131→   131→          <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full blur-[120px]" style={{ backgroundColor: 'rgba(255,127,17,0.06)' }} />
+   132→   132→        </div>
+   133→   133→
+   134→   134→        {/* Hero */}
+   135→   135→        <section className="relative py-16 sm:py-20">
+   136→   136→          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+   137→   137→            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border mb-6 bg-orange-500/10 border-orange-500/20">
+   138→   138→              <div className="w-2 h-2 rounded-full animate-pulse bg-orange-400" />
+   139→   139→              <span className="text-sm font-medium text-orange-400">AI-Powered Support Agents</span>
+   140→   140→            </div>
+   141→   141→            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4">Meet the <span className="bg-gradient-to-r from-orange-300 via-orange-400 to-orange-200 bg-clip-text text-transparent">PARWA</span> AI Family</h1>
+   142→   142→            <p className="text-base sm:text-lg max-w-2xl mx-auto text-gray-400">
+   143→   143→              {activeIndustry ? activeIndustry.heroText : 'Three intelligent AI agents designed for different stages of business growth.'}
+   144→   144→            </p>
+   145→   145→            <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
+   146→   146→              {trustIndicators.map((item) => {
+   147→   147→                const Icon = item.icon;
+   148→   148→                return (
+   149→   149→                  <div key={item.label} className="flex items-center gap-2 px-3 py-2 rounded-full border bg-orange-500/10 border-orange-500/30">
+   150→   150→                    <Icon className="w-3.5 h-3.5 text-orange-400" />
+   151→   151→                    <span className="text-xs font-medium text-gray-300">{item.label}</span>
+   152→   152→                  </div>
+   153→   153→                );
+   154→   154→              })}
+   155→   155→            </div>
+   156→   156→          </div>
+   157→   157→        </section>
+   158→   158→
+   159→   159→        {/* Industry Selector */}
+   160→   160→        <section className="relative pb-12">
+   161→   161→          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+   162→   162→            <h2 className="text-center text-lg sm:text-xl font-semibold text-white mb-8">Select Your Industry</h2>
+   163→   163→            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+   164→   164→              {industries.map((ind) => {
+   165→   165→                const isActive = selectedIndustry === ind.id;
+   166→   166→                return (
+   167→   167→                  <button key={ind.id} onClick={() => handleIndustryClick(ind.id)}
+   168→   168→                    className="relative rounded-2xl p-6 text-left transition-all duration-500 hover:-translate-y-1 group cursor-pointer"
+   169→   169→                    style={{ background: isActive ? 'linear-gradient(135deg, rgba(255,127,17,0.15) 0%, rgba(255,127,17,0.05) 100%)' : 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)', border: isActive ? '2px solid rgba(255,127,17,0.6)' : '2px solid rgba(255,255,255,0.1)', boxShadow: isActive ? '0 20px 50px rgba(255,127,17,0.15)' : '0 20px 50px rgba(0,0,0,0.2)' }}>
+   170→   170→                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 bg-orange-500/10 border border-orange-500/15 text-orange-400">{ind.icon}</div>
+   171→   171→                    <h3 className="text-lg font-bold text-white mb-1">{ind.label}</h3>
+   172→   172→                    <p className="text-sm text-gray-500">{ind.description}</p>
+   173→   173→                  </button>
+   174→   174→                );
+   175→   175→              })}
+   176→   176→            </div>
+   177→   177→          </div>
+   178→   178→        </section>
+   179→   179→
+   180→   180→        {/* Pricing Cards */}
+   181→   181→        {selectedIndustry && currentVariants && (
+   182→   182→          <section className="relative pb-16">
+   183→   183→            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+   184→   184→              <div className="text-center mb-10">
+   185→   185→                <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2"><span className="bg-gradient-to-r from-orange-300 to-orange-400 bg-clip-text text-transparent">{activeIndustry!.label}</span> Pricing & Plans</h2>
+   186→   186→              </div>
+   187→   187→
+   188→   188→              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+   189→   189→                {currentVariants.map((variant) => {
+   190→   190→                  const isRecommended = variant.badge === 'Recommended';
+   191→   191→                  const price = isAnnual ? variant.annualPrice : variant.monthlyPrice;
+   192→   192→                  const qty = quantities[variant.id] || 0;
+   193→   193→                  const isActive = qty > 0;
+   194→   194→
+   195→   195→                  return (
+   196→   196→                    <div key={variant.id} className={`relative rounded-2xl border-2 p-6 sm:p-8 transition-all duration-500 ${isActive ? 'hover:-translate-y-2' : 'hover:-translate-y-1'}`}
+   197→   197→                      style={{ border: isActive ? '2px solid #FF7F11' : isRecommended ? '2px solid rgba(255,127,17,0.4)' : '2px solid rgba(255,255,255,0.1)', background: isActive ? 'linear-gradient(135deg, rgba(255,127,17,0.12) 0%, rgba(255,127,17,0.04) 100%)' : 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)' }}>
+   198→   198→                      {isRecommended && (
+   199→   199→                        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10">
+   200→   200→                          <span className="inline-flex items-center gap-1 px-4 py-1.5 text-xs font-bold bg-gradient-to-r from-amber-400 to-yellow-400 text-gray-900 rounded-full shadow-lg"><Star className="w-3 h-3" fill="currentColor" /> Recommended</span>
+   201→   201→                        </div>
+   202→   202→                      )}
+   203→   203→                      <div className="mb-4 mt-1">
+   204→   204→                        <h3 className="text-2xl sm:text-3xl font-extrabold text-white mb-1">{variant.name}</h3>
+   205→   205→                        <p className="text-sm font-medium text-orange-400">{variant.tagline}</p>
+   206→   206→                      </div>
+   207→   207→                      <div className="mb-5 pb-5 border-b border-white/10">
+   208→   208→                        <div className="flex items-baseline gap-1">
+   209→   209→                          <span className="text-4xl sm:text-5xl font-black" style={{ color: isActive ? '#FF7F11' : 'white' }}>${price.toLocaleString()}</span>
+   210→   210→                          <span className="text-sm text-gray-500">/month</span>
+   211→   211→                        </div>
+   212→   212→                      </div>
+   213→   213→
+   214→   214→                      {/* Features */}
+   215→   215→                      <div className="mb-5">
+   216→   216→                        <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-3">What&apos;s Included</p>
+   217→   217→                        <ul className="space-y-2">
+   218→   218→                          {variant.commonFeatures.map((f) => (
+   219→   219→                            <li key={f} className="flex items-start gap-2 text-sm text-gray-300"><Check className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />{f}</li>
+   220→   220→                          ))}
+   221→   221→                        </ul>
+   222→   222→                        <p className="text-xs text-orange-400 uppercase tracking-wider font-semibold mt-4 mb-3">{activeIndustry!.label} Specific</p>
+   223→   223→                        <ul className="space-y-2">
+   224→   224→                          {variant.uniqueFeatures.map((f) => (
+   225→   225→                            <li key={f} className="flex items-start gap-2 text-sm text-gray-300"><Check className="w-4 h-4 text-orange-400 mt-0.5 shrink-0" />{f}</li>
+   226→   226→                          ))}
+   227→   227→                        </ul>
+   228→   228→                      </div>
+   229→   229→
+   230→   230→                      {/* Quantity Selector — always visible for authenticated users */}
+   231→   231→                      {isAuthenticated && (
+   232→   232→                        <div className="flex items-center gap-3 mb-5">
+   233→   233→                          <button 
+   234→   234→                            onClick={() => handleQuantityChange(variant.id, qty - 1)} 
+   235→   235→                            disabled={qty === 0}
+   236→   236→                            className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
+   237→   237→                          >−</button>
+   238→   238→                          <span className={cn("text-lg font-bold w-8 text-center", qty > 0 ? "text-white" : "text-zinc-600")}>{qty}</span>
+   239→   239→                          <button 
+   240→   240→                            onClick={() => handleQuantityChange(variant.id, qty + 1)} 
+   241→   241→                            disabled={qty >= 10}
+   242→   242→                            className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
+   243→   243→                          >+</button>
+   244→   244→                          {qty > 0 && (
+   245→   245→                            <span className="text-[10px] text-emerald-400 font-medium ml-1">{qty} agent{qty > 1 ? 's' : ''} selected</span>
+   246→   246→                          )}
+   247→   247→                        </div>
+   248→   248→                      )}
+   249→   249→
+   250→   250→                      <button onClick={() => {
+   251→   251→                        if (!isAuthenticated) {
+   252→   252→                          // Save variant selection to localStorage before redirecting
+   253→   253→                          const parwaVariantMap: Record<VariantId, string> = { starter: 'mini_parwa', growth: 'parwa', high: 'parwa_high' };
+   254→   254→                          localStorage.setItem('parwa_pricing_context', JSON.stringify({
+   255→   255→                            industry: selectedIndustry || 'saas',
+   256→   256→                            variant: parwaVariantMap[variant.id] || 'parwa',
+   257→   257→                            addOns: { voice: false, customApi: false },
+   258→   258→                            totalMonthly: variant.monthlyPrice,
+   259→   259→                            timestamp: new Date().toISOString(),
+   260→   260→                          }));
+   261→   261→                          router.push('/signup?redirect=/models');
+   262→   262→                        } else {
+   263→   263→                          // Add or increment quantity using the unified handler
+   264→   264→                          handleQuantityChange(variant.id, qty === 0 ? 1 : qty + 1);
+   265→   265→                        }
+   266→   266→                      }} className={cn(
+   267→   267→                        "w-full py-3.5 rounded-xl text-sm font-bold transition-all",
+   268→   268→                        isActive
+   269→   269→                          ? 'bg-gradient-to-r from-emerald-500 to-emerald-400 text-white hover:from-emerald-400 hover:to-emerald-300 shadow-lg shadow-emerald-500/25'
+   270→   270→                          : 'bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] hover:from-orange-400 hover:to-orange-300 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40'
+   271→   271→                      )}>
+   272→   272→                        {isActive ? `Hire 1 More (${qty} active)` : isAuthenticated ? 'Hire Agent' : 'Get Started'}
+   273→   273→                      </button>
+   274→   274→                    </div>
+   275→   275→                  );
+   276→   276→                })}
+   277→   277→              </div>
+   278→   278→            </div>
+   279→   279→          </section>
+   280→   280→        )}
+   281→   281→      </main>
+   282→   282→
+   283→   283→      {/* ═══ Sticky "Proceed" Bar when variants selected ═══ */}
+   284→   284→      {isAuthenticated && selectedVariants.length > 0 && selectedIndustry && !showConfirm && (() => {
+   285→   285→        const totalMonthly = selectedVariants.reduce((sum, vid) => {
+   286→   286→          const v = variantData[selectedIndustry]?.find(vv => vv.id === vid);
+   287→   287→          return sum + (v ? v.monthlyPrice * (quantities[vid] || 1) : 0);
+   288→   288→        }, 0);
+   289→   289→        const totalTickets = selectedVariants.reduce((sum, vid) => {
+   290→   290→          const v = variantData[selectedIndustry]?.find(vv => vv.id === vid);
+   291→   291→          return sum + (v ? v.ticketsPerMonth * (quantities[vid] || 1) : 0);
+   292→   292→        }, 0);
+   293→   293→
+   294→   294→        return (
+   295→   295→          <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-orange-500/20" style={{ background: 'linear-gradient(135deg, rgba(26,26,26,0.97) 0%, rgba(42,26,10,0.97) 100%)', backdropFilter: 'blur(20px)' }}>
+   296→   296→            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+   297→   297→              <div className="flex items-center gap-4">
+   298→   298→                <div className="flex items-center gap-2">
+   299→   299→                  <span className="text-sm text-orange-200/50">{selectedVariants.length} agent{selectedVariants.length > 1 ? 's' : ''}</span>
+   300→   300→                  <span className="text-zinc-600">|</span>
+   301→   301→                  <span className="text-sm text-orange-200/50">{totalTickets.toLocaleString()} tickets/mo</span>
+   302→   302→                </div>
+   303→   303→                <div>
+   304→   304→                  <span className="text-xl font-bold text-orange-400">${totalMonthly.toLocaleString()}</span>
+   305→   305→                  <span className="text-sm text-orange-200/40">/mo</span>
+   306→   306→                </div>
+   307→   307→              </div>
+   308→   308→              <button
+   309→   309→                onClick={() => setShowConfirm(true)}
+   310→   310→                className="px-6 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] hover:from-orange-400 hover:to-orange-300 shadow-lg shadow-orange-500/25 transition-all flex items-center gap-2"
+   311→   311→              >
+   312→   312→                Proceed to Setup <ArrowRight className="w-4 h-4" />
+   313→   313→              </button>
+   314→   314→            </div>
+   315→   315→          </div>
+   316→   316→        );
+   317→   317→      })()}
+   318→   318→
+   319→   319→      {/* ═══ Confirmation Modal (Multi-Variant) ═══ */}
+   320→   320→      {showConfirm && selectedVariants.length > 0 && selectedIndustry && (() => {
+   321→   321→        const parwaIndustryMap: Record<Industry, string> = { ecommerce: 'ecommerce', saas: 'saas', logistics: 'logistics', others: 'other' };
+   322→   322→        const parwaVariantMap: Record<VariantId, string> = { starter: 'mini_parwa', growth: 'parwa', high: 'parwa_high' };
+   323→   323→
+   324→   324→        const totalMonthly = selectedVariants.reduce((sum, vid) => {
+   325→   325→          const v = variantData[selectedIndustry]?.find(vv => vv.id === vid);
+   326→   326→          return sum + (v ? v.monthlyPrice * (quantities[vid] || 1) : 0);
+   327→   327→        }, 0);
+   328→   328→
+   329→   329→        const handleConfirm = async () => {
+   330→   330→          // Store pricing context in localStorage with multi-variant info
+   331→   331→          const primaryVariant = selectedVariants[0]; // Primary variant for onboarding
+   332→   332→          localStorage.setItem('parwa_pricing_context', JSON.stringify({
+   333→   333→            industry: parwaIndustryMap[selectedIndustry],
+   334→   334→            variant: parwaVariantMap[primaryVariant],
+   335→   335→            selectedVariants: selectedVariants.map((vid) => parwaVariantMap[vid]),
+   336→   336→            variantQuantities: Object.fromEntries(
+   337→   337→              selectedVariants.map((vid) => [parwaVariantMap[vid], quantities[vid] || 1])
+   338→   338→            ),
+   339→   339→            addOns: { voice: false, customApi: false },
+   340→   340→            totalMonthly,
+   341→   341→            timestamp: new Date().toISOString(),
+   342→   342→          }));
+   343→   343→
+   344→   344→          // Save industry + variant selection to backend
+   345→   345→          try {
+   346→   346→            await fetch('/api/onboarding/industry-variant', {
+   347→   347→              method: 'POST',
+   348→   348→              headers: { 'Content-Type': 'application/json' },
+   349→   349→              body: JSON.stringify({
+   350→   350→                industry: parwaIndustryMap[selectedIndustry],
+   351→   351→                variant: parwaVariantMap[primaryVariant],
+   352→   352→                selectedVariants: selectedVariants.map((vid) => parwaVariantMap[vid]),
+   353→   353→                variantQuantities: Object.fromEntries(
+   354→   354→                  selectedVariants.map((vid) => [parwaVariantMap[vid], quantities[vid] || 1])
+   355→   355→                ),
+   356→   356→              }),
+   357→   357→            });
+   358→   358→          } catch {
+   359→   359→            // Continue even if backend is unreachable — localStorage is the fallback
+   360→   360→          }
+   361→   361→
+   362→   362→          router.push('/onboarding?source=pricing');
+   363→   363→        };
+   364→   364→
+   365→   365→        return (
+   366→   366→          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setShowConfirm(false)}>
+   367→   367→            <div className="w-full max-w-md rounded-2xl border-2 border-orange-500/30 p-6" style={{ background: 'linear-gradient(135deg, rgba(26,26,26,0.98) 0%, rgba(42,26,10,0.98) 100%)', boxShadow: '0 25px 60px rgba(0,0,0,0.6), 0 0 80px rgba(255,127,17,0.08)' }} onClick={(e) => e.stopPropagation()}>
+   368→   368→              <div className="flex items-center justify-between mb-5">
+   369→   369→                <h3 className="text-xl font-bold text-white">Confirm Selection</h3>
+   370→   370→                <button onClick={() => setShowConfirm(false)} className="text-zinc-500 hover:text-white transition-colors">
+   371→   371→                  <X className="w-5 h-5" />
+   372→   372→                </button>
+   373→   373→              </div>
+   374→   374→
+   375→   375→              <div className="space-y-3 mb-6">
+   376→   376→                <div className="flex justify-between text-sm">
+   377→   377→                  <span className="text-zinc-400">Industry</span>
+   378→   378→                  <span className="text-white font-semibold">{industries.find(i => i.id === selectedIndustry)?.label}</span>
+   379→   379→                </div>
+   380→   380→                {/* Show each selected variant */}
+   381→   381→                {selectedVariants.map((vid) => {
+   382→   382→                  const v = variantData[selectedIndustry]?.find(vv => vv.id === vid);
+   383→   383→                  if (!v) return null;
+   384→   384→                  const qty = quantities[vid] || 1;
+   385→   385→                  return (
+   386→   386→                    <div key={vid} className="flex justify-between text-sm">
+   387→   387→                      <span className="text-zinc-400">
+   388→   388→                        {v.name}
+   389→   389→                        {qty > 1 && <span className="text-zinc-600"> × {qty}</span>}
+   390→   390→                      </span>
+   391→   391→                      <span className="text-white font-semibold">
+   392→   392→                        ${(v.monthlyPrice * qty).toLocaleString()}/mo
+   393→   393→                      </span>
+   394→   394→                    </div>
+   395→   395→                  );
+   396→   396→                })}
+   397→   397→                <div className="border-t border-white/10 pt-3 flex justify-between text-sm">
+   398→   398→                  <span className="text-orange-400 font-semibold">Total Monthly</span>
+   399→   399→                  <span className="text-orange-400 font-bold text-lg">${totalMonthly.toLocaleString()}/mo</span>
+   400→   400→                </div>
+   401→   401→              </div>
+   402→   402→
+   403→   403→              <div className="border-t border-white/10 pt-4">
+   404→   404→                <p className="text-xs text-zinc-500 mb-4">You'll be taken to the onboarding setup where you'll configure your AI agents and complete payment.</p>
+   405→   405→                <div className="flex gap-3">
+   406→   406→                  <button onClick={() => setShowConfirm(false)} className="flex-1 py-3 rounded-xl text-sm font-medium border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 transition-all">
+   407→   407→                    Cancel
+   408→   408→                  </button>
+   409→   409→                  <button onClick={handleConfirm} className="flex-1 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] hover:from-orange-400 hover:to-orange-300 shadow-lg shadow-orange-500/25 transition-all flex items-center justify-center gap-2">
+   410→   410→                    Continue <ArrowRight className="w-4 h-4" />
+   411→   411→                  </button>
+   412→   412→                </div>
+   413→   413→              </div>
+   414→   414→            </div>
+   415→   415→          </div>
+   416→   416→        );
+   417→   417→      })()}
+   418→   418→
+   419→   419→      <Footer />
+   420→   420→    </div>
+   421→   421→  );
+   422→   422→}
+   423→   423→
