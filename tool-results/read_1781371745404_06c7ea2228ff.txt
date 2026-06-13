@@ -1,0 +1,765 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useEffect, useCallback } from 'react';
+     4→import toast from 'react-hot-toast';
+     5→import { cn } from '@/lib/utils';
+     6→import { getErrorMessage } from '@/lib/api';
+     7→import { voiceApi } from '@/lib/voice-api';
+     8→import { Phone, Settings, Loader2, Sparkles, Key, KeyRound, Plug, CheckCircle2, XCircle, TestTube, Trash2, Plus } from 'lucide-react';
+     9→import type { ChannelInfo, ChannelConfig, ChannelType } from '@/types/analytics';
+    10→import type { VoiceChannelConfig, NumberSource } from '@/types/voice';
+    11→import { VoiceConfigCard } from '@/components/dashboard/VoiceConfigCard';
+    12→
+    13→// ── Channel Metadata ──────────────────────────────────────────────────
+    14→
+    15→interface ChannelMeta {
+    16→  type: ChannelType;
+    17→  name: string;
+    18→  description: string;
+    19→  emoji: string;
+    20→}
+    21→
+    22→const channelMeta: ChannelMeta[] = [
+    23→  { type: 'email', name: 'Email', description: 'Inbound/outbound email support via Brevo', emoji: '\u2709\uFE0F' },
+    24→  { type: 'chat', name: 'Live Chat', description: 'Real-time chat widget on your website', emoji: '\uD83D\uDCAC' },
+    25→  { type: 'sms', name: 'SMS', description: 'Text messaging via Twilio', emoji: '\uD83D\uDCF1' },
+    26→  { type: 'voice', name: 'Voice', description: 'AI-powered voice calls via Parwa or your Twilio', emoji: '\uD83C\uDF99\uFE0F' },
+    27→];
+    28→
+    29→// ── Channel Card Component ────────────────────────────────────────────
+    30→
+    31→function ChannelCard({
+    32→  channel,
+    33→  isEnabled,
+    34→  isLoading,
+    35→  onToggle,
+    36→  onTest,
+    37→  extra,
+    38→}: {
+    39→  channel: ChannelMeta;
+    40→  isEnabled: boolean;
+    41→  isLoading: boolean;
+    42→  onToggle: (type: ChannelType, enabled: boolean) => void;
+    43→  onTest: (type: ChannelType) => void;
+    44→  extra?: React.ReactNode;
+    45→}) {
+    46→  return (
+    47→    <div
+    48→      className={cn(
+    49→        'rounded-xl border p-5 transition-all duration-300 group',
+    50→        isEnabled
+    51→          ? 'bg-[#1A1A1A] border-emerald-500/20 shadow-sm shadow-emerald-500/5'
+    52→          : 'bg-[#1A1A1A] border-white/[0.06] hover:border-white/[0.1]'
+    53→      )}
+    54→    >
+    55→      <div className="flex items-start justify-between mb-3">
+    56→        <div className="flex items-center gap-3">
+    57→          <span className="text-2xl">{channel.emoji}</span>
+    58→          <div>
+    59→            <h3 className="text-sm font-semibold text-white">{channel.name}</h3>
+    60→            <p className="text-xs text-zinc-500 mt-0.5 max-w-[240px]">{channel.description}</p>
+    61→          </div>
+    62→        </div>
+    63→        {/* Toggle */}
+    64→        <button
+    65→          onClick={() => onToggle(channel.type, !isEnabled)}
+    66→          disabled={isLoading}
+    67→          className={cn(
+    68→            'relative w-11 h-6 rounded-full transition-colors duration-300 shrink-0',
+    69→            isEnabled ? 'bg-emerald-500' : 'bg-white/[0.1]'
+    70→          )}
+    71→        >
+    72→          <span
+    73→            className={cn(
+    74→              'absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300',
+    75→              isEnabled ? 'translate-x-5' : 'translate-x-0'
+    76→            )}
+    77→          />
+    78→        </button>
+    79→      </div>
+    80→
+    81→      {/* Status + Test */}
+    82→      <div className="flex items-center justify-between pt-3 border-t border-white/[0.04]">
+    83→        <div className="flex items-center gap-1.5">
+    84→          <span className={cn(
+    85→            'w-2 h-2 rounded-full',
+    86→            isEnabled ? 'bg-emerald-400 pulse-live' : 'bg-zinc-600'
+    87→          )} />
+    88→          <span className={cn(
+    89→            'text-xs font-medium',
+    90→            isEnabled ? 'text-emerald-400' : 'text-zinc-500'
+    91→          )}>
+    92→            {isEnabled ? 'Active' : 'Disabled'}
+    93→          </span>
+    94→        </div>
+    95→        {isEnabled && channel.type !== 'voice' && (
+    96→          <button
+    97→            onClick={() => onTest(channel.type)}
+    98→            disabled={isLoading}
+    99→            className="text-xs font-medium text-orange-400 hover:text-orange-300 transition-colors disabled:opacity-50"
+   100→          >
+   101→            Test Connection
+   102→          </button>
+   103→        )}
+   104→      </div>
+   105→
+   106→      {/* Extra content (Voice-specific) */}
+   107→      {extra}
+   108→    </div>
+   109→  );
+   110→}
+   111→
+   112→// ── Channels Page ─────────────────────────────────────────────────────
+   113→
+   114→export default function ChannelsPage() {
+   115→  const [enabledChannels, setEnabledChannels] = useState<Set<ChannelType>>(new Set());
+   116→  const [isLoading, setIsLoading] = useState(false);
+   117→  const [voiceConfig, setVoiceConfig] = useState<VoiceChannelConfig | null>(null);
+   118→  const [recentCallCount, setRecentCallCount] = useState(0);
+   119→  const [testCallLoading, setTestCallLoading] = useState(false);
+   120→  const [voiceConfigOpen, setVoiceConfigOpen] = useState(false);
+   121→
+   122→  // ── Load channel config ────────────────────────────────────────────
+   123→
+   124→  useEffect(() => {
+   125→    loadChannelConfig();
+   126→    loadVoiceData();
+   127→    // eslint-disable-next-line react-hooks/exhaustive-deps
+   128→  }, []);
+   129→
+   130→  async function loadChannelConfig() {
+   131→    try {
+   132→      setIsLoading(true);
+   133→      const response = await fetch('/api/v1/channels/config', {
+   134→        credentials: 'include',
+   135→      });
+   136→      if (response.ok) {
+   137→        const data = await response.json();
+   138→        const enabled = new Set<ChannelType>();
+   139→        if (Array.isArray(data)) {
+   140→          data.forEach((ch: { channel_type: string; is_enabled: boolean }) => {
+   141→            if (ch.is_enabled) enabled.add(ch.channel_type as ChannelType);
+   142→          });
+   143→        }
+   144→        setEnabledChannels(enabled);
+   145→      }
+   146→    } catch (error) {
+   147→      console.error('Failed to load channels:', error);
+   148→    } finally {
+   149→      setIsLoading(false);
+   150→    }
+   151→  }
+   152→
+   153→  async function loadVoiceData() {
+   154→    try {
+   155→      const config = await voiceApi.getConfig();
+   156→      setVoiceConfig(config);
+   157→
+   158→      // Get recent calls count
+   159→      const history = await voiceApi.getHistory({ page: 1, page_size: 1 });
+   160→      setRecentCallCount(history.total);
+   161→
+   162→      // If voice is enabled in config, add to enabled set
+   163→      if (config.is_enabled) {
+   164→        setEnabledChannels((prev) => new Set(prev).add('voice'));
+   165→      }
+   166→    } catch {
+   167→      // Voice config may not exist yet
+   168→    }
+   169→  }
+   170→
+   171→  // ── Toggle Channel ─────────────────────────────────────────────────
+   172→
+   173→  const handleToggle = useCallback(async (type: ChannelType, enabled: boolean) => {
+   174→    // Voice channel: open the config card instead of direct toggle
+   175→    if (type === 'voice') {
+   176→      if (!voiceConfig && enabled) {
+   177→        // No config yet — open setup
+   178→        setVoiceConfigOpen(true);
+   179→        return;
+   180→      }
+   181→      if (voiceConfig && enabled !== voiceConfig.is_enabled) {
+   182→        // Toggle via config update
+   183→        try {
+   184→          await voiceApi.updateConfig({ is_enabled: enabled });
+   185→          setVoiceConfig((prev) => prev ? { ...prev, is_enabled: enabled } : null);
+   186→          setEnabledChannels((prev) => {
+   187→            const next = new Set(prev);
+   188→            if (enabled) next.add(type);
+   189→            else next.delete(type);
+   190→            return next;
+   191→          });
+   192→          toast.success(`Voice ${enabled ? 'enabled' : 'disabled'}`);
+   193→        } catch (err) {
+   194→          toast.error(getErrorMessage(err));
+   195→        }
+   196→        return;
+   197→      }
+   198→      return;
+   199→    }
+   200→
+   201→    // Other channels
+   202→    try {
+   203→      const response = await fetch(`/api/v1/channels/config/${type}`, {
+   204→        method: 'PUT',
+   205→        headers: {
+   206→          'Content-Type': 'application/json',
+   207→        },
+   208→        credentials: 'include',
+   209→        body: JSON.stringify({ is_enabled: enabled }),
+   210→      });
+   211→
+   212→      if (response.ok) {
+   213→        setEnabledChannels((prev) => {
+   214→          const next = new Set(prev);
+   215→          if (enabled) next.add(type);
+   216→          else next.delete(type);
+   217→          return next;
+   218→        });
+   219→        toast.success(`${channelMeta.find((c) => c.type === type)?.name} ${enabled ? 'enabled' : 'disabled'}`);
+   220→      } else {
+   221→        const error = await response.json().catch(() => ({}));
+   222→        toast.error(error.detail || 'Failed to update channel');
+   223→      }
+   224→    } catch (error) {
+   225→      toast.error(getErrorMessage(error));
+   226→    }
+   227→  }, [voiceConfig]);
+   228→
+   229→  // ── Test Connection ────────────────────────────────────────────────
+   230→
+   231→  const handleTest = useCallback(async (type: ChannelType) => {
+   232→    try {
+   233→      toast.loading(`Testing ${channelMeta.find((c) => c.type === type)?.name}...`, { id: 'test-channel' });
+   234→      const response = await fetch(`/api/v1/channels/config/${type}/test`, {
+   235→        method: 'POST',
+   236→        headers: {
+   237→          'Content-Type': 'application/json',
+   238→        },
+   239→        credentials: 'include',
+   240→      });
+   241→
+   242→      if (response.ok) {
+   243→        toast.success(`${channelMeta.find((c) => c.type === type)?.name} connection successful`, { id: 'test-channel' });
+   244→      } else {
+   245→        toast.error('Connection failed', { id: 'test-channel' });
+   246→      }
+   247→    } catch (error) {
+   248→      toast.error(getErrorMessage(error), { id: 'test-channel' });
+   249→    }
+   250→  }, []);
+   251→
+   252→  // ── Test Voice Call ────────────────────────────────────────────────
+   253→
+   254→  const handleTestCall = useCallback(async () => {
+   255→    setTestCallLoading(true);
+   256→    try {
+   257→      const result = await voiceApi.testCall({ to_number: '+919652852014' });
+   258→      toast.success(`Test call initiated! SID: ${result.twilio_call_sid?.slice(0, 10)}...`);
+   259→    } catch (err) {
+   260→      toast.error(err instanceof Error ? err.message : 'Failed to make test call');
+   261→    } finally {
+   262→      setTestCallLoading(false);
+   263→    }
+   264→  }, []);
+   265→
+   266→  // ── Render ─────────────────────────────────────────────────────────
+   267→
+   268→  return (
+   269→    <div className="min-h-screen jarvis-page-body">
+   270→      <div className="p-6 lg:p-8 space-y-6">
+   271→        {/* Header */}
+   272→        <div className="pb-6 border-b border-white/[0.06]">
+   273→          <h1 className="text-xl font-bold text-white">Channels</h1>
+   274→          <p className="text-sm text-zinc-500 mt-0.5">
+   275→            PARWA supports Email, Chat, SMS, and Voice channels.
+   276→          </p>
+   277→        </div>
+   278→
+   279→        {/* Channel Grid */}
+   280→        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   281→          {channelMeta.map((channel) => (
+   282→            <ChannelCard
+   283→              key={channel.type}
+   284→              channel={channel}
+   285→              isEnabled={enabledChannels.has(channel.type)}
+   286→              isLoading={isLoading}
+   287→              onToggle={handleToggle}
+   288→              onTest={handleTest}
+   289→              extra={
+   290→                channel.type === 'voice' ? (
+   291→                  <VoiceChannelExtra
+   292→                    config={voiceConfig}
+   293→                    recentCallCount={recentCallCount}
+   294→                    testCallLoading={testCallLoading}
+   295→                    onTestCall={handleTestCall}
+   296→                    onConfigure={() => setVoiceConfigOpen(true)}
+   297→                    onSetupVoice={() => setVoiceConfigOpen(true)}
+   298→                  />
+   299→                ) : undefined
+   300→              }
+   301→            />
+   302→          ))}
+   303→        </div>
+   304→
+   305→        {/* Info */}
+   306→        <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5">
+   307→          <div className="flex items-start gap-3">
+   308→            <span className="text-lg">{'\uD83D\uDD39'}</span>
+   309→            <div>
+   310→              <h4 className="text-sm font-semibold text-zinc-300">Need a custom integration?</h4>
+   311→              <p className="text-xs text-zinc-500 mt-1">
+   312→                PARWA supports custom REST, GraphQL, and webhook integrations. 
+   313→                Contact support or use the API to build your own connector.
+   314→              </p>
+   315→            </div>
+   316→          </div>
+   317→        </div>
+   318→
+   319→        {/* ── Connected Integrations ──────────────────────────────────── */}
+   320→        <ConnectedIntegrations />
+   321→      </div>
+   322→
+   323→      {/* Voice Config Card (modal) */}
+   324→      <VoiceConfigCard
+   325→        open={voiceConfigOpen}
+   326→        onClose={() => {
+   327→          setVoiceConfigOpen(false);
+   328→          // Reload voice data after config changes
+   329→          loadVoiceData();
+   330→        }}
+   331→      />
+   332→    </div>
+   333→  );
+   334→}
+   335→
+   336→// ── Connected Integrations Section ─────────────────────────────────────
+   337→
+   338→interface DashboardIntegration {
+   339→  id: string;
+   340→  name: string;
+   341→  platform: string;
+   342→  authType: string;
+   343→  status: 'active' | 'error' | 'pending';
+   344→  testedAt?: string;
+   345→  testResult?: 'success' | 'failed';
+   346→}
+   347→
+   348→function ConnectedIntegrations() {
+   349→  const [integrations, setIntegrations] = useState<DashboardIntegration[]>([]);
+   350→  const [loading, setLoading] = useState(true);
+   351→  const [testingId, setTestingId] = useState<string | null>(null);
+   352→
+   353→  useEffect(() => {
+   354→    async function load() {
+   355→      try {
+   356→        const res = await fetch('/api/integrations');
+   357→        if (res.ok) {
+   358→          const data = await res.json();
+   359→          if (Array.isArray(data)) {
+   360→            setIntegrations(data.map((i: Record<string, unknown>) => ({
+   361→              id: String(i.id || i.integration_id || ''),
+   362→              name: String(i.name || i.integration_type || ''),
+   363→              platform: String(i.integration_type || i.platform || ''),
+   364→              authType: String(i.auth_type || 'bearer'),
+   365→              status: (i.status as DashboardIntegration['status']) || 'active',
+   366→              testedAt: i.tested_at ? String(i.tested_at) : undefined,
+   367→              testResult: i.test_result as 'success' | 'failed' | undefined,
+   368→            })));
+   369→          }
+   370→        }
+   371→      } catch {
+   372→        // Backend unavailable
+   373→      } finally {
+   374→        setLoading(false);
+   375→      }
+   376→    }
+   377→    load();
+   378→  }, []);
+   379→
+   380→  const handleTest = async (integration: DashboardIntegration) => {
+   381→    setTestingId(integration.id);
+   382→    try {
+   383→      const res = await fetch('/api/integrations/test-local', {
+   384→        method: 'POST',
+   385→        headers: { 'Content-Type': 'application/json' },
+   386→        body: JSON.stringify({
+   387→          integration_type: integration.platform,
+   388→          auth_type: integration.authType,
+   389→        }),
+   390→      });
+   391→
+   392→      if (res.ok) {
+   393→        const data = await res.json();
+   394→        const success = data.success !== false;
+   395→        setIntegrations((prev) => prev.map((i) =>
+   396→          i.id === integration.id
+   397→            ? { ...i, testResult: success ? 'success' : 'failed', testedAt: new Date().toISOString(), status: success ? 'active' : 'error' }
+   398→            : i
+   399→        ));
+   400→        toast[success ? 'success' : 'error'](success ? `${integration.name} connected!` : `Connection failed — check your credentials`);
+   401→      } else {
+   402→        toast.error('Test failed — server error');
+   403→      }
+   404→    } catch {
+   405→      toast.error('Could not reach server');
+   406→    } finally {
+   407→      setTestingId(null);
+   408→    }
+   409→  };
+   410→
+   411→  const handleRemove = async (id: string) => {
+   412→    try { await fetch(`/api/integrations/${id}`, { method: 'DELETE' }); } catch { /* */ }
+   413→    setIntegrations((prev) => prev.filter((i) => i.id !== id));
+   414→    toast.success('Integration removed');
+   415→  };
+   416→
+   417→  // ── Add Integration Form State ────────────────────────────────────────
+   418→  const [showAddForm, setShowAddForm] = useState(false);
+   419→  const [newName, setNewName] = useState('');
+   420→  const [newAuthType, setNewAuthType] = useState<string>('bearer');
+   421→  const [newApiKey, setNewApiKey] = useState('');
+   422→  const [newTestUrl, setNewTestUrl] = useState('');
+   423→  const [isAdding, setIsAdding] = useState(false);
+   424→
+   425→  const handleAddIntegration = async () => {
+   426→    if (!newName.trim()) {
+   427→      toast.error('Please enter a platform name');
+   428→      return;
+   429→    }
+   430→    if (!newApiKey.trim()) {
+   431→      toast.error('Please enter your API key or token');
+   432→      return;
+   433→    }
+   434→
+   435→    setIsAdding(true);
+   436→    try {
+   437→      const res = await fetch('/api/integrations', {
+   438→        method: 'POST',
+   439→        headers: { 'Content-Type': 'application/json' },
+   440→        body: JSON.stringify({
+   441→          name: newName.trim(),
+   442→          integration_type: newName.trim().toLowerCase().replace(/\s+/g, '_'),
+   443→          auth_type: newAuthType,
+   444→          credentials: newAuthType === 'basic_auth'
+   445→            ? { username: newApiKey.split(':')[0] || 'user', password: newApiKey.split(':').slice(1).join(':') || newApiKey }
+   446→            : newAuthType === 'api_key_header'
+   447→            ? { header_name: 'X-API-Key', api_key: newApiKey }
+   448→            : { api_key: newApiKey },
+   449→          test_url: newTestUrl.trim() || undefined,
+   450→        }),
+   451→      });
+   452→
+   453→      const newIntg: DashboardIntegration = {
+   454→        id: `int-${Date.now()}`,
+   455→        name: newName.trim(),
+   456→        platform: newName.trim().toLowerCase().replace(/\s+/g, '_'),
+   457→        authType: newAuthType,
+   458→        status: 'active',
+   459→      };
+   460→
+   461→      if (res.ok) {
+   462→        const data = await res.json();
+   463→        newIntg.id = data.id || newIntg.id;
+   464→      }
+   465→
+   466→      setIntegrations((prev) => [...prev, newIntg]);
+   467→      setNewName('');
+   468→      setNewApiKey('');
+   469→      setNewTestUrl('');
+   470→      setNewAuthType('bearer');
+   471→      setShowAddForm(false);
+   472→      toast.success(`${newIntg.name} added!`);
+   473→    } catch {
+   474→      toast.error('Failed to add integration');
+   475→    } finally {
+   476→      setIsAdding(false);
+   477→    }
+   478→  };
+   479→
+   480→  return (
+   481→    <div className="space-y-4">
+   482→      <div className="pb-4 border-b border-white/[0.06]">
+   483→        <div className="flex items-center justify-between">
+   484→          <div>
+   485→            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+   486→              <Plug className="w-5 h-5 text-orange-400" />
+   487→              Connected Integrations
+   488→            </h2>
+   489→            <p className="text-xs text-zinc-500 mt-0.5">
+   490→              Manage your platform API keys and verify connector health from the dashboard.
+   491→            </p>
+   492→          </div>
+   493→          <a
+   494→            href="/dashboard/settings"
+   495→            className="text-xs font-medium text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1.5"
+   496→            onClick={(e) => { e.preventDefault(); setShowAddForm(!showAddForm); }}
+   497→          >
+   498→            <Plus className="w-3.5 h-3.5" />
+   499→            {showAddForm ? 'Cancel' : 'Add Integration'}
+   500→          </a>
+   501→        </div>
+   502→      </div>
+   503→
+   504→      {loading ? (
+   505→        <div className="flex items-center justify-center py-8">
+   506→          <Loader2 className="w-6 h-6 animate-spin text-orange-400" />
+   507→        </div>
+   508→      ) : integrations.length === 0 ? (
+   509→        <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-6 text-center">
+   510→          <Plug className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
+   511→          <p className="text-sm text-zinc-400">No integrations connected yet</p>
+   512→          <p className="text-xs text-zinc-600 mt-1">Add integrations during onboarding or from Settings</p>
+   513→        </div>
+   514→      ) : (
+   515→        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   516→          {integrations.map((intg) => (
+   517→            <div
+   518→              key={intg.id}
+   519→              className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-4"
+   520→            >
+   521→              <div className="flex items-center justify-between mb-2">
+   522→                <div className="flex items-center gap-2.5">
+   523→                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-400 flex items-center justify-center shrink-0">
+   524→                    <Plug className="w-4 h-4 text-white" />
+   525→                  </div>
+   526→                  <div>
+   527→                    <p className="text-sm font-medium text-white">{intg.name}</p>
+   528→                    <p className="text-[10px] text-zinc-600">
+   529→                      {intg.authType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+   530→                      {intg.testResult === 'success' && <span className="text-emerald-400"> · Verified</span>}
+   531→                      {intg.testResult === 'failed' && <span className="text-red-400"> · Failed</span>}
+   532→                      {!intg.testResult && <span> · Not tested</span>}
+   533→                    </p>
+   534→                  </div>
+   535→                </div>
+   536→                <div className="flex items-center gap-1.5">
+   537→                  {intg.testResult === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+   538→                  {intg.testResult === 'failed' && <XCircle className="w-4 h-4 text-red-400" />}
+   539→                  {!intg.testResult && <div className="w-2 h-2 rounded-full bg-zinc-600" />}
+   540→                </div>
+   541→              </div>
+   542→              <div className="flex items-center justify-between pt-2 border-t border-white/[0.04]">
+   543→                <span className={cn(
+   544→                  'text-[10px] font-medium',
+   545→                  intg.status === 'active' ? 'text-emerald-400' : intg.status === 'error' ? 'text-red-400' : 'text-zinc-500'
+   546→                )}>
+   547→                  {intg.status === 'active' ? 'Active' : intg.status === 'error' ? 'Error' : 'Pending'}
+   548→                </span>
+   549→                <div className="flex items-center gap-2">
+   550→                  <button
+   551→                    onClick={() => handleTest(intg)}
+   552→                    disabled={testingId === intg.id}
+   553→                    className="text-[10px] font-medium text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1 disabled:opacity-50"
+   554→                  >
+   555→                    {testingId === intg.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <TestTube className="w-3 h-3" />}
+   556→                    Test
+   557→                  </button>
+   558→                  <button
+   559→                    onClick={() => handleRemove(intg.id)}
+   560→                    className="text-[10px] font-medium text-zinc-500 hover:text-red-400 transition-colors flex items-center gap-1"
+   561→                  >
+   562→                    <Trash2 className="w-3 h-3" />
+   563→                    Remove
+   564→                  </button>
+   565→                </div>
+   566→              </div>
+   567→            </div>
+   568→          ))}
+   569→        </div>
+   570→      )}
+   571→
+   572→      {/* ── Inline Add Integration Form ──────────────────────────────────── */}
+   573→      {showAddForm && (
+   574→        <div className="rounded-xl bg-[#1A1A1A] border border-orange-500/20 p-5 space-y-4">
+   575→          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+   576→            <KeyRound className="w-4 h-4 text-orange-400" />
+   577→            Add New Integration
+   578→          </h3>
+   579→
+   580→          <div className="space-y-3">
+   581→            {/* Platform Name */}
+   582→            <div>
+   583→              <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Platform Name</label>
+   584→              <input
+   585→                value={newName}
+   586→                onChange={(e) => setNewName(e.target.value)}
+   587→                placeholder="e.g. Stripe, PayPal, HubSpot, Custom API..."
+   588→                className="w-full mt-1 px-3 py-2.5 rounded-lg text-sm bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-zinc-600 focus:border-orange-500/50 focus:outline-none transition-colors"
+   589→              />
+   590→            </div>
+   591→
+   592→            {/* Auth Type */}
+   593→            <div>
+   594→              <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Auth Type</label>
+   595→              <div className="grid grid-cols-2 gap-2 mt-1">
+   596→                {[
+   597→                  { value: 'bearer', label: 'Bearer Token' },
+   598→                  { value: 'api_key_header', label: 'API Key (Header)' },
+   599→                  { value: 'api_key_query', label: 'API Key (Query)' },
+   600→                  { value: 'basic_auth', label: 'Basic Auth' },
+   601→                ].map((opt) => (
+   602→                  <button
+   603→                    key={opt.value}
+   604→                    onClick={() => setNewAuthType(opt.value)}
+   605→                    className={cn(
+   606→                      'text-left px-3 py-2 rounded-lg text-xs font-medium border transition-all',
+   607→                      newAuthType === opt.value
+   608→                        ? 'border-orange-500/40 bg-orange-500/5 text-orange-400'
+   609→                        : 'border-white/[0.06] text-zinc-400 hover:border-white/10'
+   610→                    )}
+   611→                  >
+   612→                    {opt.label}
+   613→                  </button>
+   614→                ))}
+   615→              </div>
+   616→            </div>
+   617→
+   618→            {/* API Key / Token */}
+   619→            <div>
+   620→              <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">
+   621→                {newAuthType === 'basic_auth' ? 'Username:Password' : 'API Key / Token'}
+   622→              </label>
+   623→              <input
+   624→                value={newApiKey}
+   625→                onChange={(e) => setNewApiKey(e.target.value)}
+   626→                type="password"
+   627→                placeholder={newAuthType === 'basic_auth' ? 'user:password' : 'sk_live_xxx or your-api-key'}
+   628→                className="w-full mt-1 px-3 py-2.5 rounded-lg text-sm bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-zinc-600 focus:border-orange-500/50 focus:outline-none transition-colors"
+   629→              />
+   630→            </div>
+   631→
+   632→            {/* Test URL (optional) */}
+   633→            <div>
+   634→              <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">
+   635→                Test URL <span className="text-zinc-700">(optional)</span>
+   636→              </label>
+   637→              <input
+   638→                value={newTestUrl}
+   639→                onChange={(e) => setNewTestUrl(e.target.value)}
+   640→                type="url"
+   641→                placeholder="https://api.example.com/v1/validate"
+   642→                className="w-full mt-1 px-3 py-2.5 rounded-lg text-sm bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-zinc-600 focus:border-orange-500/50 focus:outline-none transition-colors"
+   643→              />
+   644→              <p className="text-[9px] text-zinc-600 mt-1">For known platforms, PARWA auto-detects the test endpoint. For custom platforms, provide a URL that returns 200 on valid auth.</p>
+   645→            </div>
+   646→          </div>
+   647→
+   648→          {/* Add + Cancel buttons */}
+   649→          <div className="flex justify-end gap-3 pt-2 border-t border-white/[0.04]">
+   650→            <button
+   651→              onClick={() => setShowAddForm(false)}
+   652→              className="px-4 py-2 rounded-lg text-xs font-medium border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 transition-all"
+   653→            >
+   654→              Cancel
+   655→            </button>
+   656→            <button
+   657→              onClick={handleAddIntegration}
+   658→              disabled={isAdding}
+   659→              className="px-5 py-2 rounded-lg text-xs font-bold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:from-orange-400 hover:to-amber-300 shadow-lg shadow-orange-500/25 transition-all flex items-center gap-1.5 disabled:opacity-60"
+   660→            >
+   661→              {isAdding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+   662→              Add & Verify
+   663→            </button>
+   664→          </div>
+   665→        </div>
+   666→      )}
+   667→    </div>
+   668→  );
+   669→}
+   670→
+   671→// ── Voice Channel Extra Section ───────────────────────────────────────
+   672→
+   673→function VoiceChannelExtra({
+   674→  config,
+   675→  recentCallCount,
+   676→  testCallLoading,
+   677→  onTestCall,
+   678→  onConfigure,
+   679→  onSetupVoice,
+   680→}: {
+   681→  config: VoiceChannelConfig | null;
+   682→  recentCallCount: number;
+   683→  testCallLoading: boolean;
+   684→  onTestCall: () => void;
+   685→  onConfigure: () => void;
+   686→  onSetupVoice: () => void;
+   687→}) {
+   688→  // No config yet — show setup prompt
+   689→  if (!config) {
+   690→    return (
+   691→      <div className="mt-3 pt-3 border-t border-white/[0.04] space-y-3">
+   692→        <p className="text-[10px] text-zinc-600">
+   693→          Voice is not configured yet. Choose how to get your number:
+   694→        </p>
+   695→        <div className="flex items-center gap-2">
+   696→          <button
+   697→            onClick={onSetupVoice}
+   698→            className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400 hover:text-emerald-300 transition-colors bg-emerald-500/5 border border-emerald-500/20 rounded-lg px-3 py-1.5"
+   699→          >
+   700→            <Sparkles className="w-3 h-3" />
+   701→            Setup Voice
+   702→          </button>
+   703→        </div>
+   704→      </div>
+   705→    );
+   706→  }
+   707→
+   708→  // Config exists — show status
+   709→  return (
+   710→    <div className="mt-3 pt-3 border-t border-white/[0.04] space-y-2.5">
+   711→      {/* Number source badge */}
+   712→      <div className="flex items-center gap-2 text-[10px]">
+   713→        {config.number_source === 'parwa_provided' ? (
+   714→          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+   715→            <Sparkles className="w-2.5 h-2.5" />
+   716→            Parwa Number
+   717→          </span>
+   718→        ) : (
+   719→          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+   720→            <Key className="w-2.5 h-2.5" />
+   721→            Your Twilio
+   722→          </span>
+   723→        )}
+   724→      </div>
+   725→
+   726→      {/* Voice number */}
+   727→      <div className="flex items-center gap-2 text-[10px] text-zinc-600">
+   728→        <Phone className="w-3 h-3" />
+   729→        <span>Number: {config.twilio_phone_number || config.parwa_phone_number}</span>
+   730→      </div>
+   731→
+   732→      {/* Recent Calls */}
+   733→      <div className="flex items-center justify-between">
+   734→        <span className="text-[10px] text-zinc-600">
+   735→          {recentCallCount} total call{recentCallCount !== 1 ? 's' : ''} recorded
+   736→        </span>
+   737→        <div className="flex items-center gap-2">
+   738→          {/* Configure Link */}
+   739→          <button
+   740→            onClick={onConfigure}
+   741→            className="inline-flex items-center gap-1 text-[10px] font-medium text-orange-400 hover:text-orange-300 transition-colors"
+   742→          >
+   743→            <Settings className="w-3 h-3" />
+   744→            Configure
+   745→          </button>
+   746→
+   747→          {/* Test Call */}
+   748→          <button
+   749→            onClick={onTestCall}
+   750→            disabled={testCallLoading}
+   751→            className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 hover:text-emerald-300 transition-colors disabled:opacity-50"
+   752→          >
+   753→            {testCallLoading ? (
+   754→              <Loader2 className="w-3 h-3 animate-spin" />
+   755→            ) : (
+   756→              <Phone className="w-3 h-3" />
+   757→            )}
+   758→            Test Call
+   759→          </button>
+   760→        </div>
+   761→      </div>
+   762→    </div>
+   763→  );
+   764→}
+   765→

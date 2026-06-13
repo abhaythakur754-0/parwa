@@ -120,6 +120,11 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085" />
     </svg>
   ),
+  integrations: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.06a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L5.25 9.503" />
+    </svg>
+  ),
 };
 
 // ── DashboardSidebar Component ───────────────────────────────────────
@@ -136,6 +141,7 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
     { label: 'Variants', href: '/dashboard/variants', icon: Icons.variants },
     { label: 'AI Monitoring', href: '/dashboard/monitoring', icon: Icons.monitoring, requiredTier: 'pro' as VariantTier },
     { label: 'Channels', href: '/dashboard/channels', icon: Icons.channels, requiredTier: undefined },
+    { label: 'Integrations', href: '/dashboard/integrations', icon: Icons.integrations },
     { label: 'Calls', href: '/dashboard/calls', icon: Icons.calls },
     { label: 'Billing', href: '/dashboard/billing', icon: Icons.billing },
     { label: 'Cost Breakdown', href: '/dashboard/cost-breakdown', icon: Icons.billing },

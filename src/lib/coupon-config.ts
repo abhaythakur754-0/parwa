@@ -63,18 +63,11 @@ export interface Coupon {
  */
 export const COUPONS: Coupon[] = [
   {
-    code: process.env.NEXT_PUBLIC_PADDLE_FREE_DISCOUNT_CODE || 'PARWAFREE',
+    code: process.env.NEXT_PUBLIC_PADDLE_FREE_DISCOUNT_CODE || 'durga754',
     discountPercent: 100,
     // Override via env var, or hardcode your Paddle discount ID here
     paddleDiscountId: process.env.NEXT_PUBLIC_PADDLE_FREE_DISCOUNT_ID || undefined,
     description: '100% off — Full testing access (all variants free)',
-    active: true,
-  },
-  {
-    code: 'PARWA50',
-    discountPercent: 50,
-    paddleDiscountId: process.env.NEXT_PUBLIC_PADDLE_50_DISCOUNT_ID || undefined,
-    description: '50% off — Half-price testing',
     active: true,
   },
 ];

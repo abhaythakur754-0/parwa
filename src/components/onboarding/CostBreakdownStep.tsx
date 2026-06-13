@@ -463,14 +463,41 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
 
-  // Restore add-ons from localStorage
+  // Restore add-ons and multi-variant selections from localStorage
   useEffect(() => {
     try {
       const stored = localStorage.getItem('parwa_pricing_context');
       if (stored) {
-        const ctx = JSON.parse(stored) as PricingContext;
+        const ctx = JSON.parse(stored) as PricingContext & {
+          selectedVariants?: string[];
+          variantQuantities?: Record<string, number>;
+        };
         if (ctx.addOns) {
           setAddOns(ctx.addOns);
+        }
+        // Restore multiple variants if selected on ModelsPage
+        if (ctx.selectedVariants && Array.isArray(ctx.selectedVariants) && ctx.selectedVariants.length > 0) {
+          const tiers: VariantTier[] = ctx.selectedVariants
+            .map((v: string) => {
+              const normalized = normalizeTier(v);
+              return ['starter', 'growth', 'high'].includes(normalized) ? normalized as VariantTier : null;
+            })
+            .filter(Boolean) as VariantTier[];
+          if (tiers.length > 0) {
+            setActiveVariants(tiers);
+          }
+        }
+        // Restore variant quantities
+        if (ctx.variantQuantities && typeof ctx.variantQuantities === 'object') {
+          const qtyMap: Record<string, number> = ctx.variantQuantities;
+          const newQuantities = { ...variantQuantities };
+          for (const [variantKey, qty] of Object.entries(qtyMap)) {
+            const tier = normalizeTier(variantKey);
+            if (['starter', 'growth', 'high'].includes(tier)) {
+              newQuantities[tier as VariantTier] = Math.max(1, Math.min(qty as number, 10));
+            }
+          }
+          setVariantQuantities(newQuantities);
         }
       }
     } catch {

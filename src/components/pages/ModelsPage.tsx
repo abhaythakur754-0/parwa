@@ -239,18 +239,18 @@ export default function ModelsPage() {
                             timestamp: new Date().toISOString(),
                           }));
                           router.push('/signup?redirect=/models');
+                        } else if (isActive) {
+                          // Already added — increment quantity (up to 10)
+                          if (qty < 10) {
+                            handleQuantityChange(variant.id, qty + 1);
+                          }
                         } else {
-                          // Toggle this variant in the multi-select
-                          setSelectedVariants((prev) => {
-                            const newSelection = prev.includes(variant.id)
-                              ? prev.filter((v) => v !== variant.id)
-                              : [...prev, variant.id];
-                            // Auto-set quantity to 1 if newly added
-                            if (!prev.includes(variant.id) && quantities[variant.id] === 0) {
-                              setQuantities((q) => ({ ...q, [variant.id]: 1 }));
-                            }
-                            return newSelection;
-                          });
+                          // Add this variant to the multi-select
+                          setSelectedVariants((prev) => [...prev, variant.id]);
+                          // Auto-set quantity to 1 if newly added
+                          if (quantities[variant.id] === 0) {
+                            setQuantities((q) => ({ ...q, [variant.id]: 1 }));
+                          }
                         }
                       }} className={cn(
                         "w-full py-3.5 rounded-xl text-sm font-bold transition-all",
@@ -258,7 +258,7 @@ export default function ModelsPage() {
                           ? 'bg-gradient-to-r from-emerald-500 to-emerald-400 text-white hover:from-emerald-400 hover:to-emerald-300 shadow-lg shadow-emerald-500/25'
                           : 'bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] hover:from-orange-400 hover:to-orange-300 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40'
                       )}>
-                        {isActive ? 'Added ✓' : isAuthenticated ? 'Hire Agent' : 'Get Started'}
+                        {isActive ? `Added (${qty}) — Add More` : isAuthenticated ? 'Hire Agent' : 'Get Started'}
                       </button>
                     </div>
                   );
