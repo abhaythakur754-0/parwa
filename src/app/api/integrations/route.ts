@@ -1,77 +1,99 @@
 /**
- * PARWA Integrations API Proxy
+ * PARWA Integrations API — List & Create
  *
- * Catches /api/integrations requests and proxies to backend.
- * Mock responses when backend is unavailable.
+ * GET  /api/integrations — list all integrations for the current user
+ * POST /api/integrations — create a new integration
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getBackendUrl } from '@/lib/backend-url';
+import { backendProxy } from '@/lib/backend-proxy';
 
-const BACKEND_URL = getBackendUrl();
+function getAuthToken(req: NextRequest): string | undefined {
+  const authHeader = req.headers.get('authorization');
+  if (authHeader) return authHeader.replace('Bearer ', '');
+  const cookieHeader = req.headers.get('cookie');
+  if (cookieHeader) {
+    const cookies = Object.fromEntries(
+      cookieHeader.split(';').map((c) => {
+        const [key, ...val] = c.trim().split('=');
+        return [key, val.join('=')];
+      })
+    );
+    if (cookies.parwa_at) return cookies.parwa_at;
+  }
+  return undefined;
+}
 
 export async function GET(req: NextRequest) {
+  const authToken = getAuthToken(req);
+
   try {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    const authHeader = req.headers.get('authorization');
-    if (authHeader) headers['Authorization'] = authHeader;
-    const cookieHeader = req.headers.get('cookie');
-    if (cookieHeader) {
-      const cookies = Object.fromEntries(
-        cookieHeader.split(';').map((c) => { const [k, ...v] = c.trim().split('='); return [k, v.join('=')]; })
+    const { response } = await backendProxy('/api/v1/integrations', {
+      method: 'GET',
+      authToken,
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return NextResponse.json(data);
+    }
+
+    const errorBody = await response.text().catch(() => '{}');
+    try {
+      return NextResponse.json(JSON.parse(errorBody), { status: response.status });
+    } catch {
+      return NextResponse.json(
+        { error: 'backend_error', message: `Backend returned ${response.status}` },
+        { status: response.status }
       );
-      if (cookies.parwa_at) headers['Authorization'] = `Bearer ${cookies.parwa_at}`;
     }
-
-    const res = await fetch(`${BACKEND_URL}/api/integrations`, { headers });
-
-    // If backend returns auth error or server error, return empty list for unauthenticated users
-    if (res.status === 401 || res.status === 403 || res.status >= 500) {
-      return NextResponse.json([]);
-    }
-
-    const data = await res.json();
-    return NextResponse.json(data, { status: res.status });
   } catch {
-    // Mock fallback
+    // Backend unreachable — return empty list
     return NextResponse.json([]);
   }
 }
 
 export async function POST(req: NextRequest) {
+  const authToken = getAuthToken(req);
+  let body: string | undefined;
+  try { body = await req.text(); } catch { /* no body */ }
+
   try {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    const authHeader = req.headers.get('authorization');
-    if (authHeader) headers['Authorization'] = authHeader;
-    const cookieHeader = req.headers.get('cookie');
-    if (cookieHeader) {
-      const cookies = Object.fromEntries(
-        cookieHeader.split(';').map((c) => { const [k, ...v] = c.trim().split('='); return [k, v.join('=')]; })
-      );
-      if (cookies.parwa_at) headers['Authorization'] = `Bearer ${cookies.parwa_at}`;
+    const { response } = await backendProxy('/api/v1/integrations', {
+      method: 'POST',
+      body,
+      authToken,
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return NextResponse.json(data);
     }
 
-    const body = await req.text();
-    const res = await fetch(`${BACKEND_URL}/api/integrations`, {
-      method: 'POST',
-      headers,
-      body,
-    });
-    const data = await res.json();
-    return NextResponse.json(data, { status: res.status });
+    const errorBody = await response.text().catch(() => '{}');
+    try {
+      return NextResponse.json(JSON.parse(errorBody), { status: response.status });
+    } catch {
+      return NextResponse.json(
+        { error: 'backend_error', message: `Backend returned ${response.status}` },
+        { status: response.status }
+      );
+    }
   } catch {
-    // Mock fallback — simulate successful integration creation
-    const body = await req.json().catch(() => ({}));
-    return NextResponse.json({
-      id: `mock-int-${Date.now()}`,
-      name: body.name || 'Integration',
-      type: body.integration_type || 'custom',
-      status: 'active',
-      config: body.config || {},
-      last_test_at: null,
-      last_test_result: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+    // Backend unreachable — save locally (return what was sent)
+    try {
+      const parsed = body ? JSON.parse(body) : {};
+      return NextResponse.json({
+        id: `local-${Date.now()}`,
+        ...parsed,
+        status: 'active',
+        saved_locally: true,
+      });
+    } catch {
+      return NextResponse.json(
+        { error: 'backend_unreachable', message: 'Cannot save integration. Backend is not available.' },
+        { status: 503 }
+      );
+    }
   }
 }

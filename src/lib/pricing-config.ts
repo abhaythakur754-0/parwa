@@ -16,7 +16,7 @@
  * Correct prices (matching backend SSOT + roadmap D5):
  *   Starter/Mini:  $999/mo   | $11,988/yr   | 500 tickets/mo
  *   Growth/Pro:    $2,499/mo | $29,988/yr   | 2,000 tickets/mo
- *   High:          $4,999/mo | $59,988/yr   | 10,000 tickets/mo
+ *   High:          $3,999/mo | $47,988/yr   | 10,000 tickets/mo
  *
  * Annual = 12 × monthly. NO discounts. NO free months.
  *
@@ -69,13 +69,13 @@ export function normalizeTier(tier: string): VariantTier {
 export const VARIANT_PRICES: Record<VariantTier, number> = {
   starter: 999,
   growth: 2499,
-  high: 4999,
+  high: 3999,
 };
 
 export const VARIANT_ANNUAL_PRICES: Record<VariantTier, number> = {
   starter: 999 * 12,    // 11,988
   growth: 2499 * 12,    // 29,988
-  high: 4999 * 12,      // 59,988
+  high: 3999 * 12,      // 47,988
 };
 
 // ── Display Names ──────────────────────────────────────────────────

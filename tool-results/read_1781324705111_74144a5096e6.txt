@@ -1,0 +1,750 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import React, { useState, useEffect, useMemo } from 'react';
+     4→     4→import {
+     5→     5→  Receipt,
+     6→     6→  ArrowRight,
+     7→     7→  Loader2,
+     8→     8→  Mic,
+     9→     9→  Plug,
+    10→    10→  TrendingDown,
+    11→    11→  Shield,
+    12→    12→  AlertCircle,
+    13→    13→  ExternalLink,
+    14→    14→  Plus,
+    15→    15→  Minus,
+    16→    16→  AlertTriangle,
+    17→    17→  Sparkles,
+    18→    18→  Brain,
+    19→    19→  BarChart3,
+    20→    20→} from 'lucide-react';
+    21→    21→import toast from 'react-hot-toast';
+    22→    22→import { cn } from '@/lib/utils';
+    23→    23→import { openCheckoutWithItems, getPaddleInstance, VARIANT_PRICE_IDS } from '@/lib/paddle';
+    24→    24→import type { ParwaVariant } from './IndustryVariantStep';
+    25→    25→import type { PricingContext } from './IndustryVariantStep';
+    26→    26→import {
+    27→    27→  VARIANT_PRICES,
+    28→    28→  VARIANT_DISPLAY_NAMES,
+    29→    29→  VARIANT_LIMITS,
+    30→    30→  VARIANT_AI_INFO,
+    31→    31→  ADD_ONS as SHARED_ADD_ONS,
+    32→    32→  AGENT_COST_MONTHLY,
+    33→    33→  TICKETS_PER_AGENT,
+    34→    34→  OVERAGE_PRICE_PER_TICKET,
+    35→    35→  normalizeTier,
+    36→    36→  type VariantTier,
+    37→    37→  type OnboardingVariant,
+    38→    38→} from '@/lib/pricing-config';
+    39→    39→
+    40→    40→// ── Onboarding variant → VariantTier mapping ────────────────────────
+    41→    41→
+    42→    42→const ONBOARDING_TO_TIER: Record<ParwaVariant, VariantTier> = {
+    43→    43→  mini_parwa: 'starter',
+    44→    44→  parwa: 'growth',
+    45→    45→  parwa_high: 'high',
+    46→    46→};
+    47→    47→
+    48→    48→const TIER_TO_ONBOARDING: Record<VariantTier, ParwaVariant> = {
+    49→    49→  starter: 'mini_parwa',
+    50→    50→  growth: 'parwa',
+    51→    51→  high: 'parwa_high',
+    52→    52→};
+    53→    53→
+    54→    54→// ── Variant Display Data (sourced from pricing-config.ts) ──────────────
+    55→    55→
+    56→    56→const VARIANT_DISPLAY: Record<VariantTier, {
+    57→    57→  name: string;
+    58→    58→  price: number;
+    59→    59→  priceLabel: string;
+    60→    60→  aiPipeline: number;
+    61→    61→  ticketVolume: number;
+    62→    62→  tagline: string;
+    63→    63→}> = {
+    64→    64→  starter: {
+    65→    65→    name: VARIANT_DISPLAY_NAMES.starter,
+    66→    66→    price: VARIANT_PRICES.starter,
+    67→    67→    priceLabel: `$${VARIANT_PRICES.starter.toLocaleString()}/mo`,
+    68→    68→    aiPipeline: VARIANT_AI_INFO.starter.pipelineSteps,
+    69→    69→    ticketVolume: VARIANT_LIMITS.starter.monthlyTickets,
+    70→    70→    tagline: VARIANT_AI_INFO.starter.techniques,
+    71→    71→  },
+    72→    72→  growth: {
+    73→    73→    name: VARIANT_DISPLAY_NAMES.growth,
+    74→    74→    price: VARIANT_PRICES.growth,
+    75→    75→    priceLabel: `$${VARIANT_PRICES.growth.toLocaleString()}/mo`,
+    76→    76→    aiPipeline: VARIANT_AI_INFO.growth.pipelineSteps,
+    77→    77→    ticketVolume: VARIANT_LIMITS.growth.monthlyTickets,
+    78→    78→    tagline: VARIANT_AI_INFO.growth.techniques,
+    79→    79→  },
+    80→    80→  high: {
+    81→    81→    name: VARIANT_DISPLAY_NAMES.high,
+    82→    82→    price: VARIANT_PRICES.high,
+    83→    83→    priceLabel: `$${VARIANT_PRICES.high.toLocaleString()}/mo`,
+    84→    84→    aiPipeline: VARIANT_AI_INFO.high.pipelineSteps,
+    85→    85→    ticketVolume: VARIANT_LIMITS.high.monthlyTickets,
+    86→    86→    tagline: VARIANT_AI_INFO.high.techniques,
+    87→    87→  },
+    88→    88→};
+    89→    89→
+    90→    90→// ── Add-Ons ────────────────────────────────────────────────────────────
+    91→    91→
+    92→    92→interface AddOn {
+    93→    93→  key: 'voice' | 'customApi';
+    94→    94→  name: string;
+    95→    95→  description: string;
+    96→    96→  price: number;
+    97→    97→  icon: React.ElementType;
+    98→    98→  /** Which variants already include this feature (no extra charge) */
+    99→    99→  includedIn: VariantTier[];
+   100→   100→}
+   101→   101→
+   102→   102→const ADD_ONS: AddOn[] = [
+   103→   103→  {
+   104→   104→    key: 'voice',
+   105→   105→    name: 'Voice Channel',
+   106→   106→    description: 'AI-powered inbound & outbound voice calls with real-time transcription.',
+   107→   107→    price: 199,
+   108→   108→    icon: Mic,
+   109→   109→    includedIn: ['growth', 'high'],
+   110→   110→  },
+   111→   111→  {
+   112→   112→    key: 'customApi',
+   113→   113→    name: 'Custom API Connector',
+   114→   114→    description: 'Connect any REST API with custom auth and schema mapping.',
+   115→   115→    price: 49,
+   116→   116→    icon: Plug,
+   117→   117→    includedIn: ['growth', 'high'],
+   118→   118→  },
+   119→   119→];
+   120→   120→
+   121→   121→// ── Savings Calculation (uses AGENT_COST_MONTHLY from pricing-config) ──
+   122→   122→
+   123→   123→function estimateSavings(ticketVolume: number, monthlyCost: number): {
+   124→   124→  agentsReplaced: number;
+   125→   125→  humanCost: number;
+   126→   126→  savings: number;
+   127→   127→  savingsPercent: number;
+   128→   128→} {
+   129→   129→  const agentsReplaced = Math.max(1, Math.round(ticketVolume / TICKETS_PER_AGENT));
+   130→   130→  const humanCost = agentsReplaced * AGENT_COST_MONTHLY;
+   131→   131→  const savings = Math.max(0, humanCost - monthlyCost);
+   132→   132→  const savingsPercent = humanCost > 0 ? Math.round((savings / humanCost) * 100) : 0;
+   133→   133→  return { agentsReplaced, humanCost, savings, savingsPercent };
+   134→   134→}
+   135→   135→
+   136→   136→// ── Usage Bar Component ────────────────────────────────────────────────
+   137→   137→
+   138→   138→function UsageBar({
+   139→   139→  used,
+   140→   140→  total,
+   141→   141→  label,
+   142→   142→  unit,
+   143→   143→  overageRate,
+   144→   144→}: {
+   145→   145→  used: number;
+   146→   146→  total: number;
+   147→   147→  label: string;
+   148→   148→  unit: string;
+   149→   149→  overageRate?: string;
+   150→   150→}) {
+   151→   151→  const pct = total > 0 ? Math.min((used / total) * 100, 100) : 0;
+   152→   152→  const isOverLimit = used > total;
+   153→   153→
+   154→   154→  return (
+   155→   155→    <div className="space-y-1.5">
+   156→   156→      <div className="flex items-center justify-between">
+   157→   157→        <span className="text-[10px] text-orange-200/40">{label}</span>
+   158→   158→        <span className={cn(
+   159→   159→          'text-[10px] font-medium',
+   160→   160→          isOverLimit ? 'text-red-400' : 'text-orange-200/50'
+   161→   161→        )}>
+   162→   162→          {used.toLocaleString()} / {total.toLocaleString()} {unit}
+   163→   163→        </span>
+   164→   164→      </div>
+   165→   165→      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+   166→   166→        <div
+   167→   167→          className={cn(
+   168→   168→            'h-full rounded-full transition-all duration-700',
+   169→   169→            isOverLimit ? 'bg-gradient-to-r from-red-500 to-red-400' : 'bg-gradient-to-r from-emerald-500 to-emerald-400'
+   170→   170→          )}
+   171→   171→          style={{ width: `${pct}%` }}
+   172→   172→        />
+   173→   173→      </div>
+   174→   174→      {isOverLimit && overageRate && (
+   175→   175→        <p className="text-[9px] text-red-400 flex items-center gap-1">
+   176→   176→          <AlertTriangle className="w-2.5 h-2.5" />
+   177→   177→          Over limit — {(used - total).toLocaleString()} overage at {overageRate}/ticket
+   178→   178→        </p>
+   179→   179→      )}
+   180→   180→    </div>
+   181→   181→  );
+   182→   182→}
+   183→   183→
+   184→   184→// ── Variant Mixer Card ─────────────────────────────────────────────────
+   185→   185→
+   186→   186→function VariantMixerCard({
+   187→   187→  tier,
+   188→   188→  isActive,
+   189→   189→  onToggle,
+   190→   190→}: {
+   191→   191→  tier: VariantTier;
+   192→   192→  isActive: boolean;
+   193→   193→  onToggle: () => void;
+   194→   194→}) {
+   195→   195→  const info = VARIANT_DISPLAY[tier];
+   196→   196→  const limits = VARIANT_LIMITS[tier];
+   197→   197→  const aiInfo = VARIANT_AI_INFO[tier];
+   198→   198→
+   199→   199→  return (
+   200→   200→    <button
+   201→   201→      onClick={onToggle}
+   202→   202→      className={cn(
+   203→   203→        'w-full text-left p-4 rounded-xl border transition-all duration-200',
+   204→   204→        isActive
+   205→   205→          ? 'border-orange-500/30 bg-orange-500/5'
+   206→   206→          : 'border-white/[0.06] hover:border-orange-500/15'
+   207→   207→      )}
+   208→   208→      style={!isActive ? { background: 'rgba(255,255,255,0.03)' } : undefined}
+   209→   209→    >
+   210→   210→      <div className="flex items-center justify-between mb-2">
+   211→   211→        <div>
+   212→   212→          <div className="flex items-center gap-2">
+   213→   213→            <span className={cn(
+   214→   214→              'text-sm font-semibold',
+   215→   215→              isActive ? 'text-orange-400' : 'text-white'
+   216→   216→            )}>
+   217→   217→              {info.name}
+   218→   218→            </span>
+   219→   219→            {isActive && (
+   220→   220→              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
+   221→   221→                Active
+   222→   222→              </span>
+   223→   223→            )}
+   224→   224→          </div>
+   225→   225→        </div>
+   226→   226→        <span className="text-base font-bold text-white">{info.priceLabel}</span>
+   227→   227→      </div>
+   228→   228→
+   229→   229→      <div className="grid grid-cols-3 gap-2 mb-3">
+   230→   230→        <div className="rounded-lg p-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
+   231→   231→          <p className="text-[9px] text-orange-200/30 uppercase tracking-wider">Pipeline</p>
+   232→   232→          <p className="text-xs font-medium text-white">{aiInfo.pipelineSteps}-step</p>
+   233→   233→        </div>
+   234→   234→        <div className="rounded-lg p-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
+   235→   235→          <p className="text-[9px] text-orange-200/30 uppercase tracking-wider">Tickets</p>
+   236→   236→          <p className="text-xs font-medium text-white">{limits.monthlyTickets.toLocaleString()}/mo</p>
+   237→   237→        </div>
+   238→   238→        <div className="rounded-lg p-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
+   239→   239→          <p className="text-[9px] text-orange-200/30 uppercase tracking-wider">AI Resolve</p>
+   240→   240→          <p className="text-xs font-medium text-white">{Math.round(aiInfo.aiResolution * 100)}%</p>
+   241→   241→        </div>
+   242→   242→      </div>
+   243→   243→
+   244→   244→      <div className={cn(
+   245→   245→        'w-full h-8 rounded-lg flex items-center justify-center gap-1.5 text-xs font-medium transition-all',
+   246→   246→        isActive
+   247→   247→          ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
+   248→   248→          : 'bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] shadow-lg shadow-orange-500/20'
+   249→   249→      )}>
+   250→   250→        {isActive ? (
+   251→   251→          <><Minus className="w-3.5 h-3.5" /> Remove</>
+   252→   252→        ) : (
+   253→   253→          <><Plus className="w-3.5 h-3.5" /> Add Variant</>
+   254→   254→        )}
+   255→   255→      </div>
+   256→   256→    </button>
+   257→   257→  );
+   258→   258→}
+   259→   259→
+   260→   260→// ── Props ──────────────────────────────────────────────────────────────
+   261→   261→
+   262→   262→interface CostBreakdownStepProps {
+   263→   263→  variant: ParwaVariant;
+   264→   264→  industry?: string;
+   265→   265→  onComplete: () => void;
+   266→   266→}
+   267→   267→
+   268→   268→// ── Component ──────────────────────────────────────────────────────────
+   269→   269→
+   270→   270→export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProps) {
+   271→   271→  const initialTier = ONBOARDING_TO_TIER[variant] || 'growth';
+   272→   272→  const [activeVariants, setActiveVariants] = useState<VariantTier[]>([initialTier]);
+   273→   273→  const [addOns, setAddOns] = useState<{ voice: boolean; customApi: boolean }>({ voice: false, customApi: false });
+   274→   274→  const [isSubmitting, setIsSubmitting] = useState(false);
+   275→   275→  const [paddleStatus, setPaddleStatus] = useState<'unknown' | 'ready' | 'unavailable'>('unknown');
+   276→   276→  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+   277→   277→
+   278→   278→  // Restore add-ons from localStorage
+   279→   279→  useEffect(() => {
+   280→   280→    try {
+   281→   281→      const stored = localStorage.getItem('parwa_pricing_context');
+   282→   282→      if (stored) {
+   283→   283→        const ctx = JSON.parse(stored) as PricingContext;
+   284→   284→        if (ctx.addOns) {
+   285→   285→          setAddOns(ctx.addOns);
+   286→   286→        }
+   287→   287→      }
+   288→   288→    } catch {
+   289→   289→      // ignore
+   290→   290→    }
+   291→   291→  }, []);
+   292→   292→
+   293→   293→  // Check if Paddle.js is available
+   294→   294→  useEffect(() => {
+   295→   295→    getPaddleInstance().then((paddle) => {
+   296→   296→      setPaddleStatus(paddle ? 'ready' : 'unavailable');
+   297→   297→    }).catch(() => {
+   298→   298→      setPaddleStatus('unavailable');
+   299→   299→    });
+   300→   300→  }, []);
+   301→   301→
+   302→   302→  // ── Calculations (pure math — D7, D10) ──────────────────────────────
+   303→   303→
+   304→   304→  const totalTicketLimit = useMemo(
+   305→   305→    () => activeVariants.reduce((sum, tier) => sum + VARIANT_LIMITS[tier].monthlyTickets, 0),
+   306→   306→    [activeVariants]
+   307→   307→  );
+   308→   308→
+   309→   309→  const baseSubscription = useMemo(
+   310→   310→    () => activeVariants.reduce((sum, tier) => sum + VARIANT_PRICES[tier], 0),
+   311→   311→    [activeVariants]
+   312→   312→  );
+   313→   313→
+   314→   314→  const addOnTotal = useMemo(() => {
+   315→   315→    let total = 0;
+   316→   316→    if (addOns.voice) {
+   317→   317→      const voiceAddOn = ADD_ONS.find((a) => a.key === 'voice')!;
+   318→   318→      if (!activeVariants.some((t) => voiceAddOn.includedIn.includes(t))) {
+   319→   319→        total += voiceAddOn.price;
+   320→   320→      }
+   321→   321→    }
+   322→   322→    if (addOns.customApi) {
+   323→   323→      const customApiAddOn = ADD_ONS.find((a) => a.key === 'customApi')!;
+   324→   324→      if (!activeVariants.some((t) => customApiAddOn.includedIn.includes(t))) {
+   325→   325→        total += customApiAddOn.price;
+   326→   326→      }
+   327→   327→    }
+   328→   328→    return total;
+   329→   329→  }, [addOns, activeVariants]);
+   330→   330→
+   331→   331→  const totalMonthly = baseSubscription + addOnTotal;
+   332→   332→  const savings = estimateSavings(totalTicketLimit, totalMonthly);
+   333→   333→
+   334→   334→  // Overage projection (estimates at 80% utilization)
+   335→   335→  const projectedTickets = Math.round(totalTicketLimit * 0.8);
+   336→   336→  const overageTickets = Math.max(0, projectedTickets - totalTicketLimit);
+   337→   337→  const overageCost = overageTickets * OVERAGE_PRICE_PER_TICKET;
+   338→   338→
+   339→   339→  const toggleVariant = (tier: VariantTier) => {
+   340→   340→    setActiveVariants((prev) => {
+   341→   341→      if (prev.includes(tier)) {
+   342→   342→        if (prev.length <= 1) {
+   343→   343→          toast.error('You must have at least one active variant');
+   344→   344→          return prev;
+   345→   345→        }
+   346→   346→        return prev.filter((t) => t !== tier);
+   347→   347→      }
+   348→   348→      return [...prev, tier];
+   349→   349→    });
+   350→   350→  };
+   351→   351→
+   352→   352→  const toggleAddOn = (key: 'voice' | 'customApi') => {
+   353→   353→    setAddOns((prev) => ({ ...prev, [key]: !prev[key] }));
+   354→   354→  };
+   355→   355→
+   356→   356→  const handleProceed = async () => {
+   357→   357→    setIsSubmitting(true);
+   358→   358→    setCheckoutError(null);
+   359→   359→
+   360→   360→    try {
+   361→   361→      // Update pricing context in localStorage
+   362→   362→      const primaryOnboardingVariant = TIER_TO_ONBOARDING[activeVariants[0]] || 'parwa';
+   363→   363→      const context: PricingContext = {
+   364→   364→        industry: 'other',
+   365→   365→        variant: primaryOnboardingVariant,
+   366→   366→        addOns,
+   367→   367→        totalMonthly,
+   368→   368→        timestamp: new Date().toISOString(),
+   369→   369→      };
+   370→   370→
+   371→   371→      // Preserve industry from existing context
+   372→   372→      try {
+   373→   373→        const stored = localStorage.getItem('parwa_pricing_context');
+   374→   374→        if (stored) {
+   375→   375→          const existing = JSON.parse(stored) as PricingContext;
+   376→   376→          context.industry = existing.industry;
+   377→   377→        }
+   378→   378→      } catch {
+   379→   379→        // ignore
+   380→   380→      }
+   381→   381→
+   382→   382→      localStorage.setItem('parwa_pricing_context', JSON.stringify(context));
+   383→   383→
+   384→   384→      // ── Paddle Checkout Flow ──────────────────────────────────────
+   385→   385→      const checkoutItems: Array<{ priceId: string; quantity: number }> = [];
+   386→   386→
+   387→   387→      // Add each active variant as a Paddle line item
+   388→   388→      for (const tier of activeVariants) {
+   389→   389→        const onboardingVariant = TIER_TO_ONBOARDING[tier];
+   390→   390→        const variantPriceId = VARIANT_PRICE_IDS[onboardingVariant];
+   391→   391→        if (variantPriceId) {
+   392→   392→          checkoutItems.push({ priceId: variantPriceId, quantity: 1 });
+   393→   393→        }
+   394→   394→      }
+   395→   395→
+   396→   396→      // Voice add-on (only for starter where it's not included)
+   397→   397→      if (addOns.voice && !activeVariants.some((t) => ADD_ONS.find(a => a.key === 'voice')!.includedIn.includes(t))) {
+   398→   398→        checkoutItems.push({ priceId: 'pri_voice_addon_01', quantity: 1 });
+   399→   399→      }
+   400→   400→
+   401→   401→      // Custom API add-on (only for variants where it's not included)
+   402→   402→      if (addOns.customApi && !activeVariants.some((t) => ADD_ONS.find(a => a.key === 'customApi')!.includedIn.includes(t))) {
+   403→   403→        checkoutItems.push({ priceId: 'pri_custom_api_addon_01', quantity: 1 });
+   404→   404→      }
+   405→   405→
+   406→   406→      const customData = {
+   407→   407→        source: 'parwa_onboarding',
+   408→   408→        variant: primaryOnboardingVariant,
+   409→   409→        activeVariants: activeVariants.map((t) => TIER_TO_ONBOARDING[t]),
+   410→   410→        addOns,
+   411→   411→        industry: context.industry,
+   412→   412→        totalMonthly,
+   413→   413→      };
+   414→   414→
+   415→   415→      // Try server-side transaction first
+   416→   416→      let transactionId: string | null = null;
+   417→   417→      let checkoutUrl: string | null = null;
+   418→   418→
+   419→   419→      try {
+   420→   420→        const res = await fetch('/api/onboarding/checkout', {
+   421→   421→          method: 'POST',
+   422→   422→          headers: { 'Content-Type': 'application/json' },
+   423→   423→          body: JSON.stringify({
+   424→   424→            variant: primaryOnboardingVariant,
+   425→   425→            activeVariants: activeVariants.map((t) => TIER_TO_ONBOARDING[t]),
+   426→   426→            addOns,
+   427→   427→            totalMonthly,
+   428→   428→            industry: context.industry,
+   429→   429→          }),
+   430→   430→        });
+   431→   431→
+   432→   432→        if (res.ok) {
+   433→   433→          const checkoutData = await res.json();
+   434→   434→          transactionId = checkoutData.transaction_id || null;
+   435→   435→          checkoutUrl = checkoutData.checkout_url || null;
+   436→   436→        }
+   437→   437→      } catch {
+   438→   438→        // API unavailable — continue with client-side Paddle checkout
+   439→   439→      }
+   440→   440→
+   441→   441→      // If we got a checkout_url, redirect to it
+   442→   442→      if (checkoutUrl) {
+   443→   443→        window.location.href = checkoutUrl;
+   444→   444→        return;
+   445→   445→      }
+   446→   446→
+   447→   447→      // Client-side Paddle checkout (items-based)
+   448→   448→      if (paddleStatus === 'ready' && checkoutItems.length > 0) {
+   449→   449→        const opened = await openCheckoutWithItems(
+   450→   450→          checkoutItems,
+   451→   451→          customData,
+   452→   452→          () => {
+   453→   453→            toast.success('Payment successful! Welcome to PARWA!');
+   454→   454→            onComplete();
+   455→   455→          },
+   456→   456→          () => {
+   457→   457→            toast('Checkout closed. You can try again anytime.', { icon: 'ℹ️' });
+   458→   458→            setIsSubmitting(false);
+   459→   459→          },
+   460→   460→        );
+   461→   461→        if (opened) {
+   462→   462→          return;
+   463→   463→        }
+   464→   464→      }
+   465→   465→
+   466→   466→      // Fallback: No Paddle available — save configuration and proceed
+   467→   467→      toast.success('Configuration saved! Complete payment to activate your plan.');
+   468→   468→      onComplete();
+   469→   469→    } catch (err) {
+   470→   470→      console.error('[cost-breakdown] Error:', err);
+   471→   471→      setCheckoutError('Something went wrong. Please try again.');
+   472→   472→      toast.error('Something went wrong. Please try again.');
+   473→   473→    } finally {
+   474→   474→      setIsSubmitting(false);
+   475→   475→    }
+   476→   476→  };
+   477→   477→
+   478→   478→  return (
+   479→   479→    <div className="space-y-6">
+   480→   480→      {/* Header */}
+   481→   481→      <div className="text-center space-y-2">
+   482→   482→        <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+   483→   483→          <Receipt className="w-7 h-7 text-emerald-400" />
+   484→   484→        </div>
+   485→   485→        <h2 className="text-2xl font-bold text-white">Review Your Plan</h2>
+   486→   486→        <p className="text-orange-200/40 text-sm">
+   487→   487→          Configure variants, add-ons, and review costs before checkout.
+   488→   488→        </p>
+   489→   489→      </div>
+   490→   490→
+   491→   491→      {/* ── Paddle Status Indicator ─────────────────────────────────── */}
+   492→   492→      {paddleStatus === 'unavailable' && (
+   493→   493→        <div className="rounded-xl border border-amber-500/20 p-4 flex items-start gap-3" style={{ background: 'rgba(245,158,11,0.05)' }}>
+   494→   494→          <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+   495→   495→          <div>
+   496→   496→            <p className="text-sm font-medium text-amber-300">Payment checkout unavailable</p>
+   497→   497→            <p className="text-[10px] text-orange-200/30 mt-1">
+   498→   498→              Paddle payment gateway is not configured. Your configuration will be saved and you can complete payment later.
+   499→   499→            </p>
+   500→   500→          </div>
+   501→   501→        </div>
+   502→   502→      )}
+   503→   503→      {paddleStatus === 'ready' && (
+   504→   504→        <div className="rounded-xl border border-emerald-500/20 p-3 flex items-center gap-2" style={{ background: 'rgba(16,185,129,0.04)' }}>
+   505→   505→          <Shield className="w-4 h-4 text-emerald-400" />
+   506→   506→          <p className="text-xs text-emerald-400">Secure checkout powered by Paddle</p>
+   507→   507→          <ExternalLink className="w-3 h-3 text-emerald-400/60 ml-auto" />
+   508→   508→        </div>
+   509→   509→      )}
+   510→   510→
+   511→   511→      {/* ── 1. Variant Mixer ──────────────────────────────────────────── */}
+   512→   512→      <div className="space-y-3">
+   513→   513→        <div className="flex items-center gap-2">
+   514→   514→          <Brain className="w-4 h-4 text-orange-400" />
+   515→   515→          <label className="text-xs text-orange-200/40 uppercase tracking-wider font-medium">
+   516→   516→            Active Variants
+   517→   517→          </label>
+   518→   518→          <span className="text-[10px] text-orange-200/25">
+   519→   519→            Each variant adds its own ticket allocation and AI pipeline
+   520→   520→          </span>
+   521→   521→        </div>
+   522→   522→        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+   523→   523→          {(['starter', 'growth', 'high'] as VariantTier[]).map((tier) => (
+   524→   524→            <VariantMixerCard
+   525→   525→              key={tier}
+   526→   526→              tier={tier}
+   527→   527→              isActive={activeVariants.includes(tier)}
+   528→   528→              onToggle={() => toggleVariant(tier)}
+   529→   529→            />
+   530→   530→          ))}
+   531→   531→        </div>
+   532→   532→      </div>
+   533→   533→
+   534→   534→      {/* ── 2. Live Usage Bar & Overage Projection ──────────────────── */}
+   535→   535→      <div className="rounded-xl border border-white/[0.06] p-4 space-y-4" style={{ background: 'rgba(255,255,255,0.03)' }}>
+   536→   536→        <div className="flex items-center gap-2">
+   537→   537→          <BarChart3 className="w-4 h-4 text-orange-400" />
+   538→   538→          <span className="text-xs text-orange-200/50 uppercase tracking-wider font-medium">
+   539→   539→            Live Usage & Overage Projection
+   540→   540→          </span>
+   541→   541→        </div>
+   542→   542→        <UsageBar
+   543→   543→          used={projectedTickets}
+   544→   544→          total={totalTicketLimit}
+   545→   545→          label="Ticket Usage (projected at 80%)"
+   546→   546→          unit="tickets"
+   547→   547→          overageRate={`$${OVERAGE_PRICE_PER_TICKET}`}
+   548→   548→        />
+   549→   549→        {overageCost > 0 && (
+   550→   550→          <div className="rounded-lg border border-red-500/20 p-3 flex items-start gap-2" style={{ background: 'rgba(239,68,68,0.05)' }}>
+   551→   551→            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+   552→   552→            <div>
+   553→   553→              <p className="text-xs font-medium text-red-400">Overage Projected</p>
+   554→   554→              <p className="text-[10px] text-orange-200/30 mt-0.5">
+   555→   555→                At 80% utilization, projected overage: ${overageCost.toFixed(2)} ({overageTickets.toLocaleString()} tickets × ${OVERAGE_PRICE_PER_TICKET}/ticket). Overage charged at end of billing cycle.
+   556→   556→              </p>
+   557→   557→            </div>
+   558→   558→          </div>
+   559→   559→        )}
+   560→   560→        {overageCost === 0 && (
+   561→   561→          <div className="rounded-lg border border-emerald-500/20 p-3 flex items-center gap-2" style={{ background: 'rgba(16,185,129,0.04)' }}>
+   562→   562→            <Shield className="w-3.5 h-3.5 text-emerald-400" />
+   563→   563→            <p className="text-[10px] text-emerald-400">Within limits at projected usage. No overage charges.</p>
+   564→   564→          </div>
+   565→   565→        )}
+   566→   566→      </div>
+   567→   567→
+   568→   568→      {/* ── 3. Add-Ons ───────────────────────────────────────────────── */}
+   569→   569→      <div className="space-y-3">
+   570→   570→        <label className="text-xs text-orange-200/40 uppercase tracking-wider font-medium">
+   571→   571→          Optional Add-Ons
+   572→   572→        </label>
+   573→   573→        {ADD_ONS.map((addOn) => {
+   574→   574→          const Icon = addOn.icon;
+   575→   575→          const isSelected = addOns[addOn.key];
+   576→   576→          const isIncluded = activeVariants.some((t) => addOn.includedIn.includes(t));
+   577→   577→          const showPrice = !isIncluded;
+   578→   578→
+   579→   579→          return (
+   580→   580→            <button
+   581→   581→              key={addOn.key}
+   582→   582→              type="button"
+   583→   583→              onClick={() => toggleAddOn(addOn.key)}
+   584→   584→              className={cn(
+   585→   585→                'w-full text-left p-4 rounded-xl border transition-all duration-200 flex items-start gap-4',
+   586→   586→                isSelected
+   587→   587→                  ? 'border-orange-500/30 bg-orange-500/5'
+   588→   588→                  : 'border-white/[0.06] hover:border-orange-500/15'
+   589→   589→              )}
+   590→   590→              style={!isSelected ? { background: 'rgba(255,255,255,0.03)' } : undefined}
+   591→   591→            >
+   592→   592→              <div className={cn(
+   593→   593→                'w-10 h-10 rounded-lg flex items-center justify-center shrink-0',
+   594→   594→                isSelected ? 'bg-orange-500/10' : 'bg-white/[0.04]'
+   595→   595→              )}>
+   596→   596→                <Icon className={cn(
+   597→   597→                  'w-5 h-5',
+   598→   598→                  isSelected ? 'text-orange-400' : 'text-zinc-500'
+   599→   599→                )} />
+   600→   600→              </div>
+   601→   601→              <div className="flex-1 min-w-0">
+   602→   602→                <div className="flex items-center gap-2">
+   603→   603→                  <p className={cn(
+   604→   604→                    'text-sm font-medium',
+   605→   605→                    isSelected ? 'text-orange-400' : 'text-white'
+   606→   606→                  )}>
+   607→   607→                    {addOn.name}
+   608→   608→                  </p>
+   609→   609→                  {isIncluded && (
+   610→   610→                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
+   611→   611→                      Included
+   612→   612→                    </span>
+   613→   613→                  )}
+   614→   614→                </div>
+   615→   615→                <p className="text-[10px] text-orange-200/30 mt-0.5">{addOn.description}</p>
+   616→   616→              </div>
+   617→   617→              <div className="flex flex-col items-end shrink-0 gap-1">
+   618→   618→                {showPrice && (
+   619→   619→                  <p className="text-sm font-semibold text-white">${addOn.price}/mo</p>
+   620→   620→                )}
+   621→   621→                <div className={cn(
+   622→   622→                  'w-8 h-5 rounded-full flex items-center px-0.5 transition-colors duration-200',
+   623→   623→                  isSelected || isIncluded
+   624→   624→                    ? 'bg-gradient-to-r from-orange-500 to-amber-400'
+   625→   625→                    : 'bg-white/10'
+   626→   626→                )}>
+   627→   627→                  <div className={cn(
+   628→   628→                    'w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200',
+   629→   629→                    (isSelected || isIncluded) ? 'translate-x-3' : 'translate-x-0'
+   630→   630→                  )} />
+   631→   631→                </div>
+   632→   632→              </div>
+   633→   633→            </button>
+   634→   634→          );
+   635→   635→        })}
+   636→   636→      </div>
+   637→   637→
+   638→   638→      {/* ── 4. Cost Summary (pure math — D7) ──────────────────────────── */}
+   639→   639→      <div
+   640→   640→        className="rounded-xl border border-white/[0.08] p-5 space-y-3"
+   641→   641→        style={{ background: 'rgba(255,255,255,0.03)' }}
+   642→   642→      >
+   643→   643→        {/* Per-variant breakdown */}
+   644→   644→        {activeVariants.map((tier) => (
+   645→   645→          <div key={tier} className="flex items-center justify-between">
+   646→   646→            <span className="text-sm text-orange-200/50 flex items-center gap-1.5">
+   647→   647→              <div className={cn(
+   648→   648→                'w-2 h-2 rounded-full',
+   649→   649→                tier === 'starter' ? 'bg-emerald-400' : tier === 'growth' ? 'bg-orange-400' : 'bg-purple-400'
+   650→   650→              )} />
+   651→   651→              {VARIANT_DISPLAY[tier].name}
+   652→   652→            </span>
+   653→   653→            <span className="text-sm text-white">${VARIANT_PRICES[tier].toLocaleString()}/mo</span>
+   654→   654→          </div>
+   655→   655→        ))}
+   656→   656→
+   657→   657→        {/* Add-ons */}
+   658→   658→        {addOns.voice && !activeVariants.some((t) => ADD_ONS.find(a => a.key === 'voice')!.includedIn.includes(t)) && (
+   659→   659→          <div className="flex items-center justify-between">
+   660→   660→            <span className="text-sm text-orange-200/50">Voice Channel</span>
+   661→   661→            <span className="text-sm text-white">$199/mo</span>
+   662→   662→          </div>
+   663→   663→        )}
+   664→   664→        {addOns.customApi && !activeVariants.some((t) => ADD_ONS.find(a => a.key === 'customApi')!.includedIn.includes(t)) && (
+   665→   665→          <div className="flex items-center justify-between">
+   666→   666→            <span className="text-sm text-orange-200/50">Custom API Connector</span>
+   667→   667→            <span className="text-sm text-white">$49/mo</span>
+   668→   668→          </div>
+   669→   669→        )}
+   670→   670→
+   671→   671→        {/* Integrations = $0 (D13) */}
+   672→   672→        <div className="flex items-center justify-between">
+   673→   673→          <span className="text-sm text-orange-200/50">Integrations</span>
+   674→   674→          <span className="text-sm text-emerald-400">$0 (free)</span>
+   675→   675→        </div>
+   676→   676→
+   677→   677→        <div className="border-t border-white/[0.06] pt-3 flex items-center justify-between">
+   678→   678→          <span className="text-sm font-semibold text-white">Total Monthly</span>
+   679→   679→          <span className="text-lg font-bold text-orange-400">${totalMonthly.toLocaleString()}/mo</span>
+   680→   680→        </div>
+   681→   681→
+   682→   682→        {/* Overage rate info */}
+   683→   683→        <div className="flex items-center justify-between">
+   684→   684→          <span className="text-[10px] text-orange-200/25">Overage rate (beyond limits)</span>
+   685→   685→          <span className="text-[10px] text-orange-200/25">${OVERAGE_PRICE_PER_TICKET}/ticket</span>
+   686→   686→        </div>
+   687→   687→      </div>
+   688→   688→
+   689→   689→      {/* ── 5. Savings Comparison (D10 — reuse ROI Calculator logic) ──── */}
+   690→   690→      <div
+   691→   691→        className="rounded-xl border border-emerald-500/20 p-4"
+   692→   692→        style={{ background: 'rgba(16,185,129,0.04)' }}
+   693→   693→      >
+   694→   694→        <div className="flex items-start gap-3">
+   695→   695→          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+   696→   696→            <TrendingDown className="w-4 h-4 text-emerald-400" />
+   697→   697→          </div>
+   698→   698→          <div className="flex-1">
+   699→   699→            <p className="text-sm font-semibold text-emerald-400">
+   700→   700→              Save {savings.savingsPercent}% vs human agents
+   701→   701→            </p>
+   702→   702→            <p className="text-[10px] text-orange-200/30 mt-1">
+   703→   703→              PARWA handles {totalTicketLimit.toLocaleString()} tickets/mo — equivalent to{' '}
+   704→   704→              {savings.agentsReplaced} full-time support agent{savings.agentsReplaced > 1 ? 's' : ''} at ~${AGENT_COST_MONTHLY.toLocaleString()}/mo each.
+   705→   705→              That&apos;s ${savings.humanCost.toLocaleString()}/mo in human costs vs ${totalMonthly.toLocaleString()}/mo with PARWA.
+   706→   706→            </p>
+   707→   707→          </div>
+   708→   708→        </div>
+   709→   709→      </div>
+   710→   710→
+   711→   711→      {/* ── No Hidden Fees (D13) ──────────────────────────────────────── */}
+   712→   712→      <div className="flex items-center justify-center gap-2 text-[10px] text-orange-200/25">
+   713→   713→        <Shield className="w-3 h-3" />
+   714→   714→        <span>No hidden fees. Need more? Add another variant.</span>
+   715→   715→      </div>
+   716→   716→
+   717→   717→      {/* ── Error Display ────────────────────────────────────────────── */}
+   718→   718→      {checkoutError && (
+   719→   719→        <div className="rounded-xl border border-red-500/20 p-4 flex items-start gap-3" style={{ background: 'rgba(239,68,68,0.05)' }}>
+   720→   720→          <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+   721→   721→          <p className="text-sm text-red-300">{checkoutError}</p>
+   722→   722→        </div>
+   723→   723→      )}
+   724→   724→
+   725→   725→      {/* ── Proceed Button ────────────────────────────────────────────── */}
+   726→   726→      <div className="flex justify-end">
+   727→   727→        <button
+   728→   728→          onClick={handleProceed}
+   729→   729→          disabled={isSubmitting}
+   730→   730→          className="px-8 py-3 bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-400 hover:to-amber-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-orange-500/25 text-sm flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+   731→   731→        >
+   732→   732→          {isSubmitting ? (
+   733→   733→            <>
+   734→   734→              <Loader2 className="w-4 h-4 animate-spin" />
+   735→   735→              Processing...
+   736→   736→            </>
+   737→   737→          ) : (
+   738→   738→            <>
+   739→   739→              Proceed to Checkout
+   740→   740→              <ArrowRight className="w-4 h-4" />
+   741→   741→            </>
+   742→   742→          )}
+   743→   743→        </button>
+   744→   744→      </div>
+   745→   745→    </div>
+   746→   746→  );
+   747→   747→}
+   748→   748→
+   749→   749→export default CostBreakdownStep;
+   750→   750→

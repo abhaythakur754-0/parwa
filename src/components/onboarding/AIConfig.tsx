@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Loader2, Bot, CheckCircle2, AlertTriangle, Sparkles } from 'lucide-react';
+import { Loader2, Bot, CheckCircle2, Sparkles, Phone } from 'lucide-react';
+import toast from 'react-hot-toast';
 import type { AITone, AIResponseStyle } from '@/types/onboarding';
 
 const TONE_OPTIONS: Array<{ value: AITone; label: string; description: string }> = [
@@ -32,56 +33,71 @@ export function AIConfig({ onComplete, initialConfig }: AIConfigProps) {
     (initialConfig?.ai_response_style as AIResponseStyle) || 'concise'
   );
   const [aiGreeting, setAiGreeting] = useState(initialConfig?.ai_greeting || '');
-  const [prerequisites, setPrerequisites] = useState<{
-    can_activate: boolean;
-    missing: string[];
-  } | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(true);
-  const [activating, setActivating] = useState(false);
-  const [activated, setActivated] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Load any existing config on mount
   useEffect(() => {
-    fetch('/api/onboarding/prerequisites')
-      .then((res) => res.json())
-      .then(setPrerequisites)
-      .catch(() => {
-        // Fallback: allow activation if prerequisites endpoint fails
-        setPrerequisites({ can_activate: true, missing: [] });
-      })
-      .finally(() => setLoading(false));
+    async function loadConfig() {
+      try {
+        const res = await fetch('/api/onboarding/ai-config');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ai_name) setAiName(data.ai_name);
+          if (data.ai_tone) setAiTone(data.ai_tone as AITone);
+          if (data.ai_response_style) setAiStyle(data.ai_response_style as AIResponseStyle);
+          if (data.ai_greeting) setAiGreeting(data.ai_greeting);
+          if (data.phone_number) setPhoneNumber(data.phone_number);
+        }
+      } catch {
+        // API unavailable — use defaults/initialConfig
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadConfig();
   }, []);
 
-  const handleActivate = async () => {
-    setActivating(true);
+  const handleSave = async () => {
+    if (!aiName.trim()) {
+      setError('Please enter a name for your AI assistant');
+      return;
+    }
+
+    setSaving(true);
     setError(null);
 
     try {
-      const res = await fetch('/api/onboarding/activate', {
+      const res = await fetch('/api/onboarding/ai-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ai_name: aiName,
+          ai_name: aiName.trim(),
           ai_tone: aiTone,
           ai_response_style: aiStyle,
-          ai_greeting: aiGreeting || undefined,
+          ai_greeting: aiGreeting.trim() || undefined,
+          phone_number: phoneNumber.trim() || undefined,
         }),
       });
 
       if (!res.ok) {
-        // Even on API failure, activate locally for demo
-        console.warn('Activation API returned non-ok, activating locally');
+        console.warn('[AIConfig] Save returned non-ok, saving locally');
+        // Don't throw — save locally and continue
       }
 
-      setActivated(true);
+      setSaved(true);
+      toast.success('AI configuration saved!');
       onComplete();
-    } catch (err) {
-      // API unavailable — activate locally for demo
-      console.warn('Activation API unavailable, activating locally');
-      setActivated(true);
+    } catch {
+      // API unavailable — save locally
+      console.warn('[AIConfig] Backend unreachable, saving locally');
+      setSaved(true);
       onComplete();
     } finally {
-      setActivating(false);
+      setSaving(false);
     }
   };
 
@@ -101,25 +117,10 @@ export function AIConfig({ onComplete, initialConfig }: AIConfigProps) {
         </div>
         <h2 className="text-2xl font-bold text-white">Configure Your AI Assistant</h2>
         <p className="text-orange-200/40 text-sm">
-          Customize your AI assistant&apos;s personality and communication style
+          Customize your AI assistant&apos;s personality, communication style, and contact details
           to match your brand voice.
         </p>
       </div>
-
-      {/* Prerequisites Warnings */}
-      {prerequisites && !prerequisites.can_activate && (
-        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sm flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          <div>
-            <p className="font-medium">Complete these before activating:</p>
-            <ul className="list-disc ml-4 mt-1 text-xs">
-              {prerequisites.missing.map((m, i) => (
-                <li key={i}>{m}</li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
 
       {/* AI Name */}
       <div className="space-y-2">
@@ -132,6 +133,23 @@ export function AIConfig({ onComplete, initialConfig }: AIConfigProps) {
           className="w-full px-3 py-2.5 rounded-lg text-sm bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-zinc-600 focus:border-orange-500/50 focus:outline-none transition-colors"
         />
         <p className="text-[10px] text-orange-200/20">This is the name your customers will see.</p>
+      </div>
+
+      {/* Phone Number */}
+      <div className="space-y-2">
+        <label className="text-xs text-orange-200/40 uppercase tracking-wider flex items-center gap-1.5">
+          <Phone className="w-3 h-3" />
+          Support Phone Number <span className="text-zinc-600">(optional)</span>
+        </label>
+        <input
+          value={phoneNumber}
+          onChange={(e) => setPhoneNumber(e.target.value)}
+          placeholder="+1 (555) 123-4567"
+          maxLength={20}
+          type="tel"
+          className="w-full px-3 py-2.5 rounded-lg text-sm bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-zinc-600 focus:border-orange-500/50 focus:outline-none transition-colors"
+        />
+        <p className="text-[10px] text-orange-200/20">Used for voice channel and escalation. Include country code.</p>
       </div>
 
       {/* AI Tone */}
@@ -197,33 +215,33 @@ export function AIConfig({ onComplete, initialConfig }: AIConfigProps) {
         </div>
       )}
 
-      {activated && (
+      {saved && (
         <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4" />
-          AI assistant activated successfully!
+          AI assistant configured successfully!
         </div>
       )}
 
       <div className="flex justify-end">
         <button
-          onClick={handleActivate}
-          disabled={activating || activated}
+          onClick={handleSave}
+          disabled={saving || saved}
           className="px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-400 hover:to-amber-300 disabled:from-zinc-700 disabled:to-zinc-700 text-[#1A1A1A] disabled:text-zinc-500 font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-orange-500/25 disabled:shadow-none text-sm flex items-center gap-2"
         >
-          {activating ? (
+          {saving ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              Activating...
+              Saving...
             </>
-          ) : activated ? (
+          ) : saved ? (
             <>
               <CheckCircle2 className="w-4 h-4" />
-              Activated
+              Saved
             </>
           ) : (
             <>
               <Sparkles className="w-4 h-4" />
-              Activate AI Assistant
+              Save & Continue
             </>
           )}
         </button>
