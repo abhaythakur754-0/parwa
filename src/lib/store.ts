@@ -12,6 +12,7 @@ export type Page =
   | 'dashboard-agents'
   | 'dashboard-tickets'
   | 'dashboard-channels'
+  | 'dashboard-integrations'
   | 'dashboard-monitoring'
   | 'dashboard-billing'
   | 'dashboard-knowledge'
@@ -93,6 +94,7 @@ export function getPageTitle(page: Page): string {
     'dashboard-agents': 'AI Agents',
     'dashboard-tickets': 'Tickets',
     'dashboard-channels': 'Channels',
+    'dashboard-integrations': 'Integrations',
     'dashboard-monitoring': 'Monitoring',
     'dashboard-billing': 'Billing',
     'dashboard-knowledge': 'Knowledge Base',

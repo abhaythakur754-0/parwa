@@ -31,6 +31,7 @@ import BillingPage from './BillingPage';
 import KnowledgePage from './KnowledgePage';
 import SettingsPage from './SettingsPage';
 import VariantsPage from './VariantsPage';
+import IntegrationsPage from './IntegrationsPage';
 
 // ── Icons for KPI cards ────────────────────────────────────────────
 
@@ -498,6 +499,7 @@ const SUB_PAGE_MAP: Partial<Record<Page, React.ComponentType>> = {
   'dashboard-agents': AgentsPage,
   'dashboard-tickets': TicketsPage,
   'dashboard-channels': ChannelsPage,
+  'dashboard-integrations': IntegrationsPage,
   'dashboard-monitoring': MonitoringPage,
   'dashboard-billing': BillingPage,
   'dashboard-knowledge': KnowledgePage,

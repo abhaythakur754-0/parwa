@@ -101,8 +101,28 @@ function getAuthToken(req: NextRequest): string | undefined {
 }
 
 /**
+ * Extract the CSRF cookie from the incoming browser request.
+ * The browser may already have a parwa_csrf cookie from a previous backend response.
+ * Forwarding it saves a round trip and avoids "CSRF validation failed: invalid origin".
+ */
+function getCSRFCookieFromRequest(req: NextRequest): string | undefined {
+  const cookieHeader = req.headers.get('cookie');
+  if (!cookieHeader) return undefined;
+  const cookies = Object.fromEntries(
+    cookieHeader.split(';').map((c) => {
+      const [key, ...val] = c.trim().split('=');
+      return [key, val.join('=')];
+    })
+  );
+  return cookies.parwa_csrf || undefined;
+}
+
+/**
  * Try a fetch with a specific origin, including CSRF token if available.
  * Returns the response or null if it failed (CSRF 403 or network error).
+ *
+ * @param existingCsrfCookie - CSRF cookie extracted from the incoming browser request
+ *   (forwarded to avoid re-fetching when the browser already has a valid token)
  */
 async function tryFetchWithOrigin(
   url: string,
@@ -110,17 +130,23 @@ async function tryFetchWithOrigin(
   origin: string,
   authToken: string | undefined,
   body?: BodyInit,
+  existingCsrfCookie?: string,
 ): Promise<{ response: Response; originWorked: boolean } | null> {
-  const csrfTokens = await fetchCSRFTokenForOrigin(origin);
+  // Prefer the CSRF cookie the browser already has (saves a round trip)
+  let csrfToken = existingCsrfCookie || undefined;
+  if (!csrfToken) {
+    const fetched = await fetchCSRFTokenForOrigin(origin);
+    csrfToken = fetched?.cookie || undefined;
+  }
 
   const headers: Record<string, string> = {
     'Origin': origin,
     'Referer': `${origin}/`,
   };
   if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-  if (csrfTokens) {
-    headers['Cookie'] = `parwa_csrf=${csrfTokens.cookie}`;
-    headers['x-csrf-token'] = csrfTokens.token;
+  if (csrfToken) {
+    headers['Cookie'] = `parwa_csrf=${csrfToken}`;
+    headers['x-csrf-token'] = csrfToken;
   }
 
   try {
@@ -240,6 +266,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
 
       const backendUrl = `${BACKEND_URL}/api/v1/kb/${subPath}`;
       const trustedOrigins = getAllTrustedOrigins(req);
+      const existingCsrfCookie = getCSRFCookieFromRequest(req);
 
       // Try each trusted origin until one works
       for (const origin of trustedOrigins) {
@@ -252,6 +279,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
           origin,
           authToken,
           backendFormData as unknown as BodyInit,
+          existingCsrfCookie,
         );
 
         if (result) {
@@ -273,16 +301,30 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
         }
       }
 
-      // All CSRF origins failed — try without CSRF as a last resort
-      // (backend might not enforce CSRF on multipart, or the health endpoint might be down)
+      // All CSRF origins failed — try with the existing CSRF cookie as a last resort
+      // (the browser may already have a valid CSRF cookie that works with the Origin)
       try {
         const fallbackFormData = new FormData();
         fallbackFormData.append('file', file);
+        const fallbackHeaders: Record<string, string> = {};
+        if (authToken) fallbackHeaders['Authorization'] = `Bearer ${authToken}`;
+        // Include the existing CSRF cookie if we have it — this often fixes the issue
+        if (existingCsrfCookie) {
+          fallbackHeaders['Cookie'] = `parwa_csrf=${existingCsrfCookie}`;
+          fallbackHeaders['x-csrf-token'] = existingCsrfCookie;
+        }
+        // Use the request's own origin as the fallback origin
+        const reqOrigin = req.headers.get('origin') || req.headers.get('referer');
+        if (reqOrigin) {
+          try {
+            const url = new URL(reqOrigin);
+            fallbackHeaders['Origin'] = `${url.protocol}//${url.host}`;
+            fallbackHeaders['Referer'] = `${url.protocol}//${url.host}/`;
+          } catch { /* ignore */ }
+        }
         const fallbackRes = await fetch(backendUrl, {
           method: 'POST',
-          headers: {
-            ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
-          },
+          headers: fallbackHeaders,
           body: fallbackFormData as unknown as BodyInit,
           signal: AbortSignal.timeout(15000),
         });

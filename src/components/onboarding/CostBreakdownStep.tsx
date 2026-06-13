@@ -772,18 +772,30 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
         // Paddle truly unavailable
       }
 
-      // ── Payment gateway unavailable — BLOCK, don't skip ──
+      // ── Step 4: Paddle unavailable — handle based on checkout type ──
       setPaddleStatus('unavailable');
       localStorage.setItem('parwa_payment_pending', JSON.stringify({
         activeVariants, addOns, totalMonthly, variantQuantities,
         couponCode: appliedCoupon?.code || null,
         pendingAt: new Date().toISOString(),
       }));
-      setCheckoutError(
-        'Payment gateway is currently unavailable. Your plan configuration has been saved. ' +
-        'Please refresh the page and try again, or contact support@parwa.buzz to complete your subscription.'
-      );
-      toast.error('Payment gateway unavailable — please try again or contact support.');
+
+      if (isFreeCheckout) {
+        // $0 checkout (100% coupon) — Paddle gateway is unavailable but the total is $0.
+        // We still want to confirm the subscription through Paddle if possible, but if
+        // Paddle is down, we can safely activate the free subscription since no money
+        // is changing hands. The user applied a valid 100% coupon (e.g. "durga754").
+        console.log('[cost-breakdown] Free checkout ($0) with Paddle unavailable — activating subscription');
+        toast.success('Free plan activated! Welcome to PARWA!');
+        handlePaymentSuccess();
+      } else {
+        // Paid checkout — payment gateway is REQUIRED. Block and show error.
+        setCheckoutError(
+          'Payment gateway is currently unavailable. Your plan configuration has been saved. ' +
+          'Please refresh the page and try again, or contact support@parwa.buzz to complete your subscription.'
+        );
+        toast.error('Payment gateway unavailable — please try again or contact support.');
+      }
     } catch (err) {
       console.error('[cost-breakdown] Error:', err);
       setCheckoutError('Something went wrong. Please try again.');

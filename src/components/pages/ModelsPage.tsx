@@ -106,7 +106,16 @@ export default function ModelsPage() {
   };
 
   const handleQuantityChange = (vid: VariantId, qty: number) => {
-    setQuantities((prev) => ({ ...prev, [vid]: Math.max(0, Math.min(qty, 10)) }));
+    const newQty = Math.max(0, Math.min(qty, 10));
+    setQuantities((prev) => ({ ...prev, [vid]: newQty }));
+    // When quantity drops to 0, remove the variant from selectedVariants
+    if (newQty === 0) {
+      setSelectedVariants((prev) => prev.filter((id) => id !== vid));
+    }
+    // When quantity goes from 0 to >0, add to selectedVariants if not already there
+    if (newQty > 0 && !selectedVariants.includes(vid)) {
+      setSelectedVariants((prev) => [...prev, vid]);
+    }
   };
 
   const activeIndustry = selectedIndustry ? industries.find((i) => i.id === selectedIndustry) : null;
@@ -218,12 +227,23 @@ export default function ModelsPage() {
                         </ul>
                       </div>
 
-                      {/* Quantity */}
+                      {/* Quantity Selector — always visible for authenticated users */}
                       {isAuthenticated && (
                         <div className="flex items-center gap-3 mb-5">
-                          <button onClick={() => handleQuantityChange(variant.id, qty - 1)} className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center justify-center">−</button>
-                          <span className="text-lg font-bold text-white w-8 text-center">{qty}</span>
-                          <button onClick={() => handleQuantityChange(variant.id, qty + 1)} className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center justify-center">+</button>
+                          <button 
+                            onClick={() => handleQuantityChange(variant.id, qty - 1)} 
+                            disabled={qty === 0}
+                            className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
+                          >−</button>
+                          <span className={cn("text-lg font-bold w-8 text-center", qty > 0 ? "text-white" : "text-zinc-600")}>{qty}</span>
+                          <button 
+                            onClick={() => handleQuantityChange(variant.id, qty + 1)} 
+                            disabled={qty >= 10}
+                            className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
+                          >+</button>
+                          {qty > 0 && (
+                            <span className="text-[10px] text-emerald-400 font-medium ml-1">{qty} agent{qty > 1 ? 's' : ''} selected</span>
+                          )}
                         </div>
                       )}
 
@@ -239,18 +259,9 @@ export default function ModelsPage() {
                             timestamp: new Date().toISOString(),
                           }));
                           router.push('/signup?redirect=/models');
-                        } else if (isActive) {
-                          // Already added — increment quantity (up to 10)
-                          if (qty < 10) {
-                            handleQuantityChange(variant.id, qty + 1);
-                          }
                         } else {
-                          // Add this variant to the multi-select
-                          setSelectedVariants((prev) => [...prev, variant.id]);
-                          // Auto-set quantity to 1 if newly added
-                          if (quantities[variant.id] === 0) {
-                            setQuantities((q) => ({ ...q, [variant.id]: 1 }));
-                          }
+                          // Add or increment quantity using the unified handler
+                          handleQuantityChange(variant.id, qty === 0 ? 1 : qty + 1);
                         }
                       }} className={cn(
                         "w-full py-3.5 rounded-xl text-sm font-bold transition-all",
@@ -258,7 +269,7 @@ export default function ModelsPage() {
                           ? 'bg-gradient-to-r from-emerald-500 to-emerald-400 text-white hover:from-emerald-400 hover:to-emerald-300 shadow-lg shadow-emerald-500/25'
                           : 'bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] hover:from-orange-400 hover:to-orange-300 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40'
                       )}>
-                        {isActive ? `Added (${qty}) — Add More` : isAuthenticated ? 'Hire Agent' : 'Get Started'}
+                        {isActive ? `Hire 1 More (${qty} active)` : isAuthenticated ? 'Hire Agent' : 'Get Started'}
                       </button>
                     </div>
                   );
