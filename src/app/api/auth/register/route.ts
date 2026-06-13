@@ -52,27 +52,26 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           email: normalizedEmail,
           password,
-          confirm_password: password,
-          full_name: fullName || "User",
-          company_name: companyName || `${fullName || "User"}'s Company`,
-          industry: industry || "general",
+          name: fullName || "User",
         }),
       });
 
       if (backendRes.ok) {
         const data = await backendRes.json();
 
-        // Backend returns AuthResponse: { user, tokens, is_new_user }
+        // Backend returns: { access_token, refresh_token, token_type, user }
+        // Also support nested format: { tokens: { access_token, refresh_token } }
         const authData = data.data || data;
         const userObj = authData.user || data.user;
-        const tokensObj = authData.tokens || data.tokens;
+        const accessToken = authData.access_token || data.access_token;
+        const refreshToken = authData.refresh_token || data.refresh_token;
         const isNewUser = authData.is_new_user ?? data.is_new_user ?? true;
 
-        if (userObj && tokensObj) {
+        if (userObj && accessToken) {
           const userData = {
             id: userObj.id,
             email: userObj.email || normalizedEmail,
-            fullName: userObj.full_name || fullName,
+            fullName: userObj.full_name || userObj.name || fullName,
             isVerified: userObj.is_verified ?? false,
           };
 
@@ -86,10 +85,10 @@ export async function POST(request: NextRequest) {
           // Store BACKEND's tokens in cookies
           setAuthCookies(
             response,
-            tokensObj.access_token,
-            tokensObj.refresh_token,
+            accessToken,
+            refreshToken,
             userData,
-            tokensObj.expires_in,
+            authData.expires_in || data.expires_in,
           );
 
           return response;
