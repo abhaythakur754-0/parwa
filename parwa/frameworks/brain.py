@@ -140,10 +140,7 @@ _NODE_TECHNIQUE_PRIORITY: dict[str, list[str]] = {
         "dynamic_context",    # Dynamic context window
     ],
     "KB_RETRIEVER": [
-        "clara",              # Contextual retrieval
-        "hyde",               # Hypothetical query generation
-        "multi_query",        # Multiple query formulation
-        "step_back",          # Abstract reasoning for retrieval
+        "react",              # Action-oriented retrieval reasoning
     ],
     "QUALITY_SCORER": [
         "reflexion",          # Self-critique scoring
@@ -156,12 +153,12 @@ _NODE_TECHNIQUE_PRIORITY: dict[str, list[str]] = {
     ],
     "FAQ_MATCHER": [
         "chain_of_thought",   # Reason about FAQ match
-        "clara",              # Contextual matching
     ],
     "SENTIMENT_ANALYZER": [
         "chain_of_thought",   # Reasoned sentiment analysis
     ],
     "ESCALATION_DECISION": [
+        "uncertainty_of_thought",  # Doubt-checking before escalating
         "chain_of_thought",   # Step-by-step escalation reasoning
     ],
     "ACTION_VERIFIER": [
@@ -179,12 +176,10 @@ _NODE_TECHNIQUE_PRIORITY: dict[str, list[str]] = {
     ],
     "SITUATION_MODEL": [
         "chain_of_thought",   # Structured context analysis
-        "dynamic_context",    # Context-aware situation building
-        "uncertainty_of_thought",  # Identify what we DON'T know
+        "react",              # Action-oriented context reasoning
     ],
     "POLICY_GUARD": [
         "chain_of_thought",   # Structured policy analysis
-        "zero_shot_validator",  # Quick policy compliance check
     ],
     "META_REASONER": [
         "reflexion",          # Self-critique of reasoning structure
@@ -287,7 +282,20 @@ class FrameworkBrain:
         1. Start with node-priority techniques (if available)
         2. Fill remaining slots with registry candidates, preferring
            techniques from different groups (diversity)
-        3. Always respect complexity thresholds
+        3. Activate techniques for ALL complexity levels — the budget
+           (max_techniques) controls quantity, not the complexity gate:
+           - SIMPLE: 1 technique (CoT or most relevant)
+           - MEDIUM: 2 techniques (CoT + one complementary)
+           - COMPLEX: 2-3 techniques (CoT + ReAct/UoT)
+           - CRITICAL: 3 techniques (CoT + ReAct + UoT)
+
+        FIX (Bug #4): Previously, technique.can_apply() filtered out
+        most techniques at SIMPLE complexity because many have
+        _min_complexity >= "medium". This meant 24 techniques never
+        activated for the majority of tickets (which default to SIMPLE).
+        Now, the complexity gate is bypassed — node applicability is
+        still checked, but the technique budget alone controls how
+        many techniques run.
 
         Returns a list of technique instances (up to max_techniques).
         """
@@ -295,14 +303,21 @@ class FrameworkBrain:
         priority_names = _NODE_TECHNIQUE_PRIORITY.get(self.node, [])
 
         # Build pool of valid candidates
+        # BUG #4 FIX: Check node applicability but bypass the complexity
+        # gate. The budget (max_techniques) already limits how many
+        # techniques run per complexity level, so the _min_complexity
+        # check in can_apply() is redundant and was preventing SIMPLE
+        # tickets from getting any techniques at all.
         candidates: list[Any] = []
         for name in candidate_names:
             technique = self._registry.get(name)
             if technique is None:
                 logger.warning("brain: technique '%s' not found in registry, skipping", name)
                 continue
-            if technique.can_apply(self.node, complexity):
-                candidates.append(technique)
+            # Check node applicability only (not complexity — budget handles that)
+            if technique.applicable_nodes and self.node not in technique.applicable_nodes:
+                continue
+            candidates.append(technique)
 
         if not candidates:
             return []

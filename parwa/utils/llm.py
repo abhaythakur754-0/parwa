@@ -1,13 +1,16 @@
 """LLM client utilities for PARWA nodes.
 
-Supports FOUR backends (priority order):
-1. ZAI SDK (PRIMARY — highest TPM, best throughput, works globally)
-2. Google Gemini (fallback 1) — direct HTTP calls, only works in supported regions (US/EU)
-3. NVIDIA API (fallback 2) — DeepSeek-V4-Pro via OpenAI-compatible client, 40 req/min
-4. MockLLM (last resort) — deterministic responses for testing without any LLM
+Supports FIVE backends (priority order):
+1. DeepSeek (PRIMARY — Chinese API, works from China, fast, no rate limit)
+2. NVIDIA API (fallback 1 — 40 req/min, may be blocked in China)
+3. ZAI SDK (fallback 2 — subprocess-based, works globally)
+4. Google Gemini (fallback 3 — region-restricted, only works in US/EU)
+5. MockLLM (last resort) — deterministic responses for testing without any LLM
 
 Production features:
-- ZAI SDK as primary backend (works everywhere, no region restrictions)
+- DeepSeek as primary backend (Chinese API, works from China, fast, no rate limit)
+- NVIDIA API as fallback (40 RPM, OpenAI-compatible, may be blocked in China)
+- ZAI SDK as fallback (works everywhere, no region restrictions)
 - Direct HTTP calls to Google AI as fallback (region-restricted)
 - Automatic failover: Light → Medium → Heavy tier chain
 - Retry with exponential backoff on LLM failures (sync + async)
@@ -48,6 +51,12 @@ NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "meta/llama-3.1-8b-instruct")
 NVIDIA_MODEL_HEAVY = os.getenv("NVIDIA_MODEL_HEAVY", "deepseek-ai/deepseek-v4-pro")
 NVIDIA_RATE_LIMIT_SECONDS = float(os.getenv("NVIDIA_RATE_LIMIT_SECONDS", "1.5"))  # 40/min baseline
 _nvidia_disabled = False  # Auto-disabled on repeated failures
+
+# DeepSeek API Configuration (Chinese API — works from China, no region restrictions)
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "sk-2d16618ac11d41d5a880091856e39477")
+DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+_deepseek_disabled = False  # Auto-disabled on repeated failures
 
 # ─── NVIDIA Sliding Window Rate Limiter (TPM-optimized) ──────────────────────
 # Strategy: minimum 1.5s gap between calls + sliding window for 40 RPM cap.
@@ -426,6 +435,94 @@ async def _acall_nvidia(
     )
 
 
+# ─── DeepSeek API Call (PRIMARY for China — fast, unlimited RPM, native Python) ──────────────
+
+def _call_deepseek(
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    model: str = "",
+    temperature: float = 0.1,
+    max_tokens: int = 500,
+) -> dict[str, Any]:
+    """Call DeepSeek API via OpenAI-compatible client (sync).
+
+    PRIMARY backend for China — fast, no rate limit issues, Chinese company.
+    """
+    global _deepseek_disabled
+    if _deepseek_disabled:
+        raise RuntimeError("DeepSeek API disabled (repeated failures)")
+
+    from openai import OpenAI
+    import time as _time
+
+    use_model = model or DEEPSEEK_MODEL
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": str(user_prompt)})
+
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        client = OpenAI(
+            base_url=DEEPSEEK_BASE_URL,
+            api_key=DEEPSEEK_API_KEY,
+            max_retries=0,
+            timeout=30.0,
+        )
+        try:
+            resp = client.chat.completions.create(
+                model=use_model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            text = resp.choices[0].message.content or ""
+            usage = resp.usage
+            return {
+                "content": text,
+                "model": resp.model or use_model,
+                "usage": {
+                    "prompt_tokens": getattr(usage, "prompt_tokens", 0) or 0,
+                    "completion_tokens": getattr(usage, "completion_tokens", 0) or 0,
+                    "total_tokens": getattr(usage, "total_tokens", 0) or 0,
+                },
+            }
+        except Exception as e:
+            err_str = str(e)
+            if "429" in err_str and attempt < max_retries:
+                backoff = 3 * (2 ** attempt)
+                logger.warning("DeepSeek 429 rate limited, retrying in %ds (attempt %d/%d)", backoff, attempt+1, max_retries)
+                _time.sleep(backoff)
+                continue
+            _deepseek_fail_count = getattr(_call_deepseek, '_fail_count', 0) + 1
+            _call_deepseek._fail_count = _deepseek_fail_count
+            if _deepseek_fail_count >= 5:
+                _deepseek_disabled = True
+                logger.error("DeepSeek API disabled after %d failures", _deepseek_fail_count)
+            raise
+
+
+async def _acall_deepseek(
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    model: str = "",
+    temperature: float = 0.1,
+    max_tokens: int = 500,
+) -> dict[str, Any]:
+    """Call DeepSeek API via OpenAI-compatible client (async)."""
+    global _deepseek_disabled
+    if _deepseek_disabled:
+        raise RuntimeError("DeepSeek API disabled (repeated failures)")
+
+    import asyncio
+    return await asyncio.to_thread(
+        _call_deepseek, system_prompt, user_prompt,
+        model=model, temperature=temperature, max_tokens=max_tokens,
+    )
+
+
 # ─── ZAI SDK Call (FALLBACK — subprocess-based, slow) ─────────────────────────
 
 def _call_zai_sdk(prompt: str, *, node_name: str = "", variant: str = "parwa",
@@ -779,7 +876,7 @@ def invoke_llm(
 ) -> str:
     """High-level sync LLM invocation with full production hardening.
 
-    Uses NVIDIA API (PRIMARY — 40 RPM, TPM-optimized) → ZAI SDK (fallback 1) → Google Gemini (fallback 2) → real_llm APIs → MockLLM (last resort).
+    Uses DeepSeek (PRIMARY — works from China, fast) → NVIDIA API (fallback 1) → ZAI SDK (fallback 2) → Google Gemini (fallback 3) → real_llm APIs → MockLLM (last resort).
 
     Args:
         prompt: The prompt to send.
@@ -802,7 +899,33 @@ def invoke_llm(
 
     # Budget check REMOVED — no more token budget limits truncating results
 
-    # ─── Try NVIDIA API (PRIMARY — 40 RPM, TPM-optimized, native Python) ───
+    # ─── Try DeepSeek API (PRIMARY — works from China, fast, no rate limit) ───
+    if not MOCK_MODE:
+        try:
+            system_prompt = _NODE_SYSTEM_PROMPTS.get(node_name, "Process this and give a clear, structured response.")
+            if variant:
+                system_prompt += f" [Variant: {variant}]"
+            if complexity:
+                system_prompt += f" [Complexity: {complexity}]"
+            actual_max_tokens = _NODE_MAX_TOKENS.get(node_name, 1000)
+            result = _call_deepseek(
+                system_prompt, prompt,
+                model="", temperature=temperature,
+                max_tokens=actual_max_tokens,
+            )
+            text = result.get("content", "")
+            usage = result.get("usage", {})
+            _track_response_usage(
+                ticket_id, node_name, variant, text, model,
+                prompt_tokens=usage.get("prompt_tokens", 0),
+                completion_tokens=usage.get("completion_tokens", 0),
+            )
+            logger.debug("invoke_llm [deepseek-primary]: node=%s response_len=%d", node_name, len(text))
+            return text
+        except Exception as exc:
+            logger.warning("invoke_llm: DeepSeek API failed: %s — trying NVIDIA", exc)
+
+    # ─── Try NVIDIA API (fallback 1 — 40 RPM, TPM-optimized, native Python) ───
     if not MOCK_MODE:
         try:
             system_prompt = _NODE_SYSTEM_PROMPTS.get(node_name, "Process this and give a clear, structured response.")
@@ -823,12 +946,12 @@ def invoke_llm(
                 prompt_tokens=usage.get("prompt_tokens", 0),
                 completion_tokens=usage.get("completion_tokens", 0),
             )
-            logger.debug("invoke_llm [nvidia-primary]: node=%s response_len=%d", node_name, len(text))
+            logger.debug("invoke_llm [nvidia-fallback]: node=%s response_len=%d", node_name, len(text))
             return text
         except Exception as exc:
             logger.warning("invoke_llm: NVIDIA API failed: %s — trying ZAI SDK", exc)
 
-    # ─── Try ZAI SDK (fallback 1 — high TPM, subprocess-based) ───
+    # ─── Try ZAI SDK (fallback 2 — high TPM, subprocess-based) ───
     if not MOCK_MODE:
         try:
             result = _call_zai_sdk(
@@ -848,7 +971,7 @@ def invoke_llm(
         except Exception as exc:
             logger.warning("invoke_llm: ZAI SDK failed: %s — trying Google Gemini", exc)
 
-    # ─── Try Google Gemini (fallback 2) ───
+    # ─── Try Google Gemini (fallback 3) ───
     if not MOCK_MODE:
         try:
             system_prompt = _NODE_SYSTEM_PROMPTS.get(node_name, "Process this and give a clear, structured response.")
@@ -932,7 +1055,7 @@ async def ainvoke_llm(
 ) -> str:
     """High-level async LLM invocation with full production hardening.
 
-    Uses NVIDIA API (PRIMARY — 40 RPM, TPM-optimized) → ZAI SDK (fallback 1) → Google Gemini (fallback 2) → real_llm APIs → MockLLM (last resort).
+    Uses DeepSeek (PRIMARY — works from China, fast) → NVIDIA API (fallback 1) → ZAI SDK (fallback 2) → Google Gemini (fallback 3) → real_llm APIs → MockLLM (last resort).
     """
     # Smart Router
     if node_name:
@@ -942,7 +1065,33 @@ async def ainvoke_llm(
 
     # Budget check REMOVED — no more token budget limits truncating results
 
-    # ─── Try NVIDIA API (PRIMARY — 40 RPM, TPM-optimized, native Python) ───
+    # ─── Try DeepSeek API (PRIMARY — works from China, fast, no rate limit) ───
+    if not MOCK_MODE:
+        try:
+            system_prompt = _NODE_SYSTEM_PROMPTS.get(node_name, "Process this and give a clear, structured response.")
+            if variant:
+                system_prompt += f" [Variant: {variant}]"
+            if complexity:
+                system_prompt += f" [Complexity: {complexity}]"
+            actual_max_tokens = max_tokens if max_tokens > 0 else _NODE_MAX_TOKENS.get(node_name, 1000)
+            result = await _acall_deepseek(
+                system_prompt, prompt,
+                model="", temperature=temperature,
+                max_tokens=actual_max_tokens,
+            )
+            text = result.get("content", "")
+            usage = result.get("usage", {})
+            _track_response_usage(
+                ticket_id, node_name, variant, text, model,
+                prompt_tokens=usage.get("prompt_tokens", 0),
+                completion_tokens=usage.get("completion_tokens", 0),
+            )
+            logger.debug("ainvoke_llm [deepseek-primary]: node=%s response_len=%d", node_name, len(text))
+            return text
+        except Exception as exc:
+            logger.warning("ainvoke_llm: DeepSeek API failed: %s — trying NVIDIA", exc)
+
+    # ─── Try NVIDIA API (fallback 1 — 40 RPM, TPM-optimized, native Python) ───
     if not MOCK_MODE:
         try:
             system_prompt = _NODE_SYSTEM_PROMPTS.get(node_name, "Process this and give a clear, structured response.")
@@ -963,12 +1112,12 @@ async def ainvoke_llm(
                 prompt_tokens=usage.get("prompt_tokens", 0),
                 completion_tokens=usage.get("completion_tokens", 0),
             )
-            logger.debug("ainvoke_llm [nvidia-primary]: node=%s response_len=%d", node_name, len(text))
+            logger.debug("ainvoke_llm [nvidia-fallback]: node=%s response_len=%d", node_name, len(text))
             return text
         except Exception as exc:
             logger.warning("ainvoke_llm: NVIDIA API failed: %s — trying ZAI SDK", exc)
 
-    # ─── Try ZAI SDK (fallback 1 — high TPM, subprocess-based) ───
+    # ─── Try ZAI SDK (fallback 2 — high TPM, subprocess-based) ───
     if not MOCK_MODE:
         try:
             result = await _acall_zai_sdk(
@@ -988,7 +1137,7 @@ async def ainvoke_llm(
         except Exception as exc:
             logger.warning("ainvoke_llm: ZAI SDK failed: %s — trying Google Gemini", exc)
 
-    # ─── Try Google Gemini (fallback 2) ───
+    # ─── Try Google Gemini (fallback 3) ───
     if not MOCK_MODE:
         try:
             system_prompt = _NODE_SYSTEM_PROMPTS.get(node_name, "Process this and give a clear, structured response.")

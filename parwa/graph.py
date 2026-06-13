@@ -31,9 +31,9 @@ Pipeline flow:
                    → STRATEGY_PLANNER → ACTION_PLANNER
       → ACTION_EXECUTOR → ACTION_VERIFIER
       → (parallel) PROACTIVE_CHECKER / PREDICTION_ENGINE / FEEDBACK_LOOP
-      → PII_COMPLIANCE_GUARD → AUDIT_LOGGER → QUALITY_SCORER
-      → META_REASONER  [P3: evaluates reasoning structure]
-      → (if score >= 80) RESPONSE_FORMATTER → CONVERSATIONAL_REPAIR → END  [P3: last defense]
+      → PII_COMPLIANCE_GUARD → AUDIT_LOGGER → RESPONSE_FORMATTER
+      → QUALITY_SCORER → META_REASONER  [P3: evaluates formatted response + reasoning]
+      → (if score >= 80) CONVERSATIONAL_REPAIR → END  [P3: last defense]
       → (if score < 80) loop back to REASONING_ENGINE
 """
 
@@ -276,29 +276,30 @@ def _after_action_verifier(state: dict[str, Any]) -> str:
 def _after_quality_scorer(state: dict[str, Any]) -> str:
     """Route after quality scoring.
 
-    P3: Now routes to meta_reasoner instead of directly to response formatter.
-    This function is kept for backwards compatibility but is no longer used
-    as a conditional edge (quality_scorer now always goes to meta_reasoner).
+    DEPRECATED: This function is no longer used as a conditional edge.
+    Quality scorer now always goes to meta_reasoner (fixed edge).
+    Response formatting happens BEFORE quality scoring in the new pipeline:
+      ... → RESPONSE_FORMATTER → QUALITY_SCORER → META_REASONER → ...
+    Kept for backwards compatibility only.
     """
-    quality_score = state.get("quality_score", 0.0)
-    should_loop = state.get("should_loop_back", False)
-
-    if quality_score >= 80:
-        logger.info("route: quality→response_formatter (score=%.1f)", quality_score)
-        return "response_formatter"
-    if should_loop:
-        logger.info("route: quality→reasoning (score=%.1f, loop_back)", quality_score)
-        return "reasoning_engine"
-    logger.warning("route: quality→response_formatter (score=%.1f, max_loops reached)", quality_score)
-    return "response_formatter"
+    # Always route to meta_reasoner (the actual edge is fixed, not conditional)
+    logger.debug("route: quality→meta_reasoner (fixed edge, this function is deprecated)")
+    return "meta_reasoner"
 
 
 def _after_meta_reasoner(state: dict[str, Any]) -> str:
     """Route after meta-reasoning.
 
-    P3: Meta-reasoner evaluates the pipeline structure and may adjust
-    the quality score. It then decides whether to proceed to response
-    formatting or loop back for re-reasoning.
+    P3 FIX: Meta-reasoner now routes to conversational_repair (not
+    response_formatter) because response formatting happens BEFORE
+    quality scoring. The new pipeline order is:
+      ... → RESPONSE_FORMATTER → QUALITY_SCORER → META_REASONER
+            → (score>=80) CONVERSATIONAL_REPAIR → END
+            → (score<80)  loop back to REASONING_ENGINE
+
+    Previously, quality scoring ran BEFORE formatting, so it was
+    always evaluating an empty final_response. Now it evaluates the
+    actual formatted response.
 
     The meta-reasoner can:
     - Adjust quality score based on structural issues
@@ -330,10 +331,10 @@ def _after_meta_reasoner(state: dict[str, Any]) -> str:
 
     if effective_score >= 80:
         logger.info(
-            "route: meta→response_formatter (score=%.1f→%.1f, verdict=%s)",
+            "route: meta→conversational_repair (score=%.1f→%.1f, verdict=%s)",
             quality_score, effective_score, verdict,
         )
-        return "response_formatter"
+        return "conversational_repair"
 
     if should_loop and loop_count < max_loops:
         logger.info(
@@ -344,10 +345,10 @@ def _after_meta_reasoner(state: dict[str, Any]) -> str:
 
     # Max loops reached or score is borderline — proceed with best effort
     logger.warning(
-        "route: meta→response_formatter (score=%.1f→%.1f, verdict=%s, best effort)",
+        "route: meta→conversational_repair (score=%.1f→%.1f, verdict=%s, best effort)",
         quality_score, effective_score, verdict,
     )
-    return "response_formatter"
+    return "conversational_repair"
 
 
 # ─── Loop-back handler ────────────────────────────────────────────────────────────
@@ -535,25 +536,28 @@ def build_parwa_graph(
     graph.add_edge("prediction_engine", "feedback_loop")
     graph.add_edge("feedback_loop", "pii_compliance_guard")
 
-    # Compliance pipeline: PII → AUDIT → QUALITY → META_REASONER
+    # Compliance pipeline: PII → AUDIT → RESPONSE_FORMATTER → QUALITY → META_REASONER
+    # FIX: Response formatter now runs BEFORE quality scorer so the scorer
+    # evaluates the actual formatted response instead of an empty string.
     graph.add_edge("pii_compliance_guard", "audit_logger")
-    graph.add_edge("audit_logger", "quality_scorer")
+    graph.add_edge("audit_logger", "response_formatter")
+    graph.add_edge("response_formatter", "quality_scorer")
     graph.add_edge("quality_scorer", "meta_reasoner")  # P3: meta-reason after quality scoring
 
-    # Conditional: After META_REASONER → format or loop back
-    # P3: Meta-reasoner may adjust quality score before routing
+    # Conditional: After META_REASONER → conversational_repair or loop back
+    # P3 FIX: Routes to conversational_repair (not response_formatter) because
+    # formatting already happened before quality scoring.
     graph.add_conditional_edges(
         "meta_reasoner",
         _after_meta_reasoner,
         {
-            "response_formatter": "response_formatter",
+            "conversational_repair": "conversational_repair",
             "reasoning_engine": "loop_back_handler",
         },
     )
 
-    # Response pipeline: FORMATTER → CONVERSATIONAL_REPAIR → END
+    # Response pipeline: CONVERSATIONAL_REPAIR → END
     # P3: Last line of defense catches broken responses
-    graph.add_edge("response_formatter", "conversational_repair")
     graph.add_edge("conversational_repair", END)
 
     # ─── Compile with optional features ──────────────────────────────────────

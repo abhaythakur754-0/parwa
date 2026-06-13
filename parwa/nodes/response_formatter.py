@@ -182,13 +182,17 @@ def _format_response_rule_based(
     return response
 
 
-async def _format_response_with_brain(state: dict[str, Any]) -> tuple[str, list[str]]:
-    """Format response using FrameworkBrain (Phase 5).
+async def _format_response_with_llm(state: dict[str, Any]) -> tuple[str, list[str]]:
+    """Format response using direct LLM call (LLM-first strategy).
 
-    Uses CRP (Constrained Response Protocol) for structured output.
+    The LLM gets full context (reasoning, evidence, actions, sentiment) and
+    generates a professional, specific, empathetic response.
     Returns (response, frameworks_used).
     Falls back to rule-based on any failure.
     """
+    from parwa.utils.llm import MOCK_MODE, ainvoke_llm
+    from parwa.utils.sanitizer import build_safe_prompt
+
     intent = state.get("intent", "general_inquiry")
     conclusion = state.get("reasoning_conclusion", "")
     execution_results = state.get("execution_results", [])
@@ -196,46 +200,106 @@ async def _format_response_with_brain(state: dict[str, Any]) -> tuple[str, list[
     proactive_insights = state.get("proactive_insights", [])
     variant = state.get("variant", "parwa")
     raw_message = state.get("raw_message", "")
+    sentiment = state.get("sentiment", "neutral")
+    should_escalate = state.get("should_escalate", False)
+    escalation_reason = state.get("escalation_reason", "")
+    evidence_chain = state.get("evidence_chain", [])
+    action_plans = state.get("action_plans", [])
+
+    # Build rich context for the LLM
+    context_parts = []
+    context_parts.append(f"Customer message: {raw_message}")
+    context_parts.append(f"Detected intent: {intent}")
+    context_parts.append(f"Customer sentiment: {sentiment}")
+
+    if conclusion:
+        context_parts.append(f"Reasoning conclusion: {conclusion}")
+
+    if execution_results:
+        for r in execution_results[:5]:
+            action_type = r.get("action_type", "unknown")
+            status = r.get("status", "unknown")
+            params = r.get("parameters", {})
+            context_parts.append(f"Action taken: {action_type} — status: {status}, params: {params}")
+
+    if action_plans:
+        for ap in action_plans[:5]:
+            if isinstance(ap, dict):
+                at = ap.get("action_type", "unknown")
+                desc = ap.get("description", "")
+                context_parts.append(f"Planned action: {at} — {desc}")
+            elif hasattr(ap, 'action_type'):
+                context_parts.append(f"Planned action: {ap.action_type} — {ap.description}")
+
+    if evidence_chain:
+        for e in evidence_chain[:5]:
+            if isinstance(e, dict):
+                claim = e.get("claim", "")
+                conf = e.get("confidence", 0)
+                context_parts.append(f"Evidence: {claim} (confidence: {conf:.1f})")
+
+    if should_escalate:
+        context_parts.append(f"ESCALATION REQUIRED: {escalation_reason}")
+        context_parts.append("A human agent will also be assigned to this case.")
+
+    if recommendation:
+        context_parts.append(f"Recommendation: {recommendation}")
+
+    if proactive_insights:
+        for pi in proactive_insights[:2]:
+            desc = pi.get("description", "") if isinstance(pi, dict) else str(pi)
+            if desc:
+                context_parts.append(f"Proactive insight: {desc}")
+
+    context = "\n".join(context_parts)
+
+    system_instructions = (
+        "You are a professional, empathetic customer support agent. "
+        "Write a response to the customer based on the analysis below.\n\n"
+        "RULES:\n"
+        "1. Be SPECIFIC — include actual data (order IDs, amounts, dates) from the context.\n"
+        "2. Be EMPATHETIC — match tone to customer sentiment. If frustrated/angry, apologize sincerely.\n"
+        "3. Be CONCISE but thorough — address ALL parts of their issue.\n"
+        "4. Tell them WHAT WILL HAPPEN NEXT and WHEN.\n"
+        "5. Do NOT output structured data (no pipe-delimited, no JSON). Write natural human language.\n"
+        "6. If a refund was processed, mention the exact amount.\n"
+        "7. If escalation is required, tell them a human agent will follow up and when.\n"
+        "8. Do NOT use generic phrases like 'We take your concerns seriously' or 'A member of our team will'.\n"
+        "   Instead, be specific: 'I've processed your $49.99 refund' or 'Our billing specialist Sarah will call you by 3pm tomorrow'.\n"
+    )
 
     try:
-        from parwa.frameworks.brain import FrameworkBrain
-
-        brain = FrameworkBrain(node="RESPONSE_FORMATTER", state=state)
-        result = await brain.think(
-            prompt=raw_message,
-            techniques=["crp"],
+        prompt = build_safe_prompt(system_instructions, context)
+        text = await ainvoke_llm(
+            prompt,
+            node_name="RESPONSE_FORMATTER",
             ticket_id=state.get("ticket_id", ""),
             variant=variant,
         )
 
-        frameworks = result.frameworks_used if result.frameworks_used else []
-
-        # Use brain output if it's good, otherwise fall back to rule-based
-        # BUT: reject structured/pipe-delimited outputs that are meant for internal parsing
+        # Clean up any structured output that might have leaked
+        text = text.strip()
         is_structured_output = (
-            "|" in result.output and result.output.count("|") >= 2  # pipe-delimited like "intent|confidence"
-            or result.output.strip().startswith("{")  # JSON
-            or len(result.output.strip()) < 20  # Too short for a real response
-            or result.output.strip().startswith("no_match")  # FAQ matcher raw output
-            or result.output.strip().startswith("true|")  # Escalation raw output
-            or result.output.strip().startswith("false|")  # Escalation raw output
+            "|" in text and text.count("|") >= 2
+            or text.startswith("{")
+            or len(text) < 20
+            or text.startswith("no_match")
+            or text.startswith("true|")
+            or text.startswith("false|")
         )
-        if result.output and result.confidence > 0.5 and not is_structured_output:
-            response = result.output
-            return response, frameworks
 
-        # Brain didn't produce good output — use rule-based
+        if text and not is_structured_output:
+            return text, ["crp", "chain_of_thought"]
+
+        # LLM produced garbage — fall back to rule-based
         response = _format_response_rule_based(
             intent, conclusion, execution_results,
             recommendation, proactive_insights, variant
         )
-        return response, frameworks if frameworks else ["crp"]
+        return response, ["crp"]
 
     except Exception as exc:
-        logger.warning(
-            "response_formatter: FrameworkBrain failed (%s), falling back to rule-based",
-            exc,
-        )
+        logger.warning("response_formatter: LLM failed (%s), falling back to rule-based", exc)
         response = _format_response_rule_based(
             intent, conclusion, execution_results,
             recommendation, proactive_insights, variant
@@ -274,8 +338,9 @@ async def response_formatter(state: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(variant, str):
         variant = "parwa"
 
-    # Try FrameworkBrain first (Phase 5)
-    response, frameworks = await _format_response_with_brain(state)
+    # LLM-first strategy: Try direct LLM call first for specific, high-quality responses
+    # FrameworkBrain is used inside LLM call chain. Falls back to rule-based only if LLM fails.
+    response, frameworks = await _format_response_with_llm(state)
 
     # Track frameworks used — return ONLY new frameworks (reducer appends)
     new_frameworks = []

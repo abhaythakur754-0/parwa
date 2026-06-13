@@ -377,6 +377,27 @@ async def action_planner(state: dict[str, Any]) -> dict[str, Any]:
             "risk_level": action.get("risk_level", "low"),
         })
 
+    # ─── Escalation action: Add ESCALATE_TO_HUMAN if should_escalate is True ───
+    # The escalation_decision node sets should_escalate=True but no longer creates
+    # action_plans — that's this node's job. We add the escalation action AFTER
+    # the normal actions (refund, cancel, etc.) so the human agent gets full
+    # context from both the reasoning AND the specific actions planned.
+    if state.get("should_escalate", False):
+        already_has_escalation = any(
+            a.get("action_type") == "escalate_to_human"
+            for a in actions
+        )
+        if not already_has_escalation:
+            esc_reason = state.get("escalation_reason", "escalation_triggered")
+            actions.append(ActionPlan(
+                action_type=ActionType.ESCALATE_TO_HUMAN,
+                description=f"Escalate to human agent: {esc_reason}",
+                parameters={"reason": esc_reason, "priority": "high"},
+                mode=ExecutionMode.EXECUTE,
+                evidence=[f"Escalation triggered: {esc_reason}"],
+                risk_level="high",
+            ).model_dump())
+
     return {
         "action_plans": actions,
         "active_frameworks": new_frameworks,

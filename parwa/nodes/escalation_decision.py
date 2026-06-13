@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from parwa.state import SentimentType, TicketComplexity, IntentType, ActionType, ActionPlan, ExecutionMode
+from parwa.state import SentimentType, TicketComplexity, IntentType
 from parwa.utils.llm import MOCK_MODE, ainvoke_llm
 from parwa.utils.node_base import safe_node
 from parwa.utils.output_parser import parse_escalation_response
@@ -370,52 +370,39 @@ async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
         intent_confidence = 0.5
 
     escalation_trigger_reason = ""
+    should_escalate = False
+    reason = ""
+    confidence_gate = {}
 
-    # ─── Month 4: Immediate legal escalation — no exceptions ───
+    # ─── Month 4 FIX: Legal escalation sets FLAG, does NOT short-circuit ───
+    # The ticket still goes through the FULL pipeline (reasoning, KB, actions).
+    # The escalation flag tells action_executor to ALSO route to a human.
+    # This ensures the human agent gets full context and reasoning.
     msg_lower = raw_message.lower() if raw_message else ""
     legal_terms = ["attorney", "lawyer", "lawsuit", "legal action", "sue", "legal",
-                   # Month 4: Consumer rights is an implicit legal threat
                    "consumer rights", "consumer protection"]
-    for term in legal_terms:
-        if term in msg_lower:
-            return {
-                "should_escalate": True,
-                "escalation_reason": "legal_threat_immediate",
-                "confidence_gate": {},
-                "active_frameworks": [],
-                "escalation_trigger_reason": "month4_legal_term_immediate",
-                # Month 4 fix: Create escalation action plan directly
-                # When should_escalate=True, the pipeline skips action_planner,
-                # so we must create the action plan here
-                "action_plans": [ActionPlan(
-                    action_type=ActionType.ESCALATE_TO_HUMAN,
-                    description=f"Escalate to human agent: legal threat detected",
-                    parameters={"reason": "legal_threat_immediate", "priority": "high"},
-                    mode=ExecutionMode.EXECUTE,
-                    evidence=["Customer mentioned legal/attorney term"],
-                    risk_level="high",
-                )],
-            }
+    has_legal_threat = any(term in msg_lower for term in legal_terms)
 
-    # ─── Month 4: Auto-escalate if pipeline confidence < 0.60 ───
-    if intent_confidence < 0.60:
-        return {
-            "should_escalate": True,
-            "escalation_reason": "low_pipeline_confidence",
-            "confidence_gate": _compute_escalation_confidence_gate(state),
-            "active_frameworks": [],
-            "escalation_trigger_reason": f"month4_low_confidence_{intent_confidence:.2f}",
-            "action_plans": [ActionPlan(
-                action_type=ActionType.ESCALATE_TO_HUMAN,
-                description=f"Escalate to human agent: low pipeline confidence ({intent_confidence:.2f})",
-                parameters={"reason": "low_pipeline_confidence", "priority": "medium"},
-                mode=ExecutionMode.EXECUTE,
-                evidence=[f"Intent confidence {intent_confidence:.2f} < 0.60 threshold"],
-                risk_level="medium",
-            )],
-        }
+    if has_legal_threat:
+        should_escalate = True
+        reason = "legal_threat"
+        escalation_trigger_reason = "legal_term_detected"
+        logger.info("escalation: legal threat detected — flagging for escalation + full pipeline")
+        # DON'T return early — continue to compute confidence gate
+        confidence_gate = _compute_escalation_confidence_gate(state)
 
-    # ─── Month 4: VIP/enterprise + angry → escalate ───
+    # ─── Month 4: Flag for escalation if pipeline confidence < 0.60 ───
+    # Still run the full pipeline — just flag for human review
+    if intent_confidence < 0.60 and not should_escalate:
+        should_escalate = True
+        if not reason:
+            reason = "low_pipeline_confidence"
+        if not escalation_trigger_reason:
+            escalation_trigger_reason = f"month4_low_confidence_{intent_confidence:.2f}"
+        confidence_gate = _compute_escalation_confidence_gate(state)
+        logger.info("escalation: low confidence (%.2f) — flagging for human review + full pipeline", intent_confidence)
+
+    # ─── Month 4: VIP/enterprise + angry → flag for escalation ───
     customer_tier = state.get("customer_tier", "")
     # Also check integration_data for customer tier info
     integration_data = state.get("integration_data", {})
@@ -424,44 +411,42 @@ async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
         if isinstance(customer_info, dict):
             customer_tier = customer_tier or customer_info.get("tier", "")
 
-    if customer_tier in ("enterprise", "vip") and sentiment in (SentimentType.ANGRY, "angry"):
-        return {
-            "should_escalate": True,
-            "escalation_reason": "vip_enterprise_angry_customer",
-            "confidence_gate": _compute_escalation_confidence_gate(state),
-            "active_frameworks": [],
-            "escalation_trigger_reason": f"month4_vip_angry_{customer_tier}",
-            "action_plans": [ActionPlan(
-                action_type=ActionType.ESCALATE_TO_HUMAN,
-                description=f"Escalate to human agent: VIP/enterprise ({customer_tier}) + angry customer",
-                parameters={"reason": "vip_enterprise_angry", "priority": "high"},
-                mode=ExecutionMode.EXECUTE,
-                evidence=[f"Customer tier: {customer_tier}", f"Sentiment: {sentiment}"],
-                risk_level="high",
-            )],
-        }
+    if customer_tier in ("enterprise", "vip") and sentiment in (SentimentType.ANGRY, "angry") and not should_escalate:
+        should_escalate = True
+        if not reason:
+            reason = "vip_enterprise_angry_customer"
+        if not escalation_trigger_reason:
+            escalation_trigger_reason = f"month4_vip_angry_{customer_tier}"
+        if not confidence_gate or not isinstance(confidence_gate, dict):
+            confidence_gate = _compute_escalation_confidence_gate(state)
+        logger.info("escalation: VIP/enterprise angry customer — flagging for human review + full pipeline")
 
     # Always run rule-based first — it catches clear-cut cases
-    should_escalate, reason = _should_escalate_rule_based(
-        sentiment, sentiment_urgency, complexity, intent, intent_confidence,
-        raw_message=raw_message,
-    )
-
-    if should_escalate:
-        escalation_trigger_reason = "rule_based"
-
-    # P2: If rules say no, try confidence-gated decision
-    confidence_gate = _compute_escalation_confidence_gate(state)
-
-    # If confidence gate says escalate but rules didn't, escalate
-    if not should_escalate and confidence_gate.get("should_escalate", False):
-        should_escalate = True
-        reason = confidence_gate.get("reason", "confidence_gate_triggered")
-        escalation_trigger_reason = "confidence_gate"
-        logger.info(
-            "escalation: confidence gate triggered (gate_confidence=%.2f, reason=%s)",
-            confidence_gate.get("confidence", 0), reason,
+    # (only if Month 4 checks above didn't already flag escalation)
+    if not should_escalate:
+        should_escalate, reason = _should_escalate_rule_based(
+            sentiment, sentiment_urgency, complexity, intent, intent_confidence,
+            raw_message=raw_message,
         )
+
+        if should_escalate:
+            escalation_trigger_reason = "rule_based"
+
+        # P2: If rules say no, try confidence-gated decision
+        confidence_gate = _compute_escalation_confidence_gate(state)
+
+        # If confidence gate says escalate but rules didn't, escalate
+        if not should_escalate and confidence_gate.get("should_escalate", False):
+            should_escalate = True
+            reason = confidence_gate.get("reason", "confidence_gate_triggered")
+            escalation_trigger_reason = "confidence_gate"
+            logger.info(
+                "escalation: confidence gate triggered (gate_confidence=%.2f, reason=%s)",
+                confidence_gate.get("confidence", 0), reason,
+            )
+    elif not confidence_gate or not isinstance(confidence_gate, dict):
+        # Already flagged by Month 4 checks — still compute confidence gate for context
+        confidence_gate = _compute_escalation_confidence_gate(state)
 
     # If rules say no and confidence gate says no, try LLM for nuance
     # Month 4 TPM optimization: Skip FrameworkBrain, go straight to LLM only for complex tickets
@@ -491,18 +476,9 @@ async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
         if fw not in existing:
             new_frameworks.append(fw)
 
-    # Month 4 fix: If we're escalating, create the escalation action plan
-    # (pipeline skips action_planner when should_escalate=True)
-    escalation_action_plans = []
-    if should_escalate:
-        escalation_action_plans = [ActionPlan(
-            action_type=ActionType.ESCALATE_TO_HUMAN,
-            description=f"Escalate to human agent: {reason or 'escalation triggered'}",
-            parameters={"reason": reason or "escalation", "priority": "high" if reason == "legal_threat" else "medium"},
-            mode=ExecutionMode.EXECUTE,
-            evidence=[f"Escalation trigger: {escalation_trigger_reason or reason}"],
-            risk_level="high" if reason == "legal_threat" else "medium",
-        )]
+    # Month 4 FIX: NO action_plans here — the pipeline continues to action_planner
+    # which will create appropriate actions INCLUDING escalation when should_escalate=True.
+    # This ensures the ticket gets full reasoning + knowledge + actions.
 
     return {
         "should_escalate": should_escalate,
@@ -510,5 +486,4 @@ async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
         "confidence_gate": confidence_gate,
         "active_frameworks": new_frameworks,
         "escalation_trigger_reason": escalation_trigger_reason,
-        "action_plans": escalation_action_plans,
     }
