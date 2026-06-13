@@ -6,6 +6,10 @@
  *
  * Handles multipart/form-data for file uploads with proper auth token forwarding.
  * Includes CSRF cookie + token for multipart uploads to prevent 403 rejections.
+ *
+ * CSRF FIX: Tries ALL trusted origins (not just getProxyOrigin()) because the
+ * backend's CSRF_TRUSTED_ORIGINS might not include the current deployment URL.
+ * Each retry fetches a fresh CSRF token for that specific origin.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -15,20 +19,34 @@ import { getBackendUrl } from '@/lib/backend-url';
 const BACKEND_URL = getBackendUrl();
 
 /**
- * Get the Origin header for proxy requests (mirrors backend-proxy logic).
+ * ALL origins that the backend might trust for CSRF.
+ * Tried in order until one works.
  */
-function getProxyOrigin(): string {
-  if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  if (process.env.NODE_ENV === 'production') return 'https://parwa.buzz';
-  return 'http://localhost:3000';
+function getAllTrustedOrigins(): string[] {
+  const origins = new Set<string>();
+
+  // Primary: from env vars
+  if (process.env.FRONTEND_URL) origins.add(process.env.FRONTEND_URL);
+  if (process.env.VERCEL_URL) origins.add(`https://${process.env.VERCEL_URL}`);
+
+  // Known production domains
+  origins.add('https://parwa.buzz');
+  origins.add('https://parwa.vercel.app');
+  origins.add('https://www.parwa.buzz');
+
+  // Development
+  origins.add('http://localhost:3000');
+
+  // Also try the request's own origin if it's a common pattern
+  // (preview deployments, etc.)
+
+  return Array.from(origins);
 }
 
 /**
- * Fetch CSRF cookie from the backend health endpoint.
+ * Fetch CSRF cookie from the backend health endpoint for a specific origin.
  */
-async function fetchCSRFToken(): Promise<{ cookie: string; token: string } | null> {
-  const origin = getProxyOrigin();
+async function fetchCSRFTokenForOrigin(origin: string): Promise<{ cookie: string; token: string } | null> {
   try {
     const res = await fetch(`${BACKEND_URL}/api/health`, {
       method: 'GET',
@@ -63,6 +81,67 @@ function getAuthToken(req: NextRequest): string | undefined {
     if (cookies.parwa_at) return cookies.parwa_at;
   }
   return undefined;
+}
+
+/**
+ * Try a fetch with a specific origin, including CSRF token if available.
+ * Returns the response or null if it failed (CSRF 403 or network error).
+ */
+async function tryFetchWithOrigin(
+  url: string,
+  method: string,
+  origin: string,
+  authToken: string | undefined,
+  body?: BodyInit,
+): Promise<{ response: Response; originWorked: boolean } | null> {
+  const csrfTokens = await fetchCSRFTokenForOrigin(origin);
+
+  const headers: Record<string, string> = {
+    'Origin': origin,
+    'Referer': `${origin}/`,
+  };
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  if (csrfTokens) {
+    headers['Cookie'] = `parwa_csrf=${csrfTokens.cookie}`;
+    headers['x-csrf-token'] = csrfTokens.token;
+  }
+
+  try {
+    const response = await fetch(url, {
+      method,
+      headers,
+      body,
+      signal: AbortSignal.timeout(15000),
+    });
+
+    // If not a CSRF 403, this origin worked
+    if (response.status !== 403) {
+      return { response, originWorked: true };
+    }
+
+    // Check if it's specifically a CSRF error (vs real auth 403)
+    try {
+      const cloned = response.clone();
+      const errBody = await cloned.json();
+      const errMsg = (errBody?.error?.message || errBody?.message || '').toLowerCase();
+      const isCSRF = errMsg.includes('csrf') || errMsg.includes('invalid origin') || errMsg.includes('origin not allowed');
+
+      if (isCSRF) {
+        // CSRF error — this origin didn't work, try next
+        console.log(`[kb-proxy] Origin ${origin} rejected by CSRF — trying next`);
+        return null;
+      }
+
+      // Real 403 (auth error, not CSRF) — return it
+      return { response, originWorked: true };
+    } catch {
+      // Can't parse body — treat as real error
+      return { response, originWorked: true };
+    }
+  } catch {
+    // Network error — try next origin
+    return null;
+  }
 }
 
 // GET handler
@@ -142,112 +221,50 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
         );
       }
 
-      // Build headers with Origin for CSRF and auth token
-      const origin = getProxyOrigin();
+      const backendUrl = `${BACKEND_URL}/api/v1/kb/${subPath}`;
+      const trustedOrigins = getAllTrustedOrigins();
 
-      // Fetch CSRF token for the upload request
-      const csrfTokens = await fetchCSRFToken();
+      // Try each trusted origin until one works
+      for (const origin of trustedOrigins) {
+        const backendFormData = new FormData();
+        backendFormData.append('file', file);
 
-      const headers: Record<string, string> = {
-        'Origin': origin,
-        'Referer': `${origin}/`,
-      };
-      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-      // Include CSRF cookie + header for double-submit pattern
-      if (csrfTokens) {
-        headers['Cookie'] = `parwa_csrf=${csrfTokens.cookie}`;
-        headers['x-csrf-token'] = csrfTokens.token;
-      }
+        const result = await tryFetchWithOrigin(
+          backendUrl,
+          'POST',
+          origin,
+          authToken,
+          backendFormData as unknown as BodyInit,
+        );
 
-      const backendFormData = new FormData();
-      backendFormData.append('file', file);
-
-      const backendRes = await fetch(`${BACKEND_URL}/api/v1/kb/${subPath}`, {
-        method: 'POST',
-        headers,
-        body: backendFormData as unknown as BodyInit,
-      });
-
-      if (backendRes.ok) {
-        const data = await backendRes.json();
-        return NextResponse.json(data);
-      }
-
-      // Try fallback origins if CSRF rejected (403)
-      if (backendRes.status === 403) {
-        // Check if it's actually a CSRF error
-        let isCSRFErr = false;
-        try {
-          const errClone = backendRes.clone();
-          const errBody = await errClone.json();
-          const errMsg = (errBody?.error?.message || errBody?.message || '').toLowerCase();
-          isCSRFErr = errMsg.includes('csrf') || errMsg.includes('invalid origin') || errMsg.includes('origin not allowed');
-        } catch { /* ignore */ }
-
-        if (isCSRFErr) {
-          const fallbackOrigins = [
-            'https://parwa.buzz',
-            'https://parwa.vercel.app',
-            'https://www.parwa.buzz',
-            'http://localhost:3000',
-          ].filter((o) => o !== origin);
-
-          for (const fallbackOrigin of fallbackOrigins) {
-            try {
-              // Fetch fresh CSRF for each fallback origin
-              const fallbackCSRF = await fetchCSRFToken();
-              const retryHeaders: Record<string, string> = {
-                'Origin': fallbackOrigin,
-                'Referer': `${fallbackOrigin}/`,
-              };
-              if (authToken) retryHeaders['Authorization'] = `Bearer ${authToken}`;
-              if (fallbackCSRF) {
-                retryHeaders['Cookie'] = `parwa_csrf=${fallbackCSRF.cookie}`;
-                retryHeaders['x-csrf-token'] = fallbackCSRF.token;
-              }
-
-              const retryFormData = new FormData();
-              retryFormData.append('file', file);
-
-              const retryRes = await fetch(`${BACKEND_URL}/api/v1/kb/${subPath}`, {
-                method: 'POST',
-                headers: retryHeaders,
-                body: retryFormData as unknown as BodyInit,
-              });
-
-              if (retryRes.ok) {
-                const data = await retryRes.json();
-                return NextResponse.json(data);
-              }
-
-              if (retryRes.status !== 403) {
-                try {
-                  const errorBody = await retryRes.json();
-                  return NextResponse.json(errorBody, { status: retryRes.status });
-                } catch {
-                  return NextResponse.json(
-                    { error: 'backend_error', message: `Backend returned ${retryRes.status}` },
-                    { status: retryRes.status }
-                  );
-                }
-              }
-            } catch {
-              continue;
-            }
+        if (result) {
+          const { response } = result;
+          if (response.ok) {
+            const data = await response.json();
+            return NextResponse.json(data);
+          }
+          // Non-403 error — return it
+          try {
+            const errorBody = await response.json();
+            return NextResponse.json(errorBody, { status: response.status });
+          } catch {
+            return NextResponse.json(
+              { error: 'backend_error', message: `Backend returned ${response.status}` },
+              { status: response.status }
+            );
           }
         }
       }
 
-      // Return backend error
-      try {
-        const errorBody = await backendRes.json();
-        return NextResponse.json(errorBody, { status: backendRes.status });
-      } catch {
-        return NextResponse.json(
-          { error: 'backend_error', message: `Backend returned ${backendRes.status}` },
-          { status: backendRes.status }
-        );
-      }
+      // All origins failed — return error
+      return NextResponse.json(
+        {
+          error: 'csrf_validation_failed',
+          message: 'File upload failed — could not validate with backend. Please try again or contact support.',
+          tried_origins: trustedOrigins,
+        },
+        { status: 403 }
+      );
     } catch (err) {
       console.error('[kb-proxy] POST multipart error:', err);
       return NextResponse.json(

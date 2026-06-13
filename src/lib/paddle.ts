@@ -15,9 +15,15 @@
  * - New customers don't have a Paddle customer_id yet
  * - Paddle.js handles the entire checkout lifecycle
  * - After payment, Paddle fires a webhook to our backend with subscription details
+ *
+ * Discount/Coupon support:
+ * - Paddle uses "discounts" (what users call "coupons")
+ * - Pass `discountCode` to pre-apply a coupon code in checkout (e.g. "PARWAFREE")
+ * - Pass `discountId` to pre-apply by Paddle internal ID (e.g. "dsc_01xxx")
+ * - You cannot use both at the same time
  */
 
-import { initializePaddle, Paddle } from '@paddle/paddle-js';
+import { initializePaddle, Paddle, type CheckoutOpenOptions } from '@paddle/paddle-js';
 
 let paddleInstance: Paddle | undefined;
 
@@ -116,12 +122,16 @@ export async function openCheckout(
  * @param customData - Optional metadata to embed in the transaction
  * @param onSuccess - Optional callback when checkout completes successfully
  * @param onClose - Optional callback when checkout is closed without completing
+ * @param discountCode - Optional Paddle discount/coupon code to pre-apply (e.g. "PARWAFREE" for 100% off testing)
+ * @param discountId - Optional Paddle internal discount ID (alternative to discountCode)
  */
 export async function openCheckoutWithItems(
   items: Array<{ priceId: string; quantity: number }>,
   customData?: Record<string, unknown>,
   onSuccess?: () => void,
   onClose?: () => void,
+  discountCode?: string,
+  discountId?: string,
 ): Promise<boolean> {
   const paddle = await getPaddleInstance();
   if (!paddle) {
@@ -130,20 +140,38 @@ export async function openCheckoutWithItems(
   }
 
   try {
-    paddle.Checkout.open({
+    // Build checkout options — Paddle uses discriminated unions:
+    // discountCode XOR discountId (can't have both)
+    const baseOptions = {
       items: items.map(item => ({
         priceId: item.priceId,
         quantity: item.quantity,
       })),
       customData,
       settings: {
-        displayMode: 'overlay',
-        theme: 'light',
+        displayMode: 'overlay' as const,
+        theme: 'light' as const,
         successUrl: typeof window !== 'undefined'
           ? `${window.location.origin}/onboarding?step=victory`
           : undefined,
       },
-    });
+    };
+
+    // Build the final options with the correct discount type
+    let checkoutOptions: CheckoutOpenOptions;
+    if (discountCode) {
+      checkoutOptions = { ...baseOptions, discountCode };
+    } else if (discountId) {
+      checkoutOptions = { ...baseOptions, discountId };
+    } else {
+      checkoutOptions = { ...baseOptions };
+    }
+
+    if (discountCode || discountId) {
+      console.log('[paddle] Applying discount:', discountCode ? `code=${discountCode}` : `id=${discountId}`);
+    }
+
+    paddle.Checkout.open(checkoutOptions);
 
     // Listen for checkout completion via Paddle events
     setupCheckoutListeners(paddle, onSuccess, onClose);
