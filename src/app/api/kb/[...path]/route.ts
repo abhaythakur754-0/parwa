@@ -5,6 +5,7 @@
  * Uses backendProxy for CSRF-aware requests with Origin header handling.
  *
  * Handles multipart/form-data for file uploads with proper auth token forwarding.
+ * Includes CSRF cookie + token for multipart uploads to prevent 403 rejections.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -12,6 +13,37 @@ import { backendProxy } from '@/lib/backend-proxy';
 import { getBackendUrl } from '@/lib/backend-url';
 
 const BACKEND_URL = getBackendUrl();
+
+/**
+ * Get the Origin header for proxy requests (mirrors backend-proxy logic).
+ */
+function getProxyOrigin(): string {
+  if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  if (process.env.NODE_ENV === 'production') return 'https://parwa.buzz';
+  return 'http://localhost:3000';
+}
+
+/**
+ * Fetch CSRF cookie from the backend health endpoint.
+ */
+async function fetchCSRFToken(): Promise<{ cookie: string; token: string } | null> {
+  const origin = getProxyOrigin();
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/health`, {
+      method: 'GET',
+      headers: { 'Origin': origin, 'Referer': `${origin}/` },
+      signal: AbortSignal.timeout(6000),
+    });
+    const setCookie = res.headers.get('set-cookie') || '';
+    const csrfMatch = setCookie.match(/parwa_csrf=([^;]+)/);
+    const csrfCookie = csrfMatch ? csrfMatch[1] : '';
+    if (csrfCookie) return { cookie: csrfCookie, token: csrfCookie };
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Extract auth token from request (cookie or Authorization header).
@@ -111,15 +143,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
       }
 
       // Build headers with Origin for CSRF and auth token
-      const origin = process.env.FRONTEND_URL ||
-        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
-        (process.env.NODE_ENV === 'production' ? 'https://parwa.buzz' : 'http://localhost:3000');
+      const origin = getProxyOrigin();
+
+      // Fetch CSRF token for the upload request
+      const csrfTokens = await fetchCSRFToken();
 
       const headers: Record<string, string> = {
         'Origin': origin,
         'Referer': `${origin}/`,
       };
       if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+      // Include CSRF cookie + header for double-submit pattern
+      if (csrfTokens) {
+        headers['Cookie'] = `parwa_csrf=${csrfTokens.cookie}`;
+        headers['x-csrf-token'] = csrfTokens.token;
+      }
 
       const backendFormData = new FormData();
       backendFormData.append('file', file);
@@ -135,47 +173,67 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
         return NextResponse.json(data);
       }
 
-      // Try fallback origins if CSRF rejected
+      // Try fallback origins if CSRF rejected (403)
       if (backendRes.status === 403) {
-        const fallbackOrigins = [
-          'https://parwa.buzz',
-          'https://parwa.vercel.app',
-          'https://www.parwa.buzz',
-        ].filter((o) => o !== origin);
+        // Check if it's actually a CSRF error
+        let isCSRFErr = false;
+        try {
+          const errClone = backendRes.clone();
+          const errBody = await errClone.json();
+          const errMsg = (errBody?.error?.message || errBody?.message || '').toLowerCase();
+          isCSRFErr = errMsg.includes('csrf') || errMsg.includes('invalid origin') || errMsg.includes('origin not allowed');
+        } catch { /* ignore */ }
 
-        for (const fallbackOrigin of fallbackOrigins) {
-          try {
-            const retryHeaders: Record<string, string> = {
-              'Origin': fallbackOrigin,
-              'Referer': `${fallbackOrigin}/`,
-            };
-            if (authToken) retryHeaders['Authorization'] = `Bearer ${authToken}`;
+        if (isCSRFErr) {
+          const fallbackOrigins = [
+            'https://parwa.buzz',
+            'https://parwa.vercel.app',
+            'https://www.parwa.buzz',
+            'http://localhost:3000',
+          ].filter((o) => o !== origin);
 
-            const retryRes = await fetch(`${BACKEND_URL}/api/v1/kb/${subPath}`, {
-              method: 'POST',
-              headers: retryHeaders,
-              body: backendFormData as unknown as BodyInit,
-            });
-
-            if (retryRes.ok) {
-              const data = await retryRes.json();
-              return NextResponse.json(data);
-            }
-
-            if (retryRes.status !== 403) {
-              // Non-CSRF error — return the error
-              try {
-                const errorBody = await retryRes.json();
-                return NextResponse.json(errorBody, { status: retryRes.status });
-              } catch {
-                return NextResponse.json(
-                  { error: 'backend_error', message: `Backend returned ${retryRes.status}` },
-                  { status: retryRes.status }
-                );
+          for (const fallbackOrigin of fallbackOrigins) {
+            try {
+              // Fetch fresh CSRF for each fallback origin
+              const fallbackCSRF = await fetchCSRFToken();
+              const retryHeaders: Record<string, string> = {
+                'Origin': fallbackOrigin,
+                'Referer': `${fallbackOrigin}/`,
+              };
+              if (authToken) retryHeaders['Authorization'] = `Bearer ${authToken}`;
+              if (fallbackCSRF) {
+                retryHeaders['Cookie'] = `parwa_csrf=${fallbackCSRF.cookie}`;
+                retryHeaders['x-csrf-token'] = fallbackCSRF.token;
               }
+
+              const retryFormData = new FormData();
+              retryFormData.append('file', file);
+
+              const retryRes = await fetch(`${BACKEND_URL}/api/v1/kb/${subPath}`, {
+                method: 'POST',
+                headers: retryHeaders,
+                body: retryFormData as unknown as BodyInit,
+              });
+
+              if (retryRes.ok) {
+                const data = await retryRes.json();
+                return NextResponse.json(data);
+              }
+
+              if (retryRes.status !== 403) {
+                try {
+                  const errorBody = await retryRes.json();
+                  return NextResponse.json(errorBody, { status: retryRes.status });
+                } catch {
+                  return NextResponse.json(
+                    { error: 'backend_error', message: `Backend returned ${retryRes.status}` },
+                    { status: retryRes.status }
+                  );
+                }
+              }
+            } catch {
+              continue;
             }
-          } catch {
-            continue;
           }
         }
       }

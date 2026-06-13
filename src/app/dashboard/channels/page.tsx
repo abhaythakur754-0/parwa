@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/api';
 import { voiceApi } from '@/lib/voice-api';
-import { Phone, Settings, Loader2, Sparkles, Key, Plug, CheckCircle2, XCircle, TestTube, Trash2, Plus } from 'lucide-react';
+import { Phone, Settings, Loader2, Sparkles, Key, KeyRound, Plug, CheckCircle2, XCircle, TestTube, Trash2, Plus } from 'lucide-react';
 import type { ChannelInfo, ChannelConfig, ChannelType } from '@/types/analytics';
 import type { VoiceChannelConfig, NumberSource } from '@/types/voice';
 import { VoiceConfigCard } from '@/components/dashboard/VoiceConfigCard';
@@ -414,6 +414,69 @@ function ConnectedIntegrations() {
     toast.success('Integration removed');
   };
 
+  // ── Add Integration Form State ────────────────────────────────────────
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newAuthType, setNewAuthType] = useState<string>('bearer');
+  const [newApiKey, setNewApiKey] = useState('');
+  const [newTestUrl, setNewTestUrl] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+
+  const handleAddIntegration = async () => {
+    if (!newName.trim()) {
+      toast.error('Please enter a platform name');
+      return;
+    }
+    if (!newApiKey.trim()) {
+      toast.error('Please enter your API key or token');
+      return;
+    }
+
+    setIsAdding(true);
+    try {
+      const res = await fetch('/api/integrations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newName.trim(),
+          integration_type: newName.trim().toLowerCase().replace(/\s+/g, '_'),
+          auth_type: newAuthType,
+          credentials: newAuthType === 'basic_auth'
+            ? { username: newApiKey.split(':')[0] || 'user', password: newApiKey.split(':').slice(1).join(':') || newApiKey }
+            : newAuthType === 'api_key_header'
+            ? { header_name: 'X-API-Key', api_key: newApiKey }
+            : { api_key: newApiKey },
+          test_url: newTestUrl.trim() || undefined,
+        }),
+      });
+
+      const newIntg: DashboardIntegration = {
+        id: `int-${Date.now()}`,
+        name: newName.trim(),
+        platform: newName.trim().toLowerCase().replace(/\s+/g, '_'),
+        authType: newAuthType,
+        status: 'active',
+      };
+
+      if (res.ok) {
+        const data = await res.json();
+        newIntg.id = data.id || newIntg.id;
+      }
+
+      setIntegrations((prev) => [...prev, newIntg]);
+      setNewName('');
+      setNewApiKey('');
+      setNewTestUrl('');
+      setNewAuthType('bearer');
+      setShowAddForm(false);
+      toast.success(`${newIntg.name} added!`);
+    } catch {
+      toast.error('Failed to add integration');
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="pb-4 border-b border-white/[0.06]">
@@ -430,9 +493,10 @@ function ConnectedIntegrations() {
           <a
             href="/dashboard/settings"
             className="text-xs font-medium text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1.5"
+            onClick={(e) => { e.preventDefault(); setShowAddForm(!showAddForm); }}
           >
             <Plus className="w-3.5 h-3.5" />
-            Add Integration
+            {showAddForm ? 'Cancel' : 'Add Integration'}
           </a>
         </div>
       </div>
@@ -502,6 +566,102 @@ function ConnectedIntegrations() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ── Inline Add Integration Form ──────────────────────────────────── */}
+      {showAddForm && (
+        <div className="rounded-xl bg-[#1A1A1A] border border-orange-500/20 p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+            <KeyRound className="w-4 h-4 text-orange-400" />
+            Add New Integration
+          </h3>
+
+          <div className="space-y-3">
+            {/* Platform Name */}
+            <div>
+              <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Platform Name</label>
+              <input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="e.g. Stripe, PayPal, HubSpot, Custom API..."
+                className="w-full mt-1 px-3 py-2.5 rounded-lg text-sm bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-zinc-600 focus:border-orange-500/50 focus:outline-none transition-colors"
+              />
+            </div>
+
+            {/* Auth Type */}
+            <div>
+              <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Auth Type</label>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                {[
+                  { value: 'bearer', label: 'Bearer Token' },
+                  { value: 'api_key_header', label: 'API Key (Header)' },
+                  { value: 'api_key_query', label: 'API Key (Query)' },
+                  { value: 'basic_auth', label: 'Basic Auth' },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setNewAuthType(opt.value)}
+                    className={cn(
+                      'text-left px-3 py-2 rounded-lg text-xs font-medium border transition-all',
+                      newAuthType === opt.value
+                        ? 'border-orange-500/40 bg-orange-500/5 text-orange-400'
+                        : 'border-white/[0.06] text-zinc-400 hover:border-white/10'
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* API Key / Token */}
+            <div>
+              <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">
+                {newAuthType === 'basic_auth' ? 'Username:Password' : 'API Key / Token'}
+              </label>
+              <input
+                value={newApiKey}
+                onChange={(e) => setNewApiKey(e.target.value)}
+                type="password"
+                placeholder={newAuthType === 'basic_auth' ? 'user:password' : 'sk_live_xxx or your-api-key'}
+                className="w-full mt-1 px-3 py-2.5 rounded-lg text-sm bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-zinc-600 focus:border-orange-500/50 focus:outline-none transition-colors"
+              />
+            </div>
+
+            {/* Test URL (optional) */}
+            <div>
+              <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">
+                Test URL <span className="text-zinc-700">(optional)</span>
+              </label>
+              <input
+                value={newTestUrl}
+                onChange={(e) => setNewTestUrl(e.target.value)}
+                type="url"
+                placeholder="https://api.example.com/v1/validate"
+                className="w-full mt-1 px-3 py-2.5 rounded-lg text-sm bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-zinc-600 focus:border-orange-500/50 focus:outline-none transition-colors"
+              />
+              <p className="text-[9px] text-zinc-600 mt-1">For known platforms, PARWA auto-detects the test endpoint. For custom platforms, provide a URL that returns 200 on valid auth.</p>
+            </div>
+          </div>
+
+          {/* Add + Cancel buttons */}
+          <div className="flex justify-end gap-3 pt-2 border-t border-white/[0.04]">
+            <button
+              onClick={() => setShowAddForm(false)}
+              className="px-4 py-2 rounded-lg text-xs font-medium border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAddIntegration}
+              disabled={isAdding}
+              className="px-5 py-2 rounded-lg text-xs font-bold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:from-orange-400 hover:to-amber-300 shadow-lg shadow-orange-500/25 transition-all flex items-center gap-1.5 disabled:opacity-60"
+            >
+              {isAdding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+              Add & Verify
+            </button>
+          </div>
         </div>
       )}
     </div>

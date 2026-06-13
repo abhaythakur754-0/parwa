@@ -221,8 +221,8 @@ export const ONBOARDING_STEPS: Omit<OnboardingStep, 'isCompleted' | 'isActive'>[
   },
   {
     id: 5,
-    title: 'Review',
-    description: 'Review costs and checkout',
+    title: 'Payment',
+    description: 'Review costs and complete payment',
     isOptional: false,
   },
   {

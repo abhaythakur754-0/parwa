@@ -9,6 +9,7 @@ import {
   Video, ShoppingCart, Cloud, Truck, Briefcase, Zap, Shield, Sparkles,
   ArrowRight, X,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 type Industry = 'ecommerce' | 'saas' | 'logistics' | 'others';
 type VariantId = 'starter' | 'growth' | 'high';
@@ -95,12 +96,13 @@ export default function ModelsPage() {
   const [selectedIndustry, setSelectedIndustry] = useState<Industry | null>(null);
   const [isAnnual, setIsAnnual] = useState(false);
   const [quantities, setQuantities] = useState<Record<VariantId, number>>({ starter: 0, growth: 0, high: 0 });
-  const [selectedVariant, setSelectedVariant] = useState<VariantId | null>(null);
+  const [selectedVariants, setSelectedVariants] = useState<VariantId[]>([]);
   const [showConfirm, setShowConfirm] = useState(false);
 
   const handleIndustryClick = (id: Industry) => {
     setSelectedIndustry(selectedIndustry === id ? null : id);
     setQuantities({ starter: 0, growth: 0, high: 0 });
+    setSelectedVariants([]);
   };
 
   const handleQuantityChange = (vid: VariantId, qty: number) => {
@@ -238,11 +240,25 @@ export default function ModelsPage() {
                           }));
                           router.push('/signup?redirect=/models');
                         } else {
-                          setSelectedVariant(variant.id);
-                          setShowConfirm(true);
+                          // Toggle this variant in the multi-select
+                          setSelectedVariants((prev) => {
+                            const newSelection = prev.includes(variant.id)
+                              ? prev.filter((v) => v !== variant.id)
+                              : [...prev, variant.id];
+                            // Auto-set quantity to 1 if newly added
+                            if (!prev.includes(variant.id) && quantities[variant.id] === 0) {
+                              setQuantities((q) => ({ ...q, [variant.id]: 1 }));
+                            }
+                            return newSelection;
+                          });
                         }
-                      }} className="w-full py-3.5 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] hover:from-orange-400 hover:to-orange-300 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all">
-                        {isAuthenticated ? 'Hire Agent' : 'Get Started'}
+                      }} className={cn(
+                        "w-full py-3.5 rounded-xl text-sm font-bold transition-all",
+                        isActive
+                          ? 'bg-gradient-to-r from-emerald-500 to-emerald-400 text-white hover:from-emerald-400 hover:to-emerald-300 shadow-lg shadow-emerald-500/25'
+                          : 'bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] hover:from-orange-400 hover:to-orange-300 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40'
+                      )}>
+                        {isActive ? 'Added ✓' : isAuthenticated ? 'Hire Agent' : 'Get Started'}
                       </button>
                     </div>
                   );
@@ -253,20 +269,64 @@ export default function ModelsPage() {
         )}
       </main>
 
-      {/* ═══ Confirmation Modal ═══ */}
-      {showConfirm && selectedVariant && selectedIndustry && (() => {
-        const variant = variantData[selectedIndustry]?.find(v => v.id === selectedVariant);
-        if (!variant) return null;
+      {/* ═══ Sticky "Proceed" Bar when variants selected ═══ */}
+      {isAuthenticated && selectedVariants.length > 0 && selectedIndustry && !showConfirm && (() => {
+        const totalMonthly = selectedVariants.reduce((sum, vid) => {
+          const v = variantData[selectedIndustry]?.find(vv => vv.id === vid);
+          return sum + (v ? v.monthlyPrice * (quantities[vid] || 1) : 0);
+        }, 0);
+        const totalTickets = selectedVariants.reduce((sum, vid) => {
+          const v = variantData[selectedIndustry]?.find(vv => vv.id === vid);
+          return sum + (v ? v.ticketsPerMonth * (quantities[vid] || 1) : 0);
+        }, 0);
+
+        return (
+          <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-orange-500/20" style={{ background: 'linear-gradient(135deg, rgba(26,26,26,0.97) 0%, rgba(42,26,10,0.97) 100%)', backdropFilter: 'blur(20px)' }}>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-orange-200/50">{selectedVariants.length} agent{selectedVariants.length > 1 ? 's' : ''}</span>
+                  <span className="text-zinc-600">|</span>
+                  <span className="text-sm text-orange-200/50">{totalTickets.toLocaleString()} tickets/mo</span>
+                </div>
+                <div>
+                  <span className="text-xl font-bold text-orange-400">${totalMonthly.toLocaleString()}</span>
+                  <span className="text-sm text-orange-200/40">/mo</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowConfirm(true)}
+                className="px-6 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] hover:from-orange-400 hover:to-orange-300 shadow-lg shadow-orange-500/25 transition-all flex items-center gap-2"
+              >
+                Proceed to Setup <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ═══ Confirmation Modal (Multi-Variant) ═══ */}
+      {showConfirm && selectedVariants.length > 0 && selectedIndustry && (() => {
         const parwaIndustryMap: Record<Industry, string> = { ecommerce: 'ecommerce', saas: 'saas', logistics: 'logistics', others: 'other' };
         const parwaVariantMap: Record<VariantId, string> = { starter: 'mini_parwa', growth: 'parwa', high: 'parwa_high' };
 
+        const totalMonthly = selectedVariants.reduce((sum, vid) => {
+          const v = variantData[selectedIndustry]?.find(vv => vv.id === vid);
+          return sum + (v ? v.monthlyPrice * (quantities[vid] || 1) : 0);
+        }, 0);
+
         const handleConfirm = async () => {
-          // Store pricing context in localStorage so onboarding can pick it up
+          // Store pricing context in localStorage with multi-variant info
+          const primaryVariant = selectedVariants[0]; // Primary variant for onboarding
           localStorage.setItem('parwa_pricing_context', JSON.stringify({
             industry: parwaIndustryMap[selectedIndustry],
-            variant: parwaVariantMap[selectedVariant],
+            variant: parwaVariantMap[primaryVariant],
+            selectedVariants: selectedVariants.map((vid) => parwaVariantMap[vid]),
+            variantQuantities: Object.fromEntries(
+              selectedVariants.map((vid) => [parwaVariantMap[vid], quantities[vid] || 1])
+            ),
             addOns: { voice: false, customApi: false },
-            totalMonthly: variant.monthlyPrice,
+            totalMonthly,
             timestamp: new Date().toISOString(),
           }));
 
@@ -277,7 +337,11 @@ export default function ModelsPage() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 industry: parwaIndustryMap[selectedIndustry],
-                variant: parwaVariantMap[selectedVariant],
+                variant: parwaVariantMap[primaryVariant],
+                selectedVariants: selectedVariants.map((vid) => parwaVariantMap[vid]),
+                variantQuantities: Object.fromEntries(
+                  selectedVariants.map((vid) => [parwaVariantMap[vid], quantities[vid] || 1])
+                ),
               }),
             });
           } catch {
@@ -299,25 +363,34 @@ export default function ModelsPage() {
 
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between text-sm">
-                  <span className="text-zinc-400">Variant</span>
-                  <span className="text-white font-semibold">{variant.name}</span>
-                </div>
-                <div className="flex justify-between text-sm">
                   <span className="text-zinc-400">Industry</span>
                   <span className="text-white font-semibold">{industries.find(i => i.id === selectedIndustry)?.label}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-zinc-400">Monthly Price</span>
-                  <span className="text-orange-400 font-bold text-lg">${variant.monthlyPrice.toLocaleString()}/mo</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-zinc-400">Tickets/mo</span>
-                  <span className="text-white">{variant.ticketsPerMonth.toLocaleString()}</span>
+                {/* Show each selected variant */}
+                {selectedVariants.map((vid) => {
+                  const v = variantData[selectedIndustry]?.find(vv => vv.id === vid);
+                  if (!v) return null;
+                  const qty = quantities[vid] || 1;
+                  return (
+                    <div key={vid} className="flex justify-between text-sm">
+                      <span className="text-zinc-400">
+                        {v.name}
+                        {qty > 1 && <span className="text-zinc-600"> × {qty}</span>}
+                      </span>
+                      <span className="text-white font-semibold">
+                        ${(v.monthlyPrice * qty).toLocaleString()}/mo
+                      </span>
+                    </div>
+                  );
+                })}
+                <div className="border-t border-white/10 pt-3 flex justify-between text-sm">
+                  <span className="text-orange-400 font-semibold">Total Monthly</span>
+                  <span className="text-orange-400 font-bold text-lg">${totalMonthly.toLocaleString()}/mo</span>
                 </div>
               </div>
 
               <div className="border-t border-white/10 pt-4">
-                <p className="text-xs text-zinc-500 mb-4">You'll be taken to the onboarding setup where you can configure your AI agent.</p>
+                <p className="text-xs text-zinc-500 mb-4">You'll be taken to the onboarding setup where you'll configure your AI agents and complete payment.</p>
                 <div className="flex gap-3">
                   <button onClick={() => setShowConfirm(false)} className="flex-1 py-3 rounded-xl text-sm font-medium border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 transition-all">
                     Cancel

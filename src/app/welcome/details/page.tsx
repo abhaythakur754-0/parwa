@@ -100,14 +100,20 @@ function DetailsContent() {
       </div>
 
       <div className="max-w-xl mx-auto relative z-10">
-        {/* Progress Indicator */}
+        {/* Progress Indicator — matches onboarding wizard's 6 steps */}
         <div className="mb-8">
-          <div className="flex items-center justify-center gap-4">
+          <div className="flex items-center justify-center gap-1 sm:gap-2">
             <Step number={1} label="Details" isActive isCompleted={false} />
-            <div className="w-12 h-0.5 bg-white/10" />
-            <Step number={2} label="Setup" isActive={false} isCompleted={false} />
-            <div className="w-12 h-0.5 bg-white/10" />
-            <Step number={3} label="Launch" isActive={false} isCompleted={false} />
+            <div className="w-4 sm:w-8 h-0.5 bg-white/10" />
+            <Step number={2} label="Legal" isActive={false} isCompleted={false} />
+            <div className="w-4 sm:w-8 h-0.5 bg-white/10" />
+            <Step number={3} label="Integrations" isActive={false} isCompleted={false} />
+            <div className="w-4 sm:w-8 h-0.5 bg-white/10" />
+            <Step number={4} label="AI Setup" isActive={false} isCompleted={false} />
+            <div className="w-4 sm:w-8 h-0.5 bg-white/10" />
+            <Step number={5} label="Payment" isActive={false} isCompleted={false} />
+            <div className="w-4 sm:w-8 h-0.5 bg-white/10" />
+            <Step number={6} label="Launch" isActive={false} isCompleted={false} />
           </div>
         </div>
 
@@ -138,14 +144,14 @@ function DetailsContent() {
 function Step({ number, label, isActive, isCompleted }: { number: number; label: string; isActive: boolean; isCompleted: boolean; }) {
   return (
     <div className="flex flex-col items-center">
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${
+      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-medium ${
         isCompleted ? 'bg-orange-500 text-white'
           : isActive ? 'bg-orange-600 text-white'
           : 'bg-white/10 text-orange-200/40'
       }`}>
-        {isCompleted ? <CheckCircle className="w-5 h-5" /> : number}
+        {isCompleted ? <CheckCircle className="w-3.5 h-3.5" /> : number}
       </div>
-      <span className={`mt-2 text-xs font-medium ${isActive ? 'text-orange-400' : 'text-orange-200/30'}`}>{label}</span>
+      <span className={`mt-1 text-[9px] font-medium hidden sm:block ${isActive ? 'text-orange-400' : 'text-orange-200/30'}`}>{label}</span>
     </div>
   );
 }

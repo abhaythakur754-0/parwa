@@ -441,8 +441,7 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
         totalMonthly,
       };
 
-      // Try server-side transaction first
-      let transactionId: string | null = null;
+      // ── Step 1: Try server-side checkout (backend creates Paddle transaction) ──
       let checkoutUrl: string | null = null;
 
       try {
@@ -461,43 +460,84 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
 
         if (res.ok) {
           const checkoutData = await res.json();
-          transactionId = checkoutData.transaction_id || null;
           checkoutUrl = checkoutData.checkout_url || null;
         }
       } catch {
         // API unavailable — continue with client-side Paddle checkout
       }
 
-      // If we got a checkout_url, redirect to it
+      // If we got a checkout_url from backend, redirect to it
       if (checkoutUrl) {
+        localStorage.setItem('parwa_payment_pending', JSON.stringify({
+          activeVariants, addOns, totalMonthly, variantQuantities,
+          pendingAt: new Date().toISOString(),
+        }));
         window.location.href = checkoutUrl;
         return;
       }
 
-      // Client-side Paddle checkout (items-based)
-      if (paddleStatus === 'ready' && checkoutItems.length > 0) {
+      // ── Step 2: Client-side Paddle checkout (items-based overlay) ──
+      // Re-check Paddle availability (might have loaded since initial check)
+      const paddle = await getPaddleInstance();
+
+      if (paddle && checkoutItems.length > 0) {
+        setPaddleStatus('ready');
         const opened = await openCheckoutWithItems(
           checkoutItems,
           customData,
           () => {
+            // Payment completed successfully
+            localStorage.removeItem('parwa_payment_pending');
             toast.success('Payment successful! Welcome to PARWA!');
             onComplete();
           },
           () => {
-            toast('Checkout closed. You can try again anytime.', { icon: 'ℹ️' });
+            // User closed the checkout overlay without paying
+            toast('Checkout closed — payment is required to activate your plan.', { icon: '⚠️' });
             setIsSubmitting(false);
           },
         );
         if (opened) {
-          return;
+          return; // Paddle overlay is showing — wait for user to complete or close
         }
       }
 
-      // No Paddle available — save configuration and proceed
-      // User must complete payment later to activate their plan
-      localStorage.setItem('parwa_payment_pending', JSON.stringify({ activeVariants, addOns, totalMonthly, variantQuantities, pendingAt: new Date().toISOString() }));
-      toast.success('Configuration saved! Complete payment to activate your plan. You\'ll be redirected to set up payment from the dashboard.');
-      onComplete();
+      // ── Step 3: Paddle unavailable — try re-initializing ──
+      // Sometimes Paddle fails on first load but works on retry
+      try {
+        const retryPaddle = await getPaddleInstance();
+        if (retryPaddle && checkoutItems.length > 0) {
+          setPaddleStatus('ready');
+          const opened = await openCheckoutWithItems(
+            checkoutItems,
+            customData,
+            () => {
+              localStorage.removeItem('parwa_payment_pending');
+              toast.success('Payment successful! Welcome to PARWA!');
+              onComplete();
+            },
+            () => {
+              toast('Checkout closed — payment is required to activate your plan.', { icon: '⚠️' });
+              setIsSubmitting(false);
+            },
+          );
+          if (opened) return;
+        }
+      } catch {
+        // Paddle truly unavailable
+      }
+
+      // ── Payment gateway unavailable — BLOCK, don't skip ──
+      setPaddleStatus('unavailable');
+      localStorage.setItem('parwa_payment_pending', JSON.stringify({
+        activeVariants, addOns, totalMonthly, variantQuantities,
+        pendingAt: new Date().toISOString(),
+      }));
+      setCheckoutError(
+        'Payment gateway is currently unavailable. Your plan configuration has been saved. ' +
+        'Please refresh the page and try again, or contact support@parwa.buzz to complete your subscription.'
+      );
+      toast.error('Payment gateway unavailable — please try again or contact support.');
     } catch (err) {
       console.error('[cost-breakdown] Error:', err);
       setCheckoutError('Something went wrong. Please try again.');
@@ -514,9 +554,9 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
         <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
           <Receipt className="w-7 h-7 text-emerald-400" />
         </div>
-        <h2 className="text-2xl font-bold text-white">Review Your Plan</h2>
+        <h2 className="text-2xl font-bold text-white">Review & Pay</h2>
         <p className="text-orange-200/40 text-sm">
-          Configure variants, add-ons, and review costs before checkout.
+          Configure your plan and complete payment to activate your AI agents.
         </p>
       </div>
 
@@ -773,11 +813,11 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
           {isSubmitting ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              Processing...
+              Opening Checkout...
             </>
           ) : (
             <>
-              Proceed to Checkout
+              Pay ${totalMonthly.toLocaleString()}/mo & Activate
               <ArrowRight className="w-4 h-4" />
             </>
           )}
