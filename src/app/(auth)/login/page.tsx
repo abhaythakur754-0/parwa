@@ -77,9 +77,23 @@ function LoginContent() {
           router.push('/onboarding');
           return;
         }
+        // Cache the completion flag
+        localStorage.setItem('parwa_onboarding_completed', 'true');
+      } else {
+        // Backend error — check localStorage flag
+        const hasCompleted = localStorage.getItem('parwa_onboarding_completed') === 'true';
+        if (!hasCompleted) {
+          router.push('/onboarding');
+          return;
+        }
       }
     } catch {
-      // API unavailable — proceed to dashboard
+      // API unavailable — check localStorage for onboarding completion flag
+      const hasCompleted = localStorage.getItem('parwa_onboarding_completed') === 'true';
+      if (!hasCompleted) {
+        router.push('/onboarding');
+        return;
+      }
     }
 
     router.push(redirectTo);

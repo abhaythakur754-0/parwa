@@ -152,8 +152,28 @@ function SignupContent() {
         localStorage.setItem('parwa_user', JSON.stringify(result.user));
       }
       hydrate();
-      toast.success(result.is_new_user ? 'Account created with Google!' : 'Signed in with Google!');
-      router.push(redirectTo);
+      const isNewUser = Boolean(result.is_new_user);
+      toast.success(isNewUser ? 'Account created with Google!' : 'Signed in with Google!');
+
+      // New users always go to onboarding first
+      if (isNewUser) {
+        router.push('/onboarding');
+      } else {
+        // Returning users — check onboarding state
+        try {
+          const stateRes = await fetch('/api/onboarding/state');
+          if (stateRes.ok) {
+            const state = await stateRes.json();
+            if (state.status !== 'completed' && !state.first_victory_completed) {
+              router.push('/onboarding');
+              return;
+            }
+          }
+        } catch {
+          // API unavailable — proceed to dashboard
+        }
+        router.push(redirectTo);
+      }
     } catch (err) {
       const message = err instanceof Error
         ? err.message
@@ -187,9 +207,24 @@ function SignupContent() {
   };
 
   if (alreadyLoggedIn) {
-    // Auto-redirect to dashboard when already logged in
+    // Auto-redirect — check onboarding state first
+    // New users who haven't completed onboarding should go there, not dashboard
     if (typeof window !== 'undefined') {
-      window.location.href = '/dashboard';
+      (async () => {
+        try {
+          const res = await fetch('/api/onboarding/state');
+          if (res.ok) {
+            const state = await res.json();
+            if (state.status !== 'completed' && !state.first_victory_completed) {
+              window.location.href = '/onboarding';
+              return;
+            }
+          }
+        } catch {
+          // API unavailable — proceed to dashboard
+        }
+        window.location.href = '/dashboard';
+      })();
     }
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>

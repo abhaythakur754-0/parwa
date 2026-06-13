@@ -1,0 +1,832 @@
+     1→     1→     1→'use client';
+     2→     2→     2→
+     3→     3→     3→import React, { useState, useEffect, useCallback, useRef } from 'react';
+     4→     4→     4→import { useRouter } from 'next/navigation';
+     5→     5→     5→import { Loader2 } from 'lucide-react';
+     6→     6→     6→import toast from 'react-hot-toast';
+     7→     7→     7→import { useAuth } from '@/hooks/useAuth';
+     8→     8→     8→import {
+     9→     9→     9→  WelcomeCard,
+    10→    10→    10→  TrendChart,
+    11→    11→    11→  CategoryChart,
+    12→    12→    12→  SLAChart,
+    13→    13→    13→  AgentPerformanceTable,
+    14→    14→    14→  ResponseTimeChart,
+    15→    15→    15→} from '@/components/dashboard';
+    16→    16→    16→import DashboardHeader from '@/components/dashboard/DashboardHeader';
+    17→    17→    17→import KPICard from '@/components/dashboard/KPICard';
+    18→    18→    18→import { analyticsApi } from '@/lib/analytics-api';
+    19→    19→    19→import { get, getErrorMessage } from '@/lib/api';
+    20→    20→    20→import type { DashboardData, AgentMetrics, DateRange } from '@/types/analytics';
+    21→    21→    21→
+    22→    22→    22→// ── Inline Types for AI/Cost/Sentiment APIs ───────────────────────────
+    23→    23→    23→
+    24→    24→    24→interface VariantInstance {
+    25→    25→    25→  id: string;
+    26→    26→    26→  name: string;
+    27→    27→    27→  variant_type: string;
+    28→    28→    28→  status: string;
+    29→    29→    29→  channel_assignment: string;
+    30→    30→    30→  capacity_config: { max_concurrent: number };
+    31→    31→    31→  current_load: number;
+    32→    32→    32→  accuracy_rate: number;
+    33→    33→    33→  avg_latency_ms: number;
+    34→    34→    34→  cost_per_query: number;
+    35→    35→    35→  technique_tier: number;
+    36→    36→    36→  model: string;
+    37→    37→    37→}
+    38→    38→    38→
+    39→    39→    39→interface ROISnapshot {
+    40→    40→    40→  tickets_ai_resolved: number;
+    41→    41→    41→  tickets_human_resolved: number;
+    42→    42→    42→  avg_ai_cost: number;
+    43→    43→    43→  avg_human_cost: number;
+    44→    44→    44→  total_savings: number;
+    45→    45→    45→  savings_percentage: number;
+    46→    46→    46→  ai_accuracy_pct: number;
+    47→    47→    47→  automation_rate: number;
+    48→    48→    48→}
+    49→    49→    49→
+    50→    50→    50→interface CostBudget {
+    51→    51→    51→  total_budget: number;
+    52→    52→    52→  used_budget: number;
+    53→    53→    53→  remaining_budget: number;
+    54→    54→    54→  tokens_used: number;
+    55→    55→    55→  estimated_cost: number;
+    56→    56→    56→}
+    57→    57→    57→
+    58→    58→    58→interface SentimentOverview {
+    59→    59→    59→  avg_frustration_score: number;
+    60→    60→    60→  emotion_distribution: Record<string, number>;
+    61→    61→    61→  escalation_count: number;
+    62→    62→    62→  total_analyzed: number;
+    63→    63→    63→  positive_ratio: number;
+    64→    64→    64→  negative_ratio: number;
+    65→    65→    65→}
+    66→    66→    66→
+    67→    67→    67→// ── API fetch state type ──────────────────────────────────────────────
+    68→    68→    68→
+    69→    69→    69→type FetchState<T> =
+    70→    70→    70→  | { status: 'loading'; data: null }
+    71→    71→    71→  | { status: 'error'; data: null }
+    72→    72→    72→  | { status: 'success'; data: T };
+    73→    73→    73→
+    74→    74→    74→// ── Icons (inline SVGs) ──────────────────────────────────────────────
+    75→    75→    75→
+    76→    76→    76→const Icons = {
+    77→    77→    77→  tickets: (
+    78→    78→    78→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    79→    79→    79→      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 0 1 0 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 0 1 0-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z" />
+    80→    80→    80→    </svg>
+    81→    81→    81→  ),
+    82→    82→    82→  open: (
+    83→    83→    83→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    84→    84→    84→      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+    85→    85→    85→    </svg>
+    86→    86→    86→  ),
+    87→    87→    87→  resolved: (
+    88→    88→    88→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    89→    89→    89→      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+    90→    90→    90→    </svg>
+    91→    91→    91→  ),
+    92→    92→    92→  responseTime: (
+    93→    93→    93→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    94→    94→    94→      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
+    95→    95→    95→    </svg>
+    96→    96→    96→  ),
+    97→    97→    97→  resolutionRate: (
+    98→    98→    98→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    99→    99→    99→      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
+   100→   100→   100→    </svg>
+   101→   101→   101→  ),
+   102→   102→   102→  csat: (
+   103→   103→   103→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   104→   104→   104→      <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
+   105→   105→   105→    </svg>
+   106→   106→   106→  ),
+   107→   107→   107→  breached: (
+   108→   108→   108→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   109→   109→   109→      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+   110→   110→   110→    </svg>
+   111→   111→   111→  ),
+   112→   112→   112→  compliance: (
+   113→   113→   113→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   114→   114→   114→      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+   115→   115→   115→    </svg>
+   116→   116→   116→  ),
+   117→   117→   117→  savings: (
+   118→   118→   118→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   119→   119→   119→      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
+   120→   120→   120→    </svg>
+   121→   121→   121→  ),
+   122→   122→   122→  robot: (
+   123→   123→   123→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   124→   124→   124→      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 0 0 2.25-2.25V6.75a2.25 2.25 0 0 0-2.25-2.25H6.75A2.25 2.25 0 0 0 4.5 6.75v10.5a2.25 2.25 0 0 0 2.25 2.25Zm.75-12h9v9h-9v-9Z" />
+   125→   125→   125→    </svg>
+   126→   126→   126→  ),
+   127→   127→   127→  accuracy: (
+   128→   128→   128→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   129→   129→   129→      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+   130→   130→   130→    </svg>
+   131→   131→   131→  ),
+   132→   132→   132→  sentiment: (
+   133→   133→   133→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   134→   134→   134→      <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z" />
+   135→   135→   135→    </svg>
+   136→   136→   136→  ),
+   137→   137→   137→  variant: (
+   138→   138→   138→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   139→   139→   139→      <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-2.25-1.313M21 7.5v2.25m0-2.25l-2.25 1.313M3 7.5l2.25-1.313M3 7.5l2.25 1.313M3 7.5v2.25m9 3l2.25-1.313M12 12.75l-2.25-1.313M12 12.75V15m0 6.75l2.25-1.313M12 21.75V19.5m0 2.25l-2.25-1.313m0-16.875L12 2.25l2.25 1.313M21 14.25v2.25l-2.25 1.313m-13.5 0L3 16.5v-2.25" />
+   140→   140→   140→    </svg>
+   141→   141→   141→  ),
+   142→   142→   142→  escalation: (
+   143→   143→   143→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   144→   144→   144→      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0-10.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.249-8.25-3.286Zm0 13.036h.008v.008H12v-.008Z" />
+   145→   145→   145→    </svg>
+   146→   146→   146→  ),
+   147→   147→   147→};
+   148→   148→   148→
+   149→   149→   149→// ── Helper Functions ──────────────────────────────────────────────────
+   150→   150→   150→
+   151→   151→   151→function formatNumber(n: number): string {
+   152→   152→   152→  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+   153→   153→   153→  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+   154→   154→   154→  return n.toLocaleString();
+   155→   155→   155→}
+   156→   156→   156→
+   157→   157→   157→function formatHours(hours: number): string {
+   158→   158→   158→  if (hours < 1) return `${Math.round(hours * 60)}m`;
+   159→   159→   159→  return `${hours.toFixed(1)}h`;
+   160→   160→   160→}
+   161→   161→   161→
+   162→   162→   162→function formatPercent(n: number): string {
+   163→   163→   163→  return `${n.toFixed(1)}%`;
+   164→   164→   164→}
+   165→   165→   165→
+   166→   166→   166→function formatCurrency(n: number): string {
+   167→   167→   167→  if (n >= 1) return `$${n.toFixed(2)}`;
+   168→   168→   168→  return `$${n.toFixed(4)}`;
+   169→   169→   169→}
+   170→   170→   170→
+   171→   171→   171→// ── Variant type badge colors ─────────────────────────────────────────
+   172→   172→   172→
+   173→   173→   173→const variantTypeColors: Record<string, { bg: string; text: string }> = {
+   174→   174→   174→  mini_parwa: { bg: 'bg-emerald-500/10', text: 'text-emerald-400' },
+   175→   175→   175→  parwa: { bg: 'bg-sky-500/10', text: 'text-sky-400' },
+   176→   176→   176→  parwa_high: { bg: 'bg-amber-500/10', text: 'text-amber-400' },
+   177→   177→   177→};
+   178→   178→   178→
+   179→   179→   179→const statusColors: Record<string, { dot: string; text: string }> = {
+   180→   180→   180→  active: { dot: 'bg-emerald-400', text: 'text-emerald-400' },
+   181→   181→   181→  idle: { dot: 'bg-zinc-400', text: 'text-zinc-400' },
+   182→   182→   182→  error: { dot: 'bg-red-400', text: 'text-red-400' },
+   183→   183→   183→  paused: { dot: 'bg-amber-400', text: 'text-amber-400' },
+   184→   184→   184→};
+   185→   185→   185→
+   186→   186→   186→// ── Skeleton Card ─────────────────────────────────────────────────────
+   187→   187→   187→
+   188→   188→   188→function SkeletonCard({ className = '' }: { className?: string }) {
+   189→   189→   189→  return (
+   190→   190→   190→    <div className={`rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5 animate-pulse ${className}`}>
+   191→   191→   191→      <div className="flex items-start justify-between">
+   192→   192→   192→        <div className="space-y-2 flex-1">
+   193→   193→   193→          <div className="h-3 w-20 bg-white/[0.06] rounded" />
+   194→   194→   194→          <div className="h-7 w-28 bg-white/[0.06] rounded" />
+   195→   195→   195→          <div className="h-3 w-16 bg-white/[0.06] rounded" />
+   196→   196→   196→        </div>
+   197→   197→   197→        <div className="w-10 h-10 rounded-lg bg-white/[0.06]" />
+   198→   198→   198→      </div>
+   199→   199→   199→    </div>
+   200→   200→   200→  );
+   201→   201→   201→}
+   202→   202→   202→
+   203→   203→   203→function SkeletonSection({ rows = 2, cols = 4 }: { rows?: number; cols?: number }) {
+   204→   204→   204→  return (
+   205→   205→   205→    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+   206→   206→   206→      {Array.from({ length: rows * cols }).map((_, i) => (
+   207→   207→   207→        <SkeletonCard key={i} />
+   208→   208→   208→      ))}
+   209→   209→   209→    </div>
+   210→   210→   210→  );
+   211→   211→   211→}
+   212→   212→   212→
+   213→   213→   213→// ── Dashboard Page ────────────────────────────────────────────────────
+   214→   214→   214→
+   215→   215→   215→export default function DashboardPage() {
+   216→   216→   216→  const { user } = useAuth();
+   217→   217→   217→  const router = useRouter();
+   218→   218→   218→  const [data, setData] = useState<DashboardData | null>(null);
+   219→   219→   219→  const [agentData, setAgentData] = useState<AgentMetrics[]>([]);
+   220→   220→   220→  const [dateRange, setDateRange] = useState<Partial<DateRange>>({});
+   221→   221→   221→  const [datePreset, setDatePreset] = useState('30d');
+   222→   222→   222→  const [isRefreshing, setIsRefreshing] = useState(false);
+   223→   223→   223→  const [onboardingChecked, setOnboardingChecked] = useState(false);
+   224→   224→   224→
+   225→   225→   225→  // ── AI / Cost / Sentiment state (MUST be above any conditional return) ──
+   226→   226→   226→  const [roiState, setRoiState] = useState<FetchState<ROISnapshot>>({ status: 'loading', data: null });
+   227→   227→   227→  const [costBudgetState, setCostBudgetState] = useState<FetchState<CostBudget>>({ status: 'loading', data: null });
+   228→   228→   228→  const [variantsState, setVariantsState] = useState<FetchState<VariantInstance[]>>({ status: 'loading', data: null });
+   229→   229→   229→  const [sentimentState, setSentimentState] = useState<FetchState<SentimentOverview>>({ status: 'loading', data: null });
+   230→   230→   230→
+   231→   231→   231→  // ── Check onboarding status — redirect to /onboarding if not completed ──
+   232→   232→   232→
+   233→   233→   233→  useEffect(() => {
+   234→   234→   234→    if (onboardingChecked) return;
+   235→   235→   235→
+   236→   236→   236→    async function checkOnboarding() {
+   237→   237→   237→      try {
+   238→   238→   238→        const res = await fetch('/api/onboarding/state');
+   239→   239→   239→        if (res.ok) {
+   240→   240→   240→          const state = await res.json();
+   241→   241→   241→          if (state.status !== 'completed' && !state.first_victory_completed) {
+   242→   242→   242→            router.push('/onboarding');
+   243→   243→   243→            return;
+   244→   244→   244→          }
+   245→   245→   245→        }
+   246→   246→   246→      } catch {
+   247→   247→   247→        // API unavailable — allow dashboard access (graceful degradation)
+   248→   248→   248→      }
+   249→   249→   249→      setOnboardingChecked(true);
+   250→   250→   250→    }
+   251→   251→   251→
+   252→   252→   252→    checkOnboarding();
+   253→   253→   253→  }, [onboardingChecked, router]);
+   254→   254→   254→
+   255→   255→   255→  // Show loading while checking onboarding
+   256→   256→   256→  if (!onboardingChecked) {
+   257→   257→   257→    return (
+   258→   258→   258→      <div className="min-h-[60vh] flex items-center justify-center">
+   259→   259→   259→        <Loader2 className="h-8 w-8 animate-spin text-orange-400" />
+   260→   260→   260→      </div>
+   261→   261→   261→    );
+   262→   262→   262→  }
+   263→   263→   263→
+   264→   264→   264→  // ── Fetch Dashboard Data ──────────────────────────────────────────
+   265→   265→   265→
+   266→   266→   266→  const fetchDashboard = useCallback(async () => {
+   267→   267→   267→    try {
+   268→   268→   268→      setIsRefreshing(true);
+   269→   269→   269→      const dashboardData = await analyticsApi.getDashboard(dateRange);
+   270→   270→   270→      setData(dashboardData);
+   271→   271→   271→    } catch (error) {
+   272→   272→   272→      console.error('Failed to fetch dashboard data:', error);
+   273→   273→   273→      toast.error(getErrorMessage(error));
+   274→   274→   274→    } finally {
+   275→   275→   275→      setIsRefreshing(false);
+   276→   276→   276→    }
+   277→   277→   277→  }, [dateRange]);
+   278→   278→   278→
+   279→   279→   279→  useEffect(() => {
+   280→   280→   280→    fetchDashboard();
+   281→   281→   281→  }, [fetchDashboard]);
+   282→   282→   282→
+   283→   283→   283→  // ── Fetch Agent Data (separate endpoint) ──────────────────────────
+   284→   284→   284→
+   285→   285→   285→  useEffect(() => {
+   286→   286→   286→    analyticsApi
+   287→   287→   287→      .getAgents(50, dateRange)
+   288→   288→   288→      .then((agents) => setAgentData(agents))
+   289→   289→   289→      .catch(() => {
+   290→   290→   290→        // Silent fail — agent data is secondary
+   291→   291→   291→      });
+   292→   292→   292→  }, [dateRange]);
+   293→   293→   293→
+   294→   294→   294→  // ── Fetch Cost Budget + ROI ───────────────────────────────────────
+   295→   295→   295→
+   296→   296→   296→  useEffect(() => {
+   297→   297→   297→    get<CostBudget>('/api/ai/cost/budget')
+   298→   298→   298→      .then((budget) => setCostBudgetState({ status: 'success', data: budget }))
+   299→   299→   299→      .catch(() => setCostBudgetState({ status: 'error', data: null }));
+   300→   300→   300→
+   301→   301→   301→    get<ROISnapshot>('/api/v1/admin/roi')
+   302→   302→   302→      .then((roi) => setRoiState({ status: 'success', data: roi }))
+   303→   303→   303→      .catch(() => setRoiState({ status: 'error', data: null }));
+   304→   304→   304→  }, []);
+   305→   305→   305→
+   306→   306→   306→  // ── Fetch Variant Instances ───────────────────────────────────────
+   307→   307→   307→
+   308→   308→   308→  useEffect(() => {
+   309→   309→   309→    get<VariantInstance[]>('/api/ai/instances')
+   310→   310→   310→      .then((variants) => setVariantsState({ status: 'success', data: variants }))
+   311→   311→   311→      .catch(() => setVariantsState({ status: 'error', data: null }));
+   312→   312→   312→  }, []);
+   313→   313→   313→
+   314→   314→   314→  // ── Fetch Sentiment Overview ──────────────────────────────────────
+   315→   315→   315→
+   316→   316→   316→  useEffect(() => {
+   317→   317→   317→    get<SentimentOverview>('/api/v1/admin/sentiment')
+   318→   318→   318→      .then((sentiment) => setSentimentState({ status: 'success', data: sentiment }))
+   319→   319→   319→      .catch(() => setSentimentState({ status: 'error', data: null }));
+   320→   320→   320→  }, []);
+   321→   321→   321→
+   322→   322→   322→  // ── Handle Date Change ────────────────────────────────────────────
+   323→   323→   323→
+   324→   324→   324→  const handleDateChange = useCallback((range: { start_date: string; end_date: string }) => {
+   325→   325→   325→    setDateRange(range);
+   326→   326→   326→    const today = new Date().toISOString().split('T')[0];
+   327→   327→   327→    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+   328→   328→   328→    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+   329→   329→   329→
+   330→   330→   330→    if (range.start_date === today) setDatePreset('today');
+   331→   331→   331→    else if (range.start_date === sevenDaysAgo) setDatePreset('7d');
+   332→   332→   332→    else if (range.start_date === thirtyDaysAgo) setDatePreset('30d');
+   333→   333→   333→    else setDatePreset('custom');
+   334→   334→   334→  }, []);
+   335→   335→   335→
+   336→   336→   336→  // ── Derived ROI data ──────────────────────────────────────────────
+   337→   337→   337→
+   338→   338→   338→  const hasRoiData = roiState.status === 'success' && roiState.data;
+   339→   339→   339→  const hasBudgetData = costBudgetState.status === 'success' && costBudgetState.data;
+   340→   340→   340→  const hasCostSectionData = hasRoiData || hasBudgetData;
+   341→   341→   341→  const isCostLoading = roiState.status === 'loading' || costBudgetState.status === 'loading';
+   342→   342→   342→
+   343→   343→   343→  // ── Render ─────────────────────────────────────────────────────────
+   344→   344→   344→
+   345→   345→   345→  return (
+   346→   346→   346→    <div className="space-y-6">
+   347→   347→   347→      {/* Welcome Card */}
+   348→   348→   348→      <WelcomeCard
+   349→   349→   349→        userName={user?.full_name}
+   350→   350→   350→        companyName={user?.company_name}
+   351→   351→   351→        industry="Support"
+   352→   352→   352→        variantCount={data?.summary.resolved ?? 0}
+   353→   353→   353→        resolutionRate={data ? formatPercent(data.summary.resolution_rate) : '0%'}
+   354→   354→   354→      />
+   355→   355→   355→
+   356→   356→   356→      {/* ── Cost Savings / ROI Section ──────────────────────────────── */}
+   357→   357→   357→      {isCostLoading ? (
+   358→   358→   358→        <div className="space-y-4">
+   359→   359→   359→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">AI Cost Savings & ROI</h2>
+   360→   360→   360→          <SkeletonSection rows={1} cols={4} />
+   361→   361→   361→        </div>
+   362→   362→   362→      ) : hasCostSectionData ? (
+   363→   363→   363→        <div className="space-y-4">
+   364→   364→   364→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">AI Cost Savings & ROI</h2>
+   365→   365→   365→          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+   366→   366→   366→            {/* Total Savings */}
+   367→   367→   367→            <KPICard
+   368→   368→   368→              title="Total Savings"
+   369→   369→   369→              value={hasRoiData ? formatCurrency(roiState.data!.total_savings) : '—'}
+   370→   370→   370→              subtitle={hasRoiData ? `${formatPercent(roiState.data!.savings_percentage)} saved` : 'ROI data unavailable'}
+   371→   371→   371→              icon={Icons.savings}
+   372→   372→   372→              variant="success"
+   373→   373→   373→            />
+   374→   374→   374→            {/* AI vs Human Cost */}
+   375→   375→   375→            <KPICard
+   376→   376→   376→              title="AI vs Human Cost"
+   377→   377→   377→              value={hasRoiData ? `${formatCurrency(roiState.data!.avg_ai_cost)} vs ${formatCurrency(roiState.data!.avg_human_cost)}` : '—'}
+   378→   378→   378→              subtitle={hasRoiData ? `${formatNumber(roiState.data!.tickets_ai_resolved)} AI · ${formatNumber(roiState.data!.tickets_human_resolved)} human` : '—'}
+   379→   379→   379→              icon={Icons.robot}
+   380→   380→   380→              variant="info"
+   381→   381→   381→            />
+   382→   382→   382→            {/* Automation Rate */}
+   383→   383→   383→            <KPICard
+   384→   384→   384→              title="Automation Rate"
+   385→   385→   385→              value={hasRoiData ? formatPercent(roiState.data!.automation_rate) : '—'}
+   386→   386→   386→              subtitle="Tickets auto-resolved"
+   387→   387→   387→              icon={Icons.responseTime}
+   388→   388→   388→              variant={hasRoiData && roiState.data!.automation_rate >= 60 ? 'success' : 'default'}
+   389→   389→   389→            />
+   390→   390→   390→            {/* AI Accuracy */}
+   391→   391→   391→            <KPICard
+   392→   392→   392→              title="AI Accuracy"
+   393→   393→   393→              value={hasRoiData ? formatPercent(roiState.data!.ai_accuracy_pct) : '—'}
+   394→   394→   394→              subtitle={hasBudgetData ? `${formatNumber(costBudgetState.data!.tokens_used)} tokens used` : '—'}
+   395→   395→   395→              icon={Icons.accuracy}
+   396→   396→   396→              variant={hasRoiData && roiState.data!.ai_accuracy_pct >= 90 ? 'success' : 'warning'}
+   397→   397→   397→            />
+   398→   398→   398→          </div>
+   399→   399→   399→          {/* Budget bar */}
+   400→   400→   400→          {hasBudgetData && costBudgetState.data!.total_budget > 0 && (
+   401→   401→   401→            <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5">
+   402→   402→   402→              <div className="flex items-center justify-between mb-3">
+   403→   403→   403→                <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Token Budget Usage</span>
+   404→   404→   404→                <span className="text-xs text-zinc-400">
+   405→   405→   405→                  {formatCurrency(costBudgetState.data!.estimated_cost)} / {formatCurrency(costBudgetState.data!.total_budget)}
+   406→   406→   406→                </span>
+   407→   407→   407→              </div>
+   408→   408→   408→              <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
+   409→   409→   409→                <div
+   410→   410→   410→                  className="h-full bg-emerald-500/80 rounded-full transition-all duration-500"
+   411→   411→   411→                  style={{
+   412→   412→   412→                    width: `${Math.min(100, (costBudgetState.data!.used_budget / costBudgetState.data!.total_budget) * 100)}%`,
+   413→   413→   413→                  }}
+   414→   414→   414→                />
+   415→   415→   415→              </div>
+   416→   416→   416→              <div className="flex items-center justify-between mt-2">
+   417→   417→   417→                <span className="text-xs text-zinc-500">
+   418→   418→   418→                  {((costBudgetState.data!.used_budget / costBudgetState.data!.total_budget) * 100).toFixed(1)}% used
+   419→   419→   419→                </span>
+   420→   420→   420→                <span className="text-xs text-zinc-500">
+   421→   421→   421→                  {formatCurrency(costBudgetState.data!.remaining_budget)} remaining
+   422→   422→   422→                </span>
+   423→   423→   423→              </div>
+   424→   424→   424→            </div>
+   425→   425→   425→          )}
+   426→   426→   426→        </div>
+   427→   427→   427→      ) : (
+   428→   428→   428→        /* Error / no backend — show connect message */
+   429→   429→   429→        <div className="space-y-4">
+   430→   430→   430→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">AI Cost Savings & ROI</h2>
+   431→   431→   431→          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 flex flex-col items-center justify-center gap-3">
+   432→   432→   432→            <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center text-zinc-600">
+   433→   433→   433→              {Icons.savings}
+   434→   434→   434→            </div>
+   435→   435→   435→            <p className="text-sm text-zinc-500 text-center">Connect backend to view cost savings & ROI data</p>
+   436→   436→   436→          </div>
+   437→   437→   437→        </div>
+   438→   438→   438→      )}
+   439→   439→   439→
+   440→   440→   440→      {/* ── Active Variants Status ─────────────────────────────────── */}
+   441→   441→   441→      {variantsState.status === 'loading' ? (
+   442→   442→   442→        <div className="space-y-4">
+   443→   443→   443→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Active Variants</h2>
+   444→   444→   444→          <SkeletonSection rows={1} cols={3} />
+   445→   445→   445→        </div>
+   446→   446→   446→      ) : variantsState.status === 'success' && variantsState.data && variantsState.data.length > 0 ? (
+   447→   447→   447→        <div className="space-y-4">
+   448→   448→   448→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">
+   449→   449→   449→            Active Variants
+   450→   450→   450→            <span className="ml-2 text-xs text-zinc-600 normal-case tracking-normal">
+   451→   451→   451→              ({variantsState.data.length} running)
+   452→   452→   452→            </span>
+   453→   453→   453→          </h2>
+   454→   454→   454→          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+   455→   455→   455→            {variantsState.data.map((variant) => {
+   456→   456→   456→              const typeColor = variantTypeColors[variant.variant_type] ?? { bg: 'bg-zinc-500/10', text: 'text-zinc-400' };
+   457→   457→   457→              const statusColor = statusColors[variant.status] ?? statusColors.idle;
+   458→   458→   458→              const loadPct = Math.min(100, variant.current_load);
+   459→   459→   459→              const loadColor = loadPct >= 90 ? 'bg-red-500/80' : loadPct >= 70 ? 'bg-amber-500/80' : 'bg-emerald-500/80';
+   460→   460→   460→
+   461→   461→   461→              return (
+   462→   462→   462→                <div
+   463→   463→   463→                  key={variant.id}
+   464→   464→   464→                  className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5 transition-all duration-300 hover:shadow-lg hover:shadow-black/20 hover:border-white/[0.1]"
+   465→   465→   465→                >
+   466→   466→   466→                  {/* Header: name + status */}
+   467→   467→   467→                  <div className="flex items-start justify-between mb-4">
+   468→   468→   468→                    <div className="flex-1 min-w-0">
+   469→   469→   469→                      <div className="flex items-center gap-2 mb-1">
+   470→   470→   470→                        <h3 className="text-sm font-semibold text-white truncate">{variant.name}</h3>
+   471→   471→   471→                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider ${typeColor.bg} ${typeColor.text}`}>
+   472→   472→   472→                          {variant.variant_type.replace('_', ' ')}
+   473→   473→   473→                        </span>
+   474→   474→   474→                      </div>
+   475→   475→   475→                      <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+   476→   476→   476→                        <span className={`w-1.5 h-1.5 rounded-full ${statusColor.dot}`} />
+   477→   477→   477→                        <span className={statusColor.text}>{variant.status}</span>
+   478→   478→   478→                        <span className="text-zinc-700">·</span>
+   479→   479→   479→                        <span>{variant.channel_assignment}</span>
+   480→   480→   480→                      </div>
+   481→   481→   481→                    </div>
+   482→   482→   482→                    <div className="w-9 h-9 rounded-lg bg-white/[0.05] flex items-center justify-center text-zinc-500 shrink-0">
+   483→   483→   483→                      {Icons.variant}
+   484→   484→   484→                    </div>
+   485→   485→   485→                  </div>
+   486→   486→   486→
+   487→   487→   487→                  {/* Metrics grid */}
+   488→   488→   488→                  <div className="grid grid-cols-2 gap-3 mb-4">
+   489→   489→   489→                    <div>
+   490→   490→   490→                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Load</p>
+   491→   491→   491→                      <p className="text-sm font-semibold text-white tabular-nums">
+   492→   492→   492→                        {loadPct}%
+   493→   493→   493→                        <span className="text-[10px] text-zinc-600 ml-1">/ {variant.capacity_config.max_concurrent}</span>
+   494→   494→   494→                      </p>
+   495→   495→   495→                    </div>
+   496→   496→   496→                    <div>
+   497→   497→   497→                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Quality</p>
+   498→   498→   498→                      <p className="text-sm font-semibold text-white tabular-nums">{formatPercent(variant.accuracy_rate)}</p>
+   499→   499→   499→                    </div>
+   500→   500→   500→                    <div>
+   501→   501→   501→                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Latency</p>
+   502→   502→   502→                      <p className="text-sm font-semibold text-white tabular-nums">{variant.avg_latency_ms}ms</p>
+   503→   503→   503→                    </div>
+   504→   504→   504→                    <div>
+   505→   505→   505→                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Cost/Q</p>
+   506→   506→   506→                      <p className="text-sm font-semibold text-white tabular-nums">{formatCurrency(variant.cost_per_query)}</p>
+   507→   507→   507→                    </div>
+   508→   508→   508→                  </div>
+   509→   509→   509→
+   510→   510→   510→                  {/* Load bar */}
+   511→   511→   511→                  <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+   512→   512→   512→                    <div
+   513→   513→   513→                      className={`h-full rounded-full transition-all duration-500 ${loadColor}`}
+   514→   514→   514→                      style={{ width: `${loadPct}%` }}
+   515→   515→   515→                    />
+   516→   516→   516→                  </div>
+   517→   517→   517→
+   518→   518→   518→                  {/* Footer */}
+   519→   519→   519→                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.04]">
+   520→   520→   520→                    <span className="text-[10px] text-zinc-600">Tier {variant.technique_tier}</span>
+   521→   521→   521→                    <span className="text-[10px] text-zinc-600 font-mono">{variant.model}</span>
+   522→   522→   522→                  </div>
+   523→   523→   523→                </div>
+   524→   524→   524→              );
+   525→   525→   525→            })}
+   526→   526→   526→          </div>
+   527→   527→   527→        </div>
+   528→   528→   528→      ) : variantsState.status === 'success' && variantsState.data && variantsState.data.length === 0 ? (
+   529→   529→   529→        <div className="space-y-4">
+   530→   530→   530→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Active Variants</h2>
+   531→   531→   531→          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 flex flex-col items-center justify-center gap-3">
+   532→   532→   532→            <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center text-zinc-600">
+   533→   533→   533→              {Icons.variant}
+   534→   534→   534→            </div>
+   535→   535→   535→            <p className="text-sm text-zinc-500 text-center">No active variants found</p>
+   536→   536→   536→          </div>
+   537→   537→   537→        </div>
+   538→   538→   538→      ) : (
+   539→   539→   539→        <div className="space-y-4">
+   540→   540→   540→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Active Variants</h2>
+   541→   541→   541→          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 flex flex-col items-center justify-center gap-3">
+   542→   542→   542→            <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center text-zinc-600">
+   543→   543→   543→              {Icons.variant}
+   544→   544→   544→            </div>
+   545→   545→   545→            <p className="text-sm text-zinc-500 text-center">Connect backend to view active variants</p>
+   546→   546→   546→          </div>
+   547→   547→   547→        </div>
+   548→   548→   548→      )}
+   549→   549→   549→
+   550→   550→   550→      {/* ── Jarvis CC Quick Access ──────────────────────────────────── */}
+   551→   551→   551→      <div className="rounded-xl border border-orange-500/10 bg-gradient-to-r from-orange-500/5 to-amber-500/5 p-5">
+   552→   552→   552→        <div className="flex items-center justify-between">
+   553→   553→   553→          <div className="flex items-center gap-3">
+   554→   554→   554→            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-orange-500/20">
+   555→   555→   555→              J
+   556→   556→   556→            </div>
+   557→   557→   557→            <div>
+   558→   558→   558→              <h3 className="text-sm font-semibold text-white">Jarvis Customer Care</h3>
+   559→   559→   559→              <p className="text-xs text-zinc-500">AI employee managing your customer support — chat, commands, awareness feed</p>
+   560→   560→   560→            </div>
+   561→   561→   561→          </div>
+   562→   562→   562→          <a
+   563→   563→   563→            href="/dashboard/jarvis"
+   564→   564→   564→            className="text-xs px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-amber-400 text-white font-medium shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 transition-all"
+   565→   565→   565→          >
+   566→   566→   566→            Open Jarvis CC
+   567→   567→   567→          </a>
+   568→   568→   568→        </div>
+   569→   569→   569→        <div className="grid grid-cols-4 gap-3 mt-4">
+   570→   570→   570→          <div className="text-xs">
+   571→   571→   571→            <span className="text-zinc-600">Status</span>
+   572→   572→   572→            <div className="flex items-center gap-1.5 mt-0.5">
+   573→   573→   573→              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+   574→   574→   574→              <span className="text-emerald-400 font-medium">Online</span>
+   575→   575→   575→            </div>
+   576→   576→   576→          </div>
+   577→   577→   577→          <div className="text-xs">
+   578→   578→   578→            <span className="text-zinc-600">Pipeline</span>
+   579→   579→   579→            <p className="text-zinc-300 font-medium mt-0.5">Active</p>
+   580→   580→   580→          </div>
+   581→   581→   581→          <div className="text-xs">
+   582→   582→   582→            <span className="text-zinc-600">Awareness</span>
+   583→   583→   583→            <p className="text-zinc-300 font-medium mt-0.5">Enabled</p>
+   584→   584→   584→          </div>
+   585→   585→   585→          <div className="text-xs">
+   586→   586→   586→            <span className="text-zinc-600">Quick Command</span>
+   587→   587→   587→            <p className="text-zinc-400 font-medium mt-0.5">Cmd+K</p>
+   588→   588→   588→          </div>
+   589→   589→   589→        </div>
+   590→   590→   590→      </div>
+   591→   591→   591→
+   592→   592→   592→      {/* Header */}
+   593→   593→   593→      <DashboardHeader
+   594→   594→   594→        title="Performance Overview"
+   595→   595→   595→        subtitle="Key metrics for your support team"
+   596→   596→   596→        datePreset={datePreset}
+   597→   597→   597→        onDateChange={handleDateChange}
+   598→   598→   598→        onRefresh={fetchDashboard}
+   599→   599→   599→        isRefreshing={isRefreshing}
+   600→   600→   600→      />
+   601→   601→   601→
+   602→   602→   602→      {/* ── KPI Cards Row 1: Primary Metrics ────────────────────────── */}
+   603→   603→   603→      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+   604→   604→   604→        <KPICard
+   605→   605→   605→          title="Total Tickets"
+   606→   606→   606→          value={data ? formatNumber(data.summary.total_tickets) : '—'}
+   607→   607→   607→          subtitle="All time in range"
+   608→   608→   608→          icon={Icons.tickets}
+   609→   609→   609→          variant="default"
+   610→   610→   610→          isLoading={!data}
+   611→   611→   611→        />
+   612→   612→   612→        <KPICard
+   613→   613→   613→          title="Open Tickets"
+   614→   614→   614→          value={data ? formatNumber(data.summary.open + data.summary.in_progress) : '—'}
+   615→   615→   615→          subtitle={`${data ? formatNumber(data.summary.in_progress) : '—'} in progress`}
+   616→   616→   616→          icon={Icons.open}
+   617→   617→   617→          variant="info"
+   618→   618→   618→          isLoading={!data}
+   619→   619→   619→        />
+   620→   620→   620→        <KPICard
+   621→   621→   621→          title="Resolved"
+   622→   622→   622→          value={data ? formatNumber(data.summary.resolved) : '—'}
+   623→   623→   623→          subtitle={`${data ? formatPercent(data.summary.resolution_rate) : '—'} rate`}
+   624→   624→   624→          icon={Icons.resolved}
+   625→   625→   625→          variant="success"
+   626→   626→   626→          isLoading={!data}
+   627→   627→   627→        />
+   628→   628→   628→        <KPICard
+   629→   629→   629→          title="Avg Response"
+   630→   630→   630→          value={data ? formatHours(data.summary.avg_first_response_time_hours) : '—'}
+   631→   631→   631→          subtitle="First response time"
+   632→   632→   632→          icon={Icons.responseTime}
+   633→   633→   633→          variant={data && data.summary.avg_first_response_time_hours > 2 ? 'warning' : 'default'}
+   634→   634→   634→          isLoading={!data}
+   635→   635→   635→        />
+   636→   636→   636→        <KPICard
+   637→   637→   637→          title="Resolution Rate"
+   638→   638→   638→          value={data ? formatPercent(data.summary.resolution_rate) : '—'}
+   639→   639→   639→          subtitle="Tickets resolved successfully"
+   640→   640→   640→          icon={Icons.resolutionRate}
+   641→   641→   641→          variant={data && data.summary.resolution_rate >= 80 ? 'success' : 'warning'}
+   642→   642→   642→          isLoading={!data}
+   643→   643→   643→        />
+   644→   644→   644→        <KPICard
+   645→   645→   645→          title="CSAT Score"
+   646→   646→   646→          value="—"
+   647→   647→   647→          subtitle="Customer satisfaction"
+   648→   648→   648→          icon={Icons.csat}
+   649→   649→   649→          variant="default"
+   650→   650→   650→          isLoading={!data}
+   651→   651→   651→        />
+   652→   652→   652→      </div>
+   653→   653→   653→
+   654→   654→   654→      {/* ── KPI Cards Row 2: Priority + SLA ───────────────────────── */}
+   655→   655→   655→      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+   656→   656→   656→        <KPICard
+   657→   657→   657→          title="Critical"
+   658→   658→   658→          value={data ? formatNumber(data.summary.critical) : '—'}
+   659→   659→   659→          icon={<span className="w-3 h-3 rounded-full bg-red-500" />}
+   660→   660→   660→          variant="danger"
+   661→   661→   661→          isLoading={!data}
+   662→   662→   662→        />
+   663→   663→   663→        <KPICard
+   664→   664→   664→          title="High Priority"
+   665→   665→   665→          value={data ? formatNumber(data.summary.high) : '—'}
+   666→   666→   666→          icon={<span className="w-3 h-3 rounded-full bg-orange-500" />}
+   667→   667→   667→          variant="warning"
+   668→   668→   668→          isLoading={!data}
+   669→   669→   669→        />
+   670→   670→   670→        <KPICard
+   671→   671→   671→          title="Awaiting Client"
+   672→   672→   672→          value={data ? formatNumber(data.summary.awaiting_client) : '—'}
+   673→   673→   673→          icon={Icons.open}
+   674→   674→   674→          variant="default"
+   675→   675→   675→          isLoading={!data}
+   676→   676→   676→        />
+   677→   677→   677→
+   678→   678→   678→        <KPICard
+   679→   679→   679→          title="Avg Resolution"
+   680→   680→   680→          value={data ? formatHours(data.summary.avg_resolution_time_hours) : '—'}
+   681→   681→   681→          subtitle="Time to resolve"
+   682→   682→   682→          icon={Icons.responseTime}
+   683→   683→   683→          variant="default"
+   684→   684→   684→          isLoading={!data}
+   685→   685→   685→        />
+   686→   686→   686→        <KPICard
+   687→   687→   687→          title="SLA Breached"
+   688→   688→   688→          value={data ? formatNumber(data.sla.breached_count) : '—'}
+   689→   689→   689→          subtitle={`of ${data ? formatNumber(data.sla.total_tickets_with_sla) : '—'} tickets`}
+   690→   690→   690→          icon={Icons.breached}
+   691→   691→   691→          variant={data && data.sla.breached_count > 0 ? 'danger' : 'success'}
+   692→   692→   692→          isLoading={!data}
+   693→   693→   693→        />
+   694→   694→   694→        <KPICard
+   695→   695→   695→          title="SLA Compliance"
+   696→   696→   696→          value={data ? formatPercent(data.sla.compliance_rate) : '—'}
+   697→   697→   697→          subtitle={`${data ? formatNumber(data.sla.approaching_count) : '—'} approaching`}
+   698→   698→   698→          icon={Icons.compliance}
+   699→   699→   699→          variant={data && data.sla.compliance_rate >= 95 ? 'success' : data && data.sla.compliance_rate >= 80 ? 'warning' : 'danger'}
+   700→   700→   700→          isLoading={!data}
+   701→   701→   701→        />
+   702→   702→   702→      </div>
+   703→   703→   703→
+   704→   704→   704→      {/* ── Row 3: Ticket Trends (full width area chart) ───────────── */}
+   705→   705→   705→      {data ? (
+   706→   706→   706→        <TrendChart data={data.trend} />
+   707→   707→   707→      ) : (
+   708→   708→   708→        <div className="rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6 h-[332px] animate-pulse" />
+   709→   709→   709→      )}
+   710→   710→   710→
+   711→   711→   711→      {/* ── Row 4: Category Chart + SLA Chart ──────────────────────── */}
+   712→   712→   712→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   713→   713→   713→        {data ? (
+   714→   714→   714→          <CategoryChart data={data.by_category} />
+   715→   715→   715→        ) : (
+   716→   716→   716→          <div className="rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6 h-[420px] animate-pulse" />
+   717→   717→   717→        )}
+   718→   718→   718→
+   719→   719→   719→        {data ? (
+   720→   720→   720→          <SLAChart data={data.sla} />
+   721→   721→   721→        ) : (
+   722→   722→   722→          <div className="rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6 h-[420px] animate-pulse" />
+   723→   723→   723→        )}
+   724→   724→   724→      </div>
+   725→   725→   725→
+   726→   726→   726→      {/* ── Row 5: Response Time Distribution + Sentiment Overview ── */}
+   727→   727→   727→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   728→   728→   728→        <ResponseTimeChart dateRange={dateRange} />
+   729→   729→   729→
+   730→   730→   730→        {/* ── Sentiment Overview ──────────────────────────────────── */}
+   731→   731→   731→        {sentimentState.status === 'loading' ? (
+   732→   732→   732→          <div className="rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6 h-[420px] animate-pulse" />
+   733→   733→   733→        ) : sentimentState.status === 'success' && sentimentState.data ? (
+   734→   734→   734→          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-6">
+   735→   735→   735→            <div className="flex items-center gap-2 mb-6">
+   736→   736→   736→              <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400">
+   737→   737→   737→                {Icons.sentiment}
+   738→   738→   738→              </div>
+   739→   739→   739→              <div>
+   740→   740→   740→                <h3 className="text-sm font-semibold text-white">Sentiment Overview</h3>
+   741→   741→   741→                <p className="text-[10px] text-zinc-600">
+   742→   742→   742→                  {formatNumber(sentimentState.data.total_analyzed)} tickets analyzed
+   743→   743→   743→                </p>
+   744→   744→   744→              </div>
+   745→   745→   745→            </div>
+   746→   746→   746→
+   747→   747→   747→            {/* KPI Row */}
+   748→   748→   748→            <div className="grid grid-cols-3 gap-4 mb-6">
+   749→   749→   749→              <div className="space-y-1">
+   750→   750→   750→                <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Frustration</p>
+   751→   751→   751→                <p className="text-xl font-bold text-white tabular-nums">
+   752→   752→   752→                  {sentimentState.data.avg_frustration_score.toFixed(1)}
+   753→   753→   753→                  <span className="text-xs text-zinc-600">/10</span>
+   754→   754→   754→                </p>
+   755→   755→   755→              </div>
+   756→   756→   756→              <div className="space-y-1">
+   757→   757→   757→                <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Escalations</p>
+   758→   758→   758→                <p className="text-xl font-bold text-white tabular-nums">
+   759→   759→   759→                  {formatNumber(sentimentState.data.escalation_count)}
+   760→   760→   760→                </p>
+   761→   761→   761→              </div>
+   762→   762→   762→              <div className="space-y-1">
+   763→   763→   763→                <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Positive</p>
+   764→   764→   764→                <p className="text-xl font-bold tabular-nums text-emerald-400">
+   765→   765→   765→                  {formatPercent(sentimentState.data.positive_ratio * 100)}
+   766→   766→   766→                </p>
+   767→   767→   767→              </div>
+   768→   768→   768→            </div>
+   769→   769→   769→
+   770→   770→   770→            {/* Emotion Distribution */}
+   771→   771→   771→            <div className="space-y-3">
+   772→   772→   772→              <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Emotion Distribution</p>
+   773→   773→   773→              {Object.entries(sentimentState.data.emotion_distribution).map(([emotion, pct]) => {
+   774→   774→   774→                const emotionColors: Record<string, string> = {
+   775→   775→   775→                  joy: 'bg-emerald-500/80',
+   776→   776→   776→                  neutral: 'bg-zinc-500/80',
+   777→   777→   777→                  frustration: 'bg-amber-500/80',
+   778→   778→   778→                  anger: 'bg-red-500/80',
+   779→   779→   779→                  sadness: 'bg-blue-500/80',
+   780→   780→   780→                  confusion: 'bg-purple-500/80',
+   781→   781→   781→                  satisfaction: 'bg-emerald-400/80',
+   782→   782→   782→                  anxiety: 'bg-orange-500/80',
+   783→   783→   783→                };
+   784→   784→   784→                const barColor = emotionColors[emotion.toLowerCase()] ?? 'bg-zinc-500/80';
+   785→   785→   785→                const value = typeof pct === 'number' ? pct : 0;
+   786→   786→   786→
+   787→   787→   787→                return (
+   788→   788→   788→                  <div key={emotion} className="space-y-1">
+   789→   789→   789→                    <div className="flex items-center justify-between">
+   790→   790→   790→                      <span className="text-xs text-zinc-400 capitalize">{emotion}</span>
+   791→   791→   791→                      <span className="text-xs text-zinc-500 tabular-nums">{value.toFixed(1)}%</span>
+   792→   792→   792→                    </div>
+   793→   793→   793→                    <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+   794→   794→   794→                      <div
+   795→   795→   795→                        className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+   796→   796→   796→                        style={{ width: `${Math.min(100, value)}%` }}
+   797→   797→   797→                      />
+   798→   798→   798→                    </div>
+   799→   799→   799→                  </div>
+   800→   800→   800→                );
+   801→   801→   801→              })}
+   802→   802→   802→            </div>
+   803→   803→   803→
+   804→   804→   804→            {/* Negative ratio footer */}
+   805→   805→   805→            <div className="flex items-center justify-between mt-5 pt-4 border-t border-white/[0.04]">
+   806→   806→   806→              <div className="flex items-center gap-2">
+   807→   807→   807→                <div className="w-6 h-6 rounded-md bg-red-500/10 flex items-center justify-center text-red-400">
+   808→   808→   808→                  {Icons.escalation}
+   809→   809→   809→                </div>
+   810→   810→   810→                <span className="text-xs text-zinc-400">Negative ratio</span>
+   811→   811→   811→              </div>
+   812→   812→   812→              <span className="text-sm font-semibold tabular-nums text-red-400">
+   813→   813→   813→                {formatPercent(sentimentState.data.negative_ratio * 100)}
+   814→   814→   814→              </span>
+   815→   815→   815→            </div>
+   816→   816→   816→          </div>
+   817→   817→   817→        ) : (
+   818→   818→   818→          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 flex flex-col items-center justify-center gap-3 min-h-[420px]">
+   819→   819→   819→            <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center text-zinc-600">
+   820→   820→   820→              {Icons.sentiment}
+   821→   821→   821→            </div>
+   822→   822→   822→            <p className="text-sm text-zinc-500 text-center">Connect backend to view sentiment data</p>
+   823→   823→   823→          </div>
+   824→   824→   824→        )}
+   825→   825→   825→      </div>
+   826→   826→   826→
+   827→   827→   827→      {/* ── Row 6: Agent Performance Table ─────────────────────────── */}
+   828→   828→   828→      <AgentPerformanceTable data={agentData} />
+   829→   829→   829→    </div>
+   830→   830→   830→  );
+   831→   831→   831→}
+   832→   832→   832→

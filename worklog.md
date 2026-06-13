@@ -179,3 +179,33 @@ Key Fixes:
 4. src/middleware.ts.bak - Removed (was deprecated)
 5. src/app/api/auth/me-proxy/route.ts - Fixed backend path /api/auth/me → /api/v1/auth/me
 6. src/app/api/auth/me/route.ts - Fixed backend path /api/auth/me → /api/v1/auth/me
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix E2E flow — new Google signup users going directly to dashboard instead of onboarding, and remove mock data display
+
+Work Log:
+- Investigated full routing, auth, and onboarding flow across the codebase
+- Found 7 issues in the E2E flow:
+  1. Signup page Google login handler ignored `is_new_user` flag, always redirected to dashboard
+  2. Signup page "already logged in" check hardcoded redirect to /dashboard without checking onboarding
+  3. Dashboard onboarding check silently allowed access when backend was unreachable (503)
+  4. Login page `redirectAfterLogin` allowed dashboard access when backend unavailable
+  5. No onboarding guard on DashboardLayout (only on dashboard page itself)
+  6. WelcomeCard showed "Active" status and "agents are live" even with 0 variants
+  7. Jarvis quick-access card showed hardcoded "Online"/"Active"/"Enabled" for new users
+
+Fixes Applied:
+- signup/page.tsx: Google login handler now checks `is_new_user` and redirects to /onboarding for new users
+- signup/page.tsx: alreadyLoggedIn redirect now checks onboarding state before going to dashboard
+- dashboard/page.tsx: onboarding check now falls back to localStorage `parwa_onboarding_completed` flag when backend is unreachable
+- login/page.tsx: redirectAfterLogin now checks localStorage flag when backend is unavailable
+- DashboardLayout.tsx: Added onboarding guard that redirects all /dashboard/* pages to /onboarding if not completed
+- FirstVictoryCelebration.tsx: Sets `parwa_onboarding_completed=true` in localStorage when onboarding completes
+- WelcomeCard.tsx: Dynamic status message based on variantCount (0 → "Not Set Up", >0 → "Active")
+- dashboard/page.tsx: Jarvis quick-access card now shows "Idle"/"Not Set Up"/"Disabled" when no active variants
+
+Stage Summary:
+- Build passes, all TypeScript errors are pre-existing (not from these changes)
+- Complete E2E flow now works: signup → onboarding → dashboard (no more bypass)
+- No code committed or pushed (as per user request)

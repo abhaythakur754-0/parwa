@@ -90,6 +90,42 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [isInitialized, isLoading, isAuthenticated, router]);
 
+  // ── Onboarding Guard ─────────────────────────────────────────────────
+  // All dashboard pages should redirect to /onboarding if the user
+  // hasn't completed onboarding yet. This prevents new users from
+  // seeing the dashboard with empty/mock data.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // Check localStorage flag first (fast path — no API call needed)
+    const hasCompletedOnboarding = localStorage.getItem('parwa_onboarding_completed') === 'true';
+    if (hasCompletedOnboarding) return;
+
+    // No local flag — check backend
+    let cancelled = false;
+    fetch('/api/onboarding/state')
+      .then((res) => {
+        if (!res.ok) throw new Error('backend unavailable');
+        return res.json();
+      })
+      .then((state) => {
+        if (cancelled) return;
+        if (state.status !== 'completed' && !state.first_victory_completed) {
+          router.push('/onboarding');
+        } else {
+          // Onboarding was completed — cache it locally
+          localStorage.setItem('parwa_onboarding_completed', 'true');
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Backend unreachable + no local flag → redirect to onboarding
+        router.push('/onboarding');
+      });
+
+    return () => { cancelled = true; };
+  }, [isAuthenticated, router]);
+
   const handleLogout = async () => {
     try {
       await logout();

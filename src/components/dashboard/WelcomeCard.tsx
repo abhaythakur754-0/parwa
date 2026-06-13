@@ -50,8 +50,9 @@ export function WelcomeCard({
 
         {/* Message */}
         <p className="text-sm text-white/60 leading-relaxed mb-5">
-          Your Jarvis AI agents are live and ready to handle customer support.
-          Here&apos;s an overview of your setup.
+          {variantCount > 0
+            ? 'Your Jarvis AI agents are live and ready to handle customer support. Here\'s an overview of your setup.'
+            : 'Your dashboard is ready. Set up your first AI variant to start automating customer support.'}
         </p>
 
         {/* Stats row */}
@@ -69,7 +70,7 @@ export function WelcomeCard({
           <StatItem
             icon={<Sparkles className="w-4 h-4 text-amber-400" />}
             label="Status"
-            value="Active"
+            value={variantCount > 0 ? 'Active' : 'Not Set Up'}
           />
         </div>
       </div>

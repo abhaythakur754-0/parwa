@@ -238,13 +238,30 @@ export default function DashboardPage() {
         const res = await fetch('/api/onboarding/state');
         if (res.ok) {
           const state = await res.json();
+          // Backend confirmed onboarding not completed → redirect
           if (state.status !== 'completed' && !state.first_victory_completed) {
             router.push('/onboarding');
             return;
           }
+          // Backend confirmed onboarding IS completed → allow dashboard
+          setOnboardingChecked(true);
+          return;
+        }
+        // Backend returned error (503, 500, etc.) — check localStorage
+        // for a flag that onboarding was completed previously
+        const hasCompletedOnboarding = localStorage.getItem('parwa_onboarding_completed') === 'true';
+        if (!hasCompletedOnboarding) {
+          // No record of completed onboarding + backend unreachable → send to onboarding
+          router.push('/onboarding');
+          return;
         }
       } catch {
-        // API unavailable — allow dashboard access (graceful degradation)
+        // Network error — check localStorage for onboarding completion flag
+        const hasCompletedOnboarding = localStorage.getItem('parwa_onboarding_completed') === 'true';
+        if (!hasCompletedOnboarding) {
+          router.push('/onboarding');
+          return;
+        }
       }
       setOnboardingChecked(true);
     }
@@ -548,46 +565,64 @@ export default function DashboardPage() {
       )}
 
       {/* ── Jarvis CC Quick Access ──────────────────────────────────── */}
-      <div className="rounded-xl border border-orange-500/10 bg-gradient-to-r from-orange-500/5 to-amber-500/5 p-5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-orange-500/20">
-              J
+      {(() => {
+        const hasActiveVariants = variantsState.status === 'success' && variantsState.data && variantsState.data.length > 0;
+        return (
+        <div className="rounded-xl border border-orange-500/10 bg-gradient-to-r from-orange-500/5 to-amber-500/5 p-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-orange-500/20">
+                J
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-white">Jarvis Customer Care</h3>
+                <p className="text-xs text-zinc-500">AI employee managing your customer support — chat, commands, awareness feed</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-semibold text-white">Jarvis Customer Care</h3>
-              <p className="text-xs text-zinc-500">AI employee managing your customer support — chat, commands, awareness feed</p>
+            <a
+              href="/dashboard/jarvis"
+              className="text-xs px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-amber-400 text-white font-medium shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 transition-all"
+            >
+              Open Jarvis CC
+            </a>
+          </div>
+          <div className="grid grid-cols-4 gap-3 mt-4">
+            <div className="text-xs">
+              <span className="text-zinc-600">Status</span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                {hasActiveVariants ? (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <span className="text-emerald-400 font-medium">Online</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                    <span className="text-zinc-500 font-medium">Idle</span>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="text-xs">
+              <span className="text-zinc-600">Pipeline</span>
+              <p className={`font-medium mt-0.5 ${hasActiveVariants ? 'text-zinc-300' : 'text-zinc-600'}`}>
+                {hasActiveVariants ? 'Active' : 'Not Set Up'}
+              </p>
+            </div>
+            <div className="text-xs">
+              <span className="text-zinc-600">Awareness</span>
+              <p className={`font-medium mt-0.5 ${hasActiveVariants ? 'text-zinc-300' : 'text-zinc-600'}`}>
+                {hasActiveVariants ? 'Enabled' : 'Disabled'}
+              </p>
+            </div>
+            <div className="text-xs">
+              <span className="text-zinc-600">Quick Command</span>
+              <p className="text-zinc-400 font-medium mt-0.5">Cmd+K</p>
             </div>
           </div>
-          <a
-            href="/dashboard/jarvis"
-            className="text-xs px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-amber-400 text-white font-medium shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 transition-all"
-          >
-            Open Jarvis CC
-          </a>
         </div>
-        <div className="grid grid-cols-4 gap-3 mt-4">
-          <div className="text-xs">
-            <span className="text-zinc-600">Status</span>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              <span className="text-emerald-400 font-medium">Online</span>
-            </div>
-          </div>
-          <div className="text-xs">
-            <span className="text-zinc-600">Pipeline</span>
-            <p className="text-zinc-300 font-medium mt-0.5">Active</p>
-          </div>
-          <div className="text-xs">
-            <span className="text-zinc-600">Awareness</span>
-            <p className="text-zinc-300 font-medium mt-0.5">Enabled</p>
-          </div>
-          <div className="text-xs">
-            <span className="text-zinc-600">Quick Command</span>
-            <p className="text-zinc-400 font-medium mt-0.5">Cmd+K</p>
-          </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Header */}
       <DashboardHeader

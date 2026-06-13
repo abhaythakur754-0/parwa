@@ -33,9 +33,25 @@ export function FirstVictoryCelebration({ aiName, onComplete }: FirstVictoryCele
    * onboarding state reflects that the celebration was shown.
    */
   useEffect(() => {
-    onboardingApi.completeVictory().catch((error) => {
-      console.error('Failed to complete victory:', getErrorMessage(error));
-    });
+    onboardingApi.completeVictory()
+      .then(() => {
+        // Mark onboarding as completed in localStorage so the dashboard
+        // knows not to redirect back here when the backend is unreachable
+        try {
+          localStorage.setItem('parwa_onboarding_completed', 'true');
+        } catch {
+          // ignore
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to complete victory:', getErrorMessage(error));
+        // Even if the backend call fails, the user has completed onboarding locally
+        try {
+          localStorage.setItem('parwa_onboarding_completed', 'true');
+        } catch {
+          // ignore
+        }
+      });
   }, []);
 
   /**
@@ -70,6 +86,13 @@ export function FirstVictoryCelebration({ aiName, onComplete }: FirstVictoryCele
    */
   const handleGoToDashboard = () => {
     setIsRedirecting(true);
+    // Mark onboarding as completed in localStorage so the dashboard
+    // knows not to redirect back here when the backend is unreachable
+    try {
+      localStorage.setItem('parwa_onboarding_completed', 'true');
+    } catch {
+      // ignore
+    }
     onComplete?.();
     router.push('/dashboard');
   };
