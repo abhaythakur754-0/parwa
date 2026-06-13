@@ -176,7 +176,7 @@ async def _debate_round(
             node_name=f"AGENT_DEBATE_{role.upper()}",
             ticket_id=ticket_id,
             variant=variant,
-            max_tokens=200,
+            # max_tokens removed — uses generous default
         )
         return text.strip()
     except Exception as exc:
@@ -220,7 +220,7 @@ async def _judge_debate(
             node_name="AGENT_DEBATE_JUDGE",
             ticket_id=ticket_id,
             variant=variant,
-            max_tokens=150,
+            # max_tokens removed — uses generous default
         )
 
         # Parse judge response

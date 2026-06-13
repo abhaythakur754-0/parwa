@@ -369,7 +369,7 @@ async def _check_policies_llm(
             node_name="POLICY_GUARD",
             ticket_id=state.get("ticket_id", ""),
             variant=variant,
-            max_tokens=150,
+            # max_tokens removed — uses generous default
         )
 
         # Parse LLM findings

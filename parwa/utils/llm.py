@@ -50,46 +50,62 @@ NVIDIA_RATE_LIMIT_SECONDS = float(os.getenv("NVIDIA_RATE_LIMIT_SECONDS", "1.5"))
 _nvidia_disabled = False  # Auto-disabled on repeated failures
 
 # ─── NVIDIA Sliding Window Rate Limiter (TPM-optimized) ──────────────────────
-# Instead of sleeping 1.5s on EVERY call (wasteful), we track call timestamps
-# and only sleep when we're about to exceed 40 RPM. This allows bursts of
-# fast calls (TPM optimization) while respecting the per-minute limit.
+# Strategy: minimum 1.5s gap between calls + sliding window for 40 RPM cap.
+# This prevents 429 errors while allowing bursts when the window is clear.
 import threading as _threading
 _nvidia_call_times: list[float] = []
 _nvidia_rate_lock = _threading.Lock()
-_NVIDIA_RPM_LIMIT = 40
+_nvidia_last_call: float = 0.0  # Track last call time for minimum gap
+_NVIDIA_RPM_LIMIT = 36  # Use 36 instead of 40 for safety margin
 _NVIDIA_RPM_WINDOW = 60.0  # seconds
+_NVIDIA_MIN_GAP = 1.5  # Minimum seconds between calls (prevents 429)
 
 
 def _nvidia_rate_limit_wait() -> None:
-    """Smart rate limiter: only sleeps if we're about to exceed 40 RPM."""
+    """Smart rate limiter: min gap + sliding window to avoid 429s."""
     import time as _time
     with _nvidia_rate_lock:
         now = _time.monotonic()
+        global _nvidia_call_times, _nvidia_last_call
+        # Enforce minimum gap between calls
+        gap = _NVIDIA_MIN_GAP - (now - _nvidia_last_call) if _nvidia_last_call > 0 else 0
         # Remove timestamps older than window
-        global _nvidia_call_times
         _nvidia_call_times = [t for t in _nvidia_call_times if now - t < _NVIDIA_RPM_WINDOW]
         # If we're at the limit, sleep until the oldest call expires
+        window_wait = 0
         if len(_nvidia_call_times) >= _NVIDIA_RPM_LIMIT:
-            sleep_time = _NVIDIA_RPM_WINDOW - (now - _nvidia_call_times[0]) + 0.1
-            if sleep_time > 0:
-                _time.sleep(sleep_time)
-        # Record this call
-        _nvidia_call_times.append(_time.monotonic())
+            window_wait = _NVIDIA_RPM_WINDOW - (now - _nvidia_call_times[0]) + 0.2
+        # Take the maximum wait
+        total_wait = max(gap, window_wait)
+    if total_wait > 0:
+        _time.sleep(total_wait)
+    with _nvidia_rate_lock:
+        _nvidia_last_call = _time.monotonic()
+        _nvidia_call_times.append(_nvidia_last_call)
 
 
 async def _nvidia_rate_limit_wait_async() -> None:
-    """Async version of smart rate limiter."""
+    """Async version of smart rate limiter: min gap + sliding window."""
     import asyncio
     import time as _time
+    total_wait = 0
     with _nvidia_rate_lock:
         now = _time.monotonic()
-        global _nvidia_call_times
+        global _nvidia_call_times, _nvidia_last_call
+        # Enforce minimum gap between calls
+        gap = _NVIDIA_MIN_GAP - (now - _nvidia_last_call) if _nvidia_last_call > 0 else 0
+        # Remove timestamps older than window
         _nvidia_call_times = [t for t in _nvidia_call_times if now - t < _NVIDIA_RPM_WINDOW]
-        sleep_time = 0
+        # If we're at the limit, sleep until the oldest call expires
         if len(_nvidia_call_times) >= _NVIDIA_RPM_LIMIT:
-            sleep_time = _NVIDIA_RPM_WINDOW - (now - _nvidia_call_times[0]) + 0.1
-    if sleep_time > 0:
-        await asyncio.sleep(sleep_time)
+            window_wait = _NVIDIA_RPM_WINDOW - (now - _nvidia_call_times[0]) + 0.2
+            gap = max(gap, window_wait)
+        total_wait = max(gap, 0)
+    if total_wait > 0:
+        await asyncio.sleep(total_wait)
+    with _nvidia_rate_lock:
+        _nvidia_last_call = _time.monotonic()
+        _nvidia_call_times.append(_nvidia_last_call)
 
 # Google AI Configuration (fallback — region-restricted, only works in US/EU)
 GOOGLE_AI_KEY = os.getenv("GOOGLE_AI_KEY", "AIzaSyATHbcolmlaNufj6ZHR6tebMmlqqcmCsEs")
@@ -173,7 +189,7 @@ def _track_mock_usage(
             completion_tokens=completion_tokens,
             model=model,
         )
-        _record_token_spend(node_name, variant, prompt_tokens + completion_tokens)
+        # Budget recording removed — no more token budget limits
     except Exception:
         pass
 
@@ -201,7 +217,7 @@ def _track_response_usage(
             completion_tokens=completion_tokens,
             model=model,
         )
-        _record_token_spend(node_name, variant, prompt_tokens + completion_tokens)
+        # Budget recording removed — no more token budget limits
     except Exception:
         pass
 
@@ -271,31 +287,31 @@ _NODE_SYSTEM_PROMPTS = {
     "FEEDBACK_LOOP": "Analyze customer satisfaction. Reply: resolved: true/false, satisfaction: high/medium/low, improvement_areas",
 }
 
-# Per-node max_tokens for LLM calls
+# Per-node max_tokens for LLM calls — GENEROUS limits (budget system removed)
 _NODE_MAX_TOKENS: dict[str, int] = {
-    "INTENT_CLASSIFIER": 50,
-    "SENTIMENT_ANALYZER": 50,
-    "ESCALATION_DECISION": 50,
-    "FAQ_MATCHER": 100,
-    "KB_RETRIEVER": 300,
-    "INTEGRATION_LOOKUP": 200,
-    "REASONING_ENGINE": 500,
-    "REVERSE_THINKER": 400,
-    "TREE_OF_THOUGHTS": 400,
-    "STRATEGY_PLANNER": 300,
-    "ACTION_PLANNER": 200,
-    "ACTION_EXECUTOR": 100,
-    "ACTION_VERIFIER": 100,
-    "PROACTIVE_CHECKER": 150,
-    "PREDICTION_ENGINE": 150,
-    "QUALITY_SCORER": 50,
-    "PII_COMPLIANCE_GUARD": 50,
-    "RESPONSE_FORMATTER": 500,
-    "FEEDBACK_LOOP": 100,
-    "FRAMEWORKBRAIN_COT": 400,
-    "FRAMEWORKBRAIN_REACT": 400,
-    "FRAMEWORKBRAIN_TOT": 400,
-    "FRAMEWORKBRAIN_REFLEXION": 300,
+    "INTENT_CLASSIFIER": 300,
+    "SENTIMENT_ANALYZER": 300,
+    "ESCALATION_DECISION": 300,
+    "FAQ_MATCHER": 500,
+    "KB_RETRIEVER": 800,
+    "INTEGRATION_LOOKUP": 500,
+    "REASONING_ENGINE": 1000,
+    "REVERSE_THINKER": 800,
+    "TREE_OF_THOUGHTS": 800,
+    "STRATEGY_PLANNER": 600,
+    "ACTION_PLANNER": 500,
+    "ACTION_EXECUTOR": 300,
+    "ACTION_VERIFIER": 300,
+    "PROACTIVE_CHECKER": 400,
+    "PREDICTION_ENGINE": 400,
+    "QUALITY_SCORER": 300,
+    "PII_COMPLIANCE_GUARD": 300,
+    "RESPONSE_FORMATTER": 1000,
+    "FEEDBACK_LOOP": 300,
+    "FRAMEWORKBRAIN_COT": 800,
+    "FRAMEWORKBRAIN_REACT": 800,
+    "FRAMEWORKBRAIN_TOT": 800,
+    "FRAMEWORKBRAIN_REFLEXION": 600,
 }
 
 # Path to parwa root
@@ -793,10 +809,7 @@ def invoke_llm(
             logger.debug("invoke_llm: Smart Router — node=%s model=%s→%s", node_name, model, routed_model)
             model = routed_model
 
-    # Check token budget
-    estimated = _estimate_tokens(prompt) + 200
-    if not _check_token_budget(node_name, variant, estimated):
-        return "Token budget exceeded. Using rule-based fallback."
+    # Budget check REMOVED — no more token budget limits truncating results
 
     # ─── Try NVIDIA API (PRIMARY — 40 RPM, TPM-optimized, native Python) ───
     if not MOCK_MODE:
@@ -806,7 +819,7 @@ def invoke_llm(
                 system_prompt += f" [Variant: {variant}]"
             if complexity:
                 system_prompt += f" [Complexity: {complexity}]"
-            actual_max_tokens = _NODE_MAX_TOKENS.get(node_name, 500)
+            actual_max_tokens = _NODE_MAX_TOKENS.get(node_name, 1000)
             result = _call_nvidia(
                 system_prompt, prompt,
                 model="", temperature=temperature,
@@ -936,10 +949,7 @@ async def ainvoke_llm(
         if routed_model != model:
             model = routed_model
 
-    # Check token budget
-    estimated = _estimate_tokens(prompt) + 200
-    if not _check_token_budget(node_name, variant, estimated):
-        return "Token budget exceeded. Using rule-based fallback."
+    # Budget check REMOVED — no more token budget limits truncating results
 
     # ─── Try NVIDIA API (PRIMARY — 40 RPM, TPM-optimized, native Python) ───
     if not MOCK_MODE:
@@ -949,7 +959,7 @@ async def ainvoke_llm(
                 system_prompt += f" [Variant: {variant}]"
             if complexity:
                 system_prompt += f" [Complexity: {complexity}]"
-            actual_max_tokens = max_tokens if max_tokens > 0 else _NODE_MAX_TOKENS.get(node_name, 500)
+            actual_max_tokens = max_tokens if max_tokens > 0 else _NODE_MAX_TOKENS.get(node_name, 1000)
             result = await _acall_nvidia(
                 system_prompt, prompt,
                 model="", temperature=temperature,

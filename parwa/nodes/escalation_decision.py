@@ -142,11 +142,17 @@ async def _should_escalate_llm(
         "Reply with ONLY: true|reason or false|\n\n"
         "Escalation reasons:\n"
         "- legal_threat: Customer mentions lawyer, attorney, lawsuit, legal action, court, fraud, sue\n"
-        "- high_urgency: Customer has contacted support multiple times, issue remains unresolved\n"
+        "- high_urgency: Customer has contacted support multiple times, issue remains unresolved, "
+        "SLA violations, multiple open tickets with no response\n"
         "- complex_technical: Issue requires engineering investigation beyond AI capability\n"
-        "- vip_customer: High-value customer requiring personal attention\n"
+        "- vip_customer: High-value customer requiring personal attention, enterprise accounts, "
+        "SLA commitments not met, dedicated account team complaints\n"
         "- angry_customer_with_critical_issue: Angry sentiment + business-critical problem\n"
-        "- customer_requested_escalation: Customer explicitly asks for manager/supervisor\n\n"
+        "- customer_requested_escalation: Customer explicitly asks for manager/supervisor, "
+        "threatens to leave or find another vendor\n"
+        "- business_threat: Customer threatens to cancel contract, switch vendors, or take "
+        "business elsewhere — especially enterprise/VIP customers\n\n"
+        "IMPORTANT: When in doubt, ESCALATE. Missing an escalation is worse than a false positive.\n\n"
         "Examples:\n"
         "Customer: 'I will contact my attorney' → true|legal_threat\n"
         "Customer: 'This is my third email and nobody has helped' → true|high_urgency\n"
@@ -155,6 +161,9 @@ async def _should_escalate_llm(
         "Customer: 'Where is my order?' → false|\n"
         "Customer: 'Can I get a refund?' → false|\n"
         "Customer: 'Your system is broken and I am losing $10K per day' → true|angry_customer_with_critical_issue\n"
+        "Customer: 'The level of service has been terrible and we are looking at other vendors' → true|business_threat\n"
+        "Customer: 'I pay $4999/month and I am getting responses 3 days later' → true|vip_customer\n"
+        "Customer: 'Something needs to change or we will be looking at other vendors' → true|business_threat\n"
     )
     prompt = build_safe_prompt(system_instructions, message)
     text = await ainvoke_llm(
@@ -163,7 +172,7 @@ async def _should_escalate_llm(
         ticket_id=ticket_id,
         variant=variant,
         complexity=complexity_level,
-        max_tokens=50,
+        # max_tokens removed — uses generous default from _NODE_MAX_TOKENS
     )
     return parse_escalation_response(text)
 

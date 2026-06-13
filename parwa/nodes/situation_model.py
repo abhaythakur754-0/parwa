@@ -326,7 +326,7 @@ async def _build_situation_llm(state: dict[str, Any]) -> dict[str, Any]:
             node_name="SITUATION_MODEL",
             ticket_id=state.get("ticket_id", ""),
             variant=variant,
-            max_tokens=200,
+            # max_tokens removed — uses generous default
         )
 
         # Parse LLM enrichment
@@ -418,7 +418,7 @@ async def situation_model(state: dict[str, Any]) -> dict[str, Any]:
                 node_name="SITUATION_MODEL_RISK",
                 ticket_id=state.get("ticket_id", ""),
                 variant=variant,
-                max_tokens=100,
+                # max_tokens removed — uses generous default
             )
             for line in text.strip().split("\n"):
                 line = line.strip()

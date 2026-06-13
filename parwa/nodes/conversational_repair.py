@@ -267,7 +267,7 @@ async def _repair_response_llm(state: dict[str, Any], repair_report: dict[str, A
             node_name="CONVERSATIONAL_REPAIR",
             ticket_id=state.get("ticket_id", ""),
             variant=variant,
-            max_tokens=250,
+            # max_tokens removed — uses generous default
         )
         return repaired.strip()
     except Exception as exc:

@@ -74,16 +74,17 @@ def _evaluate_result(
     """
     # Extract pipeline outputs
     predicted_intent = pipeline_result.get("intent", "general_inquiry")
-    if isinstance(predicted_intent, str):
-        predicted_intent = predicted_intent.lower()
-    else:
-        predicted_intent = str(predicted_intent).lower()
+    # Handle both enum values like "IntentType.FAQ_QUESTION" and plain strings like "faq_question"
+    predicted_intent = str(predicted_intent).lower().replace("intenttype.", "").replace("sentimenttype.", "")
+    # Extract just the value part after the dot if it's an enum
+    if "." in predicted_intent:
+        predicted_intent = predicted_intent.split(".")[-1]
 
     predicted_sentiment = pipeline_result.get("sentiment", "neutral")
-    if isinstance(predicted_sentiment, str):
-        predicted_sentiment = predicted_sentiment.lower()
-    else:
-        predicted_sentiment = str(predicted_sentiment).lower()
+    # Handle both enum values like "SentimentType.NEUTRAL" and plain strings like "neutral"
+    predicted_sentiment = str(predicted_sentiment).lower().replace("sentimenttype.", "").replace("intenttype.", "")
+    if "." in predicted_sentiment:
+        predicted_sentiment = predicted_sentiment.split(".")[-1]
 
     predicted_escalate = pipeline_result.get("should_escalate", False)
     if isinstance(predicted_escalate, str):
@@ -400,7 +401,7 @@ def _analyze_variant(results: list[dict[str, Any]], variant: str) -> dict[str, A
 def _print_comparison_table(all_results: dict[str, list[dict[str, Any]]]) -> None:
     """Print a side-by-side comparison table of all 3 variants."""
     print("\n" + "=" * 100)
-    print("  MONTH 4 VARIANT COMPARISON — REAL LLM (ZAI SDK)")
+    print("  MONTH 4 VARIANT COMPARISON — REAL LLM (NVIDIA PRIMARY + ZAI FALLBACK)")
     print("=" * 100)
 
     for variant in ["mini", "parwa", "high"]:
@@ -558,7 +559,7 @@ async def run_batch(
             "variants": variants,
             "delay": delay,
             "quick_mode": quick,
-            "llm_backend": "zai_sdk_primary",
+            "llm_backend": "nvidia_primary_zai_fallback",
         },
         "dataset_stats": stats,
         "targets": M4_TARGETS,
@@ -582,8 +583,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Month 4 Batch Variant Comparison Runner")
     parser.add_argument("--variant", choices=["mini", "parwa", "high"],
                         help="Only run this variant")
-    parser.add_argument("--delay", type=float, default=2.0,
-                        help="Delay between tickets in seconds (default: 2.0)")
+    parser.add_argument("--delay", type=float, default=0.5,
+                        help="Delay between tickets in seconds (default: 0.5)")
     parser.add_argument("--quick", action="store_true",
                         help="Quick test with 3 tickets per variant")
     args = parser.parse_args()

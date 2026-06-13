@@ -246,7 +246,7 @@ async def _red_team_llm(
             node_name="RED_TEAM",
             ticket_id=ticket_id,
             variant=variant,
-            max_tokens=200,
+            # max_tokens removed — uses generous default
         )
 
         # Parse the response

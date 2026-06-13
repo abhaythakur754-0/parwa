@@ -216,24 +216,33 @@ async def _classify_intent_llm(message: str, *, ticket_id: str = "", variant: st
 
     system_instructions = (
         "Classify the following customer message into one of these intents: "
-        "account_modification, billing_issue, cancellation, complaint, "
-        "escalation, faq_question, general_inquiry, order_status, "
+        "account_modification, billing_issue, cancellation, escalation, "
+        "faq_question, general_inquiry, order_status, complaint, "
         "refund_request, technical_support.\n\n"
         "IMPORTANT: Reply with ONLY the intent and confidence in this exact format: intent|confidence\n"
         "where confidence is between 0.0 and 1.0\n\n"
         "CRITICAL RULES:\n"
-        "- If the customer mentions lawyer, attorney, lawsuit, legal action, sue, fraud, court → escalation (NOT general_inquiry)\n"
+        "- If the customer mentions lawyer, attorney, lawsuit, legal action, sue, fraud, court → escalation\n"
         "- If the customer asks to speak to manager, supervisor, human agent → escalation\n"
-        "- If the customer expresses strong dissatisfaction without requesting action → complaint\n"
-        "- If the customer asks a general question about policies/offers → faq_question (NOT general_inquiry)\n"
-        "- ASKING about how to do something → faq_question (NOT refund_request, NOT account_modification)\n"
-        "- REQUESTING something to be done → the relevant action intent\n"
-        "- 'How do I return an item?' → faq_question (asking about the process)\n"
-        "- 'I want a refund for my order' → refund_request (requesting action)\n"
-        "- 'How do I secure my account?' → faq_question (asking about process)\n"
-        "- 'Update my email address' → account_modification (requesting action)\n\n"
+        "- If the customer threatens to leave, cancel all services, or find another vendor AND is angry → escalation\n"
+        "- REFUND_REQUEST vs BILLING_ISSUE: If the customer wants MONEY BACK → refund_request. "
+        "If the customer is asking about a charge or subscription they don't understand → billing_issue. "
+        "'I was charged twice, give me my money back' → refund_request. "
+        "'Why am I being charged $9.99 every month?' → billing_issue.\n"
+        "- REFUND_REQUEST vs TECHNICAL_SUPPORT: If a broken product leads to wanting money back → refund_request. "
+        "'The software crashes and I want a full refund' → refund_request (NOT technical_support). "
+        "'The software crashes, how do I fix it?' → technical_support.\n"
+        "- CANCELLATION vs ORDER_STATUS: If the customer explicitly says 'cancel my order' → cancellation. "
+        "'I want to cancel my order ORD-2003' → cancellation. "
+        "'Where is my order? It's been a week' → order_status.\n"
+        "- If the customer expresses strong dissatisfaction about SERVICE QUALITY without requesting specific action → complaint\n"
+        "- If the customer asks a general question about policies/offers → faq_question\n\n"
         "Examples:\n"
         "Customer: 'I was charged twice for the same order' → refund_request|0.97\n"
+        "Customer: 'I want my money back, the product is defective' → refund_request|0.95\n"
+        "Customer: 'The software crashes and I want a full refund of $249.98' → refund_request|0.96\n"
+        "Customer: 'Cancel my order ORD-2003 and refund my $79.99' → cancellation|0.94\n"
+        "Customer: 'I'd like to cancel my order for the Laptop Stand' → cancellation|0.95\n"
         "Customer: 'Where is my order? It has been 10 days' → order_status|0.95\n"
         "Customer: 'I want to cancel my subscription' → cancellation|0.93\n"
         "Customer: 'My app keeps crashing when I open settings' → technical_support|0.92\n"
@@ -242,15 +251,12 @@ async def _classify_intent_llm(message: str, *, ticket_id: str = "", variant: st
         "Customer: 'This is the worst service ever, I am furious' → complaint|0.88\n"
         "Customer: 'I need to speak to a manager right now' → escalation|0.94\n"
         "Customer: 'My invoice shows the wrong amount' → billing_issue|0.91\n"
-        "Customer: 'Hello, how are you today?' → general_inquiry|0.70\n"
+        "Customer: 'Why am I being charged $9.99 every month?' → billing_issue|0.93\n"
         "Customer: 'I will contact my lawyer about this fraud' → escalation|0.96\n"
         "Customer: 'This is illegal and I am going to take legal action' → escalation|0.96\n"
-        "Customer: 'My attorney will be in touch regarding this matter' → escalation|0.95\n"
-        "Customer: 'I will sue your company' → escalation|0.96\n"
-        "Customer: 'This is fraud and I am reporting you to the authorities' → escalation|0.96\n"
-        "Customer: 'The product arrived damaged and no one is responding' → complaint|0.88\n"
-        "Customer: 'I am extremely disappointed with your quality' → complaint|0.85\n"
-        "Customer: 'Do you offer refunds for digital products?' → faq_question|0.85\n"
+        "Customer: 'Something needs to change or we will be looking at other vendors' → escalation|0.90\n"
+        "Customer: 'Your service is terrible and nobody knows our enterprise setup' → complaint|0.88\n"
+        "Customer: 'Hello, how are you today?' → general_inquiry|0.70\n"
         "Customer: 'What are your business hours?' → faq_question|0.85\n"
     )
     prompt = build_safe_prompt(system_instructions, message)
@@ -260,7 +266,7 @@ async def _classify_intent_llm(message: str, *, ticket_id: str = "", variant: st
         ticket_id=ticket_id,
         variant=variant,
         complexity=complexity,
-        max_tokens=50,
+        # max_tokens removed — uses generous default from _NODE_MAX_TOKENS
     )
     return parse_intent_response(text)
 

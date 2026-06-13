@@ -251,7 +251,7 @@ async def _score_with_llm(state: dict[str, Any]) -> tuple[float, list[str]]:
             node_name="QUALITY_SCORER",
             ticket_id=state.get("ticket_id", ""),
             variant=variant,
-            max_tokens=50,
+            # max_tokens removed — uses generous default from _NODE_MAX_TOKENS
         )
 
         # Parse "score|issue1,issue2" format

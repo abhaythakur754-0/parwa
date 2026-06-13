@@ -31,6 +31,9 @@ _SENTIMENT_KEYWORDS: dict[SentimentType, list[str]] = {
         "this is ridiculous", "going to contact",
         "nobody has responded", "worst service", "third email", "fourth attempt",
         "fraud", "illegal", "demand to speak", "speak to a manager",
+        # Month 4: More angry patterns
+        "other vendors", "looking at other", "done with your", "so done",
+        "completely unacceptable", "i've had enough",
     ],
     SentimentType.FRUSTRATED: [
         "frustrated", "unacceptable", "ridiculous", "upset", "disappointed",
@@ -50,6 +53,14 @@ _SENTIMENT_KEYWORDS: dict[SentimentType, list[str]] = {
         "suspended by mistake", "declined",
         "fix this", "please fix", "not ideal",
         "unacceptable", "keep crashing", "third time reporting",
+        # Month 4: More frustration patterns
+        "trying to reach", "all day", "running out of time",
+        "nothing has happened", "keep getting", "automated system",
+        "should not take this long", "this is really frustrating",
+        "at this point", "change my mind", "get it somewhere else",
+        "level of service", "absolutely terrible", "no idea",
+        "had enough", "garbage", "stupid", "done with",
+        "terrible level of service", "waste of time", "joke",
         # NOTE: Removed "i need", "i want", "where is my" — these are too generic
         # and incorrectly match neutral order-status and account-modification queries
     ],
@@ -101,19 +112,29 @@ async def _analyze_sentiment_llm(message: str, *, ticket_id: str = "", variant: 
         "Analyze the sentiment of the customer message.\n\n"
         "Reply with ONLY: sentiment|urgency where sentiment is one of: "
         "angry, frustrated, happy, neutral and urgency is 0.0-1.0\n\n"
-        "IMPORTANT: Be careful to distinguish ANGRY from FRUSTRATED:\n"
-        "- ANGRY = threatening, legal language, extreme outrage, demanding immediate action\n"
-        "- FRUSTRATED = disappointed, annoyed, inconvenienced but not threatening\n"
+        "CRITICAL DISTINCTIONS:\n"
+        "- ANGRY = threatening legal action, extreme outrage, ALL CAPS, demanding, insulting, "
+        "saying 'I've had enough', threatening to leave, mentioning attorneys/lawyers\n"
+        "- FRUSTRATED = disappointed, annoyed, impatient, saying 'trying to reach someone all day', "
+        "'running out of time', 'this is really frustrating', 'nothing has happened', "
+        "'keep getting automated system', 'should not take this long', "
+        "expressing urgency without threats\n"
         "- HAPPY = grateful, satisfied, praising\n"
-        "- NEUTRAL = simple questions, factual inquiries, no strong emotion\n\n"
+        "- NEUTRAL = simple factual questions with NO emotional words, purely informational\n\n"
+        "IMPORTANT: If the customer expresses ANY impatience, disappointment, or urgency "
+        "beyond a simple question, classify as FRUSTRATED, not NEUTRAL.\n\n"
         "Examples:\n"
         "Customer: 'I will contact my attorney about this fraud' → angry|0.95\n"
         "Customer: 'I am absolutely disgusted with your service' → angry|0.90\n"
-        "Customer: 'This is ridiculous, I have been waiting for weeks' → frustrated|0.75\n"
+        "Customer: 'I've been trying to reach someone all day and keep getting the automated system' → frustrated|0.70\n"
+        "Customer: 'This is really frustrating because I paid for it and nothing has happened' → frustrated|0.75\n"
+        "Customer: 'It's now been 3 days and the tracking hasn't updated at all' → frustrated|0.65\n"
+        "Customer: 'This should not take this long' → frustrated|0.60\n"
+        "Customer: 'I'm running out of time and need to know' → frustrated|0.70\n"
         "Customer: 'I am disappointed with the delay' → frustrated|0.60\n"
         "Customer: 'Thank you so much for your help!' → happy|0.10\n"
         "Customer: 'When will my order arrive?' → neutral|0.30\n"
-        "Customer: 'Can you check on my refund?' → neutral|0.40\n"
+        "Customer: 'What is your return policy?' → neutral|0.20\n"
     )
     prompt = build_safe_prompt(system_instructions, message)
     text = await ainvoke_llm(
@@ -122,7 +143,7 @@ async def _analyze_sentiment_llm(message: str, *, ticket_id: str = "", variant: 
         ticket_id=ticket_id,
         variant=variant,
         complexity=complexity,
-        max_tokens=50,
+        # max_tokens removed — uses generous default from _NODE_MAX_TOKENS
     )
     return parse_sentiment_response(text)
 

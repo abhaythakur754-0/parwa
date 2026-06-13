@@ -304,7 +304,7 @@ async def _meta_reason_llm(state: dict[str, Any], rule_result: dict[str, Any]) -
             node_name="META_REASONER",
             ticket_id=state.get("ticket_id", ""),
             variant=variant,
-            max_tokens=150,
+            # max_tokens removed — uses generous default
         )
 
         # Parse LLM response
