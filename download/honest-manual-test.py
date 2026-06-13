@@ -169,8 +169,8 @@ if frontend_running:
             test('Browser', 'Screenshot Saved', lambda: 'OK')
             
             browser.close()
-    except Exception as e:
-        test('Browser', 'Playwright Browser Tests', lambda: f'SKIP: {str(e)[:100]}')
+    except Exception as ex:
+        test('Browser', 'Playwright Browser Tests', lambda ex=ex: f'SKIP: {str(ex)[:100]}')
 else:
     test('Browser', 'Frontend Server', lambda: 'NOT RUNNING - cannot test browser')
     # Try curl-based tests instead
