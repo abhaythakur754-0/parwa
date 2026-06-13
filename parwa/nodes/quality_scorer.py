@@ -42,7 +42,7 @@ def _score_quality_rule_based(
     - Checks for missing action details
     - Deducts points for common quality issues
     """
-    score = 75.0  # Start at 75 (base for any ticket that reached this point — means pipeline completed)
+    score = 50.0  # Start at 50 (neutral baseline — will be adjusted by reasoning/evidence/actions)
     issues = []
 
     # Has reasoning conclusion
@@ -71,6 +71,9 @@ def _score_quality_rule_based(
         score += 5
 
     # Check final response quality
+    # Month 4 FIX: Quality scorer runs BEFORE response_formatter, so
+    # final_response may be empty. Don't penalize for missing response.
+    # Score based on reasoning + actions + evidence instead.
     if final_response:
         # Generic/template response detection
         generic_phrases = [
@@ -102,8 +105,12 @@ def _score_quality_rule_based(
         elif len(final_response) > 30:
             score += 5
     else:
-        score -= 20
-        issues.append("no_final_response")
+        # Month 4: No final_response yet (quality scorer runs before formatter)
+        # Don't penalize — check reasoning + evidence + actions instead
+        reasoning_conclusion = ""  # Not available in rule-based context
+        if not conclusion:
+            score -= 5
+            issues.append("no_conclusion_yet")
 
     # Check if execution actually did something
     if execution_results:
@@ -113,6 +120,19 @@ def _score_quality_rule_based(
         else:
             score -= 5
             issues.append("no_action_taken")
+    
+    # Month 4: Bonus for pipeline depth — more evidence and reasoning = better quality
+    # These check the actual work the pipeline did, not just the formatted response
+    reasoning_chain = []  # Not directly available in rule-based, but conclusion length helps
+    if conclusion and len(conclusion) > 100:
+        score += 5  # Detailed reasoning conclusion
+    
+    # Action plans present = pipeline produced actionable output
+    # (checked by has_recommendation for Mini, or by execution for others)
+    
+    # Verification passed is a strong positive signal
+    if verification_passed:
+        score += 10  # Was +5 before, boosting for Month 4
 
     # Cap at 100
     score = max(0.0, min(100.0, score))
@@ -220,7 +240,32 @@ async def _score_with_llm(state: dict[str, Any]) -> tuple[float, list[str]]:
     raw_message = state.get("raw_message", "")
     variant = state.get("variant", "parwa")
 
-    if not final_response:
+    # Month 4 FIX: Quality scorer runs BEFORE response_formatter in the pipeline,
+    # so final_response may be empty. Score based on what we DO have:
+    # reasoning, actions, evidence — not just the formatted response.
+    # When final_response is available (after formatting), it's a bonus.
+    reasoning_conclusion = state.get("reasoning_conclusion", "")
+    action_plans = state.get("action_plans", [])
+    evidence_chain = state.get("evidence_chain", [])
+    
+    # Build a "response preview" from available data for LLM evaluation
+    response_preview = final_response
+    if not response_preview:
+        # Construct what we know so far
+        parts = []
+        if reasoning_conclusion:
+            parts.append(f"Reasoning: {reasoning_conclusion[:300]}")
+        if action_plans:
+            for ap in action_plans[:3]:
+                if hasattr(ap, 'action_type'):
+                    parts.append(f"Planned action: {ap.action_type} - {ap.description[:80] if ap.description else ''}")
+                elif isinstance(ap, dict):
+                    parts.append(f"Planned action: {ap.get('action_type', '?')} - {ap.get('description', '')[:80]}")
+        if evidence_chain:
+            parts.append(f"Evidence entries: {len(evidence_chain)}")
+        response_preview = " | ".join(parts) if parts else "No response generated yet"
+
+    if not response_preview or response_preview == "No response generated yet":
         return 0.0, ["no_final_response"]
 
     system_instructions = (
@@ -241,7 +286,7 @@ async def _score_with_llm(state: dict[str, Any]) -> tuple[float, list[str]]:
 
     prompt = (
         f"CUSTOMER MESSAGE:\n{raw_message}\n\n"
-        f"AI RESPONSE TO EVALUATE:\n{final_response}"
+        f"AI RESPONSE TO EVALUATE:\n{response_preview}"
     )
 
     try:

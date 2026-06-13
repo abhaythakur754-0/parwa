@@ -123,11 +123,13 @@ from parwa.nodes.conversational_repair import conversational_repair
 def _after_sentiment(state: dict[str, Any]) -> str:
     """Route after sentiment analysis.
 
-    Check escalation for:
-    - Angry + complex/critical
-    - Angry + high urgency
-    - Messages with legal/escalation keywords
-    Otherwise → FAQ matcher
+    Month 4 FIX: ALL tickets now go through the FULL pipeline (FAQ → KB → Context →
+    Integration → Situation Model → Policy Guard → Reasoning → Actions).
+    Escalation is a FLAG, not a bypass. The escalation_decision node still runs
+    to SET the flag, but the ticket continues through the knowledge pipeline.
+
+    Only the ACTION EXECUTOR uses the escalation flag to route to a human.
+    This ensures even escalated tickets get full context, CRM data, and reasoning.
     """
     sentiment = state.get("sentiment", "neutral")
     complexity = state.get("complexity", "simple")
@@ -137,7 +139,9 @@ def _after_sentiment(state: dict[str, Any]) -> str:
     raw_message = (state.get("raw_message", "") or "").lower()
     escalation_keywords = ["attorney", "lawyer", "lawsuit", "legal action", "court",
                           "fraud", "speak to manager", "supervisor", "human agent",
-                          "third email", "nobody has responded", "still not resolved"]
+                          "third email", "nobody has responded", "still not resolved",
+                          "ftc", "breach of contract", "legal department",
+                          "regulatory", "consumer protection"]
     # Note: "sue" checked separately with word boundary to avoid matching "issue"
     import re
     has_escalation_keyword = (
@@ -145,18 +149,21 @@ def _after_sentiment(state: dict[str, Any]) -> str:
         or bool(re.search(r'\bsue\b', raw_message))
     )
 
+    # Set escalation flag signals — but DON'T short-circuit the pipeline
+    # All tickets go through the full knowledge + reasoning pipeline
+    # The escalation_decision node will set should_escalate=True when appropriate
     if has_escalation_keyword:
-        logger.info("route: sentiment→escalation (escalation keyword detected)")
+        logger.info("route: sentiment→escalation_decision (escalation keyword detected, then full pipeline)")
         return "escalation_decision"
 
-    # Angry + complex/critical → always escalate
+    # Angry + complex/critical → flag for escalation but still go through pipeline
     if sentiment in ("angry", "frustrated") and complexity in ("complex", "critical"):
-        logger.info("route: sentiment→escalation (sentiment=%s, complexity=%s)", sentiment, complexity)
+        logger.info("route: sentiment→escalation_decision (sentiment=%s, complexity=%s)", sentiment, complexity)
         return "escalation_decision"
 
-    # Angry + high urgency → escalate even without critical complexity
+    # Angry + high urgency → flag for escalation but still go through pipeline
     if sentiment == "angry" and isinstance(urgency, (int, float)) and urgency >= 0.8:
-        logger.info("route: sentiment→escalation (angry, urgency=%.2f)", urgency)
+        logger.info("route: sentiment→escalation_decision (angry, urgency=%.2f)", urgency)
         return "escalation_decision"
 
     logger.debug("route: sentiment→faq_matcher (sentiment=%s)", sentiment)
@@ -166,16 +173,17 @@ def _after_sentiment(state: dict[str, Any]) -> str:
 def _after_escalation(state: dict[str, Any]) -> str:
     """Route after escalation decision.
 
-    Should escalate → go through situation_model + policy_guard first,
-    then to compliance (quick exit for human-handled tickets).
-    P2 FIX: Even escalated tickets benefit from situation modeling and
-    policy-aware reasoning before being handed to humans.
-    Should not escalate → continue to FAQ matcher
+    Month 4 FIX: Escalated tickets now go through the FULL knowledge pipeline
+    (FAQ → KB → Context → Integration → Situation Model → Policy → Reasoning → Actions).
+    The escalation flag is preserved, but the ticket gets full context and reasoning.
+    The action_executor will route to a human when should_escalate=True.
+
+    Non-escalated tickets also go through FAQ matcher.
     """
     if state.get("should_escalate", False):
-        logger.info("route: escalation→situation_model (escalated, but still needs P2 context)")
-        return "situation_model"
-    logger.debug("route: escalation→faq_matcher (not escalated)")
+        logger.info("route: escalation→faq_matcher (escalated, but going through full pipeline)")
+    else:
+        logger.debug("route: escalation→faq_matcher (not escalated)")
     return "faq_matcher"
 
 
@@ -198,14 +206,13 @@ def _after_faq_matcher(state: dict[str, Any]) -> str:
 def _after_policy_guard(state: dict[str, Any]) -> str:
     """Route after policy guard.
 
-    P2: If the ticket is escalated, skip reasoning and go straight to
-    compliance (the human agent gets the situation model + policy context
-    in the response). Non-escalated tickets continue to reasoning.
+    Month 4 FIX: ALL tickets now go through reasoning engine.
+    Escalation is a flag, not a bypass. Even escalated tickets need
+    proper reasoning so the human agent gets full context and the
+    response includes relevant information about the issue.
+    The action_executor uses the escalation flag to route to human.
     """
-    if state.get("should_escalate", False):
-        logger.info("route: policy_guard→pii_compliance_guard (escalated, P2 context enriched)")
-        return "pii_compliance_guard"
-    logger.debug("route: policy_guard→reasoning_engine")
+    logger.debug("route: policy_guard→reasoning_engine (all tickets get reasoning)")
     return "reasoning_engine"
 
 

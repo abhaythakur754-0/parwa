@@ -227,6 +227,46 @@ def _classify_intent_rule_based(message: str) -> tuple[str, float]:
                 best_intent_str = "complaint"
                 best_score = complaint_score
 
+    # ─── Month 4: Escalation THREAT vs Escalation INTENT ───
+    # If the customer has a REAL issue (billing, refund, cancellation, etc.) AND
+    # threatens legal action, the REAL issue is the primary intent — not "escalation".
+    # "I was charged $89.99 incorrectly and I'll file an FTC complaint" = billing_issue
+    #   (NOT escalation — the FTC threat is a SYMPTOM of the billing issue)
+    # "I need to speak to a manager right now" = escalation (pure escalation request)
+    actionable_intents = {"billing_issue", "refund_request", "cancellation",
+                          "technical_support", "order_status", "account_modification"}
+    escalation_score = intent_scores.get("escalation", 0)
+
+    # Check if there's a strong actionable intent alongside the escalation threat
+    if best_intent_str == "escalation" and len(intent_scores) >= 2:
+        # Find the best non-escalation intent
+        non_escalation_scores = {k: v for k, v in intent_scores.items() if k != "escalation"}
+        if non_escalation_scores:
+            best_non_esc = max(non_escalation_scores, key=non_escalation_scores.get)
+            best_non_esc_score = non_escalation_scores[best_non_esc]
+
+            # If the customer has a real issue that scores significantly,
+            # that issue should be the primary intent — escalation is just a flag
+            if best_non_esc in actionable_intents and best_non_esc_score >= 2.0:
+                # Legal threat keywords that indicate escalation THREAT (not pure escalation intent)
+                legal_threat_phrases = [
+                    "ftc", "breach of contract", "legal action", "lawsuit",
+                    "attorney", "lawyer", "legal department", "sue",
+                    "regulatory", "consumer protection", "take legal",
+                ]
+                has_legal_threat = any(phrase in message_lower for phrase in legal_threat_phrases)
+
+                if has_legal_threat:
+                    # The legal threat is a SYMPTOM of the real issue, not the issue itself
+                    # Example: "I was charged incorrectly AND I'll contact the FTC" = billing_issue
+                    logger.info(
+                        "intent_override: escalation threat demoted, promoting %s "
+                        "(escalation_score=%.1f, %s_score=%.1f)",
+                        best_non_esc, escalation_score, best_non_esc, best_non_esc_score,
+                    )
+                    best_intent_str = best_non_esc
+                    best_score = best_non_esc_score
+
     # Convert score to confidence (0.6 - 0.99)
     # Higher scores = higher confidence, capped at 0.99
     confidence = min(0.99, 0.6 + best_score * 0.05)
@@ -494,7 +534,36 @@ async def intent_classifier(state: dict[str, Any]) -> dict[str, Any]:
                 complexity=state.get("complexity", "simple"),
             )
             if llm_conf > confidence:
-                intent_str, confidence = llm_intent, llm_conf
+                # Month 4: Don't blindly accept LLM "escalation" if there's a
+                # real actionable issue underneath. Apply the same override.
+                if llm_intent == "escalation" and intent_str != "escalation":
+                    # LLM wants escalation but rule-based found a real issue
+                    # Only let LLM override if it's a PURE escalation request
+                    # (no actionable issue detected by rule-based)
+                    rule_based_was_actionable = intent_str in {
+                        "billing_issue", "refund_request", "cancellation",
+                        "technical_support", "order_status", "account_modification",
+                        "complaint",
+                    }
+                    has_legal_threat = any(phrase in raw_message.lower() for phrase in [
+                        "ftc", "breach of contract", "legal action", "lawsuit",
+                        "attorney", "lawyer", "legal department", "sue",
+                        "regulatory", "consumer protection", "take legal",
+                    ])
+                    if rule_based_was_actionable and has_legal_threat:
+                        # The escalation is a THREAT about a real issue, not the issue itself
+                        # Keep the rule-based intent (the real issue)
+                        logger.info(
+                            "intent_override: LLM escalation demoted, keeping rule-based %s "
+                            "(LLM wanted escalation %.2f, rule-based %s %.2f)",
+                            intent_str, llm_conf, intent_str, confidence,
+                        )
+                        # But boost confidence since LLM agrees SOMETHING is happening
+                        confidence = max(confidence, 0.85)
+                    else:
+                        intent_str, confidence = llm_intent, llm_conf
+                else:
+                    intent_str, confidence = llm_intent, llm_conf
         except Exception as exc:
             logger.warning(
                 "INTENT_CLASSIFIER: LLM classification failed, "
@@ -535,7 +604,11 @@ async def intent_classifier(state: dict[str, Any]) -> dict[str, Any]:
         top2_intent, top2_score = sorted_intents[1]
         score_gap = top1_score - top2_score
 
-        if score_gap < 0.5:
+        # Month 4 FIX: Lowered threshold from 0.5 to 1.5.
+        # If 2 intents both score significantly (gap < 1.5), it's multi-intent.
+        # This catches cases like: billing_issue (4.0) + cancellation (3.0) → gap=1.0 → multi-intent
+        # Previously gap < 0.5 was too strict — most real multi-intent tickets have gap 0.5-1.5
+        if score_gap < 1.5 and top2_score >= 1.5:
             multi_intent_detected = True
             detected_intents = [top1_intent, top2_intent]
             clarifying_question = _generate_clarifying_question(top1_intent, top2_intent)
