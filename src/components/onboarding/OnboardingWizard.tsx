@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ProgressIndicator } from './ProgressIndicator';
-import { IndustryVariantStep } from './IndustryVariantStep';
 import { LegalCompliance } from './LegalCompliance';
 import { IntegrationStep } from './IntegrationStep';
 import { KnowledgeUpload } from './KnowledgeUpload';
@@ -17,7 +16,7 @@ import type { OnboardingState } from '@/types/onboarding';
 import type { ParwaVariant } from './IndustryVariantStep';
 import { mapIndustryToParwaIndustry, type ParwaIndustry } from '@/lib/integration-catalog';
 
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 6;
 
 interface OnboardingWizardProps {
   initialState?: OnboardingState;
@@ -31,7 +30,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   const [aiName, setAiName] = useState('Jarvis');
   const [aiGreeting, setAiGreeting] = useState<string | null>(null);
 
-  // Phase 4: industry + variant from Step 1
+  // Industry + variant restored from localStorage (set on models page)
   const [selectedIndustry, setSelectedIndustry] = useState<ParwaIndustry | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<ParwaVariant | null>(null);
 
@@ -39,7 +38,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   const searchParams = useSearchParams();
   const { user, logout } = useAuth();
 
-  // Fetch initial state
+  // Fetch initial state + restore variant from localStorage
   useEffect(() => {
     fetch('/api/onboarding/state')
       .then((res) => res.json())
@@ -51,12 +50,24 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
         if (data.ai_greeting) setAiGreeting(data.ai_greeting);
       })
       .catch(() => {
-        // Use initialState prop as fallback — this is the default for demo mode
         const fallback: OnboardingState = initialState || {
+          id: '',
+          user_id: '',
+          company_id: '',
           status: 'pending',
           current_step: 1,
           completed_steps: [],
+          details_completed: false,
+          wizard_started: true,
+          legal_accepted: false,
           first_victory_completed: false,
+          ai_name: 'Jarvis',
+          ai_tone: 'professional',
+          ai_response_style: 'concise',
+          ai_greeting: null,
+          created_at: null,
+          updated_at: null,
+          completed_at: null,
         };
         setOnboardingState(fallback);
         if (fallback.current_step > 1) setCurrentStep(fallback.current_step);
@@ -64,7 +75,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
       })
       .finally(() => setLoading(false));
 
-    // Restore industry/variant from localStorage
+    // Restore industry/variant from localStorage (already chosen on models page)
     try {
       const stored = localStorage.getItem('parwa_pricing_context');
       if (stored) {
@@ -80,8 +91,8 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   const completeStep = useCallback(async (step: number) => {
     setCompletedSteps((prev) => [...prev.filter((s) => s !== step), step]);
 
-    // Step 6 (CostBreakdown) completes the onboarding and goes to FirstVictory (Step 7)
-    if (step === 6) {
+    // Step 5 (CostBreakdown) completes the onboarding and goes to FirstVictory (Step 6)
+    if (step === 5) {
       // Mark onboarding as completed — send variant + industry so backend can create instance
       try {
         const pricingContext = localStorage.getItem('parwa_pricing_context');
@@ -97,7 +108,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
       } catch {
         // Continue locally even if API fails
       }
-      setCurrentStep(7);
+      setCurrentStep(6);
     } else {
       setCurrentStep(step + 1);
     }
@@ -142,7 +153,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   const industryParam = searchParams.get('industry');
   const cameFromPricing = source === 'pricing';
 
-  // Resolve industry: Step 1 state > URL param > localStorage
+  // Resolve industry: localStorage state > URL param
   const resolvedIndustry = selectedIndustry || (industryParam ? mapIndustryToParwaIndustry(industryParam) : undefined);
 
   if (loading) {
@@ -156,8 +167,8 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
     );
   }
 
-  // Step 7: Show FirstVictory directly (outside the card wrapper)
-  if (currentStep === 7 || (onboardingState?.status === 'completed' && !onboardingState.first_victory_completed)) {
+  // Step 6: Show FirstVictory directly (outside the card wrapper)
+  if (currentStep === 6 || (onboardingState?.status === 'completed' && !onboardingState.first_victory_completed)) {
     return <FirstVictory aiName={aiName} aiGreeting={aiGreeting} />;
   }
 
@@ -178,15 +189,15 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
       {/* ── Top Header Bar ─────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b border-white/[0.06]" style={{ background: 'rgba(26,26,26,0.9)', backdropFilter: 'blur(20px)' }}>
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          {/* Left: Back to pricing or logo */}
+          {/* Left: Back to models or logo */}
           <div className="flex items-center gap-3">
             {cameFromPricing && currentStep <= 1 ? (
               <button
-                onClick={() => router.push('/pricing')}
+                onClick={() => router.push('/models')}
                 className="flex items-center gap-2 text-sm text-orange-400/70 hover:text-orange-400 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Back to Pricing</span>
+                <span>Back to Models</span>
               </button>
             ) : (
               <Link href="/" className="flex items-center gap-2.5">
@@ -260,36 +271,25 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
           {/* Decorative glow */}
           <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(255,127,17,0.08)' }} />
 
-          {/* Step 1: Industry + Variant Selection */}
+          {/* Step 1: Legal Compliance */}
           {currentStep === 1 && (
-            <IndustryVariantStep
-              onComplete={(data) => {
-                setSelectedIndustry(data.industry);
-                setSelectedVariant(data.variant);
-                completeStep(1);
-              }}
-            />
+            <LegalCompliance onComplete={() => completeStep(1)} />
           )}
 
-          {/* Step 2: Legal Compliance */}
+          {/* Step 2: Integration Setup */}
           {currentStep === 2 && (
-            <LegalCompliance onComplete={() => completeStep(2)} />
+            <IntegrationStep onNext={() => completeStep(2)} industry={resolvedIndustry} />
           )}
 
-          {/* Step 3: Integration Setup — receives industry from Step 1 */}
+          {/* Step 3: Knowledge Upload */}
           {currentStep === 3 && (
-            <IntegrationStep onNext={() => completeStep(3)} industry={resolvedIndustry} />
+            <KnowledgeUpload onComplete={() => completeStep(3)} />
           )}
 
-          {/* Step 4: Knowledge Upload */}
+          {/* Step 4: AI Config */}
           {currentStep === 4 && (
-            <KnowledgeUpload onComplete={() => completeStep(4)} />
-          )}
-
-          {/* Step 5: AI Config */}
-          {currentStep === 5 && (
             <AIConfig
-              onComplete={() => completeStep(5)}
+              onComplete={() => completeStep(4)}
               initialConfig={{
                 ai_name: onboardingState?.ai_name || 'Jarvis',
                 ai_tone: onboardingState?.ai_tone || 'professional',
@@ -299,12 +299,12 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
             />
           )}
 
-          {/* Step 6: Cost Breakdown Review */}
-          {currentStep === 6 && (
+          {/* Step 5: Cost Breakdown Review */}
+          {currentStep === 5 && (
             <CostBreakdownStep
               variant={selectedVariant || 'parwa'}
               industry={resolvedIndustry || undefined}
-              onComplete={() => completeStep(6)}
+              onComplete={() => completeStep(5)}
             />
           )}
         </div>

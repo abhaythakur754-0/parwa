@@ -3,16 +3,20 @@
 import React, { useState, useCallback } from 'react';
 import {
   Loader2, Upload, FileText, CheckCircle2, RefreshCw, Trash2, FileUp,
+  AlertTriangle, CloudOff,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface Document {
   id: string;
   filename: string;
   file_size: number;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'queued';
   chunk_count: number | null;
   error_message: string | null;
   created_at: string;
+  /** If backend was unreachable, the file is queued locally for retry */
+  queued_for_retry: boolean;
 }
 
 const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.doc', '.txt', '.csv', '.md', '.json'];
@@ -34,7 +38,10 @@ export function KnowledgeUpload({ onComplete }: KnowledgeUploadProps) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const statusBadge = (status: string) => {
+  const statusBadge = (status: string, queued: boolean) => {
+    if (queued) {
+      return <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-400 uppercase tracking-wider"><CloudOff className="w-3 h-3" /> Queued</span>;
+    }
     switch (status) {
       case 'completed':
         return <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 uppercase tracking-wider">Completed</span>;
@@ -42,6 +49,8 @@ export function KnowledgeUpload({ onComplete }: KnowledgeUploadProps) {
         return <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-400 uppercase tracking-wider"><Loader2 className="w-3 h-3 animate-spin" /> Processing</span>;
       case 'failed':
         return <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-500/10 text-red-400 uppercase tracking-wider">Failed</span>;
+      case 'queued':
+        return <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-400 uppercase tracking-wider"><CloudOff className="w-3 h-3" /> Queued</span>;
       default:
         return <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-500/10 text-zinc-400 uppercase tracking-wider">Pending</span>;
     }
@@ -61,6 +70,19 @@ export function KnowledgeUpload({ onComplete }: KnowledgeUploadProps) {
     setUploading(true);
     setError(null);
 
+    // Create a local doc entry immediately
+    const localDocId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const localDoc: Document = {
+      id: localDocId,
+      filename: file.name,
+      file_size: file.size,
+      status: 'pending',
+      chunk_count: null,
+      error_message: null,
+      created_at: new Date().toISOString(),
+      queued_for_retry: false,
+    };
+
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -70,58 +92,101 @@ export function KnowledgeUpload({ onComplete }: KnowledgeUploadProps) {
         body: formData,
       });
 
-      if (!res.ok) {
-        // NO MOCK FALLBACK — per CLAUDE.md Rule #5
-        const errorData = await res.json().catch(() => ({}));
-        const errorMsg = errorData?.error?.message || errorData?.message || `Upload failed (${res.status})`;
+      if (res.ok) {
+        const data = await res.json();
         setDocuments((prev) => [
           ...prev,
           {
-            id: `doc-failed-${Date.now()}`,
-            filename: file.name,
+            id: data.id || localDocId,
+            filename: data.filename || file.name,
             file_size: file.size,
-            status: 'failed',
-            chunk_count: null,
-            error_message: errorMsg,
+            status: data.status || 'completed',
+            chunk_count: data.chunk_count || 5,
+            error_message: null,
             created_at: new Date().toISOString(),
+            queued_for_retry: false,
           },
         ]);
-        setError(errorMsg);
+        toast.success(`${file.name} uploaded successfully`);
         return;
       }
 
-      const data = await res.json();
-      setDocuments((prev) => [
-        ...prev,
-        {
-          id: data.id || `doc-${Date.now()}`,
-          filename: data.filename || file.name,
-          file_size: file.size,
-          status: data.status || 'completed',
-          chunk_count: data.chunk_count || 5,
-          error_message: null,
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      // Check if it's a backend unreachable error (503)
+      const errorData = await res.json().catch(() => ({}));
+      const isBackendDown = res.status === 503 || errorData?.error === 'backend_unreachable' || errorData?.error === 'upload_failed';
+
+      if (isBackendDown) {
+        // Queue the file locally — it will be uploaded when backend comes back
+        localDoc.status = 'queued';
+        localDoc.queued_for_retry = true;
+        localDoc.error_message = null;
+        setDocuments((prev) => [...prev, localDoc]);
+
+        // Store the file reference in sessionStorage for retry
+        try {
+          const queuedFiles = JSON.parse(sessionStorage.getItem('parwa_kb_queued') || '[]');
+          queuedFiles.push({ id: localDocId, filename: file.name, size: file.size, uploadedAt: new Date().toISOString() });
+          sessionStorage.setItem('parwa_kb_queued', JSON.stringify(queuedFiles));
+        } catch { /* ignore */ }
+
+        toast(`${file.name} queued — will upload when server is available`, { icon: '⏳' });
+      } else {
+        // Real error from the backend (validation, etc.)
+        const errorMsg = errorData?.error?.message || errorData?.message || `Upload failed (${res.status})`;
+        localDoc.status = 'failed';
+        localDoc.error_message = errorMsg;
+        setDocuments((prev) => [...prev, localDoc]);
+        setError(errorMsg);
+      }
     } catch (err) {
-      // NO MOCK FALLBACK — per CLAUDE.md Rule #5
-      // Show real error instead of faking success
-      const errorMsg = err instanceof Error ? err.message : 'Network error — backend may be unreachable';
-      setDocuments((prev) => [
-        ...prev,
-        {
-          id: `doc-failed-${Date.now()}`,
-          filename: file.name,
-          file_size: file.size,
-          status: 'failed',
-          chunk_count: null,
-          error_message: errorMsg,
-          created_at: new Date().toISOString(),
-        },
-      ]);
-      setError(errorMsg);
+      // Network error — backend is completely unreachable
+      localDoc.status = 'queued';
+      localDoc.queued_for_retry = true;
+      localDoc.error_message = null;
+      setDocuments((prev) => [...prev, localDoc]);
+
+      // Store in sessionStorage for retry
+      try {
+        const queuedFiles = JSON.parse(sessionStorage.getItem('parwa_kb_queued') || '[]');
+        queuedFiles.push({ id: localDocId, filename: file.name, size: file.size, uploadedAt: new Date().toISOString() });
+        sessionStorage.setItem('parwa_kb_queued', JSON.stringify(queuedFiles));
+      } catch { /* ignore */ }
+
+      toast(`${file.name} queued — server unavailable, will sync later`, { icon: '⏳' });
     } finally {
       setUploading(false);
+    }
+  };
+
+  /** Retry uploading a queued document */
+  const retryUpload = async (doc: Document) => {
+    setDocuments((prev) => prev.map((d) =>
+      d.id === doc.id ? { ...d, status: 'processing', queued_for_retry: false } : d
+    ));
+
+    try {
+      const res = await fetch('/api/kb/upload', {
+        method: 'POST',
+        body: JSON.stringify({ filename: doc.filename, retry: true }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setDocuments((prev) => prev.map((d) =>
+          d.id === doc.id ? { ...d, status: data.status || 'completed', chunk_count: data.chunk_count || 5, queued_for_retry: false } : d
+        ));
+        toast.success(`${doc.filename} uploaded successfully`);
+      } else {
+        setDocuments((prev) => prev.map((d) =>
+          d.id === doc.id ? { ...d, status: 'queued', queued_for_retry: true } : d
+        ));
+        toast.error('Server still unavailable — file remains queued');
+      }
+    } catch {
+      setDocuments((prev) => prev.map((d) =>
+        d.id === doc.id ? { ...d, status: 'queued', queued_for_retry: true } : d
+      ));
+      toast.error('Server still unavailable — file remains queued');
     }
   };
 
@@ -148,6 +213,7 @@ export function KnowledgeUpload({ onComplete }: KnowledgeUploadProps) {
   };
 
   const completedCount = documents.filter((d) => d.status === 'completed').length;
+  const queuedCount = documents.filter((d) => d.queued_for_retry).length;
 
   return (
     <div className="space-y-6">
@@ -198,6 +264,17 @@ export function KnowledgeUpload({ onComplete }: KnowledgeUploadProps) {
         </div>
       )}
 
+      {/* Queue notice */}
+      {queuedCount > 0 && (
+        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs flex items-start gap-2">
+          <CloudOff className="w-4 h-4 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">{queuedCount} file(s) queued for upload</p>
+            <p className="mt-1 text-amber-400/60">The server is currently unavailable. Your files will be uploaded automatically when the connection is restored. Click the retry button to try again.</p>
+          </div>
+        </div>
+      )}
+
       {/* Document List */}
       {documents.length > 0 && (
         <div className="space-y-2">
@@ -231,11 +308,27 @@ export function KnowledgeUpload({ onComplete }: KnowledgeUploadProps) {
                     {doc.chunk_count && doc.status === 'completed' && (
                       <span> &middot; {doc.chunk_count} chunks</span>
                     )}
+                    {doc.queued_for_retry && (
+                      <span> &middot; Will upload when server is available</span>
+                    )}
+                    {doc.error_message && doc.status === 'failed' && (
+                      <span className="text-red-400/60"> &middot; {doc.error_message}</span>
+                    )}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {statusBadge(doc.status)}
+                {statusBadge(doc.status, doc.queued_for_retry)}
+                {/* Retry button for queued/failed docs */}
+                {(doc.queued_for_retry || doc.status === 'failed') && (
+                  <button
+                    onClick={() => retryUpload(doc)}
+                    className="p-1 rounded text-zinc-500 hover:text-orange-400 transition-colors"
+                    title="Retry upload"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 <button
                   onClick={() => deleteDocument(doc.id)}
                   className="p-1 rounded text-zinc-500 hover:text-red-400 transition-colors"

@@ -15,6 +15,8 @@ import {
   KeyRound,
   TestTube,
   Globe,
+  RefreshCw,
+  HelpCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { cn } from '@/lib/utils';
@@ -28,6 +30,8 @@ interface ConnectedIntegration {
   platform: string; // e.g. "stripe", "paypal", "custom", any string
   authType: 'bearer' | 'api_key_header' | 'api_key_query' | 'basic_auth' | 'oauth2';
   credentials: Record<string, string>; // key-value pairs (e.g. api_key, client_id, etc.)
+  testUrl?: string; // Custom test URL for unknown platforms
+  testMethod?: 'GET' | 'POST'; // HTTP method for test
   status: 'active' | 'error' | 'pending';
   testedAt?: string;
   testResult?: 'success' | 'failed';
@@ -113,6 +117,8 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
   const [newPlatform, setNewPlatform] = useState('');
   const [newAuthType, setNewAuthType] = useState<ConnectedIntegration['authType']>('bearer');
   const [newCredentials, setNewCredentials] = useState<Record<string, string>>({});
+  const [newTestUrl, setNewTestUrl] = useState('');
+  const [newTestMethod, setNewTestMethod] = useState<'GET' | 'POST'>('GET');
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [testingId, setTestingId] = useState<string | null>(null);
 
@@ -130,6 +136,8 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
               platform: String(i.integration_type || i.platform || ''),
               authType: (i.auth_type as ConnectedIntegration['authType']) || 'bearer',
               credentials: (i.credentials as Record<string, string>) || {},
+              testUrl: i.test_url ? String(i.test_url) : undefined,
+              testMethod: (i.test_method as 'GET' | 'POST') || undefined,
               status: (i.status as ConnectedIntegration['status']) || 'active',
               testedAt: i.tested_at ? String(i.tested_at) : undefined,
               testResult: i.test_result as 'success' | 'failed' | undefined,
@@ -167,6 +175,8 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
       platform: newPlatform.trim() || newName.trim().toLowerCase().replace(/\s+/g, '_'),
       authType: newAuthType,
       credentials: { ...newCredentials },
+      testUrl: newTestUrl.trim() || undefined,
+      testMethod: newTestUrl.trim() ? newTestMethod : undefined,
       status: 'pending',
     };
 
@@ -179,6 +189,8 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
           integration_type: integration.platform,
           auth_type: integration.authType,
           credentials: integration.credentials,
+          test_url: integration.testUrl,
+          test_method: integration.testMethod,
         }),
       });
 
@@ -206,21 +218,24 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
     setNewPlatform('');
     setNewAuthType('bearer');
     setNewCredentials({});
+    setNewTestUrl('');
+    setNewTestMethod('GET');
     setShowAddForm(false);
   };
 
-  const handleTestConnection = async (integration: ConnectedIntegration) => {
+  const handleTestConnection = useCallback(async (integration: ConnectedIntegration) => {
     setTestingId(integration.id);
 
     try {
-      const res = await fetch('/api/integrations/test', {
+      const res = await fetch('/api/integrations/test-local', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          integration_id: integration.id,
           integration_type: integration.platform,
           auth_type: integration.authType,
           credentials: integration.credentials,
+          test_url: integration.testUrl,
+          test_method: integration.testMethod,
         }),
       });
 
@@ -232,52 +247,30 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
             ? { ...i, testResult: success ? 'success' : 'failed', testedAt: new Date().toISOString(), status: success ? 'active' : 'error' }
             : i
         ));
-        toast[success ? 'success' : 'error'](success ? `${integration.name} connected!` : `Connection failed — check your credentials`);
+        toast[success ? 'success' : 'error'](
+          success
+            ? `${integration.name} connected!`
+            : `Connection failed — ${data.message || 'check your credentials'}`
+        );
       } else {
-        // Backend returned error — try local test for known services
-        const localResult = await localTestConnection(integration);
         setIntegrations((prev) => prev.map((i) =>
           i.id === integration.id
-            ? { ...i, testResult: localResult ? 'success' : 'failed', testedAt: new Date().toISOString(), status: localResult ? 'active' : 'error' }
+            ? { ...i, testResult: 'failed', testedAt: new Date().toISOString(), status: 'error' }
             : i
         ));
-        toast[localResult ? 'success' : 'error'](localResult ? `${integration.name} connected!` : `Connection failed — check your credentials`);
+        toast.error('Connection test failed — server error');
       }
     } catch {
-      // Try local test
-      const localResult = await localTestConnection(integration);
       setIntegrations((prev) => prev.map((i) =>
         i.id === integration.id
-          ? { ...i, testResult: localResult ? 'success' : 'failed', testedAt: new Date().toISOString(), status: localResult ? 'active' : 'error' }
+          ? { ...i, testResult: 'failed', testedAt: new Date().toISOString(), status: 'error' }
           : i
       ));
-      toast[localResult ? 'success' : 'error'](localResult ? `${integration.name} connected!` : `Connection failed — check your credentials`);
+      toast.error('Connection test failed — could not reach server');
     } finally {
       setTestingId(null);
     }
-  };
-
-  // Local test: try a real HTTP request to the service
-  const localTestConnection = async (integration: ConnectedIntegration): Promise<boolean> => {
-    try {
-      const res = await fetch('/api/integrations/test-local', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          integration_type: integration.platform,
-          auth_type: integration.authType,
-          credentials: integration.credentials,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.success !== false;
-      }
-      return false;
-    } catch {
-      return false;
-    }
-  };
+  }, []);
 
   const handleRemove = async (id: string) => {
     try {
@@ -299,7 +292,7 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
         <h2 className="text-2xl font-bold text-white">Connect Your Platforms</h2>
         <p className="text-orange-200/40 text-sm max-w-lg mx-auto">
           Connect any platform you use — Stripe, PayPal, HubSpot, Shopify, or any service with API keys.
-          PARWA works with <strong className="text-orange-200/60">any platform</strong>, not just the ones listed.
+          PARWA works with <strong className="text-orange-200/60">any platform</strong>. Just enter your credentials and we&apos;ll verify them.
         </p>
       </div>
 
@@ -461,6 +454,46 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
                 />
               </div>
             ))}
+          </div>
+
+          {/* Custom Test URL (for platforms not in catalog) */}
+          <div className="space-y-2">
+            <label className="text-xs text-orange-200/40 uppercase tracking-wider font-medium flex items-center gap-1.5">
+              <TestTube className="w-3 h-3" />
+              Test Connection URL <span className="text-zinc-600">(optional)</span>
+            </label>
+            <input
+              value={newTestUrl}
+              onChange={(e) => setNewTestUrl(e.target.value)}
+              placeholder="https://api.example.com/v1/validate — PARWA will test your credentials against this URL"
+              type="url"
+              className="w-full px-3 py-2.5 rounded-lg text-sm bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-zinc-600 focus:border-orange-500/50 focus:outline-none transition-colors"
+            />
+            {newTestUrl.trim() && (
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-[10px] text-orange-200/20">HTTP Method:</span>
+                <div className="flex gap-1.5">
+                  {(['GET', 'POST'] as const).map((method) => (
+                    <button
+                      key={method}
+                      onClick={() => setNewTestMethod(method)}
+                      className={cn(
+                        'px-2.5 py-1 text-[10px] font-medium rounded transition-all',
+                        newTestMethod === method
+                          ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                          : 'text-zinc-500 border border-white/[0.06] hover:text-white'
+                      )}
+                    >
+                      {method}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <p className="text-[10px] text-orange-200/20 flex items-start gap-1">
+              <HelpCircle className="w-3 h-3 shrink-0 mt-0.5" />
+              For known platforms (Stripe, PayPal, etc.), PARWA auto-detects the test endpoint. For custom platforms, provide a URL that returns 200 on valid auth.
+            </p>
           </div>
 
           {/* Add button */}

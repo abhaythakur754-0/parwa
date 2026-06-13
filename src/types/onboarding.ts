@@ -197,42 +197,36 @@ export interface OnboardingStep {
 export const ONBOARDING_STEPS: Omit<OnboardingStep, 'isCompleted' | 'isActive'>[] = [
   {
     id: 1,
-    title: 'Plan',
-    description: 'Choose industry and variant',
-    isOptional: false,
-  },
-  {
-    id: 2,
     title: 'Legal',
     description: 'Accept terms and privacy policy',
     isOptional: false,
   },
   {
-    id: 3,
+    id: 2,
     title: 'Integrations',
-    description: 'Connect your support channels',
+    description: 'Connect your platforms and APIs',
     isOptional: false,
   },
   {
-    id: 4,
+    id: 3,
     title: 'Knowledge',
     description: 'Upload your documentation',
     isOptional: true,
   },
   {
-    id: 5,
+    id: 4,
     title: 'AI Setup',
     description: 'Configure your AI assistant',
     isOptional: false,
   },
   {
-    id: 6,
+    id: 5,
     title: 'Review',
     description: 'Review costs and checkout',
     isOptional: false,
   },
   {
-    id: 7,
+    id: 6,
     title: 'Launch',
     description: 'First victory celebration',
     isOptional: false,

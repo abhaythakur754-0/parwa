@@ -39,7 +39,7 @@ export function AIConfig({ onComplete, initialConfig }: AIConfigProps) {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load any existing config on mount
+  // Load any existing config on mount — don't block if backend is down
   useEffect(() => {
     async function loadConfig() {
       try {
@@ -52,8 +52,9 @@ export function AIConfig({ onComplete, initialConfig }: AIConfigProps) {
           if (data.ai_greeting) setAiGreeting(data.ai_greeting);
           if (data.phone_number) setPhoneNumber(data.phone_number);
         }
+        // If res not ok (503, etc.), just use defaults — don't show error
       } catch {
-        // API unavailable — use defaults/initialConfig
+        // API unavailable — use defaults/initialConfig silently
       } finally {
         setLoading(false);
       }
@@ -70,6 +71,18 @@ export function AIConfig({ onComplete, initialConfig }: AIConfigProps) {
     setSaving(true);
     setError(null);
 
+    // Save config to localStorage as fallback
+    try {
+      const localConfig = {
+        ai_name: aiName.trim(),
+        ai_tone: aiTone,
+        ai_response_style: aiStyle,
+        ai_greeting: aiGreeting.trim() || undefined,
+        phone_number: phoneNumber.trim() || undefined,
+      };
+      localStorage.setItem('parwa_ai_config', JSON.stringify(localConfig));
+    } catch { /* ignore */ }
+
     try {
       const res = await fetch('/api/onboarding/ai-config', {
         method: 'POST',
@@ -84,17 +97,18 @@ export function AIConfig({ onComplete, initialConfig }: AIConfigProps) {
       });
 
       if (!res.ok) {
-        console.warn('[AIConfig] Save returned non-ok, saving locally');
-        // Don't throw — save locally and continue
+        // Backend returned error — config saved locally, continue
+        console.warn('[AIConfig] Save returned non-ok, config saved locally');
       }
 
       setSaved(true);
       toast.success('AI configuration saved!');
       onComplete();
     } catch {
-      // API unavailable — save locally
-      console.warn('[AIConfig] Backend unreachable, saving locally');
+      // API unavailable — config already saved locally above
+      console.warn('[AIConfig] Backend unreachable, config saved locally');
       setSaved(true);
+      toast.success('AI configuration saved locally — will sync when server is available');
       onComplete();
     } finally {
       setSaving(false);

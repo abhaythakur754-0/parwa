@@ -36,6 +36,8 @@ interface VariantData {
   bestFor: string;
   coreLimitation?: string;
   coreCapability?: string;
+  keyAdvantage?: string;
+  smartDecisions?: string;
 }
 
 const industries: IndustryConfig[] = [
@@ -258,7 +260,7 @@ export default function ModelsPage() {
         const parwaIndustryMap: Record<Industry, string> = { ecommerce: 'ecommerce', saas: 'saas', logistics: 'logistics', others: 'other' };
         const parwaVariantMap: Record<VariantId, string> = { starter: 'mini_parwa', growth: 'parwa', high: 'parwa_high' };
 
-        const handleConfirm = () => {
+        const handleConfirm = async () => {
           // Store pricing context in localStorage so onboarding can pick it up
           localStorage.setItem('parwa_pricing_context', JSON.stringify({
             industry: parwaIndustryMap[selectedIndustry],
@@ -267,6 +269,21 @@ export default function ModelsPage() {
             totalMonthly: variant.monthlyPrice,
             timestamp: new Date().toISOString(),
           }));
+
+          // Save industry + variant selection to backend
+          try {
+            await fetch('/api/onboarding/industry-variant', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                industry: parwaIndustryMap[selectedIndustry],
+                variant: parwaVariantMap[selectedVariant],
+              }),
+            });
+          } catch {
+            // Continue even if backend is unreachable — localStorage is the fallback
+          }
+
           router.push('/onboarding?source=pricing');
         };
 
