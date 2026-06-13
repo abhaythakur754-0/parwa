@@ -1,7 +1,7 @@
 """PARWA LangGraph pipeline — The main StateGraph definition.
 
 This is the SKELETON of the entire PARWA system. LangGraph is the traffic cop
-that routes tickets between 25 nodes, 6 agents, and handles conditional branching
+that routes tickets between 30 nodes, 6 agents, and handles conditional branching
 and quality loop-backs. LangGraph ROUTES — it does NOT think.
 
 P1 ADDITIONS:
@@ -9,10 +9,22 @@ P1 ADDITIONS:
 - AGENT_DEBATE node: Advocate vs Skeptic debate after tree of thoughts
 - Both only activate for complex/critical tickets
 
+P2 ADDITIONS:
+- SITUATION_MODEL node: Builds holistic context model after knowledge pipeline
+- POLICY_GUARD node: Enforces policy constraints on reasoning and actions
+- Confidence-gated escalation: Enhanced escalation with confidence signals
+
+P3 ADDITIONS:
+- META_REASONER node: Reasons about the pipeline's own reasoning quality
+- CONVERSATIONAL_REPAIR node: Detects and fixes broken responses
+- Feed-forward signals: Upstream nodes predict downstream needs
+- Closed feedback loop: Feedback adjusts behavior within the same ticket
+
 Pipeline flow:
   INGEST → INTENT_CLASSIFIER → SENTIMENT_ANALYZER
       → (branch) ESCALATION_DECISION / FAQ_MATCHER
       → KB_RETRIEVER → CONTEXT_MANAGER → INTEGRATION_LOOKUP
+      → SITUATION_MODEL → POLICY_GUARD  [P2: context synthesis + policy constraints]
       → REASONING_ENGINE
       → (simple) ACTION_PLANNER
       → (complex) REVERSE_THINKER → RED_TEAM → TREE_OF_THOUGHTS → AGENT_DEBATE
@@ -20,7 +32,8 @@ Pipeline flow:
       → ACTION_EXECUTOR → ACTION_VERIFIER
       → (parallel) PROACTIVE_CHECKER / PREDICTION_ENGINE / FEEDBACK_LOOP
       → PII_COMPLIANCE_GUARD → AUDIT_LOGGER → QUALITY_SCORER
-      → (if score >= 80) RESPONSE_FORMATTER → END
+      → META_REASONER  [P3: evaluates reasoning structure]
+      → (if score >= 80) RESPONSE_FORMATTER → CONVERSATIONAL_REPAIR → END  [P3: last defense]
       → (if score < 80) loop back to REASONING_ENGINE
 """
 
@@ -46,6 +59,7 @@ _APPEND_KEYS = frozenset({
     "pipeline_errors",     # errors accumulate across nodes
     "active_frameworks",   # frameworks activated accumulate (nodes return ONLY new items)
     "evidence_chain",      # P0: evidence entries accumulate across nodes (APPEND semantics)
+    "feed_forward_signals", # P3: feed-forward signals accumulate across nodes
 })
 # NOTE: reasoning_chain uses REPLACE semantics — each reasoning engine run
 # produces a complete chain that replaces the previous one. This avoids
@@ -82,6 +96,8 @@ from parwa.nodes.faq_matcher import faq_matcher
 from parwa.nodes.kb_retriever import kb_retriever
 from parwa.nodes.context_manager import context_manager
 from parwa.nodes.integration_lookup import integration_lookup
+from parwa.nodes.situation_model import situation_model
+from parwa.nodes.policy_guard import policy_guard
 from parwa.nodes.reasoning_engine import reasoning_engine
 from parwa.nodes.reverse_thinker import reverse_thinker
 from parwa.nodes.red_team import red_team
@@ -97,7 +113,9 @@ from parwa.nodes.feedback_loop import feedback_loop
 from parwa.nodes.pii_compliance_guard import pii_compliance_guard
 from parwa.nodes.audit_logger import audit_logger
 from parwa.nodes.quality_scorer import quality_scorer
+from parwa.nodes.meta_reasoner import meta_reasoner
 from parwa.nodes.response_formatter import response_formatter
+from parwa.nodes.conversational_repair import conversational_repair
 
 
 # ─── Conditional Edge Functions ──────────────────────────────────────────────────
@@ -163,6 +181,8 @@ def _after_faq_matcher(state: dict[str, Any]) -> str:
 
     High confidence FAQ match → skip to reasoning (FAQ has the context)
     No match → search KB
+
+    P2: Both paths now go through situation_model before reasoning.
     """
     faq_match = state.get("faq_match")
     if faq_match and faq_match.get("relevance_score", 0) > 0.8:
@@ -232,9 +252,9 @@ def _after_action_verifier(state: dict[str, Any]) -> str:
 def _after_quality_scorer(state: dict[str, Any]) -> str:
     """Route after quality scoring.
 
-    Score >= 80 → format the response
-    Score < 80 and can loop → back to reasoning engine
-    Score < 80 and max loops → format anyway (best effort)
+    P3: Now routes to meta_reasoner instead of directly to response formatter.
+    This function is kept for backwards compatibility but is no longer used
+    as a conditional edge (quality_scorer now always goes to meta_reasoner).
     """
     quality_score = state.get("quality_score", 0.0)
     should_loop = state.get("should_loop_back", False)
@@ -246,6 +266,63 @@ def _after_quality_scorer(state: dict[str, Any]) -> str:
         logger.info("route: quality→reasoning (score=%.1f, loop_back)", quality_score)
         return "reasoning_engine"
     logger.warning("route: quality→response_formatter (score=%.1f, max_loops reached)", quality_score)
+    return "response_formatter"
+
+
+def _after_meta_reasoner(state: dict[str, Any]) -> str:
+    """Route after meta-reasoning.
+
+    P3: Meta-reasoner evaluates the pipeline structure and may adjust
+    the quality score. It then decides whether to proceed to response
+    formatting or loop back for re-reasoning.
+
+    The meta-reasoner can:
+    - Adjust quality score based on structural issues
+    - Force a loop-back if it finds serious problems
+    - Override quality score if it finds the score is miscalibrated
+    """
+    meta = state.get("meta_reasoning", {})
+    if not isinstance(meta, dict):
+        meta = {}
+
+    quality_score = state.get("quality_score", 0.0)
+    should_loop = state.get("should_loop_back", False)
+    verdict = meta.get("verdict", "acceptable")
+    adjustment = meta.get("quality_adjustment", 0)
+
+    # Apply meta-reasoning adjustment to effective score
+    effective_score = max(0.0, quality_score + adjustment)
+
+    # If meta-reasoner verdict is "poor", always loop back (if loops remain)
+    loop_count = state.get("loop_count", 0)
+    max_loops = state.get("max_loops", 2)
+
+    if verdict == "poor" and loop_count < max_loops:
+        logger.info(
+            "route: meta→reasoning (verdict=%s, adjustment=%+.0f, score=%.1f→%.1f)",
+            verdict, adjustment, quality_score, effective_score,
+        )
+        return "reasoning_engine"
+
+    if effective_score >= 80:
+        logger.info(
+            "route: meta→response_formatter (score=%.1f→%.1f, verdict=%s)",
+            quality_score, effective_score, verdict,
+        )
+        return "response_formatter"
+
+    if should_loop and loop_count < max_loops:
+        logger.info(
+            "route: meta→reasoning (score=%.1f→%.1f, loop_back, verdict=%s)",
+            quality_score, effective_score, verdict,
+        )
+        return "reasoning_engine"
+
+    # Max loops reached or score is borderline — proceed with best effort
+    logger.warning(
+        "route: meta→response_formatter (score=%.1f→%.1f, verdict=%s, best effort)",
+        quality_score, effective_score, verdict,
+    )
     return "response_formatter"
 
 
@@ -295,6 +372,10 @@ def build_parwa_graph(
     graph.add_node("context_manager", context_manager)
     graph.add_node("integration_lookup", integration_lookup)
 
+    # P2: Context synthesis + policy enforcement
+    graph.add_node("situation_model", situation_model)  # P2: Holistic context synthesis
+    graph.add_node("policy_guard", policy_guard)  # P2: Policy constraint enforcement
+
     # Reasoning Agent nodes
     graph.add_node("reasoning_engine", reasoning_engine)
     graph.add_node("reverse_thinker", reverse_thinker)
@@ -317,7 +398,9 @@ def build_parwa_graph(
     graph.add_node("pii_compliance_guard", pii_compliance_guard)
     graph.add_node("audit_logger", audit_logger)
     graph.add_node("quality_scorer", quality_scorer)
+    graph.add_node("meta_reasoner", meta_reasoner)  # P3: Meta-reasoning about pipeline quality
     graph.add_node("response_formatter", response_formatter)
+    graph.add_node("conversational_repair", conversational_repair)  # P3: Last line of defense
 
     # Loop-back handler node
     graph.add_node("loop_back_handler", _handle_loop_back)
@@ -352,19 +435,24 @@ def build_parwa_graph(
     )
 
     # Conditional: After FAQ → reasoning or KB
+    # P2: High-relevance FAQ match goes through situation_model before reasoning
+    # (situation_model needs to run regardless of FAQ match quality)
     graph.add_conditional_edges(
         "faq_matcher",
         _after_faq_matcher,
         {
-            "reasoning_engine": "reasoning_engine",
+            "reasoning_engine": "situation_model",  # P2: route through situation model
             "kb_retriever": "kb_retriever",
         },
     )
 
-    # Knowledge pipeline: KB → CONTEXT → INTEGRATION → REASONING
+    # Knowledge pipeline: KB → CONTEXT → INTEGRATION → SITUATION_MODEL → POLICY_GUARD → REASONING
+    # P2: Situation Model and Policy Guard sit between knowledge and reasoning
     graph.add_edge("kb_retriever", "context_manager")
     graph.add_edge("context_manager", "integration_lookup")
-    graph.add_edge("integration_lookup", "reasoning_engine")
+    graph.add_edge("integration_lookup", "situation_model")  # P2: synthesize context first
+    graph.add_edge("situation_model", "policy_guard")  # P2: then check policies
+    graph.add_edge("policy_guard", "reasoning_engine")  # P2: then reason with full context
 
     # Conditional: After REASONING → simple (action) or complex (advanced reasoning)
     graph.add_conditional_edges(
@@ -412,22 +500,26 @@ def build_parwa_graph(
     graph.add_edge("prediction_engine", "feedback_loop")
     graph.add_edge("feedback_loop", "pii_compliance_guard")
 
-    # Compliance pipeline: PII → AUDIT → QUALITY
+    # Compliance pipeline: PII → AUDIT → QUALITY → META_REASONER
     graph.add_edge("pii_compliance_guard", "audit_logger")
     graph.add_edge("audit_logger", "quality_scorer")
+    graph.add_edge("quality_scorer", "meta_reasoner")  # P3: meta-reason after quality scoring
 
-    # Conditional: After QUALITY → format or loop back
+    # Conditional: After META_REASONER → format or loop back
+    # P3: Meta-reasoner may adjust quality score before routing
     graph.add_conditional_edges(
-        "quality_scorer",
-        _after_quality_scorer,
+        "meta_reasoner",
+        _after_meta_reasoner,
         {
             "response_formatter": "response_formatter",
             "reasoning_engine": "loop_back_handler",
         },
     )
 
-    # Response formatter → END
-    graph.add_edge("response_formatter", END)
+    # Response pipeline: FORMATTER → CONVERSATIONAL_REPAIR → END
+    # P3: Last line of defense catches broken responses
+    graph.add_edge("response_formatter", "conversational_repair")
+    graph.add_edge("conversational_repair", END)
 
     # ─── Compile with optional features ──────────────────────────────────────
     checkpointer = MemorySaver() if use_checkpointer else None
@@ -443,7 +535,7 @@ def build_parwa_graph(
     )
 
     logger.info(
-        "build_parwa_graph: compiled graph with 25 nodes (22 original + 3 P1: red_team, agent_debate, loop_back_handler), checkpointer=%s, interrupt=%s",
+        "build_parwa_graph: compiled graph with 30 nodes (22 original + 3 P1: red_team, agent_debate, loop_back_handler + 2 P2: situation_model, policy_guard + 3 P3: meta_reasoner, conversational_repair, feed_forward), checkpointer=%s, interrupt=%s",
         use_checkpointer, interrupt_before_action,
     )
 

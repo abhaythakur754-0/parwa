@@ -176,6 +176,22 @@ class TicketState(BaseModel):
     # Agent Debate: Advocate vs Skeptic debate results
     debate_result: dict[str, Any] = Field(default_factory=dict)
 
+    # ─── P2: Situation Model and Policy Guard outputs ─────────────────────
+    # Situation Model: Holistic context model (who, what, why, constraints, evidence, risk)
+    situation_model: dict[str, Any] = Field(default_factory=dict)
+    # Policy Guard: Policy compliance report with violations and constraints
+    policy_report: dict[str, Any] = Field(default_factory=dict)
+    # Confidence-gated escalation signals
+    confidence_gate: dict[str, Any] = Field(default_factory=dict)
+
+    # ─── P3: Meta-Reasoning and Repair outputs ───────────────────────────
+    # Meta-Reasoning: Pipeline structural analysis and quality adjustment
+    meta_reasoning: dict[str, Any] = Field(default_factory=dict)
+    # Conversational Repair: Response repair report
+    repair_report: dict[str, Any] = Field(default_factory=dict)
+    # Feed-forward signals: Proactive hints from upstream to downstream nodes
+    feed_forward_signals: list[dict[str, Any]] = Field(default_factory=list)
+
     # ─── P0: Cross-node Evidence Chain ───────────────────────────
     # Structured evidence that flows between ALL nodes. Each node reads
     # from this chain to understand what upstream nodes concluded and WHY.

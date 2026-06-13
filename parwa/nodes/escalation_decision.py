@@ -5,6 +5,12 @@ Escalation is too important to be buried inside Action Planner.
 
 Phase 5: Now uses FrameworkBrain with UoT for uncertain escalation cases.
 Falls back to rule-based on FrameworkBrain failure.
+
+P2: CONFIDENCE-GATED ESCALATION — Now uses a confidence gate that considers
+the combined confidence of ALL upstream signals (intent, sentiment, situation
+model, evidence chain) to make a more nuanced escalation decision. Instead
+of just rule-based yes/no, it computes an escalation confidence score and
+gates the decision on that.
 """
 
 from __future__ import annotations
@@ -126,7 +132,7 @@ async def _should_escalate_llm(
     """
     system_instructions = (
         "Should this customer ticket be escalated to a human agent?\n\n"
-        f"Context — Sentiment: {sentiment}, Complexity: {complexity}, Intent: {intent}\n\n"
+        "Context — Sentiment: {sentiment}, Complexity: {complexity}, Intent: {intent}\n\n"
         "Reply with ONLY: true|reason or false|\n\n"
         "Escalation reasons:\n"
         "- legal_threat: Customer mentions lawyer, attorney, lawsuit, legal action, court, fraud, sue\n"
@@ -159,7 +165,7 @@ async def _should_escalate_llm(
 async def _should_escalate_with_brain(state: dict[str, Any]) -> tuple[bool, str, list[str]]:
     """Determine escalation using FrameworkBrain (Phase 5).
 
-    Uses UoT for uncertain cases, CoT for straightforward ones.
+    Uses UoT for uncertain cases, CoT for others.
     Returns (should_escalate, reason, frameworks_used).
     Falls back to rule-based on any failure.
     """
@@ -222,15 +228,109 @@ async def _should_escalate_with_brain(state: dict[str, Any]) -> tuple[bool, str,
         return should_escalate, reason, ["chain_of_thought"]
 
 
-@safe_node("ESCALATION_DECISION", fallback={"should_escalate": False, "escalation_reason": "node_error"})
+def _compute_escalation_confidence_gate(state: dict[str, Any]) -> dict[str, Any]:
+    """P2: Compute a confidence-gated escalation score.
+
+    Instead of binary yes/no from rules, this computes a continuous
+    escalation confidence based on multiple signals:
+    - Intent confidence (how sure are we about what they want?)
+    - Evidence strength (how much evidence supports our reasoning?)
+    - Situation risk (how risky is this situation?)
+    - Feed-forward signals (did upstream nodes flag escalation risk?)
+
+    If the combined confidence exceeds the threshold, we escalate
+    even if the rules didn't trigger.
+    """
+    intent_confidence = state.get("intent_confidence", 0.5)
+    sentiment = state.get("sentiment", "neutral")
+    complexity = state.get("complexity", "simple")
+
+    # Start with base escalation confidence
+    escalation_conf = 0.0
+    factors = []
+
+    # Factor 1: Low intent confidence → escalate
+    if isinstance(intent_confidence, (int, float)) and intent_confidence < 0.5:
+        penalty = (0.5 - intent_confidence) * 0.4  # max 0.2
+        escalation_conf += penalty
+        factors.append(f"low_intent_confidence ({intent_confidence:.2f})")
+
+    # Factor 2: Situation model risks
+    situation = state.get("situation_model", {})
+    if isinstance(situation, dict):
+        risks = situation.get("risks", [])
+        high_risks = [r for r in risks if isinstance(r, dict) and r.get("severity") == "high"]
+        if high_risks:
+            escalation_conf += 0.25
+            factors.append(f"situation_high_risk ({len(high_risks)})")
+        elif len(risks) >= 2:
+            escalation_conf += 0.10
+            factors.append(f"situation_multiple_risks ({len(risks)})")
+
+    # Factor 3: Feed-forward escalation signals
+    ff_signals = state.get("feed_forward_signals", [])
+    if isinstance(ff_signals, list):
+        for signal in ff_signals:
+            if isinstance(signal, dict) and signal.get("signal_type") == "escalation_risk":
+                escalation_conf += 0.15
+                factors.append("feed_forward_escalation_signal")
+                break
+
+    # Factor 4: Evidence chain contradictions
+    evidence_chain = state.get("evidence_chain", [])
+    if isinstance(evidence_chain, list) and len(evidence_chain) > 1:
+        claims = []
+        for entry in evidence_chain:
+            if isinstance(entry, dict):
+                claims.append(entry.get("claim", "").lower())
+
+        has_positive = any(any(s in c for s in ["passed", "eligible", "approved"]) for c in claims)
+        has_negative = any(any(s in c for s in ["failed", "denied", "vulnerability"]) for c in claims)
+        if has_positive and has_negative:
+            escalation_conf += 0.20
+            factors.append("contradictory_evidence")
+
+    # Determine if confidence gate triggers escalation
+    # Threshold: 0.3 (significant combined signal needed)
+    threshold = 0.3
+    should_escalate = escalation_conf >= threshold
+
+    # Determine reason
+    gate_reason = "confidence_gate_combined"
+    if "low_intent_confidence" in str(factors):
+        gate_reason = "confidence_gate_low_intent"
+    elif "situation_high_risk" in str(factors):
+        gate_reason = "confidence_gate_high_risk"
+    elif "contradictory_evidence" in str(factors):
+        gate_reason = "confidence_gate_contradictions"
+    elif "feed_forward_escalation_signal" in str(factors):
+        gate_reason = "confidence_gate_upstream_signal"
+
+    return {
+        "should_escalate": should_escalate,
+        "confidence": round(escalation_conf, 3),
+        "threshold": threshold,
+        "factors": factors,
+        "reason": gate_reason,
+    }
+
+
+@safe_node("ESCALATION_DECISION", fallback={"should_escalate": False, "escalation_reason": "node_error", "confidence_gate": {}, "active_frameworks": []})
 async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
     """Decide whether to escalate this ticket to a human (async).
 
     Phase 5: Uses FrameworkBrain with UoT for uncertain cases.
     Falls back to rule-based + LLM on FrameworkBrain failure.
 
-    Reads: raw_message, sentiment, sentiment_urgency, complexity, intent, intent_confidence
-    Writes: should_escalate, escalation_reason
+    P2: CONFIDENCE-GATED ESCALATION — Now uses a confidence gate that
+    considers the combined confidence of ALL upstream signals (intent,
+    sentiment, situation model, evidence chain) to make a more nuanced
+    escalation decision. Instead of just rule-based yes/no, it computes
+    an escalation confidence score and gates the decision on that.
+
+    Reads: raw_message, sentiment, sentiment_urgency, complexity, intent,
+           intent_confidence, situation_model, evidence_chain, feed_forward_signals
+    Writes: should_escalate, escalation_reason, confidence_gate, active_frameworks (append)
     """
     raw_message = state.get("raw_message", "")
     sentiment = state.get("sentiment", "neutral")
@@ -251,11 +351,22 @@ async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
         raw_message=raw_message,
     )
 
-    # If rules say no and complexity is high, try FrameworkBrain + LLM for nuance
+    # P2: If rules say no, try confidence-gated decision
+    confidence_gate = _compute_escalation_confidence_gate(state)
+
+    # If confidence gate says escalate but rules didn't, escalate
+    if not should_escalate and confidence_gate.get("should_escalate", False):
+        should_escalate = True
+        reason = confidence_gate.get("reason", "confidence_gate_triggered")
+        logger.info(
+            "escalation: confidence gate triggered (gate_confidence=%.2f, reason=%s)",
+            confidence_gate.get("confidence", 0), reason,
+        )
+
+    # If rules say no and confidence gate says no, try brain + LLM for nuance
+    frameworks = []
     if not should_escalate:
         _, _, frameworks = await _should_escalate_with_brain(state)
-    else:
-        frameworks = []
 
     # If brain says no but complexity is high, try LLM for nuance
     if not should_escalate and complexity in (TicketComplexity.COMPLEX, TicketComplexity.CRITICAL, "complex", "critical") and not MOCK_MODE:
@@ -285,5 +396,6 @@ async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
     return {
         "should_escalate": should_escalate,
         "escalation_reason": reason,
+        "confidence_gate": confidence_gate,
         "active_frameworks": new_frameworks,
     }

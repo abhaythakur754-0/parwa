@@ -177,6 +177,23 @@ _NODE_TECHNIQUE_PRIORITY: dict[str, list[str]] = {
     "PII_COMPLIANCE_GUARD": [
         "chain_of_thought",   # Step-by-step PII detection
     ],
+    "SITUATION_MODEL": [
+        "chain_of_thought",   # Structured context analysis
+        "dynamic_context",    # Context-aware situation building
+        "uncertainty_of_thought",  # Identify what we DON'T know
+    ],
+    "POLICY_GUARD": [
+        "chain_of_thought",   # Structured policy analysis
+        "zero_shot_validator",  # Quick policy compliance check
+    ],
+    "META_REASONER": [
+        "reflexion",          # Self-critique of reasoning structure
+        "self_consistency",   # Check pipeline coherence
+    ],
+    "CONVERSATIONAL_REPAIR": [
+        "crp",                # Constrained response repair
+        "chain_of_thought",   # Step-by-step repair reasoning
+    ],
 }
 
 # ─── Technique category groups (for diversity enforcement) ────────────────────
