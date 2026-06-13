@@ -1,0 +1,29 @@
+{
+  "framework": "nextjs",
+  "functions": {
+    "src/app/api/auth/*/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/auth/**/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/onboarding-jarvis/*/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/onboarding/*/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/ai/**/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/v1/**/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/billing/**/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/approvals/**/route.ts": {
+      "maxDuration": 30
+    }
+  }
+}

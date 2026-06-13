@@ -1,0 +1,22 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "I sincerely apologize for the delay in receiving your laptop order. I understand how frustrating it must be to wait for two weeks without your purchase arriving.\n\nTo help resolve this situation, could you please provide me with your order number? This will allow me to look into the status of your shipment and determine what might be causing the delay.\n\nOnce I have this information, I can:\n- Check the current status of your order\n- Track the shipment's location\n- Expedite the delivery process if possible\n- Arrange for a replacement if needed if the laptop is lost\n\nYour satisfaction is important to us, and I'll work to get this resolved for you as quickly as possible.",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1778084109,
+  "id": "2026050700150775926b63c3cf45d7",
+  "model": "glm-4-plus",
+  "object": "chat.completion",
+  "request_id": "2026050700150775926b63c3cf45d7",
+  "usage": {
+    "completion_tokens": 136,
+    "prompt_tokens": 45,
+    "total_tokens": 181
+  }
+}
