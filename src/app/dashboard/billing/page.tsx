@@ -69,17 +69,6 @@ const PLANS: PlanTier[] = [
   },
 ];
 
-// ── Mock Data ────────────────────────────────────────────────────────
-
-const MOCK_INVOICES: Invoice[] = [
-  { id: 'INV-2026-001', date: '2026-02-28', description: 'PARWA Pro — March 2026', amount: 2499, status: 'paid' },
-  { id: 'INV-2026-002', date: '2026-01-28', description: 'PARWA Pro — February 2026', amount: 2499, status: 'paid' },
-  { id: 'INV-2025-012', date: '2025-12-28', description: 'PARWA Pro — January 2026', amount: 2499, status: 'paid' },
-  { id: 'INV-2025-011', date: '2025-11-28', description: 'PARWA Pro — December 2025', amount: 2499, status: 'paid' },
-  { id: 'INV-2025-010', date: '2025-10-28', description: 'PARWA Pro — November 2025', amount: 2499, status: 'pending' },
-  { id: 'INV-2025-009', date: '2025-09-28', description: 'PARWA Pro — October 2025', amount: 2499, status: 'failed' },
-];
-
 // ── Icons ────────────────────────────────────────────────────────────
 
 const CreditCardIcon = ({ className = 'w-6 h-6' }: { className?: string }) => (
@@ -238,7 +227,7 @@ export default function BillingPage() {
   const baseCost = activePrice;
   const overageTotal = overageCost;
   const totalThisMonth = baseCost + overageTotal;
-  const totalSpentThisYear = MOCK_INVOICES.reduce((sum, inv) => sum + inv.amount, 0);
+  const totalSpentThisYear = 0;
 
   // Next billing date (demo: 15 days from now)
   const nextBillingDate = new Date();
@@ -626,7 +615,7 @@ export default function BillingPage() {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_INVOICES.map((invoice) => (
+                {[].map((invoice) => (
                   <tr key={invoice.id} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
                     <td className="px-6 py-3 text-zinc-300 font-mono">{invoice.id}</td>
                     <td className="px-4 py-3 text-zinc-400">{formatDate(invoice.date)}</td>

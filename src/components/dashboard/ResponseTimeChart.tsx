@@ -21,17 +21,6 @@ interface ResponseTimeChartProps {
   className?: string;
 }
 
-/** Default sample buckets for when API returns zeros. */
-const SAMPLE_BUCKETS: ResponseTimeBucket[] = [
-  { bucket: '0-15m', count: 45, label: '<15m' },
-  { bucket: '15-30m', count: 32, label: '15-30m' },
-  { bucket: '30m-1h', count: 18, label: '30m-1h' },
-  { bucket: '1-2h', count: 10, label: '1-2h' },
-  { bucket: '2-4h', count: 6, label: '2-4h' },
-  { bucket: '4-8h', count: 3, label: '4-8h' },
-  { bucket: '8h+', count: 1, label: '8h+' },
-];
-
 /** Color each bar based on response time urgency. */
 function getBarColor(index: number, total: number): string {
   // Gradient from green (fast) through amber to red (slow)
@@ -105,11 +94,9 @@ export default function ResponseTimeChart({
     };
   }, [rangeKey, dateRange]);
 
-  // Use real data if available and non-zero, otherwise show sample structure
+  // Use real data if available, otherwise show empty chart
   const chartData = React.useMemo(() => {
-    const buckets = distData?.buckets ?? SAMPLE_BUCKETS;
-    const hasRealData = buckets.some((b) => b.count > 0);
-    return hasRealData ? buckets : SAMPLE_BUCKETS;
+    return distData?.buckets ?? [];
   }, [distData]);
 
   const avgResp = distData?.avg_response_minutes ?? 0;
@@ -239,9 +226,9 @@ export default function ResponseTimeChart({
             </div>
           </div>
 
-          {!distData?.buckets?.some((b) => b.count > 0) && (
-            <p className="text-[10px] text-zinc-700 text-center mt-3">
-              Sample data shown — live distribution available after backend integration (Day 8)
+          {chartData.length === 0 && !isLoading && (
+            <p className="text-xs text-zinc-600 text-center mt-3">
+              No response time data yet — data will appear once tickets are processed.
             </p>
           )}
         </>

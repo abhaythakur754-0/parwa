@@ -257,10 +257,7 @@ export default function SettingsPage() {
   const [mfaSetupSaving, setMfaSetupSaving] = useState(false);
 
   // ── API Keys State ──────────────────────────────────────────────────
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([
-    { id: '1', name: 'Production Key', key: 'pk_****a7f3', created: '2024-12-01' },
-    { id: '2', name: 'Staging Key', key: 'pk_****b2e1', created: '2025-01-15' },
-  ]);
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [newKeyName, setNewKeyName] = useState('');
   const [showCreateKey, setShowCreateKey] = useState(false);
   const [creatingKey, setCreatingKey] = useState(false);
@@ -647,32 +644,17 @@ export default function SettingsPage() {
           created: new Date().toISOString().split('T')[0],
         };
       } else {
-        // Fallback: create mock key
-        const suffix = Math.random().toString(16).slice(2, 6);
-        newKey = {
-          id: String(Date.now()),
-          name: newKeyName.trim(),
-          key: `pk_****${suffix}`,
-          created: new Date().toISOString().split('T')[0],
-        };
+        // Backend returned unexpected format — show error
+        toast.error('Failed to create API key. Please try again.');
+        return;
       }
       setApiKeys((prev) => [...prev, newKey]);
       setNewKeyName('');
       setShowCreateKey(false);
       toast.success('API key created');
     } catch {
-      // Network error: still create locally
-      const suffix = Math.random().toString(16).slice(2, 6);
-      const newKey: ApiKey = {
-        id: String(Date.now()),
-        name: newKeyName.trim(),
-        key: `pk_****${suffix}`,
-        created: new Date().toISOString().split('T')[0],
-      };
-      setApiKeys((prev) => [...prev, newKey]);
-      setNewKeyName('');
-      setShowCreateKey(false);
-      toast.success('API key created (offline)');
+      // Network error — show error instead of creating fake key
+      toast.error('Failed to create API key. Please check your connection and try again.');
     } finally {
       setCreatingKey(false);
     }

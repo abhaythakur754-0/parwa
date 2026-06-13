@@ -58,7 +58,7 @@ const AgentIcon = (
   </svg>
 );
 
-// ── LLM Tier Types & Mock Data ─────────────────────────────────────
+// ── LLM Tier Types ─────────────────────────────────────────────
 
 interface LLMTier {
   name: string;
@@ -76,53 +76,53 @@ interface LLMTier {
   quota: number;
 }
 
+/** Returns tier structure with zeroed metrics — no fake data. */
 function getLLMTiers(): LLMTier[] {
-  const HUMAN_COST = 12.5; // $20/hr * 37.5min avg
   return [
     {
       name: 'Light LLM',
       tier: 'light',
-      model: 'Gemini Flash',
+      model: '—',
       description: 'For simple queries that follow known patterns',
       tasks: ['FAQ lookups', 'Order status checks', 'Password resets', 'Account info'],
-      costPerTicket: 0.002,
-      humanCostPerTicket: HUMAN_COST,
-      savingsPerTicket: HUMAN_COST - 0.002,
-      tokensPerQuery: 500,
-      avgResponseTime: '<2s',
-      ticketsProcessed: 680,
-      accuracy: 95.2,
-      quota: 3000,
+      costPerTicket: 0,
+      humanCostPerTicket: 0,
+      savingsPerTicket: 0,
+      tokensPerQuery: 0,
+      avgResponseTime: '—',
+      ticketsProcessed: 0,
+      accuracy: 0,
+      quota: 0,
     },
     {
       name: 'Medium LLM',
       tier: 'medium',
-      model: 'Gemini Pro',
+      model: '—',
       description: 'For complex queries requiring reasoning',
       tasks: ['Troubleshooting', 'Policy decisions', 'Refund processing', 'Multi-step issues'],
-      costPerTicket: 0.015,
-      humanCostPerTicket: HUMAN_COST,
-      savingsPerTicket: HUMAN_COST - 0.015,
-      tokensPerQuery: 2000,
-      avgResponseTime: '~5s',
-      ticketsProcessed: 342,
-      accuracy: 89.7,
-      quota: 1500,
+      costPerTicket: 0,
+      humanCostPerTicket: 0,
+      savingsPerTicket: 0,
+      tokensPerQuery: 0,
+      avgResponseTime: '—',
+      ticketsProcessed: 0,
+      accuracy: 0,
+      quota: 0,
     },
     {
       name: 'Heavy LLM',
       tier: 'heavy',
-      model: 'Claude 3.5',
+      model: '—',
       description: 'For critical & VIP queries requiring deep analysis',
       tasks: ['Churn prevention', 'Fraud analysis', 'Escalations', 'VIP support'],
-      costPerTicket: 0.05,
-      humanCostPerTicket: HUMAN_COST,
-      savingsPerTicket: HUMAN_COST - 0.05,
-      tokensPerQuery: 5000,
-      avgResponseTime: '~8s',
-      ticketsProcessed: 48,
-      accuracy: 93.1,
-      quota: 500,
+      costPerTicket: 0,
+      humanCostPerTicket: 0,
+      savingsPerTicket: 0,
+      tokensPerQuery: 0,
+      avgResponseTime: '—',
+      ticketsProcessed: 0,
+      accuracy: 0,
+      quota: 0,
     },
   ];
 }

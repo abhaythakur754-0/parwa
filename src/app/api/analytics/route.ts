@@ -48,44 +48,10 @@ export async function GET(request: NextRequest) {
     const data = await backendRes.json();
     return NextResponse.json(data, { status: backendRes.status });
   } catch (err) {
-    // Backend unavailable — fall through to mock
+    // Backend unavailable — return 503 so the UI shows empty/error state
+    return NextResponse.json(
+      { status: "error", message: "Analytics backend unavailable. Please try again later." },
+      { status: 503 }
+    );
   }
-
-  // Mock fallback (zeros — no fake data)
-  const mockData = {
-    summary: {
-      total_tickets: 0,
-      open: 0,
-      in_progress: 0,
-      resolved: 0,
-      closed: 0,
-      awaiting_client: 0,
-      awaiting_human: 0,
-      critical: 0,
-      high: 0,
-      medium: 0,
-      low: 0,
-      resolution_rate: 0,
-      avg_resolution_time_hours: 0,
-      avg_first_response_time_hours: 0,
-    },
-    sla: {
-      total_tickets_with_sla: 0,
-      breached_count: 0,
-      approaching_count: 0,
-      compliant_count: 0,
-      compliance_rate: 100,
-      avg_first_response_minutes: 0,
-      avg_resolution_minutes: 0,
-    },
-    by_category: [],
-    trend: [],
-    date_range: {
-      start_date: new Date(Date.now() - 29 * 86400000).toISOString().split('T')[0],
-      end_date: new Date().toISOString().split('T')[0],
-    },
-    _mock: true,
-  };
-
-  return NextResponse.json(mockData);
 }

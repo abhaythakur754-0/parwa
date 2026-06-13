@@ -58,54 +58,6 @@ interface KnowledgeDocument {
   chunks?: number;
 }
 
-// ── Mock Data ────────────────────────────────────────────────────────────
-
-const MOCK_DOCUMENTS: KnowledgeDocument[] = [
-  {
-    id: 'doc-1',
-    name: 'Product FAQ.pdf',
-    type: 'pdf',
-    size: 2516582, // 2.4MB
-    status: 'ready',
-    uploadedAt: '2025-12-28T10:30:00Z',
-    chunks: 47,
-  },
-  {
-    id: 'doc-2',
-    name: 'Shipping Policy.docx',
-    type: 'docx',
-    size: 159744, // 156KB
-    status: 'ready',
-    uploadedAt: '2025-12-27T14:15:00Z',
-    chunks: 12,
-  },
-  {
-    id: 'doc-3',
-    name: 'Return Policy.pdf',
-    type: 'pdf',
-    size: 911360, // 890KB
-    status: 'ready',
-    uploadedAt: '2025-12-26T09:45:00Z',
-    chunks: 23,
-  },
-  {
-    id: 'doc-4',
-    name: 'Technical Specs.csv',
-    type: 'csv',
-    size: 1258291, // 1.2MB
-    status: 'processing',
-    uploadedAt: '2025-12-30T08:00:00Z',
-  },
-  {
-    id: 'doc-5',
-    name: 'Brand Guidelines.pdf',
-    type: 'pdf',
-    size: 3250585, // 3.1MB
-    status: 'indexing',
-    uploadedAt: '2025-12-30T07:30:00Z',
-  },
-];
-
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 const ACCEPTED_TYPES = ['.pdf', '.txt', '.docx', '.csv', '.md'];
@@ -341,9 +293,9 @@ export default function KnowledgePage() {
           );
         }
       } catch {
-        // API not available — use mock data
+        // API not available — show empty state
         if (!cancelled) {
-          setDocuments(MOCK_DOCUMENTS);
+          setDocuments([]);
         }
       } finally {
         if (!cancelled) setIsLoading(false);

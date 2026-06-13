@@ -76,20 +76,20 @@ const API_BASE = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_A
 // ── Store ───────────────────────────────────────────────────────────
 
 export const useBillingStore = create<BillingState>((set, get) => ({
-  currentTier: 'mini',
-  currentPrice: 999,
+  currentTier: null,
+  currentPrice: 0,
   renewalDate: null,
   invoices: [],
   paymentMethods: [],
   usage: {
     ticketsUsed: 0,
-    ticketsLimit: 1000,
+    ticketsLimit: 0,
     messagesUsed: 0,
-    messagesLimit: 10000,
+    messagesLimit: 0,
     storageUsed: 0,
-    storageLimit: 500,
+    storageLimit: 0,
     apiCallsUsed: 0,
-    apiCallsLimit: 5000,
+    apiCallsLimit: 0,
   },
   isLoading: false,
   error: null,
@@ -106,8 +106,8 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         // Default to mini on 404/5xx
         if (res.status >= 400) {
           set({
-            currentTier: 'mini',
-            currentPrice: 999,
+            currentTier: null,
+            currentPrice: 0,
             isLoading: false,
           });
           return;
@@ -229,8 +229,8 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       }
 
       set({
-        currentTier: 'mini',
-        currentPrice: 999,
+        currentTier: null,
+        currentPrice: 0,
         isLoading: false,
         renewalDate: null,
       });

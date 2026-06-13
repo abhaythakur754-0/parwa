@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
   useTicketStore,
-  seedIfEmpty,
   CATEGORY_LABELS,
   PRIORITY_LABELS,
   STATUS_LABELS,
@@ -1025,15 +1024,10 @@ export default function TicketsPage() {
   const [filterVariant, setFilterVariant] = useState<TicketVariant | 'all'>('all');
   const [initialized, setInitialized] = useState(false);
 
-  // Initialize store and seed
+  // Initialize store
   useEffect(() => {
     const initialize = () => {
       init();
-      const wasSeeded = seedIfEmpty();
-      if (wasSeeded) {
-        // Re-init to load seeded data
-        init();
-      }
       setInitialized(true);
     };
     initialize();

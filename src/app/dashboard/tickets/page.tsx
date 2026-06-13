@@ -4,7 +4,6 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   useTicketStore,
-  seedTickets,
   CATEGORY_LABELS,
   PRIORITY_LABELS,
   STATUS_LABELS,
@@ -597,7 +596,7 @@ function SkeletonLoader() {
 
 // ── Empty State ─────────────────────────────────────────────────────
 
-function EmptyState({ onSeed }: { onSeed: () => void }) {
+function EmptyState() {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -611,18 +610,9 @@ function EmptyState({ onSeed }: { onSeed: () => void }) {
         </svg>
       </div>
       <h3 className="text-base font-semibold text-zinc-300 mb-1.5">No tickets yet</h3>
-      <p className="text-sm text-zinc-500 max-w-sm mb-6">
-        Your ticket inbox is empty. Seed demo data to explore the full ticket management experience.
+      <p className="text-sm text-zinc-500 max-w-sm">
+        Your ticket inbox is empty. New tickets from your support channels will appear here.
       </p>
-      <button
-        onClick={onSeed}
-        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200"
-      >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
-        Seed Demo Data
-      </button>
     </motion.div>
   );
 }
@@ -706,14 +696,12 @@ export default function TicketsPage() {
     [tickets, selectedTicketId]
   );
 
-  const handleSeed = useCallback(() => {
-    const seeded = seedTickets();
-    // Persist to localStorage and update the store directly
+  const handleClearTickets = useCallback(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('parwa_tickets', JSON.stringify(seeded));
-      localStorage.setItem('parwa_tickets_initialized', 'true');
+      localStorage.removeItem('parwa_tickets');
+      localStorage.removeItem('parwa_tickets_initialized');
     }
-    useTicketStore.setState({ tickets: seeded, initialized: true });
+    useTicketStore.setState({ tickets: [], initialized: true });
   }, []);
 
   const clearFilters = useCallback(() => {
@@ -747,7 +735,7 @@ export default function TicketsPage() {
           <h1 className="text-2xl font-bold text-white">Tickets</h1>
           <p className="text-zinc-400 mt-1">Manage and track customer support tickets</p>
         </div>
-        <EmptyState onSeed={handleSeed} />
+        <EmptyState />
       </div>
     );
   }
@@ -773,10 +761,10 @@ export default function TicketsPage() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={handleSeed}
+              onClick={handleClearTickets}
               className="text-xs px-3 py-1.5 rounded-lg bg-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/[0.08] transition-colors border border-white/[0.06]"
             >
-              Re-seed Data
+              Clear Tickets
             </button>
           </div>
         </div>
