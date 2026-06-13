@@ -118,6 +118,56 @@ def api_start_onboarding(
     )
 
 
+# ── Industry & Variant Selection (Step 1) ─────────────────────────
+
+
+@router.post("/industry-variant")
+def api_industry_variant(
+    body: dict,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Save industry and variant selection from Step 1.
+
+    Updates the company's industry field and stores the selected
+    variant in the onboarding session metadata. This is called by
+    the frontend when the user completes Step 1 of the wizard.
+
+    BC-001: Scoped to user's company_id.
+    """
+    industry = body.get("industry", "other")
+    variant = body.get("variant", "parwa")
+
+    # Update company industry if available
+    if user.company_id and industry:
+        try:
+            from database.models.core import Company
+            company = db.query(Company).filter(Company.id == user.company_id).first()
+            if company:
+                company.industry = industry
+                db.commit()
+        except Exception:
+            db.rollback()
+
+    # Store variant in onboarding session metadata
+    try:
+        session = get_or_create_session(
+            db=db,
+            user_id=user.id,
+            company_id=user.company_id,
+        )
+        if session and hasattr(session, "metadata_") and session.metadata_:
+            session.metadata_["variant"] = variant
+            session.metadata_["industry"] = industry
+        elif session and hasattr(session, "metadata_"):
+            session.metadata_ = {"variant": variant, "industry": industry}
+        db.commit()
+    except Exception:
+        db.rollback()
+
+    return {"status": "ok", "industry": industry, "variant": variant}
+
+
 # ── Step Completion ────────────────────────────────────────────────
 
 

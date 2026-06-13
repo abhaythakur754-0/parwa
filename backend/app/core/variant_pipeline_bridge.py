@@ -264,7 +264,8 @@ async def process_customer_care_message(
             # Store tool execution results in metadata (non-blocking)
             if tool_results:
                 result.metadata["external_tool_results"] = {
-                    k: {"channel": v.channel, "success": v.success,
+                    k: {"channel": v.channel.value if hasattr(v.channel, 'value') else v.channel,
+                        "success": v.success,
                         "message_id": v.message_id, "error": v.error}
                     for k, v in tool_results.items()
                 }

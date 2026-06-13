@@ -283,6 +283,7 @@ async def get_redis() -> aioredis.Redis:
 
     Uses connection pooling for efficient connection reuse.
     Redis URL is loaded from REDIS_URL environment variable (BC-011).
+    Falls back to fakeredis if real Redis is unavailable (BC-012).
 
     Returns:
         Async Redis client connected to the pool.
@@ -303,26 +304,53 @@ async def get_redis() -> aioredis.Redis:
                         "Redis is required for caching/rate-limiting. "
                         "Set REDIS_URL in .env or run with Redis."
                     )
-                _redis_client = aioredis.from_url(
-                    settings.REDIS_URL,
-                    encoding="utf-8",
-                    decode_responses=True,
-                    max_connections=20,
-                    socket_timeout=5,
-                    socket_connect_timeout=5,
-                    retry_on_timeout=True,
-                    health_check_interval=30,
+
+                # Try real Redis first, fall back to fakeredis (BC-012)
+                try:
+                    # Build connection kwargs
+                    conn_kwargs = dict(
+                        encoding="utf-8",
+                        decode_responses=True,
+                        max_connections=20,
+                        socket_timeout=5,
+                        socket_connect_timeout=5,
+                        retry_on_timeout=True,
+                        health_check_interval=30,
+                    )
                     # H-10: TLS support — use rediss:// scheme to enable TLS.
-                    # aioredis.from_url() automatically enables SSL when the URL
-                    # scheme is "rediss://" (double s). We enforce certificate
-                    # verification in TLS mode to prevent MITM attacks.
-                    ssl_cert_reqs="required" if settings.REDIS_URL.startswith("rediss://") else None,
-                )
-                logger.info(
-                    "redis_connected",
-                    url=settings.REDIS_URL.split("@")[-1]
-                    if "@" in settings.REDIS_URL else "localhost",
-                )
+                    # Only pass ssl_cert_reqs when using TLS (rediss://) to avoid
+                    # passing incompatible kwargs for non-TLS connections.
+                    import ssl as _ssl
+                    if settings.REDIS_URL.startswith("rediss://"):
+                        conn_kwargs["ssl_cert_reqs"] = _ssl.CERT_REQUIRED
+
+                    client = aioredis.from_url(
+                        settings.REDIS_URL,
+                        **conn_kwargs,
+                    )
+                    # Test connection
+                    await asyncio.wait_for(client.ping(), timeout=3)
+                    _redis_client = client
+                    logger.info(
+                        "redis_connected",
+                        url=settings.REDIS_URL.split("@")[-1]
+                        if "@" in settings.REDIS_URL else "localhost",
+                    )
+                except Exception as conn_err:
+                    # BC-012: Fall back to fakeredis for development
+                    logger.warning(
+                        "redis_fallback_to_fakeredis",
+                        error=str(conn_err)[:200],
+                    )
+                    try:
+                        import fakeredis.aioredis
+                        _redis_client = fakeredis.aioredis.FakeRedis(
+                            decode_responses=True
+                        )
+                        logger.info("redis_fakeredis_connected")
+                    except ImportError:
+                        logger.error("redis_fakeredis_not_available")
+                        raise conn_err
     return _redis_client
 
 

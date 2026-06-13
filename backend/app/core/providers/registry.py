@@ -251,24 +251,36 @@ class ProviderFactory:
         """Fetch decrypted credentials from the database.
 
         This method attempts to import the ``ProviderConfiguration`` ORM model
-        and query for the matching row.  If the ORM model is not yet available
-        (e.g. during early bootstrap) a ``NotImplementedError`` is raised.
+        and query for the matching row.  Tries multiple import paths to handle
+        both monorepo and backend-only deployments.
         """
-        try:
-            # Late import to avoid circular dependency at module level
-            provider_config_module = importlib.import_module("app.models.provider_config")
-            ProviderConfiguration = provider_config_module.ProviderConfiguration
-        except (ImportError, AttributeError):
-            logger.warning(
-                "ProviderConfiguration model not available — "
-                "returning empty credentials.  Ensure the model is importable "
-                "at runtime."
+        ProviderConfiguration = None
+
+        # Try multiple import paths — the model may live at different locations
+        # depending on how the application is deployed (monorepo vs backend-only)
+        _import_paths = [
+            "database.models.provider_config",
+            "app.database.models.provider_config",
+        ]
+
+        for module_path in _import_paths:
+            try:
+                provider_config_module = importlib.import_module(module_path)
+                ProviderConfiguration = provider_config_module.ProviderConfiguration
+                break
+            except (ImportError, AttributeError):
+                continue
+
+        if ProviderConfiguration is None:
+            logger.error(
+                "ProviderConfiguration model not available from any known import path. "
+                "Tried: %s",
+                ", ".join(_import_paths),
             )
-            # Fallback: attempt generic query pattern
             raise NotImplementedError(
                 "ProviderConfiguration ORM model not found. "
-                "Implement app.models.provider_config.ProviderConfiguration "
-                "or override ProviderFactory._load_credentials."
+                "Ensure database.models.provider_config.ProviderConfiguration "
+                "is importable, or override ProviderFactory._load_credentials."
             )
 
         # Standard SQLAlchemy async query pattern
@@ -289,6 +301,4 @@ class ProviderFactory:
                 f"in company {company_id}"
             )
 
-        # ``config.credentials`` should already be decrypted by the ORM
-        # hybrid property or a dedicated encryption layer.
-        return config.credentials if isinstance(config.credentials, dict) else {}
+        return config.decrypt_credentials()

@@ -82,6 +82,7 @@ from mcp_server.integrations.sms_server import sms_server
 from mcp_server.integrations.ticketing_server import ticketing_server
 from mcp_server.integrations.ecommerce_server import ecommerce_server
 from mcp_server.integrations.crm_server import crm_server
+from mcp_server.integrations.carrier_server import carrier_server
 from mcp_server.integrations.external_tool_bus import external_tool_bus
 from mcp_server.tools.analytics_server import analytics_server
 from mcp_server.tools.monitoring_server import monitoring_server
@@ -103,6 +104,7 @@ ALL_SUB_SERVERS: list[MCPServerBase] = [
     ticketing_server,
     ecommerce_server,
     crm_server,
+    carrier_server,
     # Tools
     analytics_server,
     monitoring_server,
@@ -536,6 +538,7 @@ app.include_router(sms_server.get_router())
 app.include_router(ticketing_server.get_router())
 app.include_router(ecommerce_server.get_router())
 app.include_router(crm_server.get_router())
+app.include_router(carrier_server.get_router())
 
 # Tool sub-servers
 app.include_router(analytics_server.get_router())

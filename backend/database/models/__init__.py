@@ -86,6 +86,9 @@ from database.models.voice_channel import (  # noqa: F401
     VoiceConversation,
     VoiceChannelConfig,
 )
+from database.models.provider_config import (  # noqa: F401
+    ProviderConfiguration,
+)
 from database.models.ooo_detection import (  # noqa: F401
     OOODetectionRule,
     OOODetectionLog,

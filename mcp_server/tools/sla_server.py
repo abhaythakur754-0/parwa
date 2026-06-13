@@ -1,12 +1,17 @@
 """
-PARWA MCP — SLA Server
+PARWA MCP — SLA Server (v2.0.0 — Wired to Real Backend)
 
 Provides SLA (Service Level Agreement) management tools.
-Tracks SLA policies, breach detection, and response/compliance metrics.
+Wired to real backend SLA API via httpx.
+
+Backend routes: /api/v1/sla/*
 """
 
 from __future__ import annotations
 
+import os
+
+import httpx
 from fastapi import APIRouter
 
 from mcp_server.base_server import MCPServerBase, MCPRegistry, get_logger
@@ -20,14 +25,16 @@ from mcp_server.models import (
 
 logger = get_logger("mcp.sla_server")
 
+BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:5100")
+
 
 class SLAServer(MCPServerBase):
-    """MCP sub-server for SLA management."""
+    """MCP sub-server for SLA management — wired to real backend."""
 
     name = "sla_server"
-    description = "SLA policy management, breach detection, and compliance tracking"
+    description = "SLA policy management, breach detection, and compliance tracking — wired to backend"
     category = ToolCategory.TOOL
-    version = "1.0.0"
+    version = "2.0.0"
 
     def register_tools(self, registry: MCPRegistry) -> None:
         """Register SLA tools."""
@@ -86,6 +93,8 @@ class SLAServer(MCPServerBase):
                             "enum": ["24h", "7d", "30d", "90d"],
                             "default": "7d",
                         },
+                        "start_date": {"type": "string", "description": "ISO date string"},
+                        "end_date": {"type": "string", "description": "ISO date string"},
                     },
                 },
                 tags=["sla", "report", "compliance", "metrics"],
@@ -107,117 +116,150 @@ class SLAServer(MCPServerBase):
 
         return router
 
+    async def _backend_call(
+        self, method: str, path: str, json_data: dict | None = None, params: dict | None = None,
+    ) -> dict | None:
+        """Make an httpx call to the backend SLA API."""
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                url = f"{BACKEND_URL}{path}"
+                resp = await client.request(method, url, json=json_data, params=params)
+                if resp.status_code in (200, 201):
+                    return resp.json()
+                logger.warning(
+                    "sla_backend_error",
+                    path=path,
+                    status=resp.status_code,
+                    body=resp.text[:200],
+                )
+        except Exception as exc:
+            logger.warning("sla_backend_failed", path=path, error=str(exc)[:200])
+        return None
+
     async def _invoke_sla_check(
         self, parameters: dict | None = None, context: dict | None = None
     ) -> ToolInvokeResponse:
-        """Handle sla_check tool invocation."""
+        """Handle sla_check tool invocation — wired to backend."""
         params = parameters or {}
         ticket_id = params.get("ticket_id")
         policy_id = params.get("policy_id")
         include_breached = params.get("include_breached", False)
 
-        logger.info(
-            "sla_check",
-            ticket_id=ticket_id,
-            policy_id=policy_id,
-            include_breached=include_breached,
-        )
+        logger.info("sla_check_invoked", ticket_id=ticket_id, policy_id=policy_id)
 
         if ticket_id:
+            # Check SLA for specific ticket
+            data = await self._backend_call("GET", f"/api/v1/sla/tickets/{ticket_id}")
+            if data:
+                return ToolInvokeResponse(
+                    success=True,
+                    tool_name="sla_check",
+                    data=data,
+                    metadata={"source": "backend"},
+                )
+
+        # Get breached tickets
+        breached_data = None
+        approaching_data = None
+        if include_breached:
+            breached_data = await self._backend_call("GET", "/api/v1/sla/breached")
+        approaching_data = await self._backend_call("GET", "/api/v1/sla/approaching")
+
+        # Get stats
+        stats_data = await self._backend_call("GET", "/api/v1/sla/stats")
+
+        if stats_data or breached_data or approaching_data:
+            result_data = {
+                "policy_name": "SLA Policies",
+                "current_breaches": len(breached_data.get("tickets", [])) if breached_data else 0,
+                "at_risk_count": len(approaching_data.get("tickets", [])) if approaching_data else 0,
+                "tickets": breached_data.get("tickets", []) if breached_data else [],
+                "approaching_tickets": approaching_data.get("tickets", []) if approaching_data else [],
+            }
+            if stats_data:
+                result_data["summary"] = stats_data
             return ToolInvokeResponse(
                 success=True,
                 tool_name="sla_check",
-                data={
-                    "policy_name": "Default SLA Policy",
-                    "current_breaches": 0,
-                    "at_risk_count": 0,
-                    "tickets": [
-                        {
-                            "ticket_id": ticket_id,
-                            "status": "within_sla",
-                            "response_deadline": "2025-01-15T12:00:00Z",
-                            "resolution_deadline": "2025-01-16T12:00:00Z",
-                            "time_remaining_hours": 18.5,
-                        }
-                    ],
-                    "summary": {"compliance_rate": 96.5},
-                },
-                metadata={"status": "placeholder"},
+                data=result_data,
+                metadata={"source": "backend"},
             )
 
+        # Fallback
         return ToolInvokeResponse(
             success=True,
             tool_name="sla_check",
             data={
-                "policy_name": "Default SLA Policy",
+                "policy_name": "SLA Policies",
                 "current_breaches": 0,
-                "at_risk_count": 3,
+                "at_risk_count": 0,
                 "tickets": [],
-                "summary": {
-                    "total_tickets": 142,
-                    "compliance_rate": 96.5,
-                    "avg_response_time_minutes": 8.5,
-                    "avg_resolution_time_hours": 4.2,
-                },
+                "summary": {},
+                "message": "SLA data unavailable — backend unreachable",
             },
-            metadata={"status": "placeholder"},
+            metadata={"source": "fallback"},
         )
 
     async def _invoke_get_policies(
         self, parameters: dict | None = None, context: dict | None = None
     ) -> ToolInvokeResponse:
-        """Handle sla_get_policies tool invocation."""
-        logger.info("sla_policies_listed")
+        """Handle sla_get_policies tool invocation — wired to backend."""
+        logger.info("sla_get_policies_invoked")
 
+        data = await self._backend_call("GET", "/api/v1/sla/policies")
+        if data:
+            policies = data if isinstance(data, list) else data.get("policies", [])
+            return ToolInvokeResponse(
+                success=True,
+                tool_name="sla_get_policies",
+                data={"policies": policies, "total": len(policies)},
+                metadata={"source": "backend"},
+            )
+
+        # Fallback
         return ToolInvokeResponse(
             success=True,
             tool_name="sla_get_policies",
-            data={
-                "policies": [
-                    {
-                        "id": "sla_default",
-                        "name": "Default SLA Policy",
-                        "first_response_minutes": 15,
-                        "resolution_hours": 24,
-                        "escalation_threshold_minutes": 30,
-                    },
-                    {
-                        "id": "sla_premium",
-                        "name": "Premium SLA Policy",
-                        "first_response_minutes": 5,
-                        "resolution_hours": 8,
-                        "escalation_threshold_minutes": 10,
-                    },
-                ],
-                "total": 2,
-            },
-            metadata={"status": "placeholder"},
+            data={"policies": [], "total": 0, "message": "SLA policies unavailable — backend unreachable"},
+            metadata={"source": "fallback"},
         )
 
     async def _invoke_compliance_report(
         self, parameters: dict | None = None, context: dict | None = None
     ) -> ToolInvokeResponse:
-        """Handle sla_get_compliance_report tool invocation."""
+        """Handle sla_get_compliance_report tool invocation — wired to backend."""
         params = parameters or {}
         period = params.get("period", "7d")
 
-        logger.info("sla_compliance_report", period=period)
+        logger.info("sla_compliance_report_invoked", period=period)
 
+        query_params = {}
+        if params.get("start_date"):
+            query_params["start_date"] = params["start_date"]
+        if params.get("end_date"):
+            query_params["end_date"] = params["end_date"]
+
+        data = await self._backend_call("GET", "/api/v1/sla/stats", params=query_params)
+        if data:
+            return ToolInvokeResponse(
+                success=True,
+                tool_name="sla_get_compliance_report",
+                data={"period": period, **data},
+                metadata={"source": "backend"},
+            )
+
+        # Fallback
         return ToolInvokeResponse(
             success=True,
             tool_name="sla_get_compliance_report",
             data={
                 "period": period,
-                "overall_compliance_percent": 96.5,
-                "total_tickets": 892,
-                "breached_tickets": 31,
-                "metrics": {
-                    "first_response_sla_percent": 97.2,
-                    "resolution_sla_percent": 95.8,
-                    "customer_satisfaction_impact": -0.3,
-                },
+                "overall_compliance_percent": 0,
+                "total_tickets": 0,
+                "breached_tickets": 0,
+                "message": "SLA compliance report unavailable — backend unreachable",
             },
-            metadata={"status": "placeholder"},
+            metadata={"source": "fallback"},
         )
 
 

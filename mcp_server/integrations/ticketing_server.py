@@ -1,12 +1,19 @@
 """
-PARWA MCP — Ticketing Server
+PARWA MCP — Ticketing Server (v2.0.0 — Wired to Real Backend)
 
 Provides support ticket lifecycle tools.
-Supports ticket creation, updates, transitions, and search.
+Wired to real backend ticket APIs via httpx.
+All placeholder data replaced with live backend calls.
+
+Backend routes: /api/v1/tickets/*
 """
 
 from __future__ import annotations
 
+import os
+from typing import Any
+
+import httpx
 from fastapi import APIRouter
 
 from mcp_server.base_server import MCPServerBase, MCPRegistry, get_logger
@@ -20,14 +27,16 @@ from mcp_server.models import (
 
 logger = get_logger("mcp.ticketing_server")
 
+BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:5100")
+
 
 class TicketingServer(MCPServerBase):
-    """MCP sub-server for support ticket operations."""
+    """MCP sub-server for support ticket operations — wired to real backend."""
 
     name = "ticketing_server"
-    description = "Support ticket lifecycle management (create, update, search)"
+    description = "Support ticket lifecycle management (create, update, search) — wired to backend"
     category = ToolCategory.INTEGRATION
-    version = "1.0.0"
+    version = "2.0.0"
 
     def register_tools(self, registry: MCPRegistry) -> None:
         """Register ticketing tools."""
@@ -54,6 +63,7 @@ class TicketingServer(MCPServerBase):
                             "type": "array",
                             "items": {"type": "string"},
                         },
+                        "company_id": {"type": "string", "description": "Tenant company ID"},
                     },
                     "required": ["subject", "description"],
                 },
@@ -72,6 +82,7 @@ class TicketingServer(MCPServerBase):
                     "type": "object",
                     "properties": {
                         "ticket_id": {"type": "string"},
+                        "company_id": {"type": "string"},
                     },
                     "required": ["ticket_id"],
                 },
@@ -95,6 +106,7 @@ class TicketingServer(MCPServerBase):
                             "enum": ["open", "in_progress", "pending", "resolved", "closed"],
                         },
                         "reason": {"type": "string"},
+                        "company_id": {"type": "string"},
                     },
                     "required": ["ticket_id", "status"],
                 },
@@ -116,7 +128,9 @@ class TicketingServer(MCPServerBase):
                         "status": {"type": "string"},
                         "priority": {"type": "string"},
                         "customer_id": {"type": "string"},
+                        "company_id": {"type": "string"},
                         "limit": {"type": "integer", "default": 20},
+                        "page": {"type": "integer", "default": 1},
                     },
                 },
                 tags=["ticket", "search", "query"],
@@ -138,93 +152,154 @@ class TicketingServer(MCPServerBase):
 
         return router
 
+    async def _backend_call(
+        self, method: str, path: str, json_data: dict | None = None, params: dict | None = None,
+    ) -> dict | None:
+        """Make an httpx call to the backend ticket API."""
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                url = f"{BACKEND_URL}{path}"
+                resp = await client.request(method, url, json=json_data, params=params)
+                if resp.status_code in (200, 201):
+                    return resp.json()
+                logger.warning(
+                    "ticketing_backend_error",
+                    path=path,
+                    status=resp.status_code,
+                    body=resp.text[:200],
+                )
+        except Exception as exc:
+            logger.warning("ticketing_backend_failed", path=path, error=str(exc)[:200])
+        return None
+
     async def _invoke_ticket_create(
         self, parameters: dict | None = None, context: dict | None = None
     ) -> ToolInvokeResponse:
-        """Handle ticket_create tool invocation."""
+        """Handle ticket_create tool invocation — wired to backend."""
         params = parameters or {}
         subject = params.get("subject", "")
         priority = params.get("priority", "medium")
 
-        logger.info(
-            "ticket_created",
-            subject=subject[:80],
-            priority=priority,
-        )
+        logger.info("ticket_create_invoked", subject=subject[:80], priority=priority)
 
+        payload = {
+            "subject": subject,
+            "description": params.get("description", ""),
+            "priority": priority,
+            "category": params.get("category", "general"),
+            "customer_id": params.get("customer_id"),
+            "channel": params.get("channel", "api"),
+            "tags": params.get("tags", []),
+        }
+        if params.get("company_id"):
+            payload["company_id"] = params["company_id"]
+
+        data = await self._backend_call("POST", "/api/v1/tickets", json_data=payload)
+        if data:
+            return ToolInvokeResponse(
+                success=True,
+                tool_name="ticket_create",
+                data=data,
+                metadata={"source": "backend"},
+            )
+
+        # Fallback: backend unreachable
         return ToolInvokeResponse(
-            success=True,
+            success=False,
             tool_name="ticket_create",
-            data={
-                "ticket_id": f"TKT_placeholder_{id(parameters) % 100000}",
-                "status": "open",
-                "subject": subject,
-                "priority": priority,
-                "message": "Ticket created successfully",
-            },
-            metadata={"status": "placeholder"},
+            error="Ticket creation failed — backend unreachable",
+            metadata={"source": "fallback"},
         )
 
     async def _invoke_ticket_get(
         self, parameters: dict | None = None, context: dict | None = None
     ) -> ToolInvokeResponse:
-        """Handle ticket_get tool invocation."""
+        """Handle ticket_get tool invocation — wired to backend."""
         params = parameters or {}
         ticket_id = params.get("ticket_id", "")
 
-        logger.info("ticket_retrieved", ticket_id=ticket_id)
+        logger.info("ticket_get_invoked", ticket_id=ticket_id)
+
+        data = await self._backend_call("GET", f"/api/v1/tickets/{ticket_id}")
+        if data:
+            return ToolInvokeResponse(
+                success=True,
+                tool_name="ticket_get",
+                data=data,
+                metadata={"source": "backend"},
+            )
 
         return ToolInvokeResponse(
-            success=True,
+            success=False,
             tool_name="ticket_get",
-            data={
-                "ticket_id": ticket_id,
-                "status": "open",
-                "subject": "Sample ticket subject",
-                "priority": "medium",
-                "created_at": "2025-01-15T10:00:00Z",
-            },
-            metadata={"status": "placeholder"},
+            error=f"Ticket '{ticket_id}' not found or backend unreachable",
+            metadata={"source": "fallback"},
         )
 
     async def _invoke_ticket_update_status(
         self, parameters: dict | None = None, context: dict | None = None
     ) -> ToolInvokeResponse:
-        """Handle ticket_update_status tool invocation."""
+        """Handle ticket_update_status tool invocation — wired to backend."""
         params = parameters or {}
         ticket_id = params.get("ticket_id", "")
         status = params.get("status", "")
 
-        logger.info("ticket_status_updated", ticket_id=ticket_id, new_status=status)
+        logger.info("ticket_update_status_invoked", ticket_id=ticket_id, new_status=status)
+
+        payload = {"status": status}
+        if params.get("reason"):
+            payload["reason"] = params["reason"]
+
+        data = await self._backend_call(
+            "PATCH", f"/api/v1/tickets/{ticket_id}/status", json_data=payload
+        )
+        if data:
+            return ToolInvokeResponse(
+                success=True,
+                tool_name="ticket_update_status",
+                data=data,
+                metadata={"source": "backend"},
+            )
 
         return ToolInvokeResponse(
-            success=True,
+            success=False,
             tool_name="ticket_update_status",
-            data={
-                "ticket_id": ticket_id,
-                "status": status,
-                "message": f"Ticket status updated to '{status}'",
-            },
-            metadata={"status": "placeholder"},
+            error=f"Failed to update ticket '{ticket_id}' status — backend unreachable",
+            metadata={"source": "fallback"},
         )
 
     async def _invoke_ticket_search(
         self, parameters: dict | None = None, context: dict | None = None
     ) -> ToolInvokeResponse:
-        """Handle ticket_search tool invocation."""
+        """Handle ticket_search tool invocation — wired to backend."""
         params = parameters or {}
         query = params.get("query", "")
 
-        logger.info("ticket_search", query=query)
+        logger.info("ticket_search_invoked", query=query)
+
+        search_params: dict[str, Any] = {}
+        for key in ("status", "priority", "customer_id", "company_id"):
+            if params.get(key):
+                search_params[key] = params[key]
+        if query:
+            search_params["search"] = query
+        search_params["page_size"] = params.get("limit", 20)
+        search_params["page"] = params.get("page", 1)
+
+        data = await self._backend_call("GET", "/api/v1/tickets", params=search_params)
+        if data:
+            return ToolInvokeResponse(
+                success=True,
+                tool_name="ticket_search",
+                data=data,
+                metadata={"source": "backend"},
+            )
 
         return ToolInvokeResponse(
             success=True,
             tool_name="ticket_search",
-            data={
-                "tickets": [],
-                "total": 0,
-            },
-            metadata={"status": "placeholder"},
+            data={"tickets": [], "total": 0},
+            metadata={"source": "fallback", "reason": "backend_unreachable"},
         )
 
 

@@ -89,6 +89,8 @@ from app.api.customers import router as customers_router  # Customer management
 from app.api.sla import router as sla_router  # SLA policy management
 from app.api.channels import router as channels_router  # Channel management
 from app.api.identity import router as identity_router  # Identity resolution
+from app.api.cross_channel import router as cross_channel_router  # Cross-channel customer recognition (Phase 8)
+from app.api.integration_cache import router as integration_cache_router  # Integration data cache (Phase 7)
 from app.api.custom_fields import router as custom_fields_router  # Custom field CRUD
 from app.api.triggers import router as triggers_router  # Trigger management
 from app.api.ticket_lifecycle import router as ticket_lifecycle_router  # Ticket lifecycle (escalate, reopen, freeze)
@@ -113,6 +115,7 @@ from app.api.rag import router as rag_router  # RAG retrieval
 from app.api.response import router as response_api_router  # Response generation + brand voice + assignment + migration
 from app.api.system_health import router as system_health_router  # System health monitoring for frontend dashboard
 from app.api.approval import router as approval_router  # Approval queue + auto-approve rules
+from app.api.audit import router as audit_router  # Phase 9: Audit trail & AI action logging
 
 from app.api.deps import get_current_user
 from database.models.core import User
@@ -449,6 +452,12 @@ app.include_router(channels_router, prefix="/api/v1", tags=["channels"])  # pref
 # Identity resolution
 app.include_router(identity_router, prefix="/api/v1", tags=["identity"])  # prefix: /identity -> /api/v1/identity
 
+# Phase 7: Integration data caching
+app.include_router(integration_cache_router, prefix="/api/v1", tags=["integration-cache"])  # prefix: /integration-cache -> /api/v1/integration-cache
+
+# Phase 8: Cross-channel customer recognition
+app.include_router(cross_channel_router, prefix="/api/v1", tags=["cross-channel"])  # prefix: /cross-channel -> /api/v1/cross-channel
+
 # Custom fields
 app.include_router(custom_fields_router, prefix="/api/v1", tags=["custom-fields"])  # prefix: /custom-fields -> /api/v1/custom-fields
 
@@ -486,6 +495,9 @@ app.include_router(system_health_router, tags=["system-health"])  # prefix: /api
 
 # Approval queue + auto-approve rules (human-in-the-loop)
 app.include_router(approval_router, tags=["approvals"])  # prefix: /api/approvals (defined in router)
+
+# Phase 9: Audit trail & AI action logging
+app.include_router(audit_router, tags=["audit"])  # prefix: /api/v1/audit (defined in router)
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───

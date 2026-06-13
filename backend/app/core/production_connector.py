@@ -3,8 +3,7 @@ PARWA Production Integration Connector
 =======================================
 
 Connects variant pipelines to real production services:
-  - Brevo (Email): Send ticket updates, refund confirmations, notifications
-  - Twilio (SMS + Voice): Send SMS updates, make outbound calls, receive incoming calls
+  - Email/SMS/Voice: Routed through ExternalToolBus (single integration layer)
   - Paddle (Billing): Process subscriptions, handle refunds, manage payments
 
 This module makes PARWA variants capable of operating independently
@@ -14,12 +13,15 @@ Usage:
   from app.core.production_connector import ProductionConnector
 
   connector = ProductionConnector()
-  await connector.send_email(customer_email, subject, body)
-  await connector.send_sms(customer_phone, message)
-  await connector.make_call(customer_phone, script)
-  await connector.process_refund(transaction_id, amount)
+  results = await connector.handle_ticket_created(
+      customer_email="user@example.com",
+      customer_name="John",
+      ticket_id="TKT-123",
+      issue_summary="My order is late",
+      variant_tier="parwa",
+  )
 
-Environment Variables Required:
+Environment Variables Required (fallback when no DB config):
   BREVO_API_KEY       — Brevo (Sendinblue) API key
   TWILIO_ACCOUNT_SID  — Twilio Account SID
   TWILIO_AUTH_TOKEN   — Twilio Auth Token
@@ -31,15 +33,14 @@ Environment Variables Required:
 
 from __future__ import annotations
 
-import json
 import os
 import time
-import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
+from app.core.external_tool_bus import ExternalToolBus, ToolResult, external_tool_bus
 from app.logger import get_logger
 
 logger = get_logger("production_connector")
@@ -71,483 +72,24 @@ class IntegrationResult:
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
-# ════════════════════════════════════════════════════════════════
-# BREVO EMAIL CONNECTOR
-# ════════════════════════════════════════════════════════════════
-
-class BrevoEmailConnector:
-    """Production Brevo (Sendinblue) email integration.
-
-    Capabilities:
-      - Send ticket confirmation emails
-      - Send refund approval/denial emails
-      - Send password reset links
-      - Send SLA breach notifications
-      - Send batch approval summaries
-      - Send subscription invoices
-    """
-
-    BASE_URL = "https://api.brevo.com/v3"
-
-    def __init__(self, api_key: Optional[str] = None) -> None:
-        self._api_key = api_key or os.environ.get("BREVO_API_KEY", "")
-        self._available = bool(self._api_key)
-
-    @property
-    def is_available(self) -> bool:
-        return self._available
-
-    async def send_email(
-        self,
-        to_email: str,
-        subject: str,
-        html_content: str,
-        sender_name: str = "PARWA Support",
-        sender_email: str = "support@parwa.buzz",
-        reply_to: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        template_id: Optional[int] = None,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> IntegrationResult:
-        """Send an email via Brevo API."""
-        start = time.monotonic()
-        if not self._available:
-            return IntegrationResult(
-                status=IntegrationStatus.UNAVAILABLE,
-                provider="brevo",
-                action="send_email",
-                message="Brevo API key not configured",
-            )
-
-        try:
-            import httpx
-
-            headers = {
-                "api-key": self._api_key,
-                "Content-Type": "application/json",
-            }
-
-            payload: Dict[str, Any] = {
-                "sender": {"name": sender_name, "email": sender_email},
-                "to": [{"email": to_email}],
-                "subject": subject,
-                "htmlContent": html_content,
-            }
-
-            if reply_to:
-                payload["replyTo"] = {"email": reply_to}
-            if tags:
-                payload["tags"] = tags
-            if template_id:
-                payload["templateId"] = template_id
-            if params:
-                payload["params"] = params
-
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    f"{self.BASE_URL}/smtp/email",
-                    headers=headers,
-                    json=payload,
-                )
-
-            latency = round((time.monotonic() - start) * 1000, 2)
-
-            if response.status_code == 201:
-                data = response.json()
-                return IntegrationResult(
-                    status=IntegrationStatus.SUCCESS,
-                    provider="brevo",
-                    action="send_email",
-                    external_id=data.get("messageId", ""),
-                    message="Email sent successfully",
-                    latency_ms=latency,
-                    metadata={"to": to_email, "subject": subject},
-                )
-            elif response.status_code == 429:
-                return IntegrationResult(
-                    status=IntegrationStatus.RATE_LIMITED,
-                    provider="brevo",
-                    action="send_email",
-                    message="Rate limited",
-                    latency_ms=latency,
-                )
-            else:
-                return IntegrationResult(
-                    status=IntegrationStatus.FAILED,
-                    provider="brevo",
-                    action="send_email",
-                    error=f"HTTP {response.status_code}: {response.text[:200]}",
-                    latency_ms=latency,
-                )
-
-        except Exception as e:
-            return IntegrationResult(
-                status=IntegrationStatus.FAILED,
-                provider="brevo",
-                action="send_email",
-                error=str(e),
-            )
-
-    async def send_ticket_confirmation(
-        self,
-        customer_email: str,
-        customer_name: str,
-        ticket_id: str,
-        issue_summary: str,
-        variant_tier: str = "parwa",
-    ) -> IntegrationResult:
-        """Send a ticket confirmation email."""
-        tier_label = {
-            "mini_parwa": "Standard",
-            "parwa": "Priority",
-            "parwa_high": "VIP",
-        }.get(variant_tier, "Standard")
-
-        html = f"""
-        <html><body style="font-family: Arial, sans-serif; color: #333;">
-        <h2>Your Support Request Has Been Received</h2>
-        <p>Hi {customer_name},</p>
-        <p>Thank you for contacting us. Your {tier_label} support request has been logged.</p>
-        <table style="border: 1px solid #ddd; padding: 10px; border-collapse: collapse;">
-            <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Ticket ID</strong></td>
-            <td style="padding: 8px; border: 1px solid #ddd;">{ticket_id}</td></tr>
-            <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Issue</strong></td>
-            <td style="padding: 8px; border: 1px solid #ddd;">{issue_summary}</td></tr>
-            <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Priority</strong></td>
-            <td style="padding: 8px; border: 1px solid #ddd;">{tier_label}</td></tr>
-        </table>
-        <p>Our AI assistant is reviewing your request and will respond shortly.</p>
-        <p>If this is urgent, please reply to this email or call our support line.</p>
-        <p>Best regards,<br>PARWA Support Team</p>
-        </body></html>
-        """
-
-        return await self.send_email(
-            to_email=customer_email,
-            subject=f"[{ticket_id}] Your Support Request - {tier_label} Priority",
-            html_content=html,
-            tags=["ticket_confirmation", variant_tier],
+def _tool_result_to_integration(result: ToolResult, action: str) -> IntegrationResult:
+    """Convert a ToolResult from ExternalToolBus into an IntegrationResult."""
+    if result.success:
+        return IntegrationResult(
+            status=IntegrationStatus.SUCCESS,
+            provider=result.provider,
+            action=action,
+            external_id=result.message_id,
+            message="Success",
+            metadata=result.data,
         )
-
-    async def send_refund_notification(
-        self,
-        customer_email: str,
-        customer_name: str,
-        ticket_id: str,
-        amount: float,
-        status: str,  # approved, denied, pending
-        reason: str = "",
-    ) -> IntegrationResult:
-        """Send refund status notification email."""
-        status_colors = {
-            "approved": "#28a745",
-            "denied": "#dc3545",
-            "pending": "#ffc107",
-        }
-        color = status_colors.get(status, "#333")
-        status_label = status.capitalize()
-
-        html = f"""
-        <html><body style="font-family: Arial, sans-serif; color: #333;">
-        <h2>Refund Update - Ticket {ticket_id}</h2>
-        <p>Hi {customer_name},</p>
-        <p>Your refund request has been <span style="color: {color}; font-weight: bold;">{status_label}</span>.</p>
-        <table style="border: 1px solid #ddd; padding: 10px; border-collapse: collapse;">
-            <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Amount</strong></td>
-            <td style="padding: 8px; border: 1px solid #ddd;">${amount:.2f}</td></tr>
-            <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Status</strong></td>
-            <td style="padding: 8px; border: 1px solid #ddd; color: {color};">{status_label}</td></tr>
-            {"<tr><td style='padding: 8px; border: 1px solid #ddd;'><strong>Reason</strong></td>" +
-             f"<td style='padding: 8px; border: 1px solid #ddd;'>{reason}</td></tr>" if reason else ""}
-        </table>
-        {"<p>If approved, the refund will be processed within 3-5 business days.</p>" if status == "approved" else ""}
-        {"<p>If you disagree with this decision, please reply to this email.</p>" if status == "denied" else ""}
-        {"<p>Your request is being reviewed and you'll receive an update soon.</p>" if status == "pending" else ""}
-        <p>Best regards,<br>PARWA Support Team</p>
-        </body></html>
-        """
-
-        return await self.send_email(
-            to_email=customer_email,
-            subject=f"[{ticket_id}] Refund {status_label} - ${amount:.2f}",
-            html_content=html,
-            tags=["refund_notification", status],
-        )
-
-
-# ════════════════════════════════════════════════════════════════
-# TWILIO SMS + VOICE CONNECTOR
-# ════════════════════════════════════════════════════════════════
-
-class TwilioConnector:
-    """Production Twilio SMS + Voice integration.
-
-    Capabilities:
-      - Send SMS notifications (order updates, appointment reminders)
-      - Make outbound calls (VIP follow-up, urgent escalations)
-      - Handle incoming calls (IVR routing to variant tiers)
-      - Voice-First Response (as documented in v6.0)
-      - Proactive outbound campaigns (abandoned carts, shipping delays)
-    """
-
-    BASE_URL = "https://api.twilio.com/2010-04-01"
-
-    def __init__(
-        self,
-        account_sid: Optional[str] = None,
-        auth_token: Optional[str] = None,
-        api_key: Optional[str] = None,
-        phone_number: Optional[str] = None,
-    ) -> None:
-        self._account_sid = account_sid or os.environ.get("TWILIO_ACCOUNT_SID", "")
-        self._auth_token = auth_token or os.environ.get("TWILIO_AUTH_TOKEN", "")
-        self._api_key = api_key or os.environ.get("TWILIO_API_KEY", "")
-        self._phone_number = phone_number or os.environ.get("TWILIO_PHONE_NUMBER", "")
-        self._available = bool(self._account_sid and self._auth_token)
-
-    @property
-    def is_available(self) -> bool:
-        return self._available
-
-    async def send_sms(
-        self,
-        to_phone: str,
-        message: str,
-        messaging_service_sid: Optional[str] = None,
-    ) -> IntegrationResult:
-        """Send an SMS via Twilio API."""
-        start = time.monotonic()
-        if not self._available:
-            return IntegrationResult(
-                status=IntegrationStatus.UNAVAILABLE,
-                provider="twilio",
-                action="send_sms",
-                message="Twilio credentials not configured",
-            )
-
-        try:
-            import httpx
-
-            url = f"{self.BASE_URL}/Accounts/{self._account_sid}/Messages.json"
-
-            data: Dict[str, str] = {
-                "To": to_phone,
-                "From": self._phone_number,
-                "Body": message[:1600],  # Twilio SMS limit
-            }
-            if messaging_service_sid:
-                data["MessagingServiceSid"] = messaging_service_sid
-
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    url,
-                    auth=(self._account_sid, self._auth_token),
-                    data=data,
-                )
-
-            latency = round((time.monotonic() - start) * 1000, 2)
-
-            if response.status_code == 201:
-                resp_data = response.json()
-                return IntegrationResult(
-                    status=IntegrationStatus.SUCCESS,
-                    provider="twilio",
-                    action="send_sms",
-                    external_id=resp_data.get("sid", ""),
-                    message="SMS sent successfully",
-                    latency_ms=latency,
-                    metadata={
-                        "to": to_phone,
-                        "from": self._phone_number,
-                        "status": resp_data.get("status", ""),
-                    },
-                )
-            elif response.status_code == 429:
-                return IntegrationResult(
-                    status=IntegrationStatus.RATE_LIMITED,
-                    provider="twilio",
-                    action="send_sms",
-                    latency_ms=latency,
-                )
-            else:
-                return IntegrationResult(
-                    status=IntegrationStatus.FAILED,
-                    provider="twilio",
-                    action="send_sms",
-                    error=f"HTTP {response.status_code}: {response.text[:200]}",
-                    latency_ms=latency,
-                )
-
-        except Exception as e:
-            return IntegrationResult(
-                status=IntegrationStatus.FAILED,
-                provider="twilio",
-                action="send_sms",
-                error=str(e),
-            )
-
-    async def make_call(
-        self,
-        to_phone: str,
-        twiml_url: Optional[str] = None,
-        twiml: Optional[str] = None,
-        record: bool = False,
-        timeout: int = 30,
-        status_callback: Optional[str] = None,
-    ) -> IntegrationResult:
-        """Make an outbound call via Twilio API.
-
-        Args:
-            to_phone: Phone number to call.
-            twiml_url: URL pointing to TwiML instructions.
-            twiml: Inline TwiML (if no URL).
-            record: Whether to record the call.
-            timeout: Ring timeout in seconds.
-            status_callback: URL for call status updates.
-        """
-        start = time.monotonic()
-        if not self._available:
-            return IntegrationResult(
-                status=IntegrationStatus.UNAVAILABLE,
-                provider="twilio",
-                action="make_call",
-                message="Twilio credentials not configured",
-            )
-
-        try:
-            import httpx
-
-            url = f"{self.BASE_URL}/Accounts/{self._account_sid}/Calls.json"
-
-            data: Dict[str, str] = {
-                "To": to_phone,
-                "From": self._phone_number,
-                "Timeout": str(timeout),
-            }
-
-            if twiml_url:
-                data["Url"] = twiml_url
-            elif twiml:
-                data["Twiml"] = twiml
-            else:
-                # Default greeting TwiML
-                data["Twiml"] = (
-                    '<Response><Say voice="alice">Hello, this is PARWA Support '
-                    'calling regarding your recent inquiry. Please hold while we '
-                    'connect you to our AI assistant.</Say></Response>'
-                )
-
-            if record:
-                data["Record"] = "true"
-            if status_callback:
-                data["StatusCallback"] = status_callback
-
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    url,
-                    auth=(self._account_sid, self._auth_token),
-                    data=data,
-                )
-
-            latency = round((time.monotonic() - start) * 1000, 2)
-
-            if response.status_code == 201:
-                resp_data = response.json()
-                return IntegrationResult(
-                    status=IntegrationStatus.SUCCESS,
-                    provider="twilio",
-                    action="make_call",
-                    external_id=resp_data.get("sid", ""),
-                    message="Call initiated successfully",
-                    latency_ms=latency,
-                    metadata={
-                        "to": to_phone,
-                        "call_status": resp_data.get("status", ""),
-                    },
-                )
-            else:
-                return IntegrationResult(
-                    status=IntegrationStatus.FAILED,
-                    provider="twilio",
-                    action="make_call",
-                    error=f"HTTP {response.status_code}: {response.text[:200]}",
-                    latency_ms=latency,
-                )
-
-        except Exception as e:
-            return IntegrationResult(
-                status=IntegrationStatus.FAILED,
-                provider="twilio",
-                action="make_call",
-                error=str(e),
-            )
-
-    async def send_order_update_sms(
-        self,
-        to_phone: str,
-        order_id: str,
-        status: str,
-        tracking_url: str = "",
-    ) -> IntegrationResult:
-        """Send an order status update via SMS."""
-        msg = f"PARWA: Your order #{order_id} status: {status}."
-        if tracking_url:
-            msg += f" Track: {tracking_url}"
-        return await self.send_sms(to_phone, msg)
-
-    async def send_appointment_reminder_sms(
-        self,
-        to_phone: str,
-        appointment_time: str,
-        location: str = "",
-    ) -> IntegrationResult:
-        """Send an appointment reminder via SMS."""
-        msg = f"PARWA Reminder: Your appointment is at {appointment_time}."
-        if location:
-            msg += f" Location: {location}"
-        msg += " Reply HELP for assistance."
-        return await self.send_sms(to_phone, msg)
-
-    async def make_vip_followup_call(
-        self,
-        to_phone: str,
-        customer_name: str,
-        ticket_id: str,
-    ) -> IntegrationResult:
-        """Make a VIP follow-up call using Twilio Voice."""
-        twiml = (
-            f'<Response>'
-            f'<Say voice="alice">Hello {customer_name}, this is PARWA Support '
-            f'calling regarding your ticket {ticket_id}. '
-            f'We wanted to personally follow up to ensure your issue has been resolved. '
-            f'If you need further assistance, please let us know.</Say>'
-            f'<Pause length="1"/>'
-            f'<Say voice="alice">Thank you for being a valued customer.</Say>'
-            f'</Response>'
-        )
-        return await self.make_call(to_phone, twiml=twiml, record=True)
-
-    async def make_proactive_cart_recovery_call(
-        self,
-        to_phone: str,
-        customer_name: str,
-        cart_value: float,
-    ) -> IntegrationResult:
-        """Make a proactive abandoned cart recovery call (v6.0 feature)."""
-        twiml = (
-            f'<Response>'
-            f'<Say voice="alice">Hi {customer_name}, this is PARWA Support '
-            f'from your online store. We noticed you left items worth '
-            f'${cart_value:.2f} in your cart. '
-            f'Would you like help completing your purchase? '
-            f'We can assist you right now.</Say>'
-            f'<Gather numDigits="1" action="/api/twilio/cart-response" method="POST">'
-            f'<Say voice="alice">Press 1 to speak with our AI assistant, '
-            f'or press 2 to receive a discount code via text.</Say>'
-            f'</Gather>'
-            f'</Response>'
-        )
-        return await self.make_call(to_phone, twiml=twiml)
+    return IntegrationResult(
+        status=IntegrationStatus.FAILED,
+        provider=result.provider,
+        action=action,
+        error=result.error,
+        metadata=result.data,
+    )
 
 
 # ════════════════════════════════════════════════════════════════
@@ -802,7 +344,11 @@ class PaddleBillingConnector:
 class ProductionConnector:
     """Unified connector that wires all production services together.
 
-    This is what makes PARWA variants operate independently:
+    Channel communication (email, SMS, voice) is routed through
+    the ExternalToolBus — the SINGLE integration layer for all
+    external tool calls. Billing goes through PaddleBillingConnector.
+
+    Workflows:
       - When a ticket is created → Send confirmation email
       - When a refund is recommended → Send approval request to manager
       - When a refund is approved → Execute via Paddle + Send notification
@@ -811,17 +357,18 @@ class ProductionConnector:
       - When a subscription changes → Update via Paddle + Send email
     """
 
-    def __init__(self) -> None:
-        self.email = BrevoEmailConnector()
-        self.sms_voice = TwilioConnector()
+    def __init__(self, tool_bus: Optional[ExternalToolBus] = None) -> None:
+        self.tool_bus = tool_bus or external_tool_bus
         self.billing = PaddleBillingConnector()
 
     @property
     def is_available(self) -> Dict[str, bool]:
         """Check which integrations are available."""
+        provider_status = self.tool_bus.get_provider_status()
         return {
-            "brevo_email": self.email.is_available,
-            "twilio_sms_voice": self.sms_voice.is_available,
+            "email": provider_status.get("email", {}).get("configured", False),
+            "sms": provider_status.get("sms", {}).get("configured", False),
+            "voice": provider_status.get("voice", {}).get("configured", False),
             "paddle_billing": self.billing.is_available,
         }
 
@@ -833,6 +380,7 @@ class ProductionConnector:
         issue_summary: str,
         customer_phone: str = "",
         variant_tier: str = "parwa",
+        company_id: str = "",
     ) -> Dict[str, IntegrationResult]:
         """Handle the full workflow when a ticket is created.
 
@@ -842,21 +390,51 @@ class ProductionConnector:
         results: Dict[str, IntegrationResult] = {}
 
         # Email confirmation
-        results["email"] = await self.email.send_ticket_confirmation(
-            customer_email=customer_email,
-            customer_name=customer_name,
-            ticket_id=ticket_id,
-            issue_summary=issue_summary,
-            variant_tier=variant_tier,
+        tier_label = {
+            "mini_parwa": "Standard",
+            "parwa": "Priority",
+            "parwa_high": "VIP",
+        }.get(variant_tier, "Standard")
+
+        email_html = f"""
+        <html><body style="font-family: Arial, sans-serif; color: #333;">
+        <h2>Your Support Request Has Been Received</h2>
+        <p>Hi {customer_name},</p>
+        <p>Thank you for contacting us. Your {tier_label} support request has been logged.</p>
+        <table style="border: 1px solid #ddd; padding: 10px; border-collapse: collapse;">
+            <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Ticket ID</strong></td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{ticket_id}</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Issue</strong></td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{issue_summary}</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Priority</strong></td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{tier_label}</td></tr>
+        </table>
+        <p>Our AI assistant is reviewing your request and will respond shortly.</p>
+        <p>If this is urgent, please reply to this email or call our support line.</p>
+        <p>Best regards,<br>PARWA Support Team</p>
+        </body></html>
+        """
+
+        tool_result = await self.tool_bus.send_email(
+            variant=variant_tier,
+            company_id=company_id,
+            to=customer_email,
+            subject=f"[{ticket_id}] Your Support Request - {tier_label} Priority",
+            body=email_html,
+            html_body=email_html,
         )
+        results["email"] = _tool_result_to_integration(tool_result, "send_ticket_confirmation")
 
         # SMS notification for paid tiers (Pro/High)
         if customer_phone and variant_tier in ("parwa", "parwa_high"):
-            results["sms"] = await self.sms_voice.send_sms(
-                to_phone=customer_phone,
-                message=f"PARWA: Your support ticket {ticket_id} has been received. "
-                        f"We're reviewing your request now.",
+            tool_result = await self.tool_bus.send_sms(
+                variant=variant_tier,
+                company_id=company_id,
+                to=customer_phone,
+                body=f"PARWA: Your support ticket {ticket_id} has been received. "
+                     f"We're reviewing your request now.",
             )
+            results["sms"] = _tool_result_to_integration(tool_result, "send_sms")
 
         return results
 
@@ -869,6 +447,8 @@ class ProductionConnector:
         amount: float,
         confidence: float,
         reasoning: str,
+        variant_tier: str = "parwa",
+        company_id: str = "",
     ) -> Dict[str, IntegrationResult]:
         """Handle the workflow when AI recommends a refund.
 
@@ -878,13 +458,18 @@ class ProductionConnector:
         results: Dict[str, IntegrationResult] = {}
 
         # Notify customer that request is being reviewed
-        results["customer_notification"] = await self.email.send_refund_notification(
-            customer_email=customer_email,
-            customer_name=customer_name,
-            ticket_id=ticket_id,
-            amount=amount,
-            status="pending",
+        customer_html = self._build_refund_notification_html(
+            customer_name, ticket_id, amount, "pending",
         )
+        tool_result = await self.tool_bus.send_email(
+            variant=variant_tier,
+            company_id=company_id,
+            to=customer_email,
+            subject=f"[{ticket_id}] Refund Pending - ${amount:.2f}",
+            body=customer_html,
+            html_body=customer_html,
+        )
+        results["customer_notification"] = _tool_result_to_integration(tool_result, "send_refund_notification")
 
         # Send approval request to manager
         tier_label = "HIGH PRIORITY" if confidence > 0.90 else "REVIEW NEEDED"
@@ -910,12 +495,15 @@ class ProductionConnector:
         </body></html>
         """
 
-        results["manager_approval"] = await self.email.send_email(
-            to_email=manager_email,
+        tool_result = await self.tool_bus.send_email(
+            variant=variant_tier,
+            company_id=company_id,
+            to=manager_email,
             subject=f"[APPROVAL] Refund ${amount:.2f} - {ticket_id} ({confidence:.0%} confidence)",
-            html_content=html,
-            tags=["refund_approval", "manager_action"],
+            body=html,
+            html_body=html,
         )
+        results["manager_approval"] = _tool_result_to_integration(tool_result, "send_manager_approval")
 
         return results
 
@@ -929,6 +517,8 @@ class ProductionConnector:
         approved_by: str,
         confidence: float,
         customer_phone: str = "",
+        variant_tier: str = "parwa",
+        company_id: str = "",
     ) -> Dict[str, IntegrationResult]:
         """Handle the workflow when a refund is approved by manager.
 
@@ -946,21 +536,29 @@ class ProductionConnector:
         )
 
         # Notify customer
-        results["customer_notification"] = await self.email.send_refund_notification(
-            customer_email=customer_email,
-            customer_name=customer_name,
-            ticket_id=ticket_id,
-            amount=amount,
-            status="approved",
+        customer_html = self._build_refund_notification_html(
+            customer_name, ticket_id, amount, "approved",
         )
+        tool_result = await self.tool_bus.send_email(
+            variant=variant_tier,
+            company_id=company_id,
+            to=customer_email,
+            subject=f"[{ticket_id}] Refund Approved - ${amount:.2f}",
+            body=customer_html,
+            html_body=customer_html,
+        )
+        results["customer_notification"] = _tool_result_to_integration(tool_result, "send_refund_notification")
 
         # SMS notification for paid tiers
         if customer_phone:
-            results["sms_notification"] = await self.sms_voice.send_sms(
-                to_phone=customer_phone,
-                message=f"PARWA: Your refund of ${amount:.2f} for ticket {ticket_id} has been approved. "
-                        f"It will be processed within 3-5 business days.",
+            tool_result = await self.tool_bus.send_sms(
+                variant=variant_tier,
+                company_id=company_id,
+                to=customer_phone,
+                body=f"PARWA: Your refund of ${amount:.2f} for ticket {ticket_id} has been approved. "
+                     f"It will be processed within 3-5 business days.",
             )
+            results["sms_notification"] = _tool_result_to_integration(tool_result, "send_sms")
 
         return results
 
@@ -972,6 +570,8 @@ class ProductionConnector:
         ticket_id: str,
         issue_summary: str,
         manager_email: str,
+        variant_tier: str = "parwa_high",
+        company_id: str = "",
     ) -> Dict[str, IntegrationResult]:
         """Handle the workflow when a VIP customer needs escalation.
 
@@ -982,11 +582,19 @@ class ProductionConnector:
 
         # Make outbound call to VIP customer
         if customer_phone:
-            results["outbound_call"] = await self.sms_voice.make_vip_followup_call(
-                to_phone=customer_phone,
-                customer_name=customer_name,
-                ticket_id=ticket_id,
+            tool_result = await self.tool_bus.make_call(
+                variant=variant_tier,
+                company_id=company_id,
+                to=customer_phone,
+                message=(
+                    f"Hello {customer_name}, this is PARWA Support "
+                    f"calling regarding your ticket {ticket_id}. "
+                    f"We wanted to personally follow up to ensure your issue has been resolved. "
+                    f"If you need further assistance, please let us know. "
+                    f"Thank you for being a valued customer."
+                ),
             )
+            results["outbound_call"] = _tool_result_to_integration(tool_result, "make_vip_followup_call")
 
         # Alert manager
         html = f"""
@@ -1005,12 +613,15 @@ class ProductionConnector:
         </body></html>
         """
 
-        results["manager_alert"] = await self.email.send_email(
-            to_email=manager_email,
+        tool_result = await self.tool_bus.send_email(
+            variant=variant_tier,
+            company_id=company_id,
+            to=manager_email,
             subject=f"[URGENT] VIP Escalation - {customer_name} - {ticket_id}",
-            html_content=html,
-            tags=["vip_escalation", "urgent"],
+            body=html,
+            html_body=html,
         )
+        results["manager_alert"] = _tool_result_to_integration(tool_result, "send_manager_alert")
 
         return results
 
@@ -1020,6 +631,8 @@ class ProductionConnector:
         customer_phone: str,
         customer_email: str,
         cart_value: float,
+        variant_tier: str = "parwa",
+        company_id: str = "",
     ) -> Dict[str, IntegrationResult]:
         """Handle proactive abandoned cart recovery (v6.0 feature).
 
@@ -1039,34 +652,82 @@ class ProductionConnector:
         </body></html>
         """
 
-        results["recovery_email"] = await self.email.send_email(
-            to_email=customer_email,
+        tool_result = await self.tool_bus.send_email(
+            variant=variant_tier,
+            company_id=company_id,
+            to=customer_email,
             subject=f"Your cart is waiting - ${cart_value:.2f} in items!",
-            html_content=html,
-            tags=["cart_recovery", "proactive"],
+            body=html,
+            html_body=html,
         )
+        results["recovery_email"] = _tool_result_to_integration(tool_result, "send_recovery_email")
 
         # Follow up with call if Pro/High tier
         if customer_phone:
-            results["recovery_call"] = await self.sms_voice.make_proactive_cart_recovery_call(
-                to_phone=customer_phone,
-                customer_name=customer_name,
-                cart_value=cart_value,
+            tool_result = await self.tool_bus.make_call(
+                variant=variant_tier,
+                company_id=company_id,
+                to=customer_phone,
+                message=(
+                    f"Hi {customer_name}, this is PARWA Support "
+                    f"from your online store. We noticed you left items worth "
+                    f"${cart_value:.2f} in your cart. "
+                    f"Would you like help completing your purchase? "
+                    f"We can assist you right now."
+                ),
             )
+            results["recovery_call"] = _tool_result_to_integration(tool_result, "make_cart_recovery_call")
 
         return results
 
+    # ── Private helpers ──────────────────────────────────────────
 
-# ════════════════════════════════════════════════════════════════
-# SINGLETON
-# ════════════════════════════════════════════════════════════════
+    @staticmethod
+    def _build_refund_notification_html(
+        customer_name: str,
+        ticket_id: str,
+        amount: float,
+        status: str,
+        reason: str = "",
+    ) -> str:
+        """Build HTML for refund status notification email."""
+        status_colors = {
+            "approved": "#28a745",
+            "denied": "#dc3545",
+            "pending": "#ffc107",
+        }
+        color = status_colors.get(status, "#333")
+        status_label = status.capitalize()
 
-_production_connector: Optional[ProductionConnector] = None
+        reason_row = ""
+        if reason:
+            reason_row = (
+                f"<tr><td style='padding: 8px; border: 1px solid #ddd;'>"
+                f"<strong>Reason</strong></td>"
+                f"<td style='padding: 8px; border: 1px solid #ddd;'>{reason}</td></tr>"
+            )
 
+        status_message = ""
+        if status == "approved":
+            status_message = "<p>If approved, the refund will be processed within 3-5 business days.</p>"
+        elif status == "denied":
+            status_message = "<p>If you disagree with this decision, please reply to this email.</p>"
+        elif status == "pending":
+            status_message = "<p>Your request is being reviewed and you'll receive an update soon.</p>"
 
-def get_production_connector() -> ProductionConnector:
-    """Get or create the ProductionConnector singleton."""
-    global _production_connector
-    if _production_connector is None:
-        _production_connector = ProductionConnector()
-    return _production_connector
+        return f"""
+        <html><body style="font-family: Arial, sans-serif; color: #333;">
+        <h2>Refund Update - Ticket {ticket_id}</h2>
+        <p>Hi {customer_name},</p>
+        <p>Your refund request has been <span style="color: {color}; font-weight: bold;">{status_label}</span>.</p>
+        <table style="border: 1px solid #ddd; padding: 10px; border-collapse: collapse;">
+            <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Amount</strong></td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${amount:.2f}</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Status</strong></td>
+            <td style="padding: 8px; border: 1px solid #ddd; color: {color};">{status_label}</td></tr>
+            {reason_row}
+        </table>
+        {status_message}
+        <p>Best regards,<br>PARWA Support Team</p>
+        </body></html>
+        """
