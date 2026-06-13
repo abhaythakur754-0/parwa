@@ -64,23 +64,27 @@ VARIANT_NAMES = {MINI_PARWA, PARWA_HIGH, PARWA}
 
 MODEL_TIERS = {
     "light": [
-        "gemini/gemini-2.0-flash-lite",                  # Primary: Fast, cheap, handles FAQs/status (Google AI direct)
-        "openrouter/google/gemma-3-4b-it:free",          # Fallback 1 (needs OpenRouter key)
-        "openrouter/meta-llama/llama-3.1-8b-instruct:free",  # Fallback 2
+        "zai/light",                                      # Primary: ZAI SDK (highest throughput, batch support)
+        "gemini/gemini-2.0-flash-lite",                  # Fallback 1: Fast, cheap, handles FAQs/status (Google AI direct)
+        "openrouter/google/gemma-3-4b-it:free",          # Fallback 2 (needs OpenRouter key)
+        "openrouter/meta-llama/llama-3.1-8b-instruct:free",  # Fallback 3
     ],
     "medium": [
-        "gemini/gemini-2.0-flash",                       # Primary: Balanced, drafting, recommendations (Google AI direct)
-        "openrouter/google/gemini-2.0-flash-exp:free",   # Fallback 1 (needs OpenRouter key)
-        "openrouter/google/gemma-3-4b-it:free",          # Fallback 2 (downgrade to light)
+        "zai/medium",                                     # Primary: ZAI SDK (highest throughput, batch support)
+        "gemini/gemini-2.0-flash",                       # Fallback 1: Balanced, drafting, recommendations (Google AI direct)
+        "openrouter/google/gemini-2.0-flash-exp:free",   # Fallback 2 (needs OpenRouter key)
+        "openrouter/google/gemma-3-4b-it:free",          # Fallback 3 (downgrade to light)
     ],
     "heavy": [
-        "gemini/gemini-2.0-flash",                       # Primary: Complex reasoning, fraud, refunds (Google AI direct)
-        "openrouter/deepseek/deepseek-r1-0528:free",     # Fallback 1 (needs OpenRouter key)
-        "openrouter/meta-llama/llama-4-maverick:free",   # Fallback 2
+        "zai/heavy",                                      # Primary: ZAI SDK (highest throughput, batch support)
+        "gemini/gemini-2.0-flash",                       # Fallback 1: Complex reasoning, fraud, refunds (Google AI direct)
+        "openrouter/deepseek/deepseek-r1-0528:free",     # Fallback 2 (needs OpenRouter key)
+        "openrouter/meta-llama/llama-4-maverick:free",   # Fallback 3
     ],
     "guardrail": [
-        "gemini/gemini-2.0-flash-lite",                  # Primary: Safety checks (Google AI direct)
-        "openrouter/meta-llama/llama-guard-4-12b:free",  # Fallback (needs OpenRouter key)
+        "zai/guardrail",                                  # Primary: ZAI SDK (highest throughput, batch support)
+        "gemini/gemini-2.0-flash-lite",                  # Fallback 1: Safety checks (Google AI direct)
+        "openrouter/meta-llama/llama-guard-4-12b:free",  # Fallback 2 (needs OpenRouter key)
     ],
 }
 

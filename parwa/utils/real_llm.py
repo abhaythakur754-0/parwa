@@ -1,4 +1,4 @@
-"""Production LLM client using Google AI direct (primary) + OpenRouter (fallback).
+"""Production LLM client using ZAI SDK (primary) + Google AI + OpenRouter (fallback).
 
 Per PARWA Product Documentation v6.0 Smart Router:
 - Light Tier:  gemini-2.0-flash-lite           (FAQs, Greetings, Order Status)
@@ -8,14 +8,20 @@ Per PARWA Product Documentation v6.0 Smart Router:
 Routing: complexity 0-4 → Light, 5-9 → Medium, 10+ → Heavy
 Failover: If primary model hits rate limit → auto-failover to next in tier.
 
+Provider Priority (in order):
+1. ZAI SDK (z-ai-web-dev-sdk) — highest throughput, best TPM, batch support
+2. Google AI direct — generous free tier, reliable
+3. OpenRouter free tier — needs OPENROUTER_KEY env var
+
 API Keys (from environment variables):
-- GOOGLE_AI_KEY: Primary — Google Gemini direct calls (generous free tier)
-- OPENROUTER_KEY: Fallback — OpenRouter free tier models (if set)
+- ZAI_SDK: Built-in via z-ai-web-dev-sdk (no key needed)
+- GOOGLE_AI_KEY: Fallback — Google Gemini direct calls (generous free tier)
+- OPENROUTER_KEY: Last resort — OpenRouter free tier models (if set)
 
 Features:
-- Direct HTTP calls via httpx (no subprocess, no ZAI SDK dependency)
-- Google Gemini as primary backend (no rate limit issues)
-- Automatic failover: if primary model fails, try next in tier chain
+- ZAI SDK as primary (maximizes TPM, avoids rate limits via batching)
+- Direct HTTP calls via httpx for Google/OpenRouter (no extra dependency)
+- Automatic failover: ZAI → Google → OpenRouter
 - Rate limit handling with retry-after
 - Circuit breaker per provider
 - Token tracking for TurboQuant budget
@@ -47,6 +53,11 @@ GOOGLE_AI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}
 # ─── Model Definitions (aligned with config.py MODEL_TIERS per Docs v6.0) ───────
 
 MODEL_MAP: dict[str, dict[str, str]] = {
+    # ZAI SDK tier entries (primary — uses z-ai-web-dev-sdk via subprocess)
+    "zai/light": {"provider": "zai", "model": "light"},
+    "zai/medium": {"provider": "zai", "model": "medium"},
+    "zai/heavy": {"provider": "zai", "model": "heavy"},
+    "zai/guardrail": {"provider": "zai", "model": "guardrail"},
     # Light tier (Per docs: google/gemma-3-4b-it:free)
     "openrouter/google/gemma-3-4b-it:free": {"provider": "openrouter", "model": "google/gemma-3-4b-it:free"},
     "openrouter/meta-llama/llama-3.1-8b-instruct:free": {"provider": "openrouter", "model": "meta-llama/llama-3.1-8b-instruct:free"},
@@ -62,14 +73,16 @@ MODEL_MAP: dict[str, dict[str, str]] = {
     "openrouter/meta-llama/llama-guard-4-12b:free": {"provider": "openrouter", "model": "meta-llama/llama-guard-4-12b:free"},
 }
 
-# Provider → API key mapping
+# Provider → API key mapping (ZAI SDK has no key — uses built-in auth)
 PROVIDER_KEYS: dict[str, str] = {
+    "zai": "builtin",  # ZAI SDK authenticates internally
     "openrouter": OPENROUTER_KEY,
     "google": GOOGLE_AI_KEY,
 }
 
-# Provider → URL mapping
+# Provider → URL mapping (ZAI SDK uses its own endpoint via subprocess)
 PROVIDER_URLS: dict[str, str] = {
+    "zai": "sdk://z-ai-web-dev-sdk",
     "openrouter": OPENROUTER_URL,
     "google": GOOGLE_AI_URL,
 }
@@ -108,6 +121,8 @@ class CircuitBreaker:
 
 
 _circuit_breaker = CircuitBreaker(failure_threshold=5, reset_timeout=30.0)  # More lenient — rate limits are temporary
+# Register ZAI in circuit breaker tracking
+_circuit_breaker._failures["zai"] = 0
 
 # ─── Rate Limiter (simple per-provider) ─────────────────────────────────────────
 
@@ -294,6 +309,45 @@ async def _call_openrouter(
 
 # ─── Core LLM Call ──────────────────────────────────────────────────────────────
 
+# ─── ZAI SDK Call ────────────────────────────────────────────────────────────────
+
+async def _call_zai_sdk(
+    tier: str,
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    temperature: float = 0.1,
+    max_tokens: int = 500,
+) -> dict[str, Any]:
+    """Call LLM via the ZAI SDK (z-ai-web-dev-sdk) through the Python wrapper.
+
+    Uses zai_llm.py which spawns a Node.js subprocess to call the SDK.
+    The ZAI SDK handles model routing internally based on the tier label.
+    """
+    from parwa.utils.zai_llm import call_zai_llm
+
+    if _circuit_breaker.is_open("zai"):
+        raise ConnectionError("Circuit breaker open for ZAI SDK")
+
+    await _rate_limit_wait("zai")
+
+    try:
+        result = await call_zai_llm(
+            system_prompt, user_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            model_tier=tier,
+        )
+        _circuit_breaker.record_success("zai")
+        result["provider"] = "zai"
+        return result
+    except (RuntimeError, ConnectionError, TimeoutError, FileNotFoundError) as exc:
+        _circuit_breaker.record_failure("zai")
+        raise
+
+
+# ─── Core LLM Call ──────────────────────────────────────────────────────────────
+
 async def call_llm(
     model_name: str,
     system_prompt: str,
@@ -305,8 +359,9 @@ async def call_llm(
     """Call an LLM via the appropriate provider. Returns {content, model, usage}.
 
     Routes to:
-    1. OpenRouter (for openrouter/ prefixed models — free tier)
-    2. Google AI direct (for gemini/ prefixed models — direct API)
+    1. ZAI SDK (for zai/ prefixed models — primary, highest throughput)
+    2. OpenRouter (for openrouter/ prefixed models — free tier)
+    3. Google AI direct (for gemini/ prefixed models — direct API)
     """
     model_info = MODEL_MAP.get(model_name)
     if not model_info:
@@ -315,7 +370,12 @@ async def call_llm(
     provider = model_info["provider"]
     actual_model = model_info["model"]
 
-    if provider == "openrouter":
+    if provider == "zai":
+        return await _call_zai_sdk(
+            actual_model, system_prompt, user_prompt,
+            temperature=temperature, max_tokens=max_tokens,
+        )
+    elif provider == "openrouter":
         return await _call_openrouter(
             actual_model, system_prompt, user_prompt,
             temperature=temperature, max_tokens=max_tokens,
@@ -340,6 +400,7 @@ async def call_llm_with_failover(
     """Call LLM with automatic failover through the model chain.
 
     Tries each model in order until one succeeds.
+    Provider priority: ZAI SDK → Google AI → OpenRouter.
     Returns the first successful response, or raises if all fail.
     """
     last_error = None
@@ -376,13 +437,30 @@ async def test_provider(provider: str) -> dict[str, Any]:
         return {"provider": provider, "status": "error", "message": "No API key configured"}
 
     test_models = {
+        "zai": "zai/light",
         "openrouter": "google/gemma-3-4b-it:free",
         "google": "gemini-2.0-flash-lite",
     }
     model = test_models.get(provider, "google/gemma-3-4b-it:free")
 
     try:
-        if provider == "openrouter":
+        if provider == "zai":
+            # Test ZAI SDK via the subprocess wrapper
+            start = time.time()
+            result = await _call_zai_sdk(
+                "light", "", "Say hello in one word.",
+                temperature=0.1, max_tokens=10,
+            )
+            elapsed = time.time() - start
+            return {
+                "provider": provider,
+                "status": "ok",
+                "latency_ms": round(elapsed * 1000),
+                "response": result.get("content", "")[:100],
+                "model": result.get("model", "zai/unknown"),
+            }
+
+        elif provider == "openrouter":
             headers = {
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {api_key}",
@@ -462,6 +540,8 @@ async def test_all_providers() -> dict[str, dict[str, Any]]:
     results = {}
     providers_to_test = []
 
+    # ZAI is always available (no key needed)
+    providers_to_test.append("zai")
     if OPENROUTER_KEY:
         providers_to_test.append("openrouter")
     if GOOGLE_AI_KEY:

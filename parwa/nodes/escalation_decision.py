@@ -11,6 +11,12 @@ the combined confidence of ALL upstream signals (intent, sentiment, situation
 model, evidence chain) to make a more nuanced escalation decision. Instead
 of just rule-based yes/no, it computes an escalation confidence score and
 gates the decision on that.
+
+Month 4: Smart Escalation with Confidence < 60%
+- If overall pipeline confidence < 0.60, auto-escalate regardless of other factors
+- If customer mentions legal terms, IMMEDIATELY escalate — no exceptions
+- If customer is VIP/enterprise AND sentiment is angry, escalate
+- Track escalation trigger reason in state
 """
 
 from __future__ import annotations
@@ -315,7 +321,7 @@ def _compute_escalation_confidence_gate(state: dict[str, Any]) -> dict[str, Any]
     }
 
 
-@safe_node("ESCALATION_DECISION", fallback={"should_escalate": False, "escalation_reason": "node_error", "confidence_gate": {}, "active_frameworks": []})
+@safe_node("ESCALATION_DECISION", fallback={"should_escalate": False, "escalation_reason": "node_error", "confidence_gate": {}, "active_frameworks": [], "escalation_trigger_reason": ""})
 async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
     """Decide whether to escalate this ticket to a human (async).
 
@@ -328,9 +334,14 @@ async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
     escalation decision. Instead of just rule-based yes/no, it computes
     an escalation confidence score and gates the decision on that.
 
+    Month 4: Smart Escalation — auto-escalate when pipeline confidence < 0.60,
+    immediate escalation for legal terms, VIP+angry escalation, and tracking
+    the escalation trigger reason.
+
     Reads: raw_message, sentiment, sentiment_urgency, complexity, intent,
            intent_confidence, situation_model, evidence_chain, feed_forward_signals
-    Writes: should_escalate, escalation_reason, confidence_gate, active_frameworks (append)
+    Writes: should_escalate, escalation_reason, confidence_gate, active_frameworks (append),
+            escalation_trigger_reason
     """
     raw_message = state.get("raw_message", "")
     sentiment = state.get("sentiment", "neutral")
@@ -345,11 +356,57 @@ async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(intent_confidence, (int, float)):
         intent_confidence = 0.5
 
+    escalation_trigger_reason = ""
+
+    # ─── Month 4: Immediate legal escalation — no exceptions ───
+    msg_lower = raw_message.lower() if raw_message else ""
+    legal_terms = ["attorney", "lawyer", "lawsuit", "legal action", "sue", "legal"]
+    for term in legal_terms:
+        if term in msg_lower:
+            return {
+                "should_escalate": True,
+                "escalation_reason": "legal_threat_immediate",
+                "confidence_gate": {},
+                "active_frameworks": [],
+                "escalation_trigger_reason": "month4_legal_term_immediate",
+            }
+
+    # ─── Month 4: Auto-escalate if pipeline confidence < 0.60 ───
+    if intent_confidence < 0.60:
+        return {
+            "should_escalate": True,
+            "escalation_reason": "low_pipeline_confidence",
+            "confidence_gate": _compute_escalation_confidence_gate(state),
+            "active_frameworks": [],
+            "escalation_trigger_reason": f"month4_low_confidence_{intent_confidence:.2f}",
+        }
+
+    # ─── Month 4: VIP/enterprise + angry → escalate ───
+    customer_tier = state.get("customer_tier", "")
+    # Also check integration_data for customer tier info
+    integration_data = state.get("integration_data", {})
+    if isinstance(integration_data, dict):
+        customer_info = integration_data.get("customer", {})
+        if isinstance(customer_info, dict):
+            customer_tier = customer_tier or customer_info.get("tier", "")
+
+    if customer_tier in ("enterprise", "vip") and sentiment in (SentimentType.ANGRY, "angry"):
+        return {
+            "should_escalate": True,
+            "escalation_reason": "vip_enterprise_angry_customer",
+            "confidence_gate": _compute_escalation_confidence_gate(state),
+            "active_frameworks": [],
+            "escalation_trigger_reason": f"month4_vip_angry_{customer_tier}",
+        }
+
     # Always run rule-based first — it catches clear-cut cases
     should_escalate, reason = _should_escalate_rule_based(
         sentiment, sentiment_urgency, complexity, intent, intent_confidence,
         raw_message=raw_message,
     )
+
+    if should_escalate:
+        escalation_trigger_reason = "rule_based"
 
     # P2: If rules say no, try confidence-gated decision
     confidence_gate = _compute_escalation_confidence_gate(state)
@@ -358,6 +415,7 @@ async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
     if not should_escalate and confidence_gate.get("should_escalate", False):
         should_escalate = True
         reason = confidence_gate.get("reason", "confidence_gate_triggered")
+        escalation_trigger_reason = "confidence_gate"
         logger.info(
             "escalation: confidence gate triggered (gate_confidence=%.2f, reason=%s)",
             confidence_gate.get("confidence", 0), reason,
@@ -379,6 +437,7 @@ async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
             )
             if llm_escalate:
                 should_escalate, reason = llm_escalate, llm_reason
+                escalation_trigger_reason = "llm_fallback"
         except Exception as exc:
             logger.warning(
                 "ESCALATION_DECISION: LLM escalation check failed, "
@@ -398,4 +457,5 @@ async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
         "escalation_reason": reason,
         "confidence_gate": confidence_gate,
         "active_frameworks": new_frameworks,
+        "escalation_trigger_reason": escalation_trigger_reason,
     }

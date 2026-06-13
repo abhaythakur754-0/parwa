@@ -5,6 +5,11 @@ Also determines the ticket complexity based on confidence.
 
 Phase 5: Now uses FrameworkBrain with CoT/ReAct for complex classification.
 Falls back to rule-based on FrameworkBrain failure.
+
+Month 4: Ambiguous intent handling with confidence thresholds.
+- If intent_confidence < 0.70, generates a clarifying question
+- If top-2 intent score gap < 0.5, flags multi_intent_detected
+- Adds clarifying_question, multi_intent_detected, detected_intents to state
 """
 
 from __future__ import annotations
@@ -319,7 +324,87 @@ def _determine_complexity(confidence: float) -> str:
     return TicketComplexity.CRITICAL
 
 
-@safe_node("INTENT_CLASSIFIER", fallback={"intent": "general_inquiry", "intent_confidence": 0.0, "complexity": "simple"})
+# ─── Month 4: Clarifying question templates ────────────────────────────────────
+
+_INTENT_DISPLAY_NAMES: dict[str, str] = {
+    "refund_request": "a refund",
+    "cancellation": "cancellation",
+    "order_status": "order status",
+    "billing_issue": "a billing issue",
+    "technical_support": "technical support",
+    "account_modification": "account modification",
+    "complaint": "to lodge a complaint",
+    "faq_question": "FAQ information",
+    "escalation": "to escalate",
+    "general_inquiry": "general information",
+}
+
+_MULTI_INTENT_TEMPLATES: dict[tuple[str, str], str] = {
+    ("refund_request", "cancellation"): (
+        "I see you'd like to both cancel and get a refund. "
+        "Could you clarify — do you want to cancel your order and receive a refund, or just one of those?"
+    ),
+    ("refund_request", "billing_issue"): (
+        "It sounds like you have a billing concern and may want a refund. "
+        "Could you clarify — are you requesting a refund, or do you need help understanding a charge?"
+    ),
+    ("cancellation", "billing_issue"): (
+        "I notice your message mentions both cancellation and a billing concern. "
+        "Could you clarify — do you want to cancel something, resolve a billing issue, or both?"
+    ),
+    ("complaint", "technical_support"): (
+        "I can see you're having a technical issue and are unhappy about it. "
+        "Would you like me to help fix the technical problem, or would you prefer to file a formal complaint?"
+    ),
+    ("complaint", "refund_request"): (
+        "It sounds like you're upset and would like a refund. "
+        "Could you clarify — do you mainly want a refund, or would you also like to file a formal complaint?"
+    ),
+    ("order_status", "refund_request"): (
+        "It seems you're both checking on your order and considering a refund. "
+        "Could you clarify — do you want to know where your order is, or would you like to request a refund?"
+    ),
+    ("technical_support", "refund_request"): (
+        "I see you're experiencing a technical issue and also want a refund. "
+        "Would you like me to help troubleshoot the problem first, or would you prefer to proceed with a refund?"
+    ),
+}
+
+
+def _generate_clarifying_question(top1_intent: str, top2_intent: str) -> str:
+    """Generate a clarifying question for ambiguous multi-intent tickets (Month 4).
+
+    Uses template-based generation — no LLM call needed.
+    """
+    # Check if we have a specific template for this pair (check both orderings)
+    template = _MULTI_INTENT_TEMPLATES.get((top1_intent, top2_intent))
+    if not template:
+        template = _MULTI_INTENT_TEMPLATES.get((top2_intent, top1_intent))
+    if template:
+        return template
+
+    # Generic fallback template
+    name1 = _INTENT_DISPLAY_NAMES.get(top1_intent, top1_intent)
+    name2 = _INTENT_DISPLAY_NAMES.get(top2_intent, top2_intent)
+    return (
+        f"I'm not entirely sure what you need — your message could be about {name1} "
+        f"or {name2}. Could you clarify which one you'd like help with?"
+    )
+
+
+def _generate_low_confidence_question(intent_str: str) -> str:
+    """Generate a clarifying question for low-confidence intent classification (Month 4).
+
+    Uses template-based generation — no LLM call needed.
+    """
+    name = _INTENT_DISPLAY_NAMES.get(intent_str, intent_str)
+    return (
+        f"I think you might be looking for {name}, but I'm not completely sure. "
+        f"Could you provide a bit more detail about what you need help with?"
+    )
+
+
+@safe_node("INTENT_CLASSIFIER", fallback={"intent": "general_inquiry", "intent_confidence": 0.0, "complexity": "simple", "clarifying_question": "", "multi_intent_detected": False, "detected_intents": [], "low_confidence_flag": False})
 async def intent_classifier(state: dict[str, Any]) -> dict[str, Any]:
     """Classify the intent of the customer's message (async).
 
@@ -369,6 +454,39 @@ async def intent_classifier(state: dict[str, Any]) -> dict[str, Any]:
 
     complexity = _determine_complexity(confidence)
 
+    # ─── Month 4: Ambiguous intent handling with confidence thresholds ───
+    clarifying_question = ""
+    multi_intent_detected = False
+    detected_intents: list[str] = []
+    low_confidence_flag = confidence < 0.70
+
+    # Detect multi-intent: check if the message matches multiple intents closely
+    message_lower = raw_message.lower()
+    intent_scores: dict[str, float] = {}
+    for intent, keywords in _INTENT_KEYWORDS.items():
+        score = 0.0
+        for kw, weight in keywords:
+            if kw in message_lower:
+                score += weight
+        if score > 0:
+            intent_scores[intent.value] = score
+
+    # If there are at least 2 scored intents, check the gap
+    if len(intent_scores) >= 2:
+        sorted_intents = sorted(intent_scores.items(), key=lambda x: x[1], reverse=True)
+        top1_intent, top1_score = sorted_intents[0]
+        top2_intent, top2_score = sorted_intents[1]
+        score_gap = top1_score - top2_score
+
+        if score_gap < 0.5:
+            multi_intent_detected = True
+            detected_intents = [top1_intent, top2_intent]
+            clarifying_question = _generate_clarifying_question(top1_intent, top2_intent)
+
+    # Low confidence: generate a clarifying question even if not multi-intent
+    if low_confidence_flag and not clarifying_question:
+        clarifying_question = _generate_low_confidence_question(intent_str)
+
     # Track frameworks used
     new_frameworks = []
     existing = state.get("active_frameworks", [])
@@ -381,4 +499,9 @@ async def intent_classifier(state: dict[str, Any]) -> dict[str, Any]:
         "intent_confidence": confidence,
         "complexity": complexity,
         "active_frameworks": new_frameworks,
+        # Month 4: Ambiguous intent fields
+        "clarifying_question": clarifying_question,
+        "multi_intent_detected": multi_intent_detected,
+        "detected_intents": detected_intents,
+        "low_confidence_flag": low_confidence_flag,
     }

@@ -194,6 +194,12 @@ class TicketState(BaseModel):
     # Feed-forward signals: Proactive hints from upstream to downstream nodes
     feed_forward_signals: list[dict[str, Any]] = Field(default_factory=list)
 
+    # ─── Month 4: Ambiguous intent + confidence thresholds ───────────────────
+    clarifying_question: str = ""
+    multi_intent_detected: bool = False
+    detected_intents: list[str] = Field(default_factory=list)
+    low_confidence_flag: bool = False
+
     # ─── P0: Cross-node Evidence Chain ───────────────────────────
     # Structured evidence that flows between ALL nodes. Each node reads
     # from this chain to understand what upstream nodes concluded and WHY.
