@@ -23,6 +23,8 @@ class TicketChannel(str, Enum):
     CHAT = "chat"
     SOCIAL = "social"
     VOICE = "voice"
+    SMS = "sms"
+    WEBHOOK = "webhook"
 
 
 class TicketComplexity(str, Enum):
@@ -262,8 +264,9 @@ def validate_state(state: dict[str, Any]) -> tuple[bool, list[str]]:
         issues.append(f"variant must be mini/parwa/high, got '{variant}'")
 
     channel = state.get("channel", "email")
-    if channel not in ("email", "chat", "social", "voice"):
-        issues.append(f"channel must be email/chat/social/voice, got '{channel}'")
+    valid_channels = tuple(c.value for c in TicketChannel)
+    if channel not in valid_channels:
+        issues.append(f"channel must be {'/'.join(valid_channels)}, got '{channel}'")
 
     raw_message = state.get("raw_message", "")
     if raw_message and not isinstance(raw_message, str):

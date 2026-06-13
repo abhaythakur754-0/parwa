@@ -47,8 +47,10 @@ def _validate_state_dict(state: dict[str, Any]) -> list[str]:
 
     # Check channel is valid
     channel = state.get("channel", "email")
-    if channel not in ("email", "chat", "social", "voice"):
-        issues.append(f"channel must be email/chat/social/voice, got '{channel}'")
+    from parwa.state import TicketChannel
+    valid_channels = tuple(c.value for c in TicketChannel)
+    if channel not in valid_channels:
+        issues.append(f"channel must be {'/'.join(valid_channels)}, got '{channel}'")
 
     # Check numeric fields are numbers
     for field in ("intent_confidence", "sentiment_urgency", "quality_score", "loop_count"):

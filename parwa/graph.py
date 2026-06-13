@@ -166,12 +166,15 @@ def _after_sentiment(state: dict[str, Any]) -> str:
 def _after_escalation(state: dict[str, Any]) -> str:
     """Route after escalation decision.
 
-    Should escalate → skip to compliance (quick exit for human-handled tickets)
+    Should escalate → go through situation_model + policy_guard first,
+    then to compliance (quick exit for human-handled tickets).
+    P2 FIX: Even escalated tickets benefit from situation modeling and
+    policy-aware reasoning before being handed to humans.
     Should not escalate → continue to FAQ matcher
     """
     if state.get("should_escalate", False):
-        logger.info("route: escalation→pii_compliance_guard (escalated)")
-        return "pii_compliance_guard"
+        logger.info("route: escalation→situation_model (escalated, but still needs P2 context)")
+        return "situation_model"
     logger.debug("route: escalation→faq_matcher (not escalated)")
     return "faq_matcher"
 
@@ -190,6 +193,20 @@ def _after_faq_matcher(state: dict[str, Any]) -> str:
         return "reasoning_engine"
     logger.debug("route: faq→kb_retriever (no high match)")
     return "kb_retriever"
+
+
+def _after_policy_guard(state: dict[str, Any]) -> str:
+    """Route after policy guard.
+
+    P2: If the ticket is escalated, skip reasoning and go straight to
+    compliance (the human agent gets the situation model + policy context
+    in the response). Non-escalated tickets continue to reasoning.
+    """
+    if state.get("should_escalate", False):
+        logger.info("route: policy_guard→pii_compliance_guard (escalated, P2 context enriched)")
+        return "pii_compliance_guard"
+    logger.debug("route: policy_guard→reasoning_engine")
+    return "reasoning_engine"
 
 
 def _after_reasoning(state: dict[str, Any]) -> str:
@@ -424,12 +441,14 @@ def build_parwa_graph(
         },
     )
 
-    # Conditional: After ESCALATION → human or continue
+    # Conditional: After ESCALATION → P2 context (situation_model) or continue
+    # P2 FIX: Escalated tickets now go through situation_model + policy_guard
+    # before compliance, so the human agent gets a full situation brief
     graph.add_conditional_edges(
         "escalation_decision",
         _after_escalation,
         {
-            "pii_compliance_guard": "pii_compliance_guard",
+            "situation_model": "situation_model",
             "faq_matcher": "faq_matcher",
         },
     )
@@ -452,7 +471,16 @@ def build_parwa_graph(
     graph.add_edge("context_manager", "integration_lookup")
     graph.add_edge("integration_lookup", "situation_model")  # P2: synthesize context first
     graph.add_edge("situation_model", "policy_guard")  # P2: then check policies
-    graph.add_edge("policy_guard", "reasoning_engine")  # P2: then reason with full context
+    # Conditional: After POLICY_GUARD → reasoning or compliance (escalated)
+    # P2: Escalated tickets skip reasoning but still get situation+policy context
+    graph.add_conditional_edges(
+        "policy_guard",
+        _after_policy_guard,
+        {
+            "reasoning_engine": "reasoning_engine",
+            "pii_compliance_guard": "pii_compliance_guard",
+        },
+    )
 
     # Conditional: After REASONING → simple (action) or complex (advanced reasoning)
     graph.add_conditional_edges(
