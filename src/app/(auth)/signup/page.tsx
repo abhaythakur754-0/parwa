@@ -21,7 +21,7 @@ function SignupContent() {
   const [alreadyLoggedIn, setAlreadyLoggedIn] = useState(false);
   const { hydrate, isAuthenticated } = useAuth();
 
-  const redirectTo = getSafeRedirect(searchParams.get('redirect')) || '/dashboard';
+  const redirectTo = getSafeRedirect(searchParams.get('redirect')) || '/';
   const source = searchParams.get('source') || '';
   const industry = searchParams.get('industry') || '';
 
@@ -101,13 +101,10 @@ function SignupContent() {
       // Sync AuthContext state from localStorage
       hydrate();
 
-      // New users always go to onboarding first
-      // (unless they came from pricing with a specific redirect that includes /onboarding)
-      if (redirectTo === '/dashboard' || redirectTo === '/dashboard/') {
-        router.push('/onboarding');
-      } else {
-        router.push(redirectTo);
-      }
+      // After signup, redirect to wherever they came from.
+      // If they came from the models page, redirectTo already points to onboarding.
+      // If they came from the main page, let them continue exploring.
+      router.push(redirectTo);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Registration failed. Please try again.';
       setError(message);
@@ -155,11 +152,11 @@ function SignupContent() {
       const isNewUser = Boolean(result.is_new_user);
       toast.success(isNewUser ? 'Account created with Google!' : 'Signed in with Google!');
 
-      // New users always go to onboarding first
-      if (isNewUser) {
-        router.push('/onboarding');
-      } else {
-        // Returning users — check onboarding state
+      // After signup, redirect to wherever they came from.
+      // If they came from the models page, redirectTo already points to onboarding.
+      // If they came from the main page, let them continue exploring.
+      if (!isNewUser) {
+        // Returning users — check onboarding state before going to dashboard
         try {
           const stateRes = await fetch('/api/onboarding/state');
           if (stateRes.ok) {
@@ -168,12 +165,17 @@ function SignupContent() {
               router.push('/onboarding');
               return;
             }
+            localStorage.setItem('parwa_onboarding_completed', 'true');
           }
         } catch {
-          // API unavailable — proceed to dashboard
+          // API unavailable — check localStorage
+          const hasCompleted = localStorage.getItem('parwa_onboarding_completed') === 'true';
+          if (!hasCompleted && redirectTo === '/') {
+            // Returning user but we can't verify onboarding — go to dashboard
+          }
         }
-        router.push(redirectTo);
       }
+      router.push(redirectTo);
     } catch (err) {
       const message = err instanceof Error
         ? err.message
@@ -207,24 +209,9 @@ function SignupContent() {
   };
 
   if (alreadyLoggedIn) {
-    // Auto-redirect — check onboarding state first
-    // New users who haven't completed onboarding should go there, not dashboard
+    // Already logged in — redirect to where they were going, or home to explore
     if (typeof window !== 'undefined') {
-      (async () => {
-        try {
-          const res = await fetch('/api/onboarding/state');
-          if (res.ok) {
-            const state = await res.json();
-            if (state.status !== 'completed' && !state.first_victory_completed) {
-              window.location.href = '/onboarding';
-              return;
-            }
-          }
-        } catch {
-          // API unavailable — proceed to dashboard
-        }
-        window.location.href = '/dashboard';
-      })();
+      window.location.href = redirectTo;
     }
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>

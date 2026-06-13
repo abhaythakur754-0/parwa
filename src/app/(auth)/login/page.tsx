@@ -62,9 +62,12 @@ function LoginContent() {
   // ── After successful login, check onboarding then redirect ──────
 
   async function redirectAfterLogin(isNewUser?: boolean) {
-    // New users always go to onboarding
+    // After login, redirect to where the user came from.
+    // If they came from the models page, redirectTo already points to onboarding.
+    // If they came from the main page, let them continue exploring.
+    // If no redirect specified, new users go home to explore; returning users check onboarding.
     if (isNewUser) {
-      router.push('/onboarding');
+      router.push(redirectTo);
       return;
     }
 

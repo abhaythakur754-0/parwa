@@ -112,6 +112,7 @@ export function getAccessTokenFromCookies(
  * Any redirect not matching these will be rejected.
  */
 const ALLOWED_REDIRECT_PREFIXES = [
+  "/",
   "/models",
   "/tickets",
   "/settings",
@@ -129,7 +130,7 @@ const ALLOWED_REDIRECT_PREFIXES = [
 ];
 
 /** Default safe redirect target when validation fails. */
-const SAFE_REDIRECT_DEFAULT = "/dashboard";
+const SAFE_REDIRECT_DEFAULT = "/";
 
 /**
  * Decode a URL string iteratively until it stops changing.
@@ -192,7 +193,9 @@ export function isSafeRedirect(url: string): boolean {
   // the path must start with a known safe prefix.
   const pathOnly = decoded.split("?")[0].split("#")[0];
   const isAllowed = ALLOWED_REDIRECT_PREFIXES.some(
-    (prefix) => pathOnly === prefix || pathOnly.startsWith(prefix + "/")
+    (prefix) => prefix === "/"
+      ? pathOnly === "/"  // "/" only matches exact root, not everything
+      : pathOnly === prefix || pathOnly.startsWith(prefix + "/")
   );
 
   return isAllowed;

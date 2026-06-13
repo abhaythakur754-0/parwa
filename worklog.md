@@ -209,3 +209,26 @@ Stage Summary:
 - Build passes, all TypeScript errors are pre-existing (not from these changes)
 - Complete E2E flow now works: signup → onboarding → dashboard (no more bypass)
 - No code committed or pushed (as per user request)
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix signup/login redirect flow — users should go back to where they came from, not forced to onboarding
+
+Work Log:
+- User clarified: after signup, users should go BACK to where they were exploring (models page, main page), NOT forced to onboarding
+- The onboarding flow should only trigger when user picks a variant on the models page (which already passes redirect=/onboarding)
+- Changed default redirect from /dashboard to / (home page) so users can explore after signup
+- Fixed signup page: email signup now goes to redirectTo instead of forcing /onboarding
+- Fixed signup page: Google signup now goes to redirectTo for new users, checks onboarding only for returning users
+- Fixed signup page: alreadyLoggedIn redirect goes to redirectTo instead of hardcoded /dashboard
+- Fixed login page: redirectAfterLogin sends new users to redirectTo instead of forcing /onboarding
+- Updated auth-cookies.ts: added "/" to allowed redirect prefixes (exact match only), changed SAFE_REDIRECT_DEFAULT to "/"
+- Models page flow verified: already passes redirect=/onboarding when user picks a variant, so that flow works correctly
+- Build passes
+
+Stage Summary:
+- Signup/login now respects the source page — users go back to where they came from
+- Default redirect is now / (home page) instead of /dashboard
+- Models page flow (signup → onboarding after selecting variant) still works correctly
+- Dashboard onboarding guard from previous task still protects direct /dashboard access
