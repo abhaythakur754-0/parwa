@@ -1,0 +1,723 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useEffect, useMemo } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import {
+     6→  useTicketStore,
+     7→  VARIANT_LABELS,
+     8→  VARIANT_COST,
+     9→  CATEGORY_LABELS,
+    10→  STATUS_LABELS,
+    11→  ALL_CATEGORIES,
+    12→  PRIORITY_LABELS,
+    13→  type TicketVariant,
+    14→} from '@/lib/ticket-store';
+    15→import toast from 'react-hot-toast';
+    16→
+    17→// ── Variant Config Modal ────────────────────────────────────────────
+    18→
+    19→function VariantConfigModal({
+    20→  variant,
+    21→  open,
+    22→  onClose,
+    23→}: {
+    24→  variant: TicketVariant;
+    25→  open: boolean;
+    26→  onClose: () => void;
+    27→}) {
+    28→  const configs: Record<TicketVariant, {
+    29→    name: string;
+    30→    tier: string;
+    31→    model: string;
+    32→    description: string;
+    33→    maxTokens: number;
+    34→    temperature: number;
+    35→    systemPrompt: string;
+    36→  }> = {
+    37→    light: {
+    38→      name: 'PARWA Light',
+    39→      tier: 'Entry',
+    40→      model: 'Gemini Flash',
+    41→      description: 'Fast, cost-effective handling for simple queries',
+    42→      maxTokens: 500,
+    43→      temperature: 0.3,
+    44→      systemPrompt: 'You are a helpful customer support agent for PARWA. Handle simple queries efficiently and directly.',
+    45→    },
+    46→    medium: {
+    47→      name: 'PARWA Medium',
+    48→      tier: 'Growth',
+    49→      model: 'Gemini Pro',
+    50→      description: 'Balanced reasoning for complex multi-step issues',
+    51→      maxTokens: 2000,
+    52→      temperature: 0.5,
+    53→      systemPrompt: 'You are an experienced customer support agent for PARWA. Handle complex queries with careful reasoning and empathy.',
+    54→    },
+    55→    heavy: {
+    56→      name: 'PARWA Heavy',
+    57→      tier: 'Enterprise',
+    58→      model: 'Claude 3.5 Sonnet',
+    59→      description: 'Deep analysis for critical, VIP, and security cases',
+    60→      maxTokens: 5000,
+    61→      temperature: 0.7,
+    62→      systemPrompt: 'You are a senior customer support specialist for PARWA. Handle critical, VIP, and security-sensitive cases with thorough analysis.',
+    63→    },
+    64→  };
+    65→
+    66→  const config = configs[variant];
+    67→  const [maxTokens, setMaxTokens] = useState(config.maxTokens);
+    68→  const [temperature, setTemperature] = useState(config.temperature);
+    69→
+    70→  if (!open) return null;
+    71→
+    72→  const handleSave = () => {
+    73→    toast.success(`${config.name} configuration saved`);
+    74→    onClose();
+    75→  };
+    76→
+    77→  const variantColors: Record<TicketVariant, { accent: string; bg: string; text: string; border: string }> = {
+    78→    light: { accent: 'bg-zinc-400', bg: 'bg-zinc-500/10', text: 'text-zinc-300', border: 'border-zinc-500/30' },
+    79→    medium: { accent: 'bg-sky-400', bg: 'bg-sky-500/10', text: 'text-sky-300', border: 'border-sky-500/30' },
+    80→    heavy: { accent: 'bg-orange-400', bg: 'bg-orange-500/10', text: 'text-orange-300', border: 'border-orange-500/30' },
+    81→  };
+    82→  const c = variantColors[variant];
+    83→
+    84→  return (
+    85→    <AnimatePresence>
+    86→      <motion.div
+    87→        initial={{ opacity: 0 }}
+    88→        animate={{ opacity: 1 }}
+    89→        exit={{ opacity: 0 }}
+    90→        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    91→        onClick={(e) => e.target === e.currentTarget && onClose()}
+    92→      >
+    93→        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+    94→        <motion.div
+    95→          initial={{ opacity: 0, scale: 0.95, y: 10 }}
+    96→          animate={{ opacity: 1, scale: 1, y: 0 }}
+    97→          exit={{ opacity: 0, scale: 0.95, y: 10 }}
+    98→          className="relative w-full max-w-md bg-[#1A1A1A] border border-white/[0.06] rounded-2xl shadow-2xl overflow-hidden"
+    99→        >
+   100→          {/* Header */}
+   101→          <div className={`p-5 ${c.bg} border-b ${c.border}`}>
+   102→            <div className="flex items-center gap-3">
+   103→              <div className={`w-10 h-10 rounded-xl ${c.bg} ${c.border} border flex items-center justify-center`}>
+   104→                <svg className={`w-5 h-5 ${c.text}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   105→                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
+   106→                </svg>
+   107→              </div>
+   108→              <div>
+   109→                <h2 className="text-white font-semibold">{config.name} Configuration</h2>
+   110→                <p className="text-zinc-400 text-xs">{config.model} · {config.description}</p>
+   111→              </div>
+   112→            </div>
+   113→          </div>
+   114→
+   115→          {/* Settings */}
+   116→          <div className="p-5 space-y-5">
+   117→            {/* Model */}
+   118→            <div>
+   119→              <label className="text-[11px] text-zinc-400 mb-1.5 block">LLM Model</label>
+   120→              <div className="h-9 bg-[#0F0F0F] border border-white/[0.06] rounded-lg px-3 flex items-center">
+   121→                <span className="text-sm text-white">{config.model}</span>
+   122→              </div>
+   123→            </div>
+   124→
+   125→            {/* Max Tokens */}
+   126→            <div>
+   127→              <div className="flex items-center justify-between mb-1.5">
+   128→                <label className="text-[11px] text-zinc-400">Max Tokens</label>
+   129→                <span className="text-[11px] text-zinc-300 font-mono">{maxTokens.toLocaleString()}</span>
+   130→              </div>
+   131→              <input
+   132→                type="range"
+   133→                min={100}
+   134→                max={8000}
+   135→                step={100}
+   136→                value={maxTokens}
+   137→                onChange={(e) => setMaxTokens(Number(e.target.value))}
+   138→                className="w-full h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer accent-orange-500"
+   139→              />
+   140→              <div className="flex justify-between text-[10px] text-zinc-600 mt-1">
+   141→                <span>100</span>
+   142→                <span>8,000</span>
+   143→              </div>
+   144→            </div>
+   145→
+   146→            {/* Temperature */}
+   147→            <div>
+   148→              <div className="flex items-center justify-between mb-1.5">
+   149→                <label className="text-[11px] text-zinc-400">Temperature</label>
+   150→                <span className="text-[11px] text-zinc-300 font-mono">{temperature.toFixed(1)}</span>
+   151→              </div>
+   152→              <input
+   153→                type="range"
+   154→                min={0}
+   155→                max={1}
+   156→                step={0.1}
+   157→                value={temperature}
+   158→                onChange={(e) => setTemperature(Number(e.target.value))}
+   159→                className="w-full h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer accent-orange-500"
+   160→              />
+   161→              <div className="flex justify-between text-[10px] text-zinc-600 mt-1">
+   162→                <span>Precise (0)</span>
+   163→                <span>Creative (1)</span>
+   164→              </div>
+   165→            </div>
+   166→
+   167→            {/* System Prompt */}
+   168→            <div>
+   169→              <label className="text-[11px] text-zinc-400 mb-1.5 block">System Prompt</label>
+   170→              <textarea
+   171→                defaultValue={config.systemPrompt}
+   172→                rows={3}
+   173→                className="w-full bg-[#0F0F0F] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500/40 resize-none"
+   174→              />
+   175→            </div>
+   176→
+   177→            {/* Actions */}
+   178→            <div className="flex gap-3 pt-1">
+   179→              <button
+   180→                onClick={onClose}
+   181→                className="flex-1 h-10 rounded-lg border border-white/[0.06] text-sm text-zinc-400 hover:text-zinc-300 hover:border-white/10 transition-colors"
+   182→              >
+   183→                Cancel
+   184→              </button>
+   185→              <button
+   186→                onClick={handleSave}
+   187→                className="flex-1 h-10 rounded-lg bg-orange-500 text-sm text-white font-medium hover:bg-orange-600 transition-colors"
+   188→              >
+   189→                Save Changes
+   190→              </button>
+   191→            </div>
+   192→          </div>
+   193→        </motion.div>
+   194→      </motion.div>
+   195→    </AnimatePresence>
+   196→  );
+   197→}
+   198→
+   199→// ── Main VariantsPage ───────────────────────────────────────────────
+   200→
+   201→export default function VariantsPage() {
+   202→  const tickets = useTicketStore((s) => s.tickets);
+   203→  const init = useTicketStore((s) => s.init);
+   204→  const [initialized, setInitialized] = useState(false);
+   205→  const [configVariant, setConfigVariant] = useState<TicketVariant | null>(null);
+   206→
+   207→  useEffect(() => {
+   208→    const initialize = () => {
+   209→      init();
+   210→      setInitialized(true);
+   211→    };
+   212→    initialize();
+   213→  }, []);
+   214→
+   215→  const variantData = useMemo(() => {
+   216→    if (!initialized) return null;
+   217→
+   218→    const data: Record<
+   219→      TicketVariant,
+   220→      {
+   221→        name: string;
+   222→        tier: string;
+   223→        model: string;
+   224→        status: 'Active';
+   225→        total: number;
+   226→        open: number;
+   227→        resolved: number;
+   228→        inProgress: number;
+   229→        resolutionRate: number;
+   230→        avgTime: string;
+   231→        costPerTicket: number;
+   232→        totalCost: number;
+   233→        totalSavings: number;
+   234→        accuracy: number;
+   235→        recentTickets: typeof tickets;
+   236→        categoryBreakdown: Record<string, number>;
+   237→      }
+   238→    > = {
+   239→      light: {
+   240→        name: 'PARWA Light',
+   241→        tier: 'Entry',
+   242→        model: 'Gemini Flash',
+   243→        status: 'Active',
+   244→        total: 0,
+   245→        open: 0,
+   246→        resolved: 0,
+   247→        inProgress: 0,
+   248→        resolutionRate: 0,
+   249→        avgTime: '<2s',
+   250→        costPerTicket: VARIANT_COST.light,
+   251→        totalCost: 0,
+   252→        totalSavings: 0,
+   253→        accuracy: 95.2,
+   254→        recentTickets: [],
+   255→        categoryBreakdown: {},
+   256→      },
+   257→      medium: {
+   258→        name: 'PARWA Medium',
+   259→        tier: 'Growth',
+   260→        model: 'Gemini Pro',
+   261→        status: 'Active',
+   262→        total: 0,
+   263→        open: 0,
+   264→        resolved: 0,
+   265→        inProgress: 0,
+   266→        resolutionRate: 0,
+   267→        avgTime: '~5s',
+   268→        costPerTicket: VARIANT_COST.medium,
+   269→        totalCost: 0,
+   270→        totalSavings: 0,
+   271→        accuracy: 89.7,
+   272→        recentTickets: [],
+   273→        categoryBreakdown: {},
+   274→      },
+   275→      heavy: {
+   276→        name: 'PARWA Heavy',
+   277→        tier: 'Enterprise',
+   278→        model: 'Claude 3.5 Sonnet',
+   279→        status: 'Active',
+   280→        total: 0,
+   281→        open: 0,
+   282→        resolved: 0,
+   283→        inProgress: 0,
+   284→        resolutionRate: 0,
+   285→        avgTime: '~8s',
+   286→        costPerTicket: VARIANT_COST.heavy,
+   287→        totalCost: 0,
+   288→        totalSavings: 0,
+   289→        accuracy: 93.1,
+   290→        recentTickets: [],
+   291→        categoryBreakdown: {},
+   292→      },
+   293→    };
+   294→
+   295→    for (const variant of ['light', 'medium', 'heavy'] as TicketVariant[]) {
+   296→      const vt = tickets.filter((t) => t.assigned_variant === variant);
+   297→      const open = vt.filter((t) => t.status === 'open' || t.status === 'in_progress').length;
+   298→      const resolved = vt.filter((t) => t.status === 'resolved' || t.status === 'closed').length;
+   299→      const inProgress = vt.filter((t) => t.status === 'in_progress').length;
+   300→      const resolutionRate = vt.length > 0 ? Math.round((resolved / vt.length) * 100) : 0;
+   301→      const totalCost = vt.reduce((s, t) => s + (t.cost_per_ticket ?? 0), 0);
+   302→      const totalSavings = vt.reduce((s, t) => s + (t.savings_per_ticket ?? 0), 0);
+   303→
+   304→      // Category breakdown
+   305→      const cats: Record<string, number> = {};
+   306→      for (const t of vt) {
+   307→        const label = CATEGORY_LABELS[t.category];
+   308→        cats[label] = (cats[label] ?? 0) + 1;
+   309→      }
+   310→
+   311→      data[variant] = {
+   312→        ...data[variant],
+   313→        total: vt.length,
+   314→        open,
+   315→        resolved,
+   316→        inProgress,
+   317→        resolutionRate,
+   318→        totalCost: Math.round(totalCost * 1000) / 1000,
+   319→        totalSavings: Math.round(totalSavings * 100) / 100,
+   320→        recentTickets: vt.slice(0, 5),
+   321→        categoryBreakdown: cats,
+   322→      };
+   323→    }
+   324→
+   325→    return data;
+   326→  }, [tickets, initialized]);
+   327→
+   328→  if (!variantData) {
+   329→    return (
+   330→      <div className="space-y-6">
+   331→        <div className="pb-6 border-b border-white/[0.06]">
+   332→          <h1 className="text-xl font-bold text-white">Variant Engine</h1>
+   333→          <p className="text-sm text-zinc-500 mt-0.5">
+   334→            Configure and monitor your AI variant instances
+   335→          </p>
+   336→        </div>
+   337→        <div className="flex items-center justify-center py-20">
+   338→          <svg className="w-5 h-5 animate-spin text-zinc-500" viewBox="0 0 24 24" fill="none">
+   339→            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+   340→            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+   341→          </svg>
+   342→        </div>
+   343→      </div>
+   344→    );
+   345→  }
+   346→
+   347→  const variants = ['light', 'medium', 'heavy'] as TicketVariant[];
+   348→  const totalAll = variants.reduce((s, v) => s + variantData[v].total, 0);
+   349→  const totalSavings = variants.reduce((s, v) => s + variantData[v].totalSavings, 0);
+   350→
+   351→  const variantColors: Record<TicketVariant, {
+   352→    accent: string;
+   353→    badge: string;
+   354→    bar: string;
+   355→    barBg: string;
+   356→    border: string;
+   357→    bg: string;
+   358→    text: string;
+   359→  }> = {
+   360→    light: {
+   361→      accent: 'border-zinc-500/30',
+   362→      badge: 'bg-zinc-500/10 text-zinc-300',
+   363→      bar: 'bg-zinc-400',
+   364→      barBg: 'bg-zinc-500/10',
+   365→      border: 'border-zinc-500/20',
+   366→      bg: 'bg-zinc-500/10',
+   367→      text: 'text-zinc-400',
+   368→    },
+   369→    medium: {
+   370→      accent: 'border-sky-500/30',
+   371→      badge: 'bg-sky-500/10 text-sky-300',
+   372→      bar: 'bg-sky-400',
+   373→      barBg: 'bg-sky-500/10',
+   374→      border: 'border-sky-500/20',
+   375→      bg: 'bg-sky-500/10',
+   376→      text: 'text-sky-400',
+   377→    },
+   378→    heavy: {
+   379→      accent: 'border-orange-500/30',
+   380→      badge: 'bg-orange-500/10 text-orange-300',
+   381→      bar: 'bg-orange-400',
+   382→      barBg: 'bg-orange-500/10',
+   383→      border: 'border-orange-500/20',
+   384→      bg: 'bg-orange-500/10',
+   385→      text: 'text-orange-400',
+   386→    },
+   387→  };
+   388→
+   389→  return (
+   390→    <div className="space-y-6">
+   391→      <div className="pb-6 border-b border-white/[0.06]">
+   392→        <div className="flex items-center justify-between flex-wrap gap-3">
+   393→          <div>
+   394→            <h1 className="text-xl font-bold text-white">Variant Engine</h1>
+   395→            <p className="text-sm text-zinc-500 mt-0.5">
+   396→              Configure and monitor your AI variant instances
+   397→            </p>
+   398→          </div>
+   399→          <div className="flex items-center gap-4 text-xs">
+   400→            <div className="text-center">
+   401→              <div className="text-white font-bold">{totalAll}</div>
+   402→              <div className="text-zinc-500">Total Tickets</div>
+   403→            </div>
+   404→            <div className="w-px h-8 bg-white/[0.06]" />
+   405→            <div className="text-center">
+   406→              <div className="text-emerald-400 font-bold">${totalSavings.toFixed(2)}</div>
+   407→              <div className="text-zinc-500">Total Savings</div>
+   408→            </div>
+   409→          </div>
+   410→        </div>
+   411→      </div>
+   412→
+   413→      {/* Variant Cards */}
+   414→      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+   415→        {variants.map((variant) => {
+   416→          const d = variantData[variant];
+   417→          const c = variantColors[variant];
+   418→
+   419→          return (
+   420→            <div
+   421→              key={variant}
+   422→              className={`rounded-xl border border-white/[0.06] ${c.accent} bg-[#1A1A1A] p-5 hover:border-white/[0.1] transition-all duration-300`}
+   423→            >
+   424→              {/* Header */}
+   425→              <div className="flex items-center justify-between mb-4">
+   426→                <div>
+   427→                  <div className="flex items-center gap-2">
+   428→                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${c.badge}`}>
+   429→                      {variant.toUpperCase()}
+   430→                    </span>
+   431→                    <h3 className="text-sm font-semibold text-white">{d.name}</h3>
+   432→                  </div>
+   433→                  <span className="text-xs text-zinc-500">{d.tier} · {d.model}</span>
+   434→                </div>
+   435→                <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+   436→                  {d.status}
+   437→                </span>
+   438→              </div>
+   439→
+   440→              {/* Stats Grid */}
+   441→              <div className="grid grid-cols-2 gap-3 mb-4">
+   442→                <div className="bg-white/[0.03] rounded-lg p-2.5 text-center">
+   443→                  <div className="text-lg font-bold text-white">{d.total}</div>
+   444→                  <div className="text-[10px] text-zinc-500">Tickets</div>
+   445→                </div>
+   446→                <div className="bg-white/[0.03] rounded-lg p-2.5 text-center">
+   447→                  <div className="text-lg font-bold text-emerald-400">{d.resolutionRate}%</div>
+   448→                  <div className="text-[10px] text-zinc-500">Resolution</div>
+   449→                </div>
+   450→              </div>
+   451→
+   452→              {/* Metrics */}
+   453→              <div className="space-y-2.5 mb-4">
+   454→                <div className="flex items-center justify-between text-xs">
+   455→                  <span className="text-zinc-500">Avg Response</span>
+   456→                  <span className="text-zinc-300 font-medium">{d.avgTime}</span>
+   457→                </div>
+   458→                <div className="flex items-center justify-between text-xs">
+   459→                  <span className="text-zinc-500">Cost/Ticket</span>
+   460→                  <span className="text-zinc-300 font-medium">${d.costPerTicket.toFixed(3)}</span>
+   461→                </div>
+   462→                <div className="flex items-center justify-between text-xs">
+   463→                  <span className="text-zinc-500">Savings/Ticket</span>
+   464→                  <span className="text-emerald-400 font-semibold">${(12.5 - d.costPerTicket).toFixed(2)}</span>
+   465→                </div>
+   466→                <div className="flex items-center justify-between text-xs">
+   467→                  <span className="text-zinc-500">Total Cost</span>
+   468→                  <span className="text-zinc-300 font-medium">${d.totalCost.toFixed(3)}</span>
+   469→                </div>
+   470→                <div className="flex items-center justify-between text-xs">
+   471→                  <span className="text-zinc-500">Accuracy</span>
+   472→                  <span className="text-orange-400 font-semibold">{d.accuracy}%</span>
+   473→                </div>
+   474→
+   475→                {/* Status breakdown */}
+   476→                <div className="flex items-center gap-2 pt-1">
+   477→                  <span className="w-2 h-2 rounded-full bg-blue-400" />
+   478→                  <span className="text-[10px] text-zinc-500">{d.open} open</span>
+   479→                  <span className="w-2 h-2 rounded-full bg-yellow-400" />
+   480→                  <span className="text-[10px] text-zinc-500">{d.inProgress} in progress</span>
+   481→                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+   482→                  <span className="text-[10px] text-zinc-500">{d.resolved} resolved</span>
+   483→                </div>
+   484→              </div>
+   485→
+   486→              {/* Category breakdown */}
+   487→              {Object.keys(d.categoryBreakdown).length > 0 && (
+   488→                <div className="mb-4">
+   489→                  <p className="text-[10px] text-zinc-500 mb-2">TOP CATEGORIES</p>
+   490→                  <div className="space-y-1.5">
+   491→                    {Object.entries(d.categoryBreakdown)
+   492→                      .sort(([, a], [, b]) => b - a)
+   493→                      .slice(0, 4)
+   494→                      .map(([cat, count]) => {
+   495→                        const pct = d.total > 0 ? Math.round((count / d.total) * 100) : 0;
+   496→                        return (
+   497→                          <div key={cat} className="flex items-center gap-2">
+   498→                            <span className="text-[10px] text-zinc-400 w-24 truncate">{cat}</span>
+   499→                            <div className={`flex-1 h-1.5 rounded-full ${c.barBg} overflow-hidden`}>
+   500→                              <div
+   501→                                className={`h-full rounded-full ${c.bar} transition-all duration-700`}
+   502→                                style={{ width: `${pct}%` }}
+   503→                              />
+   504→                            </div>
+   505→                            <span className="text-[10px] text-zinc-500 w-4 text-right">{count}</span>
+   506→                          </div>
+   507→                        );
+   508→                      })}
+   509→                  </div>
+   510→                </div>
+   511→              )}
+   512→
+   513→              {/* Recent tickets */}
+   514→              {d.recentTickets.length > 0 && (
+   515→                <div className="mb-4">
+   516→                  <p className="text-[10px] text-zinc-500 mb-2">RECENT TICKETS</p>
+   517→                  <div className="space-y-1.5 max-h-32 overflow-y-auto">
+   518→                    {d.recentTickets.map((t) => (
+   519→                      <div
+   520→                        key={t.id}
+   521→                        className="flex items-center gap-2 text-[10px] bg-white/[0.02] rounded px-2 py-1.5"
+   522→                      >
+   523→                        <span className="font-mono text-zinc-500">{t.ticket_number}</span>
+   524→                        <span className="text-zinc-300 truncate flex-1">{t.subject}</span>
+   525→                        <span className={`text-[9px] px-1.5 py-0.5 rounded ${
+   526→                          t.status === 'resolved' || t.status === 'closed'
+   527→                            ? 'bg-emerald-500/10 text-emerald-400'
+   528→                            : t.status === 'open'
+   529→                            ? 'bg-blue-500/10 text-blue-400'
+   530→                            : 'bg-yellow-500/10 text-yellow-400'
+   531→                        }`}>
+   532→                          {STATUS_LABELS[t.status]}
+   533→                        </span>
+   534→                      </div>
+   535→                    ))}
+   536→                  </div>
+   537→                </div>
+   538→              )}
+   539→
+   540→              {/* Actions */}
+   541→              <div className="flex gap-2 pt-4 border-t border-white/[0.06]">
+   542→                <button
+   543→                  onClick={() => setConfigVariant(variant)}
+   544→                  className="flex-1 text-xs font-medium py-2 rounded-lg bg-orange-500/10 text-orange-400 border border-orange-500/20 hover:bg-orange-500/20 transition-colors"
+   545→                >
+   546→                  Configure
+   547→                </button>
+   548→                <button className="flex-1 text-xs font-medium py-2 rounded-lg bg-white/5 text-zinc-400 border border-white/10 hover:border-white/20 hover:text-zinc-300 transition-colors">
+   549→                  View Logs
+   550→                </button>
+   551→              </div>
+   552→            </div>
+   553→          );
+   554→        })}
+   555→      </div>
+   556→
+   557→      {/* Performance Comparison */}
+   558→      <div className="rounded-xl border border-white/[0.06] bg-[#1A1A1A] p-5">
+   559→        <h3 className="text-sm font-semibold text-white mb-4">Performance Comparison</h3>
+   560→        <div className="space-y-4">
+   561→          {/* Resolution Rate */}
+   562→          <div>
+   563→            <p className="text-xs text-zinc-500 mb-2">Resolution Rate</p>
+   564→            <div className="flex items-center gap-3">
+   565→              {variants.map((v) => {
+   566→                const d = variantData[v];
+   567→                const c = variantColors[v];
+   568→                const maxRate = 100;
+   569→                return (
+   570→                  <div key={v} className="flex-1">
+   571→                    <div className="flex items-center justify-between text-xs mb-1">
+   572→                      <span className="text-zinc-400">{v.charAt(0).toUpperCase() + v.slice(1)}</span>
+   573→                      <span className="text-zinc-300 font-medium">{d.resolutionRate}%</span>
+   574→                    </div>
+   575→                    <div className={`w-full h-2 rounded-full ${c.barBg} overflow-hidden`}>
+   576→                      <motion.div
+   577→                        initial={{ width: 0 }}
+   578→                        animate={{ width: `${(d.resolutionRate / maxRate) * 100}%` }}
+   579→                        transition={{ duration: 1, ease: 'easeOut', delay: 0.2 }}
+   580→                        className={`h-full rounded-full ${c.bar}`}
+   581→                      />
+   582→                    </div>
+   583→                  </div>
+   584→                );
+   585→              })}
+   586→            </div>
+   587→          </div>
+   588→
+   589→          {/* Ticket Volume */}
+   590→          <div>
+   591→            <p className="text-xs text-zinc-500 mb-2">Ticket Volume Distribution</p>
+   592→            <div className="flex items-center gap-3">
+   593→              {variants.map((v) => {
+   594→                const d = variantData[v];
+   595→                const c = variantColors[v];
+   596→                const pct = totalAll > 0 ? Math.round((d.total / totalAll) * 100) : 0;
+   597→                return (
+   598→                  <div key={v} className="flex-1">
+   599→                    <div className="flex items-center justify-between text-xs mb-1">
+   600→                      <span className="text-zinc-400">{v.charAt(0).toUpperCase() + v.slice(1)}</span>
+   601→                      <span className="text-zinc-300 font-medium">{d.total} ({pct}%)</span>
+   602→                    </div>
+   603→                    <div className={`w-full h-2 rounded-full ${c.barBg} overflow-hidden`}>
+   604→                      <motion.div
+   605→                        initial={{ width: 0 }}
+   606→                        animate={{ width: `${pct}%` }}
+   607→                        transition={{ duration: 1, ease: 'easeOut', delay: 0.4 }}
+   608→                        className={`h-full rounded-full ${c.bar}`}
+   609→                      />
+   610→                    </div>
+   611→                  </div>
+   612→                );
+   613→              })}
+   614→            </div>
+   615→          </div>
+   616→
+   617→          {/* Cost Efficiency */}
+   618→          <div>
+   619→            <p className="text-xs text-zinc-500 mb-2">Cost Efficiency (lower = better)</p>
+   620→            <div className="flex items-center gap-3">
+   621→              {variants.map((v) => {
+   622→                const d = variantData[v];
+   623→                const c = variantColors[v];
+   624→                // Normalize: light should show highest efficiency
+   625→                const maxCost = 0.05;
+   626→                const efficiency = Math.round(((maxCost - d.costPerTicket) / maxCost) * 100);
+   627→                return (
+   628→                  <div key={v} className="flex-1">
+   629→                    <div className="flex items-center justify-between text-xs mb-1">
+   630→                      <span className="text-zinc-400">{v.charAt(0).toUpperCase() + v.slice(1)}</span>
+   631→                      <span className="text-zinc-300 font-medium">${d.costPerTicket.toFixed(3)}/tkt</span>
+   632→                    </div>
+   633→                    <div className={`w-full h-2 rounded-full ${c.barBg} overflow-hidden`}>
+   634→                      <motion.div
+   635→                        initial={{ width: 0 }}
+   636→                        animate={{ width: `${efficiency}%` }}
+   637→                        transition={{ duration: 1, ease: 'easeOut', delay: 0.6 }}
+   638→                        className={`h-full rounded-full ${c.bar}`}
+   639→                      />
+   640→                    </div>
+   641→                  </div>
+   642→                );
+   643→              })}
+   644→            </div>
+   645→          </div>
+   646→
+   647→          {/* Accuracy */}
+   648→          <div>
+   649→            <p className="text-xs text-zinc-500 mb-2">AI Accuracy</p>
+   650→            <div className="flex items-center gap-3">
+   651→              {variants.map((v) => {
+   652→                const d = variantData[v];
+   653→                const c = variantColors[v];
+   654→                return (
+   655→                  <div key={v} className="flex-1">
+   656→                    <div className="flex items-center justify-between text-xs mb-1">
+   657→                      <span className="text-zinc-400">{v.charAt(0).toUpperCase() + v.slice(1)}</span>
+   658→                      <span className="text-zinc-300 font-medium">{d.accuracy}%</span>
+   659→                    </div>
+   660→                    <div className={`w-full h-2 rounded-full ${c.barBg} overflow-hidden`}>
+   661→                      <motion.div
+   662→                        initial={{ width: 0 }}
+   663→                        animate={{ width: `${d.accuracy}%` }}
+   664→                        transition={{ duration: 1, ease: 'easeOut', delay: 0.8 }}
+   665→                        className={`h-full rounded-full ${c.bar}`}
+   666→                      />
+   667→                    </div>
+   668→                  </div>
+   669→                );
+   670→              })}
+   671→            </div>
+   672→          </div>
+   673→        </div>
+   674→      </div>
+   675→
+   676→      {/* Cost Savings Summary */}
+   677→      <div className="rounded-xl border border-white/[0.06] bg-[#1A1A1A] p-5">
+   678→        <h3 className="text-sm font-semibold text-white mb-4">Cost Impact Summary</h3>
+   679→        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   680→          {variants.map((v) => {
+   681→            const d = variantData[v];
+   682→            const c = variantColors[v];
+   683→            const humanCost = d.total * 12.5;
+   684→            return (
+   685→              <div key={v} className="bg-white/[0.02] rounded-lg p-4 space-y-3">
+   686→                <div className="flex items-center gap-2">
+   687→                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${c.badge}`}>{v.toUpperCase()}</span>
+   688→                  <span className="text-xs text-zinc-400">{d.model}</span>
+   689→                </div>
+   690→                <div className="grid grid-cols-2 gap-3">
+   691→                  <div>
+   692→                    <div className="text-[10px] text-zinc-500">AI Cost</div>
+   693→                    <div className="text-sm text-white font-medium">${d.totalCost.toFixed(3)}</div>
+   694→                  </div>
+   695→                  <div>
+   696→                    <div className="text-[10px] text-zinc-500">Human Equiv.</div>
+   697→                    <div className="text-sm text-zinc-400">${humanCost.toFixed(2)}</div>
+   698→                  </div>
+   699→                </div>
+   700→                <div className="pt-2 border-t border-white/[0.06]">
+   701→                  <div className="text-[10px] text-zinc-500">Total Savings</div>
+   702→                  <div className="text-lg font-bold text-emerald-400">${d.totalSavings.toFixed(2)}</div>
+   703→                </div>
+   704→              </div>
+   705→            );
+   706→          })}
+   707→        </div>
+   708→        <div className="mt-4 pt-4 border-t border-white/[0.06] flex items-center justify-between">
+   709→          <span className="text-xs text-zinc-500">Combined Savings Across All Variants</span>
+   710→          <span className="text-lg font-bold text-emerald-400">${totalSavings.toFixed(2)}</span>
+   711→        </div>
+   712→      </div>
+   713→
+   714→      {/* Config Modal */}
+   715→      <VariantConfigModal
+   716→        variant={configVariant ?? 'light'}
+   717→        open={configVariant !== null}
+   718→        onClose={() => setConfigVariant(null)}
+   719→      />
+   720→    </div>
+   721→  );
+   722→}
+   723→

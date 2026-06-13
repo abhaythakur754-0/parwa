@@ -59,44 +59,25 @@ function LoginContent() {
     }
   }, [isAuthenticated, authLoading, router, redirectTo, logout]);
 
-  // ── After successful login, check onboarding then redirect ──────
+  // ── After successful login, redirect to source page ──────
 
-  async function redirectAfterLogin(isNewUser?: boolean) {
-    // After login, redirect to where the user came from.
-    // If they came from the models page, redirectTo already points to onboarding.
-    // If they came from the main page, let them continue exploring.
-    // If no redirect specified, new users go home to explore; returning users check onboarding.
-    if (isNewUser) {
-      router.push(redirectTo);
-      return;
-    }
+  async function redirectAfterLogin(_isNewUser?: boolean) {
+    // After login, redirect users back to the page they came from.
+    // Users can explore the website freely — onboarding is not forced.
+    // They can start onboarding later from the models page confirm flow
+    // or dashboard prompt.
 
-    // Returning users — check if onboarding was completed
+    // Silently cache onboarding state for later use (e.g. dashboard prompts)
     try {
       const res = await fetch('/api/onboarding/state');
       if (res.ok) {
         const state = await res.json();
-        if (state.status !== 'completed' && !state.first_victory_completed) {
-          router.push('/onboarding');
-          return;
-        }
-        // Cache the completion flag
-        localStorage.setItem('parwa_onboarding_completed', 'true');
-      } else {
-        // Backend error — check localStorage flag
-        const hasCompleted = localStorage.getItem('parwa_onboarding_completed') === 'true';
-        if (!hasCompleted) {
-          router.push('/onboarding');
-          return;
+        if (state.status === 'completed' || state.first_victory_completed) {
+          localStorage.setItem('parwa_onboarding_completed', 'true');
         }
       }
     } catch {
-      // API unavailable — check localStorage for onboarding completion flag
-      const hasCompleted = localStorage.getItem('parwa_onboarding_completed') === 'true';
-      if (!hasCompleted) {
-        router.push('/onboarding');
-        return;
-      }
+      // API unavailable — don't block the user
     }
 
     router.push(redirectTo);

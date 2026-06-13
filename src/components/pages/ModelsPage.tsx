@@ -234,7 +234,7 @@ export default function ModelsPage() {
                             totalMonthly: variant.monthlyPrice,
                             timestamp: new Date().toISOString(),
                           }));
-                          router.push('/signup?redirect=/onboarding?source=pricing');
+                          router.push('/signup?redirect=/models');
                         } else {
                           setSelectedVariant(variant.id);
                           setShowConfirm(true);

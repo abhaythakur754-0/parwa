@@ -228,7 +228,10 @@ export default function DashboardPage() {
   const [variantsState, setVariantsState] = useState<FetchState<VariantInstance[]>>({ status: 'loading', data: null });
   const [sentimentState, setSentimentState] = useState<FetchState<SentimentOverview>>({ status: 'loading', data: null });
 
-  // ── Check onboarding status — redirect to /onboarding if not completed ──
+  // ── Check onboarding status (non-blocking) ──
+  // We silently check onboarding state so the dashboard can show
+  // appropriate prompts, but we do NOT force-redirect users.
+  // Users should be free to explore the dashboard before starting onboarding.
 
   useEffect(() => {
     if (onboardingChecked) return;
@@ -238,36 +241,27 @@ export default function DashboardPage() {
         const res = await fetch('/api/onboarding/state');
         if (res.ok) {
           const state = await res.json();
-          // Backend confirmed onboarding not completed → redirect
-          if (state.status !== 'completed' && !state.first_victory_completed) {
-            router.push('/onboarding');
-            return;
+          if (state.status === 'completed' || state.first_victory_completed) {
+            // Onboarding IS completed — cache it locally
+            localStorage.setItem('parwa_onboarding_completed', 'true');
           }
-          // Backend confirmed onboarding IS completed → allow dashboard
-          setOnboardingChecked(true);
-          return;
         }
-        // Backend returned error (503, 500, etc.) — check localStorage
-        // for a flag that onboarding was completed previously
-        const hasCompletedOnboarding = localStorage.getItem('parwa_onboarding_completed') === 'true';
-        if (!hasCompletedOnboarding) {
-          // No record of completed onboarding + backend unreachable → send to onboarding
-          router.push('/onboarding');
-          return;
-        }
+        // Whether onboarding is completed or not, let the user see the dashboard.
+        // The dashboard will show appropriate prompts for incomplete onboarding.
       } catch {
         // Network error — check localStorage for onboarding completion flag
+        // but don't redirect regardless. Let user explore.
         const hasCompletedOnboarding = localStorage.getItem('parwa_onboarding_completed') === 'true';
-        if (!hasCompletedOnboarding) {
-          router.push('/onboarding');
-          return;
+        if (hasCompletedOnboarding) {
+          // already completed, nothing to do
         }
+        // Not completed but still let them see dashboard
       }
       setOnboardingChecked(true);
     }
 
     checkOnboarding();
-  }, [onboardingChecked, router]);
+  }, [onboardingChecked]);
 
   // Show loading while checking onboarding
   if (!onboardingChecked) {

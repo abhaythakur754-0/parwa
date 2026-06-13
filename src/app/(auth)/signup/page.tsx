@@ -152,29 +152,9 @@ function SignupContent() {
       const isNewUser = Boolean(result.is_new_user);
       toast.success(isNewUser ? 'Account created with Google!' : 'Signed in with Google!');
 
-      // After signup, redirect to wherever they came from.
-      // If they came from the models page, redirectTo already points to onboarding.
-      // If they came from the main page, let them continue exploring.
-      if (!isNewUser) {
-        // Returning users — check onboarding state before going to dashboard
-        try {
-          const stateRes = await fetch('/api/onboarding/state');
-          if (stateRes.ok) {
-            const state = await stateRes.json();
-            if (state.status !== 'completed' && !state.first_victory_completed) {
-              router.push('/onboarding');
-              return;
-            }
-            localStorage.setItem('parwa_onboarding_completed', 'true');
-          }
-        } catch {
-          // API unavailable — check localStorage
-          const hasCompleted = localStorage.getItem('parwa_onboarding_completed') === 'true';
-          if (!hasCompleted && redirectTo === '/') {
-            // Returning user but we can't verify onboarding — go to dashboard
-          }
-        }
-      }
+      // After signup/login, redirect users back to the page they came from
+      // so they can continue exploring the website. They can start onboarding
+      // later from the models page confirm flow or dashboard prompt.
       router.push(redirectTo);
     } catch (err) {
       const message = err instanceof Error
