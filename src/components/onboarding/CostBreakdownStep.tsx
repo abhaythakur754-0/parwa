@@ -407,15 +407,11 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
         }
       }
 
-      // Voice add-on (only for starter where it's not included)
-      if (addOns.voice && !activeVariants.some((t) => ADD_ONS.find(a => a.key === 'voice')!.includedIn.includes(t))) {
-        checkoutItems.push({ priceId: 'pri_voice_addon_01', quantity: 1 });
-      }
+      // Voice add-on is included in growth/high — NOT purchasable separately
+      // (no Paddle price ID exists for standalone add-on purchases)
 
-      // Custom API add-on (only for variants where it's not included)
-      if (addOns.customApi && !activeVariants.some((t) => ADD_ONS.find(a => a.key === 'customApi')!.includedIn.includes(t))) {
-        checkoutItems.push({ priceId: 'pri_custom_api_addon_01', quantity: 1 });
-      }
+      // Custom API add-on is included in growth/high — NOT purchasable separately
+      // (no Paddle price ID exists for standalone add-on purchases)
 
       const customData = {
         source: 'parwa_onboarding',
@@ -585,41 +581,39 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
       {/* ── 2. Add-Ons ───────────────────────────────────────────────── */}
       <div className="space-y-3">
         <label className="text-xs text-orange-200/40 uppercase tracking-wider font-medium">
-          Optional Add-Ons
+          Add-On Features
         </label>
         {ADD_ONS.map((addOn) => {
           const Icon = addOn.icon;
-          const isSelected = addOns[addOn.key];
           const isIncluded = activeVariants.some((t) => addOn.includedIn.includes(t));
-          const showPrice = !isIncluded;
+          // Add-ons are NOT purchasable separately — only included with growth/high plans
+          const isLocked = !isIncluded;
 
           return (
-            <button
+            <div
               key={addOn.key}
-              type="button"
-              onClick={() => toggleAddOn(addOn.key)}
               className={cn(
                 'w-full text-left p-4 rounded-xl border transition-all duration-200 flex items-start gap-4',
-                isSelected
-                  ? 'border-orange-500/30 bg-orange-500/5'
-                  : 'border-white/[0.06] hover:border-orange-500/15'
+                isIncluded
+                  ? 'border-emerald-500/20 bg-emerald-500/[0.03]'
+                  : 'border-white/[0.06]'
               )}
-              style={!isSelected ? { background: 'rgba(255,255,255,0.03)' } : undefined}
+              style={!isIncluded ? { background: 'rgba(255,255,255,0.03)' } : undefined}
             >
               <div className={cn(
                 'w-10 h-10 rounded-lg flex items-center justify-center shrink-0',
-                isSelected ? 'bg-orange-500/10' : 'bg-white/[0.04]'
+                isIncluded ? 'bg-emerald-500/10' : 'bg-white/[0.04]'
               )}>
                 <Icon className={cn(
                   'w-5 h-5',
-                  isSelected ? 'text-orange-400' : 'text-zinc-500'
+                  isIncluded ? 'text-emerald-400' : 'text-zinc-500'
                 )} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className={cn(
                     'text-sm font-medium',
-                    isSelected ? 'text-orange-400' : 'text-white'
+                    isIncluded ? 'text-emerald-400' : 'text-white'
                   )}>
                     {addOn.name}
                   </p>
@@ -629,27 +623,20 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
                     </span>
                   )}
                 </div>
-                <p className="text-[10px] text-orange-200/30 mt-0.5">{addOn.description}</p>
+                <p className="text-[10px] text-orange-200/30 mt-0.5">
+                  {isIncluded ? addOn.description : `Included with PARWA and PARWA High plans`}
+                </p>
               </div>
               <div className="flex flex-col items-end shrink-0 gap-1">
-                {showPrice && (
-                  <p className="text-sm font-semibold text-white">
-                    ${addOn.price}/mo
-                  </p>
+                {isIncluded ? (
+                  <div className="w-8 h-5 rounded-full flex items-center px-0.5 bg-gradient-to-r from-orange-500 to-amber-400">
+                    <div className="w-4 h-4 rounded-full bg-white shadow-sm translate-x-3" />
+                  </div>
+                ) : (
+                  <span className="text-[10px] text-orange-200/25 italic">Upgrade required</span>
                 )}
-                <div className={cn(
-                  'w-8 h-5 rounded-full flex items-center px-0.5 transition-colors duration-200',
-                  isSelected || isIncluded
-                    ? 'bg-gradient-to-r from-orange-500 to-amber-400'
-                    : 'bg-white/10'
-                )}>
-                  <div className={cn(
-                    'w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200',
-                    (isSelected || isIncluded) ? 'translate-x-3' : 'translate-x-0'
-                  )} />
-                </div>
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -681,19 +668,7 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
           );
         })}
 
-        {/* Add-ons */}
-        {addOns.voice && !activeVariants.some((t) => ADD_ONS.find(a => a.key === 'voice')!.includedIn.includes(t)) && (
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-orange-200/50">Voice Channel</span>
-            <span className="text-sm text-white">$199/mo</span>
-          </div>
-        )}
-        {addOns.customApi && !activeVariants.some((t) => ADD_ONS.find(a => a.key === 'customApi')!.includedIn.includes(t)) && (
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-orange-200/50">Custom API Connector</span>
-            <span className="text-sm text-white">$49/mo</span>
-          </div>
-        )}
+        {/* Add-ons — shown as included, not separately priced */}
 
         {/* Integrations = $0 */}
         <div className="flex items-center justify-between">

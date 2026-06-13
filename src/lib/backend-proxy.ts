@@ -60,6 +60,7 @@ function getFallbackOrigins(): string[] {
   // Add common PARWA domains as fallbacks (skip the primary to avoid duplicate)
   const allDomains = [
     'https://parwa.buzz',
+    'https://parwafrontend.vercel.app',
     'https://parwa.vercel.app',
     'https://www.parwa.buzz',
   ];

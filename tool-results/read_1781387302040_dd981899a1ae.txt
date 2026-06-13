@@ -1,0 +1,999 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useEffect, useCallback, useRef } from 'react';
+     4→import { useRouter } from 'next/navigation';
+     5→import { Loader2 } from 'lucide-react';
+     6→import toast from 'react-hot-toast';
+     7→import { useAuth } from '@/hooks/useAuth';
+     8→import {
+     9→  WelcomeCard,
+    10→  TrendChart,
+    11→  CategoryChart,
+    12→  SLAChart,
+    13→  AgentPerformanceTable,
+    14→  ResponseTimeChart,
+    15→} from '@/components/dashboard';
+    16→import DashboardHeader from '@/components/dashboard/DashboardHeader';
+    17→import KPICard from '@/components/dashboard/KPICard';
+    18→import { analyticsApi } from '@/lib/analytics-api';
+    19→import { get, getErrorMessage } from '@/lib/api';
+    20→import type { DashboardData, AgentMetrics, DateRange } from '@/types/analytics';
+    21→
+    22→// ── Inline Types for AI/Cost/Sentiment APIs ───────────────────────────
+    23→
+    24→interface VariantInstance {
+    25→  id: string;
+    26→  name: string;
+    27→  variant_type: string;
+    28→  status: string;
+    29→  channel_assignment: string;
+    30→  capacity_config: { max_concurrent: number };
+    31→  current_load: number;
+    32→  accuracy_rate: number;
+    33→  avg_latency_ms: number;
+    34→  cost_per_query: number;
+    35→  technique_tier: number;
+    36→  model: string;
+    37→}
+    38→
+    39→interface ROISnapshot {
+    40→  tickets_ai_resolved: number;
+    41→  tickets_human_resolved: number;
+    42→  avg_ai_cost: number;
+    43→  avg_human_cost: number;
+    44→  total_savings: number;
+    45→  savings_percentage: number;
+    46→  ai_accuracy_pct: number;
+    47→  automation_rate: number;
+    48→}
+    49→
+    50→interface CostBudget {
+    51→  total_budget: number;
+    52→  used_budget: number;
+    53→  remaining_budget: number;
+    54→  tokens_used: number;
+    55→  estimated_cost: number;
+    56→}
+    57→
+    58→interface SentimentOverview {
+    59→  avg_frustration_score: number;
+    60→  emotion_distribution: Record<string, number>;
+    61→  escalation_count: number;
+    62→  total_analyzed: number;
+    63→  positive_ratio: number;
+    64→  negative_ratio: number;
+    65→}
+    66→
+    67→// ── API fetch state type ──────────────────────────────────────────────
+    68→
+    69→type FetchState<T> =
+    70→  | { status: 'loading'; data: null }
+    71→  | { status: 'error'; data: null }
+    72→  | { status: 'success'; data: T };
+    73→
+    74→// ── Icons (inline SVGs) ──────────────────────────────────────────────
+    75→
+    76→const Icons = {
+    77→  tickets: (
+    78→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    79→      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 0 1 0 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 0 1 0-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z" />
+    80→    </svg>
+    81→  ),
+    82→  open: (
+    83→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    84→      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+    85→    </svg>
+    86→  ),
+    87→  resolved: (
+    88→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    89→      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+    90→    </svg>
+    91→  ),
+    92→  responseTime: (
+    93→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    94→      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
+    95→    </svg>
+    96→  ),
+    97→  resolutionRate: (
+    98→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    99→      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
+   100→    </svg>
+   101→  ),
+   102→  csat: (
+   103→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   104→      <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
+   105→    </svg>
+   106→  ),
+   107→  breached: (
+   108→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   109→      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+   110→    </svg>
+   111→  ),
+   112→  compliance: (
+   113→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   114→      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+   115→    </svg>
+   116→  ),
+   117→  savings: (
+   118→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   119→      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
+   120→    </svg>
+   121→  ),
+   122→  robot: (
+   123→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   124→      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 0 0 2.25-2.25V6.75a2.25 2.25 0 0 0-2.25-2.25H6.75A2.25 2.25 0 0 0 4.5 6.75v10.5a2.25 2.25 0 0 0 2.25 2.25Zm.75-12h9v9h-9v-9Z" />
+   125→    </svg>
+   126→  ),
+   127→  accuracy: (
+   128→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   129→      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+   130→    </svg>
+   131→  ),
+   132→  sentiment: (
+   133→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   134→      <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z" />
+   135→    </svg>
+   136→  ),
+   137→  variant: (
+   138→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   139→      <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-2.25-1.313M21 7.5v2.25m0-2.25l-2.25 1.313M3 7.5l2.25-1.313M3 7.5l2.25 1.313M3 7.5v2.25m9 3l2.25-1.313M12 12.75l-2.25-1.313M12 12.75V15m0 6.75l2.25-1.313M12 21.75V19.5m0 2.25l-2.25-1.313m0-16.875L12 2.25l2.25 1.313M21 14.25v2.25l-2.25 1.313m-13.5 0L3 16.5v-2.25" />
+   140→    </svg>
+   141→  ),
+   142→  escalation: (
+   143→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   144→      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0-10.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.249-8.25-3.286Zm0 13.036h.008v.008H12v-.008Z" />
+   145→    </svg>
+   146→  ),
+   147→};
+   148→
+   149→// ── Helper Functions ──────────────────────────────────────────────────
+   150→
+   151→function formatNumber(n: number): string {
+   152→  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+   153→  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+   154→  return n.toLocaleString();
+   155→}
+   156→
+   157→function formatHours(hours: number): string {
+   158→  if (hours < 1) return `${Math.round(hours * 60)}m`;
+   159→  return `${hours.toFixed(1)}h`;
+   160→}
+   161→
+   162→function formatPercent(n: number): string {
+   163→  return `${n.toFixed(1)}%`;
+   164→}
+   165→
+   166→function formatCurrency(n: number): string {
+   167→  if (n >= 1) return `$${n.toFixed(2)}`;
+   168→  return `$${n.toFixed(4)}`;
+   169→}
+   170→
+   171→// ── Variant type badge colors ─────────────────────────────────────────
+   172→
+   173→const variantTypeColors: Record<string, { bg: string; text: string }> = {
+   174→  mini_parwa: { bg: 'bg-emerald-500/10', text: 'text-emerald-400' },
+   175→  parwa: { bg: 'bg-sky-500/10', text: 'text-sky-400' },
+   176→  parwa_high: { bg: 'bg-amber-500/10', text: 'text-amber-400' },
+   177→};
+   178→
+   179→const statusColors: Record<string, { dot: string; text: string }> = {
+   180→  active: { dot: 'bg-emerald-400', text: 'text-emerald-400' },
+   181→  idle: { dot: 'bg-zinc-400', text: 'text-zinc-400' },
+   182→  error: { dot: 'bg-red-400', text: 'text-red-400' },
+   183→  paused: { dot: 'bg-amber-400', text: 'text-amber-400' },
+   184→};
+   185→
+   186→// ── Skeleton Card ─────────────────────────────────────────────────────
+   187→
+   188→function SkeletonCard({ className = '' }: { className?: string }) {
+   189→  return (
+   190→    <div className={`rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5 animate-pulse ${className}`}>
+   191→      <div className="flex items-start justify-between">
+   192→        <div className="space-y-2 flex-1">
+   193→          <div className="h-3 w-20 bg-white/[0.06] rounded" />
+   194→          <div className="h-7 w-28 bg-white/[0.06] rounded" />
+   195→          <div className="h-3 w-16 bg-white/[0.06] rounded" />
+   196→        </div>
+   197→        <div className="w-10 h-10 rounded-lg bg-white/[0.06]" />
+   198→      </div>
+   199→    </div>
+   200→  );
+   201→}
+   202→
+   203→function SkeletonSection({ rows = 2, cols = 4 }: { rows?: number; cols?: number }) {
+   204→  return (
+   205→    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+   206→      {Array.from({ length: rows * cols }).map((_, i) => (
+   207→        <SkeletonCard key={i} />
+   208→      ))}
+   209→    </div>
+   210→  );
+   211→}
+   212→
+   213→// ── Dashboard Page ────────────────────────────────────────────────────
+   214→
+   215→export default function DashboardPage() {
+   216→  const { user } = useAuth();
+   217→  const router = useRouter();
+   218→  const [data, setData] = useState<DashboardData | null>(null);
+   219→  const [agentData, setAgentData] = useState<AgentMetrics[]>([]);
+   220→  const [dateRange, setDateRange] = useState<Partial<DateRange>>({});
+   221→  const [datePreset, setDatePreset] = useState('30d');
+   222→  const [isRefreshing, setIsRefreshing] = useState(false);
+   223→  const [onboardingChecked, setOnboardingChecked] = useState(false);
+   224→
+   225→  // ── AI / Cost / Sentiment state (MUST be above any conditional return) ──
+   226→  const [roiState, setRoiState] = useState<FetchState<ROISnapshot>>({ status: 'loading', data: null });
+   227→  const [costBudgetState, setCostBudgetState] = useState<FetchState<CostBudget>>({ status: 'loading', data: null });
+   228→  const [variantsState, setVariantsState] = useState<FetchState<VariantInstance[]>>({ status: 'loading', data: null });
+   229→  const [sentimentState, setSentimentState] = useState<FetchState<SentimentOverview>>({ status: 'loading', data: null });
+   230→
+   231→  // ── Check onboarding status (non-blocking) ──
+   232→  // We silently check onboarding state so the dashboard can show
+   233→  // appropriate prompts, but we do NOT force-redirect users.
+   234→  // Users should be free to explore the dashboard before starting onboarding.
+   235→
+   236→  useEffect(() => {
+   237→    if (onboardingChecked) return;
+   238→
+   239→    async function checkOnboarding() {
+   240→      try {
+   241→        const res = await fetch('/api/onboarding/state');
+   242→        if (res.ok) {
+   243→          const state = await res.json();
+   244→          if (state.status === 'completed' || state.first_victory_completed) {
+   245→            // Onboarding IS completed — cache it locally
+   246→            localStorage.setItem('parwa_onboarding_completed', 'true');
+   247→          }
+   248→        }
+   249→        // Whether onboarding is completed or not, let the user see the dashboard.
+   250→        // The dashboard will show appropriate prompts for incomplete onboarding.
+   251→      } catch {
+   252→        // Network error — check localStorage for onboarding completion flag
+   253→        // but don't redirect regardless. Let user explore.
+   254→        const hasCompletedOnboarding = localStorage.getItem('parwa_onboarding_completed') === 'true';
+   255→        if (hasCompletedOnboarding) {
+   256→          // already completed, nothing to do
+   257→        }
+   258→        // Not completed but still let them see dashboard
+   259→      }
+   260→      setOnboardingChecked(true);
+   261→    }
+   262→
+   263→    checkOnboarding();
+   264→  }, [onboardingChecked]);
+   265→
+   266→  // Show loading while checking onboarding
+   267→  if (!onboardingChecked) {
+   268→    return (
+   269→      <div className="min-h-[60vh] flex items-center justify-center">
+   270→        <Loader2 className="h-8 w-8 animate-spin text-orange-400" />
+   271→      </div>
+   272→    );
+   273→  }
+   274→
+   275→  // ── Fetch Dashboard Data ──────────────────────────────────────────
+   276→
+   277→  const fetchDashboard = useCallback(async () => {
+   278→    try {
+   279→      setIsRefreshing(true);
+   280→      const dashboardData = await analyticsApi.getDashboard(dateRange);
+   281→      setData(dashboardData);
+   282→    } catch (error) {
+   283→      console.error('Failed to fetch dashboard data:', error);
+   284→      toast.error(getErrorMessage(error));
+   285→    } finally {
+   286→      setIsRefreshing(false);
+   287→    }
+   288→  }, [dateRange]);
+   289→
+   290→  useEffect(() => {
+   291→    fetchDashboard();
+   292→  }, [fetchDashboard]);
+   293→
+   294→  // ── Fetch Agent Data (separate endpoint) ──────────────────────────
+   295→
+   296→  useEffect(() => {
+   297→    analyticsApi
+   298→      .getAgents(50, dateRange)
+   299→      .then((agents) => setAgentData(agents))
+   300→      .catch(() => {
+   301→        // Silent fail — agent data is secondary
+   302→      });
+   303→  }, [dateRange]);
+   304→
+   305→  // ── Fetch Cost Budget + ROI ───────────────────────────────────────
+   306→
+   307→  useEffect(() => {
+   308→    get<CostBudget>('/api/ai/cost/budget')
+   309→      .then((budget) => setCostBudgetState({ status: 'success', data: budget }))
+   310→      .catch(() => setCostBudgetState({ status: 'error', data: null }));
+   311→
+   312→    get<ROISnapshot>('/api/v1/admin/roi')
+   313→      .then((roi) => setRoiState({ status: 'success', data: roi }))
+   314→      .catch(() => setRoiState({ status: 'error', data: null }));
+   315→  }, []);
+   316→
+   317→  // ── Fetch Variant Instances ───────────────────────────────────────
+   318→
+   319→  useEffect(() => {
+   320→    get<VariantInstance[]>('/api/ai/instances')
+   321→      .then((variants) => setVariantsState({ status: 'success', data: variants }))
+   322→      .catch(() => setVariantsState({ status: 'error', data: null }));
+   323→  }, []);
+   324→
+   325→  // ── Fetch Sentiment Overview ──────────────────────────────────────
+   326→
+   327→  useEffect(() => {
+   328→    get<SentimentOverview>('/api/v1/admin/sentiment')
+   329→      .then((sentiment) => setSentimentState({ status: 'success', data: sentiment }))
+   330→      .catch(() => setSentimentState({ status: 'error', data: null }));
+   331→  }, []);
+   332→
+   333→  // ── Handle Date Change ────────────────────────────────────────────
+   334→
+   335→  const handleDateChange = useCallback((range: { start_date: string; end_date: string }) => {
+   336→    setDateRange(range);
+   337→    const today = new Date().toISOString().split('T')[0];
+   338→    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+   339→    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+   340→
+   341→    if (range.start_date === today) setDatePreset('today');
+   342→    else if (range.start_date === sevenDaysAgo) setDatePreset('7d');
+   343→    else if (range.start_date === thirtyDaysAgo) setDatePreset('30d');
+   344→    else setDatePreset('custom');
+   345→  }, []);
+   346→
+   347→  // ── Derived ROI data ──────────────────────────────────────────────
+   348→
+   349→  const hasRoiData = roiState.status === 'success' && roiState.data;
+   350→  const hasBudgetData = costBudgetState.status === 'success' && costBudgetState.data;
+   351→  const hasCostSectionData = hasRoiData || hasBudgetData;
+   352→  const isCostLoading = roiState.status === 'loading' || costBudgetState.status === 'loading';
+   353→
+   354→  // ── Render ─────────────────────────────────────────────────────────
+   355→
+   356→  return (
+   357→    <div className="space-y-6">
+   358→      {/* Welcome Card */}
+   359→      <WelcomeCard
+   360→        userName={user?.full_name}
+   361→        companyName={user?.company_name}
+   362→        industry="Support"
+   363→        variantCount={data?.summary.resolved ?? 0}
+   364→        resolutionRate={data ? formatPercent(data.summary.resolution_rate) : '0%'}
+   365→      />
+   366→
+   367→      {/* ── Cost Savings / ROI Section ──────────────────────────────── */}
+   368→      {isCostLoading ? (
+   369→        <div className="space-y-4">
+   370→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">AI Cost Savings & ROI</h2>
+   371→          <SkeletonSection rows={1} cols={4} />
+   372→        </div>
+   373→      ) : hasCostSectionData ? (
+   374→        <div className="space-y-4">
+   375→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">AI Cost Savings & ROI</h2>
+   376→          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+   377→            {/* Total Savings */}
+   378→            <KPICard
+   379→              title="Total Savings"
+   380→              value={hasRoiData ? formatCurrency(roiState.data!.total_savings) : '—'}
+   381→              subtitle={hasRoiData ? `${formatPercent(roiState.data!.savings_percentage)} saved` : 'ROI data unavailable'}
+   382→              icon={Icons.savings}
+   383→              variant="success"
+   384→            />
+   385→            {/* AI vs Human Cost */}
+   386→            <KPICard
+   387→              title="AI vs Human Cost"
+   388→              value={hasRoiData ? `${formatCurrency(roiState.data!.avg_ai_cost)} vs ${formatCurrency(roiState.data!.avg_human_cost)}` : '—'}
+   389→              subtitle={hasRoiData ? `${formatNumber(roiState.data!.tickets_ai_resolved)} AI · ${formatNumber(roiState.data!.tickets_human_resolved)} human` : '—'}
+   390→              icon={Icons.robot}
+   391→              variant="info"
+   392→            />
+   393→            {/* Automation Rate */}
+   394→            <KPICard
+   395→              title="Automation Rate"
+   396→              value={hasRoiData ? formatPercent(roiState.data!.automation_rate) : '—'}
+   397→              subtitle="Tickets auto-resolved"
+   398→              icon={Icons.responseTime}
+   399→              variant={hasRoiData && roiState.data!.automation_rate >= 60 ? 'success' : 'default'}
+   400→            />
+   401→            {/* AI Accuracy */}
+   402→            <KPICard
+   403→              title="AI Accuracy"
+   404→              value={hasRoiData ? formatPercent(roiState.data!.ai_accuracy_pct) : '—'}
+   405→              subtitle={hasBudgetData ? `${formatNumber(costBudgetState.data!.tokens_used)} tokens used` : '—'}
+   406→              icon={Icons.accuracy}
+   407→              variant={hasRoiData && roiState.data!.ai_accuracy_pct >= 90 ? 'success' : 'warning'}
+   408→            />
+   409→          </div>
+   410→          {/* Budget bar */}
+   411→          {hasBudgetData && costBudgetState.data!.total_budget > 0 && (
+   412→            <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5">
+   413→              <div className="flex items-center justify-between mb-3">
+   414→                <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Token Budget Usage</span>
+   415→                <span className="text-xs text-zinc-400">
+   416→                  {formatCurrency(costBudgetState.data!.estimated_cost)} / {formatCurrency(costBudgetState.data!.total_budget)}
+   417→                </span>
+   418→              </div>
+   419→              <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
+   420→                <div
+   421→                  className="h-full bg-emerald-500/80 rounded-full transition-all duration-500"
+   422→                  style={{
+   423→                    width: `${Math.min(100, (costBudgetState.data!.used_budget / costBudgetState.data!.total_budget) * 100)}%`,
+   424→                  }}
+   425→                />
+   426→              </div>
+   427→              <div className="flex items-center justify-between mt-2">
+   428→                <span className="text-xs text-zinc-500">
+   429→                  {((costBudgetState.data!.used_budget / costBudgetState.data!.total_budget) * 100).toFixed(1)}% used
+   430→                </span>
+   431→                <span className="text-xs text-zinc-500">
+   432→                  {formatCurrency(costBudgetState.data!.remaining_budget)} remaining
+   433→                </span>
+   434→              </div>
+   435→            </div>
+   436→          )}
+   437→        </div>
+   438→      ) : (
+   439→        /* Error / no backend — show connect message */
+   440→        <div className="space-y-4">
+   441→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">AI Cost Savings & ROI</h2>
+   442→          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 flex flex-col items-center justify-center gap-3">
+   443→            <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center text-zinc-600">
+   444→              {Icons.savings}
+   445→            </div>
+   446→            <p className="text-sm text-zinc-500 text-center">Connect backend to view cost savings & ROI data</p>
+   447→          </div>
+   448→        </div>
+   449→      )}
+   450→
+   451→      {/* ── Active Variants Status ─────────────────────────────────── */}
+   452→      {variantsState.status === 'loading' ? (
+   453→        <div className="space-y-4">
+   454→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Active Variants</h2>
+   455→          <SkeletonSection rows={1} cols={3} />
+   456→        </div>
+   457→      ) : variantsState.status === 'success' && variantsState.data && variantsState.data.length > 0 ? (
+   458→        <div className="space-y-4">
+   459→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">
+   460→            Active Variants
+   461→            <span className="ml-2 text-xs text-zinc-600 normal-case tracking-normal">
+   462→              ({variantsState.data.length} running)
+   463→            </span>
+   464→          </h2>
+   465→          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+   466→            {variantsState.data.map((variant) => {
+   467→              const typeColor = variantTypeColors[variant.variant_type] ?? { bg: 'bg-zinc-500/10', text: 'text-zinc-400' };
+   468→              const statusColor = statusColors[variant.status] ?? statusColors.idle;
+   469→              const loadPct = Math.min(100, variant.current_load);
+   470→              const loadColor = loadPct >= 90 ? 'bg-red-500/80' : loadPct >= 70 ? 'bg-amber-500/80' : 'bg-emerald-500/80';
+   471→
+   472→              return (
+   473→                <div
+   474→                  key={variant.id}
+   475→                  className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5 transition-all duration-300 hover:shadow-lg hover:shadow-black/20 hover:border-white/[0.1]"
+   476→                >
+   477→                  {/* Header: name + status */}
+   478→                  <div className="flex items-start justify-between mb-4">
+   479→                    <div className="flex-1 min-w-0">
+   480→                      <div className="flex items-center gap-2 mb-1">
+   481→                        <h3 className="text-sm font-semibold text-white truncate">{variant.name}</h3>
+   482→                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider ${typeColor.bg} ${typeColor.text}`}>
+   483→                          {variant.variant_type.replace('_', ' ')}
+   484→                        </span>
+   485→                      </div>
+   486→                      <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+   487→                        <span className={`w-1.5 h-1.5 rounded-full ${statusColor.dot}`} />
+   488→                        <span className={statusColor.text}>{variant.status}</span>
+   489→                        <span className="text-zinc-700">·</span>
+   490→                        <span>{variant.channel_assignment}</span>
+   491→                      </div>
+   492→                    </div>
+   493→                    <div className="w-9 h-9 rounded-lg bg-white/[0.05] flex items-center justify-center text-zinc-500 shrink-0">
+   494→                      {Icons.variant}
+   495→                    </div>
+   496→                  </div>
+   497→
+   498→                  {/* Metrics grid */}
+   499→                  <div className="grid grid-cols-2 gap-3 mb-4">
+   500→                    <div>
+   501→                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Load</p>
+   502→                      <p className="text-sm font-semibold text-white tabular-nums">
+   503→                        {loadPct}%
+   504→                        <span className="text-[10px] text-zinc-600 ml-1">/ {variant.capacity_config.max_concurrent}</span>
+   505→                      </p>
+   506→                    </div>
+   507→                    <div>
+   508→                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Quality</p>
+   509→                      <p className="text-sm font-semibold text-white tabular-nums">{formatPercent(variant.accuracy_rate)}</p>
+   510→                    </div>
+   511→                    <div>
+   512→                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Latency</p>
+   513→                      <p className="text-sm font-semibold text-white tabular-nums">{variant.avg_latency_ms}ms</p>
+   514→                    </div>
+   515→                    <div>
+   516→                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Cost/Q</p>
+   517→                      <p className="text-sm font-semibold text-white tabular-nums">{formatCurrency(variant.cost_per_query)}</p>
+   518→                    </div>
+   519→                  </div>
+   520→
+   521→                  {/* Load bar */}
+   522→                  <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+   523→                    <div
+   524→                      className={`h-full rounded-full transition-all duration-500 ${loadColor}`}
+   525→                      style={{ width: `${loadPct}%` }}
+   526→                    />
+   527→                  </div>
+   528→
+   529→                  {/* Footer */}
+   530→                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.04]">
+   531→                    <span className="text-[10px] text-zinc-600">Tier {variant.technique_tier}</span>
+   532→                    <span className="text-[10px] text-zinc-600 font-mono">{variant.model}</span>
+   533→                  </div>
+   534→                </div>
+   535→              );
+   536→            })}
+   537→          </div>
+   538→        </div>
+   539→      ) : variantsState.status === 'success' && variantsState.data && variantsState.data.length === 0 ? (
+   540→        <div className="space-y-4">
+   541→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Active Variants</h2>
+   542→          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 flex flex-col items-center justify-center gap-3">
+   543→            <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center text-zinc-600">
+   544→              {Icons.variant}
+   545→            </div>
+   546→            <p className="text-sm text-zinc-500 text-center">No active variants found</p>
+   547→          </div>
+   548→        </div>
+   549→      ) : (
+   550→        <div className="space-y-4">
+   551→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Active Variants</h2>
+   552→          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 flex flex-col items-center justify-center gap-3">
+   553→            <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center text-zinc-600">
+   554→              {Icons.variant}
+   555→            </div>
+   556→            <p className="text-sm text-zinc-500 text-center">Connect backend to view active variants</p>
+   557→          </div>
+   558→        </div>
+   559→      )}
+   560→
+   561→      {/* ── Jarvis CC Quick Access ──────────────────────────────────── */}
+   562→      {(() => {
+   563→        const hasActiveVariants = variantsState.status === 'success' && variantsState.data && variantsState.data.length > 0;
+   564→        return (
+   565→        <div className="rounded-xl border border-orange-500/10 bg-gradient-to-r from-orange-500/5 to-amber-500/5 p-5">
+   566→          <div className="flex items-center justify-between">
+   567→            <div className="flex items-center gap-3">
+   568→              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-orange-500/20">
+   569→                J
+   570→              </div>
+   571→              <div>
+   572→                <h3 className="text-sm font-semibold text-white">Jarvis Customer Care</h3>
+   573→                <p className="text-xs text-zinc-500">AI employee managing your customer support — chat, commands, awareness feed</p>
+   574→              </div>
+   575→            </div>
+   576→            <a
+   577→              href="/dashboard/jarvis"
+   578→              className="text-xs px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-amber-400 text-white font-medium shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 transition-all"
+   579→            >
+   580→              Open Jarvis CC
+   581→            </a>
+   582→          </div>
+   583→          <div className="grid grid-cols-4 gap-3 mt-4">
+   584→            <div className="text-xs">
+   585→              <span className="text-zinc-600">Status</span>
+   586→              <div className="flex items-center gap-1.5 mt-0.5">
+   587→                {hasActiveVariants ? (
+   588→                  <>
+   589→                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+   590→                    <span className="text-emerald-400 font-medium">Online</span>
+   591→                  </>
+   592→                ) : (
+   593→                  <>
+   594→                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+   595→                    <span className="text-zinc-500 font-medium">Idle</span>
+   596→                  </>
+   597→                )}
+   598→              </div>
+   599→            </div>
+   600→            <div className="text-xs">
+   601→              <span className="text-zinc-600">Pipeline</span>
+   602→              <p className={`font-medium mt-0.5 ${hasActiveVariants ? 'text-zinc-300' : 'text-zinc-600'}`}>
+   603→                {hasActiveVariants ? 'Active' : 'Not Set Up'}
+   604→              </p>
+   605→            </div>
+   606→            <div className="text-xs">
+   607→              <span className="text-zinc-600">Awareness</span>
+   608→              <p className={`font-medium mt-0.5 ${hasActiveVariants ? 'text-zinc-300' : 'text-zinc-600'}`}>
+   609→                {hasActiveVariants ? 'Enabled' : 'Disabled'}
+   610→              </p>
+   611→            </div>
+   612→            <div className="text-xs">
+   613→              <span className="text-zinc-600">Quick Command</span>
+   614→              <p className="text-zinc-400 font-medium mt-0.5">Cmd+K</p>
+   615→            </div>
+   616→          </div>
+   617→        </div>
+   618→        );
+   619→      })()}
+   620→
+   621→      {/* Header */}
+   622→      <DashboardHeader
+   623→        title="Performance Overview"
+   624→        subtitle="Key metrics for your support team"
+   625→        datePreset={datePreset}
+   626→        onDateChange={handleDateChange}
+   627→        onRefresh={fetchDashboard}
+   628→        isRefreshing={isRefreshing}
+   629→      />
+   630→
+   631→      {/* ── KPI Cards Row 1: Primary Metrics ────────────────────────── */}
+   632→      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+   633→        <KPICard
+   634→          title="Total Tickets"
+   635→          value={data ? formatNumber(data.summary.total_tickets) : '—'}
+   636→          subtitle="All time in range"
+   637→          icon={Icons.tickets}
+   638→          variant="default"
+   639→          isLoading={!data}
+   640→        />
+   641→        <KPICard
+   642→          title="Open Tickets"
+   643→          value={data ? formatNumber(data.summary.open + data.summary.in_progress) : '—'}
+   644→          subtitle={`${data ? formatNumber(data.summary.in_progress) : '—'} in progress`}
+   645→          icon={Icons.open}
+   646→          variant="info"
+   647→          isLoading={!data}
+   648→        />
+   649→        <KPICard
+   650→          title="Resolved"
+   651→          value={data ? formatNumber(data.summary.resolved) : '—'}
+   652→          subtitle={`${data ? formatPercent(data.summary.resolution_rate) : '—'} rate`}
+   653→          icon={Icons.resolved}
+   654→          variant="success"
+   655→          isLoading={!data}
+   656→        />
+   657→        <KPICard
+   658→          title="Avg Response"
+   659→          value={data ? formatHours(data.summary.avg_first_response_time_hours) : '—'}
+   660→          subtitle="First response time"
+   661→          icon={Icons.responseTime}
+   662→          variant={data && data.summary.avg_first_response_time_hours > 2 ? 'warning' : 'default'}
+   663→          isLoading={!data}
+   664→        />
+   665→        <KPICard
+   666→          title="Resolution Rate"
+   667→          value={data ? formatPercent(data.summary.resolution_rate) : '—'}
+   668→          subtitle="Tickets resolved successfully"
+   669→          icon={Icons.resolutionRate}
+   670→          variant={data && data.summary.resolution_rate >= 80 ? 'success' : 'warning'}
+   671→          isLoading={!data}
+   672→        />
+   673→        <KPICard
+   674→          title="CSAT Score"
+   675→          value="—"
+   676→          subtitle="Customer satisfaction"
+   677→          icon={Icons.csat}
+   678→          variant="default"
+   679→          isLoading={!data}
+   680→        />
+   681→      </div>
+   682→
+   683→      {/* ── KPI Cards Row 2: Priority + SLA ───────────────────────── */}
+   684→      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+   685→        <KPICard
+   686→          title="Critical"
+   687→          value={data ? formatNumber(data.summary.critical) : '—'}
+   688→          icon={<span className="w-3 h-3 rounded-full bg-red-500" />}
+   689→          variant="danger"
+   690→          isLoading={!data}
+   691→        />
+   692→        <KPICard
+   693→          title="High Priority"
+   694→          value={data ? formatNumber(data.summary.high) : '—'}
+   695→          icon={<span className="w-3 h-3 rounded-full bg-orange-500" />}
+   696→          variant="warning"
+   697→          isLoading={!data}
+   698→        />
+   699→        <KPICard
+   700→          title="Awaiting Client"
+   701→          value={data ? formatNumber(data.summary.awaiting_client) : '—'}
+   702→          icon={Icons.open}
+   703→          variant="default"
+   704→          isLoading={!data}
+   705→        />
+   706→
+   707→        <KPICard
+   708→          title="Avg Resolution"
+   709→          value={data ? formatHours(data.summary.avg_resolution_time_hours) : '—'}
+   710→          subtitle="Time to resolve"
+   711→          icon={Icons.responseTime}
+   712→          variant="default"
+   713→          isLoading={!data}
+   714→        />
+   715→        <KPICard
+   716→          title="SLA Breached"
+   717→          value={data ? formatNumber(data.sla.breached_count) : '—'}
+   718→          subtitle={`of ${data ? formatNumber(data.sla.total_tickets_with_sla) : '—'} tickets`}
+   719→          icon={Icons.breached}
+   720→          variant={data && data.sla.breached_count > 0 ? 'danger' : 'success'}
+   721→          isLoading={!data}
+   722→        />
+   723→        <KPICard
+   724→          title="SLA Compliance"
+   725→          value={data ? formatPercent(data.sla.compliance_rate) : '—'}
+   726→          subtitle={`${data ? formatNumber(data.sla.approaching_count) : '—'} approaching`}
+   727→          icon={Icons.compliance}
+   728→          variant={data && data.sla.compliance_rate >= 95 ? 'success' : data && data.sla.compliance_rate >= 80 ? 'warning' : 'danger'}
+   729→          isLoading={!data}
+   730→        />
+   731→      </div>
+   732→
+   733→      {/* ── Row 3: Ticket Trends (full width area chart) ───────────── */}
+   734→      {data ? (
+   735→        <TrendChart data={data.trend} />
+   736→      ) : (
+   737→        <div className="rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6 h-[332px] animate-pulse" />
+   738→      )}
+   739→
+   740→      {/* ── Row 4: Category Chart + SLA Chart ──────────────────────── */}
+   741→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   742→        {data ? (
+   743→          <CategoryChart data={data.by_category} />
+   744→        ) : (
+   745→          <div className="rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6 h-[420px] animate-pulse" />
+   746→        )}
+   747→
+   748→        {data ? (
+   749→          <SLAChart data={data.sla} />
+   750→        ) : (
+   751→          <div className="rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6 h-[420px] animate-pulse" />
+   752→        )}
+   753→      </div>
+   754→
+   755→      {/* ── Row 5: Response Time Distribution + Sentiment Overview ── */}
+   756→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   757→        <ResponseTimeChart dateRange={dateRange} />
+   758→
+   759→        {/* ── Sentiment Overview ──────────────────────────────────── */}
+   760→        {sentimentState.status === 'loading' ? (
+   761→          <div className="rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6 h-[420px] animate-pulse" />
+   762→        ) : sentimentState.status === 'success' && sentimentState.data ? (
+   763→          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-6">
+   764→            <div className="flex items-center gap-2 mb-6">
+   765→              <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400">
+   766→                {Icons.sentiment}
+   767→              </div>
+   768→              <div>
+   769→                <h3 className="text-sm font-semibold text-white">Sentiment Overview</h3>
+   770→                <p className="text-[10px] text-zinc-600">
+   771→                  {formatNumber(sentimentState.data.total_analyzed)} tickets analyzed
+   772→                </p>
+   773→              </div>
+   774→            </div>
+   775→
+   776→            {/* KPI Row */}
+   777→            <div className="grid grid-cols-3 gap-4 mb-6">
+   778→              <div className="space-y-1">
+   779→                <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Frustration</p>
+   780→                <p className="text-xl font-bold text-white tabular-nums">
+   781→                  {sentimentState.data.avg_frustration_score.toFixed(1)}
+   782→                  <span className="text-xs text-zinc-600">/10</span>
+   783→                </p>
+   784→              </div>
+   785→              <div className="space-y-1">
+   786→                <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Escalations</p>
+   787→                <p className="text-xl font-bold text-white tabular-nums">
+   788→                  {formatNumber(sentimentState.data.escalation_count)}
+   789→                </p>
+   790→              </div>
+   791→              <div className="space-y-1">
+   792→                <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Positive</p>
+   793→                <p className="text-xl font-bold tabular-nums text-emerald-400">
+   794→                  {formatPercent(sentimentState.data.positive_ratio * 100)}
+   795→                </p>
+   796→              </div>
+   797→            </div>
+   798→
+   799→            {/* Emotion Distribution */}
+   800→            <div className="space-y-3">
+   801→              <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Emotion Distribution</p>
+   802→              {Object.entries(sentimentState.data.emotion_distribution).map(([emotion, pct]) => {
+   803→                const emotionColors: Record<string, string> = {
+   804→                  joy: 'bg-emerald-500/80',
+   805→                  neutral: 'bg-zinc-500/80',
+   806→                  frustration: 'bg-amber-500/80',
+   807→                  anger: 'bg-red-500/80',
+   808→                  sadness: 'bg-blue-500/80',
+   809→                  confusion: 'bg-purple-500/80',
+   810→                  satisfaction: 'bg-emerald-400/80',
+   811→                  anxiety: 'bg-orange-500/80',
+   812→                };
+   813→                const barColor = emotionColors[emotion.toLowerCase()] ?? 'bg-zinc-500/80';
+   814→                const value = typeof pct === 'number' ? pct : 0;
+   815→
+   816→                return (
+   817→                  <div key={emotion} className="space-y-1">
+   818→                    <div className="flex items-center justify-between">
+   819→                      <span className="text-xs text-zinc-400 capitalize">{emotion}</span>
+   820→                      <span className="text-xs text-zinc-500 tabular-nums">{value.toFixed(1)}%</span>
+   821→                    </div>
+   822→                    <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+   823→                      <div
+   824→                        className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+   825→                        style={{ width: `${Math.min(100, value)}%` }}
+   826→                      />
+   827→                    </div>
+   828→                  </div>
+   829→                );
+   830→              })}
+   831→            </div>
+   832→
+   833→            {/* Negative ratio footer */}
+   834→            <div className="flex items-center justify-between mt-5 pt-4 border-t border-white/[0.04]">
+   835→              <div className="flex items-center gap-2">
+   836→                <div className="w-6 h-6 rounded-md bg-red-500/10 flex items-center justify-center text-red-400">
+   837→                  {Icons.escalation}
+   838→                </div>
+   839→                <span className="text-xs text-zinc-400">Negative ratio</span>
+   840→              </div>
+   841→              <span className="text-sm font-semibold tabular-nums text-red-400">
+   842→                {formatPercent(sentimentState.data.negative_ratio * 100)}
+   843→              </span>
+   844→            </div>
+   845→          </div>
+   846→        ) : (
+   847→          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 flex flex-col items-center justify-center gap-3 min-h-[420px]">
+   848→            <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center text-zinc-600">
+   849→              {Icons.sentiment}
+   850→            </div>
+   851→            <p className="text-sm text-zinc-500 text-center">Connect backend to view sentiment data</p>
+   852→          </div>
+   853→        )}
+   854→      </div>
+   855→
+   856→      {/* ── Row 6: Integration Connectors Health ─────────────────────── */}
+   857→      <DashboardIntegrationHealth />
+   858→
+   859→      {/* ── Row 7: Agent Performance Table ─────────────────────────── */}
+   860→      <AgentPerformanceTable data={agentData} />
+   861→    </div>
+   862→  );
+   863→}
+   864→
+   865→// ── Dashboard Integration Health Component ──────────────────────────────
+   866→
+   867→function DashboardIntegrationHealth() {
+   868→  const [integrations, setIntegrations] = useState<Array<{
+   869→    id: string;
+   870→    name: string;
+   871→    platform: string;
+   872→    status: string;
+   873→    testResult?: 'success' | 'failed';
+   874→    testedAt?: string;
+   875→  }>>([]);
+   876→  const [isLoading, setIsLoading] = useState(true);
+   877→
+   878→  useEffect(() => {
+   879→    async function load() {
+   880→      try {
+   881→        const res = await fetch('/api/integrations');
+   882→        if (res.ok) {
+   883→          const data = await res.json();
+   884→          if (Array.isArray(data)) {
+   885→            setIntegrations(data.map((i: Record<string, unknown>) => ({
+   886→              id: String(i.id || i.integration_id || ''),
+   887→              name: String(i.name || i.integration_type || ''),
+   888→              platform: String(i.integration_type || i.platform || ''),
+   889→              status: String(i.status || 'active'),
+   890→              testResult: i.test_result as 'success' | 'failed' | undefined,
+   891→              testedAt: i.tested_at ? String(i.tested_at) : undefined,
+   892→            })));
+   893→          }
+   894→        }
+   895→      } catch {
+   896→        // Backend unavailable
+   897→      } finally {
+   898→        setIsLoading(false);
+   899→      }
+   900→    }
+   901→    load();
+   902→  }, []);
+   903→
+   904→  const activeCount = integrations.filter((i) => i.status === 'active').length;
+   905→  const verifiedCount = integrations.filter((i) => i.testResult === 'success').length;
+   906→  const errorCount = integrations.filter((i) => i.status === 'error' || i.testResult === 'failed').length;
+   907→
+   908→  return (
+   909→    <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-6">
+   910→      <div className="flex items-center justify-between mb-4">
+   911→        <div className="flex items-center gap-2">
+   912→          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+   913→            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   914→              <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.06a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L5.25 9.503" />
+   915→            </svg>
+   916→          </div>
+   917→          <div>
+   918→            <h3 className="text-sm font-semibold text-white">Integration Connectors</h3>
+   919→            <p className="text-[10px] text-zinc-600">Connected platforms and their verification status</p>
+   920→          </div>
+   921→        </div>
+   922→        <a
+   923→          href="/dashboard/integrations"
+   924→          className="text-[10px] text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1"
+   925→        >
+   926→          Manage
+   927→          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+   928→            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+   929→          </svg>
+   930→        </a>
+   931→      </div>
+   932→
+   933→      {isLoading ? (
+   934→        <div className="h-20 animate-pulse bg-white/[0.02] rounded-lg" />
+   935→      ) : integrations.length === 0 ? (
+   936→        <div className="rounded-lg border border-dashed border-white/[0.08] p-6 text-center">
+   937→          <p className="text-xs text-zinc-500">No integrations connected yet</p>
+   938→          <a href="/dashboard/integrations" className="text-xs text-orange-400 hover:text-orange-300 mt-2 inline-block">
+   939→            Add your first integration →
+   940→          </a>
+   941→        </div>
+   942→      ) : (
+   943→        <>
+   944→          {/* Stats Row */}
+   945→          <div className="grid grid-cols-3 gap-3 mb-4">
+   946→            <div className="rounded-lg p-2.5" style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.15)' }}>
+   947→              <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Active</p>
+   948→              <p className="text-lg font-bold text-emerald-400">{activeCount}</p>
+   949→            </div>
+   950→            <div className="rounded-lg p-2.5" style={{ background: 'rgba(249,115,22,0.04)', border: '1px solid rgba(249,115,22,0.15)' }}>
+   951→              <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Verified</p>
+   952→              <p className="text-lg font-bold text-orange-400">{verifiedCount}</p>
+   953→            </div>
+   954→            <div className="rounded-lg p-2.5" style={{ background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.15)' }}>
+   955→              <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Errors</p>
+   956→              <p className="text-lg font-bold text-red-400">{errorCount}</p>
+   957→            </div>
+   958→          </div>
+   959→
+   960→          {/* Connector List */}
+   961→          <div className="space-y-2 max-h-[200px] overflow-y-auto">
+   962→            {integrations.slice(0, 6).map((integration) => (
+   963→              <div
+   964→                key={integration.id}
+   965→                className="flex items-center justify-between p-2.5 rounded-lg"
+   966→                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}
+   967→              >
+   968→                <div className="flex items-center gap-2.5">
+   969→                  <div className={`w-2 h-2 rounded-full ${
+   970→                    integration.testResult === 'success' ? 'bg-emerald-400' :
+   971→                    integration.testResult === 'failed' || integration.status === 'error' ? 'bg-red-400' :
+   972→                    'bg-amber-400'
+   973→                  }`} />
+   974→                  <span className="text-xs text-white font-medium">{integration.name}</span>
+   975→                  <span className="text-[9px] text-zinc-600">{integration.platform}</span>
+   976→                </div>
+   977→                <span className={`text-[9px] font-medium uppercase tracking-wider ${
+   978→                  integration.testResult === 'success' ? 'text-emerald-400' :
+   979→                  integration.testResult === 'failed' ? 'text-red-400' :
+   980→                  'text-amber-400'
+   981→                }`}>
+   982→                  {integration.testResult === 'success' ? 'Verified' :
+   983→                   integration.testResult === 'failed' ? 'Failed' :
+   984→                   integration.status === 'error' ? 'Error' : 'Connected'}
+   985→                </span>
+   986→              </div>
+   987→            ))}
+   988→            {integrations.length > 6 && (
+   989→              <a href="/dashboard/integrations" className="text-[10px] text-orange-400 hover:text-orange-300 block text-center py-1">
+   990→                +{integrations.length - 6} more integrations →
+   991→              </a>
+   992→            )}
+   993→          </div>
+   994→        </>
+   995→      )}
+   996→    </div>
+   997→  );
+   998→}
+   999→

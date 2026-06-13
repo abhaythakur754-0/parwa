@@ -35,8 +35,9 @@ function getAllTrustedOrigins(req?: NextRequest): string[] {
   if (process.env.FRONTEND_URL) origins.add(process.env.FRONTEND_URL);
   if (process.env.VERCEL_URL) origins.add(`https://${process.env.VERCEL_URL}`);
 
-  // Known production domains
+  // Known production domains (must match backend's CSRF_TRUSTED_ORIGINS)
   origins.add('https://parwa.buzz');
+  origins.add('https://parwafrontend.vercel.app');
   origins.add('https://parwa.vercel.app');
   origins.add('https://www.parwa.buzz');
 

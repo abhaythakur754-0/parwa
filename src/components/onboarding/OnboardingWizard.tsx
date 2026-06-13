@@ -40,12 +40,21 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
 
   // Fetch initial state + restore variant from localStorage
   useEffect(() => {
+    // Check for Paddle payment success redirect (step=victory)
+    const victoryRedirect = searchParams.get('step') === 'victory';
+
     fetch('/api/onboarding/state')
       .then((res) => res.json())
       .then((data) => {
         setOnboardingState(data);
-        if (data.current_step > 1) setCurrentStep(data.current_step);
-        if (data.completed_steps) setCompletedSteps(data.completed_steps);
+        if (victoryRedirect) {
+          // Paddle redirected after successful payment — jump to victory
+          setCurrentStep(6);
+          setCompletedSteps([1, 2, 3, 4, 5]);
+        } else {
+          if (data.current_step > 1) setCurrentStep(data.current_step);
+          if (data.completed_steps) setCompletedSteps(data.completed_steps);
+        }
         if (data.ai_name) setAiName(data.ai_name);
         if (data.ai_greeting) setAiGreeting(data.ai_greeting);
       })
@@ -54,7 +63,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
           id: '',
           user_id: '',
           company_id: '',
-          status: 'pending',
+          status: 'not_started',
           current_step: 1,
           completed_steps: [],
           details_completed: false,
@@ -70,8 +79,13 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
           completed_at: null,
         };
         setOnboardingState(fallback);
-        if (fallback.current_step > 1) setCurrentStep(fallback.current_step);
-        if (fallback.completed_steps) setCompletedSteps(fallback.completed_steps);
+        if (victoryRedirect) {
+          setCurrentStep(6);
+          setCompletedSteps([1, 2, 3, 4, 5]);
+        } else {
+          if (fallback.current_step > 1) setCurrentStep(fallback.current_step);
+          if (fallback.completed_steps) setCompletedSteps(fallback.completed_steps);
+        }
       })
       .finally(() => setLoading(false));
 
@@ -86,7 +100,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
     } catch {
       // ignore
     }
-  }, [initialState]);
+  }, [initialState, searchParams]);
 
   const completeStep = useCallback(async (step: number) => {
     setCompletedSteps((prev) => [...prev.filter((s) => s !== step), step]);
