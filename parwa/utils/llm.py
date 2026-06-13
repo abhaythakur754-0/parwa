@@ -46,8 +46,50 @@ NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "nvapi-mYdaofMi6jRs_7xUD9ZhKtMm8I7e
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "meta/llama-3.1-8b-instruct")
 NVIDIA_MODEL_HEAVY = os.getenv("NVIDIA_MODEL_HEAVY", "deepseek-ai/deepseek-v4-pro")
-NVIDIA_RATE_LIMIT_SECONDS = float(os.getenv("NVIDIA_RATE_LIMIT_SECONDS", "1.5"))  # 40/min, 1.5s between calls for TPM optimization
+NVIDIA_RATE_LIMIT_SECONDS = float(os.getenv("NVIDIA_RATE_LIMIT_SECONDS", "1.5"))  # 40/min baseline
 _nvidia_disabled = False  # Auto-disabled on repeated failures
+
+# ─── NVIDIA Sliding Window Rate Limiter (TPM-optimized) ──────────────────────
+# Instead of sleeping 1.5s on EVERY call (wasteful), we track call timestamps
+# and only sleep when we're about to exceed 40 RPM. This allows bursts of
+# fast calls (TPM optimization) while respecting the per-minute limit.
+import threading as _threading
+_nvidia_call_times: list[float] = []
+_nvidia_rate_lock = _threading.Lock()
+_NVIDIA_RPM_LIMIT = 40
+_NVIDIA_RPM_WINDOW = 60.0  # seconds
+
+
+def _nvidia_rate_limit_wait() -> None:
+    """Smart rate limiter: only sleeps if we're about to exceed 40 RPM."""
+    import time as _time
+    with _nvidia_rate_lock:
+        now = _time.monotonic()
+        # Remove timestamps older than window
+        global _nvidia_call_times
+        _nvidia_call_times = [t for t in _nvidia_call_times if now - t < _NVIDIA_RPM_WINDOW]
+        # If we're at the limit, sleep until the oldest call expires
+        if len(_nvidia_call_times) >= _NVIDIA_RPM_LIMIT:
+            sleep_time = _NVIDIA_RPM_WINDOW - (now - _nvidia_call_times[0]) + 0.1
+            if sleep_time > 0:
+                _time.sleep(sleep_time)
+        # Record this call
+        _nvidia_call_times.append(_time.monotonic())
+
+
+async def _nvidia_rate_limit_wait_async() -> None:
+    """Async version of smart rate limiter."""
+    import asyncio
+    import time as _time
+    with _nvidia_rate_lock:
+        now = _time.monotonic()
+        global _nvidia_call_times
+        _nvidia_call_times = [t for t in _nvidia_call_times if now - t < _NVIDIA_RPM_WINDOW]
+        sleep_time = 0
+        if len(_nvidia_call_times) >= _NVIDIA_RPM_LIMIT:
+            sleep_time = _NVIDIA_RPM_WINDOW - (now - _nvidia_call_times[0]) + 0.1
+    if sleep_time > 0:
+        await asyncio.sleep(sleep_time)
 
 # Google AI Configuration (fallback — region-restricted, only works in US/EU)
 GOOGLE_AI_KEY = os.getenv("GOOGLE_AI_KEY", "AIzaSyATHbcolmlaNufj6ZHR6tebMmlqqcmCsEs")
@@ -270,12 +312,12 @@ def _call_nvidia(
     temperature: float = 0.1,
     max_tokens: int = 500,
 ) -> dict[str, Any]:
-    """Call NVIDIA API (DeepSeek-V4-Pro) via OpenAI-compatible client (sync, with rate limit).
+    """Call NVIDIA API via OpenAI-compatible client (sync, with sliding window rate limit).
 
-    PRIMARY backend — fast native Python, no subprocess, 40 req/min.
+    PRIMARY backend — fast native Python, no subprocess, 40 RPM.
+    Uses sliding window rate limiter for TPM optimization (allows bursts).
     """
-    import time as _time
-    _time.sleep(NVIDIA_RATE_LIMIT_SECONDS)  # Rate limit: 40 req/min
+    _nvidia_rate_limit_wait()  # Smart rate limit: only waits if needed
     return _call_nvidia_no_wait(
         system_prompt, user_prompt,
         model=model, temperature=temperature, max_tokens=max_tokens,
@@ -294,19 +336,15 @@ def _call_nvidia_no_wait(
 
     Uses meta/llama-3.1-8b-instruct as primary (fast, 0.2-1.5s/call),
     deepseek-ai/deepseek-v4-pro for heavy reasoning when explicitly requested.
+    
+    Month 4: Added 429 retry with exponential backoff (up to 3 retries).
     """
     global _nvidia_disabled
     if _nvidia_disabled:
         raise RuntimeError("NVIDIA API disabled (repeated failures)")
 
     from openai import OpenAI
-
-    client = OpenAI(
-        base_url=NVIDIA_BASE_URL,
-        api_key=NVIDIA_API_KEY,
-        max_retries=1,  # Don't waste time on retries
-        timeout=30.0,
-    )
+    import time as _time
 
     use_model = model or NVIDIA_MODEL
     messages = []
@@ -314,24 +352,46 @@ def _call_nvidia_no_wait(
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": str(user_prompt)})
 
-    resp = client.chat.completions.create(
-        model=use_model,
-        messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
-
-    text = resp.choices[0].message.content or ""
-    usage = resp.usage
-    return {
-        "content": text,
-        "model": resp.model or use_model,
-        "usage": {
-            "prompt_tokens": getattr(usage, "prompt_tokens", 0) or 0,
-            "completion_tokens": getattr(usage, "completion_tokens", 0) or 0,
-            "total_tokens": getattr(usage, "total_tokens", 0) or 0,
-        },
-    }
+    max_retries = 3
+    for attempt in range(max_retries + 1):
+        client = OpenAI(
+            base_url=NVIDIA_BASE_URL,
+            api_key=NVIDIA_API_KEY,
+            max_retries=0,
+            timeout=30.0,
+        )
+        try:
+            resp = client.chat.completions.create(
+                model=use_model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            text = resp.choices[0].message.content or ""
+            usage = resp.usage
+            return {
+                "content": text,
+                "model": resp.model or use_model,
+                "usage": {
+                    "prompt_tokens": getattr(usage, "prompt_tokens", 0) or 0,
+                    "completion_tokens": getattr(usage, "completion_tokens", 0) or 0,
+                    "total_tokens": getattr(usage, "total_tokens", 0) or 0,
+                },
+            }
+        except Exception as e:
+            err_str = str(e)
+            if "429" in err_str and attempt < max_retries:
+                backoff = 5 * (2 ** attempt)  # 5s, 10s, 20s
+                logger.warning("NVIDIA 429 rate limited, retrying in %ds (attempt %d/%d)", backoff, attempt+1, max_retries)
+                _time.sleep(backoff)
+                continue
+            # Non-429 or max retries exceeded
+            _nvidia_fail_count = getattr(_call_nvidia_no_wait, '_fail_count', 0) + 1
+            _call_nvidia_no_wait._fail_count = _nvidia_fail_count
+            if _nvidia_fail_count >= 5:
+                _nvidia_disabled = True
+                logger.error("NVIDIA API disabled after %d failures", _nvidia_fail_count)
+            raise
 
 
 async def _acall_nvidia(
@@ -352,7 +412,7 @@ async def _acall_nvidia(
         raise RuntimeError("NVIDIA API disabled (repeated failures)")
 
     import asyncio
-    await asyncio.sleep(NVIDIA_RATE_LIMIT_SECONDS)  # Rate limit: 40 req/min
+    await _nvidia_rate_limit_wait_async()  # Smart rate limit: only waits if needed
     return await asyncio.to_thread(
         _call_nvidia_no_wait, system_prompt, user_prompt,
         model=model, temperature=temperature, max_tokens=max_tokens,

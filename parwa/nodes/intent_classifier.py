@@ -424,10 +424,13 @@ async def intent_classifier(state: dict[str, Any]) -> dict[str, Any]:
             "complexity": TicketComplexity.SIMPLE,
         }
 
-    # Try FrameworkBrain first (Phase 5)
-    intent_str, confidence, frameworks = await _classify_intent_with_brain(state)
+    # Month 4 TPM optimization: Skip FrameworkBrain for speed.
+    # Use rule-based first (free, instant), then LLM only if low confidence.
+    # This cuts LLM calls per ticket from 2 to 0-1 for this node.
+    intent_str, confidence = _classify_intent_rule_based(raw_message)
+    frameworks = []
 
-    # If low confidence, try LLM with graceful degradation
+    # Only call LLM if rule-based confidence is low
     if confidence < 0.8 and not MOCK_MODE:
         try:
             llm_intent, llm_conf = await _classify_intent_llm(

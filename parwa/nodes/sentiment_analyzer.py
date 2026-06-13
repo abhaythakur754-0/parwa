@@ -197,10 +197,13 @@ async def sentiment_analyzer(state: dict[str, Any]) -> dict[str, Any]:
             "sentiment_urgency": 0.3,
         }
 
-    # Try FrameworkBrain first (Phase 5)
-    sentiment_str, urgency, frameworks = await _analyze_sentiment_with_brain(state)
+    # Month 4 TPM optimization: Skip FrameworkBrain for speed.
+    # Use rule-based first (free, instant), then LLM only if neutral.
+    # This cuts LLM calls per ticket from 2 to 0-1 for this node.
+    sentiment_str, urgency = _analyze_sentiment_rule_based(raw_message)
+    frameworks = []
 
-    # If neutral and not in mock mode, try LLM for nuance with graceful degradation
+    # Only call LLM if rule-based says neutral (might miss nuance)
     if sentiment_str == SentimentType.NEUTRAL and not MOCK_MODE:
         try:
             llm_sentiment, llm_urgency = await _analyze_sentiment_llm(

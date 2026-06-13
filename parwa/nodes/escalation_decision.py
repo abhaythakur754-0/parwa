@@ -421,12 +421,9 @@ async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
             confidence_gate.get("confidence", 0), reason,
         )
 
-    # If rules say no and confidence gate says no, try brain + LLM for nuance
+    # If rules say no and confidence gate says no, try LLM for nuance
+    # Month 4 TPM optimization: Skip FrameworkBrain, go straight to LLM only for complex tickets
     frameworks = []
-    if not should_escalate:
-        _, _, frameworks = await _should_escalate_with_brain(state)
-
-    # If brain says no but complexity is high, try LLM for nuance
     if not should_escalate and complexity in (TicketComplexity.COMPLEX, TicketComplexity.CRITICAL, "complex", "critical") and not MOCK_MODE:
         try:
             llm_escalate, llm_reason = await _should_escalate_llm(
