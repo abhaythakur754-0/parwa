@@ -58,16 +58,35 @@ async def pii_compliance_guard(state: dict[str, Any]) -> dict[str, Any]:
     Reads: final_response (or raw_message if no response yet)
     Writes: pii_detected, pii_redacted_message
     """
-    # Check the message that will be sent
-    message = state.get("final_response") or state.get("raw_message", "")
+    # Check BOTH the final response AND the raw customer message for PII.
+    # The final_response is what gets sent to the customer (must not contain PII).
+    # The raw_message is what the customer sent to us (must be flagged if it contains PII).
+    final_response = state.get("final_response", "")
+    raw_message = state.get("raw_message", "")
 
-    # Guard: ensure message is a string
-    if not isinstance(message, str):
-        message = str(message) if message else ""
+    # Guard: ensure strings
+    if not isinstance(final_response, str):
+        final_response = str(final_response) if final_response else ""
+    if not isinstance(raw_message, str):
+        raw_message = str(raw_message) if raw_message else ""
 
     try:
-        pii_detected, found_items = _detect_pii(message)
-        redacted_message = _redact_pii(message) if pii_detected else message
+        # Always check raw_message for PII (customer may have sent SSN, CC, etc.)
+        raw_pii_detected, raw_found_items = _detect_pii(raw_message)
+        
+        # Also check the final response for PII leakage
+        resp_pii_detected, resp_found_items = _detect_pii(final_response)
+        
+        # Combined detection
+        pii_detected = raw_pii_detected or resp_pii_detected
+        found_items = {}
+        for k, v in raw_found_items.items():
+            found_items[f"raw_{k}"] = v
+        for k, v in resp_found_items.items():
+            found_items[f"response_{k}"] = v
+        
+        # Redact PII from the final response
+        redacted_message = _redact_pii(final_response) if resp_pii_detected else final_response
     except Exception as exc:
         import logging
         logging.getLogger("parwa.node.pii_compliance_guard").warning(

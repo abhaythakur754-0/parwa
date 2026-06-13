@@ -107,6 +107,7 @@ _SEED_CUSTOMERS: dict[str, dict[str, Any]] = {
         ],
         "payments": [
             {"payment_id": "PAY-3030", "order_id": "ORD-2030", "amount": 99.99, "method": "credit_card", "card_last4": "1122", "status": "completed", "date": "2026-05-10"},
+            {"payment_id": "PAY-3030D", "order_id": "ORD-2030", "amount": 99.99, "method": "credit_card", "card_last4": "1122", "status": "completed", "date": "2026-06-01"},  # DUPLICATE CHARGE
             {"payment_id": "PAY-3031", "order_id": None, "amount": 59.99, "method": "credit_card", "card_last4": "1122", "status": "failed", "date": "2026-06-15", "failure_reason": "Card declined"},
         ],
         "tickets": [

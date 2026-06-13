@@ -380,7 +380,9 @@ async def escalation_decision(state: dict[str, Any]) -> dict[str, Any]:
     # This ensures the human agent gets full context and reasoning.
     msg_lower = raw_message.lower() if raw_message else ""
     legal_terms = ["attorney", "lawyer", "lawsuit", "legal action", "sue", "legal",
-                   "consumer rights", "consumer protection"]
+                   "consumer rights", "consumer protection",
+                   "ftc", "breach of contract", "regulatory", "court",
+                   "consumer financial protection", "cfpb", "bbb"]
     has_legal_threat = any(term in msg_lower for term in legal_terms)
 
     if has_legal_threat:

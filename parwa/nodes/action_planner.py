@@ -129,10 +129,43 @@ def _plan_actions_rule_based(
     explicit_actions = _detect_explicit_actions(raw_message, intent)
 
     if intent == "refund_request" or "process_refund" in explicit_actions:
-        # Calculate refund amount from integration data
-        amount = 49.99  # default
-        if integration_data.get("charges"):
-            amount = integration_data["charges"][0].get("amount", 49.99)
+        # Calculate refund amount from multiple sources (priority order):
+        # 1. Explicit amount mentioned in the customer's message
+        # 2. Charges from CRM integration data
+        # 3. Reasoning conclusion (if it contains a dollar amount)
+        # 4. Default fallback
+        import re as _re
+        amount = None
+        
+        # Source 1: Check customer's message for specific dollar amounts
+        amount_patterns = _re.findall(r'\$(\d+\.?\d*)', raw_lower)
+        if amount_patterns:
+            # Use the first mentioned dollar amount as the refund amount
+            # (the customer usually states what they were charged)
+            try:
+                amount = float(amount_patterns[0])
+            except (ValueError, IndexError):
+                amount = None
+        
+        # Source 2: CRM integration data
+        if amount is None and integration_data.get("charges"):
+            try:
+                amount = float(integration_data["charges"][0].get("amount", 0))
+            except (ValueError, TypeError, IndexError):
+                amount = None
+        
+        # Source 3: Reasoning conclusion
+        if amount is None:
+            conclusion_amounts = _re.findall(r'\$(\d+\.?\d*)', conclusion)
+            if conclusion_amounts:
+                try:
+                    amount = float(conclusion_amounts[0])
+                except (ValueError, IndexError):
+                    amount = None
+        
+        # Source 4: Default fallback
+        if amount is None:
+            amount = 49.99
 
         # Check for specific refund reasons
         reason = "customer_request"
