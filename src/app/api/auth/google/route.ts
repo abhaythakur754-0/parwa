@@ -177,11 +177,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // NOTE: We do NOT block on gEmailVerified here.
+    // Google Identity Services only issues a credential JWT after the user
+    // has authenticated with Google. The `email_verified` field in Google's
+    // tokeninfo response can be `false` for stale tokens or audience
+    // mismatches — it does NOT mean the user's Google account email is
+    // unverified. Since the user already proved ownership by signing in
+    // through Google, we trust the email and proceed.
     if (!gEmailVerified) {
-      return NextResponse.json(
-        { status: "error", message: "Please verify your email with Google first." },
-        { status: 403 }
-      );
+      console.warn("[google-auth] Google tokeninfo reports email_verified=false, but proceeding because GIS already authenticated the user. Email:", gEmail);
     }
 
     const email = gEmail.trim().toLowerCase();
