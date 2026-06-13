@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { NavigationBar, Footer } from '@/components/landing';
-import { useAppStore } from '@/lib/store';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Star, Check, Phone, Mail, MessageSquare,
@@ -90,7 +89,6 @@ const trustIndicators = [
 
 export default function ModelsPage() {
   const router = useRouter();
-  const navigate = useAppStore((s) => s.navigate);
   const { isAuthenticated } = useAuth();
   const [selectedIndustry, setSelectedIndustry] = useState<Industry | null>(null);
   const [isAnnual, setIsAnnual] = useState(false);
@@ -227,7 +225,16 @@ export default function ModelsPage() {
 
                       <button onClick={() => {
                         if (!isAuthenticated) {
-                          navigate('signup');
+                          // Save variant selection to localStorage before redirecting
+                          const parwaVariantMap: Record<VariantId, string> = { starter: 'mini_parwa', growth: 'parwa', high: 'parwa_high' };
+                          localStorage.setItem('parwa_pricing_context', JSON.stringify({
+                            industry: selectedIndustry || 'saas',
+                            variant: parwaVariantMap[variant.id] || 'parwa',
+                            addOns: { voice: false, customApi: false },
+                            totalMonthly: variant.monthlyPrice,
+                            timestamp: new Date().toISOString(),
+                          }));
+                          router.push('/signup?redirect=/onboarding?source=pricing');
                         } else {
                           setSelectedVariant(variant.id);
                           setShowConfirm(true);

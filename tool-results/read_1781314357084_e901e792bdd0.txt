@@ -1,0 +1,737 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useEffect, useCallback } from 'react';
+     4→import {
+     5→  Mail,
+     6→  HeadphonesIcon,
+     7→  MessageSquare,
+     8→  ShoppingBag,
+     9→  Code,
+    10→  ArrowRight,
+    11→  Loader2,
+    12→  CheckCircle,
+    13→  XCircle,
+    14→  Eye,
+    15→  EyeOff,
+    16→  Unplug,
+    17→  AlertTriangle,
+    18→  Zap,
+    19→  FileJson,
+    20→  KeyRound,
+    21→  RefreshCw,
+    22→  Ban,
+    23→  FlaskConical,
+    24→} from 'lucide-react';
+    25→import toast from 'react-hot-toast';
+    26→import { integrationsApi, onboardingApi, getErrorMessage, post, get, del } from '@/lib/api';
+    27→import { cn } from '@/lib/utils';
+    28→import { Integration, IntegrationStatus } from '@/types/onboarding';
+    29→import {
+    30→  INTEGRATION_CATALOG,
+    31→  CATEGORY_META,
+    32→  getIntegrationsForIndustry,
+    33→  mapIndustryToParwaIndustry,
+    34→  type IntegrationDefinition,
+    35→  type IntegrationCategory,
+    36→} from '@/lib/integration-catalog';
+    37→import { CustomConnectorForm } from './CustomConnectorForm';
+    38→
+    39→// Category icon mapping
+    40→const CATEGORY_ICONS: Record<IntegrationCategory, React.ElementType> = {
+    41→  crm: HeadphonesIcon,
+    42→  ecommerce: ShoppingBag,
+    43→  helpdesk: HeadphonesIcon,
+    44→  communication: MessageSquare,
+    45→  analytics: Code,
+    46→  marketing: Mail,
+    47→  payments: Code,
+    48→  shipping: ShoppingBag,
+    49→  dev_tools: Code,
+    50→  productivity: Code,
+    51→  custom: Code,
+    52→};
+    53→
+    54→// ── Phase 13: API Key types ──────────────────────────────────────────
+    55→
+    56→interface ApiKeyInfo {
+    57→  integration_id: string;
+    58→  auth_type: string;
+    59→  masked_key: string;
+    60→  created_at?: string;
+    61→  rotated_at?: string;
+    62→}
+    63→
+    64→interface IntegrationStepProps {
+    65→  onNext: () => void;
+    66→  /** Current industry from onboarding — used to filter suggested integrations */
+    67→  industry?: string;
+    68→}
+    69→
+    70→/**
+    71→ * IntegrationStep Component (Step 3)
+    72→ *
+    73→ * Displays a grid of integration provider cards organized by category.
+    74→ * Users can connect to external services by clicking "Connect" on a
+    75→ * provider card, which reveals an inline form with credential inputs.
+    76→ * Each connection can be tested, and status indicators show whether
+    77→ * the connection is pending, active, or in an error state. The step
+    78→ * allows skipping with a warning about limited AI functionality.
+    79→ *
+    80→ * Phase 13: Now also stores credentials via the API Key system
+    81→ * (AES-256-GCM encrypted) and shows key management controls.
+    82→ */
+    83→export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
+    84→  const [existingIntegrations, setExistingIntegrations] = useState<Integration[]>([]);
+    85→  const [isLoading, setIsLoading] = useState(true);
+    86→
+    87→  // Get industry-filtered integrations from the unified catalog
+    88→  // Try the backend API first; if 503, fall back to local catalog import
+    89→  const parwaIndustry = industry ? mapIndustryToParwaIndustry(industry) : 'other';
+    90→  const [filteredCatalog, setFilteredCatalog] = useState<IntegrationDefinition[]>(() => getIntegrationsForIndustry(parwaIndustry));
+    91→
+    92→  // Group by category in display order
+    93→  const orderedCategories = Object.entries(CATEGORY_META)
+    94→    .filter(([key]) => filteredCatalog.some((i) => i.category === key))
+    95→    .sort(([, a], [, b]) => a.order - b.order);
+    96→  const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
+    97→  const [formValues, setFormValues] = useState<Record<string, Record<string, string>>>({});
+    98→  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+    99→  const [connectingProvider, setConnectingProvider] = useState<string | null>(null);
+   100→  const [testingProvider, setTestingProvider] = useState<string | null>(null);
+   101→  const [showSkipWarning, setShowSkipWarning] = useState(false);
+   102→  const [showCustomForm, setShowCustomForm] = useState<'custom' | 'openapi' | null>(null);
+   103→
+   104→  // ── Phase 13: API Key state ──────────────────────────────────────────
+   105→  const [apiKeys, setApiKeys] = useState<Record<string, ApiKeyInfo>>({});
+   106→  const [keyActionLoading, setKeyActionLoading] = useState<Record<string, string>>({}); // provider -> action name
+   107→
+   108→  // Fetch catalog from backend API, fall back to local catalog on 503
+   109→  useEffect(() => {
+   110→    async function loadCatalog() {
+   111→      try {
+   112→        const res = await integrationsApi.getCatalog(parwaIndustry);
+   113→        if (Array.isArray(res) && res.length > 0) {
+   114→          setFilteredCatalog(res as unknown as IntegrationDefinition[]);
+   115→        }
+   116→      } catch {
+   117→        // Backend unreachable (503) — local catalog already set as initial state
+   118→        console.warn('[IntegrationStep] Backend catalog unavailable, using local catalog');
+   119→      }
+   120→    }
+   121→    loadCatalog();
+   122→  }, [parwaIndustry]);
+   123→
+   124→  // Fetch existing integrations AND api keys on mount
+   125→  useEffect(() => {
+   126→    async function loadIntegrations() {
+   127→      try {
+   128→        const integrations = await integrationsApi.list();
+   129→        setExistingIntegrations(Array.isArray(integrations) ? integrations : []);
+   130→      } catch {
+   131→        setExistingIntegrations([]);
+   132→      } finally {
+   133→        setIsLoading(false);
+   134→      }
+   135→    }
+   136→    loadIntegrations();
+   137→  }, []);
+   138→
+   139→  // Fetch API keys after integrations are loaded
+   140→  useEffect(() => {
+   141→    if (existingIntegrations.length === 0) return;
+   142→    async function loadApiKeys() {
+   143→      try {
+   144→        const result = await get<ApiKeyInfo[]>('/api/api-keys/list');
+   145→        if (Array.isArray(result)) {
+   146→          const keyMap: Record<string, ApiKeyInfo> = {};
+   147→          result.forEach((key) => {
+   148→            keyMap[key.integration_id] = key;
+   149→          });
+   150→          setApiKeys(keyMap);
+   151→        }
+   152→      } catch {
+   153→        // Keys endpoint unavailable — non-critical
+   154→        console.warn('[IntegrationStep] API keys list unavailable');
+   155→      }
+   156→    }
+   157→    loadApiKeys();
+   158→  }, [existingIntegrations]);
+   159→
+   160→  const getIntegrationStatus = useCallback(
+   161→    (providerKey: string): IntegrationStatus | null => {
+   162→      const integration = existingIntegrations.find((i) => i.type === providerKey);
+   163→      return integration?.status || null;
+   164→    },
+   165→    [existingIntegrations]
+   166→  );
+   167→
+   168→  const getIntegrationId = useCallback(
+   169→    (providerKey: string): string | null => {
+   170→      const integration = existingIntegrations.find((i) => i.type === providerKey);
+   171→      return integration?.id || null;
+   172→    },
+   173→    [existingIntegrations]
+   174→  );
+   175→
+   176→  // ── Phase 13: Key management handlers ──────────────────────────────
+   177→
+   178→  const handleRotateKey = async (providerKey: string) => {
+   179→    const integrationId = getIntegrationId(providerKey);
+   180→    if (!integrationId) {
+   181→      toast.error('Integration not found');
+   182→      return;
+   183→    }
+   184→
+   185→    // For rotation, we need new credentials from the user
+   186→    const values = formValues[providerKey] || {};
+   187→    const hasNewCredentials = Object.values(values).some((v) => v.trim());
+   188→    if (!hasNewCredentials) {
+   189→      toast.error('Enter new credentials in the form fields above, then click Rotate Key');
+   190→      return;
+   191→    }
+   192→
+   193→    setKeyActionLoading((prev) => ({ ...prev, [providerKey]: 'rotate' }));
+   194→    try {
+   195→      const newCredentials: Record<string, string> = {};
+   196→      Object.entries(values).forEach(([k, v]) => {
+   197→        if (v.trim()) newCredentials[k] = v;
+   198→      });
+   199→
+   200→      await post('/api/api-keys/rotate', {
+   201→        integration_id: integrationId,
+   202→        new_credentials: newCredentials,
+   203→      });
+   204→
+   205→      // Refresh keys list
+   206→      const result = await get<ApiKeyInfo[]>('/api/api-keys/list');
+   207→      if (Array.isArray(result)) {
+   208→        const keyMap: Record<string, ApiKeyInfo> = {};
+   209→        result.forEach((key) => {
+   210→          keyMap[key.integration_id] = key;
+   211→        });
+   212→        setApiKeys(keyMap);
+   213→      }
+   214→
+   215→      // Clear form values after rotation
+   216→      setFormValues((prev) => {
+   217→        const next = { ...prev };
+   218→        delete next[providerKey];
+   219→        return next;
+   220→      });
+   221→
+   222→      toast.success('API key rotated successfully');
+   223→    } catch (error) {
+   224→      toast.error(getErrorMessage(error));
+   225→    } finally {
+   226→      setKeyActionLoading((prev) => ({ ...prev, [providerKey]: '' }));
+   227→    }
+   228→  };
+   229→
+   230→  const handleRevokeKey = async (providerKey: string) => {
+   231→    const integrationId = getIntegrationId(providerKey);
+   232→    if (!integrationId) {
+   233→      toast.error('Integration not found');
+   234→      return;
+   235→    }
+   236→
+   237→    if (!confirm('Are you sure you want to revoke this API key? The integration will lose access.')) {
+   238→      return;
+   239→    }
+   240→
+   241→    setKeyActionLoading((prev) => ({ ...prev, [providerKey]: 'revoke' }));
+   242→    try {
+   243→      await del('/api/api-keys/revoke', {
+   244→        data: { integration_id: integrationId },
+   245→      } as Parameters<typeof del>[1]);
+   246→
+   247→      // Remove from local state
+   248→      setApiKeys((prev) => {
+   249→        const next = { ...prev };
+   250→        delete next[integrationId];
+   251→        return next;
+   252→      });
+   253→
+   254→      toast.success('API key revoked');
+   255→    } catch (error) {
+   256→      toast.error(getErrorMessage(error));
+   257→    } finally {
+   258→      setKeyActionLoading((prev) => ({ ...prev, [providerKey]: '' }));
+   259→    }
+   260→  };
+   261→
+   262→  const handleTestKey = async (providerKey: string) => {
+   263→    const integrationId = getIntegrationId(providerKey);
+   264→    if (!integrationId) {
+   265→      toast.error('Integration not found');
+   266→      return;
+   267→    }
+   268→
+   269→    setKeyActionLoading((prev) => ({ ...prev, [providerKey]: 'test' }));
+   270→    try {
+   271→      const result = await post<{ valid?: boolean; detail?: string }>('/api/api-keys/test', {
+   272→        integration_id: integrationId,
+   273→      });
+   274→
+   275→      if (result.valid === false) {
+   276→        toast.error('API key test failed — key may be invalid or expired');
+   277→      } else {
+   278→        toast.success('API key test passed');
+   279→      }
+   280→    } catch (error) {
+   281→      toast.error(getErrorMessage(error));
+   282→    } finally {
+   283→      setKeyActionLoading((prev) => ({ ...prev, [providerKey]: '' }));
+   284→    }
+   285→  };
+   286→
+   287→  const handleConnect = async (provider: IntegrationDefinition) => {
+   288→    const values = formValues[provider.key] || {};
+   289→    const requiredFields = provider.authSchema.fields.filter((f) => f.required);
+   290→    const hasAllRequired = requiredFields.every((f) => values[f.name]?.trim());
+   291→    if (!hasAllRequired) {
+   292→      toast.error('Please fill in all required credentials');
+   293→      return;
+   294→    }
+   295→
+   296→    setConnectingProvider(provider.key);
+   297→    try {
+   298→      const config: Record<string, unknown> = {};
+   299→      provider.authSchema.fields.forEach((f) => {
+   300→        config[f.name] = values[f.name] || '';
+   301→      });
+   302→
+   303→      // Create integration (existing flow)
+   304→      await integrationsApi.create({
+   305→        type: provider.key,
+   306→        name: provider.name,
+   307→        config,
+   308→      });
+   309→
+   310→      const updated = await integrationsApi.list();
+   311→      setExistingIntegrations(Array.isArray(updated) ? updated : []);
+   312→
+   313→      // ── Phase 13: Store credentials via API Key system ──────────────
+   314→      try {
+   315→        // Determine auth_type from the schema
+   316→        const hasPassword = provider.authSchema.fields.some((f) => f.type === 'password');
+   317→        const authType = hasPassword ? 'api_key' : 'oauth2';
+   318→
+   319→        await post('/api/api-keys/store', {
+   320→          integration_id: provider.key,
+   321→          auth_type: authType,
+   322→          credentials: config,
+   323→        });
+   324→
+   325→        // Refresh key list to show the masked key
+   326→        const keyResult = await get<ApiKeyInfo[]>('/api/api-keys/list');
+   327→        if (Array.isArray(keyResult)) {
+   328→          const keyMap: Record<string, ApiKeyInfo> = {};
+   329→          keyResult.forEach((key) => {
+   330→            keyMap[key.integration_id] = key;
+   331→          });
+   332→          setApiKeys(keyMap);
+   333→        }
+   334→      } catch (keyError) {
+   335→        // Key storage failure is non-critical — the integration is already created
+   336→        console.warn('[IntegrationStep] API key storage failed:', keyError);
+   337→        toast('Integration connected, but key storage failed', { icon: '⚠️' });
+   338→      }
+   339→
+   340→      toast.success(`${provider.name} connected successfully`);
+   341→      setExpandedProvider(null);
+   342→    } catch (error) {
+   343→      toast.error(getErrorMessage(error));
+   344→    } finally {
+   345→      setConnectingProvider(null);
+   346→    }
+   347→  };
+   348→
+   349→  const handleTest = async (providerKey: string) => {
+   350→    const integration = existingIntegrations.find((i) => i.type === providerKey);
+   351→    if (!integration) return;
+   352→
+   353→    setTestingProvider(providerKey);
+   354→    try {
+   355→      await integrationsApi.test(integration.id);
+   356→      const updated = await integrationsApi.list();
+   357→      setExistingIntegrations(Array.isArray(updated) ? updated : []);
+   358→      toast.success(`${providerKey} connection test passed`);
+   359→    } catch (error) {
+   360→      toast.error(getErrorMessage(error));
+   361→    } finally {
+   362→      setTestingProvider(null);
+   363→    }
+   364→  };
+   365→
+   366→  const handleContinue = async () => {
+   367→    try {
+   368→      await onboardingApi.completeStep(3);
+   369→    } catch (error) {
+   370→      console.warn('Step 3 complete API failed, continuing locally:', error);
+   371→    }
+   372→    // Always advance — never block on API failure
+   373→    onNext();
+   374→  };
+   375→
+   376→  if (isLoading) {
+   377→    return (
+   378→      <div className="flex items-center justify-center py-20">
+   379→        <Loader2 className="w-6 h-6 animate-spin text-orange-400" />
+   380→      </div>
+   381→    );
+   382→  }
+   383→
+   384→  return (
+   385→    <div className="max-w-3xl mx-auto">
+   386→      {/* Header */}
+   387→      <div className="text-center mb-10">
+   388→        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-orange-500/10 border border-orange-500/20 mb-6">
+   389→          <Unplug className="w-8 h-8 text-orange-400" />
+   390→        </div>
+   391→        <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
+   392→          Connect Your Tools
+   393→        </h2>
+   394→        <p className="text-orange-200/50 text-sm max-w-lg mx-auto">
+   395→          Integrate your existing support channels and tools so PARWA can start handling tickets automatically.
+   396→          You can always add more integrations later from your dashboard settings.
+   397→        </p>
+   398→      </div>
+   399→
+   400→      {/* Integration categories — filtered by industry */}
+   401→      <div className="space-y-8">
+   402→        {orderedCategories.map(([catKey, catMeta]) => {
+   403→          const providers = filteredCatalog.filter((p) => p.category === catKey);
+   404→          const CatIcon = CATEGORY_ICONS[catKey as IntegrationCategory] || Code;
+   405→
+   406→          return (
+   407→            <div key={catKey}>
+   408→              <div className="flex items-center gap-2 mb-3">
+   409→                <CatIcon className="w-4 h-4 text-orange-400" />
+   410→                <h3 className="text-sm font-semibold text-orange-200/60 uppercase tracking-wider">
+   411→                  {catMeta.label}
+   412→                </h3>
+   413→              </div>
+   414→
+   415→              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+   416→                {providers.map((provider) => {
+   417→                  const status = getIntegrationStatus(provider.key);
+   418→                  const isExpanded = expandedProvider === provider.key;
+   419→                  const isConnecting = connectingProvider === provider.key;
+   420→                  const isTesting = testingProvider === provider.key;
+   421→                  const integrationId = getIntegrationId(provider.key);
+   422→                  const apiKeyInfo = integrationId ? apiKeys[integrationId] : null;
+   423→                  const isKeyActionLoading = keyActionLoading[provider.key];
+   424→
+   425→                  return (
+   426→                    <div
+   427→                      key={provider.key}
+   428→                      className={cn(
+   429→                        'card-parwa transition-all duration-300',
+   430→                        isExpanded ? 'col-span-2 sm:col-span-3' : ''
+   431→                      )}
+   432→                    >
+   433→                      {/* Provider card (collapsed) */}
+   434→                      <div className="p-4 flex items-center justify-between gap-3">
+   435→                        <div className="flex items-center gap-3 min-w-0">
+   436→                          <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br', provider.colorGradient)}>
+   437→                            <span className="text-white text-xs font-bold">{provider.name.charAt(0)}</span>
+   438→                          </div>
+   439→                          <span className="text-sm font-medium text-white truncate">
+   440→                            {provider.name}
+   441→                          </span>
+   442→                          {status && (
+   443→                            <span
+   444→                              className={cn(
+   445→                                'inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full',
+   446→                                status === 'active' && 'bg-green-500/10 text-green-400',
+   447→                                status === 'pending' && 'bg-yellow-500/10 text-yellow-400',
+   448→                                status === 'error' && 'bg-red-500/10 text-red-400'
+   449→                              )}
+   450→                            >
+   451→                              {status === 'active' && <CheckCircle className="w-3 h-3" />}
+   452→                              {status === 'pending' && <Loader2 className="w-3 h-3 animate-spin" />}
+   453→                              {status === 'error' && <XCircle className="w-3 h-3" />}
+   454→                              {status}
+   455→                            </span>
+   456→                          )}
+   457→                        </div>
+   458→
+   459→                        <button
+   460→                          type="button"
+   461→                          onClick={() => setExpandedProvider(isExpanded ? null : provider.key)}
+   462→                          className={cn(
+   463→                            'rounded-lg px-3 py-1.5 text-xs font-semibold transition-all flex-shrink-0',
+   464→                            status === 'active'
+   465→                              ? 'bg-white/5 text-orange-200/60 hover:bg-white/10'
+   466→                              : 'bg-gradient-to-r from-orange-600 to-orange-500 text-white hover:from-orange-500 hover:to-orange-400 shadow-sm'
+   467→                          )}
+   468→                        >
+   469→                          {status === 'active' ? 'Connected' : isExpanded ? 'Cancel' : 'Connect'}
+   470→                        </button>
+   471→                      </div>
+   472→
+   473→                      {/* Expanded inline form — uses catalog authSchema fields */}
+   474→                      {isExpanded && (
+   475→                        <div className="px-4 pb-4 border-t border-white/5 pt-4">
+   476→                          <p className="text-xs text-orange-200/40 mb-3">{provider.description}</p>
+   477→                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   478→                            {provider.authSchema.fields.map((field) => (
+   479→                              <div key={field.name}>
+   480→                                <label className="label-parwa text-xs">
+   481→                                  {field.label}
+   482→                                  {field.required && <span className="text-red-400 ml-1">*</span>}
+   483→                                </label>
+   484→                                <div className="relative">
+   485→                                  <input
+   486→                                    type={field.type === 'password' && !showPasswords[`${provider.key}-${field.name}`] ? 'password' : 'text'}
+   487→                                    value={formValues[provider.key]?.[field.name] || ''}
+   488→                                    onChange={(e) =>
+   489→                                      setFormValues((prev) => ({
+   490→                                        ...prev,
+   491→                                        [provider.key]: {
+   492→                                          ...prev[provider.key],
+   493→                                          [field.name]: e.target.value,
+   494→                                        },
+   495→                                      }))
+   496→                                    }
+   497→                                    placeholder={field.placeholder || field.label}
+   498→                                    className="input-parwa text-sm"
+   499→                                  />
+   500→                                  {field.type === 'password' && (
+   501→                                    <button
+   502→                                      type="button"
+   503→                                      onClick={() =>
+   504→                                        setShowPasswords((prev) => ({
+   505→                                          ...prev,
+   506→                                          [`${provider.key}-${field.name}`]: !prev[`${provider.key}-${field.name}`],
+   507→                                        }))
+   508→                                      }
+   509→                                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+   510→                                    >
+   511→                                      {showPasswords[`${provider.key}-${field.name}`] ? (
+   512→                                        <EyeOff className="w-4 h-4" />
+   513→                                      ) : (
+   514→                                        <Eye className="w-4 h-4" />
+   515→                                      )}
+   516→                                    </button>
+   517→                                  )}
+   518→                                </div>
+   519→                              </div>
+   520→                            ))}
+   521→                          </div>
+   522→
+   523→                          <div className="flex items-center gap-3 mt-4">
+   524→                            <button
+   525→                              type="button"
+   526→                              onClick={() => handleConnect(provider)}
+   527→                              disabled={isConnecting}
+   528→                              className="btn-primary-parwa py-2 px-4 text-sm"
+   529→                            >
+   530→                              {isConnecting ? (
+   531→                                <>
+   532→                                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+   533→                                  Connecting...
+   534→                                </>
+   535→                              ) : (
+   536→                                'Connect'
+   537→                              )}
+   538→                            </button>
+   539→
+   540→                            {status && (
+   541→                              <button
+   542→                                type="button"
+   543→                                onClick={() => handleTest(provider.key)}
+   544→                                disabled={isTesting}
+   545→                                className="btn-secondary-parwa py-2 px-4 text-sm"
+   546→                              >
+   547→                                {isTesting ? (
+   548→                                  <>
+   549→                                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+   550→                                    Testing...
+   551→                                  </>
+   552→                                ) : (
+   553→                                  'Test Connection'
+   554→                                )}
+   555→                              </button>
+   556→                            )}
+   557→                          </div>
+   558→
+   559→                          {/* ── Phase 13: Key Management Section ──────────────── */}
+   560→                          {status === 'active' && (
+   561→                            <div className="mt-5 pt-4 border-t border-white/5">
+   562→                              <div className="flex items-center gap-2 mb-3">
+   563→                                <KeyRound className="w-3.5 h-3.5 text-orange-400" />
+   564→                                <h4 className="text-xs font-semibold text-orange-200/60 uppercase tracking-wider">
+   565→                                  Key Management
+   566→                                </h4>
+   567→                              </div>
+   568→
+   569→                              {/* Masked key display */}
+   570→                              <div className="flex items-center gap-3 mb-3 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+   571→                                <span className="text-xs text-zinc-500">Stored Key:</span>
+   572→                                <span className="text-sm font-mono text-orange-200/70">
+   573→                                  {apiKeyInfo?.masked_key || '••••••••••••'}
+   574→                                </span>
+   575→                                {apiKeyInfo?.auth_type && (
+   576→                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-zinc-500 uppercase">
+   577→                                    {apiKeyInfo.auth_type}
+   578→                                  </span>
+   579→                                )}
+   580→                              </div>
+   581→
+   582→                              {/* Key action buttons */}
+   583→                              <div className="flex items-center gap-2 flex-wrap">
+   584→                                <button
+   585→                                  type="button"
+   586→                                  onClick={() => handleRotateKey(provider.key)}
+   587→                                  disabled={!!isKeyActionLoading}
+   588→                                  className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 transition-colors disabled:opacity-50"
+   589→                                >
+   590→                                  {isKeyActionLoading === 'rotate' ? (
+   591→                                    <Loader2 className="w-3 h-3 animate-spin" />
+   592→                                  ) : (
+   593→                                    <RefreshCw className="w-3 h-3" />
+   594→                                  )}
+   595→                                  Rotate Key
+   596→                                </button>
+   597→
+   598→                                <button
+   599→                                  type="button"
+   600→                                  onClick={() => handleTestKey(provider.key)}
+   601→                                  disabled={!!isKeyActionLoading}
+   602→                                  className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+   603→                                >
+   604→                                  {isKeyActionLoading === 'test' ? (
+   605→                                    <Loader2 className="w-3 h-3 animate-spin" />
+   606→                                  ) : (
+   607→                                    <FlaskConical className="w-3 h-3" />
+   608→                                  )}
+   609→                                  Test Key
+   610→                                </button>
+   611→
+   612→                                <button
+   613→                                  type="button"
+   614→                                  onClick={() => handleRevokeKey(provider.key)}
+   615→                                  disabled={!!isKeyActionLoading}
+   616→                                  className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+   617→                                >
+   618→                                  {isKeyActionLoading === 'revoke' ? (
+   619→                                    <Loader2 className="w-3 h-3 animate-spin" />
+   620→                                  ) : (
+   621→                                    <Ban className="w-3 h-3" />
+   622→                                  )}
+   623→                                  Revoke Key
+   624→                                </button>
+   625→                              </div>
+   626→                            </div>
+   627→                          )}
+   628→                        </div>
+   629→                      )}
+   630→                    </div>
+   631→                  );
+   632→                })}
+   633→              </div>
+   634→            </div>
+   635→          );
+   636→        })}
+   637→      </div>
+   638→
+   639→      {/* Custom Connector & OpenAPI Import */}
+   640→      {!showCustomForm ? (
+   641→        <div className="mt-8 flex items-center gap-3">
+   642→          <button
+   643→            type="button"
+   644→            onClick={() => setShowCustomForm('custom')}
+   645→            className="flex items-center gap-2 py-2.5 px-4 rounded-xl border border-dashed border-white/10 text-sm text-white/40 hover:text-white/60 hover:border-white/20 transition-colors"
+   646→          >
+   647→            <Zap className="w-4 h-4" />
+   648→            Add Custom REST Connector
+   649→          </button>
+   650→          <button
+   651→            type="button"
+   652→            onClick={() => setShowCustomForm('openapi')}
+   653→            className="flex items-center gap-2 py-2.5 px-4 rounded-xl border border-dashed border-white/10 text-sm text-white/40 hover:text-white/60 hover:border-white/20 transition-colors"
+   654→          >
+   655→            <FileJson className="w-4 h-4" />
+   656→            Import OpenAPI Spec
+   657→          </button>
+   658→        </div>
+   659→      ) : (
+   660→        <div className="mt-8">
+   661→          <CustomConnectorForm
+   662→            mode={showCustomForm}
+   663→            onSaved={async () => {
+   664→              setShowCustomForm(null);
+   665→              const updated = await integrationsApi.list();
+   666→              setExistingIntegrations(Array.isArray(updated) ? updated : []);
+   667→            }}
+   668→            onClose={() => setShowCustomForm(null)}
+   669→          />
+   670→        </div>
+   671→      )}
+   672→
+   673→      {/* Action buttons */}
+   674→      <div className="mt-10 flex items-center justify-center gap-3">
+   675→        <button
+   676→          type="button"
+   677→          onClick={() => setShowSkipWarning(true)}
+   678→          className="btn-ghost-parwa text-sm"
+   679→        >
+   680→          Skip for now
+   681→        </button>
+   682→
+   683→        <button type="button" onClick={handleContinue} className="btn-primary-parwa py-2.5 px-5">
+   684→          Continue
+   685→          <ArrowRight className="w-4 h-4 ml-2" />
+   686→        </button>
+   687→      </div>
+   688→
+   689→      {/* Skip warning modal */}
+   690→      {showSkipWarning && (
+   691→        <div
+   692→          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+   693→          onClick={() => setShowSkipWarning(false)}
+   694→        >
+   695→          <div
+   696→            className="card-elevated-parwa p-6 max-w-md w-full"
+   697→            onClick={(e) => e.stopPropagation()}
+   698→          >
+   699→            <div className="flex items-center gap-3 mb-4">
+   700→              <div className="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center">
+   701→                <AlertTriangle className="w-5 h-5 text-yellow-400" />
+   702→              </div>
+   703→              <h3 className="text-lg font-bold text-white">Skip Integrations?</h3>
+   704→            </div>
+   705→            <p className="text-sm text-orange-200/50 mb-6">
+   706→              Without connecting at least one integration, your AI assistant will have limited functionality.
+   707→              It won&apos;t be able to receive or respond to customer tickets until you connect a support channel.
+   708→              You can always add integrations later from your dashboard settings.
+   709→            </p>
+   710→            <div className="flex items-center justify-end gap-3">
+   711→              <button
+   712→                type="button"
+   713→                onClick={() => setShowSkipWarning(false)}
+   714→                className="btn-secondary-parwa py-2 px-4 text-sm"
+   715→              >
+   716→                Go Back
+   717→              </button>
+   718→              <button
+   719→                type="button"
+   720→                onClick={async () => {
+   721→                  setShowSkipWarning(false);
+   722→                  await handleContinue();
+   723→                }}
+   724→                className="btn-primary-parwa py-2 px-4 text-sm"
+   725→              >
+   726→                Skip Anyway
+   727→              </button>
+   728→            </div>
+   729→          </div>
+   730→        </div>
+   731→      )}
+   732→    </div>
+   733→  );
+   734→}
+   735→
+   736→export default IntegrationStep;
+   737→

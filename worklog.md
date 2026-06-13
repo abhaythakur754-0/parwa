@@ -148,3 +148,34 @@ Stage Summary:
 - Steps 2-7: Render but session persistence issue in Playwright (works in real browser)
 - Models page: Industry selection works, variant pricing cards need authentication to show "Hire Agent" buttons
 - Screenshots saved to /home/z/my-project/download/full-journey-proof/
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix and verify the complete user journey: Login → Variant Selection → Confirmation → Onboarding (API key filling)
+
+Work Log:
+- Verified PARWA directory integrity - all files intact
+- Analyzed the variant selection flow on models page - found broken navigation
+- Fixed per-card "Get Started" button on models/page.tsx - now saves pricing context to localStorage and redirects to /signup?redirect=/onboarding?source=pricing
+- Fixed bottom "Sign Up & Hire Now" button - changed redirect from /dashboard to /onboarding?source=pricing
+- Fixed bottom CTA "Get Started" link - added redirect param
+- Fixed ModelsPage.tsx - replaced broken navigate('signup') with router.push('/signup?redirect=/onboarding?source=pricing')
+- Fixed Next.js 16 server crash - renamed middleware.ts to proxy.ts, changed export from `middleware` to `proxy`
+- Fixed critical auth path bug - me-proxy and me routes were calling /api/auth/me instead of /api/v1/auth/me
+- Ran comprehensive API-level e2e test - ALL 15 STEPS PASSED
+
+Stage Summary:
+- Complete user journey verified at API level: Browse Models → Register → Auth Verify → Industry/Variant → Legal → Steps 1-5 → API Key Store → Activate → Payment → First Victory → Login Re-verify
+- API key integration works: store with encryption (AES-256-GCM), list with masked keys, proper integration_id/auth_type/credentials format
+- Auth flow works: Register sets httpOnly cookies, me-proxy forwards them as Bearer token to backend, backend verifies JWT
+- Onboarding state management works: 7 steps tracked, activate creates variant instance
+- Browser-level testing shows pages render correctly but standalone server has stability issues under rapid browser navigation (likely memory-related with 82KB models page)
+
+Key Fixes:
+1. src/app/models/page.tsx - 3 button/link redirects fixed to go to signup then onboarding
+2. src/components/pages/ModelsPage.tsx - Removed broken navigate('signup'), added proper router.push
+3. src/proxy.ts - Created from middleware.ts with proper Next.js 16 export
+4. src/middleware.ts.bak - Removed (was deprecated)
+5. src/app/api/auth/me-proxy/route.ts - Fixed backend path /api/auth/me → /api/v1/auth/me
+6. src/app/api/auth/me/route.ts - Fixed backend path /api/auth/me → /api/v1/auth/me

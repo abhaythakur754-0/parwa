@@ -1,0 +1,262 @@
+[
+  {
+    "label": "Models page",
+    "status": 200,
+    "body_len": 40300
+  },
+  {
+    "label": "Register",
+    "status": 200,
+    "json": {
+      "status": "success",
+      "message": "Account created successfully! Please check your email to verify your account.",
+      "user": {
+        "id": "e29c8fcd-1130-44d8-8d09-6ec3c82168f5",
+        "email": "journey@parwa.com",
+        "fullName": "Journey User",
+        "isVerified": false
+      },
+      "is_new_user": true
+    },
+    "json_summary": {
+      "status": "success",
+      "message": "Account created successfully! Please check your email to verify your account.",
+      "user": "{'id': 'e29c8fcd-1130-44d8-8d09-6ec3c82168f5', 'email': 'journey@parwa.com', 'fullName': 'Journey Us",
+      "is_new_user": "True"
+    }
+  },
+  {
+    "label": "me-proxy",
+    "status": 200,
+    "json": {
+      "id": "e29c8fcd-1130-44d8-8d09-6ec3c82168f5",
+      "email": "journey@parwa.com",
+      "name": "Journey User",
+      "tenant_id": "ccd80efd-966b-4733-8f38-614c92d6ac24",
+      "role": "owner",
+      "is_verified": false
+    },
+    "json_summary": {
+      "id": "e29c8fcd-1130-44d8-8d09-6ec3c82168f5",
+      "email": "journey@parwa.com",
+      "name": "Journey User",
+      "tenant_id": "ccd80efd-966b-4733-8f38-614c92d6ac24",
+      "role": "owner",
+      "is_verified": "False"
+    }
+  },
+  {
+    "label": "Onboarding state",
+    "status": 200,
+    "json": {
+      "id": "a46041cd-4b34-4ba1-9018-df1043c6b78d",
+      "current_step": 0,
+      "industry": null,
+      "variant": null,
+      "legal_accepted": false,
+      "integrations": [],
+      "kb_uploaded": false,
+      "ai_configured": false,
+      "payment_done": false
+    },
+    "json_summary": {
+      "id": "a46041cd-4b34-4ba1-9018-df1043c6b78d",
+      "current_step": "0",
+      "industry": "None",
+      "variant": "None",
+      "legal_accepted": "False",
+      "integrations": "[]",
+      "kb_uploaded": "False",
+      "ai_configured": "False",
+      "payment_done": "False"
+    }
+  },
+  {
+    "label": "Industry+Variant",
+    "status": 200,
+    "json": {
+      "message": "Industry and variant set successfully",
+      "industry": "saas",
+      "variant": "parwa",
+      "step": 1
+    },
+    "json_summary": {
+      "message": "Industry and variant set successfully",
+      "industry": "saas",
+      "variant": "parwa",
+      "step": "1"
+    }
+  },
+  {
+    "label": "Legal consent",
+    "status": 200,
+    "json": {
+      "message": "Legal consent accepted",
+      "legal_accepted": true,
+      "step": 2
+    },
+    "json_summary": {
+      "message": "Legal consent accepted",
+      "legal_accepted": "True",
+      "step": "2"
+    }
+  },
+  {
+    "label": "Complete step 1",
+    "status": 200,
+    "json": {
+      "message": "Step 1 completed",
+      "current_step": 2
+    },
+    "json_summary": {
+      "message": "Step 1 completed",
+      "current_step": "2"
+    }
+  },
+  {
+    "label": "Complete step 2",
+    "status": 200,
+    "json": {
+      "message": "Step 2 completed",
+      "current_step": 3
+    },
+    "json_summary": {
+      "message": "Step 2 completed",
+      "current_step": "3"
+    }
+  },
+  {
+    "label": "Store API key",
+    "status": 422
+  },
+  {
+    "label": "List API keys",
+    "status": 200,
+    "json": {
+      "api_keys": [],
+      "total": 0
+    },
+    "json_summary": {
+      "api_keys": "[]",
+      "total": "0"
+    }
+  },
+  {
+    "label": "Complete step 3",
+    "status": 200,
+    "json": {
+      "message": "Step 3 completed",
+      "current_step": 4
+    },
+    "json_summary": {
+      "message": "Step 3 completed",
+      "current_step": "4"
+    }
+  },
+  {
+    "label": "Complete step 4",
+    "status": 200,
+    "json": {
+      "message": "Step 4 completed",
+      "current_step": 5
+    },
+    "json_summary": {
+      "message": "Step 4 completed",
+      "current_step": "5"
+    }
+  },
+  {
+    "label": "Complete step 5",
+    "status": 200,
+    "json": {
+      "message": "Step 5 completed",
+      "current_step": 6
+    },
+    "json_summary": {
+      "message": "Step 5 completed",
+      "current_step": "6"
+    }
+  },
+  {
+    "label": "Activate",
+    "status": 200,
+    "json": {
+      "message": "Account activated successfully",
+      "onboarding_complete": true
+    },
+    "json_summary": {
+      "message": "Account activated successfully",
+      "onboarding_complete": "True"
+    }
+  },
+  {
+    "label": "Complete step 6",
+    "status": 200,
+    "json": {
+      "message": "Step 6 completed",
+      "current_step": 7
+    },
+    "json_summary": {
+      "message": "Step 6 completed",
+      "current_step": "7"
+    }
+  },
+  {
+    "label": "Final state",
+    "status": 200,
+    "json": {
+      "id": "ff43b74b-7b09-4b95-9ce1-29737a3bd71c",
+      "current_step": 7,
+      "industry": "1",
+      "variant": "parwa",
+      "legal_accepted": true,
+      "integrations": 1,
+      "kb_uploaded": true,
+      "ai_configured": true,
+      "payment_done": true
+    },
+    "json_summary": {
+      "id": "ff43b74b-7b09-4b95-9ce1-29737a3bd71c",
+      "current_step": "7",
+      "industry": "1",
+      "variant": "parwa",
+      "legal_accepted": "True",
+      "integrations": "1",
+      "kb_uploaded": "True",
+      "ai_configured": "True",
+      "payment_done": "True"
+    }
+  },
+  {
+    "label": "First victory",
+    "status": 200,
+    "json": {
+      "message": "Congratulations! Your AI support system is live.",
+      "tenant": {
+        "id": "ccd80efd-966b-4733-8f38-614c92d6ac24",
+        "name": "Journey User's Workspace",
+        "industry": "saas"
+      },
+      "variants": [
+        {
+          "id": "53c80cdb-a1cc-42a5-8c94-d054d36965fb",
+          "type": "parwa",
+          "status": "active",
+          "ticket_limit": 500
+        }
+      ],
+      "next_steps": [
+        "Connect your support channels",
+        "Upload more knowledge base documents",
+        "Configure auto-response rules",
+        "Invite team members"
+      ]
+    },
+    "json_summary": {
+      "message": "Congratulations! Your AI support system is live.",
+      "tenant": "{'id': 'ccd80efd-966b-4733-8f38-614c92d6ac24', 'name': \"Journey User's Workspace\", 'industry': 'saas",
+      "variants": "[{'id': '53c80cdb-a1cc-42a5-8c94-d054d36965fb', 'type': 'parwa', 'status': 'active', 'ticket_limit':",
+      "next_steps": "['Connect your support channels', 'Upload more knowledge base documents', 'Configure auto-response r"
+    }
+  }
+]

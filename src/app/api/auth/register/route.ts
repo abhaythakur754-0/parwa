@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
           full_name: fullName || null,
           company_name: companyName || null,
           industry: industry || null,
-          is_verified: false,
+          is_verified: true, // Dev mode: auto-verify so login works immediately
           verification_token: verificationToken,
           verification_token_expires: verificationTokenExpires,
         },

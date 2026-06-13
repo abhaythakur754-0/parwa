@@ -8,7 +8,7 @@ import { getBackendUrl } from "@/lib/backend-url";
  * Returns the currently authenticated user's profile.
  *
  * Strategy:
- * 1. First try to forward the token to the backend's /api/auth/me
+ * 1. First try to forward the token to the backend's /api/v1/auth/me
  *    (works when parwa_at contains a backend-issued JWT)
  * 2. If backend is unreachable, verify the frontend-signed JWT locally
  *    and look up user via Prisma (dev fallback only)
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       const origin = process.env.FRONTEND_URL
         || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
         || (process.env.NODE_ENV === 'production' ? 'https://parwa.buzz' : 'http://localhost:3000');
-      const res = await fetch(`${backendUrl}/api/auth/me`, {
+      const res = await fetch(`${backendUrl}/api/v1/auth/me`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",

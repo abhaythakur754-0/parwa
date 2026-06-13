@@ -1,0 +1,66 @@
+[
+  {
+    "label": "Models page",
+    "status": 200,
+    "body_len": 40300
+  },
+  {
+    "label": "Register",
+    "status": 200,
+    "json": {
+      "status": "success",
+      "message": "Account created successfully! Please check your email to verify your account.",
+      "user": {
+        "id": "ff2e780b-c5dd-4ae8-b568-077d0a68ee9c",
+        "email": "flowtest2@parwa.com",
+        "fullName": "Flow Test",
+        "isVerified": false
+      },
+      "is_new_user": true
+    }
+  },
+  {
+    "label": "me-proxy",
+    "status": 401
+  },
+  {
+    "label": "Onboarding state",
+    "status": 401
+  },
+  {
+    "label": "Onboarding page",
+    "status": 200,
+    "body_len": 10038
+  },
+  {
+    "label": "Step 1",
+    "status": 401
+  },
+  {
+    "label": "Create API key",
+    "status": 401
+  },
+  {
+    "label": "List API keys",
+    "status": 401
+  },
+  {
+    "label": "Activate",
+    "status": 401
+  },
+  {
+    "label": "Login",
+    "status": 200,
+    "json": {
+      "status": "success",
+      "message": "Login successful.",
+      "user": {
+        "id": "ff2e780b-c5dd-4ae8-b568-077d0a68ee9c",
+        "email": "flowtest2@parwa.com",
+        "fullName": "Flow Test",
+        "isVerified": false
+      },
+      "is_new_user": false
+    }
+  }
+]

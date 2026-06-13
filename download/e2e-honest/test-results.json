@@ -1,0 +1,117 @@
+{
+  "results": [
+    {
+      "step": "0-Server",
+      "status": "PASS",
+      "message": "Next.js responding",
+      "time": "2026-06-13T01:50:08.924Z"
+    },
+    {
+      "step": "1-Register",
+      "status": "FAIL",
+      "message": "After signup URL: http://127.0.0.1:3000/signup",
+      "time": "2026-06-13T01:50:17.953Z"
+    },
+    {
+      "step": "2-Login",
+      "status": "FAIL",
+      "message": "URL: http://127.0.0.1:3000/login",
+      "time": "2026-06-13T01:50:26.828Z"
+    },
+    {
+      "step": "3-Models",
+      "status": "PASS",
+      "message": "Models page loaded",
+      "time": "2026-06-13T01:50:32.879Z"
+    },
+    {
+      "step": "3-SaaS",
+      "status": "PASS",
+      "message": "SaaS industry selected",
+      "time": "2026-06-13T01:50:35.013Z"
+    },
+    {
+      "step": "4-PlusButtons",
+      "status": "FAIL",
+      "message": "Found 0 plus buttons",
+      "time": "2026-06-13T01:50:36.002Z"
+    },
+    {
+      "step": "5-Confirm",
+      "status": "FAIL",
+      "message": "No Confirm or Sign Up button found",
+      "time": "2026-06-13T01:50:36.894Z"
+    },
+    {
+      "step": "6-CurrentUrl",
+      "status": "INFO",
+      "message": "URL: http://127.0.0.1:3000/models",
+      "time": "2026-06-13T01:50:37.790Z"
+    },
+    {
+      "step": "6-Navigate",
+      "status": "INFO",
+      "message": "Navigating directly to onboarding...",
+      "time": "2026-06-13T01:50:37.790Z"
+    },
+    {
+      "step": "6-AuthRedirect",
+      "status": "WARN",
+      "message": "Redirected to login - need auth",
+      "time": "2026-06-13T01:50:42.150Z"
+    },
+    {
+      "step": "6-Onboarding",
+      "status": "PASS",
+      "message": "On onboarding: http://127.0.0.1:3000/login?redirect=/onboarding&source=direct",
+      "time": "2026-06-13T01:50:51.295Z"
+    },
+    {
+      "step": "7-Continue",
+      "status": "PASS",
+      "message": "Continued to Step 2",
+      "time": "2026-06-13T01:50:54.991Z"
+    },
+    {
+      "step": "9-Continue",
+      "status": "PASS",
+      "message": "Continued to Step 4",
+      "time": "2026-06-13T01:50:59.059Z"
+    },
+    {
+      "step": "10-Knowledge",
+      "status": "PASS",
+      "message": "Skipped knowledge upload",
+      "time": "2026-06-13T01:51:02.587Z"
+    },
+    {
+      "step": "11-AIConfig",
+      "status": "PASS",
+      "message": "Continued from AI Config",
+      "time": "2026-06-13T01:51:05.872Z"
+    },
+    {
+      "step": "12-CostBreakdown",
+      "status": "WARN",
+      "message": "Cost breakdown not found. Page content: Back to Home\nPARWA\nWelcome back\n\nSign in to your account to continue\n\nContinue with Google\n\nGoogle Sign-In Setup Required\n\nTo enable Google sign-in, add your Google OAuth Client ID to .env.local:\n\nNEX",
+      "time": "2026-06-13T01:51:06.375Z"
+    },
+    {
+      "step": "13-Victory",
+      "status": "PASS",
+      "message": "First Victory celebration visible!",
+      "time": "2026-06-13T01:51:08.932Z"
+    },
+    {
+      "step": "Errors",
+      "status": "WARN",
+      "message": "2 console errors",
+      "time": "2026-06-13T01:51:09.183Z"
+    }
+  ],
+  "summary": {
+    "passes": 9,
+    "fails": 4,
+    "warns": 3
+  }
+}

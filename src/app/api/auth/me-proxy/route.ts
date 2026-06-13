@@ -1,7 +1,7 @@
 /**
  * PARWA Auth Me Proxy
  *
- * Proxies /api/auth/me-proxy to the backend's /api/auth/me endpoint.
+ * Proxies /api/auth/me-proxy to the backend's /api/v1/auth/me endpoint.
  * Forwards the parwa_at cookie as a Bearer token for JWT verification.
  *
  * This is used by the AuthContext to verify the current session.
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const res = await fetch(`${backendUrl}/api/auth/me`, {
+    const res = await fetch(`${backendUrl}/api/v1/auth/me`, {
       method: 'GET',
       headers,
       signal: AbortSignal.timeout(8000),
