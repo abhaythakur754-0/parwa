@@ -46,7 +46,7 @@ NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "nvapi-mYdaofMi6jRs_7xUD9ZhKtMm8I7e
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "meta/llama-3.1-8b-instruct")
 NVIDIA_MODEL_HEAVY = os.getenv("NVIDIA_MODEL_HEAVY", "deepseek-ai/deepseek-v4-pro")
-NVIDIA_RATE_LIMIT_SECONDS = float(os.getenv("NVIDIA_RATE_LIMIT_SECONDS", "2.0"))  # 40/min, 2.0s between calls for safety
+NVIDIA_RATE_LIMIT_SECONDS = float(os.getenv("NVIDIA_RATE_LIMIT_SECONDS", "1.5"))  # 40/min, 1.5s between calls for TPM optimization
 _nvidia_disabled = False  # Auto-disabled on repeated failures
 
 # Google AI Configuration (fallback — region-restricted, only works in US/EU)
@@ -712,7 +712,7 @@ def invoke_llm(
 ) -> str:
     """High-level sync LLM invocation with full production hardening.
 
-    Uses ZAI SDK (PRIMARY) → Google Gemini (fallback 1) → NVIDIA API (fallback 2) → real_llm APIs → MockLLM (last resort).
+    Uses NVIDIA API (PRIMARY — 40 RPM, TPM-optimized) → ZAI SDK (fallback 1) → Google Gemini (fallback 2) → real_llm APIs → MockLLM (last resort).
 
     Args:
         prompt: The prompt to send.
@@ -738,53 +738,7 @@ def invoke_llm(
     if not _check_token_budget(node_name, variant, estimated):
         return "Token budget exceeded. Using rule-based fallback."
 
-    # ─── Try ZAI SDK (PRIMARY — highest TPM, best throughput) ───
-    if not MOCK_MODE:
-        try:
-            result = _call_zai_sdk(
-                prompt, node_name=node_name, variant=variant,
-                complexity=complexity, temperature=temperature,
-                max_tokens=0,  # Use node-specific defaults
-            )
-            text = result.get("content", "")
-            usage = result.get("usage", {})
-            _track_response_usage(
-                ticket_id, node_name, variant, text, model,
-                prompt_tokens=usage.get("prompt_tokens", 0),
-                completion_tokens=usage.get("completion_tokens", 0),
-            )
-            logger.debug("invoke_llm [zai-sdk]: node=%s response_len=%d", node_name, len(text))
-            return text
-        except Exception as exc:
-            logger.warning("invoke_llm: ZAI SDK failed: %s — trying Google Gemini", exc)
-
-    # ─── Try Google Gemini (fallback 1) ───
-    if not MOCK_MODE:
-        try:
-            system_prompt = _NODE_SYSTEM_PROMPTS.get(node_name, "Process this and give a clear, structured response.")
-            if variant:
-                system_prompt += f" [Variant: {variant}]"
-            if complexity:
-                system_prompt += f" [Complexity: {complexity}]"
-            actual_max_tokens = _NODE_MAX_TOKENS.get(node_name, 500)
-            result = _call_google_gemini(
-                system_prompt, prompt,
-                model="gemini-2.0-flash-lite", temperature=temperature,
-                max_tokens=actual_max_tokens,
-            )
-            text = result.get("content", "")
-            usage = result.get("usage", {})
-            _track_response_usage(
-                ticket_id, node_name, variant, text, model,
-                prompt_tokens=usage.get("prompt_tokens", 0),
-                completion_tokens=usage.get("completion_tokens", 0),
-            )
-            logger.debug("invoke_llm [google-gemini]: node=%s response_len=%d", node_name, len(text))
-            return text
-        except Exception as gemini_exc:
-            logger.warning("invoke_llm: Google Gemini failed: %s — trying NVIDIA API", gemini_exc)
-
-    # ─── Try NVIDIA API (fallback 2 — 40 req/min, native Python) ───
+    # ─── Try NVIDIA API (PRIMARY — 40 RPM, TPM-optimized, native Python) ───
     if not MOCK_MODE:
         try:
             system_prompt = _NODE_SYSTEM_PROMPTS.get(node_name, "Process this and give a clear, structured response.")
@@ -805,10 +759,56 @@ def invoke_llm(
                 prompt_tokens=usage.get("prompt_tokens", 0),
                 completion_tokens=usage.get("completion_tokens", 0),
             )
-            logger.debug("invoke_llm [nvidia]: node=%s response_len=%d", node_name, len(text))
+            logger.debug("invoke_llm [nvidia-primary]: node=%s response_len=%d", node_name, len(text))
             return text
         except Exception as exc:
-            logger.warning("invoke_llm: NVIDIA API failed: %s — trying real LLM APIs", exc)
+            logger.warning("invoke_llm: NVIDIA API failed: %s — trying ZAI SDK", exc)
+
+    # ─── Try ZAI SDK (fallback 1 — high TPM, subprocess-based) ───
+    if not MOCK_MODE:
+        try:
+            result = _call_zai_sdk(
+                prompt, node_name=node_name, variant=variant,
+                complexity=complexity, temperature=temperature,
+                max_tokens=0,  # Use node-specific defaults
+            )
+            text = result.get("content", "")
+            usage = result.get("usage", {})
+            _track_response_usage(
+                ticket_id, node_name, variant, text, model,
+                prompt_tokens=usage.get("prompt_tokens", 0),
+                completion_tokens=usage.get("completion_tokens", 0),
+            )
+            logger.debug("invoke_llm [zai-sdk-fallback]: node=%s response_len=%d", node_name, len(text))
+            return text
+        except Exception as exc:
+            logger.warning("invoke_llm: ZAI SDK failed: %s — trying Google Gemini", exc)
+
+    # ─── Try Google Gemini (fallback 2) ───
+    if not MOCK_MODE:
+        try:
+            system_prompt = _NODE_SYSTEM_PROMPTS.get(node_name, "Process this and give a clear, structured response.")
+            if variant:
+                system_prompt += f" [Variant: {variant}]"
+            if complexity:
+                system_prompt += f" [Complexity: {complexity}]"
+            actual_max_tokens = _NODE_MAX_TOKENS.get(node_name, 500)
+            result = _call_google_gemini(
+                system_prompt, prompt,
+                model="gemini-2.0-flash-lite", temperature=temperature,
+                max_tokens=actual_max_tokens,
+            )
+            text = result.get("content", "")
+            usage = result.get("usage", {})
+            _track_response_usage(
+                ticket_id, node_name, variant, text, model,
+                prompt_tokens=usage.get("prompt_tokens", 0),
+                completion_tokens=usage.get("completion_tokens", 0),
+            )
+            logger.debug("invoke_llm [google-gemini-fallback]: node=%s response_len=%d", node_name, len(text))
+            return text
+        except Exception as gemini_exc:
+            logger.warning("invoke_llm: Google Gemini failed: %s — trying real LLM APIs", gemini_exc)
             # Try real_llm.py providers as final API fallback
             try:
                 from parwa.utils.real_llm import call_llm_sync
@@ -868,7 +868,7 @@ async def ainvoke_llm(
 ) -> str:
     """High-level async LLM invocation with full production hardening.
 
-    Uses ZAI SDK (PRIMARY) → Google Gemini (fallback 1) → NVIDIA API (fallback 2) → real_llm APIs → MockLLM (last resort).
+    Uses NVIDIA API (PRIMARY — 40 RPM, TPM-optimized) → ZAI SDK (fallback 1) → Google Gemini (fallback 2) → real_llm APIs → MockLLM (last resort).
     """
     # Smart Router
     if node_name:
@@ -881,53 +881,7 @@ async def ainvoke_llm(
     if not _check_token_budget(node_name, variant, estimated):
         return "Token budget exceeded. Using rule-based fallback."
 
-    # ─── Try ZAI SDK (PRIMARY — highest TPM, best throughput) ───
-    if not MOCK_MODE:
-        try:
-            result = await _acall_zai_sdk(
-                prompt, node_name=node_name, variant=variant,
-                complexity=complexity, temperature=temperature,
-                max_tokens=max_tokens,
-            )
-            text = result.get("content", "")
-            usage = result.get("usage", {})
-            _track_response_usage(
-                ticket_id, node_name, variant, text, model,
-                prompt_tokens=usage.get("prompt_tokens", 0),
-                completion_tokens=usage.get("completion_tokens", 0),
-            )
-            logger.debug("ainvoke_llm [zai-sdk]: node=%s response_len=%d", node_name, len(text))
-            return text
-        except Exception as exc:
-            logger.warning("ainvoke_llm: ZAI SDK failed: %s — trying Google Gemini", exc)
-
-    # ─── Try Google Gemini (fallback 1) ───
-    if not MOCK_MODE:
-        try:
-            system_prompt = _NODE_SYSTEM_PROMPTS.get(node_name, "Process this and give a clear, structured response.")
-            if variant:
-                system_prompt += f" [Variant: {variant}]"
-            if complexity:
-                system_prompt += f" [Complexity: {complexity}]"
-            actual_max_tokens = max_tokens if max_tokens > 0 else _NODE_MAX_TOKENS.get(node_name, 500)
-            result = await _acall_google_gemini(
-                system_prompt, prompt,
-                model="gemini-2.0-flash-lite", temperature=temperature,
-                max_tokens=actual_max_tokens,
-            )
-            text = result.get("content", "")
-            usage = result.get("usage", {})
-            _track_response_usage(
-                ticket_id, node_name, variant, text, model,
-                prompt_tokens=usage.get("prompt_tokens", 0),
-                completion_tokens=usage.get("completion_tokens", 0),
-            )
-            logger.debug("ainvoke_llm [google-gemini]: node=%s response_len=%d", node_name, len(text))
-            return text
-        except Exception as gemini_exc:
-            logger.warning("ainvoke_llm: Google Gemini failed: %s — trying NVIDIA API", gemini_exc)
-
-    # ─── Try NVIDIA API (fallback 2 — 40 req/min, native Python) ───
+    # ─── Try NVIDIA API (PRIMARY — 40 RPM, TPM-optimized, native Python) ───
     if not MOCK_MODE:
         try:
             system_prompt = _NODE_SYSTEM_PROMPTS.get(node_name, "Process this and give a clear, structured response.")
@@ -948,10 +902,56 @@ async def ainvoke_llm(
                 prompt_tokens=usage.get("prompt_tokens", 0),
                 completion_tokens=usage.get("completion_tokens", 0),
             )
-            logger.debug("ainvoke_llm [nvidia]: node=%s response_len=%d", node_name, len(text))
+            logger.debug("ainvoke_llm [nvidia-primary]: node=%s response_len=%d", node_name, len(text))
             return text
         except Exception as exc:
-            logger.warning("ainvoke_llm: NVIDIA API failed: %s — trying real LLM APIs", exc)
+            logger.warning("ainvoke_llm: NVIDIA API failed: %s — trying ZAI SDK", exc)
+
+    # ─── Try ZAI SDK (fallback 1 — high TPM, subprocess-based) ───
+    if not MOCK_MODE:
+        try:
+            result = await _acall_zai_sdk(
+                prompt, node_name=node_name, variant=variant,
+                complexity=complexity, temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            text = result.get("content", "")
+            usage = result.get("usage", {})
+            _track_response_usage(
+                ticket_id, node_name, variant, text, model,
+                prompt_tokens=usage.get("prompt_tokens", 0),
+                completion_tokens=usage.get("completion_tokens", 0),
+            )
+            logger.debug("ainvoke_llm [zai-sdk-fallback]: node=%s response_len=%d", node_name, len(text))
+            return text
+        except Exception as exc:
+            logger.warning("ainvoke_llm: ZAI SDK failed: %s — trying Google Gemini", exc)
+
+    # ─── Try Google Gemini (fallback 2) ───
+    if not MOCK_MODE:
+        try:
+            system_prompt = _NODE_SYSTEM_PROMPTS.get(node_name, "Process this and give a clear, structured response.")
+            if variant:
+                system_prompt += f" [Variant: {variant}]"
+            if complexity:
+                system_prompt += f" [Complexity: {complexity}]"
+            actual_max_tokens = max_tokens if max_tokens > 0 else _NODE_MAX_TOKENS.get(node_name, 500)
+            result = await _acall_google_gemini(
+                system_prompt, prompt,
+                model="gemini-2.0-flash-lite", temperature=temperature,
+                max_tokens=actual_max_tokens,
+            )
+            text = result.get("content", "")
+            usage = result.get("usage", {})
+            _track_response_usage(
+                ticket_id, node_name, variant, text, model,
+                prompt_tokens=usage.get("prompt_tokens", 0),
+                completion_tokens=usage.get("completion_tokens", 0),
+            )
+            logger.debug("ainvoke_llm [google-gemini-fallback]: node=%s response_len=%d", node_name, len(text))
+            return text
+        except Exception as gemini_exc:
+            logger.warning("ainvoke_llm: Google Gemini failed: %s — trying real LLM APIs", gemini_exc)
             # Try real_llm.py providers as final API fallback
             try:
                 from parwa.utils.real_llm import call_llm_with_failover
