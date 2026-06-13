@@ -207,7 +207,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
           <div className="flex items-center gap-3">
             {cameFromPricing && currentStep <= 1 ? (
               <button
-                onClick={() => router.push('/pricing')}
+                onClick={() => router.push('/models')}
                 className="flex items-center gap-2 text-sm text-orange-400/70 hover:text-orange-400 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />

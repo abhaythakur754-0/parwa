@@ -41,7 +41,7 @@ export default function NavigationBar() {
 
   const navLinks = [
     { name: 'Home', href: '/' },
-    { name: 'Pricing', href: '/pricing' },
+    { name: 'Pricing', href: '/models' },
     { name: 'ROI Calculator', href: '/roi-calculator' },
     { name: 'Try Jarvis', href: '/jarvis' },
   ];

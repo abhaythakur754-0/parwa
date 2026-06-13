@@ -213,7 +213,7 @@ export default function ProfilePage() {
 
             {/* Edit Profile button */}
             <Link
-              href="/pricing"
+              href="/models"
               className="px-4 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] shadow-lg shadow-orange-600/20 hover:shadow-orange-600/40 hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2"
             >
               <Crown className="w-4 h-4" />
@@ -344,7 +344,7 @@ export default function ProfilePage() {
               <ChevronRight className="w-4 h-4 text-white/20" />
             </Link>
             <Link
-              href="/pricing"
+              href="/models"
               className="flex items-center gap-3 px-5 py-3 text-sm text-white/70 hover:text-white hover:bg-orange-500/10 transition-all duration-200"
             >
               <Crown className="w-4 h-4 text-orange-400/60" />

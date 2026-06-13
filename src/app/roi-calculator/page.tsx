@@ -1157,7 +1157,7 @@ export default function ROICalculatorPage() {
                   ════════════════════════════════════════ */}
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <Link
-                  href="/pricing"
+                  href="/models"
                   className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl bg-gradient-to-r from-orange-600 to-orange-500 text-white text-sm font-bold shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all duration-300 hover:-translate-y-0.5"
                 >
                   Explore All AI Models

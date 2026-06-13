@@ -13,7 +13,7 @@ interface FooterSection {
 }
 
 const footerSections: FooterSection[] = [
-  { title: 'Product', links: [{ name: 'Features', href: '#features' }, { name: 'Pricing', href: '/pricing' }, { name: 'ROI Calculator', href: '/roi-calculator' }] },
+  { title: 'Product', links: [{ name: 'Features', href: '#features' }, { name: 'Pricing', href: '/models' }, { name: 'ROI Calculator', href: '/roi-calculator' }] },
   { title: 'Resources', links: [{ name: 'Blog', href: '/blog' }, { name: 'Documentation', href: '/docs' }, { name: 'API Reference', href: '/api-docs' }] },
   { title: 'Company', links: [{ name: 'About Us', href: '/about' }, { name: 'Careers', href: '/careers' }, { name: 'Contact', href: '/contact' }] },
   { title: 'Legal', links: [{ name: 'Privacy Policy', href: '/privacy' }, { name: 'Terms of Service', href: '/terms' }, { name: 'Cookie Policy', href: '/cookies' }] },

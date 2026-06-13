@@ -261,7 +261,7 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
               <span>My Profile</span>
             </Link>
             <Link
-              href="/pricing"
+              href="/models"
               onClick={() => setIsOpen(false)}
               className="flex items-center gap-3 px-5 py-2.5 text-sm text-white/70 hover:text-white hover:bg-orange-500/10 transition-all duration-200"
             >

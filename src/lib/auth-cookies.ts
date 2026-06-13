@@ -113,7 +113,7 @@ export function getAccessTokenFromCookies(
  */
 const ALLOWED_REDIRECT_PREFIXES = [
   "/",
-  "/models",   // redirects to /pricing
+  "/models",   // pricing & variant selection page
   "/tickets",
   "/settings",
   "/billing",
