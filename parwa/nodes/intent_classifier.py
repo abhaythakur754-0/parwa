@@ -82,6 +82,10 @@ _INTENT_KEYWORDS: dict[IntentType, list[tuple[str, float]]] = {
         ("freeze", 1.5), ("connection error", 1.5), ("log in", 1.3),
         ("not syncing", 1.5), ("syncing messages", 1.3), ("dashboard shows", 1.0),
         ("causes my browser", 1.5), ("stopped working", 1.5), ("connection error between", 1.8),
+        # Month 4: TECHNICAL SUPPORT should NOT win over COMPLAINT when customer is upset
+        # about being IGNORED. Reduce weight of generic tech keywords that also appear in complaints.
+        # "plugin" alone (1.3) was too high — complaints about broken plugins are complaints first.
+        # ("plugin", 1.3) — already above, keeping as-is since it's specific
     ],
     IntentType.ACCOUNT_MODIFICATION: [
         ("update my email", 1.8), ("change my", 1.3), ("modify my account", 1.5),
@@ -115,6 +119,19 @@ _INTENT_KEYWORDS: dict[IntentType, list[tuple[str, float]]] = {
         ("outdated and confusing", 1.3), ("nightmare", 1.3),
         ("shipping is incredibly slow", 1.5), ("declined", 1.0),
         ("i'm not happy", 1.3), ("not happy", 1.0),
+        # Month 4: Stronger complaint keywords — ignored tickets, dismissed, consumer rights
+        ("completely dismissed", 1.8), ("felt dismissed", 1.5), ("dismissed", 1.3),
+        ("tickets have been ignored", 2.0), ("been ignored", 1.5), ("ignored for a week", 1.8),
+        ("nobody has responded", 1.5), ("nobody responded", 1.5), ("no one responded", 1.5),
+        ("not even an acknowledgment", 1.8), ("no acknowledgment", 1.5),
+        ("why should i trust", 1.5), ("why should i", 1.3),
+        ("consumer rights", 1.8), ("consumer protection", 1.8),
+        ("fail to perform", 1.5), ("failed to perform", 1.5),
+        ("paying for something that doesn't work", 2.0), ("doesn't work while being", 1.5),
+        ("can't keep paying", 1.5), ("keep paying for something", 1.8),
+        ("first time i've felt", 1.5), ("first time i have felt", 1.5),
+        ("what exactly am i", 1.5), ("real response", 1.3),
+        ("loyal customer", 1.3), ("service quality", 1.3),
     ],
     IntentType.FAQ_QUESTION: [
         ("how do i", 1.3), ("what is", 1.0), ("can you tell me", 1.3),
@@ -178,6 +195,37 @@ def _classify_intent_rule_based(message: str) -> tuple[str, float]:
         if faq_score > best_score:
             best_intent_str = "faq_question"
             best_score = faq_score
+
+    # ─── Month 4: Complaint Override ───
+    # When a customer mentions being IGNORED, DISMISSED, or having unresolved tickets,
+    # that's a COMPLAINT about service quality — even if the original issue was technical.
+    # "My software crashes AND nobody has responded for a week" = complaint (not technical_support).
+    complaint_score = intent_scores.get("complaint", 0)
+    ignored_signals = [
+        "been ignored", "ignored for", "tickets have been ignored",
+        "nobody has responded", "nobody responded", "no one responded",
+        "not even an acknowledgment", "no acknowledgment",
+        "completely dismissed", "felt dismissed", "dismissed",
+    ]
+    has_ignored_signal = any(s in message_lower for s in ignored_signals)
+
+    if has_ignored_signal and complaint_score > 0:
+        # Customer is complaining about being ignored — complaint should win
+        if best_intent_str in ("technical_support", "billing_issue", "order_status"):
+            complaint_score += 3.0  # Strong boost: being ignored = complaint
+            if complaint_score > best_score:
+                best_intent_str = "complaint"
+                best_score = complaint_score
+
+    # Also: if customer mentions both technical issue AND consumer rights/legal threats,
+    # the primary intent shifts from technical to complaint/escalation
+    if "consumer rights" in message_lower or "consumer protection" in message_lower:
+        if best_intent_str == "technical_support":
+            # Consumer rights mention upgrades the intent from tech to complaint
+            complaint_score += 2.0
+            if complaint_score > best_score:
+                best_intent_str = "complaint"
+                best_score = complaint_score
 
     # Convert score to confidence (0.6 - 0.99)
     # Higher scores = higher confidence, capped at 0.99

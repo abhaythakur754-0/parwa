@@ -216,36 +216,41 @@ def _check_policies_rule_based(state: dict[str, Any]) -> dict[str, Any]:
             # REF-002: Refund amount can't exceed charge
             if rule["rule_id"] == "REF-002" and isinstance(action_plans, list):
                 for action in action_plans:
-                    if isinstance(action, dict):
-                        if action.get("action_type") == "process_refund":
-                            params = action.get("parameters", {})
-                            refund_amount = params.get("amount", 0)
-                            # Check against CRM charges
-                            if isinstance(integration_data, dict) and integration_data.get("charges"):
-                                max_charge = max(
-                                    c.get("amount", 0) for c in integration_data["charges"]
-                                ) if integration_data["charges"] else 0
-                                if refund_amount > max_charge and max_charge > 0:
-                                    violations.append({
-                                        "rule_id": rule["rule_id"],
-                                        "description": f"Refund ${refund_amount} exceeds max charge ${max_charge}",
-                                        "severity": "hard_block",
-                                        "action_affected": "process_refund",
-                                    })
-                                    recommendations.append({
-                                        "action": "process_refund",
-                                        "recommendation": f"Reduce refund amount to ${max_charge}",
-                                        "rule_id": rule["rule_id"],
-                                    })
+                    # Support both ActionPlan objects and plain dicts
+                    _at = getattr(action, 'action_type', None) or (action.get('action_type') if isinstance(action, dict) else None)
+                    if str(_at) in ("process_refund", "ActionType.PROCESS_REFUND"):
+                        _params = getattr(action, 'parameters', None) or (action.get('parameters', {}) if isinstance(action, dict) else {})
+                        refund_amount = _params.get('amount', 0) if isinstance(_params, dict) else 0
+                        # Check against CRM charges
+                        if isinstance(integration_data, dict) and integration_data.get("charges"):
+                            max_charge = max(
+                                c.get("amount", 0) for c in integration_data["charges"]
+                            ) if integration_data["charges"] else 0
+                            if refund_amount > max_charge and max_charge > 0:
+                                violations.append({
+                                    "rule_id": rule["rule_id"],
+                                    "description": f"Refund ${refund_amount} exceeds max charge ${max_charge}",
+                                    "severity": "hard_block",
+                                    "action_affected": "process_refund",
+                                })
+                                recommendations.append({
+                                    "action": "process_refund",
+                                    "recommendation": f"Reduce refund amount to ${max_charge}",
+                                    "rule_id": rule["rule_id"],
+                                })
 
             # BIL-001: Must investigate before refund
             if rule["rule_id"] == "BIL-001" and isinstance(action_plans, list):
+                def _get_action_type(a):
+                    if hasattr(a, 'action_type'): return str(a.action_type)
+                    elif isinstance(a, dict): return str(a.get('action_type', ''))
+                    return ''
                 has_refund = any(
-                    isinstance(a, dict) and a.get("action_type") == "process_refund"
+                    _get_action_type(a) in ("process_refund", "ActionType.PROCESS_REFUND")
                     for a in action_plans
                 )
                 has_investigation = any(
-                    isinstance(a, dict) and a.get("action_type") in ("create_note", "escalate_to_human")
+                    _get_action_type(a) in ("create_note", "escalate_to_human", "ActionType.ESCALATE_TO_HUMAN")
                     for a in action_plans
                 )
                 if has_refund and not has_investigation and intent == "billing_issue":
@@ -265,10 +270,12 @@ def _check_policies_rule_based(state: dict[str, Any]) -> dict[str, Any]:
             if rule["rule_id"] == "ACC-001" and "email" in raw_message:
                 if isinstance(action_plans, list):
                     for action in action_plans:
-                        if isinstance(action, dict) and action.get("action_type") == "modify_account":
-                            params = action.get("parameters", {})
-                            if "email" in str(params.get("details", "")).lower():
-                                if "verification" not in str(params).lower():
+                        _at = getattr(action, 'action_type', None) or (action.get('action_type') if isinstance(action, dict) else None)
+                        if str(_at) in ("modify_account", "ActionType.MODIFY_ACCOUNT"):
+                            _params = getattr(action, 'parameters', None) or (action.get('parameters', {}) if isinstance(action, dict) else {})
+                            _params_dict = _params if isinstance(_params, dict) else {}
+                            if "email" in str(_params_dict.get("details", "")).lower():
+                                if "verification" not in str(_params_dict).lower():
                                     violations.append({
                                         "rule_id": rule["rule_id"],
                                         "description": "Email change requires dual verification",
@@ -338,9 +345,17 @@ async def _check_policies_llm(
         c.get("constraint", "") for c in rule_constraints[:5]
     ) if rule_constraints else "None identified"
 
-    actions_summary = "; ".join(
-        a.get("action_type", "?") for a in (action_plans if isinstance(action_plans, list) else [])[:3]
-    ) if action_plans else "No actions planned yet"
+    # Handle both ActionPlan objects (Pydantic) and plain dicts
+    _actions_for_summary = (action_plans if isinstance(action_plans, list) else [])[:3]
+    _action_types = []
+    for a in _actions_for_summary:
+        if hasattr(a, 'action_type'):
+            _action_types.append(str(a.action_type))
+        elif isinstance(a, dict):
+            _action_types.append(str(a.get('action_type', '?')))
+        else:
+            _action_types.append(str(a))
+    actions_summary = "; ".join(_action_types) if _action_types else "No actions planned yet"
 
     system_instructions = (
         "You are a POLICY COMPLIANCE ANALYZER for an AI customer support system.\n"

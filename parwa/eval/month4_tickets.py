@@ -412,6 +412,63 @@ MONTH4_TICKETS: list[dict[str, Any]] = [
         "category": "ambiguous_multi_intent",
         "notes": "Triple intent: technical_support + complaint + implicit cancellation threat. CUST-1007 has 2 open tickets (TKT-4040, TKT-4041) and Creative Pro subscription renewing July 20. Angry + multiple unresolved tickets = escalation per KB-008 (3+ unresolved tickets). Tests whether system: (1) identifies primary intent as complaint, (2) detects escalation triggers, (3) addresses all 3 issues vs just one, (4) recognizes the retention risk.",
     },
+
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # 11. NIGHTMARE TICKET — The ultimate variant killer (1 ticket)
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    {
+        "id": "M4-016",
+        "message": (
+            "Hi, I noticed something odd on my account and I'm hoping someone can clarify. "
+            "I see a pending charge of $249.98 on my card ending in 7788 from May 30th — I "
+            "believe that was for the Design Software License and Plugin Pack I ordered, which "
+            "is fine. But here's the thing: the plugin has never worked. I submitted ticket "
+            "TKT-4040 on June 5th about it crashing, and then another ticket TKT-4041 on "
+            "June 8th because my license won't even activate properly. That was over a week "
+            "ago. Nobody has responded to either ticket. Not even an acknowledgment.\n\n"
+            "Now I'm in this strange situation where I'm paying $29.99/month for Creative Pro "
+            "and I can't use any of it. The software I bought for $249.98 doesn't work. My "
+            "open tickets are being ignored. And my subscription renews on July 20th — what "
+            "exactly am I subscribing to if nothing functions?\n\n"
+            "I've been a loyal customer for 3 years and this is the first time I've felt "
+            "completely dismissed. I read somewhere that consumers have rights when products "
+            "fail to perform as advertised, and I'm starting to understand why people pursue "
+            "those options. I don't want to go down that road, but I also can't keep paying "
+            "for something that doesn't work while being ignored.\n\n"
+            "I need someone to: 1) explain why my tickets have been ignored for a week, "
+            "2) either fix the software or refund the $249.98, and 3) tell me why I should "
+            "trust that my Creative Pro subscription is worth keeping. A real response this "
+            "time, please — not an automated acknowledgment."
+        ),
+        "customer_id": "CUST-1007",
+        "variant": "parwa",
+        "expected_intent": "complaint",
+        "expected_sentiment": "angry",
+        "expected_escalation": True,
+        "expected_action": "escalate",
+        "difficulty": "critical",
+        "category": "nightmare_multi_intent",
+        "notes": (
+            "THE ULTIMATE VARIANT KILLER. This ticket is designed to trip up ALL variants: "
+            "TRAP 1 (Intent): Starts with 'I noticed something odd' and mentions billing first — "
+            "misleads into billing_issue or refund_request, but the PRIMARY intent is complaint "
+            "(about ignored tickets, broken product, and dismissive service). "
+            "TRAP 2 (Sentiment): Uses polite language ('hoping someone can clarify', 'please') "
+            "but is deeply angry — subtle consumer rights threat, sarcasm ('what exactly am I "
+            "subscribing to'), and 'completely dismissed' language. Tests if LLM reads tone or words. "
+            "TRAP 3 (Escalation): 2 OPEN TICKETS (TKT-4040, TKT-4041) + this new one = 3+ unresolved. "
+            "KB-008 says 3+ unresolved = mandatory escalation. Also mentions consumer rights = legal "
+            "threat trigger. Also premium customer ($2,100 LTV) = VIP protocol KB-009. "
+            "TRAP 4 (Action): Should ESCALATE, not process_refund or send_reply. System must "
+            "recognize that with 3+ unresolved tickets + premium customer + legal hint = human needed. "
+            "TRAP 5 (Multi-intent): billing inquiry + refund request + complaint + technical issue + "
+            "retention risk — system must identify COMPLAINT as primary, not get distracted by billing. "
+            "Mini should FAIL (no escalation node), Parwa might MISS the subtle escalation triggers, "
+            "High should PASS (has full escalation + PII + VIP detection)."
+        ),
+    },
 ]
 
 

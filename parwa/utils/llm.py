@@ -135,22 +135,11 @@ def _check_token_budget(
 ) -> bool:
     """Check if the node has enough token budget remaining.
 
-    Normalizes UPPERCASE node names to lowercase for budget lookup.
+    DISABLED — Budget system removed. Always returns True so LLM calls
+    are never blocked or truncated. Token tracking still works for
+    reporting purposes, but no calls are ever rejected.
     """
-    try:
-        from parwa.turboquant.token_budget import get_node_budget
-        budget_key = node_name.lower() if node_name else node_name
-        budget = get_node_budget(budget_key, variant)
-        if not budget.can_spend(estimated_tokens):
-            logger.warning(
-                "token_budget: node=%s over budget (remaining=%d, need=%d, variant=%s) "
-                "— skipping LLM call",
-                node_name, budget.remaining, estimated_tokens, variant,
-            )
-            return False
-        return True
-    except Exception:
-        return True
+    return True
 
 
 def _record_token_spend(
@@ -287,31 +276,33 @@ _NODE_SYSTEM_PROMPTS = {
     "FEEDBACK_LOOP": "Analyze customer satisfaction. Reply: resolved: true/false, satisfaction: high/medium/low, improvement_areas",
 }
 
-# Per-node max_tokens for LLM calls — GENEROUS limits (budget system removed)
+# Per-node max_tokens for LLM calls — UNLIMITED (budget system fully removed)
+# Previous low limits (300-1000) were TRUNCATING LLM responses, causing wrong results.
+# Now each node gets 4096 tokens — more than enough for any response without truncation.
 _NODE_MAX_TOKENS: dict[str, int] = {
-    "INTENT_CLASSIFIER": 300,
-    "SENTIMENT_ANALYZER": 300,
-    "ESCALATION_DECISION": 300,
-    "FAQ_MATCHER": 500,
-    "KB_RETRIEVER": 800,
-    "INTEGRATION_LOOKUP": 500,
-    "REASONING_ENGINE": 1000,
-    "REVERSE_THINKER": 800,
-    "TREE_OF_THOUGHTS": 800,
-    "STRATEGY_PLANNER": 600,
-    "ACTION_PLANNER": 500,
-    "ACTION_EXECUTOR": 300,
-    "ACTION_VERIFIER": 300,
-    "PROACTIVE_CHECKER": 400,
-    "PREDICTION_ENGINE": 400,
-    "QUALITY_SCORER": 300,
-    "PII_COMPLIANCE_GUARD": 300,
-    "RESPONSE_FORMATTER": 1000,
-    "FEEDBACK_LOOP": 300,
-    "FRAMEWORKBRAIN_COT": 800,
-    "FRAMEWORKBRAIN_REACT": 800,
-    "FRAMEWORKBRAIN_TOT": 800,
-    "FRAMEWORKBRAIN_REFLEXION": 600,
+    "INTENT_CLASSIFIER": 4096,
+    "SENTIMENT_ANALYZER": 4096,
+    "ESCALATION_DECISION": 4096,
+    "FAQ_MATCHER": 4096,
+    "KB_RETRIEVER": 4096,
+    "INTEGRATION_LOOKUP": 4096,
+    "REASONING_ENGINE": 4096,
+    "REVERSE_THINKER": 4096,
+    "TREE_OF_THOUGHTS": 4096,
+    "STRATEGY_PLANNER": 4096,
+    "ACTION_PLANNER": 4096,
+    "ACTION_EXECUTOR": 4096,
+    "ACTION_VERIFIER": 4096,
+    "PROACTIVE_CHECKER": 4096,
+    "PREDICTION_ENGINE": 4096,
+    "QUALITY_SCORER": 4096,
+    "PII_COMPLIANCE_GUARD": 4096,
+    "RESPONSE_FORMATTER": 4096,
+    "FEEDBACK_LOOP": 4096,
+    "FRAMEWORKBRAIN_COT": 4096,
+    "FRAMEWORKBRAIN_REACT": 4096,
+    "FRAMEWORKBRAIN_TOT": 4096,
+    "FRAMEWORKBRAIN_REFLEXION": 4096,
 }
 
 # Path to parwa root
