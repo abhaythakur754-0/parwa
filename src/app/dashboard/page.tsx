@@ -228,6 +228,31 @@ export default function DashboardPage() {
   const [variantsState, setVariantsState] = useState<FetchState<VariantInstance[]>>({ status: 'loading', data: null });
   const [sentimentState, setSentimentState] = useState<FetchState<SentimentOverview>>({ status: 'loading', data: null });
 
+  // ── Pricing context from Models Page (localStorage fallback) ──
+  // When the backend has no variant instances yet (user just signed up),
+  // show what they selected on the Models page so the dashboard feels connected.
+  const [pricingContext, setPricingContext] = useState<{
+    industry?: string;
+    isAnnual?: boolean;
+    variants?: Array<{ id: string; name: string; quantity: number; monthlyPrice: number }>;
+    totalMonthly?: number;
+    couponCode?: string | null;
+    discountedTotal?: number;
+  } | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('parwa_pricing_context');
+      if (raw) {
+        const ctx = JSON.parse(raw);
+        // Only use if it has variants (meaning user actually selected something)
+        if (ctx && ctx.variants && ctx.variants.length > 0) {
+          setPricingContext(ctx);
+        }
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   // ── Check onboarding status (non-blocking) ──
   // We silently check onboarding state so the dashboard can show
   // appropriate prompts, but we do NOT force-redirect users.
@@ -539,12 +564,90 @@ export default function DashboardPage() {
       ) : variantsState.status === 'success' && variantsState.data && variantsState.data.length === 0 ? (
         <div className="space-y-4">
           <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Active Variants</h2>
-          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 flex flex-col items-center justify-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center text-zinc-600">
-              {Icons.variant}
+          {pricingContext && pricingContext.variants && pricingContext.variants.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {pricingContext.variants.map((v) => {
+                const tierMap: Record<string, string> = { starter: 'mini_parwa', growth: 'parwa', high: 'parwa_high' };
+                const tier = tierMap[v.id] || v.id;
+                const typeColor = variantTypeColors[tier] ?? { bg: 'bg-orange-500/10', text: 'text-orange-400' };
+                return (
+                  <div
+                    key={v.id}
+                    className="rounded-xl bg-[#1A1A1A] border border-orange-500/20 p-5 transition-all duration-300 hover:shadow-lg hover:shadow-orange-500/5 hover:border-orange-500/30"
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-sm font-semibold text-white truncate">{v.name}</h3>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider ${typeColor.bg} ${typeColor.text}`}>
+                            {tier.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                          <span className="text-amber-400">Pending activation</span>
+                          <span className="text-zinc-700">·</span>
+                          <span>{pricingContext.industry || 'General'}</span>
+                        </div>
+                      </div>
+                      <div className="w-9 h-9 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-400 shrink-0">
+                        {Icons.variant}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div>
+                        <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Price</p>
+                        <p className="text-sm font-semibold text-white tabular-nums">${v.monthlyPrice.toLocaleString()}/mo</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Quantity</p>
+                        <p className="text-sm font-semibold text-white tabular-nums">{v.quantity}x</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Billing</p>
+                        <p className="text-sm font-semibold text-white tabular-nums">{pricingContext.isAnnual ? 'Annual' : 'Monthly'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Coupon</p>
+                        <p className="text-sm font-semibold text-white tabular-nums">{pricingContext.couponCode || 'None'}</p>
+                      </div>
+                    </div>
+                    <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                      <div className="h-full rounded-full bg-orange-500/60" style={{ width: '0%' }} />
+                    </div>
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.04]">
+                      <span className="text-[10px] text-zinc-600">Complete onboarding to activate</span>
+                      <span className="text-[10px] text-orange-400 font-medium cursor-pointer hover:underline" onClick={() => router.push('/onboarding')}>Resume →</span>
+                    </div>
+                  </div>
+                );
+              })}
+              {/* Total cost summary */}
+              <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5 flex flex-col justify-center">
+                <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Total Monthly Cost</p>
+                <p className="text-2xl font-bold text-orange-400 tabular-nums">
+                  ${pricingContext.discountedTotal != null ? pricingContext.discountedTotal.toLocaleString() : (pricingContext.totalMonthly ?? 0).toLocaleString()}
+                  <span className="text-sm text-zinc-500 font-normal">/mo</span>
+                </p>
+                {pricingContext.couponCode && (
+                  <p className="text-xs text-emerald-400 mt-1">Coupon: {pricingContext.couponCode} applied</p>
+                )}
+              </div>
             </div>
-            <p className="text-sm text-zinc-500 text-center">No active variants found</p>
-          </div>
+          ) : (
+            <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 flex flex-col items-center justify-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center text-zinc-600">
+                {Icons.variant}
+              </div>
+              <p className="text-sm text-zinc-500 text-center">No active variants found</p>
+              <button
+                onClick={() => router.push('/models')}
+                className="mt-2 px-4 py-2 rounded-lg bg-orange-500/10 text-orange-400 text-sm font-medium hover:bg-orange-500/20 transition-colors"
+              >
+                Choose a Plan →
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
