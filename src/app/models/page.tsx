@@ -363,10 +363,6 @@ export default function ModelsPage() {
     setCouponError(null);
   };
 
-  // Calculate discounted total for display
-  const discountedTotal = appliedCoupon ? applyCouponDiscount(totalMonthly, appliedCoupon) : totalMonthly;
-  const isFreeCheckout = discountedTotal === 0;
-
   const industries = getIndustries();
   const activeIndustry = selectedIndustry ? industries.find(i => i.id === selectedIndustry)! : null;
   const primary = activeIndustry?.primary || defaultPrimary;
@@ -411,6 +407,10 @@ export default function ModelsPage() {
     const price = isAnnual ? v.annualPrice : v.monthlyPrice;
     return sum + price * (quantities[v.id] || 0);
   }, 0) || 0;
+
+  // Calculate discounted total for display
+  const discountedTotal = appliedCoupon ? applyCouponDiscount(totalMonthly, appliedCoupon) : totalMonthly;
+  const isFreeCheckout = discountedTotal === 0;
 
   const totalTickets = currentVariants?.reduce((sum, v) => {
     return sum + v.ticketsPerMonth * (quantities[v.id] || 0);
