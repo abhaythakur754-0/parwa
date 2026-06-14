@@ -69,49 +69,53 @@ interface VariantData {
 }
 
 // ─── Industry Configs ────────────────────────────────────────────────────────
+// Lazy getter to avoid "Cannot access before initialization" with Turbopack
+// (JSX at module scope can be evaluated before React is ready)
 
-const industries: IndustryConfig[] = [
-  {
-    id: 'ecommerce',
-    label: 'E-commerce',
-    description: 'Online retail & D2C brands',
-    primary: '#1A1A1A',
-    accent: '#FF7F11',
-    accentRgb: '255,127,17',
-    icon: <ShoppingCart className="w-7 h-7" />,
-    heroText: 'Automate order tracking, returns, cart recovery & fraud detection with AI built for online retail.',
-  },
-  {
-    id: 'saas',
-    label: 'SaaS',
-    description: 'Software & tech companies',
-    primary: '#1A1A1A',
-    accent: '#FF7F11',
-    accentRgb: '255,127,17',
-    icon: <Cloud className="w-7 h-7" />,
-    heroText: 'Handle technical support, API troubleshooting, churn prediction & in-app guidance for software teams.',
-  },
-  {
-    id: 'logistics',
-    label: 'Logistics',
-    description: 'Shipping & supply chain',
-    primary: '#1A1A1A',
-    accent: '#FF7F11',
-    accentRgb: '255,127,17',
-    icon: <Truck className="w-7 h-7" />,
-    heroText: 'Track shipments, coordinate drivers, manage proof of delivery & handle freight damage claims automatically.',
-  },
-  {
-    id: 'others',
-    label: 'Others',
-    description: 'All other industries',
-    primary: '#1A1A1A',
-    accent: '#FF7F11',
-    accentRgb: '255,127,17',
-    icon: <Briefcase className="w-7 h-7" />,
-    heroText: "PARWA adapts to any industry. Tell us your needs and we'll tailor the perfect AI support solution.",
-  },
-];
+function getIndustries(): IndustryConfig[] {
+  return [
+    {
+      id: 'ecommerce',
+      label: 'E-commerce',
+      description: 'Online retail & D2C brands',
+      primary: '#1A1A1A',
+      accent: '#FF7F11',
+      accentRgb: '255,127,17',
+      icon: <ShoppingCart className="w-7 h-7" />,
+      heroText: 'Automate order tracking, returns, cart recovery & fraud detection with AI built for online retail.',
+    },
+    {
+      id: 'saas',
+      label: 'SaaS',
+      description: 'Software & tech companies',
+      primary: '#1A1A1A',
+      accent: '#FF7F11',
+      accentRgb: '255,127,17',
+      icon: <Cloud className="w-7 h-7" />,
+      heroText: 'Handle technical support, API troubleshooting, churn prediction & in-app guidance for software teams.',
+    },
+    {
+      id: 'logistics',
+      label: 'Logistics',
+      description: 'Shipping & supply chain',
+      primary: '#1A1A1A',
+      accent: '#FF7F11',
+      accentRgb: '255,127,17',
+      icon: <Truck className="w-7 h-7" />,
+      heroText: 'Track shipments, coordinate drivers, manage proof of delivery & handle freight damage claims automatically.',
+    },
+    {
+      id: 'others',
+      label: 'Others',
+      description: 'All other industries',
+      primary: '#1A1A1A',
+      accent: '#FF7F11',
+      accentRgb: '255,127,17',
+      icon: <Briefcase className="w-7 h-7" />,
+      heroText: "PARWA adapts to any industry. Tell us your needs and we'll tailor the perfect AI support solution.",
+    },
+  ];
+}
 
 // ─── Common Features ────────────────────────────────────────────────────────
 
@@ -176,29 +180,32 @@ const uniqueFeaturesByIndustry: Record<Industry, Record<VariantId, string[]>> = 
 };
 
 // ─── Variant Data per Industry (with accurate cost details) ─────────────────
+// Lazy getter to avoid "Cannot access before initialization" with Turbopack
 
-const variantData: Record<Industry, VariantData[]> = {
-  ecommerce: [
-    { id: 'starter', name: 'PARWA Starter', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 1000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 14000, scenario: "A customer calls at 2 AM asking 'Where\\'s my order?' PARWA Starter answers instantly, checks Shopify, and texts them the tracking link.", channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'SMS', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Phone (2 at once)', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['Shopify', 'Magento', 'BigCommerce', 'WooCommerce'], commonFeatures: commonFeaturesByVariant.starter, uniqueFeatures: uniqueFeaturesByIndustry.ecommerce.starter, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'E-commerce SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
-    { id: 'growth', name: 'PARWA Growth', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 5000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 18000, badge: 'Recommended', scenario: "Customer's product won't work. PARWA walks them through 5 troubleshooting steps, determines it's a real defect, creates a return label, and recommends a $30 refund.", channels: [{ label: 'All Starter + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '3 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['Shopify', 'Magento', 'BigCommerce', 'CRM', 'Analytics'], commonFeatures: commonFeaturesByVariant.growth, uniqueFeatures: uniqueFeaturesByIndustry.ecommerce.growth, keyAdvantage: 'Cuts review time by 80%, detects cart abandonment patterns', smartDecisions: 'Recommends refunds based on policy; flags fraud patterns', roi: 'Replaces ~$18k/month in junior agent salaries', bestFor: 'E-commerce SMBs with 200–500 daily tickets', coreCapability: 'Everything Starter does + Intelligent Recommendations. 3 concurrent calls.' },
-    { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 15000, humanAgentsReplaced: 5, avgHumanCostPerMonth: 28000, scenario: 'VIP customer threatens to cancel over repeated order issues. PARWA High reviews their history, detects a product flaw pattern, offers a $50 credit, and alerts your product team.', channels: [{ label: 'All Growth channels', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '5 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'Video screen-sharing', icon: <Video className="w-3.5 h-3.5" /> }], integrations: ['Shopify', 'Magento', 'BigCommerce', 'CRM', 'Analytics', 'Marketing'], commonFeatures: commonFeaturesByVariant.high, uniqueFeatures: uniqueFeaturesByIndustry.ecommerce.high, keyAdvantage: 'Approves returns up to $50, predicts churn, coordinates with marketing', roi: 'Replaces ~$28k/month in senior agent salaries', bestFor: 'E-commerce SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support. 5 calls + video.' },
-  ],
-  saas: [
-    { id: 'starter', name: 'PARWA Starter', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 1000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 14000, scenario: "A user calls at 2 AM asking 'Why is my API not working?' PARWA Starter answers instantly, checks system status, and creates a support ticket.", channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Slack', icon: <Hash className="w-3.5 h-3.5" /> }, { label: 'Discord', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'SMS', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Phone (2 at once)', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['GitHub', 'GitLab', 'Zendesk', 'Intercom'], commonFeatures: commonFeaturesByVariant.starter, uniqueFeatures: uniqueFeaturesByIndustry.saas.starter, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'SaaS SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
-    { id: 'growth', name: 'PARWA Growth', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 5000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 18000, badge: 'Recommended', scenario: "User's API integration is failing. PARWA walks them through troubleshooting, determines it's a real bug, creates a bug report, and recommends a credit for downtime.", channels: [{ label: 'All Starter + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '3 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['GitHub', 'GitLab', 'Zendesk', 'Intercom', 'Jira', 'Slack'], commonFeatures: commonFeaturesByVariant.growth, uniqueFeatures: uniqueFeaturesByIndustry.saas.growth, keyAdvantage: 'Cuts review time by 80%, detects usage patterns', smartDecisions: 'Recommends account changes; flags security issues', roi: 'Replaces ~$18k/month in junior agent salaries', bestFor: 'SaaS SMBs with 200–500 daily tickets', coreCapability: 'Everything Starter does + Intelligent Recommendations. 3 concurrent calls.' },
-    { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 15000, humanAgentsReplaced: 5, avgHumanCostPerMonth: 28000, scenario: 'VIP customer threatens to cancel over repeated API issues. PARWA High reviews their usage, detects a service degradation pattern, offers a $50 credit, and alerts your engineering team.', channels: [{ label: 'All Growth channels', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '5 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'Video screen-sharing', icon: <Video className="w-3.5 h-3.5" /> }], integrations: ['GitHub', 'GitLab', 'Zendesk', 'Intercom', 'Jira', 'Slack', 'PagerDuty'], commonFeatures: commonFeaturesByVariant.high, uniqueFeatures: uniqueFeaturesByIndustry.saas.high, keyAdvantage: 'Approves account changes up to $50, churn prediction engine', roi: 'Replaces ~$28k/month in senior agent salaries', bestFor: 'SaaS SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support. 5 calls + video.' },
-  ],
-  logistics: [
-    { id: 'starter', name: 'PARWA Starter', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 1000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 14000, scenario: "A customer calls at 2 AM asking 'Where's my shipment?' PARWA Starter answers instantly, checks TMS, and texts them the tracking link.", channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'SMS', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Phone (2 at once)', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['TMS', 'WMS', 'Carrier APIs', 'AfterShip'], commonFeatures: commonFeaturesByVariant.starter, uniqueFeatures: uniqueFeaturesByIndustry.logistics.starter, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'Logistics SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
-    { id: 'growth', name: 'PARWA Growth', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 5000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 18000, badge: 'Recommended', scenario: "Customer's delivery is delayed. PARWA checks the tracking system, determines the issue, reroutes the package, and recommends a shipping credit.", channels: [{ label: 'All Starter + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '3 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['TMS', 'WMS', 'Carrier APIs', 'GPS Tracking', 'Google Maps'], commonFeatures: commonFeaturesByVariant.growth, uniqueFeatures: uniqueFeaturesByIndustry.logistics.growth, keyAdvantage: 'GPS tracking, driver coordination, route optimization', smartDecisions: 'Recommends routing changes; flags delivery exceptions', roi: 'Replaces ~$18k/month in junior coordinator salaries', bestFor: 'Logistics SMBs with 200–500 daily tickets', coreCapability: 'Everything Starter does + Intelligent Recommendations. 3 concurrent calls.' },
-    { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 15000, humanAgentsReplaced: 5, avgHumanCostPerMonth: 28000, scenario: 'VIP customer threatens to cancel over repeated delivery issues. PARWA High reviews their shipping history, detects a carrier performance pattern, offers a $50 credit, and alerts your operations team.', channels: [{ label: 'All Growth channels', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '5 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'Video screen-sharing', icon: <Video className="w-3.5 h-3.5" /> }], integrations: ['TMS', 'WMS', 'Carrier APIs', 'GPS Tracking', 'Operations'], commonFeatures: commonFeaturesByVariant.high, uniqueFeatures: uniqueFeaturesByIndustry.logistics.high, keyAdvantage: 'POD management, hazmat protocol, freight damage claims', roi: 'Replaces ~$28k/month in senior coordinator salaries', bestFor: 'Logistics SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support. 5 calls + video.' },
-  ],
-  others: [
-    { id: 'starter', name: 'PARWA Starter', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 1000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 14000, scenario: "A customer calls at 2 AM asking about their order status. PARWA Starter answers instantly, checks your systems, and provides the information right away.", channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Phone (2 at once)', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'SMS', icon: <MessageSquare className="w-3.5 h-3.5" /> }], integrations: ['Custom APIs', 'CRM', 'Helpdesk', 'Knowledge Base'], commonFeatures: commonFeaturesByVariant.starter, uniqueFeatures: uniqueFeaturesByIndustry.others.starter, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
-    { id: 'growth', name: 'PARWA Growth', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 5000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 18000, badge: 'Recommended', scenario: "A customer has a complex billing question. PARWA Growth checks their account, identifies the issue, recommends a resolution, and escalates only if needed.", channels: [{ label: 'All Starter + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '3 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['Custom APIs', 'CRM', 'Helpdesk', 'Knowledge Base', 'Billing'], commonFeatures: commonFeaturesByVariant.growth, uniqueFeatures: uniqueFeaturesByIndustry.others.growth, keyAdvantage: 'Intelligent routing, adaptive learning, custom workflows', smartDecisions: 'Recommends resolutions based on historical data; flags exceptions', roi: 'Replaces ~$18k/month in junior agent salaries', bestFor: 'SMBs with 200–500 daily tickets', coreCapability: 'Everything Starter does + Intelligent Recommendations. 3 concurrent calls.' },
-    { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 15000, humanAgentsReplaced: 5, avgHumanCostPerMonth: 28000, scenario: 'A VIP customer has a complex multi-department issue. PARWA High coordinates across teams, approves a $50 credit, and provides a complete resolution — all automatically.', channels: [{ label: 'All Growth channels', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '5 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'Video screen-sharing', icon: <Video className="w-3.5 h-3.5" /> }], integrations: ['Custom APIs', 'CRM', 'Helpdesk', 'Knowledge Base', 'Billing', 'Analytics'], commonFeatures: commonFeaturesByVariant.high, uniqueFeatures: uniqueFeaturesByIndustry.others.high, keyAdvantage: 'Custom workflows, cross-department coordination, proactive support', roi: 'Replaces ~$28k/month in senior agent salaries', bestFor: 'SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support. 5 calls + video.' },
-  ],
-};
+function getVariantData(): Record<Industry, VariantData[]> {
+  return {
+    ecommerce: [
+      { id: 'starter', name: 'PARWA Starter', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 1000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 14000, scenario: "A customer calls at 2 AM asking 'Where\\'s my order?' PARWA Starter answers instantly, checks Shopify, and texts them the tracking link.", channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'SMS', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Phone (2 at once)', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['Shopify', 'Magento', 'BigCommerce', 'WooCommerce'], commonFeatures: commonFeaturesByVariant.starter, uniqueFeatures: uniqueFeaturesByIndustry.ecommerce.starter, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'E-commerce SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
+      { id: 'growth', name: 'PARWA Growth', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 5000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 18000, badge: 'Recommended', scenario: "Customer's product won't work. PARWA walks them through 5 troubleshooting steps, determines it's a real defect, creates a return label, and recommends a $30 refund.", channels: [{ label: 'All Starter + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '3 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['Shopify', 'Magento', 'BigCommerce', 'CRM', 'Analytics'], commonFeatures: commonFeaturesByVariant.growth, uniqueFeatures: uniqueFeaturesByIndustry.ecommerce.growth, keyAdvantage: 'Cuts review time by 80%, detects cart abandonment patterns', smartDecisions: 'Recommends refunds based on policy; flags fraud patterns', roi: 'Replaces ~$18k/month in junior agent salaries', bestFor: 'E-commerce SMBs with 200–500 daily tickets', coreCapability: 'Everything Starter does + Intelligent Recommendations. 3 concurrent calls.' },
+      { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 15000, humanAgentsReplaced: 5, avgHumanCostPerMonth: 28000, scenario: 'VIP customer threatens to cancel over repeated order issues. PARWA High reviews their history, detects a product flaw pattern, offers a $50 credit, and alerts your product team.', channels: [{ label: 'All Growth channels', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '5 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'Video screen-sharing', icon: <Video className="w-3.5 h-3.5" /> }], integrations: ['Shopify', 'Magento', 'BigCommerce', 'CRM', 'Analytics', 'Marketing'], commonFeatures: commonFeaturesByVariant.high, uniqueFeatures: uniqueFeaturesByIndustry.ecommerce.high, keyAdvantage: 'Approves returns up to $50, predicts churn, coordinates with marketing', roi: 'Replaces ~$28k/month in senior agent salaries', bestFor: 'E-commerce SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support. 5 calls + video.' },
+    ],
+    saas: [
+      { id: 'starter', name: 'PARWA Starter', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 1000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 14000, scenario: "A user calls at 2 AM asking 'Why is my API not working?' PARWA Starter answers instantly, checks system status, and creates a support ticket.", channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Slack', icon: <Hash className="w-3.5 h-3.5" /> }, { label: 'Discord', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'SMS', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Phone (2 at once)', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['GitHub', 'GitLab', 'Zendesk', 'Intercom'], commonFeatures: commonFeaturesByVariant.starter, uniqueFeatures: uniqueFeaturesByIndustry.saas.starter, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'SaaS SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
+      { id: 'growth', name: 'PARWA Growth', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 5000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 18000, badge: 'Recommended', scenario: "User's API integration is failing. PARWA walks them through troubleshooting, determines it's a real bug, creates a bug report, and recommends a credit for downtime.", channels: [{ label: 'All Starter + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '3 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['GitHub', 'GitLab', 'Zendesk', 'Intercom', 'Jira', 'Slack'], commonFeatures: commonFeaturesByVariant.growth, uniqueFeatures: uniqueFeaturesByIndustry.saas.growth, keyAdvantage: 'Cuts review time by 80%, detects usage patterns', smartDecisions: 'Recommends account changes; flags security issues', roi: 'Replaces ~$18k/month in junior agent salaries', bestFor: 'SaaS SMBs with 200–500 daily tickets', coreCapability: 'Everything Starter does + Intelligent Recommendations. 3 concurrent calls.' },
+      { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 15000, humanAgentsReplaced: 5, avgHumanCostPerMonth: 28000, scenario: 'VIP customer threatens to cancel over repeated API issues. PARWA High reviews their usage, detects a service degradation pattern, offers a $50 credit, and alerts your engineering team.', channels: [{ label: 'All Growth channels', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '5 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'Video screen-sharing', icon: <Video className="w-3.5 h-3.5" /> }], integrations: ['GitHub', 'GitLab', 'Zendesk', 'Intercom', 'Jira', 'Slack', 'PagerDuty'], commonFeatures: commonFeaturesByVariant.high, uniqueFeatures: uniqueFeaturesByIndustry.saas.high, keyAdvantage: 'Approves account changes up to $50, churn prediction engine', roi: 'Replaces ~$28k/month in senior agent salaries', bestFor: 'SaaS SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support. 5 calls + video.' },
+    ],
+    logistics: [
+      { id: 'starter', name: 'PARWA Starter', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 1000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 14000, scenario: "A customer calls at 2 AM asking 'Where's my shipment?' PARWA Starter answers instantly, checks TMS, and texts them the tracking link.", channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'SMS', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Phone (2 at once)', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['TMS', 'WMS', 'Carrier APIs', 'AfterShip'], commonFeatures: commonFeaturesByVariant.starter, uniqueFeatures: uniqueFeaturesByIndustry.logistics.starter, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'Logistics SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
+      { id: 'growth', name: 'PARWA Growth', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 5000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 18000, badge: 'Recommended', scenario: "Customer's delivery is delayed. PARWA checks the tracking system, determines the issue, reroutes the package, and recommends a shipping credit.", channels: [{ label: 'All Starter + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '3 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['TMS', 'WMS', 'Carrier APIs', 'GPS Tracking', 'Google Maps'], commonFeatures: commonFeaturesByVariant.growth, uniqueFeatures: uniqueFeaturesByIndustry.logistics.growth, keyAdvantage: 'GPS tracking, driver coordination, route optimization', smartDecisions: 'Recommends routing changes; flags delivery exceptions', roi: 'Replaces ~$18k/month in junior coordinator salaries', bestFor: 'Logistics SMBs with 200–500 daily tickets', coreCapability: 'Everything Starter does + Intelligent Recommendations. 3 concurrent calls.' },
+      { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 15000, humanAgentsReplaced: 5, avgHumanCostPerMonth: 28000, scenario: 'VIP customer threatens to cancel over repeated delivery issues. PARWA High reviews their shipping history, detects a carrier performance pattern, offers a $50 credit, and alerts your operations team.', channels: [{ label: 'All Growth channels', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '5 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'Video screen-sharing', icon: <Video className="w-3.5 h-3.5" /> }], integrations: ['TMS', 'WMS', 'Carrier APIs', 'GPS Tracking', 'Operations'], commonFeatures: commonFeaturesByVariant.high, uniqueFeatures: uniqueFeaturesByIndustry.logistics.high, keyAdvantage: 'POD management, hazmat protocol, freight damage claims', roi: 'Replaces ~$28k/month in senior coordinator salaries', bestFor: 'Logistics SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support. 5 calls + video.' },
+    ],
+    others: [
+      { id: 'starter', name: 'PARWA Starter', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 1000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 14000, scenario: "A customer calls at 2 AM asking about their order status. PARWA Starter answers instantly, checks your systems, and provides the information right away.", channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Phone (2 at once)', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'SMS', icon: <MessageSquare className="w-3.5 h-3.5" /> }], integrations: ['Custom APIs', 'CRM', 'Helpdesk', 'Knowledge Base'], commonFeatures: commonFeaturesByVariant.starter, uniqueFeatures: uniqueFeaturesByIndustry.others.starter, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
+      { id: 'growth', name: 'PARWA Growth', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 5000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 18000, badge: 'Recommended', scenario: "A customer has a complex billing question. PARWA Growth checks their account, identifies the issue, recommends a resolution, and escalates only if needed.", channels: [{ label: 'All Starter + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '3 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['Custom APIs', 'CRM', 'Helpdesk', 'Knowledge Base', 'Billing'], commonFeatures: commonFeaturesByVariant.growth, uniqueFeatures: uniqueFeaturesByIndustry.others.growth, keyAdvantage: 'Intelligent routing, adaptive learning, custom workflows', smartDecisions: 'Recommends resolutions based on historical data; flags exceptions', roi: 'Replaces ~$18k/month in junior agent salaries', bestFor: 'SMBs with 200–500 daily tickets', coreCapability: 'Everything Starter does + Intelligent Recommendations. 3 concurrent calls.' },
+      { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 15000, humanAgentsReplaced: 5, avgHumanCostPerMonth: 28000, scenario: 'A VIP customer has a complex multi-department issue. PARWA High coordinates across teams, approves a $50 credit, and provides a complete resolution — all automatically.', channels: [{ label: 'All Growth channels', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '5 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'Video screen-sharing', icon: <Video className="w-3.5 h-3.5" /> }], integrations: ['Custom APIs', 'CRM', 'Helpdesk', 'Knowledge Base', 'Billing', 'Analytics'], commonFeatures: commonFeaturesByVariant.high, uniqueFeatures: uniqueFeaturesByIndustry.others.high, keyAdvantage: 'Custom workflows, cross-department coordination, proactive support', roi: 'Replaces ~$28k/month in senior agent salaries', bestFor: 'SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support. 5 calls + video.' },
+    ],
+  };
+}
 
 // ─── Static Data ─────────────────────────────────────────────────────────────
 
@@ -206,20 +213,24 @@ const defaultPrimary = '#1A1A1A';
 const defaultAccent = '#FF7F11';
 const defaultAccentRgb = '255,127,17';
 
-const cancellationPoints = [
-  { icon: CalendarClock, text: 'Cancel anytime — no long-term contracts' },
-  { icon: CreditCard, text: 'No refunds once paid' },
-  { icon: Info, text: 'Access continues until the end of your billing month' },
-  { icon: XCircle, text: 'No free trials — start with confidence from day one' },
-  { icon: X, text: 'Payment failure stops service immediately' },
-];
+function getCancellationPoints() {
+  return [
+    { icon: CalendarClock, text: 'Cancel anytime — no long-term contracts' },
+    { icon: CreditCard, text: 'No refunds once paid' },
+    { icon: Info, text: 'Access continues until the end of your billing month' },
+    { icon: XCircle, text: 'No free trials — start with confidence from day one' },
+    { icon: X, text: 'Payment failure stops service immediately' },
+  ];
+}
 
-const trustIndicators = [
-  { icon: Bot, label: 'AI-Powered' },
-  { icon: Zap, label: 'Instant Setup' },
-  { icon: ShieldCheck, label: 'Enterprise Ready' },
-  { icon: Sparkles, label: 'Continuous Learning' },
-];
+function getTrustIndicators() {
+  return [
+    { icon: Bot, label: 'AI-Powered' },
+    { icon: Zap, label: 'Instant Setup' },
+    { icon: ShieldCheck, label: 'Enterprise Ready' },
+    { icon: Sparkles, label: 'Continuous Learning' },
+  ];
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -356,11 +367,12 @@ export default function ModelsPage() {
   const discountedTotal = appliedCoupon ? applyCouponDiscount(totalMonthly, appliedCoupon) : totalMonthly;
   const isFreeCheckout = discountedTotal === 0;
 
+  const industries = getIndustries();
   const activeIndustry = selectedIndustry ? industries.find(i => i.id === selectedIndustry)! : null;
   const primary = activeIndustry?.primary || defaultPrimary;
   const accent = activeIndustry?.accent || defaultAccent;
   const accentRgb = activeIndustry?.accentRgb || defaultAccentRgb;
-  const currentVariants = selectedIndustry ? variantData[selectedIndustry] : null;
+  const currentVariants = selectedIndustry ? getVariantData()[selectedIndustry] : null;
 
   const handleFreeChat = (variantId?: string) => {
     const context: Record<string, unknown> = {
@@ -450,7 +462,7 @@ export default function ModelsPage() {
             </p>
             {/* Trust indicators */}
             <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mt-8">
-              {trustIndicators.map((item) => {
+              {getTrustIndicators().map((item) => {
                 const Icon = item.icon;
                 return (
                   <div key={item.label} className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full border backdrop-blur-sm transition-colors duration-500" style={{ backgroundColor: `rgba(${accentRgb},0.1)`, borderColor: `rgba(${accentRgb},0.3)`, color: accent }}>
@@ -1189,7 +1201,7 @@ export default function ModelsPage() {
                   <p className="text-sm sm:text-base" style={{ color: 'rgba(255,255,255,0.4)' }}>Simple, fair, and transparent — just like our pricing.</p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {cancellationPoints.map((point) => {
+                  {getCancellationPoints().map((point) => {
                     const Icon = point.icon;
                     return (
                       <div key={point.text} className="flex items-start gap-3 p-4 rounded-xl border bg-white/5 backdrop-blur-sm hover:border-white/20 transition-all duration-300" style={{ borderColor: `rgba(${accentRgb},0.2)` }}>
