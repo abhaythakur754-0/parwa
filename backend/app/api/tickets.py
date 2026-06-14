@@ -64,6 +64,8 @@ class TicketDetail(BaseModel):
     customer_name: str = ""
     customer_email: str = ""
     variant_tier: str = "parwa"
+    quality_score: float = Field(0.0, description="AI quality score 0-100 from quality_scorer node")
+    quality_issues: list[str] = Field(default_factory=list, description="Quality issues flagged by the scorer")
     created_at: str
     updated_at: str
     message_count: int = 0
@@ -80,6 +82,7 @@ class TicketListItem(BaseModel):
     channel: str
     customer_name: str
     variant_tier: str
+    quality_score: float = Field(0.0, description="AI quality score 0-100 from quality_scorer node")
     created_at: str
     updated_at: str
     ai_action_count: int = 0
@@ -101,6 +104,7 @@ class TicketStatsResponse(BaseModel):
     by_channel: dict[str, int] = {}
     by_priority: dict[str, int] = {}
     avg_resolution_hours: float = 0.0
+    avg_quality_score: float = Field(0.0, description="Average AI quality score across all tickets")
     ai_actions_today: int = 0
     pending_approvals: int = 0
 
@@ -129,6 +133,8 @@ def _seed_tickets(company_id: str) -> list[dict]:
             "customer_name": "Alice Johnson",
             "customer_email": "alice@example.com",
             "variant_tier": "parwa",
+            "quality_score": 87.5,
+            "quality_issues": [],
             "created_at": now,
             "updated_at": now,
             "messages": [
@@ -153,6 +159,8 @@ def _seed_tickets(company_id: str) -> list[dict]:
             "customer_name": "Bob Smith",
             "customer_email": "bob@example.com",
             "variant_tier": "parwa",
+            "quality_score": 92.0,
+            "quality_issues": [],
             "created_at": now,
             "updated_at": now,
             "messages": [
@@ -175,6 +183,8 @@ def _seed_tickets(company_id: str) -> list[dict]:
             "customer_name": "Carol Davis",
             "customer_email": "carol@example.com",
             "variant_tier": "mini",
+            "quality_score": 62.0,
+            "quality_issues": ["pending_approval", "no_specific_data"],
             "created_at": now,
             "updated_at": now,
             "messages": [
@@ -196,6 +206,8 @@ def _seed_tickets(company_id: str) -> list[dict]:
             "customer_name": "Dan Wilson",
             "customer_email": "dan@example.com",
             "variant_tier": "high",
+            "quality_score": 95.0,
+            "quality_issues": [],
             "created_at": now,
             "updated_at": now,
             "messages": [
@@ -217,6 +229,8 @@ def _seed_tickets(company_id: str) -> list[dict]:
             "customer_name": "Frank Lee",
             "customer_email": "frank@example.com",
             "variant_tier": "high",
+            "quality_score": 78.0,
+            "quality_issues": ["generic_response", "missing_specific_data"],
             "created_at": now,
             "updated_at": now,
             "messages": [
@@ -240,6 +254,8 @@ def _seed_tickets(company_id: str) -> list[dict]:
             "customer_name": "Grace Kim",
             "customer_email": "grace@example.com",
             "variant_tier": "parwa",
+            "quality_score": 45.0,
+            "quality_issues": ["no_action_taken", "no_conclusion_yet", "response_too_short"],
             "created_at": now,
             "updated_at": now,
             "messages": [
@@ -284,6 +300,9 @@ def get_ticket_stats(
             by_channel=by_channel,
             by_priority=by_priority,
             avg_resolution_hours=4.2,
+            avg_quality_score=round(
+                sum(t.get("quality_score", 0.0) for t in tickets) / max(len(tickets), 1), 1
+            ),
             ai_actions_today=sum(len(t.get("ai_actions", [])) for t in tickets),
             pending_approvals=sum(
                 1 for t in tickets
@@ -339,6 +358,7 @@ def list_tickets(
                 channel=t["channel"],
                 customer_name=t["customer_name"],
                 variant_tier=t["variant_tier"],
+                quality_score=t.get("quality_score", 0.0),
                 created_at=t["created_at"],
                 updated_at=t["updated_at"],
                 ai_action_count=len(t.get("ai_actions", [])),
@@ -383,6 +403,8 @@ def get_ticket_detail(
             customer_name=ticket["customer_name"],
             customer_email=ticket["customer_email"],
             variant_tier=ticket["variant_tier"],
+            quality_score=ticket.get("quality_score", 0.0),
+            quality_issues=ticket.get("quality_issues", []),
             created_at=ticket["created_at"],
             updated_at=ticket["updated_at"],
             message_count=len(ticket.get("messages", [])),
