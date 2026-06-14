@@ -686,8 +686,17 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
       };
 
       // Get Paddle discount code/ID if a coupon is applied
+      // PRIORITY: Use discountId over discountCode (more reliable, no case-sensitivity issues)
       const paddleDiscountCode = getPaddleDiscountCode(appliedCoupon);
       const paddleDiscountId = getPaddleDiscountId(appliedCoupon);
+
+      console.log('[cost-breakdown] Checkout config:', {
+        isFreeCheckout,
+        discountedTotal,
+        discountCode: paddleDiscountCode,
+        discountId: paddleDiscountId,
+        checkoutItems,
+      });
 
       // ── Step 1: Try server-side checkout (backend creates Paddle transaction) ──
       let checkoutUrl: string | null = null;
@@ -714,9 +723,12 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
         if (res.ok) {
           const checkoutData = await res.json();
           checkoutUrl = checkoutData.checkout_url || null;
+          console.log('[cost-breakdown] Server checkout response:', checkoutData);
+        } else {
+          console.warn('[cost-breakdown] Server checkout failed:', res.status, await res.text().catch(() => ''));
         }
-      } catch {
-        // API unavailable — continue with client-side Paddle checkout
+      } catch (err) {
+        console.warn('[cost-breakdown] Server checkout API unavailable:', err);
       }
 
       // If we got a checkout_url from backend, redirect to it
@@ -733,27 +745,34 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
       // ── Step 2: Client-side Paddle checkout (items-based overlay) ──
       // Re-check Paddle availability (might have loaded since initial check)
       const paddle = await getPaddleInstance();
+      console.log('[cost-breakdown] Paddle instance:', paddle ? 'available' : 'not available');
 
       if (paddle && checkoutItems.length > 0) {
         setPaddleStatus('ready');
+        // Pass discountId (preferred) or discountCode — NOT both
+        // Paddle only accepts one type at a time
+        const effectiveDiscountCode = paddleDiscountId ? undefined : paddleDiscountCode;
+        const effectiveDiscountId = paddleDiscountId || undefined;
+        
         const opened = await openCheckoutWithItems(
           checkoutItems,
           customData,
-          // onPaymentSuccess — ONLY triggers after Paddle confirms the transaction
+          // onPaymentSuccess — triggers after Paddle confirms the transaction
           handlePaymentSuccess,
-          // onCheckoutClosed — user closed without paying
+          // onCheckoutClosed — user closed without completing
           () => {
             toast('Checkout closed — payment is required to activate your plan.', { icon: '⚠️' });
             setIsSubmitting(false);
           },
-          // Pass Paddle discount code/ID for pre-applied discounts
-          paddleDiscountCode,
-          paddleDiscountId,
+          effectiveDiscountCode,
+          effectiveDiscountId,
         );
 
         if (opened) {
+          console.log('[cost-breakdown] Paddle overlay opened successfully');
           return; // Paddle overlay is showing — wait for user to complete or close
         }
+        console.warn('[cost-breakdown] Paddle overlay did NOT open');
       }
 
       // ── Step 3: Paddle unavailable — try re-initializing ──
@@ -762,6 +781,9 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
         const retryPaddle = await getPaddleInstance();
         if (retryPaddle && checkoutItems.length > 0) {
           setPaddleStatus('ready');
+          const effectiveDiscountCode = paddleDiscountId ? undefined : paddleDiscountCode;
+          const effectiveDiscountId = paddleDiscountId || undefined;
+
           const opened = await openCheckoutWithItems(
             checkoutItems,
             customData,
@@ -770,13 +792,16 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
               toast('Checkout closed — payment is required to activate your plan.', { icon: '⚠️' });
               setIsSubmitting(false);
             },
-            paddleDiscountCode,
-            paddleDiscountId,
+            effectiveDiscountCode,
+            effectiveDiscountId,
           );
-          if (opened) return;
+          if (opened) {
+            console.log('[cost-breakdown] Paddle overlay opened on retry');
+            return;
+          }
         }
-      } catch {
-        // Paddle truly unavailable
+      } catch (err) {
+        console.warn('[cost-breakdown] Paddle retry failed:', err);
       }
 
       // ── Step 4: Paddle unavailable — handle based on checkout type ──

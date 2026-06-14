@@ -60,6 +60,13 @@ export default function ProfilePage() {
   } | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [subscriptionInfo, setSubscriptionInfo] = useState<{
+    hasSubscription: boolean;
+    planName: string;
+    variants: string[];
+    totalMonthly: number;
+    couponCode: string | null;
+  } | null>(null);
 
   useEffect(() => {
     try {
@@ -71,6 +78,62 @@ export default function ProfilePage() {
       setUserData(JSON.parse(stored));
     } catch {
       router.replace('/login?redirect=/profile');
+    }
+
+    // Check subscription/purchase info from localStorage
+    try {
+      const onboardingCompleted = localStorage.getItem('parwa_onboarding_completed') === 'true';
+      const pricingCtx = localStorage.getItem('parwa_pricing_context');
+      const variantsCtx = localStorage.getItem('parwa_onboarding_variants');
+
+      if (onboardingCompleted || pricingCtx || variantsCtx) {
+        let planName = 'Free Trial';
+        let variants: string[] = [];
+        let totalMonthly = 0;
+        let couponCode: string | null = null;
+
+        if (pricingCtx) {
+          const ctx = JSON.parse(pricingCtx);
+          if (ctx.variants && Array.isArray(ctx.variants)) {
+            variants = ctx.variants.map((v: Record<string, unknown>) => {
+              const nameMap: Record<string, string> = {
+                starter: 'Starter', mini_parwa: 'Starter',
+                growth: 'Growth', parwa: 'Growth',
+                high: 'High', parwa_high: 'High',
+              };
+              return nameMap[v.id as string] || nameMap[String(v)] || String(v.id || v);
+            });
+          }
+          totalMonthly = ctx.discountedTotal ?? ctx.totalMonthly ?? 0;
+          couponCode = ctx.couponCode || null;
+          planName = variants.length > 0 ? variants.join(' + ') : 'Free Trial';
+        } else if (variantsCtx) {
+          const ctx = JSON.parse(variantsCtx);
+          if (ctx.variants && Array.isArray(ctx.variants)) {
+            variants = ctx.variants.map((v: Record<string, unknown>) => {
+              const nameMap: Record<string, string> = {
+                starter: 'Starter', mini_parwa: 'Starter',
+                growth: 'Growth', parwa: 'Growth',
+                high: 'High', parwa_high: 'High',
+              };
+              return nameMap[v.id as string] || nameMap[String(v)] || String(v.id || v);
+            });
+          }
+          totalMonthly = ctx.totalMonthly ?? 0;
+          couponCode = ctx.couponCode || null;
+          planName = variants.length > 0 ? variants.join(' + ') : 'Free Trial';
+        }
+
+        setSubscriptionInfo({
+          hasSubscription: onboardingCompleted || variants.length > 0,
+          planName,
+          variants,
+          totalMonthly,
+          couponCode,
+        });
+      }
+    } catch {
+      // ignore parse errors
     }
   }, [router]);
 
@@ -194,10 +257,17 @@ export default function ProfilePage() {
                 {userData.email}
               </p>
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-3">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-orange-500/10 border border-orange-500/20 text-orange-300">
-                  <Crown className="w-3 h-3" />
-                  Free Trial
-                </span>
+                {subscriptionInfo?.hasSubscription ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
+                    <Crown className="w-3 h-3" />
+                    {subscriptionInfo.planName}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-orange-500/10 border border-orange-500/20 text-orange-300">
+                    <Crown className="w-3 h-3" />
+                    Free Trial — No plan purchased yet
+                  </span>
+                )}
                 {userData.is_verified && (
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
                     <CheckCircle className="w-3 h-3" />
@@ -225,10 +295,10 @@ export default function ProfilePage() {
         {/* ── Stats Grid ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { icon: MessageSquare, label: 'Messages', value: '20/day', color: 'text-orange-400' },
+            { icon: MessageSquare, label: 'Messages', value: subscriptionInfo?.hasSubscription ? 'Unlimited' : '20/day', color: 'text-orange-400' },
             { icon: Clock, label: 'Member Since', value: memberSinceShort, color: 'text-orange-400' },
             { icon: Shield, label: 'Status', value: userData.is_verified ? 'Verified' : 'Unverified', color: userData.is_verified ? 'text-green-400' : 'text-amber-400' },
-            { icon: CreditCard, label: 'Plan', value: 'Free Trial', color: 'text-orange-400' },
+            { icon: CreditCard, label: 'Plan', value: subscriptionInfo?.hasSubscription ? subscriptionInfo.planName : 'Free Trial', color: subscriptionInfo?.hasSubscription ? 'text-emerald-400' : 'text-orange-400' },
           ].map((stat) => (
             <div
               key={stat.label}
@@ -320,6 +390,98 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* ── Subscription & Billing ── */}
+        <div
+          className="rounded-2xl overflow-hidden"
+          style={{
+            background: subscriptionInfo?.hasSubscription
+              ? 'linear-gradient(135deg, rgba(16,185,129,0.04) 0%, rgba(16,185,129,0.01) 100%)'
+              : 'linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)',
+            border: subscriptionInfo?.hasSubscription
+              ? '1px solid rgba(16,185,129,0.15)'
+              : '1px solid rgba(255,255,255,0.06)',
+          }}
+        >
+          <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-orange-400" />
+              Subscription & Billing
+            </h2>
+          </div>
+          <div className="divide-y divide-white/5">
+            {subscriptionInfo?.hasSubscription ? (
+              <>
+                <div className="flex items-center gap-3 px-5 py-3.5">
+                  <Crown className="w-4 h-4 text-emerald-400/70" />
+                  <div className="flex-1">
+                    <p className="text-[11px] text-white/30 uppercase tracking-wider">Current Plan</p>
+                    <p className="text-sm text-emerald-300 font-medium">{subscriptionInfo.planName}</p>
+                  </div>
+                  <span className="text-lg font-bold text-white">
+                    ${subscriptionInfo.totalMonthly.toLocaleString()}<span className="text-xs text-white/40">/mo</span>
+                  </span>
+                </div>
+                {subscriptionInfo.couponCode && (
+                  <div className="flex items-center gap-3 px-5 py-3.5">
+                    <Ticket className="w-4 h-4 text-orange-400/70" />
+                    <div className="flex-1">
+                      <p className="text-[11px] text-white/30 uppercase tracking-wider">Coupon Applied</p>
+                      <p className="text-sm text-orange-300 font-medium">{subscriptionInfo.couponCode.toUpperCase()}</p>
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-center gap-3 px-5 py-3.5">
+                  <Shield className="w-4 h-4 text-emerald-400/70" />
+                  <div className="flex-1">
+                    <p className="text-[11px] text-white/30 uppercase tracking-wider">Billing Status</p>
+                    <p className="text-sm text-emerald-300">Active</p>
+                  </div>
+                </div>
+                <div className="px-5 py-3.5">
+                  <Link
+                    href="/models"
+                    className="text-sm text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1"
+                  >
+                    <Crown className="w-3.5 h-3.5" />
+                    Change or upgrade plan
+                  </Link>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 px-5 py-3.5">
+                  <Crown className="w-4 h-4 text-orange-400/70" />
+                  <div className="flex-1">
+                    <p className="text-[11px] text-white/30 uppercase tracking-wider">Current Plan</p>
+                    <p className="text-sm text-white/80">Free Trial — No plan purchased yet</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 px-5 py-3.5">
+                  <MessageSquare className="w-4 h-4 text-orange-400/70" />
+                  <div className="flex-1">
+                    <p className="text-[11px] text-white/30 uppercase tracking-wider">Daily Message Limit</p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                        <div className="h-full w-1/4 rounded-full bg-gradient-to-r from-orange-500 to-orange-400" />
+                      </div>
+                      <span className="text-xs text-orange-300 font-medium">5 / 20</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="px-5 py-4">
+                  <Link
+                    href="/models"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] shadow-lg shadow-orange-600/20 hover:shadow-orange-600/40 transition-all duration-300"
+                  >
+                    <Crown className="w-4 h-4" />
+                    Choose a Plan to Get Started
+                  </Link>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
         {/* ── Quick Actions ── */}
         <div
           className="rounded-2xl overflow-hidden"
@@ -335,6 +497,16 @@ export default function ProfilePage() {
             </h2>
           </div>
           <div className="py-2">
+            {subscriptionInfo?.hasSubscription && (
+              <Link
+                href="/dashboard"
+                className="flex items-center gap-3 px-5 py-3 text-sm text-white/70 hover:text-white hover:bg-orange-500/10 transition-all duration-200"
+              >
+                <BarChart3 className="w-4 h-4 text-orange-400/60" />
+                <span className="flex-1">Go to Dashboard</span>
+                <ChevronRight className="w-4 h-4 text-white/20" />
+              </Link>
+            )}
             <Link
               href="/jarvis"
               className="flex items-center gap-3 px-5 py-3 text-sm text-white/70 hover:text-white hover:bg-orange-500/10 transition-all duration-200"

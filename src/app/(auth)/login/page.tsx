@@ -62,25 +62,51 @@ function LoginContent() {
   // ── After successful login, redirect to source page ──────
 
   async function redirectAfterLogin(_isNewUser?: boolean) {
-    // After login, redirect users back to the page they came from.
-    // Users can explore the website freely — onboarding is not forced.
-    // They can start onboarding later from the models page confirm flow
-    // or dashboard prompt.
+    // Smart redirect after login:
+    // 1. If user has completed onboarding (purchased a variant) → /dashboard
+    // 2. If user came from a specific page → back to that page
+    // 3. Default → /models (so they can pick a plan)
 
-    // Silently cache onboarding state for later use (e.g. dashboard prompts)
+    // Check if user has already purchased/completed onboarding
+    const hasCompletedOnboarding = localStorage.getItem('parwa_onboarding_completed') === 'true';
+    const hasPricingContext = localStorage.getItem('parwa_pricing_context');
+
+    // Silently check onboarding state from backend too
     try {
       const res = await fetch('/api/onboarding/state');
       if (res.ok) {
         const state = await res.json();
         if (state.status === 'completed' || state.first_victory_completed) {
           localStorage.setItem('parwa_onboarding_completed', 'true');
+          // User has an active subscription — go to dashboard
+          router.push('/dashboard');
+          return;
         }
       }
     } catch {
-      // API unavailable — don't block the user
+      // API unavailable — fall through to localStorage check
     }
 
-    router.push(redirectTo);
+    // If localStorage says onboarding completed, go to dashboard
+    if (hasCompletedOnboarding) {
+      router.push('/dashboard');
+      return;
+    }
+
+    // If redirect was specified (e.g. came from /models?redirect=...), honor it
+    if (redirectTo && redirectTo !== '/') {
+      router.push(redirectTo);
+      return;
+    }
+
+    // If user has pricing context but hasn't completed onboarding, send to onboarding
+    if (hasPricingContext) {
+      router.push('/onboarding');
+      return;
+    }
+
+    // New user or no purchase yet — send to models page to pick a plan
+    router.push('/models');
   }
 
   // ── Email Login Handler ───────────────────────────────────────────

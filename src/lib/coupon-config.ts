@@ -14,10 +14,10 @@
  * How to set up a test coupon:
  * 1. Go to Paddle Dashboard → Catalog → Discounts
  * 2. Create a discount:
- *    - Code: "durga754" (use lowercase)
+ *    - Code: "PARWAFREE"
  *    - Type: Percentage
  *    - Amount: 100%
- *    - Recurring: false (one-time discount for testing)
+ *    - Recurring: Yes (so it applies every billing cycle)
  * 3. Copy the discount code and optionally the Paddle discount ID
  * 4. Add it to the COUPONS list below, or set env var NEXT_PUBLIC_PADDLE_FREE_DISCOUNT_CODE
  *
@@ -30,7 +30,7 @@
 // ── Coupon Definition ──────────────────────────────────────────────
 
 export interface Coupon {
-  /** Human-readable code the user types (e.g. "durga754") */
+  /** Human-readable code the user types (e.g. "PARWAFREE") */
   code: string;
   /** Discount percentage (0-100). 100 = completely free */
   discountPercent: number;
@@ -63,9 +63,13 @@ export interface Coupon {
  */
 export const COUPONS: Coupon[] = [
   {
-    code: process.env.NEXT_PUBLIC_PADDLE_FREE_DISCOUNT_CODE || 'durga754',
+    // ⚠️  Must EXACTLY match the code configured in Paddle Dashboard → Catalog → Discounts
+    // Paddle discount codes are CASE-SENSITIVE when passed programmatically.
+    // If your Paddle discount code is "DURGA754" (uppercase), use that exactly.
+    code: process.env.NEXT_PUBLIC_PADDLE_FREE_DISCOUNT_CODE || 'DURGA754',
     discountPercent: 100,
     // Paddle Discount ID from Dashboard → Catalog → Discounts
+    // Using discountId is MORE RELIABLE than discountCode (no case-sensitivity issues)
     paddleDiscountId: process.env.NEXT_PUBLIC_PADDLE_FREE_DISCOUNT_ID || 'dsc_01kv26d0s3qt2w1vpj888qa2nh',
     description: '100% off — Full testing access (all variants free)',
     active: true,

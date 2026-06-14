@@ -26,10 +26,12 @@
 import { initializePaddle, Paddle, type CheckoutOpenOptions } from '@paddle/paddle-js';
 
 let paddleInstance: Paddle | undefined;
+let paddleInitFailed = false;
 
 /**
  * Initialize Paddle.js with the public key from environment.
  * Safe to call multiple times — returns cached instance.
+ * Will retry if initialization failed on a previous call.
  */
 export async function getPaddleInstance(): Promise<Paddle | undefined> {
   if (paddleInstance) return paddleInstance;
@@ -42,16 +44,41 @@ export async function getPaddleInstance(): Promise<Paddle | undefined> {
 
   try {
     const isProduction = paddleKey.startsWith('live_') || paddleKey.startsWith('pdl_live_');
+    console.log('[paddle] Initializing with key prefix:', paddleKey.substring(0, 10) + '...', 'environment:', isProduction ? 'production' : 'sandbox');
     paddleInstance = await initializePaddle({
       environment: isProduction ? 'production' : 'sandbox',
       token: paddleKey,
     });
-    console.log('[paddle] Initialized successfully, environment:', isProduction ? 'production' : 'sandbox');
+    if (paddleInstance) {
+      console.log('[paddle] Initialized successfully, environment:', isProduction ? 'production' : 'sandbox');
+      paddleInitFailed = false;
+    } else {
+      console.error('[paddle] initializePaddle returned undefined — key may be invalid or truncated');
+      paddleInitFailed = true;
+    }
     return paddleInstance;
   } catch (err) {
     console.error('[paddle] Failed to initialize Paddle.js:', err);
+    paddleInitFailed = true;
     return undefined;
   }
+}
+
+/**
+ * Check if Paddle initialization previously failed.
+ * Useful for showing diagnostic info in the UI.
+ */
+export function isPaddleInitFailed(): boolean {
+  return paddleInitFailed;
+}
+
+/**
+ * Reset the Paddle instance (e.g., after key change).
+ * Next call to getPaddleInstance() will re-initialize.
+ */
+export function resetPaddleInstance(): void {
+  paddleInstance = undefined;
+  paddleInitFailed = false;
 }
 
 /**
@@ -159,18 +186,21 @@ export async function openCheckoutWithItems(
     };
 
     // Build the final options with the correct discount type
+    // PRIORITY: Use discountId over discountCode — it's more reliable
+    // (no case-sensitivity issues, always matches what's in Paddle)
     let checkoutOptions: CheckoutOpenOptions;
-    if (discountCode) {
-      checkoutOptions = { ...baseOptions, discountCode };
-    } else if (discountId) {
+    if (discountId) {
       checkoutOptions = { ...baseOptions, discountId };
+    } else if (discountCode) {
+      checkoutOptions = { ...baseOptions, discountCode };
     } else {
       checkoutOptions = { ...baseOptions };
     }
 
     if (discountCode || discountId) {
-      console.log('[paddle] Applying discount:', discountCode ? `code=${discountCode}` : `id=${discountId}`);
+      console.log('[paddle] Applying discount:', discountId ? `id=${discountId}` : `code=${discountCode}`);
     }
+    console.log('[paddle] Opening checkout with', items.length, 'items, prices:', items.map(i => i.priceId));
 
     paddle.Checkout.open(checkoutOptions);
 

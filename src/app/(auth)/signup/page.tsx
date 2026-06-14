@@ -101,10 +101,14 @@ function SignupContent() {
       // Sync AuthContext state from localStorage
       hydrate();
 
-      // After signup, redirect to wherever they came from.
-      // If they came from the models page, redirectTo already points to onboarding.
-      // If they came from the main page, let them continue exploring.
-      router.push(redirectTo);
+      // After signup, redirect to models page to pick a plan.
+      // If they came from a specific page (e.g. /models?source=pricing), honor that redirect.
+      // Otherwise, go to /models so they can start onboarding.
+      if (redirectTo && redirectTo !== '/') {
+        router.push(redirectTo);
+      } else {
+        router.push('/models');
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Registration failed. Please try again.';
       setError(message);
@@ -152,10 +156,16 @@ function SignupContent() {
       const isNewUser = Boolean(result.is_new_user);
       toast.success(isNewUser ? 'Account created with Google!' : 'Signed in with Google!');
 
-      // After signup/login, redirect users back to the page they came from
-      // so they can continue exploring the website. They can start onboarding
-      // later from the models page confirm flow or dashboard prompt.
-      router.push(redirectTo);
+      // After signup/login, redirect smartly
+      // If onboarding completed → dashboard; if from specific page → there; else → models
+      const hasCompletedOnboarding = localStorage.getItem('parwa_onboarding_completed') === 'true';
+      if (hasCompletedOnboarding) {
+        router.push('/dashboard');
+      } else if (redirectTo && redirectTo !== '/') {
+        router.push(redirectTo);
+      } else {
+        router.push('/models');
+      }
     } catch (err) {
       const message = err instanceof Error
         ? err.message

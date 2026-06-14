@@ -8,11 +8,70 @@ import Link from 'next/link';
  *
  * Dark premium navigation bar with orange accents — matches the
  * PARWA dark theme (#0D0D0D/#1A1A1A + #FF7F11 orange).
+ *
+ * ADAPTS to auth state:
+ * - Logged out → "Get Started" button → /login
+ * - Logged in  → "Hi, {name}" + Dashboard link → /dashboard
  */
+
+interface UserData {
+  full_name?: string;
+  email?: string;
+}
 
 export default function NavigationBar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [user, setUser] = useState<UserData | null>(null);
+
+  // Check login state from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('parwa_user');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && (parsed.email || parsed.full_name)) {
+          setUser(parsed);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Also listen for storage changes (login/logout in another tab)
+  useEffect(() => {
+    const handler = () => {
+      try {
+        const stored = localStorage.getItem('parwa_user');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && (parsed.email || parsed.full_name)) {
+            setUser(parsed);
+            return;
+          }
+        }
+      } catch {
+        // ignore
+      }
+      setUser(null);
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+    } finally {
+      localStorage.removeItem('parwa_user');
+      setUser(null);
+      setIsMobileMenuOpen(false);
+    }
+  };
+
+  const firstName = user?.full_name?.split(' ')[0] || '';
+  const displayName = firstName || user?.email?.split('@')[0] || '';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -88,7 +147,7 @@ export default function NavigationBar() {
             ))}
           </div>
 
-          {/* Login + Social Proof - Desktop */}
+          {/* Auth Area - Desktop */}
           <div className="hidden md:flex items-center gap-4">
             <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20">
               <div className="flex -space-x-1.5">
@@ -98,12 +157,39 @@ export default function NavigationBar() {
               </div>
               <span className="text-xs text-gray-400 font-medium">2,400+ businesses trust us</span>
             </div>
-            <Link
-              href="/login"
-              className="bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-500 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:-translate-y-0.5 focus-visible-ring"
-            >
-              Get Started
-            </Link>
+            {user ? (
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/dashboard"
+                  className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white transition-all duration-300 rounded-xl hover:bg-white/[0.06]"
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  href="/profile"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-white/[0.06] border border-white/[0.1] text-white hover:bg-white/[0.1] transition-all duration-300"
+                >
+                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-xs font-bold">
+                    {(displayName || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <span>Hi, {displayName || 'User'}</span>
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-2 text-sm text-gray-500 hover:text-gray-300 transition-colors"
+                  title="Logout"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                className="bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-500 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:-translate-y-0.5 focus-visible-ring"
+              >
+                Get Started
+              </Link>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -155,16 +241,51 @@ export default function NavigationBar() {
                     {link.name}
                   </Link>
               ))}
-              <Link
-                href="/login"
-                className={`mt-3 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white px-5 py-3.5 rounded-xl text-sm font-semibold text-center transition-all duration-500 focus-visible-ring ${
-                  isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
-                }`}
-                style={{ transitionDelay: isMobileMenuOpen ? '240ms' : '0ms' }}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Get Started
-              </Link>
+              {user ? (
+                <>
+                  <Link
+                    href="/dashboard"
+                    className={`px-4 py-3.5 text-orange-400 hover:text-orange-300 text-sm font-semibold rounded-xl hover:bg-orange-500/10 transition-all duration-500 ${
+                      isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
+                    }`}
+                    style={{ transitionDelay: isMobileMenuOpen ? '240ms' : '0ms' }}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Dashboard
+                  </Link>
+                  <div className={`flex items-center gap-3 px-4 py-3.5 ${
+                    isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
+                  }`} style={{ transitionDelay: isMobileMenuOpen ? '300ms' : '0ms' }}>
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-sm font-bold">
+                      {(displayName || 'U').charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">Hi, {displayName || 'User'}</p>
+                      <p className="text-[10px] text-gray-500">{user.email}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className={`px-4 py-3.5 text-sm text-gray-400 hover:text-white rounded-xl hover:bg-white/[0.06] transition-all duration-500 text-left ${
+                      isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
+                    }`}
+                    style={{ transitionDelay: isMobileMenuOpen ? '360ms' : '0ms' }}
+                  >
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  className={`mt-3 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white px-5 py-3.5 rounded-xl text-sm font-semibold text-center transition-all duration-500 focus-visible-ring ${
+                    isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'
+                  }`}
+                  style={{ transitionDelay: isMobileMenuOpen ? '240ms' : '0ms' }}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Get Started
+                </Link>
+              )}
             </div>
           </div>
         </div>
