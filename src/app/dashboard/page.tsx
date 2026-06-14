@@ -248,6 +248,25 @@ export default function DashboardPage() {
         // Only use if it has variants (meaning user actually selected something)
         if (ctx && ctx.variants && ctx.variants.length > 0) {
           setPricingContext(ctx);
+          return;
+        }
+      }
+    } catch { /* ignore */ }
+
+    // Fallback: check parwa_onboarding_variants (saved by FirstVictory step)
+    try {
+      const raw = localStorage.getItem('parwa_onboarding_variants');
+      if (raw) {
+        const ctx = JSON.parse(raw);
+        if (ctx && ctx.variants && ctx.variants.length > 0) {
+          setPricingContext({
+            industry: ctx.industry,
+            isAnnual: undefined,
+            variants: ctx.variants,
+            totalMonthly: ctx.totalMonthly,
+            couponCode: null,
+            discountedTotal: undefined,
+          });
         }
       }
     } catch { /* ignore */ }
@@ -340,10 +359,23 @@ export default function DashboardPage() {
   }, []);
 
   // ── Fetch Variant Instances ───────────────────────────────────────
+  // The /api/ai/instances endpoint returns { items: [...], total: N }
+  // NOT a plain array — we must extract the `items` property.
 
   useEffect(() => {
-    get<VariantInstance[]>('/api/ai/instances')
-      .then((variants) => setVariantsState({ status: 'success', data: variants }))
+    get<unknown>('/api/ai/instances')
+      .then((raw) => {
+        // Handle both response shapes: { items: [...] } and plain [...]
+        let variants: VariantInstance[];
+        if (Array.isArray(raw)) {
+          variants = raw as VariantInstance[];
+        } else if (raw && typeof raw === 'object' && Array.isArray((raw as Record<string, unknown>).items)) {
+          variants = (raw as Record<string, unknown>).items as VariantInstance[];
+        } else {
+          variants = [];
+        }
+        setVariantsState({ status: 'success', data: variants });
+      })
       .catch(() => setVariantsState({ status: 'error', data: null }));
   }, []);
 
@@ -384,10 +416,113 @@ export default function DashboardPage() {
       <WelcomeCard
         userName={user?.full_name}
         companyName={user?.company_name}
-        industry="Support"
+        industry={pricingContext?.industry || 'Support'}
         variantCount={data?.summary.resolved ?? 0}
         resolutionRate={data ? formatPercent(data.summary.resolution_rate) : '0%'}
       />
+
+      {/* ── Your Selected Plan Banner ─────────────────────────────── */}
+      {pricingContext && pricingContext.variants && pricingContext.variants.length > 0 && (
+        <div className="rounded-xl border border-orange-500/20 bg-gradient-to-r from-orange-500/5 via-orange-500/[0.08] to-amber-500/5 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-orange-500/20">
+                P
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-white">Your Selected Plan</h2>
+                <p className="text-[10px] text-zinc-500">
+                  {pricingContext.industry ? `${pricingContext.industry.charAt(0).toUpperCase() + pricingContext.industry.slice(1)} · ` : ''}
+                  {pricingContext.isAnnual ? 'Annual billing' : 'Monthly billing'}
+                  {pricingContext.couponCode ? ` · Coupon: ${pricingContext.couponCode}` : ''}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-bold text-orange-400 tabular-nums">
+                ${pricingContext.discountedTotal != null ? pricingContext.discountedTotal.toLocaleString() : (pricingContext.totalMonthly ?? 0).toLocaleString()}
+                <span className="text-xs text-zinc-500 font-normal">/mo</span>
+              </p>
+              {pricingContext.couponCode && pricingContext.discountedTotal != null && pricingContext.totalMonthly !== pricingContext.discountedTotal && (
+                <p className="text-[10px] text-zinc-500 line-through">${(pricingContext.totalMonthly ?? 0).toLocaleString()}/mo</p>
+              )}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            {pricingContext.variants.map((v) => {
+              const tierMap: Record<string, string> = { starter: 'mini_parwa', growth: 'parwa', high: 'parwa_high' };
+              const tier = tierMap[v.id] || v.id;
+              const typeColor = variantTypeColors[tier] ?? { bg: 'bg-orange-500/10', text: 'text-orange-400' };
+              const variantLabels: Record<string, string> = {
+                mini_parwa: 'Starter', starter: 'Starter',
+                parwa: 'Growth', growth: 'Growth',
+                parwa_high: 'High', high: 'High',
+              };
+              const tierColors: Record<string, string> = {
+                mini_parwa: 'from-emerald-500 to-emerald-400', starter: 'from-emerald-500 to-emerald-400',
+                parwa: 'from-sky-500 to-sky-400', growth: 'from-sky-500 to-sky-400',
+                parwa_high: 'from-amber-500 to-amber-400', high: 'from-amber-500 to-amber-400',
+              };
+              return (
+                <div
+                  key={v.id}
+                  className="rounded-lg bg-[#1A1A1A]/80 border border-white/[0.06] p-3.5 flex items-center gap-3"
+                >
+                  <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${tierColors[tier] || 'from-orange-500 to-amber-400'} flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-lg`}>
+                    {(variantLabels[tier] || 'P').charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-semibold text-white truncate">
+                        {v.name || variantLabels[tier] || tier}
+                      </span>
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${typeColor.bg} ${typeColor.text}`}>
+                        {tier.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-zinc-500">
+                      <span>${v.monthlyPrice.toLocaleString()}/mo</span>
+                      <span className="text-zinc-700">×</span>
+                      <span>{v.quantity}x</span>
+                      <span className="text-zinc-700">·</span>
+                      <span className="text-orange-400 font-medium">${(v.monthlyPrice * v.quantity).toLocaleString()}/mo</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {/* Progress hint */}
+          {(() => {
+            const hasActiveVariants = variantsState.status === 'success' && variantsState.data && variantsState.data.length > 0;
+            return (
+              <div className="mt-3 pt-3 border-t border-orange-500/10 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {hasActiveVariants ? (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-xs text-emerald-400 font-medium">Active & Running</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                      <span className="text-xs text-amber-400 font-medium">Pending Activation</span>
+                    </>
+                  )}
+                </div>
+                {!hasActiveVariants && (
+                  <button
+                    onClick={() => router.push('/onboarding')}
+                    className="text-xs text-orange-400 hover:text-orange-300 font-medium transition-colors"
+                  >
+                    Complete Onboarding →
+                  </button>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
 
       {/* ── Cost Savings / ROI Section ──────────────────────────────── */}
       {isCostLoading ? (

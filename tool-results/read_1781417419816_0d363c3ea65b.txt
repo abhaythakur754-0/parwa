@@ -1,0 +1,1192 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useEffect, useMemo } from 'react';
+     4→import {
+     5→  Receipt,
+     6→  ArrowRight,
+     7→  Loader2,
+     8→  Mic,
+     9→  Plug,
+    10→  TrendingDown,
+    11→  Shield,
+    12→  AlertCircle,
+    13→  ExternalLink,
+    14→  Plus,
+    15→  Minus,
+    16→  AlertTriangle,
+    17→  Sparkles,
+    18→  Brain,
+    19→  BarChart3,
+    20→  Tag,
+    21→  Check,
+    22→  X,
+    23→  Ticket,
+    24→} from 'lucide-react';
+    25→import toast from 'react-hot-toast';
+    26→import { cn } from '@/lib/utils';
+    27→import { openCheckoutWithItems, getPaddleInstance, VARIANT_PRICE_IDS } from '@/lib/paddle';
+    28→import {
+    29→  validateCoupon,
+    30→  applyCouponDiscount,
+    31→  getPaddleDiscountCode,
+    32→  getPaddleDiscountId,
+    33→  formatDiscount,
+    34→  type Coupon,
+    35→} from '@/lib/coupon-config';
+    36→import type { ParwaVariant } from './IndustryVariantStep';
+    37→import type { PricingContext } from './IndustryVariantStep';
+    38→import {
+    39→  VARIANT_PRICES,
+    40→  VARIANT_DISPLAY_NAMES,
+    41→  VARIANT_LIMITS,
+    42→  VARIANT_AI_INFO,
+    43→  ADD_ONS as SHARED_ADD_ONS,
+    44→  AGENT_COST_MONTHLY,
+    45→  TICKETS_PER_AGENT,
+    46→  OVERAGE_PRICE_PER_TICKET,
+    47→  normalizeTier,
+    48→  type VariantTier,
+    49→  type OnboardingVariant,
+    50→} from '@/lib/pricing-config';
+    51→
+    52→// ── Onboarding variant → VariantTier mapping ────────────────────────
+    53→
+    54→const ONBOARDING_TO_TIER: Record<ParwaVariant, VariantTier> = {
+    55→  mini_parwa: 'starter',
+    56→  parwa: 'growth',
+    57→  parwa_high: 'high',
+    58→};
+    59→
+    60→const TIER_TO_ONBOARDING: Record<VariantTier, ParwaVariant> = {
+    61→  starter: 'mini_parwa',
+    62→  growth: 'parwa',
+    63→  high: 'parwa_high',
+    64→};
+    65→
+    66→// ── Variant Display Data (sourced from pricing-config.ts) ──────────────
+    67→
+    68→const VARIANT_DISPLAY: Record<VariantTier, {
+    69→  name: string;
+    70→  price: number;
+    71→  priceLabel: string;
+    72→  aiPipeline: number;
+    73→  ticketVolume: number;
+    74→  tagline: string;
+    75→}> = {
+    76→  starter: {
+    77→    name: VARIANT_DISPLAY_NAMES.starter,
+    78→    price: VARIANT_PRICES.starter,
+    79→    priceLabel: `$${VARIANT_PRICES.starter.toLocaleString()}/mo`,
+    80→    aiPipeline: VARIANT_AI_INFO.starter.pipelineSteps,
+    81→    ticketVolume: VARIANT_LIMITS.starter.monthlyTickets,
+    82→    tagline: VARIANT_AI_INFO.starter.techniques,
+    83→  },
+    84→  growth: {
+    85→    name: VARIANT_DISPLAY_NAMES.growth,
+    86→    price: VARIANT_PRICES.growth,
+    87→    priceLabel: `$${VARIANT_PRICES.growth.toLocaleString()}/mo`,
+    88→    aiPipeline: VARIANT_AI_INFO.growth.pipelineSteps,
+    89→    ticketVolume: VARIANT_LIMITS.growth.monthlyTickets,
+    90→    tagline: VARIANT_AI_INFO.growth.techniques,
+    91→  },
+    92→  high: {
+    93→    name: VARIANT_DISPLAY_NAMES.high,
+    94→    price: VARIANT_PRICES.high,
+    95→    priceLabel: `$${VARIANT_PRICES.high.toLocaleString()}/mo`,
+    96→    aiPipeline: VARIANT_AI_INFO.high.pipelineSteps,
+    97→    ticketVolume: VARIANT_LIMITS.high.monthlyTickets,
+    98→    tagline: VARIANT_AI_INFO.high.techniques,
+    99→  },
+   100→};
+   101→
+   102→// ── Add-Ons ────────────────────────────────────────────────────────────
+   103→
+   104→interface AddOn {
+   105→  key: 'voice' | 'customApi';
+   106→  name: string;
+   107→  description: string;
+   108→  price: number;
+   109→  icon: React.ElementType;
+   110→  /** Which variants already include this feature (no extra charge) */
+   111→  includedIn: VariantTier[];
+   112→}
+   113→
+   114→const ADD_ONS: AddOn[] = [
+   115→  {
+   116→    key: 'voice',
+   117→    name: 'Voice Channel',
+   118→    description: 'AI-powered inbound & outbound voice calls with real-time transcription.',
+   119→    price: 199,
+   120→    icon: Mic,
+   121→    includedIn: ['growth', 'high'],
+   122→  },
+   123→  {
+   124→    key: 'customApi',
+   125→    name: 'Custom API Connector',
+   126→    description: 'Connect any REST API with custom auth and schema mapping.',
+   127→    price: 49,
+   128→    icon: Plug,
+   129→    includedIn: ['growth', 'high'],
+   130→  },
+   131→];
+   132→
+   133→// ── Savings Calculation (uses AGENT_COST_MONTHLY from pricing-config) ──
+   134→
+   135→function estimateSavings(ticketVolume: number, monthlyCost: number): {
+   136→  agentsReplaced: number;
+   137→  humanCost: number;
+   138→  savings: number;
+   139→  savingsPercent: number;
+   140→} {
+   141→  const agentsReplaced = Math.max(1, Math.round(ticketVolume / TICKETS_PER_AGENT));
+   142→  const humanCost = agentsReplaced * AGENT_COST_MONTHLY;
+   143→  const savings = Math.max(0, humanCost - monthlyCost);
+   144→  const savingsPercent = humanCost > 0 ? Math.round((savings / humanCost) * 100) : 0;
+   145→  return { agentsReplaced, humanCost, savings, savingsPercent };
+   146→}
+   147→
+   148→// ── Usage Bar Component ────────────────────────────────────────────────
+   149→
+   150→function UsageBar({
+   151→  used,
+   152→  total,
+   153→  label,
+   154→  unit,
+   155→  overageRate,
+   156→}: {
+   157→  used: number;
+   158→  total: number;
+   159→  label: string;
+   160→  unit: string;
+   161→  overageRate?: string;
+   162→}) {
+   163→  const pct = total > 0 ? Math.min((used / total) * 100, 100) : 0;
+   164→  const isOverLimit = used > total;
+   165→
+   166→  return (
+   167→    <div className="space-y-1.5">
+   168→      <div className="flex items-center justify-between">
+   169→        <span className="text-[10px] text-orange-200/40">{label}</span>
+   170→        <span className={cn(
+   171→          'text-[10px] font-medium',
+   172→          isOverLimit ? 'text-red-400' : 'text-orange-200/50'
+   173→        )}>
+   174→          {used.toLocaleString()} / {total.toLocaleString()} {unit}
+   175→        </span>
+   176→      </div>
+   177→      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+   178→        <div
+   179→          className={cn(
+   180→            'h-full rounded-full transition-all duration-700',
+   181→            isOverLimit ? 'bg-gradient-to-r from-red-500 to-red-400' : 'bg-gradient-to-r from-emerald-500 to-emerald-400'
+   182→          )}
+   183→          style={{ width: `${pct}%` }}
+   184→        />
+   185→      </div>
+   186→      {isOverLimit && overageRate && (
+   187→        <p className="text-[9px] text-red-400 flex items-center gap-1">
+   188→          <AlertTriangle className="w-2.5 h-2.5" />
+   189→          Over limit — {(used - total).toLocaleString()} overage at {overageRate}/ticket
+   190→        </p>
+   191→      )}
+   192→    </div>
+   193→  );
+   194→}
+   195→
+   196→// ── Variant Mixer Card ─────────────────────────────────────────────────
+   197→
+   198→function VariantMixerCard({
+   199→  tier,
+   200→  isActive,
+   201→  quantity,
+   202→  onToggle,
+   203→  onQuantityChange,
+   204→  discountedPrice,
+   205→}: {
+   206→  tier: VariantTier;
+   207→  isActive: boolean;
+   208→  quantity: number;
+   209→  onToggle: () => void;
+   210→  onQuantityChange: (qty: number) => void;
+   211→  discountedPrice?: number;
+   212→}) {
+   213→  const info = VARIANT_DISPLAY[tier];
+   214→  const limits = VARIANT_LIMITS[tier];
+   215→  const aiInfo = VARIANT_AI_INFO[tier];
+   216→  const displayPrice = discountedPrice !== undefined ? discountedPrice : info.price;
+   217→  const isFree = displayPrice === 0;
+   218→
+   219→  return (
+   220→    <div
+   221→      className={cn(
+   222→        'w-full text-left p-4 rounded-xl border transition-all duration-200',
+   223→        isActive
+   224→          ? 'border-orange-500/30 bg-orange-500/5'
+   225→          : 'border-white/[0.06] hover:border-orange-500/15'
+   226→      )}
+   227→      style={!isActive ? { background: 'rgba(255,255,255,0.03)' } : undefined}
+   228→    >
+   229→      <div className="flex items-center justify-between mb-2">
+   230→        <div>
+   231→          <div className="flex items-center gap-2">
+   232→            <button onClick={onToggle} className="focus:outline-none">
+   233→              <span className={cn(
+   234→                'text-sm font-semibold',
+   235→                isActive ? 'text-orange-400' : 'text-white'
+   236→              )}>
+   237→                {info.name}
+   238→              </span>
+   239→            </button>
+   240→            {isActive && (
+   241→              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
+   242→                Active
+   243→              </span>
+   244→            )}
+   245→            {isActive && isFree && (
+   246→              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400">
+   247→                FREE
+   248→              </span>
+   249→            )}
+   250→          </div>
+   251→        </div>
+   252→        <span className={cn(
+   253→          'text-base font-bold',
+   254→          isFree ? 'text-emerald-400' : 'text-white'
+   255→        )}>
+   256→          {isFree ? '$0/mo' : `$${displayPrice.toLocaleString()}/mo`}
+   257→          {isFree && discountedPrice !== undefined && discountedPrice !== info.price && (
+   258→            <span className="text-[10px] text-orange-200/25 line-through ml-1">${info.price.toLocaleString()}</span>
+   259→          )}
+   260→        </span>
+   261→      </div>
+   262→
+   263→      <div className="grid grid-cols-3 gap-2 mb-3">
+   264→        <div className="rounded-lg p-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
+   265→          <p className="text-[9px] text-orange-200/30 uppercase tracking-wider">Pipeline</p>
+   266→          <p className="text-xs font-medium text-white">{aiInfo.pipelineSteps}-step</p>
+   267→        </div>
+   268→        <div className="rounded-lg p-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
+   269→          <p className="text-[9px] text-orange-200/30 uppercase tracking-wider">Tickets</p>
+   270→          <p className="text-xs font-medium text-white">{limits.monthlyTickets.toLocaleString()}/mo</p>
+   271→        </div>
+   272→        <div className="rounded-lg p-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
+   273→          <p className="text-[9px] text-orange-200/30 uppercase tracking-wider">AI Resolve</p>
+   274→          <p className="text-xs font-medium text-white">{Math.round(aiInfo.aiResolution * 100)}%</p>
+   275→        </div>
+   276→      </div>
+   277→
+   278→      {/* Quantity selector when active, or add button when inactive */}
+   279→      {isActive ? (
+   280→        <div className="flex items-center gap-3">
+   281→          <span className="text-[10px] text-orange-200/30">Qty:</span>
+   282→          <button
+   283→            onClick={(e) => { e.stopPropagation(); onQuantityChange(quantity - 1); }}
+   284→            className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center justify-center text-sm"
+   285→          >−</button>
+   286→          <span className="text-sm font-bold text-white w-6 text-center">{quantity}</span>
+   287→          <button
+   288→            onClick={(e) => { e.stopPropagation(); onQuantityChange(quantity + 1); }}
+   289→            className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center justify-center text-sm"
+   290→          >+</button>
+   291→          <button
+   292→            onClick={onToggle}
+   293→            className="ml-auto px-3 py-1.5 rounded-lg text-[10px] font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all flex items-center gap-1"
+   294→          >
+   295→            <Minus className="w-3 h-3" /> Remove
+   296→          </button>
+   297→        </div>
+   298→      ) : (
+   299→        <button
+   300→          onClick={onToggle}
+   301→          className="w-full h-8 rounded-lg flex items-center justify-center gap-1.5 text-xs font-medium transition-all bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] shadow-lg shadow-orange-500/20"
+   302→        >
+   303→          <Plus className="w-3.5 h-3.5" /> Add Variant
+   304→        </button>
+   305→      )}
+   306→    </div>
+   307→  );
+   308→}
+   309→
+   310→// ── Coupon Code Input Component ──────────────────────────────────────
+   311→
+   312→function CouponCodeInput({
+   313→  appliedCoupon,
+   314→  onApply,
+   315→  onRemove,
+   316→}: {
+   317→  appliedCoupon: Coupon | null;
+   318→  onApply: (coupon: Coupon) => void;
+   319→  onRemove: () => void;
+   320→}) {
+   321→  const [code, setCode] = useState('');
+   322→  const [isValidating, setIsValidating] = useState(false);
+   323→  const [error, setError] = useState<string | null>(null);
+   324→
+   325→  const handleApply = () => {
+   326→    if (!code.trim()) return;
+   327→    setIsValidating(true);
+   328→    setError(null);
+   329→
+   330→    // Simulate brief validation delay
+   331→    setTimeout(() => {
+   332→      const coupon = validateCoupon(code);
+   333→      if (coupon) {
+   334→        onApply(coupon);
+   335→        toast.success(`Coupon applied: ${formatDiscount(coupon)}`);
+   336→      } else {
+   337→        setError('Invalid coupon code. Please check and try again.');
+   338→        toast.error('Invalid coupon code');
+   339→      }
+   340→      setIsValidating(false);
+   341→    }, 300);
+   342→  };
+   343→
+   344→  const handleKeyDown = (e: React.KeyboardEvent) => {
+   345→    if (e.key === 'Enter') {
+   346→      e.preventDefault();
+   347→      handleApply();
+   348→    }
+   349→  };
+   350→
+   351→  if (appliedCoupon) {
+   352→    return (
+   353→      <div className="rounded-xl border border-emerald-500/30 p-4" style={{ background: 'rgba(16,185,129,0.06)' }}>
+   354→        <div className="flex items-center justify-between">
+   355→          <div className="flex items-center gap-3">
+   356→            <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+   357→              <Ticket className="w-4 h-4 text-emerald-400" />
+   358→            </div>
+   359→            <div>
+   360→              <div className="flex items-center gap-2">
+   361→                <span className="text-sm font-semibold text-emerald-400">
+   362→                  {appliedCoupon.code}
+   363→                </span>
+   364→                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
+   365→                  {formatDiscount(appliedCoupon)}
+   366→                </span>
+   367→              </div>
+   368→              <p className="text-[10px] text-orange-200/30 mt-0.5">
+   369→                {appliedCoupon.description}
+   370→              </p>
+   371→            </div>
+   372→          </div>
+   373→          <button
+   374→            onClick={onRemove}
+   375→            className="p-1.5 rounded-lg hover:bg-white/[0.06] text-orange-200/30 hover:text-red-400 transition-all"
+   376→            title="Remove coupon"
+   377→          >
+   378→            <X className="w-4 h-4" />
+   379→          </button>
+   380→        </div>
+   381→        {appliedCoupon.discountPercent === 100 && (
+   382→          <div className="mt-3 flex items-start gap-2 rounded-lg p-2.5" style={{ background: 'rgba(16,185,129,0.08)' }}>
+   383→            <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+   384→            <div>
+   385→              <p className="text-[10px] font-medium text-emerald-300">
+   386→                Free checkout — $0.00 total
+   387→              </p>
+   388→              <p className="text-[9px] text-orange-200/25 mt-0.5">
+   389→                Paddle will process a $0 transaction. Your subscription will be activated after confirmation.
+   390→              </p>
+   391→            </div>
+   392→          </div>
+   393→        )}
+   394→      </div>
+   395→    );
+   396→  }
+   397→
+   398→  return (
+   399→    <div className="rounded-xl border border-white/[0.08] p-4 space-y-3" style={{ background: 'rgba(255,255,255,0.03)' }}>
+   400→      <div className="flex items-center gap-2">
+   401→        <Tag className="w-4 h-4 text-orange-400" />
+   402→        <span className="text-xs text-orange-200/50 uppercase tracking-wider font-medium">
+   403→          Have a coupon code?
+   404→        </span>
+   405→      </div>
+   406→      <div className="flex gap-2">
+   407→        <input
+   408→          type="text"
+   409→          value={code}
+   410→          onChange={(e) => {
+   411→            setCode(e.target.value.toUpperCase());
+   412→            setError(null);
+   413→          }}
+   414→          onKeyDown={handleKeyDown}
+   415→          placeholder="Enter coupon code"
+   416→          className={cn(
+   417→            'flex-1 h-10 rounded-lg bg-white/[0.04] border px-3 text-sm text-white placeholder-orange-200/20',
+   418→            'focus:outline-none focus:border-orange-500/50 transition-all',
+   419→            error ? 'border-red-500/40' : 'border-white/[0.08]'
+   420→          )}
+   421→        />
+   422→        <button
+   423→          onClick={handleApply}
+   424→          disabled={!code.trim() || isValidating}
+   425→          className="h-10 px-4 rounded-lg bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] text-xs font-semibold hover:from-orange-400 hover:to-amber-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+   426→        >
+   427→          {isValidating ? (
+   428→            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+   429→          ) : (
+   430→            <Check className="w-3.5 h-3.5" />
+   431→          )}
+   432→          Apply
+   433→        </button>
+   434→      </div>
+   435→      {error && (
+   436→        <p className="text-[10px] text-red-400 flex items-center gap-1">
+   437→          <AlertCircle className="w-3 h-3" />
+   438→          {error}
+   439→        </p>
+   440→      )}
+   441→    </div>
+   442→  );
+   443→}
+   444→
+   445→// ── Props ──────────────────────────────────────────────────────────────
+   446→
+   447→interface CostBreakdownStepProps {
+   448→  variant: ParwaVariant;
+   449→  industry?: string;
+   450→  onComplete: () => void;
+   451→}
+   452→
+   453→// ── Component ──────────────────────────────────────────────────────────
+   454→
+   455→export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProps) {
+   456→  const initialTier = ONBOARDING_TO_TIER[variant] || 'growth';
+   457→  const [activeVariants, setActiveVariants] = useState<VariantTier[]>([initialTier]);
+   458→  const [variantQuantities, setVariantQuantities] = useState<Record<VariantTier, number>>({ starter: 1, growth: 1, high: 1 });
+   459→  const [addOns, setAddOns] = useState<{ voice: boolean; customApi: boolean }>({ voice: false, customApi: false });
+   460→  const [isSubmitting, setIsSubmitting] = useState(false);
+   461→  const [paddleStatus, setPaddleStatus] = useState<'unknown' | 'ready' | 'unavailable'>('unknown');
+   462→  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+   463→  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+   464→  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+   465→
+   466→  // Restore add-ons and multi-variant selections from localStorage
+   467→  useEffect(() => {
+   468→    try {
+   469→      const stored = localStorage.getItem('parwa_pricing_context');
+   470→      if (stored) {
+   471→        const ctx = JSON.parse(stored) as PricingContext & {
+   472→          selectedVariants?: string[];
+   473→          variantQuantities?: Record<string, number>;
+   474→        };
+   475→        if (ctx.addOns) {
+   476→          setAddOns(ctx.addOns);
+   477→        }
+   478→        // Restore multiple variants if selected on ModelsPage
+   479→        if (ctx.selectedVariants && Array.isArray(ctx.selectedVariants) && ctx.selectedVariants.length > 0) {
+   480→          const tiers: VariantTier[] = ctx.selectedVariants
+   481→            .map((v: string) => {
+   482→              const normalized = normalizeTier(v);
+   483→              return ['starter', 'growth', 'high'].includes(normalized) ? normalized as VariantTier : null;
+   484→            })
+   485→            .filter(Boolean) as VariantTier[];
+   486→          if (tiers.length > 0) {
+   487→            setActiveVariants(tiers);
+   488→          }
+   489→        }
+   490→        // Restore variant quantities
+   491→        if (ctx.variantQuantities && typeof ctx.variantQuantities === 'object') {
+   492→          const qtyMap: Record<string, number> = ctx.variantQuantities;
+   493→          const newQuantities = { ...variantQuantities };
+   494→          for (const [variantKey, qty] of Object.entries(qtyMap)) {
+   495→            const tier = normalizeTier(variantKey);
+   496→            if (['starter', 'growth', 'high'].includes(tier)) {
+   497→              newQuantities[tier as VariantTier] = Math.max(1, Math.min(qty as number, 10));
+   498→            }
+   499→          }
+   500→          setVariantQuantities(newQuantities);
+   501→        }
+   502→        // Restore coupon from ModelsPage
+   503→        if (ctx.couponCode && typeof ctx.couponCode === 'string') {
+   504→          const coupon = validateCoupon(ctx.couponCode);
+   505→          if (coupon) {
+   506→            setAppliedCoupon(coupon);
+   507→          }
+   508→        }
+   509→      }
+   510→    } catch {
+   511→      // ignore
+   512→    }
+   513→  }, []);
+   514→
+   515→  // Check if Paddle.js is available
+   516→  useEffect(() => {
+   517→    getPaddleInstance().then((paddle) => {
+   518→      setPaddleStatus(paddle ? 'ready' : 'unavailable');
+   519→    }).catch(() => {
+   520→      setPaddleStatus('unavailable');
+   521→    });
+   522→  }, []);
+   523→
+   524→  // ── Calculations (pure math — D7, D10) ──────────────────────────────
+   525→
+   526→  const totalTicketLimit = useMemo(
+   527→    () => activeVariants.reduce((sum, tier) => sum + (VARIANT_LIMITS[tier].monthlyTickets * (variantQuantities[tier] || 1)), 0),
+   528→    [activeVariants, variantQuantities]
+   529→  );
+   530→
+   531→  const baseSubscription = useMemo(
+   532→    () => activeVariants.reduce((sum, tier) => sum + (VARIANT_PRICES[tier] * (variantQuantities[tier] || 1)), 0),
+   533→    [activeVariants, variantQuantities]
+   534→  );
+   535→
+   536→  const addOnTotal = useMemo(() => {
+   537→    let total = 0;
+   538→    if (addOns.voice) {
+   539→      const voiceAddOn = ADD_ONS.find((a) => a.key === 'voice')!;
+   540→      if (!activeVariants.some((t) => voiceAddOn.includedIn.includes(t))) {
+   541→        total += voiceAddOn.price;
+   542→      }
+   543→    }
+   544→    if (addOns.customApi) {
+   545→      const customApiAddOn = ADD_ONS.find((a) => a.key === 'customApi')!;
+   546→      if (!activeVariants.some((t) => customApiAddOn.includedIn.includes(t))) {
+   547→        total += customApiAddOn.price;
+   548→      }
+   549→    }
+   550→    return total;
+   551→  }, [addOns, activeVariants]);
+   552→
+   553→  const totalMonthly = baseSubscription + addOnTotal;
+   554→
+   555→  // ── Coupon-discounted total ──────────────────────────────────────
+   556→  const discountedTotal = useMemo(
+   557→    () => applyCouponDiscount(totalMonthly, appliedCoupon),
+   558→    [totalMonthly, appliedCoupon]
+   559→  );
+   560→  const isFreeCheckout = discountedTotal === 0;
+   561→
+   562→  // Per-variant discounted prices
+   563→  const variantDiscountedPrices = useMemo(() => {
+   564→    const prices: Record<VariantTier, number> = { starter: 0, growth: 0, high: 0 };
+   565→    for (const tier of activeVariants) {
+   566→      const variantPrice = VARIANT_PRICES[tier] * (variantQuantities[tier] || 1);
+   567→      prices[tier] = applyCouponDiscount(variantPrice, appliedCoupon);
+   568→    }
+   569→    return prices;
+   570→  }, [activeVariants, variantQuantities, appliedCoupon]);
+   571→
+   572→  const savings = estimateSavings(totalTicketLimit, discountedTotal);
+   573→
+   574→  // Overage projection (estimates at 80% utilization)
+   575→  const projectedTickets = Math.round(totalTicketLimit * 0.8);
+   576→  const overageTickets = Math.max(0, projectedTickets - totalTicketLimit);
+   577→  const overageCost = overageTickets * OVERAGE_PRICE_PER_TICKET;
+   578→
+   579→  const toggleVariant = (tier: VariantTier) => {
+   580→    setActiveVariants((prev) => {
+   581→      if (prev.includes(tier)) {
+   582→        if (prev.length <= 1) {
+   583→          toast.error('You must have at least one active variant');
+   584→          return prev;
+   585→        }
+   586→        return prev.filter((t) => t !== tier);
+   587→      }
+   588→      return [...prev, tier];
+   589→    });
+   590→  };
+   591→
+   592→  const updateQuantity = (tier: VariantTier, qty: number) => {
+   593→    const newQty = Math.max(1, Math.min(qty, 10));
+   594→    setVariantQuantities((prev) => ({ ...prev, [tier]: newQty }));
+   595→  };
+   596→
+   597→  const toggleAddOn = (key: 'voice' | 'customApi') => {
+   598→    setAddOns((prev) => ({ ...prev, [key]: !prev[key] }));
+   599→  };
+   600→
+   601→  const handleApplyCoupon = (coupon: Coupon) => {
+   602→    setAppliedCoupon(coupon);
+   603→    setCheckoutError(null);
+   604→  };
+   605→
+   606→  const handleRemoveCoupon = () => {
+   607→    setAppliedCoupon(null);
+   608→    toast('Coupon removed');
+   609→  };
+   610→
+   611→  // ── Payment success handler — ONLY called after Paddle confirms ──
+   612→  const handlePaymentSuccess = () => {
+   613→    setPaymentConfirmed(true);
+   614→    localStorage.removeItem('parwa_payment_pending');
+   615→    if (isFreeCheckout) {
+   616→      toast.success('Subscription activated! Welcome to PARWA!');
+   617→    } else {
+   618→      toast.success('Payment successful! Welcome to PARWA!');
+   619→    }
+   620→    // Only trigger onboarding completion AFTER Paddle confirms
+   621→    onComplete();
+   622→  };
+   623→
+   624→  const handleProceed = async () => {
+   625→    setIsSubmitting(true);
+   626→    setCheckoutError(null);
+   627→
+   628→    try {
+   629→      // Update pricing context in localStorage
+   630→      const primaryOnboardingVariant = TIER_TO_ONBOARDING[activeVariants[0]] || 'parwa';
+   631→      const context: PricingContext = {
+   632→        industry: 'other',
+   633→        variant: primaryOnboardingVariant,
+   634→        addOns,
+   635→        totalMonthly,
+   636→        timestamp: new Date().toISOString(),
+   637→      };
+   638→
+   639→      // Preserve industry from existing context
+   640→      try {
+   641→        const stored = localStorage.getItem('parwa_pricing_context');
+   642→        if (stored) {
+   643→          const existing = JSON.parse(stored) as PricingContext;
+   644→          context.industry = existing.industry;
+   645→        }
+   646→      } catch {
+   647→        // ignore
+   648→      }
+   649→
+   650→      localStorage.setItem('parwa_pricing_context', JSON.stringify(context));
+   651→
+   652→      // ── Paddle Checkout Flow ──────────────────────────────────────
+   653→      const checkoutItems: Array<{ priceId: string; quantity: number }> = [];
+   654→
+   655→      // Add each active variant as a Paddle line item (with quantity)
+   656→      for (const tier of activeVariants) {
+   657→        const onboardingVariant = TIER_TO_ONBOARDING[tier];
+   658→        const variantPriceId = VARIANT_PRICE_IDS[onboardingVariant];
+   659→        const qty = variantQuantities[tier] || 1;
+   660→        if (variantPriceId) {
+   661→          checkoutItems.push({ priceId: variantPriceId, quantity: qty });
+   662→        }
+   663→      }
+   664→
+   665→      // Voice add-on (only for starter where it's not included)
+   666→      if (addOns.voice && !activeVariants.some((t) => ADD_ONS.find(a => a.key === 'voice')!.includedIn.includes(t))) {
+   667→        checkoutItems.push({ priceId: 'pri_voice_addon_01', quantity: 1 });
+   668→      }
+   669→
+   670→      // Custom API add-on (only for variants where it's not included)
+   671→      if (addOns.customApi && !activeVariants.some((t) => ADD_ONS.find(a => a.key === 'customApi')!.includedIn.includes(t))) {
+   672→        checkoutItems.push({ priceId: 'pri_custom_api_addon_01', quantity: 1 });
+   673→      }
+   674→
+   675→      const customData = {
+   676→        source: 'parwa_onboarding',
+   677→        variant: primaryOnboardingVariant,
+   678→        activeVariants: activeVariants.map((t) => TIER_TO_ONBOARDING[t]),
+   679→        variantQuantities,
+   680→        addOns,
+   681→        industry: context.industry,
+   682→        totalMonthly,
+   683→        couponCode: appliedCoupon?.code || null,
+   684→        discountedTotal,
+   685→        isFreeCheckout,
+   686→      };
+   687→
+   688→      // Get Paddle discount code/ID if a coupon is applied
+   689→      const paddleDiscountCode = getPaddleDiscountCode(appliedCoupon);
+   690→      const paddleDiscountId = getPaddleDiscountId(appliedCoupon);
+   691→
+   692→      // ── Step 1: Try server-side checkout (backend creates Paddle transaction) ──
+   693→      let checkoutUrl: string | null = null;
+   694→
+   695→      try {
+   696→        const res = await fetch('/api/onboarding/checkout', {
+   697→          method: 'POST',
+   698→          headers: { 'Content-Type': 'application/json' },
+   699→          body: JSON.stringify({
+   700→            variant: primaryOnboardingVariant,
+   701→            activeVariants: activeVariants.map((t) => TIER_TO_ONBOARDING[t]),
+   702→            variantQuantities,
+   703→            addOns,
+   704→            totalMonthly,
+   705→            industry: context.industry,
+   706→            couponCode: appliedCoupon?.code || null,
+   707→            discountCode: paddleDiscountCode,
+   708→            discountId: paddleDiscountId,
+   709→            discountedTotal,
+   710→            isFreeCheckout,
+   711→          }),
+   712→        });
+   713→
+   714→        if (res.ok) {
+   715→          const checkoutData = await res.json();
+   716→          checkoutUrl = checkoutData.checkout_url || null;
+   717→        }
+   718→      } catch {
+   719→        // API unavailable — continue with client-side Paddle checkout
+   720→      }
+   721→
+   722→      // If we got a checkout_url from backend, redirect to it
+   723→      if (checkoutUrl) {
+   724→        localStorage.setItem('parwa_payment_pending', JSON.stringify({
+   725→          activeVariants, addOns, totalMonthly, variantQuantities,
+   726→          couponCode: appliedCoupon?.code || null,
+   727→          pendingAt: new Date().toISOString(),
+   728→        }));
+   729→        window.location.href = checkoutUrl;
+   730→        return;
+   731→      }
+   732→
+   733→      // ── Step 2: Client-side Paddle checkout (items-based overlay) ──
+   734→      // Re-check Paddle availability (might have loaded since initial check)
+   735→      const paddle = await getPaddleInstance();
+   736→
+   737→      if (paddle && checkoutItems.length > 0) {
+   738→        setPaddleStatus('ready');
+   739→        const opened = await openCheckoutWithItems(
+   740→          checkoutItems,
+   741→          customData,
+   742→          // onPaymentSuccess — ONLY triggers after Paddle confirms the transaction
+   743→          handlePaymentSuccess,
+   744→          // onCheckoutClosed — user closed without paying
+   745→          () => {
+   746→            toast('Checkout closed — payment is required to activate your plan.', { icon: '⚠️' });
+   747→            setIsSubmitting(false);
+   748→          },
+   749→          // Pass Paddle discount code/ID for pre-applied discounts
+   750→          paddleDiscountCode,
+   751→          paddleDiscountId,
+   752→        );
+   753→
+   754→        if (opened) {
+   755→          return; // Paddle overlay is showing — wait for user to complete or close
+   756→        }
+   757→      }
+   758→
+   759→      // ── Step 3: Paddle unavailable — try re-initializing ──
+   760→      // Sometimes Paddle fails on first load but works on retry
+   761→      try {
+   762→        const retryPaddle = await getPaddleInstance();
+   763→        if (retryPaddle && checkoutItems.length > 0) {
+   764→          setPaddleStatus('ready');
+   765→          const opened = await openCheckoutWithItems(
+   766→            checkoutItems,
+   767→            customData,
+   768→            handlePaymentSuccess,
+   769→            () => {
+   770→              toast('Checkout closed — payment is required to activate your plan.', { icon: '⚠️' });
+   771→              setIsSubmitting(false);
+   772→            },
+   773→            paddleDiscountCode,
+   774→            paddleDiscountId,
+   775→          );
+   776→          if (opened) return;
+   777→        }
+   778→      } catch {
+   779→        // Paddle truly unavailable
+   780→      }
+   781→
+   782→      // ── Step 4: Paddle unavailable — handle based on checkout type ──
+   783→      setPaddleStatus('unavailable');
+   784→      localStorage.setItem('parwa_payment_pending', JSON.stringify({
+   785→        activeVariants, addOns, totalMonthly, variantQuantities,
+   786→        couponCode: appliedCoupon?.code || null,
+   787→        pendingAt: new Date().toISOString(),
+   788→      }));
+   789→
+   790→      if (isFreeCheckout) {
+   791→        // $0 checkout (100% coupon) — Paddle gateway is unavailable but the total is $0.
+   792→        // We still want to confirm the subscription through Paddle if possible, but if
+   793→        // Paddle is down, we can safely activate the free subscription since no money
+   794→        // is changing hands. The user applied a valid 100% coupon (e.g. "durga754").
+   795→        console.log('[cost-breakdown] Free checkout ($0) with Paddle unavailable — activating subscription');
+   796→        toast.success('Free plan activated! Welcome to PARWA!');
+   797→        handlePaymentSuccess();
+   798→      } else {
+   799→        // Paid checkout — payment gateway is REQUIRED. Block and show error.
+   800→        setCheckoutError(
+   801→          'Payment gateway is currently unavailable. Your plan configuration has been saved. ' +
+   802→          'Please refresh the page and try again, or contact support@parwa.buzz to complete your subscription.'
+   803→        );
+   804→        toast.error('Payment gateway unavailable — please try again or contact support.');
+   805→      }
+   806→    } catch (err) {
+   807→      console.error('[cost-breakdown] Error:', err);
+   808→      setCheckoutError('Something went wrong. Please try again.');
+   809→      toast.error('Something went wrong. Please try again.');
+   810→    } finally {
+   811→      setIsSubmitting(false);
+   812→    }
+   813→  };
+   814→
+   815→  return (
+   816→    <div className="space-y-6">
+   817→      {/* Header */}
+   818→      <div className="text-center space-y-2">
+   819→        <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+   820→          <Receipt className="w-7 h-7 text-emerald-400" />
+   821→        </div>
+   822→        <h2 className="text-2xl font-bold text-white">Review & Pay</h2>
+   823→        <p className="text-orange-200/40 text-sm">
+   824→          Configure your plan and complete payment to activate your AI agents.
+   825→        </p>
+   826→      </div>
+   827→
+   828→      {/* ── Paddle Status Indicator ─────────────────────────────────── */}
+   829→      {paddleStatus === 'unavailable' && (
+   830→        <div className="rounded-xl border border-amber-500/20 p-4 flex items-start gap-3" style={{ background: 'rgba(245,158,11,0.05)' }}>
+   831→          <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+   832→          <div>
+   833→            <p className="text-sm font-medium text-amber-300">Payment checkout unavailable</p>
+   834→            <p className="text-[10px] text-orange-200/30 mt-1">
+   835→              Paddle payment gateway is not configured. Your configuration will be saved and you can complete payment later.
+   836→            </p>
+   837→          </div>
+   838→        </div>
+   839→      )}
+   840→      {paddleStatus === 'ready' && (
+   841→        <div className="rounded-xl border border-emerald-500/20 p-3 flex items-center gap-2" style={{ background: 'rgba(16,185,129,0.04)' }}>
+   842→          <Shield className="w-4 h-4 text-emerald-400" />
+   843→          <p className="text-xs text-emerald-400">Secure checkout powered by Paddle</p>
+   844→          <ExternalLink className="w-3 h-3 text-emerald-400/60 ml-auto" />
+   845→        </div>
+   846→      )}
+   847→
+   848→      {/* ── 1. Variant Mixer ──────────────────────────────────────────── */}
+   849→      <div className="space-y-3">
+   850→        <div className="flex items-center gap-2">
+   851→          <Brain className="w-4 h-4 text-orange-400" />
+   852→          <label className="text-xs text-orange-200/40 uppercase tracking-wider font-medium">
+   853→            Active Variants
+   854→          </label>
+   855→          <span className="text-[10px] text-orange-200/25">
+   856→            Each variant adds its own ticket allocation and AI pipeline
+   857→          </span>
+   858→        </div>
+   859→        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+   860→          {(['starter', 'growth', 'high'] as VariantTier[]).map((tier) => (
+   861→            <VariantMixerCard
+   862→              key={tier}
+   863→              tier={tier}
+   864→              isActive={activeVariants.includes(tier)}
+   865→              quantity={variantQuantities[tier] || 1}
+   866→              onToggle={() => toggleVariant(tier)}
+   867→              onQuantityChange={(qty) => updateQuantity(tier, qty)}
+   868→              discountedPrice={activeVariants.includes(tier) ? variantDiscountedPrices[tier] : undefined}
+   869→            />
+   870→          ))}
+   871→        </div>
+   872→      </div>
+   873→
+   874→      {/* ── 2. Live Usage Bar & Overage Projection ──────────────────── */}
+   875→      <div className="rounded-xl border border-white/[0.06] p-4 space-y-4" style={{ background: 'rgba(255,255,255,0.03)' }}>
+   876→        <div className="flex items-center gap-2">
+   877→          <BarChart3 className="w-4 h-4 text-orange-400" />
+   878→          <span className="text-xs text-orange-200/50 uppercase tracking-wider font-medium">
+   879→            Live Usage & Overage Projection
+   880→          </span>
+   881→        </div>
+   882→        <UsageBar
+   883→          used={projectedTickets}
+   884→          total={totalTicketLimit}
+   885→          label="Ticket Usage (projected at 80%)"
+   886→          unit="tickets"
+   887→          overageRate={`$${OVERAGE_PRICE_PER_TICKET}`}
+   888→        />
+   889→        {overageCost > 0 && (
+   890→          <div className="rounded-lg border border-red-500/20 p-3 flex items-start gap-2" style={{ background: 'rgba(239,68,68,0.05)' }}>
+   891→            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+   892→            <div>
+   893→              <p className="text-xs font-medium text-red-400">Overage Projected</p>
+   894→              <p className="text-[10px] text-orange-200/30 mt-0.5">
+   895→                At 80% utilization, projected overage: ${overageCost.toFixed(2)} ({overageTickets.toLocaleString()} tickets × ${OVERAGE_PRICE_PER_TICKET}/ticket). Overage charged at end of billing cycle.
+   896→              </p>
+   897→            </div>
+   898→          </div>
+   899→        )}
+   900→        {overageCost === 0 && (
+   901→          <div className="rounded-lg border border-emerald-500/20 p-3 flex items-center gap-2" style={{ background: 'rgba(16,185,129,0.04)' }}>
+   902→            <Shield className="w-3.5 h-3.5 text-emerald-400" />
+   903→            <p className="text-[10px] text-emerald-400">Within limits at projected usage. No overage charges.</p>
+   904→          </div>
+   905→        )}
+   906→      </div>
+   907→
+   908→      {/* ── 3. Add-Ons ───────────────────────────────────────────────── */}
+   909→      <div className="space-y-3">
+   910→        <label className="text-xs text-orange-200/40 uppercase tracking-wider font-medium">
+   911→          Optional Add-Ons
+   912→        </label>
+   913→        {ADD_ONS.map((addOn) => {
+   914→          const Icon = addOn.icon;
+   915→          const isSelected = addOns[addOn.key];
+   916→          const isIncluded = activeVariants.some((t) => addOn.includedIn.includes(t));
+   917→          const showPrice = !isIncluded;
+   918→
+   919→          return (
+   920→            <button
+   921→              key={addOn.key}
+   922→              type="button"
+   923→              onClick={() => toggleAddOn(addOn.key)}
+   924→              className={cn(
+   925→                'w-full text-left p-4 rounded-xl border transition-all duration-200 flex items-start gap-4',
+   926→                isSelected
+   927→                  ? 'border-orange-500/30 bg-orange-500/5'
+   928→                  : 'border-white/[0.06] hover:border-orange-500/15'
+   929→              )}
+   930→              style={!isSelected ? { background: 'rgba(255,255,255,0.03)' } : undefined}
+   931→            >
+   932→              <div className={cn(
+   933→                'w-10 h-10 rounded-lg flex items-center justify-center shrink-0',
+   934→                isSelected ? 'bg-orange-500/10' : 'bg-white/[0.04]'
+   935→              )}>
+   936→                <Icon className={cn(
+   937→                  'w-5 h-5',
+   938→                  isSelected ? 'text-orange-400' : 'text-zinc-500'
+   939→                )} />
+   940→              </div>
+   941→              <div className="flex-1 min-w-0">
+   942→                <div className="flex items-center gap-2">
+   943→                  <p className={cn(
+   944→                    'text-sm font-medium',
+   945→                    isSelected ? 'text-orange-400' : 'text-white'
+   946→                  )}>
+   947→                    {addOn.name}
+   948→                  </p>
+   949→                  {isIncluded && (
+   950→                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
+   951→                      Included
+   952→                    </span>
+   953→                  )}
+   954→                </div>
+   955→                <p className="text-[10px] text-orange-200/30 mt-0.5">{addOn.description}</p>
+   956→              </div>
+   957→              <div className="flex flex-col items-end shrink-0 gap-1">
+   958→                {showPrice && (
+   959→                  <p className={cn(
+   960→                    'text-sm font-semibold',
+   961→                    isFreeCheckout ? 'text-emerald-400' : 'text-white'
+   962→                  )}>
+   963→                    {isFreeCheckout ? '$0/mo' : `$${addOn.price}/mo`}
+   964→                  </p>
+   965→                )}
+   966→                <div className={cn(
+   967→                  'w-8 h-5 rounded-full flex items-center px-0.5 transition-colors duration-200',
+   968→                  isSelected || isIncluded
+   969→                    ? 'bg-gradient-to-r from-orange-500 to-amber-400'
+   970→                    : 'bg-white/10'
+   971→                )}>
+   972→                  <div className={cn(
+   973→                    'w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200',
+   974→                    (isSelected || isIncluded) ? 'translate-x-3' : 'translate-x-0'
+   975→                  )} />
+   976→                </div>
+   977→              </div>
+   978→            </button>
+   979→          );
+   980→        })}
+   981→      </div>
+   982→
+   983→      {/* ── 4. Coupon Code ─────────────────────────────────────────────── */}
+   984→      <CouponCodeInput
+   985→        appliedCoupon={appliedCoupon}
+   986→        onApply={handleApplyCoupon}
+   987→        onRemove={handleRemoveCoupon}
+   988→      />
+   989→
+   990→      {/* ── 5. Cost Summary (pure math — D7) ──────────────────────────── */}
+   991→      <div
+   992→        className="rounded-xl border border-white/[0.08] p-5 space-y-3"
+   993→        style={{ background: 'rgba(255,255,255,0.03)' }}
+   994→      >
+   995→        {/* Per-variant breakdown */}
+   996→        {activeVariants.map((tier) => {
+   997→          const qty = variantQuantities[tier] || 1;
+   998→          const discounted = variantDiscountedPrices[tier];
+   999→          const originalPrice = VARIANT_PRICES[tier] * qty;
+  1000→          const hasDiscount = discounted < originalPrice;
+  1001→
+  1002→          return (
+  1003→            <div key={tier} className="flex items-center justify-between">
+  1004→              <span className="text-sm text-orange-200/50 flex items-center gap-1.5">
+  1005→                <div className={cn(
+  1006→                  'w-2 h-2 rounded-full',
+  1007→                  tier === 'starter' ? 'bg-emerald-400' : tier === 'growth' ? 'bg-orange-400' : 'bg-purple-400'
+  1008→                )} />
+  1009→                {VARIANT_DISPLAY[tier].name}
+  1010→                {qty > 1 && <span className="text-orange-200/30"> × {qty}</span>}
+  1011→              </span>
+  1012→              <span className={cn(
+  1013→                'text-sm',
+  1014→                hasDiscount ? 'text-emerald-400' : 'text-white'
+  1015→              )}>
+  1016→                {hasDiscount && (
+  1017→                  <span className="text-orange-200/25 line-through mr-1.5">
+  1018→                    ${originalPrice.toLocaleString()}/mo
+  1019→                  </span>
+  1020→                )}
+  1021→                ${discounted.toLocaleString()}/mo
+  1022→              </span>
+  1023→            </div>
+  1024→          );
+  1025→        })}
+  1026→
+  1027→        {/* Add-ons */}
+  1028→        {addOns.voice && !activeVariants.some((t) => ADD_ONS.find(a => a.key === 'voice')!.includedIn.includes(t)) && (
+  1029→          <div className="flex items-center justify-between">
+  1030→            <span className="text-sm text-orange-200/50">Voice Channel</span>
+  1031→            <span className={cn(
+  1032→              'text-sm',
+  1033→              isFreeCheckout ? 'text-emerald-400' : 'text-white'
+  1034→            )}>
+  1035→              {isFreeCheckout ? (
+  1036→                <><span className="text-orange-200/25 line-through mr-1.5">$199/mo</span>$0/mo</>
+  1037→              ) : '$199/mo'}
+  1038→            </span>
+  1039→          </div>
+  1040→        )}
+  1041→        {addOns.customApi && !activeVariants.some((t) => ADD_ONS.find(a => a.key === 'customApi')!.includedIn.includes(t)) && (
+  1042→          <div className="flex items-center justify-between">
+  1043→            <span className="text-sm text-orange-200/50">Custom API Connector</span>
+  1044→            <span className={cn(
+  1045→              'text-sm',
+  1046→              isFreeCheckout ? 'text-emerald-400' : 'text-white'
+  1047→            )}>
+  1048→              {isFreeCheckout ? (
+  1049→                <><span className="text-orange-200/25 line-through mr-1.5">$49/mo</span>$0/mo</>
+  1050→              ) : '$49/mo'}
+  1051→            </span>
+  1052→          </div>
+  1053→        )}
+  1054→
+  1055→        {/* Integrations = $0 (D13) */}
+  1056→        <div className="flex items-center justify-between">
+  1057→          <span className="text-sm text-orange-200/50">Integrations</span>
+  1058→          <span className="text-sm text-emerald-400">$0 (free)</span>
+  1059→        </div>
+  1060→
+  1061→        {/* Coupon discount line */}
+  1062→        {appliedCoupon && discountedTotal < totalMonthly && (
+  1063→          <div className="flex items-center justify-between py-1">
+  1064→            <span className="text-sm text-emerald-400 flex items-center gap-1.5">
+  1065→              <Tag className="w-3 h-3" />
+  1066→              Coupon: {appliedCoupon.code} ({formatDiscount(appliedCoupon)})
+  1067→            </span>
+  1068→            <span className="text-sm text-emerald-400 font-medium">
+  1069→              −${(totalMonthly - discountedTotal).toLocaleString()}/mo
+  1070→            </span>
+  1071→          </div>
+  1072→        )}
+  1073→
+  1074→        <div className={cn(
+  1075→          'border-t pt-3 flex items-center justify-between',
+  1076→          isFreeCheckout ? 'border-emerald-500/20' : 'border-white/[0.06]'
+  1077→        )}>
+  1078→          <span className="text-sm font-semibold text-white">Total Monthly</span>
+  1079→          <span className={cn(
+  1080→            'text-lg font-bold',
+  1081→            isFreeCheckout ? 'text-emerald-400' : 'text-orange-400'
+  1082→          )}>
+  1083→            {isFreeCheckout ? (
+  1084→              <>
+  1085→                <span className="text-orange-200/25 line-through text-sm mr-2">${totalMonthly.toLocaleString()}/mo</span>
+  1086→                $0/mo
+  1087→              </>
+  1088→            ) : (
+  1089→              `$${discountedTotal.toLocaleString()}/mo`
+  1090→            )}
+  1091→          </span>
+  1092→        </div>
+  1093→
+  1094→        {/* Overage rate info */}
+  1095→        <div className="flex items-center justify-between">
+  1096→          <span className="text-[10px] text-orange-200/25">Overage rate (beyond limits)</span>
+  1097→          <span className="text-[10px] text-orange-200/25">${OVERAGE_PRICE_PER_TICKET}/ticket</span>
+  1098→        </div>
+  1099→      </div>
+  1100→
+  1101→      {/* ── 6. Savings Comparison (D10 — reuse ROI Calculator logic) ──── */}
+  1102→      <div
+  1103→        className="rounded-xl border border-emerald-500/20 p-4"
+  1104→        style={{ background: 'rgba(16,185,129,0.04)' }}
+  1105→      >
+  1106→        <div className="flex items-start gap-3">
+  1107→          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+  1108→            <TrendingDown className="w-4 h-4 text-emerald-400" />
+  1109→          </div>
+  1110→          <div className="flex-1">
+  1111→            <p className="text-sm font-semibold text-emerald-400">
+  1112→              Save {savings.savingsPercent}% vs human agents
+  1113→            </p>
+  1114→            <p className="text-[10px] text-orange-200/30 mt-1">
+  1115→              PARWA handles {totalTicketLimit.toLocaleString()} tickets/mo — equivalent to{' '}
+  1116→              {savings.agentsReplaced} full-time support agent{savings.agentsReplaced > 1 ? 's' : ''} at ~${AGENT_COST_MONTHLY.toLocaleString()}/mo each.
+  1117→              That&apos;s ${savings.humanCost.toLocaleString()}/mo in human costs vs ${discountedTotal.toLocaleString()}/mo with PARWA.
+  1118→            </p>
+  1119→          </div>
+  1120→        </div>
+  1121→      </div>
+  1122→
+  1123→      {/* ── No Hidden Fees (D13) ──────────────────────────────────────── */}
+  1124→      <div className="flex items-center justify-center gap-2 text-[10px] text-orange-200/25">
+  1125→        <Shield className="w-3 h-3" />
+  1126→        <span>No hidden fees. Need more? Add another variant.</span>
+  1127→      </div>
+  1128→
+  1129→      {/* ── Error Display ────────────────────────────────────────────── */}
+  1130→      {checkoutError && (
+  1131→        <div className="rounded-xl border border-red-500/20 p-4 flex items-start gap-3" style={{ background: 'rgba(239,68,68,0.05)' }}>
+  1132→          <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+  1133→          <p className="text-sm text-red-300">{checkoutError}</p>
+  1134→        </div>
+  1135→      )}
+  1136→
+  1137→      {/* ── Payment Confirmation Guard ──────────────────────────────── */}
+  1138→      {paymentConfirmed && (
+  1139→        <div className="rounded-xl border border-emerald-500/30 p-4 flex items-start gap-3" style={{ background: 'rgba(16,185,129,0.08)' }}>
+  1140→          <Shield className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+  1141→          <div>
+  1142→            <p className="text-sm font-medium text-emerald-300">Payment confirmed by Paddle</p>
+  1143→            <p className="text-[10px] text-orange-200/30 mt-1">
+  1144→              Your subscription is now active. Redirecting to your dashboard...
+  1145→            </p>
+  1146→          </div>
+  1147→        </div>
+  1148→      )}
+  1149→
+  1150→      {/* ── Proceed Button ────────────────────────────────────────────── */}
+  1151→      <div className="flex justify-end">
+  1152→        <button
+  1153→          onClick={handleProceed}
+  1154→          disabled={isSubmitting || paymentConfirmed}
+  1155→          className={cn(
+  1156→            'px-8 py-3 font-semibold rounded-xl transition-all duration-300 shadow-lg text-sm flex items-center gap-2 disabled:cursor-not-allowed',
+  1157→            isFreeCheckout
+  1158→              ? 'bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-[#1A1A1A] shadow-emerald-500/25'
+  1159→              : 'bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-400 hover:to-amber-300 text-[#1A1A1A] shadow-orange-500/25',
+  1160→            (isSubmitting || paymentConfirmed) && 'opacity-60'
+  1161→          )}
+  1162→        >
+  1163→          {isSubmitting ? (
+  1164→            <>
+  1165→              <Loader2 className="w-4 h-4 animate-spin" />
+  1166→              Opening Checkout...
+  1167→            </>
+  1168→          ) : paymentConfirmed ? (
+  1169→            <>
+  1170→              <Shield className="w-4 h-4" />
+  1171→              Activated — Redirecting...
+  1172→            </>
+  1173→          ) : isFreeCheckout ? (
+  1174→            <>
+  1175→              <Sparkles className="w-4 h-4" />
+  1176→              Activate Free Plan ($0/mo)
+  1177→              <ArrowRight className="w-4 h-4" />
+  1178→            </>
+  1179→          ) : (
+  1180→            <>
+  1181→              Pay ${discountedTotal.toLocaleString()}/mo & Activate
+  1182→              <ArrowRight className="w-4 h-4" />
+  1183→            </>
+  1184→          )}
+  1185→        </button>
+  1186→      </div>
+  1187→    </div>
+  1188→  );
+  1189→}
+  1190→
+  1191→export default CostBreakdownStep;
+  1192→

@@ -1,5 +1,26 @@
 ---
-Task ID: 2
+Task ID: 3
+Agent: Main Agent
+Task: Connect models page variant selection to dashboard display
+
+Work Log:
+- Explored full codebase: models page, dashboard, onboarding wizard, FirstVictory, CostBreakdownStep, API routes
+- Found critical bug: Dashboard called `get<VariantInstance[]>('/api/ai/instances')` but API returns `{ items: [], total: 0 }` — not a plain array. This caused `variantsState.data.length` to be `undefined`, so NEITHER the "active variants" nor the "localStorage fallback" branch rendered.
+- Fixed API response parsing in dashboard: Now correctly extracts `items` from `{ items: [...] }` response shape, with fallback to plain array
+- Added prominent "Your Selected Plan" banner at the top of dashboard (right after Welcome Card) that reads from `localStorage.parwa_pricing_context` and shows:
+  - Industry name, billing cycle, coupon info
+  - Total monthly cost (with discount if coupon applied)
+  - Each selected variant as a card: name, tier badge, price × quantity
+  - Status indicator: "Active & Running" or "Pending Activation" with link to complete onboarding
+- Added fallback to also read from `localStorage.parwa_onboarding_variants` (saved by FirstVictory step)
+- Updated WelcomeCard to show the industry from pricingContext instead of hardcoded "Support"
+- Build passes successfully
+
+Stage Summary:
+- Dashboard now shows the EXACT variants selected on the models page
+- Bug fix: API response parsing now handles `{ items: [] }` shape correctly
+- The "Your Selected Plan" banner is orange-themed, matching PARWA branding
+- E2E flow: Models page → localStorage save → Dashboard display works correctly
 Agent: Main Agent
 Task: Fix pricing page, restore coupons, improve CSRF, fix progress indicator, add dashboard integration health, update Paddle key
 

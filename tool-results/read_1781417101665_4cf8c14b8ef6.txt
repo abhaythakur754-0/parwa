@@ -1,0 +1,1102 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useEffect, useCallback, useRef } from 'react';
+     4→import { useRouter } from 'next/navigation';
+     5→import { Loader2 } from 'lucide-react';
+     6→import toast from 'react-hot-toast';
+     7→import { useAuth } from '@/hooks/useAuth';
+     8→import {
+     9→  WelcomeCard,
+    10→  TrendChart,
+    11→  CategoryChart,
+    12→  SLAChart,
+    13→  AgentPerformanceTable,
+    14→  ResponseTimeChart,
+    15→} from '@/components/dashboard';
+    16→import DashboardHeader from '@/components/dashboard/DashboardHeader';
+    17→import KPICard from '@/components/dashboard/KPICard';
+    18→import { analyticsApi } from '@/lib/analytics-api';
+    19→import { get, getErrorMessage } from '@/lib/api';
+    20→import type { DashboardData, AgentMetrics, DateRange } from '@/types/analytics';
+    21→
+    22→// ── Inline Types for AI/Cost/Sentiment APIs ───────────────────────────
+    23→
+    24→interface VariantInstance {
+    25→  id: string;
+    26→  name: string;
+    27→  variant_type: string;
+    28→  status: string;
+    29→  channel_assignment: string;
+    30→  capacity_config: { max_concurrent: number };
+    31→  current_load: number;
+    32→  accuracy_rate: number;
+    33→  avg_latency_ms: number;
+    34→  cost_per_query: number;
+    35→  technique_tier: number;
+    36→  model: string;
+    37→}
+    38→
+    39→interface ROISnapshot {
+    40→  tickets_ai_resolved: number;
+    41→  tickets_human_resolved: number;
+    42→  avg_ai_cost: number;
+    43→  avg_human_cost: number;
+    44→  total_savings: number;
+    45→  savings_percentage: number;
+    46→  ai_accuracy_pct: number;
+    47→  automation_rate: number;
+    48→}
+    49→
+    50→interface CostBudget {
+    51→  total_budget: number;
+    52→  used_budget: number;
+    53→  remaining_budget: number;
+    54→  tokens_used: number;
+    55→  estimated_cost: number;
+    56→}
+    57→
+    58→interface SentimentOverview {
+    59→  avg_frustration_score: number;
+    60→  emotion_distribution: Record<string, number>;
+    61→  escalation_count: number;
+    62→  total_analyzed: number;
+    63→  positive_ratio: number;
+    64→  negative_ratio: number;
+    65→}
+    66→
+    67→// ── API fetch state type ──────────────────────────────────────────────
+    68→
+    69→type FetchState<T> =
+    70→  | { status: 'loading'; data: null }
+    71→  | { status: 'error'; data: null }
+    72→  | { status: 'success'; data: T };
+    73→
+    74→// ── Icons (inline SVGs) ──────────────────────────────────────────────
+    75→
+    76→const Icons = {
+    77→  tickets: (
+    78→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    79→      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 0 1 0 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 0 1 0-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z" />
+    80→    </svg>
+    81→  ),
+    82→  open: (
+    83→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    84→      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+    85→    </svg>
+    86→  ),
+    87→  resolved: (
+    88→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    89→      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+    90→    </svg>
+    91→  ),
+    92→  responseTime: (
+    93→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    94→      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
+    95→    </svg>
+    96→  ),
+    97→  resolutionRate: (
+    98→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    99→      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
+   100→    </svg>
+   101→  ),
+   102→  csat: (
+   103→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   104→      <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
+   105→    </svg>
+   106→  ),
+   107→  breached: (
+   108→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   109→      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+   110→    </svg>
+   111→  ),
+   112→  compliance: (
+   113→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   114→      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+   115→    </svg>
+   116→  ),
+   117→  savings: (
+   118→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   119→      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
+   120→    </svg>
+   121→  ),
+   122→  robot: (
+   123→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   124→      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 0 0 2.25-2.25V6.75a2.25 2.25 0 0 0-2.25-2.25H6.75A2.25 2.25 0 0 0 4.5 6.75v10.5a2.25 2.25 0 0 0 2.25 2.25Zm.75-12h9v9h-9v-9Z" />
+   125→    </svg>
+   126→  ),
+   127→  accuracy: (
+   128→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   129→      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+   130→    </svg>
+   131→  ),
+   132→  sentiment: (
+   133→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   134→      <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z" />
+   135→    </svg>
+   136→  ),
+   137→  variant: (
+   138→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   139→      <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-2.25-1.313M21 7.5v2.25m0-2.25l-2.25 1.313M3 7.5l2.25-1.313M3 7.5l2.25 1.313M3 7.5v2.25m9 3l2.25-1.313M12 12.75l-2.25-1.313M12 12.75V15m0 6.75l2.25-1.313M12 21.75V19.5m0 2.25l-2.25-1.313m0-16.875L12 2.25l2.25 1.313M21 14.25v2.25l-2.25 1.313m-13.5 0L3 16.5v-2.25" />
+   140→    </svg>
+   141→  ),
+   142→  escalation: (
+   143→    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   144→      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0-10.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.249-8.25-3.286Zm0 13.036h.008v.008H12v-.008Z" />
+   145→    </svg>
+   146→  ),
+   147→};
+   148→
+   149→// ── Helper Functions ──────────────────────────────────────────────────
+   150→
+   151→function formatNumber(n: number): string {
+   152→  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+   153→  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+   154→  return n.toLocaleString();
+   155→}
+   156→
+   157→function formatHours(hours: number): string {
+   158→  if (hours < 1) return `${Math.round(hours * 60)}m`;
+   159→  return `${hours.toFixed(1)}h`;
+   160→}
+   161→
+   162→function formatPercent(n: number): string {
+   163→  return `${n.toFixed(1)}%`;
+   164→}
+   165→
+   166→function formatCurrency(n: number): string {
+   167→  if (n >= 1) return `$${n.toFixed(2)}`;
+   168→  return `$${n.toFixed(4)}`;
+   169→}
+   170→
+   171→// ── Variant type badge colors ─────────────────────────────────────────
+   172→
+   173→const variantTypeColors: Record<string, { bg: string; text: string }> = {
+   174→  mini_parwa: { bg: 'bg-emerald-500/10', text: 'text-emerald-400' },
+   175→  parwa: { bg: 'bg-sky-500/10', text: 'text-sky-400' },
+   176→  parwa_high: { bg: 'bg-amber-500/10', text: 'text-amber-400' },
+   177→};
+   178→
+   179→const statusColors: Record<string, { dot: string; text: string }> = {
+   180→  active: { dot: 'bg-emerald-400', text: 'text-emerald-400' },
+   181→  idle: { dot: 'bg-zinc-400', text: 'text-zinc-400' },
+   182→  error: { dot: 'bg-red-400', text: 'text-red-400' },
+   183→  paused: { dot: 'bg-amber-400', text: 'text-amber-400' },
+   184→};
+   185→
+   186→// ── Skeleton Card ─────────────────────────────────────────────────────
+   187→
+   188→function SkeletonCard({ className = '' }: { className?: string }) {
+   189→  return (
+   190→    <div className={`rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5 animate-pulse ${className}`}>
+   191→      <div className="flex items-start justify-between">
+   192→        <div className="space-y-2 flex-1">
+   193→          <div className="h-3 w-20 bg-white/[0.06] rounded" />
+   194→          <div className="h-7 w-28 bg-white/[0.06] rounded" />
+   195→          <div className="h-3 w-16 bg-white/[0.06] rounded" />
+   196→        </div>
+   197→        <div className="w-10 h-10 rounded-lg bg-white/[0.06]" />
+   198→      </div>
+   199→    </div>
+   200→  );
+   201→}
+   202→
+   203→function SkeletonSection({ rows = 2, cols = 4 }: { rows?: number; cols?: number }) {
+   204→  return (
+   205→    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+   206→      {Array.from({ length: rows * cols }).map((_, i) => (
+   207→        <SkeletonCard key={i} />
+   208→      ))}
+   209→    </div>
+   210→  );
+   211→}
+   212→
+   213→// ── Dashboard Page ────────────────────────────────────────────────────
+   214→
+   215→export default function DashboardPage() {
+   216→  const { user } = useAuth();
+   217→  const router = useRouter();
+   218→  const [data, setData] = useState<DashboardData | null>(null);
+   219→  const [agentData, setAgentData] = useState<AgentMetrics[]>([]);
+   220→  const [dateRange, setDateRange] = useState<Partial<DateRange>>({});
+   221→  const [datePreset, setDatePreset] = useState('30d');
+   222→  const [isRefreshing, setIsRefreshing] = useState(false);
+   223→  const [onboardingChecked, setOnboardingChecked] = useState(false);
+   224→
+   225→  // ── AI / Cost / Sentiment state (MUST be above any conditional return) ──
+   226→  const [roiState, setRoiState] = useState<FetchState<ROISnapshot>>({ status: 'loading', data: null });
+   227→  const [costBudgetState, setCostBudgetState] = useState<FetchState<CostBudget>>({ status: 'loading', data: null });
+   228→  const [variantsState, setVariantsState] = useState<FetchState<VariantInstance[]>>({ status: 'loading', data: null });
+   229→  const [sentimentState, setSentimentState] = useState<FetchState<SentimentOverview>>({ status: 'loading', data: null });
+   230→
+   231→  // ── Pricing context from Models Page (localStorage fallback) ──
+   232→  // When the backend has no variant instances yet (user just signed up),
+   233→  // show what they selected on the Models page so the dashboard feels connected.
+   234→  const [pricingContext, setPricingContext] = useState<{
+   235→    industry?: string;
+   236→    isAnnual?: boolean;
+   237→    variants?: Array<{ id: string; name: string; quantity: number; monthlyPrice: number }>;
+   238→    totalMonthly?: number;
+   239→    couponCode?: string | null;
+   240→    discountedTotal?: number;
+   241→  } | null>(null);
+   242→
+   243→  useEffect(() => {
+   244→    try {
+   245→      const raw = localStorage.getItem('parwa_pricing_context');
+   246→      if (raw) {
+   247→        const ctx = JSON.parse(raw);
+   248→        // Only use if it has variants (meaning user actually selected something)
+   249→        if (ctx && ctx.variants && ctx.variants.length > 0) {
+   250→          setPricingContext(ctx);
+   251→        }
+   252→      }
+   253→    } catch { /* ignore */ }
+   254→  }, []);
+   255→
+   256→  // ── Check onboarding status (non-blocking) ──
+   257→  // We silently check onboarding state so the dashboard can show
+   258→  // appropriate prompts, but we do NOT force-redirect users.
+   259→  // Users should be free to explore the dashboard before starting onboarding.
+   260→
+   261→  useEffect(() => {
+   262→    if (onboardingChecked) return;
+   263→
+   264→    async function checkOnboarding() {
+   265→      try {
+   266→        const res = await fetch('/api/onboarding/state');
+   267→        if (res.ok) {
+   268→          const state = await res.json();
+   269→          if (state.status === 'completed' || state.first_victory_completed) {
+   270→            // Onboarding IS completed — cache it locally
+   271→            localStorage.setItem('parwa_onboarding_completed', 'true');
+   272→          }
+   273→        }
+   274→        // Whether onboarding is completed or not, let the user see the dashboard.
+   275→        // The dashboard will show appropriate prompts for incomplete onboarding.
+   276→      } catch {
+   277→        // Network error — check localStorage for onboarding completion flag
+   278→        // but don't redirect regardless. Let user explore.
+   279→        const hasCompletedOnboarding = localStorage.getItem('parwa_onboarding_completed') === 'true';
+   280→        if (hasCompletedOnboarding) {
+   281→          // already completed, nothing to do
+   282→        }
+   283→        // Not completed but still let them see dashboard
+   284→      }
+   285→      setOnboardingChecked(true);
+   286→    }
+   287→
+   288→    checkOnboarding();
+   289→  }, [onboardingChecked]);
+   290→
+   291→  // Show loading while checking onboarding
+   292→  if (!onboardingChecked) {
+   293→    return (
+   294→      <div className="min-h-[60vh] flex items-center justify-center">
+   295→        <Loader2 className="h-8 w-8 animate-spin text-orange-400" />
+   296→      </div>
+   297→    );
+   298→  }
+   299→
+   300→  // ── Fetch Dashboard Data ──────────────────────────────────────────
+   301→
+   302→  const fetchDashboard = useCallback(async () => {
+   303→    try {
+   304→      setIsRefreshing(true);
+   305→      const dashboardData = await analyticsApi.getDashboard(dateRange);
+   306→      setData(dashboardData);
+   307→    } catch (error) {
+   308→      console.error('Failed to fetch dashboard data:', error);
+   309→      toast.error(getErrorMessage(error));
+   310→    } finally {
+   311→      setIsRefreshing(false);
+   312→    }
+   313→  }, [dateRange]);
+   314→
+   315→  useEffect(() => {
+   316→    fetchDashboard();
+   317→  }, [fetchDashboard]);
+   318→
+   319→  // ── Fetch Agent Data (separate endpoint) ──────────────────────────
+   320→
+   321→  useEffect(() => {
+   322→    analyticsApi
+   323→      .getAgents(50, dateRange)
+   324→      .then((agents) => setAgentData(agents))
+   325→      .catch(() => {
+   326→        // Silent fail — agent data is secondary
+   327→      });
+   328→  }, [dateRange]);
+   329→
+   330→  // ── Fetch Cost Budget + ROI ───────────────────────────────────────
+   331→
+   332→  useEffect(() => {
+   333→    get<CostBudget>('/api/ai/cost/budget')
+   334→      .then((budget) => setCostBudgetState({ status: 'success', data: budget }))
+   335→      .catch(() => setCostBudgetState({ status: 'error', data: null }));
+   336→
+   337→    get<ROISnapshot>('/api/v1/admin/roi')
+   338→      .then((roi) => setRoiState({ status: 'success', data: roi }))
+   339→      .catch(() => setRoiState({ status: 'error', data: null }));
+   340→  }, []);
+   341→
+   342→  // ── Fetch Variant Instances ───────────────────────────────────────
+   343→
+   344→  useEffect(() => {
+   345→    get<VariantInstance[]>('/api/ai/instances')
+   346→      .then((variants) => setVariantsState({ status: 'success', data: variants }))
+   347→      .catch(() => setVariantsState({ status: 'error', data: null }));
+   348→  }, []);
+   349→
+   350→  // ── Fetch Sentiment Overview ──────────────────────────────────────
+   351→
+   352→  useEffect(() => {
+   353→    get<SentimentOverview>('/api/v1/admin/sentiment')
+   354→      .then((sentiment) => setSentimentState({ status: 'success', data: sentiment }))
+   355→      .catch(() => setSentimentState({ status: 'error', data: null }));
+   356→  }, []);
+   357→
+   358→  // ── Handle Date Change ────────────────────────────────────────────
+   359→
+   360→  const handleDateChange = useCallback((range: { start_date: string; end_date: string }) => {
+   361→    setDateRange(range);
+   362→    const today = new Date().toISOString().split('T')[0];
+   363→    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+   364→    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+   365→
+   366→    if (range.start_date === today) setDatePreset('today');
+   367→    else if (range.start_date === sevenDaysAgo) setDatePreset('7d');
+   368→    else if (range.start_date === thirtyDaysAgo) setDatePreset('30d');
+   369→    else setDatePreset('custom');
+   370→  }, []);
+   371→
+   372→  // ── Derived ROI data ──────────────────────────────────────────────
+   373→
+   374→  const hasRoiData = roiState.status === 'success' && roiState.data;
+   375→  const hasBudgetData = costBudgetState.status === 'success' && costBudgetState.data;
+   376→  const hasCostSectionData = hasRoiData || hasBudgetData;
+   377→  const isCostLoading = roiState.status === 'loading' || costBudgetState.status === 'loading';
+   378→
+   379→  // ── Render ─────────────────────────────────────────────────────────
+   380→
+   381→  return (
+   382→    <div className="space-y-6">
+   383→      {/* Welcome Card */}
+   384→      <WelcomeCard
+   385→        userName={user?.full_name}
+   386→        companyName={user?.company_name}
+   387→        industry="Support"
+   388→        variantCount={data?.summary.resolved ?? 0}
+   389→        resolutionRate={data ? formatPercent(data.summary.resolution_rate) : '0%'}
+   390→      />
+   391→
+   392→      {/* ── Cost Savings / ROI Section ──────────────────────────────── */}
+   393→      {isCostLoading ? (
+   394→        <div className="space-y-4">
+   395→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">AI Cost Savings & ROI</h2>
+   396→          <SkeletonSection rows={1} cols={4} />
+   397→        </div>
+   398→      ) : hasCostSectionData ? (
+   399→        <div className="space-y-4">
+   400→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">AI Cost Savings & ROI</h2>
+   401→          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+   402→            {/* Total Savings */}
+   403→            <KPICard
+   404→              title="Total Savings"
+   405→              value={hasRoiData ? formatCurrency(roiState.data!.total_savings) : '—'}
+   406→              subtitle={hasRoiData ? `${formatPercent(roiState.data!.savings_percentage)} saved` : 'ROI data unavailable'}
+   407→              icon={Icons.savings}
+   408→              variant="success"
+   409→            />
+   410→            {/* AI vs Human Cost */}
+   411→            <KPICard
+   412→              title="AI vs Human Cost"
+   413→              value={hasRoiData ? `${formatCurrency(roiState.data!.avg_ai_cost)} vs ${formatCurrency(roiState.data!.avg_human_cost)}` : '—'}
+   414→              subtitle={hasRoiData ? `${formatNumber(roiState.data!.tickets_ai_resolved)} AI · ${formatNumber(roiState.data!.tickets_human_resolved)} human` : '—'}
+   415→              icon={Icons.robot}
+   416→              variant="info"
+   417→            />
+   418→            {/* Automation Rate */}
+   419→            <KPICard
+   420→              title="Automation Rate"
+   421→              value={hasRoiData ? formatPercent(roiState.data!.automation_rate) : '—'}
+   422→              subtitle="Tickets auto-resolved"
+   423→              icon={Icons.responseTime}
+   424→              variant={hasRoiData && roiState.data!.automation_rate >= 60 ? 'success' : 'default'}
+   425→            />
+   426→            {/* AI Accuracy */}
+   427→            <KPICard
+   428→              title="AI Accuracy"
+   429→              value={hasRoiData ? formatPercent(roiState.data!.ai_accuracy_pct) : '—'}
+   430→              subtitle={hasBudgetData ? `${formatNumber(costBudgetState.data!.tokens_used)} tokens used` : '—'}
+   431→              icon={Icons.accuracy}
+   432→              variant={hasRoiData && roiState.data!.ai_accuracy_pct >= 90 ? 'success' : 'warning'}
+   433→            />
+   434→          </div>
+   435→          {/* Budget bar */}
+   436→          {hasBudgetData && costBudgetState.data!.total_budget > 0 && (
+   437→            <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5">
+   438→              <div className="flex items-center justify-between mb-3">
+   439→                <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Token Budget Usage</span>
+   440→                <span className="text-xs text-zinc-400">
+   441→                  {formatCurrency(costBudgetState.data!.estimated_cost)} / {formatCurrency(costBudgetState.data!.total_budget)}
+   442→                </span>
+   443→              </div>
+   444→              <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
+   445→                <div
+   446→                  className="h-full bg-emerald-500/80 rounded-full transition-all duration-500"
+   447→                  style={{
+   448→                    width: `${Math.min(100, (costBudgetState.data!.used_budget / costBudgetState.data!.total_budget) * 100)}%`,
+   449→                  }}
+   450→                />
+   451→              </div>
+   452→              <div className="flex items-center justify-between mt-2">
+   453→                <span className="text-xs text-zinc-500">
+   454→                  {((costBudgetState.data!.used_budget / costBudgetState.data!.total_budget) * 100).toFixed(1)}% used
+   455→                </span>
+   456→                <span className="text-xs text-zinc-500">
+   457→                  {formatCurrency(costBudgetState.data!.remaining_budget)} remaining
+   458→                </span>
+   459→              </div>
+   460→            </div>
+   461→          )}
+   462→        </div>
+   463→      ) : (
+   464→        /* Error / no backend — show connect message */
+   465→        <div className="space-y-4">
+   466→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">AI Cost Savings & ROI</h2>
+   467→          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 flex flex-col items-center justify-center gap-3">
+   468→            <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center text-zinc-600">
+   469→              {Icons.savings}
+   470→            </div>
+   471→            <p className="text-sm text-zinc-500 text-center">Connect backend to view cost savings & ROI data</p>
+   472→          </div>
+   473→        </div>
+   474→      )}
+   475→
+   476→      {/* ── Active Variants Status ─────────────────────────────────── */}
+   477→      {variantsState.status === 'loading' ? (
+   478→        <div className="space-y-4">
+   479→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Active Variants</h2>
+   480→          <SkeletonSection rows={1} cols={3} />
+   481→        </div>
+   482→      ) : variantsState.status === 'success' && variantsState.data && variantsState.data.length > 0 ? (
+   483→        <div className="space-y-4">
+   484→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">
+   485→            Active Variants
+   486→            <span className="ml-2 text-xs text-zinc-600 normal-case tracking-normal">
+   487→              ({variantsState.data.length} running)
+   488→            </span>
+   489→          </h2>
+   490→          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+   491→            {variantsState.data.map((variant) => {
+   492→              const typeColor = variantTypeColors[variant.variant_type] ?? { bg: 'bg-zinc-500/10', text: 'text-zinc-400' };
+   493→              const statusColor = statusColors[variant.status] ?? statusColors.idle;
+   494→              const loadPct = Math.min(100, variant.current_load);
+   495→              const loadColor = loadPct >= 90 ? 'bg-red-500/80' : loadPct >= 70 ? 'bg-amber-500/80' : 'bg-emerald-500/80';
+   496→
+   497→              return (
+   498→                <div
+   499→                  key={variant.id}
+   500→                  className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5 transition-all duration-300 hover:shadow-lg hover:shadow-black/20 hover:border-white/[0.1]"
+   501→                >
+   502→                  {/* Header: name + status */}
+   503→                  <div className="flex items-start justify-between mb-4">
+   504→                    <div className="flex-1 min-w-0">
+   505→                      <div className="flex items-center gap-2 mb-1">
+   506→                        <h3 className="text-sm font-semibold text-white truncate">{variant.name}</h3>
+   507→                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider ${typeColor.bg} ${typeColor.text}`}>
+   508→                          {variant.variant_type.replace('_', ' ')}
+   509→                        </span>
+   510→                      </div>
+   511→                      <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+   512→                        <span className={`w-1.5 h-1.5 rounded-full ${statusColor.dot}`} />
+   513→                        <span className={statusColor.text}>{variant.status}</span>
+   514→                        <span className="text-zinc-700">·</span>
+   515→                        <span>{variant.channel_assignment}</span>
+   516→                      </div>
+   517→                    </div>
+   518→                    <div className="w-9 h-9 rounded-lg bg-white/[0.05] flex items-center justify-center text-zinc-500 shrink-0">
+   519→                      {Icons.variant}
+   520→                    </div>
+   521→                  </div>
+   522→
+   523→                  {/* Metrics grid */}
+   524→                  <div className="grid grid-cols-2 gap-3 mb-4">
+   525→                    <div>
+   526→                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Load</p>
+   527→                      <p className="text-sm font-semibold text-white tabular-nums">
+   528→                        {loadPct}%
+   529→                        <span className="text-[10px] text-zinc-600 ml-1">/ {variant.capacity_config.max_concurrent}</span>
+   530→                      </p>
+   531→                    </div>
+   532→                    <div>
+   533→                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Quality</p>
+   534→                      <p className="text-sm font-semibold text-white tabular-nums">{formatPercent(variant.accuracy_rate)}</p>
+   535→                    </div>
+   536→                    <div>
+   537→                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Latency</p>
+   538→                      <p className="text-sm font-semibold text-white tabular-nums">{variant.avg_latency_ms}ms</p>
+   539→                    </div>
+   540→                    <div>
+   541→                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Cost/Q</p>
+   542→                      <p className="text-sm font-semibold text-white tabular-nums">{formatCurrency(variant.cost_per_query)}</p>
+   543→                    </div>
+   544→                  </div>
+   545→
+   546→                  {/* Load bar */}
+   547→                  <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+   548→                    <div
+   549→                      className={`h-full rounded-full transition-all duration-500 ${loadColor}`}
+   550→                      style={{ width: `${loadPct}%` }}
+   551→                    />
+   552→                  </div>
+   553→
+   554→                  {/* Footer */}
+   555→                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.04]">
+   556→                    <span className="text-[10px] text-zinc-600">Tier {variant.technique_tier}</span>
+   557→                    <span className="text-[10px] text-zinc-600 font-mono">{variant.model}</span>
+   558→                  </div>
+   559→                </div>
+   560→              );
+   561→            })}
+   562→          </div>
+   563→        </div>
+   564→      ) : variantsState.status === 'success' && variantsState.data && variantsState.data.length === 0 ? (
+   565→        <div className="space-y-4">
+   566→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Active Variants</h2>
+   567→          {pricingContext && pricingContext.variants && pricingContext.variants.length > 0 ? (
+   568→            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+   569→              {pricingContext.variants.map((v) => {
+   570→                const tierMap: Record<string, string> = { starter: 'mini_parwa', growth: 'parwa', high: 'parwa_high' };
+   571→                const tier = tierMap[v.id] || v.id;
+   572→                const typeColor = variantTypeColors[tier] ?? { bg: 'bg-orange-500/10', text: 'text-orange-400' };
+   573→                return (
+   574→                  <div
+   575→                    key={v.id}
+   576→                    className="rounded-xl bg-[#1A1A1A] border border-orange-500/20 p-5 transition-all duration-300 hover:shadow-lg hover:shadow-orange-500/5 hover:border-orange-500/30"
+   577→                  >
+   578→                    <div className="flex items-start justify-between mb-4">
+   579→                      <div className="flex-1 min-w-0">
+   580→                        <div className="flex items-center gap-2 mb-1">
+   581→                          <h3 className="text-sm font-semibold text-white truncate">{v.name}</h3>
+   582→                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider ${typeColor.bg} ${typeColor.text}`}>
+   583→                            {tier.replace('_', ' ')}
+   584→                          </span>
+   585→                        </div>
+   586→                        <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+   587→                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+   588→                          <span className="text-amber-400">Pending activation</span>
+   589→                          <span className="text-zinc-700">·</span>
+   590→                          <span>{pricingContext.industry || 'General'}</span>
+   591→                        </div>
+   592→                      </div>
+   593→                      <div className="w-9 h-9 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-400 shrink-0">
+   594→                        {Icons.variant}
+   595→                      </div>
+   596→                    </div>
+   597→                    <div className="grid grid-cols-2 gap-3 mb-4">
+   598→                      <div>
+   599→                        <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Price</p>
+   600→                        <p className="text-sm font-semibold text-white tabular-nums">${v.monthlyPrice.toLocaleString()}/mo</p>
+   601→                      </div>
+   602→                      <div>
+   603→                        <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Quantity</p>
+   604→                        <p className="text-sm font-semibold text-white tabular-nums">{v.quantity}x</p>
+   605→                      </div>
+   606→                      <div>
+   607→                        <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Billing</p>
+   608→                        <p className="text-sm font-semibold text-white tabular-nums">{pricingContext.isAnnual ? 'Annual' : 'Monthly'}</p>
+   609→                      </div>
+   610→                      <div>
+   611→                        <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Coupon</p>
+   612→                        <p className="text-sm font-semibold text-white tabular-nums">{pricingContext.couponCode || 'None'}</p>
+   613→                      </div>
+   614→                    </div>
+   615→                    <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+   616→                      <div className="h-full rounded-full bg-orange-500/60" style={{ width: '0%' }} />
+   617→                    </div>
+   618→                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.04]">
+   619→                      <span className="text-[10px] text-zinc-600">Complete onboarding to activate</span>
+   620→                      <span className="text-[10px] text-orange-400 font-medium cursor-pointer hover:underline" onClick={() => router.push('/onboarding')}>Resume →</span>
+   621→                    </div>
+   622→                  </div>
+   623→                );
+   624→              })}
+   625→              {/* Total cost summary */}
+   626→              <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5 flex flex-col justify-center">
+   627→                <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Total Monthly Cost</p>
+   628→                <p className="text-2xl font-bold text-orange-400 tabular-nums">
+   629→                  ${pricingContext.discountedTotal != null ? pricingContext.discountedTotal.toLocaleString() : (pricingContext.totalMonthly ?? 0).toLocaleString()}
+   630→                  <span className="text-sm text-zinc-500 font-normal">/mo</span>
+   631→                </p>
+   632→                {pricingContext.couponCode && (
+   633→                  <p className="text-xs text-emerald-400 mt-1">Coupon: {pricingContext.couponCode} applied</p>
+   634→                )}
+   635→              </div>
+   636→            </div>
+   637→          ) : (
+   638→            <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 flex flex-col items-center justify-center gap-3">
+   639→              <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center text-zinc-600">
+   640→                {Icons.variant}
+   641→              </div>
+   642→              <p className="text-sm text-zinc-500 text-center">No active variants found</p>
+   643→              <button
+   644→                onClick={() => router.push('/models')}
+   645→                className="mt-2 px-4 py-2 rounded-lg bg-orange-500/10 text-orange-400 text-sm font-medium hover:bg-orange-500/20 transition-colors"
+   646→              >
+   647→                Choose a Plan →
+   648→              </button>
+   649→            </div>
+   650→          )}
+   651→        </div>
+   652→      ) : (
+   653→        <div className="space-y-4">
+   654→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Active Variants</h2>
+   655→          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 flex flex-col items-center justify-center gap-3">
+   656→            <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center text-zinc-600">
+   657→              {Icons.variant}
+   658→            </div>
+   659→            <p className="text-sm text-zinc-500 text-center">Connect backend to view active variants</p>
+   660→          </div>
+   661→        </div>
+   662→      )}
+   663→
+   664→      {/* ── Jarvis CC Quick Access ──────────────────────────────────── */}
+   665→      {(() => {
+   666→        const hasActiveVariants = variantsState.status === 'success' && variantsState.data && variantsState.data.length > 0;
+   667→        return (
+   668→        <div className="rounded-xl border border-orange-500/10 bg-gradient-to-r from-orange-500/5 to-amber-500/5 p-5">
+   669→          <div className="flex items-center justify-between">
+   670→            <div className="flex items-center gap-3">
+   671→              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-orange-500/20">
+   672→                J
+   673→              </div>
+   674→              <div>
+   675→                <h3 className="text-sm font-semibold text-white">Jarvis Customer Care</h3>
+   676→                <p className="text-xs text-zinc-500">AI employee managing your customer support — chat, commands, awareness feed</p>
+   677→              </div>
+   678→            </div>
+   679→            <a
+   680→              href="/dashboard/jarvis"
+   681→              className="text-xs px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-amber-400 text-white font-medium shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 transition-all"
+   682→            >
+   683→              Open Jarvis CC
+   684→            </a>
+   685→          </div>
+   686→          <div className="grid grid-cols-4 gap-3 mt-4">
+   687→            <div className="text-xs">
+   688→              <span className="text-zinc-600">Status</span>
+   689→              <div className="flex items-center gap-1.5 mt-0.5">
+   690→                {hasActiveVariants ? (
+   691→                  <>
+   692→                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+   693→                    <span className="text-emerald-400 font-medium">Online</span>
+   694→                  </>
+   695→                ) : (
+   696→                  <>
+   697→                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+   698→                    <span className="text-zinc-500 font-medium">Idle</span>
+   699→                  </>
+   700→                )}
+   701→              </div>
+   702→            </div>
+   703→            <div className="text-xs">
+   704→              <span className="text-zinc-600">Pipeline</span>
+   705→              <p className={`font-medium mt-0.5 ${hasActiveVariants ? 'text-zinc-300' : 'text-zinc-600'}`}>
+   706→                {hasActiveVariants ? 'Active' : 'Not Set Up'}
+   707→              </p>
+   708→            </div>
+   709→            <div className="text-xs">
+   710→              <span className="text-zinc-600">Awareness</span>
+   711→              <p className={`font-medium mt-0.5 ${hasActiveVariants ? 'text-zinc-300' : 'text-zinc-600'}`}>
+   712→                {hasActiveVariants ? 'Enabled' : 'Disabled'}
+   713→              </p>
+   714→            </div>
+   715→            <div className="text-xs">
+   716→              <span className="text-zinc-600">Quick Command</span>
+   717→              <p className="text-zinc-400 font-medium mt-0.5">Cmd+K</p>
+   718→            </div>
+   719→          </div>
+   720→        </div>
+   721→        );
+   722→      })()}
+   723→
+   724→      {/* Header */}
+   725→      <DashboardHeader
+   726→        title="Performance Overview"
+   727→        subtitle="Key metrics for your support team"
+   728→        datePreset={datePreset}
+   729→        onDateChange={handleDateChange}
+   730→        onRefresh={fetchDashboard}
+   731→        isRefreshing={isRefreshing}
+   732→      />
+   733→
+   734→      {/* ── KPI Cards Row 1: Primary Metrics ────────────────────────── */}
+   735→      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+   736→        <KPICard
+   737→          title="Total Tickets"
+   738→          value={data ? formatNumber(data.summary.total_tickets) : '—'}
+   739→          subtitle="All time in range"
+   740→          icon={Icons.tickets}
+   741→          variant="default"
+   742→          isLoading={!data}
+   743→        />
+   744→        <KPICard
+   745→          title="Open Tickets"
+   746→          value={data ? formatNumber(data.summary.open + data.summary.in_progress) : '—'}
+   747→          subtitle={`${data ? formatNumber(data.summary.in_progress) : '—'} in progress`}
+   748→          icon={Icons.open}
+   749→          variant="info"
+   750→          isLoading={!data}
+   751→        />
+   752→        <KPICard
+   753→          title="Resolved"
+   754→          value={data ? formatNumber(data.summary.resolved) : '—'}
+   755→          subtitle={`${data ? formatPercent(data.summary.resolution_rate) : '—'} rate`}
+   756→          icon={Icons.resolved}
+   757→          variant="success"
+   758→          isLoading={!data}
+   759→        />
+   760→        <KPICard
+   761→          title="Avg Response"
+   762→          value={data ? formatHours(data.summary.avg_first_response_time_hours) : '—'}
+   763→          subtitle="First response time"
+   764→          icon={Icons.responseTime}
+   765→          variant={data && data.summary.avg_first_response_time_hours > 2 ? 'warning' : 'default'}
+   766→          isLoading={!data}
+   767→        />
+   768→        <KPICard
+   769→          title="Resolution Rate"
+   770→          value={data ? formatPercent(data.summary.resolution_rate) : '—'}
+   771→          subtitle="Tickets resolved successfully"
+   772→          icon={Icons.resolutionRate}
+   773→          variant={data && data.summary.resolution_rate >= 80 ? 'success' : 'warning'}
+   774→          isLoading={!data}
+   775→        />
+   776→        <KPICard
+   777→          title="CSAT Score"
+   778→          value="—"
+   779→          subtitle="Customer satisfaction"
+   780→          icon={Icons.csat}
+   781→          variant="default"
+   782→          isLoading={!data}
+   783→        />
+   784→      </div>
+   785→
+   786→      {/* ── KPI Cards Row 2: Priority + SLA ───────────────────────── */}
+   787→      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+   788→        <KPICard
+   789→          title="Critical"
+   790→          value={data ? formatNumber(data.summary.critical) : '—'}
+   791→          icon={<span className="w-3 h-3 rounded-full bg-red-500" />}
+   792→          variant="danger"
+   793→          isLoading={!data}
+   794→        />
+   795→        <KPICard
+   796→          title="High Priority"
+   797→          value={data ? formatNumber(data.summary.high) : '—'}
+   798→          icon={<span className="w-3 h-3 rounded-full bg-orange-500" />}
+   799→          variant="warning"
+   800→          isLoading={!data}
+   801→        />
+   802→        <KPICard
+   803→          title="Awaiting Client"
+   804→          value={data ? formatNumber(data.summary.awaiting_client) : '—'}
+   805→          icon={Icons.open}
+   806→          variant="default"
+   807→          isLoading={!data}
+   808→        />
+   809→
+   810→        <KPICard
+   811→          title="Avg Resolution"
+   812→          value={data ? formatHours(data.summary.avg_resolution_time_hours) : '—'}
+   813→          subtitle="Time to resolve"
+   814→          icon={Icons.responseTime}
+   815→          variant="default"
+   816→          isLoading={!data}
+   817→        />
+   818→        <KPICard
+   819→          title="SLA Breached"
+   820→          value={data ? formatNumber(data.sla.breached_count) : '—'}
+   821→          subtitle={`of ${data ? formatNumber(data.sla.total_tickets_with_sla) : '—'} tickets`}
+   822→          icon={Icons.breached}
+   823→          variant={data && data.sla.breached_count > 0 ? 'danger' : 'success'}
+   824→          isLoading={!data}
+   825→        />
+   826→        <KPICard
+   827→          title="SLA Compliance"
+   828→          value={data ? formatPercent(data.sla.compliance_rate) : '—'}
+   829→          subtitle={`${data ? formatNumber(data.sla.approaching_count) : '—'} approaching`}
+   830→          icon={Icons.compliance}
+   831→          variant={data && data.sla.compliance_rate >= 95 ? 'success' : data && data.sla.compliance_rate >= 80 ? 'warning' : 'danger'}
+   832→          isLoading={!data}
+   833→        />
+   834→      </div>
+   835→
+   836→      {/* ── Row 3: Ticket Trends (full width area chart) ───────────── */}
+   837→      {data ? (
+   838→        <TrendChart data={data.trend} />
+   839→      ) : (
+   840→        <div className="rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6 h-[332px] animate-pulse" />
+   841→      )}
+   842→
+   843→      {/* ── Row 4: Category Chart + SLA Chart ──────────────────────── */}
+   844→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   845→        {data ? (
+   846→          <CategoryChart data={data.by_category} />
+   847→        ) : (
+   848→          <div className="rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6 h-[420px] animate-pulse" />
+   849→        )}
+   850→
+   851→        {data ? (
+   852→          <SLAChart data={data.sla} />
+   853→        ) : (
+   854→          <div className="rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6 h-[420px] animate-pulse" />
+   855→        )}
+   856→      </div>
+   857→
+   858→      {/* ── Row 5: Response Time Distribution + Sentiment Overview ── */}
+   859→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   860→        <ResponseTimeChart dateRange={dateRange} />
+   861→
+   862→        {/* ── Sentiment Overview ──────────────────────────────────── */}
+   863→        {sentimentState.status === 'loading' ? (
+   864→          <div className="rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6 h-[420px] animate-pulse" />
+   865→        ) : sentimentState.status === 'success' && sentimentState.data ? (
+   866→          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-6">
+   867→            <div className="flex items-center gap-2 mb-6">
+   868→              <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400">
+   869→                {Icons.sentiment}
+   870→              </div>
+   871→              <div>
+   872→                <h3 className="text-sm font-semibold text-white">Sentiment Overview</h3>
+   873→                <p className="text-[10px] text-zinc-600">
+   874→                  {formatNumber(sentimentState.data.total_analyzed)} tickets analyzed
+   875→                </p>
+   876→              </div>
+   877→            </div>
+   878→
+   879→            {/* KPI Row */}
+   880→            <div className="grid grid-cols-3 gap-4 mb-6">
+   881→              <div className="space-y-1">
+   882→                <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Frustration</p>
+   883→                <p className="text-xl font-bold text-white tabular-nums">
+   884→                  {sentimentState.data.avg_frustration_score.toFixed(1)}
+   885→                  <span className="text-xs text-zinc-600">/10</span>
+   886→                </p>
+   887→              </div>
+   888→              <div className="space-y-1">
+   889→                <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Escalations</p>
+   890→                <p className="text-xl font-bold text-white tabular-nums">
+   891→                  {formatNumber(sentimentState.data.escalation_count)}
+   892→                </p>
+   893→              </div>
+   894→              <div className="space-y-1">
+   895→                <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Positive</p>
+   896→                <p className="text-xl font-bold tabular-nums text-emerald-400">
+   897→                  {formatPercent(sentimentState.data.positive_ratio * 100)}
+   898→                </p>
+   899→              </div>
+   900→            </div>
+   901→
+   902→            {/* Emotion Distribution */}
+   903→            <div className="space-y-3">
+   904→              <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Emotion Distribution</p>
+   905→              {Object.entries(sentimentState.data.emotion_distribution).map(([emotion, pct]) => {
+   906→                const emotionColors: Record<string, string> = {
+   907→                  joy: 'bg-emerald-500/80',
+   908→                  neutral: 'bg-zinc-500/80',
+   909→                  frustration: 'bg-amber-500/80',
+   910→                  anger: 'bg-red-500/80',
+   911→                  sadness: 'bg-blue-500/80',
+   912→                  confusion: 'bg-purple-500/80',
+   913→                  satisfaction: 'bg-emerald-400/80',
+   914→                  anxiety: 'bg-orange-500/80',
+   915→                };
+   916→                const barColor = emotionColors[emotion.toLowerCase()] ?? 'bg-zinc-500/80';
+   917→                const value = typeof pct === 'number' ? pct : 0;
+   918→
+   919→                return (
+   920→                  <div key={emotion} className="space-y-1">
+   921→                    <div className="flex items-center justify-between">
+   922→                      <span className="text-xs text-zinc-400 capitalize">{emotion}</span>
+   923→                      <span className="text-xs text-zinc-500 tabular-nums">{value.toFixed(1)}%</span>
+   924→                    </div>
+   925→                    <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+   926→                      <div
+   927→                        className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+   928→                        style={{ width: `${Math.min(100, value)}%` }}
+   929→                      />
+   930→                    </div>
+   931→                  </div>
+   932→                );
+   933→              })}
+   934→            </div>
+   935→
+   936→            {/* Negative ratio footer */}
+   937→            <div className="flex items-center justify-between mt-5 pt-4 border-t border-white/[0.04]">
+   938→              <div className="flex items-center gap-2">
+   939→                <div className="w-6 h-6 rounded-md bg-red-500/10 flex items-center justify-center text-red-400">
+   940→                  {Icons.escalation}
+   941→                </div>
+   942→                <span className="text-xs text-zinc-400">Negative ratio</span>
+   943→              </div>
+   944→              <span className="text-sm font-semibold tabular-nums text-red-400">
+   945→                {formatPercent(sentimentState.data.negative_ratio * 100)}
+   946→              </span>
+   947→            </div>
+   948→          </div>
+   949→        ) : (
+   950→          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 flex flex-col items-center justify-center gap-3 min-h-[420px]">
+   951→            <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center text-zinc-600">
+   952→              {Icons.sentiment}
+   953→            </div>
+   954→            <p className="text-sm text-zinc-500 text-center">Connect backend to view sentiment data</p>
+   955→          </div>
+   956→        )}
+   957→      </div>
+   958→
+   959→      {/* ── Row 6: Integration Connectors Health ─────────────────────── */}
+   960→      <DashboardIntegrationHealth />
+   961→
+   962→      {/* ── Row 7: Agent Performance Table ─────────────────────────── */}
+   963→      <AgentPerformanceTable data={agentData} />
+   964→    </div>
+   965→  );
+   966→}
+   967→
+   968→// ── Dashboard Integration Health Component ──────────────────────────────
+   969→
+   970→function DashboardIntegrationHealth() {
+   971→  const [integrations, setIntegrations] = useState<Array<{
+   972→    id: string;
+   973→    name: string;
+   974→    platform: string;
+   975→    status: string;
+   976→    testResult?: 'success' | 'failed';
+   977→    testedAt?: string;
+   978→  }>>([]);
+   979→  const [isLoading, setIsLoading] = useState(true);
+   980→
+   981→  useEffect(() => {
+   982→    async function load() {
+   983→      try {
+   984→        const res = await fetch('/api/integrations');
+   985→        if (res.ok) {
+   986→          const data = await res.json();
+   987→          if (Array.isArray(data)) {
+   988→            setIntegrations(data.map((i: Record<string, unknown>) => ({
+   989→              id: String(i.id || i.integration_id || ''),
+   990→              name: String(i.name || i.integration_type || ''),
+   991→              platform: String(i.integration_type || i.platform || ''),
+   992→              status: String(i.status || 'active'),
+   993→              testResult: i.test_result as 'success' | 'failed' | undefined,
+   994→              testedAt: i.tested_at ? String(i.tested_at) : undefined,
+   995→            })));
+   996→          }
+   997→        }
+   998→      } catch {
+   999→        // Backend unavailable
+  1000→      } finally {
+  1001→        setIsLoading(false);
+  1002→      }
+  1003→    }
+  1004→    load();
+  1005→  }, []);
+  1006→
+  1007→  const activeCount = integrations.filter((i) => i.status === 'active').length;
+  1008→  const verifiedCount = integrations.filter((i) => i.testResult === 'success').length;
+  1009→  const errorCount = integrations.filter((i) => i.status === 'error' || i.testResult === 'failed').length;
+  1010→
+  1011→  return (
+  1012→    <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-6">
+  1013→      <div className="flex items-center justify-between mb-4">
+  1014→        <div className="flex items-center gap-2">
+  1015→          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+  1016→            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+  1017→              <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.06a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L5.25 9.503" />
+  1018→            </svg>
+  1019→          </div>
+  1020→          <div>
+  1021→            <h3 className="text-sm font-semibold text-white">Integration Connectors</h3>
+  1022→            <p className="text-[10px] text-zinc-600">Connected platforms and their verification status</p>
+  1023→          </div>
+  1024→        </div>
+  1025→        <a
+  1026→          href="/dashboard/integrations"
+  1027→          className="text-[10px] text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1"
+  1028→        >
+  1029→          Manage
+  1030→          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+  1031→            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+  1032→          </svg>
+  1033→        </a>
+  1034→      </div>
+  1035→
+  1036→      {isLoading ? (
+  1037→        <div className="h-20 animate-pulse bg-white/[0.02] rounded-lg" />
+  1038→      ) : integrations.length === 0 ? (
+  1039→        <div className="rounded-lg border border-dashed border-white/[0.08] p-6 text-center">
+  1040→          <p className="text-xs text-zinc-500">No integrations connected yet</p>
+  1041→          <a href="/dashboard/integrations" className="text-xs text-orange-400 hover:text-orange-300 mt-2 inline-block">
+  1042→            Add your first integration →
+  1043→          </a>
+  1044→        </div>
+  1045→      ) : (
+  1046→        <>
+  1047→          {/* Stats Row */}
+  1048→          <div className="grid grid-cols-3 gap-3 mb-4">
+  1049→            <div className="rounded-lg p-2.5" style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.15)' }}>
+  1050→              <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Active</p>
+  1051→              <p className="text-lg font-bold text-emerald-400">{activeCount}</p>
+  1052→            </div>
+  1053→            <div className="rounded-lg p-2.5" style={{ background: 'rgba(249,115,22,0.04)', border: '1px solid rgba(249,115,22,0.15)' }}>
+  1054→              <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Verified</p>
+  1055→              <p className="text-lg font-bold text-orange-400">{verifiedCount}</p>
+  1056→            </div>
+  1057→            <div className="rounded-lg p-2.5" style={{ background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.15)' }}>
+  1058→              <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Errors</p>
+  1059→              <p className="text-lg font-bold text-red-400">{errorCount}</p>
+  1060→            </div>
+  1061→          </div>
+  1062→
+  1063→          {/* Connector List */}
+  1064→          <div className="space-y-2 max-h-[200px] overflow-y-auto">
+  1065→            {integrations.slice(0, 6).map((integration) => (
+  1066→              <div
+  1067→                key={integration.id}
+  1068→                className="flex items-center justify-between p-2.5 rounded-lg"
+  1069→                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}
+  1070→              >
+  1071→                <div className="flex items-center gap-2.5">
+  1072→                  <div className={`w-2 h-2 rounded-full ${
+  1073→                    integration.testResult === 'success' ? 'bg-emerald-400' :
+  1074→                    integration.testResult === 'failed' || integration.status === 'error' ? 'bg-red-400' :
+  1075→                    'bg-amber-400'
+  1076→                  }`} />
+  1077→                  <span className="text-xs text-white font-medium">{integration.name}</span>
+  1078→                  <span className="text-[9px] text-zinc-600">{integration.platform}</span>
+  1079→                </div>
+  1080→                <span className={`text-[9px] font-medium uppercase tracking-wider ${
+  1081→                  integration.testResult === 'success' ? 'text-emerald-400' :
+  1082→                  integration.testResult === 'failed' ? 'text-red-400' :
+  1083→                  'text-amber-400'
+  1084→                }`}>
+  1085→                  {integration.testResult === 'success' ? 'Verified' :
+  1086→                   integration.testResult === 'failed' ? 'Failed' :
+  1087→                   integration.status === 'error' ? 'Error' : 'Connected'}
+  1088→                </span>
+  1089→              </div>
+  1090→            ))}
+  1091→            {integrations.length > 6 && (
+  1092→              <a href="/dashboard/integrations" className="text-[10px] text-orange-400 hover:text-orange-300 block text-center py-1">
+  1093→                +{integrations.length - 6} more integrations →
+  1094→              </a>
+  1095→            )}
+  1096→          </div>
+  1097→        </>
+  1098→      )}
+  1099→    </div>
+  1100→  );
+  1101→}
+  1102→
