@@ -59,9 +59,9 @@ export async function getPaddleInstance(): Promise<Paddle | undefined> {
  * Must match the backend's PLAN_PRICE_IDS in paddle_service.py.
  */
 export const VARIANT_PRICE_IDS: Record<string, string> = {
-  mini_parwa: 'pri_01krxm4r0kcm6mm5fc84pp9bj0',
-  parwa: 'pri_01krxm4ra529ry7bzr9z73pza1',
-  parwa_high: 'pri_01krxm4rjx1bfgg1w9z4qr3dd8',
+  mini_parwa: 'pri_01ksamxdpw0kmh3qj9p1gdzgms',  // Active: Starter $999/mo
+  parwa: 'pri_01ksamxf31qkmbekat2cgmqyef',        // Active: Growth $2,499/mo
+  parwa_high: 'pri_01ksamxed6jkm7g7xz687ax3zy',    // Active: High $3,999/mo
 };
 
 /**
