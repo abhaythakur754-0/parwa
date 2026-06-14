@@ -1011,7 +1011,7 @@ export default function ModelsPage() {
                               </div>
                               <div>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-sm font-semibold text-emerald-400">{appliedCoupon.code}</span>
+                                  <span className="text-sm font-semibold text-emerald-400">{appliedCoupon.code.toLowerCase()}</span>
                                   <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
                                     {formatDiscount(appliedCoupon)}
                                   </span>
@@ -1043,7 +1043,7 @@ export default function ModelsPage() {
                             <input
                               type="text"
                               value={couponCode}
-                              onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError(null); }}
+                              onChange={(e) => { setCouponCode(e.target.value); setCouponError(null); }}
                               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleApplyCoupon(); } }}
                               placeholder="Enter coupon code"
                               className={`flex-1 h-10 rounded-lg bg-white/[0.04] border px-3 text-sm text-white placeholder-orange-200/20 focus:outline-none focus:border-orange-500/50 transition-all ${couponError ? 'border-red-500/40' : 'border-white/[0.08]'}`}

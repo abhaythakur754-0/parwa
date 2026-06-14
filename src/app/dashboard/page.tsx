@@ -434,7 +434,7 @@ export default function DashboardPage() {
                 <p className="text-[10px] text-zinc-500">
                   {pricingContext.industry ? `${pricingContext.industry.charAt(0).toUpperCase() + pricingContext.industry.slice(1)} · ` : ''}
                   {pricingContext.isAnnual ? 'Annual billing' : 'Monthly billing'}
-                  {pricingContext.couponCode ? ` · Coupon: ${pricingContext.couponCode}` : ''}
+                  {pricingContext.couponCode ? ` · Coupon: ${pricingContext.couponCode.toLowerCase()}` : ''}
                 </p>
               </div>
             </div>
@@ -744,7 +744,7 @@ export default function DashboardPage() {
                       </div>
                       <div>
                         <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Coupon</p>
-                        <p className="text-sm font-semibold text-white tabular-nums">{pricingContext.couponCode || 'None'}</p>
+                        <p className="text-sm font-semibold text-white tabular-nums">{pricingContext.couponCode ? pricingContext.couponCode.toLowerCase() : 'None'}</p>
                       </div>
                     </div>
                     <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
@@ -765,7 +765,7 @@ export default function DashboardPage() {
                   <span className="text-sm text-zinc-500 font-normal">/mo</span>
                 </p>
                 {pricingContext.couponCode && (
-                  <p className="text-xs text-emerald-400 mt-1">Coupon: {pricingContext.couponCode} applied</p>
+                  <p className="text-xs text-emerald-400 mt-1">Coupon: {pricingContext.couponCode.toLowerCase()} applied</p>
                 )}
               </div>
             </div>
