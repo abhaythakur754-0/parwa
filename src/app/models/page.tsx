@@ -846,8 +846,8 @@ export default function ModelsPage() {
                             title="Free live chat — see how Parwa responds to real queries"
                           >
                             <div className="absolute inset-0 opacity-0 group-hover/chat:opacity-100 transition-opacity duration-300" style={{ background: 'rgba(255,255,255,0.06)' }} />
-                            <div className="absolute top-0 right-0 px-2.5 py-1 rounded-bl-xl rounded-tr-[9px]" style={{ background: 'rgba(52,211,153,0.15)' }}>
-                              <span className="text-[9px] font-black uppercase tracking-wider text-orange-400">Free</span>
+                            <div className="absolute top-0 right-0 px-2.5 py-1 rounded-bl-xl rounded-tr-[9px]" style={{ background: `rgba(${accentRgb},0.15)` }}>
+                              <span className="text-[9px] font-black uppercase tracking-wider" style={{ color: accent }}>Free</span>
                             </div>
                             <div className="relative flex items-center gap-3 w-full">
                               <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
@@ -861,6 +861,59 @@ export default function ModelsPage() {
                           </button>
 
                           <p className="text-center text-[10px] mt-3 italic" style={{ color: 'rgba(255,255,255,0.25)' }}>Both demos show exactly how Parwa works when hired by you</p>
+
+                          {/* More Details Button */}
+                          <button
+                            onClick={() => {
+                              const el = document.getElementById(`more-details-${variant.id}`);
+                              if (el) el.classList.toggle('hidden');
+                            }}
+                            className="w-full mt-3 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-xs font-medium transition-all duration-300 hover:brightness-125"
+                            style={{ color: accent, background: 'transparent', border: 'none' }}
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            More Details
+                          </button>
+                        </div>
+
+                        {/* ── More Details Expandable ── */}
+                        <div id={`more-details-${variant.id}`} className="hidden mb-4 space-y-3">
+                          {/* Integrations */}
+                          <div className="px-3 py-2.5 rounded-lg" style={{ background: `rgba(${accentRgb},0.06)`, border: `1px solid rgba(${accentRgb},0.12)` }}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Zap className="w-3.5 h-3.5" style={{ color: accent }} />
+                              <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.6)' }}>Integrations</span>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {variant.integrations.map((intg, i) => (
+                                <span key={i} className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ background: `rgba(${accentRgb},0.1)`, color: accent, border: `1px solid rgba(${accentRgb},0.15)` }}>{intg}</span>
+                              ))}
+                            </div>
+                          </div>
+                          {/* Channels */}
+                          <div className="px-3 py-2.5 rounded-lg" style={{ background: `rgba(${accentRgb},0.06)`, border: `1px solid rgba(${accentRgb},0.12)` }}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <MessageSquare className="w-3.5 h-3.5" style={{ color: accent }} />
+                              <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.6)' }}>Channels</span>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {variant.channels.map((ch, i) => (
+                                <span key={i} className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ background: `rgba(${accentRgb},0.1)`, color: 'rgba(255,255,255,0.7)', border: `1px solid rgba(${accentRgb},0.15)` }}>
+                                  {ch.icon}<span>{ch.label}</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          {/* Smart Decisions */}
+                          {variant.smartDecisions && (
+                            <div className="px-3 py-2.5 rounded-lg" style={{ background: `rgba(${accentRgb},0.06)`, border: `1px solid rgba(${accentRgb},0.12)` }}>
+                              <div className="flex items-center gap-2 mb-1">
+                                <Sparkles className="w-3.5 h-3.5" style={{ color: accent }} />
+                                <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.6)' }}>Smart Decisions</span>
+                              </div>
+                              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>{variant.smartDecisions}</p>
+                            </div>
+                          )}
                         </div>
 
                         {/* ── Main CTA ── */}
@@ -1003,16 +1056,16 @@ export default function ModelsPage() {
                     {/* Coupon Code */}
                     <div className="mb-4">
                       {appliedCoupon ? (
-                        <div className="rounded-xl border border-emerald-500/30 p-4" style={{ background: 'rgba(16,185,129,0.06)' }}>
+                        <div className="rounded-xl border p-4" style={{ background: `rgba(${accentRgb},0.06)`, borderColor: `rgba(${accentRgb},0.3)` }}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
-                                <Ticket className="w-4 h-4 text-emerald-400" />
+                              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `rgba(${accentRgb},0.15)` }}>
+                                <Ticket className="w-4 h-4" style={{ color: accent }} />
                               </div>
                               <div>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-sm font-semibold text-emerald-400">{appliedCoupon.code.toLowerCase()}</span>
-                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
+                                  <span className="text-sm font-semibold" style={{ color: accent }}>{appliedCoupon.code.toLowerCase()}</span>
+                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `rgba(${accentRgb},0.1)`, color: accent }}>
                                     {formatDiscount(appliedCoupon)}
                                   </span>
                                 </div>
@@ -1024,10 +1077,10 @@ export default function ModelsPage() {
                             </button>
                           </div>
                           {isFreeCheckout && (
-                            <div className="mt-3 flex items-start gap-2 rounded-lg p-2.5" style={{ background: 'rgba(16,185,129,0.08)' }}>
-                              <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                            <div className="mt-3 flex items-start gap-2 rounded-lg p-2.5" style={{ background: `rgba(${accentRgb},0.08)` }}>
+                              <Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: accent }} />
                               <div>
-                                <p className="text-[10px] font-medium text-emerald-300">Free checkout — $0.00 total</p>
+                                <p className="text-[10px] font-medium" style={{ color: accent }}>Free checkout — $0.00 total</p>
                                 <p className="text-[9px] text-orange-200/25 mt-0.5">Paddle will process a $0 transaction. Your subscription will be activated after confirmation.</p>
                               </div>
                             </div>

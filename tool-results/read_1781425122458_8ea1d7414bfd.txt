@@ -1,0 +1,502 @@
+   500→   500→                <p className="text-[10px] text-zinc-500">
+   501→   501→                  {pricingContext.industry ? `${pricingContext.industry.charAt(0).toUpperCase() + pricingContext.industry.slice(1)} · ` : ''}
+   502→   502→                  {pricingContext.isAnnual ? 'Annual billing' : 'Monthly billing'}
+   503→   503→                  {pricingContext.couponCode ? ` · Coupon: ${pricingContext.couponCode.toLowerCase()}` : ''}
+   504→   504→                </p>
+   505→   505→              </div>
+   506→   506→            </div>
+   507→   507→            <div className="text-right">
+   508→   508→              <p className="text-lg font-bold text-orange-400 tabular-nums">
+   509→   509→                ${pricingContext.discountedTotal != null ? pricingContext.discountedTotal.toLocaleString() : (pricingContext.totalMonthly ?? 0).toLocaleString()}
+   510→   510→                <span className="text-xs text-zinc-500 font-normal">/mo</span>
+   511→   511→              </p>
+   512→   512→              {pricingContext.couponCode && pricingContext.discountedTotal != null && pricingContext.totalMonthly !== pricingContext.discountedTotal && (
+   513→   513→                <p className="text-[10px] text-zinc-500 line-through">${(pricingContext.totalMonthly ?? 0).toLocaleString()}/mo</p>
+   514→   514→              )}
+   515→   515→            </div>
+   516→   516→          </div>
+   517→   517→          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+   518→   518→            {pricingContext.variants.map((v) => {
+   519→   519→              const tierMap: Record<string, string> = { starter: 'mini_parwa', growth: 'parwa', high: 'parwa_high' };
+   520→   520→              const tier = tierMap[v.id] || v.id;
+   521→   521→              const typeColor = variantTypeColors[tier] ?? { bg: 'bg-orange-500/10', text: 'text-orange-400' };
+   522→   522→              const variantLabels: Record<string, string> = {
+   523→   523→                mini_parwa: 'Starter', starter: 'Starter',
+   524→   524→                parwa: 'Growth', growth: 'Growth',
+   525→   525→                parwa_high: 'High', high: 'High',
+   526→   526→              };
+   527→   527→              const tierColors: Record<string, string> = {
+   528→   528→                mini_parwa: 'from-emerald-500 to-emerald-400', starter: 'from-emerald-500 to-emerald-400',
+   529→   529→                parwa: 'from-sky-500 to-sky-400', growth: 'from-sky-500 to-sky-400',
+   530→   530→                parwa_high: 'from-amber-500 to-amber-400', high: 'from-amber-500 to-amber-400',
+   531→   531→              };
+   532→   532→              return (
+   533→   533→                <div
+   534→   534→                  key={v.id}
+   535→   535→                  className="rounded-lg bg-[#1A1A1A]/80 border border-white/[0.06] p-3.5 flex items-center gap-3"
+   536→   536→                >
+   537→   537→                  <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${tierColors[tier] || 'from-orange-500 to-amber-400'} flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-lg`}>
+   538→   538→                    {(variantLabels[tier] || 'P').charAt(0)}
+   539→   539→                  </div>
+   540→   540→                  <div className="flex-1 min-w-0">
+   541→   541→                    <div className="flex items-center gap-1.5">
+   542→   542→                      <span className="text-sm font-semibold text-white truncate">
+   543→   543→                        {v.name || variantLabels[tier] || tier}
+   544→   544→                      </span>
+   545→   545→                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${typeColor.bg} ${typeColor.text}`}>
+   546→   546→                        {tier.replace('_', ' ')}
+   547→   547→                      </span>
+   548→   548→                    </div>
+   549→   549→                    <div className="flex items-center gap-2 text-xs text-zinc-500">
+   550→   550→                      <span>${v.monthlyPrice.toLocaleString()}/mo</span>
+   551→   551→                      <span className="text-zinc-700">×</span>
+   552→   552→                      <span>{v.quantity}x</span>
+   553→   553→                      <span className="text-zinc-700">·</span>
+   554→   554→                      <span className="text-orange-400 font-medium">${(v.monthlyPrice * v.quantity).toLocaleString()}/mo</span>
+   555→   555→                    </div>
+   556→   556→                  </div>
+   557→   557→                </div>
+   558→   558→              );
+   559→   559→            })}
+   560→   560→          </div>
+   561→   561→          {/* Progress hint */}
+   562→   562→          {(() => {
+   563→   563→            const hasActiveVariants = variantsState.status === 'success' && variantsState.data && variantsState.data.length > 0;
+   564→   564→            return (
+   565→   565→              <div className="mt-3 pt-3 border-t border-orange-500/10 flex items-center justify-between">
+   566→   566→                <div className="flex items-center gap-2">
+   567→   567→                  {hasActiveVariants ? (
+   568→   568→                    <>
+   569→   569→                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+   570→   570→                      <span className="text-xs text-emerald-400 font-medium">Active & Running</span>
+   571→   571→                    </>
+   572→   572→                  ) : (
+   573→   573→                    <>
+   574→   574→                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+   575→   575→                      <span className="text-xs text-amber-400 font-medium">Pending Activation</span>
+   576→   576→                    </>
+   577→   577→                  )}
+   578→   578→                </div>
+   579→   579→                {!hasActiveVariants && (
+   580→   580→                  <button
+   581→   581→                    onClick={() => router.push('/onboarding')}
+   582→   582→                    className="text-xs text-orange-400 hover:text-orange-300 font-medium transition-colors"
+   583→   583→                  >
+   584→   584→                    Complete Onboarding →
+   585→   585→                  </button>
+   586→   586→                )}
+   587→   587→              </div>
+   588→   588→            );
+   589→   589→          })()}
+   590→   590→        </div>
+   591→   591→      )}
+   592→   592→
+   593→   593→      {/* ── Onboarding Summary: AI Config + Integrations + KB ──────────────── */}
+   594→   594→      {(aiConfig || integrationsSummary || kbSummary) && (
+   595→   595→        <div className={`grid gap-4 ${kbSummary ? 'grid-cols-1 lg:grid-cols-3' : 'grid-cols-1 lg:grid-cols-2'}`}>
+   596→   596→          {/* AI Assistant Config */}
+   597→   597→          {aiConfig && (
+   598→   598→            <div className="rounded-xl border border-violet-500/15 p-5" style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.04) 0%, rgba(255,255,255,0.02) 100%)' }}>
+   599→   599→              <div className="flex items-center justify-between mb-3">
+   600→   600→                <div className="flex items-center gap-2">
+   601→   601→                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-400 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-violet-500/20">
+   602→   602→                    {aiConfig.ai_name?.charAt(0)?.toUpperCase() || 'A'}
+   603→   603→                  </div>
+   604→   604→                  <div>
+   605→   605→                    <h3 className="text-sm font-semibold text-white">AI Assistant</h3>
+   606→   606→                    <p className="text-[10px] text-zinc-500">Configured during onboarding</p>
+   607→   607→                  </div>
+   608→   608→                </div>
+   609→   609→                <a
+   610→   610→                  href="/dashboard/settings"
+   611→   611→                  className="text-[10px] text-violet-400 hover:text-violet-300 transition-colors"
+   612→   612→                >
+   613→   613→                  Edit Settings
+   614→   614→                </a>
+   615→   615→              </div>
+   616→   616→              <div className="space-y-2.5">
+   617→   617→                <div className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }}>
+   618→   618→                  <span className="text-xs text-zinc-500">Name</span>
+   619→   619→                  <span className="text-xs text-white font-medium">{aiConfig.ai_name || 'Jarvis'}</span>
+   620→   620→                </div>
+   621→   621→                <div className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }}>
+   622→   622→                  <span className="text-xs text-zinc-500">Tone</span>
+   623→   623→                  <span className="text-xs text-white font-medium capitalize">{aiConfig.ai_tone || 'Professional'}</span>
+   624→   624→                </div>
+   625→   625→                <div className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }}>
+   626→   626→                  <span className="text-xs text-zinc-500">Response Style</span>
+   627→   627→                  <span className="text-xs text-white font-medium capitalize">{aiConfig.ai_response_style || 'Concise'}</span>
+   628→   628→                </div>
+   629→   629→                {aiConfig.phone_number && (
+   630→   630→                  <div className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }}>
+   631→   631→                    <span className="text-xs text-zinc-500">Phone</span>
+   632→   632→                    <span className="text-xs text-white font-medium">{aiConfig.phone_number}</span>
+   633→   633→                  </div>
+   634→   634→                )}
+   635→   635→                {aiConfig.ai_greeting && (
+   636→   636→                  <div className="p-2.5 rounded-lg" style={{ background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.1)' }}>
+   637→   637→                    <p className="text-[10px] text-zinc-500 mb-1">Custom Greeting</p>
+   638→   638→                    <p className="text-xs text-violet-300 italic">&ldquo;{aiConfig.ai_greeting}&rdquo;</p>
+   639→   639→                  </div>
+   640→   640→                )}
+   641→   641→              </div>
+   642→   642→            </div>
+   643→   643→          )}
+   644→   644→
+   645→   645→          {/* Integrations Summary */}
+   646→   646→          {integrationsSummary && (
+   647→   647→            <div className="rounded-xl border border-orange-500/15 p-5" style={{ background: 'linear-gradient(135deg, rgba(255,127,17,0.04) 0%, rgba(255,255,255,0.02) 100%)' }}>
+   648→   648→              <div className="flex items-center justify-between mb-3">
+   649→   649→                <div className="flex items-center gap-2">
+   650→   650→                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center text-white shadow-lg shadow-orange-500/20">
+   651→   651→                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+   652→   652→                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.06a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L5.25 9.503" />
+   653→   653→                    </svg>
+   654→   654→                  </div>
+   655→   655→                  <div>
+   656→   656→                    <h3 className="text-sm font-semibold text-white">Connected Integrations</h3>
+   657→   657→                    <p className="text-[10px] text-zinc-500">Platforms connected during onboarding</p>
+   658→   658→                  </div>
+   659→   659→                </div>
+   660→   660→                <a
+   661→   661→                  href="/dashboard/integrations"
+   662→   662→                  className="text-[10px] text-orange-400 hover:text-orange-300 transition-colors"
+   663→   663→                >
+   664→   664→                  Manage →
+   665→   665→                </a>
+   666→   666→              </div>
+   667→   667→
+   668→   668→              {/* Stats */}
+   669→   669→              <div className="grid grid-cols-3 gap-2 mb-3">
+   670→   670→                <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
+   671→   671→                  <p className="text-lg font-bold text-emerald-400">{integrationsSummary.verified}</p>
+   672→   672→                  <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Verified</p>
+   673→   673→                </div>
+   674→   674→                <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}>
+   675→   675→                  <p className="text-lg font-bold text-amber-400">{integrationsSummary.pending}</p>
+   676→   676→                  <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Pending</p>
+   677→   677→                </div>
+   678→   678→                <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
+   679→   679→                  <p className="text-lg font-bold text-red-400">{integrationsSummary.failed}</p>
+   680→   680→                  <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Failed</p>
+   681→   681→                </div>
+   682→   682→              </div>
+   683→   683→
+   684→   684→              {/* Integration Names */}
+   685→   685→              <div className="space-y-1.5 max-h-[120px] overflow-y-auto">
+   686→   686→                {integrationsSummary.names.map((name, idx) => {
+   687→   687→                  const key = integrationsSummary.catalogKeys?.[idx];
+   688→   688→                  const isVerified = idx < integrationsSummary.verified;
+   689→   689→                  const isFailed = idx >= integrationsSummary.total - integrationsSummary.failed;
+   690→   690→                  return (
+   691→   691→                    <div
+   692→   692→                      key={idx}
+   693→   693→                      className="flex items-center justify-between p-2 rounded-lg"
+   694→   694→                      style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}
+   695→   695→                    >
+   696→   696→                      <div className="flex items-center gap-2">
+   697→   697→                        <div className={`w-2 h-2 rounded-full ${
+   698→   698→                          isVerified ? 'bg-emerald-400' :
+   699→   699→                          isFailed ? 'bg-red-400' :
+   700→   700→                          'bg-amber-400'
+   701→   701→                        }`} />
+   702→   702→                        <span className="text-xs text-white font-medium">{name}</span>
+   703→   703→                        {key && (
+   704→   704→                          <span className="text-[9px] text-zinc-600">{key}</span>
+   705→   705→                        )}
+   706→   706→                      </div>
+   707→   707→                      <span className={`text-[9px] font-medium uppercase tracking-wider ${
+   708→   708→                        isVerified ? 'text-emerald-400' :
+   709→   709→                        isFailed ? 'text-red-400' :
+   710→   710→                        'text-amber-400'
+   711→   711→                      }`}>
+   712→   712→                        {isVerified ? 'Verified' : isFailed ? 'Failed' : 'Pending'}
+   713→   713→                      </span>
+   714→   714→                    </div>
+   715→   715→                  );
+   716→   716→                })}
+   717→   717→              </div>
+   718→   718→            </div>
+   719→   719→          )}
+   720→   720→
+   721→   721→          {/* Knowledge Base Summary */}
+   722→   722→          {kbSummary && (
+   723→   723→            <div className="rounded-xl border border-emerald-500/15 p-5" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.04) 0%, rgba(255,255,255,0.02) 100%)' }}>
+   724→   724→              <div className="flex items-center justify-between mb-3">
+   725→   725→                <div className="flex items-center gap-2">
+   726→   726→                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-green-400 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+   727→   727→                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+   728→   728→                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+   729→   729→                    </svg>
+   730→   730→                  </div>
+   731→   731→                  <div>
+   732→   732→                    <h3 className="text-sm font-semibold text-white">Knowledge Base</h3>
+   733→   733→                    <p className="text-[10px] text-zinc-500">Documents uploaded during onboarding</p>
+   734→   734→                  </div>
+   735→   735→                </div>
+   736→   736→              </div>
+   737→   737→
+   738→   738→              {/* Stats */}
+   739→   739→              <div className="grid grid-cols-2 gap-2 mb-3">
+   740→   740→                <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
+   741→   741→                  <p className="text-lg font-bold text-emerald-400">{kbSummary.completed}</p>
+   742→   742→                  <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Processed</p>
+   743→   743→                </div>
+   744→   744→                <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+   745→   745→                  <p className="text-lg font-bold text-white">{kbSummary.total}</p>
+   746→   746→                  <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Total</p>
+   747→   747→                </div>
+   748→   748→              </div>
+   749→   749→
+   750→   750→              {/* File list */}
+   751→   751→              <div className="space-y-1.5 max-h-[100px] overflow-y-auto">
+   752→   752→                {kbSummary.filenames.map((name, idx) => (
+   753→   753→                  <div
+   754→   754→                    key={idx}
+   755→   755→                    className="flex items-center gap-2 p-2 rounded-lg"
+   756→   756→                    style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}
+   757→   757→                  >
+   758→   758→                    <div className={`w-2 h-2 rounded-full ${
+   759→   759→                      idx < kbSummary.completed ? 'bg-emerald-400' :
+   760→   760→                      idx >= kbSummary.total - kbSummary.failed ? 'bg-red-400' :
+   761→   761→                      'bg-amber-400'
+   762→   762→                    }`} />
+   763→   763→                    <span className="text-xs text-white truncate flex-1">{name}</span>
+   764→   764→                  </div>
+   765→   765→                ))}
+   766→   766→              </div>
+   767→   767→
+   768→   768→              {/* Size info */}
+   769→   769→              <div className="mt-2 pt-2 border-t border-white/[0.04] flex items-center justify-between">
+   770→   770→                <span className="text-[10px] text-zinc-600">Total size</span>
+   771→   771→                <span className="text-[10px] text-zinc-400">
+   772→   772→                  {kbSummary.totalSize < 1024 * 1024
+   773→   773→                    ? `${(kbSummary.totalSize / 1024).toFixed(1)} KB`
+   774→   774→                    : `${(kbSummary.totalSize / (1024 * 1024)).toFixed(1)} MB`}
+   775→   775→                </span>
+   776→   776→              </div>
+   777→   777→            </div>
+   778→   778→          )}
+   779→   779→        </div>
+   780→   780→      )}
+   781→   781→
+   782→   782→      {/* ── Cost Savings / ROI Section ──────────────────────────────── */}
+   783→   783→      {isCostLoading ? (
+   784→   784→        <div className="space-y-4">
+   785→   785→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">AI Cost Savings & ROI</h2>
+   786→   786→          <SkeletonSection rows={1} cols={4} />
+   787→   787→        </div>
+   788→   788→      ) : hasCostSectionData ? (
+   789→   789→        <div className="space-y-4">
+   790→   790→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">AI Cost Savings & ROI</h2>
+   791→   791→          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+   792→   792→            {/* Total Savings */}
+   793→   793→            <KPICard
+   794→   794→              title="Total Savings"
+   795→   795→              value={hasRoiData ? formatCurrency(roiState.data!.total_savings) : '—'}
+   796→   796→              subtitle={hasRoiData ? `${formatPercent(roiState.data!.savings_percentage)} saved` : 'ROI data unavailable'}
+   797→   797→              icon={Icons.savings}
+   798→   798→              variant="success"
+   799→   799→            />
+   800→   800→            {/* AI vs Human Cost */}
+   801→   801→            <KPICard
+   802→   802→              title="AI vs Human Cost"
+   803→   803→              value={hasRoiData ? `${formatCurrency(roiState.data!.avg_ai_cost)} vs ${formatCurrency(roiState.data!.avg_human_cost)}` : '—'}
+   804→   804→              subtitle={hasRoiData ? `${formatNumber(roiState.data!.tickets_ai_resolved)} AI · ${formatNumber(roiState.data!.tickets_human_resolved)} human` : '—'}
+   805→   805→              icon={Icons.robot}
+   806→   806→              variant="info"
+   807→   807→            />
+   808→   808→            {/* Automation Rate */}
+   809→   809→            <KPICard
+   810→   810→              title="Automation Rate"
+   811→   811→              value={hasRoiData ? formatPercent(roiState.data!.automation_rate) : '—'}
+   812→   812→              subtitle="Tickets auto-resolved"
+   813→   813→              icon={Icons.responseTime}
+   814→   814→              variant={hasRoiData && roiState.data!.automation_rate >= 60 ? 'success' : 'default'}
+   815→   815→            />
+   816→   816→            {/* AI Accuracy */}
+   817→   817→            <KPICard
+   818→   818→              title="AI Accuracy"
+   819→   819→              value={hasRoiData ? formatPercent(roiState.data!.ai_accuracy_pct) : '—'}
+   820→   820→              subtitle={hasBudgetData ? `${formatNumber(costBudgetState.data!.tokens_used)} tokens used` : '—'}
+   821→   821→              icon={Icons.accuracy}
+   822→   822→              variant={hasRoiData && roiState.data!.ai_accuracy_pct >= 90 ? 'success' : 'warning'}
+   823→   823→            />
+   824→   824→          </div>
+   825→   825→          {/* Budget bar */}
+   826→   826→          {hasBudgetData && costBudgetState.data!.total_budget > 0 && (
+   827→   827→            <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5">
+   828→   828→              <div className="flex items-center justify-between mb-3">
+   829→   829→                <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Token Budget Usage</span>
+   830→   830→                <span className="text-xs text-zinc-400">
+   831→   831→                  {formatCurrency(costBudgetState.data!.estimated_cost)} / {formatCurrency(costBudgetState.data!.total_budget)}
+   832→   832→                </span>
+   833→   833→              </div>
+   834→   834→              <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
+   835→   835→                <div
+   836→   836→                  className="h-full bg-emerald-500/80 rounded-full transition-all duration-500"
+   837→   837→                  style={{
+   838→   838→                    width: `${Math.min(100, (costBudgetState.data!.used_budget / costBudgetState.data!.total_budget) * 100)}%`,
+   839→   839→                  }}
+   840→   840→                />
+   841→   841→              </div>
+   842→   842→              <div className="flex items-center justify-between mt-2">
+   843→   843→                <span className="text-xs text-zinc-500">
+   844→   844→                  {((costBudgetState.data!.used_budget / costBudgetState.data!.total_budget) * 100).toFixed(1)}% used
+   845→   845→                </span>
+   846→   846→                <span className="text-xs text-zinc-500">
+   847→   847→                  {formatCurrency(costBudgetState.data!.remaining_budget)} remaining
+   848→   848→                </span>
+   849→   849→              </div>
+   850→   850→            </div>
+   851→   851→          )}
+   852→   852→        </div>
+   853→   853→      ) : (
+   854→   854→        /* Error / no backend — show connect message */
+   855→   855→        <div className="space-y-4">
+   856→   856→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">AI Cost Savings & ROI</h2>
+   857→   857→          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 flex flex-col items-center justify-center gap-3">
+   858→   858→            <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center text-zinc-600">
+   859→   859→              {Icons.savings}
+   860→   860→            </div>
+   861→   861→            <p className="text-sm text-zinc-500 text-center">Connect backend to view cost savings & ROI data</p>
+   862→   862→          </div>
+   863→   863→        </div>
+   864→   864→      )}
+   865→   865→
+   866→   866→      {/* ── Active Variants Status ─────────────────────────────────── */}
+   867→   867→      {variantsState.status === 'loading' ? (
+   868→   868→        <div className="space-y-4">
+   869→   869→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Active Variants</h2>
+   870→   870→          <SkeletonSection rows={1} cols={3} />
+   871→   871→        </div>
+   872→   872→      ) : variantsState.status === 'success' && variantsState.data && variantsState.data.length > 0 ? (
+   873→   873→        <div className="space-y-4">
+   874→   874→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">
+   875→   875→            Active Variants
+   876→   876→            <span className="ml-2 text-xs text-zinc-600 normal-case tracking-normal">
+   877→   877→              ({variantsState.data.length} running)
+   878→   878→            </span>
+   879→   879→          </h2>
+   880→   880→          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+   881→   881→            {variantsState.data.map((variant) => {
+   882→   882→              const typeColor = variantTypeColors[variant.variant_type] ?? { bg: 'bg-zinc-500/10', text: 'text-zinc-400' };
+   883→   883→              const statusColor = statusColors[variant.status] ?? statusColors.idle;
+   884→   884→              const loadPct = Math.min(100, variant.current_load);
+   885→   885→              const loadColor = loadPct >= 90 ? 'bg-red-500/80' : loadPct >= 70 ? 'bg-amber-500/80' : 'bg-emerald-500/80';
+   886→   886→
+   887→   887→              return (
+   888→   888→                <div
+   889→   889→                  key={variant.id}
+   890→   890→                  className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5 transition-all duration-300 hover:shadow-lg hover:shadow-black/20 hover:border-white/[0.1]"
+   891→   891→                >
+   892→   892→                  {/* Header: name + status */}
+   893→   893→                  <div className="flex items-start justify-between mb-4">
+   894→   894→                    <div className="flex-1 min-w-0">
+   895→   895→                      <div className="flex items-center gap-2 mb-1">
+   896→   896→                        <h3 className="text-sm font-semibold text-white truncate">{variant.name}</h3>
+   897→   897→                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider ${typeColor.bg} ${typeColor.text}`}>
+   898→   898→                          {variant.variant_type.replace('_', ' ')}
+   899→   899→                        </span>
+   900→   900→                      </div>
+   901→   901→                      <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+   902→   902→                        <span className={`w-1.5 h-1.5 rounded-full ${statusColor.dot}`} />
+   903→   903→                        <span className={statusColor.text}>{variant.status}</span>
+   904→   904→                        <span className="text-zinc-700">·</span>
+   905→   905→                        <span>{variant.channel_assignment}</span>
+   906→   906→                      </div>
+   907→   907→                    </div>
+   908→   908→                    <div className="w-9 h-9 rounded-lg bg-white/[0.05] flex items-center justify-center text-zinc-500 shrink-0">
+   909→   909→                      {Icons.variant}
+   910→   910→                    </div>
+   911→   911→                  </div>
+   912→   912→
+   913→   913→                  {/* Metrics grid */}
+   914→   914→                  <div className="grid grid-cols-2 gap-3 mb-4">
+   915→   915→                    <div>
+   916→   916→                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Load</p>
+   917→   917→                      <p className="text-sm font-semibold text-white tabular-nums">
+   918→   918→                        {loadPct}%
+   919→   919→                        <span className="text-[10px] text-zinc-600 ml-1">/ {variant.capacity_config.max_concurrent}</span>
+   920→   920→                      </p>
+   921→   921→                    </div>
+   922→   922→                    <div>
+   923→   923→                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Quality</p>
+   924→   924→                      <p className="text-sm font-semibold text-white tabular-nums">{formatPercent(variant.accuracy_rate)}</p>
+   925→   925→                    </div>
+   926→   926→                    <div>
+   927→   927→                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Latency</p>
+   928→   928→                      <p className="text-sm font-semibold text-white tabular-nums">{variant.avg_latency_ms}ms</p>
+   929→   929→                    </div>
+   930→   930→                    <div>
+   931→   931→                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Cost/Q</p>
+   932→   932→                      <p className="text-sm font-semibold text-white tabular-nums">{formatCurrency(variant.cost_per_query)}</p>
+   933→   933→                    </div>
+   934→   934→                  </div>
+   935→   935→
+   936→   936→                  {/* Load bar */}
+   937→   937→                  <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+   938→   938→                    <div
+   939→   939→                      className={`h-full rounded-full transition-all duration-500 ${loadColor}`}
+   940→   940→                      style={{ width: `${loadPct}%` }}
+   941→   941→                    />
+   942→   942→                  </div>
+   943→   943→
+   944→   944→                  {/* Footer */}
+   945→   945→                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.04]">
+   946→   946→                    <span className="text-[10px] text-zinc-600">Tier {variant.technique_tier}</span>
+   947→   947→                    <span className="text-[10px] text-zinc-600 font-mono">{variant.model}</span>
+   948→   948→                  </div>
+   949→   949→                </div>
+   950→   950→              );
+   951→   951→            })}
+   952→   952→          </div>
+   953→   953→        </div>
+   954→   954→      ) : variantsState.status === 'success' && variantsState.data && variantsState.data.length === 0 ? (
+   955→   955→        <div className="space-y-4">
+   956→   956→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Active Variants</h2>
+   957→   957→          {pricingContext && pricingContext.variants && pricingContext.variants.length > 0 ? (
+   958→   958→            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+   959→   959→              {pricingContext.variants.map((v) => {
+   960→   960→                const tierMap: Record<string, string> = { starter: 'mini_parwa', growth: 'parwa', high: 'parwa_high' };
+   961→   961→                const tier = tierMap[v.id] || v.id;
+   962→   962→                const typeColor = variantTypeColors[tier] ?? { bg: 'bg-orange-500/10', text: 'text-orange-400' };
+   963→   963→                return (
+   964→   964→                  <div
+   965→   965→                    key={v.id}
+   966→   966→                    className="rounded-xl bg-[#1A1A1A] border border-orange-500/20 p-5 transition-all duration-300 hover:shadow-lg hover:shadow-orange-500/5 hover:border-orange-500/30"
+   967→   967→                  >
+   968→   968→                    <div className="flex items-start justify-between mb-4">
+   969→   969→                      <div className="flex-1 min-w-0">
+   970→   970→                        <div className="flex items-center gap-2 mb-1">
+   971→   971→                          <h3 className="text-sm font-semibold text-white truncate">{v.name}</h3>
+   972→   972→                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider ${typeColor.bg} ${typeColor.text}`}>
+   973→   973→                            {tier.replace('_', ' ')}
+   974→   974→                          </span>
+   975→   975→                        </div>
+   976→   976→                        <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+   977→   977→                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+   978→   978→                          <span className="text-amber-400">Pending activation</span>
+   979→   979→                          <span className="text-zinc-700">·</span>
+   980→   980→                          <span>{pricingContext.industry || 'General'}</span>
+   981→   981→                        </div>
+   982→   982→                      </div>
+   983→   983→                      <div className="w-9 h-9 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-400 shrink-0">
+   984→   984→                        {Icons.variant}
+   985→   985→                      </div>
+   986→   986→                    </div>
+   987→   987→                    <div className="grid grid-cols-2 gap-3 mb-4">
+   988→   988→                      <div>
+   989→   989→                        <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Price</p>
+   990→   990→                        <p className="text-sm font-semibold text-white tabular-nums">${v.monthlyPrice.toLocaleString()}/mo</p>
+   991→   991→                      </div>
+   992→   992→                      <div>
+   993→   993→                        <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Quantity</p>
+   994→   994→                        <p className="text-sm font-semibold text-white tabular-nums">{v.quantity}x</p>
+   995→   995→                      </div>
+   996→   996→                      <div>
+   997→   997→                        <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Billing</p>
+   998→   998→                        <p className="text-sm font-semibold text-white tabular-nums">{pricingContext.isAnnual ? 'Annual' : 'Monthly'}</p>
+   999→   999→                      </div>
+
+[showing lines 500-999 of 1493; use offset=1000 with limit to continue reading]

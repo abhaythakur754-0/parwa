@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   User,
   AuthResponse,
@@ -17,6 +17,13 @@ import { useAppStore } from '@/lib/store';
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const USER_KEY = 'parwa_user';
+
+/**
+ * Grace period (ms) after a hydrate() call during which initializeAuth()
+ * will NOT overwrite the auth state.  This prevents the race condition
+ * where a slow me-proxy response clears the state that hydrate() just set.
+ */
+const HYDRATION_GRACE_MS = 30_000;
 
 /** Read user data from localStorage (non-sensitive display data only). */
 function readUserData(): User | null {
@@ -43,11 +50,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isInitialized: false,
   });
 
+  // Track the last time hydrate() was called so initializeAuth()
+  // doesn't overwrite a freshly-hydrated state (race condition fix).
+  const lastHydratedAt = useRef<number>(0);
+
   // ── Initialize Auth State ────────────────────────────────────────────
   // CRITICAL: We must NOT trust stale localStorage data if the backend
   // explicitly rejects the auth (401). This was causing infinite redirect
   // loops because the client thought it was authenticated but the
   // middleware kept rejecting requests (no valid cookie).
+  //
+  // RACE CONDITION FIX: If hydrate() was called recently (within
+  // HYDRATION_GRACE_MS), we skip the backend check entirely because
+  // hydrate() is called right after login/signup and its state should
+  // be trusted over a slow/stale me-proxy response.
 
   const initializeAuth = useCallback(async () => {
     try {
@@ -64,12 +80,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // ── Race condition guard ──
+      // If hydrate() was called recently (e.g. after login/signup),
+      // trust that state instead of making a backend call that might
+      // fail and clear it.
+      const timeSinceHydration = Date.now() - lastHydratedAt.current;
+      if (timeSinceHydration < HYDRATION_GRACE_MS) {
+        console.log('[AuthContext] Skipping me-proxy — recent hydrate() within grace period');
+        // State was already set by hydrate(); just mark as initialized
+        setState(prev => ({ ...prev, isLoading: false, isInitialized: true }));
+        return;
+      }
+
       // We have cached user data — verify with backend
       try {
         const response = await fetch('/api/auth/me-proxy', {
           method: 'GET',
           credentials: 'include', // Send httpOnly cookies
         });
+
+        // Re-check hydration guard AFTER the async call —
+        // hydrate() may have been called while we were waiting.
+        if (Date.now() - lastHydratedAt.current < HYDRATION_GRACE_MS) {
+          console.log('[AuthContext] me-proxy completed but hydrate() was called during fetch — keeping hydrated state');
+          setState(prev => ({ ...prev, isLoading: false, isInitialized: true }));
+          return;
+        }
 
         if (response.ok) {
           // Backend confirmed — user is authenticated
@@ -271,6 +307,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // This ONLY sets authenticated=true if called right after a successful login.
 
   const hydrate = useCallback(() => {
+    // Record hydration time so initializeAuth() doesn't overwrite us
+    lastHydratedAt.current = Date.now();
+
     try {
       const user = readUserData();
       if (user) {

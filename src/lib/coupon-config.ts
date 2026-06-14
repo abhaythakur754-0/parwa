@@ -14,10 +14,10 @@
  * How to set up a test coupon:
  * 1. Go to Paddle Dashboard → Catalog → Discounts
  * 2. Create a discount:
- *    - Code: "PARWAFREE"
+ *    - Code: "durga754" (use lowercase)
  *    - Type: Percentage
  *    - Amount: 100%
- *    - Recurring: Yes (so it applies every billing cycle)
+ *    - Recurring: false (one-time discount for testing)
  * 3. Copy the discount code and optionally the Paddle discount ID
  * 4. Add it to the COUPONS list below, or set env var NEXT_PUBLIC_PADDLE_FREE_DISCOUNT_CODE
  *
@@ -30,7 +30,7 @@
 // ── Coupon Definition ──────────────────────────────────────────────
 
 export interface Coupon {
-  /** Human-readable code the user types (e.g. "PARWAFREE") */
+  /** Human-readable code the user types (e.g. "durga754") */
   code: string;
   /** Discount percentage (0-100). 100 = completely free */
   discountPercent: number;

@@ -26,3 +26,22 @@ Stage Summary:
 - Dashboard now shows full onboarding data: AI config, integrations summary, KB status
 - All onboarding steps are connected to dashboard via localStorage
 - Build passes with no new errors
+---
+Task ID: 1
+Agent: main
+Task: Fix models page after login - auth race condition, orange theme, More button
+
+Work Log:
+- Identified AuthContext race condition: initializeAuth() overwrites hydrate() state after signup when me-proxy returns 401/slow
+- Added HYDRATION_GRACE_MS (30s) guard: hydrate() records timestamp, initializeAuth() skips backend check if within grace period
+- Re-check hydration guard AFTER async fetch completes to handle mid-flight hydrate() calls
+- Replaced all green/emerald colors in models page with orange (accent color): coupon section, Free badge, free checkout indicator
+- Added "More Details" expandable button to variant cards showing integrations, channels, and smart decisions
+- Verified coupon codes already display as lowercase (durga754)
+- Build succeeds with no errors
+
+Stage Summary:
+- AuthContext.tsx: Added lastHydratedAt ref + HYDRATION_GRACE_MS guard to prevent race condition
+- models/page.tsx: Replaced 7 green/emerald instances with orange accent colors
+- models/page.tsx: Added "More Details" toggle button with expandable integrations/channels/smart-decisions
+- coupon-config.ts: Updated comments to reflect lowercase code convention
