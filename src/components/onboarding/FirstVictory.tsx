@@ -28,34 +28,14 @@ export function FirstVictory({ aiName = 'Jarvis', aiGreeting }: FirstVictoryProp
   }, [marked]);
 
   const goToDashboard = () => {
-    // Variant-aware dashboard redirect
-    try {
-      const ctx = localStorage.getItem('parwa_pricing_context');
-      if (ctx) {
-        const pricing = JSON.parse(ctx) as Record<string, unknown>;
-        const variant = String(pricing.variant || '').toLowerCase();
-        if (variant === 'mini' || variant === 'mini-parwa') {
-          router.push('/dashboard?variant=mini');
-          return;
-        }
-        if (variant === 'parwa-high' || variant === 'high') {
-          router.push('/dashboard?variant=high');
-          return;
-        }
-        // Default PARWA variant
-        if (variant) {
-          router.push('/dashboard?variant=pro');
-          return;
-        }
-      }
-    } catch { /* ignore */ }
+    // Mark onboarding as fully completed first
+    localStorage.setItem('parwa_onboarding_completed', 'true');
 
-    // Fallback: check pricing context again for variants info
+    // Save variants info for the dashboard to read
     try {
       const ctx = localStorage.getItem('parwa_pricing_context');
       if (ctx) {
         const parsed = JSON.parse(ctx) as Record<string, unknown>;
-        // Store variants info for the dashboard to read
         localStorage.setItem('parwa_onboarding_variants', JSON.stringify({
           industry: parsed.industry,
           variants: parsed.variants,
@@ -65,9 +45,7 @@ export function FirstVictory({ aiName = 'Jarvis', aiGreeting }: FirstVictoryProp
       }
     } catch { /* ignore */ }
 
-    // Mark onboarding as fully completed
-    localStorage.setItem('parwa_onboarding_completed', 'true');
-
+    // Go to dashboard — the dashboard layout will handle the rest
     router.push('/dashboard');
   };
 

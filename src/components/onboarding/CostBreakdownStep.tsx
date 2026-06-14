@@ -698,6 +698,37 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
         checkoutItems,
       });
 
+      // ── FAST PATH: Free checkout (100% coupon) — skip Paddle entirely ──
+      // If the total is $0 after coupon, we don't need a payment gateway.
+      // Activate the subscription directly and move to First Victory.
+      if (isFreeCheckout) {
+        console.log('[cost-breakdown] Free checkout ($0) — skipping Paddle, activating directly');
+
+        // Try to notify the backend about the activation
+        try {
+          await fetch('/api/onboarding/activate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              variant: primaryOnboardingVariant,
+              industry: context.industry,
+              couponCode: appliedCoupon?.code || null,
+              isFreeCheckout: true,
+            }),
+          });
+        } catch {
+          // Continue locally even if API fails
+        }
+
+        // Save onboarding as completed
+        localStorage.setItem('parwa_onboarding_completed', 'true');
+        localStorage.removeItem('parwa_payment_pending');
+
+        toast.success('Free plan activated! Welcome to PARWA!');
+        handlePaymentSuccess();
+        return;
+      }
+
       // ── Step 1: Try server-side checkout (backend creates Paddle transaction) ──
       let checkoutUrl: string | null = null;
 

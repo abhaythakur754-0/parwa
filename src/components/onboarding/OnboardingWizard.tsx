@@ -203,26 +203,33 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
       {/* ── Top Header Bar ─────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b border-white/[0.06]" style={{ background: 'rgba(26,26,26,0.9)', backdropFilter: 'blur(20px)' }}>
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          {/* Left: Back to models or logo */}
+          {/* Left: Back to home/models or logo */}
           <div className="flex items-center gap-3">
-            {cameFromPricing && currentStep <= 1 ? (
+            <Link href="/" className="flex items-center gap-2.5 group">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/20 group-hover:shadow-orange-500/40 transition-shadow">
+                <svg className="w-5 h-5" viewBox="0 0 40 40" fill="none">
+                  <path d="M6 7h24a4 4 0 014 4v13a4 4 0 01-4 4h-8l-3 6-2-6H6a4 4 0 01-4-4V11a4 4 0 014-4z" stroke="white" strokeWidth="2.8" strokeLinejoin="round" />
+                  <path d="M22 11l-6 8h4.5L17 28l8-10h-4.5l3.5-7z" fill="white" />
+                </svg>
+              </div>
+              <span className="text-white font-semibold text-sm tracking-tight">PARWA</span>
+            </Link>
+            <button
+              onClick={() => router.push('/')}
+              className="flex items-center gap-1.5 text-xs text-orange-400/50 hover:text-orange-400 transition-colors px-2 py-1 rounded-md hover:bg-white/[0.04]"
+              title="Back to Home"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </button>
+            {cameFromPricing && (
               <button
                 onClick={() => router.push('/models')}
-                className="flex items-center gap-2 text-sm text-orange-400/70 hover:text-orange-400 transition-colors"
+                className="flex items-center gap-1.5 text-xs text-orange-400/50 hover:text-orange-400 transition-colors px-2 py-1 rounded-md hover:bg-white/[0.04]"
+                title="Back to Pricing"
               >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Back to Pricing</span>
+                <span>Pricing</span>
               </button>
-            ) : (
-              <Link href="/" className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
-                  <svg className="w-5 h-5" viewBox="0 0 40 40" fill="none">
-                    <path d="M6 7h24a4 4 0 014 4v13a4 4 0 01-4 4h-8l-3 6-2-6H6a4 4 0 01-4-4V11a4 4 0 014-4z" stroke="white" strokeWidth="2.8" strokeLinejoin="round" />
-                    <path d="M22 11l-6 8h4.5L17 28l8-10h-4.5l3.5-7z" fill="white" />
-                  </svg>
-                </div>
-                <span className="text-white font-semibold text-sm tracking-tight">PARWA</span>
-              </Link>
             )}
           </div>
 
