@@ -117,7 +117,7 @@ def check_last_page_fill(doc, result):
     
     if fill_ratio < 0.25:
         result.error("Last page blank", f"Last page fill ratio only {fill_ratio:.0%}, mostly blank! Consider compressing preceding page spacing or trimming content")
-    elif fill_ratio < LAST_PAGE_MIN_FILL:
+    elif fill_ratio < 0.40:
         result.warn("Last page blank", f"Last page fill ratio {fill_ratio:.0%}, somewhat sparse — optimization recommended")
     else:
         result.ok(f"Last page fill ratio {fill_ratio:.0%} ✓")
