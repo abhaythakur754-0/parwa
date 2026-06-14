@@ -36,10 +36,15 @@ let paddleInitFailed = false;
 export async function getPaddleInstance(): Promise<Paddle | undefined> {
   if (paddleInstance) return paddleInstance;
 
-  const paddleKey = process.env.NEXT_PUBLIC_PADDLE_KEY;
-  if (!paddleKey) {
-    console.warn('[paddle] NEXT_PUBLIC_PADDLE_KEY not set — checkout disabled');
-    return undefined;
+  // Resolve the Paddle client-side token.
+  // Priority: env var → fallback (ensures checkout works even if .env.production has a placeholder)
+  const FALLBACK_PADDLE_KEY = 'live_84ceb40f4a03f934aadd1460d60';
+  let paddleKey = process.env.NEXT_PUBLIC_PADDLE_KEY;
+
+  // If the env var is missing or contains an obvious placeholder, use the fallback
+  if (!paddleKey || paddleKey === 'your_paddle_client_token_here' || paddleKey === 'undefined') {
+    console.warn('[paddle] NEXT_PUBLIC_PADDLE_KEY not set or placeholder — using fallback');
+    paddleKey = FALLBACK_PADDLE_KEY;
   }
 
   try {

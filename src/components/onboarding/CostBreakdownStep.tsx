@@ -521,6 +521,15 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
     });
   }, []);
 
+  // Re-check Paddle status when coupon is applied — if free checkout,
+  // Paddle availability doesn't matter
+  useEffect(() => {
+    if (isFreeCheckout && paddleStatus === 'unavailable') {
+      // Free checkout doesn't need Paddle — update status to suppress warning
+      console.log('[cost-breakdown] Free checkout detected — Paddle not required');
+    }
+  }, [isFreeCheckout, paddleStatus]);
+
   // ── Calculations (pure math — D7, D10) ──────────────────────────────
 
   const totalTicketLimit = useMemo(
@@ -882,15 +891,21 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
       </div>
 
       {/* ── Paddle Status Indicator ─────────────────────────────────── */}
-      {paddleStatus === 'unavailable' && (
+      {paddleStatus === 'unavailable' && !isFreeCheckout && (
         <div className="rounded-xl border border-amber-500/20 p-4 flex items-start gap-3" style={{ background: 'rgba(245,158,11,0.05)' }}>
           <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-medium text-amber-300">Payment checkout unavailable</p>
             <p className="text-[10px] text-orange-200/30 mt-1">
-              Paddle payment gateway is not configured. Your configuration will be saved and you can complete payment later.
+              Paddle payment gateway is not configured. Apply a coupon code for free checkout, or try again later.
             </p>
           </div>
+        </div>
+      )}
+      {paddleStatus === 'unavailable' && isFreeCheckout && (
+        <div className="rounded-xl border border-emerald-500/20 p-3 flex items-center gap-2" style={{ background: 'rgba(16,185,129,0.04)' }}>
+          <Sparkles className="w-4 h-4 text-emerald-400" />
+          <p className="text-xs text-emerald-400">Free checkout — no payment required</p>
         </div>
       )}
       {paddleStatus === 'ready' && (
