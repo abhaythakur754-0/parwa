@@ -65,6 +65,9 @@ export function FirstVictory({ aiName = 'Jarvis', aiGreeting }: FirstVictoryProp
       }
     } catch { /* ignore */ }
 
+    // Mark onboarding as fully completed
+    localStorage.setItem('parwa_onboarding_completed', 'true');
+
     router.push('/dashboard');
   };
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Loader2, Upload, FileText, CheckCircle2, RefreshCw, Trash2, FileUp,
   AlertTriangle, CloudOff,
@@ -214,6 +214,32 @@ export function KnowledgeUpload({ onComplete }: KnowledgeUploadProps) {
 
   const completedCount = documents.filter((d) => d.status === 'completed').length;
   const queuedCount = documents.filter((d) => d.queued_for_retry).length;
+
+  // Save KB summary to localStorage for dashboard
+  const saveKBSummary = useCallback((docs: Document[]) => {
+    try {
+      const summary = {
+        total: docs.length,
+        completed: docs.filter((d) => d.status === 'completed').length,
+        processing: docs.filter((d) => d.status === 'processing').length,
+        failed: docs.filter((d) => d.status === 'failed').length,
+        queued: docs.filter((d) => d.queued_for_retry).length,
+        filenames: docs.map((d) => d.filename),
+        totalSize: docs.reduce((acc, d) => acc + d.file_size, 0),
+        updatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem('parwa_kb_summary', JSON.stringify(summary));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Update localStorage whenever documents change
+  React.useEffect(() => {
+    if (documents.length > 0) {
+      saveKBSummary(documents);
+    }
+  }, [documents, saveKBSummary]);
 
   return (
     <div className="space-y-6">

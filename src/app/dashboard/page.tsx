@@ -240,6 +240,38 @@ export default function DashboardPage() {
     discountedTotal?: number;
   } | null>(null);
 
+  // ── AI Config from Onboarding (localStorage) ──
+  const [aiConfig, setAiConfig] = useState<{
+    ai_name?: string;
+    ai_tone?: string;
+    ai_response_style?: string;
+    ai_greeting?: string;
+    phone_number?: string;
+  } | null>(null);
+
+  // ── Integrations Summary from Onboarding (localStorage) ──
+  const [integrationsSummary, setIntegrationsSummary] = useState<{
+    total: number;
+    verified: number;
+    pending: number;
+    failed: number;
+    names: string[];
+    catalogKeys?: string[];
+    updatedAt?: string;
+  } | null>(null);
+
+  // ── Knowledge Base Summary from Onboarding (localStorage) ──
+  const [kbSummary, setKbSummary] = useState<{
+    total: number;
+    completed: number;
+    processing: number;
+    failed: number;
+    queued: number;
+    filenames: string[];
+    totalSize: number;
+    updatedAt?: string;
+  } | null>(null);
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem('parwa_pricing_context');
@@ -267,6 +299,39 @@ export default function DashboardPage() {
             couponCode: null,
             discountedTotal: undefined,
           });
+        }
+      }
+    } catch { /* ignore */ }
+
+    // Load AI Config from onboarding
+    try {
+      const raw = localStorage.getItem('parwa_ai_config');
+      if (raw) {
+        const config = JSON.parse(raw);
+        if (config && config.ai_name) {
+          setAiConfig(config);
+        }
+      }
+    } catch { /* ignore */ }
+
+    // Load Integrations Summary from onboarding
+    try {
+      const raw = localStorage.getItem('parwa_integrations_summary');
+      if (raw) {
+        const summary = JSON.parse(raw);
+        if (summary && summary.total > 0) {
+          setIntegrationsSummary(summary);
+        }
+      }
+    } catch { /* ignore */ }
+
+    // Load Knowledge Base Summary from onboarding
+    try {
+      const raw = localStorage.getItem('parwa_kb_summary');
+      if (raw) {
+        const summary = JSON.parse(raw);
+        if (summary && summary.total > 0) {
+          setKbSummary(summary);
         }
       }
     } catch { /* ignore */ }
@@ -419,6 +484,7 @@ export default function DashboardPage() {
         industry={pricingContext?.industry || 'Support'}
         variantCount={data?.summary.resolved ?? 0}
         resolutionRate={data ? formatPercent(data.summary.resolution_rate) : '0%'}
+        aiName={aiConfig?.ai_name}
       />
 
       {/* ── Your Selected Plan Banner ─────────────────────────────── */}
@@ -521,6 +587,195 @@ export default function DashboardPage() {
               </div>
             );
           })()}
+        </div>
+      )}
+
+      {/* ── Onboarding Summary: AI Config + Integrations + KB ──────────────── */}
+      {(aiConfig || integrationsSummary || kbSummary) && (
+        <div className={`grid gap-4 ${kbSummary ? 'grid-cols-1 lg:grid-cols-3' : 'grid-cols-1 lg:grid-cols-2'}`}>
+          {/* AI Assistant Config */}
+          {aiConfig && (
+            <div className="rounded-xl border border-violet-500/15 p-5" style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.04) 0%, rgba(255,255,255,0.02) 100%)' }}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-400 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-violet-500/20">
+                    {aiConfig.ai_name?.charAt(0)?.toUpperCase() || 'A'}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">AI Assistant</h3>
+                    <p className="text-[10px] text-zinc-500">Configured during onboarding</p>
+                  </div>
+                </div>
+                <a
+                  href="/dashboard/settings"
+                  className="text-[10px] text-violet-400 hover:text-violet-300 transition-colors"
+                >
+                  Edit Settings
+                </a>
+              </div>
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                  <span className="text-xs text-zinc-500">Name</span>
+                  <span className="text-xs text-white font-medium">{aiConfig.ai_name || 'Jarvis'}</span>
+                </div>
+                <div className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                  <span className="text-xs text-zinc-500">Tone</span>
+                  <span className="text-xs text-white font-medium capitalize">{aiConfig.ai_tone || 'Professional'}</span>
+                </div>
+                <div className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                  <span className="text-xs text-zinc-500">Response Style</span>
+                  <span className="text-xs text-white font-medium capitalize">{aiConfig.ai_response_style || 'Concise'}</span>
+                </div>
+                {aiConfig.phone_number && (
+                  <div className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                    <span className="text-xs text-zinc-500">Phone</span>
+                    <span className="text-xs text-white font-medium">{aiConfig.phone_number}</span>
+                  </div>
+                )}
+                {aiConfig.ai_greeting && (
+                  <div className="p-2.5 rounded-lg" style={{ background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                    <p className="text-[10px] text-zinc-500 mb-1">Custom Greeting</p>
+                    <p className="text-xs text-violet-300 italic">&ldquo;{aiConfig.ai_greeting}&rdquo;</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Integrations Summary */}
+          {integrationsSummary && (
+            <div className="rounded-xl border border-orange-500/15 p-5" style={{ background: 'linear-gradient(135deg, rgba(255,127,17,0.04) 0%, rgba(255,255,255,0.02) 100%)' }}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center text-white shadow-lg shadow-orange-500/20">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.06a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L5.25 9.503" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">Connected Integrations</h3>
+                    <p className="text-[10px] text-zinc-500">Platforms connected during onboarding</p>
+                  </div>
+                </div>
+                <a
+                  href="/dashboard/integrations"
+                  className="text-[10px] text-orange-400 hover:text-orange-300 transition-colors"
+                >
+                  Manage →
+                </a>
+              </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
+                  <p className="text-lg font-bold text-emerald-400">{integrationsSummary.verified}</p>
+                  <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Verified</p>
+                </div>
+                <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                  <p className="text-lg font-bold text-amber-400">{integrationsSummary.pending}</p>
+                  <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Pending</p>
+                </div>
+                <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                  <p className="text-lg font-bold text-red-400">{integrationsSummary.failed}</p>
+                  <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Failed</p>
+                </div>
+              </div>
+
+              {/* Integration Names */}
+              <div className="space-y-1.5 max-h-[120px] overflow-y-auto">
+                {integrationsSummary.names.map((name, idx) => {
+                  const key = integrationsSummary.catalogKeys?.[idx];
+                  const isVerified = idx < integrationsSummary.verified;
+                  const isFailed = idx >= integrationsSummary.total - integrationsSummary.failed;
+                  return (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-2 rounded-lg"
+                      style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${
+                          isVerified ? 'bg-emerald-400' :
+                          isFailed ? 'bg-red-400' :
+                          'bg-amber-400'
+                        }`} />
+                        <span className="text-xs text-white font-medium">{name}</span>
+                        {key && (
+                          <span className="text-[9px] text-zinc-600">{key}</span>
+                        )}
+                      </div>
+                      <span className={`text-[9px] font-medium uppercase tracking-wider ${
+                        isVerified ? 'text-emerald-400' :
+                        isFailed ? 'text-red-400' :
+                        'text-amber-400'
+                      }`}>
+                        {isVerified ? 'Verified' : isFailed ? 'Failed' : 'Pending'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Knowledge Base Summary */}
+          {kbSummary && (
+            <div className="rounded-xl border border-emerald-500/15 p-5" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.04) 0%, rgba(255,255,255,0.02) 100%)' }}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-green-400 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">Knowledge Base</h3>
+                    <p className="text-[10px] text-zinc-500">Documents uploaded during onboarding</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
+                  <p className="text-lg font-bold text-emerald-400">{kbSummary.completed}</p>
+                  <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Processed</p>
+                </div>
+                <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <p className="text-lg font-bold text-white">{kbSummary.total}</p>
+                  <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Total</p>
+                </div>
+              </div>
+
+              {/* File list */}
+              <div className="space-y-1.5 max-h-[100px] overflow-y-auto">
+                {kbSummary.filenames.map((name, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2 p-2 rounded-lg"
+                    style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}
+                  >
+                    <div className={`w-2 h-2 rounded-full ${
+                      idx < kbSummary.completed ? 'bg-emerald-400' :
+                      idx >= kbSummary.total - kbSummary.failed ? 'bg-red-400' :
+                      'bg-amber-400'
+                    }`} />
+                    <span className="text-xs text-white truncate flex-1">{name}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Size info */}
+              <div className="mt-2 pt-2 border-t border-white/[0.04] flex items-center justify-between">
+                <span className="text-[10px] text-zinc-600">Total size</span>
+                <span className="text-[10px] text-zinc-400">
+                  {kbSummary.totalSize < 1024 * 1024
+                    ? `${(kbSummary.totalSize / 1024).toFixed(1)} KB`
+                    : `${(kbSummary.totalSize / (1024 * 1024)).toFixed(1)} MB`}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -796,18 +1051,19 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Jarvis CC Quick Access ──────────────────────────────────── */}
+      {/* ── AI Assistant Quick Access ──────────────────────────────────── */}
       {(() => {
         const hasActiveVariants = variantsState.status === 'success' && variantsState.data && variantsState.data.length > 0;
+        const assistantName = aiConfig?.ai_name || 'Jarvis';
         return (
         <div className="rounded-xl border border-orange-500/10 bg-gradient-to-r from-orange-500/5 to-amber-500/5 p-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-orange-500/20">
-                J
+                {assistantName.charAt(0).toUpperCase()}
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-white">Jarvis Customer Care</h3>
+                <h3 className="text-sm font-semibold text-white">{assistantName} Customer Care</h3>
                 <p className="text-xs text-zinc-500">AI employee managing your customer support — chat, commands, awareness feed</p>
               </div>
             </div>

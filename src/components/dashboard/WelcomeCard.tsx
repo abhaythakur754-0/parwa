@@ -15,6 +15,7 @@ interface WelcomeCardProps {
   variantCount?: number;
   industry?: string | null;
   resolutionRate?: string;
+  aiName?: string | null;
 }
 
 export function WelcomeCard({
@@ -23,9 +24,11 @@ export function WelcomeCard({
   variantCount = 0,
   industry,
   resolutionRate,
+  aiName,
 }: WelcomeCardProps) {
   const firstName = userName?.split(' ')[0] || 'there';
   const displayName = firstName.charAt(0).toUpperCase() + firstName.slice(1);
+  const assistantName = aiName || 'Jarvis';
 
   return (
     <div className="glass rounded-2xl p-6 relative overflow-hidden">
@@ -51,7 +54,7 @@ export function WelcomeCard({
         {/* Message */}
         <p className="text-sm text-white/60 leading-relaxed mb-5">
           {variantCount > 0
-            ? 'Your Jarvis AI agents are live and ready to handle customer support. Here\'s an overview of your setup.'
+            ? `Your ${assistantName} AI agents are live and ready to handle customer support. Here's an overview of your setup.`
             : 'Your dashboard is ready. Set up your first AI variant to start automating customer support.'}
         </p>
 

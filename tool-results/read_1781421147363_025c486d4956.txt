@@ -1,0 +1,402 @@
+   449→   449→   449→            </div>
+   450→   450→   450→          </div>
+   451→   451→   451→          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+   452→   452→   452→            {pricingContext.variants.map((v) => {
+   453→   453→   453→              const tierMap: Record<string, string> = { starter: 'mini_parwa', growth: 'parwa', high: 'parwa_high' };
+   454→   454→   454→              const tier = tierMap[v.id] || v.id;
+   455→   455→   455→              const typeColor = variantTypeColors[tier] ?? { bg: 'bg-orange-500/10', text: 'text-orange-400' };
+   456→   456→   456→              const variantLabels: Record<string, string> = {
+   457→   457→   457→                mini_parwa: 'Starter', starter: 'Starter',
+   458→   458→   458→                parwa: 'Growth', growth: 'Growth',
+   459→   459→   459→                parwa_high: 'High', high: 'High',
+   460→   460→   460→              };
+   461→   461→   461→              const tierColors: Record<string, string> = {
+   462→   462→   462→                mini_parwa: 'from-emerald-500 to-emerald-400', starter: 'from-emerald-500 to-emerald-400',
+   463→   463→   463→                parwa: 'from-sky-500 to-sky-400', growth: 'from-sky-500 to-sky-400',
+   464→   464→   464→                parwa_high: 'from-amber-500 to-amber-400', high: 'from-amber-500 to-amber-400',
+   465→   465→   465→              };
+   466→   466→   466→              return (
+   467→   467→   467→                <div
+   468→   468→   468→                  key={v.id}
+   469→   469→   469→                  className="rounded-lg bg-[#1A1A1A]/80 border border-white/[0.06] p-3.5 flex items-center gap-3"
+   470→   470→   470→                >
+   471→   471→   471→                  <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${tierColors[tier] || 'from-orange-500 to-amber-400'} flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-lg`}>
+   472→   472→   472→                    {(variantLabels[tier] || 'P').charAt(0)}
+   473→   473→   473→                  </div>
+   474→   474→   474→                  <div className="flex-1 min-w-0">
+   475→   475→   475→                    <div className="flex items-center gap-1.5">
+   476→   476→   476→                      <span className="text-sm font-semibold text-white truncate">
+   477→   477→   477→                        {v.name || variantLabels[tier] || tier}
+   478→   478→   478→                      </span>
+   479→   479→   479→                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${typeColor.bg} ${typeColor.text}`}>
+   480→   480→   480→                        {tier.replace('_', ' ')}
+   481→   481→   481→                      </span>
+   482→   482→   482→                    </div>
+   483→   483→   483→                    <div className="flex items-center gap-2 text-xs text-zinc-500">
+   484→   484→   484→                      <span>${v.monthlyPrice.toLocaleString()}/mo</span>
+   485→   485→   485→                      <span className="text-zinc-700">×</span>
+   486→   486→   486→                      <span>{v.quantity}x</span>
+   487→   487→   487→                      <span className="text-zinc-700">·</span>
+   488→   488→   488→                      <span className="text-orange-400 font-medium">${(v.monthlyPrice * v.quantity).toLocaleString()}/mo</span>
+   489→   489→   489→                    </div>
+   490→   490→   490→                  </div>
+   491→   491→   491→                </div>
+   492→   492→   492→              );
+   493→   493→   493→            })}
+   494→   494→   494→          </div>
+   495→   495→   495→          {/* Progress hint */}
+   496→   496→   496→          {(() => {
+   497→   497→   497→            const hasActiveVariants = variantsState.status === 'success' && variantsState.data && variantsState.data.length > 0;
+   498→   498→   498→            return (
+   499→   499→   499→              <div className="mt-3 pt-3 border-t border-orange-500/10 flex items-center justify-between">
+   500→   500→   500→                <div className="flex items-center gap-2">
+   501→   501→   501→                  {hasActiveVariants ? (
+   502→   502→   502→                    <>
+   503→   503→   503→                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+   504→   504→   504→                      <span className="text-xs text-emerald-400 font-medium">Active & Running</span>
+   505→   505→   505→                    </>
+   506→   506→   506→                  ) : (
+   507→   507→   507→                    <>
+   508→   508→   508→                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+   509→   509→   509→                      <span className="text-xs text-amber-400 font-medium">Pending Activation</span>
+   510→   510→   510→                    </>
+   511→   511→   511→                  )}
+   512→   512→   512→                </div>
+   513→   513→   513→                {!hasActiveVariants && (
+   514→   514→   514→                  <button
+   515→   515→   515→                    onClick={() => router.push('/onboarding')}
+   516→   516→   516→                    className="text-xs text-orange-400 hover:text-orange-300 font-medium transition-colors"
+   517→   517→   517→                  >
+   518→   518→   518→                    Complete Onboarding →
+   519→   519→   519→                  </button>
+   520→   520→   520→                )}
+   521→   521→   521→              </div>
+   522→   522→   522→            );
+   523→   523→   523→          })()}
+   524→   524→   524→        </div>
+   525→   525→   525→      )}
+   526→   526→   526→
+   527→   527→   527→      {/* ── Cost Savings / ROI Section ──────────────────────────────── */}
+   528→   528→   528→      {isCostLoading ? (
+   529→   529→   529→        <div className="space-y-4">
+   530→   530→   530→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">AI Cost Savings & ROI</h2>
+   531→   531→   531→          <SkeletonSection rows={1} cols={4} />
+   532→   532→   532→        </div>
+   533→   533→   533→      ) : hasCostSectionData ? (
+   534→   534→   534→        <div className="space-y-4">
+   535→   535→   535→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">AI Cost Savings & ROI</h2>
+   536→   536→   536→          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+   537→   537→   537→            {/* Total Savings */}
+   538→   538→   538→            <KPICard
+   539→   539→   539→              title="Total Savings"
+   540→   540→   540→              value={hasRoiData ? formatCurrency(roiState.data!.total_savings) : '—'}
+   541→   541→   541→              subtitle={hasRoiData ? `${formatPercent(roiState.data!.savings_percentage)} saved` : 'ROI data unavailable'}
+   542→   542→   542→              icon={Icons.savings}
+   543→   543→   543→              variant="success"
+   544→   544→   544→            />
+   545→   545→   545→            {/* AI vs Human Cost */}
+   546→   546→   546→            <KPICard
+   547→   547→   547→              title="AI vs Human Cost"
+   548→   548→   548→              value={hasRoiData ? `${formatCurrency(roiState.data!.avg_ai_cost)} vs ${formatCurrency(roiState.data!.avg_human_cost)}` : '—'}
+   549→   549→   549→              subtitle={hasRoiData ? `${formatNumber(roiState.data!.tickets_ai_resolved)} AI · ${formatNumber(roiState.data!.tickets_human_resolved)} human` : '—'}
+   550→   550→   550→              icon={Icons.robot}
+   551→   551→   551→              variant="info"
+   552→   552→   552→            />
+   553→   553→   553→            {/* Automation Rate */}
+   554→   554→   554→            <KPICard
+   555→   555→   555→              title="Automation Rate"
+   556→   556→   556→              value={hasRoiData ? formatPercent(roiState.data!.automation_rate) : '—'}
+   557→   557→   557→              subtitle="Tickets auto-resolved"
+   558→   558→   558→              icon={Icons.responseTime}
+   559→   559→   559→              variant={hasRoiData && roiState.data!.automation_rate >= 60 ? 'success' : 'default'}
+   560→   560→   560→            />
+   561→   561→   561→            {/* AI Accuracy */}
+   562→   562→   562→            <KPICard
+   563→   563→   563→              title="AI Accuracy"
+   564→   564→   564→              value={hasRoiData ? formatPercent(roiState.data!.ai_accuracy_pct) : '—'}
+   565→   565→   565→              subtitle={hasBudgetData ? `${formatNumber(costBudgetState.data!.tokens_used)} tokens used` : '—'}
+   566→   566→   566→              icon={Icons.accuracy}
+   567→   567→   567→              variant={hasRoiData && roiState.data!.ai_accuracy_pct >= 90 ? 'success' : 'warning'}
+   568→   568→   568→            />
+   569→   569→   569→          </div>
+   570→   570→   570→          {/* Budget bar */}
+   571→   571→   571→          {hasBudgetData && costBudgetState.data!.total_budget > 0 && (
+   572→   572→   572→            <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5">
+   573→   573→   573→              <div className="flex items-center justify-between mb-3">
+   574→   574→   574→                <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Token Budget Usage</span>
+   575→   575→   575→                <span className="text-xs text-zinc-400">
+   576→   576→   576→                  {formatCurrency(costBudgetState.data!.estimated_cost)} / {formatCurrency(costBudgetState.data!.total_budget)}
+   577→   577→   577→                </span>
+   578→   578→   578→              </div>
+   579→   579→   579→              <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
+   580→   580→   580→                <div
+   581→   581→   581→                  className="h-full bg-emerald-500/80 rounded-full transition-all duration-500"
+   582→   582→   582→                  style={{
+   583→   583→   583→                    width: `${Math.min(100, (costBudgetState.data!.used_budget / costBudgetState.data!.total_budget) * 100)}%`,
+   584→   584→   584→                  }}
+   585→   585→   585→                />
+   586→   586→   586→              </div>
+   587→   587→   587→              <div className="flex items-center justify-between mt-2">
+   588→   588→   588→                <span className="text-xs text-zinc-500">
+   589→   589→   589→                  {((costBudgetState.data!.used_budget / costBudgetState.data!.total_budget) * 100).toFixed(1)}% used
+   590→   590→   590→                </span>
+   591→   591→   591→                <span className="text-xs text-zinc-500">
+   592→   592→   592→                  {formatCurrency(costBudgetState.data!.remaining_budget)} remaining
+   593→   593→   593→                </span>
+   594→   594→   594→              </div>
+   595→   595→   595→            </div>
+   596→   596→   596→          )}
+   597→   597→   597→        </div>
+   598→   598→   598→      ) : (
+   599→   599→   599→        /* Error / no backend — show connect message */
+   600→   600→   600→        <div className="space-y-4">
+   601→   601→   601→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">AI Cost Savings & ROI</h2>
+   602→   602→   602→          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 flex flex-col items-center justify-center gap-3">
+   603→   603→   603→            <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center text-zinc-600">
+   604→   604→   604→              {Icons.savings}
+   605→   605→   605→            </div>
+   606→   606→   606→            <p className="text-sm text-zinc-500 text-center">Connect backend to view cost savings & ROI data</p>
+   607→   607→   607→          </div>
+   608→   608→   608→        </div>
+   609→   609→   609→      )}
+   610→   610→   610→
+   611→   611→   611→      {/* ── Active Variants Status ─────────────────────────────────── */}
+   612→   612→   612→      {variantsState.status === 'loading' ? (
+   613→   613→   613→        <div className="space-y-4">
+   614→   614→   614→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Active Variants</h2>
+   615→   615→   615→          <SkeletonSection rows={1} cols={3} />
+   616→   616→   616→        </div>
+   617→   617→   617→      ) : variantsState.status === 'success' && variantsState.data && variantsState.data.length > 0 ? (
+   618→   618→   618→        <div className="space-y-4">
+   619→   619→   619→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">
+   620→   620→   620→            Active Variants
+   621→   621→   621→            <span className="ml-2 text-xs text-zinc-600 normal-case tracking-normal">
+   622→   622→   622→              ({variantsState.data.length} running)
+   623→   623→   623→            </span>
+   624→   624→   624→          </h2>
+   625→   625→   625→          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+   626→   626→   626→            {variantsState.data.map((variant) => {
+   627→   627→   627→              const typeColor = variantTypeColors[variant.variant_type] ?? { bg: 'bg-zinc-500/10', text: 'text-zinc-400' };
+   628→   628→   628→              const statusColor = statusColors[variant.status] ?? statusColors.idle;
+   629→   629→   629→              const loadPct = Math.min(100, variant.current_load);
+   630→   630→   630→              const loadColor = loadPct >= 90 ? 'bg-red-500/80' : loadPct >= 70 ? 'bg-amber-500/80' : 'bg-emerald-500/80';
+   631→   631→   631→
+   632→   632→   632→              return (
+   633→   633→   633→                <div
+   634→   634→   634→                  key={variant.id}
+   635→   635→   635→                  className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5 transition-all duration-300 hover:shadow-lg hover:shadow-black/20 hover:border-white/[0.1]"
+   636→   636→   636→                >
+   637→   637→   637→                  {/* Header: name + status */}
+   638→   638→   638→                  <div className="flex items-start justify-between mb-4">
+   639→   639→   639→                    <div className="flex-1 min-w-0">
+   640→   640→   640→                      <div className="flex items-center gap-2 mb-1">
+   641→   641→   641→                        <h3 className="text-sm font-semibold text-white truncate">{variant.name}</h3>
+   642→   642→   642→                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider ${typeColor.bg} ${typeColor.text}`}>
+   643→   643→   643→                          {variant.variant_type.replace('_', ' ')}
+   644→   644→   644→                        </span>
+   645→   645→   645→                      </div>
+   646→   646→   646→                      <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+   647→   647→   647→                        <span className={`w-1.5 h-1.5 rounded-full ${statusColor.dot}`} />
+   648→   648→   648→                        <span className={statusColor.text}>{variant.status}</span>
+   649→   649→   649→                        <span className="text-zinc-700">·</span>
+   650→   650→   650→                        <span>{variant.channel_assignment}</span>
+   651→   651→   651→                      </div>
+   652→   652→   652→                    </div>
+   653→   653→   653→                    <div className="w-9 h-9 rounded-lg bg-white/[0.05] flex items-center justify-center text-zinc-500 shrink-0">
+   654→   654→   654→                      {Icons.variant}
+   655→   655→   655→                    </div>
+   656→   656→   656→                  </div>
+   657→   657→   657→
+   658→   658→   658→                  {/* Metrics grid */}
+   659→   659→   659→                  <div className="grid grid-cols-2 gap-3 mb-4">
+   660→   660→   660→                    <div>
+   661→   661→   661→                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Load</p>
+   662→   662→   662→                      <p className="text-sm font-semibold text-white tabular-nums">
+   663→   663→   663→                        {loadPct}%
+   664→   664→   664→                        <span className="text-[10px] text-zinc-600 ml-1">/ {variant.capacity_config.max_concurrent}</span>
+   665→   665→   665→                      </p>
+   666→   666→   666→                    </div>
+   667→   667→   667→                    <div>
+   668→   668→   668→                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Quality</p>
+   669→   669→   669→                      <p className="text-sm font-semibold text-white tabular-nums">{formatPercent(variant.accuracy_rate)}</p>
+   670→   670→   670→                    </div>
+   671→   671→   671→                    <div>
+   672→   672→   672→                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Latency</p>
+   673→   673→   673→                      <p className="text-sm font-semibold text-white tabular-nums">{variant.avg_latency_ms}ms</p>
+   674→   674→   674→                    </div>
+   675→   675→   675→                    <div>
+   676→   676→   676→                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Cost/Q</p>
+   677→   677→   677→                      <p className="text-sm font-semibold text-white tabular-nums">{formatCurrency(variant.cost_per_query)}</p>
+   678→   678→   678→                    </div>
+   679→   679→   679→                  </div>
+   680→   680→   680→
+   681→   681→   681→                  {/* Load bar */}
+   682→   682→   682→                  <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+   683→   683→   683→                    <div
+   684→   684→   684→                      className={`h-full rounded-full transition-all duration-500 ${loadColor}`}
+   685→   685→   685→                      style={{ width: `${loadPct}%` }}
+   686→   686→   686→                    />
+   687→   687→   687→                  </div>
+   688→   688→   688→
+   689→   689→   689→                  {/* Footer */}
+   690→   690→   690→                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.04]">
+   691→   691→   691→                    <span className="text-[10px] text-zinc-600">Tier {variant.technique_tier}</span>
+   692→   692→   692→                    <span className="text-[10px] text-zinc-600 font-mono">{variant.model}</span>
+   693→   693→   693→                  </div>
+   694→   694→   694→                </div>
+   695→   695→   695→              );
+   696→   696→   696→            })}
+   697→   697→   697→          </div>
+   698→   698→   698→        </div>
+   699→   699→   699→      ) : variantsState.status === 'success' && variantsState.data && variantsState.data.length === 0 ? (
+   700→   700→   700→        <div className="space-y-4">
+   701→   701→   701→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Active Variants</h2>
+   702→   702→   702→          {pricingContext && pricingContext.variants && pricingContext.variants.length > 0 ? (
+   703→   703→   703→            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+   704→   704→   704→              {pricingContext.variants.map((v) => {
+   705→   705→   705→                const tierMap: Record<string, string> = { starter: 'mini_parwa', growth: 'parwa', high: 'parwa_high' };
+   706→   706→   706→                const tier = tierMap[v.id] || v.id;
+   707→   707→   707→                const typeColor = variantTypeColors[tier] ?? { bg: 'bg-orange-500/10', text: 'text-orange-400' };
+   708→   708→   708→                return (
+   709→   709→   709→                  <div
+   710→   710→   710→                    key={v.id}
+   711→   711→   711→                    className="rounded-xl bg-[#1A1A1A] border border-orange-500/20 p-5 transition-all duration-300 hover:shadow-lg hover:shadow-orange-500/5 hover:border-orange-500/30"
+   712→   712→   712→                  >
+   713→   713→   713→                    <div className="flex items-start justify-between mb-4">
+   714→   714→   714→                      <div className="flex-1 min-w-0">
+   715→   715→   715→                        <div className="flex items-center gap-2 mb-1">
+   716→   716→   716→                          <h3 className="text-sm font-semibold text-white truncate">{v.name}</h3>
+   717→   717→   717→                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider ${typeColor.bg} ${typeColor.text}`}>
+   718→   718→   718→                            {tier.replace('_', ' ')}
+   719→   719→   719→                          </span>
+   720→   720→   720→                        </div>
+   721→   721→   721→                        <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+   722→   722→   722→                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+   723→   723→   723→                          <span className="text-amber-400">Pending activation</span>
+   724→   724→   724→                          <span className="text-zinc-700">·</span>
+   725→   725→   725→                          <span>{pricingContext.industry || 'General'}</span>
+   726→   726→   726→                        </div>
+   727→   727→   727→                      </div>
+   728→   728→   728→                      <div className="w-9 h-9 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-400 shrink-0">
+   729→   729→   729→                        {Icons.variant}
+   730→   730→   730→                      </div>
+   731→   731→   731→                    </div>
+   732→   732→   732→                    <div className="grid grid-cols-2 gap-3 mb-4">
+   733→   733→   733→                      <div>
+   734→   734→   734→                        <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Price</p>
+   735→   735→   735→                        <p className="text-sm font-semibold text-white tabular-nums">${v.monthlyPrice.toLocaleString()}/mo</p>
+   736→   736→   736→                      </div>
+   737→   737→   737→                      <div>
+   738→   738→   738→                        <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Quantity</p>
+   739→   739→   739→                        <p className="text-sm font-semibold text-white tabular-nums">{v.quantity}x</p>
+   740→   740→   740→                      </div>
+   741→   741→   741→                      <div>
+   742→   742→   742→                        <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Billing</p>
+   743→   743→   743→                        <p className="text-sm font-semibold text-white tabular-nums">{pricingContext.isAnnual ? 'Annual' : 'Monthly'}</p>
+   744→   744→   744→                      </div>
+   745→   745→   745→                      <div>
+   746→   746→   746→                        <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-0.5">Coupon</p>
+   747→   747→   747→                        <p className="text-sm font-semibold text-white tabular-nums">{pricingContext.couponCode ? pricingContext.couponCode.toLowerCase() : 'None'}</p>
+   748→   748→   748→                      </div>
+   749→   749→   749→                    </div>
+   750→   750→   750→                    <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+   751→   751→   751→                      <div className="h-full rounded-full bg-orange-500/60" style={{ width: '0%' }} />
+   752→   752→   752→                    </div>
+   753→   753→   753→                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.04]">
+   754→   754→   754→                      <span className="text-[10px] text-zinc-600">Complete onboarding to activate</span>
+   755→   755→   755→                      <span className="text-[10px] text-orange-400 font-medium cursor-pointer hover:underline" onClick={() => router.push('/onboarding')}>Resume →</span>
+   756→   756→   756→                    </div>
+   757→   757→   757→                  </div>
+   758→   758→   758→                );
+   759→   759→   759→              })}
+   760→   760→   760→              {/* Total cost summary */}
+   761→   761→   761→              <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5 flex flex-col justify-center">
+   762→   762→   762→                <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Total Monthly Cost</p>
+   763→   763→   763→                <p className="text-2xl font-bold text-orange-400 tabular-nums">
+   764→   764→   764→                  ${pricingContext.discountedTotal != null ? pricingContext.discountedTotal.toLocaleString() : (pricingContext.totalMonthly ?? 0).toLocaleString()}
+   765→   765→   765→                  <span className="text-sm text-zinc-500 font-normal">/mo</span>
+   766→   766→   766→                </p>
+   767→   767→   767→                {pricingContext.couponCode && (
+   768→   768→   768→                  <p className="text-xs text-emerald-400 mt-1">Coupon: {pricingContext.couponCode.toLowerCase()} applied</p>
+   769→   769→   769→                )}
+   770→   770→   770→              </div>
+   771→   771→   771→            </div>
+   772→   772→   772→          ) : (
+   773→   773→   773→            <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 flex flex-col items-center justify-center gap-3">
+   774→   774→   774→              <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center text-zinc-600">
+   775→   775→   775→                {Icons.variant}
+   776→   776→   776→              </div>
+   777→   777→   777→              <p className="text-sm text-zinc-500 text-center">No active variants found</p>
+   778→   778→   778→              <button
+   779→   779→   779→                onClick={() => router.push('/models')}
+   780→   780→   780→                className="mt-2 px-4 py-2 rounded-lg bg-orange-500/10 text-orange-400 text-sm font-medium hover:bg-orange-500/20 transition-colors"
+   781→   781→   781→              >
+   782→   782→   782→                Choose a Plan →
+   783→   783→   783→              </button>
+   784→   784→   784→            </div>
+   785→   785→   785→          )}
+   786→   786→   786→        </div>
+   787→   787→   787→      ) : (
+   788→   788→   788→        <div className="space-y-4">
+   789→   789→   789→          <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Active Variants</h2>
+   790→   790→   790→          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 flex flex-col items-center justify-center gap-3">
+   791→   791→   791→            <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center text-zinc-600">
+   792→   792→   792→              {Icons.variant}
+   793→   793→   793→            </div>
+   794→   794→   794→            <p className="text-sm text-zinc-500 text-center">Connect backend to view active variants</p>
+   795→   795→   795→          </div>
+   796→   796→   796→        </div>
+   797→   797→   797→      )}
+   798→   798→   798→
+   799→   799→   799→      {/* ── Jarvis CC Quick Access ──────────────────────────────────── */}
+   800→   800→   800→      {(() => {
+   801→   801→   801→        const hasActiveVariants = variantsState.status === 'success' && variantsState.data && variantsState.data.length > 0;
+   802→   802→   802→        return (
+   803→   803→   803→        <div className="rounded-xl border border-orange-500/10 bg-gradient-to-r from-orange-500/5 to-amber-500/5 p-5">
+   804→   804→   804→          <div className="flex items-center justify-between">
+   805→   805→   805→            <div className="flex items-center gap-3">
+   806→   806→   806→              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-orange-500/20">
+   807→   807→   807→                J
+   808→   808→   808→              </div>
+   809→   809→   809→              <div>
+   810→   810→   810→                <h3 className="text-sm font-semibold text-white">Jarvis Customer Care</h3>
+   811→   811→   811→                <p className="text-xs text-zinc-500">AI employee managing your customer support — chat, commands, awareness feed</p>
+   812→   812→   812→              </div>
+   813→   813→   813→            </div>
+   814→   814→   814→            <a
+   815→   815→   815→              href="/dashboard/jarvis"
+   816→   816→   816→              className="text-xs px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-amber-400 text-white font-medium shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 transition-all"
+   817→   817→   817→            >
+   818→   818→   818→              Open Jarvis CC
+   819→   819→   819→            </a>
+   820→   820→   820→          </div>
+   821→   821→   821→          <div className="grid grid-cols-4 gap-3 mt-4">
+   822→   822→   822→            <div className="text-xs">
+   823→   823→   823→              <span className="text-zinc-600">Status</span>
+   824→   824→   824→              <div className="flex items-center gap-1.5 mt-0.5">
+   825→   825→   825→                {hasActiveVariants ? (
+   826→   826→   826→                  <>
+   827→   827→   827→                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+   828→   828→   828→                    <span className="text-emerald-400 font-medium">Online</span>
+   829→   829→   829→                  </>
+   830→   830→   830→                ) : (
+   831→   831→   831→                  <>
+   832→   832→   832→                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+   833→   833→   833→                    <span className="text-zinc-500 font-medium">Idle</span>
+   834→   834→   834→                  </>
+   835→   835→   835→                )}
+   836→   836→   836→              </div>
+   837→   837→   837→            </div>
+   838→   838→   838→            <div className="text-xs">
+   839→   839→   839→              <span className="text-zinc-600">Pipeline</span>
+   840→   840→   840→              <p className={`font-medium mt-0.5 ${hasActiveVariants ? 'text-zinc-300' : 'text-zinc-600'}`}>
+   841→   841→   841→                {hasActiveVariants ? 'Active' : 'Not Set Up'}
+   842→   842→   842→              </p>
+   843→   843→   843→            </div>
+   844→   844→   844→            <div className="text-xs">
+   845→   845→   845→              <span className="text-zinc-600">Awareness</span>
+   846→   846→   846→              <p className={`font-medium mt-0.5 ${hasActiveVariants ? 'text-zinc-300' : 'text-zinc-600'}`}>
+   847→   847→   847→                {hasActiveVariants ? 'Enabled' : 'Disabled'}
+   848→   848→   848→              </p>
+
+[showing lines 449-848 of 1237; use offset=849 with limit to continue reading]
