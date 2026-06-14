@@ -1,0 +1,1258 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useRef, useEffect } from 'react';
+     4→import { useRouter } from 'next/navigation';
+     5→import Link from 'next/link';
+     6→import NavigationBar from '@/components/landing/NavigationBar';
+     7→import Footer from '@/components/landing/Footer';
+     8→import { AntiArbitrageMatrix } from '@/components/models/AntiArbitrageMatrix';
+     9→import { ChatWidget } from '@/components/chat/ChatWidget';
+    10→import { BookDemoModal } from '@/components/demo/BookDemoModal';
+    11→import { useAuth } from '@/contexts/AuthContext';
+    12→import {
+    13→  validateCoupon,
+    14→  applyCouponDiscount,
+    15→  formatDiscount,
+    16→  type Coupon,
+    17→} from '@/lib/coupon-config';
+    18→import {
+    19→  Star, Check, Phone, Mail, MessageSquare,
+    20→  Hash, Video, ShoppingCart, Cloud, Truck, Briefcase,
+    21→  ArrowRight, Zap, Shield, TrendingUp, Sparkles,
+    22→  CalendarClock, CreditCard, Info, XCircle, X,
+    23→  Bot, ShieldCheck, Minus, Plus, Calendar, Eye,
+    24→  Ticket, Users, DollarSign, BarChart3, Tag, Loader2,
+    25→} from 'lucide-react';
+    26→
+    27→// ─── Types ───────────────────────────────────────────────────────────────────
+    28→
+    29→type Industry = 'ecommerce' | 'saas' | 'logistics' | 'others';
+    30→type VariantId = 'starter' | 'growth' | 'high';
+    31→
+    32→interface IndustryConfig {
+    33→  id: Industry;
+    34→  label: string;
+    35→  description: string;
+    36→  primary: string;
+    37→  accent: string;
+    38→  accentRgb: string;
+    39→  icon: React.ReactNode;
+    40→  heroText: string;
+    41→}
+    42→
+    43→interface ChannelInfo {
+    44→  label: string;
+    45→  icon: React.ReactNode;
+    46→}
+    47→
+    48→interface VariantData {
+    49→  id: VariantId;
+    50→  name: string;
+    51→  tagline: string;
+    52→  monthlyPrice: number;
+    53→  annualPrice: number;
+    54→  ticketsPerMonth: number;
+    55→  humanAgentsReplaced: number;
+    56→  avgHumanCostPerMonth: number;
+    57→  badge?: string;
+    58→  scenario: string;
+    59→  channels: ChannelInfo[];
+    60→  integrations: string[];
+    61→  commonFeatures: string[];
+    62→  uniqueFeatures: string[];
+    63→  keyAdvantage?: string;
+    64→  smartDecisions?: string;
+    65→  roi: string;
+    66→  bestFor: string;
+    67→  coreLimitation?: string;
+    68→  coreCapability?: string;
+    69→}
+    70→
+    71→// ─── Industry Configs ────────────────────────────────────────────────────────
+    72→
+    73→const industries: IndustryConfig[] = [
+    74→  {
+    75→    id: 'ecommerce',
+    76→    label: 'E-commerce',
+    77→    description: 'Online retail & D2C brands',
+    78→    primary: '#1A1A1A',
+    79→    accent: '#FF7F11',
+    80→    accentRgb: '255,127,17',
+    81→    icon: <ShoppingCart className="w-7 h-7" />,
+    82→    heroText: 'Automate order tracking, returns, cart recovery & fraud detection with AI built for online retail.',
+    83→  },
+    84→  {
+    85→    id: 'saas',
+    86→    label: 'SaaS',
+    87→    description: 'Software & tech companies',
+    88→    primary: '#1A1A1A',
+    89→    accent: '#FF7F11',
+    90→    accentRgb: '255,127,17',
+    91→    icon: <Cloud className="w-7 h-7" />,
+    92→    heroText: 'Handle technical support, API troubleshooting, churn prediction & in-app guidance for software teams.',
+    93→  },
+    94→  {
+    95→    id: 'logistics',
+    96→    label: 'Logistics',
+    97→    description: 'Shipping & supply chain',
+    98→    primary: '#1A1A1A',
+    99→    accent: '#FF7F11',
+   100→    accentRgb: '255,127,17',
+   101→    icon: <Truck className="w-7 h-7" />,
+   102→    heroText: 'Track shipments, coordinate drivers, manage proof of delivery & handle freight damage claims automatically.',
+   103→  },
+   104→  {
+   105→    id: 'others',
+   106→    label: 'Others',
+   107→    description: 'All other industries',
+   108→    primary: '#1A1A1A',
+   109→    accent: '#FF7F11',
+   110→    accentRgb: '255,127,17',
+   111→    icon: <Briefcase className="w-7 h-7" />,
+   112→    heroText: "PARWA adapts to any industry. Tell us your needs and we'll tailor the perfect AI support solution.",
+   113→  },
+   114→];
+   115→
+   116→// ─── Common Features ────────────────────────────────────────────────────────
+   117→
+   118→const commonFeaturesByVariant: Record<VariantId, string[]> = {
+   119→  starter: [
+   120→    'Up to 3 AI agents',
+   121→    '1,000 tickets/month',
+   122→    'Email & Chat channels',
+   123→    'FAQ handling from knowledge base',
+   124→    'Phone — 2 concurrent calls',
+   125→    'Automated data collection & intake',
+   126→  ],
+   127→  growth: [
+   128→    'Up to 8 AI agents',
+   129→    '5,000 tickets/month',
+   130→    'Email, Chat, SMS & Voice channels',
+   131→    'AI decision recommendations (Approve / Review / Deny)',
+   132→    'Smart Router — 3-tier LLM routing',
+   133→    'Agent Lightning — continuous learning from corrections',
+   134→    'Batch approval system with semantic clustering',
+   135→    'Advanced analytics & ROI tracking',
+   136→  ],
+   137→  high: [
+   138→    'Up to 15 AI agents',
+   139→    '15,000 tickets/month',
+   140→    'Email, Chat, SMS & Voice channels',
+   141→    'Quality coaching system',
+   142→    'Churn prediction & proactive retention',
+   143→    'Video support & screen sharing',
+   144→    'Up to 5 concurrent voice calls',
+   145→    'Strategic insights & revenue impact analytics',
+   146→    'Custom integrations & API access',
+   147→    'Peer review (Junior asks Senior before escalation)',
+   148→    'Priority support from PARWA team',
+   149→    'Full autonomous operations with approval flows',
+   150→  ],
+   151→};
+   152→
+   153→// ─── Industry-Specific Unique Features ───────────────────────────────────────
+   154→
+   155→const uniqueFeaturesByIndustry: Record<Industry, Record<VariantId, string[]>> = {
+   156→  ecommerce: {
+   157→    starter: ['Order status & tracking automation', 'Return eligibility checking'],
+   158→    growth: ['Cart abandonment detection via Shopify webhook', 'Visual Damage Verification — camera upload for damage claims', 'Recommends refunds based on return policy', 'Detects cart abandonment patterns, suggests FAQ updates'],
+   159→    high: ['Cart Recovery Intelligence — personalized re-engagement', 'Sizing Anomaly Detection — flags product team on size issues', 'Seasonal Spike Preparation — identifies upcoming volume spikes', 'Approves returns up to $50, predicts churn', 'Fraud pattern detection & flagging'],
+   160→  },
+   161→  saas: {
+   162→    starter: ['Technical FAQ handling', 'Subscription status checking', 'Bug report collection & escalation'],
+   163→    growth: ['Technical Troubleshooting Flow — multi-step guided diagnosis', 'API Error Diagnosis — checks GitHub deployments & status pages', 'Recommends account changes; flags security issues', 'In-App Guidance Intelligence — contextual help by feature'],
+   164→    high: ['Churn Prediction Engine — monitors usage via Stripe API', 'Complex technical troubleshooting with security analysis', 'Approves account changes up to $50', 'Feature adoption strategies & proactive outreach'],
+   165→  },
+   166→  logistics: {
+   167→    starter: ['Shipping FAQ handling', 'Delivery tracking via carrier APIs', 'Delivery issue collection & escalation'],
+   168→    growth: ['GPS Tracking Integration — real-time carrier API tracking', 'Driver Coordination Protocol — scheduling & route changes via TMS', 'Recommends routing changes; flags delivery exceptions', 'Detects delivery patterns, suggests route optimizations'],
+   169→    high: ['Proof of Delivery Management — retrieves POD on demand', 'Hazmat Protocol — auto-detects & routes to human specialist', 'Freight Damage Claims — guided photo documentation', 'Approves routing changes up to $50', 'Carrier performance analysis & management'],
+   170→  },
+   171→  others: {
+   172→    starter: ['General inquiry handling & FAQ automation', 'Billing & payment status checking', 'Basic issue triage & escalation'],
+   173→    growth: ['Multi-department routing — intelligent ticket assignment', 'Custom workflow automation based on business rules', 'Recommends resolutions based on historical data', 'Adaptive learning from corrections & feedback'],
+   174→    high: ['Full custom workflow engine with approval flows', 'Advanced pattern recognition for proactive support', 'Approves actions up to $50 based on configurable policies', 'Cross-department coordination & reporting', 'Tailored AI behavior based on your specific industry'],
+   175→  },
+   176→};
+   177→
+   178→// ─── Variant Data per Industry (with accurate cost details) ─────────────────
+   179→
+   180→const variantData: Record<Industry, VariantData[]> = {
+   181→  ecommerce: [
+   182→    { id: 'starter', name: 'PARWA Starter', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 1000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 14000, scenario: "A customer calls at 2 AM asking 'Where\\'s my order?' PARWA Starter answers instantly, checks Shopify, and texts them the tracking link.", channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'SMS', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Phone (2 at once)', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['Shopify', 'Magento', 'BigCommerce', 'WooCommerce'], commonFeatures: commonFeaturesByVariant.starter, uniqueFeatures: uniqueFeaturesByIndustry.ecommerce.starter, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'E-commerce SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
+   183→    { id: 'growth', name: 'PARWA Growth', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 5000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 18000, badge: 'Recommended', scenario: "Customer's product won't work. PARWA walks them through 5 troubleshooting steps, determines it's a real defect, creates a return label, and recommends a $30 refund.", channels: [{ label: 'All Starter + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '3 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['Shopify', 'Magento', 'BigCommerce', 'CRM', 'Analytics'], commonFeatures: commonFeaturesByVariant.growth, uniqueFeatures: uniqueFeaturesByIndustry.ecommerce.growth, keyAdvantage: 'Cuts review time by 80%, detects cart abandonment patterns', smartDecisions: 'Recommends refunds based on policy; flags fraud patterns', roi: 'Replaces ~$18k/month in junior agent salaries', bestFor: 'E-commerce SMBs with 200–500 daily tickets', coreCapability: 'Everything Starter does + Intelligent Recommendations. 3 concurrent calls.' },
+   184→    { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 15000, humanAgentsReplaced: 5, avgHumanCostPerMonth: 28000, scenario: 'VIP customer threatens to cancel over repeated order issues. PARWA High reviews their history, detects a product flaw pattern, offers a $50 credit, and alerts your product team.', channels: [{ label: 'All Growth channels', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '5 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'Video screen-sharing', icon: <Video className="w-3.5 h-3.5" /> }], integrations: ['Shopify', 'Magento', 'BigCommerce', 'CRM', 'Analytics', 'Marketing'], commonFeatures: commonFeaturesByVariant.high, uniqueFeatures: uniqueFeaturesByIndustry.ecommerce.high, keyAdvantage: 'Approves returns up to $50, predicts churn, coordinates with marketing', roi: 'Replaces ~$28k/month in senior agent salaries', bestFor: 'E-commerce SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support. 5 calls + video.' },
+   185→  ],
+   186→  saas: [
+   187→    { id: 'starter', name: 'PARWA Starter', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 1000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 14000, scenario: "A user calls at 2 AM asking 'Why is my API not working?' PARWA Starter answers instantly, checks system status, and creates a support ticket.", channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Slack', icon: <Hash className="w-3.5 h-3.5" /> }, { label: 'Discord', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'SMS', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Phone (2 at once)', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['GitHub', 'GitLab', 'Zendesk', 'Intercom'], commonFeatures: commonFeaturesByVariant.starter, uniqueFeatures: uniqueFeaturesByIndustry.saas.starter, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'SaaS SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
+   188→    { id: 'growth', name: 'PARWA Growth', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 5000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 18000, badge: 'Recommended', scenario: "User's API integration is failing. PARWA walks them through troubleshooting, determines it's a real bug, creates a bug report, and recommends a credit for downtime.", channels: [{ label: 'All Starter + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '3 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['GitHub', 'GitLab', 'Zendesk', 'Intercom', 'Jira', 'Slack'], commonFeatures: commonFeaturesByVariant.growth, uniqueFeatures: uniqueFeaturesByIndustry.saas.growth, keyAdvantage: 'Cuts review time by 80%, detects usage patterns', smartDecisions: 'Recommends account changes; flags security issues', roi: 'Replaces ~$18k/month in junior agent salaries', bestFor: 'SaaS SMBs with 200–500 daily tickets', coreCapability: 'Everything Starter does + Intelligent Recommendations. 3 concurrent calls.' },
+   189→    { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 15000, humanAgentsReplaced: 5, avgHumanCostPerMonth: 28000, scenario: 'VIP customer threatens to cancel over repeated API issues. PARWA High reviews their usage, detects a service degradation pattern, offers a $50 credit, and alerts your engineering team.', channels: [{ label: 'All Growth channels', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '5 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'Video screen-sharing', icon: <Video className="w-3.5 h-3.5" /> }], integrations: ['GitHub', 'GitLab', 'Zendesk', 'Intercom', 'Jira', 'Slack', 'PagerDuty'], commonFeatures: commonFeaturesByVariant.high, uniqueFeatures: uniqueFeaturesByIndustry.saas.high, keyAdvantage: 'Approves account changes up to $50, churn prediction engine', roi: 'Replaces ~$28k/month in senior agent salaries', bestFor: 'SaaS SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support. 5 calls + video.' },
+   190→  ],
+   191→  logistics: [
+   192→    { id: 'starter', name: 'PARWA Starter', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 1000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 14000, scenario: "A customer calls at 2 AM asking 'Where's my shipment?' PARWA Starter answers instantly, checks TMS, and texts them the tracking link.", channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'SMS', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Phone (2 at once)', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['TMS', 'WMS', 'Carrier APIs', 'AfterShip'], commonFeatures: commonFeaturesByVariant.starter, uniqueFeatures: uniqueFeaturesByIndustry.logistics.starter, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'Logistics SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
+   193→    { id: 'growth', name: 'PARWA Growth', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 5000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 18000, badge: 'Recommended', scenario: "Customer's delivery is delayed. PARWA checks the tracking system, determines the issue, reroutes the package, and recommends a shipping credit.", channels: [{ label: 'All Starter + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '3 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['TMS', 'WMS', 'Carrier APIs', 'GPS Tracking', 'Google Maps'], commonFeatures: commonFeaturesByVariant.growth, uniqueFeatures: uniqueFeaturesByIndustry.logistics.growth, keyAdvantage: 'GPS tracking, driver coordination, route optimization', smartDecisions: 'Recommends routing changes; flags delivery exceptions', roi: 'Replaces ~$18k/month in junior coordinator salaries', bestFor: 'Logistics SMBs with 200–500 daily tickets', coreCapability: 'Everything Starter does + Intelligent Recommendations. 3 concurrent calls.' },
+   194→    { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 15000, humanAgentsReplaced: 5, avgHumanCostPerMonth: 28000, scenario: 'VIP customer threatens to cancel over repeated delivery issues. PARWA High reviews their shipping history, detects a carrier performance pattern, offers a $50 credit, and alerts your operations team.', channels: [{ label: 'All Growth channels', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '5 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'Video screen-sharing', icon: <Video className="w-3.5 h-3.5" /> }], integrations: ['TMS', 'WMS', 'Carrier APIs', 'GPS Tracking', 'Operations'], commonFeatures: commonFeaturesByVariant.high, uniqueFeatures: uniqueFeaturesByIndustry.logistics.high, keyAdvantage: 'POD management, hazmat protocol, freight damage claims', roi: 'Replaces ~$28k/month in senior coordinator salaries', bestFor: 'Logistics SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support. 5 calls + video.' },
+   195→  ],
+   196→  others: [
+   197→    { id: 'starter', name: 'PARWA Starter', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 1000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 14000, scenario: "A customer calls at 2 AM asking about their order status. PARWA Starter answers instantly, checks your systems, and provides the information right away.", channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'Phone (2 at once)', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'SMS', icon: <MessageSquare className="w-3.5 h-3.5" /> }], integrations: ['Custom APIs', 'CRM', 'Helpdesk', 'Knowledge Base'], commonFeatures: commonFeaturesByVariant.starter, uniqueFeatures: uniqueFeaturesByIndustry.others.starter, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
+   198→    { id: 'growth', name: 'PARWA Growth', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 5000, humanAgentsReplaced: 4, avgHumanCostPerMonth: 18000, badge: 'Recommended', scenario: "A customer has a complex billing question. PARWA Growth checks their account, identifies the issue, recommends a resolution, and escalates only if needed.", channels: [{ label: 'All Starter + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '3 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }], integrations: ['Custom APIs', 'CRM', 'Helpdesk', 'Knowledge Base', 'Billing'], commonFeatures: commonFeaturesByVariant.growth, uniqueFeatures: uniqueFeaturesByIndustry.others.growth, keyAdvantage: 'Intelligent routing, adaptive learning, custom workflows', smartDecisions: 'Recommends resolutions based on historical data; flags exceptions', roi: 'Replaces ~$18k/month in junior agent salaries', bestFor: 'SMBs with 200–500 daily tickets', coreCapability: 'Everything Starter does + Intelligent Recommendations. 3 concurrent calls.' },
+   199→    { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 15000, humanAgentsReplaced: 5, avgHumanCostPerMonth: 28000, scenario: 'A VIP customer has a complex multi-department issue. PARWA High coordinates across teams, approves a $50 credit, and provides a complete resolution — all automatically.', channels: [{ label: 'All Growth channels', icon: <Zap className="w-3.5 h-3.5" /> }, { label: '5 simultaneous calls', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'Video screen-sharing', icon: <Video className="w-3.5 h-3.5" /> }], integrations: ['Custom APIs', 'CRM', 'Helpdesk', 'Knowledge Base', 'Billing', 'Analytics'], commonFeatures: commonFeaturesByVariant.high, uniqueFeatures: uniqueFeaturesByIndustry.others.high, keyAdvantage: 'Custom workflows, cross-department coordination, proactive support', roi: 'Replaces ~$28k/month in senior agent salaries', bestFor: 'SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support. 5 calls + video.' },
+   200→  ],
+   201→};
+   202→
+   203→// ─── Static Data ─────────────────────────────────────────────────────────────
+   204→
+   205→const defaultPrimary = '#1A1A1A';
+   206→const defaultAccent = '#FF7F11';
+   207→const defaultAccentRgb = '255,127,17';
+   208→
+   209→const cancellationPoints = [
+   210→  { icon: CalendarClock, text: 'Cancel anytime — no long-term contracts' },
+   211→  { icon: CreditCard, text: 'No refunds once paid' },
+   212→  { icon: Info, text: 'Access continues until the end of your billing month' },
+   213→  { icon: XCircle, text: 'No free trials — start with confidence from day one' },
+   214→  { icon: X, text: 'Payment failure stops service immediately' },
+   215→];
+   216→
+   217→const trustIndicators = [
+   218→  { icon: Bot, label: 'AI-Powered' },
+   219→  { icon: Zap, label: 'Instant Setup' },
+   220→  { icon: ShieldCheck, label: 'Enterprise Ready' },
+   221→  { icon: Sparkles, label: 'Continuous Learning' },
+   222→];
+   223→
+   224→// ─── Helpers ─────────────────────────────────────────────────────────────────
+   225→
+   226→function hexToRgba(hex: string, alpha: number): string {
+   227→  const r = parseInt(hex.slice(1, 3), 16);
+   228→  const g = parseInt(hex.slice(3, 5), 16);
+   229→  const b = parseInt(hex.slice(5, 7), 16);
+   230→  return `rgba(${r},${g},${b},${alpha})`;
+   231→}
+   232→
+   233→// ─── Page Component ─────────────────────────────────────────────────────────
+   234→
+   235→export default function ModelsPage() {
+   236→  const { isAuthenticated } = useAuth();
+   237→  const router = useRouter();
+   238→  const [selectedIndustry, setSelectedIndustry] = useState<Industry | null>(null);
+   239→  const [isAnnual, setIsAnnual] = useState(false);
+   240→  const pricingRef = useRef<HTMLDivElement>(null);
+   241→  const [demoModalOpen, setDemoModalOpen] = useState(false);
+   242→  const [demoVariant, setDemoVariant] = useState<string>('');
+   243→  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+   244→  const [couponCode, setCouponCode] = useState('');
+   245→  const [couponValidating, setCouponValidating] = useState(false);
+   246→  const [couponError, setCouponError] = useState<string | null>(null);
+   247→
+   248→  // Track page visit for context-aware Jarvis routing
+   249→  useEffect(() => {
+   250→    if (typeof window !== 'undefined') {
+   251→      try {
+   252→        const existing = JSON.parse(localStorage.getItem('parwa_pages_visited') || '[]') as string[];
+   253→        if (!existing.includes('models_page')) {
+   254→          existing.push('models_page');
+   255→          localStorage.setItem('parwa_pages_visited', JSON.stringify(existing));
+   256→        }
+   257→      } catch {
+   258→        // ignore
+   259→      }
+   260→    }
+   261→  }, []);
+   262→
+   263→  // Quantity state: { starter: 0, growth: 0, high: 0 }
+   264→  const [quantities, setQuantities] = useState<Record<VariantId, number>>({
+   265→    starter: 0,
+   266→    growth: 0,
+   267→    high: 0,
+   268→  });
+   269→
+   270→  // ROI auto-population from localStorage
+   271→  useEffect(() => {
+   272→    try {
+   273→      const stored = localStorage.getItem('parwa_roi_result');
+   274→      if (stored) {
+   275→        const roi = JSON.parse(stored);
+   276→        if (roi && roi.recommendedPlan) {
+   277→          const planMap: Record<string, VariantId> = {
+   278→            starter: 'starter',
+   279→            growth: 'growth',
+   280→            high: 'high',
+   281→          };
+   282→          const planId = planMap[roi.recommendedPlan?.toLowerCase()];
+   283→          if (planId) {
+   284→            setQuantities(prev => ({ ...prev, [planId]: 1 }));
+   285→          }
+   286→        }
+   287→      }
+   288→    } catch {
+   289→      // Silently fail — no ROI data available
+   290→    }
+   291→  }, []);
+   292→
+   293→  const handleIndustryClick = (indId: Industry) => {
+   294→    const isActive = selectedIndustry === indId;
+   295→    setSelectedIndustry(isActive ? null : indId);
+   296→    // Reset quantities when switching industry
+   297→    if (!isActive) {
+   298→      setQuantities({ starter: 0, growth: 0, high: 0 });
+   299→      // Re-read ROI data for auto-population
+   300→      try {
+   301→        const stored = localStorage.getItem('parwa_roi_result');
+   302→        if (stored) {
+   303→          const roi = JSON.parse(stored);
+   304→          if (roi && roi.recommendedPlan) {
+   305→            const planMap: Record<string, VariantId> = {
+   306→              starter: 'starter',
+   307→              growth: 'growth',
+   308→              high: 'high',
+   309→            };
+   310→            const planId = planMap[roi.recommendedPlan?.toLowerCase()];
+   311→            if (planId) {
+   312→              setQuantities(prev => ({ ...prev, [planId]: 1 }));
+   313→            }
+   314→          }
+   315→        }
+   316→      } catch { /* ignore */ }
+   317→      setTimeout(() => {
+   318→        pricingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+   319→      }, 150);
+   320→    }
+   321→  };
+   322→
+   323→  const handleQuantityChange = (variantId: VariantId, newQty: number) => {
+   324→    setQuantities(prev => ({ ...prev, [variantId]: Math.max(0, Math.min(newQty, 10)) }));
+   325→  };
+   326→
+   327→  const handleDemoClick = (variantName: string) => {
+   328→    setDemoVariant(variantName);
+   329→    setDemoModalOpen(true);
+   330→  };
+   331→
+   332→  const handleApplyCoupon = () => {
+   333→    if (!couponCode.trim()) return;
+   334→    setCouponValidating(true);
+   335→    setCouponError(null);
+   336→    setTimeout(() => {
+   337→      const coupon = validateCoupon(couponCode);
+   338→      if (coupon) {
+   339→        setAppliedCoupon(coupon);
+   340→        setCouponCode('');
+   341→        setCouponError(null);
+   342→      } else {
+   343→        setCouponError('Invalid coupon code. Please check and try again.');
+   344→      }
+   345→      setCouponValidating(false);
+   346→    }, 300);
+   347→  };
+   348→
+   349→  const handleRemoveCoupon = () => {
+   350→    setAppliedCoupon(null);
+   351→    setCouponCode('');
+   352→    setCouponError(null);
+   353→  };
+   354→
+   355→  // Calculate discounted total for display
+   356→  const discountedTotal = appliedCoupon ? applyCouponDiscount(totalMonthly, appliedCoupon) : totalMonthly;
+   357→  const isFreeCheckout = discountedTotal === 0;
+   358→
+   359→  const activeIndustry = selectedIndustry ? industries.find(i => i.id === selectedIndustry)! : null;
+   360→  const primary = activeIndustry?.primary || defaultPrimary;
+   361→  const accent = activeIndustry?.accent || defaultAccent;
+   362→  const accentRgb = activeIndustry?.accentRgb || defaultAccentRgb;
+   363→  const currentVariants = selectedIndustry ? variantData[selectedIndustry] : null;
+   364→
+   365→  const handleFreeChat = (variantId?: string) => {
+   366→    const context: Record<string, unknown> = {
+   367→      source: 'free_chat',
+   368→      entry_source: 'models_page',
+   369→    };
+   370→    if (activeIndustry) context.industry = activeIndustry.label;
+   371→    if (variantId) {
+   372→      const v = currentVariants?.find(cv => cv.id === variantId);
+   373→      if (v) {
+   374→        context.variant = v.name;
+   375→        context.variant_id = v.id;
+   376→        context.entry_source = `models_${v.id}_free_chat`;
+   377→        // ── MINI PARWA: Map variant_id to pipeline tier ──
+   378→        // starter → mini_parwa, growth → parwa, high → parwa_high
+   379→        const tierMap: Record<string, string> = {
+   380→          starter: 'mini_parwa',
+   381→          growth: 'parwa',
+   382→          high: 'parwa_high',
+   383→        };
+   384→        context.variant_tier = tierMap[v.id] || 'mini_parwa';
+   385→      }
+   386→    }
+   387→    if (typeof window !== 'undefined') {
+   388→      localStorage.setItem('parwa_jarvis_context', JSON.stringify(context));
+   389→    }
+   390→    const params = new URLSearchParams();
+   391→    if (activeIndustry) params.set('industry', activeIndustry.label);
+   392→    if (variantId) params.set('variant', variantId);
+   393→    params.set('entry_source', 'models_page');
+   394→    window.location.href = `/jarvis?${params.toString()}`;
+   395→  };
+   396→
+   397→  // Computed totals
+   398→  const totalMonthly = currentVariants?.reduce((sum, v) => {
+   399→    const price = isAnnual ? v.annualPrice : v.monthlyPrice;
+   400→    return sum + price * (quantities[v.id] || 0);
+   401→  }, 0) || 0;
+   402→
+   403→  const totalTickets = currentVariants?.reduce((sum, v) => {
+   404→    return sum + v.ticketsPerMonth * (quantities[v.id] || 0);
+   405→  }, 0) || 0;
+   406→
+   407→  const totalHumanCostReplaced = currentVariants?.reduce((sum, v) => {
+   408→    return sum + v.avgHumanCostPerMonth * (quantities[v.id] || 0);
+   409→  }, 0) || 0;
+   410→
+   411→  const totalAnnualSavings = currentVariants?.reduce((sum, v) => {
+   412→    return sum + (v.monthlyPrice - v.annualPrice) * (quantities[v.id] || 0);
+   413→  }, 0) || 0;
+   414→
+   415→  const totalAgentsHired = Object.values(quantities).reduce((a, b) => a + b, 0);
+   416→  const hasSelection = totalAgentsHired > 0;
+   417→
+   418→  return (
+   419→    <div
+   420→      className="min-h-screen flex flex-col transition-all duration-700"
+   421→      style={{ background: `linear-gradient(180deg, ${primary} 0%, ${hexToRgba(primary, 0.85)} 50%, ${primary} 100%)` }}
+   422→    >
+   423→      <NavigationBar />
+   424→      <main className="flex-grow relative">
+   425→        {/* Background blobs */}
+   426→        <div className="absolute inset-0 pointer-events-none">
+   427→          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full blur-[150px] transition-colors duration-700" style={{ backgroundColor: `rgba(${accentRgb},0.08)` }} />
+   428→          <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full blur-[120px] transition-colors duration-700" style={{ backgroundColor: `rgba(${accentRgb},0.06)` }} />
+   429→          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-[200px] transition-colors duration-700" style={{ backgroundColor: `rgba(${accentRgb},0.04)` }} />
+   430→          {Array.from({ length: 15 }).map((_, i) => {
+   431→            const row = Math.floor(i / 5); const col = i % 5;
+   432→            return <div key={i} className="absolute w-1 h-1 rounded-full" style={{ left: `${(col + 0.5) * 20}%`, top: `${(row + 0.5) * 20}%`, backgroundColor: accent, animation: `jarvisDotPulse 3s ease-in-out infinite ${(i * 0.3) % 4}s`, opacity: 0 }} />;
+   433→          })}
+   434→        </div>
+   435→
+   436→        {/* ══════════ HERO ══════════ */}
+   437→        <section className="relative py-16 sm:py-20 md:py-28">
+   438→          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+   439→            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border mb-6 backdrop-blur-sm transition-colors duration-700" style={{ backgroundColor: `rgba(${accentRgb},0.1)`, borderColor: `rgba(${accentRgb},0.3)` }}>
+   440→              <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: accent }} />
+   441→              <span className="text-sm font-medium transition-colors duration-700" style={{ color: accent }}>AI-Powered Support Agents</span>
+   442→            </div>
+   443→            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 sm:mb-6">
+   444→              Meet the <span className="bg-clip-text text-transparent transition-all duration-700" style={{ backgroundImage: `linear-gradient(to right, rgba(${accentRgb},0.9), ${accent}, rgba(${accentRgb},0.8))` }}>PARWA</span> AI Family
+   445→            </h1>
+   446→            <p className="text-base sm:text-lg max-w-2xl mx-auto px-4 transition-colors duration-700" style={{ color: 'rgba(255,255,255,0.5)' }}>
+   447→              {selectedIndustry
+   448→                ? activeIndustry!.heroText
+   449→                : 'Three intelligent AI agents, each designed for a different stage of your business growth. Choose your industry to see tailored solutions.'}
+   450→            </p>
+   451→            {/* Trust indicators */}
+   452→            <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mt-8">
+   453→              {trustIndicators.map((item) => {
+   454→                const Icon = item.icon;
+   455→                return (
+   456→                  <div key={item.label} className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full border backdrop-blur-sm transition-colors duration-500" style={{ backgroundColor: `rgba(${accentRgb},0.1)`, borderColor: `rgba(${accentRgb},0.3)`, color: accent }}>
+   457→                    <Icon className="w-3.5 h-3.5" style={{ color: accent }} />
+   458→                    <span className="text-xs sm:text-sm font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>{item.label}</span>
+   459→                  </div>
+   460→                );
+   461→              })}
+   462→            </div>
+   463→          </div>
+   464→        </section>
+   465→
+   466→        {/* ══════════ INDUSTRY SELECTOR ══════════ */}
+   467→        <section className="relative pb-8 sm:pb-12">
+   468→          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+   469→            <h2 className="text-center text-lg sm:text-xl font-semibold text-white mb-6 sm:mb-8">Select Your Industry</h2>
+   470→            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+   471→              {industries.map((ind) => {
+   472→                const isActive = selectedIndustry === ind.id;
+   473→                return (
+   474→                  <button key={ind.id} onClick={() => { handleIndustryClick(ind.id); }}
+   475→                    className="relative rounded-2xl p-6 sm:p-8 text-left transition-all duration-500 hover:-translate-y-1 group cursor-pointer"
+   476→                    style={{
+   477→                      background: isActive ? `linear-gradient(135deg, rgba(${ind.accentRgb},0.15) 0%, rgba(${ind.accentRgb},0.05) 100%)` : 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
+   478→                      border: isActive ? `2px solid rgba(${ind.accentRgb},0.6)` : '2px solid rgba(255,255,255,0.1)',
+   479→                      boxShadow: isActive ? `0 20px 50px rgba(${ind.accentRgb},0.15)` : '0 20px 50px rgba(0,0,0,0.2)',
+   480→                      backdropFilter: 'blur(20px)',
+   481→                    }}>
+   482→                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-24 h-1 rounded-full transition-all duration-500 group-hover:w-3/4" style={{ backgroundColor: ind.accent, opacity: isActive ? 1 : 0 }} />
+   483→                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 transition-all duration-500 group-hover:scale-110" style={{ backgroundColor: `rgba(${ind.accentRgb},${isActive ? 0.2 : 0.1})`, border: `1px solid rgba(${ind.accentRgb},${isActive ? 0.3 : 0.15})`, color: ind.accent }}>
+   484→                      {ind.icon}
+   485→                    </div>
+   486→                    <h3 className="text-lg sm:text-xl font-bold text-white mb-1">{ind.label}</h3>
+   487→                    <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>{ind.description}</p>
+   488→                    <div className="flex gap-1.5 mt-3">
+   489→                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: ind.primary }} />
+   490→                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: ind.accent }} />
+   491→                    </div>
+   492→                  </button>
+   493→                );
+   494→              })}
+   495→            </div>
+   496→          </div>
+   497→        </section>
+   498→
+   499→        {/* ══════════ PRICING CONTENT ══════════ */}
+   500→        <div ref={pricingRef} className="scroll-mt-4" />
+   501→        {selectedIndustry && currentVariants && (
+   502→          <>
+   503→            {/* ── Annual Toggle ── */}
+   504→            <section className="relative pb-8 sm:pb-10">
+   505→              <div className="flex justify-center">
+   506→                <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full border backdrop-blur-sm" style={{ backgroundColor: `rgba(${accentRgb},0.08)`, borderColor: `rgba(${accentRgb},0.25)` }}>
+   507→                  <span className={`text-sm font-medium transition-colors duration-300 ${!isAnnual ? 'text-white' : 'text-white/40'}`}>Monthly</span>
+   508→                  <button onClick={() => setIsAnnual(!isAnnual)} className="relative w-12 h-7 rounded-full transition-colors duration-300" style={{ background: isAnnual ? `linear-gradient(to right, ${accent}, rgba(${accentRgb},0.8))` : 'rgba(255,255,255,0.15)' }} aria-label="Toggle annual billing" role="switch" aria-checked={isAnnual}>
+   509→                    <div className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300 ${isAnnual ? 'translate-x-5' : 'translate-x-0'}`} />
+   510→                  </button>
+   511→                  <span className={`text-sm font-medium transition-colors duration-300 ${isAnnual ? 'text-white' : 'text-white/40'}`}>Annual</span>
+   512→                  {isAnnual && (
+   513→                    <span className="ml-1 px-2.5 py-0.5 rounded-full border text-xs font-bold" style={{ backgroundColor: `rgba(${accentRgb},0.15)`, borderColor: `rgba(${accentRgb},0.3)`, color: accent }}>Save 20%</span>
+   514→                  )}
+   515→                </div>
+   516→              </div>
+   517→            </section>
+   518→
+   519→            {/* ── 3 Pricing Cards ── */}
+   520→            <section className="relative pb-12 sm:pb-16">
+   521→              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+   522→                <div className="text-center mb-8 sm:mb-10">
+   523→                  <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-2">
+   524→                    <span className="bg-clip-text text-transparent" style={{ backgroundImage: `linear-gradient(to right, rgba(${accentRgb},0.9), ${accent})` }}>
+   525→                      {activeIndustry!.label}
+   526→                    </span>{' '}Pricing & Plans
+   527→                  </h2>
+   528→                  <p className="text-sm sm:text-base" style={{ color: 'rgba(255,255,255,0.4)' }}>
+   529→                    {isAuthenticated
+   530→                      ? 'Select the variants you want to hire — adjust quantities below'
+   531→                      : 'Choose the right PARWA tier for your ' + activeIndustry!.label.toLowerCase() + ' business'}
+   532→                  </p>
+   533→                </div>
+   534→
+   535→                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+   536→                  {currentVariants.map((variant, index) => {
+   537→                    const isRecommended = variant.badge === 'Recommended';
+   538→                    const price = isAnnual ? variant.annualPrice : variant.monthlyPrice;
+   539→                    const annualSavings = variant.monthlyPrice - variant.annualPrice;
+   540→                    const qty = quantities[variant.id] || 0;
+   541→                    const subtotal = price * qty;
+   542→                    const isActive = qty > 0;
+   543→                    const savingsVsHuman = variant.avgHumanCostPerMonth - price;
+   544→
+   545→                    return (
+   546→                      <div key={variant.id} className={`relative rounded-2xl border-2 p-6 sm:p-8 transition-all duration-500 backdrop-blur-sm group ${isActive ? 'hover:-translate-y-2' : 'hover:-translate-y-1'}`}
+   547→                        style={{
+   548→                          border: isActive
+   549→                            ? `2px solid ${accent}`
+   550→                            : isRecommended
+   551→                              ? `2px solid rgba(${accentRgb},0.4)`
+   552→                              : '2px solid rgba(255,255,255,0.1)',
+   553→                          background: isActive
+   554→                            ? `linear-gradient(135deg, rgba(${accentRgb},0.12) 0%, rgba(${accentRgb},0.04) 100%)`
+   555→                            : isRecommended
+   556→                              ? `linear-gradient(135deg, rgba(${accentRgb},0.06) 0%, rgba(255,255,255,0.02) 100%)`
+   557→                              : 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
+   558→                          boxShadow: isActive
+   559→                            ? `0 25px 60px rgba(0,0,0,0.3), 0 0 100px rgba(${accentRgb},0.12)`
+   560→                            : isRecommended
+   561→                              ? `0 25px 60px rgba(0,0,0,0.3), 0 0 80px rgba(${accentRgb},0.06)`
+   562→                              : '0 25px 50px rgba(0,0,0,0.2)',
+   563→                          transitionDelay: `${index * 100}ms`,
+   564→                        }}>
+   565→                        {/* Glow */}
+   566→                        <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none transition-opacity duration-500" style={{ backgroundColor: `rgba(${accentRgb},${isActive ? 0.15 : 0.05})`, opacity: isActive ? 1 : 0 }} />
+   567→
+   568→                        {/* Recommended Badge */}
+   569→                        {isRecommended && (
+   570→                          <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10">
+   571→                            <span className="inline-flex items-center gap-1 px-4 py-1.5 text-xs font-bold bg-gradient-to-r from-amber-400 to-yellow-400 text-gray-900 rounded-full shadow-lg shadow-amber-400/30">
+   572→                              <Star className="w-3 h-3" fill="currentColor" /> Recommended
+   573→                            </span>
+   574→                          </div>
+   575→                        )}
+   576→
+   577→                        {/* Hired Badge */}
+   578→                        {isActive && (
+   579→                          <div className="absolute -top-3.5 right-4 z-10">
+   580→                            <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-full" style={{ backgroundColor: `rgba(${accentRgb},0.2)`, color: accent, border: `1px solid rgba(${accentRgb},0.3)` }}>
+   581→                              <Check className="w-3 h-3" /> Hired x{qty}
+   582→                            </span>
+   583→                          </div>
+   584→                        )}
+   585→
+   586→                        {/* Name */}
+   587→                        <div className="mb-4 mt-1">
+   588→                          <h3 className="text-2xl sm:text-3xl font-extrabold text-white mb-1 tracking-tight">{variant.name}</h3>
+   589→                          <p className="text-sm font-medium" style={{ color: accent }}>{variant.tagline}</p>
+   590→                        </div>
+   591→
+   592→                        {/* Price */}
+   593→                        <div className="mb-5 pb-5 border-b" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+   594→                          <div className="flex items-baseline gap-1">
+   595→                            <span className="text-4xl sm:text-5xl font-black" style={{ color: isActive ? accent : 'white' }}>${price.toLocaleString()}</span>
+   596→                            <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.3)' }}>/month</span>
+   597→                          </div>
+   598→                          {isAnnual && (
+   599→                            <p className="text-xs mt-1.5" style={{ color: accent }}>Billed annually — save ${annualSavings}/mo</p>
+   600→                          )}
+   601→                        </div>
+   602→
+   603→                        {/* ── Cost Replacement Box (Master Stroke) ── */}
+   604→                        <div className="mb-4 px-3 py-3 rounded-lg" style={{ backgroundColor: `rgba(${accentRgb},0.1)`, border: `1px solid rgba(${accentRgb},0.2)` }}>
+   605→                          <div className="flex items-center justify-between mb-2">
+   606→                            <div className="flex items-center gap-2">
+   607→                              <Users className="w-4 h-4" style={{ color: accent }} />
+   608→                              <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>Replaces</span>
+   609→                            </div>
+   610→                            <span className="text-xs font-bold" style={{ color: accent }}>{variant.humanAgentsReplaced} human agents</span>
+   611→                          </div>
+   612→                          <div className="flex items-center justify-between mb-2">
+   613→                            <div className="flex items-center gap-2">
+   614→                              <DollarSign className="w-4 h-4" style={{ color: accent }} />
+   615→                              <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Human team cost</span>
+   616→                            </div>
+   617→                            <span className="text-xs font-bold text-red-400 line-through">${variant.avgHumanCostPerMonth.toLocaleString()}/mo</span>
+   618→                          </div>
+   619→                          <div className="flex items-center justify-between mb-2">
+   620→                            <div className="flex items-center gap-2">
+   621→                              <Zap className="w-4 h-4" style={{ color: accent }} />
+   622→                              <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>PARWA cost</span>
+   623→                            </div>
+   624→                            <span className="text-sm font-black" style={{ color: accent }}>${price.toLocaleString()}/mo</span>
+   625→                          </div>
+   626→                          <div className="h-px my-2" style={{ backgroundColor: `rgba(${accentRgb},0.2)` }} />
+   627→                          <div className="flex items-center justify-between">
+   628→                            <span className="text-xs font-bold" style={{ color: 'rgba(255,255,255,0.8)' }}>You save every month</span>
+   629→                            <span className="text-sm font-black" style={{ color: '#FF9F5A' }}>${savingsVsHuman.toLocaleString()}</span>
+   630→                          </div>
+   631→                          {qty > 1 && (
+   632→                            <div className="mt-2 pt-2 border-t" style={{ borderColor: `rgba(${accentRgb},0.15)` }}>
+   633→                              <div className="flex items-center justify-between">
+   634→                                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>x{qty} agents subtotal</span>
+   635→                                <span className="text-sm font-bold" style={{ color: accent }}>${subtotal.toLocaleString()}/mo</span>
+   636→                              </div>
+   637→                              <div className="flex items-center justify-between mt-1">
+   638→                                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>vs {variant.humanAgentsReplaced * qty} humans</span>
+   639→                                <span className="text-xs font-bold text-red-400 line-through">${(variant.avgHumanCostPerMonth * qty).toLocaleString()}/mo</span>
+   640→                              </div>
+   641→                            </div>
+   642→                          )}
+   643→                        </div>
+   644→
+   645→                        {/* Core limitation / capability */}
+   646→                        {variant.coreLimitation && (
+   647→                          <div className="flex items-start gap-2 mb-4 px-3 py-2 rounded-lg" style={{ backgroundColor: `rgba(${accentRgb},0.08)` }}>
+   648→                            <Shield className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: accent }} />
+   649→                            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}><strong style={{ color: accent }}>Core limitation:</strong> {variant.coreLimitation}</p>
+   650→                          </div>
+   651→                        )}
+   652→                        {variant.coreCapability && (
+   653→                          <div className="flex items-start gap-2 mb-4 px-3 py-2 rounded-lg" style={{ backgroundColor: `rgba(${accentRgb},0.08)` }}>
+   654→                            <Zap className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: accent }} />
+   655→                            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}><strong style={{ color: accent }}>Core capability:</strong> {variant.coreCapability}</p>
+   656→                          </div>
+   657→                        )}
+   658→
+   659→                        {/* Scenario — Real Story */}
+   660→                        <div className="mb-4 relative overflow-hidden rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+   661→                          <div className="absolute top-0 left-0 w-1 h-full rounded-l-xl" style={{ background: `linear-gradient(180deg, ${accent}, rgba(${accentRgb},0.3))` }} />
+   662→                          <div className="pl-4 pr-3 py-3">
+   663→                            <p className="text-[11px] uppercase tracking-widest font-bold mb-1.5" style={{ color: accent }}>Real Scenario</p>
+   664→                            <p className="text-xs italic leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>&ldquo;{variant.scenario}&rdquo;</p>
+   665→                          </div>
+   666→                        </div>
+   667→
+   668→                        {/* ── Common Features ── */}
+   669→                        <div className="mb-4">
+   670→                          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(255,255,255,0.3)' }}>All Plans Include</p>
+   671→                          <ul className="space-y-2.5">
+   672→                            {variant.commonFeatures.map((feature, i) => (
+   673→                              <li key={i} className="flex items-start gap-3">
+   674→                                <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style={{ backgroundColor: `rgba(${accentRgb},0.15)` }}>
+   675→                                  <Check className="w-3 h-3" style={{ color: accent }} strokeWidth={3} />
+   676→                                </div>
+   677→                                <span className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>{feature}</span>
+   678→                              </li>
+   679→                            ))}
+   680→                          </ul>
+   681→                        </div>
+   682→
+   683→                        {/* ── Industry-Specific Unique Features ── */}
+   684→                        <div className="mb-4">
+   685→                          <div className="flex items-center gap-2 mb-3">
+   686→                            <Sparkles className="w-4 h-4" style={{ color: accent }} />
+   687→                            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: accent }}>{activeIndustry!.label}-Specific</p>
+   688→                          </div>
+   689→                          <ul className="space-y-2.5">
+   690→                            {variant.uniqueFeatures.map((feature, i) => (
+   691→                              <li key={i} className="flex items-start gap-3">
+   692→                                <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style={{ backgroundColor: `rgba(${accentRgb},0.2)` }}>
+   693→                                  <Sparkles className="w-3 h-3" style={{ color: accent }} />
+   694→                                </div>
+   695→                                <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.85)' }}>{feature}</span>
+   696→                              </li>
+   697→                            ))}
+   698→                          </ul>
+   699→                        </div>
+   700→
+   701→                        {/* Key Advantage */}
+   702→                        {variant.keyAdvantage && (
+   703→                          <div className="mb-3 px-3 py-2.5 rounded-lg" style={{ backgroundColor: `rgba(${accentRgb},0.08)`, border: `1px solid rgba(${accentRgb},0.15)` }}>
+   704→                            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>{variant.keyAdvantage}</p>
+   705→                          </div>
+   706→                        )}
+   707→
+   708→                        {/* ROI + Best For */}
+   709→                        <div className="mb-4 px-3 py-2.5 rounded-lg" style={{ backgroundColor: `rgba(${accentRgb},0.1)`, border: `1px solid rgba(${accentRgb},0.2)` }}>
+   710→                          <div className="flex items-center gap-2 mb-1">
+   711→                            <TrendingUp className="w-4 h-4 flex-shrink-0" style={{ color: accent }} />
+   712→                            <span className="text-sm font-medium" style={{ color: accent }}>{variant.roi}</span>
+   713→                          </div>
+   714→                          <div className="flex items-center gap-2">
+   715→                            <Ticket className="w-3 h-3" style={{ color: `rgba(${accentRgb},0.6)` }} />
+   716→                            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Best for: {variant.bestFor}</p>
+   717→                          </div>
+   718→                        </div>
+   719→
+   720→                        {/* ── Quantity Selector (-1 / +) ── */}
+   721→                        <div className="mb-3">
+   722→                          <div className="flex items-center justify-between px-1 mb-2">
+   723→                            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>
+   724→                              {isAuthenticated ? 'Hire Quantity' : 'Quantity'}
+   725→                            </span>
+   726→                            {qty > 0 && (
+   727→                              <span className="text-xs font-bold" style={{ color: accent }}>
+   728→                                ${subtotal.toLocaleString()}/mo total
+   729→                              </span>
+   730→                            )}
+   731→                          </div>
+   732→                          <div className="flex items-center gap-3">
+   733→                            <button
+   734→                              onClick={() => handleQuantityChange(variant.id, qty - 1)}
+   735→                              disabled={qty <= 0}
+   736→                              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 active:scale-90 ${
+   737→                                qty > 0
+   738→                                  ? 'text-white/80 hover:text-white'
+   739→                                  : 'text-white/20 cursor-not-allowed'
+   740→                              }`}
+   741→                              style={{
+   742→                                background: qty > 0 ? `rgba(${accentRgb},0.2)` : 'rgba(255,255,255,0.05)',
+   743→                                border: qty > 0 ? `1px solid rgba(${accentRgb},0.3)` : '1px solid rgba(255,255,255,0.1)',
+   744→                              }}
+   745→                              aria-label="Decrease quantity"
+   746→                            >
+   747→                              <Minus className="w-4 h-4" />
+   748→                            </button>
+   749→                            <div
+   750→                              className="flex-1 h-10 rounded-xl flex items-center justify-center font-bold text-lg tabular-nums transition-all duration-200"
+   751→                              style={{
+   752→                                background: isActive
+   753→                                  ? `rgba(${accentRgb},0.15)`
+   754→                                  : 'rgba(255,255,255,0.05)',
+   755→                                border: isActive
+   756→                                  ? `1px solid rgba(${accentRgb},0.3)`
+   757→                                  : '1px solid rgba(255,255,255,0.1)',
+   758→                                color: isActive ? accent : 'rgba(255,255,255,0.5)',
+   759→                              }}
+   760→                            >
+   761→                              {qty}
+   762→                            </div>
+   763→                            <button
+   764→                              onClick={() => handleQuantityChange(variant.id, qty + 1)}
+   765→                              disabled={qty >= 10}
+   766→                              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 active:scale-90 ${
+   767→                                qty < 10
+   768→                                  ? 'text-white/80 hover:text-white'
+   769→                                  : 'text-white/20 cursor-not-allowed'
+   770→                              }`}
+   771→                              style={{
+   772→                                background: qty < 10 ? `rgba(${accentRgb},0.2)` : 'rgba(255,255,255,0.05)',
+   773→                                border: qty < 10 ? `1px solid rgba(${accentRgb},0.3)` : '1px solid rgba(255,255,255,0.1)',
+   774→                              }}
+   775→                              aria-label="Increase quantity"
+   776→                            >
+   777→                              <Plus className="w-4 h-4" />
+   778→                            </button>
+   779→                          </div>
+   780→                        </div>
+   781→
+   782→                        {/* ══════════ EXPERIENCE BEFORE YOU HIRE ══════════ */}
+   783→                        <div className="mt-5 -mx-2 px-4 py-4 rounded-2xl relative overflow-hidden" style={{
+   784→                          background: `linear-gradient(135deg, rgba(${accentRgb},0.06) 0%, rgba(${accentRgb},0.02) 100%)`,
+   785→                          border: `1px dashed rgba(${accentRgb},0.25)`,
+   786→                        }}>
+   787→                          {/* Decorative corner accents */}
+   788→                          <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 rounded-tl-2xl" style={{ borderColor: accent }} />
+   789→                          <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 rounded-tr-2xl" style={{ borderColor: accent }} />
+   790→                          <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 rounded-bl-2xl" style={{ borderColor: accent }} />
+   791→                          <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 rounded-br-2xl" style={{ borderColor: accent }} />
+   792→
+   793→                          {/* Section header */}
+   794→                          <div className="text-center mb-4">
+   795→                            <p className="text-[10px] uppercase tracking-[0.2em] font-black mb-1" style={{ color: accent }}>Experience Before You Hire</p>
+   796→                            <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.35)' }}>Don't take our word for it — try it yourself</p>
+   797→                          </div>
+   798→
+   799→                          {/* Call Demo Button — THE star button */}
+   800→                          <button
+   801→                            onClick={() => handleDemoClick(variant.name)}
+   802→                            className="group/demo w-full relative flex items-center gap-3 py-3.5 px-4 rounded-xl text-sm font-bold transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl overflow-hidden mb-2.5"
+   803→                            style={{
+   804→                              background: `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.7) 100%)`,
+   805→                              color: primary,
+   806→                              boxShadow: `0 4px 20px rgba(${accentRgb},0.25), 0 0 40px rgba(${accentRgb},0.08)`,
+   807→                            }}
+   808→                            title="This agent will call you — talk to it, test it, see how it handles your clients"
+   809→                          >
+   810→                            <div className="absolute inset-0 opacity-0 group-hover/demo:opacity-100 transition-opacity duration-500" style={{ background: `linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 60%)` }} />
+   811→                            <div className="absolute top-0 right-0 px-2.5 py-1 rounded-bl-xl rounded-tr-[9px]">
+   812→                              <span className="text-[9px] font-black uppercase tracking-wider" style={{ color: primary, opacity: 0.7 }}>$1</span>
+   813→                            </div>
+   814→                            <div className="relative flex items-center gap-3 w-full">
+   815→                              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(0,0,0,0.15)' }}>
+   816→                                <Phone className="w-5 h-5" />
+   817→                              </div>
+   818→                              <div className="text-left flex-1">
+   819→                                <span className="block text-sm font-black leading-tight">Book Instant Call Demo</span>
+   820→                                <span className="block text-[11px] font-medium mt-0.5" style={{ opacity: 0.8 }}>This agent will call you — talk to it, test it live</span>
+   821→                              </div>
+   822→                            </div>
+   823→                          </button>
+   824→
+   825→                          {/* Chat Demo Button — FREE */}
+   826→                          <button
+   827→                            onClick={() => handleFreeChat(variant.id)}
+   828→                            className="group/chat w-full relative flex items-center gap-3 py-3 px-4 rounded-xl text-sm font-bold transition-all duration-300 hover:-translate-y-0.5 overflow-hidden"
+   829→                            style={{
+   830→                              background: 'rgba(255,255,255,0.04)',
+   831→                              border: `1px solid rgba(255,255,255,0.12)`,
+   832→                              color: 'rgba(255,255,255,0.9)',
+   833→                            }}
+   834→                            title="Free live chat — see how Parwa responds to real queries"
+   835→                          >
+   836→                            <div className="absolute inset-0 opacity-0 group-hover/chat:opacity-100 transition-opacity duration-300" style={{ background: 'rgba(255,255,255,0.06)' }} />
+   837→                            <div className="absolute top-0 right-0 px-2.5 py-1 rounded-bl-xl rounded-tr-[9px]" style={{ background: 'rgba(52,211,153,0.15)' }}>
+   838→                              <span className="text-[9px] font-black uppercase tracking-wider text-orange-400">Free</span>
+   839→                            </div>
+   840→                            <div className="relative flex items-center gap-3 w-full">
+   841→                              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
+   842→                                <MessageSquare className="w-5 h-5" style={{ color: accent }} />
+   843→                              </div>
+   844→                              <div className="text-left flex-1">
+   845→                                <span className="block text-sm font-bold leading-tight">Try Live Chat — Free</span>
+   846→                                <span className="block text-[11px] font-medium mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>Chat now — see how Parwa handles your clients' queries</span>
+   847→                              </div>
+   848→                            </div>
+   849→                          </button>
+   850→
+   851→                          <p className="text-center text-[10px] mt-3 italic" style={{ color: 'rgba(255,255,255,0.25)' }}>Both demos show exactly how Parwa works when hired by you</p>
+   852→                        </div>
+   853→
+   854→                        {/* ── Main CTA ── */}
+   855→                        {isAuthenticated ? (
+   856→                          <div
+   857→                            className="relative flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-500 no-underline overflow-hidden"
+   858→                            style={{
+   859→                              background: isActive
+   860→                                ? `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.8) 100%)`
+   861→                                : 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 100%)',
+   862→                              color: isActive ? primary : 'rgba(255,255,255,0.5)',
+   863→                              border: isActive ? 'none' : '1px solid rgba(255,255,255,0.1)',
+   864→                              boxShadow: isActive ? `0 8px 24px rgba(${accentRgb},0.3)` : 'none',
+   865→                            }}
+   866→                          >
+   867→                            {isActive && <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.1) 100%)' }} />}
+   868→                            <div className="relative flex items-center gap-2">
+   869→                              {isActive ? (
+   870→                                <>
+   871→                                  <Check className="w-4 h-4" />
+   872→                                  {qty} {qty === 1 ? 'Agent' : 'Agents'} Hired
+   873→                                </>
+   874→                              ) : (
+   875→                                'Select to Hire'
+   876→                              )}
+   877→                            </div>
+   878→                          </div>
+   879→                        ) : (
+   880→                          <button
+   881→                            onClick={() => {
+   882→                              // Save variant selection to localStorage before redirecting
+   883→                              const parwaVariantMap: Record<string, string> = { starter: 'mini_parwa', growth: 'parwa', high: 'parwa_high' };
+   884→                              localStorage.setItem('parwa_pricing_context', JSON.stringify({
+   885→                                industry: selectedIndustry || 'saas',
+   886→                                variant: parwaVariantMap[variant.id] || 'parwa',
+   887→                                addOns: { voice: false, customApi: false },
+   888→                                totalMonthly: isAnnual ? variant.annualPrice : variant.monthlyPrice,
+   889→                                timestamp: new Date().toISOString(),
+   890→                              }));
+   891→                              router.push('/signup?redirect=/models');
+   892→                            }}
+   893→                            className="group relative flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-500 hover:-translate-y-0.5 overflow-hidden"
+   894→                            style={{ background: `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.85) 100%)`, color: primary, boxShadow: `0 8px 24px rgba(${accentRgb},0.3)` }}>
+   895→                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 100%)' }} />
+   896→                            <div className="relative flex items-center gap-2">Get Started <ArrowRight className="w-4 h-4" /></div>
+   897→                          </button>
+   898→                        )}
+   899→                      </div>
+   900→                    );
+   901→                  })}
+   902→                </div>
+   903→              </div>
+   904→            </section>
+   905→
+   906→            {/* ── Total Summary (when quantities > 0) ── */}
+   907→            {hasSelection && (
+   908→              <section className="relative pb-12 sm:pb-16">
+   909→                <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+   910→                  <div className="rounded-2xl p-6 sm:p-8" style={{
+   911→                    background: `linear-gradient(135deg, rgba(${accentRgb},0.1) 0%, rgba(${accentRgb},0.03) 100%)`,
+   912→                    border: `1px solid rgba(${accentRgb},0.3)`,
+   913→                    boxShadow: `0 25px 60px rgba(0,0,0,0.3), 0 0 80px rgba(${accentRgb},0.08)`,
+   914→                  }}>
+   915→                    <h3 className="text-lg sm:text-xl font-bold text-white mb-5 flex items-center gap-2">
+   916→                      <BarChart3 className="w-5 h-5" style={{ color: accent }} />
+   917→                      Your {activeIndustry!.label} Hiring Summary
+   918→                    </h3>
+   919→
+   920→                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+   921→                      {/* Agents */}
+   922→                      <div className="px-4 py-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+   923→                        <div className="flex items-center gap-2 mb-1">
+   924→                          <Bot className="w-4 h-4" style={{ color: accent }} />
+   925→                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>AI Agents</span>
+   926→                        </div>
+   927→                        <span className="text-xl font-black text-white">{totalAgentsHired}</span>
+   928→                      </div>
+   929→                      {/* Tickets */}
+   930→                      <div className="px-4 py-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+   931→                        <div className="flex items-center gap-2 mb-1">
+   932→                          <Ticket className="w-4 h-4" style={{ color: accent }} />
+   933→                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Tickets/mo</span>
+   934→                        </div>
+   935→                        <span className="text-xl font-black text-white">{totalTickets.toLocaleString()}</span>
+   936→                      </div>
+   937→                      {/* Monthly Cost */}
+   938→                      <div className="px-4 py-3 rounded-xl" style={{ background: `rgba(${accentRgb},0.08)`, border: `1px solid rgba(${accentRgb},0.2)` }}>
+   939→                        <div className="flex items-center gap-2 mb-1">
+   940→                          <DollarSign className="w-4 h-4" style={{ color: accent }} />
+   941→                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Monthly Cost</span>
+   942→                        </div>
+   943→                        <span className="text-xl font-black" style={{ color: accent }}>
+   944→                          {appliedCoupon && discountedTotal < totalMonthly ? (
+   945→                            <>
+   946→                              <span className="text-white/30 line-through text-sm mr-1">${totalMonthly.toLocaleString()}</span>
+   947→                              ${discountedTotal.toLocaleString()}
+   948→                            </>
+   949→                          ) : (
+   950→                            <span>${totalMonthly.toLocaleString()}</span>
+   951→                          )}
+   952→                        </span>
+   953→                      </div>
+   954→                      {/* Human Cost Replaced */}
+   955→                      <div className="px-4 py-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+   956→                        <div className="flex items-center gap-2 mb-1">
+   957→                          <Users className="w-4 h-4" style={{ color: '#FF9F5A' }} />
+   958→                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>vs Human Cost</span>
+   959→                        </div>
+   960→                        <span className="text-sm font-bold text-red-400 line-through">${totalHumanCostReplaced.toLocaleString()}</span>
+   961→                        <span className="block text-xs font-bold text-orange-400">Save ${(totalHumanCostReplaced - totalMonthly).toLocaleString()}/mo</span>
+   962→                      </div>
+   963→                    </div>
+   964→
+   965→                    {/* Breakdown */}
+   966→                    <div className="space-y-2 mb-5">
+   967→                      {currentVariants.filter(v => quantities[v.id] > 0).map(v => {
+   968→                        const price = isAnnual ? v.annualPrice : v.monthlyPrice;
+   969→                        return (
+   970→                          <div key={v.id} className="flex items-center justify-between px-4 py-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+   971→                            <div className="flex items-center gap-3">
+   972→                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: accent }} />
+   973→                              <span className="text-sm font-medium text-white">{v.name}</span>
+   974→                              <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: `rgba(${accentRgb},0.15)`, color: accent }}>x{quantities[v.id]}</span>
+   975→                            </div>
+   976→                            <span className="text-sm font-bold" style={{ color: accent }}>${(price * quantities[v.id]).toLocaleString()}/mo</span>
+   977→                          </div>
+   978→                        );
+   979→                      })}
+   980→                    </div>
+   981→
+   982→                    {isAnnual && totalAnnualSavings > 0 && (
+   983→                      <div className="p-3 rounded-lg mb-4" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
+   984→                        <p className="text-xs sm:text-sm text-amber-300 font-medium">
+   985→                          <span className="text-amber-400 font-bold">2 months free</span> with annual plan — save{' '}
+   986→                          <span className="text-amber-400 font-bold">${totalAnnualSavings.toLocaleString()}/year</span>
+   987→                        </p>
+   988→                      </div>
+   989→                    )}
+   990→
+   991→                    {/* Coupon Code */}
+   992→                    <div className="mb-4">
+   993→                      {appliedCoupon ? (
+   994→                        <div className="rounded-xl border border-emerald-500/30 p-4" style={{ background: 'rgba(16,185,129,0.06)' }}>
+   995→                          <div className="flex items-center justify-between">
+   996→                            <div className="flex items-center gap-3">
+   997→                              <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+   998→                                <Ticket className="w-4 h-4 text-emerald-400" />
+   999→                              </div>
+  1000→                              <div>
+  1001→                                <div className="flex items-center gap-2">
+  1002→                                  <span className="text-sm font-semibold text-emerald-400">{appliedCoupon.code}</span>
+  1003→                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
+  1004→                                    {formatDiscount(appliedCoupon)}
+  1005→                                  </span>
+  1006→                                </div>
+  1007→                                <p className="text-[10px] text-orange-200/30 mt-0.5">{appliedCoupon.description}</p>
+  1008→                              </div>
+  1009→                            </div>
+  1010→                            <button onClick={handleRemoveCoupon} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-orange-200/30 hover:text-red-400 transition-all" title="Remove coupon">
+  1011→                              <X className="w-4 h-4" />
+  1012→                            </button>
+  1013→                          </div>
+  1014→                          {isFreeCheckout && (
+  1015→                            <div className="mt-3 flex items-start gap-2 rounded-lg p-2.5" style={{ background: 'rgba(16,185,129,0.08)' }}>
+  1016→                              <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+  1017→                              <div>
+  1018→                                <p className="text-[10px] font-medium text-emerald-300">Free checkout — $0.00 total</p>
+  1019→                                <p className="text-[9px] text-orange-200/25 mt-0.5">Paddle will process a $0 transaction. Your subscription will be activated after confirmation.</p>
+  1020→                              </div>
+  1021→                            </div>
+  1022→                          )}
+  1023→                        </div>
+  1024→                      ) : (
+  1025→                        <div className="rounded-xl border border-white/[0.08] p-4 space-y-3" style={{ background: 'rgba(255,255,255,0.03)' }}>
+  1026→                          <div className="flex items-center gap-2">
+  1027→                            <Tag className="w-4 h-4 text-orange-400" />
+  1028→                            <span className="text-xs text-orange-200/50 uppercase tracking-wider font-medium">Have a coupon code?</span>
+  1029→                          </div>
+  1030→                          <div className="flex gap-2">
+  1031→                            <input
+  1032→                              type="text"
+  1033→                              value={couponCode}
+  1034→                              onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError(null); }}
+  1035→                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleApplyCoupon(); } }}
+  1036→                              placeholder="Enter coupon code"
+  1037→                              className={`flex-1 h-10 rounded-lg bg-white/[0.04] border px-3 text-sm text-white placeholder-orange-200/20 focus:outline-none focus:border-orange-500/50 transition-all ${couponError ? 'border-red-500/40' : 'border-white/[0.08]'}`}
+  1038→                            />
+  1039→                            <button
+  1040→                              onClick={handleApplyCoupon}
+  1041→                              disabled={!couponCode.trim() || couponValidating}
+  1042→                              className="h-10 px-4 rounded-lg bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] text-xs font-semibold hover:from-orange-400 hover:to-amber-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+  1043→                            >
+  1044→                              {couponValidating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+  1045→                              Apply
+  1046→                            </button>
+  1047→                          </div>
+  1048→                          {couponError && (
+  1049→                            <p className="text-[10px] text-red-400 flex items-center gap-1">
+  1050→                              <XCircle className="w-3 h-3" />
+  1051→                              {couponError}
+  1052→                            </p>
+  1053→                          )}
+  1054→                        </div>
+  1055→                      )}
+  1056→                    </div>
+  1057→
+  1058→                    {/* CTA */}
+  1059→                    {isAuthenticated ? (
+  1060→                      <div className="flex gap-3">
+  1061→                        <button
+  1062→                          onClick={() => setDemoModalOpen(true)}
+  1063→                          className="group/btn flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg overflow-hidden relative"
+  1064→                          style={{ background: `linear-gradient(135deg, rgba(${accentRgb},0.2) 0%, rgba(${accentRgb},0.08) 100%)`, border: `1px solid rgba(${accentRgb},0.4)`, color: accent }}
+  1065→                        >
+  1066→                          <div className="absolute inset-0 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300" style={{ background: `linear-gradient(135deg, rgba(${accentRgb},0.3) 0%, rgba(${accentRgb},0.15) 100%)` }} />
+  1067→                          <div className="relative flex items-center gap-2">
+  1068→                            <Calendar className="w-4 h-4" />
+  1069→                            Book Instant Demo — Just $1
+  1070→                          </div>
+  1071→                        </button>
+  1072→                        <button
+  1073→                          onClick={() => {
+  1074→                            // Build pricing context and save to localStorage
+  1075→                            const selectedVariants = currentVariants
+  1076→                              ?.filter(v => quantities[v.id] > 0)
+  1077→                              .map(v => ({
+  1078→                                id: v.id,
+  1079→                                name: v.name,
+  1080→                                quantity: quantities[v.id],
+  1081→                                monthlyPrice: isAnnual ? v.annualPrice : v.monthlyPrice,
+  1082→                              })) || [];
+  1083→
+  1084→                            const pricingContext = {
+  1085→                              industry: selectedIndustry,
+  1086→                              isAnnual,
+  1087→                              variants: selectedVariants,
+  1088→                              totalMonthly,
+  1089→                              totalTickets,
+  1090→                              source: 'models_page',
+  1091→                              timestamp: Date.now(),
+  1092→                              couponCode: appliedCoupon?.code || null,
+  1093→                              discountedTotal,
+  1094→                              isFreeCheckout,
+  1095→                            };
+  1096→
+  1097→                            localStorage.setItem('parwa_pricing_context', JSON.stringify(pricingContext));
+  1098→                            localStorage.setItem('parwa_pricing_selection', JSON.stringify({
+  1099→                              plan: selectedVariants[0]?.id === 'starter' ? 'mini' : selectedVariants[0]?.id === 'high' ? 'high' : 'pro',
+  1100→                              industry: selectedIndustry,
+  1101→                              isAnnual,
+  1102→                              totalMonthly,
+  1103→                            }));
+  1104→
+  1105→                            // Build variant string for URL
+  1106→                            const variantString = selectedVariants.map(v => `${v.id}:${v.quantity}`).join(',');
+  1107→
+  1108→                            // Navigate to details collection first, then onboarding wizard
+  1109→                            router.push(`/welcome/details?source=models&industry=${selectedIndustry}&variant_id=${selectedVariants[0]?.id || ''}&variants=${encodeURIComponent(variantString)}`);
+  1110→                          }}
+  1111→                          disabled={!hasSelection}
+  1112→                          className="group/cfm flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 overflow-hidden relative disabled:opacity-50 disabled:cursor-not-allowed"
+  1113→                          style={{ background: `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.85) 100%)`, color: primary, boxShadow: hasSelection ? `0 8px 24px rgba(${accentRgb},0.3)` : 'none' }}
+  1114→                        >
+  1115→                          <div className="absolute inset-0 opacity-0 group-hover/cfm:opacity-100 transition-opacity duration-300" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 100%)' }} />
+  1116→                          <div className="relative flex items-center gap-2">
+  1117→                            <Check className="w-4 h-4" />
+  1118→                            Confirm ${isFreeCheckout ? '0' : discountedTotal.toLocaleString()}/mo
+  1119→                          </div>
+  1120→                        </button>
+  1121→                      </div>
+  1122→                    ) : (
+  1123→                      <button
+  1124→                        onClick={() => {
+  1125→                          // Save pricing context before redirecting to signup
+  1126→                          const selectedVariants = currentVariants
+  1127→                            ?.filter(v => quantities[v.id] > 0)
+  1128→                            .map(v => ({
+  1129→                              id: v.id,
+  1130→                              name: v.name,
+  1131→                              quantity: quantities[v.id],
+  1132→                              monthlyPrice: isAnnual ? v.annualPrice : v.monthlyPrice,
+  1133→                            })) || [];
+  1134→
+  1135→                          if (selectedVariants.length > 0) {
+  1136→                            const pricingContext = {
+  1137→                              industry: selectedIndustry,
+  1138→                              isAnnual,
+  1139→                              variants: selectedVariants,
+  1140→                              totalMonthly,
+  1141→                              totalTickets,
+  1142→                              source: 'models_page',
+  1143→                              timestamp: Date.now(),
+  1144→                              couponCode: appliedCoupon?.code || null,
+  1145→                              discountedTotal,
+  1146→                              isFreeCheckout,
+  1147→                            };
+  1148→                            localStorage.setItem('parwa_pricing_context', JSON.stringify(pricingContext));
+  1149→                            localStorage.setItem('parwa_pricing_selection', JSON.stringify({
+  1150→                              plan: selectedVariants[0]?.id === 'starter' ? 'mini' : selectedVariants[0]?.id === 'high' ? 'high' : 'pro',
+  1151→                              industry: selectedIndustry,
+  1152→                              isAnnual,
+  1153→                              totalMonthly,
+  1154→                            }));
+  1155→                          }
+  1156→                          router.push(`/signup?redirect=/models`);
+  1157→                        }}
+  1158→                        className="group relative flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-500 hover:-translate-y-0.5 overflow-hidden"
+  1159→                        style={{ background: `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.85) 100%)`, color: primary, boxShadow: `0 8px 24px rgba(${accentRgb},0.3)` }}>
+  1160→                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 100%)' }} />
+  1161→                        <div className="relative flex items-center gap-2">Sign Up & Hire Now <ArrowRight className="w-4 h-4" /></div>
+  1162→                      </button>
+  1163→                    )}
+  1164→                  </div>
+  1165→                </div>
+  1166→              </section>
+  1167→            )}
+  1168→
+  1169→            {/* ── Anti-Arbitrage Comparison ── */}
+  1170→            <section className="relative pb-12 sm:pb-16">
+  1171→              <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+  1172→                <div className="text-center mb-8 sm:mb-10">
+  1173→                  <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-2">
+  1174→                    The Real <span className="bg-clip-text text-transparent" style={{ backgroundImage: `linear-gradient(to right, rgba(${accentRgb},0.9), ${accent})` }}>Cost Comparison</span>
+  1175→                  </h2>
+  1176→                  <p className="text-sm sm:text-base" style={{ color: 'rgba(255,255,255,0.4)' }}>Why buying two Starters costs more than you think — and why Growth is the smarter choice.</p>
+  1177→                </div>
+  1178→                <AntiArbitrageMatrix />
+  1179→              </div>
+  1180→            </section>
+  1181→
+  1182→            {/* ── Cancellation Policy ── */}
+  1183→            <section className="relative pb-12 sm:pb-16">
+  1184→              <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+  1185→                <div className="text-center mb-8 sm:mb-10">
+  1186→                  <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-2">
+  1187→                    Cancellation <span className="bg-clip-text text-transparent" style={{ backgroundImage: `linear-gradient(to right, rgba(${accentRgb},0.9), ${accent})` }}>Policy</span>
+  1188→                  </h2>
+  1189→                  <p className="text-sm sm:text-base" style={{ color: 'rgba(255,255,255,0.4)' }}>Simple, fair, and transparent — just like our pricing.</p>
+  1190→                </div>
+  1191→                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  1192→                  {cancellationPoints.map((point) => {
+  1193→                    const Icon = point.icon;
+  1194→                    return (
+  1195→                      <div key={point.text} className="flex items-start gap-3 p-4 rounded-xl border bg-white/5 backdrop-blur-sm hover:border-white/20 transition-all duration-300" style={{ borderColor: `rgba(${accentRgb},0.2)` }}>
+  1196→                        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `rgba(${accentRgb},0.1)` }}>
+  1197→                          <Icon className="w-4.5 h-4.5" style={{ color: accent }} />
+  1198→                        </div>
+  1199→                        <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>{point.text}</p>
+  1200→                      </div>
+  1201→                    );
+  1202→                  })}
+  1203→                </div>
+  1204→              </div>
+  1205→            </section>
+  1206→
+  1207→            {/* ── Final CTA ── */}
+  1208→            <section className="px-4 sm:px-6 lg:px-8 pb-16 sm:pb-24">
+  1209→              <div className="max-w-3xl mx-auto text-center">
+  1210→                <div className="rounded-2xl border p-8 sm:p-12" style={{ borderColor: `rgba(${accentRgb},0.2)`, backgroundColor: `rgba(${accentRgb},0.05)`, backdropFilter: 'blur(20px)' }}>
+  1211→                  <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
+  1212→                    Ready to automate your {activeIndustry!.label.toLowerCase()} support?
+  1213→                  </h2>
+  1214→                  <p className="text-sm sm:text-base mb-8 max-w-lg mx-auto leading-relaxed" style={{ color: 'rgba(255,255,255,0.4)' }}>
+  1215→                    Sign up and join thousands of businesses using PARWA to handle tickets faster, learn continuously, and scale effortlessly.
+  1216→                  </p>
+  1217→                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+  1218→                    <button
+  1219→                      onClick={() => setDemoModalOpen(true)}
+  1220→                      className="group/final relative inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-bold transition-all duration-500 hover:-translate-y-0.5 hover:shadow-xl overflow-hidden"
+  1221→                      style={{ background: `linear-gradient(135deg, rgba(${accentRgb},0.2) 0%, rgba(${accentRgb},0.06) 100%)`, border: `1px solid rgba(${accentRgb},0.35)`, color: accent, boxShadow: `0 4px 15px rgba(${accentRgb},0.1)` }}
+  1222→                    >
+  1223→                      <div className="absolute inset-0 opacity-0 group-hover/final:opacity-100 transition-opacity duration-300" style={{ background: `linear-gradient(135deg, rgba(${accentRgb},0.3) 0%, rgba(${accentRgb},0.15) 100%)` }} />
+  1224→                      <div className="relative flex items-center gap-2">
+  1225→                        <Calendar className="w-5 h-5" />
+  1226→                        Book Instant Demo — $1
+  1227→                      </div>
+  1228→                    </button>
+  1229→                    <Link href="/signup?redirect=/models" className="group relative inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-bold transition-all duration-500 hover:-translate-y-0.5 no-underline overflow-hidden"
+  1230→                      style={{ background: `linear-gradient(135deg, ${accent} 0%, rgba(${accentRgb},0.85) 100%)`, color: primary, boxShadow: `0 8px 30px rgba(${accentRgb},0.3)` }}>
+  1231→                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 100%)' }} />
+  1232→                      <div className="relative flex items-center gap-2">
+  1233→                        {isAuthenticated ? 'Hire Now' : 'Get Started'} <ArrowRight className="w-5 h-5" />
+  1234→                      </div>
+  1235→                    </Link>
+  1236→                  </div>
+  1237→                </div>
+  1238→              </div>
+  1239→            </section>
+  1240→          </>
+  1241→        )}
+  1242→      </main>
+  1243→      <Footer />
+  1244→
+  1245→      {/* ── Floating Widgets ── */}
+  1246→      <ChatWidget
+  1247→        industry={activeIndustry?.label}
+  1248→        variant={currentVariants && quantities.growth > 0 ? 'Growth' : undefined}
+  1249→      />
+  1250→      <BookDemoModal
+  1251→        isOpen={demoModalOpen}
+  1252→        onClose={() => setDemoModalOpen(false)}
+  1253→        preSelectedIndustry={activeIndustry?.label}
+  1254→      />
+  1255→    </div>
+  1256→  );
+  1257→}
+  1258→
