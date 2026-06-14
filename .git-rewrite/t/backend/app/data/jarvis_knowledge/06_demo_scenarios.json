@@ -1,0 +1,509 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2025-01-15",
+  "vision": "Jarvis is the PARWA Control Center. Every scenario below should be treated not as a ticket to be closed, but as a strategic operation in a larger business mission. Jarvis is the Architect and the Strategist.",
+  "description": "Sophisticated demonstration scenarios for the PARWA Control Center. Each scenario focuses on ROI, vertical leverage, and operational control.",
+  "total_scenarios": 20,
+  "scenarios": [
+    {
+      "id": "demo-ecomm-001",
+      "industry": "ecommerce",
+      "title": "Order Refund Processing",
+      "difficulty": "intermediate",
+      "customer_message": "I ordered a blue sweater two weeks ago and it arrived with a stain on the sleeve. I want a full refund but I don't have the original packaging anymore. Order #ORD-78234.",
+      "expected_jarvis_behavior": [
+        "Acknowledge the issue empathetically and validate the customer's frustration",
+        "Pull up order #ORD-78234 from the integrated order management system",
+        "Verify the order details: item, purchase date, delivery confirmation, and refund eligibility window",
+        "Check the company's refund policy for damaged items and missing packaging",
+        "Inform the customer that damaged items are eligible for full refund regardless of packaging",
+        "Initiate the refund process and provide a confirmation number",
+        "Set expectations on refund timeline (3-5 business days to original payment method)",
+        "Offer a discount code for the inconvenience to encourage repeat purchase"
+      ],
+      "talking_points": [
+        "Seamless OMS integration pulls order data in under 2 seconds without manual lookup",
+        "Policy engine automatically applies the correct refund rules for damaged goods",
+        "Empathy-first response framework maintains brand tone even for complaints",
+        "Automated refund initiation reduces agent handling time from 8 minutes to under 30 seconds",
+        "Proactive retention offer (discount code) increases customer lifetime value by 23% on average"
+      ],
+      "ideal_outcome": "Demonstrates that PARWA can handle emotionally charged refund requests autonomously while maintaining brand voice, reducing agent workload by 90%, and actually improving customer retention through intelligent proactive offers."
+    },
+    {
+      "id": "demo-ecomm-002",
+      "industry": "ecommerce",
+      "title": "Real-Time Order Tracking",
+      "difficulty": "basic",
+      "customer_message": "Where is my order? I need it for a gift this weekend. Order number is #ORD-55612.",
+      "expected_jarvis_behavior": [
+        "Greet the customer and immediately look up order #ORD-55612",
+        "Provide the current tracking status with carrier name and tracking number",
+        "Show estimated delivery date and confirm it arrives before the weekend",
+        "Offer to send tracking updates via SMS or email if not already enabled",
+        "Provide a direct link to live tracking on the carrier's website"
+      ],
+      "talking_points": [
+        "Real-time carrier API integration with FedEx, UPS, USPS, DHL, and 50+ regional carriers",
+        "Sub-second order lookup from any channel (web chat, WhatsApp, email, social)",
+        "Proactive delivery alerts reduce 'where is my order' (WISMO) tickets by up to 60%",
+        "Multi-channel delivery notifications maintain customer engagement across touchpoints",
+        "Context-aware responses understand urgency and prioritize accordingly"
+      ],
+      "ideal_outcome": "Shows prospects that PARWA eliminates the highest-volume ecommerce support ticket category (WISMO) entirely through AI automation, freeing human agents for complex issues."
+    },
+    {
+      "id": "demo-ecomm-003",
+      "industry": "ecommerce",
+      "title": "Product Recommendation and Comparison",
+      "difficulty": "basic",
+      "customer_message": "I'm looking for running shoes but I'm not sure which ones to get. I run about 20 miles a week on roads and I have flat feet. What do you recommend?",
+      "expected_jarvis_behavior": [
+        "Ask clarifying questions about budget range and preferred brands",
+        "Recommend 2-3 specific products matching the running profile (road, flat feet, 20mi/week)",
+        "Provide a side-by-side comparison of the recommended shoes",
+        "Highlight key features: arch support level, cushioning, durability rating, price",
+        "Share relevant customer reviews and ratings for each recommendation",
+        "Offer to add any of the recommended items to the cart"
+      ],
+      "talking_points": [
+        "Product knowledge base indexes 100,000+ SKUs with full attribute data",
+        "Collaborative filtering combines purchase history with stated preferences",
+        "Comparison engine generates structured product comparisons in real-time",
+        "Review summarization AI distills thousands of reviews into key insights",
+        "In-chat add-to-cart capability drives a 15% average increase in conversion rate"
+      ],
+      "ideal_outcome": "Proves PARWA acts as a knowledgeable sales associate that can upsell and cross-sell effectively, turning support interactions into revenue-generating opportunities."
+    },
+    {
+      "id": "demo-ecomm-004",
+      "industry": "ecommerce",
+      "title": "Payment Failure Troubleshooting",
+      "difficulty": "intermediate",
+      "customer_message": "My payment keeps getting declined but I know I have money in my account. I've tried three times already and I'm getting frustrated. This is for order #ORD-99871.",
+      "expected_jarvis_behavior": [
+        "Empathize with the frustration of repeated payment failures",
+        "Look up order #ORD-99871 and check payment attempt logs",
+        "Identify the specific decline reason from the payment gateway response code",
+        "Explain the likely cause (expired card, wrong CVV, bank block on international transactions, daily limit)",
+        "Offer alternative payment methods (different card, PayPal, Apple Pay, Google Pay, bank transfer)",
+        "If the issue is bank-side, advise contacting the bank while keeping the cart reserved",
+        "Reassure the customer that their cart items are being held and won't sell out"
+      ],
+      "talking_points": [
+        "Deep payment gateway integration with Stripe, PayPal, Adyen, and 30+ processors",
+        "Decline code translation turns cryptic bank codes into human-readable explanations",
+        "Cart reservation system holds items for up to 24 hours during payment issues",
+        "Alternative payment suggestions recover 35% of abandoned payment failures",
+        "Reduces payment-related support tickets by 70% on average"
+      ],
+      "ideal_outcome": "Demonstrates PARWA's ability to handle technically complex payment troubleshooting that would normally require a Level 2 agent, recovering revenue that would otherwise be lost to cart abandonment."
+    },
+    {
+      "id": "demo-ecomm-005",
+      "industry": "ecommerce",
+      "title": "International Shipping and Customs Inquiry",
+      "difficulty": "advanced",
+      "customer_message": "I want to order three items to ship to Germany but I'm worried about customs duties and import taxes. One item is electronics worth $450 and the other two are clothing items worth $80 each. Can you help me understand the total cost?",
+      "expected_jarvis_behavior": [
+        "Acknowledge the question about international shipping to Germany",
+        "Calculate the total order value ($610 USD) and check against German import thresholds",
+        "Explain the EU customs duty rules for electronics (applicable) and clothing (applicable)",
+        "Provide an estimated customs duty calculation based on current EU tariff schedules",
+        "Explain that PARWA's partnered shipping includes DDP (Delivered Duty Paid) option",
+        "Offer to switch the shipping method to DDP so all duties are pre-calculated at checkout",
+        "Summarize the total estimated cost with and without DDP for transparent comparison",
+        "Confirm delivery timeline to Germany for the selected shipping method"
+      ],
+      "talking_points": [
+        "International shipping calculator supports 190+ countries with real-time duty estimation",
+        "DDP (Delivered Duty Paid) integration eliminates surprise customs charges for customers",
+        "Multi-currency support shows prices in the customer's local currency",
+        "Country-specific compliance rules (restricted items, documentation) are automatically enforced",
+        "Reduces international shipping-related support tickets by 55%"
+      ],
+      "ideal_outcome": "Shows PARWA can handle complex cross-border commerce queries that combine product knowledge, regulatory awareness, and financial calculations, enabling global expansion without proportionally scaling support teams."
+    },
+    {
+      "id": "demo-saas-001",
+      "industry": "saas",
+      "title": "Billing Dispute and Plan Upgrade",
+      "difficulty": "intermediate",
+      "customer_message": "I was charged $299 this month but I thought I was on the $199 plan. Also, I noticed you have a new $249 plan that includes analytics. Can you explain the difference and help me switch?",
+      "expected_jarvis_behavior": [
+        "Apologize for the billing confusion and look up the customer's account",
+        "Review the billing history and identify the charge in question",
+        "Explain the charge breakdown (base plan + overage + add-ons or proration from a previous change)",
+        "If the charge is incorrect, initiate a credit or refund immediately",
+        "Present the three plan options ($199, $249, $399) with a clear feature comparison table",
+        "Highlight what the $249 analytics plan adds compared to their current $199 plan",
+        "Offer to switch plans with prorated billing starting immediately",
+        "Confirm the change and send a summary email"
+      ],
+      "talking_points": [
+        "Stripe/Billing integration provides real-time invoice breakdown and charge explanation",
+        "Automatic charge anomaly detection flags unexpected charges before customers complain",
+        "Plan comparison engine generates dynamic feature matrices from the product catalog",
+        "In-chat plan switching with proration calculation eliminates the need for self-service portal visits",
+        "Billing disputes resolved in under 2 minutes vs. 15+ minutes with human agents"
+      ],
+      "ideal_outcome": "Proves PARWA can handle billing disputes and upsell opportunities simultaneously, turning a potential churn risk into a revenue-positive interaction with higher plan adoption."
+    },
+    {
+      "id": "demo-saas-002",
+      "industry": "saas",
+      "title": "Technical Troubleshooting - API Error",
+      "difficulty": "advanced",
+      "customer_message": "I'm getting a 429 Too Many Requests error from your API endpoint /v2/users/search. My rate limit is supposed to be 1000/min but I'm getting throttled at around 200 requests. This is breaking our production workflow. We're on the Enterprise plan.",
+      "expected_jarvis_behavior": [
+        "Recognize the urgency (production impact) and escalate the priority level",
+        "Verify the customer's Enterprise plan and confirm their rate limit entitlement (1000 req/min)",
+        "Check the API usage logs for the customer's API key over the last 24 hours",
+        "Identify any rate limiting rules or anomalies that could cause early throttling",
+        "Check if there are per-endpoint rate limits that differ from the global limit",
+        "Provide a probable cause (e.g., shared API key across multiple services, burst traffic pattern)",
+        "Share relevant API documentation links for rate limit headers and retry strategies",
+        "Offer to temporarily increase the rate limit while the engineering team investigates",
+        "Create a support ticket with full context for the engineering team and provide the ticket ID"
+      ],
+      "talking_points": [
+        "Real-time API usage monitoring provides instant visibility into customer's request patterns",
+        "Tiered support routing ensures Enterprise customers get immediate priority handling",
+        "Context-rich ticket creation captures full technical details, reducing back-and-forth by 80%",
+        "Temporary rate limit adjustment can be done from the chat interface by authorized AI agents",
+        "Knowledge base integration pulls relevant documentation pages dynamically based on error codes"
+      ],
+      "ideal_outcome": "Demonstrates that PARWA can handle high-severity technical issues for developer-facing SaaS products, providing immediate triage, diagnosis, and temporary mitigation while escalating to engineering."
+    },
+    {
+      "id": "demo-saas-003",
+      "industry": "saas",
+      "title": "Feature Request Handling",
+      "difficulty": "basic",
+      "customer_message": "I really wish you had a dark mode for the dashboard. Staring at a white screen all day is killing my eyes. Also, it would be great to export reports to PDF.",
+      "expected_jarvis_behavior": [
+        "Thank the customer for the feedback and acknowledge the specific requests",
+        "Check the product roadmap for dark mode and PDF export features",
+        "If dark mode is planned, share the expected release timeline",
+        "If PDF export exists, direct the customer to the feature location in the app",
+        "Log both feature requests with the customer's use case details for the product team",
+        "Offer to notify the customer when these features become available",
+        "Suggest a temporary workaround if one exists (browser extensions for dark mode, third-party PDF tools)"
+      ],
+      "talking_points": [
+        "Product roadmap integration allows real-time feature status checks during conversations",
+        "Automatic feature request logging captures voice-of-customer data without manual CR creation",
+        "Follow-up automation notifies customers when requested features ship, boosting engagement",
+        "Workaround suggestions reduce immediate frustration while long-term solutions are developed",
+        "Feature request analytics help product teams prioritize based on real customer demand signals"
+      ],
+      "ideal_outcome": "Shows PARWA closes the feedback loop with customers automatically, turning every feature request into structured product intelligence while keeping customers engaged and informed."
+    },
+    {
+      "id": "demo-saas-004",
+      "industry": "saas",
+      "title": "API Key Management and Security",
+      "difficulty": "intermediate",
+      "customer_message": "We had a developer leave and I need to rotate all our API keys. Also, I want to set up IP whitelisting for our production endpoints. Can you guide me through this?",
+      "expected_jarvis_behavior": [
+        "Acknowledge the security concern and validate the importance of key rotation after personnel changes",
+        "Guide the user to the API Keys section in their account settings",
+        "Walk through the key rotation process step-by-step with clear instructions",
+        "Explain the difference between rotating vs. creating new keys and recommend the best approach",
+        "Guide the user through IP whitelisting setup in the security settings",
+        "Explain how to add multiple IP ranges and the format for CIDR notation",
+        "Warn about the impact of IP whitelisting on staging/development environments",
+        "Offer to schedule a follow-up to verify the new keys are working correctly"
+      ],
+      "talking_points": [
+        "Step-by-step guided workflows walk customers through complex admin tasks conversationally",
+        "Security best practices are embedded into responses to reduce account compromise risk",
+        "Multi-step process guidance maintains context across long conversations",
+        "Proactive warnings about side effects (staging breakage) prevent new support tickets",
+        "Automated follow-up scheduling ensures changes were applied correctly"
+      ],
+      "ideal_outcome": "Demonstrates PARWA can handle complex multi-step administrative tasks that would normally require a support article and a human walkthrough, reducing security-related support burden by 65%."
+    },
+    {
+      "id": "demo-saas-005",
+      "industry": "saas",
+      "title": "Account Data Export and Deletion (GDPR)",
+      "difficulty": "advanced",
+      "customer_message": "We're moving to a different platform and I need a complete export of all our data including projects, files, user activity logs, and billing history. Also, after the export, I want our account and all data permanently deleted. We're in the EU so this needs to comply with GDPR.",
+      "expected_jarvis_behavior": [
+        "Acknowledge the request and confirm GDPR compliance procedures will be followed",
+        "Explain the data export process and what data categories are included",
+        "Initiate a full data export in the customer's preferred format (JSON, CSV, or both)",
+        "Provide the estimated export preparation time based on data volume",
+        "Explain the data deletion process and the 30-day grace period for EU customers",
+        "List what data will be permanently deleted and what legally must be retained (billing records for 7 years)",
+        "Ask for explicit written confirmation before proceeding with deletion",
+        "Generate a GDPR-compliant data processing acknowledgment and provide a reference number",
+        "Schedule automated notifications for export completion and deletion confirmation"
+      ],
+      "talking_points": [
+        "GDPR/CCPA compliance workflows ensure regulatory requirements are met automatically",
+        "Full data export covers all customer data categories including metadata and activity logs",
+        "Explicit consent capture before destructive actions provides legal protection",
+        "Automated retention policies respect both customer wishes and legal obligations",
+        "Complete audit trail with reference numbers for regulatory inquiries"
+      ],
+      "ideal_outcome": "Proves PARWA handles sensitive regulatory workflows (GDPR data portability and right to erasure) with full compliance, reducing legal risk while providing a smooth offboarding experience that leaves a positive last impression."
+    },
+    {
+      "id": "demo-logistics-001",
+      "industry": "logistics",
+      "title": "Shipment Tracking with Multi-Leg Journey",
+      "difficulty": "intermediate",
+      "customer_message": "My shipment SHP-44892 has been stuck in 'In Transit' for 6 days now. It was supposed to be delivered 3 days ago. It's going from Shanghai to Chicago. What's going on?",
+      "expected_jarvis_behavior": [
+        "Apologize for the delay and acknowledge the urgency",
+        "Pull up shipment SHP-44892 with full multi-leg journey details",
+        "Show the complete route: Shanghai → Ocean carrier → Port of Long Beach → Rail → Chicago",
+        "Identify exactly which leg is causing the delay (e.g., vessel held at port, customs hold, rail delay)",
+        "Provide the specific reason for the delay from carrier status updates",
+        "Give a revised estimated delivery date with confidence level",
+        "Explain the resolution steps being taken (expedited rail, priority unloading, etc.)",
+        "Offer proactive notification setup for status changes",
+        "Provide a direct escalation path if the shipment is time-critical"
+      ],
+      "talking_points": [
+        "Multi-carrier tracking integration covers ocean, air, rail, and last-mile in a single view",
+        "Intelligent delay detection flags shipments that deviate from expected transit times",
+        "Root cause analysis identifies the specific leg and reason for delays automatically",
+        "Predictive ETA engine uses historical transit data and current conditions",
+        "Proactive exception management reduces customer-initiated tracking inquiries by 50%"
+      ],
+      "ideal_outcome": "Demonstrates PARWA's ability to handle complex multi-modal logistics tracking with full journey visibility, turning anxious customers into informed partners in the resolution process."
+    },
+    {
+      "id": "demo-logistics-002",
+      "industry": "logistics",
+      "title": "Delivery Issue - Damaged Goods Claim",
+      "difficulty": "advanced",
+      "customer_message": "The pallet of electronics we received yesterday has visible forklift damage. Three of the 20 boxes are crushed and we need to file a damage claim. This was a $45,000 shipment. Reference: SHP-77231.",
+      "expected_jarvis_behavior": [
+        "Treat this as high-priority given the high shipment value ($45,000)",
+        "Verify shipment SHP-77231 and confirm delivery details (date, time, signed by)",
+        "Guide the customer through the damage documentation process step-by-step",
+        "Request photos of the damaged pallet and individual boxes",
+        "Request the delivery receipt showing the condition notation (or lack thereof)",
+        "Initiate a damage claim with the carrier on the customer's behalf",
+        "Provide the claim reference number and explain the timeline (investigation, resolution)",
+        "Arrange for a replacement shipment to be dispatched immediately if stock allows",
+        "Schedule follow-up check-ins at 48-hour intervals until the claim is resolved"
+      ],
+      "talking_points": [
+        "Value-based priority routing ensures high-value claims get immediate attention",
+        "Carrier claims integration automates the claims filing process across 40+ carriers",
+        "Guided documentation workflow ensures customers provide all required evidence upfront",
+        "Automated claim tracking with status updates reduces follow-up inquiries by 70%",
+        "Immediate replacement dispatch capability preserves customer business continuity"
+      ],
+      "ideal_outcome": "Proves PARWA can handle high-stakes logistics claims that require coordination between customers, carriers, and internal teams, protecting revenue and customer relationships simultaneously."
+    },
+    {
+      "id": "demo-logistics-003",
+      "industry": "logistics",
+      "title": "Warehouse Inventory Inquiry and Restock",
+      "difficulty": "intermediate",
+      "customer_message": "I need to know the current stock levels for SKU-4421 (Premium Widget, Blue) across all your warehouses. We have a big order coming up and need at least 500 units. Also, when is the next restock expected?",
+      "expected_jarvis_behavior": [
+        "Look up SKU-4421 across all warehouse locations in the network",
+        "Present a clear inventory breakdown by warehouse: location, available quantity, reserved quantity",
+        "Calculate total available quantity across all warehouses",
+        "Compare available stock against the customer's requirement of 500 units",
+        "If stock is sufficient, offer to reserve the units and arrange fulfillment",
+        "If stock is insufficient, show the next restock date and incoming quantity",
+        "Offer split-shipment option if no single warehouse has 500 units",
+        "Provide estimated delivery dates based on warehouse locations and shipping methods"
+      ],
+      "talking_points": [
+        "Real-time WMS (Warehouse Management System) integration shows live inventory across all locations",
+        "Smart inventory allocation suggests optimal fulfillment from multiple warehouses",
+        "Reservation system locks inventory for specific customers during the decision process",
+        "Restock prediction engine uses supplier lead times and historical demand patterns",
+        "Split-shipment optimization minimizes cost while meeting delivery deadlines"
+      ],
+      "ideal_outcome": "Shows PARWA can serve as a real-time inventory intelligence layer, enabling B2B customers to make informed purchasing decisions and reducing inventory-related support tickets by 60%."
+    },
+    {
+      "id": "demo-logistics-004",
+      "industry": "logistics",
+      "title": "Fleet Management and Route Optimization",
+      "difficulty": "advanced",
+      "customer_message": "We have 12 deliveries going out tomorrow in the Dallas-Fort Worth area and our dispatcher just quit. Can you help us plan the most efficient routes considering that 3 deliveries are time-windowed (8-10 AM) and 2 are hazmat?",
+      "expected_jarvis_behavior": [
+        "Acknowledge the urgent situation and offer immediate assistance",
+        "Collect the 12 delivery addresses and their specific requirements",
+        "Note the 3 time-windowed deliveries and their required windows",
+        "Flag the 2 hazmat deliveries for route compliance (avoiding tunnels, restricted areas)",
+        "Generate optimized routes considering traffic patterns, delivery windows, and hazmat restrictions",
+        "Assign routes to available vehicles considering capacity and equipment requirements",
+        "Provide turn-by-turn route summaries with estimated arrival times for each stop",
+        "Generate route sheets and delivery manifests ready for driver handoff",
+        "Offer to push routes directly to the driver mobile app if integrated"
+      ],
+      "talking_points": [
+        "Route optimization engine considers 15+ variables including traffic, windows, vehicle capacity, and HAZMAT restrictions",
+        "Time-window constraint handling ensures SLA compliance for priority deliveries",
+        "HAZMAT compliance routing automatically avoids restricted routes and tunnels",
+        "Driver manifest generation reduces dispatch preparation time from hours to minutes",
+        "Mobile app integration enables last-mile route adjustments in real-time"
+      ],
+      "ideal_outcome": "Demonstrates PARWA can step in as an intelligent dispatch assistant during operational emergencies, proving its value as a business continuity tool, not just a customer support chatbot."
+    },
+    {
+      "id": "demo-logistics-005",
+      "industry": "logistics",
+      "title": "Customs Clearance and Documentation",
+      "difficulty": "advanced",
+      "customer_message": "We're shipping 200 units of classified electronics (HS Code 8517.62) from our factory in Vietnam to a distributor in the Netherlands. We need to know what documentation is required and if there are any trade restrictions or special duties we should be aware of.",
+      "expected_jarvis_behavior": [
+        "Confirm the shipment details: origin (Vietnam), destination (Netherlands), product (HS 8517.62), quantity (200 units)",
+        "Check the EU-Vietnam Free Trade Agreement (EVFTA) applicability for this HS code",
+        "List all required documentation: commercial invoice, packing list, bill of lading, certificate of origin, EUR.1 movement certificate",
+        "Check for any EU-specific regulations for this HS code (CE marking, RoHS compliance, WEEE directive)",
+        "Calculate the applicable customs duty rate under EVFTA preferential rates vs. standard MFN rate",
+        "Identify any anti-dumping duties or safeguard measures applicable to this product category",
+        "Provide the estimated total landed cost including customs duty, VAT (21% NL), and handling fees",
+        "Recommend a customs broker or offer PARWA's integrated customs clearance service"
+      ],
+      "talking_points": [
+        "Trade agreement intelligence engine checks FTA applicability across 300+ trade agreements globally",
+        "HS code database covers 200,000+ codes with regulatory requirements per destination country",
+        "Landed cost calculator includes duties, taxes, fees, and carrier charges in a single estimate",
+        "Regulatory compliance checking flags restricted items, sanctions, and licensing requirements",
+        "Document checklist generation ensures no customs delays due to missing paperwork"
+      ],
+      "ideal_outcome": "Proves PARWA provides enterprise-grade trade compliance intelligence that would otherwise require a dedicated customs specialist, enabling SMEs to expand internationally without proportionally scaling their compliance teams."
+    },
+    {
+      "id": "demo-health-001",
+      "industry": "healthcare",
+      "title": "Appointment Scheduling and Rescheduling",
+      "difficulty": "basic",
+      "customer_message": "I need to reschedule my appointment with Dr. Martinez from this Thursday at 2 PM to next Tuesday. Also, can I get an earlier time in the morning if possible? My patient ID is PT-2024-88341.",
+      "expected_jarvis_behavior": [
+        "Verify patient identity using PT-2024-88341 and confirm the existing appointment details",
+        "Check Dr. Martinez's availability for next Tuesday",
+        "Show available morning slots on next Tuesday",
+        "Allow the patient to select their preferred time slot",
+        "Confirm the rescheduled appointment with full details (date, time, doctor, location/telehealth)",
+        "Handle cancellation of the original Thursday appointment",
+        "Send confirmation via the patient's preferred communication channel (SMS, email, patient portal)",
+        "Remind the patient of any preparation requirements for the appointment"
+      ],
+      "talking_points": [
+        "HIPAA-compliant patient identity verification using secure authentication workflows",
+        "Real-time provider scheduling integration with Epic, Cerner, and Athenahealth EHR systems",
+        "Intelligent slot recommendations based on patient history and appointment type",
+        "Multi-channel confirmation delivery (SMS, email, portal) improves show rates by 30%",
+        "Automated preparation reminders reduce appointment duration waste by 15%"
+      ],
+      "ideal_outcome": "Demonstrates PARWA can handle the highest-volume healthcare administrative task (appointment management) with full HIPAA compliance, reducing front-desk workload by 40% and improving patient satisfaction."
+    },
+    {
+      "id": "demo-health-002",
+      "industry": "healthcare",
+      "title": "Insurance Verification and Coverage Inquiry",
+      "difficulty": "intermediate",
+      "customer_message": "I want to schedule an MRI scan but I'm not sure if my insurance covers it. I have Blue Cross Blue Shield PPO plan, member ID BCB-9928371. The MRI is for my lower back and my doctor already provided a referral.",
+      "expected_jarvis_behavior": [
+        "Verify the patient's insurance information with the provided member ID",
+        "Check the BCBS PPO plan's coverage for MRI scans (diagnostic imaging category)",
+        "Verify if a referral/pre-authorization is required and confirm the existing referral is valid",
+        "Calculate the expected patient responsibility (copay, coinsurance, deductible status)",
+        "Check if the MRI facility is in-network for the patient's plan",
+        "If out-of-network, calculate the difference and suggest in-network alternatives",
+        "Provide a clear cost estimate breakdown for the patient",
+        "Offer to proceed with scheduling once the patient confirms they want to move forward"
+      ],
+      "talking_points": [
+        "Real-time insurance eligibility verification through payer APIs (Availity, Change Healthcare)",
+        "Benefits verification engine checks coverage, copay, coinsurance, and deductible in seconds",
+        "Pre-authorization status tracking reduces claim denials by 45%",
+        "In-network facility recommendations minimize patient out-of-pocket costs",
+        "Transparent cost estimates improve patient satisfaction and reduce billing disputes by 60%"
+      ],
+      "ideal_outcome": "Shows PARWA can navigate complex insurance verification workflows that normally require a dedicated billing specialist, reducing claim denials and patient billing surprises while accelerating the care pathway."
+    },
+    {
+      "id": "demo-health-003",
+      "industry": "healthcare",
+      "title": "Prescription Refill Request",
+      "difficulty": "basic",
+      "customer_message": "I need to refill my prescription for Metformin 500mg. I take it twice daily and I have about 5 days left. My pharmacy is CVS on Main Street. Patient ID: PT-2024-55219.",
+      "expected_jarvis_behavior": [
+        "Verify patient identity with PT-2024-55219",
+        "Pull up the current Metformin 500mg prescription details (prescriber, dosage, refill status)",
+        "Check if refills are remaining on the current prescription",
+        "If refills are available, verify the pharmacy information (CVS on Main Street)",
+        "Check for any potential drug interactions with recently added medications",
+        "Confirm if the patient's lab results are current (Metformin requires periodic kidney function tests)",
+        "Submit the refill request to the pharmacy and provide an estimated ready time",
+        "Notify the patient when the prescription is ready for pickup"
+      ],
+      "talking_points": [
+        "EHR integration with e-prescribing systems (Surescripts) enables seamless refill workflows",
+        "Automated drug interaction checking improves patient safety beyond standard pharmacy systems",
+        "Lab result monitoring ensures prescriptions are only refilled when clinically appropriate",
+        "Pharmacy network integration covers 75,000+ pharmacies nationwide",
+        "Proactive refill reminders reduce medication non-adherence by 25%"
+      ],
+      "ideal_outcome": "Proves PARWA can handle clinically sensitive prescription management safely by integrating clinical decision support, reducing pharmacist call volume by 50% while maintaining patient safety standards."
+    },
+    {
+      "id": "demo-health-004",
+      "industry": "healthcare",
+      "title": "Telehealth Session Technical Setup",
+      "difficulty": "intermediate",
+      "customer_message": "I have a telehealth appointment with Dr. Chen tomorrow at 10 AM and this is my first time doing a virtual visit. I'm not very tech-savvy. Can you help me make sure everything is set up correctly? Patient ID: PT-2024-11247.",
+      "expected_jarvis_behavior": [
+        "Welcome the patient and reassure them that the setup is simple",
+        "Verify the appointment details and confirm it's a video visit",
+        "Check the patient's device compatibility (smartphone, tablet, or computer)",
+        "Guide the patient through downloading the telehealth app or accessing the web portal",
+        "Walk through a test video call to verify camera, microphone, and internet connection",
+        "Troubleshoot any technical issues found during the test call",
+        "Explain what to expect during the telehealth visit (waiting room, how to join, duration)",
+        "Send a step-by-step setup guide with screenshots to the patient's email",
+        "Schedule a reminder 30 minutes before the appointment with a direct join link"
+      ],
+      "talking_points": [
+        "Device-agnostic telehealth integration supports Zoom Health, Doxy.me, Amwell, and custom platforms",
+        "Pre-visit technical check reduces no-shows due to technical issues by 70%",
+        "Step-by-step guidance adapts to the patient's technical comfort level using simpler language for less tech-savvy users",
+        "Automated reminders with direct join links improve on-time join rates by 40%",
+        "Post-setup confirmation gives patients confidence and reduces pre-visit anxiety"
+      ],
+      "ideal_outcome": "Demonstrates PARWA's ability to provide patient, adaptive technical support that reduces telehealth no-shows and improves the virtual care experience, especially for populations that need extra guidance."
+    },
+    {
+      "id": "demo-health-005",
+      "industry": "healthcare",
+      "title": "Patient Test Results Inquiry",
+      "difficulty": "advanced",
+      "customer_message": "I got a message saying my blood test results are ready but when I log into the patient portal I can't find them. Also, I had a CT scan last week and I'm anxious to know the results. My doctor is Dr. Patel. Patient ID: PT-2024-33098.",
+      "expected_jarvis_behavior": [
+        "Verify patient identity with PT-2024-33098",
+        "Acknowledge the patient's anxiety about waiting for results empathetically",
+        "Check the status of both the blood test results and the CT scan results",
+        "For blood tests: check if results have been released by the provider, guide to the correct portal section",
+        "For CT scan: explain that imaging results typically require radiologist review and provider sign-off before release",
+        "Provide the expected timeline for CT scan result availability (usually 2-3 business days after the scan)",
+        "Check if Dr. Patel has added any notes or instructions related to the results",
+        "Offer to send a notification as soon as the CT scan results are available",
+        "Remind the patient that detailed result interpretation should come from Dr. Patel"
+      ],
+      "talking_points": [
+        "HIPAA-compliant result delivery ensures patient data is shared securely through verified channels",
+        "Result status tracking provides transparency into the release process, reducing patient anxiety",
+        "Provider-specific workflow awareness knows when results need radiologist or specialist review",
+        "Proactive notification system alerts patients the moment results are available",
+        "Appropriate clinical boundary management (never interprets results, always directs to provider)"
+      ],
+      "ideal_outcome": "Proves PARWA handles sensitive health result inquiries with appropriate clinical boundaries, reducing patient anxiety and front-desk inquiry volume while maintaining HIPAA compliance and clinical safety."
+    }
+  ]
+}

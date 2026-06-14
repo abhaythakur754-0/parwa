@@ -1,0 +1,454 @@
+{
+  "knowledge_base": "PARWA Integrations Catalog",
+  "version": "1.0.0",
+  "last_updated": "2025-01-15",
+  "total_integrations": 17,
+  "description": "Complete catalog of all PARWA platform integrations. Each integration enables PARWA AI agents to connect with external tools, platforms, and services to provide seamless, data-rich customer support.",
+  "integration_categories": [
+    {
+      "category": "E-Commerce Platforms",
+      "description": "Connect PARWA to your online store to enable AI agents to access real-time order data, product information, inventory levels, and customer purchase history.",
+      "integrations": [
+        {
+          "name": "Shopify",
+          "type": "platform",
+          "category": "E-Commerce Platforms",
+          "what_connects": "Connects PARWA AI agents to your Shopify store for real-time access to orders, products, customers, inventory, and fulfillment data.",
+          "setup_difficulty": "Easy",
+          "setup_time_estimate": "10 minutes",
+          "setup_steps": [
+            "Install the PARWA app from the Shopify App Store",
+            "Authorize PARWA to access your Shopify store data via OAuth",
+            "Select which data scopes to share (orders, products, customers, inventory)",
+            "Configure webhook endpoints for real-time event notifications",
+            "Map Shopify order statuses to PARWA agent response templates"
+          ],
+          "capabilities": [
+            "Real-time order lookup and status tracking with Shopify order IDs",
+            "Product catalog sync including titles, descriptions, variants, images, and pricing",
+            "Inventory level queries across all Shopify locations with stock count accuracy",
+            "Customer purchase history access for personalized support interactions",
+            "Order modification and cancellation processing directly through Shopify admin",
+            "Refund initiation and processing with automatic Shopify inventory restocking",
+            "Webhook-driven real-time notifications for new orders, shipments, and refunds"
+          ],
+          "data_flow_description": "PARWA uses Shopify's REST and GraphQL APIs to read and write data. When a customer inquiry involves an order or product, the AI agent queries Shopify's API in real time. Webhooks ensure PARWA receives instant notifications about order events (created, fulfilled, refunded), keeping agent responses accurate and current. Customer data flows from Shopify to PARWA for personalization, but PARWA never modifies customer data without explicit customer request.",
+          "security_notes": "All API communication is encrypted via TLS 1.3. PARWA requests only the minimum required OAuth scopes. Shopify data is never stored in PARWA's database — it is queried in real time and cached for a maximum of 5 minutes. PARWA is a verified Shopify Partner and complies with Shopify's API usage policies. Customer PII accessed via Shopify is handled per PARWA's GDPR and data privacy policies."
+        },
+        {
+          "name": "WooCommerce",
+          "type": "platform",
+          "category": "E-Commerce Platforms",
+          "what_connects": "Connects PARWA AI agents to your WooCommerce store on WordPress for order management, product data, and customer information access.",
+          "setup_difficulty": "Moderate",
+          "setup_time_estimate": "20 minutes",
+          "setup_steps": [
+            "Install and activate the PARWA plugin from the WordPress plugin repository",
+            "Generate API keys (Consumer Key and Consumer Secret) in WooCommerce Settings > Advanced > REST API",
+            "Enter the API keys in the PARWA integration dashboard",
+            "Configure which WooCommerce data endpoints PARWA should access",
+            "Set up WooCommerce webhooks for order status change notifications",
+            "Test the connection with a sample order query"
+          ],
+          "capabilities": [
+            "Real-time order lookup and status tracking using WooCommerce order numbers",
+            "Product catalog access including titles, descriptions, variations, prices, and stock levels",
+            "Customer data retrieval including billing/shipping addresses and order history",
+            "Order processing including status updates, refund initiation, and note management",
+            "Coupon and discount code validation and application during support interactions",
+            "Inventory stock level queries with real-time accuracy",
+            "WooCommerce REST API integration for custom data access and workflow automation"
+          ],
+          "data_flow_description": "PARWA connects to WooCommerce via its REST API v3 using OAuth 1.0a authentication. When handling customer inquiries, the AI agent makes real-time API calls to WooCommerce to fetch order details, product information, and customer data. WooCommerce webhooks push event notifications (new order, order status change, refund processed) to PARWA's endpoint for real-time awareness. Data is cached briefly (3 minutes) to reduce API calls while maintaining freshness.",
+          "security_notes": "WooCommerce API keys are encrypted at rest using AES-256 and transmitted only over HTTPS. PARWA uses the minimum required API permissions (read for order/product lookup, write only when processing customer-initiated changes). WordPress admin credentials are never stored — only API keys are used. All data access is logged in PARWA's audit trail. The plugin follows WordPress coding standards and security best practices."
+        },
+        {
+          "name": "Magento (Adobe Commerce)",
+          "type": "platform",
+          "category": "E-Commerce Platforms",
+          "what_connects": "Connects PARWA AI agents to your Magento store for enterprise-grade e-commerce data access including complex product catalogs, multi-store configurations, and advanced order management.",
+          "setup_difficulty": "Advanced",
+          "setup_time_estimate": "45 minutes",
+          "setup_steps": [
+            "Install the PARWA integration module via Composer (composer require parwa/magento-integration)",
+            "Run bin/magento setup:upgrade to register the module",
+            "Generate an Integration access token in Magento Admin > System > Integrations",
+            "Configure the integration in PARWA dashboard with the Magento base URL and access token",
+            "Set up Magento webhooks for real-time order and inventory event notifications",
+            "Configure multi-store and multi-website mapping if applicable",
+            "Test the integration with order lookup and product search queries"
+          ],
+          "capabilities": [
+            "Real-time order management across Magento's complex order workflow with full lifecycle tracking",
+            "Product catalog access including configurable products, bundled products, and grouped products",
+            "Multi-store and multi-website inventory queries with store-specific pricing and availability",
+            "Customer data access including customer segments, reward points, and store credit balances",
+            "Advanced order processing including partial refunds, credit memos, and invoice management",
+            "Catalog search with Elasticsearch integration for fast, accurate product lookups",
+            "Inventory management across multiple sources (warehouses) with stock reservation support"
+          ],
+          "data_flow_description": "PARWA integrates with Magento via its REST API using token-based authentication. The AI agent queries Magento in real time for all customer-facing data operations. Magento's webhooks (via the PARWA module) push event notifications for orders, shipments, credit memos, and inventory changes. For Magento Enterprise customers, PARWA can also integrate with Magento Message Queue for high-volume event processing. Data caching is configurable (default 5 minutes) and respects Magento's cache invalidation events.",
+          "security_notes": "Magento integration tokens are stored encrypted using AWS KMS or equivalent. PARWA respects Magento's ACL (Access Control List) permissions and only accesses data within the configured scope. All API calls are made over HTTPS with mutual TLS where supported. The integration module has been reviewed for OWASP Top 10 vulnerabilities. Magento admin access is never required — all operations use the Integration API with scoped permissions."
+        },
+        {
+          "name": "BigCommerce",
+          "type": "platform",
+          "category": "E-Commerce Platforms",
+          "what_connects": "Connects PARWA AI agents to your BigCommerce store for order management, product information, and customer support data access.",
+          "setup_difficulty": "Easy",
+          "setup_time_estimate": "15 minutes",
+          "setup_steps": [
+            "Install the PARWA app from the BigCommerce App Marketplace",
+            "Authorize the app using OAuth 2.0 when redirected to BigCommerce login",
+            "Select the store scope (all stores or specific store) for the integration",
+            "Configure webhook subscriptions for order and product events",
+            "Map BigCommerce order statuses to PARWA response templates",
+            "Verify the connection in the PARWA integration dashboard"
+          ],
+          "capabilities": [
+            "Real-time order lookup and tracking with full order details including line items and shipping",
+            "Product catalog access including SKUs, pricing, inventory, images, and custom fields",
+            "Customer data retrieval including addresses, order history, and store credit",
+            "Order status management including processing, shipped, and completed status updates",
+            "Returns and refund processing with automatic inventory adjustment",
+            "Multi-channel order support (Marketplaces like Amazon, eBay synced through BigCommerce)",
+            "Product search with faceted filtering for accurate product recommendations"
+          ],
+          "data_flow_description": "PARWA uses BigCommerce's Open API (v3) with OAuth 2.0 authentication. The AI agent queries BigCommerce in real time for all customer-facing operations. BigCommerce webhooks provide instant notifications for order events (created, updated, archived) and product events (created, updated, inventory updated). Customer data is accessed via the Customers API and never stored persistently in PARWA's systems. BigCommerce's API rate limits are managed automatically with request queuing.",
+          "security_notes": "BigCommerce OAuth tokens are stored encrypted at rest with AES-256. PARWA requests only the minimum required API scopes (store_v2_orders, store_v2_products, store_v2_customers). All data access complies with BigCommerce's data processing agreement. Customer PII is never logged or stored in PARWA's analytics. The app has passed BigCommerce's security review process for marketplace listing."
+        }
+      ]
+    },
+    {
+      "category": "Help Desk",
+      "description": "Integrate PARWA with your existing help desk platform for seamless ticket handoff, AI-powered auto-responses, and unified customer support workflows.",
+      "integrations": [
+        {
+          "name": "Zendesk",
+          "type": "helpdesk",
+          "category": "Help Desk",
+          "what_connects": "Connects PARWA AI agents to Zendesk for AI-powered ticket resolution, automatic responses, smart routing, and seamless human agent handoff within the Zendesk workflow.",
+          "setup_difficulty": "Moderate",
+          "setup_time_estimate": "30 minutes",
+          "setup_steps": [
+            "Navigate to PARWA Integrations and select Zendesk",
+            "Enter your Zendesk subdomain (e.g., yourcompany.zendesk.com)",
+            "Authenticate via OAuth 2.0 by logging into your Zendesk admin account",
+            "Configure which ticket types PARWA should handle (email, chat, social)",
+            "Set up ticket routing rules to route PARWA-handled tickets and escalate to human agents",
+            "Configure the PARWA widget in Zendesk Agent Workspace for handoff visibility",
+            "Define auto-response triggers and macros for PARWA-resolved tickets"
+          ],
+          "capabilities": [
+            "AI-powered automatic ticket response for eligible inquiries with human-like accuracy",
+            "Smart ticket routing based on intent classification, sentiment, and customer value",
+            "Seamless human agent handoff with full conversation context and resolution summary",
+            "Zendesk macro integration allowing PARWA to apply existing macros during resolution",
+            "Ticket tag and field auto-population based on AI classification of the inquiry",
+            "Real-time bidirectional sync of ticket status, comments, and customer updates",
+            "CSAT survey response collection and sentiment analysis for AI-handled tickets"
+          ],
+          "data_flow_description": "PARWA integrates with Zendesk via its REST API and Webhooks. Incoming Zendesk tickets trigger a webhook to PARWA, which classifies the intent and generates a response. If resolved, PARWA posts the response as an internal note and public reply, then updates the ticket status. If escalation is needed, PARWA adds classification metadata to the ticket and reassigns it to the appropriate agent or group. Zendesk ticket updates are reflected in real time in PARWA's dashboard. Customer data and conversation history flow bidirectionally to ensure context continuity.",
+          "security_notes": "Zendesk OAuth tokens are stored encrypted with hardware security module (HSM) protection. PARWA respects Zendesk's role-based access controls and only accesses tickets within the configured scope. Ticket data is processed in real time and not stored in PARWA's database — only anonymized analytics are retained. PARWA's Zendesk app is listed in the Zendesk Marketplace and complies with Zendesk's security requirements including SOC 2 alignment."
+        },
+        {
+          "name": "Freshdesk",
+          "type": "helpdesk",
+          "category": "Help Desk",
+          "what_connects": "Connects PARWA AI agents to Freshdesk for automated ticket handling, AI-powered responses, and intelligent escalation within the Freshdesk support workflow.",
+          "setup_difficulty": "Moderate",
+          "setup_time_estimate": "25 minutes",
+          "setup_steps": [
+            "Navigate to PARWA Integrations and select Freshdesk",
+            "Enter your Freshdesk domain (e.g., yourcompany.freshdesk.com)",
+            "Generate an API key from Freshdesk Admin > Profile Settings > API Key",
+            "Enter the API key in PARWA integration settings",
+            "Configure ticket automation rules in Freshdesk to work with PARWA",
+            "Set up escalation rules for tickets that require human agent intervention",
+            "Test the integration with a sample ticket and verify response posting"
+          ],
+          "capabilities": [
+            "Automatic ticket creation and response for common support inquiries",
+            "Intelligent ticket classification with Freshdesk ticket field auto-population",
+            "Agent collision detection ensuring PARWA and human agents do not respond simultaneously",
+            "Freshdesk ticket priority assignment based on AI-detected urgency and sentiment",
+            "Customer satisfaction feedback collection for AI-resolved tickets",
+            "Knowledge base article suggestions linked from PARWA responses",
+            "Automated ticket tagging for analytics and reporting purposes"
+          ],
+          "data_flow_description": "PARWA uses Freshdesk's REST API v2 with API key authentication. When a new ticket is created in Freshdesk, a webhook notifies PARWA, which analyzes the ticket and generates a response. Resolved tickets receive an AI-generated reply and are closed with appropriate tags. Unresolved tickets are updated with classification metadata and reassigned to human agents with a conversation summary. Freshdesk ticket properties, customer details, and prior conversation history are synced in real time to provide PARWA with full context.",
+          "security_notes": "Freshdesk API keys are encrypted at rest using AES-256 and are never exposed in logs. PARWA uses IP whitelisting on the Freshdesk side for additional security. Ticket data is processed in real time and not persisted in PARWA's storage. The integration respects Freshdesk's field-level permissions and only accesses data the configured API key is authorized to view. All data transmission uses HTTPS/TLS 1.3."
+        },
+        {
+          "name": "Intercom",
+          "type": "helpdesk",
+          "category": "Help Desk",
+          "what_connects": "Connects PARWA AI agents to Intercom for AI-powered live chat responses, conversation routing, and seamless handoff within the Intercom messaging platform.",
+          "setup_difficulty": "Easy",
+          "setup_time_estimate": "15 minutes",
+          "setup_steps": [
+            "Navigate to PARWA Integrations and select Intercom",
+            "Authenticate via OAuth 2.0 using your Intercom workspace credentials",
+            "Configure which conversation channels PARWA should handle (in-app, email, SMS)",
+            "Set up bot routing rules to direct conversations to PARWA before human agents",
+            "Configure handoff triggers for escalating to human Intercom agents",
+            "Customize the PARWA bot identity (name, avatar) within Intercom",
+            "Test with a sample conversation and verify handoff behavior"
+          ],
+          "capabilities": [
+            "AI-powered real-time chat responses within Intercom's messenger widget",
+            "Proactive conversation initiation based on visitor behavior and page context",
+            "Smart routing to direct conversations to PARWA or human agents based on complexity",
+            "Seamless handoff to human agents with full conversation transcript and AI summary",
+            "Intercom customer data enrichment using contact attributes and company data",
+            "Article suggestion and knowledge base surfacing within chat conversations",
+            "Multi-channel conversation support (in-app messenger, email, Instagram, WhatsApp)"
+          ],
+          "data_flow_description": "PARWA integrates with Intercom via its REST API and real-time conversation webhooks. Incoming Intercom conversations trigger a webhook to PARWA, which generates a response. If the conversation is within PARWA's resolution confidence, it posts the reply directly. If human handoff is needed, PARWA adds an internal note with the conversation summary and assigns the conversation to the appropriate team. Intercom contact data (name, email, custom attributes, company) flows to PARWA for personalized interactions. Conversation data is processed in real time and not stored in PARWA's database.",
+          "security_notes": "Intercom OAuth tokens are stored with hardware-level encryption. PARWA respects Intercom's data permission model and only accesses conversations within the configured scope. Customer personal data is handled per Intercom's data processing agreement and GDPR requirements. All API communication is encrypted with TLS 1.3. The integration has been reviewed for compliance with Intercom's security standards."
+        },
+        {
+          "name": "Help Scout",
+          "type": "helpdesk",
+          "category": "Help Desk",
+          "what_connects": "Connects PARWA AI agents to Help Scout for automated email responses, ticket classification, and workflow automation within Help Scout's inbox-based support platform.",
+          "setup_difficulty": "Easy",
+          "setup_time_estimate": "15 minutes",
+          "setup_steps": [
+            "Navigate to PARWA Integrations and select Help Scout",
+            "Generate a Help Scout API Key from Manage > API Keys",
+            "Enter the API Key and mailbox ID in PARWA integration settings",
+            "Configure which Help Scout mailboxes PARWA should monitor",
+            "Set up workflow automation rules for PARWA-handled conversations",
+            "Configure escalation paths for conversations requiring human agents",
+            "Test the integration by sending a test email to the configured mailbox"
+          ],
+          "capabilities": [
+            "AI-powered automatic email responses for common support inquiries",
+            "Conversation classification and tagging based on AI-detected categories",
+            "Draft response generation for human agent review and approval",
+            "Customer profile enrichment with Help Scout customer data and history",
+            "Note generation summarizing AI analysis and recommended actions",
+            "Workflow automation triggers based on conversation content and customer attributes",
+            "Satisfaction rating analysis for continuous AI response quality improvement"
+          ],
+          "data_flow_description": "PARWA uses Help Scout's REST API v2 with API key authentication. When a new conversation is created in a monitored mailbox, PARWA is notified via webhook. The AI agent analyzes the conversation, checks the knowledge base, and either responds automatically or prepares a draft for human review. Conversation status, tags, and assignments are synced bidirectionally. Customer data from Help Scout's customer profiles is accessed for personalization. All conversation data is processed in real time with no persistent storage in PARWA's systems.",
+          "security_notes": "Help Scout API keys are encrypted at rest with AES-256. PARWA accesses only the configured mailboxes and respects Help Scout's permission model. Conversation content is processed for response generation and then immediately discarded. No customer PII is stored in PARWA's analytics. The integration uses HTTPS for all API calls and supports Help Scout's two-factor authentication requirement for API key generation."
+        }
+      ]
+    },
+    {
+      "category": "Communication",
+      "description": "Connect PARWA to your team communication and customer messaging channels for notifications, escalations, and multi-channel support delivery.",
+      "integrations": [
+        {
+          "name": "Slack",
+          "type": "communication",
+          "category": "Communication",
+          "what_connects": "Connects PARWA to your Slack workspace for real-time escalation alerts, agent notifications, ticket management, and team collaboration on customer support issues.",
+          "setup_difficulty": "Easy",
+          "setup_time_estimate": "10 minutes",
+          "setup_steps": [
+            "Navigate to PARWA Integrations and select Slack",
+            "Click 'Add to Slack' and authenticate with your Slack workspace",
+            "Select the Slack channels where PARWA should post notifications",
+            "Configure notification triggers (escalations, CSAT alerts, daily summaries, critical issues)",
+            "Set up slash commands (/parwa-status, /parwa-escalate, /parwa-metrics)",
+            "Configure which team members should receive direct message alerts for escalations",
+            "Test the integration with a sample notification"
+          ],
+          "capabilities": [
+            "Real-time escalation alerts posted to designated Slack channels when AI agents detect issues requiring human attention",
+            "Daily and weekly performance summary reports posted to team channels with key metrics",
+            "Slash command interface for quick actions like checking AI agent status, viewing metrics, and manual escalations",
+            "Threaded conversations for ticket-specific discussions with context from the original customer interaction",
+            "CSAT and sentiment alerts when negative feedback is detected on AI-handled tickets",
+            "On-call rotation integration for escalation routing based on team schedules",
+            "Custom webhook notifications for business-specific alert scenarios"
+          ],
+          "data_flow_description": "PARWA uses Slack's Bolt framework and Web API for bidirectional communication. Escalation events trigger immediate Slack notifications with ticket details and customer context. Slack slash commands send requests to PARWA's API, which returns formatted responses. Daily reports are scheduled and posted automatically. PARWA reads Slack messages only in designated channels where the bot is a member. All customer data shared in Slack alerts is anonymized to the minimum necessary for the support team to take action.",
+          "security_notes": "Slack OAuth tokens are stored encrypted with HSM protection. PARWA accesses only the explicitly authorized channels and does not read private messages or channels. Customer PII in Slack notifications is minimized and can be further restricted via configuration. The app follows Slack's data retention and privacy guidelines. PARWA's Slack app is distributed through the Slack App Directory and has passed Slack's security review."
+        },
+        {
+          "name": "Email (SMTP)",
+          "type": "communication",
+          "category": "Communication",
+          "what_connects": "Enables PARWA to send and receive customer emails for AI-powered email support, automated responses, and notification delivery.",
+          "setup_difficulty": "Easy",
+          "setup_time_estimate": "10 minutes",
+          "setup_steps": [
+            "Navigate to PARWA Integrations and select Email (SMTP)",
+            "Configure inbound email settings: enter the email address PARWA should monitor (e.g., support@yourcompany.com)",
+            "Set up email forwarding or MX record configuration to route inbound emails to PARWA",
+            "Configure outbound SMTP settings: server, port, username, password (supports TLS/SSL)",
+            "Set up SPF, DKIM, and DMARC records for email deliverability",
+            "Configure email response templates and branding (logo, colors, signature)",
+            "Test both inbound (send a test email) and outbound (send a test reply)"
+          ],
+          "capabilities": [
+            "AI-powered email response generation for customer support inquiries",
+            "Automated email parsing and intent classification from customer emails",
+            "HTML and plain-text email composition with customizable templates",
+            "Email attachment handling and analysis for invoices, screenshots, and documents",
+            "Conversation threading with email reply tracking and history management",
+            "Bounce handling and deliverability monitoring with retry logic",
+            "Email scheduling for follow-up communications and reminder emails"
+          ],
+          "data_flow_description": "Inbound emails are received via PARWA's email processing infrastructure (either through email forwarding to PARWA's servers or via IMAP pull). Each email is parsed to extract the subject, body, sender, attachments, and conversation thread history. The AI agent classifies the intent and generates a response, which is sent via the configured SMTP server. Outbound emails are branded with the customer's company branding and include tracking headers for conversation threading. Attachments are scanned for malware before processing.",
+          "security_notes": "SMTP credentials are encrypted at rest with AES-256 and transmitted only over TLS. PARWA supports STARTTLS and SSL/TLS for secure email transmission. Email content is processed in memory and not stored in PARWA's database after response generation. Attachments are scanned with ClamAV before processing. PARWA supports and recommends configuring SPF, DKIM, and DMARC for email authentication. The email infrastructure complies with CAN-SPAM and GDPR email marketing regulations."
+        },
+        {
+          "name": "WhatsApp Business",
+          "type": "communication",
+          "category": "Communication",
+          "what_connects": "Enables PARWA AI agents to respond to customer inquiries via WhatsApp using the WhatsApp Business API for conversational support on the world's most popular messaging platform.",
+          "setup_difficulty": "Moderate",
+          "setup_time_estimate": "30 minutes",
+          "setup_steps": [
+            "Apply for a WhatsApp Business API account through Meta Business Manager",
+            "Verify your business phone number with WhatsApp",
+            "Navigate to PARWA Integrations and select WhatsApp Business",
+            "Enter your WhatsApp Business Account ID and phone number ID",
+            "Configure the WhatsApp Business API access token from Meta Developer Portal",
+            "Set up the webhook endpoint URL in Meta Developer Portal pointing to PARWA",
+            "Configure message templates for session windows per WhatsApp Business policies",
+            "Test the integration by sending a WhatsApp message to your business number"
+          ],
+          "capabilities": [
+            "AI-powered conversational responses to customer WhatsApp messages",
+            "Rich message support including text, images, documents, quick replies, and list messages",
+            "Automated session management within WhatsApp's 24-hour conversation window",
+            "WhatsApp-approved message templates for proactive notifications (order updates, appointment reminders)",
+            "Multi-language support for global customer bases via WhatsApp",
+            "Media message handling including photo, video, and document processing",
+            "Interactive message buttons for guided customer self-service flows"
+          ],
+          "data_flow_description": "PARWA integrates with WhatsApp Business Platform via Meta's Cloud API using webhook-based event handling. Incoming WhatsApp messages are received via webhook, processed by the AI agent, and responses are sent back through the WhatsApp API. Message templates are pre-approved per WhatsApp Business policies for outbound notifications. PARWA manages the 24-hour session window automatically, using free-form text within the window and pre-approved templates outside the window. Conversation context is maintained across messages within the session.",
+          "security_notes": "WhatsApp Business API tokens are encrypted with HSM-level protection. PARWA complies with WhatsApp Business Messaging Policy including opt-in requirements and message template rules. End-to-end encryption provided by WhatsApp is maintained — PARWA processes message content on its servers for response generation. Message data is not stored after processing. PARWA respects WhatsApp's rate limits and quality rating requirements to maintain high delivery rates."
+        }
+      ]
+    },
+    {
+      "category": "Payment",
+      "description": "Connect PARWA to your payment processing platforms for transaction lookup, refund processing, and billing-related customer support.",
+      "integrations": [
+        {
+          "name": "Stripe",
+          "type": "payment",
+          "category": "Payment",
+          "what_connects": "Connects PARWA to your Stripe account for real-time payment transaction lookup, refund processing, subscription management, and billing-related customer support.",
+          "setup_difficulty": "Easy",
+          "setup_time_estimate": "10 minutes",
+          "setup_steps": [
+            "Navigate to PARWA Integrations and select Stripe",
+            "Authenticate via OAuth 2.0 using your Stripe account (restricted to read+write on necessary resources)",
+            "Configure which Stripe resources PARWA can access (charges, refunds, subscriptions, customers)",
+            "Set up Stripe webhooks for real-time event notifications (payment_intent.succeeded, charge.refunded)",
+            "Configure refund authorization rules and approval thresholds",
+            "Test the integration by looking up a sample transaction and processing a test refund"
+          ],
+          "capabilities": [
+            "Real-time payment transaction lookup with full charge details including amount, status, and payment method",
+            "Refund processing with configurable approval thresholds (automatic below threshold, manual review above)",
+            "Subscription management including plan lookup, subscription status, and upcoming invoice details",
+            "Payment method management including card token lookup and update (without exposing full card numbers)",
+            "Dispute and chargeback management with reason code explanation and evidence submission guidance",
+            "Invoice retrieval and line-item explanation for customer billing inquiries",
+            "Payment failure analysis with decline reason codes and recommended customer actions"
+          ],
+          "data_flow_description": "PARWA uses Stripe's API with OAuth 2.0 authentication and restricted API keys. When handling billing inquiries, the AI agent queries Stripe's API in real time to retrieve transaction details, subscription status, and invoice data. For refund requests, PARWA creates a refund via the Stripe API and confirms the result to the customer. Stripe webhooks (payment_intent.succeeded, charge.refunded, invoice.paid, etc.) keep PARWA's event awareness current. Full card numbers are never accessed — only Stripe tokens and last-four digits are used for identification.",
+          "security_notes": "PARWA is PCI DSS Level 1 compliant for handling payment data. Stripe OAuth tokens use the minimum required scopes (charges:read, refunds:write, subscriptions:read). Full card numbers, CVCs, and card expiry dates are never accessed or stored by PARWA — all sensitive payment data remains within Stripe's PCI-compliant environment. PARWA's Stripe integration has been verified through Stripe's App Marketplace review process."
+        },
+        {
+          "name": "Razorpay",
+          "type": "payment",
+          "category": "Payment",
+          "what_connects": "Connects PARWA to your Razorpay account for payment transaction management, refund processing, and billing support for the Indian and international payment market.",
+          "setup_difficulty": "Easy",
+          "setup_time_estimate": "15 minutes",
+          "setup_steps": [
+            "Navigate to PARWA Integrations and select Razorpay",
+            "Generate API keys (Key ID and Key Secret) from Razorpay Dashboard > Settings > API Keys",
+            "Enter the API keys in PARWA integration settings",
+            "Configure webhook endpoints in Razorpay Dashboard for event notifications",
+            "Set up refund policies and approval thresholds specific to your Razorpay configuration",
+            "Test the integration with a sample payment lookup and test refund"
+          ],
+          "capabilities": [
+            "Real-time payment transaction lookup by payment ID, order ID, or customer details",
+            "Refund processing with partial and full refund support through Razorpay's refund API",
+            "UPI and netbanking payment status tracking for Indian payment methods",
+            "Subscription and recurring payment management via Razorpay Subscriptions",
+            "Dispute and chargeback management with Razorpay's dispute resolution workflow",
+            "Payout and settlement status tracking for merchant reconciliation",
+            "Multi-currency payment support for international transactions processed through Razorpay"
+          ],
+          "data_flow_description": "PARWA connects to Razorpay via its REST API using Key ID and Key Secret authentication with HMAC-SHA256 signature verification. Payment lookups are made in real time when handling customer billing inquiries. Refund requests are processed through Razorpay's Refund API with configurable approval rules. Webhooks from Razorpay (payment.captured, refund.processed, dispute.created) provide real-time event notifications. Sensitive payment data remains within Razorpay's PCI DSS compliant infrastructure.",
+          "security_notes": "Razorpay API keys are encrypted at rest using AES-256. PARWA uses IP whitelisting for Razorpay API access as an additional security layer. All API communications use HTTPS with TLS 1.3. Razorpay does not expose full card numbers, CVVs, or bank account numbers through the API. PARWA's access is limited to transaction metadata, refund operations, and subscription data. The integration complies with RBI guidelines for payment data handling and Razorpay's data security standards."
+        }
+      ]
+    },
+    {
+      "category": "Custom Integration",
+      "description": "Developer tools and custom integration options for connecting PARWA to any external system, building custom workflows, and extending the platform's capabilities.",
+      "integrations": [
+        {
+          "name": "REST API",
+          "type": "custom",
+          "category": "Custom Integration",
+          "what_connects": "PARWA's comprehensive REST API enables developers to programmatically access all platform features including ticket management, AI agent configuration, analytics data, and customer interactions.",
+          "setup_difficulty": "Advanced",
+          "setup_time_estimate": "Variable (depends on use case)",
+          "setup_steps": [
+            "Generate an API key from PARWA Dashboard > Settings > API Access",
+            "Review the API documentation at docs.parwa.ai/api-reference",
+            "Configure API key permissions based on required access (tickets, analytics, agents, customers)",
+            "Set up IP whitelisting for additional security (optional but recommended)",
+            "Implement authentication headers (Authorization: Bearer <api_key>) in your application",
+            "Test API endpoints using the interactive documentation or Postman collection",
+            "Set up webhook endpoints in PARWA Dashboard to receive real-time event notifications"
+          ],
+          "capabilities": [
+            "Full ticket lifecycle management: create, read, update, search, and close tickets programmatically",
+            "AI agent configuration and management including variant activation, threshold adjustment, and response customization",
+            "Analytics data export via API endpoints for custom reporting and data warehouse integration",
+            "Customer data access and management for CRM integration and personalization",
+            "Knowledge base CRUD operations for automated content management",
+            "Webhook management for subscribing to real-time platform events",
+            "Bulk operations support for high-volume data import/export scenarios"
+          ],
+          "data_flow_description": "The PARWA REST API uses JSON over HTTPS with Bearer token authentication. All endpoints follow RESTful conventions with predictable resource URLs and standard HTTP methods. Responses include pagination for list endpoints, rate limit headers, and consistent error formatting. Webhooks provide push-based event notifications for real-time integration scenarios. The API supports both synchronous (REST) and asynchronous (webhook + callback) patterns. SDKs are available for Python, Node.js, Java, and Go to simplify integration development.",
+          "security_notes": "API keys are scoped to specific permissions and can be rotated at any time. All API traffic is encrypted with TLS 1.3. Rate limiting is enforced per API key with configurable burst and sustained limits. IP whitelisting is available as an additional security layer. All API access is logged in the audit trail with timestamp, IP address, and action performed. PARWA's API follows OWASP API Security Top 10 best practices. API keys should be stored securely and never exposed in client-side code."
+        },
+        {
+          "name": "Webhooks",
+          "type": "custom",
+          "category": "Custom Integration",
+          "what_connects": "PARWA's webhook system sends real-time event notifications to your external systems, enabling custom workflows, data synchronization, and event-driven automation.",
+          "setup_difficulty": "Moderate",
+          "setup_time_estimate": "20 minutes",
+          "setup_steps": [
+            "Navigate to PARWA Dashboard > Settings > Webhooks",
+            "Enter the endpoint URL where PARWA should send webhook notifications",
+            "Select which event types to subscribe to (ticket.created, ticket.resolved, agent.escalated, etc.)",
+            "Configure the secret key for webhook signature verification (HMAC-SHA256)",
+            "Set up retry policy for failed deliveries (default: 3 retries with exponential backoff)",
+            "Test the webhook using the built-in test event sender",
+            "Monitor webhook delivery logs in the PARWA Dashboard"
+          ],
+          "capabilities": [
+            "Real-time event notifications for all platform events including ticket lifecycle, escalations, and customer interactions",
+            "Custom webhook payload filtering to receive only relevant events based on criteria",
+            "HMAC-SHA256 signature verification for webhook authenticity and security",
+            "Automatic retry logic with exponential backoff for failed deliveries",
+            "Delivery monitoring dashboard with success rates, failure logs, and latency metrics",
+            "Batch event delivery for high-volume scenarios to reduce endpoint load",
+            "Webhook versioning to support schema evolution without breaking existing integrations"
+          ],
+          "data_flow_description": "When a subscribed event occurs in PARWA, a JSON payload is constructed and sent via HTTPS POST to the configured endpoint URL. Each payload includes the event type, timestamp, event data, and an HMAC-SHA256 signature in the X-Parwa-Signature header for verification. The receiving system validates the signature, processes the event, and returns a 200 OK response. If the endpoint returns a non-2xx status code or times out (after 10 seconds), PARWA retries the delivery up to 3 times with increasing intervals (1 minute, 5 minutes, 30 minutes). All delivery attempts are logged in the webhook monitoring dashboard.",
+          "security_notes": "All webhook payloads are signed with HMAC-SHA256 using a configurable secret key. The receiving endpoint should always verify the signature before processing the payload. Webhook URLs must use HTTPS. PARWA validates SSL certificates on the receiving endpoint. Webhook secrets can be rotated from the dashboard. Sensitive customer data in webhook payloads can be masked using field-level data redaction settings. Failed webhook deliveries are logged but never retried to non-HTTPS endpoints."
+        }
+      ]
+    }
+  ]
+}

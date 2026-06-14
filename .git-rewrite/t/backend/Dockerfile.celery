@@ -1,0 +1,18 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+RUN groupadd -r parwa && useradd -r -g parwa parwa
+USER parwa
+
+CMD ["celery", "-A", "app.tasks.celery_app:app", "worker", "--loglevel=info", "--concurrency=4", "-Q", "default,ai_heavy,ai_light,email,webhook,analytics,training"]

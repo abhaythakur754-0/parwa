@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block body %}
+<h2 style="margin:0 0 20px;color:#e65100">Subscription Canceled</h2>
+
+<p>Hi {{ user_name }},</p>
+
+<p>We're sorry to see you go. Your <strong>{{ plan_name }}</strong> subscription has been canceled and will remain active until <strong>{{ effective_date }}</strong>.</p>
+
+<div style="background:#fff3e0;padding:20px;border-radius:6px;margin:20px 0">
+    <p style="margin:0 0 10px"><strong>Plan:</strong> {{ plan_name }}</p>
+    <p style="margin:0 0 10px"><strong>Access until:</strong> {{ effective_date }}</p>
+    <p style="margin:0"><strong>Status:</strong> <span style="color:#e65100;font-weight:600">Canceling</span></p>
+</div>
+
+<p>Until your cancellation takes effect, you'll continue to have full access to all features included in your plan. After that date, your account will be downgraded to the free tier.</p>
+
+<p>All your data will be preserved, so if you decide to resubscribe in the future, you can pick up right where you left off.</p>
+
+<p>If you canceled by mistake or have any questions, please reach out to our support team — we'd love the opportunity to keep you as a customer.</p>
+
+<p>Best regards,<br>
+PARWA Team</p>
+{% endblock %}

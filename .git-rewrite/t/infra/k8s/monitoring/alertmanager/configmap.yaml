@@ -1,0 +1,124 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: alertmanager
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: parwa-platform
+data:
+  alertmanager.yml: |
+    global:
+      smtp_smarthost: "${SMTP_SMARTHOST}"
+      smtp_from: "${SMTP_FROM}"
+      smtp_auth_username: "${SMTP_USERNAME}"
+      smtp_auth_password: "${SMTP_PASSWORD}"
+      smtp_require_tls: true
+      slack_api_url: "${SLACK_WEBHOOK_URL}"
+
+    route:
+      receiver: "slack-critical"
+      group_by: ['alertname', 'cluster', 'service']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      routes:
+        - match:
+            severity: critical
+          receiver: slack-critical
+          continue: true
+        - match:
+            severity: critical
+          receiver: email-critical
+          continue: true
+        - match:
+            severity: critical
+          receiver: pagerduty
+        - match:
+            severity: warning
+          receiver: slack-warning
+          continue: true
+        - match:
+            severity: warning
+          receiver: email-warning
+
+    receivers:
+      - name: slack-critical
+        slack_configs:
+          - api_url: "${SLACK_WEBHOOK_URL}"
+            channel: "#parwa-critical"
+            title: "[CRITICAL] {{ .GroupLabels.alertname }}"
+            text: >-
+              {{ range .Alerts }}
+              *Alert:* {{ .Annotations.summary }}
+              *Description:* {{ .Annotations.description }}
+              *Runbook:* {{ .Annotations.runbook_url }}
+              {{ end }}
+            send_resolved: true
+
+      - name: slack-warning
+        slack_configs:
+          - api_url: "${SLACK_WEBHOOK_URL}"
+            channel: "#parwa-alerts"
+            title: "[WARNING] {{ .GroupLabels.alertname }}"
+            text: >-
+              {{ range .Alerts }}
+              *Alert:* {{ .Annotations.summary }}
+              *Description:* {{ .Annotations.description }}
+              {{ end }}
+            send_resolved: true
+
+      - name: email-critical
+        email_configs:
+          - to: "oncall@parwa.ai"
+            headers:
+              Subject: "[CRITICAL] {{ .GroupLabels.alertname }} - Parwa Production"
+            html: >-
+              {{ range .Alerts }}
+              <h2>{{ .Annotations.summary }}</h2>
+              <p>{{ .Annotations.description }}</p>
+              <p><a href="{{ .Annotations.runbook_url }}">Runbook</a></p>
+              {{ end }}
+            send_resolved: true
+
+      - name: email-warning
+        email_configs:
+          - to: "team@parwa.ai"
+            headers:
+              Subject: "[WARNING] {{ .GroupLabels.alertname }} - Parwa Production"
+            html: >-
+              {{ range .Alerts }}
+              <h2>{{ .Annotations.summary }}</h2>
+              <p>{{ .Annotations.description }}</p>
+              {{ end }}
+            send_resolved: true
+
+      - name: pagerduty
+        pagerduty_configs:
+          - service_key: "${PAGERDUTY_SERVICE_KEY}"
+            severity: "{{ .GroupLabels.severity }}"
+            description: "{{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}"
+
+      - name: dead-mans-switch
+        webhook_configs:
+          - url: "https://healthchecks.parwa.ai/ping/dead-mans-switch"
+            send_resolved: false
+
+    inhibit_rules:
+      - source_match:
+          severity: critical
+        target_match:
+          severity: warning
+        equal:
+          - alertname
+          - cluster
+          - service
+
+    mute_time_intervals:
+      - name: maintenance-window
+        time_intervals:
+          - times:
+              - start_time: "02:00"
+                end_time: "06:00"
+            weekdays: ["saturday"]

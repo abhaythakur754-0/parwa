@@ -1,0 +1,138 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: parwa-platform
+data:
+  parwa-infrastructure.yml: |
+    groups:
+      - name: parwa-infrastructure
+        rules:
+          - alert: ParwaSubsystemDegraded
+            expr: sum(up{job=~"parwa-.*"}) by (job) < count(up{job=~"parwa-.*"}) by (job)
+            for: 2m
+            labels:
+              severity: critical
+              cluster: parwa-prod
+            annotations:
+              summary: "Parwa subsystem {{ $labels.job }} is degraded"
+              description: "Less than 100% of {{ $labels.job }} targets are up for more than 2 minutes."
+              runbook_url: "https://runbooks.parwa.ai/alerts/ParwaSubsystemDegraded"
+
+          - alert: ParwaDiskSpaceLow
+            expr: node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} < 0.15
+            for: 5m
+            labels:
+              severity: warning
+              cluster: parwa-prod
+            annotations:
+              summary: "Disk space low on {{ $labels.instance }}"
+              description: "Available disk space on / is below 15% (current: {{ $value | humanizePercentage }})."
+              runbook_url: "https://runbooks.parwa.ai/alerts/ParwaDiskSpaceLow"
+
+          - alert: ParwaMemoryHigh
+            expr: container_memory_working_set_bytes / container_spec_memory_limit_bytes > 0.9
+            for: 5m
+            labels:
+              severity: warning
+              cluster: parwa-prod
+            annotations:
+              summary: "Container memory usage above 90%"
+              description: "Container {{ $labels.container }} in pod {{ $labels.pod }} is using more than 90% of its memory limit."
+              runbook_url: "https://runbooks.parwa.ai/alerts/ParwaMemoryHigh"
+
+          - alert: ParwaCPUHigh
+            expr: rate(container_cpu_usage_seconds_total[5m]) > 0.85
+            for: 5m
+            labels:
+              severity: warning
+              cluster: parwa-prod
+            annotations:
+              summary: "Container CPU usage above 85%"
+              description: "Container {{ $labels.container }} in pod {{ $labels.pod }} has CPU usage above 85% for 5 minutes."
+              runbook_url: "https://runbooks.parwa.ai/alerts/ParwaCPUHigh"
+
+          - alert: ParwaRedisDown
+            expr: up{job="parwa-redis"} == 0
+            for: 1m
+            labels:
+              severity: critical
+              cluster: parwa-prod
+            annotations:
+              summary: "Redis is down"
+              description: "Redis exporter target {{ $labels.instance }} is down."
+              runbook_url: "https://runbooks.parwa.ai/alerts/ParwaRedisDown"
+
+          - alert: ParwaPostgresDown
+            expr: up{job="parwa-postgres"} == 0
+            for: 1m
+            labels:
+              severity: critical
+              cluster: parwa-prod
+            annotations:
+              summary: "PostgreSQL is down"
+              description: "PostgreSQL exporter target {{ $labels.instance }} is down."
+              runbook_url: "https://runbooks.parwa.ai/alerts/ParwaPostgresDown"
+
+          - alert: ParwaSSLCertExpiry
+            expr: probe_ssl_earliest_cert_expiry < time() + 2592000
+            for: 1h
+            labels:
+              severity: warning
+              cluster: parwa-prod
+            annotations:
+              summary: "SSL certificate expiring soon"
+              description: "SSL certificate for {{ $labels.instance }} expires in less than 30 days."
+              runbook_url: "https://runbooks.parwa.ai/alerts/ParwaSSLCertExpiry"
+
+          - alert: ParwaBackupFailed
+            expr: parwa_backup_last_success_timestamp < time() - 86400
+            for: 1h
+            labels:
+              severity: critical
+              cluster: parwa-prod
+            annotations:
+              summary: "Database backup has not succeeded in 24 hours"
+              description: "Last successful backup was more than 24 hours ago."
+              runbook_url: "https://runbooks.parwa.ai/alerts/ParwaBackupFailed"
+
+  parwa-application.yml: |
+    groups:
+      - name: parwa-application
+        rules:
+          - alert: ParwaNginx5xxRate
+            expr: rate(nginx_http_requests_total{status=~"5.."}[5m]) / rate(nginx_http_requests_total[5m]) > 0.05
+            for: 3m
+            labels:
+              severity: warning
+              cluster: parwa-prod
+            annotations:
+              summary: "Nginx 5xx error rate above 5%"
+              description: "Nginx 5xx error rate is {{ $value | humanizePercentage }}, which is above the 5% threshold."
+              runbook_url: "https://runbooks.parwa.ai/alerts/ParwaNginx5xxRate"
+
+          - alert: ParwaAPI5xxRateHigh
+            expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+            for: 3m
+            labels:
+              severity: critical
+              cluster: parwa-prod
+            annotations:
+              summary: "API 5xx error rate is high"
+              description: "API 5xx error rate is {{ $value }} requests/sec, exceeding the 0.1 threshold."
+              runbook_url: "https://runbooks.parwa.ai/alerts/ParwaAPI5xxRateHigh"
+
+          - alert: ParwaLLMProviderOutage
+            expr: sum(rate(llm_request_errors_total[5m])) / sum(rate(llm_requests_total[5m])) > 0.5
+            for: 2m
+            labels:
+              severity: critical
+              cluster: parwa-prod
+            annotations:
+              summary: "LLM provider error rate above 50%"
+              description: "LLM provider error rate is {{ $value | humanizePercentage }}, indicating a potential provider outage."
+              runbook_url: "https://runbooks.parwa.ai/alerts/ParwaLLMProviderOutage"

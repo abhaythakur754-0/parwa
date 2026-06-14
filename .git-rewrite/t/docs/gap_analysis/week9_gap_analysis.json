@@ -1,0 +1,320 @@
+{
+  "analysis_date": "2026-04-09",
+  "week": 9,
+  "total_gaps_found": 28,
+  "gaps_by_severity": {
+    "CRITICAL": 6,
+    "HIGH": 10,
+    "MEDIUM": 12
+  },
+  "gaps": [
+    {
+      "gap_id": "W9-GAP-001",
+      "severity": "CRITICAL",
+      "day": 6,
+      "feature": "F-149 Intent x Technique Mapping",
+      "title": "Intent x Technique mapping has no variant-aware fallback",
+      "what_breaks": "When F-149 maps intent to a Tier 3 technique but tenant is Mini PARWA (Tier 1 only), the technique router will fail silently or execute an unauthorized technique",
+      "real_scenario": "Mini PARWA tenant sends refund ticket. F-149 maps 'refund' -> Self-Consistency (Tier 3). Technique router executes it because F-149 output doesn't include tier info. Tenant gets Tier 3 capability without paying.",
+      "fix": "F-149 must output technique + tier level. Technique Router must cross-reference with SG-02 (variant tier access check) before selection. Add tier filter: if technique.tier > variant.max_tier, fall back to Tier 1 equivalent.",
+      "test_to_write": "test_intent_technique_mapping_respects_variant_tier - Verify that Mini PARWA only gets Tier 1 techniques, Parwa gets T1+T2, High gets all. Test with all 6 intent types across 3 variants."
+    },
+    {
+      "gap_id": "W9-GAP-002",
+      "severity": "CRITICAL",
+      "day": 6,
+      "feature": "F-150 CLARA Quality Gate",
+      "title": "CLARA pipeline has no timeout per stage",
+      "what_breaks": "A single CLARA stage (e.g., Logic Check) could hang indefinitely if it calls an external LLM, blocking the entire response generation pipeline",
+      "real_scenario": "Brand Check stage calls Smart Router for brand compliance validation. Provider is slow (10s+). CLARA pipeline hangs. Customer waits forever. No response sent.",
+      "fix": "Add per-stage timeout (default 3s per stage, configurable per tenant). On timeout: stage result = 'timeout_pass' (don't block on infrastructure issues). Add pipeline-level timeout (15s total for all 5 stages).",
+      "test_to_write": "test_clara_stage_timeout - Mock slow LLM response (>5s). Verify pipeline completes within timeout with degraded pass. test_clara_pipeline_total_timeout - Mock all stages slow. Verify pipeline returns within 15s."
+    },
+    {
+      "gap_id": "W9-GAP-003",
+      "severity": "CRITICAL",
+      "day": 7,
+      "feature": "F-064 RAG Retrieval",
+      "title": "RAG pgvector query missing company_id filter",
+      "what_breaks": "Without company_id in the pgvector query WHERE clause, Tenant A could retrieve knowledge base chunks from Tenant B, causing cross-tenant data leakage",
+      "real_scenario": "Tenant A (E-commerce) asks 'What is refund policy?'. RAG query returns chunks from Tenant B (SaaS) because the query only filters by similarity, not by tenant. Tenant A receives Tenant B's internal refund policy.",
+      "fix": "Every pgvector query MUST include WHERE company_id = :company_id. Create shared/knowledge_base/vector_search.py with mandatory company_id parameter. Add assertion in vector_search that company_id is not None.",
+      "test_to_write": "test_rag_tenant_isolation - Insert chunks for 2 tenants. Query as tenant A. Verify zero results from tenant B. test_rag_missing_company_id_raises - Verify vector_search raises ValueError when company_id is None."
+    },
+    {
+      "gap_id": "W9-GAP-004",
+      "severity": "CRITICAL",
+      "day": 8,
+      "feature": "F-157 ReAct Tools",
+      "title": "ReAct tool execute() has no timeout or resource limits",
+      "what_breaks": "A ReAct tool calling external Order Management API could hang indefinitely, consuming worker resources and blocking other ticket processing",
+      "real_scenario": "Billing API tool calls external payment provider which is down. Tool waits for response (no timeout). Celery worker is blocked for 60s. Queue builds up. Other tickets timeout.",
+      "fix": "Add asyncio.wait_for() with configurable timeout per tool (default 10s). Add max_retries (default 1). On timeout: return structured error {'status': 'timeout', 'message': 'Tool unavailable'}. Log timeout for monitoring (SG-19).",
+      "test_to_write": "test_react_tool_timeout - Mock slow API (>10s). Verify tool returns timeout error within 15s. test_react_tool_concurrent_limit - Fire 50 concurrent tool calls. Verify max 10 execute simultaneously (configurable)."
+    },
+    {
+      "gap_id": "W9-GAP-005",
+      "severity": "CRITICAL",
+      "day": 7,
+      "feature": "F-153 RAG Re-Indexing",
+      "title": "Re-indexing trigger has no deduplication or concurrency control",
+      "what_breaks": "Multiple document updates in quick succession could queue duplicate re-embedding tasks, causing wasted API calls and potential index corruption",
+      "real_scenario": "User uploads 3 documents in 5 seconds. Each upload triggers a re-embedding task. 3 tasks run concurrently on same document set. Embeddings written 3x. Token budget consumed 3x. PGVector index potentially corrupted by concurrent writes.",
+      "fix": "Add Redis lock per document_id before queuing re-embedding (SET NX with 60s TTL). Add Celery task dedup: if task already queued for same document, skip. Use task_id based on hash(document_id + updated_at).",
+      "test_to_write": "test_reindex_deduplication - Trigger 3 rapid document updates. Verify only 1 embedding task runs. test_reindex_concurrent_lock - Two workers try to reindex same doc. Verify only one succeeds."
+    },
+    {
+      "gap_id": "W9-GAP-006",
+      "severity": "CRITICAL",
+      "day": 8,
+      "feature": "F-156 Token Budget",
+      "title": "Token budget tracking is not atomic across concurrent requests",
+      "what_breaks": "Two concurrent requests for same conversation could both read budget as 8000/10000, both proceed, total becomes 11000 - exceeding the context window limit",
+      "real_scenario": "Customer sends message. Two agents draft responses simultaneously (F-066). Both read remaining budget = 2000 tokens. Both generate 1500-token responses. Total usage = 11500 > 10000 context window. LLM API rejects request or truncates context.",
+      "fix": "Use Redis INCRBY with Lua script for atomic budget check+deduct. Reserve tokens before generation: INCRBY budget -reserved_amount. If result < 0, revert and reject. On generation complete, finalize: set budget to actual_usage.",
+      "test_to_write": "test_token_budget_concurrent - Fire 5 concurrent response generations for same conversation with 5000 budget. Verify total never exceeds 5000. test_token_budget_rollback - Reserve 3000, fail generation, verify rollback."
+    },
+    {
+      "gap_id": "W9-GAP-007",
+      "severity": "HIGH",
+      "day": 6,
+      "feature": "SG-13 Signal Extraction",
+      "title": "Signal cache has no variant-aware key namespace",
+      "what_breaks": "Signal extraction for same query text but different variant configs could return cached results from wrong variant",
+      "real_scenario": "Query 'refund my order' cached for Mini PARWA (weights: intent=0.5, complexity=0.3). Same query hits Parwa cache. Parwa gets Mini weights. Parwa's higher complexity threshold never triggers.",
+      "fix": "Cache key MUST include variant_type: signal_cache:{company_id}:{variant_type}:{query_hash}. Add variant_type to SignalExtractionRequest. Each variant gets its own cached signals.",
+      "test_to_write": "test_signal_cache_variant_isolation - Extract signals for same query with Mini and Parwa variants. Verify different cached results due to different weights."
+    },
+    {
+      "gap_id": "W9-GAP-008",
+      "severity": "HIGH",
+      "day": 6,
+      "feature": "F-062 Intent Classification",
+      "title": "Classifier has no handling for completely empty or whitespace-only input",
+      "what_breaks": "Empty ticket body sent to classifier causes crash or returns garbage intent classification",
+      "real_scenario": "Customer sends ticket with only attachment (empty body text). Classification service receives ''. Smart Router call fails (empty prompt). F-062 returns 500 error instead of defaulting to 'general'.",
+      "fix": "Add input validation in classify(): if text.strip() is empty or < 3 chars, return default classification {primary: 'general', confidence: 0.0, secondary: []}. Log as low-confidence classification for monitoring.",
+      "test_to_write": "test_classification_empty_input - Classify ''. Verify returns 'general' with 0.0 confidence. test_classification_whitespace_only - Classify '   \\n\\t   '. Verify returns 'general'."
+    },
+    {
+      "gap_id": "W9-GAP-009",
+      "severity": "HIGH",
+      "day": 7,
+      "feature": "F-063 Sentiment Analysis",
+      "title": "Sentiment score has no smoothing across conversation turns",
+      "what_breaks": "A customer who was happy (score 20) suddenly gets score 90 due to one angry word, triggering de-escalation protocol unnecessarily",
+      "real_scenario": "Long conversation, customer has been polite for 10 turns (avg score 25). Last message includes 'This is ridiculous!' (legitimate frustration about a bug). Score jumps to 85. De-escalation protocol triggers. Manager pinged for routine frustration.",
+      "fix": "Implement exponential moving average: smoothed_score = 0.7 * current_score + 0.3 * previous_avg. Add 'sentiment_trend' signal: rising, falling, stable. Use smoothed score for escalation triggers, raw score for technique selection.",
+      "test_to_write": "test_sentiment_smoothing - Score sequence: [20, 22, 25, 85]. Verify smoothed score < 70. test_sentiment_trend_detection - Scores [20, 30, 45, 60]. Verify trend = 'rising'."
+    },
+    {
+      "gap_id": "W9-GAP-010",
+      "severity": "HIGH",
+      "day": 8,
+      "feature": "F-155 Response Templates",
+      "title": "Response template CRUD has no XSS sanitization for template variables",
+      "what_breaks": "Admin creates response template with {{customer_name}} that contains malicious script. Template rendered in frontend executes XSS",
+      "real_scenario": "Admin pastes template: 'Dear {{customer_name}}, <script>document.location=\"https://evil.com\"</script>'. Template is stored unsanitized. Customer views response in web widget. Script executes.",
+      "fix": "Sanitize all template variables on save. Use bleach or DOMPurify for HTML content. Escape special characters in variable placeholders. Add content-type flag: 'text' (auto-escape), 'html' (sanitize).",
+      "test_to_write": "test_template_xss_prevention - Create template with <script> tag. Verify stored as escaped. test_template_rendering - Render template with HTML content type. Verify scripts removed."
+    },
+    {
+      "gap_id": "W9-GAP-011",
+      "severity": "HIGH",
+      "day": 8,
+      "feature": "F-158 Rule to AI Migration",
+      "title": "Migration fallback has no circuit breaker for repeated AI failures",
+      "what_breaks": "If AI classification fails repeatedly, the system keeps trying AI (with fallback to rules) instead of permanently falling back to rules",
+      "real_scenario": "Smart Router is degraded (provider down). AI classification fails 10 times in 1 minute. Each failure triggers rule-based fallback (correct), then retries AI next request (wastes time). Average classification latency goes from 50ms (rules) to 5000ms (AI timeout + fallback).",
+      "fix": "Implement circuit breaker: track AI classification failures per company. After N consecutive failures (default 5), open circuit → use rules only for M minutes (default 10). Half-open: try 1 AI request. If succeeds → close circuit.",
+      "test_to_write": "test_migration_circuit_breaker_opens - Mock 5 consecutive AI failures. Verify 6th request uses rules without AI call. test_migration_circuit_breaker_half_open - After 10 min, verify AI is retried once."
+    },
+    {
+      "gap_id": "W9-GAP-012",
+      "severity": "HIGH",
+      "day": 9,
+      "feature": "F-066 Draft Composer",
+      "title": "Draft composer has no deduplication for duplicate regenerations",
+      "what_breaks": "User clicks 'regenerate' rapidly 5 times. 5 LLM calls fire. 5 drafts arrive via Socket.io. UI shows all 5 simultaneously or latest overwrites previous without saving",
+      "real_scenario": "Agent doesn't like draft, clicks regenerate 3 times in 2 seconds. 3 Smart Router calls. 3 Socket.io emissions. Agent sees drafts flickering. Token budget consumed 3x for same intent.",
+      "fix": "Add debounce on regenerate button (2s). Track pending_draft_id per ticket. If regeneration pending, reject new request with 429. Use single draft slot per ticket: new draft replaces previous.",
+      "test_to_write": "test_draft_regenerate_dedup - Send 3 regenerate requests in 1s. Verify only 1 draft generated. test_draft_429_on_pending - While draft generating, send another request. Verify 429 response."
+    },
+    {
+      "gap_id": "W9-GAP-013",
+      "severity": "HIGH",
+      "day": 9,
+      "feature": "SG-28 Edge Cases",
+      "title": "Edge case handlers have no priority ordering or conflict resolution",
+      "what_breaks": "Multiple edge case handlers could match the same input, leading to unpredictable behavior",
+      "real_scenario": "Input: 'I want a refund!!! 🤬' (contains exclamation marks + emoji + refund keyword). 'emojis_only' handler triggers. 'pricing_request' handler triggers (refund keyword). 'escalation' triggers (emoji anger). Which one wins?",
+      "fix": "Assign priority to each handler (1-20). Run handlers in priority order. First match wins. Add 'multi_handler' flag for cases that need multiple handlers. Add integration test for all 20 handlers with overlapping inputs.",
+      "test_to_write": "test_edge_case_priority_ordering - Input matching 3 handlers. Verify highest priority wins. test_edge_case_no_match - Input matching no handlers. Verify default handler runs."
+    },
+    {
+      "gap_id": "W9-GAP-014",
+      "severity": "HIGH",
+      "day": 10,
+      "feature": "F-159 Anti-Arbitrage",
+      "title": "Anti-arbitrage check is not atomic with instance creation",
+      "what_breaks": "Race condition: two concurrent requests could both pass capacity check before either creates an instance, exceeding the cap",
+      "real_scenario": "Tenant at capacity limit (9/10 Mini instances). Two admins click 'Add Instance' simultaneously. Both read capacity as 9. Both pass check. Both create instance 10. Capacity is now 11 (over cap).",
+      "fix": "Use Redis INCR with Lua script: read current → check limit → increment → return new count as atomic operation. If result > cap, rollback (DECR) and reject with 403. Store capacity in Redis hash: capacity:{company_id} = {current, max}.",
+      "test_to_write": "test_anti_arbitrage_concurrent_creation - 5 concurrent instance creation requests at capacity. Verify only 1 succeeds. test_anti_arbitrage_cross_variant_sum - 5 Mini + 3 Parwa instances. Verify total capacity correctly calculated."
+    },
+    {
+      "gap_id": "W9-GAP-015",
+      "severity": "HIGH",
+      "day": 10,
+      "feature": "SG-06/SG-11 Cross-Variant Routing",
+      "title": "Cross-variant escalation has no rollback if higher variant is at capacity",
+      "what_breaks": "Ticket escalated from Mini to Parwa, but Parwa is at capacity. Ticket is stuck in limbo - no variant can handle it",
+      "real_scenario": "Mini PARWA ticket complexity score exceeds Mini capability. Escalation to Parwa triggered. All Parwa instances at 100% capacity. Ticket queued for Parwa but never processed. Mini instance already released ticket.",
+      "fix": "Add capacity check before escalation: if target variant is >90% capacity, queue with priority but set fallback timer (30s). If not picked up in 30s, try next variant tier. If all tiers full, assign to human queue with 'AI_OVERLOAD' flag.",
+      "test_to_write": "test_escalation_target_full - Parwa at 100% capacity. Escalate from Mini. Verify ticket queued with priority and fallback timer set."
+    },
+    {
+      "gap_id": "W9-GAP-016",
+      "severity": "HIGH",
+      "day": 7,
+      "feature": "F-151 Sentiment x Technique",
+      "title": "Sentiment technique override has no cooldown between triggers",
+      "what_breaks": "Customer with consistently low sentiment triggers UoT + Step-Back on every message, consuming excessive tokens and delaying responses",
+      "real_scenario": "Angry customer sends 10 messages in 5 minutes. Each message has sentiment <0.3. Each triggers UoT (expensive Tier 3 technique). 10 UoT executions instead of 1. Token budget consumed 10x. Response latency 5x normal.",
+      "fix": "Add per-conversation sentiment technique cooldown (60s). If UoT/Step-Back triggered in last 60s for same conversation, use cached result instead of re-executing. Add max_triggers_per_conversation limit (default 3 per session).",
+      "test_to_write": "test_sentiment_technique_cooldown - Trigger technique at t=0. Trigger again at t=10s. Verify cached result used. test_sentiment_technique_max_triggers - Trigger 4 times. Verify 4th uses fallback."
+    },
+    {
+      "gap_id": "W9-GAP-017",
+      "severity": "MEDIUM",
+      "day": 6,
+      "feature": "SG-13 Signal Extraction",
+      "title": "Signal extraction for monetary value doesn't handle multi-currency",
+      "what_breaks": "Monetary value extraction only recognizes $ symbol. International customers using EUR, GBP, INR are not detected",
+      "real_scenario": "UK customer writes 'I paid £500 for this'. Monetary value signal = null (no $ detected). Complexity score underestimates. Technique router doesn't trigger financial verification techniques.",
+      "fix": "Extend monetary value regex: (?:(?:$|£|€|¥|₹|USD|EUR|GBP|INR)\\s?\\d+(?:,\\d{3})*(?:\\.\\d{2})?). Also detect written amounts: 'five hundred dollars'. Map to USD equivalent for comparison.",
+      "test_to_write": "test_monetary_multi_currency - Extract from '£500', '€1,200.50', '₹50000', '500 USD'. Verify all detected."
+    },
+    {
+      "gap_id": "W9-GAP-018",
+      "severity": "MEDIUM",
+      "day": 6,
+      "feature": "F-150 CLARA Quality Gate",
+      "title": "CLARA Brand Check has no default brand voice for new tenants",
+      "what_breaks": "New tenant without configured brand voice gets CLARA Brand Check stage failing on every response because no brand guidelines exist to check against",
+      "real_scenario": "New ParWA customer starts using AI. Brand Voice Config (F-154) not yet set up. CLARA Brand Check stage has no baseline to compare against. Every response fails Brand Check. All responses sent to human review queue. AI effectively disabled.",
+      "fix": "CLARA Brand Check must have sensible defaults for unset brand voice: tone='professional', formality='medium', prohibited_words=[], max_length=500 chars. Only fail Brand Check if tenant has explicitly configured custom brand rules.",
+      "test_to_write": "test_clara_brand_check_default_tenant - New tenant with no brand config. Verify CLARA passes with defaults. test_clara_brand_check_custom_rules - Tenant with custom rules. Verify violations detected."
+    },
+    {
+      "gap_id": "W9-GAP-019",
+      "severity": "MEDIUM",
+      "day": 7,
+      "feature": "F-152 shared/knowledge_base/",
+      "title": "Vector search similarity threshold is not configurable per variant",
+      "what_breaks": "All variants use the same similarity threshold. Mini PARWA may need higher threshold (fewer but more relevant results) while High may need lower (broader retrieval)",
+      "real_scenario": "Similarity threshold hardcoded at 0.7. Mini PARWA gets 15 results (many irrelevant). High PARWA gets only 3 results (too few for complex queries). Both variants get suboptimal RAG performance.",
+      "fix": "Make threshold configurable per variant: Mini=0.85, Parwa=0.75, High=0.65. Store in variant_ai_capabilities table. Pass to vector_search as parameter.",
+      "test_to_write": "test_rag_threshold_per_variant - Search with Mini (threshold=0.85) and High (threshold=0.65). Verify Mini gets fewer but more relevant results."
+    },
+    {
+      "gap_id": "W9-GAP-020",
+      "severity": "MEDIUM",
+      "day": 8,
+      "feature": "F-065 Auto-Response",
+      "title": "Auto-response has no rate limit per customer",
+      "what_breaks": "Customer could trigger unlimited auto-responses by sending rapid messages, consuming AI budget quickly",
+      "real_scenario": "Customer sends 50 messages in 10 minutes. Each triggers auto-response (F-065). 50 LLM calls. Token budget consumed in 10 minutes. AI stops working for rest of billing period.",
+      "fix": "Add per-customer rate limit for auto-responses: max 20/hour, max 100/day. If exceeded, switch to template responses only (no LLM). Counter in Redis: auto_response_count:{company_id}:{customer_id}:{period}.",
+      "test_to_write": "test_auto_response_rate_limit - Send 25 messages in 1 hour. Verify messages 21-25 get template responses. test_auto_response_daily_limit - Send 105 messages in 1 day. Verify messages 101-105 get template responses."
+    },
+    {
+      "gap_id": "W9-GAP-021",
+      "severity": "MEDIUM",
+      "day": 8,
+      "feature": "F-154 Brand Voice",
+      "title": "Brand voice prohibited words check is case-insensitive but emoji/symbol variants bypass it",
+      "what_breaks": "Admin prohibits 'damn' but customer uses 'd4mn', 'd@mn', 'damn!!!' which all bypass the filter",
+      "real_scenario": "Brand voice prohibits word 'cheap'. Customer writes 'ch3ap product'. Prohibited word not detected. Response includes language suggesting competitor's low pricing.",
+      "fix": "Normalize text before prohibited word check: lowercase + remove non-alphanumeric chars + collapse repeated chars. Check normalized version against prohibited list. Log bypass attempts for admin review.",
+      "test_to_write": "test_prohibited_word_variations - Check 'd4mn', 'D@MN', 'damn!!!' against prohibited 'damn'. Verify all detected."
+    },
+    {
+      "gap_id": "W9-GAP-022",
+      "severity": "MEDIUM",
+      "day": 9,
+      "feature": "SG-12 Training Data Isolation",
+      "title": "Training data isolation has no audit log for access attempts",
+      "what_breaks": "If a bug causes cross-variant data access, there's no audit trail to detect or investigate it",
+      "real_scenario": "Bug in training pipeline: Parwa agent accidentally reads Mini training data. No audit log. Cross-contamination goes undetected for weeks. Mini customer data exposed to Parwa model.",
+      "fix": "Add audit logging for every training data access: {timestamp, accessor_variant, accessor_company_id, target_variant, target_data_id, access_type, result}. Write to training_data_access_log table. Alert on any cross-variant access attempts.",
+      "test_to_write": "test_training_data_access_audit - Access training data. Verify audit log entry created. test_training_data_cross_variant_access_alert - Access data from wrong variant. Verify alert generated."
+    },
+    {
+      "gap_id": "W9-GAP-023",
+      "severity": "MEDIUM",
+      "day": 9,
+      "feature": "SG-34 Data Freshness",
+      "title": "Signal staleness detection uses absolute time without considering message frequency",
+      "what_breaks": "Signal extracted 6 minutes ago is marked stale, but customer hasn't sent any new messages. Re-extraction wastes resources.",
+      "real_scenario": "Customer sent message at t=0. Signal extracted. No new messages for 6 minutes. SG-34 marks signal as stale (>5min). Re-extraction triggered on next system check. Same result (no new input). Wasted LLM call.",
+      "fix": "Only check staleness when new message arrives. Don't proactively re-extract on timer alone. Add 'last_message_at' timestamp. If no new message since signal extraction, signal is still fresh (nothing changed).",
+      "test_to_write": "test_data_freshness_no_new_message - Signal extracted 10 min ago. No new messages. Verify signal not marked stale. test_data_freshness_new_message - New message after 6 min. Verify stale signal re-extracted."
+    },
+    {
+      "gap_id": "W9-GAP-024",
+      "severity": "MEDIUM",
+      "day": 10,
+      "feature": "F-160 Conversation Summarization",
+      "title": "Summarization has no conversation state protection during summarization",
+      "what_breaks": "While summarization is running, new messages arrive. Summary may miss recent messages or include them partially",
+      "real_scenario": "Conversation has 50 messages. Summarization starts. 3 new messages arrive during summarization (2s). Summary is based on 50 messages, missing the 3 new ones. Next AI response uses outdated context.",
+      "fix": "Add conversation version counter: increment on every new message. Before summarization: capture version. After summarization: check if version changed. If changed, re-run summarization with latest messages. Use Redis lock during summarization to prevent concurrent runs.",
+      "test_to_write": "test_summarization_concurrent_messages - Start summarization. Add 5 messages during it. Verify summary includes or re-runs with new messages."
+    },
+    {
+      "gap_id": "W9-GAP-025",
+      "severity": "MEDIUM",
+      "day": 10,
+      "feature": "F-159 Anti-Arbitrage",
+      "title": "Anti-arbitrage doesn't consider weighted capacity across variants",
+      "what_breaks": "Capacity cap treats all variants equally. 5 Mini instances (5 * 2K tickets = 10K capacity) could be equivalent to 1 PARWA High (15K tickets) but anti-arbitrage only counts instances, not actual capacity",
+      "real_scenario": "Tenant creates 8 Mini instances. Anti-arbitrage checks instance count: 8 < 10 cap (allows). But total ticket capacity = 8 * 2000 = 16,000 tickets. This exceeds PARWA High's 15,000 limit. Tenant gets more capacity than High tier for less money.",
+      "fix": "Calculate weighted capacity: sum(instance.ticket_limit * instance.count) across all instances. Compare against plan ticket limit. If weighted > plan limit, reject. Add configurable capacity_weights: Mini=1.0, Parwa=2.5, High=7.5.",
+      "test_to_write": "test_anti_arbitrage_weighted_capacity - Create 8 Mini instances. Verify weighted capacity exceeds cap. test_anti_arbitrage_mixed_variants - 3 Mini + 2 Parwa. Verify correct weighted sum."
+    },
+    {
+      "gap_id": "W9-GAP-026",
+      "severity": "MEDIUM",
+      "day": 7,
+      "feature": "F-064 RAG Retrieval",
+      "title": "RAG top-k retrieval doesn't account for document recency",
+      "what_breaks": "Old knowledge base articles rank higher due to more keyword matches, but recent articles with updated policies are ranked lower",
+      "real_scenario": "KB has 'Refund Policy v1' (from 2024, 50 chunks, well-indexed) and 'Refund Policy v2' (from 2026, 5 chunks, recently uploaded). Query about refunds returns v1 chunks because more chunks match. Customer gets outdated policy.",
+      "fix": "Add recency boost to pgvector query: ORDER BY (similarity * 0.7 + recency_score * 0.3) DESC. Recency score = 1.0 for docs < 30 days, 0.8 for < 90 days, 0.5 for < 365 days, 0.3 for older. Store document_updated_at in chunk metadata.",
+      "test_to_write": "test_rag_recency_boost - Old doc with high similarity vs new doc with lower similarity. Verify new doc ranks higher with recency boost."
+    },
+    {
+      "gap_id": "W9-GAP-027",
+      "severity": "MEDIUM",
+      "day": 8,
+      "feature": "F-050 AI Assignment",
+      "title": "AI assignment jitter (randomness factor) can cause unstable assignments",
+      "what_breaks": "Same ticket assigned multiple times gets different agents each time due to jitter, causing inconsistent ownership",
+      "real_scenario": "Ticket unassigned, re-enters assignment queue 3 times. Jitter (10% weight = random 0-10) causes different agent each time. 3 different agents handle same ticket. No single owner. Agent accountability is lost.",
+      "fix": "Use deterministic jitter based on ticket_id hash instead of random: jitter = hash(ticket_id + agent_id) % 10. Same ticket always gets same jitter per agent. Reduces assignment churn. Still provides diversity for new tickets.",
+      "test_to_write": "test_assignment_deterministic_jitter - Assign same ticket 5 times. Verify same agent selected each time. test_assignment_diversity_across_tickets - Assign 100 tickets. Verify reasonable distribution across agents."
+    },
+    {
+      "gap_id": "W9-GAP-028",
+      "severity": "MEDIUM",
+      "day": 8,
+      "feature": "F-065 Auto-Response",
+      "title": "Auto-response doesn't check for existing human draft in progress",
+      "what_breaks": "AI sends auto-response while human agent is already typing a response, causing confusion and duplicate responses",
+      "real_scenario": "Agent opens ticket and starts typing response. Meanwhile, F-065 auto-response fires (100ms after ticket creation). AI response appears in conversation. Agent's draft becomes irrelevant. Customer gets two responses.",
+      "fix": "Before sending auto-response, check: (1) Is a human agent currently assigned to this ticket? (2) Has a draft been saved in the last 60s? If either is true, skip auto-response. Add 'draft_in_progress' flag in Redis per ticket.",
+      "test_to_write": "test_auto_response_skips_when_agent_typing - Assign agent to ticket, set draft_in_progress. Trigger auto-response. Verify skipped."
+    }
+  ]
+}

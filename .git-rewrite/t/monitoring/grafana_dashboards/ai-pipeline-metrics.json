@@ -1,0 +1,470 @@
+{
+  "uid": "parwa-ai-pipeline",
+  "title": "PARWA AI Pipeline Metrics",
+  "tags": ["parwa", "ai", "pipeline", "llm"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "Prometheus",
+        "current": { "selected": true, "text": "Prometheus", "value": "Prometheus" },
+        "hide": 0
+      },
+      {
+        "name": "tier",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "refresh": 2,
+        "query": "label_values(parwa_ai_tokens_total, tier)",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": { "selected": true, "text": "All", "value": "$__all" }
+      },
+      {
+        "name": "provider",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "refresh": 2,
+        "query": "label_values(parwa_llm_error_total, provider)",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": { "selected": true, "text": "All", "value": "$__all" }
+      },
+      {
+        "name": "vertical",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "refresh": 2,
+        "query": "label_values(parwa_active_conversations, vertical)",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": { "selected": true, "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Per-Technique Latency (P50, P95, P99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "lineWidth": 2,
+            "spanNulls": false,
+            "axisCenteredZero": false,
+            "stacking": { "mode": "none", "group": "A" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 10 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(parwa_ai_technique_duration_seconds_bucket[5m])) by (le, technique))",
+          "legendFormat": "{{technique}} P50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(parwa_ai_technique_duration_seconds_bucket[5m])) by (le, technique))",
+          "legendFormat": "{{technique}} P95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(parwa_ai_technique_duration_seconds_bucket[5m])) by (le, technique))",
+          "legendFormat": "{{technique}} P99",
+          "refId": "C"
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "lastNotNull"] }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Token Usage by Tier",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 20,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "lineWidth": 2,
+            "spanNulls": false,
+            "axisCenteredZero": false,
+            "stacking": { "mode": "none", "group": "A" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(parwa_ai_tokens_total{tier=~\"$tier\"}[5m])) by (tier)",
+          "legendFormat": "{{tier}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["mean", "lastNotNull"] }
+      }
+    },
+    {
+      "id": 3,
+      "title": "LLM Cost per Request by Tier",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "USD",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 80,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "lineWidth": 1,
+            "spanNulls": false,
+            "axisCenteredZero": false,
+            "stacking": { "mode": "normal", "group": "A" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(parwa_llm_cost_total{tier=~\"$tier\"}[5m])) by (tier)",
+          "legendFormat": "{{tier}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["sum", "lastNotNull"] }
+      }
+    },
+    {
+      "id": 4,
+      "title": "LLM Error Rates by Provider",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "lineWidth": 2,
+            "spanNulls": false,
+            "axisCenteredZero": false,
+            "stacking": { "mode": "none", "group": "A" },
+            "thresholdsStyle": { "mode": "line+area" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.03 },
+              { "color": "red", "value": 0.05 }
+            ]
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(parwa_llm_error_total{provider=~\"$provider\"}[5m])) by (provider) / sum(rate(parwa_llm_requests_total{provider=~\"$provider\"}[5m])) by (provider)",
+          "legendFormat": "{{provider}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["mean", "max"] }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Smart Router Fallback Frequency",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "custom": {},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 200 }
+            ]
+          },
+          "mappings": [],
+          "color": { "mode": "thresholds" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(parwa_smart_router_fallback_total[5m]))",
+          "legendFormat": "Fallbacks (5m)",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 6,
+      "title": "FAKE Voting Consensus Score",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "decimals": 2,
+          "custom": {},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.6 },
+              { "color": "green", "value": 0.75 }
+            ]
+          },
+          "mappings": [],
+          "color": { "mode": "thresholds" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "avg(parwa_fake_voting_consensus_score)",
+          "legendFormat": "Consensus",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "id": 7,
+      "title": "Jarvis Override Rate",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "decimals": 2,
+          "noValue": "0",
+          "custom": {},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.2 },
+              { "color": "red", "value": 0.3 }
+            ]
+          },
+          "mappings": [],
+          "color": { "mode": "thresholds" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(parwa_jarvis_override_total[5m])) / sum(rate(parwa_jarvis_decisions_total[5m]))",
+          "legendFormat": "Override Rate",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 8,
+      "title": "Active Conversations by Vertical",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "noValue": "0",
+          "custom": {},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 100 },
+              { "color": "red", "value": 200 }
+            ]
+          },
+          "mappings": [],
+          "color": { "mode": "thresholds" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(parwa_active_conversations{vertical=~\"$vertical\"}) by (vertical)",
+          "legendFormat": "{{vertical}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "minVizWidth": 0,
+        "minVizHeight": 10,
+        "namePlacement": "auto",
+        "valueMode": "text"
+      }
+    },
+    {
+      "id": 9,
+      "title": "Smart Router Fallback Rate Over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 15,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "lineWidth": 2,
+            "spanNulls": false,
+            "axisCenteredZero": false,
+            "stacking": { "mode": "none", "group": "A" },
+            "thresholdsStyle": { "mode": "line+area" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.2 }
+            ]
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(parwa_smart_router_fallback_total[5m])) / sum(rate(parwa_smart_router_requests_total[5m]))",
+          "legendFormat": "Fallback Rate",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["mean", "max"] }
+      }
+    }
+  ],
+  "__inputs": [],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" },
+    { "type": "panel", "id": "timeseries", "name": "Time series", "version": "" },
+    { "type": "panel", "id": "stat", "name": "Stat", "version": "" },
+    { "type": "panel", "id": "gauge", "name": "Gauge", "version": "" },
+    { "type": "panel", "id": "bargauge", "name": "Bar gauge", "version": "" }
+  ]
+}
