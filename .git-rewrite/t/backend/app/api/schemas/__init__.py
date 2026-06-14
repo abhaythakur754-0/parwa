@@ -1,1 +1,0 @@
-"""PARWA API schema packages."""

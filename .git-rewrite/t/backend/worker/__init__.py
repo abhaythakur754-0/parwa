@@ -1,1 +1,0 @@
-# PARWA Background Worker package

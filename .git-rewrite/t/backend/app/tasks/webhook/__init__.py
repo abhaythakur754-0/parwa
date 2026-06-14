@@ -1,1 +1,0 @@
-"""PARWA webhook tasks package."""
