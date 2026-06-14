@@ -65,8 +65,8 @@ export const COUPONS: Coupon[] = [
   {
     code: process.env.NEXT_PUBLIC_PADDLE_FREE_DISCOUNT_CODE || 'durga754',
     discountPercent: 100,
-    // Override via env var, or hardcode your Paddle discount ID here
-    paddleDiscountId: process.env.NEXT_PUBLIC_PADDLE_FREE_DISCOUNT_ID || undefined,
+    // Paddle Discount ID from Dashboard → Catalog → Discounts
+    paddleDiscountId: process.env.NEXT_PUBLIC_PADDLE_FREE_DISCOUNT_ID || 'dsc_01kv26d0s3qt2w1vpj888qa2nh',
     description: '100% off — Full testing access (all variants free)',
     active: true,
   },
