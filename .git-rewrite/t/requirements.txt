@@ -9,7 +9,7 @@ passlib[bcrypt]==1.7.4
 python-multipart==0.0.20
 httpx==0.28.1
 redis==5.2.1
-python-socketio==5.11.4
+python-socketio==5.14.0
 celery[redis]==5.4.0
 structlog==24.4.0
 pytest==8.3.4
