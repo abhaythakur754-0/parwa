@@ -440,3 +440,340 @@ export const VARIANT_DETAILS: VariantInfo[] = [
     extras: ['Priority support', 'Custom connectors', 'Dedicated account manager', 'SLA guarantees'],
   },
 ];
+
+// ============= PHASE 5: TICKETS, QUALITY, CALLS, VARIANT CONTROL =============
+
+// Ticket types
+export interface TicketMessage {
+  id: string;
+  sender: string;
+  content: string;
+  timestamp: string;
+  channel: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface AIAction {
+  id: string;
+  action_type: string;
+  description: string;
+  status: string;
+  variant: string;
+  timestamp: string;
+  can_undo: boolean;
+  can_approve: boolean;
+  result: Record<string, unknown> | null;
+}
+
+export interface TicketDetail {
+  id: string;
+  subject: string;
+  status: string;
+  priority: string;
+  channel: string;
+  customer_id: string;
+  customer_name: string;
+  customer_email: string;
+  variant_tier: string;
+  quality_score: number;
+  quality_issues: string[];
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+  ai_actions: AIAction[];
+  sentiment: string;
+  tags: string[];
+}
+
+export interface TicketListItem {
+  id: string;
+  subject: string;
+  status: string;
+  priority: string;
+  channel: string;
+  customer_name: string;
+  variant_tier: string;
+  quality_score: number;
+  created_at: string;
+  updated_at: string;
+  ai_action_count: number;
+  sentiment: string;
+}
+
+export interface TicketListResponse {
+  tickets: TicketListItem[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+export interface TicketStats {
+  total_tickets: number;
+  open_tickets: number;
+  in_progress: number;
+  resolved: number;
+  by_channel: Record<string, number>;
+  by_priority: Record<string, number>;
+  avg_resolution_hours: number;
+  avg_quality_score: number;
+  ai_actions_today: number;
+  pending_approvals: number;
+}
+
+// Variant control types
+export interface VariantStatus {
+  variant: string;
+  status: string;
+  tickets_used: number;
+  tickets_limit: number;
+  actions_today: number;
+  pending_approvals: number;
+  last_action: string | null;
+}
+
+export interface VariantStatusResponse {
+  variants: VariantStatus[];
+  emergency_stop: boolean;
+  paused_all: boolean;
+}
+
+export interface PauseResumeResponse {
+  success: boolean;
+  variant: string;
+  status: string;
+  message: string;
+}
+
+export interface EmergencyStopResponse {
+  success: boolean;
+  message: string;
+  timestamp: string;
+}
+
+// Voice recording types
+export interface VoiceRecording {
+  id: string;
+  ticket_id: string;
+  agent_name: string;
+  duration: number;
+  sentiment: string;
+  quality_score: number;
+  timestamp: string;
+  call_sid: string;
+  transcript_preview: string;
+  consent_message: string;
+}
+
+// Quality score summary
+export interface QualityScoreSummary {
+  average_score: number;
+  total_evaluated: number;
+  pass_rate: number;
+  by_variant: Record<string, number>;
+  recent_trend: { date: string; score: number }[];
+}
+
+// Pipeline stats
+export interface PipelineStats {
+  total_processed: number;
+  average_latency_ms: number;
+  success_rate: number;
+  nodes_summary: { node: string; avg_time_ms: number; calls: number }[];
+}
+
+// Auth types
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    company_id: string;
+    company_name: string;
+    subscription_variant: string;
+  };
+}
+
+// ============= PHASE 5 API FUNCTIONS =============
+
+// Auth
+export async function loginUser(email: string, password: string): Promise<AuthResponse> {
+  return apiFetch<AuthResponse>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  }, {
+    access_token: 'mock-jwt-token',
+    token_type: 'bearer',
+    user: { id: 'usr-1', email, name: email.split('@')[0], company_id: 'demo-company-001', company_name: 'Demo Corp', subscription_variant: 'parwa' },
+  });
+}
+
+export async function registerUser(data: { email: string; password: string; name: string; company_name: string; industry?: string }): Promise<AuthResponse> {
+  return apiFetch<AuthResponse>('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }, {
+    access_token: 'mock-jwt-token',
+    token_type: 'bearer',
+    user: { id: 'usr-new', email: data.email, name: data.name, company_id: 'demo-company-001', company_name: data.company_name, subscription_variant: 'mini' },
+  });
+}
+
+// Tickets
+export async function getTickets(params?: {
+  page?: number;
+  per_page?: number;
+  status?: string;
+  channel?: string;
+  priority?: string;
+  search?: string;
+}): Promise<TicketListResponse> {
+  const queryParts: string[] = [];
+  if (params?.page) queryParts.push(`page=${params.page}`);
+  if (params?.per_page) queryParts.push(`per_page=${params.per_page}`);
+  if (params?.status) queryParts.push(`status=${params.status}`);
+  if (params?.channel) queryParts.push(`channel=${params.channel}`);
+  if (params?.priority) queryParts.push(`priority=${params.priority}`);
+  if (params?.search) queryParts.push(`search=${encodeURIComponent(params.search)}`);
+  const qs = queryParts.length > 0 ? queryParts.join('&') : '';
+  return apiFetch<TicketListResponse>(`/tickets/${qs ? `?${qs}` : ''}`, {}, {
+    tickets: [],
+    total: 0,
+    page: 1,
+    per_page: 20,
+  });
+}
+
+export async function getTicketDetail(id: string): Promise<TicketDetail> {
+  return apiFetch<TicketDetail>(`/tickets/${id}`, {}, {
+    id,
+    subject: 'Unknown Ticket',
+    status: 'open',
+    priority: 'normal',
+    channel: 'email',
+    customer_id: '',
+    customer_name: 'Unknown',
+    customer_email: '',
+    variant_tier: 'parwa',
+    quality_score: 0,
+    quality_issues: [],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    message_count: 0,
+    ai_actions: [],
+    sentiment: 'neutral',
+    tags: [],
+  });
+}
+
+export async function getTicketMessages(id: string): Promise<TicketMessage[]> {
+  return apiFetch<TicketMessage[]>(`/tickets/${id}/messages`, {}, []);
+}
+
+export async function getTicketStats(): Promise<TicketStats> {
+  return apiFetch<TicketStats>('/tickets/stats', {}, {
+    total_tickets: 0,
+    open_tickets: 0,
+    in_progress: 0,
+    resolved: 0,
+    by_channel: {},
+    by_priority: {},
+    avg_resolution_hours: 0,
+    avg_quality_score: 0,
+    ai_actions_today: 0,
+    pending_approvals: 0,
+  });
+}
+
+export async function approveAction(actionId: string): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/actions/${actionId}/approve`, {
+    method: 'POST',
+  }, { success: true });
+}
+
+export async function denyAction(actionId: string): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/actions/${actionId}/deny`, {
+    method: 'POST',
+  }, { success: true });
+}
+
+export async function undoAction(actionId: string): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/actions/${actionId}/undo`, {
+    method: 'POST',
+  }, { success: true });
+}
+
+export async function addNoteToAction(actionId: string, note: string): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/actions/${actionId}/note`, {
+    method: 'POST',
+    body: JSON.stringify({ note }),
+  }, { success: true });
+}
+
+// Variant Control
+export async function getVariantStatus(): Promise<VariantStatusResponse> {
+  return apiFetch<VariantStatusResponse>('/variants/status', {}, {
+    variants: [
+      { variant: 'mini', status: 'active', tickets_used: 0, tickets_limit: 500, actions_today: 0, pending_approvals: 0, last_action: null },
+      { variant: 'parwa', status: 'active', tickets_used: 0, tickets_limit: 2000, actions_today: 0, pending_approvals: 0, last_action: null },
+      { variant: 'high', status: 'active', tickets_used: 0, tickets_limit: 0, actions_today: 0, pending_approvals: 0, last_action: null },
+    ],
+    emergency_stop: false,
+    paused_all: false,
+  });
+}
+
+export async function pauseVariant(id: string): Promise<PauseResumeResponse> {
+  return apiFetch<PauseResumeResponse>(`/variants/${id}/pause`, {
+    method: 'POST',
+  }, { success: true, variant: id, status: 'paused', message: `${id} paused` });
+}
+
+export async function resumeVariant(id: string): Promise<PauseResumeResponse> {
+  return apiFetch<PauseResumeResponse>(`/variants/${id}/resume`, {
+    method: 'POST',
+  }, { success: true, variant: id, status: 'active', message: `${id} resumed` });
+}
+
+export async function pauseAllVariants(): Promise<EmergencyStopResponse> {
+  return apiFetch<EmergencyStopResponse>('/variants/pause-all', {
+    method: 'POST',
+  }, { success: true, message: 'All variants paused', timestamp: new Date().toISOString() });
+}
+
+export async function emergencyStop(): Promise<EmergencyStopResponse> {
+  return apiFetch<EmergencyStopResponse>('/variants/emergency-stop', {
+    method: 'POST',
+  }, { success: true, message: 'Emergency stop activated', timestamp: new Date().toISOString() });
+}
+
+export async function resumeAllVariants(): Promise<EmergencyStopResponse> {
+  return apiFetch<EmergencyStopResponse>('/variants/resume-all', {
+    method: 'POST',
+  }, { success: true, message: 'All variants resumed', timestamp: new Date().toISOString() });
+}
+
+// Voice recordings
+export async function getVoiceRecordings(): Promise<VoiceRecording[]> {
+  return apiFetch<VoiceRecording[]>('/voice/recordings', {}, []);
+}
+
+export async function getQualityScoreSummary(): Promise<QualityScoreSummary> {
+  return apiFetch<QualityScoreSummary>('/quality/scores/summary', {}, {
+    average_score: 0,
+    total_evaluated: 0,
+    pass_rate: 0,
+    by_variant: {},
+    recent_trend: [],
+  });
+}
+
+export async function getPipelineStats(): Promise<PipelineStats> {
+  return apiFetch<PipelineStats>('/monitoring/pipeline', {}, {
+    total_processed: 0,
+    average_latency_ms: 0,
+    success_rate: 0,
+    nodes_summary: [],
+  });
+}

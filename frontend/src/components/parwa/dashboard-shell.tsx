@@ -9,10 +9,15 @@ import { Separator } from '@/components/ui/separator';
 import {
   Home, Zap, CreditCard, Link2, BookOpen, Bell, Settings,
   Menu, ChevronRight, Sparkles, LogOut, User,
+  Ticket, Phone, Activity,
 } from 'lucide-react';
 import { type VariantType, getNotifications } from '@/lib/api';
+import { useAuth } from '@/components/providers/auth-provider';
 import DashboardHome from './dashboard-home';
 import VariantSelection from './variant-selection';
+import VariantControl from './variant-control';
+import TicketsPage from './tickets-page';
+import CallsPage from './calls-page';
 import PaymentBilling from './payment-billing';
 import Integrations from './integrations';
 import Notifications from './notifications';
@@ -20,7 +25,7 @@ import KnowledgeBase from './knowledge-base';
 import SettingsPage from './settings';
 import OnboardingFlow from './onboarding-flow';
 
-type TabId = 'home' | 'variants' | 'billing' | 'integrations' | 'knowledge' | 'notifications' | 'settings';
+type TabId = 'home' | 'tickets' | 'variants' | 'calls' | 'billing' | 'integrations' | 'knowledge' | 'notifications' | 'settings';
 
 interface NavItem {
   id: TabId;
@@ -30,7 +35,9 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: 'home', label: 'Home', icon: Home },
-  { id: 'variants', label: 'Variants', icon: Zap },
+  { id: 'tickets', label: 'Tickets', icon: Ticket },
+  { id: 'variants', label: 'Variants', icon: Activity },
+  { id: 'calls', label: 'Calls', icon: Phone },
   { id: 'billing', label: 'Billing', icon: CreditCard },
   { id: 'integrations', label: 'Integrations', icon: Link2 },
   { id: 'knowledge', label: 'Knowledge', icon: BookOpen },
@@ -156,12 +163,25 @@ function SidebarContent({
 }
 
 export default function DashboardShell() {
+  const { user, isAuthenticated, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>('home');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeVariants, setActiveVariants] = useState<VariantType[]>([]);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const initializedRef = useRef(false);
+
+  // Sync user subscription_variant into activeVariants
+  useEffect(() => {
+    if (user?.subscription_variant) {
+      setActiveVariants(prev => {
+        if (!prev.includes(user.subscription_variant as VariantType)) {
+          return [...prev, user.subscription_variant as VariantType];
+        }
+        return prev;
+      });
+    }
+  }, [user?.subscription_variant]);
 
   // Check if we should show onboarding — use lazy init pattern
   useEffect(() => {
@@ -222,12 +242,19 @@ export default function DashboardShell() {
     });
   }, []);
 
+  const userName = user?.name;
+  const companyName = user?.company_name;
+
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
         return <DashboardHome activeVariants={activeVariants} onNavigate={handleNavigate} />;
+      case 'tickets':
+        return <TicketsPage activeVariants={activeVariants} />;
       case 'variants':
         return <VariantSelection activeVariants={activeVariants} onVariantChange={handleVariantChange} />;
+      case 'calls':
+        return <CallsPage />;
       case 'billing':
         return <PaymentBilling activeVariants={activeVariants} />;
       case 'integrations':
@@ -251,10 +278,10 @@ export default function DashboardShell() {
           activeTab={activeTab}
           activeVariants={activeVariants}
           unreadCount={unreadCount}
-          userName={undefined}
-          companyName={undefined}
+          userName={userName}
+          companyName={companyName}
           onNavigate={handleNavigate}
-          onLogout={() => {}}
+          onLogout={logout}
         />
       </aside>
 
@@ -268,10 +295,10 @@ export default function DashboardShell() {
             activeTab={activeTab}
             activeVariants={activeVariants}
             unreadCount={unreadCount}
-            userName={undefined}
-            companyName={undefined}
+            userName={userName}
+            companyName={companyName}
             onNavigate={handleNavigate}
-            onLogout={() => {}}
+            onLogout={logout}
           />
         </SheetContent>
       </Sheet>
@@ -324,9 +351,9 @@ export default function DashboardShell() {
             {/* User avatar in header */}
             <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-border">
               <div className="w-7 h-7 rounded-full bg-[#0A3D2E] flex items-center justify-center text-white text-xs font-bold">
-                U
+                {userName ? userName.charAt(0).toUpperCase() : 'U'}
               </div>
-              <span className="text-xs text-muted-foreground max-w-[100px] truncate">User</span>
+              <span className="text-xs text-muted-foreground max-w-[100px] truncate">{userName || 'User'}</span>
             </div>
           </div>
         </header>
