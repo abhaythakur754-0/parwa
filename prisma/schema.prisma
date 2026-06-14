@@ -12,15 +12,23 @@ datasource db {
 // ==========================================
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String?
-  password_hash String?
-  is_verified   Boolean   @default(false)
-  tenant_id     String?
-  role          String    @default("client") // client | admin
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
+  id                          String    @id @default(cuid())
+  email                       String    @unique
+  name                        String?
+  full_name                   String?
+  company_name                String?
+  industry                    String?
+  phone                       String?
+  avatar_url                  String?
+  is_active                   Boolean   @default(true)
+  password_hash               String?
+  is_verified                 Boolean   @default(false)
+  verification_token          String?
+  verification_token_expires  DateTime?
+  tenant_id                   String?
+  role                        String    @default("client") // client | admin
+  created_at                  DateTime  @default(now())
+  updated_at                  DateTime  @updatedAt
 
   tenant        Tenant?   @relation(fields: [tenant_id], references: [id])
 }

@@ -45,3 +45,31 @@ Stage Summary:
 - models/page.tsx: Replaced 7 green/emerald instances with orange accent colors
 - models/page.tsx: Added "More Details" toggle button with expandable integrations/channels/smart-decisions
 - coupon-config.ts: Updated comments to reflect lowercase code convention
+
+---
+Task ID: 2
+Agent: main
+Task: E2E testing and fixing critical registration/login bugs
+
+Work Log:
+- Ran comprehensive E2E tests against production build
+- Discovered CRITICAL bug: Prisma schema didn't have fields used by register/login routes (full_name, company_name, industry, phone, avatar_url, is_active, verification_token, verification_token_expires)
+- Fixed Prisma schema: added all missing fields to User model
+- Pushed schema changes to SQLite DB
+- Fixed login route: user.full_name fallback to user.name
+- Fixed register route: user.full_name fallback to user.name
+- Rebuilt production build and re-tested
+- All auth flows now work: REGISTER returns success, LOGIN returns success with cookies, AUTH ME returns full user profile
+- Dashboard renders with auth cookies (11586 bytes)
+- AI Instances API works (returns {items:[], total:0})
+- Models page: 40305 bytes, orange #FF7F11 accent, ZERO emerald/green CSS
+- Integrations API requires tenant identification (backend middleware issue)
+- Analytics API requires tenant identification (backend middleware issue)
+
+Stage Summary:
+- FIXED: Prisma schema mismatch causing registration to fail
+- FIXED: Login route field access
+- VERIFIED: Registration → Login → Auth Me → Dashboard flow works
+- VERIFIED: Models page has ORANGE theme, no green/emerald
+- REMAINING: Backend APIs (integrations, analytics) need tenant_id in JWT for backend middleware
+- REMAINING: Client-side React rendering of dashboard (SSR shows shell only)

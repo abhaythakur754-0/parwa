@@ -228,7 +228,7 @@ export async function POST(request: NextRequest) {
       const userData = {
         id: user.id,
         email: user.email,
-        fullName: user.full_name,
+        fullName: user.full_name || user.name,
         isVerified: user.is_verified,
       };
 
