@@ -2,19 +2,57 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { ProgressIndicator } from './ProgressIndicator';
-import { LegalCompliance } from './LegalCompliance';
-import { IntegrationStep } from './IntegrationStep';
-import { KnowledgeUpload } from './KnowledgeUpload';
-import { AIConfig } from './AIConfig';
-import { CostBreakdownStep } from './CostBreakdownStep';
-import { FirstVictory } from './FirstVictory';
 import { Loader2, ArrowLeft, LogOut } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 import type { OnboardingState } from '@/types/onboarding';
-import type { ParwaVariant } from './IndustryVariantStep';
-import { mapIndustryToParwaIndustry, type ParwaIndustry } from '@/lib/integration-catalog';
+
+// ── Lazy-load ALL step components ─────────────────────────────────────
+// Each step component pulls in heavy dependencies (integration-catalog,
+// paddle-js, pricing-config, react-hot-toast, etc.) that cause TDZ errors
+// ("Cannot access 'X' before initialization") when evaluated as part of
+// the main OnboardingWizard chunk. By lazy-loading each step, we isolate
+// their dependencies into separate chunks that load independently.
+const LegalCompliance = dynamic(
+  () => import('./LegalCompliance').then(mod => ({ default: mod.LegalCompliance })),
+  { ssr: false, loading: () => <StepLoading /> }
+);
+const IntegrationStep = dynamic(
+  () => import('./IntegrationStep').then(mod => ({ default: mod.IntegrationStep })),
+  { ssr: false, loading: () => <StepLoading /> }
+);
+const KnowledgeUpload = dynamic(
+  () => import('./KnowledgeUpload').then(mod => ({ default: mod.KnowledgeUpload })),
+  { ssr: false, loading: () => <StepLoading /> }
+);
+const AIConfig = dynamic(
+  () => import('./AIConfig').then(mod => ({ default: mod.AIConfig })),
+  { ssr: false, loading: () => <StepLoading /> }
+);
+const CostBreakdownStep = dynamic(
+  () => import('./CostBreakdownStep').then(mod => ({ default: mod.CostBreakdownStep })),
+  { ssr: false, loading: () => <StepLoading /> }
+);
+const FirstVictory = dynamic(
+  () => import('./FirstVictory').then(mod => ({ default: mod.FirstVictory })),
+  { ssr: false, loading: () => <StepLoading /> }
+);
+
+// ── Step Loading Placeholder ──────────────────────────────────────────
+function StepLoading() {
+  return (
+    <div className="flex items-center justify-center py-20">
+      <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
+      <span className="ml-3 text-orange-200/50 text-sm">Loading step...</span>
+    </div>
+  );
+}
+
+// ── Types (duplicated locally to avoid static import of IndustryVariantStep) ──
+type ParwaVariant = 'mini_parwa' | 'parwa' | 'parwa_high';
+type ParwaIndustry = string; // loose type — the real enum comes from integration-catalog
 
 const TOTAL_STEPS = 6;
 
@@ -34,9 +72,24 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   const [selectedIndustry, setSelectedIndustry] = useState<ParwaIndustry | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<ParwaVariant | null>(null);
 
+  // Lazy-loaded integration-catalog function
+  const [mapIndustryFn, setMapIndustryFn] = useState<((industry: string) => string) | null>(null);
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, logout } = useAuth();
+
+  // ── Lazy-load integration-catalog ───────────────────────────────────
+  // We only need mapIndustryToParwaIndustry from this 992-line module.
+  // Loading it dynamically avoids pulling it into the main wizard chunk.
+  useEffect(() => {
+    import('@/lib/integration-catalog').then(mod => {
+      setMapIndustryFn(() => mod.mapIndustryToParwaIndustry);
+    }).catch(() => {
+      // Fallback: identity function
+      setMapIndustryFn(() => (industry: string) => industry);
+    });
+  }, []);
 
   // Fetch initial state + restore variant from localStorage
   useEffect(() => {
@@ -167,8 +220,8 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   const industryParam = searchParams.get('industry');
   const cameFromPricing = source === 'pricing';
 
-  // Resolve industry: localStorage state > URL param
-  const resolvedIndustry = selectedIndustry || (industryParam ? mapIndustryToParwaIndustry(industryParam) : undefined);
+  // Resolve industry: localStorage state > URL param (using lazy-loaded fn)
+  const resolvedIndustry = selectedIndustry || (industryParam && mapIndustryFn ? mapIndustryFn(industryParam) : undefined);
 
   if (loading) {
     return (

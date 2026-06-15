@@ -13,6 +13,20 @@ const nextConfig = {
     root: "..",
   },
 
+  // Webpack: add fallbacks for Node.js modules that some client-side
+  // packages (like @paddle/paddle-js) reference during evaluation.
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+      };
+    }
+    return config;
+  },
+
   // ── Security headers on all responses ──
   async headers() {
     return [
