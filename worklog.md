@@ -92,3 +92,26 @@ Stage Summary:
 - Paddle.ts now uses dynamic import('@paddle/paddle-js') which is deferred until runtime
 - IntegrationStep loads 993-line catalog dynamically via useEffect
 - Source maps enabled for future debugging if TDZ recurs
+
+---
+Task ID: 1
+Agent: Main
+Task: Fix Paddle TDZ error on onboarding payment page
+
+Work Log:
+- Investigated the "Cannot access 'ea' before initialization" error on onboarding payment page
+- Root cause: @paddle/paddle-js npm package has internal TDZ (Temporal Dead Zone) issues when bundled by Next.js/Turbopack
+- The ESM module has circular references that break during webpack minification
+- First attempted fix: dynamic import() - user reported still failing
+- Second fix: Added CDN fallback - when npm dynamic import throws TDZ error, automatically falls back to loading Paddle.js from cdn.paddle.com via script tag
+- Added Paddle CDN domains to CSP headers (script-src, connect-src, frame-src)
+- Fixed next.config.mjs: removed duplicate webpack config, invalid eslint key, turbopack.root override
+- Added empty turbopack config for Next.js 16 compatibility
+- Build passes successfully
+- Pushed to GitHub (normal push, no force push)
+
+Stage Summary:
+- Fixed paddle.ts with dual-loading strategy: npm dynamic import first, CDN fallback second
+- CSP headers updated to allow Paddle CDN
+- next.config.mjs cleaned up and fixed for Next.js 16
+- Commit: 23cd6eae pushed to origin/main
