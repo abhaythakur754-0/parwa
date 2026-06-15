@@ -54,7 +54,6 @@ class HyDETechnique(BaseTechnique):
             "KB_RETRIEVER",
             "FAQ_MATCHER",
             "CONTEXT_MANAGER",
-            "REASONING_ENGINE",
         ]
 
     @property

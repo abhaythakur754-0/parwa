@@ -47,21 +47,13 @@ class ChainOfThoughtTechnique(BaseTechnique):
 
     @property
     def applicable_nodes(self) -> list[str]:
+        # Only nodes that actually call FrameworkBrain.think() with CoT
+        # as a candidate. Nodes using think_single() don't need registration
+        # here — they directly specify their technique.
         return [
             "REASONING_ENGINE",
-            "INTENT_CLASSIFIER",
-            "FAQ_MATCHER",
-            "KB_RETRIEVER",
-            "INTEGRATION_LOOKUP",
             "ACTION_PLANNER",
             "ACTION_VERIFIER",
-            "PROACTIVE_CHECKER",
-            "PREDICTION_ENGINE",
-            "PII_COMPLIANCE_GUARD",
-            "RESPONSE_FORMATTER",
-            "SENTIMENT_ANALYZER",
-            "CONTEXT_MANAGER",
-            "ESCALATION_DECISION",
             "QUALITY_SCORER",
         ]
 

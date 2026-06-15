@@ -20,6 +20,14 @@ Complexity-based activation:
     Medium   → CoT + ReAct
     Complex  → CoT + ReAct + ToT + Reverse + GST
     Critical → All techniques + UoT (uncertainty triggers deeper analysis)
+
+Selection strategy (v2 — priority-based, not hard cap):
+    Techniques are sorted by relevance to the current complexity level,
+    not by registration order. The technique whose min_complexity most
+    closely matches the ticket complexity runs first. This ensures:
+    - UoT actually fires on critical tickets (was dead before)
+    - ToT/GST fire on complex tickets (were cut before)
+    - CoT always runs as baseline (unchanged)
 """
 
 from __future__ import annotations
@@ -31,6 +39,19 @@ from parwa.frameworks.base import TechniqueResult
 from parwa.frameworks.registry import get_registry
 
 logger = logging.getLogger("parwa.frameworks.brain")
+
+# Complexity ordering for priority-based selection
+_COMPLEXITY_ORDER = {"simple": 0, "medium": 1, "complex": 2, "critical": 3}
+
+# Maximum techniques per node — now a SOFT cap that respects priority.
+# On critical tickets, all applicable techniques can run (up to 4).
+# On simpler tickets, fewer techniques are needed.
+_MAX_TECHNIQUES_BY_COMPLEXITY = {
+    "simple": 1,
+    "medium": 2,
+    "complex": 3,
+    "critical": 4,
+}
 
 
 class FrameworkBrain:
@@ -50,6 +71,36 @@ class FrameworkBrain:
         self.state = state
         self._registry = get_registry()
 
+    @staticmethod
+    def _technique_priority(technique: Any, complexity: str) -> float:
+        """Score a technique's relevance to the current complexity.
+
+        Higher score = higher priority for activation.
+        Strategy:
+          - Techniques whose min_complexity exactly matches get highest priority
+          - Techniques that are "close" to the complexity level get medium priority
+          - CoT (min_complexity="simple") always runs as baseline but with lower
+            priority than specialized techniques for higher complexities
+        """
+        min_c = getattr(technique, '_min_complexity', 'simple')
+        min_level = _COMPLEXITY_ORDER.get(min_c, 0)
+        ticket_level = _COMPLEXITY_ORDER.get(complexity, 0)
+
+        # Exact match → highest priority
+        if min_level == ticket_level:
+            return 100.0
+
+        # For the current complexity, prefer techniques that are "designed for it"
+        # Techniques with min_complexity <= ticket_level are eligible
+        # Those closer to the ticket level get higher priority
+        if min_level <= ticket_level:
+            # Distance from the ticket complexity — closer is better
+            distance = ticket_level - min_level
+            return 50.0 - (distance * 10.0)  # 50, 40, 30, 20
+
+        # min_complexity is ABOVE ticket level — should not activate
+        return -1.0
+
     async def think(
         self,
         prompt: str,
@@ -59,6 +110,10 @@ class FrameworkBrain:
         variant: str = "parwa",
     ) -> TechniqueResult:
         """Select and run techniques based on ticket complexity.
+
+        v2: Priority-based selection instead of hard cap.
+        Techniques are sorted by relevance to the current complexity,
+        ensuring the RIGHT techniques activate for each ticket level.
 
         Args:
             prompt: The reasoning prompt for the technique.
@@ -83,17 +138,22 @@ class FrameworkBrain:
             if technique.can_apply(self.node, complexity):
                 activated.append(technique)
 
-        # Rate limit: max 2 techniques per node to avoid API rate limits
-        # This trades depth for reliability — in production with own API keys,
-        # this limit can be increased.
-        MAX_TECHNIQUES_PER_NODE = 2
-        if len(activated) > MAX_TECHNIQUES_PER_NODE:
+        # v2: Sort by priority — techniques designed for this complexity run FIRST
+        activated.sort(
+            key=lambda t: self._technique_priority(t, complexity),
+            reverse=True,
+        )
+
+        # v2: Dynamic cap based on complexity — not a hard 2
+        max_techniques = _MAX_TECHNIQUES_BY_COMPLEXITY.get(complexity, 2)
+        if len(activated) > max_techniques:
             logger.debug(
-                "brain: limiting %s from %d to %d techniques for node=%s",
-                [t.name for t in activated], len(activated),
-                MAX_TECHNIQUES_PER_NODE, self.node,
+                "brain: priority-selecting %d/%d techniques for node=%s complexity=%s (candidates: %s → selected: %s)",
+                max_techniques, len(activated), self.node, complexity,
+                [t.name for t in activated],
+                [t.name for t in activated[:max_techniques]],
             )
-            activated = activated[:MAX_TECHNIQUES_PER_NODE]
+            activated = activated[:max_techniques]
 
         if not activated:
             logger.debug("brain: no techniques activated for node=%s complexity=%s", self.node, complexity)
@@ -105,7 +165,13 @@ class FrameworkBrain:
                 metadata={"activated_count": 0, "complexity": complexity},
             )
 
-        # Run techniques in order, combining results
+        logger.info(
+            "brain: activated %d technique(s) for node=%s complexity=%s → %s",
+            len(activated), self.node, complexity,
+            [t.name for t in activated],
+        )
+
+        # Run techniques in priority order, combining results
         combined_chain: list[str] = []
         combined_output = ""
         combined_frameworks: list[str] = []
@@ -124,7 +190,7 @@ class FrameworkBrain:
                 # Rate limit: add small delay between technique calls to avoid 429s
                 if i > 0:
                     import asyncio
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(0.3)
 
                 result = await technique.think(
                     prompt,

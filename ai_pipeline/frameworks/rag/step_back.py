@@ -52,7 +52,6 @@ class StepBackTechnique(BaseTechnique):
         return [
             "KB_RETRIEVER",
             "FAQ_MATCHER",
-            "REASONING_ENGINE",
         ]
 
     @property

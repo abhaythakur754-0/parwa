@@ -1,0 +1,84 @@
+[
+  {
+    "label": "T1_SIMPLE_parwa",
+    "variant": "parwa",
+    "fws": [
+      "chain_of_thought",
+      "multi_query",
+      "clara",
+      "step_back",
+      "react",
+      "reverse_thinking",
+      "tree_of_thoughts",
+      "maker_planning",
+      "thread_of_thought",
+      "reflexion",
+      "crp",
+      "persona_engine_v2"
+    ],
+    "complexity": "TicketComplexity.MEDIUM",
+    "intent": "refund_request",
+    "quality": 60.0,
+    "escalate": false,
+    "errors": 0
+  },
+  {
+    "label": "T2_COMPLEX_parwa",
+    "variant": "parwa",
+    "fws": [
+      "chain_of_thought",
+      "reflexion",
+      "crp",
+      "react",
+      "thread_of_thought",
+      "persona_engine_v2"
+    ],
+    "complexity": "TicketComplexity.MEDIUM",
+    "intent": "billing_issue",
+    "quality": 85.0,
+    "escalate": true,
+    "errors": 0
+  },
+  {
+    "label": "T3_CRITICAL_parwa",
+    "variant": "parwa",
+    "fws": [
+      "chain_of_thought",
+      "crp",
+      "persona_engine_v2"
+    ],
+    "complexity": "TicketComplexity.SIMPLE",
+    "intent": "cancellation",
+    "quality": 60.0,
+    "escalate": true,
+    "errors": 0
+  },
+  {
+    "label": "T3_CRITICAL_mini",
+    "variant": "mini",
+    "fws": [
+      "chain_of_thought",
+      "crp",
+      "persona_engine_v2"
+    ],
+    "complexity": "TicketComplexity.SIMPLE",
+    "intent": "cancellation",
+    "quality": 85.0,
+    "escalate": true,
+    "errors": 0
+  },
+  {
+    "label": "T3_CRITICAL_high",
+    "variant": "high",
+    "fws": [
+      "chain_of_thought",
+      "crp",
+      "persona_engine_v2"
+    ],
+    "complexity": "TicketComplexity.SIMPLE",
+    "intent": "cancellation",
+    "quality": 60.0,
+    "escalate": true,
+    "errors": 0
+  }
+]
