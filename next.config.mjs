@@ -4,9 +4,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // Note: 'eslint' key is not supported in Next.js 16+; use next lint CLI instead
+
   reactStrictMode: false,
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
 
@@ -26,11 +25,10 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react', 'react-hot-toast'],
   },
 
-  turbopack: {
-    root: "/home/z/my-project",
-  },
+  // ── Turbopack config (Next.js 16 default) ──
+  turbopack: {},
 
-  // ── Webpack config ──
+  // ── Webpack config (fallback for webpack mode) ──
   // @paddle/paddle-js has internal TDZ issues with static imports.
   // The dynamic import() in src/lib/paddle.ts handles this at runtime,
   // but we also need webpack fallbacks for Node.js modules that
@@ -43,20 +41,6 @@ const nextConfig = {
         net: false,
         tls: false,
         child_process: false,
-      };
-    }
-    return config;
-  },
-
-  // Webpack: add fallbacks for Node.js modules that some client-side
-  // packages (like @paddle/paddle-js) reference during evaluation.
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
       };
     }
     return config;
@@ -93,12 +77,12 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://cdn.paddle.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https: *.googleusercontent.com",
-              "connect-src 'self' https://generativelanguage.googleapis.com https://api.cerebras.ai https://api.groq.com https://parwa-backend.onrender.com wss://parwa-backend.onrender.com https://oauth2.googleapis.com https://accounts.google.com",
-              "frame-src https://accounts.google.com",
+              "connect-src 'self' https://generativelanguage.googleapis.com https://api.cerebras.ai https://api.groq.com https://parwa-backend.onrender.com wss://parwa-backend.onrender.com https://oauth2.googleapis.com https://accounts.google.com https://*.paddle.com https://sandbox-api.paddle.com",
+              "frame-src https://accounts.google.com https://*.paddle.com",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",

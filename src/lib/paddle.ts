@@ -21,62 +21,180 @@
  * - Pass `discountCode` to pre-apply a coupon code in checkout (e.g. "PARWAFREE")
  * - Pass `discountId` to pre-apply by Paddle internal ID (e.g. "dsc_01xxx")
  * - You cannot use both at the same time
+ *
+ * FIX: We load Paddle.js via its CDN script tag instead of importing
+ * the @paddle/paddle-js npm package. The npm package has internal TDZ
+ * ("Cannot access 'ea' before initialization") issues when bundled by
+ * Next.js/Turbopack. Loading from CDN completely bypasses this problem.
  */
 
-// Use dynamic import for @paddle/paddle-js to avoid "Cannot access 'T' before initialization"
-// The static import causes the ESM module to be evaluated at page load time,
-// which triggers a TDZ error in the minified build.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Paddle = any;
+type PaddleWindow = any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type CheckoutOpenOptions = any;
 
-let paddleInstance: Paddle | undefined;
+let paddleInstance: PaddleWindow | undefined;
 let paddleInitFailed = false;
+let paddleLoadPromise: Promise<PaddleWindow | undefined> | undefined;
 
 /**
  * Initialize Paddle.js with the public key from environment.
  * Safe to call multiple times — returns cached instance.
  * Will retry if initialization failed on a previous call.
+ *
+ * Uses CDN script tag loading instead of npm import to avoid TDZ errors.
  */
-export async function getPaddleInstance(): Promise<Paddle | undefined> {
+export async function getPaddleInstance(): Promise<PaddleWindow | undefined> {
   if (paddleInstance) return paddleInstance;
+  if (paddleLoadPromise) return paddleLoadPromise;
 
+  paddleLoadPromise = _loadPaddle();
+  return paddleLoadPromise;
+}
+
+async function _loadPaddle(): Promise<PaddleWindow | undefined> {
   // Resolve the Paddle client-side token.
-  // Priority: env var → fallback (ensures checkout works even if .env.production has a placeholder)
   const FALLBACK_PADDLE_KEY = 'live_84ceb40f4a03f934aadd1460d60';
   let paddleKey = process.env.NEXT_PUBLIC_PADDLE_KEY;
 
-  // If the env var is missing or contains an obvious placeholder, use the fallback
   if (!paddleKey || paddleKey === 'your_paddle_client_token_here' || paddleKey === 'undefined') {
     console.warn('[paddle] NEXT_PUBLIC_PADDLE_KEY not set or placeholder — using fallback');
     paddleKey = FALLBACK_PADDLE_KEY;
   }
 
-  try {
-    // Dynamic import avoids the "Cannot access T before initialization" error
-    // that occurs when @paddle/paddle-js ESM module is evaluated at page load
-    const { initializePaddle } = await import('@paddle/paddle-js');
+  const isProduction = paddleKey.startsWith('live_') || paddleKey.startsWith('pdl_live_');
+  const environment = isProduction ? 'production' : 'sandbox';
 
-    const isProduction = paddleKey.startsWith('live_') || paddleKey.startsWith('pdl_live_');
-    console.log('[paddle] Initializing with key prefix:', paddleKey.substring(0, 10) + '...', 'environment:', isProduction ? 'production' : 'sandbox');
+  try {
+    // Method 1: Try the npm dynamic import first (works in dev with webpack)
+    // This avoids the CDN approach in development where CSP might block it
+    const paddleModule = await import('@paddle/paddle-js');
+    const initializePaddle = paddleModule.initializePaddle;
+
+    console.log('[paddle] Initializing via npm dynamic import, environment:', environment);
     paddleInstance = await initializePaddle({
-      environment: isProduction ? 'production' : 'sandbox',
+      environment,
       token: paddleKey,
     });
+
     if (paddleInstance) {
-      console.log('[paddle] Initialized successfully, environment:', isProduction ? 'production' : 'sandbox');
+      console.log('[paddle] Initialized successfully via npm');
       paddleInitFailed = false;
-    } else {
-      console.error('[paddle] initializePaddle returned undefined — key may be invalid or truncated');
-      paddleInitFailed = true;
+      return paddleInstance;
     }
-    return paddleInstance;
-  } catch (err) {
-    console.error('[paddle] Failed to initialize Paddle.js:', err);
+  } catch (npmErr) {
+    console.warn('[paddle] npm dynamic import failed (likely TDZ), falling back to CDN:', (npmErr as Error).message);
+  }
+
+  try {
+    // Method 2: Load via CDN script tag (bypasses all TDZ issues)
+    console.log('[paddle] Loading via CDN script tag, environment:', environment);
+    paddleInstance = await loadPaddleFromCDN(paddleKey, environment);
+
+    if (paddleInstance) {
+      console.log('[paddle] Initialized successfully via CDN');
+      paddleInitFailed = false;
+      return paddleInstance;
+    } else {
+      console.error('[paddle] CDN load returned undefined — key may be invalid');
+      paddleInitFailed = true;
+      return undefined;
+    }
+  } catch (cdnErr) {
+    console.error('[paddle] CDN load also failed:', (cdnErr as Error).message);
     paddleInitFailed = true;
     return undefined;
   }
+}
+
+/**
+ * Load Paddle.js from CDN using a script tag.
+ * This completely bypasses the npm module TDZ issues.
+ */
+function loadPaddleFromCDN(paddleKey: string, environment: string): Promise<PaddleWindow> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') {
+      reject(new Error('Not in browser'));
+      return;
+    }
+
+    // Check if Paddle is already loaded on window
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    if (win.PaddleBillingV1) {
+      console.log('[paddle] Paddle already on window');
+      resolve(win.PaddleBillingV1);
+      return;
+    }
+
+    // Check if script already exists
+    const existingScript = document.querySelector('script[src*="paddle"]');
+    if (existingScript) {
+      // Wait for it to load
+      const checkInterval = setInterval(() => {
+        if (win.PaddleBillingV1) {
+          clearInterval(checkInterval);
+          resolve(win.PaddleBillingV1);
+        }
+      }, 100);
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        reject(new Error('Paddle CDN script timed out'));
+      }, 15000);
+      return;
+    }
+
+    // Inject the Paddle script tag
+    const script = document.createElement('script');
+    script.src = 'https://cdn.paddle.com/paddle/v2/paddle.js';
+    script.async = true;
+
+    script.onload = () => {
+      console.log('[paddle] CDN script loaded');
+      // Paddle.js sets up window.PaddleBillingV1 after the script loads
+      // We need to call Paddle.Setup() to initialize
+      const checkInterval = setInterval(() => {
+        if (win.Paddle) {
+          clearInterval(checkInterval);
+          try {
+            // Initialize Paddle with the token
+            win.Paddle.Setup({
+              environment,
+              token: paddleKey,
+            });
+            // After Setup, Paddle.Checkout should be available
+            const paddle = win.Paddle;
+            console.log('[paddle] CDN Paddle.Setup() called successfully');
+            resolve(paddle);
+          } catch (err) {
+            clearInterval(checkInterval);
+            reject(new Error(`Paddle.Setup() failed: ${(err as Error).message}`));
+          }
+        }
+      }, 100);
+      // Timeout after 10s
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        // If Paddle object is directly available, use it
+        if (win.Paddle) {
+          try {
+            win.Paddle.Setup({ environment, token: paddleKey });
+            resolve(win.Paddle);
+          } catch {
+            reject(new Error('Paddle CDN script loaded but Setup failed'));
+          }
+        } else {
+          reject(new Error('Paddle CDN script loaded but window.Paddle not found'));
+        }
+      }, 10000);
+    };
+
+    script.onerror = () => {
+      reject(new Error('Failed to load Paddle CDN script'));
+    };
+
+    document.head.appendChild(script);
+  });
 }
 
 /**
@@ -94,6 +212,7 @@ export function isPaddleInitFailed(): boolean {
 export function resetPaddleInstance(): void {
   paddleInstance = undefined;
   paddleInitFailed = false;
+  paddleLoadPromise = undefined;
 }
 
 // Re-export from pure-data module to avoid breaking existing imports
@@ -102,16 +221,6 @@ export { VARIANT_PRICE_IDS } from './paddle-constants';
 
 /**
  * Open the Paddle checkout overlay for a given transaction ID.
- *
- * This is the server-side transaction flow:
- * 1. Backend creates a transaction via Paddle API -> returns transaction_id
- * 2. Frontend calls openCheckout(transactionId) -> Paddle overlay opens
- * 3. User completes payment in the overlay
- * 4. Paddle fires events / redirects on completion
- *
- * @param transactionId - The Paddle transaction ID returned by the backend
- * @param onSuccess - Optional callback when checkout completes successfully
- * @param onClose - Optional callback when checkout is closed without completing
  */
 export async function openCheckout(
   transactionId: string,
@@ -135,10 +244,7 @@ export async function openCheckout(
           : undefined,
       },
     });
-
-    // Listen for checkout completion via Paddle events
     setupCheckoutListeners(paddle, onSuccess, onClose);
-
     return true;
   } catch (err) {
     console.error('[paddle] Failed to open checkout:', err);
@@ -148,19 +254,6 @@ export async function openCheckout(
 
 /**
  * Open the Paddle checkout overlay directly with items (price IDs).
- *
- * This is the CLIENT-SIDE checkout flow — no server transaction needed.
- * Recommended for new customers who don't have a Paddle customer_id yet.
- *
- * Paddle.js creates the transaction internally, handles payment,
- * and fires webhooks to our backend after completion.
- *
- * @param items - Array of { priceId, quantity } items to check out
- * @param customData - Optional metadata to embed in the transaction
- * @param onSuccess - Optional callback when checkout completes successfully
- * @param onClose - Optional callback when checkout is closed without completing
- * @param discountCode - Optional Paddle discount/coupon code to pre-apply (e.g. "PARWAFREE" for 100% off testing)
- * @param discountId - Optional Paddle internal discount ID (alternative to discountCode)
  */
 export async function openCheckoutWithItems(
   items: Array<{ priceId: string; quantity: number }>,
@@ -177,8 +270,6 @@ export async function openCheckoutWithItems(
   }
 
   try {
-    // Build checkout options — Paddle uses discriminated unions:
-    // discountCode XOR discountId (can't have both)
     const baseOptions = {
       items: items.map(item => ({
         priceId: item.priceId,
@@ -194,9 +285,6 @@ export async function openCheckoutWithItems(
       },
     };
 
-    // Build the final options with the correct discount type
-    // PRIORITY: Use discountId over discountCode — it's more reliable
-    // (no case-sensitivity issues, always matches what's in Paddle)
     let checkoutOptions: CheckoutOpenOptions;
     if (discountId) {
       checkoutOptions = { ...baseOptions, discountId };
@@ -209,13 +297,10 @@ export async function openCheckoutWithItems(
     if (discountCode || discountId) {
       console.log('[paddle] Applying discount:', discountId ? `id=${discountId}` : `code=${discountCode}`);
     }
-    console.log('[paddle] Opening checkout with', items.length, 'items, prices:', items.map(i => i.priceId));
+    console.log('[paddle] Opening checkout with', items.length, 'items');
 
     paddle.Checkout.open(checkoutOptions);
-
-    // Listen for checkout completion via Paddle events
     setupCheckoutListeners(paddle, onSuccess, onClose);
-
     return true;
   } catch (err) {
     console.error('[paddle] Failed to open items-based checkout:', err);
@@ -225,28 +310,20 @@ export async function openCheckoutWithItems(
 
 /**
  * Set up event listeners for Paddle checkout completion and close.
- * 
- * Paddle.js v1.x doesn't have addEventListener on Checkout.
- * Instead, we detect completion via:
- * 1. The successUrl redirect (Paddle redirects the page on success)
- * 2. DOM polling for overlay close detection
- * 3. Window message events as a fallback
  */
 function setupCheckoutListeners(
-  _paddle: Paddle,
+  _paddle: PaddleWindow,
   onSuccess?: () => void,
   onClose?: () => void,
 ): void {
   if (typeof window === 'undefined') return;
 
-  // Listen for Paddle postMessage events (checkout.completed, checkout.closed)
   const messageHandler = (event: MessageEvent) => {
     try {
-      // Paddle.js sends postMessage events from the checkout iframe
       if (event.data && typeof event.data === 'object') {
         const data = event.data as Record<string, unknown>;
         if (data.event === 'checkout.completed' || data.name === 'checkout.completed') {
-          console.log('[paddle] Checkout completed successfully via postMessage');
+          console.log('[paddle] Checkout completed via postMessage');
           onSuccess?.();
           window.removeEventListener('message', messageHandler);
         } else if (data.event === 'checkout.closed' || data.name === 'checkout.closed') {
@@ -261,18 +338,16 @@ function setupCheckoutListeners(
   };
   window.addEventListener('message', messageHandler);
 
-  // Close detection via overlay DOM polling
   if (onClose) {
     let overlayDetected = false;
     const checkClosed = setInterval(() => {
       const overlay = document.querySelector('[data-paddle-overlay]') ||
         document.querySelector('iframe[src*="paddle"]') ||
         document.querySelector('.paddle-checkout');
-      
+
       if (overlay) {
         overlayDetected = true;
       } else if (overlayDetected) {
-        // Overlay was visible and is now gone = user closed it
         clearInterval(checkClosed);
         onClose();
         window.removeEventListener('message', messageHandler);
