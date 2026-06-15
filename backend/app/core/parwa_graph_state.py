@@ -494,6 +494,114 @@ class ParwaGraphState(TypedDict, total=False):
     Pro: [override, strategic_decision, monetary, winback, retention_offer]
     High: [] (no restrictions)"""
 
+    # ── AUTO-FIX: Automated issue resolution ────────────────────────
+
+    auto_fix_result: Dict[str, Any]
+    """Auto-fix detection and execution result:
+    {
+        'fix_available': bool,
+        'fix_type': str,           # 'config_reset' | 'cache_clear' | 'credential_refresh' | etc.
+        'fix_executed': bool,      # Whether the fix was actually executed
+        'fix_blocked_by_tier': bool, # True if tier doesn't allow execution
+        'fix_description': str,
+        'fix_risk_level': str,     # 'low' | 'medium' | 'high'
+        'approval_required': bool,
+        'fix_result': Optional[Dict], # Result of fix execution if run
+    }"""
+
+    # ── REFUND PREVIEW + BATCH: Show refunds before executing ────────
+
+    refund_preview: Dict[str, Any]
+    """Refund preview for customer before execution:
+    {
+        'refund_items': List[Dict],  # [{item_id, description, amount, reason}]
+        'total_refund_amount': float,
+        'refund_method': str,        # 'original' | 'credit' | 'bank_transfer'
+        'estimated_processing_days': int,
+        'batch_id': str,             # Group related refunds into a batch
+        'preview_shown_to_customer': bool,
+        'customer_approved': bool,
+        'tier_can_execute': bool,    # Whether this tier can actually execute
+    }"""
+
+    refund_batch: Dict[str, Any]
+    """Batch refund processing result:
+    {
+        'batch_id': str,
+        'total_items': int,
+        'processed_items': int,
+        'failed_items': int,
+        'total_amount': float,
+        'processed_amount': float,
+        'items': List[Dict],         # Per-item results
+        'status': str,               # 'pending_approval' | 'processing' | 'completed' | 'partial'
+    }"""
+
+    # ── NODE COMMUNICATION BUS: Inter-node messaging ────────────────
+
+    node_comm_bus: Annotated[Dict[str, Any], operator.or_]
+    """Inter-node communication bus — nodes POST messages for other nodes.
+    This is THE fix for 'nodes not talking to each other'.
+    
+    Structure: {
+        'messages': [
+            {
+                'from_node': str,      # Which node sent this
+                'to_node': str,         # Target node (or 'all' for broadcast)
+                'message_type': str,    # 'insight' | 'warning' | 'correction' | 'request'
+                'payload': Dict,        # The actual data
+                'priority': str,        # 'low' | 'medium' | 'high' | 'critical'
+                'timestamp': str,       # ISO-8601 UTC
+            }
+        ],
+        'shared_insights': Dict,  # Cross-node shared analysis results
+        'corrections': List,      # Corrections from later nodes to earlier analysis
+        'questions': List,        # Questions nodes have for other nodes
+    }
+    Uses operator.or_ reducer so nodes can add messages without overwriting."""
+
+    # ── SELF-HEALING: In-graph self-healing loop ────────────────────
+
+    self_healing_result: Dict[str, Any]
+    """Self-healing loop result:
+    {
+        'issues_detected': List[str],  # Issues found by self-healing
+        'healing_actions_taken': List[Dict],
+        're_healed': bool,            # Whether response was re-generated after healing
+        'original_quality_score': float,
+        'healed_quality_score': float,
+        'healing_iterations': int,
+        'max_iterations_reached': bool,
+    }"""
+
+    # ── LOOPHOLE CHECK: Response quality scanning ───────────────────
+
+    loophole_check_result: Dict[str, Any]
+    """Loophole detection scan result:
+    {
+        'matches_found': int,
+        'matches': List[Dict],     # [{category, matched_text, confidence}]
+        'risk_level': str,         # 'none' | 'low' | 'medium' | 'high' | 'critical'
+        'blocked': bool,           # Whether response should be blocked
+        'auto_corrected': bool,    # Whether auto-correction was applied
+        'corrected_response': str, # Auto-corrected version if applicable
+    }"""
+
+    # ── MAKER LLM VALIDATOR: LLM-based response validation ──────────
+
+    maker_llm_result: Dict[str, Any]
+    """LLM-based maker validator result (replaces rule-based maker):
+    {
+        'validation_passed': bool,
+        'quality_assessment': str,   # 'excellent' | 'good' | 'acceptable' | 'poor' | 'unacceptable'
+        'issues_found': List[str],
+        'suggested_improvements': List[str],
+        'best_solution_selected': bool,
+        'response_improved': bool,
+        'improved_response': str,    # LLM-improved version if applicable
+        'validation_confidence': float,
+    }"""
+
 
 # ══════════════════════════════════════════════════════════════════
 # HELPER: Create initial state
@@ -615,6 +723,24 @@ def create_initial_state(
         quality_threshold=0.70,
         max_quality_retries=1,
         restricted_actions=[],
+        # AUTO-FIX — defaults
+        auto_fix_result={},
+        # REFUND PREVIEW + BATCH — defaults
+        refund_preview={},
+        refund_batch={},
+        # NODE COMMUNICATION BUS — THE fix for nodes not talking to each other
+        node_comm_bus={
+            "messages": [],
+            "shared_insights": {},
+            "corrections": [],
+            "questions": [],
+        },
+        # SELF-HEALING — defaults
+        self_healing_result={},
+        # LOOPHOLE CHECK — defaults
+        loophole_check_result={},
+        # MAKER LLM VALIDATOR — defaults
+        maker_llm_result={},
     )
 
 
@@ -677,3 +803,153 @@ def append_audit_entry(
         "details": details or {},
     }
     return {"audit_log": [entry]}
+
+
+# ══════════════════════════════════════════════════════════════════
+# HELPER: Node Communication Bus (THE fix for nodes not talking)
+# ══════════════════════════════════════════════════════════════════
+
+
+def post_to_comm_bus(
+    state: ParwaGraphState,
+    from_node: str,
+    to_node: str,
+    message_type: str,
+    payload: Dict[str, Any],
+    priority: str = "medium",
+) -> Dict[str, Any]:
+    """Post a message to the node communication bus.
+
+    This is how nodes TALK TO EACH OTHER. Instead of each node
+    operating in isolation, nodes can:
+    - Share insights (e.g., "billing_resolver found overcharge of $50")
+    - Warn other nodes (e.g., "empathy_check: customer is very angry")
+    - Request info (e.g., "generate: need more context from billing")
+    - Correct previous analysis (e.g., "peer_review: classification was wrong")
+
+    Args:
+        state: Current pipeline state.
+        from_node: Which node is sending this message.
+        to_node: Target node (or 'all' for broadcast).
+        message_type: 'insight' | 'warning' | 'correction' | 'request'
+        payload: The actual data being shared.
+        priority: 'low' | 'medium' | 'high' | 'critical'
+
+    Returns:
+        Dict with node_comm_bus update for LangGraph state merge.
+    """
+    message = {
+        "from_node": from_node,
+        "to_node": to_node,
+        "message_type": message_type,
+        "payload": payload,
+        "priority": priority,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    return {
+        "node_comm_bus": {
+            "messages": [message],
+        }
+    }
+
+
+def read_comm_bus(
+    state: ParwaGraphState,
+    for_node: str,
+    message_types: Optional[List[str]] = None,
+    min_priority: str = "low",
+) -> List[Dict[str, Any]]:
+    """Read messages from the node communication bus for a specific node.
+
+    This is how nodes LISTEN TO OTHER NODES. Each node should call
+    this at the START of its execution to get context from previous nodes.
+
+    Args:
+        state: Current pipeline state.
+        for_node: Which node is reading (or 'all' for broadcast messages).
+        message_types: Filter by message types (None = all types).
+        min_priority: Minimum priority to include.
+
+    Returns:
+        List of messages addressed to this node (or 'all').
+    """
+    try:
+        bus = state.get("node_comm_bus", {})
+        messages = bus.get("messages", [])
+
+        priority_order = {"low": 0, "medium": 1, "high": 2, "critical": 3}
+        min_priority_level = priority_order.get(min_priority, 0)
+
+        relevant = []
+        for msg in messages:
+            # Check if message is for this node (or broadcast)
+            if msg.get("to_node") not in (for_node, "all"):
+                continue
+
+            # Check message type filter
+            if message_types and msg.get("message_type") not in message_types:
+                continue
+
+            # Check priority filter
+            msg_priority = priority_order.get(msg.get("priority", "low"), 0)
+            if msg_priority < min_priority_level:
+                continue
+
+            relevant.append(msg)
+
+        return relevant
+
+    except Exception:
+        return []
+
+
+def get_shared_insights(state: ParwaGraphState, key: str = "") -> Any:
+    """Get shared insights from the communication bus.
+
+    Shared insights are cross-node analysis results that any node
+    can contribute to and any node can read from.
+
+    Args:
+        state: Current pipeline state.
+        key: Specific insight key to retrieve (empty = all insights).
+
+    Returns:
+        The insight value, or all insights dict, or None.
+    """
+    try:
+        bus = state.get("node_comm_bus", {})
+        insights = bus.get("shared_insights", {})
+        if key:
+            return insights.get(key)
+        return insights
+    except Exception:
+        return None
+
+
+def post_shared_insight(
+    from_node: str,
+    key: str,
+    value: Any,
+) -> Dict[str, Any]:
+    """Post a shared insight to the communication bus.
+
+    Args:
+        from_node: Which node is contributing this insight.
+        key: Insight key (e.g., 'billing_anomaly_detected').
+        value: The insight value.
+
+    Returns:
+        Dict with node_comm_bus update for LangGraph state merge.
+    """
+    return {
+        "node_comm_bus": {
+            "shared_insights": {
+                key: {
+                    "value": value,
+                    "from_node": from_node,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            }
+        }
+    }

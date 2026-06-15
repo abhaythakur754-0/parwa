@@ -137,10 +137,13 @@ MINI_PARWA_PERMISSIONS = TierPermissions(
         "peer_review": True,        # Peer review logic
         "smart_enrichment": True,   # Smart enrichment (EI, churn, etc.)
 
+        # ── What Mini CAN do (with approval required) ──
+        "auto_fix": True,           # CAN auto-fix (needs approval) — same CAPABILITY
+        "refund_preview": True,     # CAN preview refunds (must show to customer first)
+
         # ── What Mini CANNOT do (restricted) ──
-        "refund": False,            # Cannot process refunds
+        "refund": False,            # Cannot process refunds (but CAN preview them)
         "compensation": False,      # Cannot offer compensation/discounts
-        "auto_fix": False,          # Cannot apply automated fixes
         "override": False,          # Cannot override previous decisions
         "strategic_decision": False, # Cannot make strategic decisions
         "monetary": False,          # Cannot take ANY monetary action
@@ -175,10 +178,12 @@ MINI_PARWA_PERMISSIONS = TierPermissions(
         "data_export": "always",            # Data export needs approval
     },
     restricted_actions=[
-        "refund", "compensation", "auto_fix", "override",
+        "refund", "compensation", "override",
         "strategic_decision", "monetary", "cancellation", "winback",
         "paddle_dispute", "carrier_api", "proactive_notification",
         "retention_offer", "auto_escalation",
+        # NOTE: auto_fix is NOT restricted — Mini has same CAPABILITY
+        # but needs approval (auto_fix: True with approval_required: always)
     ],
 )
 
@@ -225,6 +230,7 @@ PRO_PARWA_PERMISSIONS = TierPermissions(
         "paddle_dispute": True,     # Can auto-resolve Paddle disputes
         "carrier_api": True,        # Can call carrier APIs
         "proactive_notification": True,  # Can send proactive notifications
+        "refund_preview": True,     # Can preview and batch refunds
 
         # ── What Pro CANNOT do (restricted) ──
         "override": False,          # Cannot override previous decisions
@@ -308,6 +314,7 @@ HIGH_PARWA_PERMISSIONS = TierPermissions(
         "proactive_notification": True,
         "retention_offer": True,
         "auto_escalation": True,
+        "refund_preview": True,     # Can preview and batch refunds
     },
     execution_limits={
         "max_refund_amount": 10000.0,       # Refunds up to $10,000

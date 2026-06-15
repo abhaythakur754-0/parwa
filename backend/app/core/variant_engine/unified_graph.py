@@ -19,7 +19,7 @@ WHY THIS MATTERS:
   not from which nodes it skips. All variants should be SMART
   (deep reasoning), but RESTRICTED (can't do certain actions).
 
-Graph Topology (ALL variants — 27 nodes):
+Graph Topology (ALL variants — 32 nodes):
   START
     → pii_check → empathy_check → emergency_check → gsd_state
     → classify → smart_enrichment → [deep_enrichment_router]
@@ -28,11 +28,30 @@ Graph Topology (ALL variants — 27 nodes):
     → extract_signals → technique_select
     → reasoning_chain → context_enrich → context_compress
     → generate → crp_compress → clara_quality_gate
+    → self_healing_loop (if quality failed — diagnoses + corrects)
     → quality_retry (if failed, max retries based on tier)
+    → maker_llm_validator (LLM-based intelligent validation)
+    → loophole_check (scans for 25 loophole categories)
     → confidence_assess → context_health → dedup
+    → auto_fix (detect + execute automated fixes, tier-gated)
+    → refund_preview_batch (show refunds to customer FIRST, batch process)
     → strategic_decision (if tier allows, else skip)
     → peer_review (if tier allows, else skip)
     → auto_action → format → END
+
+NEW NODES (5):
+  28. self_healing_loop — OpenClaw-inspired self-correction loop
+  29. maker_llm_validator — LLM-based intelligent response validation
+  30. loophole_check — Scans for 25 loophole categories + auto-corrects
+  31. auto_fix — Detects and executes automated fixes (tier-gated)
+  32. refund_preview_batch — Shows refunds to customer first, batch processes
+
+INTER-NODE COMMUNICATION:
+  All nodes now read from and write to the node_comm_bus.
+  This fixes the 'nodes not talking to each other' problem.
+  - Nodes POST insights/warnings/corrections to the bus
+  - Nodes READ messages from previous nodes before processing
+  - This makes the pipeline a COLLABORATIVE multi-agent system
 
 KEY DIFFERENCE FROM OLD ARCHITECTURE:
   - Old: Mini skipped nodes → dumber responses
@@ -42,11 +61,15 @@ KEY DIFFERENCE FROM OLD ARCHITECTURE:
 Permission Enforcement Points:
   1. smart_enrichment: Checks if variant CAN do enrichment actions
   2. deep_enrichment: Checks if variant CAN execute deep actions
-  3. auto_action: Checks tier_permissions before executing any action
-  4. strategic_decision: Only executes if tier has strategic permission
-  5. peer_review: Always runs (quality check, not an action)
-  6. generate: Injects permission_context into prompt so LLM knows
+  3. auto_fix: Checks if variant CAN execute fixes (Mini needs approval)
+  4. refund_preview_batch: Checks if variant CAN execute refunds
+  5. auto_action: Checks tier_permissions before executing any action
+  6. strategic_decision: Only executes if tier has strategic permission
+  7. peer_review: Always runs (quality check, not an action)
+  8. generate: Injects permission_context into prompt so LLM knows
      what it can/cannot offer
+  9. maker_llm_validator: Validates and improves response via LLM
+  10. self_healing_loop: Diagnoses quality issues and applies corrections
 
 BC-001: company_id first parameter on public methods.
 BC-008: Every public method wrapped in try/except — never crash.
@@ -262,14 +285,23 @@ def route_after_crp(state: ParwaGraphState) -> str:
 
 
 def route_after_quality_gate(state: ParwaGraphState) -> str:
-    """After quality gate → retry or confidence_assess.
+    """After quality gate → self_healing_loop or maker_llm_validator.
+
+    NEW ARCHITECTURE: Instead of going directly to quality_retry,
+    we first go through self_healing_loop which DIAGNOSES what
+    went wrong and applies CORRECTIONS to the context.
+
+    Then quality_retry → generate (with improved context).
+
+    If quality passed → skip to maker_llm_validator for LLM-based
+    intelligent validation.
 
     Retry logic is tier-dependent:
     - Mini: max 1 retry
     - Pro: max 2 retries
     - High: max 3 retries
 
-    But ALL variants get at least 1 retry.
+    But ALL variants get at least 1 retry through self-healing.
     """
     variant_tier = state.get("variant_tier", "mini_parwa")
     quality_passed = state.get("quality_passed", True)
@@ -277,9 +309,9 @@ def route_after_quality_gate(state: ParwaGraphState) -> str:
     max_retries = get_max_retries(variant_tier)
 
     if not quality_passed and retry_count < max_retries:
-        return "quality_retry"
+        return "self_healing_loop"  # Diagnose + correct → then retry
 
-    return "confidence_assess"
+    return "maker_llm_validator"  # Quality OK → LLM validation
 
 
 def route_after_quality_retry(state: ParwaGraphState) -> str:
@@ -343,10 +375,11 @@ def route_after_auto_action(state: ParwaGraphState) -> str:
 def build_unified_variant_graph() -> StateGraph:
     """Build the UNIFIED variant LangGraph StateGraph.
 
-    Creates ONE graph with ALL 27 nodes. ALL variant tiers traverse
+    Creates ONE graph with ALL 32 nodes. ALL variant tiers traverse
     the FULL pipeline. Restrictions are on ACTIONS, not PATH.
 
-    Node Count: 27 (superset of all 3 old graphs)
+    Node Count: 32 (27 original + 5 new: self_healing_loop, maker_llm_validator,
+                   loophole_check, auto_fix, refund_preview_batch)
 
     Returns:
         Compiled LangGraph StateGraph ready for execution.
@@ -382,10 +415,17 @@ def build_unified_variant_graph() -> StateGraph:
         tech_diagnostic_node,
         shipping_tracker_node,
     )
+    from app.core.variant_engine.nodes import (
+        auto_fix_node,
+        refund_preview_batch_node,
+        self_healing_loop_node,
+        loophole_check_node,
+        maker_llm_validator_node,
+    )
 
     graph = StateGraph(ParwaGraphState)
 
-    # ── Add ALL 27 nodes ──────────────────────────────────────────
+    # ── Add ALL 32 nodes ──────────────────────────────────────────
     # Pre-processing (4 nodes)
     graph.add_node("pii_check", pii_check_node)
     graph.add_node("empathy_check", empathy_check_node)
@@ -415,10 +455,19 @@ def build_unified_variant_graph() -> StateGraph:
     graph.add_node("quality_retry", quality_retry_node)
     graph.add_node("confidence_assess", confidence_assess_node)
 
+    # NEW: Self-healing + Validation (3 nodes)
+    graph.add_node("self_healing_loop", self_healing_loop_node)
+    graph.add_node("maker_llm_validator", maker_llm_validator_node)
+    graph.add_node("loophole_check", loophole_check_node)
+
     # High-tier validation (3 nodes)
     graph.add_node("context_health", context_health_node)
     graph.add_node("dedup", dedup_node)
     graph.add_node("strategic_decision", strategic_decision_node)
+
+    # NEW: Action nodes (2 nodes)
+    graph.add_node("auto_fix", auto_fix_node)
+    graph.add_node("refund_preview_batch", refund_preview_batch_node)
 
     # Final (3 nodes)
     graph.add_node("peer_review", peer_review_node)
@@ -497,22 +546,45 @@ def build_unified_variant_graph() -> StateGraph:
         {"generate": "generate"},
     )
 
-    # Quality + Compression
+    # Quality + Compression + Self-Healing Loop (NEW ARCHITECTURE)
+    # generate → crp_compress → clara_quality_gate
+    #   → self_healing_loop (diagnoses + corrects if quality failed)
+    #   → quality_retry (back to generate if still failing)
+    #   → maker_llm_validator (LLM-based intelligent validation)
+    #   → loophole_check (scans for 25 loophole categories)
+    #   → confidence_assess
     graph.add_edge("generate", "crp_compress")
     graph.add_edge("crp_compress", "clara_quality_gate")
+
+    # After quality gate: self_healing_loop (diagnoses + applies corrections)
+    # then quality_retry if needed, or maker_llm_validator if passed
     graph.add_conditional_edges(
         "clara_quality_gate", route_after_quality_gate,
         {
-            "quality_retry": "quality_retry",
-            "confidence_assess": "confidence_assess",
+            "self_healing_loop": "self_healing_loop",
+            "maker_llm_validator": "maker_llm_validator",
         },
     )
+
+    # Self-healing loop → quality_retry (back to generate)
     graph.add_conditional_edges(
-        "quality_retry", route_after_quality_retry,
+        "self_healing_loop", route_after_quality_retry,
         {"generate": "generate"},
     )
 
-    # High-tier validation
+    # Maker LLM validator → loophole check
+    graph.add_conditional_edges(
+        "maker_llm_validator", route_after_reasoning,  # Always → loophole_check
+        {"loophole_check": "loophole_check"},
+    )
+
+    # Loophole check → confidence assess
+    graph.add_conditional_edges(
+        "loophole_check", route_after_confidence,
+        {"confidence_assess": "confidence_assess"},
+    )
+
+    # Confidence assess → context health
     graph.add_conditional_edges(
         "confidence_assess", route_after_confidence,
         {"context_health": "context_health"},
@@ -521,8 +593,18 @@ def build_unified_variant_graph() -> StateGraph:
         "context_health", route_after_context_health,
         {"dedup": "dedup"},
     )
+
+    # Dedup → auto_fix → refund_preview_batch → strategic_decision
     graph.add_conditional_edges(
         "dedup", route_after_dedup,
+        {"auto_fix": "auto_fix"},
+    )
+    graph.add_conditional_edges(
+        "auto_fix", route_after_auto_action,
+        {"refund_preview_batch": "refund_preview_batch"},
+    )
+    graph.add_conditional_edges(
+        "refund_preview_batch", route_after_strategic_decision,
         {"strategic_decision": "strategic_decision"},
     )
     graph.add_conditional_edges(
@@ -545,9 +627,11 @@ def build_unified_variant_graph() -> StateGraph:
     compiled = graph.compile()
 
     logger.info(
-        "unified_variant_graph_built: nodes=27, "
+        "unified_variant_graph_built: nodes=32, "
         "philosophy=same_capability_different_restrictions, "
-        "all_tiers_traverse_full_pipeline",
+        "all_tiers_traverse_full_pipeline, "
+        "new_nodes=self_healing_loop+maker_llm_validator+loophole_check+auto_fix+refund_preview_batch, "
+        "comm_bus=enabled",
     )
 
     return compiled
@@ -590,8 +674,9 @@ class UnifiedVariantPipeline:
         try:
             self._graph = build_unified_variant_graph()
             logger.info(
-                "UnifiedVariantPipeline initialized: 27 nodes, "
-                "all tiers traverse full pipeline",
+                "UnifiedVariantPipeline initialized: 32 nodes, "
+                "all tiers traverse full pipeline, "
+                "self-healing+maker_llm+loophole+auto_fix+refund_preview enabled",
             )
         except Exception:
             logger.exception(
