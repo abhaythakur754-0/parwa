@@ -22,3 +22,25 @@ Stage Summary:
 - All 6 onboarding step components now load lazily in separate chunks
 - Page renders correctly, auth redirect works, back-navigation present
 - Code pushed to GitHub main branch
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix persistent TDZ error on payment step - 'Cannot access ee before initialization'
+
+Work Log:
+- Investigated production build chunks - found react-hot-toast's Toaster component (minified as 'ee') in 10 shared chunks
+- Previous fix only replaced imports in onboarding/ directory - missed 26 other files
+- DashboardLayout, UserMenu, login/signup pages, settings, etc. still had static imports
+- These caused react-hot-toast to be bundled into shared chunks that loaded during onboarding
+- Replaced ALL 26 remaining static imports with dynamic-toast wrapper
+- Verified build: zero react-hot-toast references in initial page chunks
+- E2E tested with agent-browser: zero JS errors on onboarding and login pages
+- Pushed to GitHub: commit 34d6333e
+
+Stage Summary:
+- ROOT CAUSE: react-hot-toast was statically imported in 26+ files across the app
+- When shared chunks loaded during onboarding, the ESM evaluation of react-hot-toast
+  triggered TDZ errors on the 'ee' variable (the minified Toaster component)
+- FIX: All static imports replaced with @/lib/dynamic-toast (dynamic import wrapper)
+- react-hot-toast now ONLY loads lazily - never part of initial page evaluation
