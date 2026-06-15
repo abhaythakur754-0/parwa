@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
 import { ProgressIndicator } from './ProgressIndicator';
 import { LegalCompliance } from './LegalCompliance';
 import { IntegrationStep } from './IntegrationStep';
 import { KnowledgeUpload } from './KnowledgeUpload';
 import { AIConfig } from './AIConfig';
+import { CostBreakdownStep } from './CostBreakdownStep';
 import { FirstVictory } from './FirstVictory';
 import { Loader2, ArrowLeft, LogOut } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -15,22 +15,6 @@ import Link from 'next/link';
 import type { OnboardingState } from '@/types/onboarding';
 import type { ParwaVariant } from './IndustryVariantStep';
 import { mapIndustryToParwaIndustry, type ParwaIndustry } from '@/lib/integration-catalog';
-
-// Lazy-load CostBreakdownStep — it imports @paddle/paddle-js and other heavy modules
-// that cause "Cannot access 'R' before initialization" TDZ errors when loaded eagerly.
-// Dynamic import isolates these modules in a separate chunk that loads on demand.
-const CostBreakdownStep = dynamic(
-  () => import('./CostBreakdownStep').then(mod => ({ default: mod.CostBreakdownStep })),
-  {
-    loading: () => (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
-        <span className="ml-3 text-orange-200/50 text-sm">Loading checkout...</span>
-      </div>
-    ),
-    ssr: false, // Never SSR the payment step — Paddle is client-only
-  }
-);
 
 const TOTAL_STEPS = 6;
 

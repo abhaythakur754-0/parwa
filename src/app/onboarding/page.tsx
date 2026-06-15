@@ -13,23 +13,52 @@
  * and is redirected to the dashboard.
  *
  * Auth-protected: redirects to /login if not authenticated.
+ *
+ * IMPORTANT: The OnboardingWizard is loaded dynamically (ssr: false) because
+ * its dependencies (integration-catalog, paddle-js, react-hot-toast, etc.)
+ * cause TDZ errors like "Cannot access 'ee' before initialization" when
+ * bundled into the main page chunk by Next.js. Dynamic import isolates all
+ * onboarding code into a separate chunk that loads independently.
  */
 
 'use client';
 
 import React, { Component, useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard';
+
+// ── Lazy-load the ENTIRE onboarding wizard ────────────────────────────
+// This isolates ALL onboarding dependencies (integration-catalog, paddle,
+// react-hot-toast, pricing-config, etc.) into a separate JavaScript chunk.
+// Without this, ESM module evaluation order in the production build causes
+// TDZ errors ("Cannot access 'X' before initialization").
+const OnboardingWizard = dynamic(
+  () => import('@/components/onboarding/OnboardingWizard').then(mod => ({
+    default: mod.OnboardingWizard,
+  })),
+  {
+    loading: () => (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-12 h-12 animate-spin text-orange-400" />
+          <p className="text-orange-200/50 text-sm">Loading onboarding&hellip;</p>
+        </div>
+      </div>
+    ),
+    ssr: false, // Never SSR — all onboarding modules are client-only
+  }
+);
 
 // ── Error Boundary ────────────────────────────────────────────────────
-// Catches TDZ errors like "Cannot access 'R' before initialization"
+// Catches TDZ errors like "Cannot access 'ee' before initialization"
 // that can occur from ESM module evaluation in the Next.js production build.
 
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
+  errorCount: number;
 }
 
 class OnboardingErrorBoundary extends Component<
@@ -38,19 +67,23 @@ class OnboardingErrorBoundary extends Component<
 > {
   constructor(props: { children: React.ReactNode }) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, errorCount: 0 };
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
+    return { hasError: true, error, errorCount: 0 };
   }
 
   handleRetry = () => {
-    this.setState({ hasError: false, error: null });
-    // Force a full reload to re-initialize all modules
-    if (typeof window !== 'undefined') {
-      window.location.reload();
+    const nextCount = this.state.errorCount + 1;
+    if (nextCount >= 3) {
+      // After 3 failed retries, force a hard reload
+      if (typeof window !== 'undefined') {
+        window.location.href = '/onboarding';
+      }
+      return;
     }
+    this.setState({ hasError: false, error: null, errorCount: nextCount });
   };
 
   render() {
