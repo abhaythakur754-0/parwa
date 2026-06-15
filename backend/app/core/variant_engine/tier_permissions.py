@@ -141,6 +141,9 @@ MINI_PARWA_PERMISSIONS = TierPermissions(
         "auto_fix": True,           # CAN auto-fix (needs approval) — same CAPABILITY
         "refund_preview": True,     # CAN preview refunds (must show to customer first)
 
+        # ── What Mini CAN do with restrictions ──
+        "escalation": True,           # CAN escalate to human (critical safety net)
+
         # ── What Mini CANNOT do (restricted) ──
         "refund": False,            # Cannot process refunds (but CAN preview them)
         "compensation": False,      # Cannot offer compensation/discounts
@@ -226,6 +229,7 @@ PRO_PARWA_PERMISSIONS = TierPermissions(
         "compensation": True,       # Can offer limited compensation
         "auto_fix": True,           # Can apply automated fixes
         "auto_escalation": True,    # Can auto-escalate
+        "escalation": True,         # Can escalate to human
         "cancellation": True,       # Can process cancellations (with approval)
         "paddle_dispute": True,     # Can auto-resolve Paddle disputes
         "carrier_api": True,        # Can call carrier APIs
@@ -235,6 +239,7 @@ PRO_PARWA_PERMISSIONS = TierPermissions(
         # ── What Pro CANNOT do (restricted) ──
         "override": False,          # Cannot override previous decisions
         "strategic_decision": False, # Cannot make strategic decisions
+        "strategic": False,         # Alias for strategic_decision
         "monetary": False,          # Cannot take large monetary actions
         "winback": False,           # Cannot initiate win-back sequences
         "retention_offer": False,   # Cannot offer retention deals
@@ -306,6 +311,7 @@ HIGH_PARWA_PERMISSIONS = TierPermissions(
         "auto_fix": True,
         "override": True,
         "strategic_decision": True,
+        "strategic": True,         # Alias for strategic_decision
         "monetary": True,
         "cancellation": True,
         "winback": True,
@@ -314,6 +320,7 @@ HIGH_PARWA_PERMISSIONS = TierPermissions(
         "proactive_notification": True,
         "retention_offer": True,
         "auto_escalation": True,
+        "escalation": True,       # Can escalate freely
         "refund_preview": True,     # Can preview and batch refunds
     },
     execution_limits={

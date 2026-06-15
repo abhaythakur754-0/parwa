@@ -1,29 +1,33 @@
 """
 Code-Orchestrated Router: Python conditional edges for LangGraph.
 
-This is the routing brain of the Variant Engine. It decides which node
-runs next based on the current state — using PYTHON CODE, not LLM calls.
+UNIFIED ROUTING ARCHITECTURE:
+  ALL 3 variants (Mini, Pro, High) now go through the SAME pipeline.
+  The difference between variants is ONLY in task permissions — not
+  in pipeline depth, intelligence, or technique availability.
+
+  OLD (broken):
+    Mini:  classify → generate → format  (skipped 17 nodes!)
+    Pro:   classify → extract_signals → technique_select → generate → quality → format
+    High:  All 27 nodes
+
+  NEW (unified):
+    ALL variants: classify → smart_enrichment → deep_enrichment → extract_signals
+                  → technique_select → reasoning_chain → context_enrich
+                  → context_compress → generate → crp_compress → clara_quality_gate
+                  → quality_retry → confidence_assess → context_health → dedup
+                  → strategic_decision → peer_review → auto_action → format
+
+  Inside each node, the variant checks its TASK PERMISSIONS to decide
+  what ACTIONS it can take (refund, cancel, etc.), NOT whether to skip
+  the node entirely.
 
 Why code routing (FREE):
   - Routing is deterministic: variant_tier + industry + state → next node
   - No LLM needed for "if variant is mini, go to generate"
-  - Saves ~$0.001 per query on routing (that's 33% of Mini's cost budget)
+  - Saves ~$0.001 per query on routing
   - Faster: Python if/else takes microseconds vs LLM call takes seconds
   - Predictable: same input always gives same route
-
-When LLM IS used (inside nodes, not for routing):
-  - Classification: understanding what the customer wants
-  - Generation: writing the actual response
-  - Quality Gate: evaluating response quality
-  - Technique Execution: reasoning through complex problems
-
-Architecture:
-  The router is a collection of pure functions that take ParwaGraphState
-  and return the name of the next node. LangGraph's `add_conditional_edges`
-  wires these functions as decision points in the graph.
-
-  Each function is a "routing decision" that happens AFTER a specific node.
-  For example, `route_after_classify` decides what comes after classify.
 
 BC-001: company_id first parameter on public methods.
 BC-008: Every function has a safe default — never crashes.
@@ -32,7 +36,7 @@ BC-012: All timestamps UTC.
 
 from __future__ import annotations
 
-from typing import List
+from typing import Any, Dict, List
 
 from app.logger import get_logger
 
@@ -47,48 +51,105 @@ logger = get_logger("variant_router")
 NODE_PII = "pii_check"
 NODE_EMPATHY = "empathy_check"
 NODE_EMERGENCY = "emergency_check"
+NODE_GSD = "gsd_state"
 NODE_CLASSIFY = "classify"
+NODE_SMART_ENRICHMENT = "smart_enrichment"
 NODE_EXTRACT_SIGNALS = "extract_signals"
 NODE_TECHNIQUE_SELECT = "technique_select"
+NODE_REASONING_CHAIN = "reasoning_chain"
+NODE_CONTEXT_ENRICH = "context_enrich"
 NODE_CONTEXT_COMPRESS = "context_compress"
 NODE_GENERATE = "generate"
-NODE_QUALITY_GATE = "quality_gate"
+NODE_CRP_COMPRESS = "crp_compress"
+NODE_QUALITY_GATE = "clara_quality_gate"
+NODE_QUALITY_RETRY = "quality_retry"
+NODE_CONFIDENCE_ASSESS = "confidence_assess"
 NODE_CONTEXT_HEALTH = "context_health"
 NODE_DEDUP = "dedup"
+NODE_STRATEGIC_DECISION = "strategic_decision"
+NODE_PEER_REVIEW = "peer_review"
+NODE_AUTO_ACTION = "auto_action"
 NODE_FORMAT = "format"
 NODE_END = "__end__"
 
-# All valid node names (for validation)
+# Deep enrichment nodes
+NODE_COMPLAINT_HANDLER = "complaint_handler"
+NODE_RETENTION_NEGOTIATOR = "retention_negotiator"
+NODE_BILLING_RESOLVER = "billing_resolver"
+NODE_TECH_DIAGNOSTIC = "tech_diagnostic"
+NODE_SHIPPING_TRACKER = "shipping_tracker"
+
+# All valid node names
 ALL_NODES = [
-    NODE_PII,
-    NODE_EMPATHY,
-    NODE_EMERGENCY,
-    NODE_CLASSIFY,
-    NODE_EXTRACT_SIGNALS,
-    NODE_TECHNIQUE_SELECT,
-    NODE_CONTEXT_COMPRESS,
-    NODE_GENERATE,
-    NODE_QUALITY_GATE,
-    NODE_CONTEXT_HEALTH,
-    NODE_DEDUP,
-    NODE_FORMAT,
+    NODE_PII, NODE_EMPATHY, NODE_EMERGENCY, NODE_GSD,
+    NODE_CLASSIFY, NODE_SMART_ENRICHMENT,
+    NODE_COMPLAINT_HANDLER, NODE_RETENTION_NEGOTIATOR,
+    NODE_BILLING_RESOLVER, NODE_TECH_DIAGNOSTIC, NODE_SHIPPING_TRACKER,
+    NODE_EXTRACT_SIGNALS, NODE_TECHNIQUE_SELECT, NODE_REASONING_CHAIN,
+    NODE_CONTEXT_ENRICH, NODE_CONTEXT_COMPRESS,
+    NODE_GENERATE, NODE_CRP_COMPRESS, NODE_QUALITY_GATE,
+    NODE_QUALITY_RETRY, NODE_CONFIDENCE_ASSESS,
+    NODE_CONTEXT_HEALTH, NODE_DEDUP, NODE_STRATEGIC_DECISION,
+    NODE_PEER_REVIEW, NODE_AUTO_ACTION, NODE_FORMAT,
 ]
 
 
 # ══════════════════════════════════════════════════════════════════
-# ROUTING FUNCTIONS
+# INTENT → DEEP ENRICHMENT MAPPING
+# ══════════════════════════════════════════════════════════════════
+
+# Maps classified intents to deep enrichment nodes
+INTENT_DEEP_ENRICHMENT_MAP: Dict[str, str] = {
+    # Complaint / Feedback
+    "complaint": NODE_COMPLAINT_HANDLER,
+    "feedback": NODE_COMPLAINT_HANDLER,
+    "review": NODE_COMPLAINT_HANDLER,
+    "dissatisfied": NODE_COMPLAINT_HANDLER,
+    "unhappy": NODE_COMPLAINT_HANDLER,
+    "bad_experience": NODE_COMPLAINT_HANDLER,
+    # Cancellation / Retention
+    "cancellation": NODE_RETENTION_NEGOTIATOR,
+    "cancel": NODE_RETENTION_NEGOTIATOR,
+    "unsubscribe": NODE_RETENTION_NEGOTIATOR,
+    "leave": NODE_RETENTION_NEGOTIATOR,
+    "switch": NODE_RETENTION_NEGOTIATOR,
+    # Billing / Payment
+    "billing": NODE_BILLING_RESOLVER,
+    "payment": NODE_BILLING_RESOLVER,
+    "refund": NODE_BILLING_RESOLVER,
+    "charge": NODE_BILLING_RESOLVER,
+    "invoice": NODE_BILLING_RESOLVER,
+    "overcharge": NODE_BILLING_RESOLVER,
+    "subscription": NODE_BILLING_RESOLVER,
+    # Technical
+    "technical": NODE_TECH_DIAGNOSTIC,
+    "bug": NODE_TECH_DIAGNOSTIC,
+    "error": NODE_TECH_DIAGNOSTIC,
+    "not_working": NODE_TECH_DIAGNOSTIC,
+    "broken": NODE_TECH_DIAGNOSTIC,
+    "crash": NODE_TECH_DIAGNOSTIC,
+    "technical_support": NODE_TECH_DIAGNOSTIC,
+    "password_reset": NODE_TECH_DIAGNOSTIC,
+    "login_issue": NODE_TECH_DIAGNOSTIC,
+    "account_access": NODE_TECH_DIAGNOSTIC,
+    # Shipping / Order
+    "shipping": NODE_SHIPPING_TRACKER,
+    "delivery": NODE_SHIPPING_TRACKER,
+    "tracking": NODE_SHIPPING_TRACKER,
+    "order": NODE_SHIPPING_TRACKER,
+    "package": NODE_SHIPPING_TRACKER,
+    "late_delivery": NODE_SHIPPING_TRACKER,
+    "missing_order": NODE_SHIPPING_TRACKER,
+}
+
+
+# ══════════════════════════════════════════════════════════════════
+# ROUTING FUNCTIONS — UNIFIED (ALL variants same path)
 # ══════════════════════════════════════════════════════════════════
 
 
 def route_after_pii(state: dict) -> str:
-    """Decide what comes after PII check.
-
-    Always goes to empathy check. PII is a safety gate that runs
-    first regardless of variant tier or industry.
-
-    Returns:
-        Next node name.
-    """
+    """After PII check → always empathy_check."""
     try:
         return NODE_EMPATHY
     except Exception:
@@ -96,13 +157,7 @@ def route_after_pii(state: dict) -> str:
 
 
 def route_after_empathy(state: dict) -> str:
-    """Decide what comes after empathy check.
-
-    Goes to emergency check. Empathy flags inform emergency detection.
-
-    Returns:
-        Next node name.
-    """
+    """After empathy check → always emergency_check."""
     try:
         return NODE_EMERGENCY
     except Exception:
@@ -110,72 +165,97 @@ def route_after_empathy(state: dict) -> str:
 
 
 def route_after_emergency(state: dict) -> str:
-    """Decide what comes after emergency check.
+    """After emergency check → gsd_state (for all variants now).
 
-    If emergency detected → skip pipeline, go straight to format
-    with an escalation message. Otherwise → proceed to classify.
-
-    This is a CRITICAL safety gate. If a customer threatens legal
-    action, mentions safety concerns, or shows signs of crisis,
-    we bypass the AI pipeline and route to human escalation.
-
-    Returns:
-        Next node name.
+    Emergency detection happens in gsd_state routing.
+    ALL variants go through gsd_state — this is the conversation
+    state machine that tracks the interaction.
     """
     try:
         if state.get("emergency_flag", False):
-            # Emergency: skip AI pipeline, format will create
-            # a human escalation message
-            logger.warning(
-                "Emergency detected — bypassing AI pipeline. "
-                "emergency_type=%s, company_id=%s",
-                state.get("emergency_type", "unknown"),
-                state.get("company_id", ""),
-            )
+            return NODE_FORMAT
+        return NODE_GSD
+    except Exception:
+        return NODE_GSD
+
+
+def route_after_gsd(state: dict) -> str:
+    """After GSD state → classify for ALL variants.
+
+    If emergency + escalate → skip to format.
+    Otherwise → classify (ALL variants, including Mini).
+    """
+    try:
+        emergency_flag = state.get("emergency_flag", False)
+        step_outputs = state.get("step_outputs", {})
+        gsd_output = step_outputs.get("gsd_state", {})
+
+        if emergency_flag:
             return NODE_FORMAT
 
+        if isinstance(gsd_output, dict) and gsd_output.get("to_state") == "escalate":
+            return NODE_FORMAT
+
+        # ALL variants go to classify now
         return NODE_CLASSIFY
     except Exception:
-        # On error, go to classify (safe default — pipeline continues)
         return NODE_CLASSIFY
 
 
 def route_after_classify(state: dict) -> str:
-    """Decide what comes after classify.
+    """After classify → smart_enrichment for ALL variants.
 
-    THE KEY ROUTING DECISION in the Variant Engine.
-
-    Mini:  classify → generate (skip signal extraction and techniques)
-    Pro:   classify → extract_signals (go deeper)
-    High:  classify → extract_signals (go deepest)
-
-    This is where variant_tier drives pipeline depth. Mini saves
-    cost by skipping signal extraction and technique selection —
-    it goes straight to generation with just the classification.
-
-    Returns:
-        Next node name.
+    UNIFIED: ALL variants (Mini, Pro, High) now go through smart_enrichment.
+    The enrichment node checks variant_tier to adjust behavior but does
+    NOT skip the node. Same intelligence, same pipeline.
     """
     try:
-        variant_tier = state.get("variant_tier", "parwa")
-
-        if variant_tier == "mini_parwa":
-            return NODE_GENERATE
-        else:
-            # Both Pro and High go through signal extraction
-            return NODE_EXTRACT_SIGNALS
+        return NODE_SMART_ENRICHMENT
     except Exception:
-        # Safe default: go to generate (simplest path)
-        return NODE_GENERATE
+        return NODE_SMART_ENRICHMENT
+
+
+def route_after_smart_enrichment(state: dict) -> str:
+    """After smart_enrichment → deep enrichment (intent-specific) OR extract_signals.
+
+    ALL variants go through this routing. The deep enrichment nodes
+    check task permissions to decide what actions to take.
+    """
+    try:
+        classification = state.get("classification", {})
+        intent = classification.get("intent", "").lower()
+
+        # Check if intent maps to a deep enrichment node
+        deep_node = INTENT_DEEP_ENRICHMENT_MAP.get(intent)
+        if deep_node:
+            return deep_node
+
+        # Also check secondary intents
+        secondary_intents = classification.get("secondary_intents", [])
+        for sec_intent in secondary_intents:
+            deep_node = INTENT_DEEP_ENRICHMENT_MAP.get(sec_intent.lower())
+            if deep_node:
+                return deep_node
+
+        # No deep enrichment needed → extract signals
+        return NODE_EXTRACT_SIGNALS
+    except Exception:
+        return NODE_EXTRACT_SIGNALS
+
+
+def route_after_deep_enrichment(state: dict) -> str:
+    """After deep enrichment → always extract_signals."""
+    try:
+        return NODE_EXTRACT_SIGNALS
+    except Exception:
+        return NODE_EXTRACT_SIGNALS
 
 
 def route_after_extract_signals(state: dict) -> str:
-    """Decide what comes after extract signals.
+    """After extract_signals → technique_select for ALL variants.
 
-    Always goes to technique select. Signals inform technique choice.
-
-    Returns:
-        Next node name.
+    UNIFIED: ALL variants now use technique selection and reasoning.
+    Same techniques, same intelligence.
     """
     try:
         return NODE_TECHNIQUE_SELECT
@@ -184,29 +264,37 @@ def route_after_extract_signals(state: dict) -> str:
 
 
 def route_after_technique_select(state: dict) -> str:
-    """Decide what comes after technique select.
+    """After technique_select → reasoning_chain for ALL variants.
 
-    Both Pro and High: technique_select → reasoning_chain
-    (execute selected reasoning techniques before generation)
-
-    Returns:
-        Next node name.
+    UNIFIED: ALL variants now execute reasoning techniques.
     """
     try:
-        return "reasoning_chain"
+        return NODE_REASONING_CHAIN
     except Exception:
-        return "reasoning_chain"
+        return NODE_REASONING_CHAIN
+
+
+def route_after_reasoning(state: dict) -> str:
+    """After reasoning_chain → context_enrich for ALL variants."""
+    try:
+        return NODE_CONTEXT_ENRICH
+    except Exception:
+        return NODE_CONTEXT_ENRICH
+
+
+def route_after_context_enrich(state: dict) -> str:
+    """After context_enrich → context_compress for ALL variants.
+
+    UNIFIED: ALL variants compress context now.
+    """
+    try:
+        return NODE_CONTEXT_COMPRESS
+    except Exception:
+        return NODE_CONTEXT_COMPRESS
 
 
 def route_after_context_compress(state: dict) -> str:
-    """Decide what comes after context compression.
-
-    Always goes to generate. Compression optimizes context before
-    the generation step.
-
-    Returns:
-        Next node name.
-    """
+    """After context_compress → generate for ALL variants."""
     try:
         return NODE_GENERATE
     except Exception:
@@ -214,77 +302,80 @@ def route_after_context_compress(state: dict) -> str:
 
 
 def route_after_generate(state: dict) -> str:
-    """Decide what comes after response generation.
+    """After generate → crp_compress for ALL variants.
 
-    Mini:  generate → format (skip quality gate)
-    Pro:   generate → quality_gate (check quality)
-    High:  generate → quality_gate (check quality)
-
-    Mini skips quality gate to save cost and latency. Pro and High
-    verify response quality before delivering to customer.
-
-    Returns:
-        Next node name.
+    UNIFIED: ALL variants now go through quality checks.
     """
     try:
-        variant_tier = state.get("variant_tier", "parwa")
-
-        if variant_tier == "mini_parwa":
-            return NODE_FORMAT
-        else:
-            return NODE_QUALITY_GATE
+        return NODE_CRP_COMPRESS
     except Exception:
-        return NODE_FORMAT
+        return NODE_CRP_COMPRESS
+
+
+def route_after_crp(state: dict) -> str:
+    """After CRP compress → CLARA quality gate for ALL variants."""
+    try:
+        return NODE_QUALITY_GATE
+    except Exception:
+        return NODE_QUALITY_GATE
 
 
 def route_after_quality_gate(state: dict) -> str:
-    """Decide what comes after quality gate.
+    """After CLARA quality gate.
 
-    If quality failed and retry budget remains → regenerate
-    If quality passed or retries exhausted → proceed
+    UNIFIED: ALL variants go through quality retry loop now.
+    The retry count and threshold are set per-variant in permissions.
 
-    Pro:   quality_gate → format
-    High:  quality_gate → context_health
-
-    Returns:
-        Next node name.
+    If quality failed and retries remain → quality_retry
+    If quality passed or retries exhausted → confidence_assess
     """
     try:
-        variant_tier = state.get("variant_tier", "parwa")
+        from app.core.variant_permissions import get_permissions
 
-        # Check if quality gate failed and we should retry
+        variant_tier = state.get("variant_tier", "parwa")
+        perms = get_permissions(variant_tier)
+
         quality_passed = state.get("quality_passed", True)
         retry_count = state.get("quality_retry_count", 0)
-        max_retries = 1  # Only retry once to control cost
+        max_retries = perms.max_quality_retries
 
         if not quality_passed and retry_count < max_retries:
             logger.info(
                 "Quality gate failed (retry %d/%d) — regenerating. "
-                "company_id=%s, variant=%s",
+                "variant=%s, company_id=%s",
                 retry_count, max_retries,
-                state.get("company_id", ""),
                 variant_tier,
+                state.get("company_id", ""),
             )
-            return NODE_GENERATE
+            return NODE_QUALITY_RETRY
 
         # Quality passed or retries exhausted
-        if variant_tier == "parwa_high":
-            return NODE_CONTEXT_HEALTH
-        else:
-            return NODE_FORMAT
+        return NODE_CONFIDENCE_ASSESS
     except Exception:
-        return NODE_FORMAT
+        return NODE_CONFIDENCE_ASSESS
+
+
+def route_after_quality_retry(state: dict) -> str:
+    """After quality_retry → back to generate for retry."""
+    try:
+        return NODE_GENERATE
+    except Exception:
+        return NODE_GENERATE
+
+
+def route_after_confidence(state: dict) -> str:
+    """After confidence_assess → context_health for ALL variants.
+
+    UNIFIED: ALL variants now go through context health checks.
+    """
+    try:
+        return NODE_CONTEXT_HEALTH
+    except Exception:
+        return NODE_CONTEXT_HEALTH
 
 
 def route_after_context_health(state: dict) -> str:
-    """Decide what comes after context health check.
-
-    Always goes to dedup. Context health is informational —
-    it logs health state but doesn't change the pipeline flow.
-
-    Returns:
-        Next node name.
-    """
+    """After context_health → dedup for ALL variants."""
     try:
         return NODE_DEDUP
     except Exception:
@@ -292,96 +383,91 @@ def route_after_context_health(state: dict) -> str:
 
 
 def route_after_dedup(state: dict) -> str:
-    """Decide what comes after dedup check.
+    """After dedup → strategic_decision for ALL variants.
 
-    For parwa_high: goes through strategic_decision + peer_review before format.
-    For other variants: goes straight to format.
-
-    Returns:
-        Next node name.
+    UNIFIED: ALL variants now go through strategic decision + peer review.
+    The nodes adjust behavior per-variant but don't skip.
     """
     try:
-        variant_tier = state.get("variant_tier", "parwa")
-        if variant_tier == "parwa_high":
-            # High goes through strategic_decision + peer_review before format
-            return "strategic_decision"
+        return NODE_STRATEGIC_DECISION
+    except Exception:
+        return NODE_STRATEGIC_DECISION
+
+
+def route_after_strategic_decision(state: dict) -> str:
+    """After strategic_decision → peer_review for ALL variants."""
+    try:
+        return NODE_PEER_REVIEW
+    except Exception:
+        return NODE_PEER_REVIEW
+
+
+def route_after_peer_review(state: dict) -> str:
+    """After peer_review → auto_action for ALL variants."""
+    try:
+        return NODE_AUTO_ACTION
+    except Exception:
+        return NODE_AUTO_ACTION
+
+
+def route_after_auto_action(state: dict) -> str:
+    """After auto_action → always format."""
+    try:
         return NODE_FORMAT
     except Exception:
         return NODE_FORMAT
 
 
 # ══════════════════════════════════════════════════════════════════
-# PIPELINE DEFINITIONS
+# UNIFIED PIPELINE STEPS
 # ══════════════════════════════════════════════════════════════════
 
 
-def get_mini_pipeline_steps() -> List[str]:
-    """Get the ordered steps for Mini Parwa pipeline.
+def get_unified_pipeline_steps() -> List[str]:
+    """Get the ordered steps for the UNIFIED pipeline.
 
-    Mini = 5 steps (3 core + 2 safety):
-      pii → empathy → emergency → classify → generate → format
+    ALL variants now use the SAME pipeline:
+      pii_check → empathy_check → emergency_check → gsd_state
+      → classify → smart_enrichment → [deep_enrichment]
+      → extract_signals → technique_select → reasoning_chain
+      → context_enrich → context_compress → generate
+      → crp_compress → clara_quality_gate → quality_retry
+      → confidence_assess → context_health → dedup
+      → strategic_decision → peer_review → auto_action → format
 
-    Cost target: ~$0.003/query
-    Latency target: <3s
+    The only difference is the PERMISSIONS inside each node.
     """
     return [
         NODE_PII,
         NODE_EMPATHY,
         NODE_EMERGENCY,
+        NODE_GSD,
         NODE_CLASSIFY,
-        NODE_GENERATE,
-        NODE_FORMAT,
-    ]
-
-
-def get_pro_pipeline_steps() -> List[str]:
-    """Get the ordered steps for Pro Parwa pipeline.
-
-    Pro = 8 steps (Mini's 5 + 3 deeper):
-      pii → empathy → emergency → classify → extract_signals →
-      technique_select → generate → quality_gate → format
-
-    Cost target: ~$0.008/query
-    Latency target: <8s
-    """
-    return [
-        NODE_PII,
-        NODE_EMPATHY,
-        NODE_EMERGENCY,
-        NODE_CLASSIFY,
+        NODE_SMART_ENRICHMENT,
+        # Deep enrichment is conditional based on intent
         NODE_EXTRACT_SIGNALS,
         NODE_TECHNIQUE_SELECT,
-        NODE_GENERATE,
-        NODE_QUALITY_GATE,
-        NODE_FORMAT,
-    ]
-
-
-def get_high_pipeline_steps() -> List[str]:
-    """Get the ordered steps for High Parwa pipeline.
-
-    High = 11 steps (Pro's 8 + 3 deepest):
-      pii → empathy → emergency → classify → extract_signals →
-      technique_select → context_compress → generate → quality_gate →
-      context_health → dedup → format
-
-    Cost target: ~$0.015/query
-    Latency target: <15s
-    """
-    return [
-        NODE_PII,
-        NODE_EMPATHY,
-        NODE_EMERGENCY,
-        NODE_CLASSIFY,
-        NODE_EXTRACT_SIGNALS,
-        NODE_TECHNIQUE_SELECT,
+        NODE_REASONING_CHAIN,
+        NODE_CONTEXT_ENRICH,
         NODE_CONTEXT_COMPRESS,
         NODE_GENERATE,
+        NODE_CRP_COMPRESS,
         NODE_QUALITY_GATE,
+        NODE_QUALITY_RETRY,
+        NODE_CONFIDENCE_ASSESS,
         NODE_CONTEXT_HEALTH,
         NODE_DEDUP,
+        NODE_STRATEGIC_DECISION,
+        NODE_PEER_REVIEW,
+        NODE_AUTO_ACTION,
         NODE_FORMAT,
     ]
+
+
+# Legacy aliases (backwards compatibility)
+get_mini_pipeline_steps = get_unified_pipeline_steps
+get_pro_pipeline_steps = get_unified_pipeline_steps
+get_high_pipeline_steps = get_unified_pipeline_steps
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -390,30 +476,23 @@ def get_high_pipeline_steps() -> List[str]:
 
 
 class VariantRouter:
-    """Code-orchestrated router for the Variant Engine.
+    """Code-orchestrated router for the UNIFIED Variant Engine.
 
-    Provides the routing functions and pipeline definitions that
-    LangGraph uses to build conditional edges in the StateGraph.
+    ALL variants now follow the SAME pipeline path. The only
+    difference is in task permissions inside each node.
 
     Usage:
         router = VariantRouter()
-
-        # Add conditional edges to LangGraph builder
         builder.add_conditional_edges("pii_check", router.route_after_pii)
         builder.add_conditional_edges("classify", router.route_after_classify)
-        builder.add_conditional_edges("generate", router.route_after_generate)
         # ... etc
-
-    All routing is FREE — pure Python code, no LLM calls.
     """
 
     def __init__(self) -> None:
         """Initialize the router."""
-        logger.info("VariantRouter initialized — code-orchestrated routing (FREE)")
+        logger.info("VariantRouter initialized — UNIFIED routing for ALL variants (FREE)")
 
-    # Expose routing functions as instance methods for convenience
-    # (can also be used as standalone functions)
-
+    # Expose routing functions as instance methods
     def route_after_pii(self, state: dict) -> str:
         return route_after_pii(state)
 
@@ -423,8 +502,17 @@ class VariantRouter:
     def route_after_emergency(self, state: dict) -> str:
         return route_after_emergency(state)
 
+    def route_after_gsd(self, state: dict) -> str:
+        return route_after_gsd(state)
+
     def route_after_classify(self, state: dict) -> str:
         return route_after_classify(state)
+
+    def route_after_smart_enrichment(self, state: dict) -> str:
+        return route_after_smart_enrichment(state)
+
+    def route_after_deep_enrichment(self, state: dict) -> str:
+        return route_after_deep_enrichment(state)
 
     def route_after_extract_signals(self, state: dict) -> str:
         return route_after_extract_signals(state)
@@ -432,14 +520,29 @@ class VariantRouter:
     def route_after_technique_select(self, state: dict) -> str:
         return route_after_technique_select(state)
 
+    def route_after_reasoning(self, state: dict) -> str:
+        return route_after_reasoning(state)
+
+    def route_after_context_enrich(self, state: dict) -> str:
+        return route_after_context_enrich(state)
+
     def route_after_context_compress(self, state: dict) -> str:
         return route_after_context_compress(state)
 
     def route_after_generate(self, state: dict) -> str:
         return route_after_generate(state)
 
+    def route_after_crp(self, state: dict) -> str:
+        return route_after_crp(state)
+
     def route_after_quality_gate(self, state: dict) -> str:
         return route_after_quality_gate(state)
+
+    def route_after_quality_retry(self, state: dict) -> str:
+        return route_after_quality_retry(state)
+
+    def route_after_confidence(self, state: dict) -> str:
+        return route_after_confidence(state)
 
     def route_after_context_health(self, state: dict) -> str:
         return route_after_context_health(state)
@@ -447,41 +550,41 @@ class VariantRouter:
     def route_after_dedup(self, state: dict) -> str:
         return route_after_dedup(state)
 
+    def route_after_strategic_decision(self, state: dict) -> str:
+        return route_after_strategic_decision(state)
+
+    def route_after_peer_review(self, state: dict) -> str:
+        return route_after_peer_review(state)
+
+    def route_after_auto_action(self, state: dict) -> str:
+        return route_after_auto_action(state)
+
     def get_pipeline_steps(self, variant_tier: str) -> List[str]:
-        """Get the pipeline step list for a variant tier.
-
-        Args:
-            variant_tier: 'mini_parwa' | 'parwa' | 'parwa_high'
-
-        Returns:
-            Ordered list of node names for the pipeline.
-        """
-        pipelines = {
-            "mini_parwa": get_mini_pipeline_steps,
-            "parwa": get_pro_pipeline_steps,
-            "parwa_high": get_high_pipeline_steps,
-        }
-        builder = pipelines.get(variant_tier, get_pro_pipeline_steps)
-        return builder()
+        """Get the pipeline step list — SAME for all variants now."""
+        return get_unified_pipeline_steps()
 
     def get_all_conditional_edges(self) -> dict:
-        """Get all conditional edge mappings for building the LangGraph.
-
-        Returns:
-            Dict mapping source node → routing function.
-            Pass each entry to builder.add_conditional_edges().
-        """
+        """Get all conditional edge mappings for building the LangGraph."""
         return {
             NODE_PII: route_after_pii,
             NODE_EMPATHY: route_after_empathy,
             NODE_EMERGENCY: route_after_emergency,
+            NODE_GSD: route_after_gsd,
             NODE_CLASSIFY: route_after_classify,
+            NODE_SMART_ENRICHMENT: route_after_smart_enrichment,
             NODE_EXTRACT_SIGNALS: route_after_extract_signals,
             NODE_TECHNIQUE_SELECT: route_after_technique_select,
+            NODE_REASONING_CHAIN: route_after_reasoning,
+            NODE_CONTEXT_ENRICH: route_after_context_enrich,
             NODE_CONTEXT_COMPRESS: route_after_context_compress,
             NODE_GENERATE: route_after_generate,
+            NODE_CRP_COMPRESS: route_after_crp,
             NODE_QUALITY_GATE: route_after_quality_gate,
+            NODE_QUALITY_RETRY: route_after_quality_retry,
+            NODE_CONFIDENCE_ASSESS: route_after_confidence,
             NODE_CONTEXT_HEALTH: route_after_context_health,
             NODE_DEDUP: route_after_dedup,
-            # FORMAT always goes to END — no conditional edge needed
+            NODE_STRATEGIC_DECISION: route_after_strategic_decision,
+            NODE_PEER_REVIEW: route_after_peer_review,
+            NODE_AUTO_ACTION: route_after_auto_action,
         }
