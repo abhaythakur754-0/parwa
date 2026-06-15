@@ -9,6 +9,23 @@ const nextConfig = {
   },
   reactStrictMode: false,
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
+
+  // ── Source maps for debugging production TDZ errors ────────────────
+  productionBrowserSourceMaps: true,
+
+  // ── Transpile ESM-only packages that cause TDZ errors ──────────────
+  // @paddle/paddle-js is ESM-only and has internal circular references
+  // that cause "Cannot access 'X' before initialization" in minified builds.
+  // Transpiling it to CJS-compatible code avoids the TDZ issue.
+  transpilePackages: ['@paddle/paddle-js'],
+
+  // ── Optimize ESM package imports to reduce bundle size ──────────────
+  // lucide-react is imported in 80+ files; optimizePackageImports
+  // tree-shakes unused icons and reduces the shared chunk size.
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'react-hot-toast'],
+  },
+
   turbopack: {
     root: "..",
   },

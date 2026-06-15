@@ -96,15 +96,9 @@ export function resetPaddleInstance(): void {
   paddleInitFailed = false;
 }
 
-/**
- * Variant type -> Paddle price ID mapping.
- * Must match the backend's PLAN_PRICE_IDS in paddle_service.py.
- */
-export const VARIANT_PRICE_IDS: Record<string, string> = {
-  mini_parwa: 'pri_01ksamxdpw0kmh3qj9p1gdzgms',  // Active: Starter $999/mo
-  parwa: 'pri_01ksamxf31qkmbekat2cgmqyef',        // Active: Growth $2,499/mo
-  parwa_high: 'pri_01ksamxed6jkm7g7xz687ax3zy',    // Active: High $3,999/mo
-};
+// Re-export from pure-data module to avoid breaking existing imports
+// New code should import from @/lib/paddle-constants directly
+export { VARIANT_PRICE_IDS } from './paddle-constants';
 
 /**
  * Open the Paddle checkout overlay for a given transaction ID.

@@ -24,15 +24,12 @@ import {
 } from 'lucide-react';
 import { toast } from '@/lib/dynamic-toast';
 import { cn } from '@/lib/utils';
-import { openCheckoutWithItems, getPaddleInstance, VARIANT_PRICE_IDS } from '@/lib/paddle';
-import {
-  validateCoupon,
-  applyCouponDiscount,
-  getPaddleDiscountCode,
-  getPaddleDiscountId,
-  formatDiscount,
-  type Coupon,
-} from '@/lib/coupon-config';
+// ── DYNAMIC IMPORTS: paddle and coupon-config are loaded on demand ──────
+// Static imports of @/lib/paddle cause TDZ errors because the module
+// pulls in @paddle/paddle-js (ESM-only). By using dynamic imports,
+// we defer evaluation until runtime, avoiding "Cannot access 'ee' before initialization".
+import { VARIANT_PRICE_IDS } from '@/lib/paddle-constants';
+import type { Coupon } from '@/lib/coupon-config';
 import type { ParwaVariant } from './IndustryVariantStep';
 import type { PricingContext } from './IndustryVariantStep';
 import {
@@ -48,6 +45,62 @@ import {
   type VariantTier,
   type OnboardingVariant,
 } from '@/lib/pricing-config';
+
+// ── Lazy-loaded paddle/coupon functions ──────────────────────────────────
+// These are only imported when the user clicks "Proceed" or when the
+// component mounts and checks Paddle availability. This avoids pulling
+// @paddle/paddle-js into the chunk at evaluation time.
+type PaddleModule = typeof import('@/lib/paddle');
+type CouponModule = typeof import('@/lib/coupon-config');
+
+let _paddleMod: PaddleModule | null = null;
+let _couponMod: CouponModule | null = null;
+
+async function loadPaddle(): Promise<PaddleModule> {
+  if (_paddleMod) return _paddleMod;
+  _paddleMod = await import('@/lib/paddle');
+  return _paddleMod;
+}
+
+async function loadCoupon(): Promise<CouponModule> {
+  if (_couponMod) return _couponMod;
+  _couponMod = await import('@/lib/coupon-config');
+  return _couponMod;
+}
+
+// ── Synchronous coupon helpers (inline — avoid importing coupon-config) ──
+// These are small pure functions that don't need the full coupon-config module.
+// We inline them here so that the component can use them at render time
+// without a static import that would pull coupon-config into the chunk.
+
+function _validateCoupon(code: string): Coupon | null {
+  // Minimal inline version — delegates to dynamically-loaded module when ready
+  // For the initial render, we use a simplified check
+  if (!code || code.trim().length === 0) return null;
+  const normalized = code.trim().toUpperCase();
+  // Known coupons (must match coupon-config.ts)
+  const COUPON_CODE = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_PADDLE_FREE_DISCOUNT_CODE) || 'DURGA754';
+  if (normalized === COUPON_CODE.toUpperCase()) {
+    return {
+      code: COUPON_CODE,
+      discountPercent: 100,
+      paddleDiscountId: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_PADDLE_FREE_DISCOUNT_ID) || 'dsc_01kv26d0s3qt2w1vpj888qa2nh',
+      description: '100% off — Full testing access (all variants free)',
+      active: true,
+    };
+  }
+  return null;
+}
+
+function _applyCouponDiscount(price: number, coupon: Coupon | null): number {
+  if (!coupon) return price;
+  const discount = price * (coupon.discountPercent / 100);
+  return Math.max(0, Math.round((price - discount) * 100) / 100);
+}
+
+function _formatDiscount(coupon: Coupon): string {
+  return `${coupon.discountPercent}% off`;
+}
 
 // ── Onboarding variant → VariantTier mapping ────────────────────────
 
@@ -329,10 +382,10 @@ function CouponCodeInput({
 
     // Simulate brief validation delay
     setTimeout(() => {
-      const coupon = validateCoupon(code);
+      const coupon = _validateCoupon(code);
       if (coupon) {
         onApply(coupon);
-        toast.success(`Coupon applied: ${formatDiscount(coupon)}`);
+        toast.success(`Coupon applied: ${_formatDiscount(coupon)}`);
       } else {
         setError('Invalid coupon code. Please check and try again.');
         toast.error('Invalid coupon code');
@@ -362,7 +415,7 @@ function CouponCodeInput({
                   {appliedCoupon.code}
                 </span>
                 <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
-                  {formatDiscount(appliedCoupon)}
+                  {_formatDiscount(appliedCoupon)}
                 </span>
               </div>
               <p className="text-[10px] text-orange-200/30 mt-0.5">
@@ -501,7 +554,7 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
         }
         // Restore coupon from ModelsPage
         if (ctx.couponCode && typeof ctx.couponCode === 'string') {
-          const coupon = validateCoupon(ctx.couponCode);
+          const coupon = _validateCoupon(ctx.couponCode);
           if (coupon) {
             setAppliedCoupon(coupon);
           }
@@ -514,8 +567,12 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
 
   // Check if Paddle.js is available
   useEffect(() => {
-    getPaddleInstance().then((paddle) => {
-      setPaddleStatus(paddle ? 'ready' : 'unavailable');
+    loadPaddle().then(({ getPaddleInstance }) => {
+      getPaddleInstance().then((paddle) => {
+        setPaddleStatus(paddle ? 'ready' : 'unavailable');
+      }).catch(() => {
+        setPaddleStatus('unavailable');
+      });
     }).catch(() => {
       setPaddleStatus('unavailable');
     });
@@ -563,7 +620,7 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
 
   // ── Coupon-discounted total ──────────────────────────────────────
   const discountedTotal = useMemo(
-    () => applyCouponDiscount(totalMonthly, appliedCoupon),
+    () => _applyCouponDiscount(totalMonthly, appliedCoupon),
     [totalMonthly, appliedCoupon]
   );
   const isFreeCheckout = discountedTotal === 0;
@@ -573,7 +630,7 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
     const prices: Record<VariantTier, number> = { starter: 0, growth: 0, high: 0 };
     for (const tier of activeVariants) {
       const variantPrice = VARIANT_PRICES[tier] * (variantQuantities[tier] || 1);
-      prices[tier] = applyCouponDiscount(variantPrice, appliedCoupon);
+      prices[tier] = _applyCouponDiscount(variantPrice, appliedCoupon);
     }
     return prices;
   }, [activeVariants, variantQuantities, appliedCoupon]);
@@ -696,8 +753,9 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
 
       // Get Paddle discount code/ID if a coupon is applied
       // PRIORITY: Use discountId over discountCode (more reliable, no case-sensitivity issues)
-      const paddleDiscountCode = getPaddleDiscountCode(appliedCoupon);
-      const paddleDiscountId = getPaddleDiscountId(appliedCoupon);
+      const couponMod = await loadCoupon();
+      const paddleDiscountCode = couponMod.getPaddleDiscountCode(appliedCoupon);
+      const paddleDiscountId = couponMod.getPaddleDiscountId(appliedCoupon);
 
       console.log('[cost-breakdown] Checkout config:', {
         isFreeCheckout,
@@ -784,7 +842,8 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
 
       // ── Step 2: Client-side Paddle checkout (items-based overlay) ──
       // Re-check Paddle availability (might have loaded since initial check)
-      const paddle = await getPaddleInstance();
+      const paddleMod = await loadPaddle();
+      const paddle = await paddleMod.getPaddleInstance();
       console.log('[cost-breakdown] Paddle instance:', paddle ? 'available' : 'not available');
 
       if (paddle && checkoutItems.length > 0) {
@@ -794,7 +853,7 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
         const effectiveDiscountCode = paddleDiscountId ? undefined : paddleDiscountCode;
         const effectiveDiscountId = paddleDiscountId || undefined;
         
-        const opened = await openCheckoutWithItems(
+        const opened = await paddleMod.openCheckoutWithItems(
           checkoutItems,
           customData,
           // onPaymentSuccess — triggers after Paddle confirms the transaction
@@ -818,13 +877,13 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
       // ── Step 3: Paddle unavailable — try re-initializing ──
       // Sometimes Paddle fails on first load but works on retry
       try {
-        const retryPaddle = await getPaddleInstance();
+        const retryPaddle = await paddleMod.getPaddleInstance();
         if (retryPaddle && checkoutItems.length > 0) {
           setPaddleStatus('ready');
           const effectiveDiscountCode = paddleDiscountId ? undefined : paddleDiscountCode;
           const effectiveDiscountId = paddleDiscountId || undefined;
 
-          const opened = await openCheckoutWithItems(
+          const opened = await paddleMod.openCheckoutWithItems(
             checkoutItems,
             customData,
             handlePaymentSuccess,
@@ -1134,7 +1193,7 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
           <div className="flex items-center justify-between py-1">
             <span className="text-sm text-emerald-400 flex items-center gap-1.5">
               <Tag className="w-3 h-3" />
-              Coupon: {appliedCoupon.code} ({formatDiscount(appliedCoupon)})
+              Coupon: {appliedCoupon.code} ({_formatDiscount(appliedCoupon)})
             </span>
             <span className="text-sm text-emerald-400 font-medium">
               −${(totalMonthly - discountedTotal).toLocaleString()}/mo

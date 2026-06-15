@@ -23,17 +23,24 @@ import {
 } from 'lucide-react';
 import { toast } from '@/lib/dynamic-toast';
 import { cn } from '@/lib/utils';
-import {
-  INTEGRATION_CATALOG,
-  CATEGORY_META,
-  getIntegrationsForIndustry,
-  getIntegrationsGroupedByCategory,
-  getIntegrationByKey,
-  type ParwaIndustry,
-  type IntegrationDefinition,
-  type IntegrationCategory,
-  type AuthType,
+// ── DYNAMIC IMPORT: integration-catalog is 993 lines and may cause TDZ errors
+// when bundled into shared webpack chunks. We load it dynamically on mount.
+import type {
+  ParwaIndustry,
+  IntegrationDefinition,
+  IntegrationCategory,
+  AuthType,
 } from '@/lib/integration-catalog';
+
+// Lazy-loaded catalog module
+type CatalogModule = typeof import('@/lib/integration-catalog');
+
+let _catalogMod: CatalogModule | null = null;
+async function loadCatalog(): Promise<CatalogModule> {
+  if (_catalogMod) return _catalogMod;
+  _catalogMod = await import('@/lib/integration-catalog');
+  return _catalogMod;
+}
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -79,6 +86,7 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
   const [expandedCategory, setExpandedCategory] = useState<IntegrationCategory | 'custom' | null>(null);
   const [activeCatalogIntegration, setActiveCatalogIntegration] = useState<IntegrationDefinition | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [catalogLoading, setCatalogLoading] = useState(true);
 
   // Form state for catalog-based integration
   const [catalogCredentials, setCatalogCredentials] = useState<Record<string, string>>({});
@@ -96,8 +104,23 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
   // Resolve industry for recommendations
   const parwaIndustry: ParwaIndustry = (industry as ParwaIndustry) || 'other';
 
-  // Get recommended integrations grouped by category
-  const recommendedGroups = getIntegrationsGroupedByCategory(parwaIndustry);
+  // ── Lazy-load catalog data ──────────────────────────────────────────
+  const [recommendedGroups, setRecommendedGroups] = useState<Record<IntegrationCategory, IntegrationDefinition[]>>({});
+  const [catalogEntries, setCatalogEntries] = useState<IntegrationDefinition[]>([]);
+  const [categoryMeta, setCategoryMeta] = useState<Record<IntegrationCategory, { label: string; order: number }>>({} as Record<IntegrationCategory, { label: string; order: number }>);
+
+  useEffect(() => {
+    loadCatalog().then((mod) => {
+      setRecommendedGroups(mod.getIntegrationsGroupedByCategory(parwaIndustry));
+      setCatalogEntries(mod.INTEGRATION_CATALOG);
+      setCategoryMeta(mod.CATEGORY_META);
+      setCatalogLoading(false);
+    }).catch(() => {
+      setCatalogLoading(false);
+    });
+  }, [parwaIndustry]);
+
+  // Get recommended integrations grouped by category (now from state)
   const allCatalogKeys = new Set(integrations.filter((i) => i.catalogKey).map((i) => i.catalogKey));
 
   // Load existing integrations from backend
@@ -382,7 +405,7 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
   // ── Filter catalog by search ─────────────────────────────────────────
 
   const filteredCatalog = searchQuery.trim()
-    ? INTEGRATION_CATALOG.filter(
+    ? catalogEntries.filter(
         (i) =>
           i.available &&
           (i.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -406,6 +429,14 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
           has real-time access to your data. <strong className="text-orange-200/60">Test each integration</strong> before proceeding.
         </p>
       </div>
+
+      {/* Catalog Loading */}
+      {catalogLoading && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-orange-400" />
+          <span className="ml-2 text-sm text-orange-200/50">Loading integrations catalog...</span>
+        </div>
+      )}
 
       {/* Stats Row */}
       {integrations.length > 0 && (
@@ -552,7 +583,7 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
           </div>
 
           {/* Recommended for your industry */}
-          {!searchQuery.trim() && (
+          {!searchQuery.trim() && !catalogLoading && (
             <div className="p-3 rounded-xl border border-orange-500/20" style={{ background: 'rgba(255,127,17,0.04)' }}>
               <div className="flex items-center gap-2 mb-1">
                 <Sparkles className="w-4 h-4 text-orange-400" />
@@ -567,7 +598,7 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
           )}
 
           {/* Search Results */}
-          {filteredCatalog ? (
+          {filteredCatalog && !catalogLoading ? (
             <div className="space-y-2">
               <p className="text-xs text-orange-200/40 uppercase tracking-wider font-medium">
                 Search Results ({filteredCatalog.length})
@@ -600,7 +631,7 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
           ) : (
             /* Grouped by Category */
             <div className="space-y-2">
-              {(Object.entries(CATEGORY_META) as [IntegrationCategory, { label: string; order: number }][])
+              {(Object.entries(categoryMeta) as [IntegrationCategory, { label: string; order: number }][])
                 .sort((a, b) => a[1].order - b[1].order)
                 .filter(([cat]) => {
                   const group = recommendedGroups[cat];
