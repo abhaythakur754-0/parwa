@@ -17,11 +17,78 @@
 
 'use client';
 
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { Component, useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard';
+
+// ── Error Boundary ────────────────────────────────────────────────────
+// Catches TDZ errors like "Cannot access 'R' before initialization"
+// that can occur from ESM module evaluation in the Next.js production build.
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class OnboardingErrorBoundary extends Component<
+  { children: React.ReactNode },
+  ErrorBoundaryState
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  handleRetry = () => {
+    this.setState({ hasError: false, error: null });
+    // Force a full reload to re-initialize all modules
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
+  };
+
+  render() {
+    if (this.state.hasError) {
+      const isTDZError = this.state.error?.message?.includes('before initialization');
+      return (
+        <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>
+          <div className="max-w-md mx-auto text-center px-6">
+            <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-red-500/10 flex items-center justify-center">
+              <AlertCircle className="w-8 h-8 text-red-400" />
+            </div>
+            <h2 className="text-xl font-semibold text-white mb-2">
+              {isTDZError ? 'Module Loading Error' : 'Something went wrong'}
+            </h2>
+            <p className="text-sm text-orange-200/40 mb-1">
+              {isTDZError
+                ? 'A required module failed to initialize. This usually resolves with a page refresh.'
+                : 'An unexpected error occurred.'}
+            </p>
+            {this.state.error && (
+              <p className="text-xs text-orange-200/25 mb-6 font-mono">
+                {this.state.error.message}
+              </p>
+            )}
+            <button
+              onClick={this.handleRetry}
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] font-semibold rounded-xl hover:from-orange-400 hover:to-amber-300 transition-all"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ── Loading Fallback ──────────────────────────────────────────────────
 function OnboardingLoading() {
@@ -64,8 +131,10 @@ function OnboardingContent() {
 // ── Page Export ────────────────────────────────────────────────────────
 export default function OnboardingPage() {
   return (
-    <Suspense fallback={<OnboardingLoading />}>
-      <OnboardingContent />
-    </Suspense>
+    <OnboardingErrorBoundary>
+      <Suspense fallback={<OnboardingLoading />}>
+        <OnboardingContent />
+      </Suspense>
+    </OnboardingErrorBoundary>
   );
 }
