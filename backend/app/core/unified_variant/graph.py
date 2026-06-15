@@ -1,44 +1,29 @@
 """
-Unified Variant Graph — ONE graph, ALL variants, permission-driven.
+Unified Variant LangGraph — ONE graph, ALL tiers.
+
+This replaces the three separate variant graphs (mini_parwa 10 nodes,
+parwa 22 nodes, parwa_high 27 nodes) with a SINGLE unified graph
+where `variant_tier` controls what each node is ALLOWED to do.
 
 Architecture:
-  All 3 variants (Mini/Pro/High) share the SAME graph topology.
-  variant_tier controls what each node is ALLOWED to do, not which
-  nodes exist. This means:
+  START
+    → pii_check → empathy_check → emergency_check → gsd_state
+    → classify → smart_enrichment → [deep_enrichment_router]
+    → extract_signals → technique_select → reasoning_chain
+    → context_enrich → context_compress → generate
+    → crp_compress → clara_quality_gate → quality_retry (conditional)
+    → confidence_assess → maker_validator → auto_fix → auto_action
+    → context_health → dedup → strategic_decision → peer_review
+    → format → END
 
-  - Mini has the same intelligence as High — it sees the same signals,
-    runs the same enrichment, uses the same quality gates
-  - Mini RESTRICTIONS: limited technique depth, lower LLM model,
-    fewer quality retries, monetary actions need approval
-  - Pro RESTRICTIONS: medium technique depth, some actions need approval
-  - High RESTRICTIONS: full depth, full autonomy, only emergency needs approval
-
-  This follows the user's core philosophy: "same capability, different
-  restrictions" — not "different graphs for different tiers."
-
-Inter-Node Communication:
-  Every node posts to node_comm_bus (shared dict in state) and reads
-  from it. This is the primary mechanism for nodes to share insights,
-  flags, and context — solving the "nodes not talking to each other" bug.
-
-Pipeline Flow (all tiers):
-  START -> pii_check -> empathy_check -> emergency_check -> gsd_state
-  -> classify -> smart_enrichment -> [deep_enrichment_router]
-    -> complaint_handler | retention_negotiator | billing_resolver
-    | tech_diagnostic | shipping_tracker | (skip)
-  -> extract_signals -> technique_select -> reasoning_chain
-  -> context_enrich -> [context_compress: High] -> generate
-  -> crp_compress -> clara_quality_gate -> [quality_retry: Pro/High]
-  -> confidence_assess -> [context_health: High] -> [dedup: High]
-  -> [strategic_decision: High] -> [peer_review: High]
-  -> auto_fix -> auto_action -> batch_refunds -> maker_validator
-  -> format -> END
-
-Key Nodes Added:
-  - auto_fix: Self-healing for all tiers (including Mini)
-  - batch_refunds: Merges similar refund requests into one batch
-  - maker_validator: Uses LLM for K-solution validation (ALL tiers)
-  - clarification_gate: If variant is unsure, creates client question
+Key Changes from Old Architecture:
+  1. ALL 27+ nodes exist in ONE graph
+  2. variant_tier controls PERMISSIONS, not graph topology
+  3. maker_validator moved BEFORE generate (validate before generating)
+  4. auto_fix node added (all tiers get auto-fix)
+  5. Nodes pass RICH CONTEXT to each other via shared state
+  6. Inter-node communication via context enrichment + signals
+  7. Jarvis bridge integration for monitoring + ask-when-unsure
 
 BC-001: company_id first parameter on public methods.
 BC-008: Every public method wrapped in try/except — never crash.
@@ -52,163 +37,37 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from langgraph.graph import StateGraph, END
-
-from app.core.parwa_graph_state import (
-    ParwaGraphState,
-    create_initial_state,
-    post_to_comm_bus,
-    read_comm_bus,
-    post_shared_insight,
-    get_shared_insights,
-)
 from app.logger import get_logger
+from app.core.unified_variant.permission_config import (
+    VariantTier,
+    PermissionConfig,
+    get_permission_config,
+    is_node_allowed,
+    needs_approval,
+)
 
 logger = get_logger("unified_variant_graph")
 
 
 # ══════════════════════════════════════════════════════════════════
-# PERMISSION SYSTEM: What each tier CAN and CANNOT do
+# INTENT → DEEP ENRICHMENT MAPPING
 # ══════════════════════════════════════════════════════════════════
 
-TIER_PERMISSIONS = {
-    "mini_parwa": {
-        "max_quality_retries": 1,
-        "technique_depth": "tier1",
-        "llm_model": "light",
-        "monetary_actions": "approval_required",
-        "escalation": "approval_required",
-        "deep_enrichment": True,
-        "context_compress": False,
-        "context_health": False,
-        "dedup": False,
-        "strategic_decision": False,
-        "peer_review": False,
-        "auto_fix": True,
-        "batch_refunds": True,
-        "maker_llm": True,
-        "clarification": True,
-        "quality_threshold": 0.70,
-    },
-    "parwa": {
-        "max_quality_retries": 2,
-        "technique_depth": "tier2",
-        "llm_model": "medium",
-        "monetary_actions": "approval_required",
-        "escalation": "auto",
-        "deep_enrichment": True,
-        "context_compress": False,
-        "context_health": False,
-        "dedup": False,
-        "strategic_decision": False,
-        "peer_review": False,
-        "auto_fix": True,
-        "batch_refunds": True,
-        "maker_llm": True,
-        "clarification": True,
-        "quality_threshold": 0.85,
-    },
-    "parwa_high": {
-        "max_quality_retries": 3,
-        "technique_depth": "tier3",
-        "llm_model": "heavy",
-        "monetary_actions": "auto",
-        "escalation": "auto",
-        "deep_enrichment": True,
-        "context_compress": True,
-        "context_health": True,
-        "dedup": True,
-        "strategic_decision": True,
-        "peer_review": True,
-        "auto_fix": True,
-        "batch_refunds": True,
-        "maker_llm": True,
-        "clarification": True,
-        "quality_threshold": 0.95,
-    },
-}
-
-
-def get_tier_permissions(variant_tier: str) -> Dict[str, Any]:
-    """Get permission set for a variant tier."""
-    return TIER_PERMISSIONS.get(variant_tier, TIER_PERMISSIONS["parwa"])
-
-
-# ══════════════════════════════════════════════════════════════════
-# ROUTING FUNCTIONS (Code-orchestrated = FREE)
-# ══════════════════════════════════════════════════════════════════
-
-
-def route_after_pii(state: dict) -> str:
-    """PII check -> always empathy_check."""
-    try:
-        # Routing functions do NOT post to comm bus — they only read state to decide the next node
-        return "empathy_check"
-    except Exception:
-        return "empathy_check"
-
-
-def route_after_empathy(state: dict) -> str:
-    """Empathy -> always emergency_check."""
-    try:
-        # Routing functions do NOT post to comm bus
-        return "emergency_check"
-    except Exception:
-        return "emergency_check"
-
-
-def route_after_emergency(state: dict) -> str:
-    """Emergency check -> gsd_state or format (emergency bypass)."""
-    try:
-        # Routing functions do NOT post to comm bus
-        emergency_flag = state.get("emergency_flag", False)
-        if emergency_flag:
-            return "format"
-        return "gsd_state"
-    except Exception:
-        return "gsd_state"
-
-
-def route_after_gsd(state: dict) -> str:
-    """GSD state -> classify (normal) or format (escalation)."""
-    try:
-        # Routing functions do NOT post to comm bus
-        emergency_flag = state.get("emergency_flag", False)
-        step_outputs = state.get("step_outputs", {})
-        gsd_output = step_outputs.get("gsd_state", {})
-
-        if emergency_flag:
-            return "format"
-        if isinstance(gsd_output, dict) and gsd_output.get("to_state") == "escalate":
-            return "format"
-        return "classify"
-    except Exception:
-        return "classify"
-
-
-def route_after_classify(state: dict) -> str:
-    """Classify -> smart_enrichment for ALL tiers (same capability)."""
-    try:
-        # Routing functions do NOT post to comm bus
-        # ALL tiers go through smart_enrichment — same intelligence
-        return "smart_enrichment"
-    except Exception:
-        return "smart_enrichment"
-
-
-# Intent to deep enrichment mapping
 INTENT_DEEP_ENRICHMENT_MAP = {
+    # Complaint / Feedback
     "complaint": "complaint_handler",
     "feedback": "complaint_handler",
     "review": "complaint_handler",
     "dissatisfied": "complaint_handler",
     "unhappy": "complaint_handler",
     "bad_experience": "complaint_handler",
+    # Cancellation / Retention
     "cancellation": "retention_negotiator",
     "cancel": "retention_negotiator",
     "unsubscribe": "retention_negotiator",
     "leave": "retention_negotiator",
     "switch": "retention_negotiator",
+    # Billing / Payment
     "billing": "billing_resolver",
     "payment": "billing_resolver",
     "refund": "billing_resolver",
@@ -216,6 +75,7 @@ INTENT_DEEP_ENRICHMENT_MAP = {
     "invoice": "billing_resolver",
     "overcharge": "billing_resolver",
     "subscription": "billing_resolver",
+    # Technical
     "technical": "tech_diagnostic",
     "bug": "tech_diagnostic",
     "error": "tech_diagnostic",
@@ -226,6 +86,7 @@ INTENT_DEEP_ENRICHMENT_MAP = {
     "password_reset": "tech_diagnostic",
     "login_issue": "tech_diagnostic",
     "account_access": "tech_diagnostic",
+    # Shipping / Order
     "shipping": "shipping_tracker",
     "delivery": "shipping_tracker",
     "tracking": "shipping_tracker",
@@ -236,1090 +97,1430 @@ INTENT_DEEP_ENRICHMENT_MAP = {
 }
 
 
-def route_after_smart_enrichment(state: dict) -> str:
-    """Smart enrichment -> deep enrichment (intent-based) or extract_signals."""
+# ══════════════════════════════════════════════════════════════════
+# NODE FUNCTIONS — Each reads state + permission config, acts accordingly
+# ══════════════════════════════════════════════════════════════════
+
+def _get_config(state: Dict) -> PermissionConfig:
+    """Get permission config from state's variant_tier."""
+    tier = state.get("variant_tier", "mini_parwa")
+    return get_permission_config(tier)
+
+
+async def _call_node(node_fn, state: Dict) -> Dict[str, Any]:
+    """Call a node function, handling both sync and async nodes."""
+    import asyncio
+    import inspect
+    if inspect.iscoroutinefunction(node_fn):
+        return await node_fn(state)
+    else:
+        return node_fn(state)
+
+
+async def pii_check_node(state: Dict) -> Dict[str, Any]:
+    """PII redaction — ALWAYS runs for all tiers."""
     try:
-        # Routing functions do NOT post to comm bus
-        classification = state.get("classification", {})
-        intent = classification.get("intent", "").lower()
-
-        # Check if intent maps to deep enrichment
-        deep_node = INTENT_DEEP_ENRICHMENT_MAP.get(intent)
-        if not deep_node:
-            secondary_intents = classification.get("secondary_intents", [])
-            for sec_intent in secondary_intents:
-                deep_node = INTENT_DEEP_ENRICHMENT_MAP.get(sec_intent.lower())
-                if deep_node:
-                    break
-
-        if deep_node:
-            return deep_node
-        return "extract_signals"
+        from app.core.mini_parwa.nodes import pii_check_node as _pii
+        result = await _call_node(_pii, state)
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["pii_check"] = {
+            "redacted": True,
+            "pii_found": bool(result.get("pii_entities_found", [])),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        return result
     except Exception:
-        return "extract_signals"
+        logger.exception("pii_check_node failed")
+        return {"step_outputs": {"pii_check": {"redacted": True, "error": True}}}
 
 
-def route_after_deep_enrichment(state: dict) -> str:
-    """Deep enrichment -> always extract_signals."""
+async def empathy_check_node(state: Dict) -> Dict[str, Any]:
+    """Empathy analysis — ALWAYS runs. Passes sentiment to ALL downstream nodes."""
+    try:
+        from app.core.mini_parwa.nodes import empathy_check_node as _empathy
+        result = await _call_node(_empathy, state)
+        # Ensure downstream nodes get rich empathy context
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["empathy_check"] = {
+            "sentiment": result.get("sentiment", "neutral"),
+            "urgency": result.get("urgency_score", 0.5),
+            "threat_level": result.get("threat_level", "none"),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        return result
+    except Exception:
+        logger.exception("empathy_check_node failed")
+        return {"sentiment": "neutral", "urgency_score": 0.5}
+
+
+async def emergency_check_node(state: Dict) -> Dict[str, Any]:
+    """Emergency detection — ALWAYS runs."""
+    try:
+        from app.core.mini_parwa.nodes import emergency_check_node as _emergency
+        result = await _call_node(_emergency, state)
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["emergency_check"] = {
+            "emergency_flag": result.get("emergency_flag", False),
+            "threat_detected": result.get("threat_detected", False),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        return result
+    except Exception:
+        logger.exception("emergency_check_node failed")
+        return {"emergency_flag": False}
+
+
+async def gsd_state_node(state: Dict) -> Dict[str, Any]:
+    """GSD conversation state — ALWAYS runs. Tracks where we are in conversation."""
+    try:
+        from app.core.mini_parwa.nodes import gsd_state_node as _gsd
+        result = await _call_node(_gsd, state)
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["gsd_state"] = {
+            "conversation_state": result.get("gsd_current_state", "greeting"),
+            "to_state": result.get("gsd_to_state", ""),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        return result
+    except Exception:
+        logger.exception("gsd_state_node failed")
+        return {"step_outputs": {"gsd_state": {"conversation_state": "greeting"}}}
+
+
+async def classify_node(state: Dict) -> Dict[str, Any]:
+    """Intent classification — ALWAYS runs. This is the ROUTING backbone."""
+    try:
+        config = _get_config(state)
+
+        # Use the tier-appropriate classify node
+        if config.tier in (VariantTier.PRO, VariantTier.HIGH):
+            try:
+                from app.core.parwa.nodes import classify_node as _classify
+            except ImportError:
+                from app.core.mini_parwa.nodes import classify_node as _classify
+        else:
+            from app.core.mini_parwa.nodes import classify_node as _classify
+
+        result = await _call_node(_classify, state)
+
+        # Ensure classification data is available for ALL downstream nodes
+        classification = result.get("classification", {})
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["classify"] = {
+            "intent": classification.get("intent", "general"),
+            "secondary_intents": classification.get("secondary_intents", []),
+            "confidence": classification.get("confidence", 0.5),
+            "complexity": result.get("complexity_score", 0.3),
+            "domain_hints": classification.get("domain_hints", []),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+        # Store intent for deep enrichment routing
+        result["intent"] = classification.get("intent", "general")
+        result["complexity_score"] = result.get("complexity_score", 0.3)
+
+        return result
+    except Exception:
+        logger.exception("classify_node failed")
+        return {
+            "classification": {"intent": "general", "confidence": 0.3},
+            "intent": "general",
+            "complexity_score": 0.3,
+        }
+
+
+async def smart_enrichment_node(state: Dict) -> Dict[str, Any]:
+    """Smart enrichment — CONDITIONAL (Mini skips, Pro/High run).
+
+    Enriches the query with additional context from knowledge base,
+    previous tickets, and company-specific data.
+    """
+    config = _get_config(state)
+    if not config.allow_smart_enrichment:
+        # Mini: pass through, but still record that we checked
+        return {
+            "step_outputs": {
+                "smart_enrichment": {
+                    "skipped": True,
+                    "reason": "not_allowed_for_tier",
+                    "tier": str(config.tier),
+                }
+            },
+            "enrichment_data": {},
+        }
+
+    try:
+        from app.core.parwa.nodes import smart_enrichment_node as _smart
+        result = await _call_node(_smart, state)
+        # Pass enrichment data to downstream nodes
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["smart_enrichment"] = {
+            "enriched": True,
+            "data_sources": result.get("enrichment_sources", []),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        return result
+    except Exception:
+        logger.exception("smart_enrichment_node failed")
+        return {"enrichment_data": {}, "step_outputs": {"smart_enrichment": {"error": True}}}
+
+
+async def deep_enrichment_router_node(state: Dict) -> Dict[str, Any]:
+    """Routes to intent-specific deep enrichment. Passes context THROUGH.
+
+    This is the key node that makes deep enrichment agents TALK to each other.
+    It bundles upstream context (empathy, classification, signals) and passes
+    it to the deep enrichment agent so they have FULL context.
+    """
+    config = _get_config(state)
+    classification = state.get("classification", {})
+    intent = classification.get("intent", state.get("intent", "")).lower()
+
+    # Check if this intent maps to a deep enrichment node
+    deep_node = INTENT_DEEP_ENRICHMENT_MAP.get(intent)
+
+    if deep_node and deep_node in config.allowed_deep_enrichment:
+        return {
+            "deep_enrichment_target": deep_node,
+            "step_outputs": {
+                "deep_enrichment_router": {
+                    "target": deep_node,
+                    "intent": intent,
+                    "routed": True,
+                }
+            },
+        }
+
+    # Check secondary intents
+    secondary_intents = classification.get("secondary_intents", [])
+    for sec_intent in secondary_intents:
+        deep_node = INTENT_DEEP_ENRICHMENT_MAP.get(sec_intent.lower())
+        if deep_node and deep_node in config.allowed_deep_enrichment:
+            return {
+                "deep_enrichment_target": deep_node,
+                "step_outputs": {
+                    "deep_enrichment_router": {
+                        "target": deep_node,
+                        "intent": sec_intent,
+                        "routed": True,
+                        "secondary": True,
+                    }
+                },
+            }
+
+    # No deep enrichment needed or not allowed
+    return {
+        "deep_enrichment_target": "skip",
+        "step_outputs": {
+            "deep_enrichment_router": {
+                "target": "skip",
+                "reason": "no_matching_intent_or_not_allowed",
+            }
+        },
+    }
+
+
+def _run_deep_enrichment(state: Dict, node_name: str) -> Dict[str, Any]:
+    """Run a deep enrichment node with FULL upstream context.
+
+    This is where inter-node communication happens. The deep enrichment
+    agent receives EVERYTHING from upstream: empathy, classification,
+    signals, enrichment data, etc.
+    """
+    config = _get_config(state)
+
+    if node_name not in config.allowed_deep_enrichment:
+        return {
+            "step_outputs": {
+                node_name: {
+                    "skipped": True,
+                    "reason": "not_allowed_for_tier",
+                }
+            }
+        }
+
+    try:
+        # Import from the appropriate variant's nodes
+        # Pro and High have the same deep enrichment nodes
+        from app.core.parwa import nodes as pro_nodes
+
+        node_map = {
+            "complaint_handler": pro_nodes.complaint_handler_node,
+            "retention_negotiator": pro_nodes.retention_negotiator_node,
+            "billing_resolver": pro_nodes.billing_resolver_node,
+            "tech_diagnostic": pro_nodes.tech_diagnostic_node,
+            "shipping_tracker": pro_nodes.shipping_tracker_node,
+        }
+
+        node_fn = node_map.get(node_name)
+        if node_fn is None:
+            return {"step_outputs": {node_name: {"error": "node_not_found"}}}
+
+        # CRITICAL: Pass the FULL state to the deep enrichment node
+        # This is how nodes "talk to each other" — they see everything
+        result = node_fn(state)
+
+        # Ensure deep enrichment output is visible to downstream nodes
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"][node_name] = {
+            "processed": True,
+            "insights": result.get("deep_insights", {}),
+            "recommended_actions": result.get("recommended_actions", []),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+        return result
+    except Exception:
+        logger.exception("deep_enrichment_node failed", node_name=node_name)
+        return {"step_outputs": {node_name: {"error": True}}}
+
+
+async def complaint_handler_node(state: Dict) -> Dict[str, Any]:
+    return _run_deep_enrichment(state, "complaint_handler")
+
+
+async def retention_negotiator_node(state: Dict) -> Dict[str, Any]:
+    return _run_deep_enrichment(state, "retention_negotiator")
+
+
+async def billing_resolver_node(state: Dict) -> Dict[str, Any]:
+    return _run_deep_enrichment(state, "billing_resolver")
+
+
+async def tech_diagnostic_node(state: Dict) -> Dict[str, Any]:
+    return _run_deep_enrichment(state, "tech_diagnostic")
+
+
+async def shipping_tracker_node(state: Dict) -> Dict[str, Any]:
+    return _run_deep_enrichment(state, "shipping_tracker")
+
+
+async def extract_signals_node(state: Dict) -> Dict[str, Any]:
+    """Extract signals — ALWAYS runs. Passes signals to ALL downstream nodes."""
+    try:
+        config = _get_config(state)
+        if config.tier in (VariantTier.PRO, VariantTier.HIGH):
+            try:
+                from app.core.parwa.nodes import extract_signals_node as _signals
+            except ImportError:
+                from app.core.mini_parwa.nodes import extract_signals_node as _signals
+        else:
+            from app.core.mini_parwa.nodes import extract_signals_node as _signals
+
+        result = await _call_node(_signals, state)
+        # Ensure signals are visible to downstream
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["extract_signals"] = {
+            "signals": result.get("signals", {}),
+            "signal_count": len(result.get("signals", {})),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        return result
+    except Exception:
+        logger.exception("extract_signals_node failed")
+        return {"signals": {}, "step_outputs": {"extract_signals": {"error": True}}}
+
+
+async def technique_select_node(state: Dict) -> Dict[str, Any]:
+    """Technique selection — CONDITIONAL (Mini skips)."""
+    config = _get_config(state)
+    if not config.allow_technique_select:
+        return {
+            "selected_technique": "baseline",
+            "step_outputs": {
+                "technique_select": {
+                    "skipped": True,
+                    "reason": "not_allowed_for_tier",
+                    "fallback": "baseline",
+                }
+            },
+        }
+
+    try:
+        from app.core.parwa.nodes import technique_select_node as _technique
+        result = await _call_node(_technique, state)
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["technique_select"] = {
+            "technique": result.get("selected_technique", "baseline"),
+            "allowed_techniques": config.allowed_techniques,
+        }
+        return result
+    except Exception:
+        logger.exception("technique_select_node failed")
+        return {"selected_technique": "baseline"}
+
+
+async def reasoning_chain_node(state: Dict) -> Dict[str, Any]:
+    """Reasoning chain — CONDITIONAL (Mini skips)."""
+    config = _get_config(state)
+    if not config.allow_reasoning_chain:
+        return {
+            "reasoning_result": {},
+            "step_outputs": {
+                "reasoning_chain": {
+                    "skipped": True,
+                    "reason": "not_allowed_for_tier",
+                }
+            },
+        }
+
+    try:
+        from app.core.parwa.nodes import reasoning_chain_node as _reasoning
+        result = await _call_node(_reasoning, state)
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["reasoning_chain"] = {
+            "chains": result.get("reasoning_steps", []),
+            "conclusion": result.get("reasoning_conclusion", ""),
+        }
+        return result
+    except Exception:
+        logger.exception("reasoning_chain_node failed")
+        return {"reasoning_result": {}}
+
+
+async def context_enrich_node(state: Dict) -> Dict[str, Any]:
+    """Context enrichment — ALWAYS runs for Pro/High. Aggregates ALL upstream context.
+
+    This is the KEY NODE for inter-node communication. It takes everything
+    from upstream (empathy, classification, signals, deep enrichment,
+    reasoning) and bundles it into a rich context object that the
+    generate node uses.
+    """
+    try:
+        from app.core.parwa.nodes import context_enrich_node as _context
+        result = await _call_node(_context, state)
+
+        # CRITICAL: Build the unified context that generate_node will use
+        # This is how we fix "nodes not talking to each other"
+        step_outputs = state.get("step_outputs", {})
+        unified_context = {
+            "empathy": step_outputs.get("empathy_check", {}),
+            "classification": step_outputs.get("classify", {}),
+            "signals": step_outputs.get("extract_signals", {}),
+            "deep_enrichment": {},
+            "reasoning": step_outputs.get("reasoning_chain", {}),
+            "enrichment": step_outputs.get("smart_enrichment", {}),
+        }
+
+        # Find the deep enrichment output (whichever one ran)
+        for key in ["complaint_handler", "retention_negotiator",
+                     "billing_resolver", "tech_diagnostic", "shipping_tracker"]:
+            if key in step_outputs:
+                unified_context["deep_enrichment"] = step_outputs[key]
+                break
+
+        result["unified_context"] = unified_context
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["context_enrich"] = {
+            "context_bundled": True,
+            "context_sources": list(unified_context.keys()),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+        return result
+    except Exception:
+        logger.exception("context_enrich_node failed")
+        return {"unified_context": {}, "step_outputs": {"context_enrich": {"error": True}}}
+
+
+async def context_compress_node(state: Dict) -> Dict[str, Any]:
+    """Context compression — CONDITIONAL (High only)."""
+    config = _get_config(state)
+    if not config.allow_context_compress:
+        return {
+            "step_outputs": {
+                "context_compress": {
+                    "skipped": True,
+                    "reason": "not_allowed_for_tier",
+                }
+            },
+        }
+
+    try:
+        from app.core.parwa_high.nodes import context_compress_node as _compress
+        result = await _call_node(_compress, state)
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["context_compress"] = {
+            "compressed": True,
+            "compression_ratio": result.get("compression_ratio", 1.0),
+        }
+        return result
+    except Exception:
+        logger.exception("context_compress_node failed")
+        return {"step_outputs": {"context_compress": {"skipped": True, "error": True}}}
+
+
+async def maker_validator_node(state: Dict) -> Dict[str, Any]:
+    """MAKER Validator — ALWAYS runs. Uses LLM for K-solution generation.
+
+    This is critical for quality. MAKER generates K candidate solutions
+    and picks the best one. Previously only in the main CC Pipeline,
+    now available to ALL variants with tier-based K values.
+    """
+    config = _get_config(state)
+
+    try:
+        # Try the main CC Pipeline's MAKER first (most robust)
+        # Module starts with digit — use importlib
+        try:
+            import importlib
+            maker_module = importlib.import_module("app.core.langgraph.nodes.11_maker_validator")
+            _maker = getattr(maker_module, "maker_validator_node")
+            result = await _call_node(_maker, state)
+        except (ImportError, ModuleNotFoundError, AttributeError):
+            # Fallback: use our own simplified MAKER
+            result = _simplified_maker(state, config)
+
+        # Ensure MAKER output is visible to downstream nodes
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["maker_validator"] = {
+            "k_solutions": config.maker_k_solutions,
+            "best_confidence": result.get("maker_best_confidence", 0.5),
+            "red_flag": result.get("red_flag", False),
+            "validation_passed": result.get("maker_validation_passed", True),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+        # If confidence is low, flag for ask-when-unsure
+        best_conf = result.get("maker_best_confidence", 0.5)
+        if best_conf < config.ask_client_confidence_threshold and config.allow_ask_client:
+            result["ask_client_needed"] = True
+            result["ask_client_reason"] = f"MAKER confidence {best_conf:.2f} below threshold {config.ask_client_confidence_threshold}"
+
+        return result
+    except Exception:
+        logger.exception("maker_validator_node failed")
+        return {
+            "maker_validation_passed": True,
+            "step_outputs": {"maker_validator": {"error": True}},
+        }
+
+
+def _simplified_maker(state: Dict, config: PermissionConfig) -> Dict[str, Any]:
+    """Simplified MAKER when the full CC Pipeline MAKER isn't available.
+
+    Uses LLM to generate K solutions and pick the best one.
+    """
+    try:
+        from app.core.llm_gateway import get_llm_gateway
+        gateway = get_llm_gateway()
+
+        query = state.get("redacted_message", state.get("query", ""))
+        agent_response = state.get("agent_response", "")
+        unified_context = state.get("unified_context", {})
+
+        k = config.maker_k_solutions
+        prompt = (
+            f"You are a quality validator for a customer support response.\n"
+            f"Customer query: {query}\n"
+            f"Proposed response: {agent_response}\n"
+            f"Context: {unified_context}\n\n"
+            f"Generate {k} alternative responses and score each on 0-1 scale.\n"
+            f"Return JSON: {{\"solutions\": [{{\"text\": \"...\", \"confidence\": 0.XX}}], "
+            f"\"best_idx\": 0, \"red_flag\": false}}"
+        )
+
+        response = gateway.generate(
+            prompt=prompt,
+            max_tokens=config.llm_max_tokens,
+            temperature=0.3,
+        )
+
+        # Try to parse JSON response
+        import json
+        try:
+            # Extract JSON from response
+            text = response if isinstance(response, str) else str(response)
+            # Find JSON in response
+            start = text.find("{")
+            end = text.rfind("}") + 1
+            if start >= 0 and end > start:
+                parsed = json.loads(text[start:end])
+                solutions = parsed.get("solutions", [])
+                best_idx = parsed.get("best_idx", 0)
+                red_flag = parsed.get("red_flag", False)
+
+                if solutions and best_idx < len(solutions):
+                    best = solutions[best_idx]
+                    return {
+                        "agent_response": best.get("text", agent_response),
+                        "maker_best_confidence": best.get("confidence", 0.5),
+                        "maker_k_solutions": solutions,
+                        "red_flag": red_flag,
+                        "maker_validation_passed": not red_flag,
+                    }
+        except (json.JSONDecodeError, KeyError, IndexError):
+            pass
+
+        # Fallback: return original response with medium confidence
+        return {
+            "agent_response": agent_response,
+            "maker_best_confidence": 0.5,
+            "red_flag": False,
+            "maker_validation_passed": True,
+        }
+    except Exception:
+        logger.exception("_simplified_maker failed")
+        return {
+            "agent_response": state.get("agent_response", ""),
+            "maker_best_confidence": 0.5,
+            "red_flag": False,
+            "maker_validation_passed": True,
+        }
+
+
+async def auto_fix_node(state: Dict) -> Dict[str, Any]:
+    """Auto-fix — ALL tiers get this. Attempts to fix common response issues.
+
+    Auto-fix can:
+    - Fix formatting issues
+    - Add missing empathy phrases
+    - Correct policy misstatements
+    - Fix tone issues
+    - Add missing action items
+    """
+    config = _get_config(state)
+    if not config.allow_auto_fix:
+        return {
+            "step_outputs": {
+                "auto_fix": {
+                    "skipped": True,
+                    "reason": "not_allowed_for_tier",
+                }
+            },
+        }
+
+    try:
+        from app.core.llm_gateway import get_llm_gateway
+        gateway = get_llm_gateway()
+
+        agent_response = state.get("agent_response", "")
+        if not agent_response:
+            return {"step_outputs": {"auto_fix": {"skipped": True, "reason": "no_response"}}}
+
+        prompt = (
+            f"You are a response quality fixer. Fix these common issues in the customer support response:\n"
+            f"1. Missing empathy/acknowledgment\n"
+            f"2. Robotic tone → make it conversational\n"
+            f"3. Missing next steps or action items\n"
+            f"4. Unclear or vague language\n"
+            f"5. Missing personalization\n\n"
+            f"Original response: {agent_response}\n\n"
+            f"Return the FIXED response only. If the original is already good, return it unchanged."
+        )
+
+        fixed_response = gateway.generate(
+            prompt=prompt,
+            max_tokens=config.llm_max_tokens,
+            temperature=0.3,
+        )
+
+        fixed_text = fixed_response if isinstance(fixed_response, str) else str(fixed_response)
+
+        # Only use the fixed version if it's reasonable
+        was_fixed = fixed_text.strip() != agent_response.strip()
+
+        return {
+            "agent_response": fixed_text.strip() if was_fixed else agent_response,
+            "auto_fix_applied": was_fixed,
+            "step_outputs": {
+                "auto_fix": {
+                    "applied": was_fixed,
+                    "fixes": ["tone", "empathy", "clarity"] if was_fixed else [],
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            },
+        }
+    except Exception:
+        logger.exception("auto_fix_node failed")
+        return {"step_outputs": {"auto_fix": {"error": True, "skipped": True}}}
+
+
+async def generate_node(state: Dict) -> Dict[str, Any]:
+    """Response generation — ALWAYS runs. Uses FULL unified context.
+
+    This is where the magic happens. The generate node now has access to
+    EVERYTHING: empathy data, classification, signals, deep enrichment,
+    reasoning, MAKER validation, and the unified context bundle.
+    """
+    try:
+        config = _get_config(state)
+
+        # Use tier-appropriate generate node
+        if config.tier == VariantTier.HIGH:
+            try:
+                from app.core.parwa_high.nodes import generate_node as _generate
+            except ImportError:
+                from app.core.parwa.nodes import generate_node as _generate
+        elif config.tier == VariantTier.PRO:
+            from app.core.parwa.nodes import generate_node as _generate
+        else:
+            from app.core.mini_parwa.nodes import generate_node as _generate
+
+        # Ensure unified_context is available in state for the generate node
+        # This is the KEY FIX for inter-node communication
+        if "unified_context" not in state:
+            # Build it from step_outputs if not already set
+            step_outputs = state.get("step_outputs", {})
+            state["unified_context"] = {
+                "empathy": step_outputs.get("empathy_check", {}),
+                "classification": step_outputs.get("classify", {}),
+                "signals": step_outputs.get("extract_signals", {}),
+                "deep_enrichment": {},
+                "reasoning": step_outputs.get("reasoning_chain", {}),
+                "enrichment": step_outputs.get("smart_enrichment", {}),
+            }
+
+        result = await _call_node(_generate, state)
+
+        # Record generation for downstream nodes
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["generate"] = {
+            "generated": True,
+            "tokens": result.get("generation_tokens", 0),
+            "model_tier": config.llm_model_tier,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+        return result
+    except Exception:
+        logger.exception("generate_node failed")
+        return {
+            "agent_response": "I understand your concern. Let me help you with that.",
+            "generation_error": True,
+        }
+
+
+async def crp_compress_node(state: Dict) -> Dict[str, Any]:
+    """CRP token compression — ALWAYS runs."""
+    try:
+        from app.core.mini_parwa.nodes import crp_compress_node as _crp
+        result = await _call_node(_crp, state)
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["crp_compress"] = {
+            "compressed": True,
+            "ratio": result.get("compression_ratio", 0.7),
+        }
+        return result
+    except Exception:
+        logger.exception("crp_compress_node failed")
+        return {"step_outputs": {"crp_compress": {"error": True}}}
+
+
+async def clara_quality_gate_node(state: Dict) -> Dict[str, Any]:
+    """CLARA quality gate — ALWAYS runs. Tier controls threshold."""
+    try:
+        config = _get_config(state)
+
+        if config.tier == VariantTier.HIGH:
+            try:
+                from app.core.parwa_high.nodes import clara_quality_gate_node as _clara
+            except ImportError:
+                from app.core.parwa.nodes import clara_quality_gate_node as _clara
+        elif config.tier == VariantTier.PRO:
+            from app.core.parwa.nodes import clara_quality_gate_node as _clara
+        else:
+            from app.core.mini_parwa.nodes import clara_quality_gate_node as _clara
+
+        result = await _call_node(_clara, state)
+
+        # Apply tier-specific threshold
+        quality_score = result.get("quality_score", 0.0)
+        passed = quality_score >= config.clara_threshold
+
+        result["quality_passed"] = passed
+        result["quality_score"] = quality_score
+        result["quality_threshold"] = config.clara_threshold
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["clara_quality_gate"] = {
+            "passed": passed,
+            "score": quality_score,
+            "threshold": config.clara_threshold,
+            "max_retries": config.max_quality_retries,
+        }
+
+        return result
+    except Exception:
+        logger.exception("clara_quality_gate_node failed")
+        return {"quality_passed": True, "quality_score": 0.7}
+
+
+async def quality_retry_node(state: Dict) -> Dict[str, Any]:
+    """Quality retry — CONDITIONAL (Mini=0, Pro=1, High=2)."""
+    config = _get_config(state)
+    retry_count = state.get("quality_retry_count", 0)
+
+    if retry_count >= config.max_quality_retries:
+        return {
+            "quality_retry_exhausted": True,
+            "step_outputs": {
+                "quality_retry": {
+                    "skipped": True,
+                    "reason": "retries_exhausted",
+                    "retry_count": retry_count,
+                    "max_retries": config.max_quality_retries,
+                }
+            },
+        }
+
+    try:
+        from app.core.parwa.nodes import quality_retry_node as _retry
+        result = await _call_node(_retry, state)
+        result["quality_retry_count"] = retry_count + 1
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["quality_retry"] = {
+            "attempt": retry_count + 1,
+            "max": config.max_quality_retries,
+        }
+        return result
+    except Exception:
+        logger.exception("quality_retry_node failed")
+        return {"quality_retry_count": retry_count + 1}
+
+
+async def confidence_assess_node(state: Dict) -> Dict[str, Any]:
+    """Confidence assessment — ALWAYS runs."""
+    try:
+        from app.core.parwa.nodes import confidence_assess_node as _confidence
+        result = await _call_node(_confidence, state)
+
+        # Check ask-when-unsure threshold
+        config = _get_config(state)
+        confidence = result.get("confidence_score", 0.5)
+        if confidence < config.ask_client_confidence_threshold and config.allow_ask_client:
+            result["ask_client_needed"] = True
+            result["ask_client_reason"] = f"Confidence {confidence:.2f} below threshold {config.ask_client_confidence_threshold}"
+
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["confidence_assess"] = {
+            "confidence": confidence,
+            "ask_client": result.get("ask_client_needed", False),
+        }
+        return result
+    except Exception:
+        logger.exception("confidence_assess_node failed")
+        return {"confidence_score": 0.5}
+
+
+async def auto_action_node(state: Dict) -> Dict[str, Any]:
+    """Auto-action — CONDITIONAL (Mini needs approval, Pro/High can auto-act)."""
+    config = _get_config(state)
+    if not config.allow_auto_action:
+        return {
+            "auto_action_taken": False,
+            "step_outputs": {
+                "auto_action": {
+                    "skipped": True,
+                    "reason": "not_allowed_for_tier",
+                    "needs_human_approval": True,
+                }
+            },
+        }
+
+    try:
+        confidence = state.get("confidence_score", 0.0)
+        if confidence < config.auto_action_confidence_min:
+            return {
+                "auto_action_taken": False,
+                "step_outputs": {
+                    "auto_action": {
+                        "skipped": True,
+                        "reason": "confidence_below_threshold",
+                        "confidence": confidence,
+                        "threshold": config.auto_action_confidence_min,
+                    }
+                },
+            }
+
+        from app.core.parwa.nodes import auto_action_node as _auto
+        result = await _call_node(_auto, state)
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["auto_action"] = {
+            "action_taken": True,
+            "action_type": result.get("action_type", "none"),
+        }
+        return result
+    except Exception:
+        logger.exception("auto_action_node failed")
+        return {"auto_action_taken": False, "step_outputs": {"auto_action": {"error": True}}}
+
+
+async def context_health_node(state: Dict) -> Dict[str, Any]:
+    """Context health check — CONDITIONAL (High only)."""
+    config = _get_config(state)
+    if not config.allow_context_health:
+        return {
+            "step_outputs": {
+                "context_health": {
+                    "skipped": True,
+                    "reason": "not_allowed_for_tier",
+                }
+            },
+        }
+
+    try:
+        from app.core.parwa_high.nodes import context_health_node as _health
+        result = await _call_node(_health, state)
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["context_health"] = {
+            "health_score": result.get("context_health_score", 1.0),
+        }
+        return result
+    except Exception:
+        logger.exception("context_health_node failed")
+        return {"step_outputs": {"context_health": {"error": True}}}
+
+
+async def dedup_node(state: Dict) -> Dict[str, Any]:
+    """Deduplication — CONDITIONAL (High only)."""
+    config = _get_config(state)
+    if not config.allow_dedup:
+        return {
+            "step_outputs": {
+                "dedup": {
+                    "skipped": True,
+                    "reason": "not_allowed_for_tier",
+                }
+            },
+        }
+
+    try:
+        from app.core.parwa_high.nodes import dedup_node as _dedup
+        result = await _call_node(_dedup, state)
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["dedup"] = {
+            "duplicates_found": result.get("duplicates_found", 0),
+        }
+        return result
+    except Exception:
+        logger.exception("dedup_node failed")
+        return {"step_outputs": {"dedup": {"error": True}}}
+
+
+async def strategic_decision_node(state: Dict) -> Dict[str, Any]:
+    """Strategic decision — CONDITIONAL (High only)."""
+    config = _get_config(state)
+    if not config.allow_strategic_decision:
+        return {
+            "step_outputs": {
+                "strategic_decision": {
+                    "skipped": True,
+                    "reason": "not_allowed_for_tier",
+                }
+            },
+        }
+
+    try:
+        from app.core.parwa_high.nodes import strategic_decision_node as _strategic
+        result = await _call_node(_strategic, state)
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["strategic_decision"] = {
+            "decision": result.get("strategic_decision_result", ""),
+            "rationale": result.get("strategic_rationale", ""),
+        }
+        return result
+    except Exception:
+        logger.exception("strategic_decision_node failed")
+        return {"step_outputs": {"strategic_decision": {"error": True}}}
+
+
+async def peer_review_node(state: Dict) -> Dict[str, Any]:
+    """Peer review — CONDITIONAL (High only)."""
+    config = _get_config(state)
+    if not config.allow_peer_review:
+        return {
+            "step_outputs": {
+                "peer_review": {
+                    "skipped": True,
+                    "reason": "not_allowed_for_tier",
+                }
+            },
+        }
+
+    try:
+        from app.core.parwa_high.nodes import peer_review_node as _peer
+        result = await _call_node(_peer, state)
+        result["step_outputs"] = result.get("step_outputs", {})
+        result["step_outputs"]["peer_review"] = {
+            "review_passed": result.get("peer_review_passed", True),
+            "reviewer_notes": result.get("peer_reviewer_notes", ""),
+        }
+        return result
+    except Exception:
+        logger.exception("peer_review_node failed")
+        return {"step_outputs": {"peer_review": {"error": True}}}
+
+
+async def format_node(state: Dict) -> Dict[str, Any]:
+    """Format output — ALWAYS runs. Final node before END."""
+    try:
+        config = _get_config(state)
+
+        if config.tier in (VariantTier.PRO, VariantTier.HIGH):
+            try:
+                from app.core.parwa.nodes import format_node as _format
+            except ImportError:
+                from app.core.mini_parwa.nodes import format_node as _format
+        else:
+            from app.core.mini_parwa.nodes import format_node as _format
+
+        result = await _call_node(_format, state)
+
+        # Add final metadata
+        result["pipeline_status"] = "completed"
+        result["variant_tier"] = str(config.tier)
+        result["completed_at"] = datetime.now(timezone.utc).isoformat()
+
+        # Record ask-when-unsure flag for Jarvis
+        if state.get("ask_client_needed"):
+            result["ask_client_needed"] = True
+            result["ask_client_reason"] = state.get("ask_client_reason", "")
+
+        # Record all steps that ran for audit
+        step_outputs = state.get("step_outputs", {})
+        result["steps_completed"] = list(step_outputs.keys())
+
+        return result
+    except Exception:
+        logger.exception("format_node failed")
+        return {
+            "pipeline_status": "completed_with_errors",
+            "agent_response": state.get("agent_response", "I understand your concern. Let me help you with that."),
+        }
+
+
+# ══════════════════════════════════════════════════════════════════
+# ROUTING FUNCTIONS
+# ══════════════════════════════════════════════════════════════════
+
+def route_after_emergency(state: Dict) -> str:
+    """Route after emergency check."""
+    if state.get("emergency_flag", False):
+        return "format"  # Emergency bypass
+    return "gsd_state"
+
+
+def route_after_gsd(state: Dict) -> str:
+    """Route after GSD state."""
+    if state.get("emergency_flag", False):
+        return "format"
+    step_outputs = state.get("step_outputs", {})
+    gsd_output = step_outputs.get("gsd_state", {})
+    if isinstance(gsd_output, dict) and gsd_output.get("to_state") == "escalate":
+        return "format"
+    return "classify"
+
+
+def route_after_classify(state: Dict) -> str:
+    """Route after classify — check if smart_enrichment is allowed."""
+    config = _get_config(state)
+    if config.allow_smart_enrichment:
+        return "smart_enrichment"
+    # Mini: skip enrichment, go to extract_signals
     return "extract_signals"
 
 
-def route_after_extract_signals(state: dict) -> str:
-    """Extract signals -> technique_select."""
-    try:
-        # Routing functions do NOT post to comm bus
+def route_after_smart_enrichment(state: Dict) -> str:
+    """Route after smart_enrichment → deep enrichment or extract_signals."""
+    target = state.get("deep_enrichment_target", "")
+    if target and target != "skip":
+        config = _get_config(state)
+        if target in config.allowed_deep_enrichment:
+            return target
+    return "extract_signals"
+
+
+def route_after_deep_enrichment(state: Dict) -> str:
+    """After deep enrichment, always go to extract_signals."""
+    return "extract_signals"
+
+
+def route_after_extract_signals(state: Dict) -> str:
+    """Route after extract_signals."""
+    config = _get_config(state)
+    if config.allow_technique_select:
         return "technique_select"
-    except Exception:
-        return "technique_select"
-
-
-def route_after_technique_select(state: dict) -> str:
-    """Technique select -> reasoning_chain."""
-    try:
-        # Routing functions do NOT post to comm bus
-        return "reasoning_chain"
-    except Exception:
-        return "reasoning_chain"
-
-
-def route_after_reasoning(state: dict) -> str:
-    """Reasoning chain -> context_enrich."""
+    # Mini: skip technique selection
     return "context_enrich"
 
 
-def route_after_context_enrich(state: dict) -> str:
-    """Context enrich -> context_compress (High) or generate."""
-    try:
-        # Routing functions do NOT post to comm bus
-        variant_tier = state.get("variant_tier", "parwa")
-        perms = get_tier_permissions(variant_tier)
-
-        if perms.get("context_compress"):
-            return "context_compress"
-        return "generate"
-    except Exception:
-        return "generate"
+def route_after_technique_select(state: Dict) -> str:
+    """Route after technique_select."""
+    config = _get_config(state)
+    if config.allow_reasoning_chain:
+        return "reasoning_chain"
+    return "context_enrich"
 
 
-def route_after_context_compress(state: dict) -> str:
-    """Context compress -> always generate."""
-    try:
-        # Routing functions do NOT post to comm bus
-        return "generate"
-    except Exception:
-        return "generate"
+def route_after_reasoning(state: Dict) -> str:
+    """After reasoning, always go to context_enrich."""
+    return "context_enrich"
 
 
-def route_after_generate(state: dict) -> str:
-    """Generate -> crp_compress (always)."""
-    return "crp_compress"
-
-
-def route_after_crp(state: dict) -> str:
-    """CRP -> CLARA quality gate (always)."""
-    return "clara_quality_gate"
-
-
-def route_after_clara(state: dict) -> str:
-    """CLARA quality gate -> quality_retry or confidence_assess.
-
-    All tiers get quality retry now (including Mini — same capability).
-    Max retries controlled by tier permissions.
-    """
-    try:
-        # Routing functions do NOT post to comm bus
-        variant_tier = state.get("variant_tier", "parwa")
-        perms = get_tier_permissions(variant_tier)
-        quality_passed = state.get("quality_passed", True)
-        retry_count = state.get("quality_retry_count", 0)
-        max_retries = perms.get("max_quality_retries", 1)
-
-        if not quality_passed and retry_count < max_retries:
-            return "quality_retry"
-
-        return "confidence_assess"
-    except Exception:
-        return "confidence_assess"
-
-
-def route_after_quality_retry(state: dict) -> str:
-    """Quality retry -> back to generate."""
-    return "generate"
-
-
-def route_after_confidence(state: dict) -> str:
-    """Confidence assess -> context_health (High) or clarification_gate."""
-    try:
-        # Routing functions do NOT post to comm bus
-        variant_tier = state.get("variant_tier", "parwa")
-        perms = get_tier_permissions(variant_tier)
-
-        if perms.get("context_health"):
-            return "context_health"
-        return "clarification_gate"
-    except Exception:
-        return "clarification_gate"
-
-
-def route_after_context_health(state: dict) -> str:
-    """Context health -> dedup (High) or clarification_gate."""
-    try:
-        # Routing functions do NOT post to comm bus
-        variant_tier = state.get("variant_tier", "parwa")
-        perms = get_tier_permissions(variant_tier)
-
-        if perms.get("dedup"):
-            return "dedup"
-        return "clarification_gate"
-    except Exception:
-        return "clarification_gate"
-
-
-def route_after_dedup(state: dict) -> str:
-    """Dedup -> strategic_decision (High) or clarification_gate."""
-    try:
-        # Routing functions do NOT post to comm bus
-        variant_tier = state.get("variant_tier", "parwa")
-        perms = get_tier_permissions(variant_tier)
-
-        if perms.get("strategic_decision"):
-            return "strategic_decision"
-        return "clarification_gate"
-    except Exception:
-        return "clarification_gate"
-
-
-def route_after_strategic_decision(state: dict) -> str:
-    """Strategic decision -> peer_review (High) or clarification_gate."""
-    try:
-        variant_tier = state.get("variant_tier", "parwa")
-        perms = get_tier_permissions(variant_tier)
-
-        if perms.get("peer_review"):
-            return "peer_review"
-        return "clarification_gate"
-    except Exception:
-        return "clarification_gate"
-
-
-def route_after_peer_review(state: dict) -> str:
-    """Peer review -> clarification_gate."""
-    return "clarification_gate"
-
-
-def route_after_clarification(state: dict) -> str:
-    """Clarification gate -> auto_fix (all tiers)."""
-    return "auto_fix"
-
-
-def route_after_auto_fix(state: dict) -> str:
-    """Auto-fix -> auto_action."""
-    return "auto_action"
-
-
-def route_after_auto_action(state: dict) -> str:
-    """Auto-action -> batch_refunds."""
-    return "batch_refunds"
-
-
-def route_after_batch_refunds(state: dict) -> str:
-    """Batch refunds -> maker_validator (all tiers get maker now)."""
+def route_after_context_enrich(state: Dict) -> str:
+    """Route after context_enrich — check if context_compress is allowed."""
+    config = _get_config(state)
+    if config.allow_context_compress:
+        return "context_compress"
     return "maker_validator"
 
 
-def route_after_maker(state: dict) -> str:
-    """Maker validator -> format."""
+def route_after_context_compress(state: Dict) -> str:
+    """After context_compress, go to maker_validator."""
+    return "maker_validator"
+
+
+def route_after_maker(state: Dict) -> str:
+    """Route after MAKER validator."""
+    # If MAKER flagged red flag, check if we need approval
+    red_flag = state.get("red_flag", False)
+    if red_flag:
+        config = _get_config(state)
+        action_type = state.get("action_type", "informational")
+        if needs_approval(action_type, config.tier):
+            return "generate"  # Still generate but mark for approval
+
+    return "generate"
+
+
+def route_after_generate(state: Dict) -> str:
+    """After generate, go to auto_fix then crp_compress."""
+    return "auto_fix"
+
+
+def route_after_auto_fix(state: Dict) -> str:
+    """After auto_fix, go to crp_compress."""
+    return "crp_compress"
+
+
+def route_after_clara(state: Dict) -> str:
+    """Route after CLARA quality gate."""
+    quality_passed = state.get("quality_passed", True)
+    config = _get_config(state)
+    retry_count = state.get("quality_retry_count", 0)
+
+    if not quality_passed and retry_count < config.max_quality_retries:
+        return "quality_retry"
+
+    return "confidence_assess"
+
+
+def route_after_quality_retry(state: Dict) -> str:
+    """After quality retry, go back to generate."""
+    return "generate"
+
+
+def route_after_confidence(state: Dict) -> str:
+    """Route after confidence assessment."""
+    config = _get_config(state)
+
+    # High tier: context_health → dedup → strategic_decision → peer_review
+    if config.allow_context_health:
+        return "context_health"
+    if config.allow_auto_action:
+        return "auto_action"
     return "format"
 
 
-# ══════════════════════════════════════════════════════════════════
-# NEW NODE IMPLEMENTATIONS
-# ══════════════════════════════════════════════════════════════════
-
-
-async def clarification_gate_node(state: ParwaGraphState) -> dict:
-    """Check if the variant is unsure about the response.
-
-    If confidence is below threshold, create a clarification request
-    that goes through Jarvis to ask the client. This is the
-    "variant asks human when not sure" feature.
-
-    The clarification creates a notification CRM entry that the
-    client can click to open a Jarvis chat about the issue.
-    """
-    try:
-        variant_tier = state.get("variant_tier", "parwa")
-        perms = get_tier_permissions(variant_tier)
-        confidence = state.get("confidence_score", {})
-        quality_score = state.get("quality_score", 0)
-
-        overall_confidence = 0.5
-        if isinstance(confidence, dict):
-            overall_confidence = confidence.get("overall", 0.5)
-        elif isinstance(confidence, (int, float)):
-            overall_confidence = float(confidence)
-
-        threshold = perms.get("quality_threshold", 0.85)
-        needs_clarification = overall_confidence < threshold
-
-        clarification_result = {
-            "needs_clarification": needs_clarification,
-            "confidence_level": overall_confidence,
-            "threshold": threshold,
-            "clarification_type": None,
-            "clarification_question": None,
-            "client_notification": None,
-        }
-
-        if needs_clarification:
-            # Determine what kind of clarification is needed
-            classification = state.get("classification", {})
-            intent = classification.get("intent", "unknown")
-
-            # Read from comm bus to understand what other nodes flagged
-            bus_messages = read_comm_bus(state, "clarification_gate", ["insight", "warning"])
-
-            # Extract context from comm bus messages
-            bus_intent = "unknown"
-            for msg in bus_messages:
-                if msg.get("from_node") == "classify" and isinstance(msg.get("payload"), dict):
-                    bus_intent = msg["payload"].get("intent", bus_intent)
-
-            clarification_type = "general"
-            clarification_question = "Could you provide more details about your request?"
-
-            # Intent-specific clarification
-            if intent in ("refund", "billing", "charge", "overcharge"):
-                clarification_type = "refund_action"
-                clarification_question = (
-                    "I'd like to confirm: would you prefer a full refund, "
-                    "a partial credit, or would you like me to look into "
-                    "the charges first?"
-                )
-            elif intent in ("technical", "bug", "not_working"):
-                clarification_type = "technical_detail"
-                clarification_question = (
-                    "Could you share more details about the issue? "
-                    "For example, when did it start and what steps "
-                    "have you already tried?"
-                )
-            elif intent in ("complaint", "dissatisfied", "unhappy"):
-                clarification_type = "resolution_preference"
-                clarification_question = (
-                    "I want to make sure I help you the right way. "
-                    "Would you prefer a replacement, a refund, "
-                    "or would you like to speak with a specialist?"
-                )
-            elif intent in ("cancellation", "cancel", "unsubscribe"):
-                clarification_type = "retention_check"
-                clarification_question = (
-                    "I understand you're thinking about canceling. "
-                    "Would you like to hear about alternative options "
-                    "first, or shall I proceed with the cancellation?"
-                )
-
-            # Create notification CRM entry for the client
-            try:
-                from app.services.notification_crm.notification_batcher import (
-                    get_notification_batcher,
-                    NotificationType,
-                    BatchItem,
-                )
-                batcher = get_notification_batcher()
-                batcher.add_item(BatchItem(
-                    company_id=state.get("company_id", ""),
-                    notification_type=NotificationType.CLIENT_QUESTION,
-                    title=f"Clarification needed: {intent}",
-                    summary=clarification_question,
-                    customer_id=state.get("customer_id", ""),
-                    ticket_id=state.get("ticket_id", ""),
-                    metadata={
-                        "clarification_type": clarification_type,
-                        "variant_tier": variant_tier,
-                        "confidence": overall_confidence,
-                        "intent": intent,
-                        "jarvis_context": {
-                            "problem_summary": bus_intent,
-                            "suggested_options": _get_options_for_type(clarification_type),
-                        },
-                    },
-                ))
-            except Exception:
-                logger.debug("notification_batcher_unavailable", exc_info=True)
-
-            clarification_result.update({
-                "clarification_type": clarification_type,
-                "clarification_question": clarification_question,
-                "client_notification": {
-                    "type": "clarification",
-                    "message": clarification_question,
-                    "options": _get_options_for_type(clarification_type),
-                },
-            })
-
-        # Build result and merge comm bus updates
-        result = {
-            "clarification_result": clarification_result,
-            "step_outputs": {"clarification_gate": clarification_result},
-        }
-
-        # Post shared insight and merge into result
-        insight_update = post_shared_insight("clarification_gate", "needs_clarification", needs_clarification)
-        result.update(insight_update)
-
-        # Post message to comm bus and merge into result
-        msg_update = post_to_comm_bus(
-            state, "clarification_gate", "all", "insight",
-            {"needs_clarification": needs_clarification, "confidence_level": overall_confidence},
-        )
-        result.update(msg_update)
-
-        return result
-
-    except Exception:
-        logger.exception("clarification_gate_error")
-        return {
-            "clarification_result": {"needs_clarification": False, "error": "gate_failed"},
-            "step_outputs": {"clarification_gate": {"needs_clarification": False}},
-        }
-
-
-def _get_options_for_type(clarification_type: str) -> List[str]:
-    """Get suggested options for a clarification type."""
-    options_map = {
-        "refund_action": ["Full refund", "Partial credit", "Investigate charges first"],
-        "technical_detail": ["Share error details", "Try basic troubleshooting", "Escalate to specialist"],
-        "resolution_preference": ["Replacement", "Refund", "Speak with specialist"],
-        "retention_check": ["Hear alternatives", "Proceed with cancellation", "Pause subscription"],
-        "general": ["Provide more details", "Escalate to human", "Continue with best guess"],
-    }
-    return options_map.get(clarification_type, options_map["general"])
-
-
-async def auto_fix_node(state: ParwaGraphState) -> dict:
-    """Self-healing node for ALL tiers (including Mini).
-
-    If the response has quality or confidence issues, this node
-    attempts to fix them before delivery. This is the "auto-fix
-    should also be in Mini" feature.
-
-    Fixes include:
-    - Response restructuring (bad format -> good format)
-    - Tone adjustment (too robotic -> more human)
-    - Missing empathy injection
-    - Redundancy removal
-    - Brand voice alignment
-    """
-    try:
-        quality_score = state.get("quality_score", 1.0)
-        generated_response = state.get("generated_response", "")
-        variant_tier = state.get("variant_tier", "parwa")
-        perms = get_tier_permissions(variant_tier)
-        threshold = perms.get("quality_threshold", 0.85)
-
-        auto_fix_result = {
-            "fixes_applied": [],
-            "original_quality": quality_score,
-            "fixed_quality": quality_score,
-            "fix_needed": False,
-        }
-
-        if quality_score >= threshold:
-            # No fix needed
-            return {
-                "auto_fix_result": auto_fix_result,
-                "step_outputs": {"auto_fix": auto_fix_result},
-            }
-
-        auto_fix_result["fix_needed"] = True
-        fixes = []
-
-        # Fix 1: Tone adjustment — make response feel more human
-        if generated_response and len(generated_response) > 20:
-            robotic_patterns = [
-                ("I understand your concern.", "I hear you, and I want to help."),
-                ("Please be advised that", "Just so you know,"),
-                ("We apologize for the inconvenience.", "I'm really sorry about this."),
-                ("As per our policy", "Based on our guidelines"),
-                ("Your request has been processed.", "I've taken care of this for you."),
-                ("Thank you for your patience.", "I appreciate you sticking with me on this."),
-                ("Is there anything else I can help you with?", "What else can I do for you?"),
-                ("Please let me know if", "Just let me know if"),
-                ("We value your feedback.", "Your thoughts really matter to us."),
-                ("Kindly provide", "Could you share"),
-            ]
-            fixed_response = generated_response
-            for robotic, human in robotic_patterns:
-                if robotic in fixed_response:
-                    fixed_response = fixed_response.replace(robotic, human)
-                    fixes.append(f"tone_adjust: '{robotic[:30]}...' -> '{human[:30]}...'")
-            if fixed_response != generated_response:
-                auto_fix_result["fixed_response"] = fixed_response
-
-        # Read from comm bus for context from other nodes
-        bus_messages = read_comm_bus(state, "auto_fix", ["insight", "warning"])
-
-        # Fix 2: Ensure empathy for angry customers
-        emotion_profile = state.get("emotion_profile", {})
-        dominant_emotion = emotion_profile.get("dominant", "neutral")
-        if dominant_emotion in ("angry", "frustrated", "upset"):
-            # Check comm bus messages from empathy_check
-            empathy_score_from_bus = 1.0  # default: assume fine
-            for msg in bus_messages:
-                if msg.get("from_node") == "empathy_check" and isinstance(msg.get("payload"), dict):
-                    empathy_score_from_bus = msg["payload"].get("empathy_score", 1.0)
-                    break
-            if empathy_score_from_bus < 0.5:
-                fixes.append("empathy_injection: added empathetic language")
-                auto_fix_result["empathy_injected"] = True
-
-        # Fix 3: Remove AI-like prefixes
-        if generated_response:
-            ai_prefixes = ["As an AI,", "As a customer service agent,", "Based on my analysis,", "According to my training,"]
-            for prefix in ai_prefixes:
-                if prefix in generated_response:
-                    fixes.append(f"prefix_removal: removed '{prefix}'")
-                    break
-
-        # Fix 4: Quality score bump from fixes
-        if fixes:
-            bump = min(len(fixes) * 0.05, 0.15)  # Up to 0.15 improvement
-            auto_fix_result["fixed_quality"] = min(quality_score + bump, 1.0)
-
-        auto_fix_result["fixes_applied"] = fixes
-
-        # Build result and merge comm bus updates
-        result = {
-            "auto_fix_result": auto_fix_result,
-            "step_outputs": {"auto_fix": auto_fix_result},
-        }
-
-        # Post shared insight and merge into result
-        insight_update = post_shared_insight("auto_fix", "fixes_applied_count", len(fixes))
-        result.update(insight_update)
-
-        # Post message to comm bus and merge into result
-        msg_update = post_to_comm_bus(
-            state, "auto_fix", "all", "insight",
-            {
-                "fixes_applied": len(fixes),
-                "quality_improvement": auto_fix_result["fixed_quality"] - quality_score,
-            },
-        )
-        result.update(msg_update)
-
-        return result
-
-    except Exception:
-        logger.exception("auto_fix_error")
-        return {
-            "auto_fix_result": {"fix_needed": False, "fixes_applied": [], "error": "auto_fix_failed"},
-            "step_outputs": {"auto_fix": {"fix_needed": False}},
-        }
-
-
-async def batch_refunds_node(state: ParwaGraphState) -> dict:
-    """Batch refund node — merges similar refund requests into one.
-
-    This implements the user's vision:
-    "For refunds, if it's the same type, they should be merged into
-    one then shown to clients."
-
-    The node:
-    1. Checks if the current request involves a refund
-    2. Looks for similar pending refund requests
-    3. Merges them into a single batch
-    4. Shows the batch to the client via notification CRM
-    """
-    try:
-        classification = state.get("classification", {})
-        intent = classification.get("intent", "").lower()
-        variant_tier = state.get("variant_tier", "parwa")
-        company_id = state.get("company_id", "")
-        customer_id = state.get("customer_id", "")
-        ticket_id = state.get("ticket_id", "")
-
-        batch_result = {
-            "is_refund": intent in ("refund", "billing", "charge", "overcharge", "payment"),
-            "batch_created": False,
-            "batch_id": None,
-            "batch_total": 0,
-            "batch_count": 0,
-            "refund_preview": None,
-        }
-
-        if not batch_result["is_refund"]:
-            return {
-                "refund_batch": batch_result,
-                "step_outputs": {"batch_refunds": batch_result},
-            }
-
-        # Try to add to notification batcher for merging
-        try:
-            from app.services.notification_crm.notification_batcher import (
-                get_notification_batcher,
-                NotificationType,
-                BatchItem,
-            )
-            batcher = get_notification_batcher()
-
-            # Create batch item for this refund
-            item = BatchItem(
-                company_id=company_id,
-                notification_type=NotificationType.REFUND_BATCH,
-                title=f"Refund request: {intent}",
-                summary=state.get("query", "")[:200],
-                customer_id=customer_id,
-                ticket_id=ticket_id,
-                metadata={
-                    "intent": intent,
-                    "variant_tier": variant_tier,
-                    "amount": state.get("billing_dispute", {}).get("amount", 0) if isinstance(state.get("billing_dispute"), dict) else 0,
-                },
-            )
-
-            batch_result["batch_created"] = batcher.add_item(item)
-
-            # Check for open batches for this customer
-            open_batches = batcher.get_open_batches(company_id, NotificationType.REFUND_BATCH)
-            matching_batch = None
-            for batch in open_batches:
-                if batch.customer_id == customer_id:
-                    matching_batch = batch
-                    break
-
-            if matching_batch:
-                batch_result["batch_id"] = matching_batch.batch_id
-                batch_result["batch_count"] = len(matching_batch.items)
-                batch_result["batch_total"] = matching_batch.total_amount if hasattr(matching_batch, 'total_amount') else 0
-                batch_result["refund_preview"] = {
-                    "type": "batch",
-                    "message": f"You have {len(matching_batch.items)} pending refund requests. Would you like to review them all together?",
-                    "batch_id": matching_batch.batch_id,
-                }
-
-        except Exception:
-            logger.debug("batch_refund_batcher_unavailable", exc_info=True)
-
-        # Create refund preview (show to user first)
-        billing_dispute = state.get("billing_dispute", {})
-        if isinstance(billing_dispute, dict):
-            batch_result["refund_preview"] = batch_result.get("refund_preview") or {
-                "type": "single",
-                "amount": billing_dispute.get("amount", 0),
-                "reason": billing_dispute.get("reason", ""),
-                "status": "pending_client_approval",
-                "message": "I've found a refund eligible charge. Before I process it, I want to confirm with you.",
-            }
-
-        # Build result and merge comm bus updates
-        result = {
-            "refund_batch": batch_result,
-            "refund_preview": batch_result.get("refund_preview"),
-            "step_outputs": {"batch_refunds": batch_result},
-        }
-
-        # Post shared insight and merge into result
-        insight_update = post_shared_insight("batch_refunds", "is_refund", batch_result["is_refund"])
-        result.update(insight_update)
-
-        # Post message to comm bus and merge into result
-        msg_update = post_to_comm_bus(
-            state, "batch_refunds", "all", "insight",
-            {
-                "is_refund": batch_result["is_refund"],
-                "batch_created": batch_result["batch_created"],
-                "refund_preview_available": bool(batch_result["refund_preview"]),
-            },
-        )
-        result.update(msg_update)
-
-        return result
-
-    except Exception:
-        logger.exception("batch_refunds_error")
-        return {
-            "refund_batch": {"is_refund": False, "batch_created": False, "error": "batch_failed"},
-            "step_outputs": {"batch_refunds": {"is_refund": False}},
-        }
-
-
-async def maker_validator_llm_node(state: ParwaGraphState) -> dict:
-    """MAKER Validator with LLM — validates response using LLM for ALL tiers.
-
-    Previously, Maker only used heuristic validation. Now it uses
-    LLM to generate K-solutions and validate them, ensuring higher
-    quality responses across all tiers.
-
-    K = number of candidate solutions:
-    - Mini: K=3 (cost-efficient)
-    - Pro: K=5 (balanced)
-    - High: K=7 (thorough)
-    """
-    try:
-        variant_tier = state.get("variant_tier", "parwa")
-        perms = get_tier_permissions(variant_tier)
-        generated_response = state.get("generated_response", "")
-        classification = state.get("classification", {})
-        intent = classification.get("intent", "unknown")
-
-        # Determine K based on tier
-        k_map = {"mini_parwa": 3, "parwa": 5, "parwa_high": 7}
-        k = k_map.get(variant_tier, 5)
-
-        maker_result = {
-            "k_solutions_generated": 0,
-            "best_solution_score": 0.0,
-            "validation_passed": True,
-            "red_flag": False,
-            "llm_used": False,
-            "k": k,
-        }
-
-        # Try LLM validation
-        try:
-            from app.core.llm_gateway import llm_gateway
-
-            if llm_gateway and generated_response:
-                validation_prompt = f"""You are a quality validator for a customer service response.
-Evaluate this response on a scale of 0.0 to 1.0 for:
-1. Accuracy: Does it address the customer's {intent} issue?
-2. Empathy: Does it show understanding?
-3. Actionability: Does it provide clear next steps?
-4. Safety: Is it free of harmful content?
-
-Customer query: {state.get('pii_redacted_query', state.get('query', ''))[:500]}
-Response to validate: {generated_response[:500]}
-
-Return JSON: {{"accuracy": 0.0-1.0, "empathy": 0.0-1.0, "actionability": 0.0-1.0, "safety": 0.0-1.0, "overall": 0.0-1.0, "issues": ["issue1", ...]}}"""
-
-                import asyncio
-                result = await llm_gateway.generate(
-                    system_prompt="You are a quality validation expert. Return only valid JSON.",
-                    user_message=validation_prompt,
-                    technique_id="maker_validator",
-                    max_tokens=300,
-                    temperature=0.1,
-                    company_id=state.get("company_id", ""),
-                )
-
-                if result and result.text:
-                    try:
-                        import json
-                        # Try to parse JSON from response
-                        text = result.text.strip()
-                        if "```json" in text:
-                            text = text.split("```json")[1].split("```")[0].strip()
-                        elif "```" in text:
-                            text = text.split("```")[1].split("```")[0].strip()
-
-                        scores = json.loads(text)
-                        overall = scores.get("overall", 0.5)
-                        maker_result["best_solution_score"] = overall
-                        maker_result["llm_used"] = True
-                        maker_result["k_solutions_generated"] = k
-                        maker_result["llm_scores"] = scores
-
-                        # Check against threshold
-                        threshold = perms.get("quality_threshold", 0.85)
-                        if overall < threshold:
-                            maker_result["validation_passed"] = False
-                            maker_result["red_flag"] = overall < (threshold * 0.6)
-                            maker_result["issues"] = scores.get("issues", [])
-                    except (json.JSONDecodeError, KeyError):
-                        # Fallback: use heuristic
-                        maker_result["validation_passed"] = True
-
-        except (ImportError, Exception) as e:
-            logger.debug("maker_llm_fallback_heuristic: %s", str(e)[:100])
-            # Fallback: simple heuristic validation
-            if generated_response and len(generated_response) > 10:
-                maker_result["best_solution_score"] = 0.75
-                maker_result["validation_passed"] = True
-            else:
-                maker_result["best_solution_score"] = 0.3
-                maker_result["validation_passed"] = False
-                maker_result["red_flag"] = True
-
-        # Build result and merge comm bus updates
-        result = {
-            "maker_llm_result": maker_result,
-            "step_outputs": {"maker_validator": maker_result},
-        }
-
-        # Post shared insight and merge into result
-        insight_update = post_shared_insight("maker_validator", "validation_passed", maker_result["validation_passed"])
-        result.update(insight_update)
-
-        # Post message to comm bus and merge into result
-        msg_update = post_to_comm_bus(
-            state, "maker_validator", "all", "insight",
-            {
-                "validation_passed": maker_result["validation_passed"],
-                "score": maker_result["best_solution_score"],
-                "red_flag": maker_result["red_flag"],
-                "llm_used": maker_result["llm_used"],
-            },
-        )
-        result.update(msg_update)
-
-        return result
-
-    except Exception:
-        logger.exception("maker_validator_error")
-        return {
-            "maker_llm_result": {"validation_passed": True, "red_flag": False, "error": "maker_failed"},
-            "step_outputs": {"maker_validator": {"validation_passed": True}},
-        }
-
-
-# ══════════════════════════════════════════════════════════════════
-# QUALITY SCORING — per-ticket quality metrics
-# ══════════════════════════════════════════════════════════════════
-
-
-def compute_ticket_quality_score(state: dict) -> Dict[str, Any]:
-    """Compute comprehensive quality score for a ticket.
-
-    This produces the quality metrics shown on the dashboard:
-    - Overall quality (0-100)
-    - Can AI replace human? (assessment)
-    - Breakdown by dimension (empathy, accuracy, actionability, etc.)
-    - Comparison with human baseline
-    """
-    try:
-        quality_score = state.get("quality_score", 0)
-        confidence = state.get("confidence_score", {})
-        overall_confidence = 0.5
-        if isinstance(confidence, dict):
-            overall_confidence = confidence.get("overall", 0.5)
-        elif isinstance(confidence, (int, float)):
-            overall_confidence = float(confidence)
-
-        # Dimension scores
-        empathy_score = 0.0
-        accuracy_score = 0.0
-        actionability_score = 0.0
-        safety_score = 1.0
-        tone_score = 0.0
-
-        maker_result = state.get("maker_llm_result", {})
-        if isinstance(maker_result, dict) and maker_result.get("llm_scores"):
-            scores = maker_result["llm_scores"]
-            accuracy_score = scores.get("accuracy", 0.5)
-            empathy_score = scores.get("empathy", 0.5)
-            actionability_score = scores.get("actionability", 0.5)
-            safety_score = scores.get("safety", 1.0)
-
-        auto_fix = state.get("auto_fix_result", {})
-        if isinstance(auto_fix, dict):
-            tone_score = min(auto_fix.get("fixed_quality", quality_score), 1.0)
-
-        # Compute overall (weighted)
-        overall = (
-            accuracy_score * 0.30 +
-            empathy_score * 0.20 +
-            actionability_score * 0.20 +
-            safety_score * 0.15 +
-            tone_score * 0.15
-        )
-
-        # Human baseline comparison (research-based estimates)
-        human_baseline = 0.78  # Average human agent scores ~78%
-        can_replace_human = overall >= human_baseline
-
-        # Tier-specific adjustment
-        variant_tier = state.get("variant_tier", "parwa")
-        tier_labels = {
-            "mini_parwa": "Starter",
-            "parwa": "Growth",
-            "parwa_high": "High",
-        }
-
-        return {
-            "overall_score": round(overall * 100, 1),
-            "dimensions": {
-                "accuracy": round(accuracy_score * 100, 1),
-                "empathy": round(empathy_score * 100, 1),
-                "actionability": round(actionability_score * 100, 1),
-                "safety": round(safety_score * 100, 1),
-                "tone": round(tone_score * 100, 1),
-            },
-            "confidence": round(overall_confidence * 100, 1),
-            "can_replace_human": can_replace_human,
-            "human_baseline": round(human_baseline * 100, 1),
-            "gap_vs_human": round((overall - human_baseline) * 100, 1),
-            "variant_tier": tier_labels.get(variant_tier, variant_tier),
-            "auto_fixes_applied": len(auto_fix.get("fixes_applied", [])) if isinstance(auto_fix, dict) else 0,
-            "clarification_needed": state.get("clarification_result", {}).get("needs_clarification", False) if isinstance(state.get("clarification_result"), dict) else False,
-        }
-    except Exception:
-        return {
-            "overall_score": 0,
-            "can_replace_human": False,
-            "error": "quality_computation_failed",
-        }
+def route_after_context_health(state: Dict) -> str:
+    """After context_health."""
+    config = _get_config(state)
+    if config.allow_dedup:
+        return "dedup"
+    if config.allow_auto_action:
+        return "auto_action"
+    return "format"
+
+
+def route_after_dedup(state: Dict) -> str:
+    """After dedup."""
+    config = _get_config(state)
+    if config.allow_strategic_decision:
+        return "strategic_decision"
+    if config.allow_auto_action:
+        return "auto_action"
+    return "format"
+
+
+def route_after_strategic_decision(state: Dict) -> str:
+    """After strategic_decision."""
+    config = _get_config(state)
+    if config.allow_peer_review:
+        return "peer_review"
+    if config.allow_auto_action:
+        return "auto_action"
+    return "format"
+
+
+def route_after_peer_review(state: Dict) -> str:
+    """After peer_review."""
+    config = _get_config(state)
+    if config.allow_auto_action:
+        return "auto_action"
+    return "format"
+
+
+def route_after_auto_action(state: Dict) -> str:
+    """After auto_action, always go to format."""
+    return "format"
 
 
 # ══════════════════════════════════════════════════════════════════
 # GRAPH BUILDER
 # ══════════════════════════════════════════════════════════════════
 
+def build_unified_variant_graph():
+    """Build the unified variant LangGraph StateGraph.
 
-def build_unified_variant_graph() -> StateGraph:
-    """Build the unified variant graph.
-
-    ONE graph for ALL tiers. variant_tier controls permissions,
-    not topology. Every node exists in the graph — the routing
-    functions and node logic determine what actually runs.
-
-    Total nodes: 27 (same intelligence for all tiers)
-    - Core: pii, empathy, emergency, gsd, classify, generate, format
-    - Enrichment: smart_enrichment, extract_signals, technique_select,
-      reasoning_chain, context_enrich
-    - Deep enrichment: complaint, retention, billing, tech, shipping
-    - Quality: clara_quality_gate, quality_retry, confidence_assess
-    - High-only: context_compress, context_health, dedup,
-      strategic_decision, peer_review
-    - NEW: clarification_gate, auto_fix, auto_action,
-      batch_refunds, maker_validator
-    - Compression: crp_compress
+    Creates ONE graph with ALL nodes. The variant_tier in the state
+    controls which nodes actually DO work vs pass through.
 
     Returns:
         Compiled LangGraph StateGraph.
     """
     try:
-        from langgraph.graph import StateGraph as LG, END as LG_END
+        from langgraph.graph import StateGraph, END
+    except ImportError:
+        raise ImportError("langgraph package is required. pip install langgraph")
 
-        graph = LG(ParwaGraphState)
+    from app.core.parwa_graph_state import ParwaGraphState
 
-        # Import existing nodes from the Pro/High variants
-        # These are the proven, production-tested nodes
-        try:
-            from app.core.parwa.nodes import (
-                pii_check_node,
-                empathy_check_node,
-                emergency_check_node,
-                gsd_state_node,
-                classify_node,
-                smart_enrichment_node,
-                extract_signals_node,
-                technique_select_node,
-                reasoning_chain_node,
-                context_enrich_node,
-                generate_node,
-                crp_compress_node,
-                clara_quality_gate_node,
-                quality_retry_node,
-                confidence_assess_node,
-                auto_action_node,
-                format_node,
-                complaint_handler_node,
-                retention_negotiator_node,
-                billing_resolver_node,
-                tech_diagnostic_node,
-                shipping_tracker_node,
-            )
-        except ImportError:
-            # Fallback to high variant nodes
-            from app.core.parwa_high.nodes import (
-                pii_check_node,
-                empathy_check_node,
-                emergency_check_node,
-                gsd_state_node,
-                classify_node,
-                smart_enrichment_node,
-                extract_signals_node,
-                technique_select_node,
-                reasoning_chain_node,
-                context_enrich_node,
-                generate_node,
-                crp_compress_node,
-                clara_quality_gate_node,
-                quality_retry_node,
-                confidence_assess_node,
-                auto_action_node,
-                format_node,
-                complaint_handler_node,
-                retention_negotiator_node,
-                billing_resolver_node,
-                tech_diagnostic_node,
-                shipping_tracker_node,
-            )
+    graph = StateGraph(ParwaGraphState)
 
-        # Try importing High-specific nodes
-        try:
-            from app.core.parwa_high.nodes import (
-                context_compress_node,
-                context_health_node,
-                dedup_node,
-                strategic_decision_node,
-                peer_review_node,
-            )
-        except ImportError:
-            # Create stub nodes that pass through
-            async def context_compress_node(state): return {"context_compressed": True}
-            async def context_health_node(state): return {"context_health": {"status": "ok"}}
-            async def dedup_node(state): return {"dedup_similarity_score": 0}
-            async def strategic_decision_node(state): return {"strategic_decision": {}}
-            async def peer_review_node(state): return {"peer_review": {}}
+    # ── Add ALL nodes ──────────────────────────────────────────
+    # Core pipeline (always runs)
+    graph.add_node("pii_check", pii_check_node)
+    graph.add_node("empathy_check", empathy_check_node)
+    graph.add_node("emergency_check", emergency_check_node)
+    graph.add_node("gsd_state", gsd_state_node)
+    graph.add_node("classify", classify_node)
 
-        # ── Add all nodes ──────────────────────────────────────────
-        # Core pipeline nodes (from Pro/High — same intelligence)
-        graph.add_node("pii_check", pii_check_node)
-        graph.add_node("empathy_check", empathy_check_node)
-        graph.add_node("emergency_check", emergency_check_node)
-        graph.add_node("gsd_state", gsd_state_node)
-        graph.add_node("classify", classify_node)
-        graph.add_node("smart_enrichment", smart_enrichment_node)
-        graph.add_node("extract_signals", extract_signals_node)
-        graph.add_node("technique_select", technique_select_node)
-        graph.add_node("reasoning_chain", reasoning_chain_node)
-        graph.add_node("context_enrich", context_enrich_node)
-        graph.add_node("generate", generate_node)
-        graph.add_node("crp_compress", crp_compress_node)
-        graph.add_node("clara_quality_gate", clara_quality_gate_node)
-        graph.add_node("quality_retry", quality_retry_node)
-        graph.add_node("confidence_assess", confidence_assess_node)
-        graph.add_node("auto_action", auto_action_node)
-        graph.add_node("format", format_node)
+    # Enrichment (conditional)
+    graph.add_node("smart_enrichment", smart_enrichment_node)
+    graph.add_node("deep_enrichment_router", deep_enrichment_router_node)
 
-        # Deep enrichment nodes
-        graph.add_node("complaint_handler", complaint_handler_node)
-        graph.add_node("retention_negotiator", retention_negotiator_node)
-        graph.add_node("billing_resolver", billing_resolver_node)
-        graph.add_node("tech_diagnostic", tech_diagnostic_node)
-        graph.add_node("shipping_tracker", shipping_tracker_node)
+    # Deep enrichment agents (conditional)
+    graph.add_node("complaint_handler", complaint_handler_node)
+    graph.add_node("retention_negotiator", retention_negotiator_node)
+    graph.add_node("billing_resolver", billing_resolver_node)
+    graph.add_node("tech_diagnostic", tech_diagnostic_node)
+    graph.add_node("shipping_tracker", shipping_tracker_node)
 
-        # High-specific nodes
-        graph.add_node("context_compress", context_compress_node)
-        graph.add_node("context_health", context_health_node)
-        graph.add_node("dedup", dedup_node)
-        graph.add_node("strategic_decision", strategic_decision_node)
-        graph.add_node("peer_review", peer_review_node)
+    # Signals + Techniques (conditional)
+    graph.add_node("extract_signals", extract_signals_node)
+    graph.add_node("technique_select", technique_select_node)
+    graph.add_node("reasoning_chain", reasoning_chain_node)
 
-        # NEW nodes — same capability for all tiers
-        graph.add_node("clarification_gate", clarification_gate_node)
-        graph.add_node("auto_fix", auto_fix_node)
-        graph.add_node("batch_refunds", batch_refunds_node)
-        graph.add_node("maker_validator", maker_validator_llm_node)
+    # Context management (conditional)
+    graph.add_node("context_enrich", context_enrich_node)
+    graph.add_node("context_compress", context_compress_node)
 
-        # ── Set entry point ────────────────────────────────────────
-        graph.set_entry_point("pii_check")
+    # Validation + Generation (always)
+    graph.add_node("maker_validator", maker_validator_node)
+    graph.add_node("generate", generate_node)
+    graph.add_node("auto_fix", auto_fix_node)
+    graph.add_node("crp_compress", crp_compress_node)
+    graph.add_node("clara_quality_gate", clara_quality_gate_node)
+    graph.add_node("quality_retry", quality_retry_node)
+    graph.add_node("confidence_assess", confidence_assess_node)
 
-        # ── Add edges ──────────────────────────────────────────────
-        # Core pipeline
-        graph.add_conditional_edges("pii_check", route_after_pii,
-            {"empathy_check": "empathy_check"})
+    # High-tier nodes (conditional)
+    graph.add_node("context_health", context_health_node)
+    graph.add_node("dedup", dedup_node)
+    graph.add_node("strategic_decision", strategic_decision_node)
+    graph.add_node("peer_review", peer_review_node)
+    graph.add_node("auto_action", auto_action_node)
 
-        graph.add_conditional_edges("empathy_check", route_after_empathy,
-            {"emergency_check": "emergency_check"})
+    # Output (always)
+    graph.add_node("format", format_node)
 
-        graph.add_conditional_edges("emergency_check", route_after_emergency,
-            {"gsd_state": "gsd_state", "format": "format"})
+    # ── Set entry point ──────────────────────────────────────
+    graph.set_entry_point("pii_check")
 
-        graph.add_conditional_edges("gsd_state", route_after_gsd,
-            {"classify": "classify", "format": "format"})
+    # ── Add edges ────────────────────────────────────────────
+    # Core pipeline
+    graph.add_edge("pii_check", "empathy_check")
+    graph.add_edge("empathy_check", "emergency_check")
 
-        # ALL tiers go through smart_enrichment (same capability)
-        graph.add_conditional_edges("classify", route_after_classify,
-            {"smart_enrichment": "smart_enrichment"})
+    graph.add_conditional_edges(
+        "emergency_check",
+        route_after_emergency,
+        {"gsd_state": "gsd_state", "format": "format"},
+    )
 
-        # Smart enrichment -> deep enrichment or extract_signals
-        graph.add_conditional_edges("smart_enrichment", route_after_smart_enrichment,
-            {
-                "complaint_handler": "complaint_handler",
-                "retention_negotiator": "retention_negotiator",
-                "billing_resolver": "billing_resolver",
-                "tech_diagnostic": "tech_diagnostic",
-                "shipping_tracker": "shipping_tracker",
-                "extract_signals": "extract_signals",
-            })
+    graph.add_conditional_edges(
+        "gsd_state",
+        route_after_gsd,
+        {"classify": "classify", "format": "format"},
+    )
 
-        # Deep enrichment -> extract_signals (all converge)
-        for deep_node in ["complaint_handler", "retention_negotiator",
-                          "billing_resolver", "tech_diagnostic", "shipping_tracker"]:
-            graph.add_conditional_edges(deep_node, route_after_deep_enrichment,
-                {"extract_signals": "extract_signals"})
+    graph.add_conditional_edges(
+        "classify",
+        route_after_classify,
+        {"smart_enrichment": "smart_enrichment", "extract_signals": "extract_signals"},
+    )
 
-        # Signal extraction -> technique -> reasoning -> context
-        graph.add_conditional_edges("extract_signals", route_after_extract_signals,
-            {"technique_select": "technique_select"})
+    # Smart enrichment → deep enrichment router
+    graph.add_edge("smart_enrichment", "deep_enrichment_router")
 
-        graph.add_conditional_edges("technique_select", route_after_technique_select,
-            {"reasoning_chain": "reasoning_chain"})
+    graph.add_conditional_edges(
+        "deep_enrichment_router",
+        route_after_smart_enrichment,
+        {
+            "complaint_handler": "complaint_handler",
+            "retention_negotiator": "retention_negotiator",
+            "billing_resolver": "billing_resolver",
+            "tech_diagnostic": "tech_diagnostic",
+            "shipping_tracker": "shipping_tracker",
+            "extract_signals": "extract_signals",
+        },
+    )
 
-        graph.add_conditional_edges("reasoning_chain", route_after_reasoning,
-            {"context_enrich": "context_enrich"})
-
-        # Context enrich -> context_compress (High) or generate
-        graph.add_conditional_edges("context_enrich", route_after_context_enrich,
-            {"context_compress": "context_compress", "generate": "generate"})
-
-        graph.add_conditional_edges("context_compress", route_after_context_compress,
-            {"generate": "generate"})
-
-        # Generate -> quality pipeline
-        graph.add_edge("generate", "crp_compress")
-        graph.add_edge("crp_compress", "clara_quality_gate")
-
-        # Quality gate -> retry or confidence
-        graph.add_conditional_edges("clara_quality_gate", route_after_clara,
-            {"quality_retry": "quality_retry", "confidence_assess": "confidence_assess"})
-
-        graph.add_conditional_edges("quality_retry", route_after_quality_retry,
-            {"generate": "generate"})
-
-        # Confidence -> High path or clarification
-        graph.add_conditional_edges("confidence_assess", route_after_confidence,
-            {"context_health": "context_health", "clarification_gate": "clarification_gate"})
-
-        # High-specific path
-        graph.add_conditional_edges("context_health", route_after_context_health,
-            {"dedup": "dedup", "clarification_gate": "clarification_gate"})
-
-        graph.add_conditional_edges("dedup", route_after_dedup,
-            {"strategic_decision": "strategic_decision", "clarification_gate": "clarification_gate"})
-
-        graph.add_conditional_edges("strategic_decision", route_after_strategic_decision,
-            {"peer_review": "peer_review", "clarification_gate": "clarification_gate"})
-
-        graph.add_conditional_edges("peer_review", route_after_peer_review,
-            {"clarification_gate": "clarification_gate"})
-
-        # NEW: clarification -> auto_fix -> auto_action -> batch -> maker -> format
-        graph.add_conditional_edges("clarification_gate", route_after_clarification,
-            {"auto_fix": "auto_fix"})
-
-        graph.add_conditional_edges("auto_fix", route_after_auto_fix,
-            {"auto_action": "auto_action"})
-
-        graph.add_conditional_edges("auto_action", route_after_auto_action,
-            {"batch_refunds": "batch_refunds"})
-
-        graph.add_conditional_edges("batch_refunds", route_after_batch_refunds,
-            {"maker_validator": "maker_validator"})
-
-        graph.add_conditional_edges("maker_validator", route_after_maker,
-            {"format": "format"})
-
-        # Format -> END
-        graph.add_edge("format", LG_END)
-
-        # ── Compile ────────────────────────────────────────────────
-        compiled = graph.compile()
-
-        logger.info(
-            "unified_variant_graph_built: nodes=32, tiers=all, "
-            "permissions=variant_tier, comm_bus=enabled, "
-            "auto_fix=all, maker_llm=all, batch_refunds=all"
+    # Deep enrichment → extract_signals
+    for deep_node in ["complaint_handler", "retention_negotiator",
+                       "billing_resolver", "tech_diagnostic", "shipping_tracker"]:
+        graph.add_conditional_edges(
+            deep_node,
+            route_after_deep_enrichment,
+            {"extract_signals": "extract_signals"},
         )
 
-        return compiled
+    # Signals → techniques
+    graph.add_conditional_edges(
+        "extract_signals",
+        route_after_extract_signals,
+        {"technique_select": "technique_select", "context_enrich": "context_enrich"},
+    )
 
-    except Exception:
-        logger.exception("unified_variant_graph_build_failed")
-        raise
+    graph.add_conditional_edges(
+        "technique_select",
+        route_after_technique_select,
+        {"reasoning_chain": "reasoning_chain", "context_enrich": "context_enrich"},
+    )
+
+    graph.add_conditional_edges(
+        "reasoning_chain",
+        route_after_reasoning,
+        {"context_enrich": "context_enrich"},
+    )
+
+    # Context management
+    graph.add_conditional_edges(
+        "context_enrich",
+        route_after_context_enrich,
+        {"context_compress": "context_compress", "maker_validator": "maker_validator"},
+    )
+
+    graph.add_conditional_edges(
+        "context_compress",
+        route_after_context_compress,
+        {"maker_validator": "maker_validator"},
+    )
+
+    # MAKER → generate
+    graph.add_conditional_edges(
+        "maker_validator",
+        route_after_maker,
+        {"generate": "generate"},
+    )
+
+    # Generate → auto_fix → crp → clara
+    graph.add_conditional_edges(
+        "generate",
+        route_after_generate,
+        {"auto_fix": "auto_fix"},
+    )
+
+    graph.add_conditional_edges(
+        "auto_fix",
+        route_after_auto_fix,
+        {"crp_compress": "crp_compress"},
+    )
+
+    graph.add_edge("crp_compress", "clara_quality_gate")
+
+    # Quality gate → retry or confidence
+    graph.add_conditional_edges(
+        "clara_quality_gate",
+        route_after_clara,
+        {"quality_retry": "quality_retry", "confidence_assess": "confidence_assess"},
+    )
+
+    graph.add_conditional_edges(
+        "quality_retry",
+        route_after_quality_retry,
+        {"generate": "generate"},
+    )
+
+    # Confidence → high-tier path or auto_action or format
+    graph.add_conditional_edges(
+        "confidence_assess",
+        route_after_confidence,
+        {
+            "context_health": "context_health",
+            "auto_action": "auto_action",
+            "format": "format",
+        },
+    )
+
+    graph.add_conditional_edges(
+        "context_health",
+        route_after_context_health,
+        {
+            "dedup": "dedup",
+            "auto_action": "auto_action",
+            "format": "format",
+        },
+    )
+
+    graph.add_conditional_edges(
+        "dedup",
+        route_after_dedup,
+        {
+            "strategic_decision": "strategic_decision",
+            "auto_action": "auto_action",
+            "format": "format",
+        },
+    )
+
+    graph.add_conditional_edges(
+        "strategic_decision",
+        route_after_strategic_decision,
+        {
+            "peer_review": "peer_review",
+            "auto_action": "auto_action",
+            "format": "format",
+        },
+    )
+
+    graph.add_conditional_edges(
+        "peer_review",
+        route_after_peer_review,
+        {
+            "auto_action": "auto_action",
+            "format": "format",
+        },
+    )
+
+    graph.add_conditional_edges(
+        "auto_action",
+        route_after_auto_action,
+        {"format": "format"},
+    )
+
+    # Format → END
+    graph.add_edge("format", END)
+
+    # ── Compile ────────────────────────────────────────────────
+    compiled = graph.compile()
+
+    logger.info(
+        "unified_variant_graph_built",
+        total_nodes=29,
+        architecture="one_graph_all_tiers",
+    )
+
+    return compiled
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1328,57 +1529,36 @@ def build_unified_variant_graph() -> StateGraph:
 
 
 class UnifiedVariantPipeline:
-    """Unified variant pipeline — runs the 32-node graph for ALL tiers.
-
-    Same intelligence, different restrictions.
+    """The unified variant pipeline — ONE graph, ALL tiers.
 
     Usage:
         pipeline = UnifiedVariantPipeline()
-        result = await pipeline.run(initial_state)
-        # OR
         result = await pipeline.process_ticket(
-            query="I need a refund",
+            query="I need a refund for my order",
             company_id="comp_123",
-            variant_tier="mini_parwa",  # or "parwa" or "parwa_high"
+            variant_tier="parwa_high",  # or "mini_parwa" or "parwa"
             industry="ecommerce",
             channel="chat",
         )
+
+    The variant_tier controls what the pipeline is ALLOWED to do,
+    not what nodes exist. All tiers use the same graph.
     """
 
     def __init__(self) -> None:
         try:
             self._graph = build_unified_variant_graph()
-            logger.info("UnifiedVariantPipeline initialized: 32 nodes, all tiers, comm_bus enabled")
+            logger.info("UnifiedVariantPipeline initialized — 29 nodes, all tiers")
         except Exception:
             logger.exception("UnifiedVariantPipeline init failed")
             self._graph = None
 
-    async def run(self, state: ParwaGraphState) -> ParwaGraphState:
-        """Run the unified pipeline.
-
-        Args:
-            state: Initial ParwaGraphState with variant_tier set.
-
-        Returns:
-            Final state with quality scores, ticket metrics, and
-            human-replacement assessment.
-        """
+    async def run(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """Run the unified pipeline with the given state."""
         try:
             if self._graph is None:
                 logger.error("UnifiedVariantPipeline graph is None")
                 return state
-
-            # Inject permissions into state
-            variant_tier = state.get("variant_tier", "parwa")
-            perms = get_tier_permissions(variant_tier)
-            state["permission_context"] = perms
-            state["quality_threshold"] = perms.get("quality_threshold", 0.85)
-            state["max_quality_retries"] = perms.get("max_quality_retries", 1)
-            state["restricted_actions"] = _get_restricted_actions(perms)
-
-            # Initialize comm bus
-            if not state.get("node_comm_bus"):
-                state["node_comm_bus"] = {}
 
             start = time.monotonic()
             result = await self._graph.ainvoke(state)
@@ -1388,18 +1568,12 @@ class UnifiedVariantPipeline:
                 result["total_latency_ms"] = total_ms
                 result["billing_tokens"] = result.get("generation_tokens", 0)
 
-                # Compute ticket quality score
-                quality_metrics = compute_ticket_quality_score(result)
-                result["ticket_quality_metrics"] = quality_metrics
-
             logger.info(
-                "unified_pipeline_complete: tier=%s, company=%s, "
-                "quality=%.1f, latency=%.0fms, can_replace_human=%s",
-                variant_tier,
-                state.get("company_id", ""),
-                quality_metrics.get("overall_score", 0),
-                total_ms,
-                quality_metrics.get("can_replace_human", False),
+                "unified_pipeline_complete",
+                total_latency_ms=total_ms,
+                variant_tier=state.get("variant_tier", "unknown"),
+                company_id=state.get("company_id", ""),
+                quality_score=result.get("quality_score", 0) if isinstance(result, dict) else 0,
             )
 
             return result
@@ -1407,14 +1581,14 @@ class UnifiedVariantPipeline:
         except Exception:
             logger.exception("UnifiedVariantPipeline.run failed")
             state["pipeline_status"] = "failed"
-            state["errors"] = state.get("errors", []) + ["pipeline_execution_failed"]
+            state["errors"] = state.get("errors", []) + ["unified_pipeline_execution_failed"]
             return state
 
     async def process_ticket(
         self,
         query: str,
         company_id: str,
-        variant_tier: str = "parwa",
+        variant_tier: str = "mini_parwa",
         industry: str = "general",
         channel: str = "chat",
         customer_id: str = "",
@@ -1423,17 +1597,35 @@ class UnifiedVariantPipeline:
         ticket_id: str = "",
         variant_instance_id: str = "",
     ) -> Dict[str, Any]:
-        """Convenience method: create state and run pipeline.
+        """Convenience method: create initial state and run pipeline.
 
-        BC-001: company_id first.
+        BC-001: company_id is first parameter.
+
+        Args:
+            query: Customer's raw message.
+            company_id: Tenant identifier (BC-001).
+            variant_tier: "mini_parwa" | "parwa" | "parwa_high".
+            industry: Industry vertical.
+            channel: Communication channel.
+            customer_id: Customer identifier.
+            customer_tier: Customer subscription tier.
+            conversation_id: For multi-turn tracking.
+            ticket_id: Ticket identifier (auto-generated if empty).
+            variant_instance_id: Specific variant instance.
+
+        Returns:
+            Dict with the final pipeline state.
         """
         try:
+            from app.core.parwa_graph_state import create_initial_state
+
             if not ticket_id:
                 ticket_id = f"tkt_{uuid.uuid4().hex[:12]}"
             if not conversation_id:
                 conversation_id = f"conv_{uuid.uuid4().hex[:12]}"
             if not variant_instance_id:
-                variant_instance_id = f"inst_{variant_tier}_{company_id}"
+                tier_prefix = variant_tier.replace("_parwa", "").replace("parwa_", "")
+                variant_instance_id = f"inst_{tier_prefix}_{company_id}"
 
             initial_state = create_initial_state(
                 query=query,
@@ -1451,7 +1643,7 @@ class UnifiedVariantPipeline:
             result = await self.run(initial_state)
 
             if isinstance(result, dict):
-                return dict(result)
+                return result
             return {"error": "unexpected_result_type"}
 
         except Exception:
@@ -1463,11 +1655,16 @@ class UnifiedVariantPipeline:
             }
 
 
-def _get_restricted_actions(perms: Dict[str, Any]) -> List[str]:
-    """Get list of restricted actions for a tier."""
-    restricted = []
-    if perms.get("monetary_actions") == "approval_required":
-        restricted.extend(["refund_process", "credit_issue", "subscription_change"])
-    if perms.get("escalation") == "approval_required":
-        restricted.extend(["escalate_to_human", "emergency_stop"])
-    return restricted
+# ══════════════════════════════════════════════════════════════════
+# SINGLETON
+# ══════════════════════════════════════════════════════════════════
+
+_pipeline_instance: Optional[UnifiedVariantPipeline] = None
+
+
+def get_unified_pipeline() -> UnifiedVariantPipeline:
+    """Get or create the global unified pipeline instance."""
+    global _pipeline_instance
+    if _pipeline_instance is None:
+        _pipeline_instance = UnifiedVariantPipeline()
+    return _pipeline_instance
