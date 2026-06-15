@@ -64,14 +64,20 @@ async function proxyToBackend(
   const fullUrl = searchParams ? `${backendPath}?${searchParams}` : backendPath;
 
   try {
-    const body = ['POST', 'PATCH', 'PUT'].includes(request.method)
-      ? await request.arrayBuffer()
+    // Clone the request so the original body remains readable for local fallback.
+    // Without cloning, request.arrayBuffer() consumes the body stream and
+    // subsequent request.json() calls in the fallback path crash with
+    // "Body is unusable: Body has already been read".
+    const cloned = request.clone();
+
+    const body = ['POST', 'PATCH', 'PUT'].includes(cloned.method)
+      ? await cloned.arrayBuffer()
       : undefined;
 
-    const headers = buildAuthHeaders(request);
+    const headers = buildAuthHeaders(cloned);
 
     const response = await fetch(fullUrl, {
-      method: request.method,
+      method: cloned.method,
       headers,
       body,
       signal: AbortSignal.timeout(20000),

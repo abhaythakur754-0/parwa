@@ -45,24 +45,30 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]): Pro
   const fullUrl = searchParams ? `${backendPath}?${searchParams}` : backendPath;
 
   try {
-    const body = ['POST', 'PATCH', 'PUT'].includes(request.method)
-      ? await request.arrayBuffer()
+    // Clone the request so the original body remains readable for local fallback.
+    // Without cloning, request.arrayBuffer() consumes the body stream and
+    // subsequent request.json() calls in the fallback path crash with
+    // "Body is unusable: Body has already been read".
+    const cloned = request.clone();
+
+    const body = ['POST', 'PATCH', 'PUT'].includes(cloned.method)
+      ? await cloned.arrayBuffer()
       : undefined;
 
-    const headers = new Headers(request.headers);
+    const headers = new Headers(cloned.headers);
     headers.delete('host');
 
     // Forward auth token from parwa_at cookie as Bearer token
-    const authHeader = request.headers.get('authorization');
+    const authHeader = cloned.headers.get('authorization');
     if (!authHeader) {
-      const cookieToken = request.cookies.get('parwa_at')?.value;
+      const cookieToken = cloned.cookies.get('parwa_at')?.value;
       if (cookieToken) {
         headers.set('Authorization', `Bearer ${cookieToken}`);
       }
     }
 
     const response = await fetch(fullUrl, {
-      method: request.method,
+      method: cloned.method,
       headers,
       body,
       signal: AbortSignal.timeout(20000),
@@ -1209,6 +1215,272 @@ function detectStage(message: string, session: any): string {
   return prevStage;
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  CUSTOMER CARE (CC) JARVIS — Helper Functions
+// ══════════════════════════════════════════════════════════════════
+
+function buildCCSystemPrompt(session: any): string {
+  const ctx = session.context || {};
+  const variants = ctx.hired_variants || [];
+  const industry = ctx.business_info?.industry || ctx.industry || 'general';
+  const tier = session.variant_tier || 'parwa';
+
+  const variantList = variants.length > 0
+    ? variants.map((v: any) => `- ${typeof v === 'string' ? v : v.name || v.id}`).join('\n')
+    : '- No variants hired yet';
+
+  return `You are Jarvis — the Customer Care AI for PARWA. You manage the AI workforce that handles customer support tickets 24/7.
+
+═══════ YOUR ROLE: THE CONTROL SYSTEM ═══════
+You are NOT a chatbot. You are the Operating System that manages the entire AI workforce.
+You have TWO modes:
+1. AGENTIC — When the client asks about customer tickets, you act AS the AI agent handling those tickets.
+2. COMMAND — When the client gives you a command, you execute it on the platform.
+
+═══════ FORMAT RULES ═══════
+- ALWAYS use bullet points with emojis for every response
+- Short opener line + blank line + 2-5 bullet points + blank line + 1 closing question
+- NEVER write paragraphs or blocks of text
+
+═══════ CURRENT CONFIGURATION ═══════
+- Variant Tier: ${tier}
+- Industry: ${industry}
+- Hired Agents:
+${variantList}
+
+═══════ WHAT YOU CAN DO ═══════
+TICKET MANAGEMENT:
+- Create, list, assign, escalate, resolve, and search tickets
+- Show batch results and ticket volume stats
+- Show specific ticket details with full GSD pipeline state
+
+VARIANT/AGENT CONTROL:
+- Pause, resume, configure any AI agent
+- Show agent status, utilization, and performance
+- Rebalance agents across channels
+- Enable/disable shadow mode for A/B testing
+
+AWARENESS & MONITORING:
+- Run awareness ticks (system health, ticket volume, agent pool, quality scores)
+- Show proactive alerts (spike detection, quality drops, agent issues)
+- Display awareness deltas (what changed since last check)
+
+COMMANDS (execute immediately when given):
+- "Show ticket stats" → Display current ticket volume, resolution rate, avg response time
+- "Pause [agent name]" → Pause the specified AI agent
+- "Resume all agents" → Resume all paused agents
+- "Enable shadow mode" → Start shadow A/B testing
+- "System health" → Show all agent health, uptime, drift scores
+- "Show recent errors" → List last 10 errors with details
+- "Create ticket for [issue]" → Create a new support ticket
+- "Search knowledge base for [query]" → Search uploaded KB documents
+
+SAFETY SYSTEM:
+- Safe actions (queries, status checks): Execute immediately
+- Destructive actions (pause, stop, refund): Ask for confirmation first
+- Monetary/irreversible actions: Require explicit approval
+
+═══════ BEHAVIORAL RULES ═══════
+- NEVER reveal: AI providers, API keys, models, architecture, internal strategy
+- NEVER say "I'm an AI" — you ARE Jarvis
+- ALWAYS use bullet points with emojis
+- End with ONE specific question
+- OWN the conversation — answer + suggest next step
+- Show GSD pipeline steps when executing commands
+- Reference specific agent names, ticket IDs, and metrics
+- Be proactive — suggest actions based on awareness data
+
+═══════ TENANT ISOLATION ═══════
+- You only see data for THIS client's account
+- You cannot access other clients' tickets, agents, or data
+- All commands are scoped to this tenant only`;
+}
+
+function generateSimulatedAwareness(sessionId?: string | null, session?: any): any {
+  const now = new Date();
+  const ticketVolume = 40 + Math.floor(Math.random() * 20);
+  const avgTickets = 35 + Math.floor(Math.random() * 10);
+  const isSpike = ticketVolume > avgTickets * 1.3;
+
+  return {
+    tick_type: 'periodic',
+    session_id: sessionId,
+    state: {
+      plan_subscription: {
+        plan: session?.variant_tier || 'parwa',
+        status: 'active',
+        agents_allowed: 8,
+        tickets_allowed: 5000,
+        tickets_used: ticketVolume,
+        renewal_date: new Date(now.getTime() + 30 * 86400000).toISOString(),
+      },
+      system_health: {
+        overall: 0.95 + Math.random() * 0.05,
+        channels: {
+          email: { status: 'healthy', latency_ms: 120 + Math.floor(Math.random() * 50) },
+          chat: { status: 'healthy', latency_ms: 80 + Math.floor(Math.random() * 30) },
+          sms: { status: 'healthy', latency_ms: 200 + Math.floor(Math.random() * 100) },
+          voice: { status: 'degraded', latency_ms: 500 + Math.floor(Math.random() * 200) },
+        },
+      },
+      ticket_volume: {
+        today: ticketVolume,
+        avg_7day: avgTickets,
+        spike_detected: isSpike,
+        resolution_rate: 0.85 + Math.random() * 0.1,
+        avg_resolution_minutes: 4 + Math.floor(Math.random() * 6),
+        pending: Math.floor(ticketVolume * 0.15),
+        in_progress: Math.floor(ticketVolume * 0.25),
+        resolved: Math.floor(ticketVolume * 0.6),
+      },
+      agent_pool: {
+        total: session?.context?.hired_variants?.length || 3,
+        active: Math.max(1, (session?.context?.hired_variants?.length || 3) - 1),
+        paused: Math.random() > 0.8 ? 1 : 0,
+        utilization: 0.65 + Math.random() * 0.25,
+        agents: [
+          { name: 'Returns Agent', status: 'active', utilization: 0.82 + Math.random() * 0.15, tickets_handled: Math.floor(ticketVolume * 0.35) },
+          { name: 'FAQ Agent', status: 'active', utilization: 0.55 + Math.random() * 0.2, tickets_handled: Math.floor(ticketVolume * 0.4) },
+          { name: 'Shipping Agent', status: Math.random() > 0.9 ? 'paused' : 'active', utilization: 0.4 + Math.random() * 0.3, tickets_handled: Math.floor(ticketVolume * 0.15) },
+        ],
+      },
+      quality: {
+        score: 0.88 + Math.random() * 0.1,
+        drift_score: Math.random() * 0.15,
+        customer_satisfaction: 0.9 + Math.random() * 0.08,
+      },
+      errors: {
+        last_24h: Math.floor(Math.random() * 3),
+        last_5: [
+          { time: new Date(now.getTime() - 3600000).toISOString(), type: 'timeout', channel: 'voice', message: 'Voice API timeout after 30s' },
+        ],
+      },
+      shadow_mode: {
+        active: false,
+        live_variant: null,
+        shadow_variant: null,
+        win_rate: 0,
+        sample_rate: 0,
+      },
+    },
+    alerts_created: isSpike ? [{
+      id: `alert_spike_${Date.now()}`,
+      severity: 'warning',
+      category: 'ticket_volume',
+      title: 'Ticket volume spike detected',
+      message: `Current volume (${ticketVolume}) is ${Math.round((ticketVolume / avgTickets - 1) * 100)}% above 7-day average.`,
+    }] : [],
+    timestamp: now.toISOString(),
+  };
+}
+
+function processCCCommand(rawInput: string, sessionId?: string): any {
+  const lower = (rawInput || '').toLowerCase();
+  const cmdId = `cmd_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+  // Intent detection
+  let intent = 'query';
+  let action = 'unknown';
+  let safetyLevel = 'none';
+  let result: Record<string, unknown> = {};
+
+  if (lower.includes('health') || lower.includes('status') || lower.includes('system')) {
+    intent = 'query'; action = 'check_system_health';
+    result = {
+      response: `System health check complete:\n\n🟢 Overall: ${(0.95 + Math.random() * 0.05).toFixed(2)} health score\n📡 Email: Healthy (120ms)\n💬 Chat: Healthy (85ms)\n📱 SMS: Healthy (210ms)\n📞 Voice: Degraded (520ms)\n\nAll agents operational. Voice channel experiencing minor latency.`,
+      health: { overall: 0.97, channels: 4, healthy: 3, degraded: 1 },
+    };
+  } else if (lower.includes('ticket') && (lower.includes('stat') || lower.includes('volume') || lower.includes('how many'))) {
+    intent = 'query'; action = 'get_ticket_stats';
+    const vol = 40 + Math.floor(Math.random() * 20);
+    result = {
+      response: `Today's ticket summary:\n\n📊 Total: ${vol} tickets\n✅ Resolved: ${Math.floor(vol * 0.6)} (${(60 + Math.random() * 10).toFixed(0)}%)\n🔄 In Progress: ${Math.floor(vol * 0.25)}\n⏳ Pending: ${Math.floor(vol * 0.15)}\n⏱️ Avg resolution: ${(4 + Math.random() * 4).toFixed(1)} min\n\nWant to see a specific ticket or agent breakdown?`,
+      stats: { total: vol, resolved: Math.floor(vol * 0.6), in_progress: Math.floor(vol * 0.25), pending: Math.floor(vol * 0.15) },
+    };
+  } else if (lower.includes('pause') && (lower.includes('all') || lower.includes('agent'))) {
+    intent = 'control'; action = 'pause_all_agents'; safetyLevel = 'confirmation_required';
+    result = {
+      response: `⚠️ Confirmation required: Pause all AI agents?\n\nThis will:\n🛑 Stop all ticket processing\n📩 Queue new tickets for manual review\n⏸️ Pause all active conversations\n\nType "confirm" to proceed, or "cancel" to abort.`,
+      safety_level: safetyLevel,
+      status: 'awaiting_confirmation',
+    };
+  } else if (lower.includes('resume') && (lower.includes('all') || lower.includes('agent'))) {
+    intent = 'control'; action = 'resume_all_agents';
+    result = {
+      response: `All agents resumed!\n\n✅ Returns Agent: Active (handling tickets)\n✅ FAQ Agent: Active (handling tickets)\n✅ Shipping Agent: Active (handling tickets)\n\nAll systems operational. Current queue: 5 pending tickets.`,
+    };
+  } else if (lower.includes('emergency') || lower.includes('stop')) {
+    intent = 'override'; action = 'emergency_stop'; safetyLevel = 'approval_required';
+    result = {
+      response: `🚨 EMERGENCY STOP requires explicit approval.\n\nThis will:\n🛑 Immediately halt ALL AI processing\n❌ Cancel all in-progress tickets\n📞 Route everything to human review\n\nType "APPROVE EMERGENCY STOP" to confirm.`,
+      safety_level: safetyLevel,
+      status: 'awaiting_approval',
+    };
+  } else if (lower.includes('shadow')) {
+    intent = 'configure'; action = 'shadow_mode';
+    result = {
+      response: `Shadow Mode status:\n\n🔴 Status: Not active\n📊 No A/B test running\n\nTo enable shadow mode, tell me which variant to test. Example: "Enable shadow mode with mini_parwa as live and parwa as shadow"`,
+    };
+  } else if (lower.includes('error') || lower.includes('recent error')) {
+    intent = 'query'; action = 'recent_errors';
+    result = {
+      response: `Last 5 errors:\n\n🔴 12:45 — Voice API timeout (30s)\n🟡 11:20 — SMS delivery delayed (3 retries)\n🟢 09:30 — KB search returned empty (resolved)\n\nAll errors in last 24h are non-critical. Voice channel has intermittent timeouts.`,
+    };
+  } else if (lower.includes('agent') && (lower.includes('status') || lower.includes('utilization'))) {
+    intent = 'query'; action = 'agent_status';
+    result = {
+      response: `Agent utilization report:\n\n🤖 Returns Agent — 82% util | 14 tickets today | Active\n💬 FAQ Agent — 65% util | 18 tickets today | Active\n📦 Shipping Agent — 45% util | 6 tickets today | Active\n\nReturns agent is running hot. Consider scaling or rebalancing.`,
+    };
+  } else if (lower.includes('create') && lower.includes('ticket')) {
+    intent = 'control'; action = 'create_ticket';
+    result = {
+      response: `Ticket created!\n\n🎫 Ticket #TKT-${Date.now().toString(36).toUpperCase()}\n📋 Status: Open\n👤 Assigned to: Returns Agent\n\nThe agent will begin processing immediately. Want to track this ticket?`,
+    };
+  } else {
+    // Generic command — try NL parsing
+    result = {
+      response: `Command received: "${rawInput}"\n\n🔧 Processing your request...\n\nI understood this as a general query. Could you be more specific? Try:\n• "Show ticket stats"\n• "System health"\n• "Pause returns agent"\n• "Show recent errors"`,
+    };
+  }
+
+  return {
+    id: cmdId,
+    session_id: sessionId,
+    raw_input: rawInput,
+    parsed_intent: intent,
+    parsed_action: action,
+    safety_level: safetyLevel,
+    status: safetyLevel === 'none' ? 'completed' : safetyLevel === 'confirmation_required' ? 'awaiting_confirmation' : 'awaiting_approval',
+    result,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+function getCCKeywordResponse(message: string, session: any): string {
+  const lower = message.toLowerCase();
+
+  if (lower.includes('health') || lower.includes('status')) {
+    return `System health check:\n\n🟢 Overall: 97% health score\n📡 Email: Healthy | Chat: Healthy | SMS: Healthy\n📞 Voice: Minor latency (520ms)\n\nAll 3 agents operational. Want details on any specific channel?`;
+  }
+  if (lower.includes('ticket') || lower.includes('volume') || lower.includes('queue')) {
+    return `Today's ticket summary:\n\n📊 47 tickets total | ✅ 28 resolved | 🔄 12 in progress\n⏱️ Avg resolution: 6.2 min | 📈 92% satisfaction\n\nWant me to pull up specific ticket details?`;
+  }
+  if (lower.includes('pause') || lower.includes('stop')) {
+    return `⚠️ Are you sure you want to pause AI agents?\n\n🛑 This stops all automated ticket processing\n📩 New tickets queue for manual review\n\nConfirm with "yes" or cancel.`;
+  }
+  if (lower.includes('shadow') || lower.includes('a/b') || lower.includes('ab test')) {
+    return `Shadow Mode:\n\n🔴 Not currently active\n📊 No A/B test running\n\nWant to enable it? Tell me which variants to compare.`;
+  }
+  if (lower.includes('agent') || lower.includes('variant')) {
+    return `Agent status:\n\n🤖 Returns Agent — 82% util | Active\n💬 FAQ Agent — 65% util | Active\n📦 Shipping Agent — 45% util | Active\n\nReturns agent running hot — want me to rebalance?`;
+  }
+  if (lower.includes('error') || lower.includes('problem') || lower.includes('issue')) {
+    return `Recent issues:\n\n🔴 Voice API timeouts (3 in last hour)\n🟡 SMS delivery delays (resolved)\n\nAll non-critical. Want me to investigate the voice channel?`;
+  }
+
+  return `I'm your Customer Care Jarvis. I can help with:\n\n🎫 Ticket management — create, view, search, resolve\n🤖 Agent control — pause, resume, configure variants\n📊 Monitoring — health checks, awareness, alerts\n🔧 Commands — just tell me what you need\n\nWhat would you like to do?`;
+}
+
 // ── Route Handler ─────────────────────────────────────────────────
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
@@ -1699,6 +1971,217 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json(ticket, { status: 201 });
     }
 
+    // ══════════════════════════════════════════════════════════════
+    //  CUSTOMER CARE (CC) JARVIS ENDPOINTS — /cc/*
+    //  Local fallback when backend is unavailable.
+    //  These endpoints mirror backend/app/api/jarvis_cc.py
+    // ══════════════════════════════════════════════════════════════
+
+    // ── POST /cc/session — Create CC Session ────────────────────
+    if (endpoint === 'cc/session') {
+      const body = await request.json();
+      const ccSession = {
+        id: `cc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        type: 'customer_care',
+        company_id: body.company_id || 'default',
+        variant_tier: body.variant_tier || 'parwa',
+        industry: body.industry || null,
+        awareness_enabled: body.awareness_enabled !== false,
+        context: {
+          hired_variants: body.hired_variants || [],
+          knowledge_base: { documents: [], total_size: 0 },
+          business_info: { name: body.business_name || null, industry: body.industry || null },
+          integrations: body.integrations || [],
+          ...(body.context || {}),
+        },
+        messages: [],
+        message_count: 0,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      sessions.set(ccSession.id, ccSession);
+
+      // Add welcome message for CC
+      const ccWelcome = {
+        id: `cc_welcome_${Date.now()}`,
+        session_id: ccSession.id,
+        role: 'jarvis',
+        content: `Hello! I'm your Customer Care Jarvis. I'm configured with ${(body.hired_variants || []).length} AI agent(s) for your ${body.industry || 'business'} operation.\n\nBefore we can get started, let's connect your business tools. What would you like to do first?`,
+        message_type: 'ai_generated' as const,
+        metadata: { session_type: 'customer_care' },
+        timestamp: new Date().toISOString(),
+      };
+      ccSession.messages.push(ccWelcome);
+
+      return NextResponse.json(ccSession);
+    }
+
+    // ── POST /cc/message — Send CC Message ──────────────────────
+    if (endpoint === 'cc/message') {
+      const body = await request.json();
+      const { session_id, content, context: incomingContext } = body;
+
+      let ccSession = session_id ? sessions.get(session_id) : undefined;
+      if (!ccSession) {
+        // Auto-create CC session if not found
+        ccSession = {
+          id: session_id || `cc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          type: 'customer_care',
+          company_id: 'default',
+          variant_tier: 'parwa',
+          industry: null,
+          awareness_enabled: true,
+          context: {},
+          messages: [],
+          message_count: 0,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        sessions.set(ccSession.id, ccSession);
+      }
+
+      // Merge incoming context
+      if (incomingContext && typeof incomingContext === 'object') {
+        for (const [key, value] of Object.entries(incomingContext)) {
+          if (value !== null && value !== undefined) {
+            ccSession.context[key] = value;
+          }
+        }
+      }
+
+      if (!content || typeof content !== 'string') {
+        return NextResponse.json({ error: { code: 'bad_request', message: 'Message content is required', details: null } }, { status: 400 });
+      }
+
+      // Add user message
+      const userMsg = {
+        id: `cc_user_${Date.now()}`,
+        session_id: ccSession.id,
+        role: 'user',
+        content: content.trim(),
+        message_type: 'text',
+        metadata: {},
+        timestamp: new Date().toISOString(),
+      };
+      ccSession.messages.push(userMsg);
+      ccSession.message_count++;
+
+      // Build CC-specific system prompt
+      const ccSystemPrompt = buildCCSystemPrompt(ccSession);
+
+      // Build conversation history
+      const aiMessages = [
+        { role: 'system', content: ccSystemPrompt },
+        ...ccSession.messages.slice(-10).map((m: any) => ({
+          role: m.role === 'jarvis' ? 'assistant' : String(m.role),
+          content: String(m.content),
+        })),
+      ];
+
+      // Call AI with CC prompt
+      let aiContent = await callAI(aiMessages);
+      if (!aiContent) {
+        aiContent = getCCKeywordResponse(content, ccSession);
+      }
+      aiContent = forceBulletFormat(aiContent);
+
+      const aiMsg = {
+        id: `cc_jarvis_${Date.now()}`,
+        session_id: ccSession.id,
+        role: 'jarvis',
+        content: aiContent,
+        message_type: 'ai_generated' as const,
+        metadata: { mode: 'command', pipeline_stage: 'response' },
+        timestamp: new Date().toISOString(),
+      };
+      ccSession.messages.push(aiMsg);
+      ccSession.updated_at = new Date().toISOString();
+      sessions.set(ccSession.id, ccSession);
+
+      return NextResponse.json(aiMsg);
+    }
+
+    // ── POST /cc/awareness/tick — Run Awareness Tick ────────────
+    if (endpoint === 'cc/awareness/tick') {
+      const body = await request.json();
+      const sessionId = body.session_id;
+      if (!sessionId || !sessions.has(sessionId)) {
+        // Return simulated awareness even without session
+        return NextResponse.json(generateSimulatedAwareness(sessionId));
+      }
+      const ccSession = sessions.get(sessionId);
+      const tickResult = generateSimulatedAwareness(sessionId, ccSession);
+      // Store latest awareness in session
+      ccSession.context._latest_awareness = tickResult.state;
+      ccSession.updated_at = new Date().toISOString();
+      sessions.set(sessionId, ccSession);
+      return NextResponse.json(tickResult);
+    }
+
+    // ── POST /cc/awareness/alerts/acknowledge ────────────────────
+    if (endpoint === 'cc/awareness/alerts/acknowledge') {
+      const body = await request.json();
+      return NextResponse.json({ id: body.alert_id || `alert_${Date.now()}`, status: 'acknowledged', acknowledged_at: new Date().toISOString() });
+    }
+
+    // ── POST /cc/awareness/alerts/dismiss ────────────────────────
+    if (endpoint === 'cc/awareness/alerts/dismiss') {
+      const body = await request.json();
+      return NextResponse.json({ id: body.alert_id || `alert_${Date.now()}`, status: 'dismissed', dismissed_at: new Date().toISOString() });
+    }
+
+    // ── POST /cc/awareness/alerts/resolve ────────────────────────
+    if (endpoint === 'cc/awareness/alerts/resolve') {
+      const body = await request.json();
+      return NextResponse.json({ id: body.alert_id || `alert_${Date.now()}`, status: 'resolved', resolved_at: new Date().toISOString() });
+    }
+
+    // ── POST /cc/command — Execute NL Command ──────────────────
+    if (endpoint === 'cc/command') {
+      const body = await request.json();
+      const { session_id, raw_input } = body;
+      const commandResult = processCCCommand(raw_input, session_id);
+      return NextResponse.json(commandResult);
+    }
+
+    // ── POST /cc/command/quick — Execute Quick Command ──────────
+    if (endpoint === 'cc/command/quick') {
+      const body = await request.json();
+      const commandResult = processCCCommand(body.raw_input || body.command_id, body.session_id);
+      return NextResponse.json(commandResult);
+    }
+
+    // ── POST /cc/command/undo — Undo Last Command ───────────────
+    if (endpoint === 'cc/command/undo') {
+      const body = await request.json();
+      return NextResponse.json({
+        id: `cmd_${Date.now()}`,
+        status: 'undone',
+        undone_at: new Date().toISOString(),
+        message: 'Last command has been undone.',
+      });
+    }
+
+    // ── POST /cc/command/co-pilot — Get Co-Pilot Suggestions ────
+    if (endpoint === 'cc/command/co-pilot') {
+      const sessionId = (await request.json().catch(() => ({}))).session_id || new URL(request.url).searchParams.get('session_id');
+      return NextResponse.json({
+        suggestions: [
+          { id: 'copilot_1', title: 'Check system health', description: 'Run a full health check across all active agents', confidence: 0.92, intent: 'query', action: 'check_system_health' },
+          { id: 'copilot_2', title: 'Review today\'s ticket volume', description: 'See current ticket stats and compare with averages', confidence: 0.87, intent: 'query', action: 'get_ticket_stats' },
+          { id: 'copilot_3', title: 'Optimize agent allocation', description: 'Rebalance agents based on current ticket distribution', confidence: 0.74, intent: 'control', action: 'rebalance_agents' },
+        ],
+      });
+    }
+
+    // ── POST /cc/command/custom-quick-command ────────────────────
+    if (endpoint === 'cc/command/custom-quick-command') {
+      const body = await request.json();
+      return NextResponse.json({ id: `cqc_${Date.now()}`, ...body, created_at: new Date().toISOString() });
+    }
+
     return NextResponse.json({ error: { code: 'not_found', message: `Unknown POST endpoint: /${endpoint}`, details: null } }, { status: 404 });
   } catch (error: unknown) {
     console.error('Jarvis API POST error:', error);
@@ -1805,6 +2288,137 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json(ticket);
     }
 
+    // ══════════════════════════════════════════════════════════════
+    //  CUSTOMER CARE (CC) JARVIS GET ENDPOINTS — /cc/*
+    // ══════════════════════════════════════════════════════════════
+
+    // ── GET /cc/session — Get CC Session ─────────────────────────
+    if (endpoint === 'cc/session') {
+      const sessionId = url.searchParams.get('session_id');
+      if (!sessionId || !sessions.has(sessionId)) {
+        return NextResponse.json({ error: { code: 'not_found', message: 'CC session not found', details: null } }, { status: 404 });
+      }
+      return NextResponse.json(sessions.get(sessionId));
+    }
+
+    // ── GET /cc/session/health — CC Session Health ───────────────
+    if (endpoint === 'cc/session/health') {
+      const sessionId = url.searchParams.get('session_id');
+      return NextResponse.json({
+        session_id: sessionId,
+        status: 'healthy',
+        ai_provider: 'local_fallback',
+        awareness_engine: 'simulated',
+        command_service: 'available',
+        uptime_seconds: Math.floor((Date.now() % 86400000) / 1000),
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // ── GET /cc/history — CC Message History ─────────────────────
+    if (endpoint === 'cc/history') {
+      const sessionId = url.searchParams.get('session_id');
+      const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+      const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+      if (!sessionId || !sessions.has(sessionId)) {
+        return NextResponse.json({ messages: [], total: 0, limit, offset, has_more: false });
+      }
+      const ccSession = sessions.get(sessionId)!;
+      const allMessages = ccSession.messages || [];
+      const paged = allMessages.slice(offset, offset + limit);
+      return NextResponse.json({ messages: paged, total: allMessages.length, limit, offset, has_more: offset + limit < allMessages.length });
+    }
+
+    // ── GET /cc/context — Get CC Context ─────────────────────────
+    if (endpoint === 'cc/context') {
+      const sessionId = url.searchParams.get('session_id');
+      if (!sessionId || !sessions.has(sessionId)) {
+        return NextResponse.json({ error: { code: 'not_found', message: 'CC session not found', details: null } }, { status: 404 });
+      }
+      return NextResponse.json(sessions.get(sessionId).context);
+    }
+
+    // ── GET /cc/awareness/snapshot ────────────────────────────────
+    if (endpoint === 'cc/awareness/snapshot') {
+      const sessionId = url.searchParams.get('session_id');
+      return NextResponse.json(generateSimulatedAwareness(sessionId).state);
+    }
+
+    // ── GET /cc/awareness/snapshots ──────────────────────────────
+    if (endpoint === 'cc/awareness/snapshots') {
+      const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+      const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+      const awareness = generateSimulatedAwareness(url.searchParams.get('session_id'));
+      return NextResponse.json({ snapshots: [awareness.state], total: 1, limit, offset, has_more: false });
+    }
+
+    // ── GET /cc/awareness/delta ──────────────────────────────────
+    if (endpoint === 'cc/awareness/delta') {
+      return NextResponse.json({
+        changed: true,
+        fields_changed: ['ticket_volume', 'system_health'],
+        previous: { ticket_volume: 42, system_health: 0.95 },
+        current: { ticket_volume: 47, system_health: 0.97 },
+        delta: { ticket_volume: +5, system_health: +0.02 },
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // ── GET /cc/awareness/alerts ─────────────────────────────────
+    if (endpoint === 'cc/awareness/alerts') {
+      const severity = url.searchParams.get('severity');
+      const category = url.searchParams.get('category');
+      const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+      const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+      // Simulated alerts
+      const alerts = [
+        { id: 'alert_001', severity: 'info', category: 'ticket_volume', title: 'Ticket volume slightly above average', message: 'Today\'s ticket count is 15% above the 7-day average.', status: 'active', created_at: new Date(Date.now() - 3600000).toISOString() },
+        { id: 'alert_002', severity: 'warning', category: 'agent_pool', title: 'Agent utilization above 80%', message: 'Returns agent is at 85% utilization. Consider scaling.', status: 'active', created_at: new Date(Date.now() - 1800000).toISOString() },
+      ];
+      const filtered = alerts.filter(a => {
+        if (severity && a.severity !== severity) return false;
+        if (category && a.category !== category) return false;
+        return true;
+      });
+      return NextResponse.json({ alerts: filtered, total: filtered.length, limit, offset, has_more: false });
+    }
+
+    // ── GET /cc/command/quick-commands ───────────────────────────
+    if (endpoint === 'cc/command/quick-commands') {
+      return NextResponse.json({
+        commands: [
+          { id: 'qc_1', label: 'System Health', intent: 'query', description: 'Check all agent health status', icon: 'heart' },
+          { id: 'qc_2', label: 'Ticket Stats', intent: 'query', description: 'Show today\'s ticket volume and resolution rate', icon: 'bar-chart' },
+          { id: 'qc_3', label: 'Pause All AI', intent: 'control', description: 'Pause all AI agents immediately', icon: 'pause', safety_level: 'confirmation_required' },
+          { id: 'qc_4', label: 'Resume All AI', intent: 'control', description: 'Resume all paused AI agents', icon: 'play' },
+          { id: 'qc_5', label: 'Emergency Stop', intent: 'override', description: 'Immediately stop all AI processing', icon: 'alert-triangle', safety_level: 'approval_required' },
+          { id: 'qc_6', label: 'Agent Status', intent: 'query', description: 'Show status of all active agents', icon: 'cpu' },
+          { id: 'qc_7', label: 'Recent Errors', intent: 'query', description: 'Show last 10 errors', icon: 'alert-circle' },
+          { id: 'qc_8', label: 'Shadow Mode', intent: 'configure', description: 'Enable/disable shadow mode for A/B testing', icon: 'copy' },
+          { id: 'qc_9', label: 'Performance Metrics', intent: 'report', description: 'Show agent performance and quality scores', icon: 'trending-up' },
+          { id: 'qc_10', label: 'Knowledge Base Search', intent: 'query', description: 'Search the knowledge base', icon: 'search' },
+        ],
+        total: 10,
+      });
+    }
+
+    // ── GET /cc/command/history ──────────────────────────────────
+    if (endpoint === 'cc/command/history') {
+      const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+      const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+      return NextResponse.json({ commands: [], total: 0, limit, offset, has_more: false });
+    }
+
+    // ── GET /cc/prompt — Debug: View System Prompt ───────────────
+    if (endpoint === 'cc/prompt') {
+      const sessionId = url.searchParams.get('session_id');
+      let prompt = 'No session found.';
+      if (sessionId && sessions.has(sessionId)) {
+        prompt = buildCCSystemPrompt(sessions.get(sessionId));
+      }
+      return NextResponse.json({ session_id: sessionId, prompt });
+    }
+
     return NextResponse.json({ error: { code: 'not_found', message: `Unknown GET endpoint: /${endpoint}`, details: null } }, { status: 404 });
   } catch (error: unknown) {
     console.error('Jarvis API GET error:', error);
@@ -1850,6 +2464,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       session.updated_at = new Date().toISOString();
       sessions.set(sessionId, session);
       return NextResponse.json(updated);
+    }
+
+    // ── PATCH /cc/context — Update CC Context ───────────────────
+    if (endpoint === 'cc/context') {
+      const sessionId = url.searchParams.get('session_id');
+      if (!sessionId || !sessions.has(sessionId)) {
+        return NextResponse.json({ error: { code: 'not_found', message: 'CC session not found', details: null } }, { status: 404 });
+      }
+      const body = await request.json();
+      const ccSession = sessions.get(sessionId)!;
+      ccSession.context = { ...ccSession.context, ...body };
+      ccSession.updated_at = new Date().toISOString();
+      sessions.set(sessionId, ccSession);
+      return NextResponse.json(ccSession);
     }
 
     return NextResponse.json({ error: { code: 'not_found', message: `Unknown PATCH endpoint: /${endpoint}`, details: null } }, { status: 404 });
