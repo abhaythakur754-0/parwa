@@ -69,3 +69,26 @@ Stage Summary:
 - ClientToaster.tsx is now a no-op (toast rendering handled by dynamic-toast)
 - Build verification: zero react-hot-toast references in any chunk
 - E2E verification: zero TDZ errors on all pages and all step chunks
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix "Cannot access 'ee' before initialization" TDZ error on payment step
+
+Work Log:
+- Investigated full import chain for CostBreakdownStep and IntegrationStep
+- Identified root cause: static imports of @/lib/paddle and @/lib/integration-catalog pulled ESM-only packages (@paddle/paddle-js) into shared webpack chunks, causing TDZ errors during module evaluation
+- Created /src/lib/paddle-constants.ts — pure data module for VARIANT_PRICE_IDS (no ESM deps)
+- Modified /src/lib/paddle.ts — re-exports VARIANT_PRICE_IDS from paddle-constants
+- Rewrote /src/components/onboarding/CostBreakdownStep.tsx — replaced ALL static imports from paddle and coupon-config with dynamic imports via loadPaddle()/loadCoupon() helper functions; inlined pure coupon functions (_validateCoupon, _applyCouponDiscount, _formatDiscount) to avoid static import
+- Rewrote /src/components/onboarding/IntegrationStep.tsx — replaced static import of integration-catalog with dynamic loadCatalog() + state-based rendering; added catalogLoading state and loading indicator
+- Updated next.config.mjs — added productionBrowserSourceMaps, transpilePackages: ['@paddle/paddle-js'], experimental.optimizePackageImports: ['lucide-react', 'react-hot-toast']
+- Build succeeded, production server returns 200 for /onboarding
+- Browser test showed ZERO JavaScript errors on the onboarding page
+- Pushed to GitHub
+
+Stage Summary:
+- Key fix: Removed ALL static imports of paddle.ts and integration-catalog from onboarding components
+- These were the ONLY modules pulling ESM-only packages into shared client chunks
+- Paddle.ts now uses dynamic import('@paddle/paddle-js') which is deferred until runtime
+- IntegrationStep loads 993-line catalog dynamically via useEffect
+- Source maps enabled for future debugging if TDZ recurs
