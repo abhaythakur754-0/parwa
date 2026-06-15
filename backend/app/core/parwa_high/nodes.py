@@ -1791,7 +1791,22 @@ async def context_compress_node(state: ParwaGraphState) -> Dict[str, Any]:
 
 
 async def generate_node(state: ParwaGraphState) -> Dict[str, Any]:
-    """Agent 11: Generate — Generate response using technique-guided generation with compressed context."""
+    """Agent 11: Generate — Generate response using technique-guided generation with compressed context.
+
+    PERMISSION-AWARE: Injects the variant's permission context into the LLM prompt
+    so the AI knows what it CAN and CANNOT offer. This prevents Mini from promising
+    refunds it can't deliver, while still giving it the intelligence to RECOGNIZE
+    when a refund is appropriate and SUGGEST it as an escalation.
+
+    Example prompt injection for Mini:
+      "RESTRICTED ACTIONS: You cannot directly process refunds, offer compensation,
+       or make strategic decisions. If a customer needs these, acknowledge their
+       request and escalate to a specialist who can help."
+
+    Example prompt injection for High:
+      "FULL AUTHORITY: You can process refunds, offer compensation, and make
+       strategic decisions. Use your judgment to resolve issues directly."
+    """
     start = time.monotonic()
     try:
         query = state.get("pii_redacted_query", "") or state.get("query", "")
@@ -1801,6 +1816,8 @@ async def generate_node(state: ParwaGraphState) -> Dict[str, Any]:
         empathy_score = state.get("empathy_score", 0.5)
         emergency_flag = state.get("emergency_flag", False)
         tone = get_industry_tone(industry)
+        variant_tier = state.get("variant_tier", "parwa_high")
+        permission_context = state.get("permission_context", {})
 
         if emergency_flag:
             ticket_id = state.get("ticket_id", "N/A")
@@ -1833,10 +1850,17 @@ async def generate_node(state: ParwaGraphState) -> Dict[str, Any]:
             industry_prompt = get_industry_prompt(industry)
             technique_name = technique.get("primary_technique", "direct")
 
+            # ── BUILD PERMISSION-AWARE PROMPT ──────────────────────
+            # This is the KEY difference — inject what the variant can/cannot do
+            permission_prompt = _build_permission_prompt(
+                variant_tier, permission_context
+            )
+
             system_prompt = (
                 f"You are a professional customer support agent. {industry_prompt}\n"
                 f"Tone: {tone}. Empathy level: {'high' if empathy_score < 0.4 else 'moderate'}.\n"
                 f"Reasoning technique used: {technique_name}.\n"
+                f"{permission_prompt}\n"
                 "Generate a helpful, empathetic response that addresses the customer's issue. "
                 "Be concise but thorough. Include specific next steps."
             )
@@ -1878,7 +1902,7 @@ async def generate_node(state: ParwaGraphState) -> Dict[str, Any]:
         audit_entry = append_audit_entry(
             state, step="generate", action="response_generated",
             duration_ms=duration_ms, tokens_used=generation_tokens,
-            details={"model": generation_model, "response_length": len(generated_response)},
+            details={"model": generation_model, "response_length": len(generated_response), "tier": variant_tier},
         )
         return {
             "generated_response": generated_response,
@@ -1902,6 +1926,64 @@ async def generate_node(state: ParwaGraphState) -> Dict[str, Any]:
             "errors": ["generate_failed"],
             "step_outputs": {"generate": {"status": "failed", "duration_ms": duration_ms}},
         }
+
+
+def _build_permission_prompt(variant_tier: str, permission_context: Dict[str, Any]) -> str:
+    """Build the permission-aware prompt section for the generate node.
+
+    This tells the LLM what it CAN and CANNOT do based on the variant tier.
+    The LLM uses this to shape its response naturally:
+      - If restricted: "I can help you with that refund request. Let me escalate
+        this to our specialist team who can process it for you."
+      - If authorized: "I've processed a refund of $25.00 to your original
+        payment method. You should see it within 3-5 business days."
+
+    Args:
+        variant_tier: Current variant tier.
+        permission_context: Permission context from tier_permissions.
+
+    Returns:
+        String to inject into the LLM system prompt.
+    """
+    try:
+        restricted = permission_context.get("restricted_actions", [])
+        can_do = permission_context.get("can_do", [])
+        key_limits = permission_context.get("key_limits", {})
+
+        if not restricted:
+            # Full authority (High tier)
+            return (
+                "AUTHORITY LEVEL: Full. You have full authority to resolve customer "
+                "issues directly, including processing refunds, offering compensation, "
+                "making strategic decisions, and overriding previous decisions. "
+                "Use your best judgment to resolve issues quickly and thoroughly."
+            )
+
+        # Restricted tier (Mini or Pro)
+        restrictions_text = ", ".join(restricted)
+        max_refund = key_limits.get("max_refund", 0)
+        response_style = key_limits.get("response_style", "concise")
+
+        return (
+            f"AUTHORITY LEVEL: Restricted ({variant_tier}). "
+            f"You CANNOT directly: {restrictions_text}. "
+            f"Maximum refund amount: ${max_refund:.2f}. "
+            f"When a customer needs a restricted action, ACKNOWLEDGE their request "
+            f"with empathy, EXPLAIN that you're escalating to a specialist who can help, "
+            f"and REASSURE them that their issue will be resolved. "
+            f"Response style: {response_style}. "
+            f"NEVER promise actions you cannot execute. Instead, frame restricted "
+            f"actions as: 'I'm connecting you with our specialist team who can "
+            f"process this for you right away.'"
+        )
+
+    except Exception:
+        # Safe default — assume restricted
+        return (
+            "AUTHORITY LEVEL: Restricted. You cannot process refunds, "
+            "offer compensation, or make strategic decisions. "
+            "If a customer needs these, acknowledge and escalate."
+        )
 
 
 def crp_compress_node(state: ParwaGraphState) -> Dict[str, Any]:
@@ -1953,7 +2035,14 @@ def crp_compress_node(state: ParwaGraphState) -> Dict[str, Any]:
 
 
 def clara_quality_gate_node(state: ParwaGraphState) -> Dict[str, Any]:
-    """Agent 13: CLARA Quality Gate — Strictest quality check (threshold 95, 8-check)."""
+    """Agent 13: CLARA Quality Gate — Quality check with TIER-SPECIFIC threshold.
+
+    PERMISSION-AWARE: Uses the quality_threshold from state (set by
+    UnifiedVariantPipeline based on tier_permissions):
+    - Mini: 70% threshold (good enough for intern-level)
+    - Pro: 80% threshold (standard quality)
+    - High: 90% threshold (highest quality)
+    """
     start = time.monotonic()
     try:
         response = state.get("generated_response", "")
@@ -1961,6 +2050,11 @@ def clara_quality_gate_node(state: ParwaGraphState) -> Dict[str, Any]:
         industry = state.get("industry", "general")
         empathy_score = state.get("empathy_score", 0.5)
         tone = get_industry_tone(industry)
+        variant_tier = state.get("variant_tier", "parwa_high")
+
+        # Use tier-specific threshold from permissions
+        tier_threshold = state.get("quality_threshold", 0.90)
+
         reasoning_output = ""
         reasoning_step = state.get("step_outputs", {}).get("reasoning_chain", {})
         if isinstance(reasoning_step, dict):
@@ -2001,13 +2095,21 @@ def clara_quality_gate_node(state: ParwaGraphState) -> Dict[str, Any]:
             response = adjusted
 
         quality_score = result["score"] / 100.0  # Normalize to 0.0-1.0
-        quality_passed = result["passed"]
+
+        # Use tier-specific threshold instead of hardcoded 0.95
+        quality_passed = quality_score >= tier_threshold
 
         duration_ms = round((time.monotonic() - start) * 1000, 2)
         audit_entry = append_audit_entry(
             state, step="clara_quality_gate", action="quality_check_complete",
             duration_ms=duration_ms,
-            details={"passed": quality_passed, "score": result["score"], "issues": result.get("issues", [])},
+            details={
+                "passed": quality_passed,
+                "score": result["score"],
+                "tier_threshold": int(tier_threshold * 100),
+                "issues": result.get("issues", []),
+                "variant_tier": variant_tier,
+            },
         )
         return {
             "generated_response": response,
@@ -2016,7 +2118,7 @@ def clara_quality_gate_node(state: ParwaGraphState) -> Dict[str, Any]:
             "quality_issues": result.get("issues", []),
             "current_step": "clara_quality_gate",
             "steps_completed": ["clara_quality_gate"],
-            "step_outputs": {"clara_quality_gate": {"status": "completed", "passed": quality_passed, "score": result["score"], "issues": result.get("issues", []), "duration_ms": duration_ms}},
+            "step_outputs": {"clara_quality_gate": {"status": "completed", "passed": quality_passed, "score": result["score"], "tier_threshold": int(tier_threshold * 100), "issues": result.get("issues", []), "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
         }
     except Exception as exc:
@@ -2277,16 +2379,22 @@ def dedup_node(state: ParwaGraphState) -> Dict[str, Any]:
 
 
 def strategic_decision_node(state: ParwaGraphState) -> Dict[str, Any]:
-    """Agent 18: Strategic Decision — Strategic routing for complex cases (High-only).
+    """Agent 18: Strategic Decision — Strategic routing for complex cases.
 
-    Makes strategic routing decisions based on all available signals:
-    - quality_score, confidence_score, context_health
-    - dedup results, retry count, emergency flags
+    PERMISSION-AWARE: ALL variants now go through this node (not just High).
+    The node ANALYZES the situation for all tiers, but only EXECUTES
+    strategic decisions if the variant has permission.
 
-    Can decide: proceed, escalate, add_context, or regenerate.
+    - Mini/Pro: Analyzes and RECOMMENDS, but marks decision as "needs_approval"
+    - High: Analyzes and EXECUTES the strategic decision directly
     """
     start = time.monotonic()
     try:
+        from app.core.variant_engine.tier_permissions import check_permission
+
+        variant_tier = state.get("variant_tier", "parwa_high")
+        has_strategic_permission = check_permission(variant_tier, "strategic_decision")
+
         quality_score = state.get("quality_score", 0.5)
         quality_passed = state.get("quality_passed", True)
         confidence_score = state.get("step_outputs", {}).get("confidence_assess", {}).get("confidence_score", 0.5)
@@ -2296,7 +2404,7 @@ def strategic_decision_node(state: ParwaGraphState) -> Dict[str, Any]:
         retry_count = state.get("quality_retry_count", 0)
         emergency_flag = state.get("emergency_flag", False)
 
-        # Decision logic
+        # Decision logic — SAME for all tiers (same intelligence)
         decision = "proceed"
         rationale = "All checks passed"
         actions: List[str] = []
@@ -2328,6 +2436,19 @@ def strategic_decision_node(state: ParwaGraphState) -> Dict[str, Any]:
             decision = "proceed"
             rationale = f"Quality={quality_score:.2f}, Confidence={confidence_score:.2f}, Health={health_score:.2f}"
 
+        # ── PERMISSION CHECK: Can this tier execute strategic decisions? ──
+        if not has_strategic_permission and decision != "proceed":
+            # Tier can ANALYZE but not EXECUTE strategic decisions
+            # Convert the decision to a RECOMMENDATION instead
+            recommendation = decision
+            decision = "recommend_escalation"
+            rationale = (
+                f"[TIER RESTRICTION: {variant_tier}] Analyzed situation: "
+                f"would {recommendation} ({rationale}). "
+                f"Escalating to authorized tier for execution."
+            )
+            actions.append(f"recommend:{recommendation}")
+
         strategic_decision = {
             "decision": decision,
             "rationale": rationale,
@@ -2335,18 +2456,19 @@ def strategic_decision_node(state: ParwaGraphState) -> Dict[str, Any]:
             "quality_score": quality_score,
             "confidence_score": confidence_score,
             "health_score": health_score,
+            "tier_authorized": has_strategic_permission,
         }
 
         duration_ms = round((time.monotonic() - start) * 1000, 2)
         audit_entry = append_audit_entry(
             state, step="strategic_decision", action="strategic_decision_made",
             duration_ms=duration_ms,
-            details={"decision": decision, "rationale": rationale},
+            details={"decision": decision, "rationale": rationale, "tier_authorized": has_strategic_permission},
         )
         return {
             "current_step": "strategic_decision",
             "steps_completed": ["strategic_decision"],
-            "step_outputs": {"strategic_decision": {"status": "completed", "decision": decision, "rationale": rationale, "actions": actions, "duration_ms": duration_ms}},
+            "step_outputs": {"strategic_decision": {"status": "completed", "decision": decision, "rationale": rationale, "actions": actions, "tier_authorized": has_strategic_permission, "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
         }
     except Exception as exc:
@@ -2608,12 +2730,33 @@ def smart_enrichment_node(state: ParwaGraphState) -> Dict[str, Any]:
 
 
 def auto_action_node(state: ParwaGraphState) -> Dict[str, Any]:
-    """Agent 22: Auto Action (High) — Collect automated actions from all engines."""
+    """Agent 22: Auto Action — Collect and FILTER automated actions by tier permissions.
+
+    PERMISSION-AWARE: This node now checks tier_permissions before
+    adding actions to the execution list. Actions that are RESTRICTED
+    for the current variant tier are flagged as "needs_approval" or
+    "requires_escalation" instead of being auto-executed.
+
+    Example:
+      - Mini encounters "refund" action → flagged as needs_approval (can't execute)
+      - Pro encounters "refund" action under $100 → auto-approved
+      - High encounters "refund" action → auto-approved
+    """
     start = time.monotonic()
     try:
-        all_actions = []
-        classification = state.get("classification", {})
+        from app.core.variant_engine.tier_permissions import (
+            check_permission,
+            needs_approval as check_needs_approval,
+        )
 
+        all_actions = []
+        restricted_actions = []
+        needs_approval_actions = []
+        classification = state.get("classification", {})
+        variant_tier = state.get("variant_tier", "parwa_high")
+        restricted_action_list = state.get("restricted_actions", [])
+
+        # ── Collect actions from all engines (same as before) ──
         emotion_profile = state.get("emotion_profile", {})
         recovery_playbook = state.get("recovery_playbook", {})
         if emotion_profile and recovery_playbook:
@@ -2646,18 +2789,58 @@ def auto_action_node(state: ParwaGraphState) -> Dict[str, Any]:
             se = _get_shipping_engine()
             if se: all_actions.extend(se.get_shipping_actions(shipping_issue, shipping_delay, tracking_info))
 
+        # ── PERMISSION FILTER: Check each action against tier permissions ──
+        for action in all_actions:
+            action_type = action.get("type", "unknown")
+
+            # Check if this action type is restricted for current tier
+            if action_type in restricted_action_list:
+                action["restricted"] = True
+                action["restricted_by_tier"] = variant_tier
+                action["execution_status"] = "needs_approval"
+                action["escalation_reason"] = (
+                    f"Action '{action_type}' is restricted for tier '{variant_tier}'. "
+                    f"Requires approval from higher tier or human operator."
+                )
+                restricted_actions.append(action)
+                needs_approval_actions.append(action)
+                continue
+
+            # Check if this specific action needs approval (e.g., over limit)
+            action_amount = action.get("amount", 0)
+            if check_needs_approval(
+                variant_tier=variant_tier,
+                action=action_type,
+                amount=action_amount if action_amount else None,
+            ):
+                action["needs_approval"] = True
+                action["execution_status"] = "pending_approval"
+                needs_approval_actions.append(action)
+                continue
+
+            # Action is approved for this tier
+            action["execution_status"] = "approved"
+
         duration_ms = round((time.monotonic() - start) * 1000, 2)
         audit_entry = append_audit_entry(
-            state, step="auto_action", action="actions_collected",
+            state, step="auto_action", action="actions_collected_and_filtered",
             duration_ms=duration_ms, tokens_used=0,
-            details={"total_actions": len(all_actions)},
+            details={
+                "total_actions": len(all_actions),
+                "restricted": len(restricted_actions),
+                "needs_approval": len(needs_approval_actions),
+                "auto_approved": len(all_actions) - len(restricted_actions) - len(needs_approval_actions),
+                "variant_tier": variant_tier,
+            },
         )
 
         return {
             "current_step": "auto_action",
             "step_outputs": {"auto_action": {
                 "status": "completed", "total_actions": len(all_actions),
-                "automated_actions": sum(1 for a in all_actions if a.get("automated", False)),
+                "automated_actions": sum(1 for a in all_actions if a.get("automated", False) and a.get("execution_status") == "approved"),
+                "restricted_actions": len(restricted_actions),
+                "needs_approval_actions": len(needs_approval_actions),
                 "actions": all_actions, "duration_ms": duration_ms}},
             "audit_log": audit_entry["audit_log"],
         }

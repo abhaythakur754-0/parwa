@@ -1,34 +1,38 @@
 ---
 Task ID: 1
-Agent: Main
-Task: Fix all critical Jarvis bugs and connect knowledge engine
+Agent: Main Agent
+Task: Map all current nodes across 6 LangGraph graphs
 
 Work Log:
-- Verified body consumption bug was already fixed (request.clone() in proxyToBackend)
-- Verified CC endpoint handlers already exist in /api/jarvis/[...path]/route.ts
-- Connected JarvisAIEngine to /api/jarvis/[...path]/route.ts as middle-tier fallback
-- Connected JarvisAIEngine to /api/onboarding-jarvis/[...path]/route.ts as middle-tier fallback
-- Fixed SessionLike type error in onboarding-jarvis route (added messages array mapping)
+- Read all 6 graph files: CC Pipeline (19 nodes), Mini Parwa (10), Pro Parwa (22), High Parwa (27), Onboarding Jarvis (3-5), Command Graph (9)
+- Total across all 6 graphs: ~87 nodes
+- User thought they had 30 nodes — actual count is much higher
+- Identified that Mini/Pro/High are 3 SEPARATE graphs with different intelligence levels
+- Core problem: Mini SKIPS nodes (making it dumber), when it should go through same pipeline with restrictions on ACTIONS
 
 Stage Summary:
-- AI fallback cascade is now: z-ai-sdk → NVIDIA → Google → Cerebras → Groq → Knowledge Engine → Keyword
-- Both API routes now use the 10-file knowledge base for smarter offline responses
-- No git push or commit (per user instruction)
+- Node inventory complete: 87 nodes across 6 graphs
+- Mini has 10 nodes (skips signals/techniques/reasoning), Pro has 22, High has 27
+- Philosophy mismatch: User wants same capability + different restrictions, but code has different graphs + different intelligence
 
 ---
 Task ID: 2
-Agent: Main
-Task: Complete Jarvis architecture deep-dive analysis
+Agent: Main Agent
+Task: Design and implement unified variant architecture
 
 Work Log:
-- Mapped all 112 nodes across frontend, API routes, and backend
-- Identified 27 orphaned/broken nodes and 7 duplicates
-- Found critical construction issues vs JARVIS_SPECIFICATION.md v3.0
-- Generated comprehensive recommendations
+- Created /home/z/my-project/backend/app/core/variant_engine/ package
+- Created tier_permissions.py with TierPermissions class and permission definitions for all 3 tiers
+- Created unified_variant_graph.py with ONE graph (27 nodes) that ALL variants traverse
+- Updated ParwaGraphState to include permission_context, quality_threshold, max_quality_retries, restricted_actions fields
+- Updated auto_action_node to check tier permissions before executing actions
+- Updated strategic_decision_node to analyze for all tiers but only execute if tier has permission
+- Updated generate_node to inject permission-aware prompt (tells LLM what it can/cannot do)
+- Updated clara_quality_gate_node to use tier-specific quality thresholds (Mini: 70%, Pro: 80%, High: 90%)
 
 Stage Summary:
-- Most critical issue: entire onboarding-jarvis/ component tree (14 files) is orphaned
-- Two parallel onboarding systems exist (System A active, System B orphaned)
-- Missing tenant isolation in Next.js API routes
-- 4+ different system prompts exist across codebase
-- In-memory Map() session storage won't work in production
+- NEW FILES: variant_engine/__init__.py, tier_permissions.py, unified_variant_graph.py
+- MODIFIED: parwa_graph_state.py (added permission fields), parwa_high/nodes.py (4 nodes updated)
+- Key architecture: ONE graph, ALL 27 nodes, ALL variants go through FULL pipeline
+- Restrictions are on ACTIONS (refund, compensation), not on INTELLIGENCE (reasoning depth)
+- Mini can't execute refunds but CAN recognize when one is needed and suggest escalation

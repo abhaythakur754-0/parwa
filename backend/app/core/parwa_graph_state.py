@@ -473,6 +473,27 @@ class ParwaGraphState(TypedDict, total=False):
     """Per-step output keyed by step_id. LangGraph uses operator.or_
     to merge dict updates from each node."""
 
+    # ── PERMISSION CONTEXT: Tier-based restrictions ──────────────────
+
+    permission_context: Dict[str, Any]
+    """Full permission context injected by UnifiedVariantPipeline.
+    Contains: can_do, cannot_do, restricted_actions, key_limits, approval_rules.
+    Nodes check this before executing any ACTION (not reasoning)."""
+
+    quality_threshold: float
+    """Quality gate threshold for this tier.
+    Mini: 0.70, Pro: 0.80, High: 0.90."""
+
+    max_quality_retries: int
+    """Maximum quality retry count for this tier.
+    Mini: 1, Pro: 2, High: 3."""
+
+    restricted_actions: List[str]
+    """Actions this variant is NOT allowed to execute.
+    Mini: [refund, compensation, monetary, strategic_decision, ...]
+    Pro: [override, strategic_decision, monetary, winback, retention_offer]
+    High: [] (no restrictions)"""
+
 
 # ══════════════════════════════════════════════════════════════════
 # HELPER: Create initial state
@@ -589,6 +610,11 @@ def create_initial_state(
         billing_cost_usd=0.0,
         errors=[],
         step_outputs={},
+        # PERMISSION CONTEXT — defaults (overridden by UnifiedVariantPipeline)
+        permission_context={},
+        quality_threshold=0.70,
+        max_quality_retries=1,
+        restricted_actions=[],
     )
 
 
