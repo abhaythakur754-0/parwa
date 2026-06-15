@@ -27,7 +27,25 @@ const nextConfig = {
   },
 
   turbopack: {
-    root: "..",
+    root: "/home/z/my-project",
+  },
+
+  // ── Webpack config ──
+  // @paddle/paddle-js has internal TDZ issues with static imports.
+  // The dynamic import() in src/lib/paddle.ts handles this at runtime,
+  // but we also need webpack fallbacks for Node.js modules that
+  // @paddle/paddle-js tries to import in the browser.
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        child_process: false,
+      };
+    }
+    return config;
   },
 
   // Webpack: add fallbacks for Node.js modules that some client-side

@@ -55,3 +55,7 @@ server.log
 
 # Agent tool results (temp)
 /tool-results/
+
+# Temp clones
+parwa-onboarding/
+tool-results/
