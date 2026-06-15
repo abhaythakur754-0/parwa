@@ -23,7 +23,13 @@
  * - You cannot use both at the same time
  */
 
-import { initializePaddle, Paddle, type CheckoutOpenOptions } from '@paddle/paddle-js';
+// Use dynamic import for @paddle/paddle-js to avoid "Cannot access 'T' before initialization"
+// The static import causes the ESM module to be evaluated at page load time,
+// which triggers a TDZ error in the minified build.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Paddle = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type CheckoutOpenOptions = any;
 
 let paddleInstance: Paddle | undefined;
 let paddleInitFailed = false;
@@ -48,6 +54,10 @@ export async function getPaddleInstance(): Promise<Paddle | undefined> {
   }
 
   try {
+    // Dynamic import avoids the "Cannot access T before initialization" error
+    // that occurs when @paddle/paddle-js ESM module is evaluated at page load
+    const { initializePaddle } = await import('@paddle/paddle-js');
+
     const isProduction = paddleKey.startsWith('live_') || paddleKey.startsWith('pdl_live_');
     console.log('[paddle] Initializing with key prefix:', paddleKey.substring(0, 10) + '...', 'environment:', isProduction ? 'production' : 'sandbox');
     paddleInstance = await initializePaddle({
