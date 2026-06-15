@@ -1,0 +1,764 @@
+'use client';
+
+import React, { useState, useEffect, useCallback } from 'react';
+import toast from 'react-hot-toast';
+import { cn } from '@/lib/utils';
+import { getErrorMessage } from '@/lib/api';
+import { voiceApi } from '@/lib/voice-api';
+import { Phone, Settings, Loader2, Sparkles, Key, KeyRound, Plug, CheckCircle2, XCircle, TestTube, Trash2, Plus } from 'lucide-react';
+import type { ChannelInfo, ChannelConfig, ChannelType } from '@/types/analytics';
+import type { VoiceChannelConfig, NumberSource } from '@/types/voice';
+import { VoiceConfigCard } from '@/components/dashboard/VoiceConfigCard';
+
+// ── Channel Metadata ──────────────────────────────────────────────────
+
+interface ChannelMeta {
+  type: ChannelType;
+  name: string;
+  description: string;
+  emoji: string;
+}
+
+const channelMeta: ChannelMeta[] = [
+  { type: 'email', name: 'Email', description: 'Inbound/outbound email support via Brevo', emoji: '\u2709\uFE0F' },
+  { type: 'chat', name: 'Live Chat', description: 'Real-time chat widget on your website', emoji: '\uD83D\uDCAC' },
+  { type: 'sms', name: 'SMS', description: 'Text messaging via Twilio', emoji: '\uD83D\uDCF1' },
+  { type: 'voice', name: 'Voice', description: 'AI-powered voice calls via Parwa or your Twilio', emoji: '\uD83C\uDF99\uFE0F' },
+];
+
+// ── Channel Card Component ────────────────────────────────────────────
+
+function ChannelCard({
+  channel,
+  isEnabled,
+  isLoading,
+  onToggle,
+  onTest,
+  extra,
+}: {
+  channel: ChannelMeta;
+  isEnabled: boolean;
+  isLoading: boolean;
+  onToggle: (type: ChannelType, enabled: boolean) => void;
+  onTest: (type: ChannelType) => void;
+  extra?: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        'rounded-xl border p-5 transition-all duration-300 group',
+        isEnabled
+          ? 'bg-[#1A1A1A] border-emerald-500/20 shadow-sm shadow-emerald-500/5'
+          : 'bg-[#1A1A1A] border-white/[0.06] hover:border-white/[0.1]'
+      )}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">{channel.emoji}</span>
+          <div>
+            <h3 className="text-sm font-semibold text-white">{channel.name}</h3>
+            <p className="text-xs text-zinc-500 mt-0.5 max-w-[240px]">{channel.description}</p>
+          </div>
+        </div>
+        {/* Toggle */}
+        <button
+          onClick={() => onToggle(channel.type, !isEnabled)}
+          disabled={isLoading}
+          className={cn(
+            'relative w-11 h-6 rounded-full transition-colors duration-300 shrink-0',
+            isEnabled ? 'bg-emerald-500' : 'bg-white/[0.1]'
+          )}
+        >
+          <span
+            className={cn(
+              'absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300',
+              isEnabled ? 'translate-x-5' : 'translate-x-0'
+            )}
+          />
+        </button>
+      </div>
+
+      {/* Status + Test */}
+      <div className="flex items-center justify-between pt-3 border-t border-white/[0.04]">
+        <div className="flex items-center gap-1.5">
+          <span className={cn(
+            'w-2 h-2 rounded-full',
+            isEnabled ? 'bg-emerald-400 pulse-live' : 'bg-zinc-600'
+          )} />
+          <span className={cn(
+            'text-xs font-medium',
+            isEnabled ? 'text-emerald-400' : 'text-zinc-500'
+          )}>
+            {isEnabled ? 'Active' : 'Disabled'}
+          </span>
+        </div>
+        {isEnabled && channel.type !== 'voice' && (
+          <button
+            onClick={() => onTest(channel.type)}
+            disabled={isLoading}
+            className="text-xs font-medium text-orange-400 hover:text-orange-300 transition-colors disabled:opacity-50"
+          >
+            Test Connection
+          </button>
+        )}
+      </div>
+
+      {/* Extra content (Voice-specific) */}
+      {extra}
+    </div>
+  );
+}
+
+// ── Channels Page ─────────────────────────────────────────────────────
+
+export default function ChannelsPage() {
+  const [enabledChannels, setEnabledChannels] = useState<Set<ChannelType>>(new Set());
+  const [isLoading, setIsLoading] = useState(false);
+  const [voiceConfig, setVoiceConfig] = useState<VoiceChannelConfig | null>(null);
+  const [recentCallCount, setRecentCallCount] = useState(0);
+  const [testCallLoading, setTestCallLoading] = useState(false);
+  const [voiceConfigOpen, setVoiceConfigOpen] = useState(false);
+
+  // ── Load channel config ────────────────────────────────────────────
+
+  useEffect(() => {
+    loadChannelConfig();
+    loadVoiceData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function loadChannelConfig() {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/v1/channels/config', {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const enabled = new Set<ChannelType>();
+        if (Array.isArray(data)) {
+          data.forEach((ch: { channel_type: string; is_enabled: boolean }) => {
+            if (ch.is_enabled) enabled.add(ch.channel_type as ChannelType);
+          });
+        }
+        setEnabledChannels(enabled);
+      }
+    } catch (error) {
+      console.error('Failed to load channels:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function loadVoiceData() {
+    try {
+      const config = await voiceApi.getConfig();
+      setVoiceConfig(config);
+
+      // Get recent calls count
+      const history = await voiceApi.getHistory({ page: 1, page_size: 1 });
+      setRecentCallCount(history.total);
+
+      // If voice is enabled in config, add to enabled set
+      if (config.is_enabled) {
+        setEnabledChannels((prev) => new Set(prev).add('voice'));
+      }
+    } catch {
+      // Voice config may not exist yet
+    }
+  }
+
+  // ── Toggle Channel ─────────────────────────────────────────────────
+
+  const handleToggle = useCallback(async (type: ChannelType, enabled: boolean) => {
+    // Voice channel: open the config card instead of direct toggle
+    if (type === 'voice') {
+      if (!voiceConfig && enabled) {
+        // No config yet — open setup
+        setVoiceConfigOpen(true);
+        return;
+      }
+      if (voiceConfig && enabled !== voiceConfig.is_enabled) {
+        // Toggle via config update
+        try {
+          await voiceApi.updateConfig({ is_enabled: enabled });
+          setVoiceConfig((prev) => prev ? { ...prev, is_enabled: enabled } : null);
+          setEnabledChannels((prev) => {
+            const next = new Set(prev);
+            if (enabled) next.add(type);
+            else next.delete(type);
+            return next;
+          });
+          toast.success(`Voice ${enabled ? 'enabled' : 'disabled'}`);
+        } catch (err) {
+          toast.error(getErrorMessage(err));
+        }
+        return;
+      }
+      return;
+    }
+
+    // Other channels
+    try {
+      const response = await fetch(`/api/v1/channels/config/${type}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ is_enabled: enabled }),
+      });
+
+      if (response.ok) {
+        setEnabledChannels((prev) => {
+          const next = new Set(prev);
+          if (enabled) next.add(type);
+          else next.delete(type);
+          return next;
+        });
+        toast.success(`${channelMeta.find((c) => c.type === type)?.name} ${enabled ? 'enabled' : 'disabled'}`);
+      } else {
+        const error = await response.json().catch(() => ({}));
+        toast.error(error.detail || 'Failed to update channel');
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  }, [voiceConfig]);
+
+  // ── Test Connection ────────────────────────────────────────────────
+
+  const handleTest = useCallback(async (type: ChannelType) => {
+    try {
+      toast.loading(`Testing ${channelMeta.find((c) => c.type === type)?.name}...`, { id: 'test-channel' });
+      const response = await fetch(`/api/v1/channels/config/${type}/test`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        toast.success(`${channelMeta.find((c) => c.type === type)?.name} connection successful`, { id: 'test-channel' });
+      } else {
+        toast.error('Connection failed', { id: 'test-channel' });
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error), { id: 'test-channel' });
+    }
+  }, []);
+
+  // ── Test Voice Call ────────────────────────────────────────────────
+
+  const handleTestCall = useCallback(async () => {
+    setTestCallLoading(true);
+    try {
+      const result = await voiceApi.testCall({ to_number: '+919652852014' });
+      toast.success(`Test call initiated! SID: ${result.twilio_call_sid?.slice(0, 10)}...`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to make test call');
+    } finally {
+      setTestCallLoading(false);
+    }
+  }, []);
+
+  // ── Render ─────────────────────────────────────────────────────────
+
+  return (
+    <div className="min-h-screen jarvis-page-body">
+      <div className="p-6 lg:p-8 space-y-6">
+        {/* Header */}
+        <div className="pb-6 border-b border-white/[0.06]">
+          <h1 className="text-xl font-bold text-white">Channels</h1>
+          <p className="text-sm text-zinc-500 mt-0.5">
+            PARWA supports Email, Chat, SMS, and Voice channels.
+          </p>
+        </div>
+
+        {/* Channel Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {channelMeta.map((channel) => (
+            <ChannelCard
+              key={channel.type}
+              channel={channel}
+              isEnabled={enabledChannels.has(channel.type)}
+              isLoading={isLoading}
+              onToggle={handleToggle}
+              onTest={handleTest}
+              extra={
+                channel.type === 'voice' ? (
+                  <VoiceChannelExtra
+                    config={voiceConfig}
+                    recentCallCount={recentCallCount}
+                    testCallLoading={testCallLoading}
+                    onTestCall={handleTestCall}
+                    onConfigure={() => setVoiceConfigOpen(true)}
+                    onSetupVoice={() => setVoiceConfigOpen(true)}
+                  />
+                ) : undefined
+              }
+            />
+          ))}
+        </div>
+
+        {/* Info */}
+        <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5">
+          <div className="flex items-start gap-3">
+            <span className="text-lg">{'\uD83D\uDD39'}</span>
+            <div>
+              <h4 className="text-sm font-semibold text-zinc-300">Need a custom integration?</h4>
+              <p className="text-xs text-zinc-500 mt-1">
+                PARWA supports custom REST, GraphQL, and webhook integrations. 
+                Contact support or use the API to build your own connector.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Connected Integrations ──────────────────────────────────── */}
+        <ConnectedIntegrations />
+      </div>
+
+      {/* Voice Config Card (modal) */}
+      <VoiceConfigCard
+        open={voiceConfigOpen}
+        onClose={() => {
+          setVoiceConfigOpen(false);
+          // Reload voice data after config changes
+          loadVoiceData();
+        }}
+      />
+    </div>
+  );
+}
+
+// ── Connected Integrations Section ─────────────────────────────────────
+
+interface DashboardIntegration {
+  id: string;
+  name: string;
+  platform: string;
+  authType: string;
+  status: 'active' | 'error' | 'pending';
+  testedAt?: string;
+  testResult?: 'success' | 'failed';
+}
+
+function ConnectedIntegrations() {
+  const [integrations, setIntegrations] = useState<DashboardIntegration[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [testingId, setTestingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch('/api/integrations');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setIntegrations(data.map((i: Record<string, unknown>) => ({
+              id: String(i.id || i.integration_id || ''),
+              name: String(i.name || i.integration_type || ''),
+              platform: String(i.integration_type || i.platform || ''),
+              authType: String(i.auth_type || 'bearer'),
+              status: (i.status as DashboardIntegration['status']) || 'active',
+              testedAt: i.tested_at ? String(i.tested_at) : undefined,
+              testResult: i.test_result as 'success' | 'failed' | undefined,
+            })));
+          }
+        }
+      } catch {
+        // Backend unavailable
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const handleTest = async (integration: DashboardIntegration) => {
+    setTestingId(integration.id);
+    try {
+      const res = await fetch('/api/integrations/test-local', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          integration_type: integration.platform,
+          auth_type: integration.authType,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const success = data.success !== false;
+        setIntegrations((prev) => prev.map((i) =>
+          i.id === integration.id
+            ? { ...i, testResult: success ? 'success' : 'failed', testedAt: new Date().toISOString(), status: success ? 'active' : 'error' }
+            : i
+        ));
+        toast[success ? 'success' : 'error'](success ? `${integration.name} connected!` : `Connection failed — check your credentials`);
+      } else {
+        toast.error('Test failed — server error');
+      }
+    } catch {
+      toast.error('Could not reach server');
+    } finally {
+      setTestingId(null);
+    }
+  };
+
+  const handleRemove = async (id: string) => {
+    try { await fetch(`/api/integrations/${id}`, { method: 'DELETE' }); } catch { /* */ }
+    setIntegrations((prev) => prev.filter((i) => i.id !== id));
+    toast.success('Integration removed');
+  };
+
+  // ── Add Integration Form State ────────────────────────────────────────
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newAuthType, setNewAuthType] = useState<string>('bearer');
+  const [newApiKey, setNewApiKey] = useState('');
+  const [newTestUrl, setNewTestUrl] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+
+  const handleAddIntegration = async () => {
+    if (!newName.trim()) {
+      toast.error('Please enter a platform name');
+      return;
+    }
+    if (!newApiKey.trim()) {
+      toast.error('Please enter your API key or token');
+      return;
+    }
+
+    setIsAdding(true);
+    try {
+      const res = await fetch('/api/integrations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newName.trim(),
+          integration_type: newName.trim().toLowerCase().replace(/\s+/g, '_'),
+          auth_type: newAuthType,
+          credentials: newAuthType === 'basic_auth'
+            ? { username: newApiKey.split(':')[0] || 'user', password: newApiKey.split(':').slice(1).join(':') || newApiKey }
+            : newAuthType === 'api_key_header'
+            ? { header_name: 'X-API-Key', api_key: newApiKey }
+            : { api_key: newApiKey },
+          test_url: newTestUrl.trim() || undefined,
+        }),
+      });
+
+      const newIntg: DashboardIntegration = {
+        id: `int-${Date.now()}`,
+        name: newName.trim(),
+        platform: newName.trim().toLowerCase().replace(/\s+/g, '_'),
+        authType: newAuthType,
+        status: 'active',
+      };
+
+      if (res.ok) {
+        const data = await res.json();
+        newIntg.id = data.id || newIntg.id;
+      }
+
+      setIntegrations((prev) => [...prev, newIntg]);
+      setNewName('');
+      setNewApiKey('');
+      setNewTestUrl('');
+      setNewAuthType('bearer');
+      setShowAddForm(false);
+      toast.success(`${newIntg.name} added!`);
+    } catch {
+      toast.error('Failed to add integration');
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="pb-4 border-b border-white/[0.06]">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Plug className="w-5 h-5 text-orange-400" />
+              Connected Integrations
+            </h2>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              Manage your platform API keys and verify connector health from the dashboard.
+            </p>
+          </div>
+          <a
+            href="/dashboard/settings"
+            className="text-xs font-medium text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1.5"
+            onClick={(e) => { e.preventDefault(); setShowAddForm(!showAddForm); }}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            {showAddForm ? 'Cancel' : 'Add Integration'}
+          </a>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-orange-400" />
+        </div>
+      ) : integrations.length === 0 ? (
+        <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-6 text-center">
+          <Plug className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
+          <p className="text-sm text-zinc-400">No integrations connected yet</p>
+          <p className="text-xs text-zinc-600 mt-1">Add integrations during onboarding or from Settings</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {integrations.map((intg) => (
+            <div
+              key={intg.id}
+              className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-4"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-400 flex items-center justify-center shrink-0">
+                    <Plug className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-white">{intg.name}</p>
+                    <p className="text-[10px] text-zinc-600">
+                      {intg.authType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                      {intg.testResult === 'success' && <span className="text-emerald-400"> · Verified</span>}
+                      {intg.testResult === 'failed' && <span className="text-red-400"> · Failed</span>}
+                      {!intg.testResult && <span> · Not tested</span>}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {intg.testResult === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                  {intg.testResult === 'failed' && <XCircle className="w-4 h-4 text-red-400" />}
+                  {!intg.testResult && <div className="w-2 h-2 rounded-full bg-zinc-600" />}
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-white/[0.04]">
+                <span className={cn(
+                  'text-[10px] font-medium',
+                  intg.status === 'active' ? 'text-emerald-400' : intg.status === 'error' ? 'text-red-400' : 'text-zinc-500'
+                )}>
+                  {intg.status === 'active' ? 'Active' : intg.status === 'error' ? 'Error' : 'Pending'}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleTest(intg)}
+                    disabled={testingId === intg.id}
+                    className="text-[10px] font-medium text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1 disabled:opacity-50"
+                  >
+                    {testingId === intg.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <TestTube className="w-3 h-3" />}
+                    Test
+                  </button>
+                  <button
+                    onClick={() => handleRemove(intg.id)}
+                    className="text-[10px] font-medium text-zinc-500 hover:text-red-400 transition-colors flex items-center gap-1"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Inline Add Integration Form ──────────────────────────────────── */}
+      {showAddForm && (
+        <div className="rounded-xl bg-[#1A1A1A] border border-orange-500/20 p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+            <KeyRound className="w-4 h-4 text-orange-400" />
+            Add New Integration
+          </h3>
+
+          <div className="space-y-3">
+            {/* Platform Name */}
+            <div>
+              <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Platform Name</label>
+              <input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="e.g. Stripe, PayPal, HubSpot, Custom API..."
+                className="w-full mt-1 px-3 py-2.5 rounded-lg text-sm bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-zinc-600 focus:border-orange-500/50 focus:outline-none transition-colors"
+              />
+            </div>
+
+            {/* Auth Type */}
+            <div>
+              <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Auth Type</label>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                {[
+                  { value: 'bearer', label: 'Bearer Token' },
+                  { value: 'api_key_header', label: 'API Key (Header)' },
+                  { value: 'api_key_query', label: 'API Key (Query)' },
+                  { value: 'basic_auth', label: 'Basic Auth' },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setNewAuthType(opt.value)}
+                    className={cn(
+                      'text-left px-3 py-2 rounded-lg text-xs font-medium border transition-all',
+                      newAuthType === opt.value
+                        ? 'border-orange-500/40 bg-orange-500/5 text-orange-400'
+                        : 'border-white/[0.06] text-zinc-400 hover:border-white/10'
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* API Key / Token */}
+            <div>
+              <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">
+                {newAuthType === 'basic_auth' ? 'Username:Password' : 'API Key / Token'}
+              </label>
+              <input
+                value={newApiKey}
+                onChange={(e) => setNewApiKey(e.target.value)}
+                type="password"
+                placeholder={newAuthType === 'basic_auth' ? 'user:password' : 'sk_live_xxx or your-api-key'}
+                className="w-full mt-1 px-3 py-2.5 rounded-lg text-sm bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-zinc-600 focus:border-orange-500/50 focus:outline-none transition-colors"
+              />
+            </div>
+
+            {/* Test URL (optional) */}
+            <div>
+              <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">
+                Test URL <span className="text-zinc-700">(optional)</span>
+              </label>
+              <input
+                value={newTestUrl}
+                onChange={(e) => setNewTestUrl(e.target.value)}
+                type="url"
+                placeholder="https://api.example.com/v1/validate"
+                className="w-full mt-1 px-3 py-2.5 rounded-lg text-sm bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-zinc-600 focus:border-orange-500/50 focus:outline-none transition-colors"
+              />
+              <p className="text-[9px] text-zinc-600 mt-1">For known platforms, PARWA auto-detects the test endpoint. For custom platforms, provide a URL that returns 200 on valid auth.</p>
+            </div>
+          </div>
+
+          {/* Add + Cancel buttons */}
+          <div className="flex justify-end gap-3 pt-2 border-t border-white/[0.04]">
+            <button
+              onClick={() => setShowAddForm(false)}
+              className="px-4 py-2 rounded-lg text-xs font-medium border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAddIntegration}
+              disabled={isAdding}
+              className="px-5 py-2 rounded-lg text-xs font-bold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:from-orange-400 hover:to-amber-300 shadow-lg shadow-orange-500/25 transition-all flex items-center gap-1.5 disabled:opacity-60"
+            >
+              {isAdding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+              Add & Verify
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Voice Channel Extra Section ───────────────────────────────────────
+
+function VoiceChannelExtra({
+  config,
+  recentCallCount,
+  testCallLoading,
+  onTestCall,
+  onConfigure,
+  onSetupVoice,
+}: {
+  config: VoiceChannelConfig | null;
+  recentCallCount: number;
+  testCallLoading: boolean;
+  onTestCall: () => void;
+  onConfigure: () => void;
+  onSetupVoice: () => void;
+}) {
+  // No config yet — show setup prompt
+  if (!config) {
+    return (
+      <div className="mt-3 pt-3 border-t border-white/[0.04] space-y-3">
+        <p className="text-[10px] text-zinc-600">
+          Voice is not configured yet. Choose how to get your number:
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onSetupVoice}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400 hover:text-emerald-300 transition-colors bg-emerald-500/5 border border-emerald-500/20 rounded-lg px-3 py-1.5"
+          >
+            <Sparkles className="w-3 h-3" />
+            Setup Voice
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Config exists — show status
+  return (
+    <div className="mt-3 pt-3 border-t border-white/[0.04] space-y-2.5">
+      {/* Number source badge */}
+      <div className="flex items-center gap-2 text-[10px]">
+        {config.number_source === 'parwa_provided' ? (
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <Sparkles className="w-2.5 h-2.5" />
+            Parwa Number
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            <Key className="w-2.5 h-2.5" />
+            Your Twilio
+          </span>
+        )}
+      </div>
+
+      {/* Voice number */}
+      <div className="flex items-center gap-2 text-[10px] text-zinc-600">
+        <Phone className="w-3 h-3" />
+        <span>Number: {config.twilio_phone_number || config.parwa_phone_number}</span>
+      </div>
+
+      {/* Recent Calls */}
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-zinc-600">
+          {recentCallCount} total call{recentCallCount !== 1 ? 's' : ''} recorded
+        </span>
+        <div className="flex items-center gap-2">
+          {/* Configure Link */}
+          <button
+            onClick={onConfigure}
+            className="inline-flex items-center gap-1 text-[10px] font-medium text-orange-400 hover:text-orange-300 transition-colors"
+          >
+            <Settings className="w-3 h-3" />
+            Configure
+          </button>
+
+          {/* Test Call */}
+          <button
+            onClick={onTestCall}
+            disabled={testCallLoading}
+            className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 hover:text-emerald-300 transition-colors disabled:opacity-50"
+          >
+            {testCallLoading ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Phone className="w-3 h-3" />
+            )}
+            Test Call
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

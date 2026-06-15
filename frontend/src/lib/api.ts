@@ -1,779 +1,600 @@
-// PARWA Phase 4 API Client
-// All backend API calls with graceful error handling and mock fallback data
+/**
+ * PARWA API Client
+ * 
+ * Centralized API client for making requests to the backend.
+ * 
+ * Security Features (GAP-002 Fix):
+ * - Safe JSON parsing for malformed responses
+ * - Proper error handling for all HTTP status codes
+ * - Timeout handling with retry support
+ */
 
-const API_BASE = '/api/v1';
-const PORT_PARAM = 'XTransformPort=8000';
-const COMPANY_ID = 'demo-company-001';
-const COMPANY_HEADER = 'X-Company-Id';
+import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { useAppStore } from '@/lib/store';
+import { UserDetails, OnboardingState } from '@/types/onboarding';
+import {
+  User,
+  AuthResponse,
+  TokenResponse,
+  LoginRequest,
+  RegisterRequest,
+  GoogleAuthRequest,
+  EmailCheckResponse,
+  MessageResponse,
+} from '@/types/auth';
 
-function apiUrl(path: string, extraParams?: string): string {
-  const sep = path.includes('?') ? '&' : '?';
-  return `${API_BASE}${path}${sep}${PORT_PARAM}${extraParams ? `&${extraParams}` : ''}`;
+// API base URL — client-side MUST use relative URLs so requests go through
+// the Next.js proxy routes (which handle CSRF, Origin, and auth headers).
+// NEXT_PUBLIC_API_URL may be set to the backend URL for server-side use,
+// but client-side axios should always use '' (relative URLs).
+const API_BASE_URL = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || '');
+
+/**
+ * Create axios instance with default configuration.
+ */
+const apiClient: AxiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  withCredentials: true, // Include cookies for session auth
+});
+
+/**
+ * Response interceptor for handling errors.
+ * C-03 FIX: No request interceptor — auth tokens are sent as httpOnly cookies
+ * automatically by the browser via withCredentials: true.
+ * GAP-002: Handle malformed responses gracefully.
+ */
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError) => {
+    // Handle 401 Unauthorized — clear user display data and trigger navigation.
+    // Tokens are httpOnly cookies cleared by the backend; we only clean up localStorage.
+    if (error.response?.status === 401) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('parwa_user');
+        // Use Zustand store for SPA navigation instead of window.location
+        try {
+          const store = useAppStore.getState();
+          if (store && !['login', 'signup', 'forgot-password'].includes(store.currentPage)) {
+            store.setAuth(false);
+          }
+        } catch {
+          // Store not available (SSR or early init) — silent fail
+        }
+      }
+    }
+    
+    // Handle 403 Forbidden
+    if (error.response?.status === 403) {
+      const errorData = error.response?.data as Record<string, unknown> | undefined;
+      const csrfMessage = (errorData?.error as Record<string, unknown>)?.message || errorData?.message || '';
+      if (typeof csrfMessage === 'string' && csrfMessage.toLowerCase().includes('csrf')) {
+        console.error('Access denied: CSRF validation failed. The request origin may not be trusted.');
+      } else {
+        console.error('Access denied:', csrfMessage || 'You do not have permission for this action.');
+      }
+    }
+    
+    // Handle 429 Rate Limit
+    if (error.response?.status === 429) {
+      const retryAfter = error.response.headers['retry-after'];
+      console.warn(`Rate limited. Retry after ${retryAfter} seconds`);
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+// ── GAP-002: Safe Response Parsing ───────────────────────────────────────
+
+/**
+ * Safely parse response data, handling malformed JSON.
+ */
+function safeParseResponse<T>(response: AxiosResponse): T {
+  // If response is already parsed by axios, return it
+  if (response.data !== undefined) {
+    return response.data as T;
+  }
+  throw new Error('Empty response from server');
 }
 
-async function apiFetch<T>(path: string, options?: RequestInit, fallback?: T): Promise<T> {
+/**
+ * Handle API errors with user-friendly messages.
+ */
+export function getErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    // Network error (no response)
+    if (!error.response) {
+      if (error.code === 'ECONNABORTED') {
+        return 'Request timed out. Please try again.';
+      }
+      return 'Network error. Please check your connection.';
+    }
+    
+    // Server responded with error
+    const status = error.response.status;
+    const detail = error.response?.data?.detail;
+    
+    if (status === 429) {
+      const retryAfter = error.response.headers['retry-after'] || 60;
+      return `Too many requests. Please try again in ${retryAfter} seconds.`;
+    }
+    
+    if (status >= 500) {
+      return 'Server error. Please try again later.';
+    }
+    
+    if (status === 401) {
+      return 'Session expired. Please log in again.';
+    }
+    
+    if (status === 403) {
+      // Try to extract CSRF or specific error message
+      const errorData = error.response?.data as Record<string, unknown> | undefined;
+      const serverMsg = (errorData?.error as Record<string, unknown>)?.message || errorData?.message;
+      if (typeof serverMsg === 'string' && serverMsg) {
+        return serverMsg;
+      }
+      return 'Access denied. You may not have permission for this action, or the request origin is not trusted.';
+    }
+    
+    // Return server's error message if available
+    if (detail) {
+      return detail;
+    }
+    
+    return `Request failed with status ${status}`;
+  }
+  
+  if (error instanceof Error) {
+    return error.message;
+  }
+  
+  return 'An unexpected error occurred. Please try again.';
+}
+
+/**
+ * Generic GET request with safe parsing.
+ */
+export async function get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
   try {
-    // Build headers: start with auth (JWT) if available, fall back to X-Company-Id
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-
-    // Try to get auth token from localStorage
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('parwa-tokens');
-        if (saved) {
-          const tokens = JSON.parse(saved);
-          if (tokens.access_token) {
-            headers['Authorization'] = `Bearer ${tokens.access_token}`;
-          }
-        }
-      } catch { /* ignore */ }
-    }
-
-    // Fall back to X-Company-Id if no auth token (backward compat)
-    if (!headers['Authorization']) {
-      headers[COMPANY_HEADER] = COMPANY_ID;
-    }
-
-    const res = await fetch(apiUrl(path), {
-      ...options,
-      headers: {
-        ...headers,
-        ...options?.headers as Record<string, string>,
-      },
-    });
-    if (!res.ok) {
-      throw new Error(`API ${res.status}: ${res.statusText}`);
-    }
-    return await res.json();
-  } catch (err) {
-    console.warn(`[PARWA API] ${path} failed:`, err);
-    if (fallback !== undefined) return fallback;
-    throw err;
+    const response = await apiClient.get<T>(url, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
   }
 }
 
-// ============= TYPES =============
-
-export type VariantType = 'mini' | 'parwa' | 'high';
-export type PaymentProvider = 'stripe' | 'paypal' | 'razorpay' | 'paddle' | 'custom';
-
-export interface UsageSummary {
-  variants: { variant: VariantType; tickets_used: number; tickets_limit: number }[];
-  total_tickets_used: number;
-  period: string;
-}
-
-export interface CostCalculation {
-  monthly_cost: number;
-  breakdown: { variant: string; cost: number }[];
-  add_ons: { name: string; cost: number }[];
-}
-
-export interface OverageEstimate {
-  variant: VariantType;
-  projected_tickets: number;
-  overage_tickets: number;
-  overage_cost: number;
-}
-
-export interface PaymentGateway {
-  id: string;
-  provider: PaymentProvider;
-  status: 'active' | 'inactive' | 'error';
-  created_at: string;
-}
-
-export interface IntegrationCatalogItem {
-  id: string;
-  name: string;
-  category: string;
-  description: string;
-  icon: string;
-  supported_variants: VariantType[];
-}
-
-export interface ConnectedIntegration {
-  id: string;
-  integration_id: string;
-  name: string;
-  status: 'connected' | 'disconnected' | 'error';
-  connected_at: string;
-}
-
-export interface Notification {
-  id: string;
-  type: 'info' | 'warning' | 'error' | 'success';
-  title: string;
-  message: string;
-  read: boolean;
-  created_at: string;
-}
-
-export interface KnowledgeDocument {
-  id: string;
-  name: string;
-  type: string;
-  size: number;
-  uploaded_at: string;
-  status: 'processing' | 'ready' | 'error';
-}
-
-export interface FAQ {
-  id: string;
-  question: string;
-  answer: string;
-  created_at: string;
-}
-
-export interface IndustryPreview {
-  current_industry: string;
-  new_industry: string;
-  integrations_to_disconnect: { id: string; name: string }[];
-  new_default_faqs: { question: string; answer: string }[];
-  impact_summary: string;
-}
-
-export interface CustomConnector {
-  id: string;
-  name: string;
-  type: string;
-  status: 'active' | 'inactive';
-}
-
-export interface HealthStatus {
-  status: 'healthy' | 'degraded' | 'unhealthy';
-  services: { name: string; status: string }[];
-}
-
-// ============= MOCK DATA =============
-
-const MOCK_USAGE: UsageSummary = {
-  variants: [
-    { variant: 'parwa', tickets_used: 1247, tickets_limit: 2000 },
-  ],
-  total_tickets_used: 1247,
-  period: '2026-06',
-};
-
-const MOCK_GATEWAYS: PaymentGateway[] = [
-  { id: 'gw-1', provider: 'stripe', status: 'active', created_at: '2026-05-15T10:00:00Z' },
-];
-
-const MOCK_CATALOG: IntegrationCatalogItem[] = [
-  { id: 'zendesk', name: 'Zendesk', category: 'Helpdesk', description: 'Sync tickets with Zendesk', icon: '🎧', supported_variants: ['mini', 'parwa', 'high'] },
-  { id: 'slack', name: 'Slack', category: 'Communication', description: 'Get notifications in Slack', icon: '💬', supported_variants: ['mini', 'parwa', 'high'] },
-  { id: 'shopify', name: 'Shopify', category: 'E-Commerce', description: 'Link Shopify orders and customers', icon: '🛒', supported_variants: ['parwa', 'high'] },
-  { id: 'salesforce', name: 'Salesforce', category: 'CRM', description: 'Sync contacts and cases with Salesforce', icon: '☁️', supported_variants: ['parwa', 'high'] },
-  { id: 'github', name: 'GitHub', category: 'Developer', description: 'Link issues and discussions', icon: '🐙', supported_variants: ['high'] },
-  { id: 'jira', name: 'Jira', category: 'Project Management', description: 'Sync issues with Jira', icon: '📋', supported_variants: ['parwa', 'high'] },
-  { id: 'hubspot', name: 'HubSpot', category: 'CRM', description: 'Sync contacts and tickets', icon: '🟠', supported_variants: ['parwa', 'high'] },
-  { id: 'intercom', name: 'Intercom', category: 'Messaging', description: 'Sync conversations with Intercom', icon: '🔵', supported_variants: ['parwa', 'high'] },
-  { id: 'notion', name: 'Notion', category: 'Knowledge', description: 'Import docs from Notion', icon: '📝', supported_variants: ['parwa', 'high'] },
-  { id: 'whatsapp', name: 'WhatsApp Business', category: 'Communication', description: 'Support via WhatsApp', icon: '📱', supported_variants: ['parwa', 'high'] },
-  { id: 'gmail', name: 'Gmail', category: 'Email', description: 'Sync email conversations', icon: '📧', supported_variants: ['mini', 'parwa', 'high'] },
-  { id: 'twitter', name: 'Twitter/X', category: 'Social', description: 'Monitor social mentions', icon: '🐦', supported_variants: ['high'] },
-];
-
-const MOCK_CONNECTED: ConnectedIntegration[] = [
-  { id: 'ci-1', integration_id: 'slack', name: 'Slack', status: 'connected', connected_at: '2026-06-01T09:00:00Z' },
-  { id: 'ci-2', integration_id: 'zendesk', name: 'Zendesk', status: 'connected', connected_at: '2026-05-20T14:30:00Z' },
-];
-
-const MOCK_NOTIFICATIONS: Notification[] = [
-  { id: 'n-1', type: 'success', title: 'Variant Activated', message: 'PARWA Standard variant is now active on your account.', read: false, created_at: '2026-06-12T08:00:00Z' },
-  { id: 'n-2', type: 'warning', title: 'Usage Alert', message: 'You have used 62% of your monthly ticket allowance.', read: false, created_at: '2026-06-11T15:30:00Z' },
-  { id: 'n-3', type: 'info', title: 'Integration Updated', message: 'Slack integration has been updated to the latest version.', read: true, created_at: '2026-06-10T10:00:00Z' },
-  { id: 'n-4', type: 'error', title: 'Payment Failed', message: 'Your last payment via Stripe failed. Please update your payment method.', read: false, created_at: '2026-06-09T22:00:00Z' },
-  { id: 'n-5', type: 'info', title: 'Knowledge Base Ready', message: 'Your uploaded document "Product FAQ" has been processed and is ready.', read: true, created_at: '2026-06-08T12:00:00Z' },
-];
-
-const MOCK_DOCUMENTS: KnowledgeDocument[] = [
-  { id: 'd-1', name: 'Product FAQ.pdf', type: 'pdf', size: 245000, uploaded_at: '2026-06-08T12:00:00Z', status: 'ready' },
-  { id: 'd-2', name: 'API Documentation.md', type: 'markdown', size: 89000, uploaded_at: '2026-06-07T09:00:00Z', status: 'ready' },
-  { id: 'd-3', name: 'Troubleshooting Guide.docx', type: 'docx', size: 156000, uploaded_at: '2026-06-06T14:00:00Z', status: 'processing' },
-];
-
-const MOCK_FAQS: FAQ[] = [
-  { id: 'f-1', question: 'How do I reset my password?', answer: 'Go to Settings > Security > Reset Password and follow the instructions.', created_at: '2026-06-05T10:00:00Z' },
-  { id: 'f-2', question: 'What are the supported payment methods?', answer: 'We support Stripe, PayPal, Razorpay, Paddle, and custom payment gateways.', created_at: '2026-06-04T11:00:00Z' },
-  { id: 'f-3', question: 'How do I upgrade my variant?', answer: 'Navigate to Variants section and select a higher tier. Changes take effect immediately.', created_at: '2026-06-03T15:00:00Z' },
-];
-
-const MOCK_INDUSTRY_PREVIEW: IndustryPreview = {
-  current_industry: 'technology',
-  new_industry: 'saas',
-  integrations_to_disconnect: [],
-  new_default_faqs: [
-    { question: 'How do I cancel my subscription?', answer: 'You can cancel anytime from your billing settings.' },
-    { question: 'What is your refund policy?', answer: 'We offer a 30-day money-back guarantee.' },
-  ],
-  impact_summary: 'Switching to SaaS industry will update your default templates and suggest SaaS-specific integrations.',
-};
-
-const MOCK_CONNECTORS: CustomConnector[] = [
-  { id: 'cc-1', name: 'Internal CRM API', type: 'rest', status: 'active' },
-];
-
-const MOCK_COST: CostCalculation = {
-  monthly_cost: 79,
-  breakdown: [{ variant: 'parwa', cost: 79 }],
-  add_ons: [],
-};
-
-const MOCK_HEALTH: HealthStatus = {
-  status: 'healthy',
-  services: [
-    { name: 'API Server', status: 'healthy' },
-    { name: 'Database', status: 'healthy' },
-    { name: 'Cache', status: 'healthy' },
-  ],
-};
-
-// ============= API FUNCTIONS =============
-
-// Billing
-export async function getUsage(): Promise<UsageSummary> {
-  return apiFetch<UsageSummary>('/billing/usage', {}, MOCK_USAGE);
-}
-
-export async function addVariant(variant: VariantType, payment_provider: PaymentProvider): Promise<{ success: boolean }> {
-  return apiFetch<{ success: boolean }>('/billing/variant', {
-    method: 'POST',
-    body: JSON.stringify({ variant, payment_provider }),
-  }, { success: true });
-}
-
-export async function removeVariant(variant: VariantType): Promise<{ success: boolean }> {
-  return apiFetch<{ success: boolean }>(`/billing/variant/${variant}`, {
-    method: 'DELETE',
-  }, { success: true });
-}
-
-export async function getCost(variants: string[], add_ons?: string): Promise<CostCalculation> {
-  const params = `variants=${variants.join(',')}${add_ons ? `&add_ons=${add_ons}` : ''}`;
-  return apiFetch<CostCalculation>(`/billing/cost?${params}`, {}, MOCK_COST);
-}
-
-export async function estimateOverage(variant: VariantType, projected_tickets: number): Promise<OverageEstimate> {
-  return apiFetch<OverageEstimate>('/billing/overage/estimate', {
-    method: 'POST',
-    body: JSON.stringify({ variant, projected_tickets }),
-  }, {
-    variant,
-    projected_tickets,
-    overage_tickets: Math.max(0, projected_tickets - 2000),
-    overage_cost: Math.max(0, projected_tickets - 2000) * 0.05,
-  });
-}
-
-export async function getGateways(): Promise<PaymentGateway[]> {
-  return apiFetch<PaymentGateway[]>('/billing/gateways', {}, MOCK_GATEWAYS);
-}
-
-export async function registerGateway(provider: PaymentProvider, credentials: Record<string, string>): Promise<PaymentGateway> {
-  return apiFetch<PaymentGateway>('/billing/gateways', {
-    method: 'POST',
-    body: JSON.stringify({ provider, credentials }),
-  }, { id: `gw-${Date.now()}`, provider, status: 'active', created_at: new Date().toISOString() });
-}
-
-// Integrations
-export async function getIntegrationCatalog(): Promise<IntegrationCatalogItem[]> {
-  return apiFetch<IntegrationCatalogItem[]>('/integrations/catalog', {}, MOCK_CATALOG);
-}
-
-export async function getConnectedIntegrations(): Promise<ConnectedIntegration[]> {
-  return apiFetch<ConnectedIntegration[]>('/integrations/', {}, MOCK_CONNECTED);
-}
-
-export async function connectIntegration(integration_id: string): Promise<ConnectedIntegration> {
-  return apiFetch<ConnectedIntegration>('/integrations/connect', {
-    method: 'POST',
-    body: JSON.stringify({ integration_id }),
-  }, {
-    id: `ci-${Date.now()}`,
-    integration_id,
-    name: integration_id,
-    status: 'connected',
-    connected_at: new Date().toISOString(),
-  });
-}
-
-export async function disconnectIntegration(integration_id: string): Promise<{ success: boolean }> {
-  return apiFetch<{ success: boolean }>(`/integrations/${integration_id}`, {
-    method: 'DELETE',
-  }, { success: true });
-}
-
-export async function testIntegration(integration_id: string): Promise<{ success: boolean; latency_ms?: number }> {
-  return apiFetch<{ success: boolean; latency_ms?: number }>(`/integrations/${integration_id}/test`, {
-    method: 'POST',
-  }, { success: true, latency_ms: 142 });
-}
-
-// Notifications
-export async function getNotifications(): Promise<Notification[]> {
-  return apiFetch<Notification[]>('/notifications/', {}, MOCK_NOTIFICATIONS);
-}
-
-export async function markNotificationRead(id: string): Promise<{ success: boolean }> {
-  return apiFetch<{ success: boolean }>(`/notifications/${id}/read`, {
-    method: 'PUT',
-  }, { success: true });
-}
-
-// Knowledge
-export async function getDocuments(): Promise<KnowledgeDocument[]> {
-  return apiFetch<KnowledgeDocument[]>('/knowledge/documents', {}, MOCK_DOCUMENTS);
-}
-
-export async function uploadDocument(file: File): Promise<KnowledgeDocument> {
+/**
+ * Generic POST request with safe parsing.
+ */
+export async function post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
   try {
+    const response = await apiClient.post<T>(url, data, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
+  }
+}
+
+/**
+ * Generic PATCH request with safe parsing.
+ */
+export async function patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  try {
+    const response = await apiClient.patch<T>(url, data, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
+  }
+}
+
+/**
+ * Generic PUT request with safe parsing.
+ */
+export async function put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  try {
+    const response = await apiClient.put<T>(url, data, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
+  }
+}
+
+/**
+ * Generic DELETE request with safe parsing.
+ */
+export async function del<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
+  try {
+    const response = await apiClient.delete<T>(url, config);
+    return safeParseResponse<T>(response);
+  } catch (error) {
+    throw error;
+  }
+}
+
+// ── Onboarding API Endpoints ───────────────────────────────────────────
+
+export const onboardingApi = {
+  /**
+   * Get current onboarding state.
+   */
+  getState: () => get<OnboardingState>('/api/onboarding/state'),
+  
+  /**
+   * Start onboarding wizard.
+   */
+  start: () => post<OnboardingState>('/api/onboarding/start'),
+  
+  /**
+   * Complete a step.
+   */
+  completeStep: (step: number) => post<OnboardingState>(`/api/onboarding/step/${step}`),
+  
+  /**
+   * Submit legal consents.
+   */
+  submitLegal: (consents: { terms: boolean; privacy: boolean; ai_data: boolean }) => 
+    post<OnboardingState>('/api/onboarding/legal', consents),
+  
+  /**
+   * Activate AI assistant.
+   */
+  activateAI: (config?: { ai_name?: string; ai_tone?: string; ai_response_style?: string }) => 
+    post<OnboardingState>('/api/onboarding/activate', config),
+  
+  /**
+   * Get first victory status.
+   */
+  getVictory: () => get('/api/onboarding/first-victory'),
+  
+  /**
+   * Mark first victory complete.
+   */
+  completeVictory: () => post('/api/onboarding/first-victory'),
+};
+
+// ── User Details API Endpoints ────────────────────────────────────────
+
+export const userDetailsApi = {
+  /**
+   * Get current user details.
+   */
+  get: () => get<UserDetails>('/api/user/details'),
+  
+  /**
+   * Create user details.
+   */
+  create: (data: {
+    full_name: string;
+    company_name: string;
+    work_email?: string;
+    industry: string;
+    company_size?: string;
+    website?: string;
+  }) => post<UserDetails>('/api/user/details', data),
+  
+  /**
+   * Update user details.
+   */
+  update: (data: Partial<{
+    full_name: string;
+    company_name: string;
+    work_email: string;
+    industry: string;
+    company_size: string;
+    website: string;
+  }>) => patch<UserDetails>('/api/user/details', data),
+  
+  /**
+   * Send work email verification.
+   */
+  sendVerification: (work_email: string) => 
+    post('/api/verification/send-otp', { email: work_email }),
+  
+  /**
+   * Confirm work email verification.
+   */
+  confirmVerification: (token: string) => 
+    post('/api/verification/verify-otp', { code: token }),
+};
+
+// ── Integration API Endpoints ──────────────────────────────────────────
+
+export const integrationsApi = {
+  /**
+   * Get available integrations.
+   */
+  getAvailable: () => get('/api/integrations/available'),
+
+  /**
+   * Get integration catalog with optional industry filter.
+   */
+  getCatalog: (industry?: string) =>
+    get(`/api/integrations/catalog${industry ? `?industry=${industry}` : ''}`),
+  
+  /**
+   * Get user's integrations.
+   */
+  list: () => get('/api/integrations'),
+  
+  /**
+   * Create integration.
+   */
+  create: (data: { type: string; name: string; config: Record<string, unknown> }) => 
+    post('/api/integrations', data),
+  
+  /**
+   * Test integration connection.
+   */
+  test: (id: string) => post(`/api/integrations/${id}/test`),
+  
+  /**
+   * Delete integration.
+   */
+  delete: (id: string) => del(`/api/integrations/${id}`),
+
+  /**
+   * Check industry change impact on integrations.
+   */
+  industryChangeImpact: (currentIndustry: string, newIndustry: string) =>
+    post('/api/integrations/industry-change-impact', {
+      current_industry: currentIndustry,
+      new_industry: newIndustry,
+    }),
+
+  // ── Custom Connectors (Tier 3) ───────────────────────────────
+
+  /**
+   * Create a custom REST connector (Tier 3).
+   */
+  createCustomConnector: (data: {
+    name: string;
+    base_url: string;
+    auth_type: string;
+    auth_config: Record<string, unknown>;
+    actions: Record<string, unknown>[];
+    description?: string;
+    test_endpoint?: string;
+  }) => post('/api/integrations/custom/connector', data),
+
+  /**
+   * List custom connectors.
+   */
+  listCustomConnectors: () => get('/api/integrations/custom/connectors'),
+
+  /**
+   * Get a custom connector.
+   */
+  getCustomConnector: (id: string) => get(`/api/integrations/custom/connectors/${id}`),
+
+  /**
+   * Update a custom connector.
+   */
+  updateCustomConnector: (id: string, data: Record<string, unknown>) =>
+    put(`/api/integrations/custom/connectors/${id}`, data),
+
+  /**
+   * Delete a custom connector.
+   */
+  deleteCustomConnector: (id: string) => del(`/api/integrations/custom/connectors/${id}`),
+
+  /**
+   * Test a custom connector.
+   */
+  testCustomConnector: (id: string) => post(`/api/integrations/custom/connectors/${id}/test`),
+
+  // ── OpenAPI Import (Tier 2) ──────────────────────────────────
+
+  /**
+   * Import an OpenAPI spec (parse only, don't save).
+   */
+  importOpenAPI: (data: {
+    url?: string;
+    file_content?: string;
+    filename?: string;
+    name?: string;
+    base_url?: string;
+    auth_type?: string;
+    auth_config?: Record<string, unknown>;
+    actions?: Record<string, unknown>[];
+  }) => post('/api/integrations/openapi-import', data),
+
+  /**
+   * Save an OpenAPI import as a connector.
+   */
+  saveOpenAPIImport: (data: Record<string, unknown>) =>
+    post('/api/integrations/openapi-import/save', data),
+};
+
+// ── Knowledge Base API Endpoints ───────────────────────────────────────
+// NOTE: Backend router uses /api/kb prefix (knowledge_base.py)
+// These endpoints map directly to the backend's /api/kb/* routes.
+
+export const knowledgeApi = {
+  /**
+   * Upload document.
+   */
+  upload: async (file: File, onProgress?: (progress: number) => void) => {
     const formData = new FormData();
     formData.append('file', file);
-    const res = await fetch(apiUrl('/knowledge/upload'), {
-      method: 'POST',
-      headers: { [COMPANY_HEADER]: COMPANY_ID },
-      body: formData,
+    
+    const response = await apiClient.post('/api/kb/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(progress);
+        }
+      },
     });
-    if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
-    return await res.json();
-  } catch {
+    
+    return response.data;
+  },
+  
+  /**
+   * List documents.
+   */
+  list: () => get('/api/kb/documents'),
+  
+  /**
+   * Get document status.
+   */
+  getStatus: (id: string) => get(`/api/kb/documents/${id}`),
+  
+  /**
+   * Delete document.
+   */
+  delete: (id: string) => del(`/api/kb/documents/${id}`),
+  
+  /**
+   * Retry a failed document.
+   */
+  retry: (id: string) => post(`/api/kb/documents/${id}/retry`),
+  
+  /**
+   * Re-index a completed document.
+   */
+  reindex: (id: string) => post(`/api/kb/documents/${id}/reindex`),
+  
+  /**
+   * Get knowledge base statistics.
+   */
+  getStats: () => get('/api/kb/stats'),
+  
+  /**
+   * Retry all failed documents.
+   */
+  retryAllFailed: () => post('/api/kb/retry-failed'),
+};
+
+// ── Auth API Endpoints ──────────────────────────────────────────────────
+
+export const authApi = {
+  /**
+   * Register a new user.
+   */
+  register: (data: RegisterRequest) => post<AuthResponse>('/api/auth/register', data),
+  
+  /**
+   * Login with email and password.
+   */
+  login: (data: LoginRequest) => post<AuthResponse>('/api/auth/login', data),
+  
+  /**
+   * Login with Google OAuth.
+   *
+   * IMPORTANT: Always uses the Next.js API route (/api/auth/google) instead
+   * of going directly to the backend. The Next.js route handles backend
+   * unavailability, non-JSON responses, and local fallback gracefully.
+   * This prevents "Unexpected token" JSON parse errors when the backend
+   * returns non-JSON (e.g. Render proxy errors, cold start timeouts).
+   */
+  googleAuth: async (data: GoogleAuthRequest): Promise<AuthResponse> => {
+    // Use fetch directly to the Next.js route — not through axios/apiClient.
+    // This ensures we always hit the Next.js API route which has robust
+    // error handling and always returns JSON, even when the backend is down.
+    const res = await fetch('/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    // Safe JSON parsing — handle non-JSON responses gracefully
+    let result: Record<string, unknown>;
+    try {
+      const text = await res.text();
+      try {
+        result = JSON.parse(text);
+      } catch {
+        throw new Error(
+          res.ok
+            ? 'Received an unexpected response from the server.'
+            : `Server error (${res.status}). Please try again.`
+        );
+      }
+    } catch (parseErr) {
+      throw parseErr instanceof Error ? parseErr : new Error('Failed to read server response.');
+    }
+
+    if (result.status === 'error') {
+      throw new Error(String(result.message || 'Google sign-in failed. Please try again.'));
+    }
+
+    // Map Next.js route response to AuthResponse format
+    const user = result.user as Record<string, unknown> | undefined;
     return {
-      id: `d-${Date.now()}`,
-      name: file.name,
-      type: file.name.split('.').pop() || 'unknown',
-      size: file.size,
-      uploaded_at: new Date().toISOString(),
-      status: 'processing',
-    };
-  }
-}
-
-export async function getFAQs(): Promise<FAQ[]> {
-  return apiFetch<FAQ[]>('/knowledge/faqs', {}, MOCK_FAQS);
-}
-
-export async function createFAQ(question: string, answer: string): Promise<FAQ> {
-  return apiFetch<FAQ>('/knowledge/faqs', {
-    method: 'POST',
-    body: JSON.stringify({ question, answer }),
-  }, {
-    id: `f-${Date.now()}`,
-    question,
-    answer,
-    created_at: new Date().toISOString(),
-  });
-}
-
-// Industry
-export async function getIndustryPreview(new_industry: string): Promise<IndustryPreview> {
-  return apiFetch<IndustryPreview>(`/industry/preview?new_industry=${new_industry}`, {}, {
-    ...MOCK_INDUSTRY_PREVIEW,
-    new_industry,
-  });
-}
-
-export async function applyIndustryChange(new_industry: string, disconnect_ids?: string[]): Promise<{ success: boolean }> {
-  return apiFetch<{ success: boolean }>('/industry/apply', {
-    method: 'POST',
-    body: JSON.stringify({ new_industry, disconnect_ids }),
-  }, { success: true });
-}
-
-// Connectors
-export async function getConnectors(): Promise<CustomConnector[]> {
-  return apiFetch<CustomConnector[]>('/connectors/', {}, MOCK_CONNECTORS);
-}
-
-// Health
-export async function getHealth(): Promise<HealthStatus> {
-  return apiFetch<HealthStatus>('/health', {}, MOCK_HEALTH);
-}
-
-// ============= VARIANT DETAILS =============
-
-export interface VariantInfo {
-  id: VariantType;
-  name: string;
-  price: number;
-  tickets: string;
-  channels: string;
-  ai: string;
-  integrations: string;
-  extras: string[];
-  popular?: boolean;
-}
-
-export const VARIANT_DETAILS: VariantInfo[] = [
-  {
-    id: 'mini',
-    name: 'PARWA Mini',
-    price: 29,
-    tickets: '500 tickets/mo',
-    channels: 'Email + Chat',
-    ai: 'Basic AI',
-    integrations: '2 integrations',
-    extras: [],
+      user: {
+        id: String(user?.id || ''),
+        email: String(user?.email || ''),
+        full_name: String(user?.fullName || user?.full_name || ''),
+        phone: null,
+        avatar_url: user?.avatarUrl ? String(user.avatarUrl) : null,
+        role: String(user?.role || 'member'),
+        is_active: Boolean(user?.isActive ?? user?.is_active ?? true),
+        is_verified: Boolean(user?.isVerified ?? user?.is_verified ?? true),
+        company_id: String(user?.companyId || user?.company_id || ''),
+        company_name: user?.companyName ? String(user.companyName) : null,
+        created_at: user?.createdAt ? String(user.createdAt) : null,
+      },
+      tokens: (result.tokens as TokenResponse) || {
+        access_token: '',
+        refresh_token: '',
+        token_type: 'bearer',
+        expires_in: 900,
+      },
+      is_new_user: Boolean(result.is_new_user),
+    } as AuthResponse;
   },
-  {
-    id: 'parwa',
-    name: 'PARWA Standard',
-    price: 79,
-    tickets: '2,000 tickets/mo',
-    channels: 'All channels',
-    ai: 'Advanced AI',
-    integrations: '10 integrations',
-    extras: ['Knowledge base', 'Priority email support'],
-    popular: true,
-  },
-  {
-    id: 'high',
-    name: 'PARWA High',
-    price: 199,
-    tickets: 'Unlimited tickets',
-    channels: 'All channels',
-    ai: 'Full AI suite',
-    integrations: 'Unlimited integrations',
-    extras: ['Priority support', 'Custom connectors', 'Dedicated account manager', 'SLA guarantees'],
-  },
-];
+  
+  /**
+   * Logout user.
+   * C-03 FIX: Backend reads refresh_token from httpOnly cookie (parwa_rt).
+   */
+  logout: () => post<MessageResponse>('/api/auth/logout', {}),
+  
+  /**
+   * Refresh tokens.
+   * C-03 FIX: Backend reads refresh_token from httpOnly cookie (parwa_rt)
+   * and sets new httpOnly cookies in the response.
+   */
+  refresh: () => post<TokenResponse>('/api/auth/refresh', {}),
+  
+  /**
+   * Get current user profile.
+   */
+  getMe: () => get<User>('/api/auth/me'),
+  
+  /**
+   * Check email availability.
+   */
+  checkEmail: (email: string) => get<EmailCheckResponse>(`/api/auth/check-email?email=${encodeURIComponent(email)}`),
+  
+  /**
+   * Verify email with token.
+   */
+  verifyEmail: (token: string) => get<MessageResponse>(`/api/auth/verify?token=${encodeURIComponent(token)}`),
+  
+  /**
+   * Resend verification email.
+   */
+  resendVerification: (email: string) => post<MessageResponse>('/api/auth/resend-verification', { email }),
+  
+  /**
+   * Request password reset.
+   */
+  forgotPassword: (email: string) => post<MessageResponse>('/api/auth/forgot-password', { email }),
+  
+  /**
+   * Reset password with token.
+   */
+  resetPassword: (token: string, new_password: string) => 
+    post<MessageResponse>('/api/auth/reset-password', { token, new_password }),
+};
 
-// ============= PHASE 5: TICKETS, QUALITY, CALLS, VARIANT CONTROL =============
-
-// Ticket types
-export interface TicketMessage {
-  id: string;
-  sender: string;
-  content: string;
-  timestamp: string;
-  channel: string;
-  metadata: Record<string, unknown>;
-}
-
-export interface AIAction {
-  id: string;
-  action_type: string;
-  description: string;
-  status: string;
-  variant: string;
-  timestamp: string;
-  can_undo: boolean;
-  can_approve: boolean;
-  result: Record<string, unknown> | null;
-}
-
-export interface TicketDetail {
-  id: string;
-  subject: string;
-  status: string;
-  priority: string;
-  channel: string;
-  customer_id: string;
-  customer_name: string;
-  customer_email: string;
-  variant_tier: string;
-  quality_score: number;
-  quality_issues: string[];
-  created_at: string;
-  updated_at: string;
-  message_count: number;
-  ai_actions: AIAction[];
-  sentiment: string;
-  tags: string[];
-}
-
-export interface TicketListItem {
-  id: string;
-  subject: string;
-  status: string;
-  priority: string;
-  channel: string;
-  customer_name: string;
-  variant_tier: string;
-  quality_score: number;
-  created_at: string;
-  updated_at: string;
-  ai_action_count: number;
-  sentiment: string;
-}
-
-export interface TicketListResponse {
-  tickets: TicketListItem[];
-  total: number;
-  page: number;
-  per_page: number;
-}
-
-export interface TicketStats {
-  total_tickets: number;
-  open_tickets: number;
-  in_progress: number;
-  resolved: number;
-  by_channel: Record<string, number>;
-  by_priority: Record<string, number>;
-  avg_resolution_hours: number;
-  avg_quality_score: number;
-  ai_actions_today: number;
-  pending_approvals: number;
-}
-
-// Variant control types
-export interface VariantStatus {
-  variant: string;
-  status: string;
-  tickets_used: number;
-  tickets_limit: number;
-  actions_today: number;
-  pending_approvals: number;
-  last_action: string | null;
-}
-
-export interface VariantStatusResponse {
-  variants: VariantStatus[];
-  emergency_stop: boolean;
-  paused_all: boolean;
-}
-
-export interface PauseResumeResponse {
-  success: boolean;
-  variant: string;
-  status: string;
-  message: string;
-}
-
-export interface EmergencyStopResponse {
-  success: boolean;
-  message: string;
-  timestamp: string;
-}
-
-// Voice recording types
-export interface VoiceRecording {
-  id: string;
-  ticket_id: string;
-  agent_name: string;
-  duration: number;
-  sentiment: string;
-  quality_score: number;
-  timestamp: string;
-  call_sid: string;
-  transcript_preview: string;
-  consent_message: string;
-}
-
-// Quality score summary
-export interface QualityScoreSummary {
-  average_score: number;
-  total_evaluated: number;
-  pass_rate: number;
-  by_variant: Record<string, number>;
-  recent_trend: { date: string; score: number }[];
-}
-
-// Pipeline stats
-export interface PipelineStats {
-  total_processed: number;
-  average_latency_ms: number;
-  success_rate: number;
-  nodes_summary: { node: string; avg_time_ms: number; calls: number }[];
-}
-
-// Auth types
-export interface AuthResponse {
-  access_token: string;
-  token_type: string;
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    company_id: string;
-    company_name: string;
-    subscription_variant: string;
-  };
-}
-
-// ============= PHASE 5 API FUNCTIONS =============
-
-// Auth
-export async function loginUser(email: string, password: string): Promise<AuthResponse> {
-  return apiFetch<AuthResponse>('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
-  }, {
-    access_token: 'mock-jwt-token',
-    token_type: 'bearer',
-    user: { id: 'usr-1', email, name: email.split('@')[0], company_id: 'demo-company-001', company_name: 'Demo Corp', subscription_variant: 'parwa' },
-  });
-}
-
-export async function registerUser(data: { email: string; password: string; name: string; company_name: string; industry?: string }): Promise<AuthResponse> {
-  return apiFetch<AuthResponse>('/auth/register', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }, {
-    access_token: 'mock-jwt-token',
-    token_type: 'bearer',
-    user: { id: 'usr-new', email: data.email, name: data.name, company_id: 'demo-company-001', company_name: data.company_name, subscription_variant: 'mini' },
-  });
-}
-
-// Tickets
-export async function getTickets(params?: {
-  page?: number;
-  per_page?: number;
-  status?: string;
-  channel?: string;
-  priority?: string;
-  search?: string;
-}): Promise<TicketListResponse> {
-  const queryParts: string[] = [];
-  if (params?.page) queryParts.push(`page=${params.page}`);
-  if (params?.per_page) queryParts.push(`per_page=${params.per_page}`);
-  if (params?.status) queryParts.push(`status=${params.status}`);
-  if (params?.channel) queryParts.push(`channel=${params.channel}`);
-  if (params?.priority) queryParts.push(`priority=${params.priority}`);
-  if (params?.search) queryParts.push(`search=${encodeURIComponent(params.search)}`);
-  const qs = queryParts.length > 0 ? queryParts.join('&') : '';
-  return apiFetch<TicketListResponse>(`/tickets/${qs ? `?${qs}` : ''}`, {}, {
-    tickets: [],
-    total: 0,
-    page: 1,
-    per_page: 20,
-  });
-}
-
-export async function getTicketDetail(id: string): Promise<TicketDetail> {
-  return apiFetch<TicketDetail>(`/tickets/${id}`, {}, {
-    id,
-    subject: 'Unknown Ticket',
-    status: 'open',
-    priority: 'normal',
-    channel: 'email',
-    customer_id: '',
-    customer_name: 'Unknown',
-    customer_email: '',
-    variant_tier: 'parwa',
-    quality_score: 0,
-    quality_issues: [],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    message_count: 0,
-    ai_actions: [],
-    sentiment: 'neutral',
-    tags: [],
-  });
-}
-
-export async function getTicketMessages(id: string): Promise<TicketMessage[]> {
-  return apiFetch<TicketMessage[]>(`/tickets/${id}/messages`, {}, []);
-}
-
-export async function getTicketStats(): Promise<TicketStats> {
-  return apiFetch<TicketStats>('/tickets/stats', {}, {
-    total_tickets: 0,
-    open_tickets: 0,
-    in_progress: 0,
-    resolved: 0,
-    by_channel: {},
-    by_priority: {},
-    avg_resolution_hours: 0,
-    avg_quality_score: 0,
-    ai_actions_today: 0,
-    pending_approvals: 0,
-  });
-}
-
-export async function approveAction(actionId: string): Promise<{ success: boolean }> {
-  return apiFetch<{ success: boolean }>(`/actions/${actionId}/approve`, {
-    method: 'POST',
-  }, { success: true });
-}
-
-export async function denyAction(actionId: string): Promise<{ success: boolean }> {
-  return apiFetch<{ success: boolean }>(`/actions/${actionId}/deny`, {
-    method: 'POST',
-  }, { success: true });
-}
-
-export async function undoAction(actionId: string): Promise<{ success: boolean }> {
-  return apiFetch<{ success: boolean }>(`/actions/${actionId}/undo`, {
-    method: 'POST',
-  }, { success: true });
-}
-
-export async function addNoteToAction(actionId: string, note: string): Promise<{ success: boolean }> {
-  return apiFetch<{ success: boolean }>(`/actions/${actionId}/note`, {
-    method: 'POST',
-    body: JSON.stringify({ note }),
-  }, { success: true });
-}
-
-// Variant Control
-export async function getVariantStatus(): Promise<VariantStatusResponse> {
-  return apiFetch<VariantStatusResponse>('/variants/status', {}, {
-    variants: [
-      { variant: 'mini', status: 'active', tickets_used: 0, tickets_limit: 500, actions_today: 0, pending_approvals: 0, last_action: null },
-      { variant: 'parwa', status: 'active', tickets_used: 0, tickets_limit: 2000, actions_today: 0, pending_approvals: 0, last_action: null },
-      { variant: 'high', status: 'active', tickets_used: 0, tickets_limit: 0, actions_today: 0, pending_approvals: 0, last_action: null },
-    ],
-    emergency_stop: false,
-    paused_all: false,
-  });
-}
-
-export async function pauseVariant(id: string): Promise<PauseResumeResponse> {
-  return apiFetch<PauseResumeResponse>(`/variants/${id}/pause`, {
-    method: 'POST',
-  }, { success: true, variant: id, status: 'paused', message: `${id} paused` });
-}
-
-export async function resumeVariant(id: string): Promise<PauseResumeResponse> {
-  return apiFetch<PauseResumeResponse>(`/variants/${id}/resume`, {
-    method: 'POST',
-  }, { success: true, variant: id, status: 'active', message: `${id} resumed` });
-}
-
-export async function pauseAllVariants(): Promise<EmergencyStopResponse> {
-  return apiFetch<EmergencyStopResponse>('/variants/pause-all', {
-    method: 'POST',
-  }, { success: true, message: 'All variants paused', timestamp: new Date().toISOString() });
-}
-
-export async function emergencyStop(): Promise<EmergencyStopResponse> {
-  return apiFetch<EmergencyStopResponse>('/variants/emergency-stop', {
-    method: 'POST',
-  }, { success: true, message: 'Emergency stop activated', timestamp: new Date().toISOString() });
-}
-
-export async function resumeAllVariants(): Promise<EmergencyStopResponse> {
-  return apiFetch<EmergencyStopResponse>('/variants/resume-all', {
-    method: 'POST',
-  }, { success: true, message: 'All variants resumed', timestamp: new Date().toISOString() });
-}
-
-// Voice recordings
-export async function getVoiceRecordings(): Promise<VoiceRecording[]> {
-  return apiFetch<VoiceRecording[]>('/voice/recordings', {}, []);
-}
-
-export async function getQualityScoreSummary(): Promise<QualityScoreSummary> {
-  return apiFetch<QualityScoreSummary>('/quality/scores/summary', {}, {
-    average_score: 0,
-    total_evaluated: 0,
-    pass_rate: 0,
-    by_variant: {},
-    recent_trend: [],
-  });
-}
-
-export async function getPipelineStats(): Promise<PipelineStats> {
-  return apiFetch<PipelineStats>('/monitoring/pipeline', {}, {
-    total_processed: 0,
-    average_latency_ms: 0,
-    success_rate: 0,
-    nodes_summary: [],
-  });
-}
+export default apiClient;

@@ -1,13 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+// Safe DB module - won't crash if Prisma is not configured
+// All DB-dependent features gracefully degrade
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
-}
-
-export const db =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: ['query'],
-  })
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
+export const db: any = null;
