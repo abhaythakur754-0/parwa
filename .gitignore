@@ -65,3 +65,18 @@ tool-results/
 skills/
 db/
 .next-env.d.ts
+
+# Frontend build artifacts
+parwa/frontend/.next/
+parwa/frontend/node_modules/
+parwa/frontend/tsconfig.tsbuildinfo
+parwa/frontend/.env
+parwa/frontend/.env.production
+parwa/frontend/.env.local
+
+# Root frontend (if any)
+frontend/.next/
+frontend/node_modules/
+
+# Download backup
+download/parwa-work/
