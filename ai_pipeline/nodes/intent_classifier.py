@@ -239,7 +239,9 @@ async def _classify_intent_llm(message: str, *, ticket_id: str = "", variant: st
 async def _classify_intent_with_brain(state: dict[str, Any]) -> tuple[str, float, list[str]]:
     """Classify intent using FrameworkBrain (Phase 5).
 
-    Uses CoT for all complexities, ReAct for medium+.
+    Uses CoT only — intent classification is a categorization task,
+    not a reasoning task. ReAct verification adds unnecessary overhead
+    and can conflict with CoT's step-by-step classification logic.
     Returns (intent_str, confidence, frameworks_used).
     Falls back to rule-based on any failure.
     """
@@ -250,7 +252,7 @@ async def _classify_intent_with_brain(state: dict[str, Any]) -> tuple[str, float
         brain = FrameworkBrain(node="INTENT_CLASSIFIER", state=state)
         result = await brain.think(
             prompt=raw_message,
-            techniques=["chain_of_thought", "react"],
+            techniques=["chain_of_thought"],  # CoT only — classification doesn't need ReAct
             ticket_id=state.get("ticket_id", ""),
             variant=state.get("variant", "parwa"),
         )

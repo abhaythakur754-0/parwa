@@ -203,7 +203,13 @@ class FrameworkBrain:
                 if result.chain:
                     combined_chain.extend(result.chain)
                 if result.output:
-                    combined_output = result.output  # Last technique wins for output
+                    # Use highest-confidence technique's output as primary.
+                    # Previous "last wins" approach caused CoT conclusions
+                    # to be overwritten by lower-priority technique outputs.
+                    # Strict ">" ensures higher-priority techniques keep the
+                    # output when confidence ties (they run first due to sort).
+                    if result.confidence > best_confidence or not combined_output:
+                        combined_output = result.output
                 if result.frameworks_used:
                     combined_frameworks.extend(result.frameworks_used)
                 if result.confidence > best_confidence:
@@ -216,6 +222,10 @@ class FrameworkBrain:
                     "confidence": result.confidence,
                     "token_estimate": result.token_estimate,
                     "error": result.error,
+                    # Forward the technique's own metadata so consumers
+                    # (e.g. kb_retriever) can extract enhanced queries,
+                    # hypothetical documents, broader concepts, etc.
+                    "metadata": result.metadata if result.metadata else {},
                 }
 
                 logger.debug(

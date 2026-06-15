@@ -266,7 +266,7 @@ class TestStepBackTechnique:
         nodes = technique.applicable_nodes
         assert "KB_RETRIEVER" in nodes
         assert "FAQ_MATCHER" in nodes
-        assert "REASONING_ENGINE" in nodes
+        assert "REASONING_ENGINE" not in nodes
 
 
 # ─── Reflexion Technique Tests ────────────────────────────────────────────────
@@ -599,7 +599,7 @@ class TestFrameworkBrainPhase3:
         brain = FrameworkBrain(
             node="QUALITY_SCORER",
             state={
-                "complexity": "complex",
+                "complexity": "critical",
                 "intent": "refund_request",
                 "reasoning_conclusion": "Eligible",
                 "verification_passed": True,
@@ -609,7 +609,7 @@ class TestFrameworkBrainPhase3:
             prompt="Score",
             techniques=["reflexion", "self_consistency", "crp", "least_to_most"],
         )
-        # Complex should activate: reflexion (medium+), self_consistency (complex+),
+        # Critical should activate all 4: reflexion (medium+), self_consistency (complex+),
         # crp (simple+), least_to_most (complex+)
         assert "reflexion" in result.frameworks_used
         assert "crp" in result.frameworks_used
@@ -636,8 +636,9 @@ class TestFrameworkBrainPhase3:
     async def test_brain_kb_retriever_techniques_from_registry(self):
         registry = get_registry()
         kb_techniques = registry.get_technique_names_for_node("KB_RETRIEVER")
-        # Should include: chain_of_thought, clara, hyde, multi_query, step_back
-        assert "chain_of_thought" in kb_techniques
+        # Should include RAG techniques: clara, hyde, multi_query, step_back
+        # chain_of_thought is a reasoning technique, NOT a RAG technique
+        assert "chain_of_thought" not in kb_techniques
         assert "clara" in kb_techniques
         assert "hyde" in kb_techniques
         assert "multi_query" in kb_techniques

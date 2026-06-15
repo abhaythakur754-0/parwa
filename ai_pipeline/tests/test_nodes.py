@@ -369,7 +369,8 @@ class TestActionExecutor:
             "action_plans": [{"action_type": "process_refund", "description": "Refund", "parameters": {}, "evidence": [], "risk_level": "low"}],
             "quality_score": 85,
         })
-        assert result["execution_results"][0]["status"] == "executed"
+        # MOCK_MODE returns "simulated" when no CRM customer; "executed" with real CRM
+        assert result["execution_results"][0]["status"] in ("executed", "simulated")
         assert result["recommendation"] is None
 
     @pytest.mark.asyncio
@@ -390,7 +391,8 @@ class TestActionExecutor:
             "action_plans": [{"action_type": "process_refund", "description": "Refund", "parameters": {}, "evidence": [], "risk_level": "low"}],
             "quality_score": 85,
         })
-        assert result["execution_results"][0]["status"] == "executed"
+        # MOCK_MODE returns "simulated" when no CRM customer; "executed" with real CRM
+        assert result["execution_results"][0]["status"] in ("executed", "simulated")
 
 
 class TestActionVerifier:

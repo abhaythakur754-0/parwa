@@ -158,31 +158,44 @@ async def _retrieve_with_brain(state: dict[str, Any]) -> tuple[list[dict[str, An
 
         frameworks = result.frameworks_used if result.frameworks_used else []
 
-        # v2: Collect enhanced queries from RAG technique metadata
+        # v2: Collect enhanced queries from RAG technique metadata.
+        # Brain now forwards each technique's own metadata under:
+        #   result.metadata["technique_results"][<name>]["metadata"]
+        # This is where HyDE/Multi-Query/StepBack store their enhanced data.
         enhanced_queries = [raw_message]  # Always include original
         technique_meta = result.metadata.get("technique_results", {})
 
         # HyDE provides a hypothetical document → use as search query
-        hyde_meta = technique_meta.get("hyde", {})
-        # The hypothetical doc is in the top-level metadata
-        hyde_hypo_doc = result.metadata.get("hyde_hypothetical_document", "")
+        hyde_entry = technique_meta.get("hyde", {})
+        hyde_own_meta = hyde_entry.get("metadata", {}) if isinstance(hyde_entry, dict) else {}
+        hyde_hypo_doc = hyde_own_meta.get("hypothetical_document", "")
+        # Fallback: try legacy locations for robustness
         if not hyde_hypo_doc:
-            # Try to get it from the technique's own metadata
-            for fw_meta in result.metadata.values():
-                if isinstance(fw_meta, dict) and "hypothetical_document" in fw_meta:
-                    hyde_hypo_doc = fw_meta["hypothetical_document"]
-                    break
+            hyde_hypo_doc = result.metadata.get("hyde_hypothetical_document", "")
+        if not hyde_hypo_doc:
+            for fw_key, fw_val in technique_meta.items():
+                if isinstance(fw_val, dict):
+                    inner = fw_val.get("metadata", {})
+                    if isinstance(inner, dict) and "hypothetical_document" in inner:
+                        hyde_hypo_doc = inner["hypothetical_document"]
+                        break
 
         if hyde_hypo_doc and isinstance(hyde_hypo_doc, str) and len(hyde_hypo_doc) > 20:
             enhanced_queries.append(hyde_hypo_doc)
             logger.debug("kb_retriever: HyDE enhanced query added (%d chars)", len(hyde_hypo_doc))
 
         # Multi-Query provides multiple phrasings → search each
-        mq_queries = []
-        for fw_meta in result.metadata.values():
-            if isinstance(fw_meta, dict) and "queries" in fw_meta:
-                mq_queries = fw_meta["queries"]
-                break
+        mq_entry = technique_meta.get("multi_query", {})
+        mq_own_meta = mq_entry.get("metadata", {}) if isinstance(mq_entry, dict) else {}
+        mq_queries = mq_own_meta.get("queries", [])
+        # Fallback: try legacy locations
+        if not mq_queries:
+            for fw_key, fw_val in technique_meta.items():
+                if isinstance(fw_val, dict):
+                    inner = fw_val.get("metadata", {})
+                    if isinstance(inner, dict) and "queries" in inner:
+                        mq_queries = inner["queries"]
+                        break
         if mq_queries and isinstance(mq_queries, list):
             for q in mq_queries:
                 if isinstance(q, str) and len(q) > 10:
@@ -190,11 +203,17 @@ async def _retrieve_with_brain(state: dict[str, Any]) -> tuple[list[dict[str, An
             logger.debug("kb_retriever: Multi-Query added %d expanded queries", len(mq_queries))
 
         # Step-Back provides a broader concept → search with it
-        sb_concept = ""
-        for fw_meta in result.metadata.values():
-            if isinstance(fw_meta, dict) and "broader_concept" in fw_meta:
-                sb_concept = fw_meta["broader_concept"]
-                break
+        sb_entry = technique_meta.get("step_back", {})
+        sb_own_meta = sb_entry.get("metadata", {}) if isinstance(sb_entry, dict) else {}
+        sb_concept = sb_own_meta.get("broader_concept", "")
+        # Fallback: try legacy locations
+        if not sb_concept:
+            for fw_key, fw_val in technique_meta.items():
+                if isinstance(fw_val, dict):
+                    inner = fw_val.get("metadata", {})
+                    if isinstance(inner, dict) and "broader_concept" in inner:
+                        sb_concept = inner["broader_concept"]
+                        break
         if sb_concept and isinstance(sb_concept, str) and len(sb_concept) > 5:
             enhanced_queries.append(sb_concept)
             logger.debug("kb_retriever: Step-Back added broader concept: '%s'", sb_concept[:60])

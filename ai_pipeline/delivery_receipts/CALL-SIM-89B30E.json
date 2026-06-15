@@ -1,0 +1,10 @@
+{
+  "call_id": "CALL-SIM-89B30E",
+  "channel": "voice",
+  "recipient": "unknown",
+  "reason": "Call customer",
+  "simulated_at": "2026-06-15T15:44:53.707618",
+  "provider": "simulation",
+  "status": "simulated",
+  "note": "This call was NOT actually made. Configure Twilio for real delivery."
+}
