@@ -1,0 +1,92 @@
+[
+  {
+    "url": "https://www.aimagicx.com/blog/best-open-source-ai-agent-frameworks-2026",
+    "name": "The Best Open-Source AI Agent Frameworks in 2026 - AI Magicx",
+    "snippet": "A developer's guide to the top open-source AI agent frameworks in 2026. Compare OpenClaw (280K stars), AutoGen, CrewAI, LangGraph, Mastra, and ...",
+    "host_name": "www.aimagicx.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://alicelabs.ai/en/insights/best-ai-agent-frameworks-2026",
+    "name": "Best AI Agent Frameworks 2026: 7 Production-Tested Rankings",
+    "snippet": "7 AI agent frameworks ranked by production-readiness: LangGraph #1, Claude Agent SDK #2, CrewAI #3, AutoGen, Semantic Kernel, LlamaIndex, ...",
+    "host_name": "alicelabs.ai",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.reddit.com/r/LLMDevs/comments/1i4742r/best_framework_to_build_ai_agents_like_crew_ai",
+    "name": "Best Framework to build AI Agents like (crew Ai, Langchain, AutoGen)",
+    "snippet": "You should try LangGraph, best for multi agent workflows. Also they have a course called Introduction to LangGraph , for learning.",
+    "host_name": "www.reddit.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.langchain.com/resources/ai-agent-frameworks",
+    "name": "The best AI agent frameworks in 2026 - LangChain",
+    "snippet": "This guide compares seven frameworks: LangChain, CrewAI, Microsoft Agent Framework, LlamaIndex Workflows, Google ADK, OpenAI Agents SDK, and Mastra.",
+    "host_name": "www.langchain.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://langfuse.com/blog/2025-03-19-ai-agent-comparison",
+    "name": "Comparing Open-Source AI Agent Frameworks - Langfuse",
+    "snippet": "This post offers an in-depth look at some of the leading open-source AI agent frameworks out there: LangGraph, the OpenAI Agents SDK, Google ADK ...",
+    "host_name": "langfuse.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://pecollective.com/blog/ai-agent-frameworks-compared",
+    "name": "AI Agent Frameworks: LangGraph vs CrewAI vs AutoGen 2026",
+    "snippet": "This comparison covers the three frameworks that matter most in 2026: LangChain (specifically LangGraph for agents), CrewAI, and Microsoft's ...",
+    "host_name": "pecollective.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.linkedin.com/posts/mikegchambers_autogen-googleadk-openaisdk-activity-7437376879831150592-qWTv",
+    "name": "Agent Framework Comparison: Top 9 Frameworks for 2026 - LinkedIn",
+    "snippet": "take a look at the leading agent frameworks in 2026. Nine frameworks made this list. LangGraph as a higher-level harness with built-in task ...",
+    "host_name": "www.linkedin.com",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://developer.ibm.com/articles/awb-comparing-ai-agent-frameworks-crewai-langgraph-and-beeai",
+    "name": "Comparing AI agent frameworks: CrewAI, LangGraph, and BeeAI",
+    "snippet": "Based on official documentation and reliable sources, this article provides a detailed comparison of CrewAI, LangGraph, and IBM's BeeAI frameworks.",
+    "host_name": "developer.ibm.com",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.signadot.com/blog/the-best-ai-agent-frameworks-for-2026",
+    "name": "The Best AI Agent Frameworks for 2026 - Signadot",
+    "snippet": "A comprehensive comparison of the best AI agent frameworks for 2025, including LangChain, LangGraph, CrewAI, AutoGen, PydanticAI, and LlamaIndex ...",
+    "host_name": "www.signadot.com",
+    "rank": 8,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.firecrawl.dev/blog/best-open-source-agent-frameworks",
+    "name": "The best open source frameworks for building AI agents in 2026",
+    "snippet": "Ten open source agent frameworks compared: LangGraph, OpenAI Agents SDK, AutoGen, CrewAI, Google ADK, Dify, Mastra, Smolagents, Semantic ...",
+    "host_name": "www.firecrawl.dev",
+    "rank": 9,
+    "date": "",
+    "favicon": ""
+  }
+]

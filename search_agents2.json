@@ -1,0 +1,92 @@
+[
+  {
+    "url": "https://www.tencentcloud.com/techpedia/141602",
+    "name": "What are the differences between OpenClaw and other AI agents",
+    "snippet": "LangChain is a developer framework. It gives you building blocks — chains, agents, tools, memory modules — that you assemble into a custom application. You ...",
+    "host_name": "www.tencentcloud.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.firecrawl.dev/blog/best-open-source-agent-frameworks",
+    "name": "The best open source frameworks for building AI agents in 2026",
+    "snippet": "The OpenAI Agents SDK is a lightweight Python framework released in March 2025 with over 26,900 GitHub stars and 10.3 million monthly downloads.",
+    "host_name": "www.firecrawl.dev",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://medium.com/@mohit15856/openclaw-for-product-managers-building-products-in-the-ai-agent-era-2026-guide-71d18641200f",
+    "name": "OpenClaw for Product Managers: Building Products in the AI Agent",
+    "snippet": "OpenClaw is an open-source AI agent framework created by Austrian developer Peter Steinberger. ... agentic AI is the norm, not the exception.",
+    "host_name": "medium.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.reddit.com/r/AI_Agents/comments/1qv3zsn/looking_for_realworld_openclaw_agent_setups_whats",
+    "name": "Looking for real-world OpenClaw agent setups (what's actually",
+    "snippet": "I'm exploring agentic workflows for sales/ops and keep seeing OpenClaw mentioned as a way to run more \"full-time AI employees\" on your own ...",
+    "host_name": "www.reddit.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.instaclustr.com/education/agentic-ai/agentic-ai-frameworks-top-10-options-in-2026",
+    "name": "Agentic AI Frameworks: Top 10 Options in 2026 - NetApp Instaclustr",
+    "snippet": "AutoAgent is an open-source, zero-code framework for building and deploying LLM agents using natural language. It allows users to create agents, tools, and ...",
+    "host_name": "www.instaclustr.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://blog.gopenai.com/open-source-agentic-ai-frameworks-a-comprehensive-comparison-for-building-intelligent-workflows-9965244ea4d7",
+    "name": "Open-Source Agentic AI Frameworks: A Comprehensive  - GoPenAI",
+    "snippet": "Description: Microsoft's framework for enabling conversation between multiple AI agents to solve complex tasks through multi-party conversations ...",
+    "host_name": "blog.gopenai.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.reddit.com/r/AISEOInsider/comments/1rsgybd/openclaw_ai_agent_framework_vs_other_ai_systems",
+    "name": "OpenClaw AI Agent Framework vs Other AI Systems - Reddit",
+    "snippet": "The OpenClaw AI agent framework is an open source platform used to build autonomous AI agents that can communicate and automate tasks. What is ...",
+    "host_name": "www.reddit.com",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=f6F7yQUd8rs&vl=en",
+    "name": "Agentic Workflows, new AI models, OpenClaw news & more",
+    "snippet": "We also dive into GitHub's new agentic workflows and Agent HQ, allowing AI ... How Meta Went From Open Source Hero to AI's Biggest Villain. Coding ...",
+    "host_name": "www.youtube.com",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.langflow.org/blog/the-complete-guide-to-choosing-an-ai-agent-framework-in-2025",
+    "name": "The Complete Guide to Choosing an AI Agent Framework in 2025",
+    "snippet": "Choosing an AI agent framework in 2025 is less about picking the “best” tool (if such a thing exists) and more about aligning trade-offs ...",
+    "host_name": "www.langflow.org",
+    "rank": 8,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://langfuse.com/blog/2025-03-19-ai-agent-comparison",
+    "name": "Comparing Open-Source AI Agent Frameworks - Langfuse",
+    "snippet": "This post offers an in-depth look at some of the leading open-source AI agent frameworks out there: LangGraph, the OpenAI Agents SDK, Google ADK ...",
+    "host_name": "langfuse.com",
+    "rank": 9,
+    "date": "",
+    "favicon": ""
+  }
+]

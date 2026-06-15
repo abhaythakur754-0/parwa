@@ -1,0 +1,92 @@
+[
+  {
+    "url": "https://langfuse.com/blog/2025-03-19-ai-agent-comparison",
+    "name": "Comparing Open-Source AI Agent Frameworks - Langfuse",
+    "snippet": "This post offers an in-depth look at some of the leading open-source AI agent frameworks out there: LangGraph, the OpenAI Agents SDK, Google ADK ...",
+    "host_name": "langfuse.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://gurusup.com/blog/best-multi-agent-frameworks-2026",
+    "name": "Best Multi-Agent Frameworks in 2026 - GuruSup",
+    "snippet": "According to Langfuse's comprehensive framework comparison, LangGraph leads in monthly searches with 27,100, while CrewAI follows with 14,800.",
+    "host_name": "gurusup.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.reddit.com/r/LangChain/comments/1jpk1vn/langgraph_vs_crewai_vs_autogen_vs_pydanticai_vs",
+    "name": "Langgraph vs CrewAI vs AutoGen vs PydanticAI vs Agno vs OpenAI",
+    "snippet": "I have seen that AutoGen offers a very very nice learning curve and easy to start, but its flexibility and scalability are really poor, in contrast with ...",
+    "host_name": "www.reddit.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.getmaxim.ai/blog/choosing-the-right-ai-agent-framework-a-comprehensive-guide",
+    "name": "Choosing the Right AI Agent Framework: A Comprehensive Guide",
+    "snippet": "This comprehensive guide examines LangGraph, OpenAI Agents SDK, Smolagents, CrewAI, AutoGen, LlamaIndex Agents, and Pydantic AI - detailing ...",
+    "host_name": "www.getmaxim.ai",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://scalexi.medium.com/comparing-llm-agent-frameworks-langgraph-vs-autogen-vs-crew-ai-part-i-92234321eb6b",
+    "name": "Comparing LLM Agent Frameworks: LangGraph vs AutoGen vs",
+    "snippet": "Research suggests LangGraph offers the best control for complex workflows, while AutoGen and CREW AI are strong for conversational and ...",
+    "host_name": "scalexi.medium.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.firecrawl.dev/blog/best-open-source-agent-frameworks",
+    "name": "The best open source frameworks for building AI agents in 2026",
+    "snippet": "Ten open source agent frameworks compared: LangGraph, OpenAI Agents SDK, AutoGen, CrewAI, Google ADK, Dify, Mastra, Smolagents, Semantic Kernel, ...",
+    "host_name": "www.firecrawl.dev",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=KDiO7Zg2N0E",
+    "name": "Best Multi-Agent Framework in 2025? Full Head-to-Head Comparison!",
+    "snippet": "A complete, no-hype comparison of the top multi-agent frameworks in 2025 — including AutoGen, CrewAI, LangGraph, CAMEL, and more — to help ...",
+    "host_name": "www.youtube.com",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://uvik.net/blog/agentic-ai-frameworks",
+    "name": "Agentic AI Frameworks 2026: LangGraph vs CrewAI vs OpenAI SDK",
+    "snippet": "Quick answer: In 2026, LangGraph is the production standard for stateful, auditable agentic workflows. CrewAI is the fastest path to a working multi-agent ...",
+    "host_name": "uvik.net",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.developersdigest.tech/guides/ai-agent-frameworks-compared",
+    "name": "AI Agent Frameworks Compared: LangGraph vs CrewAI vs Mastra",
+    "snippet": "Deep comparison of the top AI agent frameworks - LangGraph, CrewAI, Mastra, CopilotKit, AutoGen, and Claude Code.",
+    "host_name": "www.developersdigest.tech",
+    "rank": 8,
+    "date": "Jun 10, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://aaronyuqi.medium.com/first-hand-comparison-of-langgraph-crewai-and-autogen-30026e60b563",
+    "name": "First hand comparison of LangGraph, CrewAI and AutoGen - Aaron Yu",
+    "snippet": "I compared developer experience, startup complexity, state management, agent framework adaptability, and more.",
+    "host_name": "aaronyuqi.medium.com",
+    "rank": 9,
+    "date": "",
+    "favicon": ""
+  }
+]
