@@ -153,7 +153,7 @@ export function NotificationBell() {
           {/* Footer */}
           {notifications.length > 10 && (
             <Link
-              href="/dashboard/monitoring"
+              href="/dashboard/notifications"
               className="block text-center text-xs text-orange-400 hover:text-orange-300 py-2.5 border-t border-white/[0.06] transition-colors"
               onClick={() => setIsOpen(false)}
             >
