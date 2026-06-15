@@ -1,0 +1,92 @@
+[
+  {
+    "url": "https://docs.crewai.com/en/concepts/agents",
+    "name": "Agents - CrewAI Documentation",
+    "snippet": "In the CrewAI framework, an Agent is an autonomous unit that can: Perform specific tasks; Make decisions based on its role and goal; Use tools to accomplish ...",
+    "host_name": "docs.crewai.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://community.crewai.com/t/trying-to-understand-crewai-is-this-really-about-agents-or-just-managing-llm-calls/7244",
+    "name": "is this really about agents, or just managing LLM calls? - General",
+    "snippet": "I am currently investigating the best way to integrate this Neutral Witness architecture directly into frameworks like CrewAI to move beyond ...",
+    "host_name": "community.crewai.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=hpY0Wg_s-HU",
+    "name": "Building Autonomous AI Agents with CrewAI and Multi-Agent Systems",
+    "snippet": "In this comprehensive session of AI Summer 2025, the Data Science Institute at Vanderbilt University explores the cutting-edge world of ...",
+    "host_name": "www.youtube.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.meta-intelligence.tech/en/insight-ai-agent-frameworks",
+    "name": "LangGraph vs CrewAI vs AutoGen: AI Agent Framework",
+    "snippet": "Which AI agent framework should you use for production? Compare LangGraph (state graphs), CrewAI (role-based agents), and AutoGen ...",
+    "host_name": "www.meta-intelligence.tech",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://arxiv.org/html/2501.06322v1",
+    "name": "Multi-Agent Collaboration Mechanisms: A Survey of LLMs - arXiv",
+    "snippet": "This work provides an extensive survey of the collaborative aspect of MASs and introduces an extensible framework to guide future research.\nIn an LLM-powered MAS, it is vital for the agents to collaborate with each other, sharing a common objective or set of objectives. Each ...",
+    "host_name": "arxiv.org",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://abvijaykumar.medium.com/multi-agent-system-crew-ai-3773356b8c3e",
+    "name": "Multi-Agent System — Crew.AI - A B Vijay Kumar - Medium",
+    "snippet": "Crew.ai provides a framework for building agents to work together seamlessly, tackling complex tasks with a level of sophistication that mirrors the dynamics ...",
+    "host_name": "abvijaykumar.medium.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/crewaiinc/crewai",
+    "name": "GitHub - crewAIInc/crewAI: Framework for orchestrating role-playing",
+    "snippet": "Framework for orchestrating role-playing, autonomous AI agents. By fostering collaborative intelligence, CrewAI empowers agents to work together seamlessly, ...",
+    "host_name": "github.com",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://docs.crewai.com/en/concepts/collaboration",
+    "name": "Collaboration - CrewAI Documentation",
+    "snippet": "Collaboration in CrewAI enables agents to work together as a team by delegating tasks and asking questions to leverage each other's expertise.",
+    "host_name": "docs.crewai.com",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.ruh.ai/blogs/ai-agent-debate-systems",
+    "name": "AI Agent Debate Systems for Smarter Decisions - Ruh AI",
+    "snippet": "AI agent debate systems improve decision-making by enabling multiple specialized agents to critique, refine, and validate each other's reasoning. This ...",
+    "host_name": "www.ruh.ai",
+    "rank": 8,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://47billion.com/blog/ai-agents-in-production-frameworks-protocols-and-what-actually-works-in-2026",
+    "name": "AI Agents in Production: What Actually Works in 2026 - 47Billion",
+    "snippet": "Every conference talk in 2025 had the same pitch: AI agents will automate everything. Give an LLM some tools, define a goal, and watch it work.",
+    "host_name": "47billion.com",
+    "rank": 9,
+    "date": "",
+    "favicon": ""
+  }
+]

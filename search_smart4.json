@@ -1,0 +1,92 @@
+[
+  {
+    "url": "https://arxiv.org/html/2601.12560v1",
+    "name": "Agentic Artificial Intelligence (AI): Architectures, Taxonomies, and",
+    "snippet": "This paper investigates the architectures that let Large Language Models (LLMs) run complex workflows in software engineering, scientific ...",
+    "host_name": "arxiv.org",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://medium.com/@Micheal-Lanham/self-correcting-agents-are-not-what-you-think-they-are-d19398186373",
+    "name": "Self-Correcting Agents Are Not What You Think They Are - Medium",
+    "snippet": "The Five Architecture Patterns: A practical map of how agents actually detect and fix their own mistakes, from simple self-critique to full tree ...",
+    "host_name": "medium.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.ibm.com/think/topics/ai-agents",
+    "name": "What Are AI Agents? | IBM",
+    "snippet": "AI chatbots use conversational AI techniques such as natural language processing (NLP) to understand user questions and automate responses to them.",
+    "host_name": "www.ibm.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://dl.acm.org/doi/10.1145/3706598.3713760",
+    "name": "Proactive Conversational Agents with Inner Thoughts",
+    "snippet": "We propose that just like humans, rather than merely reacting to turn-taking cues, a proactive AI formulates its own inner thoughts during a conversation.",
+    "host_name": "dl.acm.org",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.sciencedirect.com/science/article/pii/S1566253525006712",
+    "name": "AI Agents vs. Agentic AI: A Conceptual taxonomy, applications and",
+    "snippet": "This review critically distinguishes between AI Agents and Agentic each paradigm including hallucination, brittleness, emergent behavior, and coordination ...",
+    "host_name": "www.sciencedirect.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10081923",
+    "name": "Say what you want, I'm not listening! A conversational self-reflection",
+    "snippet": "We present a conversational social robot behaviour design that draws from psychotherapy research to support individual self-reflection and wellbeing.",
+    "host_name": "pmc.ncbi.nlm.nih.gov",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://link.springer.com/article/10.1007/s10462-025-11422-4",
+    "name": "Agentic AI: a comprehensive survey of architectures, applications",
+    "snippet": "This architecture achieves scalability and complex problem-solving not through a single agent's cognitive complexity, but through the emergent ...",
+    "host_name": "link.springer.com",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=FjTSqzakVYo&vl=en",
+    "name": "Hands-on with AI agents: From scratch to LangGraph - YouTube",
+    "snippet": "As AI agents become central to automating complex tasks and managing multi-step workflows, this hands-on session will equip you with the ...",
+    "host_name": "www.youtube.com",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.walturn.com/insights/what-is-an-ai-agent-a-technical-perspective",
+    "name": "What Is an AI Agent? A Technical Perspective - Walturn",
+    "snippet": "An AI agent is an independent program (or robot) that observes its surroundings and performs actions to accomplish designated tasks.",
+    "host_name": "www.walturn.com",
+    "rank": 8,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.mdpi.com/2673-2688/7/6/219",
+    "name": "Agentic AI: A Perspective on Architecture, Frameworks and  - MDPI",
+    "snippet": "This review examines the evolution and architectural foundations of agentic artificial intelligence (AI), with a focus on collaborative multi-agent systems ...",
+    "host_name": "www.mdpi.com",
+    "rank": 9,
+    "date": "",
+    "favicon": ""
+  }
+]

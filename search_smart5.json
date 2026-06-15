@@ -1,0 +1,92 @@
+[
+  {
+    "url": "https://bibek-poudel.medium.com/how-openclaw-works-understanding-ai-agents-through-a-real-architecture-5d59cc7a4764",
+    "name": "How OpenClaw Works: Understanding AI Agents Through a Real",
+    "snippet": "Its architecture is a clean, open-source implementation of the exact patterns that power every serious AI agent today: the agentic loop, tool ...\nThe architectural concept is a cron-triggered agentic loop: instead of only responding to human input, the agent is periodically woken up and ...",
+    "host_name": "bibek-poudel.medium.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://ppaolo.substack.com/p/openclaw-system-architecture-overview",
+    "name": "OpenClaw Architecture, Explained: How It Works",
+    "snippet": "How OpenClaw works: a deep dive into the self-hosted AI agent platform's architecture. Gateway, runtime, sessions, tools, and multi-channel ...\nOpenClaw follows a hub-and-spoke architecture centered on a single Gateway that acts as the control plane between user inputs (WhatsApp, ...\nIt connects AI models and tools to the messaging apps you already use: WhatsApp, Telegram, Discord, Slack, Signal, iMessage, Microsoft Teams, ...",
+    "host_name": "ppaolo.substack.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://arxiv.org/html/2604.14228v1",
+    "name": "Dive into Claude Code: The Design Space of Today's and Future AI",
+    "snippet": "The agent loop assembles context, calls the Claude model, receives responses that may include tool-use requests, routes those requests through a ...",
+    "host_name": "arxiv.org",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.freecodecamp.org/news/how-to-build-and-secure-a-personal-ai-agent-with-openclaw",
+    "name": "How to Build and Secure a Personal AI Agent with OpenClaw",
+    "snippet": "In this guide, you'll learn how OpenClaw's three-layer architecture processes messages through a seven-stage agentic loop, build a working life ...",
+    "host_name": "www.freecodecamp.org",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.instagram.com/p/DXyNXseil_C",
+    "name": "OpenClaw's Model Context Protocol (MCP) is a game‑changing",
+    "snippet": "Getting started is simple: install OpenClaw, create a schema, register a provider, and run your agent. The protocol handles routing, validation, ...",
+    "host_name": "www.instagram.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://sausheong.com/dissecting-openclaw-733213e9c853",
+    "name": "Dissecting OpenClaw - Sau Sheong",
+    "snippet": "The agent loop runs, reading context, choosing tools, calling the model. A tool call may invoke a markdown skill, reach an MCP server ...\nThe agent loop runs, reading context, choosing tools, calling the model. A tool call may invoke a markdown skill, reach an MCP server through ...\nThe agent loop is the thing that takes an inbound message, turns it into a model run, lets the model call tools, streams output back, persists ...",
+    "host_name": "sausheong.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.reddit.com/r/CustomAI/comments/1qz4anz/running_openclaw_locally_with_mcp_tools_practical",
+    "name": "Running OpenClaw locally with MCP tools (practical setup guide)",
+    "snippet": "You will need an MCP360 account to get started. After creating an account, generate your MCP360 MCP endpoint and keep that URL secure, it ...",
+    "host_name": "www.reddit.com",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=sTjx7IpeBas",
+    "name": "OpenClaw COMPLETE Tutorial - All 12 Concepts You  - YouTube",
+    "snippet": "VPS for OpenClaw (use code BYTEGRAD): http://hostinger.com/bytegradopenclaw (sponsored by Hostinger & ByteGrad gets commission) React ...",
+    "host_name": "www.youtube.com",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://composio.dev/content/the-complete-guide-to-building-mcp-agents",
+    "name": "The complete guide to building MCP Agents - Composio",
+    "snippet": "2. The architecture of MCP Agents. MCP Agents are designed to reason, access tools, use memory and take action, all through the MCP protocol.",
+    "host_name": "composio.dev",
+    "rank": 8,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.meta-intelligence.tech/en/insight-mcp",
+    "name": "MCP (Model Context Protocol) Guide: AI Tool Integration | MI",
+    "snippet": "MCP (Model Context Protocol) is the \"USB-C\" of AI tool integration — a single open protocol that unifies all tool connections, ...",
+    "host_name": "www.meta-intelligence.tech",
+    "rank": 9,
+    "date": "",
+    "favicon": ""
+  }
+]

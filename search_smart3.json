@@ -1,0 +1,92 @@
+[
+  {
+    "url": "https://www.youtube.com/watch?v=E0fQWFNqGgg",
+    "name": "Building Agents And Multi Agents With LangGraph- Part 3 - YouTube",
+    "snippet": "Join our Agentic AI LLMOPS batch starting from 12th July LLMOPS Industry Ready Projects | Comprehensive Online Training ...",
+    "host_name": "www.youtube.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.langchain.com/blog/langgraph-multi-agent-workflows",
+    "name": "LangGraph: Multi-Agent Workflows - LangChain",
+    "snippet": "Build multi-agent AI workflows with LangGraph. Create specialized agents with unique prompts and tools, then connect them for better LLM ...",
+    "host_name": "www.langchain.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://medium.com/cwan-engineering/building-multi-agent-systems-with-langgraph-04f90f312b8e",
+    "name": "Building Multi-Agent Systems with LangGraph - Medium",
+    "snippet": "LangGraph is a library built on top of LangChain that allows you to create stateful, multi-agent applications with Large Language Models (LLMs).",
+    "host_name": "medium.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.reddit.com/r/LangChain/comments/1dogdy8/multiagent_conversational_graph_designs",
+    "name": "Multi-Agent Conversational Graph Designs : r/LangChain - Reddit",
+    "snippet": "It is best to have different agents for different purposes. EG: one agent for docs RAG, one agent for API calls, one agent for SQL queries.",
+    "host_name": "www.reddit.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=4oC1ZKa9-Hs",
+    "name": "Fully local multi-agent systems with LangGraph - YouTube",
+    "snippet": "Following the release of OpenAI's new Agents SDK, we've seen a lot of interest in multi-agent workflows. Here, we discuss two different ...",
+    "host_name": "www.youtube.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://dev.to/benturtle/building-a-multi-agent-research-system-with-langgraph-how-i-taught-three-ai-agents-to-collaborate-2ng6",
+    "name": "Building a Multi-Agent Research System with LangGraph",
+    "snippet": "So I built a system where multiple AI agents collaborate to figure out where to look, go find the information, and synthesize it into a single ...",
+    "host_name": "dev.to",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://ai.plainenglish.io/ai-agents-xii-langgraph-graph-based-framework-b7b74e1fa5df",
+    "name": "AI Agents XII — LangGraph graph-based framework",
+    "snippet": "LangGraph excels at multi-agent architectures by treating each agent as a graph node (or subgraph) and explicitly modeling handoffs. The docs ...",
+    "host_name": "ai.plainenglish.io",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://launchdarkly.com/docs/tutorials/agents-langgraph",
+    "name": "Build a LangGraph Multi-Agent system in 20 Minutes  - LaunchDarkly",
+    "snippet": "Build a working multi-agent system with dynamic configuration in 20 minutes using LangGraph multi-agent workflows, RAG search, and AgentControl.",
+    "host_name": "launchdarkly.com",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://aipractitioner.substack.com/p/scaling-langgraph-agents-parallelization",
+    "name": "Scaling LangGraph Agents: Parallelization, Subgraphs, and Map",
+    "snippet": "What is parallelization in LangGraph? Parallelization in LangGraph means executing multiple nodes simultaneously rather than one after another.",
+    "host_name": "aipractitioner.substack.com",
+    "rank": 8,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://galileo.ai/blog/evaluate-langgraph-multi-agent-telecom",
+    "name": "How to Continuously Improve Your LangGraph Multi-Agent System",
+    "snippet": "A step by step process to continuously improve langgraph agents in production.",
+    "host_name": "galileo.ai",
+    "rank": 9,
+    "date": "",
+    "favicon": ""
+  }
+]

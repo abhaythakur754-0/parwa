@@ -1,0 +1,92 @@
+[
+  {
+    "url": "https://www.youtube.com/watch?v=qrzUM3dJ2Rw",
+    "name": "Building AI Agents at Scale: Open Claw, ClawMax & Multi  - YouTube",
+    "snippet": "... multi-agent systems (state, messaging, recovery) • How agent-to-agent communication is evolving (ACP, A2A, and new protocols) • Security ...",
+    "host_name": "www.youtube.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://bibek-poudel.medium.com/how-openclaw-works-understanding-ai-agents-through-a-real-architecture-5d59cc7a4764",
+    "name": "How OpenClaw Works: Understanding AI Agents Through a Real",
+    "snippet": "The architectural concept is a cron-triggered agentic loop: instead of only responding to human input, the agent is periodically woken up and ...",
+    "host_name": "bibek-poudel.medium.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://bengoertzel.substack.com/p/openclaw-amazing-hands-for-a-brain",
+    "name": "OpenClaw – Amazing Hands for a Brain That Doesn't Yet Exist",
+    "snippet": "It lets AI systems compose tools in novel combinations, execute multi-step workflows, interact with software the way a human user would, and ...",
+    "host_name": "bengoertzel.substack.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://docs.openclaw.ai/concepts/multi-agent",
+    "name": "Multi-agent routing - OpenClaw Docs",
+    "snippet": "Run multiple isolated agents — each with its own workspace, state directory ( agentDir ), and session history — plus multiple channel accounts (e.g. two ...",
+    "host_name": "docs.openclaw.ai",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://podcasts.apple.com/us/podcast/ai-trends-2026-openclaw-agents-reasoning-llms-and/id1116303051?i=1000751830991",
+    "name": "AI Trends 2026: OpenClaw Agents, Reasoning LLMs, and More with",
+    "snippet": "We discuss the shift from raw model scaling to reasoning-focused post-training, inference-time techniques, and better tool integration.",
+    "host_name": "podcasts.apple.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.reddit.com/r/openclaw/comments/1rd9ww5/agents_talking_to_each_other",
+    "name": "Agents talking to each other? : r/openclaw - Reddit",
+    "snippet": "Let the main agent create and spawn subagents that it can delegate tasks to. The subagent gets a detailed description of what to do and reports ...",
+    "host_name": "www.reddit.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://entelligence.ai/blogs/openclaw",
+    "name": "Inside OpenClaw: How a Persistent Al Agent Actually Works",
+    "snippet": "All communication happens via WebSocket protocol, which keeps connections open and allows real-time bidirectional messaging. Session State, ...",
+    "host_name": "entelligence.ai",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://arxiv.org/html/2603.10165v1",
+    "name": "OpenClaw-RL: Train Any Agent Simply by Talking - arXiv",
+    "snippet": "We present OpenClaw-RL, a unified framework that recovers both forms of next-state signal waste for personal agents and general-purpose agents across diverse ...",
+    "host_name": "arxiv.org",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://fedresources.com/openclaw-the-reliable-ai-agent-orchestrator",
+    "name": "OpenClaw: The Reliable AI Agent Orchestrator - FRC",
+    "snippet": "The Planner: This is the reasoning engine. OpenClaw helps structure the way an LLM breaks down a complex goal into smaller, actionable sub-tasks ...",
+    "host_name": "fedresources.com",
+    "rank": 8,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://openclawlaunch.com/guides/openclaw-agent-to-agent",
+    "name": "OpenClaw Agent-to-Agent Communication — Connect Multiple AI",
+    "snippet": "Agent-to-agent communication means multiple AI agents can send messages to each other, share results, and coordinate on tasks — just as people on a team would.",
+    "host_name": "openclawlaunch.com",
+    "rank": 9,
+    "date": "",
+    "favicon": ""
+  }
+]

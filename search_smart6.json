@@ -1,0 +1,92 @@
+[
+  {
+    "url": "https://www.youtube.com/watch?v=4oC1ZKa9-Hs",
+    "name": "Fully local multi-agent systems with LangGraph - YouTube",
+    "snippet": "Following the release of OpenAI's new Agents SDK, we've seen a lot of interest in multi-agent workflows. Here, we discuss two different ...",
+    "host_name": "www.youtube.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.reddit.com/r/LangChain/comments/1dogdy8/multiagent_conversational_graph_designs",
+    "name": "Multi-Agent Conversational Graph Designs : r/LangChain - Reddit",
+    "snippet": "It is best to have different agents for different purposes. EG: one agent for docs RAG, one agent for API calls, one agent for SQL queries.",
+    "host_name": "www.reddit.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.langchain.com/blog/langgraph-multi-agent-workflows",
+    "name": "LangGraph: Multi-Agent Workflows - LangChain",
+    "snippet": "Build multi-agent AI workflows with LangGraph. Create specialized agents with unique prompts and tools, then connect them for better LLM ...",
+    "host_name": "www.langchain.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://medium.com/@timarkanta.sharma/architecting-multi-agent-systems-with-langgraph-patterns-trade-offs-and-real-world-design-ba8c535c6b35",
+    "name": "Architecting Multi-Agent Systems with LangGraph: Patterns, Trade",
+    "snippet": "Think of LangGraph less as “a library for building agents” and more as a workflow orchestration engine where the nodes happen to be LLM-powered.",
+    "host_name": "medium.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://docs.langchain.com/oss/python/langgraph/use-subgraphs",
+    "name": "Subgraphs - Docs by LangChain",
+    "snippet": "This guide explains the mechanics of using subgraphs. A subgraph is a graph that is used as a node in another graph. Subgraphs are useful for:.\nNo wrapper function is needed—the subgraph reads from and writes to the parent's state channels automatically. For example, in multi-agent systems, the agents ...",
+    "host_name": "docs.langchain.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=WTr6mHTw5cM",
+    "name": "Understanding multi-agent handoffs - YouTube",
+    "snippet": "Here, we explain the inner workings of handoffs in multi-agent systems using LangGraph Swarm. This show how specialized agents (like flight ...",
+    "host_name": "www.youtube.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/microsoft/autogen/discussions/7144",
+    "name": "Handling shared state across multi-agent conversations in AutoGen",
+    "snippet": "To resolve this issue, I have been developing a mechanism where agents would operate from a common shared specification/state, instead of just working from ...",
+    "host_name": "github.com",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://aipractitioner.substack.com/p/scaling-langgraph-agents-parallelization",
+    "name": "Scaling LangGraph Agents: Parallelization, Subgraphs, and Map",
+    "snippet": "✓ Subgraphs enable modular multi-agent architectures with isolated or shared state: Use shared state for seamless communication between agents ...",
+    "host_name": "aipractitioner.substack.com",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://blog.mohitnagaraj.in/blog/202602/Building_Multi_Agent_Systems_With_LangGraph",
+    "name": "Building Multi-Agent Systems with LangGraph | Mohit's blog",
+    "snippet": "Multi-step, stateful, branching, sometimes loops back to collect more evidence when the first pass comes up short. Exactly the kind of thing ...",
+    "host_name": "blog.mohitnagaraj.in",
+    "rank": 8,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://galileo.ai/blog/evaluate-langgraph-multi-agent-telecom",
+    "name": "How to Continuously Improve Your LangGraph Multi-Agent System",
+    "snippet": "A step by step process to continuously improve langgraph agents in production.",
+    "host_name": "galileo.ai",
+    "rank": 9,
+    "date": "",
+    "favicon": ""
+  }
+]
