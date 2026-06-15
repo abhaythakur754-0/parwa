@@ -116,9 +116,21 @@ async def _reason_with_brain(state: dict[str, Any]) -> tuple[list[str], str, lis
         from parwa.frameworks.brain import FrameworkBrain
 
         brain = FrameworkBrain(node="REASONING_ENGINE", state=state)
+
+        # Request reasoning techniques based on what's needed
+        # CoT: always runs (baseline), ReAct: medium+ (data verification),
+        # ToT: complex+ (multi-path), UoT: critical (uncertainty brake)
+        complexity = state.get("complexity", "simple")
+        if complexity == "critical":
+            techniques = ["chain_of_thought", "react", "tree_of_thoughts", "uncertainty_of_thought"]
+        elif complexity == "complex":
+            techniques = ["chain_of_thought", "react", "tree_of_thoughts"]
+        else:
+            techniques = ["chain_of_thought", "react"]
+
         result = await brain.think(
             prompt=state.get("raw_message", ""),
-            techniques=["chain_of_thought", "react", "uncertainty_of_thought"],
+            techniques=techniques,
             ticket_id=state.get("ticket_id", ""),
             variant=state.get("variant", "parwa"),
         )
@@ -164,7 +176,8 @@ async def reasoning_engine(state: dict[str, Any]) -> dict[str, Any]:
       - Uses FrameworkBrain to select techniques based on complexity
       - Simple: CoT only
       - Medium: CoT + ReAct
-      - Complex/Critical: CoT + ReAct + UoT
+      - Complex: CoT + ReAct + ToT
+      - Critical: CoT + ReAct + ToT + UoT
       - Falls back to rule-based reasoning on any FrameworkBrain failure
 
     Reads: raw_message, intent, faq_match, kb_results, integration_data, complexity

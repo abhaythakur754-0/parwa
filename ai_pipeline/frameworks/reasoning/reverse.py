@@ -48,6 +48,9 @@ class ReverseThinkingTechnique(BaseTechnique):
 
     @property
     def applicable_nodes(self) -> list[str]:
+        # REVERSE_THINKER uses think_single() — primary node
+        # ACTION_VERIFIER uses think() — traces actions back to evidence
+        # QUALITY_SCORER uses think() — validates conclusion traceability
         return [
             "REVERSE_THINKER",
             "ACTION_VERIFIER",

@@ -1,27 +1,26 @@
 ---
 Task ID: 1
-Agent: Main Agent (Super Z)
-Task: Unify variant architecture — same brain, different permissions + connect learning
+Agent: Main Agent
+Task: Fix all 3 technique activation issues, optimize nodes, create tests, market research
 
 Work Log:
-- Explored entire codebase: 600+ files, 25 AI techniques, 3 variant graphs
-- Found existing variant_engine/unified_graph.py (32 nodes) from previous session
-- Created variant_permissions.py (enhanced permission system with TaskType enum)
-- Created permission_aware_nodes.py (node wrappers for task permission checks)
-- Updated variant_router.py — ALL variants now go through ALL nodes (no skipping!)
-- Created unified_parwa_graph.py (27-node graph using High Parwa nodes)
-- Fixed tier_permissions.py: Mini can now escalate to human, High can do strategic decisions
-- Verified all 25 AI techniques are registered and available
-- Verified learning pipeline: MetaLearner + DSPy + Reflexion connected for ALL variants
-- Verified unified graph builds successfully with 32 nodes
+- Read and analyzed all pipeline files (brain.py, kb_retriever.py, reasoning_engine.py, action_planner.py, etc.)
+- Verified Fix 1 (priority-based selection) was already implemented from previous session
+- Verified Fix 2 (RAG query enhancement) was already implemented from previous session
+- Implemented Fix 3a: Added FrameworkBrain to ACTION_VERIFIER with Reverse Thinking + CoT + ReAct
+- Implemented Fix 3b: Cleaned up dead applicable_nodes (removed PREDICTION_ENGINE from ToT, ACTION_EXECUTOR from ReAct)
+- Implemented Fix 3c: Optimized graph routing — medium tickets skip ToT/GST, go directly to action_planner after reverse_thinker
+- Updated REASONING_ENGINE to request ToT for complex tickets (was missing before)
+- Added ToT to PROACTIVE_CHECKER for complex tickets
+- Updated pipeline flow docstring in graph.py
+- Fixed outdated test in test_frameworks.py (hard cap of 2 → priority-based max of 4)
+- Created test_technique_activation_fix.py with 22 tests (all passing)
+- Ran full test suite: 22/22 new tests pass, 95/97 existing tests pass (2 pre-existing failures unrelated to changes)
+- Conducted market research on AI agent frameworks
 
 Stage Summary:
-- ALL 3 variants (Mini/Pro/High) now use the SAME 32-node pipeline
-- The ONLY difference is task permissions (what they can DO, not what they can THINK)
-- 25 AI techniques active for ALL variants (CoT, ReAct, ToT, UoT, GST, etc.)
-- Learning loop connected: MetaLearner learns optimal combos, DSPy auto-optimizes prompts
-- Mini: Can't refund/cancel/compensate, but CAN think about them and escalate
-- Pro: Can refund up to $100, handle cancellations, but needs approval for large amounts
-- High: Full authority on everything, no approval needed except extreme cases
-- Inter-node communication: node_comm_bus enabled in existing unified graph
-- New nodes: self_healing_loop, maker_llm_validator, loophole_check, auto_fix, refund_preview_batch
+- All 3 technique activation fixes implemented and verified
+- ACTION_VERIFIER now uses FrameworkBrain (was the biggest gap)
+- Graph routing optimized: Simple→action_planner, Medium→reverse→action_planner, Complex→reverse→ToT→GST→action_planner
+- 22 new tests created covering all fixes + complicated tokens + variant observation
+- Market research shows 22-33 nodes is at the high end; industry standard is 5-15; subgraph decomposition recommended

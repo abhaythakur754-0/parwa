@@ -48,11 +48,13 @@ class TreeOfThoughtsTechnique(BaseTechnique):
 
     @property
     def applicable_nodes(self) -> list[str]:
+        # TREE_OF_THOUGHTS uses think_single() — primary node
+        # REASONING_ENGINE requests ToT as a candidate via think() for complex tickets
+        # PROACTIVE_CHECKER could use ToT for multi-path proactive analysis
         return [
             "TREE_OF_THOUGHTS",
             "REASONING_ENGINE",
             "PROACTIVE_CHECKER",
-            "PREDICTION_ENGINE",
         ]
 
     @property

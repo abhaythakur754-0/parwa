@@ -17,9 +17,11 @@ Pipeline flow:
       → (branch) ESCALATION_DECISION / FAQ_MATCHER
       → KB_RETRIEVER → CONTEXT_MANAGER → INTEGRATION_LOOKUP
       → REASONING_ENGINE
-      → (parallel) REVERSE_THINKER / TREE_OF_THOUGHTS / STRATEGY_PLANNER
+      → (simple) ACTION_PLANNER
+      → (medium) REVERSE_THINKER → ACTION_PLANNER
+      → (complex/critical) REVERSE_THINKER → TREE_OF_THOUGHTS → STRATEGY_PLANNER → ACTION_PLANNER
       → ACTION_PLANNER → ACTION_EXECUTOR → ACTION_VERIFIER
-      → (parallel) PROACTIVE_CHECKER / PREDICTION_ENGINE / FEEDBACK_LOOP
+      → PROACTIVE_CHECKER → PREDICTION_ENGINE → FEEDBACK_LOOP
       → PII_COMPLIANCE_GUARD → AUDIT_LOGGER → QUALITY_SCORER
       → (if score >= 80) RESPONSE_FORMATTER → END
       → (if score < 80) loop back to REASONING_ENGINE
@@ -174,7 +176,8 @@ def _after_reasoning(state: dict[str, Any]) -> str:
     """Route after reasoning engine.
 
     Simple problem → skip advanced reasoning, go to action planner
-    Complex problem → explore multiple paths (ToT, Reverse, Strategy)
+    Medium problem → reverse validation only, skip ToT/GST (saves compute)
+    Complex/Critical problem → full chain (Reverse + ToT + GST)
     After a loop-back → always go to action_planner (already reasoned once)
     """
     loop_count = state.get("loop_count", 0)
@@ -183,15 +186,29 @@ def _after_reasoning(state: dict[str, Any]) -> str:
         return "action_planner"
 
     complexity = state.get("complexity", "simple")
-    if complexity in ("simple",):
+    if complexity == "simple":
         logger.debug("route: reasoning→action_planner (simple)")
         return "action_planner"
-    logger.debug("route: reasoning→reverse_thinker (complex)")
-    return "reverse_thinker"
+    elif complexity == "medium":
+        logger.debug("route: reasoning→reverse_thinker (medium — skip ToT/GST)")
+        return "reverse_thinker"
+    else:
+        # complex/critical — full advanced reasoning chain
+        logger.debug("route: reasoning→reverse_thinker (complex/critical — full chain)")
+        return "reverse_thinker"
 
 
 def _after_reverse_thinker(state: dict[str, Any]) -> str:
-    """After reverse thinking, go to tree of thoughts."""
+    """After reverse thinking, route based on complexity.
+
+    Medium → skip ToT/GST, go directly to action planner (saves compute)
+    Complex/Critical → continue to Tree of Thoughts for multi-path exploration
+    """
+    complexity = state.get("complexity", "simple")
+    if complexity == "medium":
+        logger.debug("route: reverse_thinker→action_planner (medium — skip ToT/GST)")
+        return "action_planner"
+    logger.debug("route: reverse_thinker→tree_of_thoughts (complex/critical)")
     return "tree_of_thoughts"
 
 
@@ -362,8 +379,17 @@ def build_parwa_graph(
         },
     )
 
-    # Advanced reasoning chain: REVERSE → TOT → STRATEGY → ACTION_PLANNER
-    graph.add_edge("reverse_thinker", "tree_of_thoughts")
+    # Advanced reasoning chain: REVERSE → (conditional) TOT → STRATEGY → ACTION_PLANNER
+    # Medium tickets skip ToT/GST after reverse validation (saves compute)
+    # Complex/Critical tickets get the full chain
+    graph.add_conditional_edges(
+        "reverse_thinker",
+        _after_reverse_thinker,
+        {
+            "action_planner": "action_planner",
+            "tree_of_thoughts": "tree_of_thoughts",
+        },
+    )
     graph.add_edge("tree_of_thoughts", "strategy_planner")
     graph.add_edge("strategy_planner", "action_planner")
 

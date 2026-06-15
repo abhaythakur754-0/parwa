@@ -197,7 +197,11 @@ class TestFrameworkBrain:
 
     @pytest.mark.asyncio
     async def test_brain_critical_complexity_activates_all(self):
-        """Critical complexity activates techniques, but limited to MAX_TECHNIQUES_PER_NODE=2."""
+        """Critical complexity activates up to 4 techniques (priority-based selection v2).
+
+        Before Fix 1: Hard cap of 2 meant UoT was always cut.
+        After Fix 1: Priority-based selection allows up to 4 techniques on critical.
+        """
         brain = FrameworkBrain(
             node="REASONING_ENGINE",
             state={"complexity": "critical", "intent": "complaint"},
@@ -208,8 +212,11 @@ class TestFrameworkBrain:
         )
         assert "chain_of_thought" in result.frameworks_used
         assert "react" in result.frameworks_used
-        # Max 2 techniques per node (rate limit for API reliability)
-        assert len(result.frameworks_used) <= 2
+        # v2: Critical tickets can activate up to 4 techniques (priority-based)
+        # UoT (critical-only) now correctly activates on critical tickets
+        assert "uncertainty_of_thought" in result.frameworks_used, \
+            "UoT must activate on critical tickets (Fix 1)"
+        assert len(result.frameworks_used) <= 4
 
     @pytest.mark.asyncio
     async def test_brain_no_techniques_for_wrong_node(self):

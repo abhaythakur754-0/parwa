@@ -83,9 +83,17 @@ async def _check_proactive_with_brain(state: dict[str, Any]) -> tuple[list[dict]
         from parwa.frameworks.brain import FrameworkBrain
 
         brain = FrameworkBrain(node="PROACTIVE_CHECKER", state=state)
+
+        # Use DynamicContext for all tickets, ToT for complex (multi-path proactive analysis)
+        complexity = state.get("complexity", "simple")
+        if complexity in ("complex", "critical"):
+            techniques = ["dynamic_context", "tree_of_thoughts"]
+        else:
+            techniques = ["dynamic_context"]
+
         result = await brain.think(
             prompt=raw_message,
-            techniques=["dynamic_context"],
+            techniques=techniques,
             ticket_id=state.get("ticket_id", ""),
             variant=state.get("variant", "parwa"),
         )

@@ -49,10 +49,13 @@ class ReactTechnique(BaseTechnique):
 
     @property
     def applicable_nodes(self) -> list[str]:
+        # REASONING_ENGINE uses think() — primary node for ReAct
+        # ACTION_PLANNER uses think() — verifies action plan against data
+        # ACTION_VERIFIER uses think() — verify actions against real data
+        # QUALITY_SCORER uses think() — consistency check against data
         return [
             "REASONING_ENGINE",
             "ACTION_PLANNER",
-            "ACTION_EXECUTOR",
             "ACTION_VERIFIER",
             "QUALITY_SCORER",
         ]
