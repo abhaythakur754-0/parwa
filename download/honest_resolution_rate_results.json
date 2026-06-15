@@ -1,0 +1,127 @@
+{
+  "timestamp": "2026-06-15T18:41:13Z",
+  "method": "real_llm_zai_sdk_glm4_plus_synchronous",
+  "total_tickets": 10,
+  "total_llm_calls": 40,
+  "metrics": {
+    "intent_accuracy": 30.0,
+    "quality_pass_rate": 30.0,
+    "fully_resolved_rate": 10.0,
+    "partially_resolved_rate": 20.0,
+    "true_resolution_rate": 0.0,
+    "industry_comparable_rate": 30.0,
+    "containment_rate": 20.0
+  },
+  "per_ticket": [
+    {
+      "id": 1,
+      "category": "shipping",
+      "expected": "shipping",
+      "predicted": "shipping",
+      "intent_correct": true,
+      "quality": 20.0,
+      "resolution": "partially_resolved",
+      "response": "Your laptop order should arrive within 3-5 business days. Please provide your order number so I can ",
+      "latency_s": 37.3
+    },
+    {
+      "id": 2,
+      "category": "refund",
+      "expected": "refund",
+      "predicted": "refund",
+      "intent_correct": true,
+      "quality": 95.0,
+      "resolution": "partially_resolved",
+      "response": "We can process a refund for your damaged headphones. Please provide your order number so we can assi",
+      "latency_s": 37.5
+    },
+    {
+      "id": 3,
+      "category": "billing",
+      "expected": "billing",
+      "predicted": "billing",
+      "intent_correct": true,
+      "quality": 95.0,
+      "resolution": "not_resolved",
+      "response": "I apologize for the double charge. I'll immediately investigate and process a refund for the duplica",
+      "latency_s": 45.7
+    },
+    {
+      "id": 11,
+      "category": "technical",
+      "expected": "technical",
+      "predicted": "",
+      "intent_correct": false,
+      "quality": 50.0,
+      "resolution": "not_resolved",
+      "response": "",
+      "latency_s": 36.2
+    },
+    {
+      "id": 16,
+      "category": "cancellation",
+      "expected": "cancellation",
+      "predicted": "",
+      "intent_correct": false,
+      "quality": 50.0,
+      "resolution": "not_resolved",
+      "response": "",
+      "latency_s": 36.2
+    },
+    {
+      "id": 19,
+      "category": "shipping",
+      "expected": "shipping",
+      "predicted": "",
+      "intent_correct": false,
+      "quality": 50.0,
+      "resolution": "not_resolved",
+      "response": "",
+      "latency_s": 36.2
+    },
+    {
+      "id": 32,
+      "category": "billing",
+      "expected": "billing",
+      "predicted": "",
+      "intent_correct": false,
+      "quality": 50.0,
+      "resolution": "not_resolved",
+      "response": "",
+      "latency_s": 36.2
+    },
+    {
+      "id": 35,
+      "category": "technical",
+      "expected": "technical",
+      "predicted": "",
+      "intent_correct": false,
+      "quality": 50.0,
+      "resolution": "not_resolved",
+      "response": "",
+      "latency_s": 36.2
+    },
+    {
+      "id": 38,
+      "category": "legal_threat",
+      "expected": "escalation",
+      "predicted": "",
+      "intent_correct": false,
+      "quality": 50.0,
+      "resolution": "not_resolved",
+      "response": "",
+      "latency_s": 36.2
+    },
+    {
+      "id": 40,
+      "category": "general",
+      "expected": "general",
+      "predicted": "",
+      "intent_correct": false,
+      "quality": 95.0,
+      "resolution": "fully_resolved",
+      "response": "We're open Monday through Friday from 9 AM to 5 PM. We're closed on weekends and holidays.",
+      "latency_s": 78.5
+    }
+  ]
+}
