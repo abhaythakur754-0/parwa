@@ -14,7 +14,7 @@ import {
   Mail,
   Users,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 import { cn } from '@/lib/utils';
 import { userDetailsApi, getErrorMessage } from '@/lib/api';
 import { Industry, CompanySize, UserDetails } from '@/types/onboarding';

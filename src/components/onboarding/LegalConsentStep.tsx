@@ -12,7 +12,7 @@ import {
   Loader2,
   X,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 import { onboardingApi, getErrorMessage } from '@/lib/api';
 import { cn } from '@/lib/utils';
 

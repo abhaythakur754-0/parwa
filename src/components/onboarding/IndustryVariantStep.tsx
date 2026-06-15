@@ -13,7 +13,7 @@ import {
   Crown,
   Loader2,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 import { cn } from '@/lib/utils';
 import type { ParwaIndustry } from '@/lib/integration-catalog';
 import { VARIANT_PRICES, VARIANT_LIMITS, VARIANT_AI_INFO } from '@/lib/pricing-config';

@@ -22,7 +22,7 @@ import {
   X,
   Ticket,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 import { cn } from '@/lib/utils';
 import { openCheckoutWithItems, getPaddleInstance, VARIANT_PRICE_IDS } from '@/lib/paddle';
 import {

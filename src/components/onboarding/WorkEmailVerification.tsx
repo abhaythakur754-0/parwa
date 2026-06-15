@@ -4,7 +4,7 @@ import React from 'react';
 import { Mail, CheckCircle, AlertCircle, Send, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { userDetailsApi, getErrorMessage } from '@/lib/api';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 
 interface WorkEmailVerificationProps {
   workEmail: string;

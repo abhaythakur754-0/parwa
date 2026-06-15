@@ -5,7 +5,7 @@ import {
   Loader2, Upload, FileText, CheckCircle2, RefreshCw, Trash2, FileUp,
   AlertTriangle, CloudOff,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 
 interface Document {
   id: string;

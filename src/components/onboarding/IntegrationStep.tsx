@@ -21,7 +21,7 @@ import {
   Sparkles,
   Search,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 import { cn } from '@/lib/utils';
 import {
   INTEGRATION_CATALOG,

@@ -18,7 +18,7 @@ import {
   Zap,
   AlertTriangle,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 import { integrationsApi, getErrorMessage } from '@/lib/api';
 import { cn } from '@/lib/utils';
 

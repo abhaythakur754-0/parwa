@@ -15,7 +15,7 @@ import {
   RefreshCw,
   X,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 import { knowledgeApi, onboardingApi, getErrorMessage } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { KnowledgeDocument, DocumentStatus } from '@/types/onboarding';

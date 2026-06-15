@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trophy, ArrowRight, Sparkles } from 'lucide-react';
 import { onboardingApi, getErrorMessage } from '@/lib/api';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 
 interface FirstVictoryCelebrationProps {
   aiName: string;

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Loader2, Bot, CheckCircle2, Sparkles, Phone } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 import type { AITone, AIResponseStyle } from '@/types/onboarding';
 
 const TONE_OPTIONS: Array<{ value: AITone; label: string; description: string }> = [
