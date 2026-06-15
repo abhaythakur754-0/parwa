@@ -44,3 +44,28 @@ Stage Summary:
   triggered TDZ errors on the 'ee' variable (the minified Toaster component)
 - FIX: All static imports replaced with @/lib/dynamic-toast (dynamic import wrapper)
 - react-hot-toast now ONLY loads lazily - never part of initial page evaluation
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Nuclear fix - completely remove react-hot-toast from production build
+
+Work Log:
+- Previous dynamic import approach STILL caused TDZ errors on Vercel
+- Even with dynamic import, react-hot-toast was still bundled into chunks by Turbopack
+- The ESM module evaluation of react-hot-toast was the root cause of 'ee' TDZ error
+- Rewrote @/lib/dynamic-toast.ts as a completely self-contained toast system
+  using only React + ReactDOM (zero external dependencies)
+- Replaced ClientToaster.tsx to no longer import react-hot-toast
+- Verified: react-hot-toast is COMPLETELY ABSENT from all 69 production chunks
+- E2E tested with Playwright: 0 TDZ errors across all 7 step chunks
+- Both simple and deep E2E tests pass with zero errors
+- Pushed to GitHub: commit 60e8ed48
+
+Stage Summary:
+- ROOT CAUSE CONFIRMED: react-hot-toast ESM module evaluation causes TDZ errors
+- NUCLEAR FIX: Completely eliminated react-hot-toast from the production build
+- Custom toast implementation in @/lib/dynamic-toast.ts (no external deps)
+- ClientToaster.tsx is now a no-op (toast rendering handled by dynamic-toast)
+- Build verification: zero react-hot-toast references in any chunk
+- E2E verification: zero TDZ errors on all pages and all step chunks
