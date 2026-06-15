@@ -43,7 +43,7 @@ import {
   Calculator,
   PiggyBank,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 
 // ── Types ──────────────────────────────────────────────────────────
 

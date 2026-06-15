@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 import {
   useTicketStore,
   CATEGORY_LABELS,

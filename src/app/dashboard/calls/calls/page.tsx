@@ -21,7 +21,7 @@ import { CallDetailPanel } from '@/components/dashboard/CallDetailPanel';
 import { CallHistoryRow } from '@/components/dashboard/CallHistoryRow';
 import { VoiceConfigCard } from '@/components/dashboard/VoiceConfigCard';
 import type { VoiceCall } from '@/types/voice';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 
 export default function CallsDashboardPage() {
   const {

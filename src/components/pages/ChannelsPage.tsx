@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 import { cn } from '@/lib/utils';
 import type { ChannelType } from '@/types/analytics';
 

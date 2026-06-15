@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, Lock, ArrowLeft, CheckCircle, Eye, EyeOff } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 import axios from 'axios';
 
 // Use relative URLs so requests go through our Next.js proxy routes

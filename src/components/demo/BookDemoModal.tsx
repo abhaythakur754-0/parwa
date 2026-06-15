@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { X, Calendar, Building2, Briefcase, Clock, MessageSquare, Send, Loader2, CheckCircle } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 
 interface BookDemoModalProps {
   isOpen: boolean;

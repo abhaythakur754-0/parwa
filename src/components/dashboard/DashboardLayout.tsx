@@ -23,7 +23,7 @@ import ConnectionStatus from '@/components/ConnectionStatus';
 import { SocketProvider } from '@/providers/SocketProvider';
 import { useNotificationStore } from '@/lib/notification-store';
 import { useApprovalStore } from '@/lib/approval-store';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 
 // ── Error Boundary for SocketProvider ────────────────────────────────
 

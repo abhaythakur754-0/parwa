@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, ArrowLeft } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 
 import { SignupForm, SignupFormData } from '@/components/auth/SignupForm';
 import { SocialLogin } from '@/components/auth/SocialLogin';

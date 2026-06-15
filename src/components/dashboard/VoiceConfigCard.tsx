@@ -27,7 +27,7 @@ import {
 import { cn } from '@/lib/utils';
 import { voiceApi } from '@/lib/voice-api';
 import type { VoiceChannelConfig, NumberSource, GreetingStyle } from '@/types/voice';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 
 interface VoiceConfigCardProps {
   open: boolean;

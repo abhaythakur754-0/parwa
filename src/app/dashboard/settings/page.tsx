@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useVariant } from '@/hooks/useVariant';
 import { LockedFeature } from '@/components/LockedFeature';

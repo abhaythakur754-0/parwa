@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { SignupForm } from '@/components/auth/SignupForm';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 
 /**
  * SignupPage — Registration page with branding and signup form.

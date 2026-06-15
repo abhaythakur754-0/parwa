@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 import { useAuth } from '@/hooks/useAuth';
 import {
   WelcomeCard,

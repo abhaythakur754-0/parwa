@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { LoginForm } from '@/components/auth/LoginForm';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 
 /**
  * LoginPage — Split layout with branding panel and login form.

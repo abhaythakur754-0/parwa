@@ -7,7 +7,7 @@ import {
   Loader2, Mail, ArrowLeft, CheckCircle, Lock, Eye, EyeOff,
   ShieldCheck, KeyRound, RefreshCw,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 
 // ─── Step Types ──────────────────────────────────────────────────────────────
 

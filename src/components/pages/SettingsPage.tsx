@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 
 export default function SettingsPage() {
   const [companyName, setCompanyName] = useState('Demo Corp');

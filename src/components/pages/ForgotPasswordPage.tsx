@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { Mail, ArrowLeft, Loader2 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 
 /**
  * ForgotPasswordPage — Password reset request page.

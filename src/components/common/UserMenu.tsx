@@ -33,7 +33,7 @@ import {
   CreditCard,
   X,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 
 interface UserMenuProps {
   /** Whether to show compact version (for ChatHeader) */

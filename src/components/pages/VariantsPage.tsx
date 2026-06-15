@@ -12,7 +12,7 @@ import {
   PRIORITY_LABELS,
   type TicketVariant,
 } from '@/lib/ticket-store';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 
 // ── Variant Config Modal ────────────────────────────────────────────
 

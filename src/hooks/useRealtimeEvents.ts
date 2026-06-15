@@ -22,7 +22,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 import { socketClient } from '@/lib/socket-client';
 
 // ── Store Imports ───────────────────────────────────────────────────

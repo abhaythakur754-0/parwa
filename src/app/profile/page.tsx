@@ -41,7 +41,7 @@ import {
   BarChart3,
   Lock,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 
 export default function ProfilePage() {
   const router = useRouter();

@@ -22,7 +22,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from '@/lib/dynamic-toast';
 import { socketClient, ConnectionState } from '@/lib/socket-client';
 import { useAuth } from '@/hooks/useAuth';
 import { useRealtimeEvents } from '@/hooks/useRealtimeEvents';
