@@ -32,6 +32,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/lib/backend-url';
 const BACKEND_URL = getBackendUrl();
 
+// ── Knowledge Engine (smarter fallback than keyword matching) ────
+import { JarvisAIEngine } from '@/lib/jarvis-ai-engine';
+const knowledgeEngine = JarvisAIEngine.getInstance();
+
 /**
  * Try to proxy a request to the backend FastAPI server.
  * Returns the Response on success, or null if backend is unavailable / returned an error.
@@ -822,7 +826,7 @@ async function getAIResponse(userMessage: string, session: any): Promise<string>
   }
   messages.push({ role: 'user', content: userMessage });
 
-  // 3. Call AI with smart routing (z-ai SDK → Google → Cerebras → Groq → keyword fallback)
+  // 3. Call AI with smart routing (z-ai SDK → NVIDIA → Google → Cerebras → Groq)
   let aiReply = await callAI(messages);
   
   // 4. Post-process: Force bullet-point format if AI returned paragraphs
@@ -831,7 +835,18 @@ async function getAIResponse(userMessage: string, session: any): Promise<string>
     return aiReply;
   }
 
-  // 5. Keyword fallback (always works) — also enforce bullet format
+  // 5. Knowledge engine fallback (uses 10-file KB for intelligent responses)
+  try {
+    const kbResponse = await knowledgeEngine.generateResponse(userMessage, session);
+    if (kbResponse && kbResponse.trim().length > 10) {
+      console.log('[Jarvis] Knowledge engine provided fallback response');
+      return forceBulletFormat(kbResponse);
+    }
+  } catch (err) {
+    console.warn('[Jarvis] Knowledge engine fallback failed:', (err instanceof Error ? err.message : String(err))?.slice(0, 100));
+  }
+
+  // 6. Keyword fallback (always works) — also enforce bullet format
   const fallbackReply = getKeywordResponse(userMessage, session);
   return forceBulletFormat(fallbackReply);
 }
@@ -2082,6 +2097,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       // Call AI with CC prompt
       let aiContent = await callAI(aiMessages);
+      if (!aiContent) {
+        // Try knowledge engine fallback first
+        try {
+          const kbResponse = await knowledgeEngine.generateResponse(content, ccSession);
+          if (kbResponse && kbResponse.trim().length > 10) {
+            aiContent = kbResponse;
+          }
+        } catch (err) {
+          console.warn('[Jarvis CC] Knowledge engine fallback failed:', (err instanceof Error ? err.message : String(err))?.slice(0, 100));
+        }
+      }
       if (!aiContent) {
         aiContent = getCCKeywordResponse(content, ccSession);
       }

@@ -25,6 +25,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/lib/backend-url';
 const BACKEND_URL = getBackendUrl();
 
+// ── Knowledge Engine (smarter fallback than keyword matching) ────
+import { JarvisAIEngine } from '@/lib/jarvis-ai-engine';
+const knowledgeEngine = JarvisAIEngine.getInstance();
+
 /**
  * Extract auth token from cookies (parwa_at) and/or Authorization header.
  * Returns a headers object suitable for forwarding.
@@ -743,7 +747,23 @@ async function getLocalAIResponse(
     );
   }
 
-  // Keyword fallback
+  // Knowledge engine fallback (uses 10-file KB for intelligent responses)
+  try {
+    const kbSession = {
+      messages: (sessionContext.messages || []).map((m: any) => ({ role: m.role, content: String(m.content) })),
+      context: sessionContext,
+      detected_stage: sessionContext.detected_stage,
+    };
+    const kbResponse = await knowledgeEngine.generateResponse(userMessage, kbSession);
+    if (kbResponse && kbResponse.trim().length > 10) {
+      console.log('[OnboardingJarvis] Knowledge engine provided fallback response');
+      return forceBulletFormat(kbResponse);
+    }
+  } catch (err) {
+    console.warn('[OnboardingJarvis] Knowledge engine fallback failed:', (err instanceof Error ? err.message : String(err))?.slice(0, 100));
+  }
+
+  // Keyword fallback (always works)
   return forceBulletFormat(
     getKeywordFallback(userMessage, sessionContext),
   );
