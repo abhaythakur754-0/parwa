@@ -22,10 +22,20 @@
  * - Pass `discountId` to pre-apply by Paddle internal ID (e.g. "dsc_01xxx")
  * - You cannot use both at the same time
  *
- * FIX: We load Paddle.js via its CDN script tag instead of importing
- * the @paddle/paddle-js npm package. The npm package has internal TDZ
- * ("Cannot access 'ea' before initialization") issues when bundled by
- * Next.js/Turbopack. Loading from CDN completely bypasses this problem.
+ * ──────────────────────────────────────────────────────────────────────
+ * CRITICAL FIX: We do NOT import @paddle/paddle-js from npm AT ALL.
+ *
+ * The npm package has internal ESM circular references that cause TDZ
+ * ("Cannot access 'ea' before initialization") errors when Next.js /
+ * Turbopack / Webpack bundles it. Even dynamic import() does NOT fix
+ * this because the bundler still resolves and includes the module in
+ * the chunk graph, and its top-level evaluation triggers the TDZ.
+ *
+ * Instead, we load Paddle.js ENTIRELY from the CDN script tag:
+ *   <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+ *
+ * This completely bypasses the bundler and the TDZ issue.
+ * ──────────────────────────────────────────────────────────────────────
  */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -42,7 +52,7 @@ let paddleLoadPromise: Promise<PaddleWindow | undefined> | undefined;
  * Safe to call multiple times — returns cached instance.
  * Will retry if initialization failed on a previous call.
  *
- * Uses CDN script tag loading instead of npm import to avoid TDZ errors.
+ * Loads Paddle.js ENTIRELY from CDN (no npm import).
  */
 export async function getPaddleInstance(): Promise<PaddleWindow | undefined> {
   if (paddleInstance) return paddleInstance;
@@ -66,28 +76,6 @@ async function _loadPaddle(): Promise<PaddleWindow | undefined> {
   const environment = isProduction ? 'production' : 'sandbox';
 
   try {
-    // Method 1: Try the npm dynamic import first (works in dev with webpack)
-    // This avoids the CDN approach in development where CSP might block it
-    const paddleModule = await import('@paddle/paddle-js');
-    const initializePaddle = paddleModule.initializePaddle;
-
-    console.log('[paddle] Initializing via npm dynamic import, environment:', environment);
-    paddleInstance = await initializePaddle({
-      environment,
-      token: paddleKey,
-    });
-
-    if (paddleInstance) {
-      console.log('[paddle] Initialized successfully via npm');
-      paddleInitFailed = false;
-      return paddleInstance;
-    }
-  } catch (npmErr) {
-    console.warn('[paddle] npm dynamic import failed (likely TDZ), falling back to CDN:', (npmErr as Error).message);
-  }
-
-  try {
-    // Method 2: Load via CDN script tag (bypasses all TDZ issues)
     console.log('[paddle] Loading via CDN script tag, environment:', environment);
     paddleInstance = await loadPaddleFromCDN(paddleKey, environment);
 
@@ -100,8 +88,8 @@ async function _loadPaddle(): Promise<PaddleWindow | undefined> {
       paddleInitFailed = true;
       return undefined;
     }
-  } catch (cdnErr) {
-    console.error('[paddle] CDN load also failed:', (cdnErr as Error).message);
+  } catch (err) {
+    console.error('[paddle] CDN load failed:', (err as Error).message);
     paddleInitFailed = true;
     return undefined;
   }
@@ -109,7 +97,7 @@ async function _loadPaddle(): Promise<PaddleWindow | undefined> {
 
 /**
  * Load Paddle.js from CDN using a script tag.
- * This completely bypasses the npm module TDZ issues.
+ * This completely avoids the npm module TDZ issues.
  */
 function loadPaddleFromCDN(paddleKey: string, environment: string): Promise<PaddleWindow> {
   return new Promise((resolve, reject) => {
@@ -118,28 +106,29 @@ function loadPaddleFromCDN(paddleKey: string, environment: string): Promise<Padd
       return;
     }
 
-    // Check if Paddle is already loaded on window
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const win = window as any;
-    if (win.PaddleBillingV1) {
-      console.log('[paddle] Paddle already on window');
-      resolve(win.PaddleBillingV1);
+
+    // Check if Paddle is already loaded and initialized
+    if (win.Paddle && win.Paddle.Checkout) {
+      console.log('[paddle] Paddle already on window and initialized');
+      resolve(win.Paddle);
       return;
     }
 
-    // Check if script already exists
+    // Check if script already exists (might be loading)
     const existingScript = document.querySelector('script[src*="paddle"]');
     if (existingScript) {
       // Wait for it to load
       const checkInterval = setInterval(() => {
-        if (win.PaddleBillingV1) {
+        if (win.Paddle && win.Paddle.Checkout) {
           clearInterval(checkInterval);
-          resolve(win.PaddleBillingV1);
+          resolve(win.Paddle);
         }
       }, 100);
       setTimeout(() => {
         clearInterval(checkInterval);
-        reject(new Error('Paddle CDN script timed out'));
+        reject(new Error('Paddle CDN script timed out (existing script)'));
       }, 15000);
       return;
     }
@@ -150,9 +139,8 @@ function loadPaddleFromCDN(paddleKey: string, environment: string): Promise<Padd
     script.async = true;
 
     script.onload = () => {
-      console.log('[paddle] CDN script loaded');
-      // Paddle.js sets up window.PaddleBillingV1 after the script loads
-      // We need to call Paddle.Setup() to initialize
+      console.log('[paddle] CDN script loaded, waiting for Paddle global...');
+      // Paddle.js sets window.Paddle after the script loads
       const checkInterval = setInterval(() => {
         if (win.Paddle) {
           clearInterval(checkInterval);
@@ -162,20 +150,17 @@ function loadPaddleFromCDN(paddleKey: string, environment: string): Promise<Padd
               environment,
               token: paddleKey,
             });
-            // After Setup, Paddle.Checkout should be available
-            const paddle = win.Paddle;
             console.log('[paddle] CDN Paddle.Setup() called successfully');
-            resolve(paddle);
+            resolve(win.Paddle);
           } catch (err) {
-            clearInterval(checkInterval);
             reject(new Error(`Paddle.Setup() failed: ${(err as Error).message}`));
           }
         }
-      }, 100);
+      }, 50);
+
       // Timeout after 10s
       setTimeout(() => {
         clearInterval(checkInterval);
-        // If Paddle object is directly available, use it
         if (win.Paddle) {
           try {
             win.Paddle.Setup({ environment, token: paddleKey });

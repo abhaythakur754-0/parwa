@@ -12,11 +12,10 @@ const nextConfig = {
   // ── Source maps for debugging production TDZ errors ────────────────
   productionBrowserSourceMaps: true,
 
-  // ── Transpile ESM-only packages that cause TDZ errors ──────────────
-  // @paddle/paddle-js is ESM-only and has internal circular references
-  // that cause "Cannot access 'X' before initialization" in minified builds.
-  // Transpiling it to CJS-compatible code avoids the TDZ issue.
-  transpilePackages: ['@paddle/paddle-js'],
+  // ── @paddle/paddle-js is NOT imported via npm anymore ─────────────
+  // We load Paddle.js entirely from CDN (script tag). The npm package
+  // has TDZ issues with all bundlers. See src/lib/paddle.ts for details.
+  // transpilePackages is intentionally EMPTY — do not add paddle-js here.
 
   // ── Optimize ESM package imports to reduce bundle size ──────────────
   // lucide-react is imported in 80+ files; optimizePackageImports
@@ -26,13 +25,17 @@ const nextConfig = {
   },
 
   // ── Turbopack config (Next.js 16 default) ──
-  turbopack: {},
+  // @paddle/paddle-js is excluded from the bundle entirely — we load via CDN.
+  turbopack: {
+    resolveAlias: {
+      '@paddle/paddle-js': { browser: './src/lib/paddle-empty.js' },
+    },
+  },
 
-  // ── Webpack config (fallback for webpack mode) ──
-  // @paddle/paddle-js has internal TDZ issues with static imports.
-  // The dynamic import() in src/lib/paddle.ts handles this at runtime,
-  // but we also need webpack fallbacks for Node.js modules that
-  // @paddle/paddle-js tries to import in the browser.
+  // ── Webpack config ──
+  // @paddle/paddle-js is completely excluded from the bundle.
+  // We load it from CDN instead. The externals rule below ensures
+  // that even if something tries to import it, webpack won't bundle it.
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
@@ -42,6 +45,11 @@ const nextConfig = {
         tls: false,
         child_process: false,
       };
+
+      // Completely exclude @paddle/paddle-js from the client bundle.
+      // If any import somehow references it, resolve to empty module.
+      if (!config.resolve.alias) config.resolve.alias = {};
+      config.resolve.alias['@paddle/paddle-js'] = false;
     }
     return config;
   },
