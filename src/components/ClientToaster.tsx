@@ -1,32 +1,18 @@
 'use client';
 
-import dynamic from 'next/dynamic';
-
-const Toaster = dynamic(
-  () => import('react-hot-toast').then((mod) => mod.Toaster),
-  { ssr: false }
-);
-
+/**
+ * ClientToaster — renders the toast notification container.
+ *
+ * Previously used react-hot-toast's Toaster component, which caused
+ * TDZ errors in the Next.js production build. Now uses our self-contained
+ * toast system from @/lib/dynamic-toast which renders toasts directly.
+ *
+ * This component is kept as a no-op placeholder for layout compatibility.
+ * All toast rendering is handled internally by dynamic-toast.ts using
+ * ReactDOM.createRoot() and a fixed overlay container.
+ */
 export function ClientToaster() {
-  return (
-    <Toaster
-      position="top-right"
-      toastOptions={{
-        duration: 4000,
-        style: {
-          background: '#2A1A0A',
-          color: '#FFF4E6',
-          border: '1px solid rgba(255,127,17,0.25)',
-          borderRadius: '12px',
-          boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 40px rgba(255,127,17,0.06)',
-        },
-        success: {
-          iconTheme: { primary: '#FF9F5A', secondary: '#2A1A0A' },
-        },
-        error: {
-          iconTheme: { primary: '#FB7185', secondary: '#2A1A0A' },
-        },
-      }}
-    />
-  );
+  // Our dynamic-toast.ts renders its own container via createRoot(),
+  // so this component doesn't need to render anything.
+  return null;
 }
