@@ -1,0 +1,16 @@
+[
+  {
+    "id": "REF-01",
+    "cat": "refund",
+    "score": 90,
+    "resolved": false,
+    "reason": ""
+  },
+  {
+    "id": "BILL-01",
+    "cat": "billing",
+    "score": 100,
+    "resolved": false,
+    "reason": ""
+  }
+]

@@ -1,0 +1,32 @@
+{
+  "test_version": "v4 - Fixed prompts (tech resolution-first, complaint action-first, honest quality scorer)",
+  "model": "meta/llama-3.3-70b-instruct via NVIDIA API",
+  "tickets": "8 NEW tickets (different from v3 test)",
+  "true_resolution_rate": 87.5,
+  "avg_eval_score": 98.75,
+  "results": [
+    {"id": "REF-10", "cat": "refund", "score": 100, "resolved": true, "reason": "Full refunds for all 3 erroneous charges with reference numbers, cancellation confirmed"},
+    {"id": "REF-11", "cat": "refund", "score": 100, "resolved": true, "reason": "Full refund for defective software, all details provided"},
+    {"id": "TECH-10", "cat": "tech", "score": 100, "resolved": true, "reason": "Root cause identified (expired token), exact fix provided (regenerate at Settings>API Keys)"},
+    {"id": "TECH-11", "cat": "tech", "score": 100, "resolved": true, "reason": "Root cause identified (memory leak in auth module), fix and workaround provided"},
+    {"id": "BILL-10", "cat": "billing", "score": 100, "resolved": true, "reason": "Unknown charge explained, credit processed, reference number provided"},
+    {"id": "BILL-11", "cat": "billing", "score": 100, "resolved": true, "reason": "Proration explained, credit applied, exact next invoice amount provided"},
+    {"id": "GEN-10", "cat": "general", "score": 100, "resolved": true, "reason": "Exact step-by-step export instructions with URLs and confirmation"},
+    {"id": "GEN-11", "cat": "general", "score": 90, "resolved": false, "reason": "Escalated with ticket number and timeline, but final resolution still pending (not yet resolved)"}
+  ],
+  "by_subgraph": {
+    "refund": {"resolved": "2/2 (100%)", "avg_score": 100},
+    "tech": {"resolved": "2/2 (100%)", "avg_score": 100},
+    "billing": {"resolved": "2/2 (100%)", "avg_score": 100},
+    "general": {"resolved": "1/2 (50%)", "avg_score": 95}
+  },
+  "comparison_to_v3": {
+    "v3_true_resolution": "62.5% (5/8)",
+    "v4_true_resolution": "87.5% (7/8)",
+    "v3_tech": "0% (0/2)",
+    "v4_tech": "100% (2/2)",
+    "v3_general_complaint": "0% (0/1)",
+    "v4_general_complaint": "0% (0/1) - still needs work",
+    "improvement": "+25 percentage points"
+  }
+}

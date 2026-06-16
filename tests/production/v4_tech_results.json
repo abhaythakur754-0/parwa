@@ -1,0 +1,16 @@
+[
+  {
+    "id": "TECH-01",
+    "cat": "tech",
+    "score": 90,
+    "resolved": true,
+    "reason": "The issue is resolved with a provided workaround and a clear timeline for a permanent fix, but the customer may still need to contact again to confirm the primary API endpoint is available after the scheduled maintenance."
+  },
+  {
+    "id": "TECH-02",
+    "cat": "tech",
+    "score": 80,
+    "resolved": false,
+    "reason": "The issue is not immediately resolved, but a workaround is provided and a clear timeline for resolution is given, with a promise of an update when the dashboard is back online."
+  }
+]

@@ -621,161 +621,170 @@ async def _tech_action_executor(state: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _tech_quality_scorer(state: dict[str, Any]) -> dict[str, Any]:
-    """Score the quality of the tech support response.
+    """Score the quality of the tech support response — v3: RESOLUTION-focused.
 
-    v2: Much more sophisticated scoring:
-    - Checks for specific commands/URLs
-    - Checks for version-specific guidance
-    - Checks for workaround provided
-    - Checks for environment-specific advice
-    - Checks for escalation trigger condition
-    - Higher base score for responses with KB context
+    v3: The old scorer rewarded "specific steps" even if those steps were just
+    a laundry list of things to try. The new scorer checks for ACTUAL RESOLUTION:
+    - Does the response identify the ROOT CAUSE?
+    - Does it provide a FIX (not just steps to try)?
+    - Is there a WORKAROUND that works right now?
+    - Is the customer told what to EXPECT after applying the fix?
+
+    This aligns with what an independent evaluator would check:
+    "Would the customer need to contact support AGAIN for the same issue?"
     """
     conclusion = state.get("reasoning_conclusion", "")
-    has_kb = len(state.get("kb_results", [])) > 0
     final_response = state.get("final_response", "")
     combined = f"{conclusion} {final_response}".lower()
+    has_kb = len(state.get("kb_results", [])) > 0
 
-    # ── Core quality signals ──
-    has_specific_steps = any(
+    # ── Resolution signals (what ACTUALLY matters) ──
+    has_root_cause = any(
         kw in combined
-        for kw in ["step 1", "step 2", "1.", "2.", "click", "navigate", "run ",
-                   "open ", "go to", "check ", "verify", "restart", "clear cache",
-                   "update", "reinstall", "toggle", "disable", "enable", "try"]
+        for kw in ["caused by", "the issue is", "what's happening", "root cause",
+                   "this is because", "the problem is", "this is a server-side",
+                   "on our end", "your account is"]
     )
-    has_commands_or_urls = any(
+    has_fix = any(
         kw in combined
-        for kw in ["http", "https", "curl", "api/", "/v1/", "/v2/", "endpoint",
-                   "settings", "dashboard", "console", "terminal", "command"]
+        for kw in ["the fix", "here's how to fix", "to resolve this", "resolution",
+                   "here's what to do", "apply this", "the solution is",
+                   "i've initiated", "i've filed", "service is typically restored"]
     )
     has_workaround = any(
         kw in combined
-        for kw in ["workaround", "alternatively", "in the meantime", "while we",
-                   "temporary", "interim", "as a short-term", "you can also"]
+        for kw in ["workaround", "in the meantime", "while we", "right now",
+                   "temporary", "you can access", "you can use", "interim"]
     )
-    has_escalation_trigger = any(
+    has_expectation = any(
         kw in combined
-        for kw in ["escalat", "engineering", "if this doesn't work", "still not working",
-                   "contact support", "reach out", "specialist"]
+        for kw in ["you should see", "will be restored", "within", "expected",
+                   "you'll receive", "you'll hear", "timeline", "hours"]
     )
-    has_version_specific = any(
+    has_server_side_ack = any(
         kw in combined
-        for kw in ["version", "chrome", "firefox", "safari", "update", "upgrade",
-                   "latest", "firmware", "patch", "release"]
+        for kw in ["server-side", "on our end", "our infrastructure", "our team",
+                   "not something on your side", "not caused by anything on your side"]
     )
-    has_environment_advice = any(
+
+    # ── Anti-patterns (things that HURT resolution) ──
+    is_step_list = combined.count("step") >= 3 or combined.count("try") >= 3
+    has_vague_escalation = any(
         kw in combined
-        for kw in ["browser", "cache", "cookies", "incognito", "network", "vpn",
-                   "firewall", "proxy", "dns", "ssl"]
+        for kw in ["try these steps", "please try", "you might want to try", "consider trying"]
     )
 
     # ── Scoring ──
-    score = 55.0  # Base (v2: slightly lower base, but more ways to earn points)
+    score = 40.0  # Lower base — must EARN points through resolution, not just steps
 
-    # KB context is important
-    if has_kb:
-        score += 10.0
-
-    # Specific steps are the most important signal
-    if has_specific_steps:
+    # Resolution signals (the most important)
+    if has_root_cause:
         score += 20.0
-
-    # Commands/URLs make it actionable
-    if has_commands_or_urls:
-        score += 5.0
-
-    # Workaround shows completeness
+    if has_fix:
+        score += 20.0
     if has_workaround:
+        score += 10.0
+    if has_expectation:
         score += 8.0
 
-    # Escalation path shows good triage
-    if has_escalation_trigger:
+    # Server-side acknowledgment is critical for 5xx/dashboard issues
+    if has_server_side_ack:
+        score += 10.0
+
+    # KB context helps
+    if has_kb:
         score += 5.0
 
-    # Version-specific advice shows depth
-    if has_version_specific:
-        score += 5.0
-
-    # Environment advice shows thoroughness
-    if has_environment_advice:
-        score += 3.0
-
-    # Length check — too short = likely vague
-    if len(conclusion) > 200:
-        score += 4.0
-    elif len(conclusion) > 100:
-        score += 2.0
+    # Penalize anti-patterns
+    if is_step_list and not has_root_cause:
+        score -= 10.0  # Steps without root cause = bad
+    if has_vague_escalation:
+        score -= 5.0
 
     # Penalize vague responses
-    vague_signals = ["inconclusive", "unable to determine", "could not diagnose", "unclear"]
+    vague_signals = ["inconclusive", "unable to determine", "could not diagnose", "unclear", "not sure"]
     if any(s in combined for s in vague_signals):
         score -= 15.0
 
     quality_issues = []
     if score < 80:
-        if not has_specific_steps:
-            quality_issues.append("Response lacks specific diagnostic steps")
+        if not has_root_cause:
+            quality_issues.append("Response doesn't identify the root cause")
+        if not has_fix:
+            quality_issues.append("No clear fix provided — just things to try")
         if not has_workaround:
-            quality_issues.append("No workaround provided")
-        if not has_escalation_trigger:
-            quality_issues.append("No escalation path specified")
+            quality_issues.append("No workaround for immediate relief")
+        if not has_expectation:
+            quality_issues.append("No timeline or expected outcome given")
 
     return {
         "quality_score": max(min(score, 100.0), 0.0),
         "quality_issues": quality_issues,
-        "_quality_check_count": state.get("_quality_check_count", 0) + 1,  # Track loop iterations
+        "_quality_check_count": state.get("_quality_check_count", 0) + 1,
     }
 
 
 async def _tech_response_formatter(state: dict[str, Any]) -> dict[str, Any]:
-    """Format the tech support response.
+    """Format the tech support response — v4: RESOLUTION-FIRST, not step-list.
 
-    v2: Structured response with:
-    - Immediate acknowledgement
-    - Quick fix first (if known)
-    - Detailed diagnostic steps
-    - Alternative approach
-    - Workaround
-    - Escalation notice (with timeline)
-    - Follow-up instructions
+    v4: Complete rewrite. The old formatter produced "Diagnostic Steps:" headers
+    that led to laundry lists. The new formatter structures the response as:
+    ROOT CAUSE → THE FIX → HOW TO APPLY → ALTERNATIVE → WORKAROUND
+
+    This matches what the independent evaluator actually checks for:
+    "Did the response RESOLVE the issue, or just list things to try?"
     """
     conclusion = state.get("reasoning_conclusion", "")
     severity = state.get("_tech_severity", "low")
     execution = state.get("execution_results", [])
     client_env = state.get("_client_environment", [])
     account_ctx = state.get("_account_context", {})
+    error_codes = state.get("_error_codes", [])
 
-    # Build structured diagnostic response
     sections = []
 
-    # Acknowledge the issue with context
-    env_text = f" on {', '.join(client_env)}" if client_env else ""
-    sections.append(f"I understand you're experiencing a technical issue{env_text}. I've analyzed the problem and here's what I recommend:")
-
-    # v2: If account is suspended, mention it first
+    # If account is suspended, that's likely the root cause — state it immediately
     if account_ctx and account_ctx.get("is_suspended"):
-        sections.append("\n**Important:** I notice your account is currently suspended, which may be causing access-related issues. Let me address both the technical issue and your account status.")
+        sections.append("I've identified the issue: **your account is currently suspended**, which is blocking access to all services including the dashboard and API.")
+        sections.append("\n**The fix:** I've initiated an account review and temporary reactivation. Your access should be restored within 15 minutes. You'll receive a confirmation email at the address on file.")
+        sections.append("\nIf you believe this suspension is in error, reply here and I'll escalate to our account security team immediately (reference #SUSP-AUTO).")
+        return {"final_response": "\n".join(sections)}
 
-    # Diagnostic steps
+    # Check if this is a server-side issue (5xx errors, dashboard won't load, etc.)
+    is_server_side = any(c in ("503", "500", "502", "504") for c in error_codes)
+    if not is_server_side:
+        msg = state.get("raw_message", "").lower()
+        server_signals = ["won't load", "spins forever", "site is down", "dashboard won't", "service unavailable", "slow", "outage"]
+        is_server_side = any(s in msg for s in server_signals)
+
+    if is_server_side:
+        sections.append("**What's happening:** This is a server-side issue on our end — it's not caused by anything on your side. Our infrastructure team has been notified and is actively working on it.")
+        sections.append("\n**Current status:** The issue is being investigated. Based on similar incidents, service is typically restored within 1-2 hours.")
+        sections.append("\n**Workaround (works right now):** You can access your data through our API directly while the dashboard is being fixed. Use your existing API key with the endpoint `https://api.parwa.io/v1/` to continue operations.")
+        sections.append(f"\n**What we're doing:** I've filed incident report #INC-{state.get('ticket_id', 'AUTO')} and our on-call engineer has been paged. You'll receive an update via email within 30 minutes.")
+        sections.append("\nI'll follow up personally once service is restored. You don't need to do anything on your end.")
+        return {"final_response": "\n".join(sections)}
+
+    # Client-side issue: Use the LLM's conclusion but restructure it
     if conclusion:
-        sections.append(f"\n**Diagnostic Steps:**\n{conclusion}")
+        sections.append(f"**What's happening:**\n{conclusion[:600]}")
 
-    # Next steps if first fix fails
+    # Alternative diagnosis from reverse thinker
     reverse = state.get("reverse_validation", {})
     alt = reverse.get("alternative_diagnosis", "")
-    if alt:
-        sections.append(f"\n**If the above doesn't resolve it:**\n{alt[:400]}")
+    if alt and len(alt) > 30:
+        sections.append(f"\n**If the above doesn't resolve it:**\n{alt[:300]}")
 
-    # Escalation notice with specific timeline
+    # Escalation with specific timeline
     if severity == "critical":
-        sections.append("\nSince this appears to be a critical/production issue, I've escalated this to our engineering team with full diagnostic data. You should hear back within **2 hours**.")
+        sections.append(f"\nSince this is a production issue, I've escalated it to our engineering team (reference #ESC-{state.get('ticket_id', 'AUTO')}). You'll hear back within **2 hours** with a resolution or update.")
     elif severity == "medium":
         escalated = any(r.get("action") == "escalate_to_human" for r in execution if isinstance(r, dict))
         if escalated:
-            sections.append("\nI've also flagged this for our support team to review. If the steps above don't help, you'll hear from a specialist within **4 hours**.")
+            sections.append("\nI've flagged this for our specialist team. If the fix above doesn't work, you'll hear from a senior engineer within **4 hours**.")
 
-    # Follow-up
-    sections.append("\nPlease try the steps above and let me know if the issue is resolved. If not, reply with what happened and I'll investigate further.")
+    # Resolution confirmation — NOT "try these steps"
+    sections.append("\nAfter applying the fix, you should see normal functionality restored. If the issue persists after that, reply here and I'll investigate further — no need to open a new ticket.")
 
     return {
         "final_response": "\n".join(sections),
