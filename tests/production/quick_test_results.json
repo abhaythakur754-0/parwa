@@ -1,0 +1,34 @@
+{
+  "true_resolution_rate": 75.0,
+  "avg_eval": 75.0,
+  "results": [
+    {
+      "id": "REF-01",
+      "cat": "refund",
+      "score": 100,
+      "resolved": true,
+      "reason": "The response clearly states the customer's eligibility for a full refund, provides all necessary details regarding the refund amount, method, and timeline, and offers additional support, thereby completely resolving the customer's issue."
+    },
+    {
+      "id": "TECH-01",
+      "cat": "tech",
+      "score": 20,
+      "resolved": false,
+      "reason": "The response provides a lengthy and detailed troubleshooting guide, but it does not offer a direct solution or explanation for the 503 errors, instead relying on the customer to perform multiple steps to potentially identify the issue."
+    },
+    {
+      "id": "BILL-01",
+      "cat": "billing",
+      "score": 90,
+      "resolved": true,
+      "reason": "The issue is almost completely resolved, but the customer has to wait until the next invoice to see the correction, which might cause some inconvenience."
+    },
+    {
+      "id": "GEN-01",
+      "cat": "general",
+      "score": 90,
+      "resolved": true,
+      "reason": "The response thoroughly explains the differences between the Pro and Enterprise plans, provides a clear upgrade path, and offers additional support, fully addressing the customer's question and providing a solution."
+    }
+  ]
+}

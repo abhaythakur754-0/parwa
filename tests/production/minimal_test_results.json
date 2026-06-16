@@ -1,0 +1,46 @@
+{
+  "true_resolution_rate": 0.0,
+  "avg_eval": 0.0,
+  "results": [
+    {
+      "id": "REF-01",
+      "cat": "refund",
+      "score": 0,
+      "resolved": false,
+      "reason": "",
+      "response": ""
+    },
+    {
+      "id": "TECH-01",
+      "cat": "tech",
+      "score": 0,
+      "resolved": false,
+      "reason": "",
+      "response": ""
+    },
+    {
+      "id": "BILL-01",
+      "cat": "billing",
+      "score": 0,
+      "resolved": false,
+      "reason": "",
+      "response": ""
+    },
+    {
+      "id": "GEN-01",
+      "cat": "general",
+      "score": 0,
+      "resolved": false,
+      "reason": "",
+      "response": ""
+    },
+    {
+      "id": "REF-02",
+      "cat": "refund",
+      "score": 0,
+      "resolved": false,
+      "reason": "",
+      "response": ""
+    }
+  ]
+}

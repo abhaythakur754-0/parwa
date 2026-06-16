@@ -1,0 +1,129 @@
+{
+  "version": "v3",
+  "true_resolution_rate": 30.0,
+  "industry_comparable_rate": 90.0,
+  "intent_accuracy": 50.0,
+  "containment_rate": 100.0,
+  "per_ticket": [
+    {
+      "tid": "REF-001",
+      "sub_ok": true,
+      "int_ok": true,
+      "quality": 98.0,
+      "status": "fully_resolved",
+      "contained": true,
+      "intent_match": true,
+      "actionable": true,
+      "elapsed": 36591.71626100033,
+      "subgraph": "refund"
+    },
+    {
+      "tid": "REF-002",
+      "sub_ok": false,
+      "int_ok": false,
+      "quality": 98.0,
+      "status": "fully_resolved",
+      "contained": true,
+      "intent_match": true,
+      "actionable": true,
+      "elapsed": 30493.267651001588,
+      "subgraph": "general"
+    },
+    {
+      "tid": "TECH-001",
+      "sub_ok": true,
+      "int_ok": true,
+      "quality": 98.0,
+      "status": "partially_resolved",
+      "contained": true,
+      "intent_match": true,
+      "actionable": true,
+      "elapsed": 30116.49761499939,
+      "subgraph": "tech"
+    },
+    {
+      "tid": "TECH-002",
+      "sub_ok": true,
+      "int_ok": true,
+      "quality": 98.0,
+      "status": "partially_resolved",
+      "contained": true,
+      "intent_match": true,
+      "actionable": true,
+      "elapsed": 26104.218283999217,
+      "subgraph": "tech"
+    },
+    {
+      "tid": "TECH-003",
+      "sub_ok": true,
+      "int_ok": false,
+      "quality": 98.0,
+      "status": "partially_resolved",
+      "contained": true,
+      "intent_match": true,
+      "actionable": true,
+      "elapsed": 47568.68037800086,
+      "subgraph": "tech"
+    },
+    {
+      "tid": "BILL-001",
+      "sub_ok": true,
+      "int_ok": true,
+      "quality": 92.0,
+      "status": "fully_resolved",
+      "contained": true,
+      "intent_match": true,
+      "actionable": true,
+      "elapsed": 27214.17213300083,
+      "subgraph": "billing"
+    },
+    {
+      "tid": "BILL-002",
+      "sub_ok": false,
+      "int_ok": false,
+      "quality": 92.0,
+      "status": "partially_resolved",
+      "contained": true,
+      "intent_match": true,
+      "actionable": true,
+      "elapsed": 14893.816772000719,
+      "subgraph": "general"
+    },
+    {
+      "tid": "GEN-001",
+      "sub_ok": true,
+      "int_ok": true,
+      "quality": 55.0,
+      "status": "fully_resolved",
+      "contained": true,
+      "intent_match": true,
+      "actionable": true,
+      "elapsed": 89193.17826299994,
+      "subgraph": "general"
+    },
+    {
+      "tid": "GEN-002",
+      "sub_ok": true,
+      "int_ok": false,
+      "quality": 92.0,
+      "status": "not_resolved",
+      "contained": true,
+      "intent_match": true,
+      "actionable": true,
+      "elapsed": 72644.01338900097,
+      "subgraph": "general"
+    },
+    {
+      "tid": "GEN-003",
+      "sub_ok": true,
+      "int_ok": false,
+      "quality": 95.0,
+      "status": "fully_resolved",
+      "contained": true,
+      "intent_match": true,
+      "actionable": true,
+      "elapsed": 40583.93456700105,
+      "subgraph": "general"
+    }
+  ]
+}

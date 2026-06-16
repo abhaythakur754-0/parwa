@@ -1,0 +1,62 @@
+{
+  "true_resolution_rate": 62.5,
+  "avg_eval": 74.375,
+  "results": [
+    {
+      "id": "REF-01",
+      "cat": "refund",
+      "score": 100,
+      "resolved": true,
+      "reason": "Full refund with all details provided"
+    },
+    {
+      "id": "TECH-01",
+      "cat": "tech",
+      "score": 20,
+      "resolved": false,
+      "reason": "No direct solution, just troubleshooting steps"
+    },
+    {
+      "id": "BILL-01",
+      "cat": "billing",
+      "score": 90,
+      "resolved": true,
+      "reason": "Double charge verified and refund processed"
+    },
+    {
+      "id": "GEN-01",
+      "cat": "general",
+      "score": 90,
+      "resolved": true,
+      "reason": "Plan differences clearly explained"
+    },
+    {
+      "id": "REF-02",
+      "cat": "refund",
+      "score": 100,
+      "resolved": true,
+      "reason": "The response fully acknowledges the issue, takes immediate action to rectify it by processing a full refund, and provides the customer with clear details and a reference number for tracking the refund, thereby completely resolving the customer's concern."
+    },
+    {
+      "id": "TECH-02",
+      "cat": "tech",
+      "score": 0,
+      "resolved": false,
+      "reason": "The response provides an extensive troubleshooting guide but does not actually resolve the issue, instead requiring the customer to perform numerous steps without guaranteeing a solution."
+    },
+    {
+      "id": "BILL-02",
+      "cat": "billing",
+      "score": 100,
+      "resolved": true,
+      "reason": "The AI response thoroughly explains the reason for the additional charge, takes immediate action to remove the unwanted package, and applies a credit to the customer's account, fully resolving the issue."
+    },
+    {
+      "id": "GEN-02",
+      "cat": "general",
+      "score": 95,
+      "resolved": false,
+      "reason": "Although the response is apologetic, offers a refund and a prepaid return shipping label, and promises to review internal processes, it does not provide a complete resolution to the customer's original issue, which remains unspecified and unaddressed."
+    }
+  ]
+}

@@ -85,8 +85,23 @@
     "confidence": 0.0,
     "complexity": "medium",
     "kb_results_count": 0,
-    "response_length": 111,
+    "response_length": 0,
     "customer_feedback": "",
     "timestamp": "2026-06-16T02:02:45.448526+00:00"
+  },
+  {
+    "ticket_id": "REF-01",
+    "intent": "unknown",
+    "subgraph": "refund",
+    "outcome": "escalated",
+    "message": "I bought the Pro plan 12 days ago and it's not what I expected. I want a full refund.",
+    "techniques_used": [],
+    "quality_score": 0.0,
+    "confidence": 0.0,
+    "complexity": "simple",
+    "kb_results_count": 0,
+    "response_length": 111,
+    "customer_feedback": "",
+    "timestamp": "2026-06-16T03:15:06.731073+00:00"
   }
 ]
