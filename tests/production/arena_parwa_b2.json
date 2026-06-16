@@ -1,0 +1,34 @@
+{
+  "variant": "parwa",
+  "batch": 2,
+  "results": [
+    {
+      "id": "TKT-05",
+      "cat": "refund",
+      "score": 100,
+      "resolved": true,
+      "reason": "The customer's issue was fully addressed by processing a full refund for the defective item, meeting their request and adhering to the company's refund policy."
+    },
+    {
+      "id": "TKT-06",
+      "cat": "tech",
+      "score": 80,
+      "resolved": false,
+      "reason": "The issue is still ongoing, and the provided solution is a temporary workaround, not a permanent fix, and the customer's problem is not fully resolved."
+    },
+    {
+      "id": "TKT-07",
+      "cat": "billing",
+      "score": 100,
+      "resolved": true,
+      "reason": "The customer's issue has been fully addressed, with their account updated to reflect the correct number of seats and the prorated amount calculated and credited to their next invoice."
+    },
+    {
+      "id": "TKT-08",
+      "cat": "general",
+      "score": 90,
+      "resolved": false,
+      "reason": "The issue is not considered resolved because the customer's concern has been escalated and they are waiting for a callback from a manager, which has not yet occurred."
+    }
+  ]
+}

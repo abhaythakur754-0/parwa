@@ -1,0 +1,46 @@
+{
+  "variant": "mini",
+  "batch": 1,
+  "results": [
+    {
+      "id": "TKT-01",
+      "cat": "refund",
+      "variant": "mini",
+      "score": 80,
+      "resolved": false,
+      "reason": "The issue is not considered resolved because the customer service representative only recommended a refund without confirming its execution, stating that a team member will confirm the refund within 2 hours.",
+      "response_len": 1010
+    },
+    {
+      "id": "TKT-02",
+      "cat": "tech",
+      "variant": "mini",
+      "score": 80,
+      "resolved": false,
+      "reason": "The issue is not yet fully resolved as the fix, which involves deploying an additional API gateway instance, is still pending and scheduled to be completed within the next 2 hours.",
+      "response_len": 1377
+    },
+    {
+      "id": "TKT-03",
+      "cat": "billing",
+      "variant": "mini",
+      "score": 80,
+      "resolved": false,
+      "reason": "The issue is not fully resolved because the recommended adjustment has not been executed and requires confirmation from a specialist within 2 hours.",
+      "response_len": 1440
+    },
+    {
+      "id": "TKT-04",
+      "cat": "general",
+      "variant": "mini",
+      "score": 90,
+      "resolved": false,
+      "reason": "The issue is not yet resolved as it requires a callback from a senior agent to update payment information and reinstate account access, which is scheduled but has not been executed.",
+      "response_len": 1806
+    }
+  ],
+  "resolved": 0,
+  "total": 4,
+  "avg": 82,
+  "time": 87
+}

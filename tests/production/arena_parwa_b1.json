@@ -1,0 +1,34 @@
+{
+  "variant": "parwa",
+  "batch": 1,
+  "results": [
+    {
+      "id": "TKT-01",
+      "cat": "refund",
+      "score": 100,
+      "resolved": true,
+      "reason": "The customer's issue was fully addressed by processing a refund for the duplicate charge, providing a clear explanation and reference numbers, and offering further assistance if needed."
+    },
+    {
+      "id": "TKT-02",
+      "cat": "tech",
+      "score": 80,
+      "resolved": false,
+      "reason": "The issue is not yet fully resolved as the proposed fix, increasing server capacity and optimizing API gateway configuration, has not been completed and verified by the customer."
+    },
+    {
+      "id": "TKT-03",
+      "cat": "billing",
+      "score": 95,
+      "resolved": true,
+      "reason": "The issue was resolved by adjusting the customer's account to reflect the correct subscription rate and applying a credit to their next invoice."
+    },
+    {
+      "id": "TKT-04",
+      "cat": "general",
+      "score": 90,
+      "resolved": false,
+      "reason": "The issue is not yet fully resolved as it requires a callback from a senior agent and further actions to reinstate the customer's account, which are scheduled to happen within the next 2 hours and by the end of the day."
+    }
+  ]
+}

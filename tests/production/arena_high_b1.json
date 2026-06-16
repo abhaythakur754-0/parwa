@@ -1,0 +1,34 @@
+{
+  "variant": "high",
+  "batch": 1,
+  "results": [
+    {
+      "id": "TKT-01",
+      "cat": "refund",
+      "score": 90,
+      "resolved": true,
+      "reason": "The customer's issue with the duplicate charge has been fully addressed with a refund and a goodwill credit, meeting their expectations."
+    },
+    {
+      "id": "TKT-02",
+      "cat": "tech",
+      "score": 90,
+      "resolved": false,
+      "reason": "The issue is being actively addressed with a temporary fix and a workaround, but a permanent resolution and comprehensive review are still pending, requiring further follow-up and implementation."
+    },
+    {
+      "id": "TKT-03",
+      "cat": "billing",
+      "score": 90,
+      "resolved": false,
+      "reason": "The issue is partially resolved with a credit being applied to the customer's account, but the customer's subscription status and correct billing setup are still unclear and require further discussion, as indicated by the offer for a callback from the account manager."
+    },
+    {
+      "id": "TKT-04",
+      "cat": "general",
+      "score": 90,
+      "resolved": false,
+      "reason": "The issue is not yet fully resolved, as the customer is still waiting for the account access issue to be fixed and the account to be reinstated, with further actions and follow-ups required from the senior specialist and the manager."
+    }
+  ]
+}

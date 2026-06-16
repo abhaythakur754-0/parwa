@@ -1,0 +1,56 @@
+{
+  "test_method": "8 tickets, Llama 3.3 70B via NVIDIA API, strict independent LLM evaluator, CRM data included",
+  "evaluator_rule": "RESOLVED only if customer won't contact again. Recommending without executing = NOT resolved.",
+  "date": "2026-06-16",
+  "mini": {
+    "resolution_rate": 0.0,
+    "resolved": "0/8",
+    "avg_score": 82,
+    "results": [
+      {"id":"TKT-01","cat":"refund","score":80,"resolved":false,"reason":"Refund recommended but not executed — customer must wait 2hrs for confirmation"},
+      {"id":"TKT-02","cat":"tech","score":80,"resolved":false,"reason":"Fix proposed but pending deployment — not verified by customer"},
+      {"id":"TKT-03","cat":"billing","score":80,"resolved":false,"reason":"Adjustment recommended but not executed"},
+      {"id":"TKT-04","cat":"general","score":90,"resolved":false,"reason":"Callback scheduled but account access not restored yet"},
+      {"id":"TKT-05","cat":"refund","score":80,"resolved":false,"reason":"Refund recommended but not confirmed or executed"},
+      {"id":"TKT-06","cat":"tech","score":90,"resolved":false,"reason":"Workaround provided but server-side issue still pending"},
+      {"id":"TKT-07","cat":"billing","score":80,"resolved":false,"reason":"Adjustment recommended but not executed"},
+      {"id":"TKT-08","cat":"general","score":80,"resolved":false,"reason":"Escalated and callback scheduled but concern not fully addressed"}
+    ]
+  },
+  "parwa": {
+    "resolution_rate": 50.0,
+    "resolved": "4/8",
+    "avg_score": 91,
+    "results": [
+      {"id":"TKT-01","cat":"refund","score":100,"resolved":true,"reason":"Full refund processed with reference numbers and timeline"},
+      {"id":"TKT-02","cat":"tech","score":80,"resolved":false,"reason":"Fix proposed but not completed and verified by customer"},
+      {"id":"TKT-03","cat":"billing","score":95,"resolved":true,"reason":"Account adjusted to correct rate with credit applied"},
+      {"id":"TKT-04","cat":"general","score":90,"resolved":false,"reason":"Callback scheduled but account access not restored yet"},
+      {"id":"TKT-05","cat":"refund","score":100,"resolved":true,"reason":"Full refund for defective item processed"},
+      {"id":"TKT-06","cat":"tech","score":80,"resolved":false,"reason":"Workaround provided but not permanent fix"},
+      {"id":"TKT-07","cat":"billing","score":100,"resolved":true,"reason":"Seat count updated and prorated credit applied"},
+      {"id":"TKT-08","cat":"general","score":90,"resolved":false,"reason":"Escalated with timeline but callback not yet occurred"}
+    ]
+  },
+  "high": {
+    "resolution_rate": 25.0,
+    "resolved": "2/8",
+    "avg_score": 94,
+    "results": [
+      {"id":"TKT-01","cat":"refund","score":100,"resolved":true,"reason":"Refund processed + additional goodwill credit for VIP"},
+      {"id":"TKT-02","cat":"tech","score":90,"resolved":false,"reason":"Fix is temporary, permanent resolution needs senior engineer callback"},
+      {"id":"TKT-03","cat":"billing","score":90,"resolved":false,"reason":"Credit offered but subscription status needs further clarification"},
+      {"id":"TKT-04","cat":"general","score":95,"resolved":false,"reason":"Callback from manager scheduled but not yet occurred"},
+      {"id":"TKT-05","cat":"refund","score":95,"resolved":true,"reason":"Refund + compensation for defective item fully addressed"},
+      {"id":"TKT-06","cat":"tech","score":90,"resolved":false,"reason":"Workaround provided but server-side issue not resolved"},
+      {"id":"TKT-07","cat":"billing","score":95,"resolved":false,"reason":"Resolved but callback offered = evaluator sees potential follow-up needed"},
+      {"id":"TKT-08","cat":"general","score":90,"resolved":false,"reason":"Escalated and manager call scheduled but concerns not fully addressed"}
+    ]
+  },
+  "by_category": {
+    "refund": {"mini":"0/2","parwa":"2/2","high":"2/2"},
+    "tech": {"mini":"0/2","parwa":"0/2","high":"0/2"},
+    "billing": {"mini":"0/2","parwa":"2/2","high":"0/2"},
+    "general": {"mini":"0/2","parwa":"0/2","high":"0/2"}
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "variant": "mini",
+  "batch": 2,
+  "results": [
+    {
+      "id": "TKT-05",
+      "cat": "refund",
+      "variant": "mini",
+      "score": 80,
+      "resolved": false,
+      "reason": "The issue is not yet resolved because the refund has been recommended but not confirmed or executed, and the customer may still contact again to follow up on the refund.",
+      "response_len": 795
+    },
+    {
+      "id": "TKT-06",
+      "cat": "tech",
+      "variant": "mini",
+      "score": 90,
+      "resolved": false,
+      "reason": "The issue is temporarily worked around but not permanently resolved, as the server-side issue is still pending a fix from the CRM team.",
+      "response_len": 1041
+    },
+    {
+      "id": "TKT-07",
+      "cat": "billing",
+      "variant": "mini",
+      "score": 80,
+      "resolved": false,
+      "reason": "The issue is not resolved because the customer service representative only recommended an adjustment to the account, but did not confirm that the adjustment has been executed.",
+      "response_len": 601
+    },
+    {
+      "id": "TKT-08",
+      "cat": "general",
+      "variant": "mini",
+      "score": 80,
+      "resolved": false,
+      "reason": "The issue has been escalated and a callback with a manager has been scheduled, but the customer's concern has not been fully addressed or resolved yet.",
+      "response_len": 1510
+    }
+  ],
+  "resolved": 0,
+  "total": 4,
+  "avg": 82,
+  "time": 55
+}
