@@ -47,10 +47,10 @@ _COMPLEXITY_ORDER = {"simple": 0, "medium": 1, "complex": 2, "critical": 3}
 # On critical tickets, all applicable techniques can run (up to 4).
 # On simpler tickets, fewer techniques are needed.
 _MAX_TECHNIQUES_BY_COMPLEXITY = {
-    "simple": 1,
-    "medium": 2,
-    "complex": 3,
-    "critical": 4,
+    "simple": 3,     # Was 1 — even simple tickets deserve CoT + 1 verification + 1 specialized
+    "medium": 4,     # Was 2 — medium needs CoT + primary + verification + fallback
+    "complex": 5,    # Was 3 — complex needs full technique stack
+    "critical": 6,   # Was 4 — critical gets everything applicable
 }
 
 

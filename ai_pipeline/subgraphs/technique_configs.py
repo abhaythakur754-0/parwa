@@ -26,7 +26,9 @@ SUBGRAPH_TECHNIQUE_PRIORITIES: dict[str, dict[str, list[str]]] = {
         # CoT for step-by-step policy check
         # Reverse Thinking for "what if this refund is wrong?"
         # ReAct for looking up customer history
-        "REASONING_ENGINE": ["chain_of_thought", "reverse_thinking", "react"],
+        # SmartRouter for intelligent model selection
+        # ZeroShotValidator for policy compliance verification
+        "REASONING_ENGINE": ["chain_of_thought", "reverse_thinking", "react", "smart_router", "zero_shot_validator"],
         "KB_RETRIEVER": ["hyde", "multi_query", "step_back"],
         "ACTION_PLANNER": ["chain_of_thought", "least_to_most"],
         "QUALITY_SCORER": ["self_consistency", "reflexion"],
@@ -36,28 +38,34 @@ SUBGRAPH_TECHNIQUE_PRIORITIES: dict[str, dict[str, list[str]]] = {
         # ReAct for step-by-step troubleshooting
         # ToT for complex multi-path diagnostics
         # CoT as baseline for simple issues
-        "REASONING_ENGINE": ["react", "chain_of_thought", "tree_of_thoughts", "uncertainty_of_thought"],
+        # UoT for uncertainty-driven deep analysis
+        # GSD for Get Stuff Done action-oriented resolution
+        # ZeroShotValidator for verifying fix correctness
+        "REASONING_ENGINE": ["react", "chain_of_thought", "tree_of_thoughts", "uncertainty_of_thought", "gsd", "zero_shot_validator"],
         "KB_RETRIEVER": ["multi_query", "step_back", "hyde"],
-        "ACTION_PLANNER": ["react", "chain_of_thought"],
-        "QUALITY_SCORER": ["reflexion", "crp"],
+        "ACTION_PLANNER": ["react", "chain_of_thought", "gsd"],
+        "QUALITY_SCORER": ["reflexion", "crp", "zero_shot_validator"],
     },
     "billing": {
         # For billing tickets, verification is critical
         # CoT for charge verification step-by-step
         # Self-Consistency for "does this charge match the plan?"
         # Reverse for "what if this charge is incorrect?"
-        "REASONING_ENGINE": ["chain_of_thought", "self_consistency", "reverse_thinking"],
+        # SmartRouter for intelligent model selection
+        # ZeroShotValidator for charge compliance
+        "REASONING_ENGINE": ["chain_of_thought", "self_consistency", "reverse_thinking", "smart_router", "zero_shot_validator"],
         "KB_RETRIEVER": ["hyde", "multi_query", "step_back"],
         "ACTION_PLANNER": ["chain_of_thought", "least_to_most"],
-        "QUALITY_SCORER": ["self_consistency", "reflexion"],
+        "QUALITY_SCORER": ["self_consistency", "reflexion", "zero_shot_validator"],
     },
     "general": {
-        # For general tickets, keep it simple
+        # For general tickets, keep it effective
         # CoT for straightforward reasoning
         # Least-to-Most for multi-part questions
-        "REASONING_ENGINE": ["chain_of_thought", "least_to_most"],
+        # GSD for action-oriented resolution
+        "REASONING_ENGINE": ["chain_of_thought", "least_to_most", "gsd"],
         "KB_RETRIEVER": ["hyde", "multi_query"],
-        "ACTION_PLANNER": ["chain_of_thought"],
+        "ACTION_PLANNER": ["chain_of_thought", "gsd"],
         "QUALITY_SCORER": ["reflexion"],
     },
 }
@@ -67,28 +75,28 @@ SUBGRAPH_TECHNIQUE_PRIORITIES: dict[str, dict[str, list[str]]] = {
 
 SUBGRAPH_TECHNIQUE_CAPS: dict[str, dict[str, int]] = {
     "refund": {
-        "simple": 1,
-        "medium": 2,
-        "complex": 3,
-        "critical": 4,
+        "simple": 3,     # Was 1 — refund tickets need policy verification even when simple
+        "medium": 4,     # Was 2 — medium refund needs full policy stack
+        "complex": 5,    # Was 3 — complex refund with disputes needs everything
+        "critical": 6,   # Was 4 — fraud/legal refund gets all techniques
     },
     "tech": {
-        "simple": 2,   # Tech even simple gets ReAct + CoT
-        "medium": 3,
-        "complex": 4,  # Complex tech issues can use all 4
-        "critical": 4,
+        "simple": 3,     # Was 2 — even simple tech needs ReAct + CoT + verification
+        "medium": 4,     # Was 3 — medium tech needs full diagnostic stack
+        "complex": 5,    # Was 4 — complex tech gets deep multi-path analysis
+        "critical": 6,   # Was 4 — critical tech gets everything
     },
     "billing": {
-        "simple": 1,
-        "medium": 2,
-        "complex": 3,
-        "critical": 4,
+        "simple": 3,     # Was 1 — billing always needs verification
+        "medium": 4,     # Was 2 — medium billing needs charge + plan verification
+        "complex": 5,    # Was 3 — complex billing disputes need full stack
+        "critical": 6,   # Was 4 — critical billing (legal/high-value) gets everything
     },
     "general": {
-        "simple": 1,
-        "medium": 1,
-        "complex": 2,
-        "critical": 3,
+        "simple": 2,     # Was 1 — even simple general gets CoT + 1 more
+        "medium": 3,     # Was 1 — medium general needs proper reasoning
+        "complex": 4,    # Was 2 — complex general needs multi-technique
+        "critical": 5,   # Was 3 — critical general (complaints/escalations) needs more
     },
 }
 

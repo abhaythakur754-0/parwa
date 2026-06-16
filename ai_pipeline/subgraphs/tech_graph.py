@@ -127,7 +127,7 @@ async def _tech_intent_confirm(state: dict[str, Any]) -> dict[str, Any]:
         updates["complexity"] = "simple"
 
     # ── v2: Track retry attempts for self-correction ──
-    updates["_reasoning_attempts"] = state.get("_reasoning_attempts", 0)
+    updates["_reasoning_attempts"] = 0  # Initialize counter for quality loop-back
 
     updates["active_frameworks"] = state.get("active_frameworks", []) + ["tech_subgraph_v2"]
     return updates
@@ -401,11 +401,15 @@ or have a clear workaround after reading your response. Avoid vague suggestions.
             "reasoning_chain": state.get("reasoning_chain", []) + result.chain,
             "reasoning_conclusion": result.output[:800] if result.output else "",
             "active_frameworks": state.get("active_frameworks", []) + result.frameworks_used,
+            "_reasoning_attempts": state.get("_reasoning_attempts", 0) + 1,
         }
 
     except Exception as exc:
         logger.warning("tech_reasoning: brain failed: %s", exc)
-        return {"reasoning_conclusion": "Technical reasoning inconclusive"}
+        return {
+            "reasoning_conclusion": "Technical reasoning inconclusive",
+            "_reasoning_attempts": state.get("_reasoning_attempts", 0) + 1,  # CRITICAL: always increment to prevent infinite loop
+        }
 
 
 async def _tech_reverse_thinker(state: dict[str, Any]) -> dict[str, Any]:
@@ -719,6 +723,7 @@ async def _tech_quality_scorer(state: dict[str, Any]) -> dict[str, Any]:
     return {
         "quality_score": max(min(score, 100.0), 0.0),
         "quality_issues": quality_issues,
+        "_quality_check_count": state.get("_quality_check_count", 0) + 1,  # Track loop iterations
     }
 
 
@@ -777,14 +782,40 @@ async def _tech_response_formatter(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _should_retry_tech(state: dict[str, Any]) -> str:
+    """Conditional edge: after quality scoring, decide to retry or proceed to formatting.
+
+    v3: Quality loop-back — if quality < 80 and we haven't retried too many times,
+    loop back to reasoning with the self-correction context.
+    """
+    quality = state.get("quality_score", 0.0)
+    attempts = state.get("_reasoning_attempts", 0)
+    loop_key = "_quality_check_count"
+    check_count = state.get(loop_key, 0) + 1
+
+    # If quality is good enough, proceed to response formatting
+    if quality >= 80:
+        return "RESPONSE_FORMATTER"
+
+    # If we've already retried OR checked quality too many times, accept what we have
+    if attempts >= 2 or check_count >= 3:
+        return "RESPONSE_FORMATTER"
+
+    # Otherwise, loop back to reasoning with correction context
+    logger.info("tech_quality_loop: quality=%.1f attempts=%d check=%d, retrying reasoning", quality, attempts, check_count)
+    return "REASONING_ENGINE"
+
+
 def build_tech_graph() -> StateGraph:
-    """Build the 12-node tech support subgraph (v2).
+    """Build the 12-node tech support subgraph (v3) with quality loop-back.
 
     Flow:
       INTENT_CONFIRM → CUSTOMER_CONTEXT → TECH_DIAGNOSIS → KB_RETRIEVER
           → REASONING_ENGINE → REVERSE_THINKER → SELF_CORRECTION
           → ACTION_PLANNER → ACTION_EXECUTOR → QUALITY_SCORER
           → RESPONSE_FORMATTER → END
+                              ↑_______________|
+                    (if quality < 80 and attempts < 2, loop to REASONING_ENGINE)
     """
     graph = StateGraph(dict)
 
@@ -811,14 +842,24 @@ def build_tech_graph() -> StateGraph:
     graph.add_edge("SELF_CORRECTION", "ACTION_PLANNER")
     graph.add_edge("ACTION_PLANNER", "ACTION_EXECUTOR")
     graph.add_edge("ACTION_EXECUTOR", "QUALITY_SCORER")
-    graph.add_edge("QUALITY_SCORER", "RESPONSE_FORMATTER")
+
+    # v3: Conditional edge — quality loop-back
+    graph.add_conditional_edges(
+        "QUALITY_SCORER",
+        _should_retry_tech,
+        {
+            "RESPONSE_FORMATTER": "RESPONSE_FORMATTER",
+            "REASONING_ENGINE": "REASONING_ENGINE",
+        },
+    )
+
     graph.add_edge("RESPONSE_FORMATTER", END)
 
     return graph
 
 
 class TechGraph:
-    """Convenience wrapper for the tech support subgraph (v2)."""
+    """Convenience wrapper for the tech support subgraph (v3)."""
 
     def __init__(self) -> None:
         self._graph = build_tech_graph()

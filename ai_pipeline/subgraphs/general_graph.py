@@ -1,15 +1,18 @@
-"""General Subgraph — Pipeline for general inquiries, FAQ, complaints, etc.
+"""General Subgraph — Enhanced pipeline with self-correction and quality loop-back.
 
-8-node streamlined pipeline for straightforward tickets:
+9-node pipeline for general inquiries with self-correction:
 
-  INGEST → INTENT_CONFIRM → KB_RETRIEVER → REASONING_ENGINE
-      → ACTION_PLANNER → ACTION_EXECUTOR
-      → QUALITY_SCORER → RESPONSE_FORMATTER
+  INTENT_CONFIRM → KB_RETRIEVER → REASONING_ENGINE → SELF_CORRECTION
+      → ACTION_PLANNER → ACTION_EXECUTOR → QUALITY_SCORER → RESPONSE_FORMATTER → END
+                                                  ↑_______________|
+                                          (if quality < 80 and attempts < 2)
 
-Technique priorities:
-  - CoT for straightforward reasoning
-  - Least-to-Most for multi-part questions
-  - Minimal techniques = fast, cheap, good enough for simple tickets
+v3 Improvements:
+  - Added SELF_CORRECTION node that validates reasoning and enriches if needed
+  - Added quality loop-back: if quality < 80, re-reason with correction context
+  - Up to 2 retry loops before accepting the response
+  - Better quality scorer with general-specific signals
+  - Improved response formatter with proper structure
 """
 
 from __future__ import annotations
@@ -35,7 +38,7 @@ async def _general_intent_confirm(state: dict[str, Any]) -> dict[str, Any]:
         "complaint": ["complaint", "unacceptable", "terrible service", "worst"],
         "account": ["change my", "update my", "modify", "switch"],
         "order_status": ["where is my order", "tracking", "delivery", "shipping"],
-        "general": [],  # fallback
+        "general": [],
     }
 
     detected = "general"
@@ -51,6 +54,7 @@ async def _general_intent_confirm(state: dict[str, Any]) -> dict[str, Any]:
     updates["_is_multipart"] = question_marks > 1
 
     updates["active_frameworks"] = state.get("active_frameworks", []) + ["general_subgraph"]
+    updates["_reasoning_attempts"] = 0  # Initialize counter for quality loop-back
     return updates
 
 
@@ -59,7 +63,7 @@ async def _general_kb_retriever(state: dict[str, Any]) -> dict[str, Any]:
     try:
         from parwa.frameworks.brain import FrameworkBrain
         from parwa.subgraphs.prompts import GENERAL_KB_ENHANCEMENT_PROMPT
-        from parwa.subgraphs.technique_configs import get_subgraph_techniques, get_subgraph_kb_boosts
+        from parwa.subgraphs.technique_configs import get_subgraph_techniques
 
         brain = FrameworkBrain(node="KB_RETRIEVER", state=state)
         techniques = get_subgraph_techniques("general", "KB_RETRIEVER")
@@ -111,7 +115,7 @@ async def _general_kb_retriever(state: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _general_reasoning(state: dict[str, Any]) -> dict[str, Any]:
-    """General reasoning — keep it simple."""
+    """General reasoning — with self-correction support."""
     try:
         from parwa.frameworks.brain import FrameworkBrain
         from parwa.subgraphs.technique_configs import get_subgraph_techniques
@@ -139,6 +143,11 @@ Knowledge Base Context:
 
 Provide a clear, helpful answer. If you can't find the answer, say so honestly."""
 
+        # If this is a retry, include correction context
+        correction = state.get("_correction_context", "")
+        if correction:
+            prompt += f"\n\nSELF-CORRECTION CONTEXT (previous attempt was insufficient):\n{correction[:500]}"
+
         result = await brain.think(
             prompt=prompt,
             techniques=techniques if techniques else ["chain_of_thought"],
@@ -150,11 +159,63 @@ Provide a clear, helpful answer. If you can't find the answer, say so honestly."
             "reasoning_chain": state.get("reasoning_chain", []) + result.chain,
             "reasoning_conclusion": result.output[:500] if result.output else "",
             "active_frameworks": state.get("active_frameworks", []) + result.frameworks_used,
+            "_reasoning_attempts": state.get("_reasoning_attempts", 0) + 1,
         }
 
     except Exception as exc:
         logger.warning("general_reasoning: brain failed: %s", exc)
-        return {"reasoning_conclusion": "Reasoning inconclusive"}
+        return {
+            "reasoning_conclusion": "Reasoning inconclusive",
+            "_reasoning_attempts": state.get("_reasoning_attempts", 0) + 1,  # CRITICAL: always increment to prevent infinite loop
+        }
+
+
+async def _general_self_correction(state: dict[str, Any]) -> dict[str, Any]:
+    """v3 NEW: Self-correction — validates reasoning and enriches if needed."""
+    conclusion = state.get("reasoning_conclusion", "")
+    attempts = state.get("_reasoning_attempts", 0)
+    sub_type = state.get("_general_sub_type", "general")
+
+    # Quality pre-check
+    is_actionable = any(
+        kw in conclusion.lower()
+        for kw in ["you can", "please", "step", "1.", "click", "go to", "navigate",
+                   "visit", "download", "contact", "email", "call", "check"]
+    )
+    addresses_question = len(conclusion) > 80  # Too short = likely vague
+
+    # For complaints, check for empathy
+    has_empathy = True  # Default pass for non-complaints
+    if sub_type == "complaint":
+        has_empathy = any(
+            kw in conclusion.lower()
+            for kw in ["sorry", "apologize", "understand", "frustration", "experience"]
+        )
+
+    # If response looks good, pass through
+    if is_actionable and addresses_question and has_empathy:
+        return {"_self_correction_applied": False}
+
+    # Don't loop more than twice
+    if attempts >= 2:
+        return {"_self_correction_applied": False}
+
+    # Build correction context
+    correction_parts = []
+    if not is_actionable:
+        correction_parts.append("Response lacks actionable steps — provide specific actions the customer can take.")
+    if not addresses_question:
+        correction_parts.append("Response is too brief — provide more detailed information.")
+    if not has_empathy and sub_type == "complaint":
+        correction_parts.append("Complaint response lacks empathy — acknowledge the customer's frustration before providing solutions.")
+
+    correction_context = " ".join(correction_parts)
+
+    return {
+        "_correction_context": correction_context,
+        "_self_correction_applied": bool(correction_context),
+        "active_frameworks": state.get("active_frameworks", []) + ["self_correction"],
+    }
 
 
 async def _general_action_planner(state: dict[str, Any]) -> dict[str, Any]:
@@ -199,20 +260,74 @@ async def _general_action_executor(state: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _general_quality_scorer(state: dict[str, Any]) -> dict[str, Any]:
-    """Score general response quality."""
+    """v3: Enhanced quality scorer for general responses."""
     conclusion = state.get("reasoning_conclusion", "")
+    final_response = state.get("final_response", "")
+    combined = f"{conclusion} {final_response}".lower()
     has_kb = len(state.get("kb_results", [])) > 0
+    sub_type = state.get("_general_sub_type", "general")
 
-    score = 70.0
+    # Core signals
+    is_actionable = any(
+        kw in combined for kw in ["you can", "please", "step", "1.", "click", "go to",
+                                  "visit", "download", "contact", "email", "check"]
+    )
+    has_empathy = any(
+        kw in combined for kw in ["sorry", "apologize", "understand", "help", "happy to"]
+    )
+    addresses_topic = len(conclusion) > 80
+    has_next = any(kw in combined for kw in ["anything else", "further", "don't hesitate", "let me know"])
+
+    # Scoring
+    score = 60.0
     if has_kb:
-        score += 15.0
-    if len(conclusion) > 50:
-        score += 15.0
+        score += 10.0
+    if is_actionable:
+        score += 12.0
+    if addresses_topic:
+        score += 8.0
+    if has_next:
+        score += 5.0
+    if sub_type == "complaint" and has_empathy:
+        score += 10.0
+    elif has_empathy:
+        score += 5.0
+    if len(conclusion) > 200:
+        score += 5.0
+
+    # Penalize vague
+    vague = ["inconclusive", "unable to", "don't know", "unclear"]
+    if any(s in combined for s in vague):
+        score -= 10.0
+
+    quality_issues = []
+    if score < 80:
+        if not is_actionable:
+            quality_issues.append("Response lacks actionable steps")
+        if not addresses_topic:
+            quality_issues.append("Response is too brief to be helpful")
 
     return {
-        "quality_score": min(score, 100.0),
-        "quality_issues": [],
+        "quality_score": max(min(score, 100.0), 0.0),
+        "quality_issues": quality_issues,
+        "_quality_check_count": state.get("_quality_check_count", 0) + 1,  # Track loop iterations
     }
+
+
+def _should_retry_general(state: dict[str, Any]) -> str:
+    """Conditional edge: after quality scoring, decide to retry or proceed."""
+    quality = state.get("quality_score", 0.0)
+    attempts = state.get("_reasoning_attempts", 0)
+    loop_key = "_quality_check_count"
+    check_count = state.get(loop_key, 0) + 1
+
+    if quality >= 80:
+        return "RESPONSE_FORMATTER"
+    if attempts >= 2 or check_count >= 3:
+        return "RESPONSE_FORMATTER"
+
+    logger.info("general_quality_loop: quality=%.1f attempts=%d check=%d, retrying", quality, attempts, check_count)
+    return "REASONING_ENGINE"
 
 
 async def _general_response_formatter(state: dict[str, Any]) -> dict[str, Any]:
@@ -220,25 +335,31 @@ async def _general_response_formatter(state: dict[str, Any]) -> dict[str, Any]:
     conclusion = state.get("reasoning_conclusion", "")
     sub_type = state.get("_general_sub_type", "general")
 
+    sections = []
+
     if sub_type == "complaint":
-        response = f"I'm sorry to hear about your experience. {conclusion}\n\nI'd like to make this right — would you like me to connect you with a senior team member who can address your concern directly?"
+        sections.append(f"I'm sorry to hear about your experience. {conclusion}")
+        sections.append("\nI'd like to make this right — would you like me to connect you with a senior team member who can address your concern directly?")
     elif sub_type == "faq":
-        response = f"{conclusion}\n\nIs there anything else I can help you with?"
+        sections.append(f"{conclusion}")
+        sections.append("\nIs there anything else I can help you with?")
     else:
-        response = f"{conclusion}\n\nIf you need any further assistance, don't hesitate to ask!"
+        sections.append(f"{conclusion}")
+        sections.append("\nIf you need any further assistance, don't hesitate to ask!")
 
     return {
-        "final_response": response,
+        "final_response": "\n".join(sections),
     }
 
 
 def build_general_graph() -> StateGraph:
-    """Build the 8-node general subgraph."""
+    """Build the 9-node general subgraph (v3) with self-correction and quality loop-back."""
     graph = StateGraph(dict)
 
     graph.add_node("INTENT_CONFIRM", safe_node("INTENT_CONFIRM", fallback={})(_general_intent_confirm))
     graph.add_node("KB_RETRIEVER", safe_node("KB_RETRIEVER", fallback={"kb_results": []})(_general_kb_retriever))
     graph.add_node("REASONING_ENGINE", safe_node("REASONING_ENGINE", fallback={})(_general_reasoning))
+    graph.add_node("SELF_CORRECTION", safe_node("SELF_CORRECTION", fallback={})(_general_self_correction))
     graph.add_node("ACTION_PLANNER", safe_node("ACTION_PLANNER", fallback={})(_general_action_planner))
     graph.add_node("ACTION_EXECUTOR", safe_node("ACTION_EXECUTOR", fallback={})(_general_action_executor))
     graph.add_node("QUALITY_SCORER", safe_node("QUALITY_SCORER", fallback={"quality_score": 50.0})(_general_quality_scorer))
@@ -248,17 +369,28 @@ def build_general_graph() -> StateGraph:
 
     graph.add_edge("INTENT_CONFIRM", "KB_RETRIEVER")
     graph.add_edge("KB_RETRIEVER", "REASONING_ENGINE")
-    graph.add_edge("REASONING_ENGINE", "ACTION_PLANNER")
+    graph.add_edge("REASONING_ENGINE", "SELF_CORRECTION")
+    graph.add_edge("SELF_CORRECTION", "ACTION_PLANNER")
     graph.add_edge("ACTION_PLANNER", "ACTION_EXECUTOR")
     graph.add_edge("ACTION_EXECUTOR", "QUALITY_SCORER")
-    graph.add_edge("QUALITY_SCORER", "RESPONSE_FORMATTER")
+
+    # Conditional edge: quality loop-back
+    graph.add_conditional_edges(
+        "QUALITY_SCORER",
+        _should_retry_general,
+        {
+            "RESPONSE_FORMATTER": "RESPONSE_FORMATTER",
+            "REASONING_ENGINE": "REASONING_ENGINE",
+        },
+    )
+
     graph.add_edge("RESPONSE_FORMATTER", END)
 
     return graph
 
 
 class GeneralGraph:
-    """Convenience wrapper for the general subgraph."""
+    """Convenience wrapper for the general subgraph (v3)."""
 
     def __init__(self) -> None:
         self._graph = build_general_graph()
@@ -271,4 +403,4 @@ class GeneralGraph:
 
     @property
     def node_count(self) -> int:
-        return 7
+        return 8
