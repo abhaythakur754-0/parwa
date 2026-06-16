@@ -1,0 +1,121 @@
+{
+  "timestamp": "2026-06-16T00:50:11.466510+00:00",
+  "pipeline_version": "v2_enhanced",
+  "method": "empirical_nvidia_glm5_deepseek_llama",
+  "total_tickets": 5,
+  "improvements": [
+    "tech_subgraph_v2: CRM context, self-correction, better quality scorer",
+    "router_v2: weighted keywords, pattern matching, expanded signals",
+    "prompts_v2: actionable tech, defective=full refund, concrete complaints",
+    "nvidia_api: GLM-5.1 + DeepSeek-v4 + Llama-3.3-70b failover"
+  ],
+  "metrics": {
+    "containment_rate": 100.0,
+    "subgraph_routing_accuracy": 100.0,
+    "intent_accuracy": 100.0,
+    "intent_correct_containment_rate": 100.0,
+    "fully_resolved_rate": 20.0,
+    "partially_resolved_rate": 80.0,
+    "not_resolved_rate": 0.0,
+    "true_resolution_rate": 20.0,
+    "industry_comparable_rate": 100.0,
+    "avg_quality_score": 83.0
+  },
+  "by_category": {
+    "refund": {
+      "total": 5,
+      "fully": 1,
+      "partial": 4,
+      "not": 0,
+      "true_res": 1,
+      "int_ok": 5
+    }
+  },
+  "per_ticket_results": [
+    {
+      "id": "R-001",
+      "expected_sub": "refund",
+      "pred_sub": "refund",
+      "sub_ok": true,
+      "expected_intent": "refund",
+      "pred_int": "refund",
+      "int_ok": true,
+      "resolution": "fully_resolved",
+      "intent_match": true,
+      "actionable": true,
+      "quality_score": 95,
+      "reason": "Meets all special rules for refunds: states exact amount ('full refund of the entire purchase price') and exact timeline ('3-5 business days'). The customer does not need to take any further action or wait for additional info beyond the processing time.",
+      "contained": true,
+      "response": "I'm so sorry your headphones stopped working so soon after purchase. Since the product is defective, you are entitled to a full refund of the entire purchase price regardless of the 30-day window, which I am processing for you right now. The full refund amount will be credited back to your original ",
+      "lat_ms": 13631
+    },
+    {
+      "id": "R-002",
+      "expected_sub": "refund",
+      "pred_sub": "refund",
+      "sub_ok": true,
+      "expected_intent": "cancellation",
+      "pred_int": "cancellation",
+      "int_ok": true,
+      "resolution": "partially_resolved",
+      "intent_match": true,
+      "actionable": true,
+      "quality_score": 75,
+      "reason": "Refund response fails the special rule for fully_resolved because it states '$XX' instead of the exact amount. Cancellation is immediate, but the refund requires the customer to wait 3-5 days and lacks the required amount specificity.",
+      "contained": true,
+      "response": "I am so sorry for the extreme frustration of paying for months of a service you never used\u2014you absolutely deserve to have this fixed right now. I am immediately canceling your subscription and issuing a full refund of $XX for the 3 months of erroneous charges, which will arrive in your account withi",
+      "lat_ms": 13302
+    },
+    {
+      "id": "R-003",
+      "expected_sub": "refund",
+      "pred_sub": "refund",
+      "sub_ok": true,
+      "expected_intent": "refund",
+      "pred_int": "refund",
+      "int_ok": true,
+      "resolution": "partially_resolved",
+      "intent_match": true,
+      "actionable": true,
+      "quality_score": 75,
+      "reason": "Refund rule requires exact amount + timeline to be fully_resolved. Response provides timeline (3-5 days) but fails to state the exact refund amount, only saying 'full refund of the original purchase amount'. Customer must also wait for funds to arrive.",
+      "contained": true,
+      "response": "I completely understand how incredibly frustrating it is to wait weeks for a refund you are rightfully owed. I am processing your full refund of the original purchase amount right now, and the funds will be credited back to your original payment method within 3-5 business days. You do not need to co",
+      "lat_ms": 14955
+    },
+    {
+      "id": "R-004",
+      "expected_sub": "refund",
+      "pred_sub": "refund",
+      "sub_ok": true,
+      "expected_intent": "refund",
+      "pred_int": "refund",
+      "int_ok": true,
+      "resolution": "partially_resolved",
+      "intent_match": true,
+      "actionable": true,
+      "quality_score": 85,
+      "reason": "Refund special rule requires stating the exact amount to be fully_resolved. The response only says 'full refund of the item price' without specifying the exact dollar amount. Otherwise, it perfectly addresses the core problem and provides a clear timeline.",
+      "contained": true,
+      "response": "I am incredibly sorry for the repeated failures and absolute frustration this ongoing rejection has caused you. I am overriding the system errors and processing your full refund of the item price right now, which will post to your original payment method within 3-5 business days. You do not need to ",
+      "lat_ms": 15616
+    },
+    {
+      "id": "R-005",
+      "expected_sub": "refund",
+      "pred_sub": "refund",
+      "sub_ok": true,
+      "expected_intent": "refund",
+      "pred_int": "refund",
+      "int_ok": true,
+      "resolution": "partially_resolved",
+      "intent_match": true,
+      "actionable": true,
+      "quality_score": 85,
+      "reason": "Refund special rule requires exact amount + timeline to be fully_resolved. Response provides timeline (3-5 business days) but fails to state the exact refund amount, only saying 'entire purchase price'. Therefore, it is partially_resolved as the customer must wait for the refund and verify the exact amount.",
+      "contained": true,
+      "response": "I completely understand your frustration with receiving a defective laptop, and I am resolving this for you right now. Because the product is defective, our policy guarantees you a full refund regardless of the 45-day timeframe, bypassing the usual partial refund window. I am processing a full refun",
+      "lat_ms": 22883
+    }
+  ]
+}

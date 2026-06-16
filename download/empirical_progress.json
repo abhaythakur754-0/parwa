@@ -272,19 +272,35 @@
     "lat_ms": 214911
   },
   {
-    "id": "G-005",
+    "id": "G-008",
     "expected_sub": "general",
-    "pred_sub": "general",
+    "pred_sub": "billing",
+    "sub_ok": false,
+    "expected_intent": "general",
+    "pred_int": "general",
+    "int_ok": true,
+    "resolution": "fully_resolved",
+    "intent_match": true,
+    "actionable": true,
+    "reason": "clearly explains plan differences",
+    "contained": true,
+    "response": "The Starter plan costs $29.99 per month, while the Pro plan costs $49.99 per month, resulting in a $20 difference. The Pro plan also includes additional features, such as extra storage and priority su",
+    "lat_ms": 204523
+  },
+  {
+    "id": "T-006",
+    "expected_sub": "tech",
+    "pred_sub": "tech",
     "sub_ok": true,
-    "expected_intent": "escalation",
-    "pred_int": "complaint",
-    "int_ok": false,
+    "expected_intent": "technical",
+    "pred_int": "technical",
+    "int_ok": true,
     "resolution": "partially_resolved",
     "intent_match": true,
     "actionable": true,
-    "reason": "acknowledges issue and escalates",
-    "contained": false,
-    "response": "I can see that you're extremely upset and feeling violated, and I want to start by acknowledging how frustrating and concerning this situation must be for you. I'm truly sorry that you're going throug",
-    "lat_ms": 217088
+    "reason": "provides potential solutions but may require escalation",
+    "contained": true,
+    "response": "To resolve the SSL certificate error, first try updating your server's certificate trust store to ensure it has the latest root certificates. Next, verify that your EU servers' clocks are synchronized",
+    "lat_ms": 215659
   }
 ]

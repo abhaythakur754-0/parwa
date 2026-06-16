@@ -1,9 +1,12 @@
-"""Production LLM client using real API providers: Google AI, Cerebras, Groq.
+"""Production LLM client using real API providers: NVIDIA, Google AI, Cerebras, Groq.
+
+v2: Adds NVIDIA API as primary provider with GLM-5.1, DeepSeek, and Llama models.
 
 Replaces ZAI SDK subprocess calls with direct HTTP API calls.
 Uses the Smart Router tier system: Light → Medium → Heavy with automatic failover.
 
 API Keys (from environment variables):
+- NVIDIA: NVIDIA_API_KEY (PRIMARY — highest rate limits)
 - Google AI: GOOGLE_AI_KEY
 - Cerebras: CEREBRAS_KEY
 - Groq: GROQ_KEY
@@ -14,6 +17,7 @@ Features:
 - Rate limit handling with retry-after
 - Circuit breaker per provider
 - Token tracking for TurboQuant budget
+- NVIDIA API as primary (highest throughput, supports GLM-5.1)
 """
 
 from __future__ import annotations
@@ -31,37 +35,44 @@ logger = logging.getLogger("parwa.real_llm")
 
 # ─── API Keys (from environment or defaults) ────────────────────────────────────
 
+NVIDIA_KEY = os.getenv("NVIDIA_API_KEY", "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")
 GOOGLE_AI_KEY = os.getenv("GOOGLE_AI_KEY", "")
 CEREBRAS_KEY = os.getenv("CEREBRAS_KEY", "")
 GROQ_KEY = os.getenv("GROQ_KEY", "")
 
 # ─── Provider Endpoints ─────────────────────────────────────────────────────────
 
+NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 GOOGLE_AI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 CEREBRAS_URL = "https://api.cerebras.ai/v1/chat/completions"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
-# ─── Model Definitions (aligned with config.py MODEL_TIERS) ─────────────────────
+# ─── Model Definitions (v2: NVIDIA as primary) ─────────────────────────────────
 
 # Maps our model names to provider + actual model ID
 MODEL_MAP: dict[str, dict[str, str]] = {
-    # Light tier
+    # ── NVIDIA models (PRIMARY — highest rate limits) ──
+    "nvidia/glm-5.1": {"provider": "nvidia", "model": "z-ai/glm-5.1"},
+    "nvidia/deepseek-v4-flash": {"provider": "nvidia", "model": "deepseek-ai/deepseek-v4-flash"},
+    "nvidia/llama-3.3-70b": {"provider": "nvidia", "model": "meta/llama-3.3-70b-instruct"},
+    # ── Light tier ──
     "cerebras/llama-3.1-8b": {"provider": "cerebras", "model": "llama-3.1-8b"},
     "groq/llama-3.1-8b-instant": {"provider": "groq", "model": "llama-3.1-8b-instant"},
     "gemini/gemma-3-27b-it": {"provider": "google", "model": "gemma-3-27b-it"},
-    # Medium tier
+    # ── Medium tier ──
     "gemini/gemini-2.0-flash-lite": {"provider": "google", "model": "gemini-2.0-flash-lite"},
     "gemini/gemini-2.0-flash": {"provider": "google", "model": "gemini-2.0-flash"},
     "groq/llama-3.3-70b-versatile": {"provider": "groq", "model": "llama-3.3-70b-versatile"},
     "groq/qwen3-32b": {"provider": "groq", "model": "qwen3-32b"},
-    # Heavy tier
+    # ── Heavy tier ──
     "cerebras/llama-4-scout-17b-16e-instruct": {"provider": "cerebras", "model": "llama-4-scout-17b-16e-instruct"},
-    # Guardrail
+    # ── Guardrail ──
     "groq/llama-guard-4-12b": {"provider": "groq", "model": "llama-guard-4-12b"},
 }
 
 # Provider → API key mapping
 PROVIDER_KEYS: dict[str, str] = {
+    "nvidia": NVIDIA_KEY,
     "google": GOOGLE_AI_KEY,
     "cerebras": CEREBRAS_KEY,
     "groq": GROQ_KEY,
@@ -69,9 +80,22 @@ PROVIDER_KEYS: dict[str, str] = {
 
 # Provider → URL mapping
 PROVIDER_URLS: dict[str, str] = {
+    "nvidia": NVIDIA_URL,
     "google": GOOGLE_AI_URL,
     "cerebras": CEREBRAS_URL,
     "groq": GROQ_URL,
+}
+
+# ─── Default Model Chains (v2: NVIDIA first) ───────────────────────────────────
+
+DEFAULT_MODEL_CHAINS: dict[str, list[str]] = {
+    "routing": ["nvidia/deepseek-v4-flash", "nvidia/llama-3.3-70b"],
+    "reasoning": ["nvidia/glm-5.1", "nvidia/deepseek-v4-flash", "nvidia/llama-3.3-70b"],
+    "response": ["nvidia/glm-5.1", "nvidia/deepseek-v4-flash", "nvidia/llama-3.3-70b"],
+    "evaluation": ["nvidia/deepseek-v4-flash", "nvidia/llama-3.3-70b"],
+    "light": ["nvidia/deepseek-v4-flash", "cerebras/llama-3.1-8b", "groq/llama-3.1-8b-instant"],
+    "medium": ["nvidia/glm-5.1", "nvidia/deepseek-v4-flash", "groq/llama-3.3-70b-versatile"],
+    "heavy": ["nvidia/glm-5.1", "nvidia/deepseek-v4-flash", "cerebras/llama-4-scout-17b-16e-instruct"],
 }
 
 # ─── Circuit Breaker ────────────────────────────────────────────────────────────
@@ -116,16 +140,18 @@ _circuit_breaker = CircuitBreaker()
 # ─── Rate Limiter (simple per-provider) ─────────────────────────────────────────
 
 _last_call_time: dict[str, float] = {}
-MIN_CALL_INTERVAL = 0.3  # seconds between calls to same provider
+MIN_CALL_INTERVAL = 0.3  # seconds between calls to same provider (NVIDIA can go faster)
+NVIDIA_MIN_INTERVAL = 0.1  # NVIDIA has higher rate limits
 
 
 async def _rate_limit_wait(provider: str) -> None:
     """Wait if needed to respect per-provider rate limits."""
+    min_interval = NVIDIA_MIN_INTERVAL if provider == "nvidia" else MIN_CALL_INTERVAL
     now = time.time()
     last = _last_call_time.get(provider, 0)
     elapsed = now - last
-    if elapsed < MIN_CALL_INTERVAL:
-        await asyncio.sleep(MIN_CALL_INTERVAL - elapsed)
+    if elapsed < min_interval:
+        await asyncio.sleep(min_interval - elapsed)
     _last_call_time[provider] = time.time()
 
 
@@ -141,10 +167,10 @@ async def call_llm(
 ) -> dict[str, Any]:
     """Call an LLM via direct HTTP API. Returns {content, model, usage}.
 
-    Uses OpenAI-compatible API format (supported by all 3 providers).
+    Uses OpenAI-compatible API format (supported by all 4 providers).
 
     Args:
-        model_name: Our model key (e.g. "cerebras/llama-3.1-8b")
+        model_name: Our model key (e.g. "nvidia/glm-5.1")
         system_prompt: System instructions
         user_prompt: User message
         temperature: Sampling temperature
@@ -188,12 +214,8 @@ async def call_llm(
         "max_tokens": max_tokens,
     }
 
-    # Google AI uses a different auth header
-    if provider == "google":
-        headers["Authorization"] = f"Bearer {api_key}"
-
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=45.0) as client:
             resp = await client.post(base_url, headers=headers, json=payload)
 
         if resp.status_code == 429:
@@ -202,7 +224,7 @@ async def call_llm(
             logger.warning("rate_limit: %s returned 429, retry after %.1fs", provider, retry_after)
             await asyncio.sleep(retry_after)
             # Retry once
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=45.0) as client:
                 resp = await client.post(base_url, headers=headers, json=payload)
 
         if resp.status_code != 200:
@@ -232,7 +254,7 @@ async def call_llm(
 
     except httpx.TimeoutException:
         _circuit_breaker.record_failure(provider)
-        raise TimeoutError(f"{provider} API timed out after 30s")
+        raise TimeoutError(f"{provider} API timed out after 45s")
     except httpx.ConnectError:
         _circuit_breaker.record_failure(provider)
         raise ConnectionError(f"Cannot connect to {provider} API")
@@ -270,7 +292,36 @@ async def call_llm_with_failover(
     raise RuntimeError(f"All models in chain failed. Last error: {last_error}")
 
 
-# ─── Test Connection ─────────────────────────────────────────────────────────────
+# ─── Convenience: Call with default chain ──────────────────────────────────────
+
+async def call_for_purpose(
+    purpose: str,
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    temperature: float = 0.1,
+    max_tokens: int = 500,
+) -> dict[str, Any]:
+    """Call LLM with the default model chain for a purpose.
+
+    Args:
+        purpose: One of "routing", "reasoning", "response", "evaluation"
+        system_prompt: System instructions
+        user_prompt: User message
+        temperature: Sampling temperature
+        max_tokens: Max response tokens
+
+    Returns:
+        Dict with content, model, usage
+    """
+    chain = DEFAULT_MODEL_CHAINS.get(purpose, DEFAULT_MODEL_CHAINS["medium"])
+    return await call_llm_with_failover(
+        chain, system_prompt, user_prompt,
+        temperature=temperature, max_tokens=max_tokens,
+    )
+
+
+# ─── Test Connection ────────────────────────────────────────────────────────────
 
 async def test_provider(provider: str) -> dict[str, Any]:
     """Test if a provider's API key works by making a simple call."""
@@ -282,6 +333,7 @@ async def test_provider(provider: str) -> dict[str, Any]:
 
     # Pick a model for this provider
     test_models = {
+        "nvidia": "deepseek-ai/deepseek-v4-flash",
         "google": "gemma-3-27b-it",
         "cerebras": "llama-3.1-8b",
         "groq": "llama-3.1-8b-instant",
@@ -338,7 +390,7 @@ async def test_provider(provider: str) -> dict[str, Any]:
 async def test_all_providers() -> dict[str, dict[str, Any]]:
     """Test all providers and return results."""
     results = {}
-    tasks = [test_provider(p) for p in ["cerebras", "groq", "google"]]
+    tasks = [test_provider(p) for p in ["nvidia", "cerebras", "groq", "google"]]
     responses = await asyncio.gather(*tasks, return_exceptions=True)
     for resp in responses:
         if isinstance(resp, Exception):
