@@ -20,7 +20,7 @@ NVIDIA_API_BASE = "https://integrate.api.nvidia.com/v1"
 NVIDIA_MODEL = "meta/llama-3.1-8b-instruct"
 
 # LiteLLM: use openai/ prefix with NVIDIA base URL for compatible endpoints
-LLM_MODEL = "meta/llama-3.1-8b-instruct"
+LLM_MODEL = "openai/meta/llama-3.1-8b-instruct"  # litellm needs openai/ prefix for NVIDIA
 LLM_API_BASE = NVIDIA_API_BASE
 LLM_API_KEY = NVIDIA_API_KEY
 
