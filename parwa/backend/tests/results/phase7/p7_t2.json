@@ -1,0 +1,41 @@
+{
+  "ticket_id": "p7_t2",
+  "status": "resolved",
+  "quality": 1.0,
+  "quality_details": {
+    "reflexion": 0.95,
+    "crp": 0.95,
+    "zero_shot": 1.0,
+    "structure": 0.97,
+    "thot_coherence": 1.0,
+    "gsd_part_scores": 0.85,
+    "kb_grounding": 0.98,
+    "adequacy": 1.0,
+    "all_non_llm_95": false,
+    "all_non_llm_90": false
+  },
+  "calls": 13,
+  "tokens": 11028,
+  "time_s": 90.0,
+  "wiki_written": true,
+  "wiki_patterns_found": 1,
+  "wiki_patterns_detail": [
+    {
+      "entry_key": "billing_aa752d1a",
+      "techniques_that_worked": [
+        "GSD",
+        "MAKER",
+        "CoT",
+        "ToT",
+        "ReverseThinking",
+        "FederatedReasoning",
+        "AnswerSynthesis"
+      ],
+      "quality_achieved": 1.0,
+      "answer_summary": "Subject: Resolution to Billing Dispute - Duplicate Charges and Pricing Inconsistency\n\nDear [Customer],\n\nThank you for reaching out to us regarding the billing dispute. We apologize for the inconvenien",
+      "historical_success_rate": 0.0
+    }
+  ],
+  "response_len": 2037,
+  "errors": []
+}

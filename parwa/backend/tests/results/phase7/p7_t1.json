@@ -1,0 +1,25 @@
+{
+  "ticket_id": "p7_t1",
+  "status": "resolved",
+  "quality": 1.0,
+  "quality_details": {
+    "reflexion": 0.95,
+    "crp": 0.95,
+    "zero_shot": 1.0,
+    "structure": 0.97,
+    "thot_coherence": 1.0,
+    "gsd_part_scores": 0.85,
+    "kb_grounding": 0.98,
+    "adequacy": 1.0,
+    "all_non_llm_95": false,
+    "all_non_llm_90": false
+  },
+  "calls": 13,
+  "tokens": 10825,
+  "time_s": 103.2,
+  "wiki_written": true,
+  "wiki_patterns_found": 0,
+  "wiki_patterns_detail": [],
+  "response_len": 2244,
+  "errors": []
+}
