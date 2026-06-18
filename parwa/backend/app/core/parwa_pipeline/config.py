@@ -14,7 +14,7 @@ import os
 
 NVIDIA_API_KEY = os.environ.get(
     "NVIDIA_API_KEY",
-    "nvapi-mYdaofMi6jRs_7xUD9ZhKtMm8I7exL04LaisFl3Vd5EXbxP8OXacPV1i",
+    "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",
 )
 NVIDIA_API_BASE = "https://integrate.api.nvidia.com/v1"
 NVIDIA_MODEL = "meta/llama-3.1-8b-instruct"
