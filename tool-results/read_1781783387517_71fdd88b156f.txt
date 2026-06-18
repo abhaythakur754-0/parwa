@@ -1,0 +1,2002 @@
+  6000→## {\'status\': \'trust_message\',
+  6001→\'customer_message\': \'Our systems are processing high volume. Check back in 5 min.\',
+  6002→## \'manager_alert\':
+  6003→already-sent emails**
+  6004→**THE PROBLEM:** The \'Recall\' command in Jarvis was described as being able to undo
+  6005→sent emails. Emails
+  6006→cannot be recalled once sent. This created false expectation. The Fix: Time-Gate + Pre-
+  6007→## Send Buffer System
+  6008→Emails now have a 90-second pre-send buffer (configurable): def
+  6009→schedule_email(email_data: dict,
+  6010→delay_seconds: int = 90): job = scheduler.schedule( send_email, args=\[email_data\],
+  6011→delay=delay_seconds,
+  6012→job_id=f\'email\_{email_data\[\"id\"\]}\' ) return {\'status\': \'scheduled\',
+  6013→\'job_id\': job.id, \'send_time\':
+  6014→datetime.utcnow() + timedelta(seconds=delay_seconds)} def recall_email(job_id: str):
+  6015→result =
+  6016→scheduler.cancel(job_id) if result: return {\'status\': \'cancelled_successfully\'}
+  6017→return {\'status\': \'already_sent\',
+  6018→
+  6019→\'message\': \'Email delivered. Cannot recall. Consider sending correction.\'} UI Change: Jarvis now shows a
+  6020→
+  6021→countdown timer for pending emails: \'Email sending in 82 seconds \[Cancel\]\' **Issue
+  6022→## 12: Other Industry Dead
+  6023→
+  6024→an \'Other\' option, but clicking it led to a generic, unimpressive experience with no
+  6025→customization. The Fix:
+  6026→description. - Step 2: AI instantly maps to nearest industry: \'You sound similar to
+  6027→\[SaaS/E-commerce\]. Want to
+  6028→model. - Step 4: Client uploads their own knowledge base, policies, and workflows. -
+  6029→Step 5: Jarvis builds a
+  6030→custom instruction set from their uploads. **CTA Change:** From dead-end page to: \'We
+  6031→don\'t have a template
+  6032→Clients can\'t verify claimed ROI savings** **THE PROBLEM:** The ROI Calculator shows
+  6033→projected savings
+  6034→
+  6035→
+  6036→but clients have no way to verify actual savings post-deployment. This creates distrust
+  6037→at renewal time. The Fix:
+  6038→Live ROI Dashboard with Verifiable Metrics Every client gets a \'Your PARWA ROI\'
+  6039→dashboard card showing: Tickets Auto-Resolved: Count of tickets handled without human
+  6040→input (verifiable in logs). - Manager Hours
+  6041→Saved: Calculated from average handle time × tickets auto-resolved. - Cost Equivalent:
+  6042→Hours × manager hourly
+  6043→rate (client-configured). - vs. Projected: \'Projected: 150 hrs saved. Actual: 163 hrs
+  6044→saved (+9%).\' - Audit Export:
+  6045→One-click CSV export of all resolved tickets with timestamps for independent
+  6046→verification.
+  6047→
+  6048→
+  6049→Assessment questions (\'How many tickets per day?\') rely on self-reporting. A client
+  6050→could lie to get a cheaper
+  6051→tier, then over-use the system. The Fix: Usage-Based Auto-Correction System def
+  6052→check_usage_vs_plan(client_id: int): plan = db.get_plan(client_id) actual_30day =
+  6053→db.query(\'SELECT
+  6054→COUNT(\*) FROM tickets WHERE client_id=? AND created_at \> NOW()-INTERVAL 30 DAY\',
+  6055→client_id)
+  6056→daily_average = actual_30day / 30 if daily_average \> plan.daily_limit \* 1.2: \# 20%
+  6057→grace buffer
+  6058→
+  6059→
+  6060→overage_percent = ((daily_average - plan.daily_limit) / plan.daily_limit) \* 100
+  6061→Month 2: System auto-generates new quote with usage proof. Month 3: If no upgrade,
+  6062→automatic
+  6063→overage billing
+  6064→mistakes** **THE PROBLEM:** Once AI was promoted to Graduated Autonomy, there was no
+  6065→automatic
+  6066→mechanism to demote it if accuracy dropped. Manual intervention required. The Fix:
+  6067→## Automatic Demotion
+  6068→Triggers def check_autonomy_health(client_id: int): metrics =
+  6069→get_7day_metrics(client_id) \# Rule 1: Accuracy
+  6070→drops below 85% for 3+ days if metrics\[\'approval_rate_7day\'\] \< 0.85 and
+  6071→metrics\[\'consecutive_low_days\'\]
+  6072→\>= 3: demote_to_supervised(client_id, reason=\'accuracy_drop\')
+  6073→notify_manager(client_id, \'AI demoted to
+  6074→day if metrics\[\'same_day_rejections\'\] \> 10: demote_to_supervised(client_id,
+  6075→reason=\'high_rejection_day\')
+  6076→
+  6077→
+  6078→trigger_emergency_review(client_id) \# Rule 3: Fraud detection flags unusual pattern if
+  6079→metrics\[\'fraud_signals_detected\'\] \> 3: demote_to_shadow(client_id,
+  6080→reason=\'fraud_pattern_detected\')
+  6081→**THE PROBLEM:** Voice commands like \'PARWA, approve all pending refunds\' could be
+  6082→triggered
+  6083→
+  6084→accidentally or by ambient audio. No confirmation step existed. The Fix: Two-Step Voice
+  6085→## Confirmation Protocol
+  6086→- Step 1: Voice command is heard -> Jarvis repeats back: \'I heard: Approve all pending
+  6087→refunds (\$2,340 total, 23
+  6088→tickets). Say YES to confirm or NO to cancel.\' - Step 2: If not confirmed within 10
+  6089→seconds, command is
+  6090→cancelled automatically. - Step 3: High-risk voice commands (\>\$500 total value)
+  6091→require additional PIN
+  6092→confirmation via touch. - Step 4: All voice commands are logged with audio transcript
+  6093→for audit trail. **Issue 17:
+  6094→could backfire** **THE PROBLEM:** The \'Trust Preservation Protocol\' told customers
+  6095→\'we\'re busy\' during
+  6096→outages, which technically obscures the real issue. GDPR/consumer protection laws may
+  6097→require honest
+  6098→communication. The Fix: Tiered Transparency Messaging
+  6099→ALERT: API down 2 minutes volume. Response in 5 mins.\' (Acceptable minor delay framing)
+  6100→5--30 minutes
+  6101→\'We\'re experiencing a CRITICAL: Extended outage brief technical delay. ETA:
+  6102→\[time\].\' (Honest,
+  6103→non-alarming) \> 30 minutes \'We\'re experiencing a EMERGENCY: Incident Response
+  6104→technical issue. We\'ll
+  6105→activated contact you when resolved. Sorry for inconvenience.\' (Full transparency)
+  6106→Celebration animation becomes annoying** **THE PROBLEM:** The \'Victory Animation\'
+  6107→(confetti/celebration on batch approvals) was hard-coded to show every time. After the
+  6108→first week, managers
+  6109→found it distracting. The Fix: Smart Celebration Logic (Novelty-Based) def
+  6110→should_show_celebration(client_id:
+  6111→int, milestone_type: str) -\> bool: last_shown =
+  6112→redis.get(f\'celebration:{client_id}:{milestone_type}\') if not
+  6113→last_shown: redis.set(f\'celebration:{client_id}:{milestone_type}\', datetime.utcnow(),
+  6114→ex=86400) \# 24hr
+  6115→
+  6116→milestones_seen = db.get_milestones_seen(client_id) return milestone_type not in milestones_seen \# New
+  6117→
+  6118→international clients unprotected** **THE PROBLEM:** The TCPA (Telephone Consumer
+  6119→## Protection Act)
+  6120→compliance framework only applied to US clients. Canadian (CASL), EU (GDPR), and UK
+  6121→(PECR) clients had
+  6122→no equivalent protection built in. The Fix: Jurisdiction-Aware Compliance Engine >
+  6123→## COMPLIANCE_RULES = {
+  6124→\'US\': {\'consent_type\': \'tcpa_written\', \'recording_disclosure\': \'one_party\'},
+  6125→\'CA\': {\'consent_type\':
+  6126→\'casl_express\', \'recording_disclosure\': \'one_party\'}, \'EU\': {\'consent_type\':
+  6127→## \'gdpr_explicit\',
+  6128→\'recording_disclosure\': \'mandatory\'}, \'UK\': {\'consent_type\': \'pecr_opt_in\',
+  6129→## \'recording_disclosure\':
+  6130→\'mandatory\'}, } def get_consent_requirements(client_country: str, customer_country:
+  6131→str) -\> dict: primary =
+  6132→COMPLIANCE_RULES.get(client_country, > COMPLIANCE_RULES\[\'EU\'\]) secondary =
+  6133→COMPLIANCE_RULES.get(customer_country, > COMPLIANCE_RULES\[\'EU\'\]) \# Apply the MORE
+  6134→Client disputes ROI claims when cancelling** **THE PROBLEM:** When a client cancels,
+  6135→they sometimes
+  6136→
+  6137→
+  6138→dispute the ROI claims (\'AI didn\'t actually save us X hours\'). No objective data
+  6139→existed to counter the claim. The
+  6140→Fix: Immutable ROI Evidence Trail Every auto-resolved ticket is logged as ROI evidence
+  6141→with exact timestamps:
+  6142→
+  6143→def log_roi_event(ticket_id: int, resolution_time_seconds: int, client_id: int):
+  6144→db.insert(\'roi_audit\', { \'ticket_id\':
+  6145→ticket_id, \'resolved_at\': datetime.utcnow(), \'resolution_time\':
+  6146→resolution_time_seconds,
+  6147→\'human_time_equivalent\': 300, \# 5 min average human handle time
+  6148→\'time_saved_seconds\': 300 resolution_time_seconds, \'hash\':
+  6149→generate_immutable_hash(ticket_id) \# Tamper-evident }) Cancellation Flow:
+  6150→When a client initiates cancellation, they\'re automatically shown an ROI Reality Check
+  6151→with verified data,
+  6152→exportable as PDF for their records. CATEGORY C: TECHNICAL & SECURITY LOOPHOLES (Issues
+  6153→## 21--25)
+  6154→
+  6155→
+  6156→PROBLEM:** GDPR requires a complete, current list of all sub-processors (third-party
+  6157→services that process
+  6158→customer data). The original implementation had no mechanism to keep this current. The
+  6159→Fix: Live Sub-Processor
+  6160→Registry A dedicated page at trivya.com/legal/sub-processors is maintained as a living
+  6161→document:
+  6162→**Location** **DPA Status Processed**
+  6163→US (AWS DPA Signed data, PII us-east-1) OpenRouter AI Model Message content US DPA
+  6164→## Signed Routing (no
+  6165→PII stored) Stripe/Razorpay Payment Payment data US / India PCI DSS + DPA Processing
+  6166→only Vercel Frontend
+  6167→IP addresses Global CDN DPA Signed Hosting (anonymized) Railway Backend Hosting
+  6168→Application US DPA
+  6169→Signed logs (no PII) Twilio Voice/SMS Phone numbers, US DPA Signed call recordings
+  6170→addition to this list triggers 30-day advance email to all clients (GDPR requirement).
+  6171→**Issue 22: Call Recording
+  6172→differ across US states (one-party vs two-party consent states), Canada, EU, and other
+  6173→regions. A single recording
+  6174→disclosure was insufficient. The Fix: Geo-IP Based Consent Detection def
+  6175→determine_recording_consent_required(caller_ip: str, client_country: str) -\> dict:
+  6176→caller_country =
+  6177→geo_ip.lookup(caller_ip) > TWO_PARTY_STATES = \[\'CA\', \'FL\', \'IL\', \'MD\', \'MA\',
+  6178→## \'MI\', > \'MT\', \'NH\',
+  6179→\'OR\', \'PA\', \'WA\'\] if caller_country == \'US\': state =
+  6180→geo_ip.get_state(caller_ip) if state in
+  6181→TWO_PARTY_STATES: return {\'consent_required\': True, \'disclosure\': \'Do you consent
+  6182→to this call being
+  6183→recorded?\'} else: return {\'consent_required\': False, \'disclosure\': \'This call may
+  6184→be recorded.\'} elif
+  6185→caller_country in \[\'DE\', \'FR\', \'IT\', \'ES\'\]: \# EU GDPR return
+  6186→## {\'consent_required\': True, \'disclosure\':
+  6187→\'GDPR: Do you consent to recording?\'} For two-party consent jurisdictions: AI
+  6188→explicitly asks \'Do you consent
+  6189→to this call being recorded?\' and waits for verbal yes before proceeding. If declined,
+  6190→call proceeds unrecorded.
+  6191→
+  6192→
+  6193→PROBLEM:** When customers upload photos to prove product damage (E-commerce feature),
+  6194→these images may
+  6195→EXIF Stripping + Automatic Deletion Pipeline from PIL import Image
+  6196→import piexif def process_damage_photo(image_file) -\> str: \# Step 1: Strip ALL EXIF
+  6197→metadata before storing
+  6198→img = Image.open(image_file) data = list(img.getdata()) img_no_exif =
+  6199→Image.new(img.mode, img.size)
+  6200→
+  6201→
+  6202→
+  6203→s3_url = upload_to_s3(img_no_exif, bucket=\'trivya-damage-photos-temp\') \# Step 3:
+  6204→Schedule deletion after 90
+  6205→days scheduler.schedule(delete_s3_object, args=\[s3_url\], delay_days=90) return s3_url
+  6206→**Issue 24: No Data
+  6207→in US (AWS us-east-1) by default. EU clients under GDPR and Australian clients under the
+  6208→Privacy Act have data
+  6209→residency requirements. The Fix: Multi-Region Supabase Configuration Supabase supports
+  6210→region selection at
+  6211→
+  6212→
+  6213→(Default) us-east-1 (N. US, Canada, Latin America Virginia) EU eu-central-1 Germany,
+  6214→France, UK, Netherlands,
+  6215→(Frankfurt) Nordics APAC ap-southeast-1 Australia, India, Singapore, (Singapore) Japan
+  6216→in that region permanently. Cross-region access is blocked at the database level via RLS
+  6217→policies. **Issue 25:
+  6218→auto-deletion runs silently. Clients have no visibility, and customers are never
+  6219→notified that their data has been
+  6220→deleted (which is actually required by some GDPR interpretations). The Fix: Deletion
+  6221→## Audit + Notification
+  6222→Pipeline def run_gdpr_deletion_job(): tickets_to_delete = db.query( \'SELECT \* FROM
+  6223→tickets WHERE
+  6224→status=closed AND updated_at \< > NOW()-INTERVAL 30 DAY\' ) for ticket in
+  6225→tickets_to_delete: \# Step 1:
+  6226→Log deletion event BEFORE deleting (immutable) db.insert(\'deletion_audit\', {
+  6227→\'ticket_id\': ticket.id,
+  6228→\'deleted_at\': datetime.utcnow(), \'data_categories\': \[\'name\', \'email\',
+  6229→## \'phone\'\],
+  6230→send_deletion_summary_email(ticket.client_id, ticket.id) \# Step 3: Execute deletion
+  6231→db.update(tickets, {\'name\':
+  6232→\'\[DELETED\]\', \'email\': \'\[DELETED\]\', \'phone\': \'\[DELETED\]\'}) Monthly
+  6233→## Deletion Report: Clients
+  6234→receive a monthly \'Data Hygiene Report\' showing how many records were auto-deleted,
+  6235→what categories were
+  6236→removed, and the legal basis for deletion. Complete Loophole Resolution Summary
+  6237→
+  6238→Two-step voice Confirmation confirmation + PIN for high value **MASTER DOCUMENTATION** PART 5 OF 6: AI Techniques
+  6239→Encyclopedia **SECTION 15: AI TECHNIQUES ENCYCLOPEDIA** Overview This encyclopedia documents every AI technique,
+  6240→reasoning framework, and optimization strategy used in the PARWA platform. Each technique includes: what it is, why we
+  6241→use it, how it works technically, performance data, and real examples. **CATEGORY 1: PROPRIETARY PARWA
+  6242→TECHNIQUES** Technique 1: Agent Lightning (Proprietary) **What It Is:** PARWA\'s continuous learning loop that
+  6243→automatically retrains the AI model weekly based on human corrections, making the AI smarter deployment. Agent
+  6244→Lightning turns every Manager rejection into a training signal, creating a self-improving system. Fine-Tuning: Agent
+  6245→Lightning script loads the base model (Llama-3-8B), trains on mistake pairs using PyTorch
+  6246→
+  6247→85% 94% Manager Review Time 5 min/ticket 2.5 min/ticket 1.1 min/ticket Repeat Mistakes
+  6248→## 23% 12% 3% Model
+  6249→Framework: PyTorch Lightning (training orchestration). - Optimizer: Unsloth (2x--5x
+  6250→faster fine-tuning on
+  6251→consumer GPUs). - Base Model: Llama-3-8B (fits on T4 GPU, \~\$50/mo on RunPod). - Data
+  6252→Format: JSONL
+  6253→(prompt/completion pairs from mistake log). Technique 2: Custom GSD State Engine
+  6254→(Proprietary) **What It
+  6255→Is:** A structured state management system that replaces raw chat history with a
+  6256→compressed JSON state object,
+  6257→reducing token usage by 98% and eliminating hallucinations. Why We Use It: Standard LLMs
+  6258→send entire
+  6259→conversation history on every message, causing: token bloat (10,000+ tokens per
+  6260→request), hallucinations from
+  6261→
+  6262→conflicting old data, slow responses, and high inference costs. Technical
+  6263→Implementation: > STATE_SCHEMA =
+  6264→{ \'customer\': {\'id\': str, \'name\': str, \'tier\': str, \'verified\': bool},
+  6265→\'current_issue\': {\'type\': str, \'order_id\': str,
+  6266→\'amount\': float}, \'status\': str, \# pending / in_progress / resolved
+  6267→\'actions_taken\': list\[str\], \'pending\':
+  6268→list\[str\],
+  6269→
+  6270→
+  6271→\~\$0.036 3--5 seconds History) GSD State Engine \~180 tokens \~\$0.00054 0.2--0.5
+  6272→seconds Savings 98.5%
+  6273→Collective Intelligence Network (Proprietary) **What It Is:** A federated learning
+  6274→system where AI
+  6275→improvements from Client A\'s corrections improve the base model for all clients, while
+  6276→keeping each client\'s
+  6277→private data completely isolated. The Skills vs. Secrets Framework:
+  6278→
+  6279→
+  6280→techniques that work Customer names, emails, phone numbers Fraud pattern recognition
+  6281→## Company-specific
+  6282→discount codes Policy interpretation frameworks Financial data and revenue figures
+  6283→Communication style
+  6284→templates Business-specific internal policies Industry-specific jargon handling Custom
+  6285→pricing structures
+  6286→Local Learning): Each client has their own model. Agent Lightning trains per-client. No
+  6287→cross-client data sharing
+  6288→updates\' (mathematical improvements) not raw data. These gradients are aggregated on a
+  6289→central server.
+  6290→Aggregated model improves for everyone without exposing private data. V2 Technical
+  6291→## Architecture: \# Each
+  6292→client\'s server (local) def generate_federated_update(client_model, local_corrections):
+  6293→\# Train locally on private
+  6294→gradient = updated_model.weights - client_model.weights \# Add differential privacy
+  6295→noise before sharing
+  6296→raw data Technique 4: Smart Router (Proprietary) **What It Is:** A dynamic task routing
+  6297→system that analyzes
+  6298→each incoming request and routes it to the optimal LLM tier (Light/Medium/Heavy) based
+  6299→on complexity score,
+  6300→cost, and latency requirements. The Routing Logic: def
+  6301→calculate_complexity_score(ticket: dict) -\> int: score = 0
+  6302→score += 3 if ticket\[\'type\'\] in \[\'refund\', \'return\', \'chargeback\'\] else 0
+  6303→score += 2 if ticket\[\'customer_tier\'\]
+  6304→== \'VIP\' else 0 score += 2 if ticket.get(\'amount\', 0) \> 100 else 0 score += 2 if
+  6305→ticket.get(\'sentiment\') ==
+  6306→\'angry\' else 0 score += 4 if ticket.get(\'involves_legal\') else 0 score += 1 if
+  6307→len(ticket\[\'message\'\].split()) \> 100
+  6308→else 0 return score def route_to_model(score: int) -\> str: if score \<= 4: return
+  6309→## \'google/gemma-3-4b-it:free\' \#
+  6310→
+  6311→
+  6312→Light elif score \<= 9: return \'google/gemini-2.0-flash-exp:free\' \# Medium else:
+  6313→return
+  6314→## \'deepseek/deepseek-r1-0528:free\' \# Heavy Cost Impact Analysis:
+  6315→5: Batch Approval Intelligence (Proprietary) **What It Is:** Semantic clustering
+  6316→algorithm that groups similar
+  6317→approval requests together, reducing manager review time by 80% through intelligent
+  6318→batching. The Clustering
+  6319→Algorithm: from sklearn.metrics.pairwise import cosine_similarity import numpy as np def
+  6320→cluster_approval_requests(pending_tickets: list) -\> list\[list\]: \# Step 1: Generate
+  6321→embeddings for each ticket
+  6322→
+  6323→embeddings = \[embed_text(t\[\'summary\'\]) for t in pending_tickets\] \# Step 2:
+  6324→Calculate similarity matrix
+  6325→similarity_matrix = cosine_similarity(embeddings) \# Step 3: Group tickets with \>85%
+  6326→similarity batches = \[\]
+  6327→visited = set() for i, ticket in enumerate(pending_tickets): if i not in visited: batch
+  6328→= \[ticket\] for j in range(i+1,
+  6329→len(pending_tickets)): if j not in visited and similarity_matrix\[i\]\[j\] \> 0.85:
+  6330→batch.append(pending_tickets\[j\])
+  6331→visited.add(j) batches.append(batch) return batches **CATEGORY 2: REASONING FRAMEWORKS**
+  6332→
+  6333→Technique 6: Chain-of-Thought (CoT) Prompting **What It Is:** A prompting technique where the AI is instructed to show
+  6334→its reasoning step-by-step before giving a final answer, dramatically improving accuracy on complex tasks. Standard vs. CoT
+  6335→Prompt for Refund Decision: Standard (Bad): **Prompt:** Customer wants a
+  6336→
+  6337→**Prompt:** A customer is requesting a refund. Think through this step-by-step: 1. Is
+  6338→the order within the return
+  6339→window? 2. Is the item eligible for return? 3. Are there any fraud signals? 4. What is
+  6340→the customer\'s tier and
+  6341→history? 5. Based on all factors, what is your recommendation and confidence? Show all
+  6342→reasoning. Performance
+  6343→## Interpretation Fraud Detection 71% 89% Complex Edge Cases 54% 82%
+  6344→**What It Is:** An advanced reasoning framework where the AI explores multiple reasoning
+  6345→paths
+  6346→simultaneously (like a decision tree), then selects the best path based on evaluation.
+  6347→When PARWA Uses ToT: Complex fraud scenarios with ambiguous signals. - Policy exceptions
+  6348→where multiple rules conflict. - VIP
+  6349→customer decisions where relationship vs policy must be balanced. ToT Prompt Template
+  6350→for Ambiguous Refund:
+  6351→**Prompt:** Consider this refund request from three different perspectives
+  6352→simultaneously. Path A (Policy
+  6353→Enforcer): Strictly apply the 30-day return policy\... Path B (Customer Advocate):
+  6354→Consider this is a VIP customer
+  6355→with \$8,000 LTV\... Path C (Fraud Analyst): Review the velocity pattern and address
+  6356→history\... After exploring
+  6357→all three
+  6358→paths, synthesize the best decision with confidence score. Performance vs CoT:
+  6359→
+  6360→
+  6361→Is:** A framework where the AI alternates between reasoning steps and action steps,
+  6362→allowing it to query external
+  6363→systems (Shopify, Stripe) mid-reasoning to gather evidence before making a decision.
+  6364→ReAct Flow for Refund
+  6365→Decision: - THOUGHT: I need to check if the order is within the 30-day return window. -
+  6366→## ACTION:
+  6367→query_shopify(order_id=\'8921\', fields=\[\'created_at\', \'fulfillment_status\'\]) -
+  6368→OBSERVATION: Order created
+  6369→12 days ago, fulfilled 10 days ago. Within window. - THOUGHT: I need to check if the
+  6370→item is returnable. ACTION: check_return_policy(product_id=\'SKU-882\',
+  6371→reason=\'wrong_size\') - OBSERVATION: Item is
+  6372→returnable. Clothing items excluded from final sale policy. - THOUGHT: I need to check
+  6373→customer fraud history.
+  6374→- ACTION: check_customer_history(customer_id=\'C8291\') - OBSERVATION: 3-year account,
+  6375→47 orders, 0
+  6376→previous refunds, no fraud flags. - FINAL DECISION: APPROVE. Confidence: 94%. All checks
+  6377→passed. Why
+  6378→ReAct Beats Standard Prompting: Standard prompting relies on what the AI \'knows\' from
+  6379→training data. ReAct
+  6380→queries real-time data from actual systems, making decisions based on facts not
+  6381→assumptions. Technique 9:
+  6382→
+  6383→Reverse Thinking Prompting **What It Is:** Instead of asking \'What\'s the best
+  6384→decision?\', we ask \'What would
+  6385→make this the WRONG decision?\' This identifies hidden risks that forward-thinking
+  6386→misses.
+  6387→Reverse Thinking Prompt Template: **Prompt:** I\'m about to approve a \$75 refund for
+  6388→customer C8291.
+  6389→Before I do: List every reason this approval could be the WRONG decision. Consider:
+  6390→fraud patterns, policy
+  6391→violations, precedent-setting risks, financial impact, and any signals I might have
+  6392→missed. Rate each risk from
+  6393→1-10. Example Output: - Risk 1 (3/10): Customer has 3 refunds in 6 months. Pattern, but
+  6394→all were legitimate. Low
+  6395→high-value threshold. **AI Conclusion:** Primary risk is timing (28-day window). Request
+  6396→additional evidence
+  6397→(photo of damage). Otherwise approve. Adjusted Confidence: 88% -> 81% (reflecting timing
+  6398→concern).
+  6399→Technique 10: Universe-of-Thought (UoT) Prompting **What It Is:** An advanced framework
+  6400→where
+  6401→the AI
+  6402→
+  6403→
+  6404→considers not just the current case but the entire universe of similar cases to identify
+  6405→patterns, precedents, and
+  6406→systemic issues. UoT Prompt Template: **Prompt:** Looking at this refund request in the
+  6407→context of ALL similar
+  6408→requests: How many similar requests have there been? What was the outcome pattern? Is
+  6409→there a systemic issue
+  6410→(bad product batch, supplier problem)? What precedent does this decision set? Should we
+  6411→update our policy based
+  6412→on this pattern? Example UoT Output: - Pattern Found: 23 similar \'wrong size\' returns
+  6413→in last 7 days (vs 2 per
+  6414→week normal). Anomaly: 500% spike. - Root Cause Hypothesis: New summer collection may
+  6415→have sizing
+  6416→SKU-442 for quality review. - Policy Update Suggested: Temporarily waive return shipping
+  6417→for SKU-442 until
+  6418→sizing issue resolved. Technique 11: Graph-of-Thought (GoT/GST) Prompting **What It
+  6419→Is:** The most
+  6420→
+  6421→branch can feed into another, creating non-linear, highly accurate analysis. When PARWA Uses GoT: Enterprise VIP cases
+  6422→where multiple complex factors intersect. - Legal or compliance scenarios requiring
+  6423→
+  6424→multi-domain expertise. - Strategic business decisions (churn prevention, contract
+  6425→negotiations). GoT Structure
+  6426→for Complex VIP Fraud Case: Node A (Customer History) -> feeds into -> Node C (Risk
+  6427→## Score)
+  6428→Node B (Fraud Signals) -> feeds into -> Node C (Risk Score) Node C (Risk Score) -> feeds
+  6429→into -> Node E
+  6430→(Final Decision) Node D (Business Value) -> feeds into -> Node E (Final Decision) Node E
+  6431→(Final Decision) ->
+  6432→generates -> Node F (Action Plan) **CATEGORY 3: RAG (RETRIEVAL AUGMENTED GENERATION)
+  6433→TECHNIQUES** Technique 12: CLARA Framework (Proprietary RAG) **What It Is:** PARWA\'s
+  6434→custom
+  6435→(Base): Standard vector similarity search against pgvector knowledge base. Finds
+  6436→semantically similar content
+  6437→searches for documents similar to that ideal answer. Finds better matches by searching
+  6438→for what the answer
+  6439→original question, retrieves results for all 3, deduplicates, then synthesizes. Catches
+  6440→cases where different phrasing
+  6441→isn\'t found, \'steps back\' to ask a more general question. Example: \'Can I return
+  6442→shoes?\' steps back to \'What is
+  6443→
+  6444→the general return policy?\' to find the answer in a broader context. Performance
+  6445→## Comparison:
+  6446→(baseline) \+ HyDE 74% 1.8s 3,100 tokens \+ Multi-Query 81% 2.1s 4,200 tokens \+
+  6447→## Contextual 88% 1.4s 1,800
+  6448→tokens Compression CLARA (All Layers) 91% 1.6s 2,100 tokens
+  6449→
+  6450→
+  6451→Embeddings (HyDE)
+  6452→**What It Is:** Instead of searching for documents similar to the question, generate a
+  6453→hypothetical \'ideal answer\'
+  6454→first, then search for documents similar to that ideal answer. Standard RAG vs HyDE:
+  6455→Standard RAG:
+  6456→**Query:** \'Can I return a gift card?\' -> Search vector DB for documents similar to
+  6457→\'gift card return\' ->
+  6458→\'non-returnable gift card policy section\' -> Returns: \'Excluded items from returns:
+  6459→## Electronics, Gift Cards, Final
+  6460→Sale\...\' (CORRECT) Technique 14: Multi-Query RAG **What It Is:** Generate multiple
+  6461→variations of the
+  6462→
+  6463→
+  6464→original query, retrieve results for each, then synthesize. Catches cases where
+  6465→different question phrasings retrieve
+  6466→different relevant documents. Implementation: def
+  6467→multi_query_retrieve(original_question: str, k: int = 5) -\> list:
+  6468→\# Step 1: Generate 3 query variations using LLM variations = llm.generate( f\'Generate
+  6469→3 different ways to ask:
+  6470→\"{original_question}\". Return as JSON array.\' ) \# Step 2: Retrieve for each
+  6471→variation all_docs = \[\] for query in
+  6472→\[original_question\] + variations: docs = vectordb.similarity_search(query, k=k)
+  6473→all_docs.extend(docs) \# Step 3:
+  6474→Deduplicate by document ID unique_docs = {doc.id: doc for doc in all_docs}.values() \#
+  6475→Step 4: Re-rank by
+  6476→relevance to original question return rerank_by_relevance(list(unique_docs),
+  6477→original_question) Technique 15:
+  6478→Contextual Compression **What It Is:** After retrieving relevant documents, extract ONLY
+  6479→the sentences that
+  6480→Matters: A retrieved document about \'Return Policy\' contains: Introduction paragraph
+  6481→(irrelevant), Eligible items
+  6482→section (partially relevant), 30-day window paragraph (relevant), Exclusions list
+  6483→(relevant), FAQ section
+  6484→90% token reduction. Implementation: def compress_context(documents: list, question:
+  6485→str) -\> str: compressed =
+  6486→\[\] for doc in documents: \# Use small fast model to extract relevant sentences
+  6487→
+  6488→
+  6489→relevant_sentences = fast_llm.extract( f\'From this document, extract ONLY sentences
+  6490→that answer:
+  6491→\"{question}\". Document: {doc.content}\' ) if relevant_sentences:
+  6492→compressed.append(relevant_sentences) return
+  6493→\' \'.join(compressed) Technique 16: Step-Back Prompting **What It Is:** When the AI
+  6494→can\'t find a specific
+  6495→answer, \'step back\' to a more general question to find the answer in a broader
+  6496→context. Step-Back Chain
+  6497→Example: - Original: \'Can I return the blue suede Chelsea boots from the Spring 2024
+  6498→collection?\' -> No exact
+  6499→match found. - Step Back 1: \'Can I return boots?\' -> Partial match: \'Footwear returns
+  6500→accepted within 30 days.\'
+  6501→- Step Back 2: \'What is the return policy for shoes?\' -> Full match: Complete footwear
+  6502→return policy found. Step Back 3 (if needed): \'What is the general return policy?\' ->
+  6503→Fallback to general policy. **CATEGORY 4:
+  6504→
+  6505→MEMORY MANAGEMENT TECHNIQUES** Technique 17: Thread-of-Thought (ThoT) **What It Is:** A
+  6506→memory technique that maintains a \'thread\' of the conversation\'s key insights across
+  6507→a long interaction,
+  6508→preventing the AI from losing context or contradicting earlier statements. The ThoT
+  6509→Record (What We Track Per
+  6510→Conversation): > THREAD_RECORD = { \'key_facts_established\': \[ \'Customer verified:
+  6511→## John Doe, Account
+  6512→
+  6513→
+  6514→#C8291\', \'Issue: Refund for order #8921 (\$75)\', \'Root cause: Wrong size received\'
+  6515→## \], \'commitments_made\':
+  6516→\[ \'Agent promised resolution within 24 hours\' \], \'customer_stated_preferences\':
+  6517→\[\'Prefers email updates\'\],
+  6518→## \'escalation_history\': \[\], \'sentiment_arc\': \[\'neutral\', \'frustrated\',
+  6519→\'calmer\'\] } Purpose: Before each AI
+  6520→sending full chat history. Technique 18: Cognitive Reframing Protocol (CRP) **What It
+  6521→## Is:** A
+  6522→token-compression technique that replaces raw conversation history with semantically
+  6523→equivalent but much
+  6524→## Example:
+  6525→they\'re the wrong size. User: I ordered size 10 but got size 8. User: Can I return
+  6526→them? Agent: Of course! I\'ll
+  6527→check your order. Agent: Order #8921 found. Agent: Yes, you\'re within our 30-day
+  6528→window. Agent: What size do
+  6529→Size exchange. ORDER: #8921. RECEIVED: Size 8. WANTED: Size 10. POLICY: Within 30-day
+  6530→window.
+  6531→STATUS: Awaiting approval. NEXT: Arrange exchange shipment. Token savings: 85 tokens vs
+  6532→850 tokens =
+  6533→90% reduction. Meaning preserved: 100%. Technique 19: Dynamic Context Window Management
+  6534→**What It
+  6535→Is:** Intelligent allocation of the model\'s context window across different types of
+  6536→information, ensuring the
+  6537→most critical information is always within the context window. Context Window Allocation
+  6538→## Strategy:
+  6539→
+  6540→Dynamic Reallocation: When context pressure increases (long conversation), system automatically: Compresses older
+  6541→conversation turns using CRP, Reduces RAG document length using Contextual Compression, Maintains CRITICAL sections at
+  6542→full size always.
+  6543→
+  6544→**CATEGORY 5: SELF-IMPROVEMENT TECHNIQUES** Technique 20: Self-Consistency Prompting
+  6545→**What It Is:** Generate multiple independent answers to the same question using
+  6546→different reasoning paths, then
+  6547→select the answer that appears most consistently across all attempts. Implementation for
+  6548→High-Stakes Decisions:
+  6549→def self_consistent_decision(ticket: dict, attempts: int = 5) -\> dict: decisions = \[\]
+  6550→for i in range(attempts): \#
+  6551→Each attempt uses slightly different temperature decision = llm.generate(
+  6552→prompt=build_refund_prompt(ticket),
+  6553→temperature=0.3 + (i \* 0.1) \# 0.3, 0.4, 0.5, 0.6, 0.7 ) decisions.append(decision) \#
+  6554→Count majority vote
+  6555→approve_count = sum(1 for d in decisions if d\[\'action\'\] == \'APPROVE\') \# Only
+  6556→auto-route if 4/5 agree (80%
+  6557→consensus) if approve_count \>= 4: return {\'action\': \'APPROVE\', \'confidence\':
+  6558→approve_count / attempts,
+  6559→\'method\': \'self_consistent\'} elif approve_count \<= 1: return {\'action\':
+  6560→\'REJECT\', \'confidence\': (attempts approve_count) / attempts} else: return
+  6561→{\'action\': \'ESCALATE\', \'confidence\': 0.5, \'reason\': \'no_consensus\'}
+  6562→refunds 1 (standard N/A (\$0--50) prompt) Medium refunds 3 attempts 2/3 (67%) (\$50--
+  6563→200) High-value refunds
+  6564→
+  6565→5 attempts 4/5 (80%) (\$200+) VIP customer decisions 5 attempts 4/5 (80%) Fraud
+  6566→borderline cases 7 attempts 5/7
+  6567→**What It Is:** After generating an answer, the AI critiques its own reasoning,
+  6568→identifies weaknesses, then
+  6569→generates an improved answer. Creates a self-improving loop within a single inference.
+  6570→The 3-Stage Reflexion
+  6571→history clean. RECOMMEND: APPROVE. Confidence: 88%.
+  6572→submitted. 2) Did I check if this is the customer\'s 3rd damage claim? (Pattern risk).
+  6573→3) Did I verify the damage
+  6574→RECOMMENDATION: Request photo before approving. Check damage claim history. If photo
+  6575→verified and \<2
+  6576→previous damage claims, APPROVE. Confidence: 84% (reduced due to missing verification).
+  6577→Additional step
+  6578→required: Send photo request to customer. Technique 22: Least-to-Most Prompting **What
+  6579→## It Is:** Break
+  6580→complex problems into sub-problems from simplest to most complex, solving each in
+  6581→sequence. Each answer
+  6582→feeds into the next question. Least-to-Most Chain for Complex Return: - Step 1
+  6583→(Simplest): \'Is the customer\'s
+  6584→account active?\' -> Yes. - Step 2: \'Is the order within the return window?\' -> Yes,
+  6585→18 of 30 - Step 3: \'Is the item
+  6586→eligible for return?\' -> Yes, clothing items eligible. - Step 4: \'Are there any fraud
+  6587→signals?\' -> Minor: 2nd return
+  6588→requires individual review. - Step 6 (Most Complex): \'Given all factors, what\'s the
+  6589→recommended action with
+  6590→
+  6591→reasoning?\' -> Individual review. Confidence: 79%. Flag for manager with fraud signal highlighted. Benefit: Structured
+  6592→decomposition prevents the AI from missing edge cases by ensuring each prerequisite is checked
+  6593→
+  6594→before advancing. Technique 23: DSPy Automatic Prompt Optimization **What It Is:**
+  6595→Instead of manually
+  6596→writing prompts, DSPy automatically compiles and optimizes prompts based on desired
+  6597→outcomes and example
+  6598→data. The system finds the best prompt automatically. How DSPy Works in PARWA: import
+  6599→dspy class
+  6600→RefundDecisionModule(dspy.Module): def \_\_init\_\_(self): self.predict =
+  6601→dspy.ChainOfThought(\'ticket_context
+  6602→-\> decision, confidence, reasoning\') def forward(self, ticket_context): return
+  6603→
+  6604→self.predict(ticket_context=ticket_context) \# DSPy automatically optimizes prompt given examples optimizer =
+  6605→dspy.BootstrapFewShot(metric=approval_accuracy_metric) optimized_module = optimizer.compile(
+  6606→RefundDecisionModule(), trainset=historical_correct_decisions \# Real approved/rejected decisions ) Before vs Approval
+  6607→Accuracy 78% 91% False Positives 8.2% 2.1% (fraud approved) False Negatives 13.8% 6.9% (legitimate denied) Prompt
+  6608→Engineering 40 hrs/month 2 hrs/month CoT + ReAct Self-Consistency 91% VIP Decision ToT + GoT Self-Consistency 94% (5x)
+  6609→+ Reflexion Fraud Detection Reverse Self-Consistency 89% Thinking + UoT (7x) Policy Step-Back + Multi-Query RAG 85%
+  6610→Ambiguity CLARA Complex Legal GoT + Human escalation Human required Case Least-to-Most New Decision
+  6611→Dynamic Context Consistent accuracy Conversation Window tokens Gemma-4B (Light) \$0.00 Standard Refund \~800
+  6612→tokens Gemini-Flash \$0.00 (CoT) (Medium) VIP Decision \~2,400 DeepSeek-R1 \$0.00 (ToT + GoT) tokens (Heavy)
+  6613→
+  6614→Knowledge Base \~2,100 Medium + Light \$0.00 Query (CLARA) tokens combo Self-Consistency
+  6615→## \~4,000
+  6616→PLATFORM** **MASTER DOCUMENTATION** PART 6 OF 6: Industry Configurations, Implementation
+  6617→Roadmap & Design System **SECTION 16: INDUSTRY-SPECIFIC CONFIGURATIONS** Overview
+  6618→PARWA\'s Universal Core is wrapped with four deeply specialized industry modules. Each
+  6619→module adds real
+  6620→integrations, unique compliance requirements, specific AI reasoning patterns, and
+  6621→tailored UI/UX. This section
+  6622→
+  6623→documents the complete configuration for all four industries. 16.1 E-Commerce
+  6624→Configuration Brand Identity: API products, create return inventory Magento REST/GraphQL
+  6625→Orders, catalog, Order lookup, return API
+  6626→customer accounts initiation BigCommerce REST API Orders, products, Order status,
+  6627→tracking, shipping return
+  6628→AfterShip Webhook + API Shipment tracking, Track package, alert on delivery events delay
+  6629→17Track API Multi-carrier Cross-carrier tracking tracking lookup Stripe REST API Payment
+  6630→intents, Initiate
+  6631→refund (backend only) charges (human-triggered only) PayPal REST API Transactions,
+  6632→Initiate refund (backend
+  6633→Specialized AI Behaviors: - Visual Damage Verification: Camera upload flow for damage
+  6634→claims. EXIF stripped.
+  6635→AI analyzes image to classify damage type. Provides photo-based confidence boost to
+  6636→refund decision. - Cart
+  6637→Recovery Intelligence: Detects abandoned cart signals via Shopify webhook. Sends
+  6638→personalized re-engagement
+  6639→based on cart value and customer tier. - Sizing Anomaly Detection: UoT technique detects
+  6640→if multiple customers
+  6641→return same SKU for size issues. Auto-flags product team and suggests temporary policy
+  6642→adjustment. - Seasonal
+  6643→Spike Preparation: Identifies upcoming volume spikes (Black Friday, holiday) and
+  6644→recommends temporary
+  6645→capacity additions. Compliance Requirements: - PCI DSS: No payment card data stored in
+  6646→PARWA systems. All
+  6647→payment processing via Stripe/PayPal. Audit trail for all financial transactions. -
+  6648→## Consumer Protection: 30-day
+  6649→return window enforced by default. Policy exception workflow for edge cases. -
+  6650→GDPR/CCPA: Customer data
+  6651→
+  6652→deletion within 30 days of request. Data portability export on demand. Pricing Variants (E-Commerce):
+  6653→order tracking, data (E-comm) tickets/day collection only PARWA Junior \$2,500/mo 300 Refund recommendations,
+  6654→damage (E-comm) tickets/day analysis, cart recovery PARWA High \$4,500/mo 500+ Strategic VIP management, fraud (E-
+  6655→comm) tickets/day pattern analysis, churn prevention releases, check release notes deployment status Stripe/Chargebee
+  6656→REST API Subscriptions, Check billing status, invoices, usage initiate refund, upgrade Zendesk/Freshdesk REST API Existing
+  6657→tickets, Create tickets, update macros, views status, assign to agent Slack Bot API + Channel messages, Send alerts, escalate
+  6658→to Webhooks
+  6659→
+  6660→workspace info channel Discord Bot API Server messages, Community support, alert roles
+  6661→engineering Intercom
+  6662→REST API Conversations, Sync ticket data, trigger users, companies messaging PagerDuty
+  6663→REST API Incident
+  6664→status, Escalate to on-call on-call schedule engineer for critical issues
+  6665→Troubleshooting Flow: Multi-step guided diagnosis. AI follows decision tree for common
+  6666→error patterns.
+  6667→Integrates with GitHub to check if issue is a known bug/release regression. - Churn
+  6668→## Prediction Engine: Monitors
+  6669→usage patterns via Stripe API. Flags accounts showing disengagement signals. Triggers
+  6670→proactive outreach before
+  6671→cancellation attempt. - In-App Guidance Intelligence: Contextual help based on what
+  6672→feature the user is currently
+  6673→
+  6674→in. Reduces \'how do I\...\' tickets by 60%. - API Error Diagnosis: When customer reports API errors, AI queries GitHub for
+  6675→recent deployments, checks status page for known issues, and provides specific error code resolution. Compliance
+  6676→Requirements: - SOC 2 Type II: Audit logs for all data access. Encryption in transit and at rest. Access controls and MFA
+  6677→enforced. - GDPR/CCPA: Data deletion workflow. DPA available for enterprise clients. - Enterprise SLA: 99.9% uptime SLA.
+  6678→Incident response within 4 hours. Statuspage.io integration. 16.3 Logistics Configuration Brand Identity: - Primary Color:
+  6679→Deep charcoal #1A1A1A routes, load delivery notes status WMS (Generic) REST API Warehouse Check availability, flag
+  6680→inventory, exceptions pick/pack status AfterShip Webhook + API Multi-carrier Real-time tracking, delay tracking alerts
+  6681→
+  6682→Google Maps API REST API Route information, Provide ETA estimates to ETA calculation customers Carrier APIs REST API
+  6683→Shipment status, Track package, request (FedEx/UPS/DHL) proof of delivery POD, report claim Intelligence: Real-time carrier
+  6684→API integration for live tracking. Proactive delay notifications sent before customer - Driver Coordination Protocol: Handles
+  6685→driver-related queries (scheduling, route changes) via TMS integration. Proof of Delivery Management: Retrieves POD
+  6686→documents on demand. Handles \'I didn\'t receive this\' claims with POD evidence. - Hazmat Protocol: Detects hazardous
+  6687→materials references. Immediately routes to human
+  6688→specialist. Never provides hazmat handling advice autonomously. - Freight Damage Claims: Guided photo documentation
+  6689→flow. Integrates with carrier claims portal. Generates claim reference number. Compliance Requirements: - DOT
+  6690→Regulations: No autonomous decisions on hazmat routing. Human required for regulated goods. - Carrier Liability: Clear
+  6691→limits on claims processing. SLA for claim initiation vs resolution. - Data Retention: Proof of delivery records retained for 7
+  6692→years per commercial standards. 16.4 Healthcare Epic EHR FHIR API Appointment Check appointment (read-only) schedules,
+  6693→general availability, provide facility info only facility info Scheduling REST API Appointment slots, Book, reschedule, or Portal
+  6694→provider cancel appointments availability Insurance REST API Coverage Verify coverage type, not Portal (limited) verification
+  6695→(no specific benefits Billing Portal REST API Invoice status, Check balance, explain (limited)
+  6696→
+  6697→## 1. No Phi In
+  6698→
+  6699→TRAINING: Patient health information is NEVER used as AI training data. 2. NO MEDICAL
+  6700→## ADVICE: AI
+  6701→never provides diagnosis, treatment, or medication guidance. 3. NO CLINICAL DECISIONS:
+  6702→All clinical matters
+  6703→routed to human staff immediately. 4. BAA REQUIRED: Business Associate Agreement must be
+  6704→signed before
+  6705→deployment. 5. HIPAA LOGS: All interactions involving health topics logged with HIPAA-
+  6706→compliant audit trail.
+  6707→What Healthcare AI CAN Do: - Appointment scheduling and reminders. - General facility
+  6708→information (hours,
+  6709→knowledge base only.
+  6710→What Healthcare AI CANNOT Do: - Provide any medical advice, diagnosis, or treatment
+  6711→recommendations. Interpret lab results or imaging. - Access or discuss specific patient
+  6712→records. - Make clinical decisions of any kind.
+  6713→- Provide medication dosing information. - Handle mental health crisis situations
+  6714→autonomously (immediate
+  6715→human escalation + crisis resources). HIPAA Compliance Implementation: >
+  6716→HIPAA_RESTRICTED_KEYWORDS = \[ \'diagnosis\', \'prescription\', \'medication\',
+  6717→## \'dosage\', \'treatment\',
+  6718→\'test results\', \'lab\', \'imaging\', \'surgery\', \'procedure\' \] def
+  6719→healthcare_safety_check(message: str) -\> dict: for
+  6720→keyword in HIPAA_RESTRICTED_KEYWORDS: if keyword.lower() in message.lower(): return {
+  6721→## \'action\':
+  6722→\'ESCALATE_IMMEDIATELY\', \'reason\': f\'Clinical topic detected: {keyword}\',
+  6723→\'customer_message\': \'For
+  6724→medical questions, please speak with one of our healthcare providers.\', \'route_to\':
+  6725→\'clinical_staff\' } return
+  6726→{\'action\': \'PROCEED\'} BAA (Business Associate Agreement) Requirements: - Required
+  6727→BEFORE any
+  6728→anonymized data only), Vercel/Railway (hosting). - Data processed: ONLY scheduling,
+  6729→billing info, general
+  6730→SECTION 17: 5-PHASE IMPLEMENTATION ROADMAP (20 Weeks) Overview The complete 20-week plan
+  6731→
+  6732→
+  6733→to build PARWA from zero to production-ready, organized into 5 distinct phases. Each
+  6734→phase has clear
+  6735→deliverables, success criteria, and technical specifications. Phase 1: Core Foundation
+  6736→(Weeks 1--4) **Objective:
+  6737→
+  6738→Multi-Region AWS CDK for IaC. All 3 regions responding Setup Supabase instances \<100ms.
+  6739→RLS enabled and
+  6740→tested.
+  6741→in US, EU, APAC. CloudFront CDN configured. 2 Authentication & Supabase Auth. Zero
+  6742→unauthorized data
+  6743→access. MFA Row-Level Security MFA working for all admin on all tables. accounts.
+  6744→Doppler secrets
+  6745→management. 3 GSD State Engine LangGraph state State compression working: machine.
+  6746→Custom GSD 12,000
+  6747→tokens -> 180 tokens. State schema. Validated. Postgres Saver for checkpointing. 4
+  6748→OpenRouter + LiteLLM
+  6749→proxy. All 3 LLM tiers routing Audit Logging Smart Router correctly. Audit log trigger
+  6750→complexity scoring.
+  6751→preventing modifications. Immutable audit trail with hash chain.
+  6752→cosine similarity). Mobile-first 90-second email buffer. Swipe UI card UI. Swipe
+  6753→gestures. on mobile. 6
+  6754→Confidence 4-factor weighted calculation Confidence scores within 5% of Scoring Engine
+  6755→## (40/30/20/10).
+  6756→Threshold routing actual approval rates. Validated (95/85/70). Self-consistency for on
+  6757→historical data. high-value.
+  6758→
+  6759→7 Jarvis Interface Next.js chat UI. Natural All voice commands executing language system management. GSD correctly.
+  6760→System mode changes Window display. instant. 8 Graduated Mode transitions Automatic demotion triggering at Autonomy
+  6761→+ Agent (Shadow/Supervised/Graduated). correct thresholds. Training Lightning Weekly training loop. Rollback loop
+  6762→running. triggers. Geo-IP consent Recording compliance for all Recording + detection. jurisdictions tested. Consent
+  6763→TCPA/GDPR/CASL Two-party state logged with timestamp. list. Verbal confirmation flow. 10 Data Residency + Multi-region
+  6764→data EU clients confirmed data in Sub-Processor routing. eu-central-1. Sub-processor page Registry Sub-processor page
+  6765→current. live. 30-day notification system. 11 Sub-Processor 5-step incident Incident response drill Management + protocol.
+  6766→Sentry completed. Statuspage Incident Response integration. auto-updating on error Statuspage.io threshold. setup. 12 KB
+  6767→Verification + CLARA framework. CLARA accuracy 91%+. Fraud Fraud
+  6768→Detection Velocity fraud velocity check catching detection. split-refund attempts. Cumulative limit enforcement. 13--16)
+  6769→Objective: Build all four industry modules with real integrations. E-Commerce: OAuth flow. Webhook Shopify orders loading
+  6770→in \<2s. Shopify/Stripe HMAC verification. Refund workflow end-to-end Circuit breaker tested. pattern. EXIF stripping. 14
+  6771→SaaS: OAuth for GitHub. Churn prediction triggering at GitHub/Stripe/Zendesk Stripe subscription correct signals. Tech API.
+  6772→Zendesk ticket troubleshoot flow working. 15 Logistics: AfterShip webhook. Real-time tracking updates. TMS/WMS/Carriers
+  6773→Google Maps ETA. Hazmat routing to human working. Carrier API fallbacks. 16 Healthcare: FHIR API read-only. PHI never
+  6774→stored or trained on. Epic/Scheduling/HIPAA HIPAA keyword Clinical escalation instant.
+  6775→BAA detection. BAA flow complete. workflow. Clinical escalation. UI fully functional with Accessibility (WCAG swipe. 18 Load
+  6776→Testing k6 load tests. System handles 10K concurrent 10,000 concurrent users. No degradation. Query users simulation.
+  6777→indexes verified. Database query optimization. 19 Security Audit Penetration Zero critical vulnerabilities. testing. OWASP
+  6778→Top All OWASP items addressed. Clean 10 review. scan report. Dependency vulnerability scan. 20 Beta Launch 10-client
+  6779→beta. 10 clients live. \<5% error Real-time rate. NPS \>50. All 25 loopholes monitoring. verified resolved. Feedback
+  6780→collection. COMPLETE SPECIFICATIONS** 18.1 Typography
+  6781→H1 Display Inter 48px / 700 Bold 1.2 Page titles, hero headlines H2 Section Inter 36px / 600 1.3 Section titles, major H3
+  6782→Subsection Inter 24px / 600 1.4 Subsection titles, card Body Large Inter 18px / 400 Regular 1.6 Lead paragraphs, feature
+  6783→Body Inter 16px / 400 Regular 1.6 Standard body text Body Small Inter 14px / 400 Regular 1.5 Captions, helper text
+  6784→0.875rem Code JetBrains 14px / 400 Regular 1.6 Code blocks, technical Mono 0.875rem content Label Inter 12px / 500
+  6785→Medium 1.4 Form labels, tags, badges 0.75rem brand identity \--primary-light #1B5E40 Hover states, secondary actions \--
+  6786→accent #D4AF37 CTAs, success states, premium indicators \--background #FAFAF8 Page backgrounds \--surface #FFFFFF
+  6787→Cards, modals, form surfaces \--text-primary #1A1A1A Main body text \--text-secondary #6B7280 Supporting text,
+  6788→placeholders \--border #E5E7EB Dividers, card borders \--success #10B981 Approval states, positive outcomes \--warning
+  6789→#F59E0B Pending states, review needed \--error #EF4444 Rejection states, errors, alerts Standards Buttons:
+  6790→#E5E7EB, focus: 2px solid var(\--primary). - Error State: Red border + error message below field. - Label: Color changes,
+  6791→opacity, most UI Transition transitions Slow Animation 400ms ease-in-out Modal opens, page transitions, complex reveals
+  6792→Fast Feedback 100ms ease-out Button press, checkbox toggle, immediate feedback Skeleton 1.5s loop linear Content
+  6793→loading placeholders Loading Success Pulse 600ms ease-out Successful action confirmation Slide In 300ms ease-out Sidebar
+  6794→
+  6795→open, toast notification Spring Bounce 500ms spring Celebration managers) gestures. Bottom navigation. Tablet 640px--
+  6796→1024px Tablet, small Two-column where appropriate.
+  6797→laptop Collapsible sidebar. Desktop \> 1024px Laptop, desktop Full multi-column layout. Persistent monitor
+  6798→devices have no hover. - Swipe gestures for batch approval (right = approve, left = reject). - Bottom navigation bar for
+  6799→primary actions (thumb zone). - Pull-to-refresh for dashboard updates. 18.7 Accessibility Standards Contrast 4.5:1 minimum
+  6800→All text meets or exceeds ratio. Tested with axe DevTools. Keyboard All interactive
+  6801→
+  6802→elements Tab order logical. Visible focus Navigation reachable indicators on all
+  6803→elements. ARIA Labels All
+  6804→non-text content Images, icons, buttons all have aria-label or aria-labelledby. Screen
+  6805→Reader NVDA, VoiceOver,
+  6806→JAWS All dynamic content announced. Live regions for updates. Color Info not conveyed by
+  6807→Icons + color for
+  6808→status. Text labels Independence color alone alongside status colors. Motion Reduction
+  6809→prefers-reduced-motion
+  6810→All animations respect OS reduce motion setting. Form Errors Clearly identified and
+  6811→Error messages tied to fields
+  6812→via described aria-describedby.
+  6813→WebPageTest Time to \< 3 seconds Lighthouse Interactive First Contentful \< 1 second
+  6814→Lighthouse, CrUX
+  6815→Largest Contentful \< 2.5 seconds Lighthouse (Core Web Vital) AI Response Time \< 500ms
+  6816→Custom APM
+  6817→(Light) AI Response Time \< 3 seconds Custom APM (Heavy) API Error Rate \< 0.1%
+  6818→## Prometheus + Sentry
+  6819→Dashboard Data \< 30 seconds Real-time websocket updates Freshness
+  6820→& PRICING ENGINE** 19.1 Self-Service Refund Verification Funnel For lower-risk refunds,
+  6821→clients can enable
+  6822→manager review time. Step 1: Identity Verification def verify_customer_identity(email:
+  6823→str, order_id: str) -\> dict:
+  6824→order = shopify.get_order(order_id) if order.email.lower() != email.lower(): return
+  6825→## {\'verified\': False, \'reason\':
+  6826→\'email_mismatch\'} return {\'verified\': True, \'customer_tier\':
+  6827→get_customer_tier(order.customer_id)} Step 2:
+  6828→Policy Pre-Check def check_return_eligibility(order_id: str) -\> dict: order =
+  6829→get_order(order_id)
+  6830→days_since_delivery = (datetime.utcnow() - order.fulfilled_at).days if
+  6831→days_since_delivery \> 30: return
+  6832→{\'eligible\': False, \'reason\': \'Outside 30-day return window\'} if
+  6833→order.product.is_final_sale: return {\'eligible\':
+  6834→False, \'reason\': \'Final sale items cannot be returned\'} return {\'eligible\': True,
+  6835→\'days_remaining\': 30 ticket created with Clear explanation of why ineligible high
+  6836→confidence AI skips identity verification step Option
+  6837→to escalate to human for exceptions Batch-eligible immediately Policy education provided
+  6838→Calculator Logic: def calculate_manager_time_savings( daily_tickets: int,
+  6839→complex_ticket_pct: float, \# %
+  6840→requiring human decision min_per_complex_ticket: float = 5.0, \# average 5 min per
+  6841→decision
+  6842→manager_hourly_rate: float = 50.0 ) -\> dict: complex_tickets_per_day = daily_tickets \*
+  6843→complex_ticket_pct
+  6844→current_daily_hours = (complex_tickets_per_day \* min_per_complex_ticket) / 60
+  6845→current_monthly_cost =
+  6846→current_daily_hours \* 22 \* manager_hourly_rate \# 22 working days \# After PARWA: 90%
+  6847→reduction in review
+  6848→time trivya_daily_hours = current_daily_hours \* 0.10 trivya_monthly_cost =
+  6849→trivya_daily_hours \* 22 \*
+  6850→manager_hourly_rate monthly_savings = current_monthly_cost - trivya_monthly_cost return
+  6851→## {
+  6852→\'current_monthly_manager_cost\': current_monthly_cost, \'trivya_monthly_manager_cost\':
+  6853→trivya_monthly_cost,
+  6854→
+  6855→
+  6856→\'monthly_savings\': monthly_savings, \'roi_percentage\': (monthly_savings / trivya_price) \* 100 } 19.3 labor cost math
+  6857→daily decisions \> 50 Over-buying Client using \<40% of Downgrade suggestion with savings detection plan capacity for 30+
+  6858→calculation Ticket Same customer, same Merge into single ticket, flag splitting order, multiple for review suspicion tickets
+  6859→within 24h Plan gaming Assessment answers vs Usage-based repricing actual usage \>20% notification with data
+  6860→discrepancy after 60 PARWA Promise:** We will give your business an AI workforce that is safe before it\'s smart,
+  6861→transparent before it\'s autonomous, and always under your control. We promise to make the hardest automation look
+  6862→luxuriously simple. The 5 Non-Negotiables - 1\. SAFETY FIRST: AI never executes irreversible actions without human
+  6863→approval. Ever. No exceptions. - 2\. TRANSPARENCY: Every decision comes with reasoning, confidence score, and audit trail.
+  6864→No black boxes. - 3\. CONTROL: You can pause, demote, or override the AI at any time. Jarvis is your instrument, not your
+  6865→boss. - 4\. IMPROVEMENT: Agent Lightning makes your AI smarter every week. It your business are protected. The
+  6866→Adaptation Curve Commitment automatically. Shadow recommendations for complex tasks. Week 2 (Paid) AI
+  6867→recommending decisions on refunds. Manager time down 50%. Week 6 (Mature) 80--90% automation. AI handling routine
+  6868→decisions autonomously. Manager focused on strategy. Month 6 (Expert) Institutional memory locked in. Competitor
+  6869→
+  6870→PARWA platform.** It covers every feature,
+  6871→workflow, UI element,
+  6872→technical
+  6873→specification,
+  6874→
+  6875→
+  6876→
+  6877→
+  6878→PART 20: Detailed Operational Workflows 20.1 Refund Execution
+  6879→Workflow 20.2 Pricing Calculator & ROI Engine
+  6880→
+  6881→Self-Service Refunds 20.5 Stuck Approval Escalation Ladder 20.6 Confidence Scoring System (Deep Dive) 20.7 The Empathy
+  6882→Engine (Sentiment Handling) 20.8 Drift Detection & Performance Monitoring 20.9 Data Retention & GDPR Compliance 20.10
+  6883→Legal Safeguards & Compliance Enforcement 20.11 Dynamic Instruction Workflow (Jarvis Agent Creation) 20.12 Webhook
+  6884→Malformation Handler 20.13 Rate Limiting (Anti-Spam / DDoS Shield) PART 21:
+  6885→(Issues 21--25)** PART 24: Efficiency Enhancements & Advanced Features PART 25: Industry-Specific Proprietary PARWA
+  6886→Techniques** PART 27: AI Techniques Frameworks PART 31: Master AI System Prompt & Decision
+  6887→
+  6888→Matrix PART 32: Implementation Roadmap (5 Phases, 20
+  6889→Weeks) PART 33: Design System & UI Specifications PART
+  6890→34: Accessibility, Performance & Error States PART 1:
+  6891→## Executive Summary & Platform Overview
+  6892→for
+  6893→customer care that assists your team, learns your business, learns from its own mistakes
+  6894→via Agent Lightning, and
+  6895→earns autonomy under complete human control through The Control System. It eliminates up
+  6896→to 90% of manual
+  6897→support workload while maintaining full transparency, security, and brand consistency.
+  6898→Unlike competitors like Ema, Gorgias, or Intercom Fin who provide | | \'smart AI that
+  6899→automates everything,\'
+  6900→PARWA provides controlled, | | trustworthy AI assistants that earn their autonomy
+  6901→through | | demonstrated
+  6902→
+  6903→
+  6904→Version 5.0 introduces five core innovations that differentiate it from every competitor
+  6905→in the market:
+  6906→performance differentiator. Standard AI | | systems send the full conversation history
+  6907→to the model on every | |
+  6908→request. As a chat grows from 10 messages to 100 messages, the | | context size balloons
+  6909→from \~2,000 tokens to
+  6910→20,000+ tokens. | | | | - The Problem with Standard Approach: High costs, slow responses
+  6911→| | (3--5 seconds),
+  6912→hallucinations from conflicting old context, and | | memory degradation. | | | | - The
+  6913→GSD Solution: PARWA
+  6914→maintains a structured JSON \'State\' of | | the conversation rather than raw text logs.
+  6915→Instead of sending | | 12,000
+  6916→
+  6917→
+  6918→tokens of conversation history, it sends \~180 tokens of | | structured state data. | |
+  6919→| | - Result: 98.5% reduction in
+  6920→token usage, response times of | | 0.3--0.5 seconds, near-zero hallucination risk, and
+  6921→the ability | | to hold
+  6922→conversations that last for days without accuracy | | degradation. |
+  6923→that makes PARWA evolve over time, |
+  6924→| unlike competitors whose AI is \'frozen\' until the vendor releases | | an annual
+  6925→update. | | | | - Capture: Every
+  6926→manager \'Reject\' or correction click is logged | | as a \'Negative Reward\' signal. |
+  6927→| | | - Analysis: Weekly, these
+  6928→signals are analyzed to identify | | recurring mistake patterns. | | | | - Update:
+  6929→System prompts and model weights
+  6930→are updated with learned | | rules. | | | | - Result: The AI gets measurably smarter
+  6931→every single week without | |
+  6932→
+  6933→requiring manual retraining or code changes. Refund decision | | accuracy improved from
+  6934→72% in Week 1 to 94%
+  6935→selects the optimal Large Language Model | | (LLM) based on the complexity of each
+  6936→query, using free and
+  6937→low-cost | | models for the majority of interactions. | | | | - Light Tier: Free models
+  6938→(Gemma-4B, Gemini-Flash) for
+  6939→(GPT-4o-mini at \$0.0001--\$0.0003) | | for standard decisions. | | | | - Heavy Tier:
+  6940→Premium models (GPT-4o,
+  6941→Claude-3.5-Sonnet at | | \$0.002--\$0.003) only for VIP customers and complex policy | |
+  6942→decisions. | | | | - Result:
+  6943→
+  6944→
+  6945→Monthly inference cost drops from \$102 to \$45.60 (55% | | reduction) for a typical
+  6946→1,750-query scenario. |
+  6947→allows PARWA to learn from every | | client interaction across the platform while
+  6948→strictly preserving | | privacy.
+  6949→Unlike ChatGPT which updates once a year, PARWA\'s network | | evolves daily. | | | | -
+  6950→## What Is Shared: Decision
+  6951→
+  6952→
+  6953→| think\' of customer service. | | | | - What Is NEVER Shared: Customer
+  6954→names/emails/data, | | business-specific
+  6955→pricing, conversation content, financial | | transaction details. | | | | - Result: New
+  6956→clients benefit from the
+  6957→accumulated expertise of the | | entire PARWA network from Day 1, without a 1-month
+  6958→learning | | phase. |
+  6959→complete Virtual | | Operating System (OS) that manages the entire AI workforce through
+  6960→| | natural language
+  6961→commands, visual state monitoring, and intelligent | | automation. | | | | - System-
+  6962→State-Aware: Jarvis always knows
+  6963→the current operational | | mode (Shadow/Supervised/Graduated) and responds based on
+  6964→actual | | configuration,
+  6965→never giving generic answers. | | | | - Proactive Self-Healing: Detects API failures,
+  6966→DDoS attacks, and | | system
+  6967→issues and fixes them automatically before the client | | notices. | | | | - Behavioral
+  6968→Controller: Executes natural
+  6969→milliseconds across all concurrent channels. | | | | - Emergency Controls: One-click
+  6970→capability to pause all AI | |
+  6971→activity, specific channels, or revert to Shadow Mode at any | | time. |
+  6972→offers three distinct AI employee types, each designed for a specific level of business
+  6973→complexity and support
+  6974→Pro The Junior Agent \$2,500 200--500 Growing companies needing
+  6975→
+  6976→intelligent recommendations PARWA High The Senior Agent \$4,500 500+ Enterprises with VIP customers and
+  6977→
+  6978→Principle PARWA\'s fundamental design philosophy is that control must always remain with
+  6979→the human manager.
+  6980→changes, and financial Irreversible Actions Alone decisions require explicit human
+  6981→approval before execution. All
+  6982→Decisions Are Every AI action produces a full audit trail Reviewable with reasoning,
+  6983→confidence score, and
+  6984→the approval gate is hard-coded and cannot be bypassed. System Can Be Paused One-click
+  6985→(or voice command)
+  6986→override stops Instantly all autonomous AI actions immediately across all channels.
+  6987→during 1) reduction Onboarding Adaptation Phase Progressive AI learns specific refund
+  6988→(Weeks 1--6)
+  6989→improvement policies, fraud patterns, brand voice Mature System (Week 80--90% workload
+  6990→Including complex
+  6991→
+  6992→multi-step 6+) reduction logic Cost Savings vs Human 80--90% Based on replacement of
+  6993→Teams junior/trainee
+  6994→support staff Setup Time 10 minutes Self-service guided wizard Time to First Value 24
+  6995→hours First automated
+  6996→ticket resolution
+  6997→Shared across all clients (Vercel + Railway + Supabase) Gross Margin per \>95% Even at
+  6998→## \$1,000/month Mini
+  6999→Philosophy & The Workforce Mindset 2.1 The Assistance-First Mindset PARWA is designed
+  7000→around a
+  7001→fundamental truth: humans trust systems that assist before they automate. Unlike generic
+  7002→chatbots that pretend to
+  7003→rather than guessing (hallucinating), and earning expanded responsibilities through
+  7004→demonstrated accuracy. The
+  7005→core journey of every PARWA AI instance follows four stages: interactions. It takes no
+  7006→action, executes no
+  7007→decisions, but logs what it would have done. This risk-free period allows both the AI
+  7008→and the client to build trust.
+  7009→every consequential action. This is where Agent Lightning begins capturing correction
+  7010→data and the AI starts
+  7011→developing business-specific intelligence. specific task types, AI handles those tasks
+  7012→autonomously. But only for
+  7013→never goes away. Even in Graduated mode, Jarvis watches everything, can intervene
+  7014→anytime, and the emergency
+  7015→directly shapes every product decision, from onboarding to termination flows.
+  7016→PARWA, or Variant PARWA High based on their needs and budget Probation Onboarding AI
+  7017→starts in Hybrid
+  7018→
+  7019→Training Adaptation Phase AI learns specific policies, refund (Weeks 1--6) logic, brand voice. Agent Lightning gathers
+  7020→correction data. Assistance Phase Supervised Mode AI recommends all actions, builds trust through accuracy. Manager
+  7021→approves/rejects. Promotion Graduated Autonomy AI earns expanded authority after proving accuracy on specific task
+  7022→types (50+ consecutive correct) Supervision The Control System Jarvis watches forever. Manager can intervene, pause, or
+  7023→override at any time. Performance Review Weekly Reports Confidence scores,
+  7024→accuracy trends, savings reports, learning progress summaries Demotion Automatic Rollback If error rate exceeds 5% over 7
+  7025→days, AI automatically reverts to Supervised Mode Coaching Post-Interaction AI flags its own uncertainties; QA manager
+  7026→corrections feed directly into Agent Lightning training Collaboration Peer Review
+  7027→
+  7028→Junior AI can request help from Senior AI (PARWA -> PARWA High) before escalating to
+  7029→human
+  7030→system working as intended. The Adaptation Phase is where Agent Lightning infrastructure
+  7031→begins gathering data
+  7032→questions, tracking lookups, order | | status checks, FAQs. Uses Light Tier (Gemma-4B)
+  7033→for instant | | responses. | |
+  7034→| | - Value delivered: Your team stops doing 60% of boring, repetitive | | work
+  7035→immediately. | | | | - Client handles:
+  7036→action: Starts logging \'correct\' and | | \'incorrect\' patterns for future training.
+  7037→Building the dataset. |
+  7038→logic and common | | decision types. | | | | - AI drafts recommendations: You review and
+  7039→approve them with | |
+  7040→
+  7041→
+  7042→minimal time investment. - Uses Medium Tier (Gemini-
+  7043→Flash): For drafting responses
+  7044→and
+  7045→analyzing
+  7046→context. Higher quality
+  7047→outputs.
+  7048→- Value: Your team saves 50%
+  7049→of decision time. AI writes
+  7050→text,
+  7051→human
+  7052→
+  7053→and policies. - AI handles routine refunds,
+  7054→simple address changes, and
+  7055→standard
+  7056→account updates
+  7057→autonomously (with
+  7058→## Graduated Autonomy
+  7059→enabled).
+  7060→- Value: Your team focuses
+  7061→only on VIP customers and
+  7062→legally complex issues. - Agent Lightning action: After
+  7063→accumulating sufficient data,
+  7064→the
+  7065→first automated
+  7066→fine-tuning job runs. A new
+  7067→model version
+  7068→specific to this client is
+  7069→deployed.
+  7070→- Jarvis message: \'I am in the
+  7071→Adaptation Phase. I handle
+  7072→easy
+  7073→things automatically and make
+  7074→recommendations on complex
+  7075→things.
+  7076→## Every
+  7077→
+  7078→
+  7079→slow responses Hallucination AI confused by old, Wrong answers, frustrated conflicting
+  7080→data (e.g., \'I customers
+  7081→liked the blue shirt\' vs \'I want to return the blue shirt\') Context Loss Early
+  7082→details get \'pushed AI forgets earlier
+  7083→out\' or mixed with new agreements, repeats context questions Cost per Query \$0.02--
+  7084→\$0.05 per Unsustainable at
+  7085→scale; conversation turn kills margins Response Time 3--5 seconds for heavy Poor user
+  7086→experience, context
+  7087→Structured State Management PARWA implements a Custom \'GSD\' (Get Shit Done) State
+  7088→Engine as a core
+  7089→
+  7090→architectural principle baked into all LangGraph workflows. Instead of maintaining a messy \'Chat Log,\' PARWA maintains a
+  7091→clean \'Structured State\' as a JSON object containing only relevant facts. The State Object GSD State Object \"customer\": {
+  7092→\"name\": \"John Doe\", \"id\": \"C8291\", \"tier\": \"standard\", \"verified\": true \"current_issue\": { \"type\":
+  7093→
+  7094→\"refund\", \"order_id\": \"#8921\", \"amount\": 45.00 \"policy_status\": \"Eligible\",
+  7095→\"sentiment\": \"Frustrated\",
+  7096→\"last_action\": \"Policy Checked\", \"actions_taken\": \[\"verified_identity\",
+  7097→## \"checked_policy\",
+  7098→\"created_refund_request\"\], \"pending\": \[\"manager_approval\"\], \"ai_confidence\":
+  7099→## 0.94
+  7100→PARWA sends only: - The current state object (structured JSON, \~180 tokens) - The new
+  7101→incoming message
+  7102→from the customer - The relevant policy section retrieved by RAG (targeted, not the
+  7103→whole document) 3.3 Token
+  7104→Average Tokens Sent \~12,000 tokens \~180 tokens Per Query Token Reduction Baseline
+  7105→98.5% reduction
+  7106→Response Time 3--5 seconds 0.3--0.5 seconds Cost Per Query \$0.024 \$0.00036
+  7107→## Hallucination Risk High
+  7108→(confused by noise) Near Zero (focused on facts) Conversation Length Limited by context
+  7109→Infinite (days, weeks)
+  7110→Anti-Hallucination Safety Net Even with structured state, PARWA tracks a Complexity
+  7111→Score for each
+  7112→score). interactions into a concise 3-sentence summary. field containing the compressed
+  7113→summary. facts, allowing
+  7114→it to solve the problem fresh without hallucination.
+  7115→engine is
+  7116→translated into a visible UI indicator in the Jarvis Dashboard, giving managers
+  7117→transparency into conversation
+  7118→
+  7119→
+  7120→┌────────────────────────────────────── ───────────────┐ │ Jarvis Context Health │
+  7121→├─────────────────────────────────────────────────────┤ │ \[Normal\] Context Usage: 45%
+  7122→████████░░░░░░░░░░░░ │ │ \[Warning\] Context Usage: 87%
+  7123→## └─────────────────────────────────────────────────────┘
+  7124→┌─────────────────────────────────────────────────────┐ │ Context Limit Reached (90%) │ │ To ensure maximum
+  7125→accuracy and prevent errors, │ │ Jarvis recommends starting a new conversation. │ │ Current Chat: 11,500 tokens │ │
+  7126→Status: Risk of inaccuracies increasing. │ │ \[Start New
+  7127→
+  7128→Chat\] \[Continue Anyway\] │
+  7129→## └─────────────────────────────────────────────────────┘
+  7130→integrates with several key technologies in the PARWA stack: - **LangGraph:** Manages
+  7131→transitions between
+  7132→state updates. Each state change is a node in the workflow graph, providing full
+  7133→traceability of every decision step.
+  7134→order_id from natural language input. - **Smart Router:** Routes the \'State Send\' to
+  7135→the appropriate LLM tier
+  7136→exceptions. - **PostgreSQL (via Supabase):** Stores the state object with full version
+  7137→history, enabling complete
+  7138→audit trails and rollback capability. PART 4: The Collective Intelligence Network 4.1
+  7139→## The Concept: A Living
+  7140→releases a new model, typically once a year. This means a
+  7141→business deploying a competitor\'s AI today gets the same AI intelligence as a business
+  7142→that deployed it six
+  7143→
+  7144→months ago. PARWA\'s Collective Intelligence Network is fundamentally different. It is a living system that privacy
+  7145→guarantees. 4.2 Version 1 Strategy: Local Continuous Learning (Privacy First) To ensure absolute legal compliance and
+  7146→privacy, PARWA V1 focuses on Client-Specific Continuous Learning as the foundation, with cross-client network learning as
+  7147→a V2 feature for enterprise clients who explicitly opt in. how to handle a specific
+  7148→the critical framework that allows the AI to learn and improve without ever leaking sensitive business or customer numbers
+  7149→How to detect a fraudulent address Your specific discount codes and change pattern pricing How to interpret a vague policy
+  7150→Your financial data and revenue exception request figures How to identify \'wrong size\' vs Your specific product inventory
+  7151→and \'genuinely damaged\' pricing How to route a VIP complaint for Your customer relationship history maximum retention
+  7152→Communication styles that work in Specific conversation The privacy guarantee is enforced at the architectural level, not
+  7153→just policy level: - **Private Vector Store:** Every client has their own encrypted, isolated database for their PDFs,
+  7154→knowledge base, and customer history. This data is physically separated and never exposed to global model training
+  7155→processes. - **Agent Lightning Training:** The AI learns the logic of customer service shared global model. - **PII Redaction
+  7156→Layer:** Before any data is processed for learning, a local Python layer running on the backend masks all personally
+  7157→identifiable information: credit card numbers, social security an AI recommendation, that interaction is tagged as a Positive
+  7158→Reward. When a manager clicks \'Reject\' or \'Deny,\' it is tagged as a Negative Reward. Both are stored in the
+  7159→training_data table. more than 100 negative rewards have accumulated, it automatically triggers Agent Lightning.
+  7160→\'mistakes_for_training.jsonl\' instance (Llama-3-8B) and trains on the mistakes dataset. 17. Validation: The new model
+  7161→version is validated against a \'Test Set\' of past correct decisions to ensure improvement before deployment. 18.
+  7162→Deployment: If validation
+  7163→4.6 Comparison: Standard AI vs. PARWA\'s Living System
+  7164→
+  7165→Update Frequency Every 6--12 months Weekly via Agent Lightning (V1) Learning Method You
+  7166→must manually
+  7167→Self-learns from your re-prompt or retrain interactions automatically Knowledge Type
+  7168→General knowledge only
+  7169→Specialized in your specific business logic Context Awareness No memory of your past
+  7170→Inherits successful
+  7171→decisions patterns from its own history Personality Static, generic Evolves to match
+  7172→your brand voice over time
+  7173→New Client Experience Starts from scratch Benefits from network knowledge immediately
+  7174→## Paid
+  7175→
+  7176→5.1 Business Model Overview The PARWA business model is built around a critical
+  7177→distinction: The
+  7178→
+  7179→
+  7180→## Onboarding
+  7181→is a subscription tier with specific feature restrictions, not just a mode setting. It
+  7182→is carefully designed to
+  7183→demonstrate immediate value to the client without incurring the operational costs of the
+  7184→full paid service. 5.2
+  7185→Phase 1: The 7-Day Hybrid Onboarding Duration: 7 days. No credit card required. Goal:
+  7186→Prove value
+  7187→immediately
+  7188→with speed and intelligence, while saving operational costs and maintaining full safety.
+  7189→Features Activated (Fully
+  7190→interactions - FAQ Handling: Answers questions directly from the uploaded knowledge -
+  7191→Order Status and
+  7192→Tracking: Checks orders and provides shipping updates via integrations - Data
+  7193→Collection: Collects customer
+  7194→Real-World Execution): - Voice Calls: Disabled to avoid Twilio API costs. Text chat
+  7195→remains active as a
+  7196→substitute. - SMS Notifications: Disabled to avoid Twilio costs. Email notifications
+  7197→remain active. Refunds/Returns: AI analyzes the request, checks policy, generates a
+  7198→recommendation. It presents this to the
+  7199→manager as a Preview: \'If you were Paid, I would recommend APPROVE. Here is my full
+  7200→reasoning\...\' It does
+  7201→not execute any financial transaction. - New Decision Types: AI simulates the decision
+  7202→logic and shows the
+  7203→preview result, but requires the human to manually execute any real action.
+  7204→things that make them want to upgrade: | | | | 19. Immediate Relief: The AI handles 60--
+  7205→70% of boring, repetitive |
+  7206→| tickets (Chat/Email FAQs) from Day 1. The support team | | immediately spends less
+  7207→time on routine work. | | | |
+  7208→- Demonstrated Intelligence: They see the AI\'s detailed, accurate | | recommendations
+  7209→for complex tasks like
+  7210→AI would have done, with full reasoning, | | building confidence before the financial
+  7211→commitment. |
+  7212→All Systems Go. The full PARWA platform activates on the first day of the paid
+  7213→subscription. - Voice Calls:
+  7214→
+  7215→Notifications: Activated for proactive updates and follow-ups - Refund Execution: AI recommends, manager approves with
+  7216→one click, system executes the financial transaction securely via the Backend Vault architecture Real-Time Training: Every
+  7217→manager approval and denial starts the Agent Lightning reinforcement learning cycle with a transparent self-service value
+  7218→calculator that proves ROI in under 2 minutes. The calculator is built on three key components: The Manager Time
+  7219→Calculator Instead of guessing at pricing, the calculator asks about the client\'s specific pain points: - Question: \'How many
+  7220→hours per week does your team spend reviewing support requests?\' are spending approximately \$1,500/month in human
+  7221→labor on tasks I can automate. PARWA Pro saves you
+  7222→\$1,200/month net after the subscription cost.\' The Smart Bundle Visualizer Interactive element that appears after
+  7223→industry selection to prevent \'Mini Stacking\' (where clients try to buy multiple Mini agents instead of upgrading to a
+  7224→higher tier). The visualizer shows the real cost comparison in terms of total manager time required. The
+  7225→Anti-Arbitrage Matrix A transparent comparison that shows the hidden costs of cheaper tier configurations: \$2,000
+  7226→\$2,500 Decisions Made 0 (collects data only) Recommends 80% less manager time Pattern Learning No Total Cost \$2,000
+  7227→+ 4hrs daily \$2,500 + 30min daily Vercel Pro \$20/month Next.js application hosting with global CDN Backend Hosting
+  7228→Railway \$20/month FastAPI backend with automatic scaling Database Supabase Pro \$25/month PostgreSQL with pgvector
+  7229→and
+  7230→
+  7231→(\$1,000/month Mini), gross margins remain above 95% when the \$65/month infrastructure
+  7232→cost is factored in. At
+  7233→
+  7234→\$2,500/month (PARWA Pro), this represents over \$2,400/month in contribution margin per
+  7235→client. This structure
+  7236→ensures PARWA never hits \'Free Tier walls\' that cause production crashes as the
+  7237→business scales.
+  7238→Niche Specialization** 6.1 Architecture Overview PARWA is built on a Universal Core
+  7239→intelligence engine that
+  7240→powers all variants across all industry niches. This core is modular, safe, and designed
+  7241→for high reliability and
+  7242→continuous learning. On top of this core, Niche Specialization Modules add industry-
+  7243→specific integrations,
+  7244→Principle The AI intelligence (how it reasons, decides, and communicates) does not
+  7245→change between industries or
+  7246→variants. What changes is: which systems it integrates with, what compliance guardrails
+  7247→apply, and what specific
+  7248→Multi-Model Routing (The Smart Router) The system does not rely on a single AI model. It
+  7249→dynamically selects
+  7250→the most appropriate tool based on task complexity and cost considerations. - **Light
+  7251→Tier (Workhorse):**
+  7252→Complex logic, refund decisions, fraud detection, VIP handling. - **Fallback Logic:** If
+  7253→a free model hits a rate
+  7254→limit, the system automatically fails over to the next best model in the same tier. Zero
+  7255→downtime from model
+  7256→unavailability. B. Agentic Workflow Engine (LangGraph) LangGraph manages complex, multi-
+  7257→step workflows as
+  7258→state machines. Each workflow includes mandatory approval checkpoints that cannot be
+  7259→bypassed. - State
+  7260→Management: Uses the GSD engine to manage transitions between workflow states - Approval
+  7261→## Gates Integration:
+  7262→Hard-coded checkpoints that stop AI execution and require human confirmation before
+  7263→proceeding - State
+  7264→manager takes an hour to respond - Example Workflow: Check Policy -> Verify Fraud ->
+  7265→## Calculate Amount ->
+  7266→
+  7267→
+  7268→Request Approval -> Wait -> Execute (if approved) -> Notify ERP -> Send Email -> Update
+  7269→## Slack C. The
+  7270→Manager Supervision Layer (The Control System) A dedicated software layer that enforces
+  7271→all safety rules
+  7272→prompting. - Persistent Monitoring: Watches every AI action before execution -
+  7273→Confidence Scoring: Calculates a
+  7274→score (0--100%) for every decision - Approval Gates: Hard-coded blocks on all refunds,
+  7275→account changes, VIP
+  7276→managers - Post-Interaction QA: Rates AI performance after every ticket to feed Agent
+  7277→## Lightning - Peer Review:
+  7278→Junior AI can request help from Senior AI before escalating to human (only if client has
+  7279→both variants)
+  7280→
+  7281→
+  7282→D. Flexible Self-Learning System (Agent Lightning) - Pattern Recognition: Learns from
+  7283→token history and
+  7284→identifies company-specific edge cases - Adaptive Policy: Adapts to policy changes via
+  7285→DSPy (Automatic Prompt
+  7286→Optimization) - Reinforcement Learning: Every manager \'Accept\' or \'Reject\' is a
+  7287→training signal - Smart
+  7288→Boundary Learning: Identifies high-risk patterns that should always require human
+  7289→approval, never
+  7290→auto-approving them E. Omnichannel Memory (RAG with pgvector) - Context Preservation:
+  7291→Customer can start
+  7292→Knowledge Ingestion: Automatically indexes and makes searchable all client PDFs,
+  7293→policies, and FAQs - CLARA
+  7294→
+  7295→RAG: Uses the enhanced retrieval architecture for more accurate, context-aware knowledge
+  7296→retrieval (see Part 28)
+  7297→F. The Jarvis Command Center (Iron Man OS) - Conversational Interface: Managers control
+  7298→AI through natural
+  7299→editing - Proactive Voice: Jarvis can initiate outbound campaigns (e.g., abandoned cart
+  7300→recovery calls) when
+  7301→manager approves - System-State-Aware: Jarvis always knows if the system is in Shadow,
+  7302→Supervised, or
+  7303→Graduated mode 6.3 Niche Specialization Layer The Universal Core is wrapped with
+  7304→Industry-Specific Modules.
+  7305→Magento, Visual damage PCI DSS for BigCommerce verification, cart payments recovery,
+  7306→shipping delay alerts,
+  7307→product recommendations SaaS GitHub, Stripe, In-app guidance, churn SOC 2 Chargebee,
+  7308→prediction from usage
+  7309→considerations, Zendesk, Intercom, drops, technical security incident Slack, Discord
+  7310→troubleshooting handling
+  7311→Logistics TMS, WMS, carrier GPS tracking Shipping APIs (FedEx, UPS, integration, driver
+  7312→regulations, DHL)
+  7313→coordination, proof of hazardous
+  7314→scheduling prescription status, no PHI in AI platforms, insurance verification training
+  7315→data insurance portals
+  7316→
+  7317→
+  7318→Autonomy is earned based on demonstrated performance, not on the passage of calendar
+  7319→time. This ensures that
+  7320→the AI truly deserves the trust placed in it before sensitive tasks are handed over. 7.2
+  7321→Stage 0: The 7-Day Hybrid
+  7322→Onboarding Duration: 7 days. Goal: Prove value without incurring full operational cost
+  7323→or risk. - AI is LIVE for
+  7324→Chat/Email/FAQs: Customers get immediate, accurate answers using Light Tier models - AI
+  7325→is in SHADOW for
+  7326→Voice/Refunds/SMS: AI analyzes and simulates decisions using the GSD engine, but no
+  7327→external API costs are
+  7328→incurred (Twilio not activated) - Preview Mode: For complex decisions, AI shows the
+  7329→manager a Draft
+  7330→Recommendation with full reasoning: \'If this were the Paid Version using my Heavy Tier
+  7331→reasoning model, I
+  7332→would recommend APPROVE based on your 30-day return policy.\' 7.3 Stage 1: Official
+  7333→Onboarding (Optional
+  7334→Shadow Mode) Purpose: Risk-free learning period where the AI observes without acting.
+  7335→## Duration:
+  7336→Client-controlled, typically 1--30 days, or skipped entirely by clients who want
+  7337→immediate value. - AI observes all
+  7338→customer interactions across all channels - Performs full analysis: Policy check, fraud
+  7339→detection, full reasoning
+  7340→
+  7341→currently in Shadow Mode. In this mode, actions are observed but not executed. That is why you are not seeing live results
+  7342→for this task type. If this were live, the system would have approved this request based on your policy. 7.4 Stage 2:
+  7343→Supervised Mode (Assistance Phase / Adaptation) Duration: Flexible, based on client
+  7344→
+  7345→comfort and AI
+  7346→performance (typically Weeks 1--4). Goal: Build trust through demonstrated accuracy
+  7347→while Agent Lightning
+  7348→starts gathering training data. What Happens in Supervised Mode: - AI is LIVE and
+  7349→handling all customer
+  7350→interactions across activated channels - Smart Router routes queries to appropriate
+  7351→model tier
+  7352→(Light/Medium/Heavy) based on complexity - AI Drafts: AI drafts complete responses using
+  7353→## Medium Tier;
+  7354→
+  7355→manager reviews, edits if needed, and sends - Sentiment Routing: Angry customers
+  7356→(sentiment score above 80%)
+  7357→are automatically routed to human manager; happy customers are handled - AI recommends
+  7358→all decisions but
+  7359→NEVER executes refunds, account changes, or VIP actions - Every approval/denial from the
+  7360→manager trains the
+  7361→Accuracy: Percentage of AI recommendations that the manager approves without
+  7362→modification - Sentiment Score:
+  7363→Ratio of happy vs. angry customer interactions the AI handles well - Draft Accuracy:
+  7364→Percentage of AI-drafted
+  7365→responses sent without manager edits - Confidence Score Trends: Are confidence scores
+  7366→increasing week over 7.5
+  7367→Stage 3: Graduated Autonomy (Earned Trust) Duration: Week 5 onward, when specific task
+  7368→accuracy
+  7369→thresholds
+  7370→are met. Goal: Maximize efficiency while maintaining safety. What Changes in Graduated
+  7371→## Autonomy: - After
+  7372→proving consistent accuracy on a specific task type, AI can handle those tasks
+  7373→autonomously - Manager sets
+  7374→
+  7375→
+  7376→explicit thresholds: \'Auto-approve address changes after 50 consecutive correct
+  7377→recommendations on this task
+  7378→type\' - Self-Service Option: If the \'Customer Self-Service\' rule is active, customers
+  7379→can execute pre-approved
+  7380→low-risk refunds themselves via a secure portal link What NEVER Changes Regardless of
+  7381→Autonomy Level: approval - New decision types (situations AI has not encountered before)
+  7382→always require approval - Policy
+  7383→exceptions always require approval - VIP customer actions always require approval 7.6
+  7384→## The Agent Lightning
+  7385→tickets in the Jarvis dashboard
+  7386→- System tags every interaction: \'Approved\' (Positive Reward) or \'Rejected\'
+  7387→(Negative Reward) - Data stored in
+  7388→the training_data table with full context, reasoning, and correction details Step 2: The
+  7389→## Saturday Night Evolution
+  7390→- Trigger: System detects more than 100 negative rewards accumulated in the
+  7391→training_data table 22. Export:
+  7392→System automatically exports the dataset as \'mistakes_for_training.jsonl\' 23.
+  7393→Training: Agent Lightning loads the
+  7394→client\'s isolated model instance (Llama-3-8B) and runs fine-tuning 24. Validation: New
+  7395→model version is tested
+  7396→against a \'Test Set\' of past correct decisions 25. Deployment: If validation passes
+  7397→(improvement confirmed), new
+  7398→model version is deployed for that specific client Step 3: The Continuous Benefit Unlike
+  7399→standard AI that \'gets
+  7400→dumber\' as business practices change, PARWA gets measurably smarter every week because
+  7401→it actively learns
+  7402→from manager corrections. By Week 12, typical clients see:
+  7403→94% Manager Review Time per 4.2 minutes 1.1 minutes Ticket Repeat Mistake Rate 23% 3%
+  7404→## Customer
+  7405→
+  7406→architectural distinction. It consists of two separate but integrated components:
+  7407→
+  7408→operations without human approval. The referee. Jarvis (UI) The interface Visual
+  7409→dashboard, natural language
+  7410→where managers command interface, GSD Terminal,
+  7411→interact with alert system, performance reports. The Control System The Human The person
+  7412→who Reviews
+  7413→
+  7414→recommendations, (Client/Manager) makes all approves/denies actions, sets rules,
+  7415→business configures behavior.
+  7416→(code layer) cannot be \'convinced\' to bypass safety rules through clever AI prompting.
+  7417→Even if an AI model were
+  7418→to generate a response attempting to execute a refund, the code layer intercepts it and
+  7419→routes it to the manager
+  7420→approval queue. The safety is in the code, not in the AI\'s judgment.
+  7421→from a simple chatbot into a complete Business Operating System (OS) that manages the
+  7422→entire AI workforce.
+  7423→What Jarvis IS and IS NOT: Jarvis is NOT: - A generic FAQ bot that answers scripted
+  7424→questions - A help desk
+  7425→agent that handles customer queries - A sales assistant that promotes products Jarvis
+  7426→## IS: - **A
+  7427→responds based on actual system configuration, never giving generic answers. - **A
+  7428→Proactive Self-Healer:**
+  7429→Detects API failures, DDoS attacks, and system issues. Fixes them automatically and
+  7430→reports the incident to the
+  7431→manager with full context. - **A Behavioral Controller:** Executes commands that
+  7432→instantly change AI behavior
+  7433→across all concurrent channels simultaneously. - **A Trust-Building Explainer:** Shows
+  7434→the reasoning behind
+  7435→every AI decision, the GSD state execution steps, and all safety mechanisms in
+  7436→transparent, understandable
+  7437→language. - **A GSD Terminal Window:** Displays the structured state execution steps in
+  7438→real time, like
+  7439→watching the AI think. 8.3 Natural Language System Management Managers do not need to
+  7440→navigate settings
+  7441→menus or configuration panels. They simply talk to Jarvis in plain language:
+  7442→Refund Processing Paused All refund requests will now:
+  7443→-> Be queued for manual review -> Not generate AI recommendations -> Show \'Pending
+  7444→Manager Review\' to
+  7445→customers Currently queued: 0 refunds This remains active until you say \'Resume refund
+  7446→processing\'\" Manager:
+  7447→\"Handle all Instagram DMs today, I\'ll take calls\" Jarvis: \" Workflow Redirected For
+  7448→today: Instagram DMs
+  7449→-> AI (all) Facebook messages -> AI (all) Phone calls -> You (all) Email -> AI
+  7450→(standard), You (VIP) AI will
+  7451→notify you if: VIP on Instagram, Crisis detected, Human requested\"
+  7452→Watches and analyzes Reviews shadow all interactions. logs, evaluates AI Takes no real-
+  7453→world intelligence,
+  7454→action. Logs what it decides when to go would have done. live. Supervised Mode Yellow
+  7455→Recommends decisions
+  7456→Reviews and for all consequential approves/denies all actions. Handles safe
+  7457→recommendations. tasks (FAQs,
+  7458→tracking) One-click batch autonomously. approval available. Graduated Mode Green Handles
+  7459→proven task
+  7460→
+  7461→Reviews only types autonomously exceptions, new with logging. Still patterns, and VIP requires approval for cases. Manages
+  7462→by all money-related exception. actions. Paused Mode Red All AI activity Handles all completely stopped. interactions
+  7463→Customers see manually. Used for \'Pending Review\' crisis situations, messages. system Iron Man Interface The Jarvis
+  7464→interface shows the real-time execution steps of the GSD
+  7465→
+  7466→## ┌─────────────────────────────────────────────────────────────┐ │
+  7467→## │ ├─────────────────────────────────────────────────────────────┤
+  7468→│ \[GSD TERMINAL\] │ │ \> \[INIT\] System Ready. │ │ \> \[INPUT\] \'I want a refund for
+  7469→order #8921\' │ │
+  7470→\> \[THINKING\] Analyzing Request\... │ │ \> \[TOOL\] Calling Shopify API
+  7471→## (get_order)\... │ │ \>
+  7472→
+  7473→\[SUCCESS\] Order found: Shipped. \$45.00. 12 days ago. │ │ \> \[TOOL\] Checking return
+  7474→policy via RAG\...
+  7475→│ │ \> \[SUCCESS\] 30-day policy active. Item eligible. │ │ \> \[TOOL\] Fraud check:
+  7476→customer history\... │ │
+  7477→\> \[SUCCESS\] Clean history. No fraud signals. │ │ \> \[STATE UPDATE\] Current Issue:
+  7478→## Refund Request,
+  7479→\$45.00 │ │ \> \[DRAFTING\] Generating recommendation\... │ │ Recommendation: APPROVE
+  7480→## Confidence:
+  7481→94% │ │ \[Approve\] \[View Full Analysis\] \[Request Photo\] \[Deny\] │
+  7482→## └─────────────────────────────────────────────────────────────┘
+  7483→time, from anywhere in the system, managers can immediately stop AI activity through
+  7484→Jarvis: - \'Jarvis, pause
+  7485→
+  7486→required. 8.7 The Trust Preservation Protocol (API Failures) When external systems fail (Shopify API timeout, Stripe
+  7487→unavailable, etc.), PARWA uses a two-layer response to prevent customer churn while keeping the broken.
+  7488→System Alert Shopify API returned Error 503 (Service Unavailable). To protect your customer trust, I told the customer: \'We
+  7489→are currently processing high volume requests.\' Action Required: Check your Shopify Integration or contact Shopify
+  7490→Support. Current status: 3 tickets queued for retry when API recovers. flooding a manager with 50 individual approval
+  7491→requests for similar items, Jarvis uses Semantic Clustering to wants address change - Customer #2 wants address change -
+  7492→Customer #3 wants address change - \...47 more ┌────────────────────────────────────── ─────────────┐ │ Batch:
+  7493→Address Changes (5 tickets) │ │ Confidence Range: 94--98% \| Risk Level: Low │ │ Common Pattern: Standard updates, all
+  7494→verified │ │ \[View Details\] \[Approve Batch\] \[Review Each\] │ │ \[Shadow This Type\] │
+  7495→└───────────────────────────────────────────────────┘ individual approval: 26. Approve Selected (One-Off):
+  7496→Approve this batch or selected items, applies only this time
+  7497→
+  7498→- Reject Batch: Deny all items in this batch 28. Auto-Approve Rule: Create a
+  7499→permanent rule to auto-approve
+  7500→this type of request in the future 29. Shadow This Type: Let AI show how it would handle
+  7501→this type without
+  7502→Stack 9.1 Architecture Philosophy PARWA moved away from restrictive, opinionated AI
+  7503→frameworks like
+  7504→CrewAI in favor of a high-control, low-cost, modular stack designed specifically for
+  7505→reliability, safety, and
+  7506→
+  7507→
+  7508→selects best Tier Intelligence free/open-source model (Gemma, Llama 3, Engine DeepSeek
+  7509→R1) based on task
+  7510→complexity. LiteLLM Unified Model \$0. Manages routing, automatic Proxy retries, and
+  7511→connection to
+  7512→Training \$0. Automates the loop of exporting Lightning Framework (Agent mistakes, fine-
+  7513→tuning, and validating
+  7514→Lightning) new model versions. Unsloth Speed Optimizer \$0. Fine-tunes open-source
+  7515→models 2--5× faster on
+  7516→GPU. Reduces training time from hours to minutes. Llama-3-8B The Trainable Low. Selected
+  7517→for cost efficiency
+  7518→over Model DeepSeek-V3. Fits on T4 GPUs. Ideal for client-specific fine-tuning.
+  7519→extensive AI/ML ecosystem. FastAPI REST API framework. Async-first, automatic OpenAPI
+  7520→documentation,
+  7521→high performance. LangGraph State Machine & GSD Engine. Manages workflow transitions and
+  7522→\'Get Shit Done\'
+  7523→state loops. LangChain Generic LLM wrapper. Provides abstraction layer for model
+  7524→switching. DSPy Automatic
+  7525→Prompt Optimization. Compiles best instructions for the AI without manual prompt
+  7526→engineering. Redis Caching
+  7527→layer and message queue. Stores system state flags (pause/resume modes) for instant
+  7528→propagation.
+  7529→**Role
+  7530→
+  7531→
+  7532→audit logs, and Supabase) training data. pgvector (Supabase Vector database for RAG and embeddings. Replaces complex
+  7533→agent states (LangGraph) reliably, enabling pause/resume of long workflows. fast Router) initial page loads. React UI
+  7534→component library for interactive dashboard elements. Tailwind CSS 3.4+
+  7535→Utility-first CSS framework for consistent, responsive styling. Radix UI Headless component primitives for accessible UI
+  7536→elements. Zustand Lightweight state management for real-time dashboard updates. PARWA to Protocol) plug into any client
+  7537→tool (Shopify, Stripe, GitHub, etc.) without writing custom integration code. Guardrails AI Output validation layer. Scans
+  7538→every AI response to ensure the AI never hallucinates, mentions a competitor, or leaks data before it reaches the customer.
+  7539→with global CDN and automatic scaling Backend Railway \$20/month FastAPI hosting with stable production-grade API
+  7540→serving Database Supabase Pro \$25/month PostgreSQL with pgvector, connection pooling, real-time features Testing
+  7541→Pytest + Jest \$0 Python unit testing (Pytest) and frontend testing (Jest)
+  7542→Security Semgrep \$0 Static analysis for security vulnerability scanning Monitoring Sentry Low cost Error defaulting to high-
+  7543→quality subsidized or free models on OpenRouter for 95% of tasks, escalating to paid models only when a complexity score
+  7544→(0--15) based on message length, presence of keywords like \'refund\' or \'cancel,\' detected sentiment, and task type
+  7545→classification. \<200ms latency 5--9 Medium google/gemini-2.0-flash-exp:free Drafting emails, (Medium) (Analyst) analyzing
+  7546→sentiment, summarizing interaction logs 10+ (High) Heavy (Brain) meta-llama/llama-3.1-405b-instruct:free Complex logic,
+  7547→refund or deepseek/deepseek-r1-0528:free decisions, fraud detection, VIP handling 10.3 Smart Promotion (Dynamic
+  7548→Escalation) If the primary model is insufficient or unavailable, the system automatically escalates: - Scenario A (Hallucination
+  7549→Risk): Light Model receives a message with keyword \'Refund.\' Router detects complexity score jumps above 10.
+  7550→Automatically skips Light, routes to Heavy Tier for accurate reasoning. - Scenario B (Rate Limit): Heavy Model returns 429
+  7551→Too Many Requests. Router automatically tries next available model in Heavy Tier. Zero disruption to the customer
+  7552→experience. 10.4 PII Redaction Before Any LLM Call Before sending any customer message to any LLM (including free
+  7553→models), a
+  7554→local Python layer on the backend masks all sensitive data:
+  7555→
+  7556→1111 1111 1234\' -> Numbers 4\] \'XXXX-XXXX-XXXX-1234\' Social Security XXX-XX-\[last
+  7557→## 4\]
+  7558→\'123-45-6789\' -> \'XXX-XX-6789\' Numbers Email Addresses x\...x@domain.com
+  7559→## \'john.doe@gmail.com\' ->
+  7560→\'j\...e@gmail.com\' Phone Numbers +X-XXX-XXX-\[last 4\] \'+1-555-867-5309\' -> \'+X-
+  7561→## XXX-XXX-5309\'
+  7562→\$18.00 -60% Refund Decisions 200 \$18.00 \$12.00 -33% VIP Interactions 50 \$15.00
+  7563→## \$12.00 -20% Total
+  7564→11: The Three AI Employee Variants 11.1 The Variant Hierarchy Every client hires an AI
+  7565→workforce. PARWA
+  7566→offers three distinct roles
+  7567→that can be hired individually or as a team. Higher-tier AI can escalate complex issues
+  7568→upward before involving a
+  7569→human manager: Mini PARWA (Trainee) -> PARWA Pro (Junior) -> PARWA High (Senior) ->
+  7570→## Human
+  7571→Variants Regardless of which variant you hire (Trainee, Junior, or Senior), The Control
+  7572→System enforces the same
+  7573→absolute safety rules. All variants ALWAYS require human approval for: Refunds (any
+  7574→type, any amount),
+  7575→Returns (any item, any value), Account changes (billing, security, email, password),
+  7576→Policy exceptions (anything
+  7577→outside normal rules), New decision types (situations AI has not encountered before),
+  7578→VIP customer actions.
+  7579→Positioning Replaces 3 full-time freshers working 24/7 shifts. Perfect for SMBs with 50-
+  7580→-200 daily support tickets
+  7581→and primarily simple, repetitive queries. Capabilities - Answers FAQs from the uploaded
+  7582→knowledge base
+  7583→
+  7584→
+  7585→instantly - Checks order status via Shopify/ERP integrations - Tracks shipments via
+  7586→AfterShip, 17Track - Collects
+  7587→intelligently: passes angry customers, legal questions, and all financial requests
+  7588→Critical Limitation Mini PARWA
+  7589→
+  7590→CANNOT make decisions. It collects information and prepares cases for human review.
+  7591→Every refund request,
+  7592→return request, and account change goes straight to the manager\'s approval queue with
+  7593→basic context gathered.
+  7594→are defective.\' 31. Mini checks: Order exists in Shopify 32. Mini checks: Return window
+  7595→(30 days) 33. Mini
+  7596→checks: Item is in returnable category 34. Mini creates refund request ticket in system
+  7597→- Mini summarizes for
+  7598→manager: \'Order #8921, \$29.99, within policy window, customer tier: Standard, reason:
+  7599→defective item\' 36.
+  7600→STOPS. Waits for manager approval. Does NOT recommend. Does NOT draft reasoning.
+  7601→Volume 200 tickets/day included Ticket Overage +\$0.10 per ticket over base Additional
+  7602→Voice Slot +\$75 per
+  7603→extra concurrent call slot Best For SMBs with 50--200 daily tickets, primarily FAQ and
+  7604→status queries Auto-Saves
+  7605→\~\$13,000/month compared to equivalent human trainee staffing
+  7606→recommendations on the remaining 20--30%. For growing companies with 200--500 daily
+  7607→tickets. Capabilities
+  7608→scores, and risk assessment - Troubleshoots technical issues step by step, guiding
+  7609→customers to resolution Detects patterns and suggests knowledge base updates - Handles 3
+  7610→concurrent phone calls - Self-heals minor
+  7611→
+  7612→
+  7613→confidence scores and full reasoning for every recommendation - Can request Peer Review
+  7614→from PARWA High
+  7615→collect. It reduces manager review time from 5 minutes per ticket to 30 seconds per
+  7616→ticket by providing a complete
+  7617→Customer: \'I want a refund for order #8921 because the shoes don\'t fit.\' PARWA Pro
+  7618→Actions: 1\. Verifies order
+  7619→exists in Shopify \[\] 2\. Checks return window: 12 days since delivery, within 30 days
+  7620→## \[\] 3\. Checks
+  7621→customer history: 3-year customer, 0 previous refunds \[\] 4\. Checks fraud signals: IP
+  7622→matches, device
+  7623→recognized, normal behavior \[\] 5\. Analyzes policy: Item eligible, reason covered, no
+  7624→ambiguities
+  7625→RECOMMENDATION: APPROVE Confidence: 94% Reasoning: \[\] Policy compliant (within 30-day
+  7626→window) \[\] Eligible item (not final sale) \[\] Clean customer history (no refund abuse
+  7627→pattern) \[\] Low
+  7628→
+  7629→Additional Voice Slot +\$75 per extra concurrent call slot Best For Growing companies with 200--500 daily tickets needing
+  7630→intelligent recommendations Auto-Saves \~\$18,000/month compared to equivalent human junior Agent\' Core Positioning
+  7631→Eliminates 80--85% of total human support workload. Handles VIP customers with personalized care, detects fraud with
+  7632→behavioral analysis, and provides strategic business intelligence. For enterprises with 500+ daily tickets and complex
+  7633→relationship management needs. Capabilities (Everything PARWA Pro Does, Plus) - Advanced fraud detection using
+  7634→behavioral analysis and cross-order pattern matching - Handles 5 concurrent phone calls plus video support for product
+  7635→demonstrations
+  7636→
+  7637→triggers special handling protocol 2\.
+  7638→Reviews complete customer history:
+  7639→Account age: 3 years \
+  7640→Total orders: 47
+  7641→\ Previous refunds: 2 (both legitimate)
+  7642→CSAT scores: Average 4.8/5 \
+  7643→Sentiment: Frustrated but polite 3\.
+  7644→## Verifies
+  7645→
+  7646→
+  7647→fingerprint: Recognized device \[\] Behavioral signals: Normal purchase pattern \[\] 5\.
+  7648→Assesses business
+  7649→impact: Refund amount: \$89 \| Customer LTV: \$12,000 Churn risk if denied: HIGH (75%
+  7650→probability based on
+  7651→
+  7652→history patterns) STRATEGIC RECOMMENDATION: APPROVE + GOODWILL GESTURE Confidence: 96%
+  7653→Risk-Benefit Analysis: Refund cost: \$89 Retention value: \$12,000 Churn risk if denied:
+  7654→75% Expected value of
+  7655→approval: +\$11,911 Expected value of denial: -\$9,000 Specific Actions Recommended: 1\.
+  7656→Approve refund
+  7657→immediately (\$89)
+  7658→
+  7659→
+  7660→Voice/Video 5 concurrent calls + video support included Best For Enterprises with 500+
+  7661→daily tickets, VIP
+  7662→customers, and complex decision needs Auto-Saves \~\$28,000/month compared to equivalent
+  7663→human senior
+  7664→+ Can Execute Refunds No (collects Yes (with Yes (higher only) approval) limits,
+  7665→strategic) Makes
+  7666→Specialized VIP human High or human protocols Peer Review Can ask Can ask PARWA Receives
+  7667→Basic pattern Enhanced Behavioral check multi-signal analysis Video Support No No Yes
+  7668→Trust\' architecture, meaning the system does not trust itself, its users, or any
+  7669→external APIs unless explicitly
+  7670→verified at every interaction. 12.2 Multi-Tenancy Isolation (Row-Level Security) Each
+  7671→client\'s data is completely
+  7672→isolated from every other client at the database level using PostgreSQL Row-Level
+  7673→Security (RLS). This is not
+  7674→ALTER TABLE tickets ENABLE ROW LEVEL SECURITY; \-- Policy: Users can only see rows where
+  7675→their ID
+  7676→matches CREATE POLICY client_isolation ON tickets FOR ALL USING (auth.uid() =
+  7677→client_id); \-- auth.uid()
+  7678→comes from JWT token, not request body \-- Even if SQL injection occurs, this policy
+  7679→restricts data access
+  7680→incoming webhooks from Shopify, Stripe, and other platforms are verified using HMAC
+  7681→cryptographic
+  7682→signatures. This prevents anyone from faking platform updates by posting to our webhook
+  7683→## URL.
+  7684→
+  7685→verify_shopify_webhook(payload: bytes, signature: str, secret: str) -\> bool: expected = hmac.new(secret.encode(), payload,
+  7686→hashlib.sha256).hexdigest() \# Constant-time compare to prevent timing
+  7687→
+  7688→attacks return hmac.compare_digest(expected, signature)
+  7689→uses a tiered data retention strategy that balances GDPR \'Right to be Forgotten\'
+  7690→requirements with financial audit
+  7691→long-term Amount, Decision requirement) storage Audit Trail Records 5 years Retained in
+  7692→immutable audit_logs
+  7693→Injection Prevention All API inputs are validated using Pydantic strict typing and
+  7694→sanitized using the bleach
+  7695→HTML sanitization library before any database interaction:
+  7696→
+  7697→
+  7698→bleach class TicketRequest(BaseModel): ticket_id: int \# Enforces integer type (prevents
+  7699→SQL injection strings)
+  7700→message: str \@validator(\'message\') def sanitize_message(cls, v): \# Strip all HTML
+  7701→tags to prevent XSS return
+  7702→loads secrets at runtime via Doppler CLI - .env and \*.secrets files explicitly excluded
+  7703→in .gitignore - Critical keys
+  7704→
+  7705→
+  7706→Account Limit 1,000 requests/day Per authenticated user ID
+  7707→Every critical action (refund execution, login, policy change, AI decision) is logged
+  7708→with full context for legal
+  7709→defensibility: - actor_id: Who performed the action?
+  7710→
+  7711→- action_type: What exactly did they do? - timestamp (UTC): When did it happen? -
+  7712→ip_address: Where were they
+  7713→accessing from? - reasoning: Why did the AI make this recommendation? Full decision
+  7714→chain. - confidence_score:
+  7715→How confident was the AI at the time of the decision? Liability and SLA terms in all
+  7716→client agreements: - Liability
+  7717→Cap: PARWA\'s liability limited to 1× monthly fees (except gross negligence) - Financial
+  7718→## Authorization: Clients
+  7719→explicitly authorize AI to recommend but not execute financial transactions above \$50
+  7720→without manager approval
+  7721→- SLA Guarantee: 99.5% uptime (excluding third-party API outages). Credit of 10% of
+  7722→monthly fee per 1%
+  7723→downtime below target - Content Responsibility: Clients acknowledge AI responses are
+  7724→generated based on
+  7725→materials they provide. Accuracy of uploaded policies is client\'s responsibility 12.9
+  7726→Multi-Factor Authentication
+  7727→(MFA) All Admin and Manager accounts are required to have MFA enabled. Implementation: -
+  7728→## Primary:
+  7729→Password + TOTP (Time-based One-Time Password) via Authy or Google Authenticator -
+  7730→Backup: Backup codes
+  7731→generated at account setup - Re-authentication: Access to Control System settings
+  7732→requires re-authentication every
+  7733→24 hours PART 13: Infrastructure Hardening & Operational Readiness 13.1 Monitoring &
+  7734→Observability PARWA
+  7735→tracking. Immediately alerts the development team when something breaks in production.
+  7736→Groups similar errors,
+  7737→provides full stack traces and user context. - **Prometheus + Grafana:** Tracks system
+  7738→health metrics: API
+  7739→response times, error rates, database query performance, AI model latency, and resource
+  7740→utilization. - **Status
+  7741→Page (Statuspage.io):** Public-facing status page at status.trivya.com. Auto-updates
+  7742→when API error rate exceeds
+  7743→1%. Shows incident history for transparency. 13.2 Zero-Downtime Deployments New code
+  7744→deployments are
+  7745→handled without service interruption using SIGTERM graceful shutdown handling: 37.
+  7746→Frontend: Stops accepting
+  7747→new connections. Shows \'Maintenance Mode\' banner for users currently in-session. 38.
+  7748→## Backend: Stops
+  7749→accepting new API requests. 39. In-Flight Processing: Waits up to 30 seconds for current
+  7750→requests
+  7751→
+  7752→
+  7753→(active refund approvals, chat responses) to complete. 40. Shutdown: Closes database
+  7754→connections cleanly, flushes
+  7755→all logs, then exits. 13.3 Connection Pooling & Database Optimization
+  7756→sqlalchemy.pool import QueuePool engine = create_engine( DATABASE_URL,
+  7757→poolclass=QueuePool,
+  7758→pool_size=20, \# Keep 20 connections open max_overflow=10, \# Allow 10 extra during
+  7759→traffic spikes
+  7760→pool_pre_ping=True \# Check if connection is alive before using \# Critical index for
+  7761→the most frequent query
+  7762→pattern: \# SELECT \* FROM tickets WHERE client_id = ? AND status = \'pending\' CREATE
+  7763→## INDEX
+  7764→idx_tickets_client_status ON tickets(client_id, status); \# Result: Query time drops
+  7765→from 5 seconds to 5
+  7766→features are deployed using a Feature Flag system that allows controlled, risk-free
+  7767→rollouts:
+  7768→
+  7769→
+  7770→
+  7771→feature_name VARCHAR, enabled BOOLEAN, rollout_percentage INT \-- e.g., 10 = enabled for
+  7772→10% of clients
+  7773→if is_feature_enabled(client.id, \'proactive_voice\'): make_outbound_call()
+  7774→2) Monitor Sentry for errors. 3) Increase to 50%. 4) Roll out to 100% if stable. 5) Kill
+  7775→switch: UPDATE
+  7776→Benefits 14.1 PARWA vs. The Market The AI support market is crowded with \'smart
+  7777→chatbots.\' PARWA does
+  7778→the defensible choice for businesses deploying AI in customer care.
+  7779→## Gorgias, Intercom Fin)**
+  7780→AI that earns everything\' autonomy safely\' Safety Model Automates by default, Requires
+  7781→approval by restricts
+  7782→exceptions default, automates proven Learning Model Static until vendor Learns weekly
+  7783→from your updates (6--12
+  7784→months) specific corrections (Agent Lightning) Cost Model Expensive per-query or
+  7785→Free/low-cost inference high
+  7786→seat fees via Smart Router; \~\$65/month infrastructure Control Interface Settings
+  7787→menus, Natural language
+  7788→commands configuration panels via Jarvis (\'Pause refunds\') Data Privacy Data used for
+  7789→shared model Private
+  7790→14.2 Built-In Competitor Moats - **Institutional Knowledge Lock-In:** The AI\'s learned
+  7791→patterns
+  7792→about your
+  7793→positioned as irreplaceable. Switching to a competitor means starting from scratch. -
+  7794→**Cross-Client
+  7795→Benchmarking:** Anonymous comparisons with industry peers (\'Your refund rate vs. 200 e-
+  7796→commerce
+  7797→companies\') provide unique competitive intelligence available only through PARWA. -
+  7798→**Network Effects:**
+  7799→
+  7800→
+  7801→More PARWA clients means a smarter PARWA for everyone (in V2 Federated Learning mode).
+  7802→Early clients
+  7803→benefit from the growing network. - **Switching Costs:** Learned patterns, custom
+  7804→workflow configurations,
+  7805→historical audit trails, and integration setups all create substantial technical and
+  7806→operational barriers to switching.
+  7807→frictionlessly while providing an industry-specific \'Aha!\' moment and establishing
+  7808→immediate trust through
+  7809→
+  7810→safety transparency. The entire discovery experience is designed to answer one question in the visitor\'s mind: \'Is this safe
+  7811→enough for me to trust with my customers?\' 15.2 Main Landing Page \'Built to Be Safe Before It\'s Smart\' Section tools: -
+  7812→Headline: \'Control is not an option. It\'s the default.\' - Visual Chain of Control Diagram: A simple flow showing Human
+  7813→Request -> AI Analysis -> Human Approval -> Action. - Three proof points: \'You decide. We assist.\' / \'Shadow Mode:
+  7814→Watch without acting.\' / \'Graduated Autonomy: Unlock freedom only after you trust the results.\' - \'What Happens If
+  7815→Something Goes Wrong?\' Link: Links to a dedicated page explaining error handling, emergency pause buttons, and liability
+  7816→limits. Industry Selection Hero Section Headline: \'Replace Your 24/7 Support Team for 80% Less. Industry-specific AI that
+  7817→understands your business challenges.\' ┌──────────────────────────────────────────────────────────┐ │ Select
+  7818→Your Industry │ ├──────────────────────────────────────────────────────────┤ │ \[E-commerce\] \[SaaS\]
+  7819→\[Logistics\] \[Healthcare\] │ │ Each with unique icon, hover description, │ │ and industry-specific color preview │
+  7820→└──────────────────────────────────────────────────────────┘ Silver Technical precision and (#0A1A2E)
+  7821→(#C0C0C0) enterprise reliability Logistics Deep charcoal Orange Industrial strength (#1A1A1A) (#FF7F11) with urgency and
+  7822→energy Healthcare Medical green White accents Pre-Signup Onboarding CTA Instead of a standard \'Sign Up\' button,
+  7823→visitors see: \'Start Onboarding (No Credit Card)\' -> Redirects directly to Onboarding Wizard. This removes the primary
+  7824→friction point in the conversion funnel. 15.3 The Industry-Aware Live AI Demo Widget A persistent chat widget fixed in the
+  7825→bottom-right corner of every page. Message: \'Ask our \[Industry\] AI anything about PARWA.\' This widget is powered by
+  7826→an actual PARWA instance that answers questions about
+  7827→
+  7828→banner at the top: \'Our \[Industry\] support is powered by PARWA AI. Try it yourself.\' 15.4 Sign-Up Process Industry Pre-
+  7829→selection: Industry is selected before sign-up, personalizing the entire subsequent experience Feature) 16.1 Purpose &
+  7830→Positioning The ROI Calculator is integrated directly into trivya.com/calculator, serving as both an entry point for
+  7831→distribution campaign leads and a self-service tool for existing clients wanting to add Email outreach Qualifies through
+  7832→intelligent Campaign Leads links, ad campaign questions, demonstrates ROI, landing pages drives to product journey
+  7833→Existing Clients Dashboard quick Checks costs against current actions, upgrade plan, shows when upgrading makes emails
+  7834→financial sense Direct Website Navigation bar Converts curiosity into qualified Visitors \'Calculate ROI\' purchase intent with
+  7835→personalized link numbers Design principles: Industry-specific color palettes matching product UI, same typography as the
+  7836→main product,
+  7837→slow parallax animations with industry icons, mobile-first design with thumb-zone CTAs. Calculator Hero
+  7838→┌──────────────────────────────────────────────────────────┐ │ Calculate Your Hidden Support Costs │ │ == │ │
+  7839→Most companies waste \$15,000--\$30,000/month on support │ │ without realizing it. │ │ See your exact numbers in 2
+  7840→minutes. │ │ \[Start Calculator ->\] │ │ No email required to see results │ │ Used by 500+ companies │ │ Based on real
+  7841→support cost data │ └──────────────────────────────────────────────────────────┘
+  7842→calculator collects exactly the same data as the product assessment form, ensuring 100% consistency between the
+  7843→calculator recommendation and what the client actually receives: Primary capacity metric for tickets variant selection 2
+  7844→Channel Breakdown Email / Chat / Determines which
+  7845→
+  7846→channels to Phone / Social activate and cost model percentages 3 Call Concurrency 1--2 /
+  7847→3--5 / Key differentiator
+  7848→between 6--10 / 10+ Mini and higher variants simultaneous calls 4 Ticket Complexity FAQs
+  7849→## / Tracking /
+  7850→Determines how much AI Refunds / Complex decision-making is needed percentages 5 Refund
+  7851→## Volume
+  7852→High need 6 Manager Time Hours/week Directly calculates the reviewing tickets hidden
+  7853→\'Manager Time Tax\' 7
+  7854→Industry E-commerce / SaaS Triggers industry-specific / Logistics / pricing and workflow
+  7855→logic Healthcare /
+  7856→Other 8 Business Size Revenue range + Contextualizes employee count recommendations and
+  7857→pricing discussions
+  7858→The recommendation engine uses the same Python library
+  7859→(trivya-pricing-core) as the main product, ensuring 100% consistency:
+  7860→= data\[\'volume\'\] calls_concurrent = data\[\'call_concurrency\'\] has_vips =
+  7861→data\[\'has_vips\'\] refunds_per_day
+  7862→= data\[\'refunds_per_day\'\] manager_hours = data\[\'manager_time\'\]
+  7863→complexity_percent =
+  7864→data\[\'complex_troubleshooting\'\] \# Rule 1: Mini PARWA (\$1,000/month) if
+  7865→(tickets_per_day \< 200 and
+  7866→calls_concurrent \< 3 and not has_vips and manager_hours \< 10): return {\'variant\':
+  7867→\'Mini PARWA\', \'cost\':
+  7868→1000} \# Rule 2: PARWA Pro (\$2,500/month) if (200 \<= tickets_per_day \<= 400 and
+  7869→refunds_per_day \> 5 and
+  7870→manager_hours \> 5): return {\'variant\': \'PARWA Pro\', \'cost\': 2500} \# Rule 3:
+  7871→PARWA High (\$4,500/month)
+  7872→if (tickets_per_day \> 400 or has_vips or complexity_percent \> 10): return
+  7873→{\'variant\': \'PARWA High\', \'cost\':
+  7874→Detection Logic The calculator detects when users configure inefficient setups and
+  7875→proactively shows them a
+  7876→= \$3,000/month but creates 22+ | | hours/week of manager review time. | | | |
+  7877→Calculator shows: \'3× Mini
+  7878→PARWA creates MORE work than 1× PARWA | | Pro. Here is why:\' | | | | Mini agents:
+  7879→Collect information only.
+  7880→Cannot make recommendations. | | Every refund needs your full review. Every decision
+  7881→needs your | | judgment. | |
+  7882→| | With 3 Minis handling 600 tickets: \~60 refunds/day to review | | manually × 5
+  7883→minutes each = 300 minutes/day
+  7884→= 25 hours/week of review | | time. |
+  7885→
+  7886→
+  7887→
+  7888→makes intelligent recommendations, you review in 30 seconds not 5 minutes. Net savings: 22 hrs/week × 4
+  7889→
+  7890→
+  7891→weeks × \$50/hr = \$4,400/month value | | created. Cost increase: \$2,000/month. Net
+  7892→gain: \$2,400/month. | | | |
+  7893→\[Switch to 2× PARWA\] \[Keep Minis (Not Recommended)\] |
+  7894→Framework The results page follows a proven conversion psychology framework: Fear
+  7895→Section Headline: \'You
+  7896→for 24/7 coverage, how many hours/week are lost to manual review, and what competitors
+  7897→who have already
+  7898→from Day 1, conversational control, and the specific variant recommendation with full
+  7899→justification:
+  7900→## ┌──────────────────────────────────────────────────────────┐ │
+  7901→Recommended: 1× PARWA PRO (Junior Agent) │
+  7902→## ├──────────────────────────────────────────────────────────┤ │
+  7903→Handles: 94% of tickets (235/250 daily) │ │ Time Saved: 10 hours/week for your manager │
+  7904→## │ Cost Savings:
+  7905→\$15,500/month (86% reduction) │ │ Monthly Cost: \$2,500 vs Current: \$18,000 │
+  7906→## └──────────────────────────────────────────────────────────┘
+  7907→
+  7908→money and time. What \$15,500/month extra buys: marketing campaigns, product development, customer acquisition.
+  7909→90% workload elimination. Being a step ahead of every competitor still doing things manually. Call for sharing with
+  7910→stakeholders 16.7 Context-Aware Integrated Chatbot Immediately after the user views their calculator results, a
+  7911→context-aware chatbot appears. It has access to the user\'s calculator data AND the complete PARWA product
+  7912→could save \$15,500/month with PARWA based on your inputs. I know you have many doubts but I am here to answer
+  7913→every question about how this fits your specific setup.\' Example Interaction: User: \'I have 300 tickets a day. Which variant
+  7914→is for me?\' Bot: \'Based on your 300 daily tickets and estimated costs, the PARWA variant is the best fit. It handles 300
+  7915→tickets/day at \$2,500/mo, saving you \$15,500 compared to manual hiring.\' User: \'How does this actually fit my
+  7916→company?\' Bot: \'Since your calculator showed you need 24/7 coverage, PARWA like a senior employee. You onboard it for
+  7917→one month to learn your environment, and then it takes over the night shifts automatically, reducing your need for 3
+  7918→separate hires. Also, there is no setup fee for the High tier.\' Framer Motion progressive animations; PWA capability
+  7919→Backend FastAPI (Python) Calculator logic using shared trivya-pricing-core library Database PostgreSQL Optional email
+  7920→captures and analytics storage Caching Redis Caches calculation results for repeat visitors CDN Cloudflare + Vercel Global
+  7921→performance; calculator loads in
+  7922→
+  7923→\<1 second worldwide Analytics PostHog Tracks: calculator_completed, cta_clicked,
+  7924→variant_selected,
+  7925→Decision 17.1 Objective Convert interest into a personalized, fairly-priced commitment
+  7926→through an elegant,
+  7927→cheaper
+  7928→configurations. 17.2 Industry-Specific Variant Selection Page Three premium variant
+  7929→cards displayed side-by-side
+  7930→on desktop, stacked carousel on mobile. Each card features: - Top Band: Variant name in
+  7931→industry-colored
+  7932→foil-effect text - Center: Industry-specific hero illustration (e.g., for E-commerce: a
+  7933→shopping cart transformation
+  7934→animation) - Background: Subtle liquid-metal displacement effect in industry - Bottom:
+  7935→\'See Full Details\'
+  7936→is my order? Mini answers instantly, checks Shopify, and texts them the tracking link.
+  7937→Your team sees the full log
+  7938→at 9 AM.\' - Channels: Email, Chat, Instagram/Facebook DMs, SMS, Phone (2 at - Smart
+  7939→## Escalation:
+  7940→Automatically passes angry customers, legal questions, and all refund requests to your
+  7941→team - Setup: Connects to
+  7942→Shopify, Magento, or BigCommerce in 10 minutes via guided wizard - Safety: Every action
+  7943→logged; AI never
+  7944→
+  7945→touches money or private data - ROI: Replaces \~\$14k/month in trainee salaries for \$1-
+  7946→## -1.5k/month
+  7947→wrong size. PARWA checks the order, verifies the 30-day policy, reviews customer
+  7948→history, runs fraud detection,
+  7949→Customer gets their refund. Zero wasted time.\' - Key Advantage: Cuts review time from 5
+  7950→minutes to 30 seconds
+  7951→per decision - Pattern Learning: Detects cart abandonment patterns and suggests product
+  7952→FAQ updates - Saves:
+  7953→\$12,000 LTV customer has a complaint. PARWA High identifies VIP status immediately,
+  7954→reviews their 47-order
+  7955→
+  7956→history, calculates that approving the \$89 refund protects \$12,000 in future revenue, and recommends: Approve + \$20
+  7957→goodwill credit. Total review time: 20 seconds.\' - Key Advantage: Makes strategic recommendations for cross-department
+  7958→coordination - Saves: \~\$28,000/month in senior agent salaries the hidden costs of the cheaper alternatives. This section is
+  7959→designed to prevent the \'I\'ll just buy two Minis\' decision:
+  7960→reasoning Manager Review Time \~5 min × 60 \~30 sec × 60 escalations/day = 5 escalations/day = 30 hrs/day min/day
+  7961→Pattern Learning No learning between Single agent learns your agents business Real Monthly Cost \$2,000 + \$7,500 labor
+  7962→\$2,500 + \$750 labor (incl. manager time) Total Real Cost \$9,500/month \$3,250/month Objective Convert payment or
+  7963→Onboarding activation into a live, knowledgeable, industry-specific AI agent not installing software. 18.2 Step 1: Payment or
+  7964→Trial Activation - Stripe or Razorpay integration shows custom price in industry-colored modal - Onboarding Path: System
+  7965→creates a temporary AI instance in Shadow Mode without any payment. No credit card even stored at this stage. - Paid
+  7966→Path: Payment processed, full variant activates immediately 18.3 Step 2: Legal Compliance & Mode Selection
+  7967→┌──────────────────────────────────────────────────────────┐ │ \[Industry\] Legal Compliance: Required for
+  7968→## Automation │
+  7969→
+  7970→## ├──────────────────────────────────────
+  7971→## ────────────────────┤ │ I
+  7972→consent to TCPA-compliant automated calls from │ │ \[Company Name\] \[Industry\] AI
+  7973→agents. │ │ I
+  7974→consent to GDPR data processing for \[Industry\] │ │ customer support purposes. │ │
+  7975→\[Industry\] Call
+  7976→Recording Disclosure: │ │ \'This call may be recorded for quality assurance\...\' │ │
+  7977→## Select Initial Mode: │
+  7978→for rest │ │ \[Continue ->\] │
+  7979→## └──────────────────────────────────────────────────────────┘
+  7980→luxurious UI with clean, industry-colored cards and phone-first UX. Big tappable
+  7981→industry-specific logo buttons
+  7982→Shopify, Magento, Camera upload option for BigCommerce, WooCommerce photographing policy
+  7983→documents
+  7984→SaaS GitHub, GitLab, Zendesk, API key input with security Intercom, Slack, Discord
+  7985→guidance Logistics TMS,
+  7986→WMS, FedEx, UPS, DHL GPS integration APIs verification flow Healthcare Epic EHR,
+  7987→scheduling Extra
+  7988→compliance systems, insurance portals confirmation steps; HIPAA acknowledgment required
+  7989→Non-technical prompt: \'Upload your \[industry-specific\] guides, policies, and FAQs so
+  7990→your AI speaks your
+  7991→industry\'s language.\' Drag-and-Drop Area: Large, industry-colored bordered zone with a
+  7992→camera upload option
+  7993→\[████████████████████████████████\] 100% Understood: 30-day return policy
+  7994→Understood: VIP customer handling protocol Understood: Free shipping threshold (\$75)
+  7995→## Understood:
+  7996→Product warranty terms Indexed: 1,247 product FAQs Indexed: 89 policy documents Indexed:
+  7997→## Customer
+  7998→handling procedures Your AI is ready! It now knows your business.
+  7999→Upon activation, the AI instance goes live in the selected mode (Shadow or Supervised)
+
+[showing lines 6000-7999 of 9069; use offset=8000 with limit to continue reading]

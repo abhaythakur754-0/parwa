@@ -1,0 +1,502 @@
+  5432→## INFRASTRUCTURE
+  5433→HARDENING & OPERATIONAL READINESS** 11.1 A. Monitoring & Observability
+  5434→Monitoring breaks in production Prometheus Metrics Collection Collects API error rates,
+  5435→response times, queue
+  5436→depths Grafana Visualization Dashboard Displays Prometheus metrics in real-time
+  5437→dashboard Statuspage.io
+  5438→
+  5439→Close DB connections, flush logs, exit cleanly. 11.3 C. Connection Pooling & Database Optimization from
+  5440→
+  5441→sqlalchemy import create_engine from sqlalchemy.pool import QueuePool engine =
+  5442→create_engine(
+  5443→DATABASE_URL, poolclass=QueuePool, pool_size=20, \# Keep 20 open connections
+  5444→max_overflow=10, \#
+  5445→Allow 10 extra during spikes
+  5446→pool_pre_ping=True \# Check if connection is dead before using ) Indexing Strategy: \--
+  5447→Without index: Query
+  5448→takes 5 seconds \-- With index: Query takes 5 milliseconds CREATE INDEX
+  5449→idx_tickets_client_status ON
+  5450→tickets(client_id, status); 11.4 D. Feature Flags (Canary Deployments) CREATE TABLE
+  5451→feature_flags ( client_id
+  5452→INT, feature_name VARCHAR, enabled BOOLEAN, rollout_percentage INT \-- e.g., 10% ); if
+  5453→is_feature_enabled(client.id, \'proactive_voice\'): make_outbound_call() Workflow:
+  5454→Canary Deploy (5% of
+  5455→clients) -> Monitor Sentry for errors -> Rollout to 50%, then 100% -> Kill Switch if
+  5456→critical bug found. 11.5 E.
+  5457→CDN & Static Asset Optimization - Frontend Assets: Next.js + Vercel automatically caches
+  5458→on a global CDN
+  5459→(Edge Network). - User Uploads: For custom brand assets (Logos, Fonts), stored in AWS S3
+  5460→+ CloudFront CDN.
+  5461→11.6 F. Incident Communication (The Status Page) - Public Page: status.trivya.com shows
+  5462→status of
+  5463→## API,
+  5464→Dashboard, AI Processing. - Auto-Updates: Integrated with Prometheus. If API Error Rate
+  5465→\> 1%, page
+  5466→45m\'). **PARWA PLATFORM** **MASTER DOCUMENTATION** PART 3 OF 6: Complete UI/UX
+  5467→Journey & All Operational Workflows **SECTION 12: THE COMPLETE UI/UX JOURNEY** 12.1
+  5468→## Overview:
+  5469→website, seeing \'Safety First\' Engagement proof, selecting industry, interacting with
+  5470→AI, starting Onboarding
+  5471→Phase 1.5 ROI Calculator Accessible from navigation or distribution (NEW) links; clients
+  5472→calculate hidden
+  5473→support costs,
+  5474→receive variant recommendations Phase 2 Evaluation & Exploring AI variants through
+  5475→industry-specific Decision
+  5476→cards, Manager Time Calculator, Anti-Arbitrage Comparison Matrix Phase 3 Activation &
+  5477→## Payment, Legal
+  5478→Compliance Capture (TCPA/GDPR), Onboarding Industry-Specific integration setup,
+  5479→knowledge ingestion,
+  5480→(4 commands), control workforce via Jarvis, track Adaptation Curve
+  5481→
+  5482→unique icon and hover description. - \'What Happens If Something Goes Wrong?\' Link: Links to dedicated page explaining
+  5483→error handling, emergency pause buttons, and liability limits. - Industry-Specific Color Palettes: E-commerce: Deep teal
+  5484→foundation (#0A3D2E) with gold accents (#D4AF37). - SaaS: Deep navy foundation (#0A1A2E) with silver accents (#C0C0C0).
+  5485→- Logistics: Deep charcoal foundation (#1A1A1A) with orange
+  5486→
+  5487→accents (#FF7F11). - Healthcare: Medical green foundation (#1B5E40) with white accents (#FFFFFF). Industry-Aware Live AI
+  5488→Demo Widget: Persistent chat widget in bottom-right corner. Message: \'Ask our \[Industry\] AI anything about PARWA.\' -
+  5489→Onboarding CTA (Pre-Signup): \'Start Onboarding (No Credit Card)\' -> Redirects to Onboarding Wizard. - Industry-Specific
+  5490→\'Dogfooding\' Banner: \'Our \[Industry\] support is powered by PARWA AI. Try it yourself.\' 12.3 Phase 1.5: ROI Calculator
+  5491→(Integrated Feature) URL: hide costs. We show them to prove value immediately. The 8 Data Points We Collect: **Purpose
+  5492→total work volume volume 2 Channel Multi-slider Determine automation potential by breakdown (%)
+  5493→(Chat/Email/SMS/Voice) channel 3 Call concurrency Dropdown 1--10 Recommend correct voice capacity 4 Ticket
+  5494→Percentage split slider Match to right variant tier complexity split 5 Monthly refund Number input Calculate financial risk
+  5495→and approval volume workload 6 Manager review Dropdown Calculate \'Manager Time Tax\' time (hrs/week) savings 7
+  5496→Industry Dropdown Apply industry-specific pricing and selection recommendations 8 Business size SMB / Mid-market /
+  5497→Apply appropriate pricing tier Enterprise Calculation: Calculation A: Wasted Cost const monthlyLaborCost = 8000; // Input:
+  5498→Current monthly support spend const wastedPercent = (input.repetitiveTaskPercent / 100); const wastedCost =
+  5499→monthlyLaborCost \* wastedPercent; // Example: \$8,000 \* 0.40 (40%) = \$3,200/mo currently wasted on FAQs
+  5500→Calculation B: PARWA Efficiency Multiplier const automationFactor = 0.80; // PARWA automates 80% of workload const
+  5501→trivyaSavings = (monthlyLaborCost \* automationFactor); const netCostAfterPARWA = monthlyLaborCost trivyaSavings;
+  5502→Calculation C: Manager Time Savings const managerReviewTime_Minutes = 5; // Human: 5 min/ticket const
+  5503→trivyaReviewTime_Minutes = 0.166; // PARWA: 10 seconds/ticket const totalTicketsPerMonth = dailyTickets \* 30; const
+  5504→timeSaved_Hours = ((totalTicketsPerMonth \* managerReviewTime_Minutes) / 60) \((totalTicketsPerMonth \*
+  5505→trivyaReviewTime_Minutes) / 60); const dollarValueOfTime = timeSaved_Hours \* (monthlyLaborCost / 173); Calculation D:
+  5506→Total ROI const trivyaPrice = 2500; // Selected Tier const totalSavings = wastedCost + dollarValueOfTime; const netProfit =
+  5507→totalSavings - trivyaPrice; const roi_Percent =
+  5508→
+  5509→SITUATION: Monthly Labor Cost:
+  5510→\$8,000. Total Tickets/Mo: 6,000. \
+  5511→## PARWA PROJECTED SAVINGS:
+  5512→\$10,400/mo \ COST: PARWA Junior Agent (\$2,500/mo)
+  5513→## \
+  5514→NET RESULT: ROI: +276% in Year 1. Net
+  5515→## Profit:
+  5516→
+  5517→hours/week of review time. SMARTER ALTERNATIVE: 2× PARWA (Junior) = \$5,000/mo. Manager Time: 3 hrs/week \[vs 25
+  5518→hrs\]. 22 hrs × 4 weeks × \$50/hr = \$4,400/mo saved in manager time. Net savings after cost
+  5519→increase: \$2,400/mo. \[Switch to 2× PARWA\] \[Keep Minis (Not Recommended)\] Scenario 2: Over-Buying Detection
+  5520→**COST OPTIMIZATION:** Your Selection: PARWA High = \$4,000/mo. You\'re using only 30% of capacity (150 tickets/day
+  5521→vs 500 capacity). BETTER MATCH: 1× PARWA (Junior) = \$2,500/mo. Savings: \$1,500/month. Performance: Identical for
+  5522→your needs. Start with PARWA, upgrade when you scale beyond 300 tickets/day. \[Switch to PARWA\] \[Keep High (Room
+  5523→to Grow)\] Calculator Technology Stack: TypeScript inputs change Backend API FastAPI (Python) Variant recommendation
+  5524→logic and anti-arbitrage detection Database PostgreSQL Store calculation sessions and conversion (Supabase) analytics
+  5525→Caching Redis Cache variant recommendation results for Analytics PostHog Track calculator completion rates and drop-off
+  5526→points CDN Cloudflare Cache static assets globally for fast load Industry-Specific Variant Selection Page: Three premium
+  5527→cards displayed side-by-side on desktop, stacked
+  5528→
+  5529→carousel on mobile. - Card Layout: Variant name in industry-colored foil-effect text.
+  5530→Industry-specific hero
+  5531→illustration. Subtle liquid-metal displacement background effect. \'See Full Details\'
+  5532→button opens popup. The
+  5533→Manager\'s Time Tax (Industry-Specific Popup Content): **Hidden Cost Section:** \'Mini
+  5534→collects requests but
+  5535→can\'t decide. Your team spends \~5 minutes reviewing each. At 50 requests/day = 4+
+  5536→hours of manager time
+  5537→daily. Two Minis = Double the Work. PARWA solves this: Recommends decisions, cutting
+  5538→review time to 30
+  5539→minutes/day.\'
+  5540→Scenario: **Mini Handles:** Customer at 2 AM: \'Where is my Christmas order?\' -> Mini
+  5541→checks Shopify API
+  5542→in 4 seconds -> Provides tracking link -> Customer satisfied. No human needed for this
+  5543→task. Mini cannot:
+  5544→**PARWA Handles:** Customer: \'I ordered size 8 but got size 10.\' -> PARWA checks
+  5545→return policy (30-day
+  5546→
+  5547→window: YES) -> Checks inventory for size 8 (available) -> Checks fraud signals
+  5548→(customer history: clean) ->
+  5549→Generates recommendation: \'APPROVE EXCHANGE. Confidence: 94%. Ship size 8 via next-day
+  5550→delivery.\' ->
+  5551→Handles:** VIP Customer (\$12K LTV, 47 orders): \'My \$89 order arrived damaged.\' ->
+  5552→Full strategic analysis:
+  5553→Churn risk if denied = 75%. Expected value of approval = +\$11,911. Recommendation:
+  5554→## APPROVE + \$20
+  5555→goodwill credit + Personal apology from account manager. Manager approves in 15 seconds
+  5556→with full context.
+  5557→12.5 Phase 3: Activation & Onboarding Step 1: Payment or Trial Activation -
+  5558→Stripe/Razorpay
+  5559→integration shows
+  5560→custom price in industry-colored modal. - Trial Activation: If \'Onboarding\' is
+  5561→clicked, system creates a
+  5562→temporary instance in Shadow Mode without payment. Step 2: Legal Compliance & Mode
+  5563→Selection (Safety
+  5564→Gate) **Compliance Screen:** \[Industry\] Legal Compliance: Required for Automation.
+  5565→\[\] I consent to
+  5566→
+  5567→
+  5568→TCPA-compliant automated calls from \[Company Name\] \[Industry\] AI agents. \[\] I
+  5569→consent to GDPR data
+  5570→processing for \[Industry\]\... \[\] \[Industry\] Call Recording Disclosure: \'This call
+  5571→may be recorded\...\' Select
+  5572→things, ask for rest. \[Continue ->\] Jurisdiction-Specific Compliance:
+  5573→(CASL) One-party consent \'This call may be recorded\' EU/GDPR Explicit consent Full
+  5574→GDPR disclosure
+  5575→
+  5576→Step 3: Integration Wizard (Phone-First UX) - Luxurious UI: Clean industry-colored cards with big, tappable logo
+  5577→
+  5578→mobile users. - Voice Confirmation: Final activation button can be triggered by voice:
+  5579→\'\[Industry\] PARWA, go
+  5580→live.\' Step 4: Knowledge Ingestion with Progress Animation **Progress Animation:**
+  5581→Teaching your AI about
+  5582→\[Company Name\]\... \[████████████ 100%\] Real-time updates: \[OK\] Understood: Your
+  5583→30-day return
+  5584→policy. \[OK\] Understood: VIP customer threshold = \$5,000 LTV. \[OK\] Understood:
+  5585→Fraud indicators for your
+  5586→industry. \[OK\] Understood: Brand voice guidelines. 12.6 Phase 4: Management & Growth
+  5587→## Dashboard A.
+  5588→Dashboard Overview & Adaptation Tracker - Adaptation Tracker (30-Day Promise): Visual
+  5589→progress bar showing
+  5590→- Real-Time Activity Feed: Smooth fade-in animations with confidence scores. - Workforce
+  5591→## Allocation Map:
+  5592→Visual map showing which variants handle which tasks. - System State Indicators: Current
+  5593→mode
+  5594→(Shadow/Supervised/Graduated) always visible in header. B. Batch Approval Interface (4
+  5595→## Commands & Partial
+  5596→Approvals): **BATCH: Refund Requests \<\$30 (8 tickets):** Confidence: 92% \| Risk: Low
+  5597→## \| Total: \$450.00.
+  5598→SELECT ITEMS TO APPROVE (Partial Approval): \[\] Ticket #1 - Standard Return (\$10.00).
+  5599→## \[\] Ticket #2
+  5600→- Standard Return (\$15.00). \[\] Ticket #3 - Defective Claim (New Type). \[\] Ticket #4
+  5601→## - Standard Return
+  5602→(\$20.00). MANAGER ACTIONS: \[Approve Selected (One-Off)\] \[Reject Batch\]. AUTOMATE
+  5603→## THIS RULE:
+  5604→\[\] Always Auto-Approve \'Standard Returns\' (Applies to all future amounts & verified
+  5605→customers).
+  5606→
+  5607→SIMULATE (NEW TYPE): \[I\'m unsure. Shadow this to see how AI reacts\] C. Urgent
+  5608→## Attention Panel:
+  5609→**URGENT: VIP Customer Refund:** Customer: Sarah Johnson (#V2934) \| Tier: VIP (\$12,000
+  5610→## LTV) \|
+  5611→Amount: \$89. AI Recommendation: APPROVE (Strategic) \| Confidence: 91%. Why Urgent: VIP
+  5612→customer
+  5613→showing frustration, Third inquiry today, High churn risk if delayed. AI Strategic
+  5614→Analysis: Refund cost \$89.
+  5615→Customer LTV: \$12,000. Churn risk if denied: 75%. Expected value of approval:
+  5616→## +\$11,911. Suggested: Approve
+  5617→+ \$20 goodwill credit. \[View Full Analysis\] \[Approve Now\] \[Call Customer\]
+  5618→**URGENT: Legal Question
+  5619→Detected:** Customer: Corporate Buyer (#B7821) \| AI CANNOT HANDLE THIS \| Confidence:
+  5620→## 28%.
+  5621→Question: \'What warranty coverage applies under Section 12(b) of our enterprise
+  5622→agreement?\' Why AI Cannot
+  5623→Handle: Requires legal contract
+  5624→interpretation. Enterprise agreement details unknown. High liability risk if incorrect.
+  5625→AI Recommendation: Route
+  5626→
+  5627→
+  5628→to legal team or account manager. \[Assign to Legal\] \[Handle Personally\] D. Jarvis
+  5629→Chat Panel (The Iron Man
+  5630→OS): > **JARVIS - OPERATING SYSTEM:** SYSTEM STATUS: OPTIMAL \| AI AGENTS ACTIVE: 3 \|
+  5631→UPTIME: 14 Days. \'Good morning. System Mode: Supervised. Active AI: 1× PARWA (Junior).
+  5632→## Pending
+  5633→Approvals: 3. Today\'s Activity: 47 tickets handled, 44 auto-resolved (FAQs), 3 waiting
+  5634→for you.\' \[Review
+  5635→Pending\] \[System Settings\] E. Seasonal Spike Forecast: **SEASONAL SPIKE FORECAST:**
+  5636→## Expected
+  5637→volume increase for \[Industry\]: Current: 300 tickets/day. Peak: 650 tickets/day.
+  5638→RECOMMENDED: Add 2×
+  5639→Mini PARWA (\$1,400/mo temporary). \[Add Temporary Boost\] \[Handle Manually\] F. Edge
+  5640→## Case: Client Lied
+  5641→quote with usage proof. - Auto-Flag at 80%: Proactive notification before overage,
+  5642→transparent upgrade
+  5643→conversation. G. Graceful Cancellation Flow: **We\'re sad to see you go.:** \[ \]
+  5644→\'PARWA is too expensive\' ->
+  5645→\[Show ROI summary: \'You\'ve saved \$8,400 this month\'\]. \[ \] \'My team wasn\'t
+  5646→using it\' -> \[Offer 30-min
+  5647→training call, free\]. \[ \] \'It didn\'t integrate with our tools\' -> \[Show upcoming
+  5648→integrations roadmap\]. \[ \] \'It
+  5649→made mistakes\' -> \[Offer autonomy reduction, add human approvals\]. \[Cancel Anyway\]
+  5650→\[Pause for 30 Days\]
+  5651→\[Get Help\] **SECTION 13: DETAILED OPERATIONAL WORKFLOWS** **13.1 The Refund Execution
+  5652→refund this customer.\' (Recommendation only). - Human (The Manager): \'I agree. Go
+  5653→ahead.\' (The Trigger). 88
+  5654→Backend (The Vault): \'I have the secret key. I will do it now.\' (Execution). Step 1:
+  5655→The AI Recommendation The
+  5656→AI generates a JSON Proposal and saves it to the database: { \"ticket_id\": \"12345\",
+  5657→## \"order_id\": \"8921\",
+  5658→\"proposed_action\": \"refund\", \"amount\": 45.00, \"currency\": \"USD\", \"reason\":
+  5659→## \"defective_item\",
+  5660→\"confidence\": 0.94, \"reasoning\": \"Order within 30-day window. Item returnable.
+  5661→Customer history clean.\" }
+  5662→Status: The ticket status is set to pending_approval. The AI does nothing else. It does
+  5663→NOT touch the payment
+  5664→gateway. Step 2: The Manager \'Approve\' (The Trigger) The Manager clicks \'\[Approve &
+  5665→Refund\]\'. This click
+  5666→
+  5667→sends a request to the PARWA Backend (not to Stripe directly):
+  5668→fetch(\'/api/batch/execute\', { method: \'POST\',
+  5669→body: { \'batch_id\': \'batch_123\' } // \'Please execute the approved actions\' }) Step
+  5670→## 3: The Backend Execution
+  5671→(The Vault) \@app.post(\'/api/batch/execute\') async def execute_refunds(batch_id: int,
+  5672→user: User =
+  5673→Depends(get_current_user)): if not user.has_permission(\'approve_refunds\'): raise
+  5674→HTTPException(403,
+  5675→\'Forbidden\') batch = db.get_batch(batch_id) if batch.client_id != user.client_id:
+  5676→raise HTTPException(401,
+  5677→\'Unauthorized Batch\') \# Execute Refund stripe.api_key =
+  5678→os.getenv(\'STRIPE_SECRET_KEY\') \# Never
+  5679→exposed to frontend stripe_response = stripe.Refund.create(
+  5680→payment_intent=ticket.payment_intent_id,
+  5681→amount=int(ticket.amount \* 100), metadata={\'approved_by\': user.email,
+  5682→\'ai_confidence\': ticket.confidence} )
+  5683→db.log_audit_trail(ticket_id=ticket.id, action=\'refund_executed\', actor=user.email)
+  5684→Why This is Safe: - No Client
+  5685→on the server only. - Audit Trail: Every single refund is logged with approved_by
+  5686→(Manager\'s email) and
+  5687→ai_confidence. This is your legal defense. - Batch Processing: Manager approves 50
+  5688→refunds with one click,
+  5689→
+  5690→backend handles them sequentially. If 1 fails, others still succeed. 13.2 The Stuck Approval Escalation Ladder
+  5691→
+  5692→The Problem: The \'Zombie\' Ticket A customer requests a refund. AI recommends
+  5693→\'Approve\'. The Manager is
+  5694→Every 12 hours, system sends (Grace Period) \'Soft Reminder\' email to Manager. Phase 2
+  5695→## 24--48 Hours Pending
+  5696→Approval Backup Admin notified. Ticket
+  5697→(Backup Alert) (Escalated) highlighted RED in dashboard with tag \'Escalated to
+  5698→## Backup.\' Phase 3 48--72 Hours
+  5699→At Risk If confidence \> 95%: (Forced Auto-Approve with notification. Decision) If
+  5700→confidence \< 95%:
+  5701→Auto-Reject with notification. Phase 4 \>72 Hours Crisis Override CEO/Owner Crisis Alert
+  5702→(Crisis Mode)
+  5703→Logic (Hard-Coded Backend Enforcement): def check_stuck_tickets(): pending_tickets =
+  5704→db.query(\"SELECT \*
+  5705→FROM tickets WHERE status=\'pending_approval\'\") for ticket in pending_tickets:
+  5706→hours_pending =
+  5707→(datetime.utcnow() - ticket.created_at).total_seconds() / 3600 if hours_pending \> 24
+  5708→and not ticket.escalted_l1:
+  5709→send_reminder_email(ticket.manager_email, ticket.id) elif hours_pending \> 48 and not
+  5710→ticket.escalted_l2:
+  5711→notify_backup_admin(ticket.id, ticket.backup_email) elif hours_pending \> 72: if
+  5712→ticket.confidence_score \>=
+  5713→Hold\' Safety Valve: **Action:** Manager clicks \[On Hold\] button -> Stops the
+  5714→Escalation Ladder for this
+  5715→specific ticket for 7 days -> Used for complex legal cases waiting for advice. 13.3
+  5716→## Confidence Scoring System
+  5717→Every AI action gets a confidence score (0--100%) with a detailed breakdown across 4
+  5718→weighted factors:
+  5719→training data? Have I seen this exact scenario before? Policy 30% Does my answer align
+  5720→with uploaded company
+  5721→Alignment policies? Any conflicts or ambiguities? Historical 20% How often have similar
+  5722→decisions been
+  5723→approved? Success What\'s my track record on this type of case? Risk Signals 10% Any
+  5724→fraud indicators? Any
+  5725→unusual patterns? Customer sentiment (angry, satisfied, neutral)?
+  5726→
+  5727→
+  5728→
+  5729→(\'Arrived Damaged\'): **Step 1: Pattern Match:** Training Data Search: Similar
+  5730→\'damaged item\' refunds: 87
+  5731→cases. Match quality: 94%. Common resolution: Approve with photo verification. Pattern
+  5732→## Match Score: 94%
+  5733→**Step 2: Policy Alignment:** Policy Rules: Return window 12 days since delivery (within
+  5734→30-day limit) \[OK\].
+  5735→Item eligible: Yes (not final sale) \[OK\]. Damage claims: Policy requires photo
+  5736→evidence. Customer hasn\'t
+  5737→uploaded photo yet \[!\]. Policy Alignment Score: 85% (One ambiguity: Missing photo)
+  5738→**Step 3: Historical
+  5739→Success:** Total similar refunds recommended: 89. Manager approved: 86 (96.6%). Manager
+  5740→denied: 3 (3.4%).
+  5741→Denied cases: 2 were fraud, 1 was outside return window. This case: Clean customer,
+  5742→within window, standard
+  5743→claim. Historical Success Score: 97% **Step 4: Risk Signals:** Account age: 3 years
+  5744→\[OK\]. Total orders: 47
+  5745→\[OK\]. Previous refunds: 0 \[OK\]. IP location matches previous orders \[OK\]. No fraud
+  5746→indicators \[OK\].
+  5747→
+  5748→
+  5749→Sentiment: Polite, factual \[OK\]. Risk Score: 98% (Very Low) > **FINAL CONFIDENCE
+  5750→## CALCULATION:**
+  5751→(94 × 0.4) + (85 × 0.3) + (97 × > 0.2) + (98 × 0.1) = 37.6 + 25.5 + 19.4 + 9.8 = 92.3%
+  5752→## OVERALL. DECISION:
+  5753→Ask for approval (Below 95% batch threshold because photo missing). Recommended Action:
+  5754→\'Request photo
+  5755→from customer, then approve.\' Decision Thresholds:
+  5756→auto-handle list (with \~0 seconds logging) or batch similar (automated) requests 85--
+  5757→94% BATCH Group similar
+  5758→requests. Show in \~30 seconds daily batch summary. One-click approval for group. 70--
+  5759→84% ASK Show detailed
+  5760→analysis. Manager \~2 minutes reviews individually. \<70% ESCALATE Beyond AI capability.
+  5761→## Requires Human
+  5762→Empathy Engine (Sentiment Handling) Standard AI processes words. PARWA\'s Empathy Engine
+  5763→processes
+  5764→emotion. Layer 1: Keyword Lexicon (Fast Check): ANGER_KEYWORDS = \[\'hate\', \'worst\',
+  5765→## \'refund\',
+  5766→\'stupid\', \'idiot\', \'never buy again\'\] LEGAL_KEYWORDS = \[\'lawsuit\', \'lawyer\',
+  5767→## \'fcc\', \'bureau\',
+  5768→\'chargeback\'\] def check_keywords(text: str) -\> str: for word in
+  5769→text.lower().split(): if word in
+  5770→ANGER_KEYWORDS: return \'HIGH_RISK\' if word in LEGAL_KEYWORDS: return \'CRISIS\' return
+  5771→\'Neutral\'
+  5772→Layer 2: NLP Sentiment Analysis (Deep Scan): We use the Medium Tier model
+  5773→(gemini-2.0-flash-exp:free) to get
+  5774→a nuanced score from -1.0 (Very Negative) to +1.0 (Very Positive). The Routing Decision:
+  5775→(Mini/PARWA) None (Happy/Positive) 20--60% (Neutral) Standard AI (Mini/PARWA) None 60--
+  5776→## 80% Warning
+  5777→\'Angry Customer (Angry/Crisis) immediately Detected\' urgent alert
+  5778→
+  5779→starts Angry (90%) but the Human Manager resolves the issue successfully, the customer sentiment shifts to Positive. The
+  5780→system detects the shift, lowers the \'Anger Flag,\' and can route subsequent messages back to AI. 13.5 Drift Detection &
+  5781→Auto-Response A. Metrics We Track: - Confidence Drift: Average Confidence Score per Client/Model. Trigger: If average
+  5782→drops \>5% for 3 consecutive days. - Accuracy Drift: Manager Approval Rate (% of AI recommendations that are
+  5783→\'Approved\'). Trigger: If approval rate drops below 90% for 3 - Error Clustering: Types of errors occurring. Trigger: If the
+  5784→SAME specific error (e.g., \'Hallucinated Price\') happens \>3 times in 1 B. Auto-Response (The \'Healer\'): Scenario A:
+  5785→Confidence Drift Detected (Light) **Auto \'I detected a drop in confidence. I\'ve increased strictness for 24h while I
+  5786→
+  5787→investigate.\' Scenario B: Accuracy Drift \'CRITICAL ALERT: Accuracy dropped to 85%. System has automatically switched to
+  5788→Shadow Mode. I am
+  5789→Hallucination Detected **Auto Action:** Immediate Rollback / Vector Cleanup. Delete bad embeddings from Vector DB.
+  5790→Re-index new Knowledge Base. Notify Manager: \'I detected price hallucinations. I\'ve re-indexed the product catalog with
+  5791→the new pricing logic.\' C. The
+  5792→Avg Confidence: 92% (↓5%). Approval Rate: 88% (↓7%). CSAT Score: 4.3 (↓0.4). ROOT CAUSE: New Product Line
+  5793→Launched. AI not trained on \'Crimson Red\' prices. 23 tickets failed (Low Confidence). AUTO-ACTION TAKEN: AI
+  5794→Downgraded to \'Strict\'. Vector DB Re-indexed. Model Version Rolled Back. \[View Detailed anonymize_and_archive(ticket:
+  5795→dict): \# 1. Create a unique User Hash salt = os.getenv(\'PII_SALT\') user_hash =
+  5796→hashlib.sha256((ticket\[\'customer_email\'\] + salt).encode()).hexdigest() \# 2. Create Anonymized Record (keeps amount,
+  5797→removes PII) anonymized_record = { \'user_hash\': user_hash, \'ticket_id\': ticket\[\'id\'\], \'request\': ticket\[\'message\'\],
+  5798→\'outcome\': ticket\[\'status\'\], \'amount\': ticket.get(\'amount\') \# Keep amount (not PII) }
+  5799→
+  5800→db.insert(\'audit_logs\', anonymized_record) db.delete(\'tickets\', ticket\[\'id\'\]) \#
+  5801→Hard Delete from Active Tables
+  5802→(GDPR Art. 17) The Data Export Feature (GDPR Art. 15): **User Right:** Users can request
+  5803→\'Give me
+  5804→everything you have on me.\' We create a machine-readable JSON/CSV export with a secure
+  5805→S3 link valid for 1
+  5806→hour. 13.7 Dynamic Instruction Workflow (Teaching New Skills) The Concept: \'Natural
+  5807→## Language
+  5808→Programming\' You shouldn\'t have to upload a PDF or write code to teach PARWA a new
+  5809→process. Just tell
+  5810→Jarvis: **Client Says:** \'Jarvis, I want you to handle International Returns. Here is
+  5811→the process: 1. Check if the
+  5812→country is International (not US/EU). 2. If yes, calculate return shipping cost. 3. If
+  5813→cost \> 20% of item value, ask
+  5814→customer for approval. 4. Get approval, then generate a shipping label.\' Step 2:
+  5815→Parsing & Validation (Jarvis
+  5816→Control System) Jarvis creates a Draft Workflow and runs a \'Gap Analysis\' before
+  5817→execution: def
+  5818→parse_natural_language_task(instruction: str, client_id: int): \# 1. Extract Entities
+  5819→entities =
+  5820→extract_entities(instruction) \# 2. Generate Steps (Using Heavy Tier Model) prompt =
+  5821→f\'Create a step-by-step
+  5822→workflow for: \"{instruction}\". Output JSON with steps array.\' draft_steps =
+  5823→llm.generate(prompt,
+  5824→missing_logic = detect_gaps(draft_steps) return {\'status\': \'draft_created\',
+  5825→\'steps\': draft_steps,
+  5826→how I understand the International Returns process: \[Step-by-step breakdown\]. I
+  5827→noticed some missing logic:
+  5828→Step 3 (\'Calculate return shipping cost\') requires me to know your shipping rate
+  5829→table. Can you provide this, or
+  5830→knowledge. Variant Capability Check: **Jarvis Warning:** \'This new workflow
+  5831→(International Returns with
+  5832→dynamic shipping calculation) requires Heavy Tier model usage for each decision. Your
+  5833→current plan (Mini
+  5834→PARWA) uses Light Tier only and cannot execute decision-logic workflows. Recommended:
+  5835→Upgrade to
+  5836→PARWA (\$2,500/mo) to enable this. \[See Upgrade Options\]\' 13.8 Webhook Malformation
+  5837→## Handler Strategy:
+  5838→recovery workflow. Example: Half-Corrupt Shopify Webhook { \"id\": \"8921234567890\",
+  5839→## \"email\":
+  5840→\"customer@shop.com\", \"financial_status\": \"pending\", \"shipping_address\": null }
+  5841→## // > MISSING CRITICAL
+  5842→verify_shopify_webhook(raw_body, signature, > SHOPIFY_WEBHOOK_SECRET): raise
+  5843→HTTPException(401,
+  5844→\'Invalid Signature\') \# Step 2: Save what\'s valid, flag what\'s missing issues = \[\]
+  5845→if not order.email:
+  5846→
+  5847→issues.append(\'email_missing\') if not order.shipping_address:
+  5848→issues.append(\'address_missing\')
+  5849→db.update_order(order.id, {\'status\': order.status, \'webhook_issues\': issues}) \#
+  5850→Step 3: Trigger async re-sync to
+  5851→
+  5852→fill gaps from Shopify Admin API if issues: trigger_re_sync_process(order.id, issues) 13.9 Non-Financial Undo /
+  5853→Error Correction The \'Recall\' Protocol: **Manager Says:** \'Jarvis, recall all emails sent for Free Shipping messages
+  5854→immediately: redis.publish(\'agent_control:global\', { \'command\': \'stop_communication\',
+  5855→
+  5856→\@app.post(\'/api/emergency/shutdown\') async def emergency_shutdown(channel: str, user:
+  5857→## User =
+  5858→Depends(get_current_user)): if channel == \'all\':
+  5859→redis.publish(\'agent_control:global\', {\'command\': \'stop_all\',
+  5860→\'reason\': \'Emergency\'}) return {\'status\': \'stopped\', \'message\': \'All AI
+  5861→activity has been paused
+  5862→immediately.\'} **PARWA PLATFORM** **MASTER DOCUMENTATION** PART 4 OF 6: All 25
+  5863→Loophole Resolutions **SECTION 14: ALL 25 LOOPHOLE RESOLUTIONS** Overview This section
+  5864→implemented for each. These are organized into three categories: Legal & Compliance
+  5865→(Issues 1--5), Product &
+  5866→UX (Issues 6--20), and Technical & Security (Issues 21--25). CATEGORY A: LEGAL &
+  5867→## COMPLIANCE
+  5868→truth** **THE PROBLEM:** System blindly approved AI \'recommendations\' because
+  5869→confidence was 95%+
+  5870→without considering edge cases where high confidence can still be wrong (e.g.,
+  5871→fraudulent patterns that closely
+  5872→mimic legitimate ones). The Fix: Confidence Score Transparency + Mandatory Override
+  5873→## Triggers Confidence
+  5874→scores are now explicitly labeled as \'AI Confidence\' not \'Decision Quality.\' The UI
+  5875→shows a breakdown of
+  5876→WHY the confidence is high, not just the number itself. Hard-Coded Override Triggers
+  5877→(regardless of confidence
+  5878→detected in message \'address_country_change\', \# Account security concern
+  5879→## \'multiple_same_day_requests\' \#
+  5880→Note: This is based on pattern matching, not a guarantee. Final decision is always
+  5881→yours.\' **Issue 2: Blockchain
+  5882→immutability** **THE PROBLEM:** Audit logs stored in a standard DB can be modified by a
+  5883→DBA or hacker,
+  5884→making them useless as legal evidence. Original approach of \'blockchain hashing\' was
+  5885→vague and
+  5886→
+  5887→
+  5888→unimplemented. The Fix: Immutable PostgreSQL Trigger + Hash Chain Every audit log entry
+  5889→is chained to the
+  5890→previous one using a SHA-256 hash, creating a tamper-evident ledger. A PostgreSQL
+  5891→trigger prevents any
+  5892→UPDATE or DELETE on audit_trail table. CREATE TABLE audit_trail ( id SERIAL PRIMARY KEY,
+  5893→action
+  5894→VARCHAR NOT NULL, actor_email VARCHAR NOT NULL, timestamp TIMESTAMPTZ DEFAULT
+  5895→NOW(), payload JSONB, previous_hash VARCHAR(64), current_hash VARCHAR(64) GENERATED
+  5896→ALWAYS AS ( encode(sha256((id::text \|\| action \|\| timestamp::text \|\|
+  5897→previous_hash)::bytea), \'hex\') )
+  5898→STORED ); CREATE OR REPLACE FUNCTION prevent_audit_modification() > RETURNS TRIGGER AS
+  5899→\$\$ BEGIN RAISE EXCEPTION \'Audit trail is immutable. Modifications are prohibited.\';
+  5900→## END; \$\$
+  5901→LANGUAGE plpgsql; CREATE TRIGGER audit_immutable BEFORE UPDATE OR DELETE ON audit_trail
+  5902→
+  5903→
+  5904→
+  5905→Hardcoded threshold can be gamed **THE PROBLEM:** A fixed \'\$50 auto-approve limit\'
+  5906→means a
+  5907→sophisticated bad actor could split a \$200 fraudulent refund into 4 x \$49 requests,
+  5908→all auto-approved. The Fix:
+  5909→Velocity-Based Fraud Detection + Cumulative Limits def check_fraud_velocity(customer_id:
+  5910→int, new_amount:
+  5911→float) -\> dict: \# 1. Check cumulative refunds in rolling 30-day window
+  5912→thirty_day_total = db.query( \'SELECT
+  5913→SUM(amount) FROM refunds WHERE customer_id=? AND created_at > \> NOW()-INTERVAL 30
+  5914→## DAY\',
+  5915→
+  5916→
+  5917→\'SELECT COUNT(\*) FROM refunds WHERE customer_id=? AND DATE(created_at)=TODAY()\',
+  5918→new_amount) \> 150: return {\'action\': \'BLOCK\', \'reason\':
+  5919→\'cumulative_limit_exceeded\'} if same_day_count
+  5920→\>= 3: return {\'action\': \'BLOCK\', \'reason\': \'velocity_fraud_detected\'} return
+  5921→{\'action\': \'ALLOW\'}
+  5922→AI gives a customer incorrect medical, legal, or financial advice, PARWA could be held
+  5923→liable. Original docs had
+  5924→no clear liability framework. The Fix: Mandatory Disclaimer System + Knowledge Boundary
+  5925→Detection Every AI
+  5926→response is scanned for high-risk topic categories. If detected, a mandatory disclaimer
+  5927→is appended: >
+  5928→HIGH_RISK_TOPIC_PATTERNS = { \'medical\': \[\'medication\', \'dosage\', \'symptoms\',
+  5929→## \'diagnosis\'\],
+  5930→\'legal\': \[\'lawsuit\', \'contract\', \'liability\', \'warranty\'\], \'financial\':
+  5931→\[\'investment\', \'tax\', \'accounting\'\] } def
+
+[showing lines 5432-5931 of 9069; use offset=5932 with limit to continue reading]

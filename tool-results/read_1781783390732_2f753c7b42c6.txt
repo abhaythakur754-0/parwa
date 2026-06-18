@@ -1,0 +1,1070 @@
+  8000→and Jarvis displays:
+  8001→
+  8002→
+  8003→19.1 Dashboard Overview The active dashboard is the day-to-day control center for the client\'s AI workforce. It provides
+  8004→industry-specific transparency and control that builds long-term trust through premium interface design AI is learning your
+  8005→business\' - Weekly Wins Banner: \'AI learned 12 new skills this week. Review time down
+  8006→23%.\' - Real-Time Activity Feed: Smooth fade-in animations showing each ticket as it is handled - Workforce Allocation
+  8007→Map: Visual diagram showing which variants handle which task types - System State Indicator: Current mode
+  8008→(Shadow/Supervised/Graduated) always visible in header 19.3 The Batch Approval Interface The most-used feature in daily
+  8009→operations. Smart grouping reduces approval fatigue by 80%:
+  8010→## ┌──────────────────────────────────────────────────────────┐ │
+  8011→
+  8012→BATCH: Refund Requests \<\$30 (8 tickets) │
+  8013→## ├──────────────────────────────────────────────────────────┤ │
+  8014→Confidence: 92% \| Risk: Low \| Total: \$450.00 CAD │
+  8015→## ├──────────────────────────────────────────────────────────┤ │
+  8016→(One-Off)\] \[Reject Batch\] │ │ AUTOMATE THIS RULE: │ │ Always Auto-Approve \'Standard
+  8017→## Returns\'
+  8018→│ │ (Applies to all future amounts & verified customers) │
+  8019→│ SIMULATE (NEW TYPE): │ │ \[I\'m unsure. Shadow this to see how AI reacts\] │
+  8020→## └──────────────────────────────────────────────────────────┘
+  8021→## ┌──────────────────────────────────────────────────────────┐ │
+  8022→URGENT: VIP Customer Refund │ │ Customer: Sarah Johnson (#V2934) \| Tier: VIP │ │
+  8023→Amount: \$89 \| LTV:
+  8024→\$12,000 │ │ AI Recommendation: APPROVE (Strategic) │ │ Confidence: 91% │ │ Why Urgent:
+  8025→## │ │ - VIP
+  8026→customer showing frustration │ │ - Third inquiry today │ │ - High churn risk if delayed
+  8027→│ │ AI Strategic
+  8028→Analysis: │ │ Refund cost: \$89 \| Customer LTV: \$12,000 │ │ Churn risk if denied: 75%
+  8029→│ │ Expected value
+  8030→of approval: +\$11,911 │ │ Suggested: Approve + \$20 goodwill credit │ │ \[View Full
+  8031→Analysis\] \[Approve
+  8032→Now\] \[Call Customer\] │
+  8033→## └──────────────────────────────────────────────────────────┘
+  8034→
+  8035→
+  8036→## ┌──────────────────────────────────────────────────────────┐ │
+  8037→URGENT: Legal Question Detected │ │ Customer: Corporate Buyer (#B7821) │ │ AI CANNOT
+  8038→## HANDLE
+  8039→THIS \| Confidence: 28% │ │ Question: \'What warranty coverage applies under │ │ Section
+  8040→12(b) of our
+  8041→enterprise agreement for defects │ │ discovered after 18 months?\' │ │ Why AI Cannot
+  8042→## Handle: Legal
+  8043→interpretation required. │ │ Enterprise contract specifics unknown to AI. │ │ High
+  8044→liability risk if AI answers
+  8045→incorrectly. │ │ \[Assign to Legal\] \[Handle Personally\] │
+  8046→## └──────────────────────────────────────────────────────────┘
+  8047→All AI Stops all autonomous AI activity immediately across all channels
+  8048→Pause Refund Stops only refund decisions; chat and FAQ Processing handling continue
+  8049→## Pause Account Changes
+  8050→Stops only account modification approvals Pause Phone Channel Stops voice interactions;
+  8051→written channels
+  8052→
+  8053→continue Return to Shadow Mode Reverts to observation-only mode; no real-world actions taken Undo Last Rule Reverses
+  8054→only future-acting rules; preview shown before confirmation; never affects past actions
+  8055→┌──────────────────────────────────────────────────────────┐ │ Seasonal Spike Forecast │
+  8056→## ├──────────────────────────────────────────────────────────┤ │
+  8057→Expected volume increase for \[Industry\]: │ │ Current: 300 tickets/day │ │ Peak (Nov 27 -- Jan 2): 650 tickets/day │ │
+  8058→RECOMMENDED: Add 2× Mini PARWA temporarily (+\$1,400) │ │ \[Add Temporary Boost\] \[Handle Manually\] │
+  8059→
+  8060→└──────────────────────────────────────────────────────────┘ architecture that ensures all financial
+  8061→transactions are safe. It details exactly how money moves without exposing Stripe or Shopify API keys to the browser or to
+  8062→the AI directly. refund this customer.\' (Recommendation only). Human (The Manager): \'I agree. Go ahead.\' (The Trigger).
+  8063→Backend (The Vault): \'I have the secret key. I will execute this now.\' (Execution). \"ticket_id\": \"12345\", \"order_id\":
+  8064→## \"8921\", \"customer_id\": \"cust_789\",
+  8065→
+  8066→\"proposed_action\": \"refund\", \"amount\": 45.00, \"currency\": \"USD\", \"reason\":
+  8067→## \"defective_item\",
+  8068→\"confidence\": 0.94, \"reasoning\": \"Order within 30-day window. Item eligible.
+  8069→Customer history clean (0
+  8070→refunds in 6 months).\" \# Status set to: pending_approval \# AI does NOTHING ELSE. It
+  8071→does not touch the
+  8072→The manager sees the recommendation in Jarvis and clicks \[Approve & Refund\]. This
+  8073→click sends a request to
+  8074→Backend): fetch(\'/api/batch/execute\', { method: \'POST\', body: JSON.stringify({
+  8075→batch_id: \'batch_123\' }) //
+  8076→3: Backend Vault Execution The FastAPI backend verifies authorization, then executes the
+  8077→transaction using
+  8078→execute_refunds(batch_id: int, user: User = Depends(get_current_user)): \# 1. Verify
+  8079→user has refund approval
+  8080→permission if not user.has_permission(\'approve_refunds\'): raise HTTPException(403,
+  8081→\'Forbidden\') \# 2. Fetch
+  8082→batch and verify ownership (RLS) batch = db.get_batch(batch_id) if batch.client_id !=
+  8083→user.client_id: raise
+  8084→HTTPException(401, \'Unauthorized\') \# 3. Execute refund using secrets from environment
+  8085→(Doppler)
+  8086→stripe.api_key = os.getenv(\'STRIPE_SECRET_KEY\') \# Never in frontend stripe_response =
+  8087→stripe.Refund.create( payment_intent=ticket.payment_intent_id, amount=int(ticket.amount
+  8088→\* 100), \# Convert to
+  8089→cents metadata={\'ticket_id\': ticket.ticket_id, \'approved_by\': user.email} \# 4. Log
+  8090→to immutable audit trail
+  8091→db.log_audit_trail(action=\'refund_executed\', actor=user.email, success=True)
+  8092→Every AI decision includes a weighted confidence score calculated from four independent
+  8093→signals:
+  8094→
+  8095→
+  8096→eligible, within company policies? Any window, but missing ambiguities? photo
+  8097→requirement Historical 20%
+  8098→customer verified IP, sentiment analysis recognized device, 3-year loyal customer
+  8099→(98 × 0.10) = 37.6 + 25.5 + 19.4 + 9.8 = 92.3% OVERALL CONFIDENCE Decision: Ask for
+  8100→## Approval (in
+  8101→\'Request photo from customer. Once received, confidence will rise to 97% (batch
+  8102→eligible).\'
+  8103→
+  8104→
+  8105→summary, \~30
+  8106→routing decisions based on how the customer feels, not just what they are asking about.
+  8107→Two-Layer Analysis
+  8108→\'refund\', \'stupid\', \'idiot\', \'never buy again\'\] LEGAL_KEYWORDS = \[\'lawsuit\',
+  8109→## \'lawyer\', \'fcc\', \'bureau\',
+  8110→\'chargeback\'\] \# If ANY legal keyword found: immediate CRISIS escalation to human \#
+  8111→If anger keyword
+  8112→found: HIGH_RISK flag, route to PARWA High if available
+  8113→Tier model (Gemini-Flash) analyzes the message plus the last 3 messages for nuanced
+  8114→emotional context. Returns
+  8115→a score from -1.0 (very negative) to +1.0 (very positive).
+  8116→Safe AI (Mini/PARWA) None 20--60% (Neutral) Standard AI (Mini/PARWA) None 60--80%
+  8117→Warning PARWA
+  8118→
+  8119→High (if \'Frustrated (Frustrated) available) Customer\' alert 80--100% Danger Human
+  8120→Manager \'Angry Customer
+  8121→(Angry/Crisis) immediately Detected\' alert with keywords
+  8122→happens when a manager is on vacation or simply forgets to review a pending ticket? The
+  8123→## Control System
+  8124→enforces a strict escalation timeline
+  8125→
+  8126→Reminder Every 12 hours: \'You Email have X tickets pending your approval.\' Backup Alert 24--48 Hours Backup Admin
+  8127→Primary admin\'s Notified backup email is contacted. Ticket highlighted RED in dashboard with \'Escalated to Backup\' tag.
+  8128→Forced Decision 48--72 Hours System Acts If confidence \> 95%: Autonomously
+  8129→
+  8130→Auto-approve with notification. Otherwise: Auto-reject with explanation sent to
+  8131→customer. Crisis Mode 72+
+  8132→Hours CEO/Owner Alert Direct escalation to company owner. \'Both Primary and Backup
+  8133→Admins have ignored
+  8134→Creation Clients can teach PARWA new skills through natural language conversation with
+  8135→Jarvis. No code
+  8136→\'Jarvis, I want you to handle International Returns. Step 1: Check if country is
+  8137→outside US/EU. Step 2: Calculate
+  8138→return shipping cost. Step 3: If cost exceeds 20% of item value, ask customer for
+  8139→approval. Step 4: Generate
+  8140→shipping label upon approval.\'
+  8141→- Jarvis parses the instruction using the Heavy Tier model, extracting
+  8142→structured steps and identifying any gaps in the logic. 43. Jarvis shows the
+  8143→generated workflow to the client and explicitly calls out any gaps: \'I detected a
+  8144→gap: You did not specify what to do if the customer rejects the shipping cost.
+  8145→
+  8146→new skill is stored in the client\'s private vector store. 45. Variant Check: If the new workflow requires capabilities above the
+  8147→client\'s current variant (e.g., external API calls not available on Mini tier), Jarvis automatically recommends
+  8148→Multi-tiered rate limiting using SlowAPI and Redis to prevent abuse and protect abuse and bot traffic Financial Endpoint 5
+  8149→requests/minute per Account 1,000 requests/day Prevents account-level abuse Velocity Detection Auto-pause on If unusual
+  8150→refund velocity suspicious patterns detected (fraud pattern), account paused and manager alerted all 25 loopholes
+  8151→identified in the comprehensive platform audit, along with the complete solutions implemented. Each issue is documented
+  8152→with the original problem, the risk it created, and the full technical and UX solution. Issue #1: Confidence Score Blind Trust
+  8153→Managers will auto-approve high-confidence batches without reading them. When a 97%-confidence decision fails badly,
+  8154→the company faces legal liability and complete trust collapse. No failure protocol existed. Solution Implemented: -
+  8155→Mandatory \'Last 5 Errors\' Panel: Every AI agent dashboard displays a persistent panel showing the 5 most recent incorrect
+  8156→decisions, their confidence scores at time of decision, and what actually went wrong. - Confidence Threshold Management:
+  8157→Actions above \$25 or involving VIP customers require human Documentation: Every failed decision is logged with full
+  8158→context, remediation steps, and customer impact assessment. - Trust Score Algorithm: A separate \'Trust Score\' (0--100)
+  8159→calculated based on accuracy over time, Location Dashboard top-right, collapsible but never hidden by default Error
+  8160→Retention Period 30 days rolling, exported to monthly compliance reports Trust Score Formula (Correct Decisions / Total
+  8161→Decisions) × 100, weighted by decision impact Minimum Trust for 80% required before any Graduated Autonomy
+  8162→Graduation is
+  8163→
+  8164→teams demand cryptographic specifics. A vague \'blockchain-style\' claim in a compliance
+  8165→context can kill B2B
+  8166→deals and expose the company to false advertising liability.
+  8167→\'blockchain-style\' terminology from marketing, documentation, and sales materials -
+  8168→Implemented actual
+  8169→tamper-evident logging with SHA-256 checksums and append-only storage (PostgreSQL
+  8170→trigger prevents
+  8171→UPDATE on audit_trail table) - Created detailed technical specification document
+  8172→available for enterprise
+  8173→
+  8174→compliance team review - Added RFC 3161-compliant timestamps for legal admissibility in
+  8175→financial disputes Export Format: Digitally signed, timestamped PDF exports for use in
+  8176→legal proceedings Issue #3: \$50 Limit Is
+  8177→## Exploitable & Undefined
+  8178→AI make 10 × \$49 actions on one customer in a single day? This creates a compounding
+  8179→exploitation hole.
+  8180→Cannot \$50 \$100 execute (configurable) (configurable) refunds Daily Per-Customer N/A 3
+  8181→refund actions 5
+  8182→refund actions 24-Hour Rolling Total N/A \$150 per customer \$300 per customer
+  8183→Configurable by No Yes Yes
+  8184→
+  8185→is detected (e.g., same customer making multiple requests within 1 hour), the system automatically pauses and alerts the
+  8186→manager regardless of individual transaction limits. Issue #4: Wrong AI Information = Your Liability refund policy PDF and
+  8187→the AI gives customers wrong information, who is legally liable? This is the #1 legal
+  8188→
+  8189→- Knowledge Base Last Verified Timestamp: Every uploaded document shows when it was last
+  8190→verified by a
+  8191→human reviewer. - Auto-Flagging: Documents older than 90 days are flagged with warning
+  8192→banners in the
+  8193→knowledge base manager. - Quarterly Policy Confirmation: Clients must re-confirm all
+  8194→active policies every 90
+  8195→days. AI pauses affected decision types if confirmation is not completed. - Disclaimer
+  8196→System: All AI responses
+  8197→
+  8198→
+  8199→based on uploaded documents include: \'Based on policies provided by \[Company Name\] as
+  8200→of \[date\].\'
+  8201→Contractual Protection Language (included in all client agreements):
+  8202→generated based on materials
+  8203→provided by the Client. PARWA is not responsible for inaccuracies resulting from
+  8204→outdated, incomplete, or
+  8205→incorrect information provided by the Client. The Client agrees to maintain and update
+  8206→all uploaded materials and
+  8207→accepts full responsibility for the accuracy of policies, pricing, and procedures
+  8208→provided to the AI system.\'
+  8209→what happens AFTER a major failure: who gets notified, what is the SLA for resolution,
+  8210→who communicates with
+  8211→operations Tier 2: Multiple errors in Within 1 System pauses Email + SMS + Client same
+  8212→category OR Hour
+  8213→affected decision Dashboard alert Notified any VIP customer type, sends with recommended
+  8214→affected detailed
+  8215→incident actions report Tier 3: System-wide error, Within 4 Full system pause, Direct
+  8216→phone call PARWA data
+  8217→breach Hours PARWA engineering to client + Intervenes suspected, or investigation,
+  8218→written report legal
+  8219→exposure post-mortem within 24 hours detected written
+  8220→& UX (Issues 6--20) Issue #6: 2-Day Trial Too Short for Shadow Mode Problem: 2 days is
+  8221→not enough time to see
+  8222→meaningful Shadow Mode results or build sufficient trust to upgrade.
+  8223→Solution: Extended to Onboarding for all plans. Hybrid Trial Mode: Active for Chat/Email
+  8224→FAQs, Shadow for
+  8225→SMS/Voice/Refunds. Simulated Outcomes: Shows predicted results even when no real tickets
+  8226→arrive during the
+  8227→trial period. Issue #7: Batch Approval UI Fails on Mobile Problem: The original batch
+  8228→approval table-based UI
+  8229→Approval Design: Swipe right to approve, swipe left to review individually. Single-
+  8230→ticket view with summary
+  8231→Issue #8: Anti-Arbitrage Banners Will Alienate Buyers Problem: Aggressive \'EFFICIENCY
+  8232→ALERT\' warnings
+  8233→
+  8234→make clients feel attacked and judged. Solution: Replaced aggressive alerts with monthly
+  8235→\'Efficiency Insight
+  8236→
+  8237→Report\' delivered by email with same data, non-confrontational framing. Opt-in model for live dashboard nudges.
+  8238→
+  8239→Positive framing: \'You could save X hours with PARWA\' instead of \'You are wasting
+  8240→time.\' Issue #9: No
+  8241→Built-In Moats: Institutional knowledge lock-in (AI\'s learned patterns are
+  8242→irreplaceable). Cross-client
+  8243→benchmarking (anonymous industry comparisons). Network effects (more clients = smarter
+  8244→AI). Switching costs
+  8245→from learned patterns, custom configurations, and historical data. Issue #10:
+  8246→Integration Outage = Silent AI
+  8247→Failure Problem: If Shopify API goes down, the AI gives incorrect or outdated
+  8248→information without telling
+  8249→anyone. Solution: Real-time integration health monitoring in the dashboard. Graceful
+  8250→Degradation: AI proactively
+  8251→states \'Our system is temporarily unable to access live data\' rather than guessing.
+  8252→## Automatic Escalation: If
+  8253→integration is down more than 5 minutes, manager is notified with specific diagnostic
+  8254→information. Issue #11:
+  8255→Jarvis \'Undo Last Rule\' Is Dangerous Problem: \'Undo\' could retroactively affect
+  8256→already-approved transactions,
+  8257→ones. Preview shown: \'This will affect X future tickets. No past actions will be
+  8258→changed.\' Two-step confirmation
+  8259→
+  8260→required for any rule modification. Issue #12: \'Other\' Industry Is a Dead End Problem: The \'Other\' industry selector led
+  8261→to a generic, unsatisfying onboarding experience. Solution: Added Healthcare as a full 4th industry with HIPAA-aware
+  8262→compliance. \'Custom Industry\' flow for unlisted industries with generic but complete onboarding. Industry templates for
+  8263→Legal, Finance, and Real Estate in the development roadmap. Issue #13: ROI Claims Are Unverifiable at Sign-Up Problem:
+  8264→ROI numbers shown during signup had with transparent methodology. Real customer case studies gated behind email sign-
+  8265→up. Interactive ROI Calculator (trivya.com/calculator) lets clients input their own numbers for personalized estimates. Third-
+  8266→party audit badge linked when available. Issue #14: Assessment Form \'Lying\' Is Too Forgiving Problem: Clients could
+  8267→underreport their ticket volume on the assessment form to get a lower-tier price quote, then be surprised when the system
+  8268→
+  8269→was entered. Actual vs. Plan Display showing daily usage against quoted limits. Auto-
+  8270→flag notification at 80% of
+  8271→stated capacity. Transparent upgrade path: overages become a conversation, not a
+  8272→surprise bill. Issue #15:
+  8273→Graduated Autonomy Has No Rollback Trigger Problem: Once AI earned Graduated Autonomy,
+  8274→there was no
+  8275→rate on autonomous tasks exceeds 5% over any 7-day rolling window, the task reverts to
+  8276→## Supervised Mode
+  8277→automatically. Client receives detailed report. AI must demonstrate 50 consecutive
+  8278→correct recommendations to
+  8279→feature, not a failure.\' Issue #16: Jarvis Voice Command Has No Confirmation Layer
+  8280→Problem: A voice command
+  8281→like \'Jarvis, approve all refunds\' could execute irreversible financial actions
+  8282→without visual confirmation.
+  8283→\'PARWA\' wake word required to prevent accidental triggers. 10-second timeout: voice
+  8284→command expires if not
+  8285→visually confirmed. No irreversible action can be triggered by voice alone. Issue #17:
+  8286→## Trust Preservation Message
+  8287→Is Ethically Risky Problem: The original messaging had AI saying \'We are busy\' when
+  8288→actually experiencing a
+  8289→will follow up shortly\' (which is true). Removed: \'We are busy\' (which would be a
+  8290→fabrication). Client can
+  8291→configure the exact phrasing for error scenarios. Issue #18: First Victory Animation
+  8292→Repeats for 7 Days Problem:
+  8293→
+  8294→
+  8295→The celebration animation for first resolved ticket was shown every day for 7 days, annoying power users. Solution: Show
+  8296→victory animation once per milestone, never daily. Persistent running total widget after first view. Celebrate new
+  8297→milestones: 100 tickets resolved, \$1,000 saved, 1 week uptime, first VIP handled. Issue #19: TCPA Compliance Is US-
+  8298→Specific, Not Global Problem: TCPA compliance disclosures only covered US legal requirements, exposing international
+  8299→clients to regulatory risk. Solution: CASL compliance added for Canadian clients. Location detection at sign-up determines
+  8300→applicable regulatory framework. Compliance Region Selector: US / EU (GDPR) / Canada (CASL) / APAC options. Appropriate
+  8301→regulatory disclosure auto-served based on detected jurisdiction. Issue #20: Cancellation Flow Shows Disputed ROI Data
+  8302→Problem: Showing \'You saved \$8,400 this month\' to a client cancelling because \'it made mistakes\' was tone-deaf and
+  8303→likely to cause a refund dispute. Solution: Context-aware cancellation flow based on the cancellation reason selected. If \'It
+  8304→made mistakes\' is selected: show error improvement graph, not savings numbers. Offer autonomy reduction as Technical
+  8305→& Security (Issues 21--25)** Issue #21: Sub-Processor Disclosure Is Incomplete Problem: GDPR Art. 28 requires disclosure of
+  8306→all sub-processors. An incomplete list exposes to regulatory fines. Solution: Complete dynamic sub-processor page (never a
+  8307→static document):
+  8308→
+  8309→Infrastructure selectable) OpenAI LLM Inference (Heavy Tier US (no customer data used
+  8310→fallback) for training)
+  8311→Stripe Payment Processing US, EU, APAC Twilio SMS/Voice Communications US, EU, APAC
+  8312→notice sent to all clients before any new sub-processor is added. GDPR Article 30
+  8313→compliance documentation
+  8314→available for enterprise review. Issue #22: Phone Call Recording Has Jurisdiction
+  8315→## Problems Problem: Recording
+  8316→calls requires different consent types in different jurisdictions. California and
+  8317→Florida require two-party consent;
+  8318→other US states require one-party. Solution: Auto-detect call origin and destination
+  8319→location. Appropriate
+  8320→disclosure script auto-served based on jurisdiction. Two-party consent states flagged
+  8321→and require explicit client
+  8322→configuration before recording is enabled. Consent audio recorded and stored before call
+  8323→begins. Jurisdiction
+  8324→Both parties must \'Do you consent to this call Two-Party States) consent being
+  8325→recorded?\' Canada (CASL)
+  8326→One-party consent \'This call may be recorded\' sufficient EU/GDPR Explicit informed
+  8327→Full GDPR processing
+  8328→#23: Knowledge Base \'Camera Upload\' Is a Data Risk Problem: Mobile users photographing
+  8329→policy documents
+  8330→might accidentally capture customer PII visible in the background. Solution: Explicit
+  8331→warning before camera
+  8332→upload: \'Do not photograph documents containing customer personal data.\' OCR quality
+  8333→checks reject
+  8334→low-resolution or partial uploads. PII detection scans all uploads and flags potential
+  8335→personal data for review
+  8336→before ingestion. Encouraged alternative: direct file upload from secure document
+  8337→storage. Issue #24: No Data
+  8338→Residency Options for Enterprise Problem: Enterprise clients in EU and APAC require data
+  8339→to stay within their
+  8340→cross-region data transfer unless explicitly consented. EU Cloud Option: AWS EU regions
+  8341→(Frankfurt, Ireland) for
+  8342→
+  8343→European clients. APAC Option: Singapore and Tokyo regions available. Issue #25: Auto-Delete Policy Has No Client
+  8344→Notification Problem: Data was being auto-deleted after account cancellation without adequate warning, causing clients to
+  8345→lose data they wanted to keep. Solution: Day 7 Post-Cancellation: Warning email sent. Day 25 Post-Cancellation: Final
+  8346→warning before permanent deletion. Pause & Preserve Option: 90-day data freeze available at 50% of active subscription
+  8347→rate. One-click full data export in standard formats (JSON, CSV) before deletion. Complete audit trail export available in PDF
+  8348→format for legal records. PART 24: Efficiency Enhancements & Advanced Features 24.1 Adaptive Confidence Thresholds
+  8349→Rather than static confidence thresholds, PARWA dynamically adjusts approval data Trust-Building Phase Threshold lowers
+  8350→Each week of good performance as AI proves reduces the threshold bypassing VIP approval review requirement Post-Error
+  8351→Recovery Threshold Automatically reverts to temporarily conservative mode after any increases after mistake errors three
+  8352→
+  8353→mechanisms: - Network Transfer Learning: New client\'s AI starts with the Collective Intelligence network\'s accumulated
+  8354→patterns as a foundation - Industry Template Injection: Client\'s industry vertical provides
+  8355→pre-built knowledge of common scenarios (e.g., \'defective item\' handling patterns from 200+ e-commerce clients) - 7-Day
+  8356→Accelerated Training: The Onboarding period in Shadow Mode
+  8357→generates the first training dataset before the client pays anything 24.3 Peer Review System When a client has multiple
+  8358→variants (e.g., Mini + PARWA High), a Peer Review capability is available: - Mini PARWA can request flag systematic issues
+  8359→before they become visible to customers - This creates a two-level review system: AI-to-AI Industry-Specific Configurations
+  8360→25.1 E-Commerce Configuration Specialized Skills Visual damage verification (image analysis), cart recovery workflows,
+  8361→proactive shipping delay alerts, product recommendation engine Compliance PCI DSS for payment data, standard e-
+  8362→commerce consumer protection regulations Color Theme Deep teal (#0A3D2E) foundation with gold (#D4AF37) accents
+  8363→## Agent
+  8364→Workflows Item not received, wrong size/color, defective item, order modification, subscription management Stripe,
+  8365→Chargebee Specialized Skills Technical troubleshooting flows, in-app guidance, churn prediction from usage drops, API error
+  8366→diagnosis Compliance SOC 2 considerations, security incident handling, data access audit trails Color Theme Deep navy
+  8367→(#0A1A2E) foundation with silver (#C0C0C0) accents Agent Workflows API errors, subscription cancellation, feature
+  8368→requests, billing disputes, technical onboarding
+  8369→tracking systems Specialized Skills GPS tracking API integration, driver coordination workflows, proof of delivery
+  8370→automation, hazmat protocol handling Compliance Shipping regulations, hazardous materials protocols, carrier liability
+  8371→requirements Color Theme Deep charcoal (#1A1A1A) foundation with orange (#FF7F11) accents Agent Workflows Package
+  8372→location, delivery rescheduling, address correction, lost package claims, carrier Healthcare configuration has additional
+  8373→strict requirements beyond other industries: No PHI (Protected Health Information) may be included in AI training data.
+  8374→Additional audit requirements. All data processing documented for HIPAA compliance. BAA (Business Associate Agreement)
+  8375→required before activation. portals Specialized Skills Appointment scheduling and rescheduling, prescription status inquiries,
+  8376→insurance verification, billing questions Compliance HIPAA, HITECH, state healthcare regulations, BAA required Color
+  8377→Theme Medical green (#0D5C4D) foundation with white accents Special No PHI in any AI training data, additional audit
+  8378→Restrictions logging requirements, separate data residency used within the PARWA platform. These are production-ready
+  8379→implementations requiring zero GPU and deployable immediately on standard cloud infrastructure.
+  8380→Collective Intelligence Network, Smart Router, Batch Approval Intelligence Reasoning Chain of Thought (CoT), Tree of
+  8381→Thoughts (ToT), Frameworks ReAct, Reverse Thinking, Universe of Thoughts (UoT), Graph of Thoughts (GST) RAG
+  8382→Optimization CLARA, HyDE, Multi-Query Retrieval, Contextual Compression, Step-Back Prompting Memory & State Thread
+  8383→of Thought (ThoT), Concise Response Protocol (CRP), Dynamic Context Window Self-Improvement Self-Consistency,
+  8384→Reflexion, Least-to-Most Prompting PARWA\'s proprietary continuous learning system that captures human corrections,
+  8385→analyzes patterns, and improves AI decision-making over time without full model retraining. How It Works 46. Capture:
+  8386→Every manager \'Reject\' or \'Edit\' action is logged as a \'Negative Reward\' 47. Pattern Analysis: Weekly analysis identifies
+  8387→recurring mistake patterns 48. Prompt Update: System prompts are dynamically updated with learned 49. Validation: A/B
+  8388→testing confirms improvements before full deployment 50. Documentation: All learnings documented in the Knowledge
+  8389→Base for transparency The Negative Reward Data Structure: \"2025-01-15T14:32:00Z\", \"decision_type\":
+  8390→\"refund_approval\", \"ai_recommendation\": \"Approve \$45 refund\", \"manager_action\": \"REJECT\",
+  8391→\"manager_reason\": \"Customer already received replacement\", \"context\": { \"order_id\": \"#8921\",
+  8392→\"customer_tier\": \"standard\" \"pattern_id\": \"refund_without_replacement_check\" check for existing replacement
+  8393→orders before approving refunds\' - Automatic Integration: Rules are added to system prompt for relevant decision types -
+  8394→Confidence Boost: Known patterns increase confidence scores for similar future cases 26.3 Custom GSD (Get Shit Done)
+  8395→State Engine Documented fully in Part 3 of this manual.
+  8396→See Part 3 for complete technical specification including token savings comparison, compression trigger logic, and UI
+  8397→Context Health Meter. 26.4 Collective Intelligence Network Documented fully in Part 4 of this manual. Multi-Model Cost
+  8398→Optimization Routes each query to the optimal LLM based on complexity:
+  8399→Simple Light Gemini-Flash (free) \$0.00 Troubleshooting Standard Decisions Medium GPT-4o-mini \$0.0001 Refund
+  8400→Approvals Medium GPT-4o-mini \$0.0003 VIP / Complex Heavy GPT-4o \$0.002 Issues Policy Batch Approval Intelligence
+  8401→Groups similar requests using semantic clustering, reducing manager review time by tracking queries - Confidence-Based
+  8402→Sorting: Highest confidence items reviewed first to maximize fast-approval rate - Risk Indicators: Each batch shows risk level
+  8403→and common pattern explanation - 4-Command System: Approve Batch, Review Individually, Shadow This Type, Auto-
+  8404→Approve Future Frameworks 27.1 Chain of Thought (CoT) Prompting Guides the LLM to break down complex reasoning into
+  8405→explicit sequential steps, dramatically improving accuracy on
+  8406→
+  8407→multi-step problems. SYSTEM PROMPT: \'Before responding, think through this step-by-step: 1\. What is the customer
+  8408→asking? 2\. What information do I have? 3\. What policies apply to this situation? 4\. What is the best action given all
+  8409→factors? Show your reasoning, then provide the response.\' Metric** **Without CoT** **With CoT
+  8410→Complex Query Accuracy 62% 89% Multi-Step Resolution 45% 84% Token Increase Baseline +35% 27.2 Tree of Thoughts
+  8411→(ToT) Prompting Explores multiple reasoning paths simultaneously, evaluates each, and selects the optimal solution. Used
+  8412→for policy exception decisions where multiple valid interpretations exist. SYSTEM PROMPT: \'For complex decisions, explore
+  8413→multiple approaches: Approach A: \[Consider one interpretation/angle\] Approach B: \[Consider alternative interpretation\]
+  8414→## Approach
+  8415→C: \[Consider a third angle\] Evaluate each for: customer impact, business impact, risk level. Select the approach that best
+  8416→serves all stakeholders.\' 27.3 ReAct (Reasoning + Acting) Framework Interleaves reasoning and real-world action steps in a
+  8417→continuous loop. The
+  8418→
+  8419→AI reasons, takes an action (like querying an API), observes
+  8420→the result, reasons again, and acts again.
+  8421→Query order database Shopify/WooCommerce API for status
+  8422→and details
+  8423→search_knowledge Search knowledge base pgvector RAG for relevant policy or check_policy
+  8424→Retrieve and parse
+  8425→Policy RAG with CLARA specific policy document verify_customer Verify customer
+  8426→CRM/Database API
+  8427→identity and review their history escalate Route ticket to human Ticket Queue System
+  8428→agent with context
+  8429→backwards from the desired outcome to determine all necessary prerequisites. Ensures
+  8430→every required condition is
+  8431→verified before taking action. Critical for refund safety.
+  8432→work backwards: DESIRED OUTCOME: \[What should happen if approved?\] PREREQUISITES:
+  8433→\[What
+  8434→conditions must ALL be true?\] \- Is the item within the return window? \- Has the
+  8435→customer received a
+  8436→replacement already? \- Is the customer\'s fraud score clean? \- Is the item in the
+  8437→eligible category?
+  8438→VERIFICATION: \[Is each prerequisite confirmed with evidence?\] Only proceed if ALL
+  8439→prerequisites are
+  8440→
+  8441→(UoT) Framework Considers five simultaneous perspectives before converging on an optimal solution. Used for all
+  8442→perspectives into the optimal response.\' (GST) Represents reasoning as an arbitrary graph where thoughts are nodes
+  8443→connected by logical relationships. Most powerful technique for complex multi-factor decisions. Use Cases in PARWA: -
+  8444→Batch Approval Analysis: Analyze all items in a batch simultaneously, find common patterns across them - Multi-Issue
+  8445→Tickets: Decompose a single complex ticket into separate resolvable sub-issues - Cross-Policy Decisions: Navigate situations
+  8446→where multiple conflicting policies apply - Escalation Routing: Find the optimal path through multiple departments Retrieval
+  8447→Architecture PARWA\'s enhanced RAG approach that retrieves relevant information AFTER fully CLARA retrieves
+  8448→intelligently based on deep contextual understanding. The 4-Step CLARA Process 51. Query Expansion: Generate 3--5
+  8449→different search queries that capture different ways the answer might be phrased in the
+  8450→- Context Synthesis: Combine retrieved information intelligently, resolving contradictions and ordering by
+  8451→
+  8452→Answers 48% 87% Average Response Time 2.1 seconds 3.4 seconds (+1.3s for quality)
+  8453→Instead of searching with the user\'s actual query (which may not match how the
+  8454→knowledge base is written),
+  8455→generate a hypothetical ideal answer first, then search for documents similar to that
+  8456→ideal answer. The hypothetical
+  8457→answer is often a better semantic match than the raw query.
+  8458→28.3 Multi-Query Retrieval Generate 3--5 different query variations to capture different
+  8459→ways the
+  8460→relevant
+  8461→information might be phrased in the knowledge base. Combines results using reciprocal
+  8462→rank fusion for maximum
+  8463→
+  8464→recall. 28.4 Contextual Compression After retrieving relevant documents, extract only
+  8465→the passages directly
+  8466→relevant to the query rather than passing entire document sections to the LLM. Reduces
+  8467→tokens by 70--80% while
+  8468→improving answer quality. 28.5 Step-Back Prompting Before answering a specific question,
+  8469→ask a broader
+  8470→\'step-back\' question to gather necessary context. Example: Before answering \'Can I
+  8471→return these shoes?\', first
+  8472→Memory & State Management 29.1 Thread of Thought (ThoT) Framework Maintains a running
+  8473→summary that
+  8474→evolves throughout the conversation without storing full conversation history. Used as a
+  8475→complement to the GSD
+  8476→THREAD_STATE = { \"customer\": { \"name\": \"John Doe\", \"tier\": \"VIP\",
+  8477→\"verified\": true },
+  8478→## \"current_issue\": { \"type\": \"refund\", \"amount\": 75.00 }, \"status\":
+  8479→## \"pending_manager_approval\",
+  8480→\"actions_taken\": \[\"verified_identity\", \"checked_policy\", \"created_request\"\],
+  8481→## \"pending\":
+  8482→## \[\"manager_approval\"\], \"sentiment\": \"frustrated_but_cooperative\"
+  8483→TECHNIQUE for reducing token usage. Prevents LLM over-elaboration while maintaining
+  8484→completeness. Critical
+  8485→PROMPT (appended to all response requests): \'Remember your goal is to resolve the
+  8486→customer\'s issue
+  8487→efficiently. Consider constraints (policy limits, time, resources) we discussed. Provide
+  8488→a concise, precise response
+  8489→asked)
+  8490→2\. Key Details (maximum 2--3 supporting points only) 3\. Next Steps (if any action is
+  8491→required from either
+  8492→Question 280 tokens 85 tokens -70% Refund Status 200 tokens 60 tokens -70%
+  8493→Troubleshooting 450 tokens 160
+  8494→Management Intelligently manages what information stays in the active context based on
+  8495→relevance priority:
+  8496→
+  8497→80%+ history summary, active capacity policy excerpts MEDIUM Previous interaction Dropped first when multiple
+  8498→independent responses to the same query using different reasoning paths, then select the most consistent
+  8499→answer across them. Used for VIP customers and high-value transactions where accuracy is paramount. When to use: Any
+  8500→decision where the financial stakes or relationship stakes are high enough to justify the 3× token cost
+  8501→
+  8502→(approximately \$0.006 additional cost per VIP interaction). 30.2 Reflexion Framework AI
+  8503→critiques its own
+  8504→output before finalizing it, identifying potential issues and improving the response
+  8505→autonomously. An automatic
+  8506→quality
+  8507→SELF-CHECK PROMPT (appended after each draft response): \'Review your response above.
+  8508→Ask yourself: 1\.
+  8509→Is all information factually accurate? Have I verified each claim? 2\. Does this fully
+  8510→address the customer\'s actual
+  8511→need? 3\. Are there any assumptions I should verify before sending? 4\. Is the tone
+  8512→appropriate for this customer\'s
+  8513→emotional state? If any issues found, revise before returning. Otherwise, confirm
+  8514→response is ready.\'
+  8515→problems into simpler sub-problems, solving each in sequence. Each sub-problem\'s answer
+  8516→feeds into the next.
+  8517→Used for multi-step complex ticket resolution: Example: \'Customer wants a refund for a
+  8518→damaged item received
+  8519→from a third-party seller.\' Decomposed into: 1) Is this our product or third-party? 2)
+  8520→What is the third-party return
+  8521→policy? 3) Is the damage verifiable? 4) What is the customer\'s history? 5) What is the
+  8522→optimal resolution given all
+  8523→
+  8524→factors? PART 31: Master AI System Prompt & Decision Matrix 31.1 The Master System
+  8525→Prompt This is the
+  8526→
+  8527→
+  8528→complete, production-ready system prompt that combines all active techniques:
+  8529→## =
+  8530→## == Parwa Master
+  8531→You are PARWA, an AI
+  8532→customer support agent for \[Company Name\]. You operate under a human supervision
+  8533→system that reviews all
+  8534→consequential decisions before execution. REASONING PROTOCOL Before complex decisions,
+  8535→think
+  8536→through this step-by-step (CoT). For refunds, work backwards: OUTCOME -> PREREQUISITES -
+  8537→## > VERIFY ->
+  8538→PROCEED For VIP issues, consider all 5 perspectives before responding (UoT). For policy
+  8539→exceptions, explore
+  8540→multiple approaches (ToT). RESPONSE PROTOCOL (CRP) Remember your goal is to resolve the
+  8541→customer\'s issue efficiently. Consider constraints \[policy, time, resources\]
+  8542→discussed. Provide a concise, precise
+  8543→response without unnecessary elaboration. FORMAT:
+  8544→- Direct Answer: One clear sentence answering what they asked - Key Details: Maximum 2--
+  8545→3 supporting points Next Steps: If any action is required from either party APPROVAL
+  8546→PROTOCOL You MUST STOP and
+  8547→request human approval for: \- Any refund, return, or financial transaction \- Any
+  8548→account change (billing, email,
+  8549→password, security) \- Any VIP customer action \- Any policy exception request \- Any
+  8550→new situation you have not
+  8551→encountered before NEVER execute these autonomously, regardless of confidence level.
+  8552→## SELF-CHECK
+  8553→PROTOCOL (Reflexion) Before sending any response: 1\. Is all information accurate and
+  8554→verifiable? 2\.
+  8555→Does it fully address the customer\'s actual need? 3\. Is the tone appropriate for their
+  8556→emotional state? 4\. Am I
+  8557→respecting all approval requirements?
+  8558→Check CRP (concise None needed Simple RAG response) Technical Chain of Thought ReAct
+  8559→(check APIs)
+  8560→
+  8561→CLARA Troubleshooting Refund Decision \< Reverse Thinking None Policy Check Refund Decision \> Reverse Thinking Self-
+  8562→Consistency CLARA VIP Issue Universe of Reflexion CLARA + HyDE Thoughts Policy Exception Tree of Thoughts Self-
+  8563→Consistency CLARA Multi-Issue Ticket Graph of Least-to-Most Multi-Query
+  8564→Thoughts Angry Customer Universe of Chain of Thought Step-Back Thoughts New Unknown ReAct (gather
+  8565→Graph of Infrastructure (Weeks 1--4) 55. Set up AWS multi-region infrastructure with data residency capability 56.
+  8566→Implement authentication and authorization system (Supabase Auth + 57. Build Custom GSD State Engine with LangGraph
+  8567→integration 58. Integrate OpenRouter for multi-model support with LiteLLM proxy 59. Implement cryptographic audit
+  8568→logging with append-only triggers 60. Set up Doppler secrets management and key rotation workflow 32.2 Phase 2: Core
+  8569→Features (Weeks 5--8) 61. Build batch approval system with mobile-first swipe interface 62. Implement confidence scoring
+  8570→and trust metrics dashboard 63. Create Jarvis control system with natural language command parsing 64. Build integration
+  8571→health monitoring with graceful degradation 65. Implement graduated autonomy system with automatic demotion trigger
+  8572→- Deploy CLARA RAG with pgvector and query expansion 32.3 Phase 3: Compliance & Security (Weeks 9--12) 67.
+  8573→Implement jurisdiction-aware call recording with consent management 68. Build data residency selection with actual
+  8574→infrastructure routing 69. Create sub-processor management system with 30-day notification workflow 70. Implement 3-
+  8575→tier incident response automation 71. Build knowledge base verification system with 90-day auto-flagging 72. Deploy PII
+  8576→redaction layer before all LLM API calls 32.4 Phase 4: Industry Specialization (Weeks 13--16) 73. Build E-commerce
+  8577→integrations: Shopify, Magento, BigCommerce 74. Build SaaS integrations: GitHub, Zendesk, Stripe, Intercom 75. Build
+  8578→Logistics integrations: TMS, WMS, carrier APIs 76. Build Healthcare integrations with HIPAA compliance layer 77. Create
+  8579→industry-specific onboarding wizards for all 4 verticals 78. Implement industry-specific color themes and UI customizations
+  8580→32.5 Phase 5: Polish & Launch (Weeks 17--20) 79. Complete UI/UX refinement based on beta client feedback 80. Load
+  8581→
+  8582→testing: target 10,000 concurrent requests without degradation 81. Security audit and penetration testing by third-party
+  8583→firm 82. Complete documentation and training materials for client onboarding 83. Beta launch with
+  8584→5--10 selected early access clients 84. Production launch with full support and monitoring in place PART 33: Design System
+  8585→& UI Specifications 33.1 Typography System
+  8586→Heading 2 Inter 36px 600 (Semi-Bold) 1.3 Heading 3 Inter 24px 600 (Semi-Bold) 1.4 Body Text Inter 16px 400 (Regular) 1.6
+  8587→Code / Terminal JetBrains 14px 400 (Regular) 1.5 Labels / Small Inter 12px 500 (Medium) 1.4 small margins md 16px
+  8588→Standard spacing between elements lg 24px Section spacing within a card or panel xl 32px Card and modal internal padding
+  8589→2xl 48px Section separators 3xl 64px Major page section separation
+  8590→padding; border-radius 8px Cards 12px border-radius; 24px internal padding; 1px border in #CCCCCC; box-shadow 0 2px 8px
+  8591→rgba(0,0,0,0.08) Modals Maximum 600px width; 32px internal padding; backdrop blur 8px; close button always top-right
+  8592→Input Fields 44px height; 1px border, focus state 2px in industry color; label always above field (not placeholder) Batch
+  8593→Cards Full-width on mobile; left-swipe zone 64px; checkboxes ease-in-out All standard UI transitions Slow Transition 400ms
+  8594→ease-in-out Page transitions, modal open/close Fast Transition 100ms ease-out Hover states, focus rings Hover Scale 200ms
+  8595→ease-out Cards and buttons on hover: scale(1.02) Click Press 100ms ease-in Button active state: scale(0.98) stacked cards;
+  8596→no tables Tablet 640px -- 1024px Two-column layout; sidebar; 2 cards per row Desktop \> 1024px Multi-column; persistent
+  8597→sidebar; 3 variant cards side by side minimum for all interface elements Color Contrast (Normal Minimum 4.5:1 ratio against
+  8598→background Color Contrast (Large Minimum 3:1 ratio against background Keyboard Navigation All interactive elements
+  8599→reachable and operable via keyboard only
+  8600→
+  8601→connectivity lost. Message: \'Connection interrupted. Your
+  8602→data is safe. We will retry
+  8603→automatically.\'
+  8604→higher permissions. Message: \'You do not have permission to
+  8605→\[action\]. Contact your
+  8606→account
+  8607→UI: Clear explanation of what permission
+  8608→is needed; link to contact
+  8609→admin.
+  8610→
+  8611→
+  8612→queue. Message: \' All Caught Up!
+  8613→Your AI workforce is handling
+  8614→everything.\' UI: Celebration
+  8615→animation (shown only once
+  8616→per day); running totals
+  8617→widget; option to review
+  8618→today\'s resolved tickets.
+  8619→
+  8620→The Maker Framework For Zero-Error Llm Execution Introduction to MAKER The MAKER Framework (Maximal Agentic
+  8621→Decomposition with First-to-ahead-by-K Error correction and Red-flagging) represents a breakthrough in achieving near-
+  8622→zero error rates for complex, multi-step AI operations. Developed by Cognizant AI Lab, this framework enables LLMs to
+  8623→execute tasks with unprecedented reliability critical for customer care applications where errors can directly impact
+  8624→customer satisfaction and business outcomes. Core Components of MAKER The MAKER Framework consists of three
+  8625→interconnected pillars that work together to ensure reliable AI execution. 1. Maximal Agentic Decomposition (MAD) The
+  8626→first pillar involves breaking down complex tasks into the smallest possible atomic operations. Rather than asking an AI to
+  8627→process a refund, the task is decomposed into: verify customer identity, retrieve order details, check refund eligibility
+  8628→against policy, calculate refund amount, verify payment method, execute refund transaction, send confirmation, and
+  8629→update internal records. Each atomic operation is handled by a specialized agent, dramatically reducing the probability of
+  8630→errors cascading through the system. 2. First-to-Ahead-by-K Error Correction (FAKE) The second pillar implements predictive
+  8631→error detection. The system generates K possible solutions in parallel and evaluates them before execution. K=3 is the
+  8632→default for standard queries, K=5 for high-stakes financial decisions, and K=7 for critical irreversible actions. The system
+  8633→selects the first solution that demonstrates clear superiority in policy compliance, customer satisfaction prediction, risk
+  8634→assessment alignment, and factual accuracy verification. 3. Red-Flagging System The third pillar implements real-time
+  8635→anomaly detection with automatic escalation. Category A (Immediate Halt)
+  8636→includes confidence scores below 60%, contradictions with knowledge base, severe customer dissatisfaction, and
+  8637→policy violations. Category B (Enhanced Review) includes unusual request patterns, high-value transactions, VIP customers,
+  8638→and new query types. Category C (Log and Monitor) includes slight deviations and edge cases. PARWA Implementation of
+  8639→MAKER PARWA integrates MAKER at three levels: Input Processing decomposes queries into intent atoms with parallel
+  8640→hypothesis generation; Decision Generation creates multiple solution paths with first-to-ahead-by-K selection; and the
+  8641→
+  8642→Execution Layer ensures atomic operations with rollback capabilities and complete audit trails. Performance Metrics
+  8643→Without MAKER: Error rate 3-5%, escalation rate 8-12%, resolution accuracy 94%. With MAKER: Error rate 0.3-0.8%,
+  8644→escalation rate 2-4%, resolution accuracy 99.2%. This represents a 6-16x improvement in error rates for complex multi-step
+  8645→tasks. MAKER Configuration Options PARWA offers three MAKER configurations: Conservative Mode (K=7, 75% threshold)
+  8646→for healthcare and finance; Balanced Mode (K=3-5, 60% threshold) for e-commerce and SaaS; and Efficiency Mode (K=3,
+  8647→50% threshold) for high-volume low-risk queries.
+  8648→3-Tier Hybrid Ai Technique Optimization Framework Overview The 3-Tier Hybrid Architecture represents PARWA's strategic
+  8649→approach to balancing AI capability utilization with operational efficiency. Rather than applying all 25+ AI techniques
+  8650→indiscriminately or restricting techniques to specific tasks, PARWA employs a dynamic three-tier system that activates
+  8651→techniques based on real-time needs. Architecture Philosophy The core principle is Always ready, intelligently deployed.
+  8652→Different customer care scenarios require different levels of cognitive processing. A simple FAQ lookup should not consume
+  8653→the same computational resources as a complex dispute resolution. The 3-Tier system ensures optimal resource allocation
+  8654→while maintaining readiness for any scenario.
+  8655→TIER 1: Always Active Techniques These techniques run continuously in the background, providing foundational intelligence
+  8656→for every interaction. They include: CLARA for conversation coherence, CRP for contextual relevance, GSD State Engine for
+  8657→state management, and Smart Router for optimal model selection. These have minimal resource impact and actually
+  8658→improve response times through optimization.
+  8659→TIER 2: Auto-Triggered Techniques These techniques activate automatically when specific conditions are met. Reverse
+  8660→Thinking triggers when confidence is below 80% or customer expresses dissatisfaction. Chain of Thought activates for
+  8661→complexity scores above 60 or multi-step reasoning. ReAct engages when actions or API calls are needed. Step-Back
+  8662→Prompting activates for ambiguous queries or when broader context is required. TIER 3: Selective Techniques These
+  8663→activate only for complex scenarios requiring advanced cognitive processing. GST (General Similar Thoughts) handles
+  8664→complex pattern matching and novel queries. Universe of Thoughts supports strategic
+  8665→decisions with multiple valid solutions. Tree of Thoughts manages critical decisions with significant consequences. Self-
+  8666→Consistency ensures high-value transactions and irreversible actions are thoroughly validated. Optimization Metrics The 3-
+  8667→Tier system delivers significant improvements: 70% reduction in token usage per query (4,500 to 1,350 average), 85% faster
+  8668→response time (2.8s to 0.42s), 62% cost savings per 1000 queries ($12.50 to $4.75), and 4.5% improvement in complex
+  8669→query accuracy (94% to 98.5%). Complete Technique Mapping Each PARWA functionality is mapped to optimal technique
+  8670→configurations. FAQ responses use only Tier 1 (Smart Router, GSD). Complex refunds add Tier 2 (CoT, Reverse Thinking) and
+  8671→Tier 3 (Self-Consistency) when needed. VIP handling uses all tiers with Universe of Thoughts for critical moments. Dispute
+  8672→resolution engages the full spectrum including Tree of Thoughts. Dynamic Tier Adjustment PARWA continuously monitors
+  8673→system performance and adjusts tier activation thresholds based on load and response times. Conservative mode raises
+  8674→thresholds during high load, while aggressive mode lowers thresholds during low load for better quality. Customer tier also
+  8675→influences activation, with VIP customers receiving more aggressive technique deployment.
+  8676→Complete Functionality-To-Technique Mapping Table
+  8677→Functionality Tier 1 (Always) Tier 2 (Auto) Tier 3 (Selective) FAQ Responses Smart Router, GSD None None Order Status
+  8678→Smart Router, GSD, CRP ReAct None Simple Refunds Smart Router, GSD, CRP CoT None
+  8679→
+  8680→Complex Refunds Smart Router, GSD, CRP CoT, Reverse Thinking Self-Consistency
+  8681→VIP Handling Router, GSD, CRP, CLARA Reverse Thinking Universe of Thoughts
+  8682→Dispute Resolution Router, GSD, CRP, CLARA CoT, Step-Back Tree of Thoughts, GST
+  8683→Fraud Detection Smart Router, GSD, CRP Reverse Thinking Self-Consistency, GST
+  8684→Product Recommend Smart Router, CRP, CLARA Step-Back GST
+  8685→Complaint Handling Smart Router, GSD, CLARA Reverse Think, Step-Back Universe of
+  8686→## Thoughts
+  8687→Integration with Existing PARWA Systems
+  8688→The 3-Tier system integrates seamlessly with existing PARWA components. The Smart Router
+  8689→now includes
+  8690→tier-aware routing logic. Jarvis Dashboard displays real-time technique activation and
+  8691→historical patterns. Agent
+  8692→Lightning incorporates technique activation patterns into training data. The MAKER
+  8693→Framework synergizes with
+  8694→tier activation through K-value selection and red-flagging integration.
+  8695→## Conclusion
+  8696→
+  8697→The 3-Tier Hybrid Architecture enables PARWA to deliver optimal customer care
+  8698→experiences by intelligently
+  8699→deploying AI techniques based on real-time needs. This approach ensures that simple
+  8700→queries receive fast,
+  8701→efficient responses while complex scenarios benefit from advanced reasoning capabilities
+  8702→- all while maintaining
+  8703→cost efficiency and system reliability. Combined with the MAKER Framework, PARWA
+  8704→achieves
+  8705→enterprise-grade reliability with near-zero error rates on complex multi-step
+  8706→operations.
+  8707→
+  8708→
+  8709→
+  8710→
+  8711→## PART 2: 3-TIER HYBRID OPTIMIZATION FRAMEWORK
+  8712→
+  8713→
+  8714→TRIVYA 3-Tier Hybrid Optimization Framework
+  8715→Optimized AI Technique Mapping for Maximum Efficiency
+  8716→## Version 1.0 - Universal Application Strategy
+  8717→## Executive Summary
+  8718→This document presents an optimized 3-Tier Hybrid Framework that applies AI techniques
+  8719→strategically across all TRIVYA
+  8720→functionalities. Unlike the previous approach where techniques were rigidly mapped to
+  8721→specific tasks, this new framework
+  8722→ensures that every functionality benefits from the most efficient combination of
+  8723→techniques while minimizing token costs
+  8724→and maximizing accuracy.
+  8725→Key Benefits of 3-Tier Hybrid Approach
+  8726→- Token Reduction: Up to 85% savings on simple queries (CRP + GSD always active)
+  8727→- Faster Response: Tier 1 only for simple queries = 0.3-0.5 second response time
+  8728→- Higher Accuracy: Progressive complexity handling = 94%+ accuracy on complex decisions
+  8729→- Cost Optimization: Smart Router + Tier system = 55-70% monthly cost reduction
+  8730→- Better Performance: Right technique for right job = improved customer satisfaction
+  8731→Section 1: The 3-Tier Architecture Explained
+  8732→Tier 1: Base Layer (ALWAYS ACTIVE)
+  8733→These techniques are applied to EVERY query regardless of complexity. They form the
+  8734→foundation of efficient AI
+  8735→processing and provide immediate value with minimal token overhead. The Base Layer
+  8736→ensures consistent quality while
+  8737→actually REDUCING costs through optimization.
+  8738→## Technique Role Token Impact Why Always On
+  8739→CLARA Context Retrieval +40% Better context = better answers for ALL queries
+  8740→CRP Concise Responses -70% Saves tokens on EVERY response
+  8741→GSD State Engine State Management -98% Core architecture, eliminates history bloat
+  8742→Smart Router Model Selection Variable Uses cheapest sufficient model
+  8743→Tier 2: Conditional Layer (AUTO-TRIGGERED)
+  8744→
+  8745→These techniques are automatically activated when specific conditions are detected. The system intelligently identifies
+  8746→when additional reasoning is needed and applies the appropriate technique. This layer balances enhanced capability with
+  8747→controlled cost increases.
+  8748→Technique Trigger Condition Token Impact Use Case Reverse Thinking ANY decision action +20% Verification before all
+  8749→decisions Chain of Thought Multi-step queries detected +35% Troubleshooting, explanations ReAct Tool/API call needed
+  8750→+50% Database queries, external systems Step-Back Prompting Ambiguous query detected +25% Clarification gathering
+  8751→Thread of Thought Long conversation detected -60% Memory optimization Tier 3: Premium Layer (SELECTIVE APPLICATION)
+  8752→These high-impact techniques are reserved for high-value transactions, VIP customers, or complex situations where the
+  8753→additional token cost is justified by the business value. They provide maximum reasoning capability when it matters most.
+  8754→Technique Trigger Condition Token Impact Use Case GST Multi-factor analysis needed +100% Complex cross-policy
+  8755→decisions Universe of Thoughts VIP/Angry customer +150% Multi-perspective consideration Tree of Thoughts Policy
+  8756→conflict/exception +100% Multiple option evaluation Self-Consistency High-value transaction +300% Multiple response
+  8757→validation Reflexion Before critical actions +50% Self-correction mechanism Complex problem Least-to-Most +80% Breaking
+  8758→down multi-issue tickets decomposition
+  8759→Section 2: Complete Functionality-to-Technique Mapping The following comprehensive table maps every TRIVYA
+  8760→functionality to its optimal technique combination. Each functionality receives the appropriate level of AI processing based
+  8761→on its complexity and business impact. This ensures maximum efficiency while maintaining high accuracy across all
+  8762→operations. 2.1 Customer Query Handling Functionality Tier 1 (Always) Tier 2 (Conditional) Tier 3 (Selective) Net Token
+  8763→
+  8764→Response FAQ Queries CLARA + CRP + GSD None None -85% 0.3-0.5s Order Status Check CLARA + CRP + GSD ReAct (API call)
+  8765→None -70% 0.5-1s Tracking Info CLARA + CRP + GSD ReAct (API call) None -70% 0.5-1s Product Information CLARA + CRP +
+  8766→GSD None None -80% 0.3-0.5s Troubleshooting CLARA + CRP + GSD CoT + ReAct None -35% 1-2s Billing Inquiries CLARA +
+  8767→CRP + GSD CoT + ReAct None -40% 1-2s Password Reset CLARA + CRP + GSD ReAct (email) None -65% 0.5-1s 2.2 Decision-
+  8768→## Based Actions
+  8769→Functionality Tier 1 (Always) Tier 2 (Conditional) Tier 3 (Selective) Net Token Accuracy Refund (< $50) CLARA + CRP + GSD
+  8770→Reverse Think None -50% 92% Refund ($50-$100) CLARA + CRP + GSD Reverse Think + ReAct Reflexion -25% 95% Refund (>
+  8771→$100) CLARA + CRP + GSD Reverse Think + ReAct Self-Consistency +50% 98% Return Processing CLARA + CRP + GSD Reverse
+  8772→Think + CoT None -35% 93% Address Change CLARA + CRP + GSD Reverse Think None -60% 91% Account Changes CLARA +
+  8773→CRP + GSD Reverse Think + CoT Reflexion -20% 96% ToT + Policy Exception CLARA + CRP + GSD Reverse Think +80% 97%
+  8774→Self-Consistency GST + Fraud Detection CLARA + CRP + GSD Reverse Think + CoT +100% 99% Self-Consistency 2.3 Special
+  8775→Customer Handling Functionality Tier 1 (Always) Tier 2 (Conditional) Tier 3 (Selective) Net Token Satisfaction VIP Customer
+  8776→CLARA + CRP + GSD CoT + Step-Back UoT + Reflexion +40% 4.8/5 Angry Customer CLARA + CRP + GSD CoT + Step-Back UoT +
+  8777→Reflexion +50% 4.5/5 Multi-Issue Ticket CLARA + CRP + GSD CoT GST + Least-to-Most +60% 94% Churn Risk Customer CLARA
+  8778→+ CRP + GSD CoT + Step-Back UoT + Reflexion +45% 4.6/5 New Customer CLARA + CRP + GSD CoT None -40% 4.3/5
+  8779→2.4 Proactive & System Operations Tier 3 Functionality Tier 1 (Always) Tier 2 (Conditional) Net Token Purpose (Selective)
+  8780→Product Recommendations CLARA + CRP + GSD CoT None -45% Upsell/Cross-sell Sentiment Routing CLARA + CRP + GSD
+  8781→Step-Back None -55% Auto-escalation Abandoned Cart Alert CLARA + CRP + GSD CoT None -50% Recovery Proactive
+  8782→Outreach CLARA + CRP + GSD CoT + Step-Back Reflexion -20% Engagement Batch Approval Analysis CLARA + CRP + GSD
+  8783→Reverse Think GST +30% Efficiency boost Report Generation CLARA + CRP + GSD CoT None -40% Analytics Knowledge
+  8784→Update CLARA + CRP + GSD ReAct Reflexion -15% Self-improvement Section 3: Performance Comparison - Before vs After
+  8785→The following comparison demonstrates the significant improvements achieved through the 3-Tier Hybrid approach
+  8786→compared to the previous rigid technique mapping. Every metric shows meaningful improvement. Metric Previous
+  8787→Approach 3-Tier Hybrid Improvement Average Token/Query 2,400 tokens 720 tokens -70% Simple Query Response 2-3
+  8788→seconds 0.3-0.5 seconds -85% Complex Decision Accuracy 85% 96% +11% Monthly Cost (1750 queries) $102.00 $38.50 -62%
+  8789→Customer Satisfaction 3.8/5 4.6/5 +21% Manager Review Time 4.2 min/ticket 1.3 min/ticket -69% Repeat Mistakes 18% 4%
+  8790→-78% Section 4: Detailed Cost Analysis This section breaks down the monthly operational costs by query type,
+  8791→demonstrating how the 3-Tier Hybrid approach delivers superior results at significantly lower costs. Query Type Monthly
+  8792→Volume Old Cost New Cost Savings FAQ Queries 1,000 $24.00 $3.60 -$20.40 Troubleshooting 500 $45.00 $18.00 -$27.00
+  8793→Refund Decisions 200 $18.00 $9.00 -$9.00 VIP Interactions 50 $15.00 $8.00 -$7.00
+  8794→TOTAL 1,750 $102.00 $38.60 -$63.40 Annual Cost Savings: $760.80 per client At scale (100 clients): $76,080 annual savings
+  8795→At scale (1000 clients): $760,800 annual savings
+  8796→Section 5: Auto-Trigger Detection Logic The following decision logic determines when to activate Tier 2 and Tier 3
+  8797→techniques. This ensures that additional processing is only applied when necessary, maintaining optimal efficiency. 5.1 Tier
+  8798→2 Auto-Trigger Conditions Condition Detection Method Technique Activated Decision action required Action type
+  8799→classification Reverse Thinking Multi-step query Query complexity score > 0.4 Chain of Thought
+  8800→
+  8801→External system needed API call intent detected ReAct
+  8802→Ambiguous input Confidence score < 0.7 Step-Back Prompting
+  8803→Long conversation Message count > 10 Thread of Thought
+  8804→## 5.2 Tier 3 Selective Activation
+  8805→## Condition Threshold Technique Activated
+  8806→High-value transaction Amount > $100 Self-Consistency
+  8807→VIP customer Customer.tier = 'VIP' UoT + Reflexion
+  8808→Angry customer Sentiment score < 0.3 UoT + Reflexion
+  8809→Policy conflict Multiple policies matched Tree of Thoughts
+  8810→Multi-factor analysis Factors > 3 GST
+  8811→Critical action Risk score > 0.8 Reflexion
+  8812→Complex decomposition Sub-issues > 2 Least-to-Most
+  8813→## Section 6: Key Takeaways
+  8814→## Principle Implementation Result
+  8815→Tier 1 always active with token-saving techniques (CRP,
+  8816→- Efficiency First 70% average token reduction
+  8817→
+  8818→## GSD)
+  8819→- Smart Scaling Auto-detect when additional processing is needed Right technique for
+  8820→right job
+  8821→96%+ accuracy on complex
+  8822→- Quality Investment Premium techniques for high-value situations
+  8823→decisions
+  8824→Every functionality benefits from optimized technique Consistent quality across all
+  8825→## 4. Universal Application
+  8826→stack operations
+  8827→
+  8828→
+  8829→- Cost Control Tiered approach prevents unnecessary processing 62% monthly cost
+  8830→reduction
+  8831→## CONCLUSION
+  8832→The 3-Tier Hybrid Framework represents a significant advancement in TRIVYA's AI
+  8833→technique application. By ensuring that
+  8834→CLARA, CRP, and GSD State Engine are always active, every query benefits from optimized
+  8835→context retrieval and token
+  8836→efficiency. By adding Conditional and Premium layers, complex situations receive the
+  8837→additional reasoning they require
+  8838→without over-processing simple queries. This balanced approach delivers maximum
+  8839→efficiency, accuracy, and cost savings
+  8840→across all functionalities.
+  8841→
+  8842→
+  8843→
+  8844→
+  8845→## APPENDIX A: INSTANT DEMO EXPERIENCE SYSTEM (NEW)
+  8846→Overview The Instant Demo Experience System allows potential
+  8847→clients to experience PARWA's capabilities immediately without
+  8848→any commitment. This system operates on a simple principle: Chat
+  8849→interactions are FREE, Voice interactions cost $1 per demo call.
+  8850→System Architecture The Demo System is designed to showcase
+  8851→PARWA's core capabilities while maintaining cost efficiency: Chat
+  8852→Demo (FREE) - Available 24/7 through the website - Full access to
+  8853→FAQ handling, order status checks, and product information -
+  8854→Demonstrates the Custom GSD State Engine in action - Shows
+  8855→confidence scoring and reasoning transparency - No registration
+  8856→required for first 10 interactions - Rate limited to 20 messages per
+  8857→session to prevent abuse Voice Demo ($1 per call) - On-demand
+  8858→voice call demonstration - Demonstrates voice recognition and
+  8859→natural conversation flow - Shows real-time sentiment analysis -
+  8860→Includes typical customer service scenarios - Maximum 5 minutes
+  8861→per demo call - Requires payment confirmation before call
+  8862→initiation Technical Implementation The Demo System uses the
+  8863→same core infrastructure as paid subscriptions but with specific
+  8864→limitations: Model Routing for Demos: - Chat Demo: Light Tier
+  8865→(Gemma-4B) for instant responses - Voice Demo: Medium Tier
+  8866→(Gemini-Flash) for natural conversation - Both use the Custom GSD
+  8867→State Engine for context management Conversion Flow: 1. User
+  8868→lands on demo page 2. Chat demo available immediately (FREE) 3.
+  8869→Voice demo requires $1 payment (Stripe/PayPal) 4. After demo,
+  8870→conversion prompt appears 5. User can upgrade to full
+  8871→subscription Cost Structure Analysis: - Chat Demo Cost: $0 (using
+  8872→free tier models) - Voice Demo Cost: ~$0.05 per minute (Twilio + AI
+  8873→inference) - Voice Demo Revenue: $1.00 per call - Net Margin on
+  8874→Voice Demos: ~$0.75 per call
+  8875→
+  8876→Key Metrics to Track:
+  8877→- Chat-to-Voice conversion rate
+  8878→- Demo-to-Subscription conversion rate
+  8879→
+  8880→- Average session duration
+  8881→- Feature engagement during demo
+  8882→- Drop-off points in demo flow
+  8883→
+  8884→
+  8885→
+  8886→APPENDIX B: INCOMING CALL HANDLING (NEW) Overview The
+  8887→Incoming Call Handling system ensures that PARWA always
+  8888→responds to phone calls with voice first. This is a critical customer
+  8889→experience feature - when customers call, they expect to speak
+  8890→with someone, not navigate menus. Core Principle: Voice-First
+  8891→Response When an incoming call is detected, PARWA MUST
+  8892→answer with voice. There is no option to redirect to text-only or
+  8893→IVR-only mode for initial response. This ensures every customer
+  8894→feels heard immediately. System Requirements - Voice response
+  8895→within 2 rings (less than 6 seconds) - Natural language greeting in
+  8896→client's brand voice - Immediate context recognition (returning
+  8897→customer vs new) - Sentiment detection from first utterance -
+  8898→Seamless handoff capability to human if needed Call Flow
+  8899→Architecture Step 1: Call Detection - Twilio webhook triggers on
+  8900→incoming call - System identifies client by phone number -
+  8901→Retrieves client configuration and brand settings - Loads customer
+  8902→history if recognized number Step 2: Voice Greeting - AI generates
+  8903→personalized greeting - Uses client's brand voice settings - Adapts
+  8904→based on customer tier (VIP gets special treatment) - Initiates GSD
+  8905→State for this conversation Step 3: Intent Recognition - Listen to
+  8906→customer's first statement - Classify intent: Refund, Status,
+  8907→Complaint, Question, VIP, Emergency - Route accordingly while
+  8908→maintaining voice Step 4: Conversation Management - Continue
+  8909→voice interaction for standard queries - Offer to send links via SMS
+  8910→for complex information - Transfer to human for: Legal issues,
+  8911→Angry customers, VIP special requests - Log all interactions for
+  8912→Agent Lightning learning Mandatory Voice Response Rules (HARD-
+  8913→CODED) The following rules are HARD-CODED and cannot be
+  8914→bypassed: 1. First response MUST be voice 2. Never ask customer
+  8915→to press buttons for menu
+  8916→
+  8917→
+  8918→- Never say "please visit our website" as first response
+  8919→- If system overload detected, say "All agents busy" not "System down"
+  8920→- Always offer callback option if wait time exceeds 2 minutes
+  8921→
+  8922→## Technical Specifications
+  8923→## Response Time Requirements:
+  8924→- Initial greeting: less than 6 seconds
+  8925→- Subsequent responses: less than 3 seconds
+  8926→- Transfer to human: less than 10 seconds
+  8927→- SMS follow-up: less than 30 seconds
+  8928→Model Selection for Voice:
+  8929→- Initial greeting: Pre-generated, no AI needed
+  8930→- Intent classification: Light Tier (Gemma-4B)
+  8931→- Conversation: Medium Tier (Gemini-Flash)
+  8932→- Complex decisions: Heavy Tier (GPT-4o-mini)
+  8933→## Failure Handling:
+  8934→If voice fails to connect or quality is poor:
+  8935→- Attempt reconnection once
+  8936→- If still failing, send SMS with callback offer
+  8937→- Log failure for infrastructure review
+  8938→- Never leave customer without response
+  8939→Integration with Sentiment Engine
+  8940→Voice calls include real-time sentiment analysis: - Detect anger from tone and words
+  8941→- Detect confusion from hesitation
+  8942→- Detect urgency from speaking speed
+  8943→- Auto-escalate to human if sentiment score falls below 30%
+  8944→## Compliance Requirements
+  8945→- Call recording disclosure at call start
+  8946→- Consent capture before any data processing
+  8947→- Jurisdiction-aware disclosure (two-party consent states)
+  8948→- Audit log of all voice interactions
+  8949→
+  8950→
+  8951→
+  8952→
+  8953→## APPENDIX C: QUALITY COACH IMPLEMENTATION FILES (NEW)
+  8954→Overview The Quality Coach is a PARWA High exclusive feature
+  8955→that provides continuous AI performance monitoring, training
+  8956→suggestions, and automated quality improvement
+  8957→recommendations. This appendix documents all implementation
+  8958→files. Implementation Files for Quality Coach File:
+  8959→backend/quality_coach/analyzer.py Purpose: Core analysis engine
+  8960→for AI performance evaluation Key Functions: -
+  8961→analyze_conversation_quality(): Scores each interaction on
+  8962→accuracy, empathy, efficiency - detect_improvement_patterns():
+  8963→Identifies recurring mistakes - generate_training_suggestions():
+  8964→Creates specific training recommendations -
+  8965→calculate_agent_health_score(): Overall AI agent performance
+  8966→metric File: backend/quality_coach/reporter.py Purpose:
+  8967→Generates quality reports for managers Key Functions: -
+  8968→generate_weekly_quality_report(): Comprehensive 7-day
+  8969→performance summary - generate_mistake_analysis(): Detailed
+  8970→breakdown of errors by type - generate_training_priority_list():
+  8971→Ranked list of areas needing improvement -
+  8972→export_for_agent_lightning(): Formats data for model training
+  8973→File: backend/quality_coach/notifier.py Purpose: Alerts and
+  8974→notifications system Key Functions: -
+  8975→notify_manager_on_quality_drop(): Real-time alert when
+  8976→performance degrades - notify_on_recurring_pattern(): Alert
+  8977→when same mistake occurs 3+ times -
+  8978→send_weekly_summary_email(): Automated performance digest -
+  8979→generate_dashboard_alerts(): Real-time UI notifications File:
+  8980→frontend/components/QualityDashboard.tsx Purpose: Manager-
+  8981→facing quality visualization Key Components: - QualityScoreCard:
+  8982→Real-time performance score with trend - MistakeTrendChart:
+  8983→Visual representation of error patterns -
+  8984→TrainingRecommendationsList: Actionable improvement items -
+  8985→ComparisonWidget: Performance vs previous periods File:
+  8986→
+  8987→frontend/components/QualityAlerts.tsx Purpose: Real-time
+  8988→quality alerts display Key Components: - AlertCard: Individual
+  8989→quality alert display
+  8990→
+  8991→- AlertHistory: Past alerts with resolution status
+  8992→- EscalationButton: One-click human escalation trigger
+  8993→- SnoozeOption: Temporary alert dismissal
+  8994→## Database Schema Additions:
+  8995→Table: quality_scores
+  8996→- id: UUID PRIMARY KEY
+  8997→- client_id: INT REFERENCES clients(id)
+  8998→- agent_id: INT REFERENCES agents(id)
+  8999→- conversation_id: UUID REFERENCES conversations(id)
+  9000→- accuracy_score: DECIMAL(3,2)
+  9001→- empathy_score: DECIMAL(3,2)
+  9002→- efficiency_score: DECIMAL(3,2)
+  9003→- overall_score: DECIMAL(3,2)
+  9004→- created_at: TIMESTAMPTZ
+  9005→Table: quality_alerts
+  9006→- id: UUID PRIMARY KEY
+  9007→- client_id: INT REFERENCES clients(id)
+  9008→- alert_type: VARCHAR(50)
+  9009→- severity: VARCHAR(20) -- 'low', 'medium', 'high', 'critical'
+  9010→- message: TEXT
+  9011→- resolved: BOOLEAN DEFAULT FALSE
+  9012→- resolved_at: TIMESTAMPTZ
+  9013→- created_at: TIMESTAMPTZ
+  9014→Table: training_suggestions
+  9015→- id: UUID PRIMARY KEY
+  9016→- client_id: INT REFERENCES clients(id)
+  9017→- suggestion_type: VARCHAR(50)
+  9018→- description: TEXT
+  9019→- priority: INT
+  9020→- implemented: BOOLEAN DEFAULT FALSE
+  9021→- created_at: TIMESTAMPTZ
+  9022→API Endpoints:
+  9023→- GET /api/quality/scores: Retrieve quality scores
+  9024→- GET /api/quality/alerts: Get active alerts
+  9025→- POST /api/quality/alerts/:id/resolve: Mark alert resolved
+  9026→- GET /api/quality/recommendations: Get training recommendations
+  9027→- POST /api/quality/feedback: Submit quality feedback
+  9028→Integration with Agent Lightning:
+  9029→The Quality Coach feeds directly into Agent Lightning training: 1. Quality scores below threshold trigger training data
+  9030→export
+  9031→
+  9032→- Recurring mistakes are prioritized in training queue 3. Positive patterns are reinforced in model updates 4. Manager
+  9033→feedback is incorporated as reward signals
+  9034→
+  9035→
+  9036→
+  9037→APPENDIX D: VERSION 6.0 UPDATE SUMMARY UPDATE 1: Agent
+  9038→Lightning Training Platform Previous: Training required RunPod or
+  9039→other paid GPU services ($50+/month) Updated: Training now
+  9040→uses Unsloth + Google Colab (BOTH FREE) Impact: Zero-cost model
+  9041→fine-tuning available to all clients Implementation: See Agent
+  9042→Lightning section for complete technical details UPDATE 2:
+  9043→Training Threshold Optimization Previous: Required 100 negative
+  9044→rewards (mistakes) before training trigger Updated: Optimized to
+  9045→50 mistakes for faster learning cycles Impact: AI learns and
+  9046→improves twice as fast Rationale: Analysis showed 50 mistakes
+  9047→provides sufficient training data for meaningful improvement
+  9048→UPDATE 3: Instant Demo Experience System (NEW SECTION)
+  9049→Added: Complete new section documenting the demo system
+  9050→Features: Chat demo (FREE) + Voice demo ($1 per call) Location:
+  9051→Appendix A in this document Purpose: Reduce friction in customer
+  9052→acquisition funnel UPDATE 4: Incoming Call Handling (NEW
+  9053→SECTION) Added: Complete new section documenting voice-first
+  9054→call handling Core Rule: PARWA MUST answer all calls with voice,
+  9055→never IVR-only Location: Appendix B in this document Purpose:
+  9056→Ensure consistent customer experience UPDATE 5: RLS Security
+  9057→Testing Previous: RLS tests run weekly Updated: RLS tests run on
+  9058→EVERY COMMIT from Week 3 Location: See Testing section in
+  9059→original documentation Impact: Catches security vulnerabilities
+  9060→immediately during development UPDATE 6: Quality Coach
+  9061→Implementation Files Added: Complete implementation file
+  9062→documentation for Quality Coach feature Location: Appendix C in
+  9063→this document Availability: PARWA High variant only Purpose:
+  9064→Provide technical reference for implementation team UPDATE 7:
+  9065→Business Model Simplification Previous: Hybrid model with free
+  9066→onboarding tier Updated: Paid subscription only model Rationale:
+  9067→Simplified pricing, better margins, clearer value proposition
+  9068→Impact: All features available from day 1 of paid subscription
+  9069→

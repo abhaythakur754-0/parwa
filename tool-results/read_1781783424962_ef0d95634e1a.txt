@@ -1,0 +1,502 @@
+   440→and highly intelligent. A. Multi-Model Routing (The "Smart Router") Dynamic Strategy: The system does not rely on one
+   441→model. It dynamically selects the best tool for the job. - Light Tier (Workhorse): Models like `google/gemma-3-4b-it:free`.
+   442→Used for FAQs, Greetings, Order Status. Extremely fast. - Medium Tier (Analyst): Models like `google/gemini-2.0-flash-
+   443→exp:free`. Used for drafting responses, summarizing logs, and general assistance. - Heavy Tier (The Brain): Models like
+   444→`meta-llama/llama-3.1-405b-instruct:free` or `deepseek/deepseek-r1-0528:free`. Used for Refunds, Fraud Detection, and
+   445→complex Logic. - Automatic Routing: Based on task complexity and cost caps. If a Light Tier model hits a rate limit, the
+   446→system automatically "fails over" to the next best model. - Fallback Logic: Ensures zero downtime. B. Agentic Workflow
+   447→Engine (LangGraph) - State Management: Uses LangGraph to manage complex, multi-step tasks (like refunds). - Custom GSD
+   448→Integration: Inside LangGraph, we use the "Get Shit Done" philosophy. We don't just chat; we execute state-based steps.
+   449→`Check Policy` -> `Verify Fraud` ->
+   450→
+   451→`Calculate `Request Approval` -> (Wait) -> `Execute` (if approved). ERP -> Email ->
+   452→## Slack. C. The Manager
+   453→Supervision Layer (The Control System) - Persistent Monitoring: The software layer
+   454→watches every AI action.
+   455→- Confidence Scoring: Calculates a score (0-100%) for every decision based on pattern
+   456→match, policy alignment,
+   457→and risk signals. - Approval Gates: Hard-coded blocks on irreversible actions (Refunds >
+   458→## $100, Account
+   459→Changes). - Sentiment Monitoring: Tracks emotion; angry customers are auto-escalated to
+   460→Human. Post-Interaction QA: Rates AI performance to feed into Agent Lightning. ● Peer
+   461→Review: Allows "PARWA"
+   462→(Junior) to request help from "PARWA High" (Senior) before escalating to human, if the
+   463→model is there on the
+   464→clients side only. ● Automatic escalation when confidence < threshold ● Human
+   465→intervention capability (pause,
+   466→override, undo) D. Flexible Self-Learning System (Agent Lightning) - Pattern Recognition
+   467→from token history and
+   468→Learns company-specific edge cases. - Adaptive Policy: Adapts to policy changes via DSPy
+   469→(Automatic Prompt
+   470→
+   471→
+   472→Optimization). - Reinforcement Learning: Every manager "Accept" or "Reject" is a reward
+   473→signal. - Learns what
+   474→NOT to automate - Identifies high-risk patterns that should always require approval ●
+   475→Improves resolution
+   476→accuracy over time E. Omnichannel Memory (RAG) - Context Preservation across channels
+   477→and Customer can
+   478→start on chat, continue on phone, finish on email-AI remembers everything via pgvector.
+   479→## - Knowledge Ingestion:
+   480→Automatically indexes client PDFs for retrieval. F. The Jarvis Command Center (Iron Man
+   481→OS) ● Conversational
+   482→interface for managers ● Control AI through natural language ("PARWA, stop asking for
+   483→refund approvals")
+   484→[NEW] "Quality Coach" Control: Jarvis provides QA reports and training suggestions. ●
+   485→[NEW] "Empathy
+   486→Engine" Control: Jarvis interprets customer sentiment and routes accordingly. ● UPDATED:
+   487→Never gives generic
+   488→answers - Always responds based on actual system configuration UPDATED: Proactive Self-
+   489→## Healing - Detects
+   490→API errors/DDOS attacks and fixes them automatically. - Natural Language Control:
+   491→"Jarvis, pause refunds." Co-Pilot Mode: Jarvis drafts text for human review. - Proactive
+   492→Voice: Jarvis initiates outbound campaigns (e.g.,
+   493→abandoned carts). - System-State-Aware: Jarvis always knows if the system is in Shadow,
+   494→Supervised, or
+   495→Graduated mode. Niche Specialization Layer The Universal Core is wrapped with Niche-
+   496→## Specific Modules. This
+   497→is not just a "skin"; it adds real integrations and workflows. - Integrations: Shopify,
+   498→Magento, BigCommerce
+   499→
+   500→APIs. - Features: - Visual damage verification (Image analysis). - Cart recovery
+   501→workflows. - Proactive shipping
+   502→delay alerts. - Product recommendation engine. - Agent Workflow: Handles "Item not
+   503→received," "Wrong size,"
+   504→and "Defective item" logic with high specificity.
+   505→- Integrations: GitHub, Stripe, Chargebee billing. - Features: - In-app guidance (User
+   506→sends message from your
+   507→app). - Churn prediction based on usage drops. - Technical troubleshooting flows. -
+   508→## Agent Workflow: Specialized
+   509→in handling "API errors," "Subscription cancellation," and "Feature requests." -
+   510→Integrations: TMS/WMS
+   511→(Transportation/Warehouse Management Systems). - Features: - GPS tracking API
+   512→integration. - Driver
+   513→coordination workflows. - Proof of delivery automation. - Agent Workflow: Specialized in
+   514→"Where is my
+   515→
+   516→integrations, guardrails, and workflows change. Approval requirements don't change-they're always there.* Key Principle:
+   517→Intelligence (The Universal Core) doesn't change. Only integrations, guardrails, and workflows change. Approval
+   518→requirements don't change-they're always there. 7. The Dynamic AI Lifecycle & Agent Lightning Overview The AI hire is no
+   519→longer bound by rigid timelines. It now focuses on performance-based autonomy with specific business phases, driven by
+   520→Agent Lightning for continuous evolution. Stage 0: The Hybrid Onboarding (Day 1 - Day 2) Duration: 48 Hours (Standard).
+   521→Goal: Prove value without cost/risk. What Happens: - AI is LIVE for Chat/Email/FAQs: Customers get immediate answers (via
+   522→Light Tier models for speed). - AI is in SHADOW for Voice/Refunds/SMS: AI analyzes and simulates decisions using Custom
+   523→GSD state management (no external API costs). - Preview Mode: For complex decisions (Refunds), AI shows the Manager a
+   524→"Draft Recommendation" in a special trial dashboard. - *Note:* *"If this were the Paid Version, using my Heavy Tier
+   525→reasoning model, I
+   526→
+   527→would recommend APPROVE based on your 30-day policy."* Stage 1: Official Onboarding
+   528→(Shadow Mode Optional) Purpose: Risk-free learning period for both parties. - AI
+   529→observes all customer interactions. - Performs
+   530→full analysis: Policy check, fraud detection, reasoning. - Takes NO real-world action
+   531→(except where already active
+   532→from Onboarding). - Logs what it *would* have done (Stored as "Mistake Log" potential).
+   533→- Shows results to
+   534→manager for review. - Duration: Client-controlled (usually 1 day to 30 days, or skip
+   535→entirely).
+   536→Key Feature (GSD Implementation): If client asks "Why isn't this working?" during Shadow
+   537→## Mode, Jarvis
+   538→responds: "You're currently in Shadow Mode. In this mode, actions are observed but not
+   539→executed. That's why
+   540→you're not seeing live results for this task type. If this were live, the system would
+   541→have approved this request
+   542→based on your policy. Ready to go live? [Activate Supervised Mode]" Stage 2: Supervised
+   543→Mode (Assistance
+   544→Phase / Adaptation) Duration: Flexible, based on client comfort and AI performance
+   545→(Weeks 1-4). Goal: Build
+   546→trust through accuracy while Agent Lightning starts gathering data. What Happens: - AI
+   547→is now LIVE and
+   548→handling customer interactions. - AI performs ALL analysis work (Verification, fraud
+   549→checks, policy matching)
+   550→using Smart Router (Light/Medium/Heavy models). - NEW: AI Drafts: AI drafts responses
+   551→using Medium Tier;
+   552→Manager edits/sends. - NEW: Sentiment Routing: Angry customers routed to Human; Happy to
+   553→## AI. - AI
+   554→recommends decisions but NEVER executes refunds or critical actions. - Manager reviews
+   555→and approves/denies
+   556→with one click. - Every approval/denial trains the AI: This is where Agent Lightning
+   557→begins. What AI Handles
+   558→
+   559→Autonomously (DND Rules): - Answering FAQs. - Order status lookups. - Tracking
+   560→information. - Product
+   561→information. - Troubleshooting guides. - Creating tickets and reports.[NEW ] Drafting
+   562→responses (for Manager
+   563→review). What AI ALWAYS Asks Approval For: - All refunds (any type, any amount). - All
+   564→returns (any item). Account changes (billing, email, password). - Policy exceptions
+   565→(outside normal rules). - New decision types
+   566→(situations AI hasn't encountered). - VIP customer requests (high-value
+   567→accounts).Duration: Flexible, based on
+   568→client comfort and AI performance Key Metrics Tracked: ● Recommendation accuracy (%
+   569→approved by manager)
+   570→● [NEW] Sentiment Score (Happy vs. Angry). ● [NEW] Draft Accuracy (% of drafts sent
+   571→without edits).●
+   572→Confidence score trends 30 sec per ticket) Key Metrics Tracked: - Recommendation
+   573→accuracy (% approved by
+   574→manager). - [NEW] Sentiment Score (Happy vs. Angry). - [NEW] Draft Accuracy (% of drafts
+   575→sent without
+   576→
+   577→edits). - Confidence score trends. 30 sec per ticket). The Agent Lightning Start: In this stage, the system begins logging
+   578→"Mistakes" (Manager denials). - *Data Capture:* `{Prompt, AI_Response, Human_Correction, Outcome: Negative_Reward}`.
+   579→- *Wait Time:* We accumulate this data until we have a critical mass for fine-tuning (usually end of Week 3 or 4). Stage 3:
+   580→Graduated Autonomy (Earned Trust) Duration: Week 5-6+ (Based on KPIs). Goal: Maximize efficiency while maintaining
+   581→safety. What Changes: - After proving consistent accuracy, AI can auto-handle repetitive, low-risk tasks. - Manager sets
+   582→explicit thresholds: *"Auto-approve address changes
+   583→
+   584→after 50 consecutive correct recommendations."* - [NEW] Self-Service Enabled: If
+   585→"Customer Self-Service" rule
+   586→is active, customers can execute low-risk refunds themselves (via secure portal). - The
+   587→## Agent Lightning Loop
+   588→(Active): - The "Mistake Log" from Stage 2 is now exported. - A training job runs (via
+   589→Google Colab or RunPod)
+   590→using PyTorch Lightning. - The model is fine-tuned to avoid those specific mistakes. - A
+   591→new model version (e.g.,
+   592→`client_A_v2`) is deployed. - Result: The AI is now smarter for Week 7 than it was in
+   593→Week 1. What NEVER
+   594→Changes: - Refunds always require approval (forever, no exceptions). - Account security
+   595→changes always require
+   596→approval. - New decision types always require approval. - Policy exceptions always
+   597→require approval. The Agent
+   598→Lightning Integration This is the engine that keeps the "Lifecycle" moving forward
+   599→rather than static. - Human
+   600→(Manager) interacts with tickets. - System tags interactions: `Approved` (Positive
+   601→Reward) or `Rejected`
+   602→(Negative Reward). - Action: These are saved to the `training_data` table. - Trigger:
+   603→System detects >100
+   604→negative rewards (Mistakes) accumulated. - Process: client. Unlike standard AI that gets
+   605→"dumber" over time as
+   606→business changes, PARWA gets smarter every week because it actively learns from the
+   607→## Manager's "corrections."
+   608→- The "Control System" (Jarvis) Overview The "Manager System" has been
+   609→architecturally refined and renamed
+   610→
+   611→
+   612→to The "Control System." This distinction is critical: - The Control System (Code): This
+   613→is the software layer that
+   614→enforces safety rules (e.g., "If refund > $100, STOP"). It is not AI; it is the referee.
+   615→- Jarvis (UI): This is the
+   616→interface where the human (Client/Admin) interacts with The Control System. - The Human
+   617→(Client): The person
+   618→
+   619→providing the final "Approve/Reject" decision. Jarvis has evolved from a simple chatbot
+   620→into a complete Business
+   621→
+   622→Operating System (OS) that manages your entire AI workforce through natural language commands and visual state
+   623→monitoring. Jarvis as Your Virtual COO Jarvis is not: - A generic FAQ bot. - A help desk agent. - A sales assistant. Jarvis is: - A
+   624→system-state-aware Operating System - Always knows current operational mode (Shadow, Supervised, Graduated). - A
+   625→proactive healer - Detects API failures/DDOS attacks and fixes them automatically. - A behavioral controller - Executes
+   626→commands that change AI behavior. - A trust-building explainer - Shows reasoning, GSD state, and safety mechanisms. - A
+   627→GSD Window: Displays the structured state execution steps (see Section 3). Natural Language System Management (No
+   628→Menus) You don't need to find settings in a dropdown. You just talk to Jarvis. Examples: Jarvis executes backend pause
+   629→command. Jarvis provisions server resources. Jarvis reverses action & payment. Jarvis changes global state flags. Jarvis pulls
+   630→GSD State Log for that ticket. Trust Preservation Protocol (API Failures) When external systems (Shopify, Stripe, Server) fail,
+   631→we use a two-layer response to prevent customer churn: Layer 1: To The Customer (PARWA Bot) *Scenario:* Shopify API
+   632→times out. - *Message to Customer:* "We are currently processing a high volume of requests. Please check back in 5
+   633→minutes." - *Effect:* Customer thinks store is successful/busy, not broken. Layer
+   634→
+   635→2: To The Manager (Jarvis) - *Scenario:* Same Shopify timeout. - *Message to Manager:*
+   636→## "[!] External System
+   637→Alert (PAIC) Shopify API returned an Error (503 Service Unavailable). To protect your
+   638→customer trust, I told the
+   639→customer: *"We are currently busy."* Action Required: Check your Shopify Integration or
+   640→contact Shopify
+   641→Support." [UPDATED] Feature: The AI Draft Composer (Co-Pilot Mode) The Concept: Jarvis
+   642→acts as a Co-Pilot,
+   643→drafting text so you can focus on strategy. How It Works: generates text using Medium
+   644→## Tier. Benefit: Saves 90%
+   645→of typing time. AI learns from your edits via Agent Lightning. [UPDATED] Feature: The
+   646→## Empathy Engine
+   647→(Sentiment Routing) The Concept: AI routes customers based on emotional state, not just
+   648→logic. How It Works: Scenario A (Angry): Customer uses caps lock, negative language. -
+   649→Jarvis Detects: "Sentiment: 90% Anger." Jarvis Routes: Directly to Human Manager
+   650→(Safety). - Alert: "[!] Angry Customer: Ticket #882." - Scenario B
+   651→(Happy): Customer says "Great job!" - Jarvis Detects: "Sentiment: 95% Positive." -
+   652→Jarvis Routes: To AI
+   653→(Efficiency). [NEW] Feature: Post-Interaction QA
+   654→The Concept: Continuous improvement of AI quality. How It Works: [NEW] Feature:
+   655→## Proactive Outbound Voice
+   656→The Concept: AI doesn't just wait. It initiates. How It Works: ● Abandoned Cart Alert:
+   657→Jarvis detects abandoned
+   658→cart. ● Command: "Jarvis, call customer #555 about their cart." ● Safety: Jarvis
+   659→generates script -> Manager
+   660→approves -> Jarvis calls. [UPDATED] Feature: Intelligent Batching (Semantic Clustering)
+   661→Instead of flooding a
+   662→manager with 50 individual notifications, Jarvis uses Semantic Clustering to group
+   663→similar requests. How It
+   664→Works: Before (Overwhelming): Customer #1 wants address change Customer #2 wants address
+   665→change
+   666→Customer #3 wants address change After (Smart Batching): Batch Request: 5 customers
+   667→requesting address
+   668→changes Confidence Range: 94-98% [OK] Risk Level: Low [OK] Common Pattern: Standard
+   669→address updates, all
+   670→verified [View Details] [Approve Batch] [Review Individually] [Shadow This New Type]
+   671→Real-Time Policy
+   672→Training When a manager clicks "Always Auto-Approve This Type," Jarvis doesn't just
+   673→close the ticket-it
+   674→programmatically updates the AI's core instructions. How It Works: Manager: "Always
+   675→auto-approve address
+   676→changes like this" Jarvis: [OK] Policy Updated From now on, AI will automatically
+   677→approve: Address changes
+   678→
+   679→within same country Customer identity verified No fraud signals detected Address valid
+   680→and in service area AI
+   681→
+   682→will STILL ask for approval if: Address change to new country Multiple changes in short period (fraud signal) High-value VIP
+   683→customer Incomplete address information This rule is now active. You can disable it anytime by asking: "Jarvis, disable my
+   684→last rule." [View Full Policy] [Undo This Change] Full System Overrides (Safety
+   685→Controls) Managers can shut down specific capabilities instantly through Jarvis (Chat Only): Examples: Manager: "Pause all
+   686→refund processing" Jarvis: [OK] Refund Processing Paused All refund requests will now: Be queued for manual review Not
+   687→generate AI recommendations Show "Pending Manager Review" to customers Currently queued: 0 refunds Active mode:
+   688→Manual Only This remains active until you say "Resume refund processing" [View Queue] [Resume Now] Manager: "Handle
+   689→all Instagram DMs today, I'll take calls" Jarvis: [OK] Workflow Redirected For today: Instagram DMs -> AI (all) Facebook
+   690→messages -> AI (all) Phone calls -> You (all) Email -> AI (standard), You (VIP) AI will notify you if: VIP customer on Instagram
+   691→Crisis situation detected Customer explicitly requests human Active now. [Undo] [Modify] [Make Permanent] [UPDATED]
+   692→The Jarvis Interface & The GSD Terminal Jarvis is no longer just a chat window; it is a window into your Custom GSD State
+   693→Engine. Visual Style: Terminal / CLI Aesthetic (Get Shit Done) Instead of text bubbles, Jarvis shows the execution steps of the
+   694→GSD Agent. JARVIS - OPERATING SYSTEM SYSTEM STATUS: OPTIMAL AI AGENTS ACTIVE: 3 UPTIME: 14 Days [GSD
+   695→TERMINAL] > [INIT] System Ready. > [INPUT] "I want a refund for order #8921" > [THINKING] Analyzing Request... > [TOOL]
+   696→Calling Shopify API (get_order)... > [SUCCESS] Order found: Shipped. > [STATE UPDATE] Current Issue: Refund Request. >
+   697→[DRAFTING] Generating Recommendation... Recommendation: APPROVE
+   698→Confidence: 87% [Approve Anyway] [Request Photo] [Deny] [Ask AI to Handle] [UPDATED] The Context Health Meter (90%
+   699→Popup) To prevent long-chat hallucinations (see Section 3), Jarvis includes a visual health
+   700→
+   701→indicator. If Chat is Normal: [ Context Usage: 45% ] If Chat Hits 90% (The Trigger): [!]
+   702→## Context Limit
+   703→Reached (90%) To ensure maximum accuracy and prevent errors, Jarvis recommends starting
+   704→a new conversation.
+   705→Current Chat: 11,500 tokens Status: Risk of inaccuracies increasing. [Start New Chat]
+   706→[Continue Anyway] So
+   707→here i would like to add one more that this now here if jarvis should be able to follow
+   708→orders on how to work from
+   709→the clients, now here for example for new task now jarvis have given a new approach but
+   710→clients want to update
+   711→something something or he want to entirely change the plan and want you to do new task
+   712→as per clients
+   713→instructions our ai should be able to do that, i would like to add this one also( now
+   714→here in directly here clients are
+   715→conveying some message here through jarvis our ai should be able to bring that message
+   716→in workflow, so here in
+   717→this way our ai would be doing new things or learning new under guidance of clients also
+   718→humans would do. And
+   719→one more thing now depending on the new task here variants should act( now here for
+   720→example now clients
+   721→provided a new task , give the steps how to do it and then if ai doubts or found any
+   722→loopholes at that time it should
+   723→ask at that time itself , it cannot executewithout full knowledge here ok. Now here if
+   724→the new task is huge here and
+   725→clients have a variants then our jarvis should recommend them to go for hire variants
+   726→based on the task they
+   727→provided here). So here indriently our jarvis should be able to create a new agent from
+   728→the chatitself here ( now
+   729→here its just like chatting with llm but here llm doing all the action here in reality ,
+   730→same like what friday in end
+   731→game have done while creating the time machine element( here this is just for example
+   732→ok) Overview We have
+   733→moved away from restrictive frameworks like CrewAI in favor of a high-control, low-cost,
+   734→modular stack
+   735→
+   736→
+   737→
+   738→designed for reliability, safety, and continuous learning. Orchestration (LangGraph)
+   739→Provides 100% control over
+   740→agent workflows, allowing the AI to "loop" back and ask customers
+   741→for missing information (like photos) without losing the thread of the task. NEW:
+   742→Approval Gates Integration Every workflow includes mandatory approval checkpoints -
+   743→System can pause mid-workflow for human review State is preserved during approval wait
+   744→Prompt Optimization (DSPy)Replaces manual prompt engineering. It
+   745→automatically compiles the most efficient and accurate instructions for the AI based on
+   746→the data you upload.
+   747→NEW: Real-Time Policy Updates - When manager approves batch with "Always auto-approve
+   748→this type" - DSPy
+   749→automatically generates new decision rules - Updates AI's core instructions without
+   750→manual retraining
+   751→Interconnectivity (MCP) Uses the Model Context Protocol to create "standardized ports"
+   752→for data. This allows
+   753→PARWA to plug into any client tool (Shopify, Stripe, GitHub, etc.) without writing
+   754→custom code for integration.
+   755→Memory & Knowledge (Qdrant + RAG) A high-performance vector database powers the
+   756→## Omnichannel Memory.
+   757→This ensures the AI remembers a customer's history across phone, text, and email while
+   758→retrieving only the
+   759→relevant sections of company PDFs for each answer. Safety (Guardrails AI) A dedicated
+   760→layer that scans every
+   761→response to ensure the AI never hallucinates, mentions a competitor, or leaks data. NEW:
+   762→## Approval Requirement
+   763→Enforcement - Automatically detects irreversible actions (refunds, account changes) -
+   764→Forces approval workflow
+   765→even if AI tries to bypass - Hard-coded safety rules that cannot be overridden A. Live
+   766→Inference (Customer Facing
+   767→- Dynamic Strategy) *Models used by PARWA to talk to End Customers. Selected dynamically
+   768→via the Smart
+   769→Engine | $0. The system (via LiteLLM) dynamically selects the best Free/Open Source
+   770→Model (Gemma, Llama 3,
+   771→DeepSeek R1) based on task complexity. | | LiteLLM | Unified Proxy | $0. Manages
+   772→routing, retries, and
+   773→
+   774→connection to OpenRouter to ensure reliability. | The Smart Router Logic: - Light (Workhorse): `google/gemma-3-4b-it:free`
+   775→(FAQs, Greetings). Zero latency. - Medium (Analyst): `google/gemini-2.0-flash-exp:free` (Drafting, Summaries). High context
+   776→window. - Heavy (Brain): `meta-llama/llama-3.1-405b-instruct:free` or `deepseek/deepseek-r1-0528:free` (Refunds, Fraud).
+   777→Complex reasoning. Failover Strategy: If a free model hits a rate limit or fails, the system automatically
+   778→
+   779→Automates the loop of
+   780→exporting mistakes, fine-
+   781→tuning, and validating.
+   782→## Unsloth Speed Optimizer $0.
+   783→Fine-tunes open-source
+   784→models 2x-5x faster on GPU.
+   785→$50/mo (RunPod). Manual
+   786→training via Colab initially,
+   787→automated via RunPod upon
+   788→revenue.
+   789→Llama-3-8B The Trainable Model Low. Selected instead of
+   790→DeepSeek-V3 for cost
+   791→efficiency. Fits on T4 GPUs.
+   792→## The Weekly Loop: C. Backend
+   793→& Orchestration *The engine
+   794→Framework LangGraph State Machine & GSD Engine.
+   795→Manages transitions and "Get
+   796→Shit Done" state loops.
+   797→
+   798→
+   799→
+   800→LangChain Generic LLM
+   801→## Wrapper
+   802→DSPy Automatic
+   803→## Prompt
+   804→## Optimization.
+   805→Compiles best
+   806→instructions for
+   807→the
+   808→AI without
+   809→manual
+   810→engineering.
+   811→## Redis Caching &
+   812→## Message Queue
+   813→## D. Data &
+   814→Memory (The
+   815→"All-In-One"
+   816→PostgreSQL (via
+   817→## Supabase)
+   818→## Main Database
+   819→(Users, Tickets,
+   820→## Audit Logs).
+   821→pgvector
+   822→(Supabase
+   823→## Extension)
+   824→## Vector
+   825→## Database.
+   826→## Replaces
+   827→## Qdrant. Uses
+   828→same Postgres
+   829→DB for RAG and
+   830→embeddings.
+   831→## Postgres Saver
+   832→(LangGraph) State
+   833→## Checkpointing.
+   834→Replaces SQLite.
+   835→Stores complex
+   836→agent states
+   837→reliably.
+   838→## E. Frontend &
+   839→## UI
+   840→## Router) React
+   841→## Framework
+   842→## (SSR).
+   843→React UI Library. Tailwind CSS
+   844→## 3.4+
+   845→## Utility-first
+   846→styling.
+   847→Radix UI
+   848→
+   849→
+   850→Component primitives (Headless). | | Zustand | State Management. | F. Integration &
+   851→Safety *Connecting to other
+   852→tools and staying safe.*
+   853→plug into any client tool (Shopify, Stripe) without custom code. | | Guardrails AI |
+   854→Output Validation. Scans every
+   855→response to ensure the AI never hallucinates, mentions a competitor, or leaks data. | G.
+   856→## Development & Quality
+   857→Frontend Unit Testing. | | Semgrep | Static Analysis (Security Scan). | | Sentry | Error
+   858→## Tracking & Monitoring.
+   859→Alerts us immediately if something breaks. H. Deployment & Hosting (The "Real" Stack)
+   860→*Infrastructure strategy
+   861→Hosting (Next.js). $20/mo. Mandatory for stability. | | Backend | Railway | Backend
+   862→Hosting (FastAPI). $20/mo.
+   863→Stability for API. | | Database | Supabase Pro | Database/Auth. $25/mo. Enables pgvector
+   864→and connection pooling. |
+   865→| Total Overhead | - | - | $65/mo (Fixed base cost). | Overview To maximize profit
+   866→margins and ensure
+   867→reliability, PARWA uses an "Intelligence Failover" strategy. We do not rely on one
+   868→expensive model for
+   869→everything. Instead, we use a Smart Router that dynamically selects the most appropriate
+   870→tool for the specific job,
+   871→balancing Speed, Intelligence, and Cost. Free-First Routing The system defaults to high-
+   872→quality "free" or
+   873→subsidized models on OpenRouter for 95% of tasks. The Logic: Sentiment). | Complexity
+   874→## Score | Tier | Primary
+   875→Greetings, "Where is my order?". < 200ms latency. | | Medium (5-9) | Medium (Analyst) |
+   876→`google/gemini-2.0-flash-exp:free` | Drafting emails, analyzing sentiment, summarizing
+   877→logs. | | High (10+) |
+   878→
+   879→Heavy (Brain) | `meta-llama/llama-3.1-405b-instruct:free` or `deepseek/deepseek-r1-
+   880→0528:free` | Complex logic,
+   881→Refunds, Fraud Detection. | Smart Promotion (Dynamic Escalation) If the primary model
+   882→fails or isn't suited for
+   883→the task, the system automatically "promotes" the task to a higher tier. Scenarios: -
+   884→Scenario A (Hallucination
+   885→Risk): The Light Model is asked about a refund.
+   886→- *Action:* Router detects keyword "Refund" + Complexity Score > 10. - *Routing:* Skips
+   887→Light, routes to
+   888→Heavy Tier (`deepseek/deepseek-r1-0528:free`) for accurate reasoning. - Scenario B (Rate
+   889→## Limit): The Heavy
+   890→Model is busy. - *Action:* OpenRouter returns `429 Too Many Requests`. - *Routing:*
+   891→Router automatically
+   892→tries the next available model in Heavy Tier. The "Safety" Failover Loop To ensure 99.9%
+   893→uptime, the code
+   894→
+   895→includes a try/except loop that iterates through available models until one succeeds. Code Logic: PII Redaction (Privacy
+   896→Security) To ensure enterprise-grade privacy, a local Python layer (running on Backend) masks sensitive
+   897→data before sending it to *any* LLM-even free ones. What Gets Masked: - Credit Card Numbers: `XXXX-XXXX-XXXX-1234` -
+   898→Social Security Numbers: `XXX-XX-1234` - Bank Account Info: `XXXXXX1234` How It Works: ever saw the masked version.
+   899→The "Cost Reality" Check While our Inference Cost is effectively $0 via OpenRouter Free Tier, we acknowledge the
+   900→Infrastructure Cost for a stable B2B product. Cost Breakdown (Per Client Share): - Inference: $0 (Free Tier Models). -
+   901→Hosting: $65/mo (Vercel + Railway + Supabase). - Training: $0 (Colab) to $50/mo (RunPod). Verdict: Even with the $65/mo
+   902→infrastructure
+   903→
+   904→base cost, the gross margins on a $2,500/month subscription remain >95%. This creates a
+   905→sustainable business
+   906→model that doesn't rely on "magic" free hosting. Variant Hierarchy Every client hires an
+   907→AI workforce. We offer
+   908→three distinct roles that can be hired individually or as a team. ↓ (handles, escalates
+   909→up) PARWA (Junior) ↓
+   910→(handles, escalates up) PARWA High (Senior) ↓ (handles, escalates to human only) Human
+   911→Manager (The
+   912→Control System)``` Core Approval Rules (Apply to ALL Variants) Regardless of whether you
+   913→hire a Trainee or a
+   914→Senior Agent, the Control System (Software) enforces these safety rules. All Variants
+   915→ALWAYS Require
+   916→Approval For: - Refunds (Any Type, Any Amount). - Returns (Any item, any value). -
+   917→Account changes (Billing,
+   918→security, email, password). - Policy exceptions (Anything outside normal rules). - New
+   919→decision types (Situations
+   920→AI hasn't seen before). - VIP customer actions (High-value customer requests). -
+   921→Financial transactions (Credits,
+   922→adjustments, discounts >$10). What Varies by Variant:
+   923→- Speed of recommendation generation (Light vs. Heavy model usage). - Depth of analysis
+   924→(Basic vs. Strategic). Confidence accuracy. - Concurrent channel capacity. - Strategic
+   925→intelligence level. - [UPDATED] Peer Review
+   926→Ability: Can other agents help each other? (High can review Junior). - [UPDATED]
+   927→Sentiment Handling: Can it
+   928→detect anger automatically? Mini PARWA - "The 24/7 Trainee" Role: Handles all
+   929→repetitive, simple tasks that
+   930→freshers normally do. Cost: $1,000/month base. Handles 200 tickets/day. Capabilities: -
+   931→Answers FAQs from
+   932→knowledge base. - Checks order status (Shopify, ERP integrations). - Tracks shipments
+   933→(AfterShip, 17Track). Collects refund requests (Verifies basic eligibility, NEVER
+   934→executes ... [continues] Customer: "I want a refund for
+   935→order #8921" Mini PARWA Actions: "Order #8921, $29.99, within policy, customer tier:
+   936→Standard" Manager sees
+   937→
+   938→ticket in batch: "1 refund request - $29.99 - Standard customer - Policy compliant"
+   939→[Approve] [Deny] [Request
+
+[showing lines 440-939 of 9069; use offset=940 with limit to continue reading]
