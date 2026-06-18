@@ -72,6 +72,26 @@ COMPLEXITY_KEYWORDS_MEDIUM = [
     "previously", "again", "second time", "another",
 ]
 
+# Phase 7: Multi-issue detection signals — when a query contains
+# TWO or more distinct issues, it's at minimum "complex".
+# Each signal is independently detectable (no ordering dependency).
+MULTI_ISSUE_SIGNALS = [
+    # "twice" or "double" (replication/duplicate issue)
+    r"\btwice\b",
+    r"\bdouble\s+charge\b",
+    # Pricing discrepancy / inconsistency
+    r"\bdifferent\s+(?:price|prices|pricing|rate|amount|charge|cost)\b",
+    r"\b(?:wrong|incorrect)\s+(?:price|prices|pricing|charge|amount)\b",
+    # "same ... as" comparison pattern (user comparing their situation)
+    r"\bsame\s+(?:workspace|account|plan|team)\b",
+    # Multiple questions (2+ question marks)
+    r"\?[^?]*\?",
+    # "and" joining two distinct topics
+    r"\band\s+(?:also|why|how|what|when)\b",
+    # Monetary amount mentioned + dispute language
+    r"\$[\d,.]+.*(?:overcharge|duplicate|wrong|incorrect|twice|dispute)",
+]
+
 # Action extraction patterns
 ACTION_PATTERNS = [
     (r"\brefund.*?\$?(\d+(?:\.\d{2})?)", "execute_refund", "amount"),
@@ -79,6 +99,10 @@ ACTION_PATTERNS = [
     (r"\bchange.*(?:email|password|plan)", "account_change", "field"),
     (r"\b(?:cancel|close).*account", "cancel_account", None),
     (r"\b(?:upgrade|switch).*plan", "plan_change", "plan"),
+    # Phase 7: Pricing dispute (NOT a plan change — customer is questioning, not requesting)
+    (r"\b(?:why|how come)\s+(?:am\s+)?(?:i\s+)?(?:seeing|charged|paying|getting)\b", "investigate_billing", None),
+    (r"\b(?:different|wrong|incorrect)\s+(?:price|prices|pricing|rate|charge|amount)\b", "investigate_billing", None),
+    (r"\bcharged\s+\$?[\d,.]+\s+twice\b", "investigate_billing", "amount"),
 ]
 
 
@@ -109,8 +133,16 @@ def _classify_ticket_type(query: str) -> tuple:
 
 
 def _classify_complexity(query: str, ticket_type: str) -> str:
-    """Rule-based complexity classification."""
+    """Rule-based complexity classification.
+    Phase 7: Added multi-issue detection for dual-problem tickets."""
     query_lower = query.lower()
+
+    # Phase 7: Multi-issue detection — if 2+ signals, it's complex at minimum
+    multi_signals = sum(1 for pat in MULTI_ISSUE_SIGNALS if re.search(pat, query_lower, re.DOTALL))
+    if multi_signals >= 2:
+        return "complex"
+    if multi_signals == 1:
+        return "medium"
 
     # Check for hard complexity indicators
     hard_count = sum(1 for kw in COMPLEXITY_KEYWORDS_HARD if kw in query_lower)
@@ -131,17 +163,38 @@ def _classify_complexity(query: str, ticket_type: str) -> str:
     return "simple"
 
 
-def _extract_action(query: str) -> tuple:
+def _extract_action(query: str, ticket_type: str = "") -> tuple:
     """Extract required action and details from query.
-    Returns (action, details_dict)."""
+    Returns (action, details_dict).
+    Phase 7: Added investigate_billing for pricing disputes; prioritizes
+    investigation patterns over plan_change when the user is questioning
+    charges rather than requesting changes."""
+    # First pass: find ALL matching actions with their positions
+    matches = []
     for pattern, action, detail_key in ACTION_PATTERNS:
         match = re.search(pattern, query, re.IGNORECASE)
         if match:
             details = {}
             if detail_key and match.lastindex and match.lastindex >= 1 and match.group(1):
                 details[detail_key] = float(match.group(1))
-            return action, details
-    return "provide_info", {}
+            matches.append((match.start(), action, details))
+
+    if not matches:
+        return "provide_info", {}
+
+    # If multiple actions match, pick the one that appears first in the query
+    # (the primary intent is usually stated first)
+    matches.sort(key=lambda x: x[0])
+
+    # Phase 7: If we matched both plan_change AND investigate_billing,
+    # prefer investigate_billing — the user is questioning, not requesting.
+    actions_found = [m[1] for m in matches]
+    if "investigate_billing" in actions_found:
+        idx = actions_found.index("investigate_billing")
+        return matches[idx][1], matches[idx][2]
+
+    # Otherwise return the first match
+    return matches[0][1], matches[0][2]
 
 
 # ── DynamicContext: Pull customer context (non-LLM) ───────────────
@@ -294,7 +347,7 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
     logs.append({"node": 1, "technique": "SmartRouter.complexity", "duration_ms": 0, "result_summary": f"complexity={complexity}"})
 
     # 3. SmartRouter: extract required action (non-LLM)
-    required_action, action_details = _extract_action(query)
+    required_action, action_details = _extract_action(query, ticket_type)
     logs.append({"node": 1, "technique": "SmartRouter.action", "duration_ms": 0, "result_summary": f"action={required_action}"})
 
     # 4. DynamicContext: pull customer context (non-LLM)

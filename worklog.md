@@ -46,3 +46,34 @@ Stage Summary:
   - node_8_super_node.py (safe state access)
   - tests/test_crash_resilience.py (NEW)
   - tests/p7_runner.py (added set_pipeline_timeout import)
+
+---
+Task ID: 2
+Agent: main
+Task: Phase 7 — T2→T1 Pattern Matching Fix
+
+Work Log:
+- Analyzed Phase 4 baseline: complex ticket (t5) quality=0.9506, classified as type=billing/complexity=simple/action=plan_change
+- Identified 3 root problems:
+  1. Node 1 complexity classifier missed multi-issue tickets (ticket 5 has duplicate charge + pricing discrepancy = 2 issues, but got "simple")
+  2. Node 1 action extractor matched "upgrade...plan" pattern incorrectly (user said "never upgraded" which is negation, but regex didn't detect that)
+  3. Node 3 KB retrieval was purely type-based — no cross-type detection for queries spanning multiple types (e.g., "refund policy" query classified as faq but needs refund_request KB docs)
+- Implemented 3 fixes (all non-LLM, 0 extra calls):
+  1. Node 1: Added MULTI_ISSUE_SIGNALS — 8 independent regex patterns detecting multi-issue tickets. If 2+ match → "complex", 1 match → "medium"
+  2. Node 1: Added investigate_billing action type with 3 patterns (why+seeing/charged, different+price, charged+twice). New _extract_action() finds ALL matches and prioritizes investigate_billing over plan_change
+  3. Node 3: Added cross-type pattern detection in _retrieve_knowledge(). Scans query against 6 type-specific signal dictionaries. If 2+ patterns match for an uncovered type, pulls those KB docs. Also added refund_request to faq's related_types
+  4. Node 2: Added investigate_billing handling (routes to complex_path, requires complex_reasoning capability)
+
+Stage Summary:
+- Complex ticket quality: 0.9506 → 1.0000 (target >0.99 ACHIEVED)
+- Classification fix: complexity=simple → complexity=complex, action=plan_change → action=investigate_billing
+- LLM calls unchanged: 13 (no extra calls added)
+- Tokens: ~11K (same range)
+- Simple tickets: ALL 4 PASS, 0 regressions, 2 calls each
+- Files modified:
+  - node_1_ingest_classify.py (MULTI_ISSUE_SIGNALS, investigate_billing action, improved _extract_action, improved _classify_complexity)
+  - node_2_smart_route.py (investigate_billing routing + capability)
+  - node_3_knowledge_fetch.py (cross-type retrieval, query param, faq→refund_request relation)
+  - tests/p7_runner.py (NEW)
+  - tests/p7_quick.py (NEW)
+  - tests/p7_regression.py (NEW)

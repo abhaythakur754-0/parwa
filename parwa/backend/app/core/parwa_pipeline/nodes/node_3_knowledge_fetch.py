@@ -143,9 +143,11 @@ List 2-4 specific knowledge areas needed (one line each, no explanation):"""
 # ── Knowledge Retrieval (type-based, non-LLM) ────────────────────
 
 
-def _retrieve_knowledge(ticket_type: str) -> List[Dict[str, Any]]:
+def _retrieve_knowledge(ticket_type: str, query: str = "") -> List[Dict[str, Any]]:
     """Retrieve knowledge documents based on ticket type.
-    Phase 4: Cleaner, no unused query parameters."""
+    Phase 4: Cleaner, no unused query parameters.
+    Phase 7: Added T2→T1 cross-type detection — scans query for patterns
+    that indicate the ticket spans multiple types, and pulls those KB docs."""
     # Primary: exact type match
     docs = KNOWLEDGE_BASE.get(ticket_type, [])
 
@@ -156,10 +158,35 @@ def _retrieve_knowledge(ticket_type: str) -> List[Dict[str, Any]]:
         "account_change": ["technical", "faq"],
         "technical": ["account_change", "faq"],
         "complaint": ["billing", "faq"],
-        "faq": ["billing", "account_change"],
+        "faq": ["billing", "account_change", "refund_request"],
     }
     for rt in related_types.get(ticket_type, []):
         docs.extend(KNOWLEDGE_BASE.get(rt, []))
+
+    # Phase 7: T2→T1 Cross-type pattern detection
+    # If the query contains strong signals for a different type that isn't
+    # already covered by primary or related_types, pull those docs too.
+    if query:
+        query_lower = query.lower()
+        # Define cross-type signal patterns (query signals → should pull this type)
+        cross_type_signals = {
+            "refund_request": [r"\brefund\b", r"\bmoney\s+back\b", r"\breturn\s+my\b", r"\bprorated?\b", r"\beligibl", r"\btermination\s+fee\b"],
+            "billing": [r"\bcharg(?:ed|e|es|ing)\b", r"\binvoice\b", r"\bpayment\b", r"\bovercharge", r"\bdouble\s+charge\b", r"\bpricing\b"],
+            "technical": [r"\blogin\b", r"\bss[so]\b", r"\bpassword\b", r"\berror\b", r"\bcrash\b", r"\bnot\s+working\b", r"\bcan'?t\s+access\b", r"\bsession\b", r"\bcache\b"],
+            "faq": [r"\bwhat\s+(?:is|are)\b", r"\bhow\s+(?:do|does|much|many)\b", r"\bfeature", r"\b(?:plan|plans?)\s*(?:pricing|cost|include)\b"],
+            "complaint": [r"\bterrible\b", r"\bworst\b", r"\bunacceptab", r"\bfrustrat", r"\bdisappoint", r"\bnever\s+again\b"],
+            "account_change": [r"\bchange\s+(?:email|password)\b", r"\bupgrade\b", r"\bdowngrade\b", r"\bswitch\s+plan\b", r"\bworkspace\b", r"\bteam\s+member\b"],
+        }
+        # Determine which types are already covered
+        covered_types = {ticket_type} | set(related_types.get(ticket_type, []))
+        for cross_type, patterns in cross_type_signals.items():
+            if cross_type in covered_types:
+                continue
+            # If 2+ patterns match, this type is likely relevant
+            match_count = sum(1 for pat in patterns if re.search(pat, query_lower))
+            if match_count >= 2:
+                extra_docs = KNOWLEDGE_BASE.get(cross_type, [])
+                docs.extend(extra_docs)
 
     # Deduplicate by source
     seen = set()
@@ -361,8 +388,8 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
     logs.append({"node": 3, "technique": "CLARA", "duration_ms": 0, "result_summary": "gatekeep_done"})
     llm_calls += 1
 
-    # 2. RAG Retrieval (non-LLM, type-based)
-    documents = _retrieve_knowledge(ticket_type)
+    # 2. RAG Retrieval (non-LLM, type-based + Phase 7 cross-type)
+    documents = _retrieve_knowledge(ticket_type, query)
     logs.append({"node": 3, "technique": "RAG", "duration_ms": 0, "result_summary": f"{len(documents)} docs"})
 
     # 3. Smart knowledge filtering (Phase 4: non-LLM relevance ranking)

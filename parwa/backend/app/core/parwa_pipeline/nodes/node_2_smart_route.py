@@ -100,6 +100,10 @@ def _check_capability(tier: str, ticket_type: str, complexity: str, action: str,
     if action == "provide_info":
         return True
 
+    # Phase 7: investigate_billing needs complex reasoning
+    if action == "investigate_billing":
+        return caps.get("complex_reasoning", False)
+
     # Complex reasoning: only parwa and high
     if complexity in ("complex", "hard") and not caps["complex_reasoning"]:
         return False
@@ -156,6 +160,9 @@ def _route_decision(
         target_path = "simple_path"
     elif complexity in ("simple", "medium") and action == "recommend":
         target_path = "simple_path"
+    elif action == "investigate_billing":
+        # Phase 7: Billing investigation always needs complex reasoning path
+        target_path = "complex_path"
     else:
         target_path = "complex_path"
 

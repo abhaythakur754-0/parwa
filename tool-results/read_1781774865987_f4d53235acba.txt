@@ -1,0 +1,438 @@
+     1→     1→"""
+     2→     2→Node 3: Knowledge Fetch + AI Wiki — PHASE 6 (Wiki Integration)
+     3→     3→
+     4→     4→Phase 4 optimizations (preserved):
+     5→     5→  - REMOVED HyDE, MultiQuery, StepBack (3 LLM calls saved)
+     6→     6→  - Smarter knowledge filtering: score each doc by keyword relevance
+     7→     7→  - CLARA re-evaluate simplified: non-LLM heuristic replaces 1 LLM call
+     8→     8→  - Total: 5 LLM calls → 1 LLM call (CLARA gatekeep only)
+     9→     9→
+    10→    10→Phase 6 upgrades (AI Wiki — all non-LLM, 0 extra calls):
+    11→    11→  - _read_ai_wiki() now reads from real AI Wiki store
+    12→    12→  - Section A: Similar ticket patterns from past resolutions
+    13→    13→  - Section C: Company knowledge (admin-written policies)
+    14→    14→  - Policy sync check: detects KB version changes, invalidates stale patterns
+    15→    15→  - Wiki entries merged into knowledge_context for downstream nodes
+    16→    16→"""
+    17→    17→
+    18→    18→from __future__ import annotations
+    19→    19→
+    20→    20→import logging
+    21→    21→import re
+    22→    22→import time
+    23→    23→from typing import Any, Dict, List
+    24→    24→
+    25→    25→from app.core.parwa_pipeline.llm_client import llm_call
+    26→    26→from app.core.parwa_pipeline.state_v2 import PipelineV2State
+    27→    27→
+    28→    28→logger = logging.getLogger("parwa.pipeline.node_3")
+    29→    29→
+    30→    30→
+    31→    31→# ── Rich Knowledge Base ──────────────────────────────────────────
+    32→    32→
+    33→    33→KNOWLEDGE_BASE: Dict[str, List[Dict[str, str]]] = {
+    34→    34→    "refund_request": [
+    35→    35→        {
+    36→    36→            "source": "refund_policy_v2",
+    37→    37→            "content": "Refund Policy (Updated 2026): All customers are eligible for a full refund within 30 days of purchase, regardless of plan. After 30 days: Pro plan customers receive prorated refunds based on unused months. High plan customers receive prorated refunds minus a 5% early termination fee. Mini plan customers are not eligible for refunds after 14 days. Refunds are processed to the ORIGINAL payment method within 5-7 business days. For amounts exceeding $500, manager approval is required (typically 1-2 business days). Outstanding credits are applied BEFORE calculating the refund amount. Annual plan refunds: customer pays full year upfront, refund = annual price - (monthly rate × months used) - any applicable fees. Customer data is retained for 30 days after cancellation, then permanently deleted unless the customer requests data export within that window.",
+    38→    38→            "section": "C",
+    39→    39→        },
+    40→    40→        {
+    41→    41→            "source": "refund_process_v2",
+    42→    42→            "content": "Refund Process Steps: 1) Verify customer identity (email + last 4 digits of payment method) 2) Check refund eligibility: plan type, purchase date, previous refunds 3) Calculate refund: start with annual price, subtract used portion at monthly rate, apply any outstanding credits, subtract early termination fee if applicable 4) For High plan: subtract 5% early termination fee 5) If amount > $500: route to finance team for manager approval 6) Process refund through Stripe/payment provider 7) Send confirmation email with refund ID and expected timeline 8) Update CRM with refund status. Average processing time: 3 business days for amounts under $500, 5-7 days for larger amounts.",
+    43→    43→            "section": "C",
+    44→    44→        },
+    45→    45→        {
+    46→    46→            "source": "credit_policy",
+    47→    47→            "content": "Credit Policy: Billing error credits are applied to the next invoice. If the customer has an outstanding credit at the time of cancellation, the credit amount is ADDED to the refund. Credits do not expire and can be applied to any future purchase. To apply a credit: verify the credit was approved (check billing_audit_log), confirm the amount, apply to current transaction before processing refund. Credits from billing errors are typically equal to the overcharged amount.",
+    48→    48→            "section": "C",
+    49→    49→        },
+    50→    50→        {
+    51→    51→            "source": "data_retention_policy",
+    52→    52→            "content": "Data Retention Policy: Upon account cancellation: all customer data is retained for 30 days in a read-only state. During this period, the customer can: 1) Reactivate their account (data restored fully), 2) Request a full data export (CSV/JSON format, provided within 24 hours), 3) Request immediate permanent deletion. After 30 days: data is permanently and irreversibly deleted from all systems including backups. Team member data follows the same policy. SSO configurations are preserved at the workspace level (not deleted with individual accounts).",
+    53→    53→            "section": "C",
+    54→    54→        },
+    55→    55→    ],
+    56→    56→    "billing": [
+    57→    57→        {
+    58→    58→            "source": "billing_policy_v2",
+    59→    59→            "content": "Billing Policy (2026): Subscriptions billed monthly (1st of month) or annually (on anniversary). Upgrades: take effect immediately, customer charged prorated difference. Downgrades: take effect at end of current billing cycle, no prorated credit for partial month. Failed payments: 3 retry attempts over 7 days, then account suspended (not deleted). Invoices generated on 1st of each month, sent to billing email. Payment methods: credit card, ACH, wire transfer. Duplicate charges: if customer is charged twice in one cycle, the second charge is immediately refunded. If the duplicate was at a DIFFERENT plan rate, investigate whether an unauthorized plan change occurred. Pricing page discrepancies: all users on the same workspace should see the same pricing. If different users see different prices, check: 1) Are they on the same workspace? 2) Is there a custom enterprise agreement? 3) Cache issue — clear and recheck.",
+    60→    60→            "section": "C",
+    61→    61→        },
+    62→    62→        {
+    63→    63→            "source": "billing_dispute_process",
+    64→    64→            "content": "Billing Dispute Resolution: 1) Acknowledge the dispute immediately 2) Pull the last 3 invoices for the account 3) Compare charged amounts with plan rates: Mini $999/mo, PARWA $2,499/mo, High $4,999/mo 4) If duplicate charge found: issue immediate refund for the duplicate 5) If wrong plan rate charged: refund the difference and correct the subscription 6) If pricing page shows wrong rate: this is a display bug, report to engineering, honor the lower price for the customer 7) Provide the customer with a detailed breakdown of all charges and corrections 8) Apply a 10% goodwill credit if the error was on our side. Resolution target: 24 hours for duplicate charges, 48 hours for pricing discrepancies.",
+    65→    65→            "section": "C",
+    66→    66→        },
+    67→    67→        {
+    68→    68→            "source": "plan_pricing",
+    69→    69→            "content": "Current Plan Pricing (2026): Mini plan — $999/month or $9,999/year (17% savings). Includes: 1 agent, 500 tickets/month, email+chat channels. PARWA plan — $2,499/month or $24,999/year (17% savings). Includes: 3 agents, 2,000 tickets/month, all channels. High plan — $4,999/month or $49,999/year (17% savings). Includes: 10 agents, 10,000 tickets/month, all channels + priority support + custom integrations. All plans include: AI resolution, knowledge base, analytics dashboard. Add-ons: Extra agent seats ($99/seat/month), extra tickets ($0.50/ticket over limit), priority support ($499/month). Team member pricing: all team members on the same workspace share the same per-seat rate based on the workspace plan.",
+    70→    70→            "section": "C",
+    71→    71→        },
+    72→    72→    ],
+    73→    73→    "technical": [
+    74→    74→        {
+    75→    75→            "source": "tech_troubleshooting_v2",
+    76→    76→            "content": "Technical Troubleshooting Guide: Login issues: 1) Check if password was recently changed (security log), 2) Check SSO sync status, 3) Clear browser cache/cookies, 4) Try incognito mode, 5) Check if account is locked (3 failed attempts = 15min lockout). SSO Issues: 1) Check last sync timestamp in admin panel, 2) Verify SSO provider status (Okta/Azure AD), 3) Check SSO certificate expiration, 4) Re-sync manually from admin panel. Unauthorized access: 1) Immediately lock the account, 2) Review audit log for all actions in the suspicious period, 3) Check for data exports during the period, 4) Remove any unauthorized users, 5) Force password reset, 6) Revoke all active sessions, 7) Notify the security team if financial data is involved. Data export check: go to Admin > Audit Log > filter by 'export' events in the relevant date range.",
+    77→    77→            "section": "C",
+    78→    78→        },
+    79→    79→        {
+    80→    80→            "source": "security_protocol",
+    81→    81→            "content": "Security Incident Response Protocol: For suspected unauthorized access: Priority: CRITICAL. Step 1: Lock the affected account immediately (prevents further unauthorized actions). Step 2: Audit — pull the full session log for the past 7 days, note all login IPs, actions taken, data accessed. Step 3: Check for data exfiltration — look for export events, API key creation, webhook modifications. Step 4: Remove any unauthorized users added during the suspicious period. Step 5: Reset the account password and invalidate all sessions. Step 6: Fix SSO sync if broken — typical fix: re-authenticate with identity provider, check SCIM provisioning. Step 7: Notify the customer with a full incident report. Step 8: If financial data was accessed, escalate to the security team for GDPR/compliance review. Response time target: account lock within 5 minutes, full investigation within 2 hours.",
+    82→    82→            "section": "C",
+    83→    83→        },
+    84→    84→    ],
+    85→    85→    "faq": [
+    86→    86→        {
+    87→    87→            "source": "general_faq_v2",
+    88→    88→            "content": "PARWA Platform FAQ: PARWA is an AI-powered customer support resolution platform. Plans: Mini ($999/mo), PARWA ($2,499/mo), High ($4,999/mo). All plans include 24/7 AI support. Platform supports: email, SMS, chat, phone, CRM integration (Salesforce, HubSpot), helpdesk integration (Zendesk, Intercom). Onboarding: 30-minute setup, 24-hour knowledge base import. Plan changes: upgrades immediate with prorated billing, downgrades at next cycle. Cancellation: 30-day refund window, data retained 30 days post-cancellation. Team members: can be added/removed from workspace settings. Each workspace has one billing owner.",
+    89→    89→            "section": "C",
+    90→    90→        },
+    91→    91→        {
+    92→    92→            "source": "plan_change_faq",
+    93→    93→            "content": "Plan Change FAQ: Upgrading: Immediate effect, prorated charge for remainder of billing cycle. Downgrading: Takes effect at end of current billing cycle. No partial month credit on downgrade. Annual to monthly: At end of annual term, converts to monthly billing. Mid-year changes: If on annual plan and want to change mid-year, customer pays the difference (upgrade) or receives prorated credit (downgrade) calculated as: (annual price paid) - (monthly rate × months used) - early termination fee if applicable. Team splits: If some team members need different plans, create a second workspace under the same organization. Each workspace is billed independently. Prorated credits from the old plan can be applied to new workspace(s) as billing credits.",
+    94→    94→            "section": "C",
+    95→    95→        },
+    96→    96→        {
+    97→    97→            "source": "team_management_faq",
+    98→    98→            "content": "Team Management FAQ: Adding team members: Admin goes to Settings > Team > Invite. Each seat costs based on the workspace plan. Removing team members: Their access is revoked immediately. They can be re-added later. If a team member has an open ticket when removed: the ticket remains assigned to the workspace and can be picked up by another member. No data is lost when a member is removed. Plan changes affecting teams: If workspace downgrades and has more seats than the new plan allows, excess members are moved to 'read-only' until seats are freed or plan is upgraded.",
+    99→    99→            "section": "C",
+   100→   100→        },
+   101→   101→    ],
+   102→   102→    "complaint": [
+   103→   103→        {
+   104→   104→            "source": "complaint_handling_v2",
+   105→   105→            "content": "Complaint Handling Policy (2026): Priority tiers: Pro plan customers with 1+ year tenure get expedited resolution (target: 4 hours). High plan customers: immediate escalation to senior support. All complaints logged with timestamp, category, and sentiment score. Billing complaints: forwarded to finance team, customer notified within 1 hour. Service quality complaints: trigger interaction review, agent coaching if needed. Compensation guidelines: Mini plan: up to $50 credit or 1 free month. Pro plan: up to $200 credit or 1 free month. High plan: up to $500 credit, custom resolution with account manager. All complaints older than 48 hours without resolution are auto-escalated to management.",
+   106→   106→            "section": "C",
+   107→   107→        },
+   108→   108→    ],
+   109→   109→    "account_change": [
+   110→   110→        {
+   111→   111→            "source": "account_policy_v2",
+   112→   112→            "content": "Account Change Policy (2026): Email changes: require verification of both old and new email addresses, 24-hour cooldown before taking effect. Password changes: invalidate all active sessions, require re-login on all devices. For security: if password was changed without user requesting it, treat as potential security incident (see security protocol). Plan upgrades: immediate with prorated billing for remainder of cycle. Plan downgrades: effective at next billing cycle, no mid-cycle credit. Account deletion: permanent after 30-day grace period, requires email confirmation, data export available before deletion. Team member additions: admin-only action, new member gets default permissions based on workspace plan. SSO configuration: managed at workspace level, not per-user. SSO sync runs every hour via SCIM. If sync fails, check: provider status, SCIM endpoint, certificate expiration.",
+   113→   113→            "section": "C",
+   114→   114→        },
+   115→   115→        {
+   116→   116→            "source": "workspace_management",
+   117→   117→            "content": "Workspace Management: Each organization can have multiple workspaces. Each workspace has its own plan, team, and billing. To split a team across plans: 1) Create a new workspace under the same organization 2) Move team members to the appropriate workspace 3) Each workspace gets its own subscription. Prorated credit from the original workspace can be transferred as billing credit to the new workspace. Billing consolidation: available for organizations with 3+ workspaces. Contact sales@parwa.ai for consolidated billing setup. Open tickets: stay with the original workspace. They are not transferred when team members move.",
+   118→   118→            "section": "C",
+   119→   119→        },
+   120→   120→    ],
+   121→   121→}
+   122→   122→
+   123→   123→
+   124→   124→# ── CLARA: Gatekeeper (LLM) — Phase 4: streamlined ──────────────
+   125→   125→
+   126→   126→
+   127→   127→async def _clara_gatekeep(query: str, ticket_type: str) -> Dict[str, Any]:
+   128→   128→    """CLARA identifies what knowledge is needed. Phase 4: concise prompt."""
+   129→   129→    prompt = f"""What knowledge areas are needed to answer this {ticket_type} ticket?
+   130→   130→
+   131→   131→Ticket: "{query}"
+   132→   132→
+   133→   133→List 2-4 specific knowledge areas needed (one line each, no explanation):"""
+   134→   134→
+   135→   135→    result = await llm_call(prompt, max_tokens=150)
+   136→   136→    return {
+   137→   137→        "relevant_knowledge": result,
+   138→   138→        "knowledge_sufficient": False,
+   139→   139→        "knowledge_contradictory": False,
+   140→   140→    }
+   141→   141→
+   142→   142→
+   143→   143→# ── Knowledge Retrieval (type-based, non-LLM) ────────────────────
+   144→   144→
+   145→   145→
+   146→   146→def _retrieve_knowledge(ticket_type: str) -> List[Dict[str, Any]]:
+   147→   147→    """Retrieve knowledge documents based on ticket type.
+   148→   148→    Phase 4: Cleaner, no unused query parameters."""
+   149→   149→    # Primary: exact type match
+   150→   150→    docs = KNOWLEDGE_BASE.get(ticket_type, [])
+   151→   151→
+   152→   152→    # Secondary: also pull from related types
+   153→   153→    related_types = {
+   154→   154→        "refund_request": ["billing"],
+   155→   155→        "billing": ["refund_request", "faq"],
+   156→   156→        "account_change": ["technical", "faq"],
+   157→   157→        "technical": ["account_change", "faq"],
+   158→   158→        "complaint": ["billing", "faq"],
+   159→   159→        "faq": ["billing", "account_change"],
+   160→   160→    }
+   161→   161→    for rt in related_types.get(ticket_type, []):
+   162→   162→        docs.extend(KNOWLEDGE_BASE.get(rt, []))
+   163→   163→
+   164→   164→    # Deduplicate by source
+   165→   165→    seen = set()
+   166→   166→    unique_docs = []
+   167→   167→    for d in docs:
+   168→   168→        if d["source"] not in seen:
+   169→   169→            seen.add(d["source"])
+   170→   170→            unique_docs.append({
+   171→   171→                "content": d["content"],
+   172→   172→                "source": d["source"],
+   173→   173→                "section": d.get("section", "C"),
+   174→   174→            })
+   175→   175→
+   176→   176→    return unique_docs
+   177→   177→
+   178→   178→
+   179→   179→# ── Phase 4: Smart knowledge filtering (non-LLM) ─────────────────
+   180→   180→
+   181→   181→
+   182→   182→def _filter_relevant_docs(
+   183→   183→    documents: List[Dict[str, Any]], query: str, ticket_type: str
+   184→   184→) -> List[Dict[str, Any]]:
+   185→   185→    """Score each doc by keyword relevance to query, keep top results.
+   186→   186→    This ensures only the most relevant KB chunks go to downstream nodes."""
+   187→   187→    if not documents:
+   188→   188→        return documents
+   189→   189→
+   190→   190→    query_lower = query.lower()
+   191→   191→    # Extract significant query terms
+   192→   192→    query_terms = set(w.lower() for w in query_lower.split() if len(w) > 3)
+   193→   193→    # Also add ticket-type-specific key terms
+   194→   194→    type_keywords = {
+   195→   195→        "refund_request": {"refund", "prorated", "termination", "fee", "credit", "eligible", "days", "annual", "monthly"},
+   196→   196→        "billing": {"charge", "invoice", "payment", "billed", "subscription", "duplicate", "price", "plan", "rate"},
+   197→   197→        "technical": {"login", "sso", "password", "access", "error", "cache", "sync", "session", "lockout", "certificate"},
+   198→   198→        "faq": {"plan", "pricing", "feature", "channel", "agent", "ticket", "onboarding", "integration"},
+   199→   199→        "complaint": {"complaint", "compensation", "credit", "escalate", "resolution", "priority", "tenure"},
+   200→   200→        "account_change": {"email", "password", "plan", "upgrade", "downgrade", "workspace", "member", "sso"},
+   201→   201→    }
+   202→   202→    query_terms |= type_keywords.get(ticket_type, set())
+   203→   203→
+   204→   204→    # Remove common filler
+   205→   205→    filler = {"that", "this", "have", "been", "will", "would", "could", "should",
+   206→   206→              "their", "there", "about", "which", "where", "when", "what", "with",
+   207→   207→              "from", "your", "just", "also", "than", "them", "they", "some"}
+   208→   208→    query_terms -= filler
+   209→   209→
+   210→   210→    # Score each document
+   211→   211→    scored_docs = []
+   212→   212→    for doc in documents:
+   213→   213→        text = doc.get("content", "").lower()
+   214→   214→        doc_words = set(text.split())
+   215→   215→        overlap = len(query_terms & doc_words)
+   216→   216→        # Also check for query phrase presence (bigrams)
+   217→   217→        query_bigrams = set()
+   218→   218→        words = query_lower.split()
+   219→   219→        for i in range(len(words) - 1):
+   220→   220→            bg = f"{words[i]} {words[i+1]}"
+   221→   221→            if len(bg) > 6:
+   222→   222→                query_bigrams.add(bg)
+   223→   223→        bigram_hits = sum(1 for bg in query_bigrams if bg in text)
+   224→   224→
+   225→   225→        score = overlap + (bigram_hits * 2)  # bigrams worth more
+   226→   226→        scored_docs.append((score, doc))
+   227→   227→
+   228→   228→    # Sort by relevance, keep all (but order matters for downstream truncation)
+   229→   229→    scored_docs.sort(key=lambda x: x[0], reverse=True)
+   230→   230→
+   231→   231→    # If we have more than 8 docs, trim to top 8 (reduces downstream token waste)
+   232→   232→    if len(scored_docs) > 8:
+   233→   233→        scored_docs = scored_docs[:8]
+   234→   234→
+   235→   235→    return [doc for _, doc in scored_docs]
+   236→   236→
+   237→   237→
+   238→   238→# ── Phase 4: Non-LLM CLARA sufficiency check (replaces 1 LLM call) ─
+   239→   239→
+   240→   240→
+   241→   241→def _check_knowledge_sufficiency(
+   242→   242→    documents: List[Dict[str, Any]], query: str, ticket_type: str
+   243→   243→) -> Dict[str, bool]:
+   244→   244→    """Non-LLM heuristic: do we have KB docs for this ticket type?
+   245→   245→    Replaces the LLM-based CLARA re-evaluate from Phase 2."""
+   246→   246→    has_primary = any(d.get("source", "") in {
+   247→   247→        "refund_policy_v2", "billing_policy_v2", "tech_troubleshooting_v2",
+   248→   248→        "general_faq_v2", "complaint_handling_v2", "account_policy_v2",
+   249→   249→    } for d in documents)
+   250→   250→
+   251→   251→    # If we have docs for the primary type, knowledge is likely sufficient
+   252→   252→    type_doc_counts = {
+   253→   253→        "refund_request": 4, "billing": 3, "technical": 2,
+   254→   254→        "faq": 3, "complaint": 1, "account_change": 2,
+   255→   255→    }
+   256→   256→    expected = type_doc_counts.get(ticket_type, 2)
+   257→   257→    sufficient = len(documents) >= max(expected - 1, 1) and has_primary
+   258→   258→
+   259→   259→    return {
+   260→   260→        "knowledge_sufficient": sufficient,
+   261→   261→        "knowledge_contradictory": False,  # our KB is internally consistent
+   262→   262→    }
+   263→   263→
+   264→   264→
+   265→   265→# ── Helpers ────────────────────────────────────────────────────────
+   266→   266→
+   267→   267→
+   268→   268→def _check_contradictions(documents: List[Dict[str, Any]]) -> bool:
+   269→   269→    """Quick keyword-level contradiction check."""
+   270→   270→    if len(documents) < 2:
+   271→   271→        return False
+   272→   272→    all_numbers = {}
+   273→   273→    for doc in documents:
+   274→   274→        text = doc.get("content", "")
+   275→   275→        for match in re.finditer(r"(\d+)%", text):
+   276→   276→            num = int(match.group(1))
+   277→   277→            context = text[max(0, match.start()-30):match.end()+30].lower()
+   278→   278→            for keyword in ["refund", "fee", "credit", "discount"]:
+   279→   279→                if keyword in context:
+   280→   280→                    if keyword in all_numbers and all_numbers[keyword] != num:
+   281→   281→                        return True
+   282→   282→                    all_numbers[keyword] = num
+   283→   283→    return False
+   284→   284→
+   285→   285→
+   286→   286→def _read_ai_wiki(tenant_id: str, ticket_type: str, query: str, tier: str = "parwa") -> tuple:
+   287→   287→    """Phase 6: Read AI Wiki Sections A, B, C from real store.
+   288→   288→    
+   289→   289→    Returns (section_a_entries, section_b_entries, section_c_entries)
+   290→   290→    as lists of dicts in node format (same shape as KB docs).
+   291→   291→    All non-LLM — keyword search only.
+   292→   292→    """
+   293→   293→    from app.core.parwa_pipeline.ai_wiki_store import get_wiki_store
+   294→   294→    
+   295→   295→    wiki = get_wiki_store()
+   296→   296→    wiki_a_raw = []
+   297→   297→    wiki_b_raw = []
+   298→   298→    wiki_c_raw = []
+   299→   299→    
+   300→   300→    try:
+   301→   301→        # Section A: Search for similar ticket patterns (top 3)
+   302→   302→        wiki_a_raw = wiki.search(
+   303→   303→            tenant_id=tenant_id, section="A", query=query,
+   304→   304→            ticket_type=ticket_type, tier=tier, max_results=3,
+   305→   305→        )
+   306→   306→        
+   307→   307→        # Section B: Read admin behavior patterns (all, max 2)
+   308→   308→        wiki_b_raw = wiki.read(tenant_id=tenant_id, section="B", tier=tier)
+   309→   309→        wiki_b_raw = wiki_b_raw[:2]  # limit for context window
+   310→   310→        
+   311→   311→        # Section C: Read company knowledge (all, max 3)
+   312→   312→        wiki_c_raw = wiki.read(tenant_id=tenant_id, section="C", tier=tier)
+   313→   313→        wiki_c_raw = wiki_c_raw[:3]
+   314→   314→    except Exception as e:
+   315→   315→        logger.warning("Wiki read error (non-fatal): %s", e)
+   316→   316→    
+   317→   317→    # Convert to node format (same shape as KB docs)
+   318→   318→    wiki_a = [e.to_node_format() for e in wiki_a_raw]
+   319→   319→    wiki_b = [e.to_node_format() for e in wiki_b_raw]
+   320→   320→    wiki_c = [e.to_node_format() for e in wiki_c_raw]
+   321→   321→    
+   322→   322→    # Build wiki summary for similar patterns found
+   323→   323→    wiki_patterns = []
+   324→   324→    for entry in wiki_a_raw:
+   325→   325→        c = entry.content
+   326→   326→        wiki_patterns.append({
+   327→   327→            "entry_key": entry.entry_key,
+   328→   328→            "techniques_that_worked": c.get("techniques_that_worked", []),
+   329→   329→            "quality_achieved": c.get("quality_achieved", 0),
+   330→   330→            "answer_summary": c.get("answer_summary", "")[:200],
+   331→   331→            "historical_success_rate": round(entry.success_count / max(entry.usage_count, 1), 3),
+   332→   332→        })
+   333→   333→    
+   334→   334→    return wiki_a, wiki_b, wiki_c, wiki_patterns
+   335→   335→
+   336→   336→
+   337→   337→def _fetch_crm_data(tenant_id: str, customer_context: Dict) -> Dict:
+   338→   338→    """Fetch CRM data via UCB. Mock for Phase 7."""
+   339→   339→    return {
+   340→   340→        "subscription_status": customer_context.get("account_tier", "free"),
+   341→   341→        "recent_interactions": customer_context.get("recent_ticket_count", 0),
+   342→   342→        "billing_email": customer_context.get("billing_email", "on file"),
+   343→   343→    }
+   344→   344→
+   345→   345→
+   346→   346→# ── Main Node Function ────────────────────────────────────────────
+   347→   347→
+   348→   348→
+   349→   349→async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
+   350→   350→    """Node 3: Knowledge Fetch — Phase 4 optimized.
+   351→   351→    LLM calls: 1 (was 5) — removed HyDE, MultiQuery, StepBack, CLARA re-evaluate."""
+   352→   352→    start = time.time()
+   353→   353→    query = state.get("query", "")
+   354→   354→    tenant_id = state.get("tenant_id", "")
+   355→   355→    ticket_type = state.get("ticket_type", "general")
+   356→   356→    logs = []
+   357→   357→    llm_calls = 0
+   358→   358→
+   359→   359→    # 1. CLARA: Gatekeeper (LLM) — the ONLY LLM call in Node 3 now
+   360→   360→    clara_result = await _clara_gatekeep(query, ticket_type)
+   361→   361→    logs.append({"node": 3, "technique": "CLARA", "duration_ms": 0, "result_summary": "gatekeep_done"})
+   362→   362→    llm_calls += 1
+   363→   363→
+   364→   364→    # 2. RAG Retrieval (non-LLM, type-based)
+   365→   365→    documents = _retrieve_knowledge(ticket_type)
+   366→   366→    logs.append({"node": 3, "technique": "RAG", "duration_ms": 0, "result_summary": f"{len(documents)} docs"})
+   367→   367→
+   368→   368→    # 3. Smart knowledge filtering (Phase 4: non-LLM relevance ranking)
+   369→   369→    filtered = _filter_relevant_docs(documents, query, ticket_type)
+   370→   370→    logs.append({"node": 3, "technique": "SmartFilter", "duration_ms": 0, "result_summary": f"{len(documents)}→{len(filtered)}"})
+   371→   371→
+   372→   372→    # 4. Knowledge sufficiency check (Phase 4: non-LLM, replaces CLARA re-evaluate LLM call)
+   373→   373→    sufficiency = _check_knowledge_sufficiency(filtered, query, ticket_type)
+   374→   374→    clara_result["knowledge_sufficient"] = sufficiency["knowledge_sufficient"]
+   375→   375→    clara_result["knowledge_contradictory"] = sufficiency["knowledge_contradictory"]
+   376→   376→    logs.append({"node": 3, "technique": "SufficiencyCheck", "duration_ms": 0,
+   377→   377→                 "result_summary": f"sufficient={sufficiency['knowledge_sufficient']}"})
+   378→   378→
+   379→   379→    # 5. Contradiction check (non-LLM)
+   380→   380→    has_contradiction = _check_contradictions(filtered)
+   381→   381→    if has_contradiction:
+   382→   382→        clara_result["knowledge_contradictory"] = True
+   383→   383→        logs.append({"node": 3, "technique": "ContradictionCheck", "duration_ms": 0, "result_summary": "CONTRADICTION_FOUND"})
+   384→   384→
+   385→   385→    # 6. DynamicContext (non-LLM)
+   386→   386→    dynamic_ctx = state.get("customer_context", {})
+   387→   387→    logs.append({"node": 3, "technique": "DynamicContext", "duration_ms": 0, "result_summary": "context_pulled"})
+   388→   388→
+   389→   389→    # 7. AI Wiki (Phase 6: real store reads)
+   390→   390→    tier = state.get("variant_tier", "parwa")
+   391→   391→    wiki_a, wiki_b, wiki_c, wiki_patterns = _read_ai_wiki(tenant_id, ticket_type, query, tier)
+   392→   392→    wiki_log_msg = f"A={len(wiki_a)} B={len(wiki_b)} C={len(wiki_c)}"
+   393→   393→    if wiki_patterns:
+   394→   394→        wiki_log_msg += f" patterns_found={len(wiki_patterns)}"
+   395→   395→    logs.append({"node": 3, "technique": "AIWiki", "duration_ms": 0,
+   396→   396→                 "result_summary": wiki_log_msg})
+   397→   397→    
+   398→   398→    # 7b. Policy sync check (Phase 6: detect version changes)
+   399→   399→    sync_status = {"synced": True, "version": "v2.0", "previous_version": None}
+   400→   400→    try:
+   401→   401→        from app.core.parwa_pipeline.ai_wiki_store import get_wiki_store
+   402→   402→        wiki_store = get_wiki_store()
+   403→   403→        current_policy_version = state.get("policy_version", "v2.0")
+   404→   404→        sync_status = wiki_store.check_policy_sync(tenant_id, current_policy_version)
+   405→   405→        if not sync_status["synced"]:
+   406→   406→            logs.append({
+   407→   407→                "node": 3, "technique": "PolicySyncCheck",
+   408→   408→                "duration_ms": 0,
+   409→   409→                "result_summary": f"POLICY_CHANGED {sync_status['previous_version']} → {sync_status['version']} ({sync_status.get('patterns_invalidated', 0)} invalidated)",
+   410→   410→            })
+   411→   411→    except Exception as e:
+   412→   412→        logger.warning("Policy sync check failed (non-fatal): %s", e)
+   413→   413→
+   414→   414→    # 8. CRM via UCB (mock)
+   415→   415→    crm_data = _fetch_crm_data(tenant_id, dynamic_ctx)
+   416→   416→    logs.append({"node": 3, "technique": "UCB", "duration_ms": 0, "result_summary": "crm_fetched"})
+   417→   417→
+   418→   418→    elapsed = int((time.time() - start) * 1000)
+   419→   419→    logger.info(
+   420→   420→        "Node 3 complete: ticket=%s docs=%d sufficient=%s llm=%d [%dms]",
+   421→   421→        state["ticket_id"], len(filtered), clara_result["knowledge_sufficient"], llm_calls, elapsed,
+   422→   422→    )
+   423→   423→
+   424→   424→    return {
+   425→   425→        "knowledge_context": filtered,
+   426→   426→        "wiki_section_a": wiki_a,
+   427→   427→        "wiki_section_b": wiki_b,
+   428→   428→        "wiki_section_c": wiki_c,
+   429→   429→        "wiki_patterns": wiki_patterns,  # Phase 6: similar patterns for downstream nodes
+   430→   430→        "crm_data": crm_data,
+   431→   431→        "knowledge_sufficient": clara_result["knowledge_sufficient"],
+   432→   432→        "knowledge_contradictory": clara_result["knowledge_contradictory"],
+   433→   433→        "policy_version": "v2.0",
+   434→   434→        "policy_sync_status": sync_status,  # Phase 6: sync status
+   435→   435→        "technique_log": logs,
+   436→   436→        "node_3_token_usage": llm_calls,
+   437→   437→        "total_token_usage": state.get("total_token_usage", 0) + llm_calls,
+   438→   438→    }
