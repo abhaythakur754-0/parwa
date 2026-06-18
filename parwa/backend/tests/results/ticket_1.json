@@ -1,6 +1,6 @@
 {
   "ticket_id": "tkt_phase1_001",
   "status": "ERROR",
-  "error": "litellm.BadRequestError: LLM Provider NOT provided. Pass in the LLM provider you are trying to call. You passed model=meta/llama-3.1-8b-instruct\n Pass model as E.g. For 'Huggingface' inference endpoints pass in `completion(model='huggingface/starcoder',..)` Learn more: https://docs.litellm.ai/docs/providers",
-  "elapsed_seconds": 2.53
+  "error": "All LLM backends failed. Last error: NVIDIA API 403: {\"status\":403,\"title\":\"Forbidden\",\"detail\":\"Authorization failed\"}",
+  "elapsed_seconds": 93.29
 }

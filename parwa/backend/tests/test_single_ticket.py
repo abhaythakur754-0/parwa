@@ -1,12 +1,10 @@
 """
 PARWA Phase 1 — Single Ticket Runner
 
-Runs ONE ticket through the full pipeline with real NVIDIA API.
+Runs ONE ticket through the full pipeline with z-ai SDK (auto model routing).
 Saves results to /home/z/my-project/parwa/backend/tests/results/ticket_N.json
 Call with: python tests/test_single_ticket.py N
   N = 1,2,3,4
-
-After each ticket, wait 65s for rate limit reset before running next.
 """
 import asyncio
 import json
