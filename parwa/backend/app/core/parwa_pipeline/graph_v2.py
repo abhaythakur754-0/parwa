@@ -1,21 +1,21 @@
 """
-PARWA Pipeline V2 — Graph Definition (Phase 6: Wiki Write-Back)
+PARWA Pipeline V2 — Graph Definition (Phase 7: In-Graph Wiki Write-Back)
 
 Wires all 8 nodes with LangGraph StateGraph.
-Phase 6: Wiki write-back on successful resolution (learning loop).
+Phase 7: Wiki write-back INSIDE the graph for both paths.
 
 Flow:
   Node 1 (Ingest+Classify) → Node 2 (Smart Route)
     ├── simple_path  → Node 3 (Knowledge) → Node 7 (Simple Resolver)
+    │                     ├── PASS → finalize_simple (wiki write) → END
     │                     └── auto_upgraded → Node 4 (Reasoning) path
     └── complex_path → Node 3 (Knowledge) → Node 4 (Reasoning)
                                                   → Node 5 (Act+Verify)
                                                   → Node 6 (Quality)
-                                                    ├── PASS → Wiki Write → END (resolved)
+                                                    ├── PASS → wiki_finalize (wiki write) → END
                                                     ├── FAIL + loops < 2 → Node 4 (loop)
                                                     └── FAIL + loops >= 2 → Node 8 (Super Node)
-                                                                          ├── PASS → Wiki Write → END (resolved)
-                                                                          └── FAIL → END (escalated)
+                                                                          → END
 """
 
 from __future__ import annotations
@@ -70,10 +70,13 @@ def _route_after_node_7(state: PipelineV2State) -> Literal["node_4", "__end__"]:
     return "__end__"
 
 
-def _route_after_node_6(state: PipelineV2State) -> Literal["node_4", "node_8", "__end__"]:
+def _route_after_node_6(state: PipelineV2State) -> Literal["node_4", "node_8", "wiki_finalize"]:
     """After Node 6: quality gate decision.
 
-    PASS (quality >= 90%) → END (resolved)
+    Phase 7: PASS now goes to wiki_finalize (in-graph wiki write-back)
+    instead of directly to __end__.
+
+    PASS (quality >= 90%) → wiki_finalize → END (resolved)
     FAIL + loops < MAX → Node 4 (retry)
     FAIL + loops >= MAX → Node 8 (Super Node)
     """
@@ -82,20 +85,20 @@ def _route_after_node_6(state: PipelineV2State) -> Literal["node_4", "node_8", "
 
     if quality >= QUALITY_PASS_THRESHOLD:
         logger.info(
-            "Quality PASSED: score=%.2f >= %.2f → resolved",
+            "Quality PASSED: score=%.4f >= %.2f → wiki_finalize",
             quality, QUALITY_PASS_THRESHOLD,
         )
-        return "__end__"
+        return "wiki_finalize"
 
     if loop_count < MAX_QUALITY_LOOPS:
         logger.info(
-            "Quality FAILED: score=%.2f, loop=%d/%d → back to Node 4",
+            "Quality FAILED: score=%.4f, loop=%d/%d → back to Node 4",
             quality, loop_count + 1, MAX_QUALITY_LOOPS,
         )
         return "node_4"
 
     logger.info(
-        "Quality FAILED after %d loops: score=%.2f → Node 8 (Super Node)",
+        "Quality FAILED after %d loops: score=%.4f → Node 8 (Super Node)",
         MAX_QUALITY_LOOPS, quality,
     )
     return "node_8"
@@ -115,14 +118,27 @@ def _increment_loop(state: PipelineV2State) -> dict:
 
 
 def _finalize_simple(state: PipelineV2State) -> dict:
-    """Set final response from simple resolver + Phase 6: wiki write-back."""
-    # Phase 6: Write pattern to Wiki Section A on successful simple resolution
+    """Set final response from simple resolver + wiki write-back."""
     _wiki_write_on_resolve(state, techniques=["Node7_SimpleResolver", "GSD", "MAKER", "FederatedReasoning"])
     return {
         "final_response": state.get("simple_answer", ""),
         "status": "resolved",
         "formatted_response": state.get("simple_answer", ""),
         "quality_passed": True,
+    }
+
+
+def _wiki_finalize_complex(state: PipelineV2State) -> dict:
+    """Phase 7: Wiki write-back for complex path + set final response.
+
+    This node is called AFTER Node 6 quality passes on the complex path.
+    Previously wiki write-back was only in run_parwa_pipeline() wrapper,
+    which tests bypassed via compiled.ainvoke().
+    """
+    _wiki_write_on_resolve(state)
+    return {
+        "final_response": state.get("formatted_response", "") or state.get("combined_answer", ""),
+        "status": "resolved",
     }
 
 
@@ -229,6 +245,7 @@ def build_parwa_pipeline() -> StateGraph:
     graph.add_node("node_8", node_8_super_node)
     graph.add_node("increment_loop", _increment_loop)
     graph.add_node("finalize_simple", _finalize_simple)
+    graph.add_node("wiki_finalize", _wiki_finalize_complex)  # Phase 7: in-graph wiki write
 
     # ── Add Edges ─────────────────────────────────────────────────
 
@@ -259,12 +276,16 @@ def build_parwa_pipeline() -> StateGraph:
     # Node 5 (Act+Verify) → Node 6
     graph.add_edge("node_5", "node_6")
 
-    # Node 6 (Quality) → SPLIT: pass → end, fail → loop or super
+    # Node 6 (Quality) → SPLIT: pass → wiki write, fail → loop or super
+    # Phase 7: pass now goes to wiki_finalize (in-graph wiki write-back)
     graph.add_conditional_edges("node_6", _route_after_node_6, {
-        "__end__": "__end__",
+        "wiki_finalize": "wiki_finalize",
         "node_4": "increment_loop",
         "node_8": "node_8",
     })
+
+    # Wiki finalize (complex path) → END
+    graph.add_edge("wiki_finalize", "__end__")
 
     # Increment loop counter → back to Node 4
     graph.add_edge("increment_loop", "node_4")
@@ -275,6 +296,6 @@ def build_parwa_pipeline() -> StateGraph:
     # Finalize simple → END
     graph.add_edge("finalize_simple", "__end__")
 
-    logger.info("PARWA Pipeline V2 built: 8 nodes, dual path, quality loop (max %d), Phase 6 wiki write-back", MAX_QUALITY_LOOPS)
+    logger.info("PARWA Pipeline V2 built: 8 nodes, dual path, quality loop (max %d), Phase 7 in-graph wiki write-back", MAX_QUALITY_LOOPS)
 
     return graph
