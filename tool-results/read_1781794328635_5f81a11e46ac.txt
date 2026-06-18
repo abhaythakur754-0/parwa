@@ -1,0 +1,933 @@
+     1→     1→"""
+     2→     2→Jarvis Command Executor — Wave 3: Control System
+     3→     3→
+     4→     4→When the admin says "pause refunds", it ACTUALLY happens.
+     5→     5→This module is the execution engine between intent classification and DB writes.
+     6→     6→
+     7→     7→5-Step Execution Pipeline:
+     8→     8→  1. VALIDATE  — Is this action legal? Does it conflict with existing flags?
+     9→     9→  2. RESOLVE   — What exactly should be written? (target normalization, scope parsing)
+    10→    10→  3. EXECUTE   — Write to system_flags + audit_trail
+    11→    11→  4. VERIFY    — Read back and confirm
+    12→    12→  5. RESPOND   — Format human-readable confirmation
+    13→    13→
+    14→    14→Key features:
+    15→    15→  - Conflict detection (can't pause and resume same target simultaneously)
+    16→    16→  - Validation rules (valid modes, valid targets, scope checks)
+    17→    17→  - Undo stack (every control command can be reversed)
+    18→    18→  - Expiry parsing ("for today" → ISO timestamp)
+    19→    19→  - Approval override management (permanent auto-approve rules)
+    20→    20→
+    21→    21→Zero new dependencies. Uses only jarvis_db.
+    22→    22→"""
+    23→    23→from __future__ import annotations
+    24→    24→
+    25→    25→import logging
+    26→    26→import re
+    27→    27→from datetime import datetime, timezone, timedelta
+    28→    28→from typing import Any, Dict, List, Optional, Tuple
+    29→    29→
+    30→    30→from .jarvis_db import get_db
+    31→    31→
+    32→    32→logger = logging.getLogger("jarvis.executor")
+    33→    33→
+    34→    34→
+    35→    35→# ── Valid Targets ──────────────────────────────────────────────
+    36→    36→
+    37→    37→VALID_PAUSE_TARGETS = {
+    38→    38→    "refund", "refunds", "return", "returns",
+    39→    39→    "account_change", "account_changes",
+    40→    40→    "all", "everything", "processing",
+    41→    41→}
+    42→    42→
+    43→    43→VALID_MODES = {"shadow", "supervised", "graduated"}
+    44→    44→
+    45→    45→VALID_CHANNELS = {
+    46→    46→    "instagram", "email", "call", "calls",
+    47→    47→    "dm", "sms", "whatsapp", "all",
+    48→    48→}
+    49→    49→
+    50→    50→# Actions that have permanent scope (can't auto-expire)
+    51→    51→PERMANENT_ACTIONS = {"global_shutdown", "approval_override"}
+    52→    52→
+    53→    53→# Actions that should auto-revoke conflicting flags
+    54→    54→AUTO_REVOKE_CONFLICTS = {
+    55→    55→    "control_pause": "control_resume",
+    56→    56→    "control_resume": "control_pause",
+    57→    57→}
+    58→    58→
+    59→    59→
+    60→    60→# ── Validation Result ──────────────────────────────────────────
+    61→    61→
+    62→    62→class ValidationResult:
+    63→    63→    """Result of command validation."""
+    64→    64→
+    65→    65→    __slots__ = ("valid", "reason", "normalized_target", "parsed_scope",
+    66→    66→                 "parsed_expires_at", "conflicts", "warnings")
+    67→    67→
+    68→    68→    def __init__(
+    69→    69→        self,
+    70→    70→        valid: bool = True,
+    71→    71→        reason: str = "OK",
+    72→    72→        normalized_target: str = "",
+    73→    73→        parsed_scope: str = "global",
+    74→    74→        parsed_expires_at: Optional[str] = None,
+    75→    75→        conflicts: Optional[List[Dict]] = None,
+    76→    76→        warnings: Optional[List[str]] = None,
+    77→    77→    ):
+    78→    78→        self.valid = valid
+    79→    79→        self.reason = reason
+    80→    80→        self.normalized_target = normalized_target
+    81→    81→        self.parsed_scope = parsed_scope
+    82→    82→        self.parsed_expires_at = parsed_expires_at
+    83→    83→        self.conflicts = conflicts or []
+    84→    84→        self.warnings = warnings or []
+    85→    85→
+    86→    86→    def to_dict(self) -> Dict:
+    87→    87→        return {
+    88→    88→            "valid": self.valid,
+    89→    89→            "reason": self.reason,
+    90→    90→            "normalized_target": self.normalized_target,
+    91→    91→            "parsed_scope": self.parsed_scope,
+    92→    92→            "parsed_expires_at": self.parsed_expires_at,
+    93→    93→            "conflicts": self.conflicts,
+    94→    94→            "warnings": self.warnings,
+    95→    95→        }
+    96→    96→
+    97→    97→
+    98→    98→# ── Execution Result ───────────────────────────────────────────
+    99→    99→
+   100→   100→class ExecutionResult:
+   101→   101→    """Result of a command execution."""
+   102→   102→
+   103→   103→    __slots__ = ("success", "response", "flag", "audit", "undo_id",
+   104→   104→                 "conflicts_resolved", "warnings")
+   105→   105→
+   106→   106→    def __init__(
+   107→   107→        self,
+   108→   108→        success: bool,
+   109→   109→        response: str,
+   110→   110→        flag: Optional[Dict] = None,
+   111→   111→        audit: Optional[Dict] = None,
+   112→   112→        undo_id: Optional[str] = None,
+   113→   113→        conflicts_resolved: Optional[List[Dict]] = None,
+   114→   114→        warnings: Optional[List[str]] = None,
+   115→   115→    ):
+   116→   116→        self.success = success
+   117→   117→        self.response = response
+   118→   118→        self.flag = flag
+   119→   119→        self.audit = audit
+   120→   120→        self.undo_id = undo_id
+   121→   121→        self.conflicts_resolved = conflicts_resolved or []
+   122→   122→        self.warnings = warnings or []
+   123→   123→
+   124→   124→    def to_dict(self) -> Dict:
+   125→   125→        return {
+   126→   126→            "success": self.success,
+   127→   127→            "response": self.response,
+   128→   128→            "flag_id": self.flag.get("id") if self.flag else None,
+   129→   129→            "undo_id": self.undo_id,
+   130→   130→            "conflicts_resolved": len(self.conflicts_resolved),
+   131→   131→            "warnings": self.warnings,
+   132→   132→        }
+   133→   133→
+   134→   134→
+   135→   135→# ═══════════════════════════════════════════════════════════════
+   136→   136→# STEP 1: VALIDATE
+   137→   137→# ═══════════════════════════════════════════════════════════════
+   138→   138→
+   139→   139→def _normalize_target(intent: str, target: str) -> str:
+   140→   140→    """Normalize target to canonical form."""
+   141→   141→    t = target.lower().strip()
+   142→   142→    if t in ("all", "everything"):
+   143→   143→        return "all"
+   144→   144→    # Singular → plural for pause/resume
+   145→   145→    singular_map = {
+   146→   146→        "refund": "refund", "return": "return",
+   147→   147→        "account change": "account_change",
+   148→   148→        "account_change": "account_change",
+   149→   149→        "refunds": "refund", "returns": "return",
+   150→   150→    }
+   151→   151→    for key, val in singular_map.items():
+   152→   152→        if t == key:
+   153→   153→            return val
+   154→   154→    return t
+   155→   155→
+   156→   156→
+   157→   157→def _parse_temporal_scope(raw_input: str, intent: str) -> Tuple[str, Optional[str]]:
+   158→   158→    """Parse temporal scope from the original input text.
+   159→   159→
+   160→   160→    Returns (scope, expires_at_iso) tuple.
+   161→   161→    scope: 'permanent', 'temporary', 'global'
+   162→   162→    expires_at_iso: ISO timestamp or None
+   163→   163→    """
+   164→   164→    text = raw_input.lower()
+   165→   165→
+   166→   166→    # "for today" / "today" → temporary, expires end of day UTC
+   167→   167→    if re.search(r"\bfor today\b|\btoday\b|\bthis weekend\b|\bfor the rest of today\b", text):
+   168→   168→        now = datetime.now(timezone.utc)
+   169→   169→        end_of_day = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+   170→   170→        return "temporary", end_of_day.isoformat()
+   171→   171→
+   172→   172→    # "for X hours" / "for X minutes"
+   173→   173→    hours_match = re.search(r"\bfor\s+(\d+(?:\.\d+)?)\s+hours?\b", text)
+   174→   174→    if hours_match:
+   175→   175→        hours = float(hours_match.group(1))
+   176→   176→        expires = datetime.now(timezone.utc) + timedelta(hours=hours)
+   177→   177→        return "temporary", expires.isoformat()
+   178→   178→
+   179→   179→    minutes_match = re.search(r"\bfor\s+(\d+)\s+minutes?\b", text)
+   180→   180→    if minutes_match:
+   181→   181→        minutes = int(minutes_match.group(1))
+   182→   182→        expires = datetime.now(timezone.utc) + timedelta(minutes=minutes)
+   183→   183→        return "temporary", expires.isoformat()
+   184→   184→
+   185→   185→    # "always" / "permanently" / "permanent" → permanent
+   186→   186→    if re.search(r"\balways\b|\bpermanently\b|\bpermanent\b|\bforever\b", text):
+   187→   187→        return "permanent", None
+   188→   188→
+   189→   189→    return "global", None
+   190→   190→
+   191→   191→
+   192→   192→async def validate_command(
+   193→   193→    intent: str,
+   194→   194→    target: str,
+   195→   195→    tenant_id: str,
+   196→   196→    raw_input: str = "",
+   197→   197→    actor_email: str = "",
+   198→   198→) -> ValidationResult:
+   199→   199→    """Validate a control command before execution.
+   200→   200→
+   201→   201→    Checks:
+   202→   202→    1. Is the target valid for this intent?
+   203→   203→    2. Does it conflict with existing active flags?
+   204→   204→    3. Parse scope and expiry from natural language
+   205→   205→    4. Return warnings about existing state
+   206→   206→    """
+   207→   207→    db = get_db()
+   208→   208→    warnings = []
+   209→   209→    conflicts = []
+   210→   210→    normalized = _normalize_target(intent, target)
+   211→   211→    scope, expires_at = _parse_temporal_scope(raw_input, intent)
+   212→   212→
+   213→   213→    # ── Intent-specific validation ──────────────────────────
+   214→   214→
+   215→   215→    if intent == "control_pause":
+   216→   216→        if normalized != "all" and normalized not in {t.rstrip("s") for t in VALID_PAUSE_TARGETS}:
+   217→   217→            # More lenient: accept any target but warn
+   218→   218→            warnings.append(f"Target '{normalized}' is not a standard pauseable action. Flag will be set anyway.")
+   219→   219→
+   220→   220→        # Check if already paused
+   221→   221→        existing = await db.get_active_flags(tenant_id, flag_type="pause_action")
+   222→   222→        for f in existing:
+   223→   223→            if f["flag_value"] == normalized or (normalized == "all" and f["flag_value"] != "all"):
+   224→   224→                conflicts.append({
+   225→   225→                    "type": "already_paused",
+   226→   226→                    "flag": f,
+   227→   227→                    "message": f"'{f['flag_value']}' is already paused (set by {f['set_by']} at {f['created_at'][:19]})",
+   228→   228→                })
+   229→   229→
+   230→   230→    elif intent == "control_resume":
+   231→   231→        existing = await db.get_active_flags(tenant_id, flag_type="pause_action")
+   232→   232→        matching = [f for f in existing if f["flag_value"] == normalized or normalized == "all"]
+   233→   233→        if not matching and normalized != "all":
+   234→   234→            # No matching pause found
+   235→   235→            return ValidationResult(
+   236→   236→                valid=True, reason="no_matching_pause",
+   237→   237→                normalized_target=normalized,
+   238→   238→                parsed_scope=scope,
+   239→   239→                parsed_expires_at=expires_at,
+   240→   240→                warnings=["No active pause flag found for this target. May already be running."],
+   241→   241→            )
+   242→   242→
+   243→   243→    elif intent == "control_mode":
+   244→   244→        if normalized not in VALID_MODES:
+   245→   245→            # Try to extract from target more carefully
+   246→   246→            for mode in VALID_MODES:
+   247→   247→                if mode in target.lower():
+   248→   248→                    normalized = mode
+   249→   249→                    break
+   250→   250→            else:
+   251→   251→                valid_modes_str = ", ".join(sorted(VALID_MODES))
+   252→   252→                return ValidationResult(
+   253→   253→                    valid=False,
+   254→   254→                    reason=f"Invalid mode '{target}'. Valid modes: {valid_modes_str}",
+   255→   255→                    normalized_target=normalized,
+   256→   256→                )
+   257→   257→
+   258→   258→        # Check if same mode already active
+   259→   259→        existing = await db.get_active_flags(tenant_id, flag_type="force_mode")
+   260→   260→        for f in existing:
+   261→   261→            if f["flag_value"] == normalized:
+   262→   262→                return ValidationResult(
+   263→   263→                    valid=True, reason="already_set",
+   264→   264→                    normalized_target=normalized,
+   265→   265→                    warnings=[f"System is already in {normalized} mode (set by {f['set_by']})"],
+   266→   266→                )
+   267→   267→
+   268→   268→    elif intent == "control_route":
+   269→   269→        if normalized not in VALID_CHANNELS:
+   270→   270→            warnings.append(f"Channel '{normalized}' not in standard list. Flag will be set anyway.")
+   271→   271→        # Check for conflicting redirect
+   272→   272→        existing = await db.get_active_flags(tenant_id, flag_type="redirect_channel")
+   273→   273→        for f in existing:
+   274→   274→            if f["flag_value"].startswith(f"{normalized}:"):
+   275→   275→                conflicts.append({
+   276→   276→                    "type": "already_redirected",
+   277→   277→                    "flag": f,
+   278→   278→                    "message": f"'{normalized}' is already redirected (set by {f['set_by']})",
+   279→   279→                })
+   280→   280→
+   281→   281→    elif intent == "control_disable_rule":
+   282→   282→        # No target validation needed — always valid
+   283→   283→        pass
+   284→   284→
+   285→   285→    elif intent == "control_skill_assign":
+   286→   286→        # Will be validated in the executor with more context
+   287→   287→        pass
+   288→   288→
+   289→   289→    elif intent == "emergency_shutdown":
+   290→   290→        # Check if already shutdown
+   291→   291→        existing = await db.get_active_flags(tenant_id, flag_type="global_shutdown")
+   292→   292→        if existing:
+   293→   293→            return ValidationResult(
+   294→   294→                valid=False,
+   295→   295→                reason="System is already in EMERGENCY SHUTDOWN state. Use 'resume all' to restart.",
+   296→   296→                normalized_target=normalized,
+   297→   297→            )
+   298→   298→
+   299→   299→    elif intent == "emergency_recall":
+   300→   300→        if not target or target == "pending":
+   301→   301→            return ValidationResult(
+   302→   302→                valid=True, reason="ok",
+   303→   303→                normalized_target=normalized,
+   304→   304→                warnings=["Recall requires email provider integration. Messages will be marked as recalled in DB."],
+   305→   305→            )
+   306→   306→
+   307→   307→    elif intent == "emergency_void":
+   308→   308→        if not target or target == "pending":
+   309→   309→            return ValidationResult(
+   310→   310→                valid=True, reason="ok",
+   311→   311→                normalized_target=normalized,
+   312→   312→            )
+   313→   313→
+   314→   314→    return ValidationResult(
+   315→   315→        valid=True,
+   316→   316→        reason="ok",
+   317→   317→        normalized_target=normalized,
+   318→   318→        parsed_scope=scope,
+   319→   319→        parsed_expires_at=expires_at,
+   320→   320→        conflicts=conflicts,
+   321→   321→        warnings=warnings,
+   322→   322→    )
+   323→   323→
+   324→   324→
+   325→   325→# ═══════════════════════════════════════════════════════════════
+   326→   326→# STEP 2+3: RESOLVE + EXECUTE
+   327→   327→# ═══════════════════════════════════════════════════════════════
+   328→   328→
+   329→   329→async def execute_command(
+   330→   330→    intent: str,
+   331→   331→    target: str,
+   332→   332→    tenant_id: str,
+   333→   333→    actor_email: str,
+   334→   334→    raw_input: str = "",
+   335→   335→    validation: Optional[ValidationResult] = None,
+   336→   336→) -> ExecutionResult:
+   337→   337→    """Execute a validated control command.
+   338→   338→
+   339→   339→    Writes to system_flags + audit_trail.
+   340→   340→    Auto-resolves conflicts (revokes conflicting flags).
+   341→   341→    Returns ExecutionResult with confirmation.
+   342→   342→    """
+   343→   343→    db = get_db()
+   344→   344→
+   345→   345→    # Validate if not pre-validated
+   346→   346→    if validation is None:
+   347→   347→        validation = await validate_command(intent, target, tenant_id, raw_input, actor_email)
+   348→   348→
+   349→   349→    if not validation.valid:
+   350→   350→        return ExecutionResult(
+   351→   351→            success=False,
+   352→   352→            response=f"[INVALID] {validation.reason}",
+   353→   353→        )
+   354→   354→
+   355→   355→    norm_target = validation.normalized_target
+   356→   356→    scope = validation.parsed_scope
+   357→   357→    expires_at = validation.parsed_expires_at
+   358→   358→
+   359→   359→    # ── Auto-resolve conflicts ──────────────────────────────
+   360→   360→    conflicts_resolved = []
+   361→   361→    for conflict in validation.conflicts:
+   362→   362→        if conflict["type"] in ("already_paused", "already_redirected"):
+   363→   363→            flag = conflict["flag"]
+   364→   364→            await db.revoke_flag(flag["id"], actor_email)
+   365→   365→            conflicts_resolved.append(flag)
+   366→   366→
+   367→   367→    # ── Execute by intent ───────────────────────────────────
+   368→   368→
+   369→   369→    if intent == "control_pause":
+   370→   370→        result = await _exec_pause(tenant_id, norm_target, actor_email, scope, expires_at, db)
+   371→   371→
+   372→   372→    elif intent == "control_resume":
+   373→   373→        result = await _exec_resume(tenant_id, norm_target, actor_email, db)
+   374→   374→
+   375→   375→    elif intent == "control_mode":
+   376→   376→        result = await _exec_mode(tenant_id, norm_target, actor_email, db)
+   377→   377→
+   378→   378→    elif intent == "control_route":
+   379→   379→        result = await _exec_route(tenant_id, norm_target, actor_email, scope, expires_at, raw_input, db)
+   380→   380→
+   381→   381→    elif intent == "control_disable_rule":
+   382→   382→        result = await _exec_disable_rule(tenant_id, actor_email, db)
+   383→   383→
+   384→   384→    elif intent == "control_skill_assign":
+   385→   385→        result = await _exec_skill_assign(tenant_id, raw_input, actor_email, db)
+   386→   386→
+   387→   387→    elif intent == "emergency_shutdown":
+   388→   388→        result = await _exec_shutdown(tenant_id, actor_email, db)
+   389→   389→
+   390→   390→    elif intent == "emergency_recall":
+   391→   391→        result = await _exec_recall(tenant_id, norm_target, actor_email, db)
+   392→   392→
+   393→   393→    elif intent == "emergency_void":
+   394→   394→        result = await _exec_void(tenant_id, norm_target, actor_email, db)
+   395→   395→
+   396→   396→    elif intent == "control_approval_override":
+   397→   397→        result = await _exec_approval_override(tenant_id, norm_target, actor_email, scope, db)
+   398→   398→
+   399→   399→    else:
+   400→   400→        result = ExecutionResult(
+   401→   401→            success=False,
+   402→   402→            response=f"No executor for intent '{intent}'.",
+   403→   403→        )
+   404→   404→
+   405→   405→    # Attach conflict info
+   406→   406→    result.conflicts_resolved = conflicts_resolved
+   407→   407→    result.warnings = validation.warnings
+   408→   408→
+   409→   409→    return result
+   410→   410→
+   411→   411→
+   412→   412→# ═══════════════════════════════════════════════════════════════
+   413→   413→# INDIVIDUAL EXECUTORS
+   414→   414→# ═══════════════════════════════════════════════════════════════
+   415→   415→
+   416→   416→async def _exec_pause(
+   417→   417→    tenant_id: str, target: str, actor: str,
+   418→   418→    scope: str, expires_at: Optional[str], db,
+   419→   419→) -> ExecutionResult:
+   420→   420→    """Execute pause: write pause_action flag."""
+   421→   421→    reason = f"Paused {target} via Jarvis by {actor}"
+   422→   422→    if scope == "temporary" and expires_at:
+   423→   423→        reason += f" (expires: {expires_at[:19]})"
+   424→   424→
+   425→   425→    flag = await db.set_flag(
+   426→   426→        tenant_id=tenant_id,
+   427→   427→        flag_type="pause_action",
+   428→   428→        flag_value=target,
+   429→   429→        set_by=actor,
+   430→   430→        scope=scope,
+   431→   431→        reason=reason,
+   432→   432→        expires_at=expires_at,
+   433→   433→    )
+   434→   434→    audit = await db.create_audit_entry(
+   435→   435→        tenant_id=tenant_id, action="control_pause",
+   436→   436→        actor_email=actor, target_type="flag", target_id=flag["id"],
+   437→   437→        payload={"target": target, "scope": scope, "expires_at": expires_at},
+   438→   438→    )
+   439→   439→
+   440→   440→    response = f"[OK] Paused '{target}'"
+   441→   441→    if scope == "temporary":
+   442→   442→        response += f" (temporary, expires: {expires_at[:19]} UTC)"
+   443→   443→    response += f". PARWA will stop processing {target} requests until resumed."
+   444→   444→    if target == "all":
+   445→   445→        response = "[OK] PAUSED ALL processing. No tickets will be processed until resumed."
+   446→   446→
+   447→   447→    return ExecutionResult(
+   448→   448→        success=True, response=response,
+   449→   449→        flag=flag, audit=audit, undo_id=flag["id"],
+   450→   450→    )
+   451→   451→
+   452→   452→
+   453→   453→async def _exec_resume(
+   454→   454→    tenant_id: str, target: str, actor: str, db,
+   455→   455→) -> ExecutionResult:
+   456→   456→    """Execute resume: revoke matching pause + global_shutdown flags."""
+   457→   457→    flags = await db.get_active_flags(tenant_id, flag_type="pause_action")
+   458→   458→    revoked = []
+   459→   459→    for f in flags:
+   460→   460→        if f["flag_value"] == target or target == "all":
+   461→   461→            await db.revoke_flag(f["id"], actor)
+   462→   462→            revoked.append(f)
+   463→   463→
+   464→   464→    # Also clear global_shutdown when resuming all
+   465→   465→    if target == "all":
+   466→   466→        shutdown_flags = await db.get_active_flags(tenant_id, flag_type="global_shutdown")
+   467→   467→        for f in shutdown_flags:
+   468→   468→            await db.revoke_flag(f["id"], actor)
+   469→   469→            revoked.append(f)
+   470→   470→
+   471→   471→    audit = await db.create_audit_entry(
+   472→   472→        tenant_id=tenant_id, action="control_resume",
+   473→   473→        actor_email=actor, target_type="flag", target_id=target,
+   474→   474→        payload={"target": target, "revoked_count": len(revoked), "revoked_flags": [f["id"] for f in revoked]},
+   475→   475→    )
+   476→   476→
+   477→   477→    if revoked:
+   478→   478→        names = ", ".join(f.get("flag_value", f.get("flag_type", "?")) for f in revoked)
+   479→   479→        response = f"[OK] Resumed '{names}'. Revoked {len(revoked)} flag(s). PARWA will process {target} requests again."
+   480→   480→    else:
+   481→   481→        response = f"[OK] No active pause flag for '{target}'. Already running."
+   482→   482→
+   483→   483→    return ExecutionResult(
+   484→   484→        success=True, response=response,
+   485→   485→        audit=audit, undo_id=None,
+   486→   486→    )
+   487→   487→
+   488→   488→
+   489→   489→async def _exec_mode(
+   490→   490→    tenant_id: str, mode: str, actor: str, db,
+   491→   491→) -> ExecutionResult:
+   492→   492→    """Execute mode change: revoke previous mode, set new."""
+   493→   493→    # Revoke any existing mode flags
+   494→   494→    existing = await db.get_active_flags(tenant_id, flag_type="force_mode")
+   495→   495→    revoked = []
+   496→   496→    for f in existing:
+   497→   497→        await db.revoke_flag(f["id"], actor)
+   498→   498→        revoked.append(f["flag_value"])
+   499→   499→
+   500→   500→    flag = await db.set_flag(
+   501→   501→        tenant_id=tenant_id,
+   502→   502→        flag_type="force_mode",
+   503→   503→        flag_value=mode,
+   504→   504→        set_by=actor,
+   505→   505→        reason=f"Mode changed to {mode} by {actor}",
+   506→   506→    )
+   507→   507→    audit = await db.create_audit_entry(
+   508→   508→        tenant_id=tenant_id, action="control_mode",
+   509→   509→        actor_email=actor, target_type="flag", target_id=flag["id"],
+   510→   510→        payload={"new_mode": mode, "revoked_previous": revoked},
+   511→   511→    )
+   512→   512→
+   513→   513→    response = f"[OK] System mode set to **{mode.upper()}**."
+   514→   514→    if revoked:
+   515→   515→        response += f" (changed from {', '.join(revoked)})"
+   516→   516→    response += " PARWA will operate in " + mode + " mode."
+   517→   517→
+   518→   518→    return ExecutionResult(
+   519→   519→        success=True, response=response,
+   520→   520→        flag=flag, audit=audit, undo_id=flag["id"],
+   521→   521→    )
+   522→   522→
+   523→   523→
+   524→   524→async def _exec_route(
+   525→   525→    tenant_id: str, channel: str, actor: str,
+   526→   526→    scope: str, expires_at: Optional[str], raw_input: str, db,
+   527→   527→) -> ExecutionResult:
+   528→   528→    """Execute channel redirect."""
+   529→   529→    # Determine route_to from context — check if human specifically takes THIS channel
+   530→   530→    route_to = "ai"
+   531→   531→    lower_input = raw_input.lower()
+   532→   532→    # Pattern: "...handle {channel}..., I'll take {other}..."
+   533→   533→    human_for_channel = re.search(
+   534→   534→        rf"\b(i'?ll)\s+(?:handle|take)\s+{re.escape(channel)}\b",
+   535→   535→        lower_input,
+   536→   536→    )
+   537→   537→    if human_for_channel:
+   538→   538→        route_to = "human"
+   539→   539→    # Check for catch-all "I'll take all/everything"
+   540→   540→    elif re.search(r"\b(i'?ll)\s+(?:handle|take)\b.*\b(all|calls?|everything)\b", lower_input):
+   541→   541→        route_to = "human"
+   542→   542→
+   543→   543→    flag_value = f"{channel}:{route_to}"
+   544→   544→    reason = f"Redirected {channel} to {route_to} by {actor}"
+   545→   545→    if scope == "temporary" and expires_at:
+   546→   546→        reason += f" (expires: {expires_at[:19]})"
+   547→   547→
+   548→   548→    # Revoke existing redirect for same channel
+   549→   549→    existing = await db.get_active_flags(tenant_id, flag_type="redirect_channel")
+   550→   550→    revoked = []
+   551→   551→    for f in existing:
+   552→   552→        if f["flag_value"].startswith(f"{channel}:"):
+   553→   553→            await db.revoke_flag(f["id"], actor)
+   554→   554→            revoked.append(f["flag_value"])
+   555→   555→
+   556→   556→    flag = await db.set_flag(
+   557→   557→        tenant_id=tenant_id,
+   558→   558→        flag_type="redirect_channel",
+   559→   559→        flag_value=flag_value,
+   560→   560→        set_by=actor,
+   561→   561→        scope=scope,
+   562→   562→        reason=reason,
+   563→   563→        expires_at=expires_at,
+   564→   564→    )
+   565→   565→    audit = await db.create_audit_entry(
+   566→   566→        tenant_id=tenant_id, action="control_route",
+   567→   567→        actor_email=actor, target_type="flag", target_id=flag["id"],
+   568→   568→        payload={"channel": channel, "route_to": route_to, "scope": scope, "expires_at": expires_at},
+   569→   569→    )
+   570→   570→
+   571→   571→    response = f"[OK] Workflow Redirected: {channel} -> {route_to.upper()}"
+   572→   572→    if scope == "temporary":
+   573→   573→        response += f" (expires: {expires_at[:19]} UTC)"
+   574→   574→    response += f". PARWA will {'handle' if route_to == 'ai' else 'skip'} {channel} requests."
+   575→   575→
+   576→   576→    return ExecutionResult(
+   577→   577→        success=True, response=response,
+   578→   578→        flag=flag, audit=audit, undo_id=flag["id"],
+   579→   579→    )
+   580→   580→
+   581→   581→
+   582→   582→async def _exec_disable_rule(
+   583→   583→    tenant_id: str, actor: str, db,
+   584→   584→) -> ExecutionResult:
+   585→   585→    """Execute undo/disable: revoke the most recent active flag."""
+   586→   586→    flags = await db.get_active_flags(tenant_id)
+   587→   587→    # Don't disable global_shutdown via "disable rule" — too dangerous
+   588→   588→    non_shutdown = [f for f in flags if f["flag_type"] != "global_shutdown"]
+   589→   589→    if non_shutdown:
+   590→   590→        last = non_shutdown[-1]
+   591→   591→        await db.revoke_flag(last["id"], actor)
+   592→   592→        audit = await db.create_audit_entry(
+   593→   593→            tenant_id=tenant_id, action="control_disable_rule",
+   594→   594→            actor_email=actor, target_type="flag", target_id=last["id"],
+   595→   595→            payload={
+   596→   596→                "revoked_flag_type": last["flag_type"],
+   597→   597→                "revoked_flag_value": last["flag_value"],
+   598→   598→                "set_by": last["set_by"],
+   599→   599→            },
+   600→   600→        )
+   601→   601→        response = (
+   602→   602→            f"[OK] Disabled last rule: **{last['flag_type']}={last['flag_value']}**\n"
+   603→   603→            f"  Set by: {last['set_by']} at {last['created_at'][:19]}\n"
+   604→   604→            f"  System reverted to default behavior for this rule."
+   605→   605→        )
+   606→   606→        return ExecutionResult(
+   607→   607→            success=True, response=response,
+   608→   608→            audit=audit, undo_id=last["id"],
+   609→   609→        )
+   610→   610→    return ExecutionResult(
+   611→   611→        success=True,
+   612→   612→        response="No active rules to disable. System is running with default behavior.",
+   613→   613→    )
+   614→   614→
+   615→   615→
+   616→   616→async def _exec_skill_assign(
+   617→   617→    tenant_id: str, raw_input: str, actor: str, db,
+   618→   618→) -> ExecutionResult:
+   619→   619→    """Execute skill re-assignment between variants.
+   620→   620→
+   621→   621→    Parses: "Move Product Recommendations from Mini to PARWA"
+   622→   622→    Pattern: <skill> from <source_variant> to <dest_variant>
+   623→   623→    """
+   624→   624→    # Parse skill, source, destination
+   625→   625→    from_match = re.search(r"\b(move|reassign|transfer)\b\s+(.+?)\s+from\s+(\w+)\s+to\s+(\w+)", raw_input, re.I)
+   626→   626→    # Parse skill name, source, destination from raw input
+   627→   627→    from_match = re.search(
+   628→   628→        r"(move|reassign|transfer)\s+([\w\s+]+?)\s+from\s+(\w+)\s+to\s+(\w+)",
+   629→   629→        raw_input, re.I,
+   630→   630→    )
+   631→   631→    if not from_match:
+   632→   632→        # Try "add X to Y"
+   633→   633→        add_match = re.search(r"(add|assign).*(skill|capability).*(to)", raw_input, re.I)
+   634→   634→        if add_match:
+   635→   635→            skill = add_match.group(1).strip()
+   636→   636→            dest = add_match.group(2).strip()
+   637→   637→            source = "unassigned"
+   638→   638→        else:
+   639→   639→            return ExecutionResult(
+   640→   640→                success=False,
+   641→   641→                response="[INVALID] Could not parse skill assignment. Use format: 'Move [skill] from [variant] to [variant]'",
+   642→   642→            )
+   643→   643→    else:
+   644→   644→        skill = from_match.group(2).strip()
+   645→   645→        source = from_match.group(3).strip()
+   646→   646→        dest = from_match.group(4).strip()
+   647→   647→
+   648→   648→    # Write to agent_configs via system_flags (variant_assignment type)
+   649→   649→    flag = await db.set_flag(
+   650→   650→        tenant_id=tenant_id,
+   651→   651→        flag_type="variant_assignment",
+   652→   652→        flag_value=f"{skill}:{source}:{dest}",
+   653→   653→        set_by=actor,
+   654→   654→        reason=f"Skill re-assignment: {skill} from {source} to {dest} by {actor}",
+   655→   655→    )
+   656→   656→
+   657→   657→    # Also update agent_configs table directly
+   658→   658→    # Remove skill from source, add to destination
+   659→   659→    source_config = await db.get_agent_config(tenant_id, source)
+   660→   660→    dest_config = await db.get_agent_config(tenant_id, dest)
+   661→   661→
+   662→   662→    updated_source = None
+   663→   663→    updated_dest = None
+   664→   664→    skills_removed = 0
+   665→   665→    skills_added = 0
+   666→   666→
+   667→   667→    if source_config and source != "unassigned":
+   668→   668→        current_skills = source_config.get("skills", []) or []
+   669→   669→        if skill in current_skills:
+   670→   670→            new_skills = [s for s in current_skills if s != skill]
+   671→   671→            updated_source = await db.update_agent_config(
+   672→   672→                tenant_id=tenant_id, agent_name=source, skills=new_skills,
+   673→   673→            )
+   674→   674→            skills_removed = len(current_skills) - len(new_skills)
+   675→   675→
+   676→   676→    if dest_config:
+   677→   677→        current_skills = dest_config.get("skills", []) or []
+   678→   678→        if skill not in current_skills:
+   679→   679→            new_skills = current_skills + [skill]
+   680→   680→            updated_dest = await db.update_agent_config(
+   681→   681→                tenant_id=tenant_id, agent_name=dest, skills=new_skills,
+   682→   682→            )
+   683→   683→            skills_added = 1
+   684→   684→
+   685→   685→    audit = await db.create_audit_entry(
+   686→   686→        tenant_id=tenant_id, action="control_skill_assign",
+   687→   687→        actor_email=actor, target_type="skill", target_id=skill,
+   688→   688→        payload={
+   689→   689→            "skill": skill, "from": source, "to": dest,
+   690→   690→            "source_updated": updated_source is not None,
+   691→   691→            "dest_updated": updated_dest is not None,
+   692→   692→            "skills_removed": skills_removed,
+   693→   693→            "skills_added": skills_added,
+   694→   694→        },
+   695→   695→    )
+   696→   696→
+   697→   697→    response_parts = [
+   698→   698→        f"[OK] Skill Re-assignment Complete:",
+   699→   699→        f"  Skill: **{skill}**",
+   700→   700→        f"  From: {source}" + (" (removed)" if skills_removed else ""),
+   701→   701→        f"  To: {dest}" + (" (added)" if skills_added else ""),
+   702→   702→    ]
+   703→   703→
+   704→   704→    if not updated_source and source != "unassigned":
+   705→   705→        response_parts.append(f"  Note: Source variant '{source}' not found or skill not present")
+   706→   706→    if not updated_dest:
+   707→   707→        response_parts.append(f"  Note: Destination variant '{dest}' not found or already has skill")
+   708→   708→
+   709→   709→    return ExecutionResult(
+   710→   710→        success=True, response="\n".join(response_parts),
+   711→   711→        flag=flag, audit=audit, undo_id=flag["id"],
+   712→   712→    )
+   713→   713→
+   714→   714→
+   715→   715→async def _exec_shutdown(
+   716→   716→    tenant_id: str, actor: str, db,
+   717→   717→) -> ExecutionResult:
+   718→   718→    """Execute emergency shutdown."""
+   719→   719→    flag = await db.set_flag(
+   720→   720→        tenant_id=tenant_id,
+   721→   721→        flag_type="global_shutdown",
+   722→   722→        flag_value="all",
+   723→   723→        set_by=actor,
+   724→   724→        reason=f"EMERGENCY SHUTDOWN by {actor}",
+   725→   725→    )
+   726→   726→    audit = await db.create_audit_entry(
+   727→   727→        tenant_id=tenant_id, action="emergency_shutdown",
+   728→   728→        actor_email=actor, target_type="flag", target_id=flag["id"],
+   729→   729→        payload={"CRITICAL": "All AI activity paused", "flag_id": flag["id"]},
+   730→   730→    )
+   731→   731→
+   732→   732→    # Notify all active team members (create a CRITICAL notification)
+   733→   733→    notification = await db.create_notification(
+   734→   734→        tenant_id=tenant_id,
+   735→   735→        ntype="emergency_shutdown",
+   736→   736→        priority_score=1.0,
+   737→   737→        title="[EMERGENCY] System Shutdown Initiated",
+   738→   738→        description=(
+   739→   739→            f"All AI activity has been paused by {actor}.\n"
+   740→   740→            f"In-flight tickets will complete their current step, then stop.\n"
+   741→   741→            f"No new tickets will be accepted.\n"
+   742→   742→            f"Use 'resume all' to restart the system."
+   743→   743→        ),
+   744→   744→        source_data={"actor": actor, "flag_id": flag["id"]},
+   745→   745→    )
+   746→   746→
+   747→   747→    return ExecutionResult(
+   748→   748→        success=True,
+   749→   749→        response=(
+   750→   750→            f"[EMERGENCY] All AI activity PAUSED.\n"
+   751→   751→            f"  Initiated by: {actor}\n"
+   752→   752→            f"  In-flight tickets will complete current step then stop.\n"
+   753→   753→            f"  No new tickets will be accepted.\n"
+   754→   754→            f"  Notification: {notification['notification_key']}\n"
+   755→   755→            f"\n"
+   756→   756→            f"  Use **'resume all'** to restart."
+   757→   757→        ),
+   758→   758→        flag=flag,
+   759→   759→        audit=audit,
+   760→   760→        undo_id=flag["id"],
+   761→   761→    )
+   762→   762→
+   763→   763→
+   764→   764→async def _exec_recall(
+   765→   765→    tenant_id: str, target: str, actor: str, db,
+   766→   766→) -> ExecutionResult:
+   767→   767→    """Execute recall: mark messages as recalled in outbox queue."""
+   768→   768→    # Write recall flag + add to outbox_queue as recalled
+   769→   769→    recalled_count = await db.recall_outbox_messages(
+   770→   770→        tenant_id=tenant_id,
+   771→   771→        match_filter=target if target not in ("pending", "all") else None,
+   772→   772→    )
+   773→   773→
+   774→   774→    flag = await db.set_flag(
+   775→   775→        tenant_id=tenant_id,
+   776→   776→        flag_type="emergency_recall",
+   777→   777→        flag_value=target,
+   778→   778→        set_by=actor,
+   779→   779→        scope="global",
+   780→   780→        reason=f"Recall initiated for '{target}' by {actor}",
+   781→   781→    )
+   782→   782→    audit = await db.create_audit_entry(
+   783→   783→        tenant_id=tenant_id, action="emergency_recall",
+   784→   784→        actor_email=actor, target_type="message", target_id=target,
+   785→   785→        payload={"target": target, "recalled_count": recalled_count},
+   786→   786→    )
+   787→   787→
+   788→   788→    response = (
+   789→   789→        f"[OK] Recall executed for '{target}'.\n"
+   790→   790→        f"  Messages marked as recalled: {recalled_count}\n"
+   791→   791→        f"  Note: Actual email recall requires provider integration (SendGrid API).\n"
+   792→   792→        f"  Messages are marked in the outbox queue to prevent re-sending."
+   793→   793→    )
+   794→   794→    return ExecutionResult(
+   795→   795→        success=True, response=response,
+   796→   796→        flag=flag, audit=audit, undo_id=flag["id"],
+   797→   797→    )
+   798→   798→
+   799→   799→
+   800→   800→async def _exec_void(
+   801→   801→    tenant_id: str, target: str, actor: str, db,
+   802→   802→) -> ExecutionResult:
+   803→   803→    """Execute void: remove pending messages from outbox queue."""
+   804→   804→    voided_count = await db.void_outbox_messages(
+   805→   805→        tenant_id=tenant_id,
+   806→   806→        match_filter=target if target not in ("pending", "all") else None,
+   807→   807→    )
+   808→   808→
+   809→   809→    audit = await db.create_audit_entry(
+   810→   810→        tenant_id=tenant_id, action="emergency_void",
+   811→   811→        actor_email=actor, target_type="message", target_id=target,
+   812→   812→        payload={"target": target, "voided_count": voided_count},
+   813→   813→    )
+   814→   814→
+   815→   815→    response = (
+   816→   816→        f"[OK] Void executed for '{target}'.\n"
+   817→   817→        f"  Pending messages removed: {voided_count}\n"
+   818→   818→        f"  These messages were in the outbox queue and had not yet been sent."
+   819→   819→    )
+   820→   820→    return ExecutionResult(
+   821→   821→        success=True, response=response,
+   822→   822→        audit=audit,
+   823→   823→    )
+   824→   824→
+   825→   825→
+   826→   826→async def _exec_approval_override(
+   827→   827→    tenant_id: str, target: str, actor: str, scope: str, db,
+   828→   828→    raw_input: str = "",
+   829→   829→) -> ExecutionResult:
+   830→   830→    """Execute approval override: set permanent auto-approve rule.
+   831→   831→
+   832→   832→    Parses the actual action type from raw_input.
+   833→   833→    'Always auto-approve address changes' → approval_override flag_value='address changes'
+   834→   834→    PARWA Node 5 reads this before checking approval gates.
+   835→   835→    """
+   836→   836→    # Parse the action type from the raw input (not the regex target)
+   837→   837→    action_match = re.search(
+   838→   838→        r"auto\s*-?approve\s+(.+?)(?:\.|!|\\n|$)",
+   839→   839→        raw_input,
+   840→   840→        re.I,
+   841→   841→    )
+   842→   842→    action_type = action_match.group(1).strip().rstrip('.') if action_match else target
+   843→   843→
+   844→   844→    flag = await db.set_flag(
+   845→   845→        tenant_id=tenant_id,
+   846→   846→        flag_type="approval_override",
+   847→   847→        flag_value=action_type,
+   848→   848→        set_by=actor,
+   849→   849→        scope="permanent",
+   850→   850→        reason=f"Approval override: always auto-approve {action_type} by {actor}",
+   851→   851→    )
+   852→   852→    audit = await db.create_audit_entry(
+   853→   853→        tenant_id=tenant_id, action="control_approval_override",
+   854→   854→        actor_email=actor, target_type="approval_rule", target_id=action_type,
+   855→   855→        payload={"action_type": action_type, "scope": "permanent"},
+   856→   856→    )
+   857→   857→
+   858→   858→    response = (
+   859→   859→        f"[OK] Approval Override Set:\n"
+   860→   860→        f"  Action Type: **{action_type}**\n"
+   861→   861→        f"  Scope: Permanent (until manually revoked)\n"
+   862→   862→        f"  Effect: Future '{action_type}' requests will skip the approval queue.\n"
+   863→   863→        f"  To undo: 'disable my last rule' or 'disable rule'"
+   864→   864→    )
+   865→   865→    return ExecutionResult(
+   866→   866→        success=True, response=response,
+   867→   867→        flag=flag, audit=audit, undo_id=flag["id"],
+   868→   868→    )
+   869→   869→
+   870→   870→
+   871→   871→# ═══════════════════════════════════════════════════════════════
+   872→   872→# HELPER: Get flags for PARWA to read (Wave 4 will call this)
+   873→   873→# ═══════════════════════════════════════════════════════════════
+   874→   874→
+   875→   875→async def get_effective_flags(tenant_id: str) -> Dict[str, Any]:
+   876→   876→    """Get all effective flags that PARWA should obey.
+   877→   877→
+   878→   878→    Returns a structured dict PARWA can check at each node:
+   879→   879→    {
+   880→   880→        "paused_actions": ["refund", "account_change"],
+   881→   881→        "redirected_channels": {"instagram": "ai", "calls": "human"},
+   882→   882→        "forced_mode": "supervised",
+   883→   883→        "approval_overrides": ["address_change"],
+   884→   884→        "global_shutdown": false,
+   885→   885→        "guidance": {},  // ticket-specific guidance from Jarvis
+   886→   886→    }
+   887→   887→    """
+   888→   888→    db = get_db()
+   889→   889→    flags = await db.get_active_flags(tenant_id)
+   890→   890→
+   891→   891→    result: Dict[str, Any] = {
+   892→   892→        "paused_actions": [],
+   893→   893→        "redirected_channels": {},
+   894→   894→        "forced_mode": None,
+   895→   895→        "approval_overrides": [],
+   896→   896→        "global_shutdown": False,
+   897→   897→        "variant_assignments": [],
+   898→   898→        "guidance": {},
+   899→   899→    }
+   900→   900→
+   901→   901→    for f in flags:
+   902→   902→        ft = f["flag_type"]
+   903→   903→        fv = f["flag_value"]
+   904→   904→
+   905→   905→        if ft == "pause_action":
+   906→   906→            if fv == "all":
+   907→   907→                result["global_shutdown"] = True
+   908→   908→            else:
+   909→   909→                result["paused_actions"].append(fv)
+   910→   910→
+   911→   911→        elif ft == "redirect_channel":
+   912→   912→            parts = fv.split(":", 1)
+   913→   913→            if len(parts) == 2:
+   914→   914→                result["redirected_channels"][parts[0]] = parts[1]
+   915→   915→
+   916→   916→        elif ft == "force_mode":
+   917→   917→            result["forced_mode"] = fv
+   918→   918→
+   919→   919→        elif ft == "approval_override":
+   920→   920→            result["approval_overrides"].append(fv)
+   921→   921→
+   922→   922→        elif ft == "global_shutdown":
+   923→   923→            result["global_shutdown"] = True
+   924→   924→
+   925→   925→        elif ft == "variant_assignment":
+   926→   926→            result["variant_assignments"].append(fv)
+   927→   927→
+   928→   928→        elif ft == "guidance":
+   929→   929→            ticket_id = f.get("target_id", "")
+   930→   930→            if ticket_id:
+   931→   931→                result["guidance"][ticket_id] = fv
+   932→   932→
+   933→   933→    return result

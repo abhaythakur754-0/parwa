@@ -622,15 +622,14 @@ async def _exec_skill_assign(
     Pattern: <skill> from <source_variant> to <dest_variant>
     """
     # Parse skill, source, destination
-    from_match = re.search(r"\b(move|reassign|transfer)\b\s+(.+?)\s+from\s+(\w+)\s+to\s+(\w+)", raw_input, re.I)
-    # Parse skill name, source, destination from raw input
+    # Pattern: Move <skill_name> from <source_variant> to <dest_variant>
     from_match = re.search(
-        r"(move|reassign|transfer)\s+([\w\s+]+?)\s+from\s+(\w+)\s+to\s+(\w+)",
+        r"(move|reassign|transfer)\s+(.+?)\s+from\s+(\w+)\s+to\s+(\w+)",
         raw_input, re.I,
     )
     if not from_match:
         # Try "add X to Y"
-        add_match = re.search(r"(add|assign).*(skill|capability).*(to)", raw_input, re.I)
+        add_match = re.search(r"(add|assign).*(skill|capability).*(to)", raw_input, re.I)
         if add_match:
             skill = add_match.group(1).strip()
             dest = add_match.group(2).strip()
