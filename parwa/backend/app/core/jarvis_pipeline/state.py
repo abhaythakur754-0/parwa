@@ -73,6 +73,16 @@ class JarvisState(TypedDict, total=False):
     approval_gate_result: Optional[Dict[str, Any]]     # {required, reason, gate_type}
     variant_recommendation: Optional[Dict[str, Any]]   # {upgrade_needed, recommended_variant}
 
+    # Wave 6: Reporting & Quality Coach
+    weekly_report: Optional[Dict[str, Any]]            # Weekly wins report data
+    performance_dashboard: Optional[Dict[str, Any]]    # Performance dashboard data
+    quality_report: Optional[Dict[str, Any]]            # Quality coach weekly report
+    drift_alerts_result: Optional[Dict[str, Any]]      # Drift check result
+    agent_health: Optional[Dict[str, Any]]             # Agent health score + coaching
+    sla_status: Optional[Dict[str, Any]]               # SLA calculator result
+    customer_health: Optional[Dict[str, Any]]          # Customer health score + milestones
+    roi_result: Optional[Dict[str, Any]]               # ROI calculator result
+
 
 def create_jarvis_state(
     tenant_id: str,

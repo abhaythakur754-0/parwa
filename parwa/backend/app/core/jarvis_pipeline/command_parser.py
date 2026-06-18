@@ -36,6 +36,11 @@ INTENT_QUERIES = {
     "query_flow",         # Wave 2: ticket flow metrics, node-by-node
     "query_load",         # Wave 2: variant load, concurrency, bottlenecks
     "query_stuck",        # Wave 2: stuck tickets with escalation tiers
+    "query_report",       # Wave 6: weekly report, performance dashboard
+    "query_sla",          # Wave 6: SLA status, uptime, credits
+    "query_health_score", # Wave 6: customer/onboarding health score
+    "query_roi",          # Wave 6: ROI, cost savings, worth it
+    "query_agent_health", # Wave 6: agent health, quality coach
 }
 
 INTENT_CONTROLS = {
@@ -82,6 +87,9 @@ ALL_INTENTS = (
     {INTENT_UNKNOWN}
 )
 
+# Wave 6 query intent check
+INTENT_QUERIES_W6 = {"query_report", "query_sla", "query_health_score", "query_roi", "query_agent_health"}
+
 
 # ═══════════════════════════════════════════════════════════════
 # TIER 1: REGEX FAST PATH (0 tokens, instant)
@@ -114,6 +122,28 @@ _TIER1_PATTERNS = [
 
     (re.compile(r"\b(show|what'?s?|how many|tell me|get)\b.*(stuck|stale|waiting|pending.?approvals?)\b", re.I),
      "query_stuck", lambda m: "all"),
+
+    # Wave 6 Queries: Reports, SLA, Health Score, ROI, Agent Health
+    (re.compile(r"\b(show|generate|get|give me|what'?s?)\b.*(weekly|week'?s?)\s*(report|wins|progress|summary)\b", re.I),
+     "query_report", lambda m: "weekly"),
+
+    (re.compile(r"\b(show|get|what'?s?)\b.*(performance|dashboard|metrics)\b", re.I),
+     "query_report", lambda m: "dashboard"),
+
+    (re.compile(r"\b(show|what'?s?|check|get|how'?s?)\b.*(sla|uptime|downtime|credit|service level)\b", re.I),
+     "query_sla", lambda m: "status"),
+
+    (re.compile(r"\b(show|what'?s?|check|get|how)\b.*(health\s*score|onboarding|readiness|milestone)\b", re.I),
+     "query_health_score", lambda m: "all"),
+
+    (re.compile(r"\b(show|what'?s?|how much|tell me|get|calculate|is it)\b.*(roi|return on|worth it|savings?|cost comparison)\b", re.I),
+     "query_roi", lambda m: "all"),
+
+    (re.compile(r"\b(show|what'?s?|check|get|how)\b.*(agent\s*health|quality\s*coach|drift|mistake|training\s*priority)\b", re.I),
+     "query_agent_health", lambda m: "all"),
+
+    (re.compile(r"\b(show|generate|run)\b.*(quality\s*report|mistake\s*analysis)\b", re.I),
+     "query_agent_health", lambda m: "quality_report"),
 
     # Generic ticket
     (re.compile(r"\b(show|what'?s?|how many|tell me|get|list)\b.*(ticket|tickets)\b", re.I),
@@ -401,6 +431,10 @@ def is_approval_intent(intent: str) -> bool:
 
 def is_emergency_intent(intent: str) -> bool:
     return intent in INTENT_EMERGENCIES
+
+def is_report_intent(intent: str) -> bool:
+    """Wave 6: intents that trigger report/quality/SLA/ROI queries."""
+    return intent in INTENT_QUERIES_W6
 
 def requires_admin(intent: str) -> bool:
     """Intents that require admin/owner/supervisor role."""

@@ -1,0 +1,754 @@
+     1→"""
+     2→Wave 5 E2E Test — Intelligence Layer: Batching, Confidence, Sentiment
+     3→
+     4→Tests all 5 Wave 5 deliverables:
+     5→  5A: Confidence-Based Routing (confidence_engine)
+     6→  5B: Semantic Batching (semantic_batcher)
+     7→  5C: Sentiment Routing (sentiment_router)
+     8→  5D: Approval Gates (approval_gates)
+     9→  5E: Variant Recommendation (variant_recommender)
+    10→
+    11→All tests use InMemory backend — no external services needed.
+    12→Run: python -m pytest backend/tests/wave5_e2e_test.py -v
+    13→"""
+    14→
+    15→import asyncio
+    16→import sys
+    17→import os
+    18→
+    19→# Ensure project root is on path
+    20→sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+    21→
+    22→import pytest
+    23→
+    24→from app.core.jarvis_pipeline.jarvis_db import reset_db, use_in_memory, get_db
+    25→from app.core.jarvis_pipeline.confidence_engine import (
+    26→    compute_confidence_score, classify_routing, score_ticket_confidence,
+    27→    batch_score_tickets, ACTION_AUTO, ACTION_BATCH, ACTION_ASK, ACTION_ESCALATE,
+    28→)
+    29→from app.core.jarvis_pipeline.semantic_batcher import (
+    30→    compute_similarity, add_ticket_to_batch, flush_all_batches,
+    31→    format_batch_description, get_batch_summary, check_should_batch,
+    32→)
+    33→from app.core.jarvis_pipeline.sentiment_router import (
+    34→    compute_sentiment, route_by_sentiment,
+    35→    ROUTE_HUMAN, ROUTE_AI_FLAGGED, ROUTE_AI_AUTO,
+    36→)
+    37→from app.core.jarvis_pipeline.approval_gates import (
+    38→    check_approval_required, set_custom_gates, invalidate_gate_cache,
+    39→    load_approval_gates,
+    40→)
+    41→from app.core.jarvis_pipeline.variant_recommender import (
+    42→    recommend_variant, get_variant_status,
+    43→)
+    44→from app.core.parwa_pipeline.parwa_bridge import (
+    45→    score_confidence, route_by_sentiment as bridge_sentiment,
+    46→    check_approval_gate, recommend_variant as bridge_recommend_variant,
+    47→)
+    48→
+    49→
+    50→TENANT = "wave5_test_tenant"
+    51→
+    52→
+    53→@pytest.fixture(autouse=True)
+    54→def _reset():
+    55→    """Reset DB and caches before each test."""
+    56→    reset_db()
+    57→    use_in_memory()
+    58→    invalidate_gate_cache(TENANT)
+    59→    yield
+    60→    reset_db()
+    61→
+    62→
+    63→def _run(coro):
+    64→    """Run an async coroutine synchronously."""
+    65→    return asyncio.get_event_loop().run_until_complete(coro)
+    66→
+    67→
+    68→# ═══════════════════════════════════════════════════════════════
+    69→# 5A: Confidence-Based Routing
+    70→# ═══════════════════════════════════════════════════════════════
+    71→
+    72→class Test5A_ConfidenceRouting:
+    73→    """5A: Every PARWA decision gets a confidence score → routing action."""
+    74→
+    75→    def test_5a_1_high_confidence_routes_to_auto(self):
+    76→        """95%+ confidence → AUTO (log only, no notification)."""
+    77→        confidence, factors = compute_confidence_score(
+    78→            pattern_match=0.98, policy_alignment=0.95,
+    79→            risk_score=0.0, historical_accuracy=0.96,
+    80→        )
+    81→        assert confidence >= 0.95
+    82→        assert classify_routing(confidence) == ACTION_AUTO
+    83→
+    84→    def test_5a_2_good_confidence_routes_to_batch(self):
+    85→        """85-95% confidence → BATCH (group similar, one-click approve)."""
+    86→        confidence, _ = compute_confidence_score(
+    87→            pattern_match=0.90, policy_alignment=0.88,
+    88→            risk_score=0.1, historical_accuracy=0.85,
+    89→        )
+    90→        assert 0.85 <= confidence < 0.95
+    91→        assert classify_routing(confidence) == ACTION_BATCH
+    92→
+    93→    def test_5a_3_moderate_confidence_routes_to_ask(self):
+    94→        """70-84% confidence → ASK (individual review)."""
+    95→        confidence, _ = compute_confidence_score(
+    96→            pattern_match=0.75, policy_alignment=0.70,
+    97→            risk_score=0.2, historical_accuracy=0.72,
+    98→        )
+    99→        assert 0.70 <= confidence < 0.85
+   100→        assert classify_routing(confidence) == ACTION_ASK
+   101→
+   102→    def test_5a_4_low_confidence_routes_to_escalate(self):
+   103→        """<70% confidence → ESCALATE (human judgment required)."""
+   104→        confidence, _ = compute_confidence_score(
+   105→            pattern_match=0.50, policy_alignment=0.40,
+   106→            risk_score=0.6, historical_accuracy=0.55,
+   107→        )
+   108→        assert confidence < 0.70
+   109→        assert classify_routing(confidence) == ACTION_ESCALATE
+   110→
+   111→    def test_5a_5_confidence_factors_weighted_correctly(self):
+   112→        """Pattern match (30%) + Policy (25%) + Risk (25%) + History (20%)."""
+   113→        # All 1.0 → 1.0
+   114→        c, f = compute_confidence_score(1.0, 1.0, 0.0, 1.0)
+   115→        assert c == 1.0
+   116→
+   117→        # Pattern=0, rest=1.0 → should be 0.70 (1 - 0.30)
+   118→        c, f = compute_confidence_score(0.0, 1.0, 0.0, 1.0)
+   119→        assert abs(c - 0.70) < 0.01
+   120→
+   121→        # All 0 → 0.0
+   122→        c, _ = compute_confidence_score(0.0, 0.0, 1.0, 0.0)
+   123→        assert c == 0.0
+   124→
+   125→    def test_5a_6_risk_inverts_confidence(self):
+   126→        """High risk should lower confidence."""
+   127→        c_safe, _ = compute_confidence_score(0.9, 0.9, 0.0, 0.9)
+   128→        c_risky, _ = compute_confidence_score(0.9, 0.9, 1.0, 0.9)
+   129→        assert c_safe > c_risky
+   130→
+   131→    def test_5a_7_score_ticket_confidence_uses_db(self):
+   132→        """score_ticket_confidence reads from jarvis_db and persists result via bridge."""
+   133→        db = get_db()
+   134→
+   135→        # Seed some quality data
+   136→        _run(db.write_quality_score(TENANT, "TKT-SEED-1",
+   137→                                      overall_score=0.95, resolution_path="simple"))
+   138→        _run(db.record_training_data(TENANT, "TKT-SEED-1", "approved",
+   139→                                      ticket_type="refund_request", quality_score=0.95))
+   140→
+   141→        # Score via bridge (which persists)
+   142→        result = _run(score_confidence(
+   143→            tenant_id=TENANT, ticket_id="TKT-C5-1",
+   144→            ticket_type="refund_request", query="I want a refund",
+   145→            required_action="refund", is_vip=False,
+   146→        ))
+   147→
+   148→        assert result is not None
+   149→        assert 0.0 <= result["confidence"] <= 1.0
+   150→        assert result["routing"] in (ACTION_AUTO, ACTION_BATCH, ACTION_ASK, ACTION_ESCALATE)
+   151→        assert result["ticket_id"] == "TKT-C5-1"
+   152→        assert "factors" in result
+   153→        assert "reason" in result
+   154→
+   155→        # Verify persisted in DB
+   156→        logs = db._confidence_logs
+   157→        assert any(l["ticket_id"] == "TKT-C5-1" for l in logs)
+   158→
+   159→    def test_5a_8_vip_lowers_confidence(self):
+   160→        """VIP flag should reduce confidence via risk factor."""
+   161→        result = _run(score_ticket_confidence(
+   162→            tenant_id=TENANT, ticket_id="TKT-VIP-1",
+   163→            ticket_type="info", query="What are my orders?",
+   164→            is_vip=True, value_usd=500,
+   165→        ))
+   166→        # VIP + high value → elevated risk → lower confidence
+   167→        assert result["risk_level"] > 0
+   168→        assert "factors" in result
+   169→
+   170→    def test_5a_9_batch_score_multiple_tickets(self):
+   171→        """batch_score_tickets scores multiple and sorts by confidence."""
+   172→        tickets = [
+   173→            {"ticket_id": "T1", "ticket_type": "refund", "required_action": "refund", "value_usd": 200},
+   174→            {"ticket_id": "T2", "ticket_type": "info", "query": "What are hours?"},
+   175→            {"ticket_id": "T3", "ticket_type": "return", "required_action": "return", "value_usd": 50},
+   176→        ]
+   177→        results = _run(batch_score_tickets(TENANT, tickets))
+   178→        assert len(results) == 3
+   179→        # Sorted ascending by confidence (most needing attention first)
+   180→        assert results[0]["confidence"] <= results[1]["confidence"]
+   181→        assert results[1]["confidence"] <= results[2]["confidence"]
+   182→
+   183→    def test_5a_10_bridge_score_confidence_wired(self):
+   184→        """parwa_bridge.score_confidence persists to DB."""
+   185→        result = _run(score_confidence(
+   186→            tenant_id=TENANT, ticket_id="TKT-BRIDGE-1",
+   187→            ticket_type="info", query="Hello",
+   188→        ))
+   189→        assert result is not None
+   190→        assert result["confidence"] is not None
+   191→        assert result["ticket_id"] == "TKT-BRIDGE-1"
+   192→
+   193→        # Verify in DB
+   194→        db = get_db()
+   195→        logs = db._confidence_logs
+   196→        assert any(l["ticket_id"] == "TKT-BRIDGE-1" for l in logs)
+   197→
+   198→
+   199→# ═══════════════════════════════════════════════════════════════
+   200→# 5B: Semantic Batching
+   201→# ═══════════════════════════════════════════════════════════════
+   202→
+   203→class Test5B_SemanticBatching:
+   204→    """5B: Replace time-based batching with semantic clustering."""
+   205→
+   206→    def test_5b_1_similar_tickets_cluster(self):
+   207→        """Two tickets about the same topic should have high similarity."""
+   208→        sim = compute_similarity(
+   209→            "I want to change my address to 123 Main St",
+   210→            "Please update my shipping address to 123 Main Street",
+   211→        )
+   212→        assert sim > 0.3, f"Expected > 0.3 similarity, got {sim}"
+   213→
+   214→    def test_5b_2_dissimilar_tickets_dont_cluster(self):
+   215→        """Unrelated tickets should have low similarity."""
+   216→        sim = compute_similarity(
+   217→            "I want a refund for order 123",
+   218→            "What is your return policy?",
+   219→        )
+   220→        assert sim < 0.5, f"Expected < 0.5 similarity, got {sim}"
+   221→
+   222→    def test_5b_3_identical_tickets_max_similarity(self):
+   223→        """Same text = 1.0 similarity."""
+   224→        sim = compute_similarity(
+   225→            "I want to change my address",
+   226→            "I want to change my address",
+   227→        )
+   228→        assert sim == 1.0
+   229→
+   230→    def test_5b_4_empty_text_zero_similarity(self):
+   231→        """Empty text = 0.0 similarity."""
+   232→        sim = compute_similarity("", "something")
+   233→        assert sim == 0.0
+   234→
+   235→    def test_5b_5_add_to_batch_returns_none_within_window(self):
+   236→        """Adding to batch within window returns None (not yet flushed)."""
+   237→        result = _run(add_ticket_to_batch(
+   238→            tenant_id=TENANT, ticket_id="TKT-B1",
+   239→            query="Change my address", confidence=0.90,
+   240→        ))
+   241→        assert result is None  # Still accumulating
+   242→
+   243→    def test_5b_6_flush_returns_batches(self):
+   244→        """Force-flush returns accumulated batches."""
+   245→        _run(add_ticket_to_batch(
+   246→            tenant_id=TENANT, ticket_id="TKT-B2",
+   247→            query="Update my shipping address", confidence=0.92,
+   248→        ))
+   249→
+   250→        batches = _run(flush_all_batches(TENANT))
+   251→        assert len(batches) >= 1
+   252→        assert "ticket_ids" in batches[0]
+   253→        assert "confidence_min" in batches[0]
+   254→        assert "confidence_max" in batches[0]
+   255→
+   256→    def test_5b_7_batch_description_formatted(self):
+   257→        """format_batch_description produces readable output."""
+   258→        batch = {
+   259→            "ticket_ids": ["TKT-1", "TKT-2", "TKT-3"],
+   260→            "confidence_min": 0.90,
+   261→            "confidence_max": 0.95,
+   262→            "risk_level": 0.1,
+   263→        }
+   264→        desc = format_batch_description(batch)
+   265→        assert "3 tickets" in desc
+   266→        assert "Confidence" in desc
+   267→        assert "Risk" in desc
+   268→
+   269→    def test_5b_8_batch_summary(self):
+   270→        """get_batch_summary returns aggregated batch info."""
+   271→        _run(add_ticket_to_batch(
+   272→            tenant_id=TENANT, ticket_id="TKT-S1",
+   273→            query="Address change request", confidence=0.91,
+   274→        ))
+   275→        _run(add_ticket_to_batch(
+   276→            tenant_id=TENANT, ticket_id="TKT-S2",
+   277→            query="Address change request", confidence=0.93,
+   278→        ))
+   279→
+   280→        summary = _run(get_batch_summary(TENANT))
+   281→        assert summary["pending_count"] >= 1
+   282→        assert summary["total_tickets_in_batches"] >= 2
+   283→
+   284→    def test_5b_9_should_batch_only_for_batch_routing(self):
+   285→        """check_should_batch returns True only for 'batch' routing."""
+   286→        assert _run(check_should_batch(0.90, "batch")) is True
+   287→        assert _run(check_should_batch(0.96, "auto")) is False
+   288→        assert _run(check_should_batch(0.60, "escalate")) is False
+   289→        assert _run(check_should_batch(0.75, "ask")) is False
+   290→
+   291→
+   292→# ═══════════════════════════════════════════════════════════════
+   293→# 5C: Sentiment Routing
+   294→# ═══════════════════════════════════════════════════════════════
+   295→
+   296→class Test5C_SentimentRouting:
+   297→    """5C: Route customers based on emotional state."""
+   298→
+   299→    def test_5c_1_angry_text_routes_to_human(self):
+   300→        """Angry customer text → route to human."""
+   301→        result = compute_sentiment(
+   302→            "This is unacceptable! I want to speak to your manager immediately. "
+   303→            "This is the worst service I have ever experienced. I will sue you."
+   304→        )
+   305→        assert result["label"] == "angry"
+   306→        assert result["route"] == ROUTE_HUMAN
+   307→        assert result["score"] < 0.3
+   308→
+   309→    def test_5c_2_happy_text_routes_to_ai(self):
+   310→        """Happy customer text → AI auto."""
+   311→        result = compute_sentiment(
+   312→            "Thanks so much! Great service, really appreciate the quick response. "
+   313→            "Awesome work, I'll recommend you to everyone."
+   314→        )
+   315→        assert result["label"] == "happy"
+   316→        assert result["route"] == ROUTE_AI_AUTO
+   317→        assert result["score"] > 0.6
+   318→
+   319→    def test_5c_3_neutral_text_routes_to_flagged(self):
+   320→        """Neutral text → AI flagged for review."""
+   321→        result = compute_sentiment(
+   322→            "I have a question about my order status. Can you help?"
+   323→        )
+   324→        assert result["label"] in ("mixed", "happy")  # neutral defaults to slightly positive
+   325→        assert result["route"] in (ROUTE_AI_FLAGGED, ROUTE_AI_AUTO)
+   326→
+   327→    def test_5c_4_negation_flips_sentiment(self):
+   328→        """'Not happy' should not be treated as happy."""
+   329→        result = compute_sentiment("I am not happy with this service at all")
+   330→        # The negation should reduce happy signals
+   331→        # May not be angry (no angry keywords) but should be lower than happy threshold
+   332→        assert result["has_negation"] is True
+   333→
+   334→    def test_5c_5_intensifier_amplifies(self):
+   335→        """Intensifiers should be detected."""
+   336→        result = compute_sentiment("I am extremely angry about this terrible experience")
+   337→        assert result["has_intensifier"] is True
+   338→        assert result["label"] == "angry"
+   339→
+   340→    def test_5c_6_empty_text_returns_neutral(self):
+   341→        """Empty text → neutral default."""
+   342→        result = compute_sentiment("")
+   343→        assert result["score"] == 0.5
+   344→        assert result["route"] == ROUTE_AI_FLAGGED
+   345→
+   346→    def test_5c_7_route_by_sentiment_full(self):
+   347→        """Full sentiment routing with DB persistence via bridge."""
+   348→        result = _run(bridge_sentiment(
+   349→            tenant_id=TENANT,
+   350→            ticket_id="TKT-SENT-1",
+   351→            query="I'm furious! This is ridiculous. I want my money back!",
+   352→        ))
+   353→        assert result is not None
+   354→        assert result["route"] == ROUTE_HUMAN
+   355→        assert "sentiment" in result
+   356→
+   357→        # Verify persisted in DB (bridge writes to DB)
+   358→        db = get_db()
+   359→        logs = db._sentiment_logs
+   360→        assert any(l["ticket_id"] == "TKT-SENT-1" for l in logs)
+   361→
+   362→    def test_5c_8_vip_angry_escalates(self):
+   363→        """VIP + angry → always escalate."""
+   364→        result = _run(route_by_sentiment(
+   365→            tenant_id=TENANT,
+   366→            ticket_id="TKT-VIP-ANGRY",
+   367→            query="This is terrible service",
+   368→            customer_context={"is_vip": True},
+   369→        ))
+   370→        assert result["escalate"] is True
+   371→        assert result["route"] == ROUTE_HUMAN
+   372→
+   373→    def test_5c_9_repeat_contact_escalates(self):
+   374→        """3+ contacts about same issue → escalate."""
+   375→        result = _run(route_by_sentiment(
+   376→            tenant_id=TENANT,
+   377→            ticket_id="TKT-REPEAT",
+   378→            query="Still waiting on my refund",
+   379→            customer_context={"contact_count": 4},
+   380→        ))
+   381→        assert result["escalate"] is True
+   382→
+   383→    def test_5c_10_bridge_sentiment_wired(self):
+   384→        """parwa_bridge.route_by_sentiment persists to DB."""
+   385→        result = _run(bridge_sentiment(
+   386→            tenant_id=TENANT,
+   387→            ticket_id="TKT-BSENT-1",
+   388→            query="Thanks for the help, great service!",
+   389→        ))
+   390→        assert result is not None
+   391→        assert result["route"] == ROUTE_AI_AUTO
+   392→
+   393→        db = get_db()
+   394→        assert any(l["ticket_id"] == "TKT-BSENT-1" for l in db._sentiment_logs)
+   395→
+   396→
+   397→# ═══════════════════════════════════════════════════════════════
+   398→# 5D: Approval Gates
+   399→# ═══════════════════════════════════════════════════════════════
+   400→
+   401→class Test5D_ApprovalGates:
+   402→    """5D: Hard-coded safety rules that CANNOT be overridden by AI."""
+   403→
+   404→    def test_5d_1_refund_always_requires_approval(self):
+   405→        """Refund action ALWAYS requires approval (hard gate)."""
+   406→        result = _run(check_approval_required(
+   407→            tenant_id=TENANT, action="refund",
+   408→            confidence=0.99, is_vip=False, value_usd=0,
+   409→        ))
+   410→        assert result["required"] is True
+   411→        assert result["gate_type"] == "hard"
+   412→
+   413→    def test_5d_2_return_always_requires_approval(self):
+   414→        """Return action ALWAYS requires approval."""
+   415→        result = _run(check_approval_required(
+   416→            tenant_id=TENANT, action="return",
+   417→        ))
+   418→        assert result["required"] is True
+   419→        assert result["gate_type"] in ("hard", "blacklist")
+   420→
+   421→    def test_5d_3_account_change_always_requires_approval(self):
+   422→        """Account changes ALWAYS require approval."""
+   423→        result = _run(check_approval_required(
+   424→            tenant_id=TENANT, action="account_change",
+   425→        ))
+   426→        assert result["required"] is True
+   427→        assert result["gate_type"] in ("hard", "blacklist")
+   428→
+   429→    def test_5d_4_policy_exception_always_requires_approval(self):
+   430→        """Policy exceptions ALWAYS require approval."""
+   431→        result = _run(check_approval_required(
+   432→            tenant_id=TENANT, action="policy_exception",
+   433→        ))
+   434→        assert result["required"] is True
+   435→
+   436→    def test_5d_5_discount_above_threshold_requires_approval(self):
+   437→        """Discount > $10 requires approval (conditional gate)."""
+   438→        result = _run(check_approval_required(
+   439→            tenant_id=TENANT, action="discount",
+   440→            value_usd=15.0,
+   441→        ))
+   442→        assert result["required"] is True
+   443→        assert result["gate_type"] == "conditional"
+   444→
+   445→    def test_5d_6_discount_below_threshold_no_approval(self):
+   446→        """Discount <= $10 does NOT require approval."""
+   447→        result = _run(check_approval_required(
+   448→            tenant_id=TENANT, action="discount",
+   449→            value_usd=5.0,
+   450→        ))
+   451→        assert result["required"] is False
+   452→
+   453→    def test_5d_7_vip_actions_require_approval(self):
+   454→        """VIP customer actions on gated list require approval."""
+   455→        result = _run(check_approval_required(
+   456→            tenant_id=TENANT, action="cancellation",
+   457→            is_vip=True,
+   458→        ))
+   459→        assert result["required"] is True
+   460→        assert result["gate_type"] == "vip"
+   461→
+   462→    def test_5d_8_custom_auto_approve_with_blacklist(self):
+   463→        """Even custom auto-approve can't override hard gates (refunds)."""
+   464→        _run(set_custom_gates(
+   465→            tenant_id=TENANT,
+   466→            auto_approve_actions=["refund", "info_query"],
+   467→            set_by="admin@test.com",
+   468→        ))
+   469→
+   470→        # Refund should STILL require approval (blacklist)
+   471→        result = _run(check_approval_required(
+   472→            tenant_id=TENANT, action="refund",
+   473→            confidence=0.99,
+   474→        ))
+   475→        assert result["required"] is True
+   476→        assert result["gate_type"] in ("hard", "blacklist")  # hits hard gate first
+   477→
+   478→    def test_5d_9_custom_auto_approve_non_blacklist(self):
+   479→        """Non-blacklist action can be auto-approved with high confidence."""
+   480→        _run(set_custom_gates(
+   481→            tenant_id=TENANT,
+   482→            auto_approve_actions=["info_query"],
+   483→            max_auto_approve_confidence=0.90,
+   484→            set_by="admin@test.com",
+   485→        ))
+   486→
+   487→        result = _run(check_approval_required(
+   488→            tenant_id=TENANT, action="info_query",
+   489→            confidence=0.95,
+   490→        ))
+   491→        assert result["required"] is False
+   492→        assert result["gate_type"] == "confidence_auto"
+   493→
+   494→    def test_5d_10_load_gates_from_db(self):
+   495→        """Approval gates are stored/retrieved from DB."""
+   496→        db = get_db()
+   497→        _run(db.set_feature_flag(TENANT, "approval_gates", {
+   498→            "auto_approve_actions": ["status_check"],
+   499→            "max_auto_approve_confidence": 0.92,
+   500→        }, "admin"))
+   501→
+   502→        invalidate_gate_cache(TENANT)
+   503→        gates = _run(load_approval_gates(TENANT))
+   504→
+   505→        assert "status_check" in gates["auto_approve_actions"]
+   506→        assert gates["max_auto_approve_confidence"] == 0.92
+   507→
+   508→    def test_5d_11_bridge_approval_gate_wired(self):
+   509→        """parwa_bridge.check_approval_gate works end-to-end."""
+   510→        result = _run(check_approval_gate(
+   511→            tenant_id=TENANT, action="refund",
+   512→        ))
+   513→        assert result is not None
+   514→        assert result["required"] is True
+   515→
+   516→    def test_5d_12_execute_refund_variant_always_gated(self):
+   517→        """'execute_refund' variant is also hard-gated."""
+   518→        for action in ["execute_refund", "process_return", "handle_refund"]:
+   519→            result = _run(check_approval_required(
+   520→                tenant_id=TENANT, action=action,
+   521→            ))
+   522→            assert result["required"] is True, f"Action '{action}' should require approval"
+   523→
+   524→
+   525→# ═══════════════════════════════════════════════════════════════
+   526→# 5E: Variant Recommendation
+   527→# ═══════════════════════════════════════════════════════════════
+   528→
+   529→class Test5E_VariantRecommendation:
+   530→    """5E: Recommend variant upgrades when current can't handle task."""
+   531→
+   532→    def test_5e_1_simple_query_on_mini_no_upgrade(self):
+   533→        """Simple query on Mini → no upgrade needed."""
+   534→        result = _run(recommend_variant(
+   535→            tenant_id=TENANT, ticket_id="TKT-VR-1",
+   536→            query="What are your business hours?",
+   537→            current_variant="mini",
+   538→        ))
+   539→        assert result["upgrade_needed"] is False
+   540→        assert result["recommended_variant"] is None
+   541→
+   542→    def test_5e_2_refund_on_mini_needs_upgrade(self):
+   543→        """Refund query on Mini → needs upgrade (Mini can't do refunds)."""
+   544→        result = _run(recommend_variant(
+   545→            tenant_id=TENANT, ticket_id="TKT-VR-2",
+   546→            query="I want a refund for order #123",
+   547→            current_variant="mini",
+   548→            required_action="refund",
+   549→        ))
+   550→        assert result["upgrade_needed"] is True
+   551→        assert result["recommended_variant"] is not None
+   552→        # Should recommend parwa_standard (cheapest that handles refunds)
+   553→        assert result["recommended_variant"] in ("parwa_standard", "parwa_high")
+   554→
+   555→    def test_5e_3_complex_multi_api_needs_high(self):
+   556→        """Multi-API + escalation → needs PARWA High."""
+   557→        result = _run(recommend_variant(
+   558→            tenant_id=TENANT, ticket_id="TKT-VR-3",
+   559→            query="I need a refund AND my Shopify order is wrong AND I want to speak to manager",
+   560→            current_variant="mini",
+   561→        ))
+   562→        assert result["upgrade_needed"] is True
+   563→        assert result["recommended_variant"] == "parwa_high"
+   564→
+   565→    def test_5e_4_standard_handles_refund(self):
+   566→        """PARWA Standard can handle a simple refund."""
+   567→        result = _run(recommend_variant(
+   568→            tenant_id=TENANT, ticket_id="TKT-VR-4",
+   569→            query="Please process my refund",
+   570→            current_variant="parwa_standard",
+   571→            required_action="refund",
+   572→        ))
+   573→        assert result["upgrade_needed"] is False
+   574→
+   575→    def test_5e_5_high_handles_everything(self):
+   576→        """PARWA High handles everything."""
+   577→        result = _run(recommend_variant(
+   578→            tenant_id=TENANT, ticket_id="TKT-VR-5",
+   579→            query="Refund my Shopify order, I need to speak to manager about this unacceptable service",
+   580→            current_variant="parwa_high",
+   581→            required_action="refund",
+   582→        ))
+   583→        assert result["upgrade_needed"] is False
+   584→
+   585→    def test_5e_6_reasons_provided_for_upgrade(self):
+   586→        """Upgrade recommendations include reasons."""
+   587→        result = _run(recommend_variant(
+   588→            tenant_id=TENANT, ticket_id="TKT-VR-6",
+   589→            query="Refund for my order",
+   590→            current_variant="mini",
+   591→            required_action="refund",
+   592→        ))
+   593→        assert result["upgrade_needed"] is True
+   594→        assert len(result["reasons"]) > 0
+   595→        assert result["task_assessment"]["needs_refund"] is True
+   596→
+   597→    def test_5e_7_get_variant_status(self):
+   598→        """get_variant_status returns all variant info."""
+   599→        db = get_db()
+   600→        db.set_load(TENANT, "mini", 5, 20)
+   601→        db.set_load(TENANT, "parwa_standard", 8, 10)
+   602→
+   603→        status = _run(get_variant_status(TENANT))
+   604→        assert status["tenant_id"] == TENANT
+   605→        assert len(status["variants"]) >= 2
+   606→        names = [v["name"] for v in status["variants"]]
+   607→        assert "mini" in names
+   608→        assert "parwa_standard" in names
+   609→
+   610→    def test_5e_8_bridge_recommend_variant_wired(self):
+   611→        """parwa_bridge.recommend_variant works end-to-end."""
+   612→        result = _run(bridge_recommend_variant(
+   613→            tenant_id=TENANT, ticket_id="TKT-BVR-1",
+   614→            query="I need a refund",
+   615→            current_variant="mini",
+   616→        ))
+   617→        assert result is not None
+   618→        # Mini can't handle refund
+   619→        assert result["upgrade_needed"] is True
+   620→
+   621→
+   622→# ═══════════════════════════════════════════════════════════════
+   623→# INTEGRATION: Full E2E — Combined Wave 5 Intelligence
+   624→# ═══════════════════════════════════════════════════════════════
+   625→
+   626→class Test5_Integration:
+   627→    """Full E2E: Confidence + Sentiment + Approval Gates work together."""
+   628→
+   629→    def test_integration_angry_refund_full_flow(self):
+   630→        """Angry customer requesting refund:
+   631→        1. Sentiment → human route + escalate
+   632→        2. Confidence → low (risk factors)
+   633→        3. Approval gate → required (hard gate for refund)
+   634→        4. Variant → needs upgrade from mini
+   635→        All should agree: this needs human attention.
+   636→        """
+   637→        # 1. Sentiment
+   638→        sentiment = _run(bridge_sentiment(
+   639→            tenant_id=TENANT, ticket_id="TKT-FULL-1",
+   640→            query="This is ridiculous! I want a full refund immediately! Worst experience ever!",
+   641→        ))
+   642→        assert sentiment["route"] == ROUTE_HUMAN
+   643→
+   644→        # 2. Confidence
+   645→        conf = _run(score_confidence(
+   646→            tenant_id=TENANT, ticket_id="TKT-FULL-1",
+   647→            ticket_type="refund_request", query="I want a full refund",
+   648→            required_action="refund", is_vip=False, value_usd=200,
+   649→        ))
+   650→        assert conf is not None
+   651→        # High risk (financial + refund action) should lower confidence
+   652→        assert conf["risk_level"] > 0
+   653→
+   654→        # 3. Approval gate
+   655→        gate = _run(check_approval_gate(
+   656→            tenant_id=TENANT, action="refund",
+   657→            confidence=conf["confidence"], value_usd=200,
+   658→        ))
+   659→        assert gate["required"] is True
+   660→
+   661→        # 4. Variant recommendation
+   662→        variant = _run(bridge_recommend_variant(
+   663→            tenant_id=TENANT, ticket_id="TKT-FULL-1",
+   664→            query="I want a full refund for my order",
+   665→            current_variant="mini", required_action="refund",
+   666→        ))
+   667→        assert variant["upgrade_needed"] is True
+   668→
+   669→    def test_integration_happy_info_auto_flow(self):
+   670→        """Happy customer asking for info:
+   671→        1. Sentiment → AI auto
+   672→        2. Confidence → high
+   673→        3. Approval gate → not required
+   674→        4. Variant → no upgrade needed
+   675→        All should agree: auto-handle.
+   676→        """
+   677→        # 1. Sentiment
+   678→        sentiment = _run(bridge_sentiment(
+   679→            tenant_id=TENANT, ticket_id="TKT-AUTO-1",
+   680→            query="Thanks for the great service! Quick question: what are your hours?",
+   681→        ))
+   682→        assert sentiment["route"] == ROUTE_AI_AUTO
+   683→
+   684→        # 2. Confidence
+   685→        conf = _run(score_confidence(
+   686→            tenant_id=TENANT, ticket_id="TKT-AUTO-1",
+   687→            ticket_type="info", query="What are your hours?",
+   688→        ))
+   689→        assert conf is not None
+   690→
+   691→        # 3. Approval gate
+   692→        gate = _run(check_approval_gate(
+   693→            tenant_id=TENANT, action="info_query",
+   694→            confidence=conf["confidence"],
+   695→        ))
+   696→        assert gate["required"] is False
+   697→
+   698→        # 4. Variant
+   699→        variant = _run(bridge_recommend_variant(
+   700→            tenant_id=TENANT, ticket_id="TKT-AUTO-1",
+   701→            query="What are your business hours?",
+   702→            current_variant="mini",
+   703→        ))
+   704→        assert variant["upgrade_needed"] is False
+   705→
+   706→    def test_integration_db_persistence_full_chain(self):
+   707→        """All Wave 5 results are persisted in DB."""
+   708→        db = get_db()
+   709→
+   710→        # Run all Wave 5 modules
+   711→        _run(bridge_sentiment(TENANT, "TKT-PERSIST-1", "Great service, thanks!"))
+   712→        _run(score_confidence(TENANT, "TKT-PERSIST-1", "info", "Thanks"))
+   713→        _run(check_approval_gate(TENANT, "info_query"))
+   714→
+   715→        # Verify DB has records
+   716→        assert len(db._sentiment_logs) >= 1
+   717→        assert len(db._confidence_logs) >= 1
+   718→        # Approval gates use feature_flags
+   719→        assert len(db._feature_flags) >= 0  # may or may not have flags
+   720→
+   721→    def test_integration_batching_with_confidence(self):
+   722→        """Tickets scored as BATCH should be added to semantic batches."""
+   723→        # Score a ticket → BATCH routing
+   724→        conf = _run(score_confidence(
+   725→            tenant_id=TENANT, ticket_id="TKT-BATCH-1",
+   726→            ticket_type="address_change", query="Change my address to 123 Main St",
+   727→        ))
+   728→
+   729→        if conf and conf["routing"] == ACTION_BATCH:
+   730→            # Add to batch
+   731→            result = _run(add_ticket_to_batch(
+   732→                tenant_id=TENANT, ticket_id="TKT-BATCH-1",
+   733→                query="Change my address to 123 Main St",
+   734→                confidence=conf["confidence"],
+   735→                ticket_type="address_change",
+   736→            ))
+   737→            # Should accumulate (not flush yet)
+   738→
+   739→        # Add another similar ticket
+   740→        _run(add_ticket_to_batch(
+   741→            tenant_id=TENANT, ticket_id="TKT-BATCH-2",
+   742→            query="Update my address to 456 Oak Ave",
+   743→            confidence=0.92,
+   744→            ticket_type="address_change",
+   745→        ))
+   746→
+   747→        # Flush
+   748→        batches = _run(flush_all_batches(TENANT))
+   749→        # Should have at least one batch
+   750→        assert len(batches) >= 0  # May be in same or different batches depending on key
+   751→
+   752→
+   753→if __name__ == "__main__":
+   754→    pytest.main([__file__, "-v"])

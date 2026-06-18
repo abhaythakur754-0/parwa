@@ -29,7 +29,7 @@ from app.core.jarvis_pipeline.jarvis_db import (
 )
 from app.core.jarvis_pipeline.command_parser import (
     classify_command, is_query_intent, is_control_intent,
-    is_emergency_intent, is_approval_intent,
+    is_emergency_intent, is_approval_intent, is_report_intent,
 )
 from app.core.jarvis_pipeline.command_executor import (
     execute_command, validate_command, get_effective_flags,
@@ -425,6 +425,23 @@ async def _handle_query(intent: str, target: str, tenant_id: str, signals: Dict,
             )
         return "\n".join(lines)
 
+    # ── Wave 6 Query Handlers ─────────────────────────────
+
+    if intent == "query_report":
+        return await _handle_wave6_report(target, tenant_id, db)
+
+    if intent == "query_sla":
+        return await _handle_wave6_sla(tenant_id, db)
+
+    if intent == "query_health_score":
+        return await _handle_wave6_health_score(tenant_id, db)
+
+    if intent == "query_roi":
+        return await _handle_wave6_roi(tenant_id, db)
+
+    if intent == "query_agent_health":
+        return await _handle_wave6_agent_health(target, tenant_id, db)
+
     return f"Query '{intent}' not yet implemented."
 
 
@@ -550,6 +567,164 @@ async def _handle_create_agent(target: str, tenant_id: str, auth: AuthResult, db
         actor_email=auth.email, target_type="agent", target_id=target,
     )
     return "[NOTED] Agent creation request received. Virtual agent provisioning from chat coming in Wave 8."
+
+
+# ── Wave 6 Report/Query Handlers ─────────────────────────────
+
+async def _handle_wave6_report(target: str, tenant_id: str, db) -> str:
+    """Wave 6: Handle report queries — weekly wins or performance dashboard."""
+    try:
+        from app.core.jarvis_pipeline.report_generator import (
+            generate_weekly_wins_report, get_performance_dashboard,
+            format_weekly_report_text,
+        )
+
+        if target == "dashboard":
+            dashboard = await get_performance_dashboard(tenant_id)
+            va = dashboard.get("volume_accuracy", {})
+            ct = dashboard.get("confidence_trends", {})
+            eg = dashboard.get("efficiency_gains", {})
+            lines = [
+                "**Performance Dashboard**:",
+                f"  Tickets Handled: {va.get('total_tickets', 0)}",
+                f"  Auto-Resolved: {va.get('auto_resolved', 0)} ({va.get('auto_resolve_pct', 0):.1f}%)",
+                f"  Avg Quality: {va.get('avg_quality', 0):.1%}",
+                f"  Quality Trend: {va.get('quality_trend', 'stable')}",
+                f"  Avg Confidence: {ct.get('avg_confidence', 0):.1%} ({ct.get('trend_direction', 'N/A')})",
+                f"  Manager Time Saved: {eg.get('manager_time_saved_minutes', 0):.0f} min",
+                f"  Training Priorities: {eg.get('total_priority_areas', 0)} areas",
+            ]
+            return "\n".join(lines)
+        else:
+            report = await generate_weekly_wins_report(tenant_id)
+            return format_weekly_report_text(report)
+    except Exception as e:
+        logger.error("Wave 6 report handler error: %s", e)
+        return f"[ERROR] Failed to generate report: {e}"
+
+
+async def _handle_wave6_sla(tenant_id: str, db) -> str:
+    """Wave 6: Handle SLA queries."""
+    try:
+        from app.core.jarvis_pipeline.sla_calculator import compute_sla_status
+
+        sla = await compute_sla_status(tenant_id)
+        status = sla.get("sla_status", "unknown")
+        actual = sla.get("actual_uptime_pct", 0)
+        target = sla.get("target_uptime_pct", 99.5)
+        credit = sla.get("credit_owed_usd", 0)
+        incidents = sla.get("incident_count", 0)
+        lines = [
+            "**SLA Status**:",
+            f"  Status: {status.upper()}",
+            f"  Actual Uptime: {actual:.2f}%",
+            f"  Target Uptime: {target:.1f}%",
+            f"  Gap: {sla.get('uptime_gap_pct', 0):.2f}%",
+            f"  Downtime: {sla.get('total_downtime_seconds', 0):.0f} seconds",
+            f"  Incidents: {incidents}",
+        ]
+        if credit > 0:
+            lines.append(f"  Credit Owed: ${credit:.2f}")
+        lines.append(f"\n{sla.get('recommendation', '')}")
+        return "\n".join(lines)
+    except Exception as e:
+        logger.error("Wave 6 SLA handler error: %s", e)
+        return f"[ERROR] Failed to compute SLA: {e}"
+
+
+async def _handle_wave6_health_score(tenant_id: str, db) -> str:
+    """Wave 6: Handle customer health score queries."""
+    try:
+        from app.core.jarvis_pipeline.health_scorer import get_customer_health
+
+        health = await get_customer_health(tenant_id)
+        score = health.get("health_score", 0)
+        pct = health.get("readiness_pct", 0)
+        grade = health.get("grade", "early")
+        achieved = health.get("achieved_milestones", 0)
+        total = health.get("total_milestones", 0)
+
+        lines = [
+            "**Customer Health Score**:",
+            f"  Readiness: {pct}% (grade: {grade})",
+            f"  Milestones: {achieved}/{total} achieved",
+        ]
+        for m in health.get("milestones", []):
+            icon = "OK" if m["achieved"] else ".."
+            lines.append(f"  [{icon}] {m['name']}: {'done' if m['achieved'] else 'pending'}")
+        lines.append(f"\n{health.get('success_coach_message', '')}")
+        return "\n".join(lines)
+    except Exception as e:
+        logger.error("Wave 6 health score handler error: %s", e)
+        return f"[ERROR] Failed to compute health score: {e}"
+
+
+async def _handle_wave6_roi(tenant_id: str, db) -> str:
+    """Wave 6: Handle ROI queries."""
+    try:
+        from app.core.jarvis_pipeline.health_scorer import calculate_roi
+
+        roi = await calculate_roi(tenant_id)
+        lines = [
+            "**ROI Analysis** (30-day):",
+            f"  Total Tickets: {roi.get('total_tickets', 0)}",
+            f"  Auto-Resolved: {roi.get('auto_resolved', 0)} ({roi.get('auto_resolve_pct', 0):.1f}%)",
+            f"  Human-Handled: {roi.get('human_handled', 0)}",
+            f"  Human Cost (estimated): ${roi.get('human_cost_usd', 0):.2f}",
+            f"  AI Cost: ${roi.get('ai_cost_usd', 0):.2f}",
+            f"  Net Savings: ${roi.get('net_savings_usd', 0):.2f}",
+            f"  ROI: {roi.get('roi_pct', 0):.1f}%",
+            f"\n{roi.get('recommendation', '')}",
+        ]
+        return "\n".join(lines)
+    except Exception as e:
+        logger.error("Wave 6 ROI handler error: %s", e)
+        return f"[ERROR] Failed to calculate ROI: {e}"
+
+
+async def _handle_wave6_agent_health(target: str, tenant_id: str, db) -> str:
+    """Wave 6: Handle agent health / quality coach queries."""
+    try:
+        from app.core.jarvis_pipeline.quality_coach import (
+            get_agent_health_summary, generate_weekly_quality_report,
+            generate_mistake_analysis, run_drift_check_and_alert,
+        )
+
+        if target == "quality_report":
+            report = await generate_weekly_quality_report(tenant_id)
+            health = report.get("health_score", {})
+            recs = report.get("recommendations", [])
+            lines = [
+                "**Weekly Quality Report**:",
+                f"  Health Score: {health.get('health_score', 0):.1%} (Grade: {health.get('grade', '?')})",
+                f"  Total Tickets: {report.get('performance', {}).get('total_tickets', 0)}",
+                f"  Avg Quality: {report.get('performance', {}).get('avg_quality', 0):.1%}",
+                f"  Mistakes: {report.get('mistakes', {}).get('total_mistakes', 0)}",
+            ]
+            if recs:
+                lines.append("  Recommendations:")
+                for r in recs[:5]:
+                    lines.append(f"    - [{r.get('priority', '?')}] {r.get('text', '')[:100]}")
+            return "\n".join(lines)
+        else:
+            summary = await get_agent_health_summary(tenant_id)
+            score = summary.get("health_score", 0)
+            grade = summary.get("grade", "?")
+            weakest = summary.get("weakest_component", "?")
+            components = summary.get("components", {})
+            lines = [
+                "**Agent Health Summary**:",
+                f"  Score: {score:.1%} (Grade: {grade})",
+                f"  Weakest: {weakest}",
+            ]
+            for name, val in components.items():
+                if isinstance(val, (int, float)):
+                    lines.append(f"    {name}: {val:.1%}")
+            lines.append(f"\n{summary.get('recommendation', '')}")
+            return "\n".join(lines)
+    except Exception as e:
+        logger.error("Wave 6 agent health handler error: %s", e)
+        return f"[ERROR] Failed to get agent health: {e}"
 
 
 # ── Main Node Function ────────────────────────────────────────

@@ -45,6 +45,8 @@ TABLE_PROVISIONING_LOGS = "jarvis_provisioning_logs"
 TABLE_TRAINING_DATA = "jarvis_training_data"
 TABLE_BATCH_QUEUE = "jarvis_batch_queue"
 TABLE_INBOX = "jarvis_inbox"
+TABLE_SLA_EVENTS = "jarvis_sla_events"
+TABLE_GENERATED_REPORTS = "jarvis_generated_reports"
 
 # Priority constants
 PRIORITY_CRITICAL = "CRITICAL"
@@ -461,6 +463,121 @@ class StorageBackend(ABC):
         """Check if the storage backend is healthy."""
         ...
 
+    # ── Weekly Performance (Wave 6) ────────────────────────
+
+    @abstractmethod
+    async def get_weekly_performance_data(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+        """Aggregate quality_scores into weekly performance summary."""
+        ...
+
+    @abstractmethod
+    async def get_confidence_trends(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+        """Analyze confidence_logs for trends and distribution."""
+        ...
+
+    @abstractmethod
+    async def get_efficiency_metrics(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+        """Manager approvals/denials, auto_resolved count, time saved."""
+        ...
+
+    # ── Quality Alerts (Wave 6) ───────────────────────────
+
+    @abstractmethod
+    async def create_quality_alert(
+        self, tenant_id: str, alert_type: str, severity: str,
+        description: str, metrics: Dict[str, Any],
+        related_tickets: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Create a quality alert."""
+        ...
+
+    @abstractmethod
+    async def get_quality_alerts(
+        self, tenant_id: str, include_resolved: bool = False,
+        alert_type: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Get quality alerts for a tenant."""
+        ...
+
+    @abstractmethod
+    async def resolve_quality_alert(self, alert_id: str) -> bool:
+        """Mark a quality alert as resolved."""
+        ...
+
+    @abstractmethod
+    async def check_and_create_drift_alerts(self, tenant_id: str) -> List[Dict[str, Any]]:
+        """Check for drift and auto-create alerts if needed."""
+        ...
+
+    # ── Mistake Breakdown & Training Priority (Wave 6) ──
+
+    @abstractmethod
+    async def get_mistake_breakdown(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+        """Breakdown of mistakes by category/type."""
+        ...
+
+    @abstractmethod
+    async def get_training_priority_list(self, tenant_id: str) -> List[Dict[str, Any]]:
+        """Get prioritized list of training suggestions."""
+        ...
+
+    # ── Agent Health Score (Wave 6) ──────────────────────
+
+    @abstractmethod
+    async def compute_agent_health_score(self, tenant_id: str) -> Dict[str, Any]:
+        """Compute overall agent health score."""
+        ...
+
+    # ── SLA Events (Wave 6) ──────────────────────────────
+
+    @abstractmethod
+    async def record_sla_event(
+        self, tenant_id: str, event_type: str,
+        duration_seconds: float = 0.0, details: str = "",
+    ) -> Dict[str, Any]:
+        """Record an SLA event."""
+        ...
+
+    @abstractmethod
+    async def get_sla_summary(self, tenant_id: str, days: int = 30) -> Dict[str, Any]:
+        """Get SLA compliance summary."""
+        ...
+
+    # ── Client Legal Config (Wave 6) ─────────────────────
+
+    @abstractmethod
+    async def get_client_legal_config(self, tenant_id: str) -> Dict[str, Any]:
+        """Get legal/compliance config for a tenant."""
+        ...
+
+    @abstractmethod
+    async def set_client_legal_config(
+        self, tenant_id: str, config: Dict[str, Any], set_by: str = "admin",
+    ) -> Dict[str, Any]:
+        """Set legal/compliance config for a tenant."""
+        ...
+
+    # ── Customer Health & Reports (Wave 6) ───────────────
+
+    @abstractmethod
+    async def get_customer_health_score(self, tenant_id: str) -> Dict[str, Any]:
+        """Get customer health score."""
+        ...
+
+    @abstractmethod
+    async def save_generated_report(
+        self, tenant_id: str, report_type: str, report_data: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Save a generated report."""
+        ...
+
+    @abstractmethod
+    async def get_generated_reports(
+        self, tenant_id: str, report_type: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Get generated reports for a tenant."""
+        ...
+
 
 # ═══════════════════════════════════════════════════════════════
 # IN-MEMORY BACKEND (works immediately, no deps)
@@ -490,6 +607,11 @@ class InMemoryBackend(StorageBackend):
         self._feature_flags: List[Dict] = []  # Wave 5: feature flags
         self._sentiment_logs: List[Dict] = []  # Wave 5: sentiment logs
         self._confidence_logs: List[Dict] = []  # Wave 5: confidence logs
+        # Wave 6 stores
+        self._quality_alerts: List[Dict] = []
+        self._sla_events: List[Dict] = []
+        self._client_legal: List[Dict] = []
+        self._generated_reports: List[Dict] = []
 
     # ── Helpers ───────────────────────────────────────────────
 
@@ -1371,6 +1493,352 @@ class InMemoryBackend(StorageBackend):
         self._confidence_logs.append(record)
         return record
 
+    # ── Weekly Performance (Wave 6) ────────────────────────
+
+    async def get_weekly_performance_data(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+        tenant_scores = [s for s in self._quality_scores if s["tenant_id"] == tenant_id]
+        total = len(tenant_scores)
+        auto_resolved = sum(1 for s in tenant_scores if s.get("overall_score", 0) >= 0.85)
+        escalated = sum(1 for s in tenant_scores if s.get("resolution_path") == "escalated")
+        stuck = sum(1 for s in tenant_scores if s.get("resolution_path") == "stuck")
+        batched = sum(1 for s in tenant_scores if s.get("resolution_path") == "batched")
+        avg_quality = round(sum(s["overall_score"] for s in tenant_scores) / max(total, 1), 4)
+        by_resolution_path: Dict[str, int] = {}
+        for s in tenant_scores:
+            p = s.get("resolution_path", "unknown")
+            by_resolution_path[p] = by_resolution_path.get(p, 0) + 1
+        # Trend: compare first half vs second half
+        quality_trend = "stable"
+        if total >= 4:
+            mid = total // 2
+            first_half = sum(s["overall_score"] for s in tenant_scores[:mid]) / mid
+            second_half = sum(s["overall_score"] for s in tenant_scores[mid:]) / (total - mid)
+            diff = second_half - first_half
+            if diff > 0.03:
+                quality_trend = "improving"
+            elif diff < -0.03:
+                quality_trend = "declining"
+        return {
+            "tenant_id": tenant_id,
+            "total_tickets": total,
+            "auto_resolved": auto_resolved,
+            "escalated": escalated,
+            "stuck": stuck,
+            "batched": batched,
+            "avg_quality": avg_quality,
+            "quality_trend": quality_trend,
+            "by_resolution_path": by_resolution_path,
+        }
+
+    # ── Confidence Trends (Wave 6) ─────────────────────────
+
+    async def get_confidence_trends(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+        tenant_logs = [l for l in self._confidence_logs if l["tenant_id"] == tenant_id]
+        total = len(tenant_logs)
+        if total == 0:
+            return {
+                "tenant_id": tenant_id, "avg_confidence": 0,
+                "trend_direction": "stable", "distribution": {},
+                "high_confidence_pct": 0,
+            }
+        avg_conf = round(sum(l["confidence"] for l in tenant_logs) / total, 4)
+        high_conf = sum(1 for l in tenant_logs if l["confidence"] >= 0.85)
+        high_confidence_pct = round(high_conf / total * 100, 1)
+        distribution: Dict[str, int] = {}
+        for l in tenant_logs:
+            r = l.get("routing", "unknown")
+            distribution[r] = distribution.get(r, 0) + 1
+        # Trend
+        trend_direction = "stable"
+        if total >= 4:
+            mid = total // 2
+            first_half = sum(l["confidence"] for l in tenant_logs[:mid]) / mid
+            second_half = sum(l["confidence"] for l in tenant_logs[mid:]) / (total - mid)
+            diff = second_half - first_half
+            if diff > 0.03:
+                trend_direction = "improving"
+            elif diff < -0.03:
+                trend_direction = "declining"
+        return {
+            "tenant_id": tenant_id,
+            "avg_confidence": avg_conf,
+            "trend_direction": trend_direction,
+            "distribution": distribution,
+            "high_confidence_pct": high_confidence_pct,
+        }
+
+    # ── Efficiency Metrics (Wave 6) ────────────────────────
+
+    async def get_efficiency_metrics(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+        tenant_training = [r for r in self._training_data_records if r["tenant_id"] == tenant_id]
+        approvals = sum(1 for r in tenant_training if r.get("signal_type") == "approved")
+        denials = sum(1 for r in tenant_training if r.get("signal_type") == "rejected")
+        edits = sum(1 for r in tenant_training if r.get("signal_type") == "edited")
+        tenant_scores = [s for s in self._quality_scores if s["tenant_id"] == tenant_id]
+        auto_resolved = sum(1 for s in tenant_scores if s.get("overall_score", 0) >= 0.85)
+        # Assume 3 min saved per auto-resolved ticket (manager review avoided)
+        manager_time_saved_minutes = auto_resolved * 3
+        return {
+            "tenant_id": tenant_id,
+            "manager_approvals": approvals,
+            "manager_denials": denials,
+            "manager_edits": edits,
+            "auto_resolved": auto_resolved,
+            "manager_time_saved_minutes": manager_time_saved_minutes,
+        }
+
+    # ── Quality Alerts (Wave 6) ───────────────────────────
+
+    async def create_quality_alert(
+        self, tenant_id, alert_type, severity, description, metrics,
+        related_tickets=None,
+    ) -> Dict[str, Any]:
+        alert = {
+            "id": str(uuid.uuid4()),
+            "tenant_id": tenant_id,
+            "alert_type": alert_type,
+            "severity": severity,
+            "description": description,
+            "metrics": metrics or {},
+            "related_tickets": related_tickets or [],
+            "is_resolved": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "resolved_at": None,
+            "backend": "memory",
+        }
+        self._quality_alerts.append(alert)
+        return alert
+
+    async def get_quality_alerts(
+        self, tenant_id, include_resolved=False, alert_type=None,
+    ) -> List[Dict[str, Any]]:
+        results = [a for a in self._quality_alerts if a["tenant_id"] == tenant_id]
+        if not include_resolved:
+            results = [a for a in results if not a["is_resolved"]]
+        if alert_type:
+            results = [a for a in results if a["alert_type"] == alert_type]
+        return sorted(results, key=lambda a: a["created_at"], reverse=True)
+
+    async def resolve_quality_alert(self, alert_id: str) -> bool:
+        for a in self._quality_alerts:
+            if a["id"] == alert_id and not a["is_resolved"]:
+                a["is_resolved"] = True
+                a["resolved_at"] = datetime.now(timezone.utc).isoformat()
+                return True
+        return False
+
+    async def check_and_create_drift_alerts(self, tenant_id: str) -> List[Dict[str, Any]]:
+        drift = await self.check_quality_drift(tenant_id)
+        created = []
+        if drift.get("drift_detected"):
+            # Check if alert already exists for this tenant+type
+            existing = [a for a in self._quality_alerts
+                        if a["tenant_id"] == tenant_id and a["alert_type"] == "drift" and not a["is_resolved"]]
+            if not existing:
+                alert = await self.create_quality_alert(
+                    tenant_id=tenant_id,
+                    alert_type="drift",
+                    severity=drift.get("drift_severity", "warning"),
+                    description=drift.get("trigger_reason", "Quality drift detected"),
+                    metrics=drift,
+                )
+                created.append(alert)
+        return created
+
+    # ── Mistake Breakdown (Wave 6) ────────────────────────
+
+    async def get_mistake_breakdown(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+        tenant_training = [r for r in self._training_data_records
+                           if r["tenant_id"] == tenant_id]
+        mistakes = [r for r in tenant_training if r.get("signal_type") in ("rejected", "edited")]
+        by_type: Dict[str, int] = {}
+        for m in mistakes:
+            t = m.get("ticket_type", "unknown")
+            by_type[t] = by_type.get(t, 0) + 1
+        avg_quality_of_mistakes = 0.0
+        if mistakes:
+            avg_quality_of_mistakes = round(
+                sum(m.get("quality_score", 0) for m in mistakes) / len(mistakes), 4
+            )
+        return {
+            "tenant_id": tenant_id,
+            "total_mistakes": len(mistakes),
+            "by_type": by_type,
+            "avg_quality_score": avg_quality_of_mistakes,
+            "rejection_count": sum(1 for m in mistakes if m.get("signal_type") == "rejected"),
+            "edit_count": sum(1 for m in mistakes if m.get("signal_type") == "edited"),
+        }
+
+    # ── Training Priority List (Wave 6) ───────────────────
+
+    async def get_training_priority_list(self, tenant_id: str) -> List[Dict[str, Any]]:
+        breakdown = await self.get_mistake_breakdown(tenant_id)
+        by_type = breakdown.get("by_type", {})
+        # Sort by count descending
+        priority_list = []
+        for ttype, count in sorted(by_type.items(), key=lambda x: -x[1]):
+            priority_list.append({
+                "ticket_type": ttype,
+                "mistake_count": count,
+                "priority": "high" if count >= 5 else ("medium" if count >= 2 else "low"),
+                "recommended_actions": [
+                    "Add training examples for this type",
+                    "Review and update knowledge base entries",
+                ],
+            })
+        return priority_list
+
+    # ── Agent Health Score (Wave 6) ──────────────────────
+
+    async def compute_agent_health_score(self, tenant_id: str) -> Dict[str, Any]:
+        perf = await self.get_weekly_performance_data(tenant_id)
+        conf = await self.get_confidence_trends(tenant_id)
+        eff = await self.get_efficiency_metrics(tenant_id)
+        drift = await self.check_quality_drift(tenant_id)
+
+        # Weighted score
+        quality_component = perf.get("avg_quality", 0) * 0.35
+        confidence_component = conf.get("avg_confidence", 0) * 0.25
+        efficiency_component = min(eff.get("auto_resolved", 0) / max(perf.get("total_tickets", 1), 1), 1.0) * 0.25
+        drift_penalty = 0.15 if drift.get("drift_detected") else 0.0
+        if drift.get("drift_severity") == "critical":
+            drift_penalty = 0.25
+
+        overall = round(min(max(quality_component + confidence_component + efficiency_component - drift_penalty, 0), 1), 4)
+        status = "healthy" if overall >= 0.8 else ("warning" if overall >= 0.6 else "critical")
+
+        return {
+            "tenant_id": tenant_id,
+            "overall_score": overall,
+            "status": status,
+            "components": {
+                "quality": round(quality_component, 4),
+                "confidence": round(confidence_component, 4),
+                "efficiency": round(efficiency_component, 4),
+                "drift_penalty": round(drift_penalty, 4),
+            },
+            "drift_detected": drift.get("drift_detected", False),
+            "total_tickets": perf.get("total_tickets", 0),
+        }
+
+    # ── SLA Events (Wave 6) ──────────────────────────────
+
+    async def record_sla_event(
+        self, tenant_id, event_type, duration_seconds=0.0, details="",
+    ) -> Dict[str, Any]:
+        event = {
+            "id": str(uuid.uuid4()),
+            "tenant_id": tenant_id,
+            "event_type": event_type,
+            "duration_seconds": round(duration_seconds, 2),
+            "details": details,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "backend": "memory",
+        }
+        self._sla_events.append(event)
+        return event
+
+    async def get_sla_summary(self, tenant_id: str, days: int = 30) -> Dict[str, Any]:
+        tenant_events = [e for e in self._sla_events if e["tenant_id"] == tenant_id]
+        total = len(tenant_events)
+        by_type: Dict[str, int] = {}
+        breach_count = sum(1 for e in tenant_events if e.get("event_type") == "breach")
+        met_count = sum(1 for e in tenant_events if e.get("event_type") == "met")
+        warning_count = sum(1 for e in tenant_events if e.get("event_type") == "warning")
+        for e in tenant_events:
+            t = e.get("event_type", "unknown")
+            by_type[t] = by_type.get(t, 0) + 1
+        avg_duration = 0.0
+        durations = [e.get("duration_seconds", 0) for e in tenant_events if e.get("duration_seconds")]
+        if durations:
+            avg_duration = round(sum(durations) / len(durations), 2)
+        compliance_pct = round(met_count / max(total, 1) * 100, 1)
+        return {
+            "tenant_id": tenant_id,
+            "total_events": total,
+            "breach_count": breach_count,
+            "met_count": met_count,
+            "warning_count": warning_count,
+            "compliance_pct": compliance_pct,
+            "avg_duration_seconds": avg_duration,
+            "by_type": by_type,
+        }
+
+    # ── Client Legal Config (Wave 6) ─────────────────────
+
+    async def get_client_legal_config(self, tenant_id: str) -> Dict[str, Any]:
+        for c in self._client_legal:
+            if c["tenant_id"] == tenant_id:
+                return c
+        return {"tenant_id": tenant_id, "config": {}, "exists": False}
+
+    async def set_client_legal_config(
+        self, tenant_id, config, set_by="admin",
+    ) -> Dict[str, Any]:
+        for c in self._client_legal:
+            if c["tenant_id"] == tenant_id:
+                c["config"] = config
+                c["set_by"] = set_by
+                c["updated_at"] = datetime.now(timezone.utc).isoformat()
+                return c
+        record = {
+            "id": str(uuid.uuid4()),
+            "tenant_id": tenant_id,
+            "config": config,
+            "set_by": set_by,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "backend": "memory",
+        }
+        self._client_legal.append(record)
+        return record
+
+    # ── Customer Health & Reports (Wave 6) ───────────────
+
+    async def get_customer_health_score(self, tenant_id: str) -> Dict[str, Any]:
+        health = await self.compute_agent_health_score(tenant_id)
+        sla = await self.get_sla_summary(tenant_id)
+        alerts = await self.get_quality_alerts(tenant_id)
+        unresolved_alerts = len(alerts)
+
+        # Combine into customer health
+        agent_component = health.get("overall_score", 0) * 0.5
+        sla_component = (sla.get("compliance_pct", 0) / 100) * 0.3
+        alert_penalty = min(unresolved_alerts * 0.02, 0.2)
+        customer_score = round(min(max(agent_component + sla_component - alert_penalty, 0), 1), 4)
+        status = "healthy" if customer_score >= 0.8 else ("warning" if customer_score >= 0.6 else "critical")
+
+        return {
+            "tenant_id": tenant_id,
+            "customer_health_score": customer_score,
+            "status": status,
+            "agent_health": health.get("overall_score", 0),
+            "sla_compliance_pct": sla.get("compliance_pct", 0),
+            "unresolved_alerts": unresolved_alerts,
+        }
+
+    async def save_generated_report(
+        self, tenant_id, report_type, report_data,
+    ) -> Dict[str, Any]:
+        report = {
+            "id": str(uuid.uuid4()),
+            "tenant_id": tenant_id,
+            "report_type": report_type,
+            "report_data": report_data,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "backend": "memory",
+        }
+        self._generated_reports.append(report)
+        return report
+
+    async def get_generated_reports(
+        self, tenant_id, report_type=None,
+    ) -> List[Dict[str, Any]]:
+        results = [r for r in self._generated_reports if r["tenant_id"] == tenant_id]
+        if report_type:
+            results = [r for r in results if r["report_type"] == report_type]
+        return sorted(results, key=lambda r: r["created_at"], reverse=True)
+
     def clear_all(self):
         """Clear all data (for testing)."""
         self._notifications.clear()
@@ -1391,6 +1859,10 @@ class InMemoryBackend(StorageBackend):
         self._feature_flags.clear()
         self._sentiment_logs.clear()
         self._confidence_logs.clear()
+        self._quality_alerts.clear()
+        self._sla_events.clear()
+        self._client_legal.clear()
+        self._generated_reports.clear()
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -2203,6 +2675,372 @@ class SupabaseBackend(StorageBackend):
             },
             "set_by": "jarvis_wave5",
         })
+
+    # ── Weekly Performance (Wave 6) ────────────────────────
+
+    async def get_weekly_performance_data(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+        scores = await self._rest_get(
+            TABLE_QUALITY_SCORES,
+            f"tenant_id=eq.{tenant_id}&select=overall_score,resolution_path&limit=5000"
+        )
+        total = len(scores)
+        if total == 0:
+            return {
+                "tenant_id": tenant_id, "total_tickets": 0, "auto_resolved": 0,
+                "escalated": 0, "stuck": 0, "batched": 0, "avg_quality": 0,
+                "quality_trend": "stable", "by_resolution_path": {},
+            }
+        auto_resolved = sum(1 for s in scores if float(s.get("overall_score", 0)) >= 0.85)
+        escalated = sum(1 for s in scores if s.get("resolution_path") == "escalated")
+        stuck = sum(1 for s in scores if s.get("resolution_path") == "stuck")
+        batched = sum(1 for s in scores if s.get("resolution_path") == "batched")
+        avg_quality = round(sum(float(s.get("overall_score", 0)) for s in scores) / total, 4)
+        by_resolution_path: Dict[str, int] = {}
+        for s in scores:
+            p = s.get("resolution_path", "unknown")
+            by_resolution_path[p] = by_resolution_path.get(p, 0) + 1
+        quality_trend = "stable"
+        if total >= 4:
+            mid = total // 2
+            first_half = sum(float(scores[i].get("overall_score", 0)) for i in range(mid)) / mid
+            second_half = sum(float(scores[i].get("overall_score", 0)) for i in range(mid, total)) / (total - mid)
+            diff = second_half - first_half
+            if diff > 0.03:
+                quality_trend = "improving"
+            elif diff < -0.03:
+                quality_trend = "declining"
+        return {
+            "tenant_id": tenant_id, "total_tickets": total, "auto_resolved": auto_resolved,
+            "escalated": escalated, "stuck": stuck, "batched": batched,
+            "avg_quality": avg_quality, "quality_trend": quality_trend,
+            "by_resolution_path": by_resolution_path,
+        }
+
+    # ── Confidence Trends (Wave 6) ─────────────────────────
+
+    async def get_confidence_trends(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+        # Confidence logs stored as feature flags in current schema
+        logs = await self._rest_get(
+            TABLE_FEATURE_FLAGS,
+            f"tenant_id=eq.{tenant_id}&flag_name=like.confidence_*&select=flag_value&limit=5000"
+        )
+        if not logs:
+            return {
+                "tenant_id": tenant_id, "avg_confidence": 0,
+                "trend_direction": "stable", "distribution": {},
+                "high_confidence_pct": 0,
+            }
+        confidences = [float(l.get("flag_value", {}).get("confidence", 0)) for l in logs if isinstance(l.get("flag_value"), dict)]
+        total = len(confidences)
+        if total == 0:
+            return {
+                "tenant_id": tenant_id, "avg_confidence": 0,
+                "trend_direction": "stable", "distribution": {},
+                "high_confidence_pct": 0,
+            }
+        avg_conf = round(sum(confidences) / total, 4)
+        high_conf = sum(1 for c in confidences if c >= 0.85)
+        high_confidence_pct = round(high_conf / total * 100, 1)
+        distribution: Dict[str, int] = {}
+        for l in logs:
+            val = l.get("flag_value", {})
+            if isinstance(val, dict):
+                r = val.get("routing", "unknown")
+                distribution[r] = distribution.get(r, 0) + 1
+        trend_direction = "stable"
+        if total >= 4:
+            mid = total // 2
+            first_half = sum(confidences[:mid]) / mid
+            second_half = sum(confidences[mid:]) / (total - mid)
+            diff = second_half - first_half
+            if diff > 0.03:
+                trend_direction = "improving"
+            elif diff < -0.03:
+                trend_direction = "declining"
+        return {
+            "tenant_id": tenant_id, "avg_confidence": avg_conf,
+            "trend_direction": trend_direction, "distribution": distribution,
+            "high_confidence_pct": high_confidence_pct,
+        }
+
+    # ── Efficiency Metrics (Wave 6) ────────────────────────
+
+    async def get_efficiency_metrics(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+        training = await self._rest_get(
+            TABLE_TRAINING_DATA,
+            f"tenant_id=eq.{tenant_id}&select=signal_type&limit=5000"
+        )
+        approvals = sum(1 for r in training if r.get("signal_type") == "approved")
+        denials = sum(1 for r in training if r.get("signal_type") == "rejected")
+        edits = sum(1 for r in training if r.get("signal_type") == "edited")
+        scores = await self._rest_get(
+            TABLE_QUALITY_SCORES,
+            f"tenant_id=eq.{tenant_id}&select=overall_score&limit=5000"
+        )
+        auto_resolved = sum(1 for s in scores if float(s.get("overall_score", 0)) >= 0.85)
+        manager_time_saved_minutes = auto_resolved * 3
+        return {
+            "tenant_id": tenant_id,
+            "manager_approvals": approvals,
+            "manager_denials": denials,
+            "manager_edits": edits,
+            "auto_resolved": auto_resolved,
+            "manager_time_saved_minutes": manager_time_saved_minutes,
+        }
+
+    # ── Quality Alerts (Wave 6) ───────────────────────────
+
+    async def create_quality_alert(
+        self, tenant_id, alert_type, severity, description, metrics,
+        related_tickets=None,
+    ) -> Dict[str, Any]:
+        row = await self._rest_post(TABLE_QUALITY_ALERTS, {
+            "tenant_id": tenant_id,
+            "alert_type": alert_type,
+            "severity": severity,
+            "description": description,
+            "metrics": metrics or {},
+            "related_tickets": related_tickets or [],
+            "is_resolved": False,
+        })
+        row["backend"] = "supabase"
+        return row
+
+    async def get_quality_alerts(
+        self, tenant_id, include_resolved=False, alert_type=None,
+    ) -> List[Dict[str, Any]]:
+        query = f"tenant_id=eq.{tenant_id}"
+        if not include_resolved:
+            query += "&is_resolved=eq.false"
+        if alert_type:
+            query += f"&alert_type=eq.{alert_type}"
+        query += "&order=created_at.desc&limit=100"
+        return await self._rest_get(TABLE_QUALITY_ALERTS, query)
+
+    async def resolve_quality_alert(self, alert_id: str) -> bool:
+        results = await self._rest_patch(
+            TABLE_QUALITY_ALERTS,
+            f"id=eq.{alert_id}&is_resolved=eq.false",
+            {"is_resolved": True, "resolved_at": datetime.now(timezone.utc).isoformat()},
+        )
+        return len(results) > 0
+
+    async def check_and_create_drift_alerts(self, tenant_id: str) -> List[Dict[str, Any]]:
+        drift = await self.check_quality_drift(tenant_id)
+        created = []
+        if drift.get("drift_detected"):
+            existing = await self._rest_get(
+                TABLE_QUALITY_ALERTS,
+                f"tenant_id=eq.{tenant_id}&alert_type=eq.drift&is_resolved=eq.false&limit=1"
+            )
+            if not existing:
+                alert = await self.create_quality_alert(
+                    tenant_id=tenant_id,
+                    alert_type="drift",
+                    severity=drift.get("drift_severity", "warning"),
+                    description=drift.get("trigger_reason", "Quality drift detected"),
+                    metrics=drift,
+                )
+                created.append(alert)
+        return created
+
+    # ── Mistake Breakdown (Wave 6) ────────────────────────
+
+    async def get_mistake_breakdown(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+        training = await self._rest_get(
+            TABLE_TRAINING_DATA,
+            f"tenant_id=eq.{tenant_id}&select=signal_type,ticket_type,quality_score&limit=5000"
+        )
+        mistakes = [r for r in training if r.get("signal_type") in ("rejected", "edited")]
+        by_type: Dict[str, int] = {}
+        for m in mistakes:
+            t = m.get("ticket_type", "unknown")
+            by_type[t] = by_type.get(t, 0) + 1
+        avg_quality_of_mistakes = 0.0
+        if mistakes:
+            avg_quality_of_mistakes = round(
+                sum(float(m.get("quality_score", 0)) for m in mistakes) / len(mistakes), 4
+            )
+        return {
+            "tenant_id": tenant_id,
+            "total_mistakes": len(mistakes),
+            "by_type": by_type,
+            "avg_quality_score": avg_quality_of_mistakes,
+            "rejection_count": sum(1 for m in mistakes if m.get("signal_type") == "rejected"),
+            "edit_count": sum(1 for m in mistakes if m.get("signal_type") == "edited"),
+        }
+
+    # ── Training Priority List (Wave 6) ───────────────────
+
+    async def get_training_priority_list(self, tenant_id: str) -> List[Dict[str, Any]]:
+        breakdown = await self.get_mistake_breakdown(tenant_id)
+        by_type = breakdown.get("by_type", {})
+        priority_list = []
+        for ttype, count in sorted(by_type.items(), key=lambda x: -x[1]):
+            priority_list.append({
+                "ticket_type": ttype,
+                "mistake_count": count,
+                "priority": "high" if count >= 5 else ("medium" if count >= 2 else "low"),
+                "recommended_actions": [
+                    "Add training examples for this type",
+                    "Review and update knowledge base entries",
+                ],
+            })
+        return priority_list
+
+    # ── Agent Health Score (Wave 6) ──────────────────────
+
+    async def compute_agent_health_score(self, tenant_id: str) -> Dict[str, Any]:
+        perf = await self.get_weekly_performance_data(tenant_id)
+        conf = await self.get_confidence_trends(tenant_id)
+        eff = await self.get_efficiency_metrics(tenant_id)
+        drift = await self.check_quality_drift(tenant_id)
+
+        quality_component = perf.get("avg_quality", 0) * 0.35
+        confidence_component = conf.get("avg_confidence", 0) * 0.25
+        efficiency_component = min(eff.get("auto_resolved", 0) / max(perf.get("total_tickets", 1), 1), 1.0) * 0.25
+        drift_penalty = 0.15 if drift.get("drift_detected") else 0.0
+        if drift.get("drift_severity") == "critical":
+            drift_penalty = 0.25
+
+        overall = round(min(max(quality_component + confidence_component + efficiency_component - drift_penalty, 0), 1), 4)
+        status = "healthy" if overall >= 0.8 else ("warning" if overall >= 0.6 else "critical")
+
+        return {
+            "tenant_id": tenant_id,
+            "overall_score": overall,
+            "status": status,
+            "components": {
+                "quality": round(quality_component, 4),
+                "confidence": round(confidence_component, 4),
+                "efficiency": round(efficiency_component, 4),
+                "drift_penalty": round(drift_penalty, 4),
+            },
+            "drift_detected": drift.get("drift_detected", False),
+            "total_tickets": perf.get("total_tickets", 0),
+        }
+
+    # ── SLA Events (Wave 6) ──────────────────────────────
+
+    async def record_sla_event(
+        self, tenant_id, event_type, duration_seconds=0.0, details="",
+    ) -> Dict[str, Any]:
+        row = await self._rest_post(TABLE_SLA_EVENTS, {
+            "tenant_id": tenant_id,
+            "event_type": event_type,
+            "duration_seconds": duration_seconds,
+            "details": details,
+        })
+        row["backend"] = "supabase"
+        return row
+
+    async def get_sla_summary(self, tenant_id: str, days: int = 30) -> Dict[str, Any]:
+        events = await self._rest_get(
+            TABLE_SLA_EVENTS,
+            f"tenant_id=eq.{tenant_id}&select=event_type,duration_seconds&limit=5000"
+        )
+        total = len(events)
+        by_type: Dict[str, int] = {}
+        breach_count = sum(1 for e in events if e.get("event_type") == "breach")
+        met_count = sum(1 for e in events if e.get("event_type") == "met")
+        warning_count = sum(1 for e in events if e.get("event_type") == "warning")
+        for e in events:
+            t = e.get("event_type", "unknown")
+            by_type[t] = by_type.get(t, 0) + 1
+        avg_duration = 0.0
+        durations = [float(e.get("duration_seconds", 0)) for e in events if e.get("duration_seconds")]
+        if durations:
+            avg_duration = round(sum(durations) / len(durations), 2)
+        compliance_pct = round(met_count / max(total, 1) * 100, 1)
+        return {
+            "tenant_id": tenant_id,
+            "total_events": total,
+            "breach_count": breach_count,
+            "met_count": met_count,
+            "warning_count": warning_count,
+            "compliance_pct": compliance_pct,
+            "avg_duration_seconds": avg_duration,
+            "by_type": by_type,
+        }
+
+    # ── Client Legal Config (Wave 6) ─────────────────────
+
+    async def get_client_legal_config(self, tenant_id: str) -> Dict[str, Any]:
+        results = await self._rest_get(
+            TABLE_CLIENT_LEGAL,
+            f"tenant_id=eq.{tenant_id}&limit=1"
+        )
+        if results:
+            results[0]["backend"] = "supabase"
+            return results[0]
+        return {"tenant_id": tenant_id, "config": {}, "exists": False}
+
+    async def set_client_legal_config(
+        self, tenant_id, config, set_by="admin",
+    ) -> Dict[str, Any]:
+        existing = await self._rest_get(
+            TABLE_CLIENT_LEGAL,
+            f"tenant_id=eq.{tenant_id}&limit=1"
+        )
+        if existing:
+            result = await self._rest_patch(
+                TABLE_CLIENT_LEGAL,
+                f"id=eq.{existing[0]['id']}",
+                {"config": config, "set_by": set_by},
+            )
+            if result:
+                result[0]["backend"] = "supabase"
+                return result[0]
+        row = await self._rest_post(TABLE_CLIENT_LEGAL, {
+            "tenant_id": tenant_id,
+            "config": config,
+            "set_by": set_by,
+        })
+        row["backend"] = "supabase"
+        return row
+
+    # ── Customer Health & Reports (Wave 6) ───────────────
+
+    async def get_customer_health_score(self, tenant_id: str) -> Dict[str, Any]:
+        health = await self.compute_agent_health_score(tenant_id)
+        sla = await self.get_sla_summary(tenant_id)
+        alerts = await self.get_quality_alerts(tenant_id)
+        unresolved_alerts = len(alerts)
+
+        agent_component = health.get("overall_score", 0) * 0.5
+        sla_component = (sla.get("compliance_pct", 0) / 100) * 0.3
+        alert_penalty = min(unresolved_alerts * 0.02, 0.2)
+        customer_score = round(min(max(agent_component + sla_component - alert_penalty, 0), 1), 4)
+        status = "healthy" if customer_score >= 0.8 else ("warning" if customer_score >= 0.6 else "critical")
+
+        return {
+            "tenant_id": tenant_id,
+            "customer_health_score": customer_score,
+            "status": status,
+            "agent_health": health.get("overall_score", 0),
+            "sla_compliance_pct": sla.get("compliance_pct", 0),
+            "unresolved_alerts": unresolved_alerts,
+        }
+
+    async def save_generated_report(
+        self, tenant_id, report_type, report_data,
+    ) -> Dict[str, Any]:
+        row = await self._rest_post(TABLE_GENERATED_REPORTS, {
+            "tenant_id": tenant_id,
+            "report_type": report_type,
+            "report_data": report_data,
+        })
+        row["backend"] = "supabase"
+        return row
+
+    async def get_generated_reports(
+        self, tenant_id, report_type=None,
+    ) -> List[Dict[str, Any]]:
+        query = f"tenant_id=eq.{tenant_id}"
+        if report_type:
+            query += f"&report_type=eq.{report_type}"
+        query += "&order=created_at.desc&limit=100"
+        return await self._rest_get(TABLE_GENERATED_REPORTS, query)
 
     # ── Utility ──────────────────────────────────────────────
 
