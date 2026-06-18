@@ -64,6 +64,9 @@ class JarvisState(TypedDict, total=False):
     intent_result: Optional[Dict[str, Any]]
     auth_result: Optional[Dict[str, Any]]
 
+    # Wave 3: Command execution result
+    command_execution_result: Optional[Dict[str, Any]]
+
 
 def create_jarvis_state(
     tenant_id: str,

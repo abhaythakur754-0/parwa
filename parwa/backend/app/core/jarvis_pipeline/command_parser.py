@@ -45,6 +45,7 @@ INTENT_CONTROLS = {
     "control_mode",       # change Shadow/Supervised/Graduated
     "control_disable_rule", # undo/disable last rule
     "control_skill_assign", # move skill between variants
+    "control_approval_override", # always auto-approve this type (Wave 3)
 }
 
 INTENT_APPROVALS = {
@@ -91,15 +92,14 @@ ALL_INTENTS = (
 
 _TIER1_PATTERNS = [
     # ── Queries ───────────────────────────────────────────────
-    # System status (must NOT match "load status" or "service status")
+    # System status
     (re.compile(r"\b(show|what'?s?|what is|tell me about|get)\b.*(system\s*status|uptime|mode)\b", re.I),
      "query_status", lambda m: "system"),
 
     (re.compile(r"\b(show|what'?s?|how many|tell me|get)\b.*(error|failure|failed|errors?)\b", re.I),
      "query_errors", lambda m: "all"),
 
-    # Wave 2 Queries — MUST come before generic ticket/quality patterns
-    # (more specific patterns first to prevent mis-routing)
+    # Wave 2 Queries
     (re.compile(r"\b(show|what'?s?|check|tell me|get)\b.*(integration|service|services?)\s*(health|status|uptime)\b", re.I),
      "query_health", lambda m: "all"),
 
@@ -115,7 +115,7 @@ _TIER1_PATTERNS = [
     (re.compile(r"\b(show|what'?s?|how many|tell me|get)\b.*(stuck|stale|waiting|pending.?approvals?)\b", re.I),
      "query_stuck", lambda m: "all"),
 
-    # Generic ticket (broader, catch what Wave 2 didn't)
+    # Generic ticket
     (re.compile(r"\b(show|what'?s?|how many|tell me|get|list)\b.*(ticket|tickets)\b", re.I),
      "query_tickets", lambda m: "all"),
 
@@ -137,30 +137,60 @@ _TIER1_PATTERNS = [
     (re.compile(r"\b(show|list|what|who)\b.*(audit|history|log|activity)\b", re.I),
      "query_audit", lambda m: "all"),
 
+    # ── Emergencies (BEFORE controls — "stop everything" overlaps with pause) ──
+    (re.compile(r"\b(shut\s*down|shut everything|stop everything|kill|rage quit|emergency stop)\b", re.I),
+     "emergency_shutdown", lambda m: "all"),
+
+    (re.compile(r"\b(recall)\b.*(email|message|sent|all)\b", re.I),
+     "emergency_recall", lambda m: _extract_target(m, "email|message|all")),
+
+    (re.compile(r"\b(void|delete|cancel)\b.*(pending|queued|outbox)\b", re.I),
+     "emergency_void", lambda m: "pending"),
+
     # ── Controls ──────────────────────────────────────────────
-    (re.compile(r"\b(pause|stop|disable)\b.*(refund|return|account_change)\b", re.I),
+    # Approval override (must be before generic approve)
+    (re.compile(r"\b(always|permanently)\s*(auto\s*-?approve)\b", re.I),
+     "control_approval_override", lambda m: "auto_approve"),
+
+    (re.compile(r"\b(auto\s*-?approve)\b.*(always|permanently|forever)\b", re.I),
+     "control_approval_override", lambda m: "auto_approve"),
+
+    # Pause — no trailing \b on targets to handle plurals
+    (re.compile(r"\b(pause|stop|disable)\b.*(refund|return|account_change)", re.I),
      "control_pause", lambda m: _extract_target(m, "refund|return|account_change")),
 
     (re.compile(r"\b(pause|stop|disable)\b.*(all|everything)\b", re.I),
      "control_pause", lambda m: "all"),
 
-    (re.compile(r"\b(resume|enable|start)\b.*(refund|return|account_change)\b", re.I),
+    # Resume
+    (re.compile(r"\b(resume|enable|start|unpause|re\s*-?enable)\b.*(refund|return|account_change)", re.I),
      "control_resume", lambda m: _extract_target(m, "refund|return|account_change")),
 
-    (re.compile(r"\b(resume|enable|start)\b.*(all|everything|processing)\b", re.I),
+    (re.compile(r"\b(resume|enable|start|unpause|re\s*-?enable)\b.*(all|everything|processing)\b", re.I),
      "control_resume", lambda m: "all"),
 
-    (re.compile(r"\b(handle|redirect|route|take)\b.*(instagram|email|call|dm|sms|whatsapp|all)\b", re.I),
+    # Bare resume/unpause without target
+    (re.compile(r"\b(resume|enable|start|unpause|re\s*-?enable)\b$", re.I),
+     "control_resume", lambda m: "all"),
+
+    # Route
+    (re.compile(r"\b(handle|redirect|route)\b.*(instagram|email|call|dm|sms|whatsapp|all)\b", re.I),
      "control_route", lambda m: _extract_target(m, "instagram|email|call|dm|sms|whatsapp|all")),
 
+    # Mode
     (re.compile(r"\b(switch|change|set)\b.*(mode|shadow|supervised|graduated)\b", re.I),
      "control_mode", lambda m: _extract_target(m, "shadow|supervised|graduated")),
 
+    # Disable rule
     (re.compile(r"\b(undo|disable|revoke|remove)\b.*(last|my|the)\s*(rule|flag|pause)\b", re.I),
      "control_disable_rule", lambda m: "last"),
 
-    (re.compile(r"\b(move|reassign|transfer)\b.*\b(skill|capability|product)\b.*\b(from|to)\b", re.I),
+    # Skill assignment
+    (re.compile(r"\b(move|reassign|transfer)\b.*\b(from|to)\b", re.I),
      "control_skill_assign", lambda m: "skill_reassign"),
+
+    (re.compile(r"\b(add|assign)\b.*\b(skill|capability)\b.*\b(to)\b", re.I),
+     "control_skill_assign", lambda m: "skill_add"),
 
     # ── Approvals ─────────────────────────────────────────────
     (re.compile(r"\b(approve)\b.*(batch|all|group|them)\b", re.I),
@@ -174,16 +204,6 @@ _TIER1_PATTERNS = [
 
     (re.compile(r"\b(reject|deny)\b.*(ticket|this|it|#?\d+)\b", re.I),
      "reject_single", lambda m: _extract_target(m, r"#?\d+|ticket|this|it")),
-
-    # ── Emergencies ───────────────────────────────────────────
-    (re.compile(r"\b(shut\s*down|stop everything|kill|rage quit|emergency stop)\b", re.I),
-     "emergency_shutdown", lambda m: "all"),
-
-    (re.compile(r"\b(recall)\b.*(email|message|sent|all)\b", re.I),
-     "emergency_recall", lambda m: _extract_target(m, "email|message|all")),
-
-    (re.compile(r"\b(void|delete|cancel)\b.*(pending|queued|outbox)\b", re.I),
-     "emergency_void", lambda m: "pending"),
 
     # ── Explain ───────────────────────────────────────────────
     (re.compile(r"\b(why|explain|how did|what happened)\b.*(ticket|this|that|TKT-?\d*|#?\d+)\b", re.I),
@@ -234,10 +254,10 @@ def _tier1_classify(input_text: str) -> Optional[Dict[str, Any]]:
 
 def _infer_scope(text: str) -> str:
     """Infer scope from the input text."""
-    if re.search(r"\ball\b|\bglobal\b|\beverything\b", text, re.I):
-        return "global"
-    if re.search(r"\bfor today\b|\btoday\b|\bthis weekend\b", text, re.I):
+    if re.search(r"\bfor today\b|\btoday\b|\bthis weekend\b|\bfor \d+ hours?\b|\bfor \d+ minutes?\b", text, re.I):
         return "temporary"
+    if re.search(r"\balways\b|\bpermanently\b|\bpermanent\b|\bforever\b", text, re.I):
+        return "permanent"
     return "global"
 
 

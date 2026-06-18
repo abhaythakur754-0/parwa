@@ -1,0 +1,1632 @@
+     1→"""
+     2→Jarvis Storage Backend — Dual Mode
+     3→
+     4→Modes:
+     5→  1. InMemory (default) — zero deps, works immediately for dev/testing
+     6→  2. Supabase (production) — uses httpx → Supabase REST API (PostgREST)
+     7→
+     8→Auto-detection: if SUPABASE_URL + SUPABASE_ANON_KEY env vars are set → Supabase.
+     9→Otherwise → InMemory.
+    10→
+    11→No new dependencies required. Uses only httpx (already installed).
+    12→"""
+    13→from __future__ import annotations
+    14→
+    15→import hashlib
+    16→import json
+    17→import logging
+    18→import os
+    19→import threading
+    20→import time
+    21→import uuid
+    22→from abc import ABC, abstractmethod
+    23→from datetime import datetime, timezone
+    24→from typing import Any, Dict, List, Optional, Tuple
+    25→
+    26→logger = logging.getLogger("jarvis.db")
+    27→
+    28→# ── Config ────────────────────────────────────────────────────
+    29→
+    30→SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+    31→SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+    32→
+    33→# Table name prefix — all Jarvis tables start with jarvis_
+    34→TABLE_NOTIFICATIONS = "jarvis_notifications"
+    35→TABLE_FLAGS = "jarvis_system_flags"
+    36→TABLE_AUDIT = "jarvis_audit_trail"
+    37→TABLE_QUALITY_SCORES = "jarvis_quality_scores"
+    38→TABLE_QUALITY_ALERTS = "jarvis_quality_alerts"
+    39→TABLE_TRAINING_SUGGESTIONS = "jarvis_training_suggestions"
+    40→TABLE_AGENT_CONFIGS = "jarvis_agent_configs"
+    41→TABLE_CLIENT_SKILLS = "jarvis_client_skills"
+    42→TABLE_FEATURE_FLAGS = "jarvis_feature_flags"
+    43→TABLE_CLIENT_LEGAL = "jarvis_client_legal"
+    44→TABLE_PROVISIONING_LOGS = "jarvis_provisioning_logs"
+    45→TABLE_TRAINING_DATA = "jarvis_training_data"
+    46→TABLE_BATCH_QUEUE = "jarvis_batch_queue"
+    47→
+    48→# Priority constants
+    49→PRIORITY_CRITICAL = "CRITICAL"
+    50→PRIORITY_HIGH = "HIGH"
+    51→PRIORITY_MEDIUM = "MEDIUM"
+    52→PRIORITY_LOW = "LOW"
+    53→
+    54→PRIORITY_THRESHOLDS = {
+    55→    PRIORITY_CRITICAL: 0.85,
+    56→    PRIORITY_HIGH: 0.65,
+    57→    PRIORITY_MEDIUM: 0.40,
+    58→}
+    59→
+    60→# Notification types
+    61→TYPE_STUCK_TICKET = "stuck_ticket"
+    62→TYPE_QUOTA_LOW = "quota_low"
+    63→TYPE_INTEGRATION_DOWN = "integration_down"
+    64→TYPE_ACCURACY_DROP = "accuracy_drop"
+    65→TYPE_POLICY_CHANGE = "policy_change"
+    66→TYPE_SLA_RISK = "sla_risk"
+    67→
+    68→# Roles that can execute admin commands
+    69→ADMIN_ROLES = {"admin", "owner", "supervisor"}
+    70→ALL_ROLES = {"admin", "owner", "supervisor", "team_member", "viewer"}
+    71→
+    72→
+    73→# ═══════════════════════════════════════════════════════════════
+    74→# ABSTRACT BASE
+    75→# ═══════════════════════════════════════════════════════════════
+    76→
+    77→class StorageBackend(ABC):
+    78→    """Abstract storage backend. All methods are async."""
+    79→
+    80→    # ── Notifications ────────────────────────────────────────
+    81→
+    82→    @abstractmethod
+    83→    async def create_notification(
+    84→        self,
+    85→        tenant_id: str,
+    86→        ntype: str,
+    87→        priority_score: float,
+    88→        title: str,
+    89→        description: str,
+    90→        related_tickets: Optional[List[str]] = None,
+    91→        batch_key: Optional[str] = None,
+    92→        source_data: Optional[Dict] = None,
+    93→    ) -> Dict[str, Any]:
+    94→        """Create a notification. Returns the full notification dict."""
+    95→        ...
+    96→
+    97→    @abstractmethod
+    98→    async def get_notification(self, key: str) -> Optional[Dict[str, Any]]:
+    99→        """Get notification by key (PARWA-NFY-XXX)."""
+   100→        ...
+   101→
+   102→    @abstractmethod
+   103→    async def get_notifications(
+   104→        self,
+   105→        tenant_id: str,
+   106→        include_resolved: bool = False,
+   107→        min_priority: Optional[str] = None,
+   108→    ) -> List[Dict[str, Any]]:
+   109→        """Get notifications for tenant, sorted by priority."""
+   110→        ...
+   111→
+   112→    @abstractmethod
+   113→    async def resolve_notification(self, key: str) -> bool:
+   114→        """Mark notification as resolved."""
+   115→        ...
+   116→
+   117→    @abstractmethod
+   118→    async def dismiss_notification(self, key: str) -> bool:
+   119→        """Mark notification as read."""
+   120→        ...
+   121→
+   122→    # ── System Flags ─────────────────────────────────────────
+   123→
+   124→    @abstractmethod
+   125→    async def set_flag(
+   126→        self,
+   127→        tenant_id: str,
+   128→        flag_type: str,
+   129→        flag_value: str,
+   130→        set_by: str,
+   131→        scope: str = "global",
+   132→        target_id: Optional[str] = None,
+   133→        reason: Optional[str] = None,
+   134→        expires_at: Optional[str] = None,
+   135→    ) -> Dict[str, Any]:
+   136→        """Set a system flag. Returns the flag dict."""
+   137→        ...
+   138→
+   139→    @abstractmethod
+   140→    async def get_active_flags(
+   141→        self, tenant_id: str, flag_type: Optional[str] = None
+   142→    ) -> List[Dict[str, Any]]:
+   143→        """Get active (non-revoked, non-expired) flags."""
+   144→        ...
+   145→
+   146→    @abstractmethod
+   147→    async def revoke_flag(self, flag_id: str, revoked_by: str) -> bool:
+   148→        """Revoke a system flag."""
+   149→        ...
+   150→
+   151→    # ── Audit Trail ──────────────────────────────────────────
+   152→
+   153→    @abstractmethod
+   154→    async def create_audit_entry(
+   155→        self,
+   156→        tenant_id: str,
+   157→        action: str,
+   158→        actor_email: str,
+   159→        target_type: Optional[str] = None,
+   160→        target_id: Optional[str] = None,
+   161→        payload: Optional[Dict] = None,
+   162→    ) -> Dict[str, Any]:
+   163→        """Create an audit trail entry (immutable)."""
+   164→        ...
+   165→
+   166→    @abstractmethod
+   167→    async def get_audit_trail(
+   168→        self,
+   169→        tenant_id: str,
+   170→        action: Optional[str] = None,
+   171→        limit: int = 50,
+   172→    ) -> List[Dict[str, Any]]:
+   173→        """Get audit trail for tenant."""
+   174→        ...
+   175→
+   176→    # ── Quality Scores ───────────────────────────────────────
+   177→
+   178→    @abstractmethod
+   179→    async def write_quality_score(
+   180→        self,
+   181→        tenant_id: str,
+   182→        ticket_id: str,
+   183→        overall_score: float,
+   184→        confidence_score: Optional[float] = None,
+   185→        resolution_path: Optional[str] = None,
+   186→        nodes_reached: Optional[List[str]] = None,
+   187→        llm_calls: int = 0,
+   188→        tokens_used: int = 0,
+   189→        model_used: Optional[str] = None,
+   190→        agent_id: Optional[str] = None,
+   191→    ) -> Dict[str, Any]:
+   192→        """Write a quality score (from PARWA Node 6)."""
+   193→        ...
+   194→
+   195→    @abstractmethod
+   196→    async def get_quality_stats(
+   197→        self, tenant_id: str, days: int = 7
+   198→    ) -> Dict[str, Any]:
+   199→        """Get aggregated quality stats for a tenant."""
+   200→        ...
+   201→
+   202→    # ── Batch Queue ──────────────────────────────────────────
+   203→
+   204→    @abstractmethod
+   205→    async def add_to_batch(
+   206→        self,
+   207→        tenant_id: str,
+   208→        batch_key: str,
+   209→        ticket_id: str,
+   210→        confidence: float,
+   211→    ) -> Optional[Dict[str, Any]]:
+   212→        """Add ticket to batch. Returns batch if window expired, else None."""
+   213→        ...
+   214→
+   215→    @abstractmethod
+   216→    async def flush_batches(self, tenant_id: str) -> List[Dict[str, Any]]:
+   217→        """Force-flush all pending batches."""
+   218→        ...
+   219→
+   220→    # ── Integration Health (Wave 2) ─────────────────────────
+   221→
+   222→    @abstractmethod
+   223→    async def write_integration_ping(
+   224→        self,
+   225→        tenant_id: str,
+   226→        service_name: str,
+   227→        is_healthy: bool,
+   228→        response_ms: Optional[float] = None,
+   229→        error_detail: Optional[str] = None,
+   230→        status_code: Optional[int] = None,
+   231→    ) -> Dict[str, Any]:
+   232→        """Record an integration health ping."""
+   233→        ...
+   234→
+   235→    @abstractmethod
+   236→    async def get_integration_health(self, tenant_id: str) -> Dict[str, Any]:
+   237→        """Get current integration health summary (uptime, last error, etc.)."""
+   238→        ...
+   239→
+   240→    # ── LLM Cost Tracking (Wave 2) ───────────────────────────
+   241→
+   242→    @abstractmethod
+   243→    async def record_llm_cost(
+   244→        self,
+   245→        tenant_id: str,
+   246→        model: str,
+   247→        prompt_tokens: int,
+   248→        completion_tokens: int,
+   249→        cost_usd: float,
+   250→        call_type: str = "parwa_pipeline",
+   251→    ) -> Dict[str, Any]:
+   252→        """Record a single LLM call's cost."""
+   253→        ...
+   254→
+   255→    @abstractmethod
+   256→    async def get_llm_cost_summary(
+   257→        self, tenant_id: str, days: int = 7
+   258→    ) -> Dict[str, Any]:
+   259→        """Get aggregated LLM cost stats for a tenant."""
+   260→        ...
+   261→
+   262→    # ── Stuck Ticket Tracking (Wave 2) ───────────────────────
+   263→
+   264→    @abstractmethod
+   265→    async def record_stuck_ticket_check(
+   266→        self,
+   267→        tenant_id: str,
+   268→        ticket_id: str,
+   269→        stuck_reason: str,
+   270→        hours_stuck: float,
+   271→        escalation_tier: str,
+   272→    ) -> Dict[str, Any]:
+   273→        """Record a stuck ticket detection event."""
+   274→        ...
+   275→
+   276→    @abstractmethod
+   277→    async def get_stuck_tickets(self, tenant_id: str) -> List[Dict[str, Any]]:
+   278→        """Get all currently tracked stuck tickets."""
+   279→        ...
+   280→
+   281→    # ── Drift Detection (Wave 2) ─────────────────────────────
+   282→
+   283→    @abstractmethod
+   284→    async def check_quality_drift(
+   285→        self, tenant_id: str,
+   286→    ) -> Dict[str, Any]:
+   287→        """Analyze quality scores for drift.
+   288→
+   289→        Returns: {drift_detected, drift_severity, accuracy_7d, accuracy_yesterday,
+   290→                  accuracy_today, trend_direction, trigger_reason}
+   291→        """
+   292→        ...
+   293→
+   294→    # ── Ticket Flow Aggregation (Wave 2) ─────────────────────
+   295→
+   296→    @abstractmethod
+   297→    async def get_ticket_flow_summary(
+   298→        self, tenant_id: str, hours: int = 24
+   299→    ) -> Dict[str, Any]:
+   300→        """Get aggregated ticket flow metrics.
+   301→
+   302→        Returns: {total, auto_resolved, batched, escalated, by_type, by_node, avg_llm_calls}
+   303→        """
+   304→        ...
+   305→
+   306→    # ── Load Balancing (Wave 2) ──────────────────────────────
+   307→
+   308→    @abstractmethod
+   309→    async def get_load_status(self, tenant_id: str) -> Dict[str, Any]:
+   310→        """Get current load/concurrency status per variant.
+   311→
+   312→        Returns: {variants: [{name, concurrent, max_concurrent, utilization_pct, status}]}
+   313→        """
+   314→        ...
+   315→
+   316→    # ── Utility ──────────────────────────────────────────────
+   317→
+   318→    @abstractmethod
+   319→    async def get_notification_stats(self, tenant_id: str) -> Dict[str, Any]:
+   320→        """Get notification counts by priority and type."""
+   321→        ...
+   322→
+   323→    @abstractmethod
+   324→    async def health_check(self) -> Dict[str, Any]:
+   325→        """Check if the storage backend is healthy."""
+   326→        ...
+   327→
+   328→
+   329→# ═══════════════════════════════════════════════════════════════
+   330→# IN-MEMORY BACKEND (works immediately, no deps)
+   331→# ═══════════════════════════════════════════════════════════════
+   332→
+   333→class InMemoryBackend(StorageBackend):
+   334→    """In-memory storage. Data lost on restart. Perfect for dev/testing."""
+   335→
+   336→    def __init__(self):
+   337→        self._notifications: Dict[str, Dict] = {}
+   338→        self._flags: List[Dict] = []
+   339→        self._audit: List[Dict] = []
+   340→        self._quality_scores: List[Dict] = []
+   341→        self._batches: Dict[str, List[Dict]] = {}
+   342→        self._batch_metas: Dict[str, Dict] = {}
+   343→        self._lock = threading.Lock()
+   344→        self._next_nfy_id = 1
+   345→        # Wave 2 stores
+   346→        self._integration_pings: List[Dict] = []
+   347→        self._llm_costs: List[Dict] = []
+   348→        self._stuck_ticket_events: List[Dict] = []
+   349→        self._load_status: Dict[str, Dict] = {}  # tenant_id -> {variant -> {concurrent, max_concurrent}}
+   350→
+   351→    # ── Helpers ───────────────────────────────────────────────
+   352→
+   353→    def _next_notification_number(self) -> int:
+   354→        with self._lock:
+   355→            n = self._next_nfy_id
+   356→            self._next_nfy_id += 1
+   357→            return n
+   358→
+   359→    @staticmethod
+   360→    def _priority_from_score(score: float) -> str:
+   361→        if score >= PRIORITY_THRESHOLDS[PRIORITY_CRITICAL]:
+   362→            return PRIORITY_CRITICAL
+   363→        elif score >= PRIORITY_THRESHOLDS[PRIORITY_HIGH]:
+   364→            return PRIORITY_HIGH
+   365→        elif score >= PRIORITY_THRESHOLDS[PRIORITY_MEDIUM]:
+   366→            return PRIORITY_MEDIUM
+   367→        return PRIORITY_LOW
+   368→
+   369→    # ── Notifications ────────────────────────────────────────
+   370→
+   371→    async def create_notification(
+   372→        self,
+   373→        tenant_id: str,
+   374→        ntype: str,
+   375→        priority_score: float,
+   376→        title: str,
+   377→        description: str,
+   378→        related_tickets: Optional[List[str]] = None,
+   379→        batch_key: Optional[str] = None,
+   380→        source_data: Optional[Dict] = None,
+   381→    ) -> Dict[str, Any]:
+   382→        num = self._next_notification_number()
+   383→        key = f"PARWA-NFY-{num:03d}"
+   384→        now = time.time()
+   385→        nf = {
+   386→            "id": str(uuid.uuid4()),
+   387→            "tenant_id": tenant_id,
+   388→            "notification_key": key,
+   389→            "type": ntype,
+   390→            "priority": self._priority_from_score(priority_score),
+   391→            "priority_score": round(priority_score, 4),
+   392→            "title": title,
+   393→            "description": description,
+   394→            "related_tickets": related_tickets or [],
+   395→            "batch_key": batch_key,
+   396→            "source_data": source_data or {},
+   397→            "is_read": False,
+   398→            "is_resolved": False,
+   399→            "created_at": now,
+   400→            "resolved_at": None,
+   401→            "backend": "memory",
+   402→        }
+   403→        self._notifications[key] = nf
+   404→        logger.info("NFY created: %s type=%s score=%.3f [%s]", key, ntype, priority_score, tenant_id)
+   405→        return nf
+   406→
+   407→    async def get_notification(self, key: str) -> Optional[Dict[str, Any]]:
+   408→        return self._notifications.get(key)
+   409→
+   410→    async def get_notifications(
+   411→        self,
+   412→        tenant_id: str,
+   413→        include_resolved: bool = False,
+   414→        min_priority: Optional[str] = None,
+   415→    ) -> List[Dict[str, Any]]:
+   416→        priority_order = {PRIORITY_CRITICAL: 0, PRIORITY_HIGH: 1, PRIORITY_MEDIUM: 2, PRIORITY_LOW: 3}
+   417→        min_rank = priority_order.get(min_priority, 99) if min_priority else 99
+   418→        results = []
+   419→        for n in self._notifications.values():
+   420→            if n["tenant_id"] != tenant_id:
+   421→                continue
+   422→            if not include_resolved and n["is_resolved"]:
+   423→                continue
+   424→            if priority_order.get(n["priority"], 99) > min_rank:
+   425→                continue
+   426→            results.append(n)
+   427→        results.sort(key=lambda x: (-priority_order.get(x["priority"], 99), -x["created_at"]))
+   428→        return results
+   429→
+   430→    async def resolve_notification(self, key: str) -> bool:
+   431→        n = self._notifications.get(key)
+   432→        if n and not n["is_resolved"]:
+   433→            n["is_resolved"] = True
+   434→            n["resolved_at"] = time.time()
+   435→            return True
+   436→        return False
+   437→
+   438→    async def dismiss_notification(self, key: str) -> bool:
+   439→        n = self._notifications.get(key)
+   440→        if n:
+   441→            n["is_read"] = True
+   442→            return True
+   443→        return False
+   444→
+   445→    # ── System Flags ─────────────────────────────────────────
+   446→
+   447→    async def set_flag(
+   448→        self,
+   449→        tenant_id: str,
+   450→        flag_type: str,
+   451→        flag_value: str,
+   452→        set_by: str,
+   453→        scope: str = "global",
+   454→        target_id: Optional[str] = None,
+   455→        reason: Optional[str] = None,
+   456→        expires_at: Optional[str] = None,
+   457→    ) -> Dict[str, Any]:
+   458→        flag = {
+   459→            "id": str(uuid.uuid4()),
+   460→            "tenant_id": tenant_id,
+   461→            "flag_type": flag_type,
+   462→            "flag_value": flag_value,
+   463→            "scope": scope,
+   464→            "target_id": target_id,
+   465→            "set_by": set_by,
+   466→            "reason": reason,
+   467→            "expires_at": expires_at,
+   468→            "created_at": datetime.now(timezone.utc).isoformat(),
+   469→            "revoked_at": None,
+   470→            "backend": "memory",
+   471→        }
+   472→        self._flags.append(flag)
+   473→        logger.info("FLAG set: %s=%s scope=%s [%s]", flag_type, flag_value, scope, tenant_id)
+   474→        return flag
+   475→
+   476→    async def get_active_flags(
+   477→        self, tenant_id: str, flag_type: Optional[str] = None
+   478→    ) -> List[Dict[str, Any]]:
+   479→        now = datetime.now(timezone.utc)
+   480→        active = []
+   481→        for f in self._flags:
+   482→            if f["tenant_id"] != tenant_id:
+   483→                continue
+   484→            if f["revoked_at"] is not None:
+   485→                continue
+   486→            if f["expires_at"]:
+   487→                exp = datetime.fromisoformat(f["expires_at"]) if isinstance(f["expires_at"], str) else f["expires_at"]
+   488→                if exp < now:
+   489→                    continue
+   490→            if flag_type and f["flag_type"] != flag_type:
+   491→                continue
+   492→            active.append(f)
+   493→        return active
+   494→
+   495→    async def revoke_flag(self, flag_id: str, revoked_by: str) -> bool:
+   496→        for f in self._flags:
+   497→            if f["id"] == flag_id and f["revoked_at"] is None:
+   498→                f["revoked_at"] = datetime.now(timezone.utc).isoformat()
+   499→                logger.info("FLAG revoked: %s by %s", flag_id, revoked_by)
+   500→                return True
+   501→        return False
+   502→
+   503→    # ── Audit Trail ──────────────────────────────────────────
+   504→
+   505→    async def create_audit_entry(
+   506→        self,
+   507→        tenant_id: str,
+   508→        action: str,
+   509→        actor_email: str,
+   510→        target_type: Optional[str] = None,
+   511→        target_id: Optional[str] = None,
+   512→        payload: Optional[Dict] = None,
+   513→    ) -> Dict[str, Any]:
+   514→        payload_json = json.dumps(payload or {}, sort_keys=True)
+   515→        current_hash = hashlib.sha256(
+   516→            f"{tenant_id}:{action}:{payload_json}:{time.time()}".encode()
+   517→        ).hexdigest()[:64]
+   518→
+   519→        entry = {
+   520→            "id": len(self._audit) + 1,
+   521→            "tenant_id": tenant_id,
+   522→            "action": action,
+   523→            "actor_email": actor_email,
+   524→            "target_type": target_type,
+   525→            "target_id": target_id,
+   526→            "payload": payload or {},
+   527→            "current_hash": current_hash,
+   528→            "previous_hash": self._audit[-1]["current_hash"] if self._audit else None,
+   529→            "created_at": datetime.now(timezone.utc).isoformat(),
+   530→            "backend": "memory",
+   531→        }
+   532→        self._audit.append(entry)
+   533→        return entry
+   534→
+   535→    async def get_audit_trail(
+   536→        self,
+   537→        tenant_id: str,
+   538→        action: Optional[str] = None,
+   539→        limit: int = 50,
+   540→    ) -> List[Dict[str, Any]]:
+   541→        results = [e for e in self._audit if e["tenant_id"] == tenant_id]
+   542→        if action:
+   543→            results = [e for e in results if e["action"] == action]
+   544→        results.sort(key=lambda x: x["id"], reverse=True)
+   545→        return results[:limit]
+   546→
+   547→    # ── Quality Scores ───────────────────────────────────────
+   548→
+   549→    async def write_quality_score(
+   550→        self,
+   551→        tenant_id: str,
+   552→        ticket_id: str,
+   553→        overall_score: float,
+   554→        confidence_score: Optional[float] = None,
+   555→        resolution_path: Optional[str] = None,
+   556→        nodes_reached: Optional[List[str]] = None,
+   557→        llm_calls: int = 0,
+   558→        tokens_used: int = 0,
+   559→        model_used: Optional[str] = None,
+   560→        agent_id: Optional[str] = None,
+   561→    ) -> Dict[str, Any]:
+   562→        score = {
+   563→            "id": str(uuid.uuid4()),
+   564→            "tenant_id": tenant_id,
+   565→            "agent_id": agent_id,
+   566→            "ticket_id": ticket_id,
+   567→            "overall_score": round(overall_score, 2),
+   568→            "confidence_score": round(confidence_score, 2) if confidence_score else None,
+   569→            "resolution_path": resolution_path,
+   570→            "nodes_reached": nodes_reached or [],
+   571→            "llm_calls": llm_calls,
+   572→            "tokens_used": tokens_used,
+   573→            "model_used": model_used,
+   574→            "created_at": datetime.now(timezone.utc).isoformat(),
+   575→            "backend": "memory",
+   576→        }
+   577→        self._quality_scores.append(score)
+   578→        return score
+   579→
+   580→    async def get_quality_stats(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+   581→        tenant_scores = [s for s in self._quality_scores if s["tenant_id"] == tenant_id]
+   582→        total = len(tenant_scores)
+   583→        if total == 0:
+   584→            return {
+   585→                "tenant_id": tenant_id, "total_tickets": 0,
+   586→                "avg_quality": 0, "avg_confidence": 0,
+   587→                "auto_resolved": 0, "escalated": 0, "stuck": 0,
+   588→            }
+   589→        avg_q = sum(s["overall_score"] for s in tenant_scores) / total
+   590→        avg_c_vals = [s["confidence_score"] for s in tenant_scores if s.get("confidence_score")]
+   591→        avg_c = sum(avg_c_vals) / len(avg_c_vals) if avg_c_vals else 0
+   592→        paths = {}
+   593→        for s in tenant_scores:
+   594→            p = s.get("resolution_path", "unknown")
+   595→            paths[p] = paths.get(p, 0) + 1
+   596→        return {
+   597→            "tenant_id": tenant_id,
+   598→            "total_tickets": total,
+   599→            "avg_quality": round(avg_q, 4),
+   600→            "avg_confidence": round(avg_c, 4),
+   601→            "by_path": paths,
+   602→            "auto_resolved": paths.get("simple", 0) + paths.get("complex", 0),
+   603→            "escalated": paths.get("escalated", 0),
+   604→            "stuck": paths.get("stuck", 0),
+   605→        }
+   606→
+   607→    # ── Batch Queue ──────────────────────────────────────────
+   608→
+   609→    async def add_to_batch(
+   610→        self,
+   611→        tenant_id: str,
+   612→        batch_key: str,
+   613→        ticket_id: str,
+   614→        confidence: float,
+   615→    ) -> Optional[Dict[str, Any]]:
+   616→        BATCH_WINDOW_S = 300
+   617→        now = time.time()
+   618→
+   619→        if tenant_id not in self._batch_metas:
+   620→            self._batch_metas[tenant_id] = {}
+   621→
+   622→        # Find existing batch with same key within window
+   623→        existing_key = None
+   624→        for bk, meta in self._batch_metas[tenant_id].items():
+   625→            if bk == batch_key and (now - meta["batch_start"]) < BATCH_WINDOW_S:
+   626→                existing_key = bk
+   627→                break
+   628→
+   629→        if existing_key:
+   630→            meta = self._batch_metas[tenant_id][existing_key]
+   631→            meta["ticket_ids"].append(ticket_id)
+   632→            meta["signal_count"] = len(meta["ticket_ids"])
+   633→            meta["confidence_min"] = min(meta.get("confidence_min", 1.0), confidence)
+   634→            meta["confidence_max"] = max(meta.get("confidence_max", 0.0), confidence)
+   635→            # Don't flush yet — still within window
+   636→            return None
+   637→        else:
+   638→            meta = {
+   639→                "batch_key": batch_key,
+   640→                "tenant_id": tenant_id,
+   641→                "batch_start": now,
+   642→                "ticket_ids": [ticket_id],
+   643→                "signal_count": 1,
+   644→                "confidence_min": confidence,
+   645→                "confidence_max": confidence,
+   646→                "status": "pending",
+   647→            }
+   648→            self._batch_metas[tenant_id][batch_key] = meta
+   649→            return None
+   650→
+   651→    async def flush_batches(self, tenant_id: str) -> List[Dict[str, Any]]:
+   652→        results = list(self._batch_metas.get(tenant_id, {}).values())
+   653→        self._batch_metas[tenant_id] = {}
+   654→        return results
+   655→
+   656→    # ── Utility ──────────────────────────────────────────────
+   657→
+   658→    async def get_notification_stats(self, tenant_id: str) -> Dict[str, Any]:
+   659→        tenant_nfs = [n for n in self._notifications.values() if n["tenant_id"] == tenant_id]
+   660→        by_priority = {}
+   661→        for p in [PRIORITY_CRITICAL, PRIORITY_HIGH, PRIORITY_MEDIUM, PRIORITY_LOW]:
+   662→            by_priority[p] = sum(1 for n in tenant_nfs if n["priority"] == p)
+   663→        return {
+   664→            "total": len(tenant_nfs),
+   665→            "unread": sum(1 for n in tenant_nfs if not n["is_read"]),
+   666→            "unresolved": sum(1 for n in tenant_nfs if not n["is_resolved"]),
+   667→            "by_priority": by_priority,
+   668→        }
+   669→
+   670→    async def health_check(self) -> Dict[str, Any]:
+   671→        return {
+   672→            "backend": "memory",
+   673→            "status": "healthy",
+   674→            "notifications": len(self._notifications),
+   675→            "flags": len(self._flags),
+   676→            "audit_entries": len(self._audit),
+   677→            "quality_scores": len(self._quality_scores),
+   678→        }
+   679→
+   680→    # ── Integration Health (Wave 2) ─────────────────────────
+   681→
+   682→    async def write_integration_ping(
+   683→        self, tenant_id, service_name, is_healthy,
+   684→        response_ms=None, error_detail=None, status_code=None,
+   685→    ) -> Dict[str, Any]:
+   686→        ping = {
+   687→            "id": str(uuid.uuid4()),
+   688→            "tenant_id": tenant_id,
+   689→            "service_name": service_name,
+   690→            "is_healthy": is_healthy,
+   691→            "response_ms": response_ms,
+   692→            "error_detail": error_detail,
+   693→            "status_code": status_code,
+   694→            "created_at": datetime.now(timezone.utc).isoformat(),
+   695→            "backend": "memory",
+   696→        }
+   697→        self._integration_pings.append(ping)
+   698→        return ping
+   699→
+   700→    async def get_integration_health(self, tenant_id: str) -> Dict[str, Any]:
+   701→        """Compute health from recent pings (last 30 per service)."""
+   702→        tenant_pings = [p for p in self._integration_pings if p["tenant_id"] == tenant_id]
+   703→        services: Dict[str, List[Dict]] = {}
+   704→        for p in tenant_pings:
+   705→            services.setdefault(p["service_name"], []).append(p)
+   706→
+   707→        result = {"services": {}, "degraded_count": 0, "healthy_count": 0}
+   708→        for svc, pings in services.items():
+   709→            recent = pings[-30:]  # last 30 pings
+   710→            if not recent:
+   711→                continue
+   712→            healthy = sum(1 for p in recent if p["is_healthy"])
+   713→            total = len(recent)
+   714→            uptime_pct = round(healthy / max(total, 1) * 100, 1)
+   715→            last_ping = recent[-1]
+   716→            avg_ms = (sum(p["response_ms"] or 0 for p in recent) / total) if total else 0
+   717→            last_error = None
+   718→            last_error_time = None
+   719→            for p in reversed(recent):
+   720→                if not p["is_healthy"]:
+   721→                    last_error = p.get("error_detail")
+   722→                    last_error_time = p["created_at"]
+   723→                    break
+   724→
+   725→            status = "healthy" if uptime_pct >= 90 else ("degraded" if uptime_pct >= 50 else "down")
+   726→            if status != "healthy":
+   727→                result["degraded_count"] += 1
+   728→            else:
+   729→                result["healthy_count"] += 1
+   730→
+   731→            result["services"][svc] = {
+   732→                "status": status,
+   733→                "uptime_pct": uptime_pct,
+   734→                "total_pings": total,
+   735→                "healthy_pings": healthy,
+   736→                "avg_response_ms": round(avg_ms, 1),
+   737→                "last_ping_at": last_ping["created_at"],
+   738→                "last_healthy_at": next(
+   739→                    (p["created_at"] for p in reversed(recent) if p["is_healthy"]),
+   740→                    None,
+   741→                ),
+   742→                "last_error": last_error,
+   743→                "last_error_at": last_error_time,
+   744→                "last_status_code": last_ping.get("status_code"),
+   745→            }
+   746→        return result
+   747→
+   748→    # ── LLM Cost Tracking (Wave 2) ───────────────────────────
+   749→
+   750→    async def record_llm_cost(
+   751→        self, tenant_id, model, prompt_tokens, completion_tokens,
+   752→        cost_usd, call_type="parwa_pipeline",
+   753→    ) -> Dict[str, Any]:
+   754→        entry = {
+   755→            "id": str(uuid.uuid4()),
+   756→            "tenant_id": tenant_id,
+   757→            "model": model,
+   758→            "prompt_tokens": prompt_tokens,
+   759→            "completion_tokens": completion_tokens,
+   760→            "total_tokens": prompt_tokens + completion_tokens,
+   761→            "cost_usd": round(cost_usd, 6),
+   762→            "call_type": call_type,
+   763→            "created_at": datetime.now(timezone.utc).isoformat(),
+   764→            "backend": "memory",
+   765→        }
+   766→        self._llm_costs.append(entry)
+   767→        return entry
+   768→
+   769→    async def get_llm_cost_summary(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+   770→        tenant_costs = [c for c in self._llm_costs if c["tenant_id"] == tenant_id]
+   771→        if not tenant_costs:
+   772→            return {
+   773→                "tenant_id": tenant_id, "total_cost_usd": 0.0,
+   774→                "total_tokens": 0, "total_calls": 0,
+   775→                "by_model": {}, "by_type": {},
+   776→                "daily_breakdown": [],
+   777→            }
+   778→        total_cost = sum(c["cost_usd"] for c in tenant_costs)
+   779→        total_tokens = sum(c["total_tokens"] for c in tenant_costs)
+   780→        total_calls = len(tenant_costs)
+   781→        by_model: Dict[str, Dict] = {}
+   782→        by_type: Dict[str, Dict] = {}
+   783→        for c in tenant_costs:
+   784→            m = c["model"]
+   785→            by_model.setdefault(m, {"cost": 0.0, "tokens": 0, "calls": 0})
+   786→            by_model[m]["cost"] += c["cost_usd"]
+   787→            by_model[m]["tokens"] += c["total_tokens"]
+   788→            by_model[m]["calls"] += 1
+   789→            t = c["call_type"]
+   790→            by_type.setdefault(t, {"cost": 0.0, "tokens": 0, "calls": 0})
+   791→            by_type[t]["cost"] += c["cost_usd"]
+   792→            by_type[t]["tokens"] += c["total_tokens"]
+   793→            by_type[t]["calls"] += 1
+   794→        return {
+   795→            "tenant_id": tenant_id,
+   796→            "total_cost_usd": round(total_cost, 4),
+   797→            "total_tokens": total_tokens,
+   798→            "total_calls": total_calls,
+   799→            "by_model": by_model,
+   800→            "by_type": by_type,
+   801→        }
+   802→
+   803→    # ── Stuck Ticket Tracking (Wave 2) ───────────────────────
+   804→
+   805→    async def record_stuck_ticket_check(
+   806→        self, tenant_id, ticket_id, stuck_reason, hours_stuck, escalation_tier,
+   807→    ) -> Dict[str, Any]:
+   808→        event = {
+   809→            "id": str(uuid.uuid4()),
+   810→            "tenant_id": tenant_id,
+   811→            "ticket_id": ticket_id,
+   812→            "stuck_reason": stuck_reason,
+   813→            "hours_stuck": round(hours_stuck, 2),
+   814→            "escalation_tier": escalation_tier,
+   815→            "detected_at": datetime.now(timezone.utc).isoformat(),
+   816→            "resolved": False,
+   817→            "backend": "memory",
+   818→        }
+   819→        self._stuck_ticket_events.append(event)
+   820→        return event
+   821→
+   822→    async def get_stuck_tickets(self, tenant_id: str) -> List[Dict[str, Any]]:
+   823→        return [
+   824→            e for e in self._stuck_ticket_events
+   825→            if e["tenant_id"] == tenant_id and not e["resolved"]
+   826→        ]
+   827→
+   828→    # ── Drift Detection (Wave 2) ─────────────────────────────
+   829→
+   830→    async def check_quality_drift(self, tenant_id: str) -> Dict[str, Any]:
+   831→        """Analyze quality_scores for drift using day-over-day comparison."""
+   832→        tenant_scores = [s for s in self._quality_scores if s["tenant_id"] == tenant_id]
+   833→        if len(tenant_scores) < 3:
+   834→            return {
+   835→                "tenant_id": tenant_id, "drift_detected": False,
+   836→                "drift_severity": "none", "accuracy_7d": None,
+   837→                "accuracy_yesterday": None, "accuracy_today": None,
+   838→                "trend_direction": "stable", "trigger_reason": "insufficient_data",
+   839→                "total_scores": len(tenant_scores),
+   840→            }
+   841→        # Group by date (ISO date portion)
+   842→        by_date: Dict[str, List[float]] = {}
+   843→        for s in tenant_scores:
+   844→            date_str = s["created_at"][:10]  # YYYY-MM-DD
+   845→            by_date.setdefault(date_str, []).append(s["overall_score"])
+   846→
+   847→        dates_sorted = sorted(by_date.keys())
+   848→
+   849→        def _avg(scores: List[float]) -> float:
+   850→            return round(sum(scores) / len(scores), 4) if scores else 0.0
+   851→
+   852→        accuracy_7d = _avg([s for d in dates_sorted[-7:] for s in by_date[d]]) if len(dates_sorted) >= 1 else None
+   853→        accuracy_yesterday = _avg(by_date[dates_sorted[-2]]) if len(dates_sorted) >= 2 else None
+   854→        accuracy_today = _avg(by_date[dates_sorted[-1]]) if dates_sorted else None
+   855→
+   856→        # Drift detection: >5% drop for 3+ days
+   857→        drift_detected = False
+   858→        drift_severity = "none"
+   859→        trigger_reason = None
+   860→        trend_direction = "stable"
+   861→
+   862→        if len(dates_sorted) >= 3 and accuracy_7d is not None and accuracy_today is not None:
+   863→            recent_3 = dates_sorted[-3:]
+   864→            daily_avgs = [_avg(by_date[d]) for d in recent_3]
+   865→            # Check if declining 3+ consecutive days
+   866→            declining = all(daily_avgs[i] > daily_avgs[i + 1] for i in range(len(daily_avgs) - 1))
+   867→            drop_7d = accuracy_7d - accuracy_today
+   868→
+   869→            if declining and drop_7d > 0.05:
+   870→                drift_detected = True
+   871→                trend_direction = "declining"
+   872→                trigger_reason = f"accuracy_dropped_{drop_7d:.1%}_over_3_days"
+   873→                drift_severity = "critical" if drop_7d > 0.10 else ("warning" if drop_7d > 0.05 else "none")
+   874→            elif drop_7d > 0.03:
+   875→                drift_detected = True
+   876→                trend_direction = "slight_decline"
+   877→                trigger_reason = f"accuracy_dropped_{drop_7d:.1%}_from_7d_avg"
+   878→                drift_severity = "warning"
+   879→            elif accuracy_today and accuracy_7d and accuracy_today > accuracy_7d + 0.03:
+   880→                trend_direction = "improving"
+   881→            else:
+   882→                trend_direction = "stable"
+   883→
+   884→        # Check for repeated errors (same low score pattern)
+   885→        if not drift_detected and tenant_scores:
+   886→            low_scores = [s for s in tenant_scores if s["overall_score"] < 0.7]
+   887→            if len(low_scores) >= 3:
+   888→                # Check if same resolution_path failing
+   889→                paths: Dict[str, int] = {}
+   890→                for s in low_scores:
+   891→                    p = s.get("resolution_path", "unknown")
+   892→                    paths[p] = paths.get(p, 0) + 1
+   893→                worst_path = max(paths.items(), key=lambda x: x[1])
+   894→                if worst_path[1] >= 3:
+   895→                    drift_detected = True
+   896→                    drift_severity = "warning"
+   897→                    trend_direction = "declining"
+   898→                    trigger_reason = f"path_{worst_path[0]}_failed_{worst_path[1]}_times"
+   899→
+   900→        return {
+   901→            "tenant_id": tenant_id,
+   902→            "drift_detected": drift_detected,
+   903→            "drift_severity": drift_severity,
+   904→            "accuracy_7d": accuracy_7d,
+   905→            "accuracy_yesterday": accuracy_yesterday,
+   906→            "accuracy_today": accuracy_today,
+   907→            "trend_direction": trend_direction,
+   908→            "trigger_reason": trigger_reason,
+   909→            "total_scores": len(tenant_scores),
+   910→        }
+   911→
+   912→    # ── Ticket Flow Aggregation (Wave 2) ─────────────────────
+   913→
+   914→    async def get_ticket_flow_summary(self, tenant_id: str, hours: int = 24) -> Dict[str, Any]:
+   915→        tenant_scores = [s for s in self._quality_scores if s["tenant_id"] == tenant_id]
+   916→        total = len(tenant_scores)
+   917→        if total == 0:
+   918→            return {
+   919→                "tenant_id": tenant_id, "total": 0, "auto_resolved": 0,
+   920→                "batched": 0, "escalated": 0, "stuck": 0,
+   921→                "by_type": {}, "by_node": {}, "avg_llm_calls": 0,
+   922→                "avg_quality": 0,
+   923→            }
+   924→        auto_resolved = sum(1 for s in tenant_scores if s.get("overall_score", 0) >= 0.85)
+   925→        escalated = sum(1 for s in tenant_scores if s.get("resolution_path") == "escalated")
+   926→        stuck = sum(1 for s in tenant_scores if s.get("resolution_path") == "stuck")
+   927→        batched = sum(1 for s in tenant_scores if s.get("resolution_path") == "batched")
+   928→        by_type: Dict[str, int] = {}
+   929→        by_node: Dict[str, int] = {}
+   930→        total_llm = 0
+   931→        total_q = 0
+   932→        for s in tenant_scores:
+   933→            path = s.get("resolution_path", "unknown")
+   934→            by_type[path] = by_type.get(path, 0) + 1
+   935→            for node in (s.get("nodes_reached") or []):
+   936→                by_node[node] = by_node.get(node, 0) + 1
+   937→            total_llm += s.get("llm_calls", 0)
+   938→            total_q += s.get("overall_score", 0)
+   939→        return {
+   940→            "tenant_id": tenant_id,
+   941→            "total": total,
+   942→            "auto_resolved": auto_resolved,
+   943→            "batched": batched,
+   944→            "escalated": escalated,
+   945→            "stuck": stuck,
+   946→            "by_type": by_type,
+   947→            "by_node": by_node,
+   948→            "avg_llm_calls": round(total_llm / max(total, 1), 1),
+   949→            "avg_quality": round(total_q / max(total, 1), 4),
+   950→        }
+   951→
+   952→    # ── Load Balancing (Wave 2) ──────────────────────────────
+   953→
+   954→    async def get_load_status(self, tenant_id: str) -> Dict[str, Any]:
+   955→        """Return load status. In memory: uses stored concurrent counts."""
+   956→        load = self._load_status.get(tenant_id, {})
+   957→        variants = []
+   958→        total_concurrent = 0
+   959→        for vname, vdata in load.items():
+   960→            conc = vdata.get("concurrent", 0)
+   961→            maxc = vdata.get("max_concurrent", 5)
+   962→            util = round(conc / max(maxc, 1) * 100, 1)
+   963→            status = "at_capacity" if util >= 100 else ("high" if util >= 80 else ("moderate" if util >= 50 else "low"))
+   964→            variants.append({
+   965→                "name": vname, "concurrent": conc, "max_concurrent": maxc,
+   966→                "utilization_pct": util, "status": status,
+   967→            })
+   968→            total_concurrent += conc
+   969→        return {
+   970→            "tenant_id": tenant_id,
+   971→            "variants": variants,
+   972→            "total_concurrent": total_concurrent,
+   973→            "vip_overflow_risk": any(v["status"] == "at_capacity" for v in variants),
+   974→        }
+   975→
+   976→    def set_load(self, tenant_id: str, variant: str, concurrent: int, max_concurrent: int = 5):
+   977→        """Set load data for testing."""
+   978→        if tenant_id not in self._load_status:
+   979→            self._load_status[tenant_id] = {}
+   980→        self._load_status[tenant_id][variant] = {
+   981→            "concurrent": concurrent, "max_concurrent": max_concurrent,
+   982→        }
+   983→
+   984→    def clear_all(self):
+   985→        """Clear all data (for testing)."""
+   986→        self._notifications.clear()
+   987→        self._flags.clear()
+   988→        self._audit.clear()
+   989→        self._quality_scores.clear()
+   990→        self._batches.clear()
+   991→        self._batch_metas.clear()
+   992→        self._next_nfy_id = 1
+   993→        self._integration_pings.clear()
+   994→        self._llm_costs.clear()
+   995→        self._stuck_ticket_events.clear()
+   996→        self._load_status.clear()
+   997→
+   998→
+   999→# ═══════════════════════════════════════════════════════════════
+  1000→# SUPABASE BACKEND (httpx → PostgREST, no new deps)
+  1001→# ═══════════════════════════════════════════════════════════════
+  1002→
+  1003→class SupabaseBackend(StorageBackend):
+  1004→    """Supabase storage via REST API (PostgREST). Uses httpx.
+  1005→
+  1006→    Requires env vars: SUPABASE_URL, SUPABASE_ANON_KEY
+  1007→    """
+  1008→
+  1009→    def __init__(self):
+  1010→        if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+  1011→            raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY must be set")
+  1012→        self._url = SUPABASE_URL.rstrip("/")
+  1013→        self._headers = {
+  1014→            "apikey": SUPABASE_ANON_KEY,
+  1015→            "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+  1016→            "Content-Type": "application/json",
+  1017→            "Prefer": "return=representation",
+  1018→        }
+  1019→        self._client = None  # Lazy init on first use
+  1020→
+  1021→    async def _get_client(self):
+  1022→        if self._client is None or self._client.is_closed:
+  1023→            import httpx
+  1024→            self._client = httpx.AsyncClient(
+  1025→                base_url=self._url,
+  1026→                headers=self._headers,
+  1027→                timeout=15.0,
+  1028→            )
+  1029→        return self._client
+  1030→
+  1031→    async def _rest_get(self, table: str, query: str = "") -> List[Dict]:
+  1032→        client = await self._get_client()
+  1033→        url = f"/rest/v1/{table}"
+  1034→        if query:
+  1035→            url += f"?{query}"
+  1036→        r = await client.get(url)
+  1037→        r.raise_for_status()
+  1038→        return r.json() if r.text else []
+  1039→
+  1040→    async def _rest_post(self, table: str, data: Dict) -> Dict:
+  1041→        client = await self._get_client()
+  1042→        r = await client.post(f"/rest/v1/{table}", json=data)
+  1043→        r.raise_for_status()
+  1044→        result = r.json()
+  1045→        if isinstance(result, list) and result:
+  1046→            return result[0]
+  1047→        return result
+  1048→
+  1049→    async def _rest_patch(self, table: str, filter_query: str, data: Dict) -> List[Dict]:
+  1050→        client = await self._get_client()
+  1051→        r = await client.patch(f"/rest/v1/{table}?{filter_query}", json=data)
+  1052→        r.raise_for_status()
+  1053→        return r.json() if r.text else []
+  1054→
+  1055→    async def close(self):
+  1056→        if self._client and not self._client.is_closed:
+  1057→            await self._client.aclose()
+  1058→
+  1059→    # ── Notifications ────────────────────────────────────────
+  1060→
+  1061→    async def create_notification(
+  1062→        self,
+  1063→        tenant_id: str,
+  1064→        ntype: str,
+  1065→        priority_score: float,
+  1066→        title: str,
+  1067→        description: str,
+  1068→        related_tickets: Optional[List[str]] = None,
+  1069→        batch_key: Optional[str] = None,
+  1070→        source_data: Optional[Dict] = None,
+  1071→    ) -> Dict[str, Any]:
+  1072→        # Generate key locally to avoid race conditions
+  1073→        existing = await self._rest_get(
+  1074→            TABLE_NOTIFICATIONS,
+  1075→            f"tenant_id=eq.{tenant_id}&select=notification_key&order=created_at.desc&limit=1"
+  1076→        )
+  1077→        next_num = 1
+  1078→        if existing:
+  1079→            import re
+  1080→            m = re.search(r"PARWA-NFY-(\d+)", existing[0].get("notification_key", ""))
+  1081→            if m:
+  1082→                next_num = int(m.group(1)) + 1
+  1083→        key = f"PARWA-NFY-{next_num:03d}"
+  1084→
+  1085→        priority = PRIORITY_LOW
+  1086→        for pname, pthresh in PRIORITY_THRESHOLDS.items():
+  1087→            if priority_score >= pthresh:
+  1088→                priority = pname
+  1089→                break
+  1090→
+  1091→        row = await self._rest_post(TABLE_NOTIFICATIONS, {
+  1092→            "tenant_id": tenant_id,
+  1093→            "notification_key": key,
+  1094→            "type": ntype,
+  1095→            "priority": priority,
+  1096→            "priority_score": priority_score,
+  1097→            "title": title,
+  1098→            "description": description,
+  1099→            "related_tickets": related_tickets or [],
+  1100→            "batch_key": batch_key,
+  1101→            "source_data": source_data or {},
+  1102→        })
+  1103→        row["backend"] = "supabase"
+  1104→        return row
+  1105→
+  1106→    async def get_notification(self, key: str) -> Optional[Dict[str, Any]]:
+  1107→        results = await self._rest_get(
+  1108→            TABLE_NOTIFICATIONS,
+  1109→            f"notification_key=eq.{key}&limit=1"
+  1110→        )
+  1111→        if results:
+  1112→            results[0]["backend"] = "supabase"
+  1113→            return results[0]
+  1114→        return None
+  1115→
+  1116→    async def get_notifications(
+  1117→        self,
+  1118→        tenant_id: str,
+  1119→        include_resolved: bool = False,
+  1120→        min_priority: Optional[str] = None,
+  1121→    ) -> List[Dict[str, Any]]:
+  1122→        query = f"tenant_id=eq.{tenant_id}"
+  1123→        if not include_resolved:
+  1124→            query += "&is_resolved=eq.false"
+  1125→        query += "&order=priority.asc,created_at.desc&limit=100"
+  1126→        results = await self._rest_get(TABLE_NOTIFICATIONS, query)
+  1127→        for r in results:
+  1128→            r["backend"] = "supabase"
+  1129→        return results
+  1130→
+  1131→    async def resolve_notification(self, key: str) -> bool:
+  1132→        results = await self._rest_patch(
+  1133→            TABLE_NOTIFICATIONS,
+  1134→            f"notification_key=eq.{key}&is_resolved=eq.false",
+  1135→            {"is_resolved": True, "resolved_at": datetime.now(timezone.utc).isoformat()},
+  1136→        )
+  1137→        return len(results) > 0
+  1138→
+  1139→    async def dismiss_notification(self, key: str) -> bool:
+  1140→        results = await self._rest_patch(
+  1141→            TABLE_NOTIFICATIONS,
+  1142→            f"notification_key=eq.{key}",
+  1143→            {"is_read": True},
+  1144→        )
+  1145→        return len(results) > 0
+  1146→
+  1147→    # ── System Flags ─────────────────────────────────────────
+  1148→
+  1149→    async def set_flag(
+  1150→        self,
+  1151→        tenant_id: str,
+  1152→        flag_type: str,
+  1153→        flag_value: str,
+  1154→        set_by: str,
+  1155→        scope: str = "global",
+  1156→        target_id: Optional[str] = None,
+  1157→        reason: Optional[str] = None,
+  1158→        expires_at: Optional[str] = None,
+  1159→    ) -> Dict[str, Any]:
+  1160→        row = await self._rest_post(TABLE_FLAGS, {
+  1161→            "tenant_id": tenant_id,
+  1162→            "flag_type": flag_type,
+  1163→            "flag_value": flag_value,
+  1164→            "scope": scope,
+  1165→            "target_id": target_id,
+  1166→            "set_by": set_by,
+  1167→            "reason": reason,
+  1168→            "expires_at": expires_at,
+  1169→        })
+  1170→        row["backend"] = "supabase"
+  1171→        return row
+  1172→
+  1173→    async def get_active_flags(
+  1174→        self, tenant_id: str, flag_type: Optional[str] = None
+  1175→    ) -> List[Dict[str, Any]]:
+  1176→        query = f"tenant_id=eq.{tenant_id}&revoked_at=is.null"
+  1177→        if flag_type:
+  1178→            query += f"&flag_type=eq.{flag_type}"
+  1179→        # Note: expires_at filtering done client-side (PostgREST can't do complex date comparisons easily)
+  1180→        results = await self._rest_get(TABLE_FLAGS, query)
+  1181→        now = datetime.now(timezone.utc)
+  1182→        active = []
+  1183→        for f in results:
+  1184→            if f.get("expires_at"):
+  1185→                exp = datetime.fromisoformat(f["expires_at"].replace("Z", "+00:00"))
+  1186→                if exp < now:
+  1187→                    continue
+  1188→            f["backend"] = "supabase"
+  1189→            active.append(f)
+  1190→        return active
+  1191→
+  1192→    async def revoke_flag(self, flag_id: str, revoked_by: str) -> bool:
+  1193→        results = await self._rest_patch(
+  1194→            TABLE_FLAGS,
+  1195→            f"id=eq.{flag_id}&revoked_at=is.null",
+  1196→            {"revoked_at": datetime.now(timezone.utc).isoformat()},
+  1197→        )
+  1198→        return len(results) > 0
+  1199→
+  1200→    # ── Audit Trail ──────────────────────────────────────────
+  1201→
+  1202→    async def create_audit_entry(
+  1203→        self,
+  1204→        tenant_id: str,
+  1205→        action: str,
+  1206→        actor_email: str,
+  1207→        target_type: Optional[str] = None,
+  1208→        target_id: Optional[str] = None,
+  1209→        payload: Optional[Dict] = None,
+  1210→    ) -> Dict[str, Any]:
+  1211→        payload_json = json.dumps(payload or {}, sort_keys=True)
+  1212→        current_hash = hashlib.sha256(
+  1213→            f"{tenant_id}:{action}:{payload_json}:{time.time()}".encode()
+  1214→        ).hexdigest()[:64]
+  1215→
+  1216→        # Get previous hash
+  1217→        prev = await self._rest_get(
+  1218→            TABLE_AUDIT,
+  1219→            f"tenant_id=eq.{tenant_id}&select=current_hash&order=created_at.desc&limit=1"
+  1220→        )
+  1221→        prev_hash = prev[0]["current_hash"] if prev else None
+  1222→
+  1223→        row = await self._rest_post(TABLE_AUDIT, {
+  1224→            "tenant_id": tenant_id,
+  1225→            "action": action,
+  1226→            "actor_email": actor_email,
+  1227→            "target_type": target_type,
+  1228→            "target_id": target_id,
+  1229→            "payload": payload or {},
+  1230→            "previous_hash": prev_hash,
+  1231→            "current_hash": current_hash,
+  1232→        })
+  1233→        row["backend"] = "supabase"
+  1234→        return row
+  1235→
+  1236→    async def get_audit_trail(
+  1237→        self,
+  1238→        tenant_id: str,
+  1239→        action: Optional[str] = None,
+  1240→        limit: int = 50,
+  1241→    ) -> List[Dict[str, Any]]:
+  1242→        query = f"tenant_id=eq.{tenant_id}"
+  1243→        if action:
+  1244→            query += f"&action=eq.{action}"
+  1245→        query += f"&order=created_at.desc&limit={limit}"
+  1246→        results = await self._rest_get(TABLE_AUDIT, query)
+  1247→        for r in results:
+  1248→            r["backend"] = "supabase"
+  1249→        return results
+  1250→
+  1251→    # ── Quality Scores ───────────────────────────────────────
+  1252→
+  1253→    async def write_quality_score(
+  1254→        self,
+  1255→        tenant_id: str,
+  1256→        ticket_id: str,
+  1257→        overall_score: float,
+  1258→        confidence_score: Optional[float] = None,
+  1259→        resolution_path: Optional[str] = None,
+  1260→        nodes_reached: Optional[List[str]] = None,
+  1261→        llm_calls: int = 0,
+  1262→        tokens_used: int = 0,
+  1263→        model_used: Optional[str] = None,
+  1264→        agent_id: Optional[str] = None,
+  1265→    ) -> Dict[str, Any]:
+  1266→        row = await self._rest_post(TABLE_QUALITY_SCORES, {
+  1267→            "tenant_id": tenant_id,
+  1268→            "agent_id": agent_id,
+  1269→            "ticket_id": ticket_id,
+  1270→            "overall_score": overall_score,
+  1271→            "confidence_score": confidence_score,
+  1272→            "resolution_path": resolution_path,
+  1273→            "nodes_reached": nodes_reached or [],
+  1274→            "llm_calls": llm_calls,
+  1275→            "tokens_used": tokens_used,
+  1276→            "model_used": model_used,
+  1277→        })
+  1278→        row["backend"] = "supabase"
+  1279→        return row
+  1280→
+  1281→    async def get_quality_stats(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+  1282→        # Supabase RPC would be ideal, but for now use REST + client-side agg
+  1283→        results = await self._rest_get(
+  1284→            TABLE_QUALITY_SCORES,
+  1285→            f"tenant_id=eq.{tenant_id}&select=overall_score,confidence_score,resolution_path&limit=1000"
+  1286→        )
+  1287→        total = len(results)
+  1288→        if total == 0:
+  1289→            return {
+  1290→                "tenant_id": tenant_id, "total_tickets": 0,
+  1291→                "avg_quality": 0, "avg_confidence": 0,
+  1292→                "auto_resolved": 0, "escalated": 0, "stuck": 0,
+  1293→            }
+  1294→        avg_q = sum(float(s.get("overall_score", 0)) for s in results) / total
+  1295→        c_vals = [float(s["confidence_score"]) for s in results if s.get("confidence_score")]
+  1296→        avg_c = sum(c_vals) / len(c_vals) if c_vals else 0
+  1297→        paths = {}
+  1298→        for s in results:
+  1299→            p = s.get("resolution_path", "unknown")
+  1300→            paths[p] = paths.get(p, 0) + 1
+  1301→        return {
+  1302→            "tenant_id": tenant_id,
+  1303→            "total_tickets": total,
+  1304→            "avg_quality": round(avg_q, 4),
+  1305→            "avg_confidence": round(avg_c, 4),
+  1306→            "by_path": paths,
+  1307→            "auto_resolved": paths.get("simple", 0) + paths.get("complex", 0),
+  1308→            "escalated": paths.get("escalated", 0),
+  1309→            "stuck": paths.get("stuck", 0),
+  1310→        }
+  1311→
+  1312→    # ── Batch Queue ──────────────────────────────────────────
+  1313→
+  1314→    async def add_to_batch(
+  1315→        self,
+  1316→        tenant_id: str,
+  1317→        batch_key: str,
+  1318→        ticket_id: str,
+  1319→        confidence: float,
+  1320→    ) -> Optional[Dict[str, Any]]:
+  1321→        # Check for existing batch
+  1322→        existing = await self._rest_get(
+  1323→            TABLE_BATCH_QUEUE,
+  1324→            f"tenant_id=eq.{tenant_id}&batch_key=eq.{batch_key}&status=eq.pending"
+  1325→            f"&expires_at=gt.{datetime.now(timezone.utc).isoformat()}"
+  1326→        )
+  1327→        if existing:
+  1328→            batch = existing[0]
+  1329→            ticket_ids = batch.get("ticket_ids", [])
+  1330→            ticket_ids.append(ticket_id)
+  1331→            await self._rest_patch(
+  1332→                TABLE_BATCH_QUEUE,
+  1333→                f"id=eq.{batch['id']}",
+  1334→                {
+  1335→                    "ticket_ids": ticket_ids,
+  1336→                    "confidence_min": min(float(batch.get("confidence_min", 1.0)), confidence),
+  1337→                    "confidence_max": max(float(batch.get("confidence_max", 0.0)), confidence),
+  1338→                },
+  1339→            )
+  1340→            return None
+  1341→
+  1342→        # Create new batch
+  1343→        await self._rest_post(TABLE_BATCH_QUEUE, {
+  1344→            "tenant_id": tenant_id,
+  1345→            "batch_key": batch_key,
+  1346→            "ticket_ids": [ticket_id],
+  1347→            "confidence_min": confidence,
+  1348→            "confidence_max": confidence,
+  1349→        })
+  1350→        return None
+  1351→
+  1352→    async def flush_batches(self, tenant_id: str) -> List[Dict[str, Any]]:
+  1353→        results = await self._rest_get(
+  1354→            TABLE_BATCH_QUEUE,
+  1355→            f"tenant_id=eq.{tenant_id}&status=eq.pending"
+  1356→        )
+  1357→        # Mark all as flushed
+  1358→        for batch in results:
+  1359→            await self._rest_patch(
+  1360→                TABLE_BATCH_QUEUE,
+  1361→                f"id=eq.{batch['id']}",
+  1362→                {"status": "flushed"},
+  1363→            )
+  1364→        return results
+  1365→
+  1366→    # ── Integration Health (Wave 2) ─────────────────────────
+  1367→    # Uses jarvis_integration_pings table (stores last 30 pings per service).
+  1368→
+  1369→    async def write_integration_ping(
+  1370→        self, tenant_id, service_name, is_healthy,
+  1371→        response_ms=None, error_detail=None, status_code=None,
+  1372→    ) -> Dict[str, Any]:
+  1373→        row = await self._rest_post("jarvis_integration_pings", {
+  1374→            "tenant_id": tenant_id, "service_name": service_name,
+  1375→            "is_healthy": is_healthy, "response_ms": response_ms,
+  1376→            "error_detail": error_detail, "status_code": status_code,
+  1377→        })
+  1378→        row["backend"] = "supabase"
+  1379→        return row
+  1380→
+  1381→    async def get_integration_health(self, tenant_id: str) -> Dict[str, Any]:
+  1382→        """Fetch recent pings and compute health server-side."""
+  1383→        pings = await self._rest_get(
+  1384→            "jarvis_integration_pings",
+  1385→            f"tenant_id=eq.{tenant_id}&order=created_at.desc&limit=300"
+  1386→        )
+  1387→        services: Dict[str, List[Dict]] = {}
+  1388→        for p in pings:
+  1389→            services.setdefault(p.get("service_name", ""), []).append(p)
+  1390→
+  1391→        result = {"services": {}, "degraded_count": 0, "healthy_count": 0}
+  1392→        for svc, sp in services.items():
+  1393→            recent = sp[:30]
+  1394→            healthy = sum(1 for p in recent if p.get("is_healthy"))
+  1395→            total = len(recent)
+  1396→            uptime_pct = round(healthy / max(total, 1) * 100, 1)
+  1397→            last_ping = recent[0]
+  1398→            avg_ms = sum(p.get("response_ms") or 0 for p in recent) / max(total, 1)
+  1399→            last_error = None
+  1400→            for p in recent:
+  1401→                if not p.get("is_healthy"):
+  1402→                    last_error = p.get("error_detail")
+  1403→                    break
+  1404→            status = "healthy" if uptime_pct >= 90 else ("degraded" if uptime_pct >= 50 else "down")
+  1405→            if status != "healthy":
+  1406→                result["degraded_count"] += 1
+  1407→            else:
+  1408→                result["healthy_count"] += 1
+  1409→            result["services"][svc] = {
+  1410→                "status": status, "uptime_pct": uptime_pct,
+  1411→                "total_pings": total, "healthy_pings": healthy,
+  1412→                "avg_response_ms": round(avg_ms, 1),
+  1413→                "last_ping_at": last_ping.get("created_at"),
+  1414→                "last_error": last_error,
+  1415→                "last_status_code": last_ping.get("status_code"),
+  1416→            }
+  1417→        return result
+  1418→
+  1419→    # ── LLM Cost Tracking (Wave 2) ───────────────────────────
+  1420→
+  1421→    async def record_llm_cost(
+  1422→        self, tenant_id, model, prompt_tokens, completion_tokens,
+  1423→        cost_usd, call_type="parwa_pipeline",
+  1424→    ) -> Dict[str, Any]:
+  1425→        row = await self._rest_post("jarvis_llm_costs", {
+  1426→            "tenant_id": tenant_id, "model": model,
+  1427→            "prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens,
+  1428→            "cost_usd": cost_usd, "call_type": call_type,
+  1429→        })
+  1430→        row["backend"] = "supabase"
+  1431→        return row
+  1432→
+  1433→    async def get_llm_cost_summary(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+  1434→        costs = await self._rest_get(
+  1435→            "jarvis_llm_costs",
+  1436→            f"tenant_id=eq.{tenant_id}&select=model,prompt_tokens,completion_tokens,cost_usd,call_type,created_at&limit=5000"
+  1437→        )
+  1438→        if not costs:
+  1439→            return {"tenant_id": tenant_id, "total_cost_usd": 0.0, "total_tokens": 0, "total_calls": 0, "by_model": {}, "by_type": {}}
+  1440→        total_cost = sum(float(c.get("cost_usd", 0)) for c in costs)
+  1441→        total_tokens = sum(int(c.get("prompt_tokens", 0)) + int(c.get("completion_tokens", 0)) for c in costs)
+  1442→        by_model: Dict[str, Dict] = {}
+  1443→        by_type: Dict[str, Dict] = {}
+  1444→        for c in costs:
+  1445→            m = c.get("model", "unknown")
+  1446→            by_model.setdefault(m, {"cost": 0.0, "tokens": 0, "calls": 0})
+  1447→            by_model[m]["cost"] += float(c.get("cost_usd", 0))
+  1448→            by_model[m]["tokens"] += int(c.get("prompt_tokens", 0)) + int(c.get("completion_tokens", 0))
+  1449→            by_model[m]["calls"] += 1
+  1450→            t = c.get("call_type", "unknown")
+  1451→            by_type.setdefault(t, {"cost": 0.0, "tokens": 0, "calls": 0})
+  1452→            by_type[t]["cost"] += float(c.get("cost_usd", 0))
+  1453→            by_type[t]["tokens"] += int(c.get("prompt_tokens", 0)) + int(c.get("completion_tokens", 0))
+  1454→            by_type[t]["calls"] += 1
+  1455→        return {
+  1456→            "tenant_id": tenant_id, "total_cost_usd": round(total_cost, 4),
+  1457→            "total_tokens": total_tokens, "total_calls": len(costs),
+  1458→            "by_model": by_model, "by_type": by_type,
+  1459→        }
+  1460→
+  1461→    # ── Stuck Ticket Tracking (Wave 2) ───────────────────────
+  1462→
+  1463→    async def record_stuck_ticket_check(
+  1464→        self, tenant_id, ticket_id, stuck_reason, hours_stuck, escalation_tier,
+  1465→    ) -> Dict[str, Any]:
+  1466→        row = await self._rest_post("jarvis_stuck_ticket_events", {
+  1467→            "tenant_id": tenant_id, "ticket_id": ticket_id,
+  1468→            "stuck_reason": stuck_reason, "hours_stuck": hours_stuck,
+  1469→            "escalation_tier": escalation_tier,
+  1470→        })
+  1471→        row["backend"] = "supabase"
+  1472→        return row
+  1473→
+  1474→    async def get_stuck_tickets(self, tenant_id: str) -> List[Dict[str, Any]]:
+  1475→        return await self._rest_get(
+  1476→            "jarvis_stuck_ticket_events",
+  1477→            f"tenant_id=eq.{tenant_id}&resolved=eq.false&order=detected_at.desc"
+  1478→        )
+  1479→
+  1480→    # ── Drift Detection (Wave 2) ─────────────────────────────
+  1481→
+  1482→    async def check_quality_drift(self, tenant_id: str) -> Dict[str, Any]:
+  1483→        # Fetch scores + client-side drift analysis (same logic as InMemory)
+  1484→        scores = await self._rest_get(
+  1485→            TABLE_QUALITY_SCORES,
+  1486→            f"tenant_id=eq.{tenant_id}&select=overall_score,resolution_path,created_at&order=created_at.asc&limit=5000"
+  1487→        )
+  1488→        if len(scores) < 3:
+  1489→            return {"tenant_id": tenant_id, "drift_detected": False, "drift_severity": "none",
+  1490→                    "accuracy_7d": None, "accuracy_yesterday": None, "accuracy_today": None,
+  1491→                    "trend_direction": "stable", "trigger_reason": "insufficient_data", "total_scores": len(scores)}
+  1492→        by_date: Dict[str, List[float]] = {}
+  1493→        for s in scores:
+  1494→            d = (s.get("created_at") or "")[:10]
+  1495→            by_date.setdefault(d, []).append(float(s.get("overall_score", 0)))
+  1496→        dates_sorted = sorted(by_date.keys())
+  1497→        def _avg(vals): return round(sum(vals) / len(vals), 4) if vals else 0.0
+  1498→        accuracy_7d = _avg([v for d in dates_sorted[-7:] for v in by_date[d]])
+  1499→        accuracy_today = _avg(by_date[dates_sorted[-1]])
+  1500→        accuracy_yesterday = _avg(by_date[dates_sorted[-2]]) if len(dates_sorted) >= 2 else None
+  1501→        drift_detected = False; drift_severity = "none"; trigger_reason = None; trend_direction = "stable"
+  1502→        if len(dates_sorted) >= 3:
+  1503→            daily_avgs = [_avg(by_date[d]) for d in dates_sorted[-3:]]
+  1504→            declining = all(daily_avgs[i] > daily_avgs[i+1] for i in range(len(daily_avgs)-1))
+  1505→            drop = accuracy_7d - accuracy_today
+  1506→            if declining and drop > 0.05:
+  1507→                drift_detected = True; trend_direction = "declining"
+  1508→                trigger_reason = f"accuracy_dropped_{drop:.1%}_over_3_days"
+  1509→                drift_severity = "critical" if drop > 0.10 else "warning"
+  1510→            elif drop > 0.03:
+  1511→                drift_detected = True; trend_direction = "slight_decline"
+  1512→                trigger_reason = f"accuracy_dropped_{drop:.1%}_from_7d_avg"; drift_severity = "warning"
+  1513→            elif accuracy_today > accuracy_7d + 0.03:
+  1514→                trend_direction = "improving"
+  1515→        return {"tenant_id": tenant_id, "drift_detected": drift_detected, "drift_severity": drift_severity,
+  1516→                "accuracy_7d": accuracy_7d, "accuracy_yesterday": accuracy_yesterday,
+  1517→                "accuracy_today": accuracy_today, "trend_direction": trend_direction,
+  1518→                "trigger_reason": trigger_reason, "total_scores": len(scores)}
+  1519→
+  1520→    # ── Ticket Flow Aggregation (Wave 2) ─────────────────────
+  1521→
+  1522→    async def get_ticket_flow_summary(self, tenant_id: str, hours: int = 24) -> Dict[str, Any]:
+  1523→        scores = await self._rest_get(
+  1524→            TABLE_QUALITY_SCORES,
+  1525→            f"tenant_id=eq.{tenant_id}&select=overall_score,resolution_path,nodes_reached,llm_calls&limit=5000"
+  1526→        )
+  1527→        total = len(scores)
+  1528→        if total == 0:
+  1529→            return {"tenant_id": tenant_id, "total": 0, "auto_resolved": 0, "batched": 0,
+  1530→                    "escalated": 0, "stuck": 0, "by_type": {}, "by_node": {}, "avg_llm_calls": 0, "avg_quality": 0}
+  1531→        auto_resolved = sum(1 for s in scores if float(s.get("overall_score", 0)) >= 0.85)
+  1532→        escalated = sum(1 for s in scores if s.get("resolution_path") == "escalated")
+  1533→        stuck = sum(1 for s in scores if s.get("resolution_path") == "stuck")
+  1534→        batched = sum(1 for s in scores if s.get("resolution_path") == "batched")
+  1535→        by_type: Dict[str, int] = {}; by_node: Dict[str, int] = {}; total_llm = 0; total_q = 0
+  1536→        for s in scores:
+  1537→            p = s.get("resolution_path", "unknown"); by_type[p] = by_type.get(p, 0) + 1
+  1538→            for node in (s.get("nodes_reached") or []): by_node[node] = by_node.get(node, 0) + 1
+  1539→            total_llm += int(s.get("llm_calls", 0)); total_q += float(s.get("overall_score", 0))
+  1540→        return {"tenant_id": tenant_id, "total": total, "auto_resolved": auto_resolved,
+  1541→                "batched": batched, "escalated": escalated, "stuck": stuck,
+  1542→                "by_type": by_type, "by_node": by_node,
+  1543→                "avg_llm_calls": round(total_llm / max(total, 1), 1),
+  1544→                "avg_quality": round(total_q / max(total, 1), 4)}
+  1545→
+  1546→    # ── Load Balancing (Wave 2) ──────────────────────────────
+  1547→
+  1548→    async def get_load_status(self, tenant_id: str) -> Dict[str, Any]:
+  1549→        # Read agent_configs for variant capacity info
+  1550→        configs = await self._rest_get(
+  1551→            TABLE_AGENT_CONFIGS,
+  1552→            f"tenant_id=eq.{tenant_id}&select=agent_name,max_concurrent,is_active&is_active=eq.true"
+  1553→        )
+  1554→        variants = []
+  1555→        for c in configs:
+  1556→            name = c.get("agent_name", "unknown")
+  1557→            maxc = c.get("max_concurrent", 5) or 5
+  1558→            # In production, concurrent count would come from a real-time counter
+  1559→            # For now, use 0 as baseline — PARWA would update this
+  1560→            variants.append({"name": name, "concurrent": 0, "max_concurrent": maxc,
+  1561→                            "utilization_pct": 0, "status": "low"})
+  1562→        return {"tenant_id": tenant_id, "variants": variants, "total_concurrent": 0, "vip_overflow_risk": False}
+  1563→
+  1564→    # ── Utility ──────────────────────────────────────────────
+  1565→
+  1566→    async def get_notification_stats(self, tenant_id: str) -> Dict[str, Any]:
+  1567→        all_nfs = await self._rest_get(
+  1568→            TABLE_NOTIFICATIONS,
+  1569→            f"tenant_id=eq.{tenant_id}&select=priority,is_read,is_resolved"
+  1570→        )
+  1571→        by_priority = {}
+  1572→        for p in [PRIORITY_CRITICAL, PRIORITY_HIGH, PRIORITY_MEDIUM, PRIORITY_LOW]:
+  1573→            by_priority[p] = sum(1 for n in all_nfs if n.get("priority") == p)
+  1574→        return {
+  1575→            "total": len(all_nfs),
+  1576→            "unread": sum(1 for n in all_nfs if not n.get("is_read")),
+  1577→            "unresolved": sum(1 for n in all_nfs if not n.get("is_resolved")),
+  1578→            "by_priority": by_priority,
+  1579→        }
+  1580→
+  1581→    async def health_check(self) -> Dict[str, Any]:
+  1582→        try:
+  1583→            client = await self._get_client()
+  1584→            r = await client.get("/rest/v1/jarvis_notifications?select=id&limit=1")
+  1585→            return {
+  1586→                "backend": "supabase",
+  1587→                "status": "healthy" if r.status_code == 200 else "degraded",
+  1588→                "url": self._url,
+  1589→            }
+  1590→        except Exception as e:
+  1591→            return {"backend": "supabase", "status": "error", "error": str(e)}
+  1592→
+  1593→
+  1594→# ═══════════════════════════════════════════════════════════════
+  1595→# GLOBAL INSTANCE — auto-detect mode
+  1596→# ═══════════════════════════════════════════════════════════════
+  1597→
+  1598→_backend: Optional[StorageBackend] = None
+  1599→
+  1600→
+  1601→def get_db() -> StorageBackend:
+  1602→    """Get the active storage backend. Singleton.
+  1603→
+  1604→    Auto-detects:
+  1605→      - SUPABASE_URL + SUPABASE_ANON_KEY set → SupabaseBackend
+  1606→      - Otherwise → InMemoryBackend
+  1607→    """
+  1608→    global _backend
+  1609→    if _backend is None:
+  1610→        if SUPABASE_URL and SUPABASE_ANON_KEY:
+  1611→            logger.info("Jarvis DB: Using Supabase backend (%s)", SUPABASE_URL[:40])
+  1612→            _backend = SupabaseBackend()
+  1613→        else:
+  1614→            logger.info("Jarvis DB: Using InMemory backend (set SUPABASE_URL for production)")
+  1615→            _backend = InMemoryBackend()
+  1616→    return _backend
+  1617→
+  1618→
+  1619→def reset_db():
+  1620→    """Reset the global backend (for testing)."""
+  1621→    global _backend
+  1622→    if isinstance(_backend, SupabaseBackend):
+  1623→        import asyncio
+  1624→        asyncio.get_event_loop().run_until_complete(_backend.close())
+  1625→    _backend = None
+  1626→
+  1627→
+  1628→def use_in_memory():
+  1629→    """Force in-memory mode (for testing)."""
+  1630→    global _backend
+  1631→    _backend = InMemoryBackend()
+  1632→    logger.info("Jarvis DB: Forced to InMemory mode")

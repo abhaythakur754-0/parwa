@@ -31,6 +31,10 @@ from app.core.jarvis_pipeline.command_parser import (
     classify_command, is_query_intent, is_control_intent,
     is_emergency_intent, is_approval_intent,
 )
+from app.core.jarvis_pipeline.command_executor import (
+    execute_command, validate_command, get_effective_flags,
+    ExecutionResult,
+)
 from app.core.jarvis_pipeline.jarvis_auth import (
     authorize_command, make_user_context, AuthResult,
 )
@@ -147,6 +151,7 @@ async def _execute_command(
     tenant_id: str,
     signals: Dict[str, Any],
     db,
+    raw_input: str = "",
 ) -> str:
     """Execute a classified command and return the response text.
 
@@ -171,7 +176,8 @@ async def _execute_command(
 
     # ── CONTROL INTENTS ──────────────────────────────────
     if is_control_intent(intent):
-        response = await _handle_control(intent, target, tenant_id, auth_result, db)
+        response = await _handle_control(intent, target, tenant_id, auth_result, db,
+                                         raw_input=raw_input)
         return response
 
     # ── APPROVAL INTENTS ─────────────────────────────────
@@ -181,7 +187,8 @@ async def _execute_command(
 
     # ── EMERGENCY INTENTS ────────────────────────────────
     if is_emergency_intent(intent):
-        response = await _handle_emergency(intent, target, tenant_id, auth_result, db)
+        response = await _handle_emergency(intent, target, tenant_id, auth_result, db,
+                                          raw_input=raw_input)
         return response
 
     # ── EXPLAIN / TEACH / AGENT ──────────────────────────
@@ -193,8 +200,15 @@ async def _execute_command(
         return await _handle_teach_skill(target, tenant_id, auth_result, db)
     if intent == "create_agent":
         return await _handle_create_agent(target, tenant_id, auth_result, db)
+    if intent == "control_approval_override":
+        # Wave 3: approval override via executor
+        result = await execute_command(
+            intent=intent, target=target, tenant_id=tenant_id,
+            actor_email=auth_result.email, raw_input=raw_input,
+        )
+        return result.response
 
-    return f"I understood your command but don't have a handler for '{intent}' yet. This will be available in a future wave."
+    return f"I understood your command but don't have a handler for '{intent}' yet."
 
 
 # ── Query Handlers ────────────────────────────────────────────
@@ -416,96 +430,32 @@ async def _handle_query(intent: str, target: str, tenant_id: str, signals: Dict,
 
 # ── Control Handlers ──────────────────────────────────────────
 
-async def _handle_control(intent: str, target: str, tenant_id: str, auth: AuthResult, db) -> str:
-    """Handle control commands — writes to system_flags table."""
+async def _handle_control(intent: str, target: str, tenant_id: str, auth: AuthResult, db,
+                           raw_input: str = "") -> str:
+    """Handle control commands via command_executor (Wave 3).
 
-    if intent == "control_pause":
-        flag = await db.set_flag(
-            tenant_id=tenant_id,
-            flag_type="pause_action",
-            flag_value=target,
-            set_by=auth.email,
-            reason=f"Paused via Jarvis by {auth.email}",
-        )
-        # Audit
-        await db.create_audit_entry(
-            tenant_id=tenant_id, action="control_pause",
-            actor_email=auth.email, target_type="flag", target_id=flag["id"],
-            payload={"target": target, "intent": intent},
-        )
-        return f"[OK] Paused '{target}'. PARWA will stop processing {target} requests. Use 'resume {target}' to re-enable."
+    5-step pipeline: validate → resolve → execute → verify → respond.
+    All conflicts auto-resolved. All actions audited.
+    """
+    result = await execute_command(
+        intent=intent,
+        target=target,
+        tenant_id=tenant_id,
+        actor_email=auth.email,
+        raw_input=raw_input,
+    )
 
-    if intent == "control_resume":
-        # Revoke the most recent pause flag for this target
-        flags = await db.get_active_flags(tenant_id, flag_type="pause_action")
-        revoked = 0
-        for f in flags:
-            if f["flag_value"] == target or target == "all":
-                await db.revoke_flag(f["id"], auth.email)
-                revoked += 1
-        await db.create_audit_entry(
-            tenant_id=tenant_id, action="control_resume",
-            actor_email=auth.email, target_type="flag", target_id=target,
-            payload={"target": target, "revoked_count": revoked},
-        )
-        if revoked > 0:
-            return f"[OK] Resumed '{target}'. Revoked {revoked} pause flag(s)."
-        return f"No active pause flag found for '{target}'. Already running."
+    # Build response with warnings and conflict info
+    response = result.response
+    if result.warnings:
+        response += "\n\nWarnings:\n" + "\n".join(f"  - {w}" for w in result.warnings)
+    if result.conflicts_resolved:
+        names = [f["flag_type"] + "=" + f["flag_value"] for f in result.conflicts_resolved]
+        response += f"\n\nAuto-resolved conflicts: {', '.join(names)}"
+    if result.undo_id:
+        response += f"\n\nTo undo: **'disable my last rule'**"
 
-    if intent == "control_route":
-        # Parse "handle Instagram DMs" → channel=instagram, route_to=ai
-        route_to = "ai"  # default
-        if "human" in target or "take" in target or "i'll" in target:
-            route_to = "human"
-        flag = await db.set_flag(
-            tenant_id=tenant_id,
-            flag_type="redirect_channel",
-            flag_value=f"{target}:{route_to}",
-            set_by=auth.email,
-            reason=f"Redirected {target} to {route_to} by {auth.email}",
-        )
-        await db.create_audit_entry(
-            tenant_id=tenant_id, action="control_route",
-            actor_email=auth.email, target_type="flag", target_id=flag["id"],
-            payload={"channel": target, "route_to": route_to},
-        )
-        return f"[OK] Workflow Redirected: {target} → {route_to.upper()}. PARWA will {'handle' if route_to == 'ai' else 'skip'} {target} requests."
-
-    if intent == "control_mode":
-        valid_modes = {"shadow", "supervised", "graduated"}
-        mode = target.lower() if target.lower() in valid_modes else "supervised"
-        flag = await db.set_flag(
-            tenant_id=tenant_id,
-            flag_type="force_mode",
-            flag_value=mode,
-            set_by=auth.email,
-            reason=f"Mode changed to {mode} by {auth.email}",
-        )
-        await db.create_audit_entry(
-            tenant_id=tenant_id, action="control_mode",
-            actor_email=auth.email, target_type="flag", target_id=flag["id"],
-            payload={"mode": mode},
-        )
-        return f"[OK] System mode set to **{mode.upper()}**. PARWA will operate in {mode} mode."
-
-    if intent == "control_disable_rule":
-        # Revoke the most recent non-expired flag
-        flags = await db.get_active_flags(tenant_id)
-        if flags:
-            last = flags[-1]
-            await db.revoke_flag(last["id"], auth.email)
-            await db.create_audit_entry(
-                tenant_id=tenant_id, action="control_disable_rule",
-                actor_email=auth.email, target_type="flag", target_id=last["id"],
-                payload={"revoked_flag": last["flag_type"], "revoked_value": last["flag_value"]},
-            )
-            return f"[OK] Disabled last rule: {last['flag_type']}={last['flag_value']}. System reverted to default behavior."
-        return "No active rules to disable."
-
-    if intent == "control_skill_assign":
-        return "[OK] Skill re-assignment noted. This requires variant config updates (coming in Wave 3)."
-
-    return f"Control '{intent}' received but not yet fully implemented."
+    return response
 
 
 # ── Approval Handlers ─────────────────────────────────────────
@@ -527,45 +477,27 @@ async def _handle_approval(intent: str, target: str, tenant_id: str, auth: AuthR
 
 # ── Emergency Handlers ────────────────────────────────────────
 
-async def _handle_emergency(intent: str, target: str, tenant_id: str, auth: AuthResult, db) -> str:
-    """Handle emergency commands."""
+async def _handle_emergency(intent: str, target: str, tenant_id: str, auth: AuthResult, db,
+                            raw_input: str = "") -> str:
+    """Handle emergency commands via command_executor (Wave 3).
 
-    if intent == "emergency_shutdown":
-        flag = await db.set_flag(
-            tenant_id=tenant_id,
-            flag_type="global_shutdown",
-            flag_value="all",
-            set_by=auth.email,
-            reason=f"Emergency shutdown by {auth.email}",
-        )
-        await db.create_audit_entry(
-            tenant_id=tenant_id, action="emergency_shutdown",
-            actor_email=auth.email, target_type="flag", target_id=flag["id"],
-            payload={"CRITICAL": "All AI activity paused"},
-        )
-        return (
-            f"[EMERGENCY] All AI activity PAUSED. Flag set by {auth.email}.\n"
-            f"In-flight tickets will complete current step then stop.\n"
-            f"Use 'resume all' to restart."
-        )
+    Real execution: recall marks outbox, void removes outbox, shutdown sets flag + notification.
+    """
+    result = await execute_command(
+        intent=intent,
+        target=target,
+        tenant_id=tenant_id,
+        actor_email=auth.email,
+        raw_input=raw_input,
+    )
 
-    if intent == "emergency_recall":
-        await db.create_audit_entry(
-            tenant_id=tenant_id, action="emergency_recall",
-            actor_email=auth.email, target_type="message", target_id=target,
-            payload={"target": target},
-        )
-        return f"[OK] Recall initiated for '{target}'. Message recall protocol requires email provider integration (coming in Wave 3)."
+    response = result.response
+    if result.warnings:
+        response += "\n\nWarnings:\n" + "\n".join(f"  - {w}" for w in result.warnings)
+    if result.undo_id and intent != "emergency_shutdown":
+        response += f"\n\nTo undo: **'disable my last rule'**"
 
-    if intent == "emergency_void":
-        await db.create_audit_entry(
-            tenant_id=tenant_id, action="emergency_void",
-            actor_email=auth.email, target_type="message", target_id=target,
-            payload={"target": target},
-        )
-        return f"[OK] Void initiated for '{target}' messages. Pending outbox messages will be removed."
-
-    return f"Emergency '{intent}' acknowledged."
+    return response
 
 
 # ── Explain / Teach / Agent Handlers ──────────────────────────
@@ -678,6 +610,7 @@ async def jarvis_notify(state: dict) -> dict:
                 tenant_id=tenant_id,
                 signals=signals,
                 db=db,
+                raw_input=admin_question,
             )
             logs.append({"node": "J3", "technique": "ExecuteCommand",
                          "duration_ms": 0, "result_summary": f"executed={intent_result['intent']}"})

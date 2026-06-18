@@ -313,6 +313,59 @@ class StorageBackend(ABC):
         """
         ...
 
+    # ── Agent Config Management (Wave 3) ─────────────────
+
+    @abstractmethod
+    async def get_agent_config(
+        self, tenant_id: str, agent_name: str
+    ) -> Optional[Dict[str, Any]]:
+        """Get agent config by name."""
+        ...
+
+    @abstractmethod
+    async def update_agent_config(
+        self, tenant_id: str, agent_name: str, **updates
+    ) -> Optional[Dict[str, Any]]:
+        """Update agent config fields (skills, max_concurrent, etc.)."""
+        ...
+
+    # ── Outbox Queue (Wave 3 — recall/void) ────────────────
+
+    @abstractmethod
+    async def add_to_outbox(
+        self,
+        tenant_id: str,
+        channel: str,
+        recipient: str,
+        subject: str,
+        body: str,
+        message_type: str = "email",
+        related_ticket: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Add a message to the outbox queue."""
+        ...
+
+    @abstractmethod
+    async def recall_outbox_messages(
+        self, tenant_id: str, match_filter: Optional[str] = None
+    ) -> int:
+        """Mark pending outbox messages as recalled. Returns count."""
+        ...
+
+    @abstractmethod
+    async def void_outbox_messages(
+        self, tenant_id: str, match_filter: Optional[str] = None
+    ) -> int:
+        """Remove pending outbox messages. Returns count removed."""
+        ...
+
+    @abstractmethod
+    async def get_outbox_status(
+        self, tenant_id: str
+    ) -> Dict[str, Any]:
+        """Get outbox queue status (pending, sent, recalled, voided counts)."""
+        ...
+
     # ── Utility ──────────────────────────────────────────────
 
     @abstractmethod
@@ -347,6 +400,8 @@ class InMemoryBackend(StorageBackend):
         self._llm_costs: List[Dict] = []
         self._stuck_ticket_events: List[Dict] = []
         self._load_status: Dict[str, Dict] = {}  # tenant_id -> {variant -> {concurrent, max_concurrent}}
+        self._agent_configs: List[Dict] = []  # Wave 3: agent config store
+        self._outbox: List[Dict] = []  # Wave 3: outbox queue (recall/void)
 
     # ── Helpers ───────────────────────────────────────────────
 
@@ -981,6 +1036,104 @@ class InMemoryBackend(StorageBackend):
             "concurrent": concurrent, "max_concurrent": max_concurrent,
         }
 
+    # ── Agent Config Management (Wave 3) ─────────────────
+
+    async def get_agent_config(self, tenant_id: str, agent_name: str) -> Optional[Dict[str, Any]]:
+        for c in self._agent_configs:
+            if c["tenant_id"] == tenant_id and c["agent_name"] == agent_name:
+                return c
+        return None
+
+    async def update_agent_config(self, tenant_id: str, agent_name: str, **updates) -> Optional[Dict[str, Any]]:
+        for c in self._agent_configs:
+            if c["tenant_id"] == tenant_id and c["agent_name"] == agent_name:
+                c.update(updates)
+                c["updated_at"] = datetime.now(timezone.utc).isoformat()
+                return c
+        # Auto-create if not found
+        new_config = {
+            "id": str(uuid.uuid4()),
+            "tenant_id": tenant_id,
+            "agent_name": agent_name,
+            "is_active": True,
+            "max_concurrent": 5,
+            "skills": [],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "backend": "memory",
+        }
+        new_config.update(updates)
+        self._agent_configs.append(new_config)
+        return new_config
+
+    # ── Outbox Queue (Wave 3 — recall/void) ────────────────
+
+    async def add_to_outbox(
+        self, tenant_id, channel, recipient, subject, body,
+        message_type="email", related_ticket=None,
+    ) -> Dict[str, Any]:
+        msg = {
+            "id": str(uuid.uuid4()),
+            "tenant_id": tenant_id,
+            "channel": channel,
+            "recipient": recipient,
+            "subject": subject,
+            "body": body,
+            "message_type": message_type,
+            "related_ticket": related_ticket,
+            "status": "pending",  # pending, sent, recalled, voided
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "sent_at": None,
+            "recalled_at": None,
+            "backend": "memory",
+        }
+        self._outbox.append(msg)
+        return msg
+
+    async def recall_outbox_messages(self, tenant_id: str, match_filter: Optional[str] = None) -> int:
+        count = 0
+        now = datetime.now(timezone.utc).isoformat()
+        for msg in self._outbox:
+            if msg["tenant_id"] != tenant_id or msg["status"] != "pending":
+                continue
+            if match_filter is not None:
+                filter_lower = match_filter.lower()
+                if filter_lower not in msg.get("subject", "").lower() and filter_lower not in msg.get("body", "").lower():
+                    continue
+            msg["status"] = "recalled"
+            msg["recalled_at"] = now
+            count += 1
+        return count
+
+    async def void_outbox_messages(self, tenant_id: str, match_filter: Optional[str] = None) -> int:
+        voided = 0
+        now = datetime.now(timezone.utc).isoformat()
+        for msg in self._outbox:
+            if msg["tenant_id"] != tenant_id or msg["status"] != "pending":
+                continue
+            if match_filter is not None:
+                filter_lower = match_filter.lower()
+                if filter_lower not in msg.get("subject", "").lower() and filter_lower not in msg.get("body", "").lower():
+                    continue
+            msg["status"] = "voided"
+            voided += 1
+        return voided
+
+    async def get_outbox_status(self, tenant_id: str) -> Dict[str, Any]:
+        tenant_msgs = [m for m in self._outbox if m["tenant_id"] == tenant_id]
+        by_status: Dict[str, int] = {}
+        for m in tenant_msgs:
+            s = m.get("status", "unknown")
+            by_status[s] = by_status.get(s, 0) + 1
+        return {
+            "tenant_id": tenant_id,
+            "total": len(tenant_msgs),
+            "pending": by_status.get("pending", 0),
+            "sent": by_status.get("sent", 0),
+            "recalled": by_status.get("recalled", 0),
+            "voided": by_status.get("voided", 0),
+        }
+
     def clear_all(self):
         """Clear all data (for testing)."""
         self._notifications.clear()
@@ -994,6 +1147,8 @@ class InMemoryBackend(StorageBackend):
         self._llm_costs.clear()
         self._stuck_ticket_events.clear()
         self._load_status.clear()
+        self._agent_configs.clear()
+        self._outbox.clear()
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1560,6 +1715,110 @@ class SupabaseBackend(StorageBackend):
             variants.append({"name": name, "concurrent": 0, "max_concurrent": maxc,
                             "utilization_pct": 0, "status": "low"})
         return {"tenant_id": tenant_id, "variants": variants, "total_concurrent": 0, "vip_overflow_risk": False}
+
+    # ── Agent Config Management (Wave 3) ─────────────────
+
+    async def get_agent_config(self, tenant_id: str, agent_name: str) -> Optional[Dict[str, Any]]:
+        results = await self._rest_get(
+            TABLE_AGENT_CONFIGS,
+            f"tenant_id=eq.{tenant_id}&agent_name=eq.{agent_name}&limit=1"
+        )
+        if results:
+            results[0]["backend"] = "supabase"
+            return results[0]
+        return None
+
+    async def update_agent_config(self, tenant_id: str, agent_name: str, **updates) -> Optional[Dict[str, Any]]:
+        existing = await self._rest_get(
+            TABLE_AGENT_CONFIGS,
+            f"tenant_id=eq.{tenant_id}&agent_name=eq.{agent_name}&limit=1"
+        )
+        if existing:
+            result = await self._rest_patch(
+                TABLE_AGENT_CONFIGS,
+                f"id=eq.{existing[0]['id']}",
+                updates,
+            )
+            if result:
+                result[0]["backend"] = "supabase"
+                return result[0]
+        else:
+            # Auto-create
+            row = await self._rest_post(TABLE_AGENT_CONFIGS, {
+                "tenant_id": tenant_id,
+                "agent_name": agent_name,
+                "is_active": True,
+                "max_concurrent": 5,
+                "skills": [],
+                **updates,
+            })
+            row["backend"] = "supabase"
+            return row
+        return None
+
+    # ── Outbox Queue (Wave 3 — recall/void) ────────────────
+
+    async def add_to_outbox(
+        self, tenant_id, channel, recipient, subject, body,
+        message_type="email", related_ticket=None,
+    ) -> Dict[str, Any]:
+        row = await self._rest_post("jarvis_outbox_queue", {
+            "tenant_id": tenant_id, "channel": channel,
+            "recipient": recipient, "subject": subject, "body": body,
+            "message_type": message_type, "related_ticket": related_ticket,
+            "status": "pending",
+        })
+        row["backend"] = "supabase"
+        return row
+
+    async def recall_outbox_messages(self, tenant_id: str, match_filter: Optional[str] = None) -> int:
+        query = f"tenant_id=eq.{tenant_id}&status=eq.pending"
+        if match_filter:
+            query += f"&subject=ilike.*{match_filter}*"
+        results = await self._rest_get("jarvis_outbox_queue", query)
+        count = 0
+        now = datetime.now(timezone.utc).isoformat()
+        for msg in results:
+            await self._rest_patch(
+                "jarvis_outbox_queue",
+                f"id=eq.{msg['id']}",
+                {"status": "recalled", "recalled_at": now},
+            )
+            count += 1
+        return count
+
+    async def void_outbox_messages(self, tenant_id: str, match_filter: Optional[str] = None) -> int:
+        query = f"tenant_id=eq.{tenant_id}&status=eq.pending"
+        if match_filter:
+            query += f"&subject=ilike.*{match_filter}*"
+        results = await self._rest_get("jarvis_outbox_queue", query)
+        count = 0
+        for msg in results:
+            await self._rest_patch(
+                "jarvis_outbox_queue",
+                f"id=eq.{msg['id']}",
+                {"status": "voided"},
+            )
+            count += 1
+        return count
+
+    async def get_outbox_status(self, tenant_id: str) -> Dict[str, Any]:
+        all_msgs = await self._rest_get(
+            "jarvis_outbox_queue",
+            f"tenant_id=eq.{tenant_id}&select=status"
+        )
+        by_status = {}
+        for m in all_msgs:
+            s = m.get("status", "unknown")
+            by_status[s] = by_status.get(s, 0) + 1
+        return {
+            "tenant_id": tenant_id,
+            "total": len(all_msgs),
+            "pending": by_status.get("pending", 0),
+            "sent": by_status.get("sent", 0),
+            "recalled": by_status.get("recalled", 0),
+            "voided": by_status.get("voided", 0),
+        }
 
     # ── Utility ──────────────────────────────────────────────
 

@@ -1,0 +1,602 @@
+   500→   500→                return True
+   501→   501→        return False
+   502→   502→
+   503→   503→    # ── Audit Trail ──────────────────────────────────────────
+   504→   504→
+   505→   505→    async def create_audit_entry(
+   506→   506→        self,
+   507→   507→        tenant_id: str,
+   508→   508→        action: str,
+   509→   509→        actor_email: str,
+   510→   510→        target_type: Optional[str] = None,
+   511→   511→        target_id: Optional[str] = None,
+   512→   512→        payload: Optional[Dict] = None,
+   513→   513→    ) -> Dict[str, Any]:
+   514→   514→        payload_json = json.dumps(payload or {}, sort_keys=True)
+   515→   515→        current_hash = hashlib.sha256(
+   516→   516→            f"{tenant_id}:{action}:{payload_json}:{time.time()}".encode()
+   517→   517→        ).hexdigest()[:64]
+   518→   518→
+   519→   519→        entry = {
+   520→   520→            "id": len(self._audit) + 1,
+   521→   521→            "tenant_id": tenant_id,
+   522→   522→            "action": action,
+   523→   523→            "actor_email": actor_email,
+   524→   524→            "target_type": target_type,
+   525→   525→            "target_id": target_id,
+   526→   526→            "payload": payload or {},
+   527→   527→            "current_hash": current_hash,
+   528→   528→            "previous_hash": self._audit[-1]["current_hash"] if self._audit else None,
+   529→   529→            "created_at": datetime.now(timezone.utc).isoformat(),
+   530→   530→            "backend": "memory",
+   531→   531→        }
+   532→   532→        self._audit.append(entry)
+   533→   533→        return entry
+   534→   534→
+   535→   535→    async def get_audit_trail(
+   536→   536→        self,
+   537→   537→        tenant_id: str,
+   538→   538→        action: Optional[str] = None,
+   539→   539→        limit: int = 50,
+   540→   540→    ) -> List[Dict[str, Any]]:
+   541→   541→        results = [e for e in self._audit if e["tenant_id"] == tenant_id]
+   542→   542→        if action:
+   543→   543→            results = [e for e in results if e["action"] == action]
+   544→   544→        results.sort(key=lambda x: x["id"], reverse=True)
+   545→   545→        return results[:limit]
+   546→   546→
+   547→   547→    # ── Quality Scores ───────────────────────────────────────
+   548→   548→
+   549→   549→    async def write_quality_score(
+   550→   550→        self,
+   551→   551→        tenant_id: str,
+   552→   552→        ticket_id: str,
+   553→   553→        overall_score: float,
+   554→   554→        confidence_score: Optional[float] = None,
+   555→   555→        resolution_path: Optional[str] = None,
+   556→   556→        nodes_reached: Optional[List[str]] = None,
+   557→   557→        llm_calls: int = 0,
+   558→   558→        tokens_used: int = 0,
+   559→   559→        model_used: Optional[str] = None,
+   560→   560→        agent_id: Optional[str] = None,
+   561→   561→    ) -> Dict[str, Any]:
+   562→   562→        score = {
+   563→   563→            "id": str(uuid.uuid4()),
+   564→   564→            "tenant_id": tenant_id,
+   565→   565→            "agent_id": agent_id,
+   566→   566→            "ticket_id": ticket_id,
+   567→   567→            "overall_score": round(overall_score, 2),
+   568→   568→            "confidence_score": round(confidence_score, 2) if confidence_score else None,
+   569→   569→            "resolution_path": resolution_path,
+   570→   570→            "nodes_reached": nodes_reached or [],
+   571→   571→            "llm_calls": llm_calls,
+   572→   572→            "tokens_used": tokens_used,
+   573→   573→            "model_used": model_used,
+   574→   574→            "created_at": datetime.now(timezone.utc).isoformat(),
+   575→   575→            "backend": "memory",
+   576→   576→        }
+   577→   577→        self._quality_scores.append(score)
+   578→   578→        return score
+   579→   579→
+   580→   580→    async def get_quality_stats(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+   581→   581→        tenant_scores = [s for s in self._quality_scores if s["tenant_id"] == tenant_id]
+   582→   582→        total = len(tenant_scores)
+   583→   583→        if total == 0:
+   584→   584→            return {
+   585→   585→                "tenant_id": tenant_id, "total_tickets": 0,
+   586→   586→                "avg_quality": 0, "avg_confidence": 0,
+   587→   587→                "auto_resolved": 0, "escalated": 0, "stuck": 0,
+   588→   588→            }
+   589→   589→        avg_q = sum(s["overall_score"] for s in tenant_scores) / total
+   590→   590→        avg_c_vals = [s["confidence_score"] for s in tenant_scores if s.get("confidence_score")]
+   591→   591→        avg_c = sum(avg_c_vals) / len(avg_c_vals) if avg_c_vals else 0
+   592→   592→        paths = {}
+   593→   593→        for s in tenant_scores:
+   594→   594→            p = s.get("resolution_path", "unknown")
+   595→   595→            paths[p] = paths.get(p, 0) + 1
+   596→   596→        return {
+   597→   597→            "tenant_id": tenant_id,
+   598→   598→            "total_tickets": total,
+   599→   599→            "avg_quality": round(avg_q, 4),
+   600→   600→            "avg_confidence": round(avg_c, 4),
+   601→   601→            "by_path": paths,
+   602→   602→            "auto_resolved": paths.get("simple", 0) + paths.get("complex", 0),
+   603→   603→            "escalated": paths.get("escalated", 0),
+   604→   604→            "stuck": paths.get("stuck", 0),
+   605→   605→        }
+   606→   606→
+   607→   607→    # ── Batch Queue ──────────────────────────────────────────
+   608→   608→
+   609→   609→    async def add_to_batch(
+   610→   610→        self,
+   611→   611→        tenant_id: str,
+   612→   612→        batch_key: str,
+   613→   613→        ticket_id: str,
+   614→   614→        confidence: float,
+   615→   615→    ) -> Optional[Dict[str, Any]]:
+   616→   616→        BATCH_WINDOW_S = 300
+   617→   617→        now = time.time()
+   618→   618→
+   619→   619→        if tenant_id not in self._batch_metas:
+   620→   620→            self._batch_metas[tenant_id] = {}
+   621→   621→
+   622→   622→        # Find existing batch with same key within window
+   623→   623→        existing_key = None
+   624→   624→        for bk, meta in self._batch_metas[tenant_id].items():
+   625→   625→            if bk == batch_key and (now - meta["batch_start"]) < BATCH_WINDOW_S:
+   626→   626→                existing_key = bk
+   627→   627→                break
+   628→   628→
+   629→   629→        if existing_key:
+   630→   630→            meta = self._batch_metas[tenant_id][existing_key]
+   631→   631→            meta["ticket_ids"].append(ticket_id)
+   632→   632→            meta["signal_count"] = len(meta["ticket_ids"])
+   633→   633→            meta["confidence_min"] = min(meta.get("confidence_min", 1.0), confidence)
+   634→   634→            meta["confidence_max"] = max(meta.get("confidence_max", 0.0), confidence)
+   635→   635→            # Don't flush yet — still within window
+   636→   636→            return None
+   637→   637→        else:
+   638→   638→            meta = {
+   639→   639→                "batch_key": batch_key,
+   640→   640→                "tenant_id": tenant_id,
+   641→   641→                "batch_start": now,
+   642→   642→                "ticket_ids": [ticket_id],
+   643→   643→                "signal_count": 1,
+   644→   644→                "confidence_min": confidence,
+   645→   645→                "confidence_max": confidence,
+   646→   646→                "status": "pending",
+   647→   647→            }
+   648→   648→            self._batch_metas[tenant_id][batch_key] = meta
+   649→   649→            return None
+   650→   650→
+   651→   651→    async def flush_batches(self, tenant_id: str) -> List[Dict[str, Any]]:
+   652→   652→        results = list(self._batch_metas.get(tenant_id, {}).values())
+   653→   653→        self._batch_metas[tenant_id] = {}
+   654→   654→        return results
+   655→   655→
+   656→   656→    # ── Utility ──────────────────────────────────────────────
+   657→   657→
+   658→   658→    async def get_notification_stats(self, tenant_id: str) -> Dict[str, Any]:
+   659→   659→        tenant_nfs = [n for n in self._notifications.values() if n["tenant_id"] == tenant_id]
+   660→   660→        by_priority = {}
+   661→   661→        for p in [PRIORITY_CRITICAL, PRIORITY_HIGH, PRIORITY_MEDIUM, PRIORITY_LOW]:
+   662→   662→            by_priority[p] = sum(1 for n in tenant_nfs if n["priority"] == p)
+   663→   663→        return {
+   664→   664→            "total": len(tenant_nfs),
+   665→   665→            "unread": sum(1 for n in tenant_nfs if not n["is_read"]),
+   666→   666→            "unresolved": sum(1 for n in tenant_nfs if not n["is_resolved"]),
+   667→   667→            "by_priority": by_priority,
+   668→   668→        }
+   669→   669→
+   670→   670→    async def health_check(self) -> Dict[str, Any]:
+   671→   671→        return {
+   672→   672→            "backend": "memory",
+   673→   673→            "status": "healthy",
+   674→   674→            "notifications": len(self._notifications),
+   675→   675→            "flags": len(self._flags),
+   676→   676→            "audit_entries": len(self._audit),
+   677→   677→            "quality_scores": len(self._quality_scores),
+   678→   678→        }
+   679→   679→
+   680→   680→    # ── Integration Health (Wave 2) ─────────────────────────
+   681→   681→
+   682→   682→    async def write_integration_ping(
+   683→   683→        self, tenant_id, service_name, is_healthy,
+   684→   684→        response_ms=None, error_detail=None, status_code=None,
+   685→   685→    ) -> Dict[str, Any]:
+   686→   686→        ping = {
+   687→   687→            "id": str(uuid.uuid4()),
+   688→   688→            "tenant_id": tenant_id,
+   689→   689→            "service_name": service_name,
+   690→   690→            "is_healthy": is_healthy,
+   691→   691→            "response_ms": response_ms,
+   692→   692→            "error_detail": error_detail,
+   693→   693→            "status_code": status_code,
+   694→   694→            "created_at": datetime.now(timezone.utc).isoformat(),
+   695→   695→            "backend": "memory",
+   696→   696→        }
+   697→   697→        self._integration_pings.append(ping)
+   698→   698→        return ping
+   699→   699→
+   700→   700→    async def get_integration_health(self, tenant_id: str) -> Dict[str, Any]:
+   701→   701→        """Compute health from recent pings (last 30 per service)."""
+   702→   702→        tenant_pings = [p for p in self._integration_pings if p["tenant_id"] == tenant_id]
+   703→   703→        services: Dict[str, List[Dict]] = {}
+   704→   704→        for p in tenant_pings:
+   705→   705→            services.setdefault(p["service_name"], []).append(p)
+   706→   706→
+   707→   707→        result = {"services": {}, "degraded_count": 0, "healthy_count": 0}
+   708→   708→        for svc, pings in services.items():
+   709→   709→            recent = pings[-30:]  # last 30 pings
+   710→   710→            if not recent:
+   711→   711→                continue
+   712→   712→            healthy = sum(1 for p in recent if p["is_healthy"])
+   713→   713→            total = len(recent)
+   714→   714→            uptime_pct = round(healthy / max(total, 1) * 100, 1)
+   715→   715→            last_ping = recent[-1]
+   716→   716→            avg_ms = (sum(p["response_ms"] or 0 for p in recent) / total) if total else 0
+   717→   717→            last_error = None
+   718→   718→            last_error_time = None
+   719→   719→            for p in reversed(recent):
+   720→   720→                if not p["is_healthy"]:
+   721→   721→                    last_error = p.get("error_detail")
+   722→   722→                    last_error_time = p["created_at"]
+   723→   723→                    break
+   724→   724→
+   725→   725→            status = "healthy" if uptime_pct >= 90 else ("degraded" if uptime_pct >= 50 else "down")
+   726→   726→            if status != "healthy":
+   727→   727→                result["degraded_count"] += 1
+   728→   728→            else:
+   729→   729→                result["healthy_count"] += 1
+   730→   730→
+   731→   731→            result["services"][svc] = {
+   732→   732→                "status": status,
+   733→   733→                "uptime_pct": uptime_pct,
+   734→   734→                "total_pings": total,
+   735→   735→                "healthy_pings": healthy,
+   736→   736→                "avg_response_ms": round(avg_ms, 1),
+   737→   737→                "last_ping_at": last_ping["created_at"],
+   738→   738→                "last_healthy_at": next(
+   739→   739→                    (p["created_at"] for p in reversed(recent) if p["is_healthy"]),
+   740→   740→                    None,
+   741→   741→                ),
+   742→   742→                "last_error": last_error,
+   743→   743→                "last_error_at": last_error_time,
+   744→   744→                "last_status_code": last_ping.get("status_code"),
+   745→   745→            }
+   746→   746→        return result
+   747→   747→
+   748→   748→    # ── LLM Cost Tracking (Wave 2) ───────────────────────────
+   749→   749→
+   750→   750→    async def record_llm_cost(
+   751→   751→        self, tenant_id, model, prompt_tokens, completion_tokens,
+   752→   752→        cost_usd, call_type="parwa_pipeline",
+   753→   753→    ) -> Dict[str, Any]:
+   754→   754→        entry = {
+   755→   755→            "id": str(uuid.uuid4()),
+   756→   756→            "tenant_id": tenant_id,
+   757→   757→            "model": model,
+   758→   758→            "prompt_tokens": prompt_tokens,
+   759→   759→            "completion_tokens": completion_tokens,
+   760→   760→            "total_tokens": prompt_tokens + completion_tokens,
+   761→   761→            "cost_usd": round(cost_usd, 6),
+   762→   762→            "call_type": call_type,
+   763→   763→            "created_at": datetime.now(timezone.utc).isoformat(),
+   764→   764→            "backend": "memory",
+   765→   765→        }
+   766→   766→        self._llm_costs.append(entry)
+   767→   767→        return entry
+   768→   768→
+   769→   769→    async def get_llm_cost_summary(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+   770→   770→        tenant_costs = [c for c in self._llm_costs if c["tenant_id"] == tenant_id]
+   771→   771→        if not tenant_costs:
+   772→   772→            return {
+   773→   773→                "tenant_id": tenant_id, "total_cost_usd": 0.0,
+   774→   774→                "total_tokens": 0, "total_calls": 0,
+   775→   775→                "by_model": {}, "by_type": {},
+   776→   776→                "daily_breakdown": [],
+   777→   777→            }
+   778→   778→        total_cost = sum(c["cost_usd"] for c in tenant_costs)
+   779→   779→        total_tokens = sum(c["total_tokens"] for c in tenant_costs)
+   780→   780→        total_calls = len(tenant_costs)
+   781→   781→        by_model: Dict[str, Dict] = {}
+   782→   782→        by_type: Dict[str, Dict] = {}
+   783→   783→        for c in tenant_costs:
+   784→   784→            m = c["model"]
+   785→   785→            by_model.setdefault(m, {"cost": 0.0, "tokens": 0, "calls": 0})
+   786→   786→            by_model[m]["cost"] += c["cost_usd"]
+   787→   787→            by_model[m]["tokens"] += c["total_tokens"]
+   788→   788→            by_model[m]["calls"] += 1
+   789→   789→            t = c["call_type"]
+   790→   790→            by_type.setdefault(t, {"cost": 0.0, "tokens": 0, "calls": 0})
+   791→   791→            by_type[t]["cost"] += c["cost_usd"]
+   792→   792→            by_type[t]["tokens"] += c["total_tokens"]
+   793→   793→            by_type[t]["calls"] += 1
+   794→   794→        return {
+   795→   795→            "tenant_id": tenant_id,
+   796→   796→            "total_cost_usd": round(total_cost, 4),
+   797→   797→            "total_tokens": total_tokens,
+   798→   798→            "total_calls": total_calls,
+   799→   799→            "by_model": by_model,
+   800→   800→            "by_type": by_type,
+   801→   801→        }
+   802→   802→
+   803→   803→    # ── Stuck Ticket Tracking (Wave 2) ───────────────────────
+   804→   804→
+   805→   805→    async def record_stuck_ticket_check(
+   806→   806→        self, tenant_id, ticket_id, stuck_reason, hours_stuck, escalation_tier,
+   807→   807→    ) -> Dict[str, Any]:
+   808→   808→        event = {
+   809→   809→            "id": str(uuid.uuid4()),
+   810→   810→            "tenant_id": tenant_id,
+   811→   811→            "ticket_id": ticket_id,
+   812→   812→            "stuck_reason": stuck_reason,
+   813→   813→            "hours_stuck": round(hours_stuck, 2),
+   814→   814→            "escalation_tier": escalation_tier,
+   815→   815→            "detected_at": datetime.now(timezone.utc).isoformat(),
+   816→   816→            "resolved": False,
+   817→   817→            "backend": "memory",
+   818→   818→        }
+   819→   819→        self._stuck_ticket_events.append(event)
+   820→   820→        return event
+   821→   821→
+   822→   822→    async def get_stuck_tickets(self, tenant_id: str) -> List[Dict[str, Any]]:
+   823→   823→        return [
+   824→   824→            e for e in self._stuck_ticket_events
+   825→   825→            if e["tenant_id"] == tenant_id and not e["resolved"]
+   826→   826→        ]
+   827→   827→
+   828→   828→    # ── Drift Detection (Wave 2) ─────────────────────────────
+   829→   829→
+   830→   830→    async def check_quality_drift(self, tenant_id: str) -> Dict[str, Any]:
+   831→   831→        """Analyze quality_scores for drift using day-over-day comparison."""
+   832→   832→        tenant_scores = [s for s in self._quality_scores if s["tenant_id"] == tenant_id]
+   833→   833→        if len(tenant_scores) < 3:
+   834→   834→            return {
+   835→   835→                "tenant_id": tenant_id, "drift_detected": False,
+   836→   836→                "drift_severity": "none", "accuracy_7d": None,
+   837→   837→                "accuracy_yesterday": None, "accuracy_today": None,
+   838→   838→                "trend_direction": "stable", "trigger_reason": "insufficient_data",
+   839→   839→                "total_scores": len(tenant_scores),
+   840→   840→            }
+   841→   841→        # Group by date (ISO date portion)
+   842→   842→        by_date: Dict[str, List[float]] = {}
+   843→   843→        for s in tenant_scores:
+   844→   844→            date_str = s["created_at"][:10]  # YYYY-MM-DD
+   845→   845→            by_date.setdefault(date_str, []).append(s["overall_score"])
+   846→   846→
+   847→   847→        dates_sorted = sorted(by_date.keys())
+   848→   848→
+   849→   849→        def _avg(scores: List[float]) -> float:
+   850→   850→            return round(sum(scores) / len(scores), 4) if scores else 0.0
+   851→   851→
+   852→   852→        accuracy_7d = _avg([s for d in dates_sorted[-7:] for s in by_date[d]]) if len(dates_sorted) >= 1 else None
+   853→   853→        accuracy_yesterday = _avg(by_date[dates_sorted[-2]]) if len(dates_sorted) >= 2 else None
+   854→   854→        accuracy_today = _avg(by_date[dates_sorted[-1]]) if dates_sorted else None
+   855→   855→
+   856→   856→        # Drift detection: >5% drop for 3+ days
+   857→   857→        drift_detected = False
+   858→   858→        drift_severity = "none"
+   859→   859→        trigger_reason = None
+   860→   860→        trend_direction = "stable"
+   861→   861→
+   862→   862→        if len(dates_sorted) >= 3 and accuracy_7d is not None and accuracy_today is not None:
+   863→   863→            recent_3 = dates_sorted[-3:]
+   864→   864→            daily_avgs = [_avg(by_date[d]) for d in recent_3]
+   865→   865→            # Check if declining 3+ consecutive days
+   866→   866→            declining = all(daily_avgs[i] > daily_avgs[i + 1] for i in range(len(daily_avgs) - 1))
+   867→   867→            drop_7d = accuracy_7d - accuracy_today
+   868→   868→
+   869→   869→            if declining and drop_7d > 0.05:
+   870→   870→                drift_detected = True
+   871→   871→                trend_direction = "declining"
+   872→   872→                trigger_reason = f"accuracy_dropped_{drop_7d:.1%}_over_3_days"
+   873→   873→                drift_severity = "critical" if drop_7d > 0.10 else ("warning" if drop_7d > 0.05 else "none")
+   874→   874→            elif drop_7d > 0.03:
+   875→   875→                drift_detected = True
+   876→   876→                trend_direction = "slight_decline"
+   877→   877→                trigger_reason = f"accuracy_dropped_{drop_7d:.1%}_from_7d_avg"
+   878→   878→                drift_severity = "warning"
+   879→   879→            elif accuracy_today and accuracy_7d and accuracy_today > accuracy_7d + 0.03:
+   880→   880→                trend_direction = "improving"
+   881→   881→            else:
+   882→   882→                trend_direction = "stable"
+   883→   883→
+   884→   884→        # Check for repeated errors (same low score pattern)
+   885→   885→        if not drift_detected and tenant_scores:
+   886→   886→            low_scores = [s for s in tenant_scores if s["overall_score"] < 0.7]
+   887→   887→            if len(low_scores) >= 3:
+   888→   888→                # Check if same resolution_path failing
+   889→   889→                paths: Dict[str, int] = {}
+   890→   890→                for s in low_scores:
+   891→   891→                    p = s.get("resolution_path", "unknown")
+   892→   892→                    paths[p] = paths.get(p, 0) + 1
+   893→   893→                worst_path = max(paths.items(), key=lambda x: x[1])
+   894→   894→                if worst_path[1] >= 3:
+   895→   895→                    drift_detected = True
+   896→   896→                    drift_severity = "warning"
+   897→   897→                    trend_direction = "declining"
+   898→   898→                    trigger_reason = f"path_{worst_path[0]}_failed_{worst_path[1]}_times"
+   899→   899→
+   900→   900→        return {
+   901→   901→            "tenant_id": tenant_id,
+   902→   902→            "drift_detected": drift_detected,
+   903→   903→            "drift_severity": drift_severity,
+   904→   904→            "accuracy_7d": accuracy_7d,
+   905→   905→            "accuracy_yesterday": accuracy_yesterday,
+   906→   906→            "accuracy_today": accuracy_today,
+   907→   907→            "trend_direction": trend_direction,
+   908→   908→            "trigger_reason": trigger_reason,
+   909→   909→            "total_scores": len(tenant_scores),
+   910→   910→        }
+   911→   911→
+   912→   912→    # ── Ticket Flow Aggregation (Wave 2) ─────────────────────
+   913→   913→
+   914→   914→    async def get_ticket_flow_summary(self, tenant_id: str, hours: int = 24) -> Dict[str, Any]:
+   915→   915→        tenant_scores = [s for s in self._quality_scores if s["tenant_id"] == tenant_id]
+   916→   916→        total = len(tenant_scores)
+   917→   917→        if total == 0:
+   918→   918→            return {
+   919→   919→                "tenant_id": tenant_id, "total": 0, "auto_resolved": 0,
+   920→   920→                "batched": 0, "escalated": 0, "stuck": 0,
+   921→   921→                "by_type": {}, "by_node": {}, "avg_llm_calls": 0,
+   922→   922→                "avg_quality": 0,
+   923→   923→            }
+   924→   924→        auto_resolved = sum(1 for s in tenant_scores if s.get("overall_score", 0) >= 0.85)
+   925→   925→        escalated = sum(1 for s in tenant_scores if s.get("resolution_path") == "escalated")
+   926→   926→        stuck = sum(1 for s in tenant_scores if s.get("resolution_path") == "stuck")
+   927→   927→        batched = sum(1 for s in tenant_scores if s.get("resolution_path") == "batched")
+   928→   928→        by_type: Dict[str, int] = {}
+   929→   929→        by_node: Dict[str, int] = {}
+   930→   930→        total_llm = 0
+   931→   931→        total_q = 0
+   932→   932→        for s in tenant_scores:
+   933→   933→            path = s.get("resolution_path", "unknown")
+   934→   934→            by_type[path] = by_type.get(path, 0) + 1
+   935→   935→            for node in (s.get("nodes_reached") or []):
+   936→   936→                by_node[node] = by_node.get(node, 0) + 1
+   937→   937→            total_llm += s.get("llm_calls", 0)
+   938→   938→            total_q += s.get("overall_score", 0)
+   939→   939→        return {
+   940→   940→            "tenant_id": tenant_id,
+   941→   941→            "total": total,
+   942→   942→            "auto_resolved": auto_resolved,
+   943→   943→            "batched": batched,
+   944→   944→            "escalated": escalated,
+   945→   945→            "stuck": stuck,
+   946→   946→            "by_type": by_type,
+   947→   947→            "by_node": by_node,
+   948→   948→            "avg_llm_calls": round(total_llm / max(total, 1), 1),
+   949→   949→            "avg_quality": round(total_q / max(total, 1), 4),
+   950→   950→        }
+   951→   951→
+   952→   952→    # ── Load Balancing (Wave 2) ──────────────────────────────
+   953→   953→
+   954→   954→    async def get_load_status(self, tenant_id: str) -> Dict[str, Any]:
+   955→   955→        """Return load status. In memory: uses stored concurrent counts."""
+   956→   956→        load = self._load_status.get(tenant_id, {})
+   957→   957→        variants = []
+   958→   958→        total_concurrent = 0
+   959→   959→        for vname, vdata in load.items():
+   960→   960→            conc = vdata.get("concurrent", 0)
+   961→   961→            maxc = vdata.get("max_concurrent", 5)
+   962→   962→            util = round(conc / max(maxc, 1) * 100, 1)
+   963→   963→            status = "at_capacity" if util >= 100 else ("high" if util >= 80 else ("moderate" if util >= 50 else "low"))
+   964→   964→            variants.append({
+   965→   965→                "name": vname, "concurrent": conc, "max_concurrent": maxc,
+   966→   966→                "utilization_pct": util, "status": status,
+   967→   967→            })
+   968→   968→            total_concurrent += conc
+   969→   969→        return {
+   970→   970→            "tenant_id": tenant_id,
+   971→   971→            "variants": variants,
+   972→   972→            "total_concurrent": total_concurrent,
+   973→   973→            "vip_overflow_risk": any(v["status"] == "at_capacity" for v in variants),
+   974→   974→        }
+   975→   975→
+   976→   976→    def set_load(self, tenant_id: str, variant: str, concurrent: int, max_concurrent: int = 5):
+   977→   977→        """Set load data for testing."""
+   978→   978→        if tenant_id not in self._load_status:
+   979→   979→            self._load_status[tenant_id] = {}
+   980→   980→        self._load_status[tenant_id][variant] = {
+   981→   981→            "concurrent": concurrent, "max_concurrent": max_concurrent,
+   982→   982→        }
+   983→   983→
+   984→   984→    def clear_all(self):
+   985→   985→        """Clear all data (for testing)."""
+   986→   986→        self._notifications.clear()
+   987→   987→        self._flags.clear()
+   988→   988→        self._audit.clear()
+   989→   989→        self._quality_scores.clear()
+   990→   990→        self._batches.clear()
+   991→   991→        self._batch_metas.clear()
+   992→   992→        self._next_nfy_id = 1
+   993→   993→        self._integration_pings.clear()
+   994→   994→        self._llm_costs.clear()
+   995→   995→        self._stuck_ticket_events.clear()
+   996→   996→        self._load_status.clear()
+   997→   997→
+   998→   998→
+   999→   999→# ═══════════════════════════════════════════════════════════════
+  1000→  1000→# SUPABASE BACKEND (httpx → PostgREST, no new deps)
+  1001→  1001→# ═══════════════════════════════════════════════════════════════
+  1002→  1002→
+  1003→  1003→class SupabaseBackend(StorageBackend):
+  1004→  1004→    """Supabase storage via REST API (PostgREST). Uses httpx.
+  1005→  1005→
+  1006→  1006→    Requires env vars: SUPABASE_URL, SUPABASE_ANON_KEY
+  1007→  1007→    """
+  1008→  1008→
+  1009→  1009→    def __init__(self):
+  1010→  1010→        if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+  1011→  1011→            raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY must be set")
+  1012→  1012→        self._url = SUPABASE_URL.rstrip("/")
+  1013→  1013→        self._headers = {
+  1014→  1014→            "apikey": SUPABASE_ANON_KEY,
+  1015→  1015→            "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+  1016→  1016→            "Content-Type": "application/json",
+  1017→  1017→            "Prefer": "return=representation",
+  1018→  1018→        }
+  1019→  1019→        self._client = None  # Lazy init on first use
+  1020→  1020→
+  1021→  1021→    async def _get_client(self):
+  1022→  1022→        if self._client is None or self._client.is_closed:
+  1023→  1023→            import httpx
+  1024→  1024→            self._client = httpx.AsyncClient(
+  1025→  1025→                base_url=self._url,
+  1026→  1026→                headers=self._headers,
+  1027→  1027→                timeout=15.0,
+  1028→  1028→            )
+  1029→  1029→        return self._client
+  1030→  1030→
+  1031→  1031→    async def _rest_get(self, table: str, query: str = "") -> List[Dict]:
+  1032→  1032→        client = await self._get_client()
+  1033→  1033→        url = f"/rest/v1/{table}"
+  1034→  1034→        if query:
+  1035→  1035→            url += f"?{query}"
+  1036→  1036→        r = await client.get(url)
+  1037→  1037→        r.raise_for_status()
+  1038→  1038→        return r.json() if r.text else []
+  1039→  1039→
+  1040→  1040→    async def _rest_post(self, table: str, data: Dict) -> Dict:
+  1041→  1041→        client = await self._get_client()
+  1042→  1042→        r = await client.post(f"/rest/v1/{table}", json=data)
+  1043→  1043→        r.raise_for_status()
+  1044→  1044→        result = r.json()
+  1045→  1045→        if isinstance(result, list) and result:
+  1046→  1046→            return result[0]
+  1047→  1047→        return result
+  1048→  1048→
+  1049→  1049→    async def _rest_patch(self, table: str, filter_query: str, data: Dict) -> List[Dict]:
+  1050→  1050→        client = await self._get_client()
+  1051→  1051→        r = await client.patch(f"/rest/v1/{table}?{filter_query}", json=data)
+  1052→  1052→        r.raise_for_status()
+  1053→  1053→        return r.json() if r.text else []
+  1054→  1054→
+  1055→  1055→    async def close(self):
+  1056→  1056→        if self._client and not self._client.is_closed:
+  1057→  1057→            await self._client.aclose()
+  1058→  1058→
+  1059→  1059→    # ── Notifications ────────────────────────────────────────
+  1060→  1060→
+  1061→  1061→    async def create_notification(
+  1062→  1062→        self,
+  1063→  1063→        tenant_id: str,
+  1064→  1064→        ntype: str,
+  1065→  1065→        priority_score: float,
+  1066→  1066→        title: str,
+  1067→  1067→        description: str,
+  1068→  1068→        related_tickets: Optional[List[str]] = None,
+  1069→  1069→        batch_key: Optional[str] = None,
+  1070→  1070→        source_data: Optional[Dict] = None,
+  1071→  1071→    ) -> Dict[str, Any]:
+  1072→  1072→        # Generate key locally to avoid race conditions
+  1073→  1073→        existing = await self._rest_get(
+  1074→  1074→            TABLE_NOTIFICATIONS,
+  1075→  1075→            f"tenant_id=eq.{tenant_id}&select=notification_key&order=created_at.desc&limit=1"
+  1076→  1076→        )
+  1077→  1077→        next_num = 1
+  1078→  1078→        if existing:
+  1079→  1079→            import re
+  1080→  1080→            m = re.search(r"PARWA-NFY-(\d+)", existing[0].get("notification_key", ""))
+  1081→  1081→            if m:
+  1082→  1082→                next_num = int(m.group(1)) + 1
+  1083→  1083→        key = f"PARWA-NFY-{next_num:03d}"
+  1084→  1084→
+  1085→  1085→        priority = PRIORITY_LOW
+  1086→  1086→        for pname, pthresh in PRIORITY_THRESHOLDS.items():
+  1087→  1087→            if priority_score >= pthresh:
+  1088→  1088→                priority = pname
+  1089→  1089→                break
+  1090→  1090→
+  1091→  1091→        row = await self._rest_post(TABLE_NOTIFICATIONS, {
+  1092→  1092→            "tenant_id": tenant_id,
+  1093→  1093→            "notification_key": key,
+  1094→  1094→            "type": ntype,
+  1095→  1095→            "priority": priority,
+  1096→  1096→            "priority_score": priority_score,
+  1097→  1097→            "title": title,
+  1098→  1098→            "description": description,
+  1099→  1099→            "related_tickets": related_tickets or [],
+
+[showing lines 500-1099 of 1632; use offset=1100 with limit to continue reading]
