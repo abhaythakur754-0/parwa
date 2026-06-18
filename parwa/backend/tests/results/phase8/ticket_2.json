@@ -1,0 +1,358 @@
+{
+  "ticket_id": "tkt_p8_002",
+  "description": "NEW T2: Technical SSO failure + time pressure",
+  "status": "resolved",
+  "ticket_type": "technical",
+  "complexity": "simple",
+  "action": "provide_info",
+  "actual_path": "simple",
+  "expected_path": "complex",
+  "quality_score": "N/A",
+  "quality_details": {},
+  "total_llm_calls": 2,
+  "total_tokens": 383,
+  "time_s": 35.4,
+  "response_len": 99,
+  "errors": [],
+  "escalated": false,
+  "parwa_state": {
+    "ticket_id": "tkt_p8_002",
+    "tenant_id": "tenant_b",
+    "query": "My team is getting 'SSO sync failed' errors when trying to login. We use Okta and it was working fine until yesterday. I checked and our Okta certificate doesn't expire until 2027. Three of my team members are locked out and can't access any tickets. We have a critical client deadline in 4 hours.",
+    "channel_type": "email",
+    "customer_context": {
+      "account_tier": "parwa",
+      "customer_tenure_days": 365,
+      "recent_ticket_count": 3,
+      "lifetime_value": 12000,
+      "priority_customer": false
+    },
+    "metadata": {
+      "sender": "it_admin@techco.io",
+      "timestamp": "2026-06-18T00:00:00Z"
+    },
+    "ticket_type": "technical",
+    "complexity": "simple",
+    "required_action": "provide_info",
+    "action_details": {},
+    "classification_confidence": 0.8500000000000001,
+    "routing_suggestion": "simple_medium_path",
+    "node_1_token_usage": 1,
+    "variant_tier": "parwa",
+    "quota_remaining": {
+      "parwa": 1499
+    },
+    "route_decision": "simple_path",
+    "variant_capabilities": [
+      "simple_info",
+      "medium_info",
+      "recommend",
+      "execute_refund",
+      "execute_credit",
+      "account_change",
+      "complex_reasoning",
+      "super_node",
+      "ai_wiki_access"
+    ],
+    "knowledge_context": [
+      {
+        "content": "Team Management FAQ: Adding team members: Admin goes to Settings > Team > Invite. Each seat costs based on the workspace plan. Removing team members: Their access is revoked immediately. They can be re-added later. If a team member has an open ticket when removed: the ticket remains assigned to the workspace and can be picked up by another member. No data is lost when a member is removed. Plan changes affecting teams: If workspace downgrades and has more seats than the new plan allows, excess members are moved to 'read-only' until seats are freed or plan is upgraded.",
+        "source": "team_management_faq",
+        "section": "C"
+      },
+      {
+        "content": "Technical Troubleshooting Guide: Login issues: 1) Check if password was recently changed (security log), 2) Check SSO sync status, 3) Clear browser cache/cookies, 4) Try incognito mode, 5) Check if account is locked (3 failed attempts = 15min lockout). SSO Issues: 1) Check last sync timestamp in admin panel, 2) Verify SSO provider status (Okta/Azure AD), 3) Check SSO certificate expiration, 4) Re-sync manually from admin panel. Unauthorized access: 1) Immediately lock the account, 2) Review audit log for all actions in the suspicious period, 3) Check for data exports during the period, 4) Remove any unauthorized users, 5) Force password reset, 6) Revoke all active sessions, 7) Notify the security team if financial data is involved. Data export check: go to Admin > Audit Log > filter by 'export' events in the relevant date range.",
+        "source": "tech_troubleshooting_v2",
+        "section": "C"
+      },
+      {
+        "content": "Security Incident Response Protocol: For suspected unauthorized access: Priority: CRITICAL. Step 1: Lock the affected account immediately (prevents further unauthorized actions). Step 2: Audit \u2014 pull the full session log for the past 7 days, note all login IPs, actions taken, data accessed. Step 3: Check for data exfiltration \u2014 look for export events, API key creation, webhook modifications. Step 4: Remove any unauthorized users added during the suspicious period. Step 5: Reset the account password and invalidate all sessions. Step 6: Fix SSO sync if broken \u2014 typical fix: re-authenticate with identity provider, check SCIM provisioning. Step 7: Notify the customer with a full incident report. Step 8: If financial data was accessed, escalate to the security team for GDPR/compliance review. Response time target: account lock within 5 minutes, full investigation within 2 hours.",
+        "source": "security_protocol",
+        "section": "C"
+      },
+      {
+        "content": "Account Change Policy (2026): Email changes: require verification of both old and new email addresses, 24-hour cooldown before taking effect. Password changes: invalidate all active sessions, require re-login on all devices. For security: if password was changed without user requesting it, treat as potential security incident (see security protocol). Plan upgrades: immediate with prorated billing for remainder of cycle. Plan downgrades: effective at next billing cycle, no mid-cycle credit. Account deletion: permanent after 30-day grace period, requires email confirmation, data export available before deletion. Team member additions: admin-only action, new member gets default permissions based on workspace plan. SSO configuration: managed at workspace level, not per-user. SSO sync runs every hour via SCIM. If sync fails, check: provider status, SCIM endpoint, certificate expiration.",
+        "source": "account_policy_v2",
+        "section": "C"
+      },
+      {
+        "content": "Workspace Management: Each organization can have multiple workspaces. Each workspace has its own plan, team, and billing. To split a team across plans: 1) Create a new workspace under the same organization 2) Move team members to the appropriate workspace 3) Each workspace gets its own subscription. Prorated credit from the original workspace can be transferred as billing credit to the new workspace. Billing consolidation: available for organizations with 3+ workspaces. Contact sales@parwa.ai for consolidated billing setup. Open tickets: stay with the original workspace. They are not transferred when team members move.",
+        "source": "workspace_management",
+        "section": "C"
+      },
+      {
+        "content": "Plan Change FAQ: Upgrading: Immediate effect, prorated charge for remainder of billing cycle. Downgrading: Takes effect at end of current billing cycle. No partial month credit on downgrade. Annual to monthly: At end of annual term, converts to monthly billing. Mid-year changes: If on annual plan and want to change mid-year, customer pays the difference (upgrade) or receives prorated credit (downgrade) calculated as: (annual price paid) - (monthly rate \u00d7 months used) - early termination fee if applicable. Team splits: If some team members need different plans, create a second workspace under the same organization. Each workspace is billed independently. Prorated credits from the old plan can be applied to new workspace(s) as billing credits.",
+        "source": "plan_change_faq",
+        "section": "C"
+      },
+      {
+        "content": "Current Plan Pricing (2026): Mini plan \u2014 $999/month or $9,999/year (17% savings). Includes: 1 agent, 500 tickets/month, email+chat channels. PARWA plan \u2014 $2,499/month or $24,999/year (17% savings). Includes: 3 agents, 2,000 tickets/month, all channels. High plan \u2014 $4,999/month or $49,999/year (17% savings). Includes: 10 agents, 10,000 tickets/month, all channels + priority support + custom integrations. All plans include: AI resolution, knowledge base, analytics dashboard. Add-ons: Extra agent seats ($99/seat/month), extra tickets ($0.50/ticket over limit), priority support ($499/month). Team member pricing: all team members on the same workspace share the same per-seat rate based on the workspace plan.",
+        "source": "plan_pricing",
+        "section": "C"
+      },
+      {
+        "content": "PARWA Platform FAQ: PARWA is an AI-powered customer support resolution platform. Plans: Mini ($999/mo), PARWA ($2,499/mo), High ($4,999/mo). All plans include 24/7 AI support. Platform supports: email, SMS, chat, phone, CRM integration (Salesforce, HubSpot), helpdesk integration (Zendesk, Intercom). Onboarding: 30-minute setup, 24-hour knowledge base import. Plan changes: upgrades immediate with prorated billing, downgrades at next cycle. Cancellation: 30-day refund window, data retained 30 days post-cancellation. Team members: can be added/removed from workspace settings. Each workspace has one billing owner.",
+        "source": "general_faq_v2",
+        "section": "C"
+      }
+    ],
+    "wiki_section_a": [
+      {
+        "source": "wiki_a_faq_e02734b3",
+        "content": "KEYTERMS: right reason. we're customer demand immediately $50,000 we've everything locked moving speak zendesk. people years. QUERY: This is absolutely unacceptable! I've been a customer for 2 years and my account just got locked for no reason. I demand to speak to a manager right now. I run a team of 15 people on the PARWA plan and we've spent over $50,000 with you. Fix this immediately or we're cancelling everything and moving . ANSWER: Dear valued customer,\n\nI apologize for the inconvenience you've experienced with your account lock. As a loyal customer with a team of 15 people on the PARWA plan, we appreciate your business and are committed to resolving this issue promptly.\n\nTo address your concern, I've investigated the reason for the account lock and followed our Billing Dispute Resolution policy. Here's a summary of the steps I've taken:\n\n1. **Acknowledged the dispute**: I immediately acknowledged your dispute and began in. TYPE: faq. query_pattern: This is absolutely unacceptable! I've been a customer for 2 years and my account just got locked for no reason. I demand to speak to a manager right now. I run a team of 15 people on the PARWA plan and we've spent over $50,000 with you. Fix this immediately or we're cancelling everything and moving . ticket_type: faq. complexity: complex. techniques_that_worked: GSD, MAKER, CoT, ToT, ReverseThinking, FederatedReasoning, AnswerSynthesis. quality_achieved: 1.0. answer_summary: Dear valued customer,\n\nI apologize for the inconvenience you've experienced with your account lock. As a loyal customer with a team of 15 people on the PARWA plan, we appreciate your business and are committed to resolving this issue promptly.\n\nTo address your concern, I've investigated the reason for the account lock and followed our Billing Dispute Resolution policy. Here's a summary of the steps I've taken:\n\n1. **Acknowledged the dispute**: I immediately acknowledged your dispute and began in. key_terms: right, reason., we're, customer, demand, immediately, $50,000, we've, everything, locked, moving, speak, zendesk., people, years",
+        "section": "A",
+        "wiki_entry_id": "de98b826-4129-47cb-8ddf-b5a6dd9fc7a3",
+        "wiki_tags": [
+          "faq",
+          "complex",
+          "quality_1.00"
+        ]
+      }
+    ],
+    "wiki_section_b": [],
+    "wiki_section_c": [],
+    "wiki_patterns": [
+      {
+        "entry_key": "faq_e02734b3",
+        "techniques_that_worked": [
+          "GSD",
+          "MAKER",
+          "CoT",
+          "ToT",
+          "ReverseThinking",
+          "FederatedReasoning",
+          "AnswerSynthesis"
+        ],
+        "quality_achieved": 1.0,
+        "answer_summary": "Dear valued customer,\n\nI apologize for the inconvenience you've experienced with your account lock. As a loyal customer with a team of 15 people on the PARWA plan, we appreciate your business and are ",
+        "historical_success_rate": 0.0
+      }
+    ],
+    "crm_data": {
+      "subscription_status": "parwa",
+      "recent_interactions": 3,
+      "billing_email": "on file"
+    },
+    "policy_version": "v2.0",
+    "policy_sync_status": {
+      "synced": true,
+      "version": "v2.0",
+      "previous_version": "v2.0"
+    },
+    "knowledge_sufficient": true,
+    "knowledge_contradictory": false,
+    "node_3_token_usage": 1,
+    "formatted_response": "- They are not transferred when team members move\n- They are not transferred when team members move",
+    "quality_passed": true,
+    "simple_answer": "- They are not transferred when team members move\n- They are not transferred when team members move",
+    "simple_confidence": 0.9450000000000001,
+    "simple_actions_taken": [
+      {
+        "action": "provide_info",
+        "status": "info_only",
+        "detail": "Information provided from knowledge base"
+      }
+    ],
+    "auto_upgraded": false,
+    "loop_count": 0,
+    "current_path": "simple_path",
+    "final_response": "- They are not transferred when team members move\n- They are not transferred when team members move",
+    "status": "resolved",
+    "technique_log": [
+      {
+        "node": 1,
+        "technique": "SmartRouter",
+        "duration_ms": 0,
+        "result_summary": "type=technical"
+      },
+      {
+        "node": 1,
+        "technique": "SmartRouter.complexity",
+        "duration_ms": 0,
+        "result_summary": "complexity=simple"
+      },
+      {
+        "node": 1,
+        "technique": "SmartRouter.action",
+        "duration_ms": 0,
+        "result_summary": "action=provide_info"
+      },
+      {
+        "node": 1,
+        "technique": "DynamicContext",
+        "duration_ms": 0,
+        "result_summary": "context_pulled"
+      },
+      {
+        "node": 1,
+        "technique": "MetaLearner",
+        "duration_ms": 0,
+        "result_summary": "similar=1 hist_acc=1.0 suggest=simple_medium_path"
+      },
+      {
+        "node": 1,
+        "technique": "UoT",
+        "duration_ms": 33664,
+        "result_summary": "confidence=0.80"
+      },
+      {
+        "node": 2,
+        "technique": "VariantRegistry",
+        "duration_ms": 0,
+        "result_summary": "tier=parwa"
+      },
+      {
+        "node": 2,
+        "technique": "QuotaTracker",
+        "duration_ms": 0,
+        "result_summary": "quota={'parwa': 1499}"
+      },
+      {
+        "node": 2,
+        "technique": "RouteDecision",
+        "duration_ms": 0,
+        "result_summary": "tier=parwa path=simple_path"
+      },
+      {
+        "node": 3,
+        "technique": "CLARA",
+        "duration_ms": 0,
+        "result_summary": "gatekeep_done"
+      },
+      {
+        "node": 3,
+        "technique": "RAG",
+        "duration_ms": 0,
+        "result_summary": "14 docs"
+      },
+      {
+        "node": 3,
+        "technique": "SmartFilter",
+        "duration_ms": 0,
+        "result_summary": "14\u21928"
+      },
+      {
+        "node": 3,
+        "technique": "SufficiencyCheck",
+        "duration_ms": 0,
+        "result_summary": "sufficient=True"
+      },
+      {
+        "node": 3,
+        "technique": "DynamicContext",
+        "duration_ms": 0,
+        "result_summary": "context_pulled"
+      },
+      {
+        "node": 3,
+        "technique": "AIWiki",
+        "duration_ms": 0,
+        "result_summary": "A=1 B=0 C=0 patterns_found=1"
+      },
+      {
+        "node": 3,
+        "technique": "UCB",
+        "duration_ms": 0,
+        "result_summary": "crm_fetched"
+      },
+      {
+        "node": 7,
+        "technique": "GSD",
+        "duration_ms": 0,
+        "result_summary": "2 sub-questions"
+      },
+      {
+        "node": 7,
+        "technique": "MAKER",
+        "duration_ms": 0,
+        "result_summary": "2/2 matched"
+      },
+      {
+        "node": 7,
+        "technique": "ThoT",
+        "duration_ms": 0,
+        "result_summary": "99 chars"
+      },
+      {
+        "node": 7,
+        "technique": "MetaLearner",
+        "duration_ms": 0,
+        "result_summary": "pattern=password conf=0.9500000000000001"
+      },
+      {
+        "node": 7,
+        "technique": "ZeroShotValidator",
+        "duration_ms": 0,
+        "result_summary": "think_score=0.90"
+      },
+      {
+        "node": 7,
+        "technique": "RuleBasedAction",
+        "duration_ms": 0,
+        "result_summary": "status=info_only"
+      },
+      {
+        "node": 7,
+        "technique": "MAKER",
+        "duration_ms": 0,
+        "result_summary": "3 refs"
+      },
+      {
+        "node": 7,
+        "technique": "GSD",
+        "duration_ms": 0,
+        "result_summary": "1 steps"
+      },
+      {
+        "node": 7,
+        "technique": "ZeroShotValidator",
+        "duration_ms": 0,
+        "result_summary": "flagged=False"
+      },
+      {
+        "node": 7,
+        "technique": "ZeroShotValidator",
+        "duration_ms": 0,
+        "result_summary": "check=0.95"
+      },
+      {
+        "node": 7,
+        "technique": "GSD",
+        "duration_ms": 0,
+        "result_summary": "parts=1.00"
+      },
+      {
+        "node": 7,
+        "technique": "ThoT",
+        "duration_ms": 0,
+        "result_summary": "coherence=1.00"
+      },
+      {
+        "node": 7,
+        "technique": "ContextualCompression",
+        "duration_ms": 0,
+        "result_summary": "99\u219299"
+      },
+      {
+        "node": 7,
+        "technique": "TurboCompress",
+        "duration_ms": 0,
+        "result_summary": "99\u219299"
+      },
+      {
+        "node": 7,
+        "technique": "AdaptiveBudget",
+        "duration_ms": 0,
+        "result_summary": "efficiency=0.0"
+      },
+      {
+        "node": 7,
+        "technique": "FederatedReasoning",
+        "duration_ms": 0,
+        "result_summary": "confidence=0.945"
+      }
+    ],
+    "total_token_usage": 2,
+    "errors": []
+  }
+}

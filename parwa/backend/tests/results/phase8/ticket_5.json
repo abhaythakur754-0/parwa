@@ -1,0 +1,410 @@
+{
+  "ticket_id": "tkt_p8_005",
+  "description": "NEW T5: Enterprise evaluation / comparison",
+  "status": "resolved",
+  "ticket_type": "faq",
+  "complexity": "medium",
+  "action": "provide_info",
+  "actual_path": "simple",
+  "expected_path": "simple",
+  "quality_score": "N/A",
+  "quality_details": {},
+  "total_llm_calls": 2,
+  "total_tokens": 347,
+  "time_s": 2.9,
+  "response_len": 1237,
+  "errors": [],
+  "escalated": false,
+  "parwa_state": {
+    "ticket_id": "tkt_p8_005",
+    "tenant_id": "tenant_b",
+    "query": "We're evaluating PARWA vs Zendesk vs Intercom for our enterprise support team. Can you give me a detailed comparison of PARWA's High plan vs the others? We handle 5,000+ tickets/month across email, chat, and phone. Do you support phone integration?",
+    "channel_type": "chat",
+    "customer_context": {
+      "account_tier": "parwa",
+      "customer_tenure_days": 14,
+      "recent_ticket_count": 0,
+      "lifetime_value": 0,
+      "priority_customer": false
+    },
+    "metadata": {
+      "sender": "vp_support@enterprise.com",
+      "timestamp": "2026-06-18T00:00:00Z"
+    },
+    "ticket_type": "faq",
+    "complexity": "medium",
+    "required_action": "provide_info",
+    "action_details": {},
+    "classification_confidence": 0.9500000000000001,
+    "routing_suggestion": "simple_medium_path",
+    "node_1_token_usage": 1,
+    "variant_tier": "parwa",
+    "quota_remaining": {
+      "parwa": 1496
+    },
+    "route_decision": "simple_path",
+    "variant_capabilities": [
+      "simple_info",
+      "medium_info",
+      "recommend",
+      "execute_refund",
+      "execute_credit",
+      "account_change",
+      "complex_reasoning",
+      "super_node",
+      "ai_wiki_access"
+    ],
+    "knowledge_context": [
+      {
+        "content": "Current Plan Pricing (2026): Mini plan \u2014 $999/month or $9,999/year (17% savings). Includes: 1 agent, 500 tickets/month, email+chat channels. PARWA plan \u2014 $2,499/month or $24,999/year (17% savings). Includes: 3 agents, 2,000 tickets/month, all channels. High plan \u2014 $4,999/month or $49,999/year (17% savings). Includes: 10 agents, 10,000 tickets/month, all channels + priority support + custom integrations. All plans include: AI resolution, knowledge base, analytics dashboard. Add-ons: Extra agent seats ($99/seat/month), extra tickets ($0.50/ticket over limit), priority support ($499/month). Team member pricing: all team members on the same workspace share the same per-seat rate based on the workspace plan.",
+        "source": "plan_pricing",
+        "section": "C"
+      },
+      {
+        "content": "PARWA Platform FAQ: PARWA is an AI-powered customer support resolution platform. Plans: Mini ($999/mo), PARWA ($2,499/mo), High ($4,999/mo). All plans include 24/7 AI support. Platform supports: email, SMS, chat, phone, CRM integration (Salesforce, HubSpot), helpdesk integration (Zendesk, Intercom). Onboarding: 30-minute setup, 24-hour knowledge base import. Plan changes: upgrades immediate with prorated billing, downgrades at next cycle. Cancellation: 30-day refund window, data retained 30 days post-cancellation. Team members: can be added/removed from workspace settings. Each workspace has one billing owner.",
+        "source": "general_faq_v2",
+        "section": "C"
+      },
+      {
+        "content": "Billing Dispute Resolution: 1) Acknowledge the dispute immediately 2) Pull the last 3 invoices for the account 3) Compare charged amounts with plan rates: Mini $999/mo, PARWA $2,499/mo, High $4,999/mo 4) If duplicate charge found: issue immediate refund for the duplicate 5) If wrong plan rate charged: refund the difference and correct the subscription 6) If pricing page shows wrong rate: this is a display bug, report to engineering, honor the lower price for the customer 7) Provide the customer with a detailed breakdown of all charges and corrections 8) Apply a 10% goodwill credit if the error was on our side. Resolution target: 24 hours for duplicate charges, 48 hours for pricing discrepancies.",
+        "source": "billing_dispute_process",
+        "section": "C"
+      },
+      {
+        "content": "Refund Policy (Updated 2026): All customers are eligible for a full refund within 30 days of purchase, regardless of plan. After 30 days: Pro plan customers receive prorated refunds based on unused months. High plan customers receive prorated refunds minus a 5% early termination fee. Mini plan customers are not eligible for refunds after 14 days. Refunds are processed to the ORIGINAL payment method within 5-7 business days. For amounts exceeding $500, manager approval is required (typically 1-2 business days). Outstanding credits are applied BEFORE calculating the refund amount. Annual plan refunds: customer pays full year upfront, refund = annual price - (monthly rate \u00d7 months used) - any applicable fees. Customer data is retained for 30 days after cancellation, then permanently deleted unless the customer requests data export within that window.",
+        "source": "refund_policy_v2",
+        "section": "C"
+      },
+      {
+        "content": "Refund Process Steps: 1) Verify customer identity (email + last 4 digits of payment method) 2) Check refund eligibility: plan type, purchase date, previous refunds 3) Calculate refund: start with annual price, subtract used portion at monthly rate, apply any outstanding credits, subtract early termination fee if applicable 4) For High plan: subtract 5% early termination fee 5) If amount > $500: route to finance team for manager approval 6) Process refund through Stripe/payment provider 7) Send confirmation email with refund ID and expected timeline 8) Update CRM with refund status. Average processing time: 3 business days for amounts under $500, 5-7 days for larger amounts.",
+        "source": "refund_process_v2",
+        "section": "C"
+      },
+      {
+        "content": "Billing Policy (2026): Subscriptions billed monthly (1st of month) or annually (on anniversary). Upgrades: take effect immediately, customer charged prorated difference. Downgrades: take effect at end of current billing cycle, no prorated credit for partial month. Failed payments: 3 retry attempts over 7 days, then account suspended (not deleted). Invoices generated on 1st of each month, sent to billing email. Payment methods: credit card, ACH, wire transfer. Duplicate charges: if customer is charged twice in one cycle, the second charge is immediately refunded. If the duplicate was at a DIFFERENT plan rate, investigate whether an unauthorized plan change occurred. Pricing page discrepancies: all users on the same workspace should see the same pricing. If different users see different prices, check: 1) Are they on the same workspace? 2) Is there a custom enterprise agreement? 3) Cache issue \u2014 clear and recheck.",
+        "source": "billing_policy_v2",
+        "section": "C"
+      },
+      {
+        "content": "Team Management FAQ: Adding team members: Admin goes to Settings > Team > Invite. Each seat costs based on the workspace plan. Removing team members: Their access is revoked immediately. They can be re-added later. If a team member has an open ticket when removed: the ticket remains assigned to the workspace and can be picked up by another member. No data is lost when a member is removed. Plan changes affecting teams: If workspace downgrades and has more seats than the new plan allows, excess members are moved to 'read-only' until seats are freed or plan is upgraded.",
+        "source": "team_management_faq",
+        "section": "C"
+      },
+      {
+        "content": "Plan Change FAQ: Upgrading: Immediate effect, prorated charge for remainder of billing cycle. Downgrading: Takes effect at end of current billing cycle. No partial month credit on downgrade. Annual to monthly: At end of annual term, converts to monthly billing. Mid-year changes: If on annual plan and want to change mid-year, customer pays the difference (upgrade) or receives prorated credit (downgrade) calculated as: (annual price paid) - (monthly rate \u00d7 months used) - early termination fee if applicable. Team splits: If some team members need different plans, create a second workspace under the same organization. Each workspace is billed independently. Prorated credits from the old plan can be applied to new workspace(s) as billing credits.",
+        "source": "plan_change_faq",
+        "section": "C"
+      }
+    ],
+    "wiki_section_a": [
+      {
+        "source": "wiki_a_faq_d0ee62a4",
+        "content": "KEYTERMS: parwa handle enterprise split needs clients. total. people members happens other workspace? tickets also, because. QUERY: We need to split our workspace. Half our team needs the PARWA plan and the other half needs the High plan because they handle enterprise clients. How do we set this up? We have 20 team members total. Also, what happens to our open tickets when we move people to a new workspace?. TYPE: faq. query_pattern: We need to split our workspace. Half our team needs the PARWA plan and the other half needs the High plan because they handle enterprise clients. How do we set this up? We have 20 team members total. Also, what happens to our open tickets when we move people to a new workspace?. ticket_type: faq. complexity: medium. techniques_that_worked: Node7_SimpleResolver, GSD, MAKER, FederatedReasoning. quality_achieved: 0.945. answer_summary: . key_terms: parwa, handle, enterprise, split, needs, clients., total., people, members, happens, other, workspace?, tickets, also,, because",
+        "section": "A",
+        "wiki_entry_id": "99973afe-6611-43d6-a7d1-ef2112c57031",
+        "wiki_tags": [
+          "faq",
+          "medium",
+          "quality_0.95"
+        ]
+      },
+      {
+        "source": "wiki_a_faq_e02734b3",
+        "content": "KEYTERMS: right reason. we're customer demand immediately $50,000 we've everything locked moving speak zendesk. people years. QUERY: This is absolutely unacceptable! I've been a customer for 2 years and my account just got locked for no reason. I demand to speak to a manager right now. I run a team of 15 people on the PARWA plan and we've spent over $50,000 with you. Fix this immediately or we're cancelling everything and moving . ANSWER: Dear valued customer,\n\nI apologize for the inconvenience you've experienced with your account lock. As a loyal customer with a team of 15 people on the PARWA plan, we appreciate your business and are committed to resolving this issue promptly.\n\nTo address your concern, I've investigated the reason for the account lock and followed our Billing Dispute Resolution policy. Here's a summary of the steps I've taken:\n\n1. **Acknowledged the dispute**: I immediately acknowledged your dispute and began in. TYPE: faq. query_pattern: This is absolutely unacceptable! I've been a customer for 2 years and my account just got locked for no reason. I demand to speak to a manager right now. I run a team of 15 people on the PARWA plan and we've spent over $50,000 with you. Fix this immediately or we're cancelling everything and moving . ticket_type: faq. complexity: complex. techniques_that_worked: GSD, MAKER, CoT, ToT, ReverseThinking, FederatedReasoning, AnswerSynthesis. quality_achieved: 1.0. answer_summary: Dear valued customer,\n\nI apologize for the inconvenience you've experienced with your account lock. As a loyal customer with a team of 15 people on the PARWA plan, we appreciate your business and are committed to resolving this issue promptly.\n\nTo address your concern, I've investigated the reason for the account lock and followed our Billing Dispute Resolution policy. Here's a summary of the steps I've taken:\n\n1. **Acknowledged the dispute**: I immediately acknowledged your dispute and began in. key_terms: right, reason., we're, customer, demand, immediately, $50,000, we've, everything, locked, moving, speak, zendesk., people, years",
+        "section": "A",
+        "wiki_entry_id": "de98b826-4129-47cb-8ddf-b5a6dd9fc7a3",
+        "wiki_tags": [
+          "faq",
+          "complex",
+          "quality_1.00"
+        ]
+      },
+      {
+        "source": "wiki_a_refund_request_83fa65e1",
+        "content": "KEYTERMS: 30-day credit we're what's ($24,999/year, annual applied we've january billing prorated started months. cancel. refund?. QUERY: We're on the annual PARWA plan ($24,999/year, started January 2026). It's now June and we need to cancel. I know we're past the 30-day window but we've only used 6 out of 12 months. What's our prorated credit? We also have a $200 billing credit from a previous overcharge. Can that be applied to the . ANSWER: Subject: Refund Request for Annual PARWA Plan\n\nDear [Customer],\n\nThank you for reaching out to us regarding your request to cancel your annual PARWA plan and receive a prorated refund. We understand that you have used 6 out of 12 months on the plan and would like to know the amount of your refund.\n\n**Refund Policy:**\nAs per our Refund Policy (Updated 2026), since you are on the annual PARWA plan, which costs $24,999 per year, and have used 6 months, we will calculate the prorated refund amount. . TYPE: refund request. query_pattern: We're on the annual PARWA plan ($24,999/year, started January 2026). It's now June and we need to cancel. I know we're past the 30-day window but we've only used 6 out of 12 months. What's our prorated credit? We also have a $200 billing credit from a previous overcharge. Can that be applied to the . ticket_type: refund_request. complexity: complex. techniques_that_worked: GSD, MAKER, CoT, ToT, ReverseThinking, FederatedReasoning, AnswerSynthesis, Node7_SimpleResolver, GSD, MAKER. quality_achieved: 1.0. answer_summary: Subject: Refund Request for Annual PARWA Plan\n\nDear [Customer],\n\nThank you for reaching out to us regarding your request to cancel your annual PARWA plan and receive a prorated refund. We understand that you have used 6 out of 12 months on the plan and would like to know the amount of your refund.\n\n**Refund Policy:**\nAs per our Refund Policy (Updated 2026), since you are on the annual PARWA plan, which costs $24,999 per year, and have used 6 months, we will calculate the prorated refund amount. . key_terms: 30-day, credit, we're, what's, ($24,999/year,, annual, applied, we've, january, billing, prorated, started, months., cancel., refund?",
+        "section": "A",
+        "wiki_entry_id": "96ac33b7-97a2-4b41-b89f-8a042f55b154",
+        "wiki_tags": [
+          "refund_request",
+          "complex",
+          "quality_1.00"
+        ]
+      }
+    ],
+    "wiki_section_b": [],
+    "wiki_section_c": [],
+    "wiki_patterns": [
+      {
+        "entry_key": "faq_d0ee62a4",
+        "techniques_that_worked": [
+          "Node7_SimpleResolver",
+          "GSD",
+          "MAKER",
+          "FederatedReasoning"
+        ],
+        "quality_achieved": 0.945,
+        "answer_summary": "",
+        "historical_success_rate": 0.0
+      },
+      {
+        "entry_key": "faq_e02734b3",
+        "techniques_that_worked": [
+          "GSD",
+          "MAKER",
+          "CoT",
+          "ToT",
+          "ReverseThinking",
+          "FederatedReasoning",
+          "AnswerSynthesis"
+        ],
+        "quality_achieved": 1.0,
+        "answer_summary": "Dear valued customer,\n\nI apologize for the inconvenience you've experienced with your account lock. As a loyal customer with a team of 15 people on the PARWA plan, we appreciate your business and are ",
+        "historical_success_rate": 0.0
+      },
+      {
+        "entry_key": "refund_request_83fa65e1",
+        "techniques_that_worked": [
+          "GSD",
+          "MAKER",
+          "CoT",
+          "ToT",
+          "ReverseThinking",
+          "FederatedReasoning",
+          "AnswerSynthesis",
+          "Node7_SimpleResolver",
+          "GSD",
+          "MAKER"
+        ],
+        "quality_achieved": 1.0,
+        "answer_summary": "Subject: Refund Request for Annual PARWA Plan\n\nDear [Customer],\n\nThank you for reaching out to us regarding your request to cancel your annual PARWA plan and receive a prorated refund. We understand t",
+        "historical_success_rate": 0.0
+      }
+    ],
+    "crm_data": {
+      "subscription_status": "parwa",
+      "recent_interactions": 0,
+      "billing_email": "on file"
+    },
+    "policy_version": "v2.0",
+    "policy_sync_status": {
+      "synced": true,
+      "version": "v2.0",
+      "previous_version": "v2.0"
+    },
+    "knowledge_sufficient": true,
+    "knowledge_contradictory": false,
+    "node_3_token_usage": 1,
+    "formatted_response": "- Billing Dispute Resolution: 1) Acknowledge the dispute immediately 2) Pull the last 3 invoices for the account 3) Compare charged amounts with plan rates: Mini $999/mo, PARWA $2,499/mo, High $4,999/mo 4) If duplicate charge found: issue immediate refund for the duplicate 5) If wrong plan rate charged: refund the difference and correct the subscription 6) If pricing page shows wrong rate: this is a display bug, report to engineering, honor the lower price for the customer 7) Provide the customer with a detailed breakdown of all charges and corrections 8) Apply a 10% goodwill credit if the error was on our side\n- Billing Dispute Resolution: 1) Acknowledge the dispute immediately 2) Pull the last 3 invoices for the account 3) Compare charged amounts with plan rates: Mini $999/mo, PARWA $2,499/mo, High $4,999/mo 4) If duplicate charge found: issue immediate refund for the duplicate 5) If wrong plan rate charged: refund the difference and correct the subscription 6) If pricing page shows wrong rate: this is a display bug, report to engineering, honor the lower price for the customer 7) Provide the customer with a detailed breakdown of all charges and corrections 8) Apply a 10% goodwill credit if the error was on our side",
+    "quality_passed": true,
+    "simple_answer": "- Billing Dispute Resolution: 1) Acknowledge the dispute immediately 2) Pull the last 3 invoices for the account 3) Compare charged amounts with plan rates: Mini $999/mo, PARWA $2,499/mo, High $4,999/mo 4) If duplicate charge found: issue immediate refund for the duplicate 5) If wrong plan rate charged: refund the difference and correct the subscription 6) If pricing page shows wrong rate: this is a display bug, report to engineering, honor the lower price for the customer 7) Provide the customer with a detailed breakdown of all charges and corrections 8) Apply a 10% goodwill credit if the error was on our side\n- Billing Dispute Resolution: 1) Acknowledge the dispute immediately 2) Pull the last 3 invoices for the account 3) Compare charged amounts with plan rates: Mini $999/mo, PARWA $2,499/mo, High $4,999/mo 4) If duplicate charge found: issue immediate refund for the duplicate 5) If wrong plan rate charged: refund the difference and correct the subscription 6) If pricing page shows wrong rate: this is a display bug, report to engineering, honor the lower price for the customer 7) Provide the customer with a detailed breakdown of all charges and corrections 8) Apply a 10% goodwill credit if the error was on our side",
+    "simple_confidence": 0.9525,
+    "simple_actions_taken": [
+      {
+        "action": "provide_info",
+        "status": "info_only",
+        "detail": "Information provided from knowledge base"
+      }
+    ],
+    "auto_upgraded": false,
+    "loop_count": 0,
+    "current_path": "simple_path",
+    "final_response": "- Billing Dispute Resolution: 1) Acknowledge the dispute immediately 2) Pull the last 3 invoices for the account 3) Compare charged amounts with plan rates: Mini $999/mo, PARWA $2,499/mo, High $4,999/mo 4) If duplicate charge found: issue immediate refund for the duplicate 5) If wrong plan rate charged: refund the difference and correct the subscription 6) If pricing page shows wrong rate: this is a display bug, report to engineering, honor the lower price for the customer 7) Provide the customer with a detailed breakdown of all charges and corrections 8) Apply a 10% goodwill credit if the error was on our side\n- Billing Dispute Resolution: 1) Acknowledge the dispute immediately 2) Pull the last 3 invoices for the account 3) Compare charged amounts with plan rates: Mini $999/mo, PARWA $2,499/mo, High $4,999/mo 4) If duplicate charge found: issue immediate refund for the duplicate 5) If wrong plan rate charged: refund the difference and correct the subscription 6) If pricing page shows wrong rate: this is a display bug, report to engineering, honor the lower price for the customer 7) Provide the customer with a detailed breakdown of all charges and corrections 8) Apply a 10% goodwill credit if the error was on our side",
+    "status": "resolved",
+    "technique_log": [
+      {
+        "node": 1,
+        "technique": "SmartRouter",
+        "duration_ms": 0,
+        "result_summary": "type=faq"
+      },
+      {
+        "node": 1,
+        "technique": "SmartRouter.complexity",
+        "duration_ms": 0,
+        "result_summary": "complexity=medium"
+      },
+      {
+        "node": 1,
+        "technique": "SmartRouter.action",
+        "duration_ms": 0,
+        "result_summary": "action=provide_info"
+      },
+      {
+        "node": 1,
+        "technique": "DynamicContext",
+        "duration_ms": 0,
+        "result_summary": "context_pulled"
+      },
+      {
+        "node": 1,
+        "technique": "MetaLearner",
+        "duration_ms": 0,
+        "result_summary": "similar=3 hist_acc=1.0 suggest=simple_medium_path"
+      },
+      {
+        "node": 1,
+        "technique": "UoT",
+        "duration_ms": 269,
+        "result_summary": "confidence=0.90"
+      },
+      {
+        "node": 2,
+        "technique": "VariantRegistry",
+        "duration_ms": 0,
+        "result_summary": "tier=parwa"
+      },
+      {
+        "node": 2,
+        "technique": "QuotaTracker",
+        "duration_ms": 0,
+        "result_summary": "quota={'parwa': 1496}"
+      },
+      {
+        "node": 2,
+        "technique": "RouteDecision",
+        "duration_ms": 0,
+        "result_summary": "tier=parwa path=simple_path"
+      },
+      {
+        "node": 3,
+        "technique": "CLARA",
+        "duration_ms": 0,
+        "result_summary": "gatekeep_done"
+      },
+      {
+        "node": 3,
+        "technique": "RAG",
+        "duration_ms": 0,
+        "result_summary": "12 docs"
+      },
+      {
+        "node": 3,
+        "technique": "SmartFilter",
+        "duration_ms": 0,
+        "result_summary": "12\u21928"
+      },
+      {
+        "node": 3,
+        "technique": "SufficiencyCheck",
+        "duration_ms": 0,
+        "result_summary": "sufficient=True"
+      },
+      {
+        "node": 3,
+        "technique": "DynamicContext",
+        "duration_ms": 0,
+        "result_summary": "context_pulled"
+      },
+      {
+        "node": 3,
+        "technique": "AIWiki",
+        "duration_ms": 0,
+        "result_summary": "A=3 B=0 C=0 patterns_found=3"
+      },
+      {
+        "node": 3,
+        "technique": "UCB",
+        "duration_ms": 0,
+        "result_summary": "crm_fetched"
+      },
+      {
+        "node": 7,
+        "technique": "GSD",
+        "duration_ms": 0,
+        "result_summary": "2 sub-questions"
+      },
+      {
+        "node": 7,
+        "technique": "MAKER",
+        "duration_ms": 0,
+        "result_summary": "2/2 matched"
+      },
+      {
+        "node": 7,
+        "technique": "ThoT",
+        "duration_ms": 0,
+        "result_summary": "1237 chars"
+      },
+      {
+        "node": 7,
+        "technique": "MetaLearner",
+        "duration_ms": 0,
+        "result_summary": "pattern=pricing conf=0.9500000000000001"
+      },
+      {
+        "node": 7,
+        "technique": "ZeroShotValidator",
+        "duration_ms": 0,
+        "result_summary": "think_score=0.90"
+      },
+      {
+        "node": 7,
+        "technique": "RuleBasedAction",
+        "duration_ms": 0,
+        "result_summary": "status=info_only"
+      },
+      {
+        "node": 7,
+        "technique": "MAKER",
+        "duration_ms": 0,
+        "result_summary": "2 refs"
+      },
+      {
+        "node": 7,
+        "technique": "GSD",
+        "duration_ms": 0,
+        "result_summary": "1 steps"
+      },
+      {
+        "node": 7,
+        "technique": "ZeroShotValidator",
+        "duration_ms": 0,
+        "result_summary": "flagged=False"
+      },
+      {
+        "node": 7,
+        "technique": "ZeroShotValidator",
+        "duration_ms": 0,
+        "result_summary": "check=1.00"
+      },
+      {
+        "node": 7,
+        "technique": "GSD",
+        "duration_ms": 0,
+        "result_summary": "parts=1.00"
+      },
+      {
+        "node": 7,
+        "technique": "ThoT",
+        "duration_ms": 0,
+        "result_summary": "coherence=0.95"
+      },
+      {
+        "node": 7,
+        "technique": "ContextualCompression",
+        "duration_ms": 0,
+        "result_summary": "1237\u21921237"
+      },
+      {
+        "node": 7,
+        "technique": "TurboCompress",
+        "duration_ms": 0,
+        "result_summary": "1237\u21921237"
+      },
+      {
+        "node": 7,
+        "technique": "AdaptiveBudget",
+        "duration_ms": 0,
+        "result_summary": "efficiency=0.0"
+      },
+      {
+        "node": 7,
+        "technique": "FederatedReasoning",
+        "duration_ms": 0,
+        "result_summary": "confidence=0.953"
+      }
+    ],
+    "total_token_usage": 2,
+    "errors": []
+  }
+}

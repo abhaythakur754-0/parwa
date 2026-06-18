@@ -77,3 +77,44 @@ Stage Summary:
   - tests/p7_runner.py (NEW)
   - tests/p7_quick.py (NEW)
   - tests/p7_regression.py (NEW)
+
+---
+Task ID: 3
+Agent: main
+Task: Phase 8 — Jarvis 3-Node Pipeline (SENSE, EVALUATE, NOTIFY)
+
+Work Log:
+- Built complete Jarvis pipeline from scratch (0 existing files)
+- Created JarvisState TypedDict (total=False) — critical: plain dict drops keys between LangGraph nodes, TypedDict preserves them
+- Built Notification Center: in-memory store with unique keys (PARWA-NFY-XXX), priority scoring, batching, CRUD operations
+- Built Jarvis Node 1 (SENSE): 7 monitoring subsystems (stuck tickets, quota, integrations, policy, accuracy, ticket flow, LLM usage). 0 LLM calls.
+- Built Jarvis Node 2 (EVALUATE): Priority scoring formula (impact*0.30 + urgency*0.25 + trend*0.20 + admin_pref*0.15 + frequency*0.10). Non-LLM evaluators for stuck/quota/accuracy/integration. CLARA for ambiguous signals, Reflexion before sending. 0-2 LLM calls.
+- Built Jarvis Node 3 (NOTIFY): Creates notifications from evaluations (filters LOW priority). Admin chat answers (quota, accuracy, notification key lookup). Quota feedback to PARWA Node 2. Wiki Section B updates. 0-1 LLM calls.
+- Built Jarvis graph: SENSE → EVALUATE → NOTIFY (linear, 3 nodes)
+- Tested with 5 completely NEW diverse tickets:
+  T1: Emotional complaint + cancel threat → quality=1.0, path=complex (OK)
+  T2: Technical SSO failure → path=simple (MISMATCH — complexity underdetected)
+  T3: Workspace split question → path=simple (OK)
+  T4: Annual cancellation + credit calc → quality=1.0, path=complex (OK)
+  T5: Enterprise evaluation → path=simple (OK)
+- Tested Jarvis: stuck ticket → SENSE detects → EVALUATE scores HIGH (0.72) → NOTIFY creates PARWA-NFY-001
+- Tested admin chat: "What is PARWA-NFY-001?" → Jarvis returns full notification details
+- Fixed LangGraph state propagation bug: changed JarvisState from `dict` to `TypedDict(total=False)`
+
+Stage Summary:
+- Jarvis 3-node pipeline: COMPLETE
+- Notification Center: COMPLETE (unique keys, priority levels, CRUD, batching)
+- Stuck ticket detection: PASS
+- Admin chat with notification lookup: PASS
+- 5 new diverse tickets tested: 2 complex = 1.0 quality, 3 simple = 2 calls each
+- 2 path mismatches on new tickets (classification edge cases, not Jarvis issues)
+- Files created:
+  - jarvis_pipeline/__init__.py (NEW)
+  - jarvis_pipeline/state.py (NEW — TypedDict state)
+  - jarvis_pipeline/graph.py (NEW — 3-node graph + run_jarvis + run_jarvis_monitor)
+  - jarvis_pipeline/notification_center.py (NEW — full notification store)
+  - jarvis_pipeline/nodes/__init__.py (NEW)
+  - jarvis_pipeline/nodes/jarvis_1_sense.py (NEW — 7 monitoring subsystems)
+  - jarvis_pipeline/nodes/jarvis_2_evaluate.py (NEW — priority scoring, CLARA, Reflexion)
+  - jarvis_pipeline/nodes/jarvis_3_notify.py (NEW — notifications, admin chat, quota feedback)
+  - tests/p8_runner.py (NEW — 5 new tickets + Jarvis tests)
