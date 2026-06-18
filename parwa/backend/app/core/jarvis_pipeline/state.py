@@ -25,6 +25,9 @@ class JarvisState(TypedDict, total=False):
     notification_key: str
     stuck_ticket_data: Dict[str, Any]
 
+    # Auth (Wave 1)
+    user_context: Dict[str, Any]  # {email, role, auth_method}
+
     # SENSE output
     signals: Dict[str, Any]
     sense_log: List[Dict[str, Any]]
@@ -48,6 +51,10 @@ class JarvisState(TypedDict, total=False):
     total_token_usage: int
     technique_log: List[Dict[str, Any]]
     errors: List[Any]
+
+    # Pipeline output metadata (Wave 1)
+    intent_result: Optional[Dict[str, Any]]
+    auth_result: Optional[Dict[str, Any]]
 
 
 def create_jarvis_state(
