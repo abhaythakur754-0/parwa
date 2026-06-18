@@ -41,7 +41,7 @@ def _gsd_decompose(query: str, ticket_type: str, knowledge: str) -> List[str]:
     sub_questions = []
 
     # Detect multi-part queries (numbered lists, "and", "also")
-    parts = re.split(r'(?:\d+\)\.\s*', query)
+    parts = re.split(r'(?:\d+\)\.\s*)', query)
     parts = [p.strip() for p in parts if len(p.strip()) > 15]
 
     if len(parts) >= 2:

@@ -2,6 +2,7 @@
 
 Tests Node 7 (Non-LLM resolver) with 0 LLM calls in Node 7.
 5 tickets: 4 simple (should pass Node 7) + 1 tricky (should safety-net upgrade).
+File-based result logging for reliability.
 """
 import sys, os, asyncio, time, json, traceback
 sys.path.insert(0, '/home/z/my-project/parwa/backend')
@@ -78,13 +79,6 @@ async def run_ticket(num: int, ticket: dict, label: str):
         elapsed = time.time() - t0
         stats = get_stats()
 
-        # Count LLM calls in each node
-        node_llm = {}
-        for log in result.get('technique_log', []):
-            node = log.get('node', '?')
-            if node not in node_llm:
-                node_llm[node] = 0
-
         # Count node 7 techniques
         n7_techs = [l['technique'] for l in result.get('technique_log', []) if l.get('node') == 7]
         n7_llm = 0  # Node 7 should have 0 LLM calls
@@ -92,6 +86,12 @@ async def run_ticket(num: int, ticket: dict, label: str):
         # Check if Node 7 was reached
         reached_node_7 = any(l.get('node') == 7 for l in result.get('technique_log', []))
         auto_upgraded = result.get('auto_upgraded', False)
+
+        # Node breakdown (technique count per node)
+        node_breakdown = {}
+        for l in result.get('technique_log', []):
+            n = f"node_{l.get('node', '?')}"
+            node_breakdown[n] = node_breakdown.get(n, 0) + 1
 
         resp = result.get('final_response', '') or result.get('formatted_response', '') or result.get('simple_answer', '')
         if not resp and result.get('super_node_answer'):
@@ -108,8 +108,9 @@ async def run_ticket(num: int, ticket: dict, label: str):
             'auto_upgraded': auto_upgraded,
             'node_7_techniques': n7_techs,
             'node_7_llm_calls': n7_llm,
-            'total_llm_calls': result.get('total_token_usage', 0),
+            'total_llm_calls': stats['total_calls'],
             'total_tokens': stats['total_tokens'],
+            'llm_errors': stats['total_errors'],
             'quality_score': result.get('quality_score', 'N/A'),
             'simple_confidence': result.get('simple_confidence', 'N/A'),
             'loops': result.get('loop_count', 0),
@@ -117,13 +118,8 @@ async def run_ticket(num: int, ticket: dict, label: str):
             'time_s': round(elapsed, 1),
             'response_preview': resp[:500],
             'errors': [e.get('error', str(e)) for e in result.get('errors', [])],
-            'node_breakdown': {f'node_{k}': v['count'] for k, v in
-                {n: {'count': 0} for n in set(l.get('node', '?') for l in result.get('technique_log', []))}
-            },
+            'node_breakdown': node_breakdown,
         }
-        for l in result.get('technique_log', []):
-            n = l.get('node', '?')
-            out['node_breakdown'][f'node_{n}']['count'] += 1
     except Exception as e:
         elapsed = time.time() - t0
         out = {
@@ -132,7 +128,8 @@ async def run_ticket(num: int, ticket: dict, label: str):
             'time_s': round(elapsed, 1),
             'reached_node_7': False, 'auto_upgraded': False,
             'node_7_techniques': [], 'node_7_llm_calls': 0,
-            'total_llm_calls': 0, 'total_tokens': 0,
+            'total_llm_calls': 0, 'total_tokens': 0, 'llm_errors': 0,
+            'node_breakdown': {},
         }
 
     with open(os.path.join(RDIR, f'ticket_{num}.json'), 'w') as f:
@@ -156,7 +153,7 @@ async def main():
         print(f'[{i+1}/5] {t["description"]}...', flush=True)
         r = await run_ticket(i + 1, t, f'Simple #{i+1}')
         all_r.append(r)
-        await asyncio.sleep(30)  # rate limit buffer
+        await asyncio.sleep(15)  # rate limit buffer (simple = few calls, 15s is enough)
 
     # 1 tricky ticket
     print(f'\n[5/5] {TRICKY_TICKET["description"]}...', flush=True)
@@ -168,23 +165,28 @@ async def main():
         'phase': '3', 'total_time_s': round(total, 1), 'total_time_min': round(total / 60, 1),
         'total_calls': sum(r.get('total_llm_calls', 0) for r in all_r if isinstance(r.get('total_llm_calls'), int)),
         'total_tokens': sum(r.get('total_tokens', 0) for r in all_r if isinstance(r.get('total_tokens'), int)),
+        'total_errors': sum(r.get('llm_errors', 0) for r in all_r),
         'tickets': all_r,
     }
     with open(os.path.join(RDIR, 'combined.json'), 'w') as f:
         json.dump(combined, f, indent=2, default=str)
 
     # Summary
-    print(f'\n=== RESULTS ===', flush=True)
-    simple_r = [r for r in all_r[:4]]
-    tricky_r = all_r[4]
-    for r in simple_r:
+    print(f'\n=== PHASE 3 RESULTS ===', flush=True)
+    for r in all_r[:4]:
         n7 = r.get('node_7_techniques', [])
         print(f'  {r["label"]}: route={r["route"]} node7={r["reached_node_7"]} '
-              f'techs={len(n7)} upgraded={r["auto_upgraded"]} calls={r["total_llm_calls"]}', flush=True)
-    print(f'  {tricky_r["label"]}: route={tricky_r["route"]} node7={tricky_r["reached_node_7"]} '
-          f'techs={len(tricky_r.get("node_7_techniques", []))} upgraded={tricky_r["auto_upgraded"]}', flush=True)
+              f'techs={len(n7)} upgraded={r["auto_upgraded"]} calls={r["total_llm_calls"]} '
+              f'tokens={r.get("total_tokens",0)} time={r.get("time_s",0)}s', flush=True)
+    tricky = all_r[4]
+    print(f'  {tricky["label"]}: route={tricky.get("route")} node7={tricky.get("reached_node_7")} '
+          f'techs={len(tricky.get("node_7_techniques", []))} upgraded={tricky.get("auto_upgraded")} '
+          f'calls={tricky.get("total_llm_calls",0)} tokens={tricky.get("total_tokens",0)} '
+          f'time={tricky.get("time_s",0)}s', flush=True)
 
-    print(f'\nTotal: {combined["total_calls"]} calls, {total/60:.1f}min', flush=True)
+    print(f'\nPhase 3 Total: {combined["total_calls"]} LLM calls, {combined["total_tokens"]} tokens, '
+          f'{total:.1f}s ({total/60:.1f}min), {combined["total_errors"]} errors', flush=True)
+    print(f'Results saved to {RDIR}/', flush=True)
 
 if __name__ == '__main__':
     asyncio.run(main())
