@@ -1,0 +1,27 @@
+{
+  "ticket_id": "tkt_p6_t1",
+  "status": null,
+  "path": "complex",
+  "quality": 0.947,
+  "calls": 13,
+  "tokens": 11451,
+  "time_s": 108.2,
+  "wiki_written": true,
+  "wiki_patterns": 0,
+  "wiki_logs": [
+    "similar=0",
+    "A=0 B=0 C=0",
+    "weights={'cot_weight': 0.5, 'tot_weight': 0.2, 'reverse_weight': 0.3}"
+  ],
+  "techniques_used": [
+    "GSD",
+    "MAKER",
+    "CoT",
+    "ToT",
+    "ReverseThinking",
+    "FederatedReasoning",
+    "AnswerSynthesis"
+  ],
+  "resp_len": 2455,
+  "resp_preview": "Subject: Resolution to Duplicate Charges and Plan Rate Discrepancy\n\nDear [Customer],\n\nThank you for reaching out to us regarding the duplicate charges and plan rate discrepancy on your workspace. We apologize for the inconvenience this has caused and are committed to resolving the issue promptly.\n\n*"
+}

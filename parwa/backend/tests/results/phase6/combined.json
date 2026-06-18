@@ -1,0 +1,74 @@
+{
+  "phase": "6",
+  "focus": "AI Wiki learning loop",
+  "t1": {
+    "ticket_id": "tkt_p6_t1",
+    "status": null,
+    "path": "complex",
+    "quality": 0.947,
+    "calls": 13,
+    "tokens": 11451,
+    "time_s": 108.2,
+    "wiki_written": true,
+    "wiki_patterns": 0,
+    "wiki_logs": [
+      "similar=0",
+      "A=0 B=0 C=0",
+      "weights={'cot_weight': 0.5, 'tot_weight': 0.2, 'reverse_weight': 0.3}"
+    ],
+    "techniques_used": [
+      "GSD",
+      "MAKER",
+      "CoT",
+      "ToT",
+      "ReverseThinking",
+      "FederatedReasoning",
+      "AnswerSynthesis"
+    ],
+    "resp_len": 2455,
+    "resp_preview": "Subject: Resolution to Duplicate Charges and Plan Rate Discrepancy\n\nDear [Customer],\n\nThank you for reaching out to us regarding the duplicate charges and plan rate discrepancy on your workspace. We apologize for the inconvenience this has caused and are committed to resolving the issue promptly.\n\n*"
+  },
+  "t2": {
+    "ticket_id": "tkt_p6_t2",
+    "status": null,
+    "path": "complex",
+    "quality": 0.9483,
+    "calls": 13,
+    "tokens": 10982,
+    "time_s": 68.8,
+    "wiki_written": true,
+    "wiki_patterns": 0,
+    "wiki_patterns_detail": [],
+    "wiki_logs": [
+      "similar=0",
+      "A=0 B=0 C=0",
+      "weights={'cot_weight': 0.5, 'tot_weight': 0.2, 'reverse_weight': 0.3}"
+    ],
+    "techniques_used": [
+      "GSD",
+      "MAKER",
+      "CoT",
+      "ToT",
+      "ReverseThinking",
+      "FederatedReasoning",
+      "AnswerSynthesis"
+    ],
+    "resp_len": 2353,
+    "resp_preview": "Subject: Duplicate Charges and Plan Pricing Inquiry\n\nDear [Customer],\n\nThank you for reaching out to us regarding the duplicate charges on your workspace's bill. We take all concerns seriously and are here to provide a clear explanation and resolution.\n\n**Duplicate Charges:**\nWe have reviewed your w"
+  },
+  "wiki_stats": {
+    "section_a_entries": 1,
+    "section_b_entries": 0,
+    "section_c_entries": 0,
+    "total_entries": 1,
+    "top_patterns": [
+      {
+        "entry_key": "faq_63ee20d7",
+        "title": "Pattern: faq (simple)",
+        "success_rate": 0.0,
+        "usage_count": 0
+      }
+    ]
+  },
+  "learning_verified": false
+}

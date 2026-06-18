@@ -1,14 +1,18 @@
 """
-Node 3: Knowledge Fetch + AI Wiki — PHASE 4 (optimized)
+Node 3: Knowledge Fetch + AI Wiki — PHASE 6 (Wiki Integration)
 
-Phase 4 optimizations:
+Phase 4 optimizations (preserved):
   - REMOVED HyDE, MultiQuery, StepBack (3 LLM calls saved)
-    Reason: _retrieve_knowledge() is TYPE-BASED, not query-based.
-    Those techniques generated text that was NEVER used in retrieval.
-  - Smarter knowledge filtering: score each doc by keyword relevance,
-    pass only top-N to downstream nodes (reduces token waste)
+  - Smarter knowledge filtering: score each doc by keyword relevance
   - CLARA re-evaluate simplified: non-LLM heuristic replaces 1 LLM call
   - Total: 5 LLM calls → 1 LLM call (CLARA gatekeep only)
+
+Phase 6 upgrades (AI Wiki — all non-LLM, 0 extra calls):
+  - _read_ai_wiki() now reads from real AI Wiki store
+  - Section A: Similar ticket patterns from past resolutions
+  - Section C: Company knowledge (admin-written policies)
+  - Policy sync check: detects KB version changes, invalidates stale patterns
+  - Wiki entries merged into knowledge_context for downstream nodes
 """
 
 from __future__ import annotations
@@ -279,9 +283,55 @@ def _check_contradictions(documents: List[Dict[str, Any]]) -> bool:
     return False
 
 
-def _read_ai_wiki(tenant_id: str, ticket_type: str) -> tuple:
-    """Read AI Wiki Sections A, B, C. Mock for Phase 6."""
-    return [], [], []
+def _read_ai_wiki(tenant_id: str, ticket_type: str, query: str, tier: str = "parwa") -> tuple:
+    """Phase 6: Read AI Wiki Sections A, B, C from real store.
+    
+    Returns (section_a_entries, section_b_entries, section_c_entries)
+    as lists of dicts in node format (same shape as KB docs).
+    All non-LLM — keyword search only.
+    """
+    from app.core.parwa_pipeline.ai_wiki_store import get_wiki_store
+    
+    wiki = get_wiki_store()
+    wiki_a_raw = []
+    wiki_b_raw = []
+    wiki_c_raw = []
+    
+    try:
+        # Section A: Search for similar ticket patterns (top 3)
+        wiki_a_raw = wiki.search(
+            tenant_id=tenant_id, section="A", query=query,
+            ticket_type=ticket_type, tier=tier, max_results=3,
+        )
+        
+        # Section B: Read admin behavior patterns (all, max 2)
+        wiki_b_raw = wiki.read(tenant_id=tenant_id, section="B", tier=tier)
+        wiki_b_raw = wiki_b_raw[:2]  # limit for context window
+        
+        # Section C: Read company knowledge (all, max 3)
+        wiki_c_raw = wiki.read(tenant_id=tenant_id, section="C", tier=tier)
+        wiki_c_raw = wiki_c_raw[:3]
+    except Exception as e:
+        logger.warning("Wiki read error (non-fatal): %s", e)
+    
+    # Convert to node format (same shape as KB docs)
+    wiki_a = [e.to_node_format() for e in wiki_a_raw]
+    wiki_b = [e.to_node_format() for e in wiki_b_raw]
+    wiki_c = [e.to_node_format() for e in wiki_c_raw]
+    
+    # Build wiki summary for similar patterns found
+    wiki_patterns = []
+    for entry in wiki_a_raw:
+        c = entry.content
+        wiki_patterns.append({
+            "entry_key": entry.entry_key,
+            "techniques_that_worked": c.get("techniques_that_worked", []),
+            "quality_achieved": c.get("quality_achieved", 0),
+            "answer_summary": c.get("answer_summary", "")[:200],
+            "historical_success_rate": round(entry.success_count / max(entry.usage_count, 1), 3),
+        })
+    
+    return wiki_a, wiki_b, wiki_c, wiki_patterns
 
 
 def _fetch_crm_data(tenant_id: str, customer_context: Dict) -> Dict:
@@ -336,10 +386,26 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
     dynamic_ctx = state.get("customer_context", {})
     logs.append({"node": 3, "technique": "DynamicContext", "duration_ms": 0, "result_summary": "context_pulled"})
 
-    # 7. AI Wiki (mock)
-    wiki_a, wiki_b, wiki_c = _read_ai_wiki(tenant_id, ticket_type)
+    # 7. AI Wiki (Phase 6: real store reads)
+    tier = state.get("variant_tier", "parwa")
+    wiki_a, wiki_b, wiki_c, wiki_patterns = _read_ai_wiki(tenant_id, ticket_type, query, tier)
+    wiki_log_msg = f"A={len(wiki_a)} B={len(wiki_b)} C={len(wiki_c)}"
+    if wiki_patterns:
+        wiki_log_msg += f" patterns_found={len(wiki_patterns)}"
     logs.append({"node": 3, "technique": "AIWiki", "duration_ms": 0,
-                 "result_summary": f"A={len(wiki_a)} B={len(wiki_b)} C={len(wiki_c)}"})
+                 "result_summary": wiki_log_msg})
+    
+    # 7b. Policy sync check (Phase 6: detect version changes)
+    from app.core.parwa_pipeline.ai_wiki_store import get_wiki_store
+    wiki_store = get_wiki_store()
+    current_policy_version = state.get("policy_version", "v2.0")
+    sync_status = wiki_store.check_policy_sync(tenant_id, current_policy_version)
+    if not sync_status["synced"]:
+        logs.append({
+            "node": 3, "technique": "PolicySyncCheck",
+            "duration_ms": 0,
+            "result_summary": f"POLICY_CHANGED {sync_status['previous_version']} → {sync_status['version']} ({sync_status.get('patterns_invalidated', 0)} invalidated)",
+        })
 
     # 8. CRM via UCB (mock)
     crm_data = _fetch_crm_data(tenant_id, dynamic_ctx)
@@ -356,10 +422,12 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
         "wiki_section_a": wiki_a,
         "wiki_section_b": wiki_b,
         "wiki_section_c": wiki_c,
+        "wiki_patterns": wiki_patterns,  # Phase 6: similar patterns for downstream nodes
         "crm_data": crm_data,
         "knowledge_sufficient": clara_result["knowledge_sufficient"],
         "knowledge_contradictory": clara_result["knowledge_contradictory"],
         "policy_version": "v2.0",
+        "policy_sync_status": sync_status,  # Phase 6: sync status
         "technique_log": logs,
         "node_3_token_usage": llm_calls,
         "total_token_usage": state.get("total_token_usage", 0) + llm_calls,

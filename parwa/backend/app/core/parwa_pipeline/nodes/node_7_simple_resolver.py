@@ -144,9 +144,10 @@ def _federated_aggregate(scores: Dict[str, float], weights: Optional[Dict[str, f
     return sum(scores.values()) / len(scores)
 
 
-def _meta_learner_predict(ticket_type: str, query: str, knowledge: str) -> Dict[str, Any]:
-    """Phase 3: Pattern-based answer templates.
-    Uses keyword matching to find the most relevant response template.
+def _meta_learner_predict(ticket_type: str, query: str, knowledge: str,
+                            tenant_id: str = "") -> Dict[str, Any]:
+    """Phase 6: Pattern-based answer templates + Wiki Section A patterns.
+    Uses keyword matching + wiki historical patterns.
     """
     query_lower = query.lower()
     templates = {
@@ -180,7 +181,6 @@ def _meta_learner_predict(ticket_type: str, query: str, knowledge: str) -> Dict[
     matched = []
     for name, tmpl in templates.items():
         if re.search(tmpl["pattern"], query_lower):
-            # Check if knowledge has relevant content
             kb_lower = knowledge.lower()
             has_content = any(kw in kb_lower for kw in tmpl["required_kb"])
             matched.append({
@@ -190,7 +190,30 @@ def _meta_learner_predict(ticket_type: str, query: str, knowledge: str) -> Dict[
                 "confidence": 0.9 if has_content else 0.5,
             })
 
-    return matched[0] if matched else {"name": "general", "template": None, "has_kb": False, "confidence": 0.3}
+    # Phase 6: Check wiki for similar simple ticket patterns
+    wiki_boost = 0.0
+    wiki_answer_hint = ""
+    if tenant_id:
+        try:
+            from app.core.parwa_pipeline.ai_wiki_store import get_wiki_store
+            wiki = get_wiki_store()
+            patterns = wiki.find_similar_patterns(
+                tenant_id=tenant_id, query=query,
+                ticket_type=ticket_type, max_results=2,
+            )
+            for p in patterns:
+                if p.get("quality_achieved", 0) >= 0.90:
+                    wiki_boost = 0.05
+                    wiki_answer_hint = p.get("answer_summary", "")[:300]
+                    break
+        except Exception:
+            pass
+
+    result = matched[0] if matched else {"name": "general", "template": None, "has_kb": False, "confidence": 0.3}
+    result["confidence"] = min(1.0, result["confidence"] + wiki_boost)
+    result["wiki_boosted"] = wiki_boost > 0
+    result["wiki_answer_hint"] = wiki_answer_hint
+    return result
 
 
 def _zero_shot_validate_think(answer: str, knowledge: str, query: str) -> float:
@@ -409,6 +432,7 @@ async def node_7_simple_resolver(state: PipelineV2State) -> dict:
     """
     start = time.time()
     query = state["query"]
+    tenant_id = state["tenant_id"]
     ticket_type = state["ticket_type"]
     action = state["required_action"]
     action_details = state.get("action_details", {})
@@ -432,7 +456,7 @@ async def node_7_simple_resolver(state: PipelineV2State) -> dict:
     think_answer = _thot_thread(sub_questions, bridges, query)
     logs.append({"node": 7, "technique": "ThoT", "duration_ms": 0, "result_summary": f"{len(think_answer)} chars"})
 
-    ml_result = _meta_learner_predict(ticket_type, query, knowledge_str)
+    ml_result = _meta_learner_predict(ticket_type, query, knowledge_str, tenant_id=tenant_id)
     logs.append({"node": 7, "technique": "MetaLearner", "duration_ms": 0,
                 "result_summary": "pattern=" + str(ml_result["name"]) + " conf=" + str(ml_result["confidence"])})
 

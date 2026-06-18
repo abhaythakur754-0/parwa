@@ -1,7 +1,8 @@
 """
-PARWA Pipeline V2 — Graph Definition
+PARWA Pipeline V2 — Graph Definition (Phase 6: Wiki Write-Back)
 
 Wires all 8 nodes with LangGraph StateGraph.
+Phase 6: Wiki write-back on successful resolution (learning loop).
 
 Flow:
   Node 1 (Ingest+Classify) → Node 2 (Smart Route)
@@ -10,10 +11,10 @@ Flow:
     └── complex_path → Node 3 (Knowledge) → Node 4 (Reasoning)
                                                   → Node 5 (Act+Verify)
                                                   → Node 6 (Quality)
-                                                    ├── PASS → END (resolved)
+                                                    ├── PASS → Wiki Write → END (resolved)
                                                     ├── FAIL + loops < 2 → Node 4 (loop)
                                                     └── FAIL + loops >= 2 → Node 8 (Super Node)
-                                                                          ├── PASS → END (resolved)
+                                                                          ├── PASS → Wiki Write → END (resolved)
                                                                           └── FAIL → END (escalated)
 """
 
@@ -114,7 +115,9 @@ def _increment_loop(state: PipelineV2State) -> dict:
 
 
 def _finalize_simple(state: PipelineV2State) -> dict:
-    """Set final response from simple resolver."""
+    """Set final response from simple resolver + Phase 6: wiki write-back."""
+    # Phase 6: Write pattern to Wiki Section A on successful simple resolution
+    _wiki_write_on_resolve(state, techniques=["Node7_SimpleResolver", "GSD", "MAKER", "FederatedReasoning"])
     return {
         "final_response": state.get("simple_answer", ""),
         "status": "resolved",
@@ -123,7 +126,86 @@ def _finalize_simple(state: PipelineV2State) -> dict:
     }
 
 
+def _wiki_write_on_resolve(state: PipelineV2State, techniques: list = None) -> None:
+    """Phase 6: Write resolution pattern to Wiki Section A.
+    
+    Called after successful resolution (both simple and complex paths).
+    This is the LEARNING part — PARWA remembers what worked.
+    Non-LLM, non-blocking — failures are silently logged.
+    """
+    try:
+        from app.core.parwa_pipeline.ai_wiki_store import get_wiki_store
+        
+        tenant_id = state.get("tenant_id", "")
+        if not tenant_id:
+            return
+        
+        ticket_type = state.get("ticket_type", "general")
+        query = state.get("query", "")
+        complexity = state.get("complexity", "unknown")
+        tier = state.get("variant_tier", "parwa")
+        
+        # Get quality score
+        quality = state.get("quality_score", 0.0)
+        if state.get("simple_confidence"):
+            quality = max(quality, state["simple_confidence"])
+        if state.get("super_node_quality"):
+            quality = max(quality, state["super_node_quality"])
+        
+        # Get answer summary
+        answer = state.get("formatted_response", "") or state.get("final_response", "") or state.get("combined_answer", "")
+        
+        # Get techniques used
+        if techniques is None:
+            techniques = state.get("techniques_used", [])
+        
+        # Write to wiki
+        wiki = get_wiki_store()
+        entry = wiki.write_ticket_pattern(
+            tenant_id=tenant_id,
+            ticket_type=ticket_type,
+            query=query,
+            complexity=complexity,
+            techniques_used=techniques,
+            quality_score=quality,
+            answer_summary=answer,
+            tier=tier,
+        )
+        
+        if entry:
+            logger.info(
+                "Wiki WRITE: ticket=%s type=%s quality=%.2f → key=%s",
+                state.get("ticket_id", "?"), ticket_type, quality, entry.entry_key,
+            )
+    except Exception as e:
+        logger.warning("Wiki write-back failed (non-fatal): %s", e)
+
+
 # ── Build Graph ───────────────────────────────────────────────────
+
+
+def run_parwa_pipeline(initial_state: PipelineV2State) -> PipelineV2State:
+    """Run the pipeline and handle Phase 6 wiki write-back.
+    
+    Wraps the compiled graph to add wiki learning after resolution.
+    """
+    import asyncio
+    
+    graph = build_parwa_pipeline()
+    compiled = graph.compile()
+    
+    async def _run():
+        result = await compiled.ainvoke(initial_state)
+        
+        # Phase 6: Wiki write-back for complex path resolutions
+        # (simple path is handled in _finalize_simple)
+        quality_passed = result.get("quality_passed", False)
+        if quality_passed:
+            _wiki_write_on_resolve(result)
+        
+        return result
+    
+    return asyncio.get_event_loop().run_until_complete(_run())
 
 
 def build_parwa_pipeline() -> StateGraph:
@@ -193,6 +275,6 @@ def build_parwa_pipeline() -> StateGraph:
     # Finalize simple → END
     graph.add_edge("finalize_simple", "__end__")
 
-    logger.info("PARWA Pipeline V2 built: 8 nodes, dual path, quality loop (max %d)", MAX_QUALITY_LOOPS)
+    logger.info("PARWA Pipeline V2 built: 8 nodes, dual path, quality loop (max %d), Phase 6 wiki write-back", MAX_QUALITY_LOOPS)
 
     return graph

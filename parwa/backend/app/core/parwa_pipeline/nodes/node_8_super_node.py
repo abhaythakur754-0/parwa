@@ -41,12 +41,37 @@ logger = logging.getLogger("parwa.pipeline.node_8")
 
 
 async def _reflexion_analyze_failures(
-    query: str, knowledge: str, previous_attempts: List[str]
+    query: str, knowledge: str, previous_attempts: List[str],
+    tenant_id: str = "", ticket_type: str = "",
 ) -> str:
-    """Deep reflection on what went wrong in previous attempts."""
+    """Deep reflection on what went wrong in previous attempts.
+    Phase 6: Also checks Wiki for similar hard tickets that were resolved."""
     attempts_text = "\n\n".join(
         f"Attempt {i+1}:\n{a[:500]}" for i, a in enumerate(previous_attempts)
     )
+
+    # Phase 6: Check wiki for similar hard ticket patterns (non-LLM)
+    wiki_context = ""
+    if tenant_id and ticket_type:
+        try:
+            from app.core.parwa_pipeline.ai_wiki_store import get_wiki_store
+            wiki = get_wiki_store()
+            patterns = wiki.find_similar_patterns(
+                tenant_id=tenant_id, query=query,
+                ticket_type=ticket_type, max_results=3,
+            )
+            # Look for patterns that achieved high quality on similar tickets
+            successful_patterns = [p for p in patterns if p.get("quality_achieved", 0) >= 0.90]
+            if successful_patterns:
+                wiki_hints = []
+                for p in successful_patterns[:2]:
+                    wiki_hints.append(
+                        f"- Similar ticket resolved with quality {p['quality_achieved']:.2f} "
+                        f"using: {', '.join(p.get('techniques_that_worked', [])[:5])}"
+                    )
+                wiki_context = "\n\nHISTORICAL WISDOM (similar hard tickets that were resolved):\n" + "\n".join(wiki_hints)
+        except Exception:
+            pass
 
     prompt = f"""Analyze WHY these previous attempts to answer a customer question failed.
 
@@ -55,6 +80,7 @@ Knowledge: {knowledge[:1500]}
 
 Previous attempts that FAILED quality checks:
 {attempts_text}
+{wiki_context}
 
 Analyze specifically:
 1. What was wrong with each attempt?
@@ -297,8 +323,12 @@ async def node_8_super_node(state: PipelineV2State) -> dict:
     logs = []
     llm_calls = 0
 
-    # 1. Reflexion: Analyze failures (LLM)
-    failure_analysis = await _reflexion_analyze_failures(query, knowledge_str, previous_answers)
+    # 1. Reflexion: Analyze failures (LLM + Phase 6: wiki context)
+    failure_analysis = await _reflexion_analyze_failures(
+        query, knowledge_str, previous_answers,
+        tenant_id=state.get("tenant_id", ""),
+        ticket_type=state.get("ticket_type", ""),
+    )
     logs.append({"node": 8, "technique": "Reflexion", "duration_ms": 0, "result_summary": "failure_analyzed"})
     llm_calls += 1
 

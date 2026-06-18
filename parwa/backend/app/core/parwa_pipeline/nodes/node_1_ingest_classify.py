@@ -172,17 +172,74 @@ def _pull_dynamic_context(
 
 
 def _meta_learner_predict(
-    tenant_id: str, ticket_type: str, complexity: str
+    tenant_id: str, ticket_type: str, complexity: str, query: str = ""
 ) -> Dict[str, Any]:
-    """Predict routing based on past similar tickets.
-    In production: reads from AI Wiki Section A + historical data.
-    For now: returns learned pattern if available."""
-    # This will be wired to AI Wiki Section A in Phase 6
-    return {
-        "similar_tickets_found": 0,
-        "historical_accuracy": 0.0,
-        "suggested_path": None,
-    }
+    """Phase 6: Predict routing based on Wiki Section A past patterns.
+    
+    Searches the AI Wiki for similar ticket patterns and uses
+    their historical outcomes to guide routing.
+    Non-LLM — keyword search only.
+    """
+    from app.core.parwa_pipeline.ai_wiki_store import get_wiki_store
+    
+    wiki = get_wiki_store()
+    
+    try:
+        patterns = wiki.find_similar_patterns(
+            tenant_id=tenant_id, query=query,
+            ticket_type=ticket_type, max_results=3,
+        )
+        
+        if not patterns:
+            return {
+                "similar_tickets_found": 0,
+                "historical_accuracy": 0.0,
+                "suggested_path": None,
+                "wiki_boosted": False,
+            }
+        
+        # Analyze patterns for routing guidance
+        total_quality = sum(p["quality_achieved"] for p in patterns)
+        avg_quality = total_quality / len(patterns)
+        
+        # Check if similar tickets were successfully resolved
+        successful = sum(1 for p in patterns if p["quality_achieved"] >= 0.90)
+        success_rate = successful / len(patterns)
+        
+        # Extract most common techniques that worked
+        all_techniques = []
+        for p in patterns:
+            all_techniques.extend(p.get("techniques_that_worked", []))
+        technique_counts = {}
+        for t in all_techniques:
+            technique_counts[t] = technique_counts.get(t, 0) + 1
+        top_techniques = sorted(technique_counts, key=technique_counts.get, reverse=True)[:5]
+        
+        # Suggest path based on historical success
+        suggested_path = None
+        if success_rate >= 0.7 and avg_quality >= 0.90:
+            # Similar tickets were resolved well — suggest same approach
+            suggested_path = "complex_path" if complexity in ("complex", "hard") else "simple_medium_path"
+        elif success_rate < 0.3:
+            # Similar tickets struggled — suggest complex path for more thorough reasoning
+            suggested_path = "complex_path"
+        
+        return {
+            "similar_tickets_found": len(patterns),
+            "historical_accuracy": round(success_rate, 3),
+            "suggested_path": suggested_path,
+            "wiki_boosted": True,
+            "avg_historical_quality": round(avg_quality, 4),
+            "top_techniques": top_techniques,
+            "pattern_entry_keys": [p["entry_key"] for p in patterns],
+        }
+    except Exception as e:
+        return {
+            "similar_tickets_found": 0,
+            "historical_accuracy": 0.0,
+            "suggested_path": None,
+            "wiki_boosted": False,
+        }
 
 
 # ── UoT: Measure classification confidence (LLM) ──────────────────
@@ -244,16 +301,27 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
     dynamic_ctx = _pull_dynamic_context(tenant_id, customer_context)
     logs.append({"node": 1, "technique": "DynamicContext", "duration_ms": 0, "result_summary": "context_pulled"})
 
-    # 5. MetaLearner: predict from past patterns (non-LLM)
-    ml_result = _meta_learner_predict(tenant_id, ticket_type, complexity)
-    logs.append({"node": 1, "technique": "MetaLearner", "duration_ms": 0, "result_summary": f"similar={ml_result['similar_tickets_found']}"})
+    # 5. MetaLearner: predict from past patterns (Phase 6: reads Wiki Section A)
+    ml_result = _meta_learner_predict(tenant_id, ticket_type, complexity, query)
+    ml_summary = f"similar={ml_result['similar_tickets_found']}"
+    if ml_result.get("wiki_boosted"):
+        ml_summary += f" hist_acc={ml_result['historical_accuracy']}"
+        if ml_result.get("suggested_path"):
+            ml_summary += f" suggest={ml_result['suggested_path']}"
+    logs.append({"node": 1, "technique": "MetaLearner", "duration_ms": 0, "result_summary": ml_summary})
 
     # 6. UoT: measure classification confidence (LLM call)
     confidence = await _uot_measure_confidence(query, ticket_type, complexity, required_action)
     logs.append({"node": 1, "technique": "UoT", "duration_ms": int((time.time() - start) * 1000), "result_summary": f"confidence={confidence:.2f}"})
 
-    # Routing suggestion based on complexity
-    if complexity in ("simple", "medium"):
+    # Phase 6: If wiki has seen similar tickets, boost confidence (AFTER LLM call)
+    if ml_result.get("wiki_boosted") and ml_result.get("suggested_path"):
+        confidence = min(1.0, confidence + 0.05)
+
+    # Routing suggestion: use wiki-guided suggestion if available
+    if ml_result.get("suggested_path"):
+        routing_suggestion = ml_result["suggested_path"]
+    elif complexity in ("simple", "medium"):
         routing_suggestion = "simple_medium_path"
     else:
         routing_suggestion = "complex_path"

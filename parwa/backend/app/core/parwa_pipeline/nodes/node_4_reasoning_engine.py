@@ -1,5 +1,5 @@
 """
-Node 4: Reasoning Engine — PHASE 5 (MAKER Safety + all Phase 4 optimizations)
+Node 4: Reasoning Engine — PHASE 6 (Wiki-Enhanced Reasoning)
 
 Phase 4 upgrades (preserved):
   1. GSD decomposition: structured numbered output
@@ -9,19 +9,15 @@ Phase 4 upgrades (preserved):
   5. ToT: batch check all solutions in 1 call
   6. REMOVED LeastToMost, UoT self-confidence (token optimization)
 
-Phase 5 upgrades (MAKER Hallucination Prevention — 3 Safeguards):
-  7. Safeguard 1: Confidence scoring on bridge connections
-     - High (>0.85): direct keyword match in KB
-     - Medium (0.60-0.85): partial match, related terms
-     - Low (<0.60): weak/irrelevant connection → FLAGGED, NOT USED
-  8. Safeguard 2: ZeroShotValidator gate before bridges enter reasoning
-     - Checks logical consistency of bridges against KB
-     - Removes contradictory bridges before CoT
-  9. Safeguard 3: Reverse Thinking check on bridge dependency
-     - After reasoning, verify answer doesn't depend on filtered-out bridges
-     - If it does → flag for quality loop (lower confidence signal)
+Phase 5 upgrades (preserved):
+  7. MAKER Hallucination Prevention — 3 Safeguards (all non-LLM)
 
-Total: 7 LLM calls per ticket (same as Phase 4 — safeguards are non-LLM)
+Phase 6 upgrades (Wiki-Enhanced Reasoning — all non-LLM, 0 extra calls):
+  8. Wiki pattern injection: past successful techniques + answer summaries
+  9. Wiki knowledge supplement: Section A context added to CoT
+  10. Technique tracking: logged for Section A write-back on resolution
+
+Total: 7 LLM calls per ticket (same as Phase 4/5 — wiki ops are non-LLM)
 """
 
 from __future__ import annotations
@@ -258,6 +254,54 @@ def _maker_reverse_check(
     }
 
 
+# ── Phase 6: Wiki Pattern Enrichment (non-LLM) ───────────────
+
+
+def _enrich_knowledge_with_wiki(
+    knowledge_str: str, wiki_patterns: List[Dict[str, Any]],
+    wiki_section_a: List[Dict[str, Any]],
+) -> Tuple[str, List[str]]:
+    """Phase 6: Enrich knowledge context with wiki patterns.
+    
+    If similar tickets were resolved before, add their answer summaries
+    to the knowledge string (gives CoT better grounding).
+    
+    Also extracts the techniques that historically worked for similar tickets.
+    
+    Returns: (enriched_knowledge, techniques_that_worked)
+    """
+    techniques_that_worked = []
+    wiki_additions = []
+    
+    for pattern in wiki_patterns:
+        techs = pattern.get("techniques_that_worked", [])
+        techniques_that_worked.extend(techs)
+        
+        # Add successful answer summaries as context
+        if pattern.get("quality_achieved", 0) >= 0.90:
+            summary = pattern.get("answer_summary", "")
+            if summary and len(summary) > 30:
+                wiki_additions.append(
+                    f"[Previously resolved similar ticket - quality {pattern['quality_achieved']:.2f}]: {summary}"
+                )
+    
+    # Deduplicate techniques
+    seen = set()
+    unique_techniques = []
+    for t in techniques_that_worked:
+        if t not in seen:
+            seen.add(t)
+            unique_techniques.append(t)
+    
+    # Append wiki additions to knowledge (within token budget)
+    if wiki_additions:
+        wiki_context = "\n".join(wiki_additions[:2])  # max 2 past answers
+        enriched = knowledge_str + "\n\n--- HISTORICAL RESOLUTIONS (similar tickets) ---\n" + wiki_context
+        return enriched[:6000], unique_techniques[:10]
+    
+    return knowledge_str, unique_techniques[:10]
+
+
 # ── CoT: Step-by-step reasoning (LLM — Phase 4: knowledge-grounded) ─
 
 
@@ -469,6 +513,20 @@ async def node_4_reasoning_engine(state: PipelineV2State) -> dict:
         knowledge_str += "\n\n" + "\n".join(d.get("content", "") for d in wiki_c)
     context_str = str(customer_ctx) + "\n" + str(crm_data)
 
+    # ── Phase 6: Wiki Pattern Enrichment (non-LLM) ─────────────
+    wiki_patterns = state.get("wiki_patterns", [])
+    wiki_a = state.get("wiki_section_a", [])
+    wiki_techniques = []
+    if wiki_patterns:
+        knowledge_str, wiki_techniques = _enrich_knowledge_with_wiki(
+            knowledge_str, wiki_patterns, wiki_a
+        )
+        logs.append({
+            "node": 4, "technique": "WikiEnrich",
+            "duration_ms": 0,
+            "result_summary": f"enriched with {len(wiki_patterns)} patterns, {len(wiki_techniques)} techniques",
+        })
+
     # ── LAYER 1: DECOMPOSE ────────────────────────────────────────
     sub_problems = await _gsd_decompose(query, ticket_type, knowledge_str)
     logs.append({"node": 4, "technique": "GSD", "duration_ms": 0, "result_summary": f"{len(sub_problems)} sub-problems"})
@@ -567,11 +625,15 @@ async def node_4_reasoning_engine(state: PipelineV2State) -> dict:
             "result_summary": f"WARNING: {final_maker_check['reason'][:80]}",
         })
 
+    # Track techniques for wiki write-back (Phase 6)
+    base_techniques = ["GSD", "MAKER", "CoT", "ToT", "ReverseThinking", "FederatedReasoning", "AnswerSynthesis"]
+    techniques_used = (wiki_techniques + base_techniques) if wiki_techniques else base_techniques
+
     elapsed = int((time.time() - start) * 1000)
     logger.info(
-        "Node 4 complete: ticket=%s sub=%d conf=%.2f llm=%d maker_flagged=%d maker_removed=%d [%dms]",
+        "Node 4 complete: ticket=%s sub=%d conf=%.2f llm=%d maker_flagged=%d maker_removed=%d wiki_patterns=%d [%dms]",
         state["ticket_id"], len(sub_problems), aggregated, llm_calls,
-        len(maker_flagged), len(zsv_removed), elapsed,
+        len(maker_flagged), len(zsv_removed), len(wiki_patterns), elapsed,
     )
 
     return {
@@ -584,6 +646,7 @@ async def node_4_reasoning_engine(state: PipelineV2State) -> dict:
         "maker_flagged": maker_flagged,
         "maker_zsv_removed": zsv_removed,
         "maker_bridge_safe": final_maker_check["bridge_safe"],
+        "techniques_used": techniques_used,  # Phase 6: for wiki write-back
         "technique_log": logs,
         "node_4_token_usage": llm_calls,
         "total_token_usage": state.get("total_token_usage", 0) + llm_calls,

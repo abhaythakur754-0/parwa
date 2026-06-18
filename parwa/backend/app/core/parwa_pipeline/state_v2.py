@@ -56,8 +56,10 @@ class PipelineV2State(TypedDict, total=False):
     wiki_section_a: List[Dict[str, Any]]      # ticket patterns
     wiki_section_b: List[Dict[str, Any]]      # admin behavior
     wiki_section_c: List[Dict[str, Any]]      # company knowledge + policies
+    wiki_patterns: List[Dict[str, Any]]       # Phase 6: similar patterns from Wiki Section A
     crm_data: Dict[str, Any]                  # customer data from CRM via UCB
     policy_version: str                        # current policy version for Section C
+    policy_sync_status: Dict[str, Any]        # Phase 6: policy version sync check result
     knowledge_sufficient: bool                 # CLARA gate: do we have enough?
     knowledge_contradictory: bool              # CLARA gate: contradictions found?
     node_3_token_usage: int
@@ -67,6 +69,7 @@ class PipelineV2State(TypedDict, total=False):
     sub_solutions: List[Dict[str, Any]]  # each sub-problem's solution
     combined_answer: str                 # final combined reasoning
     reasoning_confidence: float          # 0.0-1.0
+    techniques_used: List[str]           # Phase 6: techniques used (for wiki write-back)
     node_4_token_usage: int
 
     # ── NODE 5: ACT + VERIFY ───────────────────────────────────────
