@@ -1,11 +1,15 @@
 """
-PARWA-Jarvis Bridge — Wave 4
+PARWA-Jarvis Bridge — Wave 4 + Wave 5
 
 Provides:
   - load_system_flags(tenant_id) — called by PARWA nodes to get active Jarvis flags
   - write_quality_score_to_jarvis(state) — called by Node 6 after scoring
   - write_to_jarvis_inbox(state, stuck_reason, what_was_tried) — called by Node 8 when stuck
   - record_training_signal(...) — called when human approves/rejects/edit
+  - score_confidence(...) — Wave 5A: compute confidence and routing
+  - route_by_sentiment(...) — Wave 5C: sentiment-based routing
+  - check_approval_gate(...) — Wave 5D: approval gate checking
+  - recommend_variant(...) — Wave 5E: variant recommendation
 
 All methods are async and use the Jarvis DB backend.
 The bridge is the SINGLE point of contact — PARWA nodes never import jarvis_db directly.
@@ -205,4 +209,170 @@ async def record_training_signal(
         return record
     except Exception as e:
         logger.warning("Failed to record training data: %s", e)
+        return None
+
+
+# ═══════════════════════════════════════════════════════════════
+# Wave 5: Intelligence Layer Bridge Functions
+# ═══════════════════════════════════════════════════════════════
+
+
+async def score_confidence(
+    tenant_id: str,
+    ticket_id: str,
+    ticket_type: str = "",
+    query: str = "",
+    required_action: str = "",
+    is_vip: bool = False,
+    value_usd: float = 0.0,
+    policy_count: int = 0,
+) -> Optional[Dict[str, Any]]:
+    """Wave 5A: Compute confidence score and routing for a ticket.
+
+    Delegates to confidence_engine. Logs result to DB.
+    Non-blocking: returns None on failure (doesn't break pipeline).
+    """
+    try:
+        from app.core.jarvis_pipeline.confidence_engine import score_ticket_confidence
+        from app.core.jarvis_pipeline.jarvis_db import get_db
+
+        result = await score_ticket_confidence(
+            tenant_id=tenant_id,
+            ticket_id=ticket_id,
+            ticket_type=ticket_type,
+            query=query,
+            required_action=required_action,
+            is_vip=is_vip,
+            value_usd=value_usd,
+            policy_count=policy_count,
+        )
+
+        # Persist to DB
+        db = get_db()
+        await db.record_confidence(
+            tenant_id=tenant_id,
+            ticket_id=ticket_id,
+            confidence=result["confidence"],
+            routing=result["routing"],
+            factors=result["factors"],
+        )
+
+        logger.info("Confidence scored: ticket=%s score=%.4f route=%s",
+                    ticket_id, result["confidence"], result["routing"])
+        return result
+
+    except Exception as e:
+        logger.warning("Failed to score confidence: %s", e)
+        return None
+
+
+async def route_by_sentiment(
+    tenant_id: str,
+    ticket_id: str,
+    query: str,
+    customer_context: Optional[Dict[str, Any]] = None,
+) -> Optional[Dict[str, Any]]:
+    """Wave 5C: Route a ticket based on sentiment analysis.
+
+    Delegates to sentiment_router. Logs result to DB.
+    Non-blocking.
+    """
+    try:
+        from app.core.jarvis_pipeline.sentiment_router import route_by_sentiment as _route
+        from app.core.jarvis_pipeline.jarvis_db import get_db
+
+        result = await _route(
+            tenant_id=tenant_id,
+            ticket_id=ticket_id,
+            query=query,
+            customer_context=customer_context,
+        )
+
+        # Persist sentiment to DB
+        db = get_db()
+        await db.record_sentiment(
+            tenant_id=tenant_id,
+            ticket_id=ticket_id,
+            sentiment=result["sentiment"],
+        )
+
+        logger.info("Sentiment routed: ticket=%s score=%.2f route=%s",
+                    ticket_id, result["sentiment"]["score"], result["route"])
+        return result
+
+    except Exception as e:
+        logger.warning("Failed to route by sentiment: %s", e)
+        return None
+
+
+async def check_approval_gate(
+    tenant_id: str,
+    action: str,
+    confidence: float = 1.0,
+    is_vip: bool = False,
+    value_usd: float = 0.0,
+) -> Optional[Dict[str, Any]]:
+    """Wave 5D: Check if an action requires human approval.
+
+    Delegates to approval_gates module.
+    Non-blocking: returns None on failure (defaults to requiring approval).
+    """
+    try:
+        from app.core.jarvis_pipeline.approval_gates import check_approval_required
+
+        result = await check_approval_required(
+            tenant_id=tenant_id,
+            action=action,
+            confidence=confidence,
+            is_vip=is_vip,
+            value_usd=value_usd,
+        )
+
+        logger.info("Approval gate: action=%s required=%s gate=%s",
+                    action, result["required"], result["gate_type"])
+        return result
+
+    except Exception as e:
+        logger.warning("Failed to check approval gate: %s", e)
+        # Fail-safe: require approval when gate check fails
+        return {
+            "required": True,
+            "reason": f"Approval gate check failed ({e}), defaulting to require approval",
+            "gate_type": "error_failsafe",
+            "action": action,
+            "confidence": confidence,
+        }
+
+
+async def recommend_variant(
+    tenant_id: str,
+    ticket_id: str,
+    query: str,
+    current_variant: str = "mini",
+    required_action: str = "",
+) -> Optional[Dict[str, Any]]:
+    """Wave 5E: Recommend whether a variant upgrade is needed.
+
+    Delegates to variant_recommender.
+    Non-blocking.
+    """
+    try:
+        from app.core.jarvis_pipeline.variant_recommender import recommend_variant as _recommend
+
+        result = await _recommend(
+            tenant_id=tenant_id,
+            ticket_id=ticket_id,
+            query=query,
+            current_variant=current_variant,
+            required_action=required_action,
+        )
+
+        if result["upgrade_needed"]:
+            logger.info("Variant upgrade recommended: ticket=%s %s → %s",
+                        ticket_id, current_variant, result["recommended_variant"])
+
+        return result
+
+    except Exception as e:
+        logger.warning("Failed to recommend variant: %s", e)
         return None

@@ -67,6 +67,12 @@ class JarvisState(TypedDict, total=False):
     # Wave 3: Command execution result
     command_execution_result: Optional[Dict[str, Any]]
 
+    # Wave 5: Intelligence Layer
+    confidence_result: Optional[Dict[str, Any]]       # {confidence, routing, factors, reason}
+    sentiment_result: Optional[Dict[str, Any]]         # {score, label, route, escalate}
+    approval_gate_result: Optional[Dict[str, Any]]     # {required, reason, gate_type}
+    variant_recommendation: Optional[Dict[str, Any]]   # {upgrade_needed, recommended_variant}
+
 
 def create_jarvis_state(
     tenant_id: str,

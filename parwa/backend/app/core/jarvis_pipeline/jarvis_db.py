@@ -395,6 +395,44 @@ class StorageBackend(ABC):
         """Mark inbox message as resolved."""
         ...
 
+    # ── Feature Flags (Wave 5) ──────────────────────────────
+
+    @abstractmethod
+    async def get_feature_flag(self, tenant_id: str, flag_name: str) -> Optional[Dict[str, Any]]:
+        """Get a feature flag value by name."""
+        ...
+
+    @abstractmethod
+    async def set_feature_flag(self, tenant_id: str, flag_name: str, flag_value: Any, set_by: str = "system") -> Dict[str, Any]:
+        """Set a feature flag value."""
+        ...
+
+    # ── Approval Gates Config (Wave 5) ─────────────────────
+
+    @abstractmethod
+    async def get_approval_gate_config(self, tenant_id: str) -> Dict[str, Any]:
+        """Get approval gate configuration for a tenant."""
+        ...
+
+    @abstractmethod
+    async def set_approval_gate_config(self, tenant_id: str, config: Dict[str, Any], set_by: str = "admin") -> Dict[str, Any]:
+        """Set approval gate configuration."""
+        ...
+
+    # ── Sentiment Logs (Wave 5) ────────────────────────────
+
+    @abstractmethod
+    async def record_sentiment(self, tenant_id: str, ticket_id: str, sentiment: Dict[str, Any]) -> Dict[str, Any]:
+        """Record a sentiment analysis result."""
+        ...
+
+    # ── Confidence Logs (Wave 5) ───────────────────────────
+
+    @abstractmethod
+    async def record_confidence(self, tenant_id: str, ticket_id: str, confidence: float, routing: str, factors: Dict[str, float]) -> Dict[str, Any]:
+        """Record a confidence scoring result."""
+        ...
+
     # ── Training Data Collection (Wave 4) ────────────────
 
     @abstractmethod
@@ -449,6 +487,9 @@ class InMemoryBackend(StorageBackend):
         self._outbox: List[Dict] = []  # Wave 3: outbox queue (recall/void)
         self._inbox: List[Dict] = []  # Wave 4: PARWA → Jarvis inbox
         self._training_data_records: List[Dict] = []  # Wave 4: training data
+        self._feature_flags: List[Dict] = []  # Wave 5: feature flags
+        self._sentiment_logs: List[Dict] = []  # Wave 5: sentiment logs
+        self._confidence_logs: List[Dict] = []  # Wave 5: confidence logs
 
     # ── Helpers ───────────────────────────────────────────────
 
@@ -1260,6 +1301,76 @@ class InMemoryBackend(StorageBackend):
             "voided": by_status.get("voided", 0),
         }
 
+    # ── Feature Flags (Wave 5) ────────────────────────────
+
+    async def get_feature_flag(self, tenant_id: str, flag_name: str) -> Optional[Dict[str, Any]]:
+        for f in self._feature_flags:
+            if f["tenant_id"] == tenant_id and f["flag_name"] == flag_name:
+                return f.get("flag_value")
+        return None
+
+    async def set_feature_flag(self, tenant_id: str, flag_name: str, flag_value: Any, set_by: str = "system") -> Dict[str, Any]:
+        # Upsert
+        for f in self._feature_flags:
+            if f["tenant_id"] == tenant_id and f["flag_name"] == flag_name:
+                f["flag_value"] = flag_value
+                f["set_by"] = set_by
+                f["updated_at"] = datetime.now(timezone.utc).isoformat()
+                return f
+        record = {
+            "id": str(uuid.uuid4()),
+            "tenant_id": tenant_id,
+            "flag_name": flag_name,
+            "flag_value": flag_value,
+            "set_by": set_by,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "backend": "memory",
+        }
+        self._feature_flags.append(record)
+        return record
+
+    # ── Approval Gates Config (Wave 5) ────────────────────
+
+    async def get_approval_gate_config(self, tenant_id: str) -> Dict[str, Any]:
+        val = await self.get_feature_flag(tenant_id, "approval_gates")
+        return val if isinstance(val, dict) else {}
+
+    async def set_approval_gate_config(self, tenant_id: str, config: Dict[str, Any], set_by: str = "admin") -> Dict[str, Any]:
+        await self.set_feature_flag(tenant_id, "approval_gates", config, set_by)
+        return config
+
+    # ── Sentiment Logs (Wave 5) ───────────────────────────
+
+    async def record_sentiment(self, tenant_id: str, ticket_id: str, sentiment: Dict[str, Any]) -> Dict[str, Any]:
+        record = {
+            "id": str(uuid.uuid4()),
+            "tenant_id": tenant_id,
+            "ticket_id": ticket_id,
+            "score": sentiment.get("score", 0.5),
+            "label": sentiment.get("label", "mixed"),
+            "route": sentiment.get("route", "ai_auto"),
+            "full_result": sentiment,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        self._sentiment_logs.append(record)
+        return record
+
+    # ── Confidence Logs (Wave 5) ──────────────────────────
+
+    async def record_confidence(self, tenant_id: str, ticket_id: str, confidence: float, routing: str, factors: Dict[str, float]) -> Dict[str, Any]:
+        record = {
+            "id": str(uuid.uuid4()),
+            "tenant_id": tenant_id,
+            "ticket_id": ticket_id,
+            "confidence": round(confidence, 4),
+            "routing": routing,
+            "factors": {k: round(v, 4) for k, v in factors.items()},
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        self._confidence_logs.append(record)
+        return record
+
     def clear_all(self):
         """Clear all data (for testing)."""
         self._notifications.clear()
@@ -1275,6 +1386,11 @@ class InMemoryBackend(StorageBackend):
         self._load_status.clear()
         self._agent_configs.clear()
         self._outbox.clear()
+        self._inbox.clear()
+        self._training_data_records.clear()
+        self._feature_flags.clear()
+        self._sentiment_logs.clear()
+        self._confidence_logs.clear()
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -2016,6 +2132,77 @@ class SupabaseBackend(StorageBackend):
         if signal_type:
             query += f"&signal_type=eq.{signal_type}"
         return await self._rest_get(TABLE_TRAINING_DATA, query)
+
+    # ── Feature Flags (Wave 5) ──────────────────────────────
+
+    async def get_feature_flag(self, tenant_id: str, flag_name: str) -> Optional[Dict[str, Any]]:
+        results = await self._rest_get(
+            TABLE_FEATURE_FLAGS,
+            f"tenant_id=eq.{tenant_id}&flag_name=eq.{flag_name}&limit=1"
+        )
+        if results:
+            return results[0].get("flag_value")
+        return None
+
+    async def set_feature_flag(self, tenant_id: str, flag_name: str, flag_value: Any, set_by: str = "system") -> Dict[str, Any]:
+        # Try upsert: check if exists
+        existing = await self._rest_get(
+            TABLE_FEATURE_FLAGS,
+            f"tenant_id=eq.{tenant_id}&flag_name=eq.{flag_name}&limit=1"
+        )
+        if existing:
+            eid = existing[0]["id"]
+            await self._rest_patch(TABLE_FEATURE_FLAGS, eid, {
+                "flag_value": flag_value,
+                "set_by": set_by,
+            })
+            return {**existing[0], "flag_value": flag_value, "set_by": set_by}
+        return await self._rest_post(TABLE_FEATURE_FLAGS, {
+            "tenant_id": tenant_id,
+            "flag_name": flag_name,
+            "flag_value": flag_value,
+            "set_by": set_by,
+        })
+
+    # ── Approval Gates Config (Wave 5) ─────────────────────
+
+    async def get_approval_gate_config(self, tenant_id: str) -> Dict[str, Any]:
+        val = await self.get_feature_flag(tenant_id, "approval_gates")
+        return val if isinstance(val, dict) else {}
+
+    async def set_approval_gate_config(self, tenant_id: str, config: Dict[str, Any], set_by: str = "admin") -> Dict[str, Any]:
+        await self.set_feature_flag(tenant_id, "approval_gates", config, set_by)
+        return config
+
+    # ── Sentiment Logs (Wave 5) ────────────────────────────
+
+    async def record_sentiment(self, tenant_id: str, ticket_id: str, sentiment: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._rest_post(TABLE_FEATURE_FLAGS, {
+            "tenant_id": tenant_id,
+            "flag_name": f"sentiment_{ticket_id}",
+            "flag_value": {
+                "ticket_id": ticket_id,
+                "score": sentiment.get("score", 0.5),
+                "label": sentiment.get("label", "mixed"),
+                "route": sentiment.get("route", "ai_auto"),
+            },
+            "set_by": "jarvis_wave5",
+        })
+
+    # ── Confidence Logs (Wave 5) ───────────────────────────
+
+    async def record_confidence(self, tenant_id: str, ticket_id: str, confidence: float, routing: str, factors: Dict[str, float]) -> Dict[str, Any]:
+        return await self._rest_post(TABLE_FEATURE_FLAGS, {
+            "tenant_id": tenant_id,
+            "flag_name": f"confidence_{ticket_id}",
+            "flag_value": {
+                "ticket_id": ticket_id,
+                "confidence": round(confidence, 4),
+                "routing": routing,
+                "factors": {k: round(v, 4) for k, v in factors.items()},
+            },
+            "set_by": "jarvis_wave5",
+        })
 
     # ── Utility ──────────────────────────────────────────────
 
