@@ -1,0 +1,2002 @@
+     1→     1→# PARWA — Ultimate Architecture Roadmap
+     2→     2→
+     3→     3→> **Target**: 90%+ resolution accuracy across all ticket types  
+     4→     4→> **Philosophy**: Quality-first technique mapping, non-LLM fast track, smart variant routing, full multi-tenant isolation  
+     5→     5→> **Systems**: PARWA 8-Node Pipeline + Jarvis 3-Node Pipeline + Notification Center + AI Wiki + Integration Layer + Key-Based Access + Onboarding  
+     6→     6→> **Total Nodes**: 11 (8 PARWA + 3 Jarvis)  
+     7→     7→> **Status**: Architecture finalized, implementation phased
+     8→     8→
+     9→     9→---
+    10→    10→
+    11→    11→## Table of Contents
+    12→    12→
+    13→    13→1. [Combined System Architecture](#1-combined-system-architecture)
+    14→    14→2. [Key-Based Access System](#2-key-based-access-system)
+    15→    15→3. [Onboarding Flow & Dashboard Wiring](#3-onboarding-flow--dashboard-wiring)
+    16→    16→4. [PARWA 8-Node Pipeline — Complete Detail](#4-parwa-8-node-pipeline--complete-detail)
+    17→    17→5. [Jarvis 3-Node Pipeline — Complete Detail](#5-jarvis-3-node-pipeline--complete-detail)
+    18→    18→6. [Notification Center](#6-notification-center)
+    19→    19→7. [AI Wiki — 3-Section Per-Client Design](#7-ai-wiki--3-section-per-client-design)
+    20→    20→8. [Integration Layer — Unified Connector Bus (UCB)](#8-integration-layer--unified-connector-bus-ucb)
+    21→    21→9. [Multi-Tenant Data Isolation](#9-multi-tenant-data-isolation)
+    22→    22→10. [Policy Change Detection](#10-policy-change-detection)
+    23→    23→11. [25 Techniques — LLM vs Non-LLM Classification](#11-25-techniques--llm-vs-non-llm-classification)
+    24→    24→12. [Technique-to-Node Mapping (PARWA + Jarvis)](#12-technique-to-node-mapping-parwa--jarvis)
+    25→    25→13. [Dual Pipeline Flow](#13-dual-pipeline-flow)
+    26→    26→14. [Variant System & Quota Management](#14-variant-system--quota-management)
+    27→    27→15. [Quality Loop & Super Node](#15-quality-loop--super-node)
+    28→    28→16. [MAKER Hallucination Prevention](#16-maker-hallucination-prevention)
+    29→    29→17. [Implementation Phases](#17-implementation-phases)
+    30→    30→18. [Production Readiness Checklist](#18-production-readiness-checklist)
+    31→    31→19. [Dashboard Production Readiness](#19-dashboard-production-readiness)
+    32→    32→
+    33→    33→---
+    34→    34→
+    35→    35→## 1. Combined System Architecture
+    36→    36→
+    37→    37→### The Complete System Map
+    38→    38→
+    39→    39→```
+    40→    40→┌─────────────────────────────────────────────────────────────────────────────────┐
+    41→    41→│                          PARWA PLATFORM (Multi-Tenant)                          │
+    42→    42→│                                                                                 │
+    43→    43→│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+    44→    44→│  │                     ACCESS LAYER — KEY-BASED AUTH                         │  │
+    45→    45→│  │                                                                           │  │
+    46→    46→│  │   Admin (buyer) creates account ──▶ Gets unique ACCESS KEY               │  │
+    47→    47→│  │   Team members use same KEY ──▶ All see same dashboard                   │  │
+    48→    48→│  │   Multiple users with same KEY ──▶ Work in parallel                      │  │
+    49→    49→│  │   Admin can change/retrieve KEY ──▶ Only admin has this power            │  │
+    50→    50→│  │   KEY generated during onboarding ──▶ Before first ticket victory        │  │
+    51→    51→│  └───────────────────────────────────────────────────────────────────────────┘  │
+    52→    52→│                                                                                 │
+    53→    53→│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+    54→    54→│  │                     TENANT ISOLATION LAYER                                │  │
+    55→    55→│  │                                                                           │  │
+    56→    56→│  │   Client A (key: pk_live_xxx)     Client B (key: pk_live_yyy)            │  │
+    57→    57→│  │  ┌──────────────────┐            ┌──────────────────┐                    │  │
+    58→    58→│  │  │ AI Wiki A│B│C    │            │ AI Wiki A│B│C    │                    │  │
+    59→    59→│  │  │ Knowledge Base   │            │ Knowledge Base   │                    │  │
+    60→    60→│  │  │ Ticket History   │            │ Ticket History   │                    │  │
+    61→    61→│  │  │ Quota Tracking   │            │ Quota Tracking   │                    │  │
+    62→    62→│  │  │ Integration Creds│            │ Integration Creds│                    │  │
+    63→    63→│  │  │ Notification Log │            │ Notification Log │                    │  │
+    64→    64→│  │  │ Onboarding State │            │ Onboarding State │                    │  │
+    65→    65→│  │  └──────────────────┘            └──────────────────┘                    │  │
+    66→    66→│  │                                                                           │  │
+    67→    67→│  │  🔒 Same Variant Tier ≠ Same Data. Each client = fully isolated tenant   │  │
+    68→    68→│  │  🔒 Row-Level Security at DB. Namespace isolation in Vector Store        │  │
+    69→    69→│  └───────────────────────────────────────────────────────────────────────────┘  │
+    70→    70→│                                                                                 │
+    71→    71→│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+    72→    72→│  │              INTEGRATION LAYER — UCB (Per Client)                        │  │
+    73→    73→│  │                                                                           │  │
+    74→    74→│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐      │  │
+    75→    75→│  │  │  EMAIL   │ │   SMS    │ │  CALLS   │ │  CHAT    │ │   CRM   │      │  │
+    76→    76→│  │  │SendGrid  │ │ Twilio   │ │ Twilio   │ │WhatsApp  │ │HubSpot  │      │  │
+    77→    77→│  │  │Mailgun   │ │MSG91    │ │ Vonage   │ │Intercom  │ │Salesforce│      │  │
+    78→    78→│  │  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘      │  │
+    79→    79→│  │       └─────────────┴─────────────┴─────────────┴────────────┘            │  │
+    80→    80→│  │                           │                                               │  │
+    81→    81→│  │              UNIFIED CONNECTOR BUS (UCB)                                  │  │
+    82→    82→│  │              Normalize → Route → Execute → Verify                         │  │
+    83→    83→│  │              Each client connects THEIR tools → Only THEIR data flows     │  │
+    84→    84→│  └──────────────────────────────────┼────────────────────────────────────────┘  │
+    85→    85→│                                     │                                           │
+    86→    86→│            ┌────────────────────────┼────────────────────────┐                   │
+    87→    87→│            │                        │                        │                   │
+    88→    88→│            ▼                        ▼                        ▼                   │
+    89→    89→│      INGEST to Node 1        ACTION from Node 5       SYNC to Node 3           │
+    90→    90→│      (Tickets arrive)        (Send replies back)      (Fetch CRM data)          │
+    91→    91→│                                                                                 │
+    92→    92→│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+    93→    93→│  │              PARWA 8-NODE PIPELINE (Variant Ticket Solver)               │  │
+    94→    94→│  │                                                                           │  │
+    95→    95→│  │  Node 1 ──▶ Node 2 ──▶ Node 3 ──▶ SPLIT                               │  │
+    96→    96→│  │  Ingest+     Smart      Knowledge    │                                  │  │
+    97→    97→│  │  Classify    Route      Fetch+AIWiki │                                  │  │
+    98→    98→│  │                                   ┌──┴──┐                               │  │
+    99→    99→│  │                                   │     │                               │  │
+   100→   100→│  │                              Simple   Complex                           │  │
+   101→   101→│  │                                  │       │                              │  │
+   102→   102→│  │                             Node 7     Node 4→5→6                      │  │
+   103→   103→│  │                             (Non-LLM)  (LLM + Quality Loop)            │  │
+   104→   104→│  │                                  │       │                              │  │
+   105→   105→│  │                                  │    Node 8 (Super Node)              │  │
+   106→   106→│  │                                  │       │                              │  │
+   107→   107→│  │                                  ▼       ▼                              │  │
+   108→   108→│  │                            ✅ Resolved / ❌ Stuck                       │  │
+   109→   109→│  └──────────────────────────────┬───────────┬───────────────────────────────┘  │
+   110→   110→│                                 │           │                                   │
+   111→   111→│                        Resolved │           │ Stuck/Unsolved                    │
+   112→   112→│                        Update   │           │ Send to                            │
+   113→   113→│                        Wiki A   │           │ Jarvis SENSE                       │
+   114→   114→│                                 ▼           ▼                                   │
+   115→   115→│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+   116→   116→│  │              JARVIS 3-NODE PIPELINE (Awareness + Notify + Chat)          │  │
+   117→   117→│  │                                                                           │  │
+   118→   118→│  │  Node 1 (SENSE) ──▶ Node 2 (EVALUATE) ──▶ Node 3 (NOTIFY)              │  │
+   119→   119→│  │                                                                           │  │
+   120→   120→│  │  • Monitor PARWA     • CoT + CLARA        • Notification Center          │  │
+   121→   121→│  │  • Track Quotas      • Step-Back          • Unique Keys (PARWA-NFY-XXX)  │  │
+   122→   122→│  │  • Watch Stuck       • Reflexion          • Batch Similar Alerts         │  │
+   123→   123→│  │  • Policy Changes    • Priority Score      • Chat Answer to Admin        │  │
+   124→   124→│  │  • Tool Health       • Decide Action       • Feed Quota to PARWA Node 2  │  │
+   125→   125→│  │                                               • Update Wiki Section B   │  │
+   126→   126→│  └───────────────────────────────────────────────────────────────────────────┘  │
+   127→   127→│                                                                                 │
+   128→   128→│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+   129→   129→│  │              AI WIKI (Per Client — FULLY ISOLATED)                       │  │
+   130→   130→│  │                                                                           │  │
+   131→   131→│  │  Section A: Ticket Patterns   ← PARWA writes, Jarvis reads               │  │
+   132→   132→│  │  Section B: Admin Behavior    ← Jarvis writes, PARWA reads               │  │
+   133→   133→│  │  Section C: Company Knowledge ← Admin writes manually, both read          │  │
+   134→   134→│  │                                                                           │  │
+   135→   135→│  │  🔒 Cross-read within SAME client only. Zero leakage between clients.    │  │
+   136→   136→│  └───────────────────────────────────────────────────────────────────────────┘  │
+   137→   137→│                                                                                 │
+   138→   138→│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+   139→   139→│  │              NOTIFICATION CENTER (Per Client)                            │  │
+   140→   140→│  │                                                                           │  │
+   141→   141→│  │  • Unsolved/Stuck problems ONLY — not all tickets                        │  │
+   142→   142→│  │  • Unique key per notification: PARWA-NFY-XXX                           │  │
+   143→   143→│  │  • Batched similar issues together                                      │  │
+   144→   144→│  │  • Admin copies key → asks Jarvis for details                           │  │
+   145→   145→│  │  • Shown in dashboard, wired to Jarvis chat                            │  │
+   146→   146→│  └───────────────────────────────────────────────────────────────────────────┘  │
+   147→   147→│                                                                                 │
+   148→   148→└─────────────────────────────────────────────────────────────────────────────────┘
+   149→   149→```
+   150→   150→
+   151→   151→### System Connection Points
+   152→   152→
+   153→   153→| From | To | Connection Type | What Flows |
+   154→   154→|------|----|----------------|------------|
+   155→   155→| UCB | PARWA Node 1 | Ingest | Incoming tickets (email, SMS, chat, calls) normalized |
+   156→   156→| PARWA Node 5 | UCB | Action | Reply/execute actions through correct channel |
+   157→   157→| PARWA Node 3 | UCB | Sync | Fetch CRM/contact data for context |
+   158→   158→| PARWA (resolved) | AI Wiki Section A | Write | Ticket patterns from resolved tickets |
+   159→   159→| PARWA (stuck) | Jarvis Node 1 (SENSE) | Alert | Stuck/unsolved ticket signals |
+   160→   160→| Jarvis Node 3 (NOTIFY) | PARWA Node 2 | Feed | Quota decisions, variant info |
+   161→   161→| Jarvis Node 3 (NOTIFY) | Notification Center | Push | Unsolved/stuck alerts with unique keys |
+   162→   162→| Jarvis | AI Wiki Section B | Write | Admin behavior patterns |
+   163→   163→| Admin | AI Wiki Section C | Write | Company knowledge, policies |
+   164→   164→| AI Wiki Section C | Jarvis Node 1 (SENSE) | Read | Policy change detection |
+   165→   165→| Onboarding | Dashboard | Wire | Integration status, tools connected, config |
+   166→   166→| Onboarding | UCB | Register | Tool credentials, API keys per client |
+   167→   167→| Onboarding | Key System | Generate | Access key for the client |
+   168→   168→
+   169→   169→---
+   170→   170→
+   171→   171→## 2. Key-Based Access System
+   172→   172→
+   173→   173→### Why Key-Based, Not Login-Based
+   174→   174→
+   175→   175→Traditional username/password login creates friction for team-based usage. PARWA uses a **key-based access model** where:
+   176→   176→
+   177→   177→- The **buyer (admin)** creates the account and receives a unique access key
+   178→   178→- **Team members** use the SAME key to access the dashboard — no separate accounts needed
+   179→   179→- **Multiple people** can work in parallel using the same key simultaneously
+   180→   180→- The **admin** is the ONLY one who can change or retrieve the key
+   181→   181→- This is similar to how API keys work — simple, shareable, revocable
+   182→   182→
+   183→   183→### Key Format
+   184→   184→
+   185→   185→```
+   186→   186→pk_live_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+   187→   187→
+   188→   188→pk_live_     = prefix (production live key)
+   189→   189→XXXX...      = 32-character cryptographically random string
+   190→   190→```
+   191→   191→
+   192→   192→### Key Lifecycle
+   193→   193→
+   194→   194→```
+   195→   195→1. Admin signs up ──▶ Creates account with email + master password
+   196→   196→                         │
+   197→   197→2. System generates ──▶  pk_live_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
+   198→   198→                         │
+   199→   199→3. Key shown ONCE ──▶   Displayed during onboarding (before first victory)
+   200→   200→   during onboarding     Admin must save it. Can share with team.
+   201→   201→                         │
+   202→   202→4. Team uses key ──▶    Anyone with the key can:
+   203→   203→   for dashboard          • View dashboard
+   204→   204→                          • Chat with Jarvis
+   205→   205→                          • See notifications
+   206→   206→                          • Monitor variants
+   207→   207→                          BUT CANNOT:
+   208→   208→                          • Change the key
+   209→   209→                          • Access billing
+   210→   210→                          • Modify integrations
+   211→   211→                         │
+   212→   212→5. Admin manages ──▶    Only admin (authenticated via master password) can:
+   213→   213→   the key                • Regenerate key (invalidates old one)
+   214→   214→                          • Retrieve key if lost
+   215→   215→                          • Change master password
+   216→   216→                          • Modify integrations
+   217→   217→                          • Access billing
+   218→   218→                         │
+   219→   219→6. Key revoked ──▶      If compromised:
+   220→   220→                          • Admin regenerates → old key instantly invalid
+   221→   221→                          • New key issued → team must update
+   222→   222→                          • All active sessions with old key terminated
+   223→   223→```
+   224→   224→
+   225→   225→### Parallel Access with Same Key
+   226→   226→
+   227→   227→```
+   228→   228→┌─────────────────────────────────────────────────────────────────┐
+   229→   229→│              PARALLEL KEY USAGE                                 │
+   230→   230→│                                                                 │
+   231→   231→│  Team Member 1 (key: pk_live_xxx)  ──▶  Dashboard Session A    │
+   232→   232→│  Team Member 2 (key: pk_live_xxx)  ──▶  Dashboard Session B    │
+   233→   233→│  Team Member 3 (key: pk_live_xxx)  ──▶  Dashboard Session C    │
+   234→   234→│                                                                 │
+   235→   235→│  All sessions:                                                   │
+   236→   236→│  ✅ See same data (same tenant_id)                              │
+   237→   237→│  ✅ Chat with Jarvis independently                               │
+   238→   238→│  ✅ View same notifications                                     │
+   239→   239→│  ✅ Monitor same variants                                       │
+   240→   240→│  ❌ Cannot kick other sessions                                  │
+   241→   241→│  ❌ Cannot change key or billing                                │
+   242→   242→│                                                                 │
+   243→   243→│  Concurrency handled by:                                        │
+   244→   244→│  • WebSocket per session (real-time updates)                    │
+   245→   245→│  • Optimistic locking on writes (no conflicts)                  │
+   246→   246→│  • Each chat session has unique session_id                      │
+   247→   247→│  • Jarvis tracks which admin is in which session                │
+   248→   248→└─────────────────────────────────────────────────────────────────┘
+   249→   249→```
+   250→   250→
+   251→   251→### Key Security Measures
+   252→   252→
+   253→   253→| Measure | How It Works |
+   254→   254→|---------|-------------|
+   255→   255→| Cryptographic randomness | 32-char key using `secrets.token_urlsafe(24)` — not guessable |
+   256→   256→| Hashed storage | Key stored as SHA-256 hash in DB — never in plaintext |
+   257→   257→| Rate limiting | 5 failed key attempts → 15-minute lockout per IP |
+   258→   258→| Session binding | Each key use creates a signed JWT with tenant_id + session_id |
+   259→   259→| Key rotation | Admin can regenerate anytime — old key instantly invalid |
+   260→   260→| Audit logging | Every key use logged with IP, timestamp, action |
+   261→   261→| No key in URLs | Key sent in Authorization header, never in query params |
+   262→   262→
+   263→   263→### Database Schema — Keys
+   264→   264→
+   265→   265→```sql
+   266→   266→CREATE TABLE access_keys (
+   267→   267→    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+   268→   268→    tenant_id       UUID NOT NULL REFERENCES tenants(id),
+   269→   269→    key_hash        VARCHAR(64) NOT NULL UNIQUE,  -- SHA-256 hash
+   270→   270→    key_prefix      VARCHAR(12) NOT NULL,          -- "pk_live_xxx" for display
+   271→   271→    created_by      UUID NOT NULL REFERENCES users(id),
+   272→   272→    created_at      TIMESTAMPTZ DEFAULT NOW(),
+   273→   273→    expires_at      TIMESTAMPTZ,
+   274→   274→    last_used_at    TIMESTAMPTZ,
+   275→   275→    is_active       BOOLEAN DEFAULT TRUE,
+   276→   276→    
+   277→   277→    INDEX idx_access_keys_key_hash (key_hash),
+   278→   278→    INDEX idx_access_keys_tenant_id (tenant_id)
+   279→   279→);
+   280→   280→
+   281→   281→CREATE TABLE users (
+   282→   282→    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+   283→   283→    tenant_id       UUID NOT NULL REFERENCES tenants(id),
+   284→   284→    email           VARCHAR(255) NOT NULL,
+   285→   285→    password_hash   VARCHAR(255) NOT NULL,
+   286→   286→    role            VARCHAR(20) NOT NULL DEFAULT 'admin',  -- 'admin' or 'team'
+   287→   287→    is_account_owner BOOLEAN DEFAULT FALSE,
+   288→   288→    created_at      TIMESTAMPTZ DEFAULT NOW(),
+   289→   289→    
+   290→   290→    UNIQUE(tenant_id, email)
+   291→   291→);
+   292→   292→
+   293→   293→CREATE TABLE key_usage_audit (
+   294→   294→    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+   295→   295→    tenant_id       UUID NOT NULL,
+   296→   296→    key_prefix      VARCHAR(12) NOT NULL,
+   297→   297→    action          VARCHAR(50) NOT NULL,
+   298→   298→    ip_address      INET,
+   299→   299→    user_agent      TEXT,
+   300→   300→    created_at      TIMESTAMPTZ DEFAULT NOW()
+   301→   301→);
+   302→   302→```
+   303→   303→
+   304→   304→### Key Delivery — Before First Victory
+   305→   305→
+   306→   306→The key is generated and displayed during onboarding as the LAST step before the variant processes its first ticket (the "first victory"). The flow is:
+   307→   307→
+   308→   308→```
+   309→   309→Onboarding Step 1: Company Info
+   310→   310→Onboarding Step 2: Variant Selection (Mini / PARWA / High)
+   311→   311→Onboarding Step 3: Integration Setup (Email, SMS, CRM, etc.)
+   312→   312→Onboarding Step 4: Knowledge Base Upload (docs, policies)
+   313→   313→Onboarding Step 5: Policy Configuration (refund rules, etc.)
+   314→   314→    │
+   315→   315→    ▼
+   316→   316→┌──────────────────────────────────────────────────┐
+   317→   317→│  🎉 YOUR ACCESS KEY IS READY!                    │
+   318→   318→│                                                   │
+   319→   319→│  pk_live_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6      │
+   320→   320→│                                                   │
+   321→   321→│  ⚠️ Save this key now. It won't be shown again.  │
+   322→   322→│  Share it with your team to access the dashboard. │
+   323→   323→│  Only you (admin) can regenerate this key.        │
+   324→   324→│                                                   │
+   325→   325→│  [Copy Key]  [Download as .txt]  [Continue]       │
+   326→   326→└──────────────────────────────────────────────────┘
+   327→   327→    │
+   328→   328→    ▼
+   329→   329→Onboarding Step 6: First Ticket Test (first victory)
+   330→   330→    → System processes a test ticket to verify everything works
+   331→   331→    → Dashboard becomes fully active
+   332→   332→```
+   333→   333→
+   334→   334→---
+   335→   335→
+   336→   336→## 3. Onboarding Flow & Dashboard Wiring
+   337→   337→
+   338→   338→### Complete Onboarding Pipeline
+   339→   339→
+   340→   340→The onboarding flow is a 6-step wizard that sets up everything a client needs. Every choice made during onboarding is **wired directly into the dashboard** — what you configure here shows there in real-time.
+   341→   341→
+   342→   342→```
+   343→   343→┌─────────────────────────────────────────────────────────────────┐
+   344→   344→│                    ONBOARDING FLOW (6 Steps)                     │
+   345→   345→│                                                                 │
+   346→   346→│  Step 1: ACCOUNT SETUP                                          │
+   347→   347→│  ┌─────────────────────────────────────────────────────────┐    │
+   348→   348→│  │  • Company name                                         │    │
+   349→   349→│  │  • Admin email + master password                        │    │
+   350→   350→│  │  • Industry category (helps initial knowledge)          │    │
+   351→   351→│  │  • Company size (helps quota recommendations)           │    │
+   352→   352→│  │                                                         │    │
+   353→   353→│  │  → Creates tenant_id in database                        │    │
+   354→   354→│  │  → Creates admin user record                            │    │
+   355→   355→│  │  → Initializes empty AI Wiki (Sections A, B, C)        │    │
+   356→   356→│  │  → Dashboard: Shows "Setup in Progress"                 │    │
+   357→   357→│  └─────────────────────────────────────────────────────────┘    │
+   358→   358→│                           │                                     │
+   359→   359→│                           ▼                                     │
+   360→   360→│  Step 2: VARIANT SELECTION                                      │
+   361→   361→│  ┌─────────────────────────────────────────────────────────┐    │
+   362→   362→│  │  • Choose tier: Mini / PARWA / High                     │    │
+   363→   363→│  │  • See what each tier can do (interactive comparison)   │    │
+   364→   364→│  │  • Monthly/Annual billing toggle                        │    │
+   365→   365→│  │  • Quota preview (how many tickets/month)               │    │
+   366→   366→│  │                                                         │    │
+   367→   367→│  │  → Creates variant_registry entry for tenant            │    │
+   368→   368→│  │  → Sets initial quota based on tier                     │    │
+   369→   369→│  │  → Dashboard: Shows variant badge + quota meter         │    │
+   370→   370→│  └─────────────────────────────────────────────────────────┘    │
+   371→   371→│                           │                                     │
+   372→   372→│                           ▼                                     │
+   373→   373→│  Step 3: INTEGRATION SETUP (Connect Your Tools)                 │
+   374→   374→│  ┌─────────────────────────────────────────────────────────┐    │
+   375→   375→│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐      │    │
+   376→   376→│  │  │ Email   │ │  SMS    │ │  Calls  │ │  Chat   │      │    │
+   377→   377→│  │  │ ● Gmail│ │ ● Twilio│ │ ● Twilio│ │ ● WA   │      │    │
+   378→   378→│  │  │ ○ Other│ │ ○ MSG91 │ │ ○ Vonage│ │ ○ Inter.│      │    │
+   379→   379→│  │  └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘      │    │
+   380→   380→│  │       │           │           │           │            │    │
+   381→   381→│  │  ┌────┴────┐ ┌────┴────┐ ┌────┴────┐                  │    │
+   382→   382→│  │  │  CRM   │ │Helpdesk │ │  Docs   │                  │    │
+   383→   383→│  │  │●HubSpot│ │●ZenDesk │ │●Notion  │                  │    │
+   384→   384→│  │  │○SF DC  │ │○Fresh.  │ │○GDrive  │                  │    │
+   385→   385→│  │  └────────┘ └─────────┘ └─────────┘                  │    │
+   386→   386→│  │                                                         │    │
+   387→   387→│  │  Each integration:                                      │    │
+   388→   388→│  │  • OAuth flow or API key input                         │    │
+   389→   389→│  │  • Test connection button (verify it works)            │    │
+   390→   390→│  │  • Choose which channels to monitor                    │    │
+   391→   391→│  │                                                         │    │
+   392→   392→│  │  → Stores encrypted credentials per tenant             │    │
+   393→   393→│  │  → Registers integration in UCB                        │    │
+   394→   394→│  │  → Dashboard: Shows connected tools with status ✅/❌  │    │
+   395→   395→│  └─────────────────────────────────────────────────────────┘    │
+   396→   396→│                           │                                     │
+   397→   397→│                           ▼                                     │
+   398→   398→│  Step 4: KNOWLEDGE BASE UPLOAD                                  │
+   399→   399→│  ┌─────────────────────────────────────────────────────────┐    │
+   400→   400→│  │  • Upload company docs (PDF, DOCX, URLs)               │    │
+   401→   401→│  │  • Enter refund/return policies                         │    │
+   402→   402→│  │  • Add product/service information                      │    │
+   403→   403→│  │  • FAQ import                                           │    │
+   404→   404→│  │  • Auto-parse and chunk documents                       │    │
+   405→   405→│  │  • Show preview of what was parsed                      │    │
+   406→   406→│  │                                                         │    │
+   407→   407→│  │  → Documents stored in tenant-scoped vector store       │    │
+   408→   408→│  │  → Policies stored in AI Wiki Section C                 │    │
+   409→   409→│  │  → Dashboard: Shows knowledge base stats (docs, chunks)│    │
+   410→   410→│  └─────────────────────────────────────────────────────────┘    │
+   411→   411→│                           │                                     │
+   412→   412→│                           ▼                                     │
+   413→   413→│  Step 5: POLICY CONFIGURATION                                   │
+   414→   414→│  ┌─────────────────────────────────────────────────────────┐    │
+   415→   415→│  │  • Set refund rules (auto-approve under $X?)            │    │
+   416→   416→│  │  • Set credit rules                                     │    │
+   417→   417→│  │  • Define escalation triggers                           │    │
+   418→   418→│  │  • Set response tone (formal/casual/friendly)           │    │
+   419→   419→│  │  • Business hours (when to respond vs queue)            │    │
+   420→   420→│  │  • Restricted actions (what needs human approval)       │    │
+   421→   421→│  │                                                         │    │
+   422→   422→│  │  → Stored in AI Wiki Section C (Company Knowledge)      │    │
+   423→   423→│  │  → PARWA Node 3 reads these on every ticket             │    │
+   424→   424→│  │  → Dashboard: Shows policy config summary               │    │
+   425→   425→│  └─────────────────────────────────────────────────────────┘    │
+   426→   426→│                           │                                     │
+   427→   427→│                           ▼                                     │
+   428→   428→│  Step 6: KEY GENERATION + FIRST VICTORY                         │
+   429→   429→│  ┌─────────────────────────────────────────────────────────┐    │
+   430→   430→│  │  ┌─────────────────────────────────────────────────┐    │    │
+   431→   431→│  │  │  🎉 YOUR ACCESS KEY IS READY!                    │    │    │
+   432→   432→│  │  │  pk_live_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6      │    │    │
+   433→   433→│  │  │  ⚠️ Save now. Won't show again.                  │    │    │
+   434→   434→│  │  │  [Copy] [Download] [Continue →]                  │    │    │
+   435→   435→│  │  └─────────────────────────────────────────────────┘    │    │
+   436→   436→│  │                                                         │    │
+   437→   437→│  │  After key is saved:                                    │    │
+   438→   438→│  │  • System sends a TEST TICKET through the pipeline      │    │
+   439→   439→│  │  • "Hi, what's your refund policy?" → goes through      │    │
+   440→   440→│  │    Node 1 → Node 2 → Node 3 → Node 7 → ✅ Resolved    │    │
+   441→   441→│  │  • First Victory = proof that everything works          │    │
+   442→   442→│  │  • Dashboard activates fully                            │    │
+   443→   443→│  │                                                         │    │
+   444→   444→│  │  → Access key stored (hashed) in database               │    │
+   445→   445→│  │  → First ticket processed → AI Wiki Section A created   │    │
+   446→   446→│  │  → Dashboard: FULLY ACTIVE                              │    │
+   447→   447→│  └─────────────────────────────────────────────────────────┘    │
+   448→   448→└─────────────────────────────────────────────────────────────────┘
+   449→   449→```
+   450→   450→
+   451→   451→### Onboarding ↔ Dashboard Wiring
+   452→   452→
+   453→   453→Every step of onboarding is **directly wired to the dashboard**. What you configure there appears here:
+   454→   454→
+   455→   455→| Onboarding Step | Dashboard Section | What Shows |
+   456→   456→|----------------|-------------------|------------|
+   457→   457→| Step 1: Account Setup | Top bar | Company name, admin avatar |
+   458→   458→| Step 2: Variant Selection | Left panel | Variant badge (Mini/PARWA/High), quota meter |
+   459→   459→| Step 3: Integration Setup | Bottom panel | Connected tools list with status ✅/❌, last sync time, tool health |
+   460→   460→| Step 4: Knowledge Base | Bottom panel → AI Wiki | Document count, chunk count, last updated |
+   461→   461→| Step 5: Policy Config | AI Wiki → Section C | Policy rules summary, response tone setting |
+   462→   462→| Step 6: Key Generation | Settings → Access | Active key (masked), session count, last activity |
+   463→   463→
+   464→   464→### Dashboard Live Updates During Onboarding
+   465→   465→
+   466→   466→```
+   467→   467→┌─────────────────────────────────────────────────────────────────┐
+   468→   468→│  DASHBOARD (builds up as onboarding progresses)                  │
+   469→   469→│                                                                 │
+   470→   470→│  BEFORE ONBOARDING:     [Setup in Progress — 0/6 complete]      │
+   471→   471→│                                                                 │
+   472→   472→│  AFTER STEP 1:         [1/6 ●○○○○○] Account created             │
+   473→   473→│  AFTER STEP 2:         [2/6 ●●○○○○] Variant: High ●            │
+   474→   474→│  AFTER STEP 3:         [3/6 ●●●○○○] Email ✅ HubSpot ✅         │
+   475→   475→│  AFTER STEP 4:         [4/6 ●●●●○○] 12 docs loaded             │
+   476→   476→│  AFTER STEP 5:         [5/6 ●●●●●○] Policies configured        │
+   477→   477→│  AFTER STEP 6:         [6/6 ●●●●●●] 🎉 FULLY ACTIVE            │
+   478→   478→│                                                                 │
+   479→   479→│  Each step progressively enables dashboard sections:             │
+   480→   480→│  • After Step 2: Variant panel + quota meter lights up           │
+   481→   481→│  • After Step 3: Integration status panel lights up              │
+   482→   482→│  • After Step 4: AI Wiki panel lights up                         │
+   483→   483→│  • After Step 5: Policy compliance badge shows in ticket view    │
+   484→   484→│  • After Step 6: Everything active, first ticket test runs       │
+   485→   485→└─────────────────────────────────────────────────────────────────┘
+   486→   486→```
+   487→   487→
+   488→   488→---
+   489→   489→
+   490→   490→## 4. PARWA 8-Node Pipeline — Complete Detail
+   491→   491→
+   492→   492→### Evolution: 62 Nodes → 8 Nodes
+   493→   493→
+   494→   494→| Before | After |
+   495→   495→|--------|-------|
+   496→   496→| 23 main nodes + 39 subgraph nodes = 62 total | 8 focused nodes |
+   497→   497→| 1 technique per node | Multiple techniques per node, some used across nodes |
+   498→   498→| Every ticket goes through all nodes | Smart routing: simple tickets skip LLM entirely |
+   499→   499→| No variant awareness | Node 2 handles variant matching + quota |
+   500→   500→| No quality loop | Max 2 loops → Super Node → Human escalation |
+   501→   501→| Subgraphs for sub-tasks | Layers inside nodes for sub-tasks |
+   502→   502→
+   503→   503→### The 8 Nodes at a Glance
+   504→   504→
+   505→   505→```
+   506→   506→┌─────────────────────────────────────────────────────────┐
+   507→   507→│                 NODE 1: INGEST + CLASSIFY                │
+   508→   508→│                 (WHAT is this ticket?)                   │
+   509→   509→│                 SmartRouter + UoT + DynamicContext       │
+   510→   510→│                 + MetaLearner                            │
+   511→   511→└──────────────────────────┬──────────────────────────────┘
+   512→   512→                           │
+   513→   513→                           ▼
+   514→   514→┌─────────────────────────────────────────────────────────┐
+   515→   515→│                 NODE 2: SMART ROUTE                      │
+   516→   516→│                 (WHO handles it + WHERE does it go?)     │
+   517→   517→│                 Variant Registry + Quota Tracker         │
+   518→   518→│                 + Capability Match + Route Decision      │
+   519→   519→│                 (0 LLM calls, pure logic)                │
+   520→   520→└──────────┬──────────────────────────────┬───────────────┘
+   521→   521→           │                              │
+   522→   522→      SIMPLE / MEDIUM                COMPLEX / HARD
+   523→   523→           │                              │
+   524→   524→           ▼                              ▼
+   525→   525→┌─────────────────────┐    ┌──────────────────────────────┐
+   526→   526→│  NODE 3: KNOWLEDGE  │    │  NODE 3: KNOWLEDGE           │
+   527→   527→│  FETCH + AI WIKI    │    │  FETCH + AI WIKI             │
+   528→   528→│  (shared by both)   │    │  (shared by both)            │
+   529→   529→└──────────┬──────────┘    └──────────────┬───────────────┘
+   530→   530→           │                              │
+   531→   531→           ▼                              ▼
+   532→   532→┌─────────────────────┐    ┌──────────────────────────────┐
+   533→   533→│  NODE 7: SIMPLE/    │    │  NODE 4: REASONING ENGINE    │
+   534→   534→│  MEDIUM RESOLVER    │    │  (4-layer: Decompose→Solve   │
+   535→   535→│  (3 non-LLM layers) │    │   →Validate→Combine)         │
+   536→   536→└──────────┬──────────┘    └──────────┬───────────────────┘
+   537→   537→           │                          │
+   538→   538→           │                          ▼
+   539→   539→           │              ┌──────────────────────────────┐
+   540→   540→           │              │  NODE 5: ACT + VERIFY        │
+   541→   541→           │              │  (Rule-based + ReAct +        │
+   542→   542→           │              │   Reverse Validation)        │
+   543→   543→           │              └──────────┬───────────────────┘
+   544→   544→           │                         │
+   545→   545→           │                         ▼
+   546→   546→           │              ┌──────────────────────────────┐
+   547→   547→           │              │  NODE 6: QUALITY + FORMAT    │
+   548→   548→           │              │  (Reflexion + CRP +          │
+   549→   549→           │              │   Quality Loop Gate)         │
+   550→   550→           │              └──────┬───────────┬───────────┘
+   551→   551→           │                     │           │
+   552→   552→           │                PASS ✓      FAIL (loop)
+   553→   553→           │                     │           │
+   554→   554→           │                     │     Back to Node 4
+   555→   555→           │                     │     (max 2 loops)
+   556→   556→           │                     │           │
+   557→   557→           │                     │     FAIL after 2
+   558→   558→           │                     │           │
+   559→   559→           │                     │           ▼
+   560→   560→           │                     │  ┌────────────────────┐
+   561→   561→           │                     │  │ NODE 8: SUPER NODE │
+   562→   562→           │                     │  │ (Maximum power,    │
+   563→   563→           │                     │  │  all heavy LLM     │
+   564→   564→           │                     │  │  techniques)       │
+   565→   565→           │                     │  └──────┬─────────────┘
+   566→   566→           │                     │         │
+   567→   567→           ▼                     ▼         ▼
+   568→   568→           ┌──────────────────────────────────────────┐
+   569→   569→           │          RESPONSE OUTPUT                   │
+   570→   570→           │     (or Human Escalation)                  │
+   571→   571→           └──────────────────────────────────────────┘
+   572→   572→```
+   573→   573→
+   574→   574→**IMPORTANT**: Node 3 (Knowledge Fetch) is SHARED by both paths. Every ticket — simple or complex — must go through the knowledge base. You cannot answer ANY ticket without evidence.
+   575→   575→
+   576→   576→---
+   577→   577→
+   578→   578→### NODE 1: INGEST + CLASSIFY
+   579→   579→
+   580→   580→**Purpose**: Receive the ticket, understand what it is, and extract all classification signals.
+   581→   581→
+   582→   582→**Question it answers**: WHAT is this ticket?
+   583→   583→
+   584→   584→| Technique | LLM? | What It Does Here | Why Here |
+   585→   585→|-----------|------|-------------------|----------|
+   586→   586→| SmartRouter | ❌ Non-LLM | Classifies ticket type (refund, billing, technical, etc.) and complexity (simple/medium/complex) | Primary classifier — fast, free, pattern-based |
+   587→   587→| UoT | ✅ LLM | Measures uncertainty in classification — if SmartRouter is confident but wrong, UoT catches it | Quality gate for classification. Prevents misrouting |
+   588→   588→| DynamicContext | ❌ Non-LLM | Pulls customer history, recent tickets, account type, conversation context | Classification needs context — same question from a Pro user vs Free user may need different paths |
+   589→   589→| MetaLearner | ❌ Non-LLM | Learns from past routing decisions — "last 50 tickets like this were simple and resolved correctly" | Improves routing accuracy over time without extra LLM calls |
+   590→   590→
+   591→   591→**Output**:
+   592→   592→```python
+   593→   593→{
+   594→   594→    "ticket_id": "tkt_123",
+   595→   595→    "ticket_type": "refund_request",
+   596→   596→    "complexity": "simple",
+   597→   597→    "required_action": "execute_refund",
+   598→   598→    "action_details": {"amount": 30, "currency": "USD"},
+   599→   599→    "confidence": 0.93,
+   600→   600→    "customer_context": {...},
+   601→   601→    "routing_suggestion": "simple_medium_path"
+   602→   602→}
+   603→   603→```
+   604→   604→
+   605→   605→**LLM Cost**: 1 call (UoT only)
+   606→   606→
+   607→   607→---
+   608→   608→
+   609→   609→### NODE 2: SMART ROUTE
+   610→   610→
+   611→   611→**Purpose**: Match the classified ticket to the right variant tier and route it to the correct pipeline path.
+   612→   612→
+   613→   613→**Question it answers**: WHO handles this ticket + WHERE does it go?
+   614→   614→
+   615→   615→| Component | What It Does |
+   616→   616→|-----------|-------------|
+   617→   617→| Variant Registry | Stores which variants the user has purchased |
+   618→   618→| Quota Tracker | Tracks how many tickets remain per variant per billing cycle |
+   619→   619→| Capability Matrix | Maps what each variant tier CAN and CANNOT do |
+   620→   620→| Route Decision | Applies the lowest eligible tier and routes to the right path |
+   621→   621→
+   622→   622→**Three-Dimensional Routing Logic**:
+   623→   623→
+   624→   624→1. **Capability Check**: Can this tier HANDLE this ticket type?
+   625→   625→2. **Quota Check**: Does this tier still have tickets remaining?
+   626→   626→3. **Efficiency Check**: Use the LOWEST tier that can handle it (preserve higher quotas for harder tickets)
+   627→   627→
+   628→   628→**Routing Decision Table**:
+   629→   629→
+   630→   630→| Ticket Need | Mini Can? | PARWA Can? | High Can? | Route To |
+   631→   631→|-------------|-----------|------------|-----------|----------|
+   632→   632→| Simple info only | ✅ | ✅ | ✅ | Node 7 (use Mini quota first) |
+   633→   633→| Recommend refund/credit | ✅ | ✅ | ✅ | Node 7 (use Mini quota first) |
+   634→   634→| Execute refund ≤ $500 | ❌ | ✅ | ✅ | Node 4 (use PARWA quota first) |
+   635→   635→| Execute refund > $500 | ❌ | ❌ | ✅ | Node 4 (use High quota) |
+   636→   636→| Execute credit ≤ $200 | ❌ | ✅ | ✅ | Node 4 (use PARWA quota first) |
+   637→   637→| Execute credit > $200 | ❌ | ❌ | ✅ | Node 4 (use High quota) |
+   638→   638→| Account change (limited) | ❌ | ✅ | ✅ | Node 4 (use PARWA quota first) |
+   639→   639→| Account change (full) | ❌ | ❌ | ✅ | Node 4 (use High quota) |
+   640→   640→| Any ticket, Mini quota exhausted | ❌ | depends | depends | Use next available tier |
+   641→   641→
+   642→   642→**Additional Input from Jarvis**: Jarvis Node 3 (NOTIFY) feeds real-time quota and variant status information to Node 2, ensuring routing decisions account for the most current state.
+   643→   643→
+   644→   644→**LLM Cost**: 0 calls (pure logic, database reads only)
+   645→   645→
+   646→   646→---
+   647→   647→
+   648→   648→### NODE 3: KNOWLEDGE FETCH + AI WIKI
+   649→   649→
+   650→   650→**Purpose**: Gather ALL relevant knowledge — from docs, AI Wiki, past tickets, compressed context. This is the EVIDENCE node.
+   651→   651→
+   652→   652→**Question it answers**: What do we KNOW about this problem?
+   653→   653→
+   654→   654→**CRITICAL**: Every ticket — simple or complex — goes through this node. You cannot answer any ticket without knowledge.
+   655→   655→
+   656→   656→| Technique | LLM? | What It Does Here | Why Here |
+   657→   657→|-----------|------|-------------------|----------|
+   658→   658→| CLARA | ✅ LLM | **GATEKEEPER** — decides WHAT knowledge is needed, WHERE to find it, WHETHER we have enough | Bad knowledge = bad reasoning. CLARA is the quality gate for evidence |
+   659→   659→| HyDE | ✅ LLM | Generates a hypothetical answer, uses it as a search query to find real docs | Finds docs that match the ANSWER space, not just the question keywords |
+   660→   660→| Multi-Query | ✅ LLM | Rewrites the user's question 3 different ways | Same question, different phrasings in docs — maximizes recall |
+   661→   661→| Step-Back | ✅ LLM | Steps back to find broader principles | "Why can't I refund?" → general refund policy, not just edge cases |
+   662→   662→| ContextualCompression | ❌ Non-LLM | Compresses retrieved docs — removes irrelevant paragraphs | Prevents reasoning overload |
+   663→   663→| DynamicContext | ❌ Non-LLM | Pulls conversation history + customer-specific context | Different customers may need different knowledge |
+   664→   664→
+   665→   665→**CLARA as Gatekeeper** (3 questions before knowledge passes through):
+   666→   666→
+   667→   667→```
+   668→   668→1. "Is this knowledge RELEVANT to the ticket?" → Filter irrelevant docs
+   669→   669→2. "Do we have ENOUGH knowledge to answer?" → If no, search again or flag gap
+   670→   670→3. "Is this knowledge CONTRADICTORY?" → If yes, keep both versions for Node 4
+   671→   671→```
+   672→   672→
+   673→   673→**AI Wiki 3-Section Access** (per client, isolated):
+   674→   674→
+   675→   675→| Section | What PARWA Does | Access by Tier |
+   676→   676→|---------|----------------|----------------|
+   677→   677→| Section A: Ticket Patterns | Reads similar patterns, writes new patterns on resolution | Mini: Read, PARWA: Read+Learn, High: Read+Write+Learn |
+   678→   678→| Section B: Admin Behavior | Reads admin preferences for tone/style | All tiers: Read |
+   679→   679→| Section C: Company Knowledge | Reads policies, refund rules, company info | All tiers: Read |
+   680→   680→
+   681→   681→**Policy Sync Check**: Before knowledge fetch, Node 3 checks if Section C policies are current (version tracking). If a policy was recently updated, it flags the new version for use in this ticket's reasoning.
+   682→   682→
+   683→   683→**CRM Data Fetch via UCB**: Node 3 also reaches out through the Unified Connector Bus to fetch relevant CRM data (customer's subscription status, recent interactions, account tier) from the client's connected tools (HubSpot, Salesforce, etc.). This data is scoped to the current tenant only.
+   684→   684→
+   685→   685→**LLM Cost**: 3-4 calls (CLARA + HyDE + Multi-Query + Step-Back)
+   686→   686→
+   687→   687→---
+   688→   688→
+   689→   689→### NODE 4: REASONING ENGINE
+   690→   690→
+   691→   691→**Purpose**: Think through the problem using all available evidence and techniques. The BRAIN of the pipeline.
+   692→   692→
+   693→   693→**Question it answers**: What is the RIGHT answer?
+   694→   694→
+   695→   695→**4-Layer Architecture**:
+   696→   696→
+   697→   697→#### Layer 1: DECOMPOSE (Break the problem down)
+   698→   698→
+   699→   699→| Technique | LLM? | Role | Why Here |
+   700→   700→|-----------|------|------|----------|
+   701→   701→| GSD | ❌ Non-LLM | Breaks complex problem into sub-problems | Free decomposition |
+   702→   702→| Least-to-Most | ✅ LLM | Orders sub-problems from easiest to hardest | Solving easy ones first gives context |
+   703→   703→
+   704→   704→#### Layer 2: SOLVE (Solve each sub-problem)
+   705→   705→
+   706→   706→| Technique | LLM? | Role | Why Here |
+   707→   707→|-----------|------|------|----------|
+   708→   708→| CoT | ✅ LLM | Step-by-step reasoning for each sub-problem | Core reasoning |
+   709→   709→| MAKER | ❌ Non-LLM | Bridges knowledge gaps between sub-problems | Finds connections |
+   710→   710→| ToT | ✅ LLM | Explores multiple solution paths for hard sub-problems | When CoT hits a wall |
+   711→   711→
+   712→   712→**MAKER + Least-to-Most as 3-Layer Stack**:
+   713→   713→```
+   714→   714→Layer A: Least-to-Most orders sub-problems (easiest → hardest)
+   715→   715→Layer B: MAKER bridges knowledge gaps between sub-problems
+   716→   716→Layer C: CoT solves each bridged sub-problem step by step
+   717→   717→```
+   718→   718→
+   719→   719→#### Layer 3: VALIDATE (Check each solution)
+   720→   720→
+   721→   721→| Technique | LLM? | Role | Why Here |
+   722→   722→|-----------|------|------|----------|
+   723→   723→| Reverse Thinking | ✅ LLM | Works backward from answer to validate | Forward reasoning can look right but be wrong |
+   724→   724→| ZeroShotValidator | ❌ Non-LLM | Flags statistically unusual solutions | Free safety net |
+   725→   725→| UoT | ✅ LLM | Measures uncertainty | Quantifies confidence |
+   726→   726→
+   727→   727→**ToT + Reverse Thinking as Forward+Backward Validation**:
+   728→   728→```
+   729→   729→ToT: Explores multiple paths FORWARD
+   730→   730→Reverse Thinking: Validates the best path BACKWARD
+   731→   731→Both together = double-checked reasoning
+   732→   732→```
+   733→   733→
+   734→   734→#### Layer 4: COMBINE (Merge all solutions into one answer)
+   735→   735→
+   736→   736→| Technique | LLM? | Role | Why Here |
+   737→   737→|-----------|------|------|----------|
+   738→   738→| ThoT | ❌ Non-LLM | Threads multiple solutions together coherently | No contradictions |
+   739→   739→| FederatedReasoning | ❌ Non-LLM | Aggregates solutions like a voting ensemble | Majority rules |
+   740→   740→| MetaLearner | ❌ Non-LLM | Adjusts combination weights based on past success | Learns which techniques are most reliable |
+   741→   741→
+   742→   742→**LLM Cost**: 3-4 calls (CoT + Least-to-Most + ToT + Reverse Thinking + UoT)
+   743→   743→
+   744→   744→---
+   745→   745→
+   746→   746→### NODE 5: ACT + VERIFY
+   747→   747→
+   748→   748→**Purpose**: Execute actions (refunds, credits, account changes) and verify they were done correctly.
+   749→   749→
+   750→   750→**Question it answers**: Did we DO the right thing?
+   751→   751→
+   752→   752→| Technique | LLM? | What It Does Here | Why Here |
+   753→   753→|-----------|------|-------------------|----------|
+   754→   754→| Rule-based actions | ❌ Non-LLM | For simple actions: "refund < $50 → auto-approve" | No LLM needed for deterministic actions |
+   755→   755→| ReAct | ✅ LLM | Think-Act-Observe loop for complex actions | Complex actions need observation and adaptation |
+   756→   756→| MAKER | ❌ Non-LLM | Bridges action knowledge gaps | Free knowledge bridging during execution |
+   757→   757→| GSD | ❌ Non-LLM | Decomposes multi-step actions into individual steps | Step-by-step tracking |
+   758→   758→| Reverse Thinking | ✅ LLM | After action: "If I reverse this, do I get back to original?" | Validates by checking reversibility |
+   759→   759→| ZeroShotValidator | ❌ Non-LLM | Flags wrong actions — "refund of $10,000 on a $5 order?" | Free anomaly detection |
+   760→   760→
+   761→   761→**Variant-Aware Action Execution**:
+   762→   762→
+   763→   763→| Action | Mini | PARWA | High |
+   764→   764→|--------|------|-------|------|
+   765→   765→| Refund ≤ $500 | Recommend only | Execute | Execute |
+   766→   766→| Refund > $500 | Recommend only | Recommend only | Execute |
+   767→   767→| Credit ≤ $200 | Recommend only | Execute | Execute |
+   768→   768→| Credit > $200 | Recommend only | Recommend only | Execute |
+   769→   769→| Account change (basic) | Recommend only | Execute | Execute |
+   770→   770→| Account change (full) | Recommend only | Recommend only | Execute |
+   771→   771→
+   772→   772→**UCB Action Execution**: When Node 5 needs to execute an action (send email reply, process refund through CRM, update account), it goes through the Unified Connector Bus. The UCB uses the current tenant's stored credentials to make the API call through the correct integration (HubSpot, Salesforce, SendGrid, etc.). This ensures actions go through the right channel with the right credentials.
+   773→   773→
+   774→   774→**LLM Cost**: 1-2 calls (ReAct + Reverse Thinking, only for complex actions)
+   775→   775→
+   776→   776→---
+   777→   777→
+   778→   778→### NODE 6: QUALITY + FORMAT
+   779→   779→
+   780→   780→**Purpose**: Final quality gate — is this answer good enough to send to the customer?
+   781→   781→
+   782→   782→**Question it answers**: Is this answer GOOD ENOUGH?
+   783→   783→
+   784→   784→| Technique | LLM? | What It Does Here | Why Here |
+   785→   785→|-----------|------|-------------------|----------|
+   786→   786→| Reflexion | ✅ LLM | Self-reflection — "Is this answer actually good?" | LLM critiques its own output |
+   787→   787→| CRP | ✅ LLM | Chain-of-Revision — rewrites for clarity and accuracy | Improves quality through revision |
+   788→   788→| ZeroShotValidator | ❌ Non-LLM | Final statistical check | Free quality signal |
+   789→   789→| GSD | ❌ Non-LLM | Checks each part of multi-part answers separately | Per-part quality |
+   790→   790→| ThoT | ❌ Non-LLM | Threads the final answer coherently | No contradictions |
+   791→   791→| ContextualCompression | ❌ Non-LLM | Compresses the final response — removes filler | Concise, actionable response |
+   792→   792→| FederatedReasoning | ❌ Non-LLM | Aggregates quality signals from all validators | Combined quality score |
+   793→   793→
+   794→   794→**Quality Scoring**:
+   795→   795→```python
+   796→   796→quality_score = weighted_average([
+   797→   797→    reflexion_score * 0.30,       # LLM self-critique (most trusted)
+   798→   798→    crp_score * 0.25,             # Revision quality
+   799→   799→    zero_shot_score * 0.20,       # Statistical validity
+   800→   800→    thot_coherence * 0.15,        # Logical coherence
+   801→   801→    gsd_part_scores * 0.10        # Per-part quality
+   802→   802→])
+   803→   803→```
+   804→   804→
+   805→   805→**LLM Cost**: 2 calls (Reflexion + CRP)
+   806→   806→
+   807→   807→---
+   808→   808→
+   809→   809→### NODE 7: SIMPLE/MEDIUM RESOLVER
+   810→   810→
+   811→   811→**Purpose**: Handle simple and medium tickets using ONLY non-LLM techniques. Fast, cheap, still accurate.
+   812→   812→
+   813→   813→**Question it answers**: Can we solve this WITHOUT LLM calls?
+   814→   814→
+   815→   815→**CRITICAL**: This node receives knowledge from Node 3. It does NOT skip knowledge fetch. Every ticket needs evidence.
+   816→   816→
+   817→   817→**3-Layer Architecture** (mirror of Nodes 4+5+6):
+   818→   818→
+   819→   819→#### Layer 1: THINK (mirror of Node 4 — Reasoning)
+   820→   820→
+   821→   821→| Technique | LLM? | Role |
+   822→   822→|-----------|------|------|
+   823→   823→| GSD | ❌ | Decompose the question into parts |
+   824→   824→| MAKER | ❌ | Bridge knowledge gaps from what Node 3 fetched |
+   825→   825→| ThoT | ❌ | Thread solutions together coherently |
+   826→   826→| FederatedReasoning | ❌ | Combine signals from multiple non-LLM techniques |
+   827→   827→| MetaLearner | ❌ | Use past patterns — "tickets like this were answered this way 500 times" |
+   828→   828→| ZeroShotValidator | ❌ | Flag anything that looks statistically off |
+   829→   829→
+   830→   830→**Why these work without LLM**: Simple tickets don't need deep reasoning. They need pattern matching and knowledge bridging. MetaLearner is especially powerful here — it has seen thousands of similar simple tickets and knows the right answer pattern.
+   831→   831→
+   832→   832→#### Layer 2: ACT (mirror of Node 5 — Action)
+   833→   833→
+   834→   834→| Technique | LLM? | Role |
+   835→   835→|-----------|------|------|
+   836→   836→| Rule-based actions | ❌ | Auto-approve simple refunds/credits within variant limits |
+   837→   837→| MAKER | ❌ | Bridge action knowledge gaps |
+   838→   838→| GSD | ❌ | Break multi-step actions into steps |
+   839→   839→| ZeroShotValidator | ❌ | Flag wrong actions — "refund of $10,000?" |
+   840→   840→
+   841→   841→**Variant restrictions still apply**: Even in Node 7, if the user only has Mini, we can only recommend — not execute.
+   842→   842→
+   843→   843→#### Layer 3: CHECK (mirror of Node 6 — Quality)
+   844→   844→
+   845→   845→| Technique | LLM? | Role |
+   846→   846→|-----------|------|------|
+   847→   847→| ZeroShotValidator | ❌ | Final quality check |
+   848→   848→| GSD | ❌ | Check each part of multi-part answers |
+   849→   849→| ThoT | ❌ | Ensure answer is coherent |
+   850→   850→| ContextualCompression | ❌ | Remove filler |
+   851→   851→| TurboCompress | ❌ | Ultra-fast compression for simple tickets |
+   852→   852→| FederatedReasoning | ❌ | Aggregate quality signals |
+   853→   853→
+   854→   854→**Safety Net** (critical):
+   855→   855→
+   856→   856→```
+   857→   857→IF Layer 3 ZeroShotValidator confidence < 80%:
+   858→   858→    → Auto-upgrade to Complex path (Node 4)
+   859→   859→    → Ticket enters full LLM pipeline
+   860→   860→    → This catches the 5-10% of "simple" tickets that are actually tricky
+   861→   861→```
+   862→   862→
+   863→   863→**LLM Cost**: 0 calls
+   864→   864→
+   865→   865→---
+   866→   866→
+   867→   867→### NODE 8: SUPER NODE
+   868→   868→
+   869→   869→**Purpose**: After 2 failed quality loops, throw EVERYTHING at the problem. Last resort before human escalation.
+   870→   870→
+   871→   871→**Question it answers**: Can the MOST POWERFUL approach solve this?
+   872→   872→
+   873→   873→**Activation Conditions**:
+   874→   874→- Ticket went through Node 4 → Node 5 → Node 6 → FAIL (loop 1)
+   875→   875→- Ticket went through Node 4 → Node 5 → Node 6 → FAIL (loop 2)
+   876→   876→- Both attempts failed → Super Node activates
+   877→   877→
+   878→   878→**NOT for simple tickets. NOT for first attempts. Only for genuinely hard cases that failed twice.**
+   879→   879→
+   880→   880→| Technique | LLM? | What It Does Here | Why Here |
+   881→   881→|-----------|------|-------------------|----------|
+   882→   882→| Self-Consistency | ✅ LLM | 3 independent reasoning attempts, majority vote wins | Catches hallucinations |
+   883→   883→| ToT | ✅ LLM | Explores ALL possible solution paths deeply | Maximum exploration |
+   884→   884→| Reverse Thinking | ✅ LLM | Forward AND backward reasoning simultaneously | Double validation |
+   885→   885→| Reflexion | ✅ LLM | Deep self-reflection on WHY previous attempts failed | Learns from failures |
+   886→   886→| CRP | ✅ LLM | Revision with full context of what went wrong | Better answer from failure analysis |
+   887→   887→| CoT | ✅ LLM | Step-by-step with maximum detail | Full reasoning chain |
+   888→   888→| ALL 11 non-LLM techniques | ❌ | Every amplifier active simultaneously | Maximum signal |
+   889→   889→
+   890→   890→**Super Node Execution Order**:
+   891→   891→```
+   892→   892→1. Reflexion: "WHY did the previous 2 attempts fail?"
+   893→   893→2. Self-Consistency: 3 independent solutions using different approaches
+   894→   894→3. ToT: Explore the most promising path deeply
+   895→   895→4. Reverse Thinking: Validate the best solution backward
+   896→   896→5. CRP: Rewrite the final answer incorporating all insights
+   897→   897→6. ZeroShotValidator + FederatedReasoning: Final quality check
+   898→   898→```
+   899→   899→
+   900→   900→**Super Node Decision**:
+   901→   901→```
+   902→   902→IF Super Node quality > 85%:
+   903→   903→    → SEND (we solved it!)
+   904→   904→ELIF Super Node quality <= 85%:
+   905→   905→    → ESCALATE TO HUMAN
+   906→   906→    → Include: original ticket + all 3 failed attempts + analysis
+   907→   907→    → Notification Center alerts admin with unique key
+   908→   908→    → Jarvis SENSE tracks this as stuck problem
+   909→   909→```
+   910→   910→
+   911→   911→**LLM Cost**: 5-6 calls (Self-Consistency = 3, plus ToT + Reverse Thinking + Reflexion)
+   912→   912→
+   913→   913→---
+   914→   914→
+   915→   915→## 5. Jarvis 3-Node Pipeline — Complete Detail
+   916→   916→
+   917→   917→### Architecture Overview
+   918→   918→
+   919→   919→Jarvis is the awareness engine, notification system, and admin chatbot. It follows the **OpenClaw pattern**: Observe → Think → Act → Verify. Jarvis does NOT auto-heal or take autonomous actions. It watches, evaluates, notifies, and answers admin questions.
+   920→   920→
+   921→   921→```
+   922→   922→┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+   923→   923→│   NODE 1     │────▶│   NODE 2     │────▶│   NODE 3     │
+   924→   924→│   SENSE      │     │   EVALUATE   │     │   NOTIFY     │
+   925→   925→│              │     │              │     │              │
+   926→   926→│  Observe     │     │  Think       │     │  Act + Verify│
+   927→   927→└──────────────┘     └──────────────┘     └──────────────┘
+   928→   928→```
+   929→   929→
+   930→   930→### Jarvis Techniques: 15 Total (11 Non-LLM + 4 LLM)
+   931→   931→
+   932→   932→**11 Non-LLM Techniques** (used for fast monitoring and pattern detection):
+   933→   933→
+   934→   934→| # | Technique | Role in Jarvis |
+   935→   935→|---|-----------|---------------|
+   936→   936→| 1 | SmartRouter | Classify admin questions and notification types |
+   937→   937→| 2 | GSD | Break complex admin queries into sub-questions |
+   938→   938→| 3 | MAKER | Bridge information gaps between monitoring domains |
+   939→   939→| 4 | ThoT | Thread multiple awareness signals into coherent story |
+   940→   940→| 5 | FederatedReasoning | Aggregate signals from multiple monitoring domains |
+   941→   941→| 6 | ZeroShotValidator | Flag unusual patterns in variant health or ticket flow |
+   942→   942→| 7 | MetaLearner | Learn admin preferences and common queries over time |
+   943→   943→| 8 | DynamicContext | Pull current variant state, quota, integration status |
+   944→   944→| 9 | ContextualCompression | Compress long monitoring reports for admin readability |
+   945→   945→| 10 | TurboCompress | Ultra-fast summary for chat responses |
+   946→   946→| 11 | AdaptiveBudget | Monitor Jarvis's own resource usage |
+   947→   947→
+   948→   948→**4 LLM Techniques** (used for complex admin questions and deep evaluation):
+   949→   949→
+   950→   950→| # | Technique | Role in Jarvis | When Used |
+   951→   951→|---|-----------|---------------|-----------|
+   952→   952→| 1 | CoT | Step-by-step reasoning for complex admin queries | "Why is refund resolution rate dropping?" |
+   953→   953→| 2 | CLARA | Clarify ambiguous admin questions before answering | "How's my variant doing?" → which aspect? |
+   954→   954→| 3 | Step-Back | Zoom out to broader context for strategic questions | "Should I upgrade my tier?" → analyze overall usage |
+   955→   955→| 4 | Reflexion | Self-critique on notification decisions before sending | "Is this notification worth sending? Could it be noise?" |
+   956→   956→
+   957→   957→---
+   958→   958→
+   959→   959→### NODE 1: SENSE (Observe)
+   960→   960→
+   961→   961→**Purpose**: Monitor everything. Collect signals from PARWA pipeline, variants, integrations, and knowledge base.
+   962→   962→
+   963→   963→**Question it answers**: What is happening RIGHT NOW?
+   964→   964→
+   965→   965→| What It Monitors | Source | Signal Type |
+   966→   966→|-----------------|--------|-------------|
+   967→   967→| PARWA node states | Pipeline state (all 8 nodes) | Health, throughput, error rate |
+   968→   968→| Ticket flow | Node 1, Node 2, Node 7, Node 4 | Volume, complexity split, stuck tickets |
+   969→   969→| Quota usage | Variant registry | Remaining quota, burn rate, projected exhaustion |
+   970→   970→| Stuck/unsolved problems | Node 7 (safety net), Node 8 (Super Node fail) | Ticket ID, failure reason, escalation |
+   971→   971→| Integration health | UCB | Tool connectivity, API errors, sync delays |
+   972→   972→| Policy changes | AI Wiki Section C | New policy version, updated rules |
+   973→   973→| Admin behavior | AI Wiki Section B | Recent admin commands, common questions |
+   974→   974→| Variant performance | Per-tenant metrics | Accuracy, resolution time, LLM cost |
+   975→   975→
+   976→   976→**Output**:
+   977→   977→```python
+   978→   978→{
+   979→   979→    "timestamp": "2026-06-16T10:30:00Z",
+   980→   980→    "tenant_id": "tenant_abc123",
+   981→   981→    "signals": {
+   982→   982→        "stuck_tickets": [
+   983→   983→            {"ticket_id": "tkt_456", "reason": "super_node_failed", "key": "PARWA-NFY-001"},
+   984→   984→            {"ticket_id": "tkt_789", "reason": "quality_loop_exhausted", "key": "PARWA-NFY-002"}
+   985→   985→        ],
+   986→   986→        "quota_status": {"mini": 47, "parwa": 234, "high": 1856},
+   987→   987→        "integration_health": {"hubspot": "healthy", "sendgrid": "degraded"},
+   988→   988→        "policy_version": {"refund_policy": "v2.3", "updated_at": "2026-06-15"},
+   989→   989→        "accuracy_trend": "stable_92_percent"
+   990→   990→    }
+   991→   991→}
+   992→   992→```
+   993→   993→
+   994→   994→**LLM Cost**: 0 calls (pure monitoring, data collection only)
+   995→   995→
+   996→   996→---
+   997→   997→
+   998→   998→### NODE 2: EVALUATE (Think)
+   999→   999→
+  1000→  1000→**Purpose**: Make sense of the signals. Decide what needs attention, what's noise, and what action to recommend.
+  1001→  1001→
+  1002→  1002→**Question it answers**: Does this MATTER? What should we DO about it?
+  1003→  1003→
+  1004→  1004→| Technique | LLM? | Role | When Active |
+  1005→  1005→|-----------|------|------|-------------|
+  1006→  1006→| CoT | ✅ LLM | Step-by-step reasoning for complex evaluations | Multiple stuck tickets, accuracy drops, quota projections |
+  1007→  1007→| CLARA | ✅ LLM | Clarify ambiguous signals before deciding | Is this a real problem or normal fluctuation? |
+  1008→  1008→| Step-Back | ✅ LLM | Zoom out to broader context | "3 stuck tickets today" → is that normal for this client? |
+  1009→  1009→| Reflexion | ✅ LLM | Self-critique on evaluation before sending | "Is this really worth notifying? Or is it noise?" |
+  1010→  1010→| SmartRouter | ❌ | Classify signal type and priority | Route to correct evaluation path |
+  1011→  1011→| GSD | ❌ | Break complex situations into sub-problems | Multiple issues simultaneously |
+  1012→  1012→| MAKER | ❌ | Bridge information gaps | Connect quota status with accuracy trend |
+  1013→  1013→| FederatedReasoning | ❌ | Aggregate signals from multiple domains | Combine stuck tickets + quota + integration health |
+  1014→  1014→| ZeroShotValidator | ❌ | Flag unusual patterns | "5 stuck tickets in 1 hour = abnormal" |
+  1015→  1015→| MetaLearner | ❌ | Learn from past evaluations | "Admin usually ignores these types of notifications" |
+  1016→  1016→| DynamicContext | ❌ | Pull current state for context | What variant, what quota, what time of day |
+  1017→  1017→
+  1018→  1018→**Priority Scoring**:
+  1019→  1019→
+  1020→  1020→```python
+  1021→  1021→priority_score = weighted_average([
+  1022→  1022→    impact_score * 0.30,      # How many customers affected?
+  1023→  1023→    urgency_score * 0.25,     # Time-sensitivity
+  1024→  1024→    trend_score * 0.20,       # Getting worse or stable?
+  1025→  1025→    admin_preference * 0.15,  # MetaLearner: does admin care about this?
+  1026→  1026→    frequency_score * 0.10    # Is this a one-off or recurring?
+  1027→  1027→])
+  1028→  1028→
+  1029→  1029→# Priority levels:
+  1030→  1030→# CRITICAL (> 0.85): Send immediately, push notification
+  1031→  1031→# HIGH (0.65-0.85): Send in next batch, show prominently
+  1032→  1032→# MEDIUM (0.40-0.65): Batch with similar, show in feed
+  1033→  1033→# LOW (< 0.40): Log only, don't notify
+  1034→  1034→```
+  1035→  1035→
+  1036→  1036→**LLM Cost**: 1-2 calls (CoT or CLARA for complex evaluations, Reflexion before sending)
+  1037→  1037→
+  1038→  1038→---
+  1039→  1039→
+  1040→  1040→### NODE 3: NOTIFY (Act + Verify)
+  1041→  1041→
+  1042→  1042→**Purpose**: Deliver the right information to the right place. Push notifications, answer chat questions, update wiki, feed data back to PARWA.
+  1043→  1043→
+  1044→  1044→**Question it answers**: HOW do we communicate this?
+  1045→  1045→
+  1046→  1046→| Action | Target | Technique |
+  1047→  1047→|--------|--------|-----------|
+  1048→  1048→| Push notification | Notification Center | Unique key + batching |
+  1049→  1049→| Answer admin chat | Jarvis chat interface | CoT + DynamicContext + knowledge retrieval |
+  1050→  1050→| Feed quota info | PARWA Node 2 | DynamicContext + quota state |
+  1051→  1051→| Update AI Wiki Section B | AI Wiki | MetaLearner patterns on admin behavior |
+  1052→  1052→| Alert on stuck tickets | Admin via Notification Center | Priority-based batching with unique keys |
+  1053→  1053→
+  1054→  1054→**Notification Delivery Rules**:
+  1055→  1055→
+  1056→  1056→```
+  1057→  1057→1. UNSOLVED/STUCK ONLY — never notify on resolved tickets
+  1058→  1058→2. UNIQUE KEY per notification: PARWA-NFY-XXX
+  1059→  1059→   → Admin can copy key and ask Jarvis: "What's PARWA-NFY-001?"
+  1060→  1060→3. BATCH SIMILAR ISSUES:
+  1061→  1061→   → "3 refund tickets stuck in Super Node" (not 3 separate notifications)
+  1062→  1062→   → Batch window: 5 minutes for similar issues
+  1063→  1063→4. PRIORITY-BASED DELIVERY:
+  1064→  1064→   → CRITICAL: Push immediately (WebSocket + email)
+  1065→  1065→   → HIGH: Next batch cycle (1 min)
+  1066→  1066→   → MEDIUM: Digest (5 min)
+  1067→  1067→   → LOW: Daily summary only
+  1068→  1068→```
+  1069→  1069→
+  1070→  1070→**Jarvis Chat Answers** (admin asks questions via chat):
+  1071→  1071→
+  1072→  1072→```
+  1073→  1073→Admin: "How many refunds did we process today?"
+  1074→  1074→Jarvis: Uses DynamicContext + AI Wiki + quota data
+  1075→  1075→       → "Today: 23 refund tickets resolved. 18 auto-approved (≤$500), 
+  1076→  1076→          5 required complex reasoning. 2 stuck — keys: PARWA-NFY-007, 
+  1077→  1077→          PARWA-NFY-008. Want details?"
+  1078→  1078→
+  1079→  1079→Admin: "What's PARWA-NFY-007?"
+  1080→  1080→Jarvis: Looks up notification by unique key
+  1081→  1081→       → "Ticket tkt_456: Customer wants refund of $1,200. High variant 
+  1082→  1082→          attempted but quality score was 78% after 2 loops. Super Node 
+  1083→  1083→          also failed (82%). Needs your manual review. Customer: 
+  1084→  1084→          Pro plan, 2-year member. Suggested action: Approve with 
+  1085→  1085→          manager override."
+  1086→  1086→
+  1087→  1087→Admin: "Should I upgrade from PARWA to High tier?"
+  1088→  1088→Jarvis: Uses Step-Back + CoT
+  1089→  1089→       → "Based on your last 30 days: 68% of tickets are simple (handled 
+  1090→  1090→          by Mini/PARWA). 22% are complex (PARWA handles up to $500 
+  1091→  1091→          refunds). The remaining 10% need High capabilities. You've 
+  1092→  1092→          had 8 tickets this month that exceeded PARWA limits and were 
+  1093→  1093→          recommended-only. If those 8 were worth > $500 each in 
+  1094→  1094→          customer satisfaction, upgrading makes sense. Current cost: 
+  1095→  1095→          $2,499/mo. High would be $4,999/mo. That's $2,500 more for 
+  1096→  1096→          8 tickets = ~$313/ticket. Worth it if those are high-value 
+  1097→  1097→          customers."
+  1098→  1098→```
+  1099→  1099→
+  1100→  1100→**LLM Cost**: 1-2 calls (for chat answers that need reasoning)
+  1101→  1101→
+  1102→  1102→---
+  1103→  1103→
+  1104→  1104→## 6. Notification Center
+  1105→  1105→
+  1106→  1106→### Design Principles
+  1107→  1107→
+  1108→  1108→1. **Unsolved/Stuck ONLY** — Resolved tickets never appear in notifications
+  1109→  1109→2. **Unique Keys** — Every notification has a key like `PARWA-NFY-XXX` that admin can reference in Jarvis chat
+  1110→  1110→3. **Batching** — Similar issues grouped together to reduce noise
+  1111→  1111→4. **No noise** — Low-priority signals logged but not pushed
+  1112→  1112→
+  1113→  1113→### Notification Schema
+  1114→  1114→
+  1115→  1115→```sql
+  1116→  1116→CREATE TABLE notifications (
+  1117→  1117→    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  1118→  1118→    tenant_id       UUID NOT NULL REFERENCES tenants(id),
+  1119→  1119→    notification_key VARCHAR(20) NOT NULL UNIQUE,  -- PARWA-NFY-XXX
+  1120→  1120→    type            VARCHAR(30) NOT NULL,  -- stuck_ticket, quota_low, integration_down, policy_change, accuracy_drop
+  1121→  1121→    priority        VARCHAR(10) NOT NULL,  -- CRITICAL, HIGH, MEDIUM, LOW
+  1122→  1122→    title           TEXT NOT NULL,
+  1123→  1123→    description     TEXT NOT NULL,
+  1124→  1124→    related_tickets JSONB,           -- Array of ticket_ids if batched
+  1125→  1125→    batch_key       VARCHAR(50),      -- For grouping similar notifications
+  1126→  1126→    is_read         BOOLEAN DEFAULT FALSE,
+  1127→  1127→    is_resolved     BOOLEAN DEFAULT FALSE,
+  1128→  1128→    created_at      TIMESTAMPTZ DEFAULT NOW(),
+  1129→  1129→    resolved_at     TIMESTAMPTZ,
+  1130→  1130→    
+  1131→  1131→    INDEX idx_notifications_tenant_id (tenant_id),
+  1132→  1132→    INDEX idx_notifications_key (notification_key),
+  1133→  1133→    INDEX idx_notifications_batch_key (batch_key)
+  1134→  1134→);
+  1135→  1135→```
+  1136→  1136→
+  1137→  1137→### Notification Flow
+  1138→  1138→
+  1139→  1139→```
+  1140→  1140→PARWA Node 7/8 fails ──▶ Jarvis SENSE detects ──▶ Jarvis EVALUATE scores priority
+  1141→  1141→    │
+  1142→  1142→    ▼
+  1143→  1143→┌──────────────────────────────────────────────────┐
+  1144→  1144→│  NOTIFICATION CENTER                             │
+  1145→  1145→│                                                  │
+  1146→  1146→│  🔴 CRITICAL                                     │
+  1147→  1147→│  ┌────────────────────────────────────────────┐  │
+  1148→  1148→│  │ PARWA-NFY-042 | HubSpot API down          │  │
+  1149→  1149→│  │ 3 tickets can't fetch CRM data            │  │
+  1150→  1150→│  │ [Ask Jarvis] [Mark Resolved]              │  │
+  1151→  1151→│  └────────────────────────────────────────────┘  │
+  1152→  1152→│                                                  │
+  1153→  1153→│  🟡 HIGH                                         │
+  1154→  1154→│  ┌────────────────────────────────────────────┐  │
+  1155→  1155→│  │ PARWA-NFY-043 | 2 tickets stuck in Super  │  │
+  1156→  1156→│  │ Node (batched)                             │  │
+  1157→  1157→│  │ • tkt_301: Refund $800 failed quality     │  │
+  1158→  1158→│  │ • tkt_305: Account change failed verify   │  │
+  1159→  1159→│  │ [Ask Jarvis] [Mark Resolved]              │  │
+  1160→  1160→│  └────────────────────────────────────────────┘  │
+  1161→  1161→│                                                  │
+  1162→  1162→│  🔵 MEDIUM                                       │
+  1163→  1163→│  ┌────────────────────────────────────────────┐  │
+  1164→  1164→│  │ PARWA-NFY-044 | Mini quota at 12%         │  │
+  1165→  1165→│  │ 47 remaining of 500 this month            │  │
+  1166→  1166→│  │ [Ask Jarvis] [Dismiss]                    │  │
+  1167→  1167→│  └────────────────────────────────────────────┘  │
+  1168→  1168→└──────────────────────────────────────────────────┘
+  1169→  1169→```
+  1170→  1170→
+  1171→  1171→---
+  1172→  1172→
+  1173→  1173→## 7. AI Wiki — 3-Section Per-Client Design
+  1174→  1174→
+  1175→  1175→### Architecture
+  1176→  1176→
+  1177→  1177→Each client gets their OWN AI Wiki with 3 sections. No data leaks between clients. Cross-read happens ONLY within the same client's wiki.
+  1178→  1178→
+  1179→  1179→```
+  1180→  1180→┌──────────────────────────────────────────────────────────┐
+  1181→  1181→│  AI Wiki for Client A (tenant_id: tenant_abc123)         │
+  1182→  1182→│                                                          │
+  1183→  1183→│  ┌────────────────────────────────────────────────────┐  │
+  1184→  1184→│  │  SECTION A: TICKET PATTERNS                        │  │
+  1185→  1185→│  │  • Who writes: PARWA (on ticket resolution)        │  │
+  1186→  1186→│  │  • Who reads: PARWA Node 3, Jarvis SENSE           │  │
+  1187→  1187→│  │  • What's stored:                                  │  │
+  1188→  1188→│  │    - Question → Answer patterns                    │  │
+  1189→  1189→│  │    - Which techniques worked for which ticket type  │  │
+  1190→  1190→│  │    - Common customer issues and solutions           │  │
+  1191→  1191→│  │    - Failure patterns (what didn't work)            │  │
+  1192→  1192→│  │  • Updated: Every time a ticket is resolved        │  │
+  1193→  1193→│  │  • Access: Mini=Read, PARWA=Read+Learn,            │  │
+  1194→  1194→│  │            High=Read+Write+Learn                    │  │
+  1195→  1195→│  └────────────────────────────────────────────────────┘  │
+  1196→  1196→│                                                          │
+  1197→  1197→│  ┌────────────────────────────────────────────────────┐  │
+  1198→  1198→│  │  SECTION B: ADMIN BEHAVIOR                         │  │
+  1199→  1199→│  │  • Who writes: Jarvis (on admin interactions)      │  │
+  1200→  1200→│  │  • Who reads: Jarvis EVALUATE, PARWA Node 3        │  │
+  1201→  1201→│  │  • What's stored:                                  │  │
+  1202→  1202→│  │    - Admin's preferred response tone               │  │
+  1203→  1203→│  │    - Common questions admin asks                   │  │
+  1204→  1204→│  │    - Which notifications admin ignores vs. acts on │  │
+  1205→  1205→│  │    - Manual overrides admin makes                  │  │
+  1206→  1206→│  │    - Time-of-day activity patterns                 │  │
+  1207→  1207→│  │  • Updated: Every admin-Jarvis interaction         │  │
+  1208→  1208→│  │  • Access: All tiers read, Jarvis writes           │  │
+  1209→  1209→│  └────────────────────────────────────────────────────┘  │
+  1210→  1210→│                                                          │
+  1211→  1211→│  ┌────────────────────────────────────────────────────┐  │
+  1212→  1212→│  │  SECTION C: COMPANY KNOWLEDGE                      │  │
+  1213→  1213→│  │  • Who writes: Admin (manually via dashboard)      │  │
+  1214→  1214→│  │  • Who reads: PARWA Node 3, Jarvis SENSE           │  │
+  1215→  1215→│  │  • What's stored:                                  │  │
+  1216→  1216→│  │    - Company policies (refund, return, exchange)    │  │
+  1217→  1217→│  │    - Product/service information                   │  │
+  1218→  1218→│  │    - Pricing tiers and features                    │  │
+  1219→  1219→│  │    - Business hours and escalation rules            │  │
+  1220→  1220→│  │    - Brand voice guidelines                        │  │
+  1221→  1221→│  │    - Restricted actions list                       │  │
+  1222→  1222→│  │  • Updated: Admin edits via dashboard              │  │
+  1223→  1223→│  │  • Version tracking: Each policy has version #     │  │
+  1224→  1224→│  │  • Access: All tiers read, Admin writes            │  │
+  1225→  1225→│  │  • Auto-detect: Jarvis SENSE detects policy changes│  │
+  1226→  1226→│  └────────────────────────────────────────────────────┘  │
+  1227→  1227→└──────────────────────────────────────────────────────────┘
+  1228→  1228→
+  1229→  1229→🔒 Client B has a COMPLETELY SEPARATE wiki. Zero cross-read.
+  1230→  1230→🔒 Client C has a COMPLETELY SEPARATE wiki. Zero cross-read.
+  1231→  1231→```
+  1232→  1232→
+  1233→  1233→### AI Wiki Database Schema
+  1234→  1234→
+  1235→  1235→```sql
+  1236→  1236→CREATE TABLE ai_wiki_entries (
+  1237→  1237→    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  1238→  1238→    tenant_id       UUID NOT NULL REFERENCES tenants(id),
+  1239→  1239→    section         VARCHAR(1) NOT NULL,  -- 'A', 'B', or 'C'
+  1240→  1240→    entry_key       VARCHAR(100) NOT NULL,  -- e.g., "refund_policy", "admin_tone_preference"
+  1241→  1241→    title           TEXT NOT NULL,
+  1242→  1242→    content         JSONB NOT NULL,
+  1243→  1243→    version         INTEGER DEFAULT 1,
+  1244→  1244→    tags            TEXT[],
+  1245→  1245→    created_by      VARCHAR(20) NOT NULL,  -- 'parwa', 'jarvis', 'admin'
+  1246→  1246→    created_at      TIMESTAMPTZ DEFAULT NOW(),
+  1247→  1247→    updated_at      TIMESTAMPTZ DEFAULT NOW(),
+  1248→  1248→    
+  1249→  1249→    UNIQUE(tenant_id, section, entry_key),
+  1250→  1250→    INDEX idx_wiki_tenant_section (tenant_id, section),
+  1251→  1251→    INDEX idx_wiki_tags (tenant_id, tags)
+  1252→  1252→);
+  1253→  1253→```
+  1254→  1254→
+  1255→  1255→---
+  1256→  1256→
+  1257→  1257→## 8. Integration Layer — Unified Connector Bus (UCB)
+  1258→  1258→
+  1259→  1259→### Purpose
+  1260→  1260→
+  1261→  1261→Variants need to CONNECT with real channels — Email, SMS, Calls, Chat, CRM, Helpdesk, Docs. Without this, PARWA can't receive tickets or send responses through the right channels. The UCB normalizes all these into a single interface.
+  1262→  1262→
+  1263→  1263→### Architecture
+  1264→  1264→
+  1265→  1265→```
+  1266→  1266→┌─────────────────────────────────────────────────────────────────┐
+  1267→  1267→│              UNIFIED CONNECTOR BUS (UCB)                         │
+  1268→  1268→│                                                                 │
+  1269→  1269→│  ┌─────────────────────────────────────────────────────────┐    │
+  1270→  1270→│  │  CHANNEL ADAPTERS (Inbound — tickets come IN)           │    │
+  1271→  1271→│  │                                                         │    │
+  1272→  1272→│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │    │
+  1273→  1273→│  │  │  Email   │ │   SMS    │ │  Calls   │ │  Chat    │  │    │
+  1274→  1274→│  │  │SendGrid  │ │ Twilio   │ │ Twilio   │ │WhatsApp  │  │    │
+  1275→  1275→│  │  │Mailgun   │ │MSG91    │ │ Vonage   │ │Intercom  │  │    │
+  1276→  1276→│  │  │Gmail API │ │SNS      │ │Aircall   │ │Crisp     │  │    │
+  1277→  1277→│  │  └──────────┘ └──────────┘ └──────────┘ │Slack     │  │    │
+  1278→  1278→│  │                                           └──────────┘  │    │
+  1279→  1279→│  └─────────────────────────┬───────────────────────────────┘    │
+  1280→  1280→│                            │                                     │
+  1281→  1281→│                            ▼                                     │
+  1282→  1282→│  ┌─────────────────────────────────────────────────────────┐    │
+  1283→  1283→│  │  NORMALIZATION ENGINE                                   │    │
+  1284→  1284→│  │                                                         │    │
+  1285→  1285→│  │  • All incoming formats → Standard Ticket Format        │    │
+  1286→  1286→│  │  • Email subject+body → ticket title+description        │    │
+  1287→  1287→│  │  • SMS text → ticket description                        │    │
+  1288→  1288→│  │  • Call transcript → ticket description                 │    │
+  1289→  1289→│  │  • Chat message → ticket description                    │    │
+  1290→  1290→│  │  • Attach metadata: channel_type, sender, timestamp     │    │
+  1291→  1291→│  │  • Per-tenant credential vault (encrypted, isolated)    │    │
+  1292→  1292→│  └─────────────────────────┬───────────────────────────────┘    │
+  1293→  1293→│                            │                                     │
+  1294→  1294→│                            ▼                                     │
+  1295→  1295→│                    Standardized Ticket                           │
+  1296→  1296→│                    (goes to PARWA Node 1)                        │
+  1297→  1297→│                                                                 │
+  1298→  1298→│  ┌─────────────────────────────────────────────────────────┐    │
+  1299→  1299→│  │  ACTION ADAPTERS (Outbound — responses go OUT)          │    │
+  1300→  1300→│  │                                                         │    │
+  1301→  1301→│  │  • Reply via same channel (email reply, SMS reply, etc) │    │
+  1302→  1302→│  │  • Execute actions in CRM (refund in HubSpot, etc)      │    │
+  1303→  1303→│  │  • Update customer records in connected tools           │    │
+  1304→  1304→│  │  • Uses tenant's own credentials for all actions        │    │
+  1305→  1305→│  └─────────────────────────┬───────────────────────────────┘    │
+  1306→  1306→│                            │                                     │
+  1307→  1307→│  ┌─────────────────────────┴───────────────────────────────┐    │
+  1308→  1308→│  │  SYNC ADAPTERS (Context — data pulled FOR context)      │    │
+  1309→  1309→│  │                                                         │    │
+  1310→  1310→│  │  • Fetch customer data from CRM (PARWA Node 3 uses)     │    │
+  1311→  1311→│  │  • Pull recent interactions from helpdesk               │    │
+  1312→  1312→│  │  • Sync knowledge docs from Notion/Confluence/Drive     │    │
+  1313→  1313→│  │  • Uses tenant's own credentials — zero cross-tenant    │    │
+  1314→  1314→│  └─────────────────────────────────────────────────────────┘    │
+  1315→  1315→│                                                                 │
+  1316→  1316→│  ┌─────────────────────────────────────────────────────────┐    │
+  1317→  1317→│  │  INFRASTRUCTURE                                         │    │
+  1318→  1318→│  │                                                         │    │
+  1319→  1319→│  │  • Health checks: Every 60s per integration             │    │
+  1320→  1320→│  │  • Retry logic: 3 retries with exponential backoff      │    │
+  1321→  1321→│  │  • Rate limiting: Per-integration, per-tenant           │    │
+  1322→  1322→│  │  • Credential vault: AES-256 encrypted per tenant       │    │
+  1323→  1323→│  │  • Webhook management: Register + verify per tenant     │    │
+  1324→  1324→│  │  • Error reporting: Feed to Jarvis SENSE on failure     │    │
+  1325→  1325→│  └─────────────────────────────────────────────────────────┘    │
+  1326→  1326→└─────────────────────────────────────────────────────────────────┘
+  1327→  1327→```
+  1328→  1328→
+  1329→  1329→### UCB Connection Points to PARWA
+  1330→  1330→
+  1331→  1331→| PARWA Node | UCB Direction | What Happens |
+  1332→  1332→|-----------|--------------|-------------|
+  1333→  1333→| Node 1 (Ingest) | INBOUND | Normalized tickets arrive from UCB channel adapters |
+  1334→  1334→| Node 3 (Knowledge) | SYNC | Fetch CRM data, customer history from connected tools |
+  1335→  1335→| Node 5 (Act+Verify) | OUTBOUND | Execute actions (send reply, process refund) via UCB action adapters |
+  1336→  1336→| Jarvis SENSE | MONITOR | UCB health status feeds into Jarvis monitoring |
+  1337→  1337→
+  1338→  1338→### Integration Registry Schema
+  1339→  1339→
+  1340→  1340→```sql
+  1341→  1341→CREATE TABLE integrations (
+  1342→  1342→    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  1343→  1343→    tenant_id       UUID NOT NULL REFERENCES tenants(id),
+  1344→  1344→    integration_type VARCHAR(30) NOT NULL,  -- 'email', 'sms', 'calls', 'chat', 'crm', 'helpdesk', 'docs'
+  1345→  1345→    provider        VARCHAR(30) NOT NULL,  -- 'sendgrid', 'twilio', 'hubspot', etc.
+  1346→  1346→    credentials     JSONB NOT NULL,        -- Encrypted API keys, OAuth tokens
+  1347→  1347→    config          JSONB NOT NULL,        -- Channel settings, sync preferences
+  1348→  1348→    is_active       BOOLEAN DEFAULT TRUE,
+  1349→  1349→    last_sync_at    TIMESTAMPTZ,
+  1350→  1350→    health_status   VARCHAR(10) DEFAULT 'healthy',  -- 'healthy', 'degraded', 'down'
+  1351→  1351→    created_at      TIMESTAMPTZ DEFAULT NOW(),
+  1352→  1352→    
+  1353→  1353→    INDEX idx_integrations_tenant_id (tenant_id),
+  1354→  1354→    INDEX idx_integrations_type_provider (integration_type, provider)
+  1355→  1355→);
+  1356→  1356→```
+  1357→  1357→
+  1358→  1358→---
+  1359→  1359→
+  1360→  1360→## 9. Multi-Tenant Data Isolation
+  1361→  1361→
+  1362→  1362→### Isolation Strategy
+  1363→  1363→
+  1364→  1364→Every data layer uses `tenant_id` as a MANDATORY filter. This is enforced at the database level, not just application level, to guarantee zero data leakage.
+  1365→  1365→
+  1366→  1366→### Database Level
+  1367→  1367→
+  1368→  1368→```sql
+  1369→  1369→-- Row-Level Security (RLS) on EVERY table
+  1370→  1370→ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
+  1371→  1371→CREATE POLICY tenant_isolation ON tickets
+  1372→  1372→    USING (tenant_id = current_setting('app.tenant_id')::UUID);
+  1373→  1373→
+  1374→  1374→ALTER TABLE ai_wiki_entries ENABLE ROW LEVEL SECURITY;
+  1375→  1375→CREATE POLICY tenant_isolation ON ai_wiki_entries
+  1376→  1376→    USING (tenant_id = current_setting('app.tenant_id')::UUID);
+  1377→  1377→
+  1378→  1378→ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+  1379→  1379→CREATE POLICY tenant_isolation ON notifications
+  1380→  1380→    USING (tenant_id = current_setting('app.tenant_id')::UUID);
+  1381→  1381→
+  1382→  1382→-- Same for: knowledge_base, quota_tracking, integrations,
+  1383→  1383→-- access_keys, variant_registry, key_usage_audit, etc.
+  1384→  1384→```
+  1385→  1385→
+  1386→  1386→### Vector Store Level
+  1387→  1387→
+  1388→  1388→```
+  1389→  1389→• Each tenant = separate namespace/collection
+  1390→  1390→• Embeddings scoped to tenant_id
+  1391→  1391→• Search queries auto-filter by tenant
+  1392→  1392→• 🔒 Client A's tickets NEVER appear in Client B's AI Wiki search results
+  1393→  1393→```
+  1394→  1394→
+  1395→  1395→### Credential Isolation
+  1396→  1396→
+  1397→  1397→```
+  1398→  1398→• Each client's API keys in encrypted vault (AES-256)
+  1399→  1399→• HubSpot key of Client A ≠ accessible by Client B
+  1400→  1400→• OAuth tokens scoped per tenant
+  1401→  1401→• 🔒 When PARWA Node 5 acts, it uses ONLY the current ticket's tenant credentials
+  1402→  1402→```
+  1403→  1403→
+  1404→  1404→### Variant Instance Isolation
+  1405→  1405→
+  1406→  1406→```
+  1407→  1407→Client A buys "Medium" → Medium Agent A (scoped to tenant_id A)
+  1408→  1408→Client B buys "Medium" → Medium Agent B (scoped to tenant_id B)
+  1409→  1409→
+  1410→  1410→Same tier, DIFFERENT:
+  1411→  1411→• Knowledge base (Client A's products ≠ B's)
+  1412→  1412→• AI Wiki (Client A's patterns ≠ B's)
+  1413→  1413→• Connected tools (Client A's HubSpot ≠ B's)
+  1414→  1414→• Policies (Client A's refund rules ≠ B's)
+  1415→  1415→• Quota pool (Client A's 500/mo ≠ B's 500/mo)
+  1416→  1416→
+  1417→  1417→🔒 ONE agent codebase, MANY isolated instances
+  1418→  1418→```
+  1419→  1419→
+  1420→  1420→### Shared vs Isolated Data
+  1421→  1421→
+  1422→  1422→| Data | Shared? | Why |
+  1423→  1423→|------|---------|-----|
+  1424→  1424→| Agent codebase | ✅ Shared | Same 8-node pipeline code for all |
+  1425→  1425→| Technique library | ✅ Shared | Same 25 techniques for all |
+  1426→  1426→| LLM models | ✅ Shared | Same API endpoints for all |
+  1427→  1427→| Tenant data | ❌ Isolated | Each client's data is their own |
+  1428→  1428→| AI Wiki | ❌ Isolated | Per-client wiki with 3 sections |
+  1429→  1429→| Knowledge base | ❌ Isolated | Per-client docs and policies |
+  1430→  1430→| Integration creds | ❌ Isolated | Per-client API keys |
+  1431→  1431→| Quota tracking | ❌ Isolated | Per-client usage counters |
+  1432→  1432→| Notifications | ❌ Isolated | Per-client alerts |
+  1433→  1433→| Access keys | ❌ Isolated | Per-client key management |
+  1434→  1434→
+  1435→  1435→---
+  1436→  1436→
+  1437→  1437→## 10. Policy Change Detection
+  1438→  1438→
+  1439→  1439→### Flow
+  1440→  1440→
+  1441→  1441→When a company changes policies (refund rules, pricing, etc.), the system must ensure PARWA doesn't act on stale data.
+  1442→  1442→
+  1443→  1443→```
+  1444→  1444→┌─────────────────────────────────────────────────────────────────┐
+  1445→  1445→│              POLICY CHANGE DETECTION FLOW                        │
+  1446→  1446→│                                                                 │
+  1447→  1447→│  1. Admin updates policy in AI Wiki Section C                   │
+  1448→  1448→│     → Via dashboard → Edit policy → Save                        │
+  1449→  1449→│     → Version increments (v2.2 → v2.3)                          │
+  1450→  1450→│     → updated_at timestamp changes                              │
+  1451→  1451→│                                                                 │
+  1452→  1452→│  2. Jarvis SENSE detects the change                             │
+  1453→  1453→│     → Monitors Section C for version changes                    │
+  1454→  1454→│     → Compares: "refund_policy changed from v2.2 to v2.3"      │
+  1455→  1455→│     → Creates awareness signal                                  │
+  1456→  1456→│                                                                 │
+  1457→  1457→│  3. Jarvis EVALUATE assesses impact                             │
+  1458→  1458→│     → "Refund policy changed. Current active tickets may        │
+  1459→  1459→│        be using old policy. Priority: HIGH"                     │
+  1460→  1460→│     → CoT reasoning: which nodes are affected?                  │
+  1461→  1461→│                                                                 │
+  1462→  1462→│  4. Jarvis NOTIFY informs relevant systems                      │
+  1463→  1463→│     → Feeds updated policy to PARWA Node 2 (quota/routing)     │
+  1464→  1464→│     → Notification Center: "Policy updated: Refund v2.3"       │
+  1465→  1465→│     → PARWA Node 3: Next knowledge fetch pulls fresh policy    │
+  1466→  1466→│                                                                 │
+  1467→  1467→│  5. PARWA Node 3 picks up fresh policy                          │
+  1468→  1468→│     → Policy Sync Check on every ticket: is Section C current? │
+  1469→  1469→│     → If version changed since last fetch → re-fetch            │
+  1470→  1470→│     → All subsequent tickets use new policy                     │
+  1471→  1471→│                                                                 │
+  1472→  1472→│  6. In-flight tickets                                           │
+  1473→  1473→│     → Tickets already past Node 3 use the policy they fetched  │
+  1474→  1474→│     → Only tickets that haven't reached Node 3 yet get new one │
+  1475→  1475→│     → This prevents mid-pipeline inconsistency                  │
+  1476→  1476→└─────────────────────────────────────────────────────────────────┘
+  1477→  1477→```
+  1478→  1478→
+  1479→  1479→---
+  1480→  1480→
+  1481→  1481→## 11. 25 Techniques — LLM vs Non-LLM Classification
+  1482→  1482→
+  1483→  1483→### 11 Non-LLM Techniques (Free, Instant)
+  1484→  1484→
+  1485→  1485→| # | Technique | Full Name | What It Does |
+  1486→  1486→|---|-----------|-----------|-------------|
+  1487→  1487→| 1 | SmartRouter | Smart Router | Classifies ticket type and complexity using rule-based patterns |
+  1488→  1488→| 2 | GSD | Goal Sub-Goal Decomposition | Breaks complex problems into sub-problems |
+  1489→  1489→| 3 | MAKER | Multi-Agent Knowledge Extraction & Reasoning | Bridges knowledge gaps by finding connections |
+  1490→  1490→| 4 | ThoT | Thread of Thought | Threads multiple reasoning paths together coherently |
+  1491→  1491→| 5 | FederatedReasoning | Federated Reasoning | Aggregates solutions from multiple techniques like voting |
+  1492→  1492→| 6 | ZeroShotValidator | Zero-Shot Validator | Flags outputs that look statistically unusual |
+  1493→  1493→| 7 | MetaLearner | Meta Learner | Learns from past decisions to improve future routing/reasoning |
+  1494→  1494→| 8 | DynamicContext | Dynamic Context | Pulls relevant context (customer history, account info, etc.) |
+  1495→  1495→| 9 | ContextualCompression | Contextual Compression | Removes irrelevant content from knowledge/context |
+  1496→  1496→| 10 | TurboCompress | Turbo Compression | Ultra-fast compression optimized for simple content |
+  1497→  1497→| 11 | AdaptiveBudget | Adaptive Budget | Monitors and optimizes resource usage within nodes |
+  1498→  1498→
+  1499→  1499→### 14 LLM Techniques (Require API Calls)
+  1500→  1500→
+  1501→  1501→| # | Technique | Full Name | What It Does | API Calls |
+  1502→  1502→|---|-----------|-----------|-------------|-----------|
+  1503→  1503→| 1 | CoT | Chain of Thought | Step-by-step reasoning | 1 |
+  1504→  1504→| 2 | ReAct | Reasoning + Acting | Think-Act-Observe loop for actions | 1-3 |
+  1505→  1505→| 3 | ToT | Tree of Thought | Explores multiple reasoning paths | 2-3 |
+  1506→  1506→| 4 | Reverse Thinking | Reverse Thinking | Works backward from answer to validate | 1 |
+  1507→  1507→| 5 | UoT | Uncertainty of Thought | Measures confidence/uncertainty | 1 |
+  1508→  1508→| 6 | GST | Goal State Tracking | Tracks progress toward solution | 1 |
+  1509→  1509→| 7 | HyDE | Hypothetical Document Embedding | Generates hypothetical answer for search | 1 |
+  1510→  1510→| 8 | CLARA | Contextual Learning and Adaptive Retrieval Architecture | Gatekeeper for knowledge quality | 1 |
+  1511→  1511→| 9 | Multi-Query | Multi-Query | Rewrites question in multiple ways | 1 |
+  1512→  1512→| 10 | Step-Back | Step-Back Prompting | Zooms out to broader principles | 1 |
+  1513→  1513→| 11 | Reflexion | Reflexion | Self-critique of output quality | 1 |
+  1514→  1514→| 12 | Self-Consistency | Self-Consistency | Multiple solutions, majority vote | 3 |
+  1515→  1515→| 13 | CRP | Chain of Revision Prompting | Structured answer revision | 1 |
+  1516→  1516→| 14 | Least-to-Most | Least-to-Most Prompting | Solves easy sub-problems first for context | 1 |
+  1517→  1517→
+  1518→  1518→---
+  1519→  1519→
+  1520→  1520→## 12. Technique-to-Node Mapping (PARWA + Jarvis)
+  1521→  1521→
+  1522→  1522→### PARWA Nodes (8)
+  1523→  1523→
+  1524→  1524→| Technique | LLM? | Node 1 | Node 2 | Node 3 | Node 4 | Node 5 | Node 6 | Node 7 | Node 8 |
+  1525→  1525→|-----------|------|--------|--------|--------|--------|--------|--------|--------|--------|
+  1526→  1526→| SmartRouter | ❌ | ✅ classify | | | | | | | |
+  1527→  1527→| UoT | ✅ | ✅ confidence | | | ✅ confidence | | | | |
+  1528→  1528→| DynamicContext | ❌ | ✅ context | | ✅ knowledge | | | | ✅ simple | |
+  1529→  1529→| MetaLearner | ❌ | ✅ routing | | | ✅ weights | | | ✅ patterns | |
+  1530→  1530→| CLARA | ✅ | | | ✅ gatekeeper | | | | | |
+  1531→  1531→| HyDE | ✅ | | | ✅ search | | | | | |
+  1532→  1532→| Multi-Query | ✅ | | | ✅ multi-angle | | | | | |
+  1533→  1533→| Step-Back | ✅ | | | ✅ broad search | | | | | |
+  1534→  1534→| ContextualCompression | ❌ | | | ✅ compress | | | ✅ response | ✅ simple | ✅ super |
+  1535→  1535→| GSD | ❌ | | | | ✅ decompose | ✅ actions | ✅ check | ✅ simple | ✅ super |
+  1536→  1536→| Least-to-Most | ✅ | | | | ✅ order | | | | |
+  1537→  1537→| CoT | ✅ | | | | ✅ solve | | | | ✅ max detail |
+  1538→  1538→| MAKER | ❌ | | | | ✅ bridge | ✅ action gap | | ✅ simple | ✅ super |
+  1539→  1539→| ToT | ✅ | | | | ✅ explore | | | | ✅ all paths |
+  1540→  1540→| Reverse Thinking | ✅ | | | | ✅ validate | ✅ validate | | | ✅ double |
+  1541→  1541→| ZeroShotValidator | ❌ | | | | ✅ flag | ✅ flag | ✅ check | ✅ simple | ✅ super |
+  1542→  1542→| ThoT | ❌ | | | | ✅ thread | | ✅ thread | ✅ simple | ✅ super |
+  1543→  1543→| FederatedReasoning | ❌ | | | | ✅ combine | | ✅ aggregate | ✅ simple | ✅ super |
+  1544→  1544→| ReAct | ✅ | | | | | ✅ act-observe | | | |
+  1545→  1545→| Reflexion | ✅ | | | | | | ✅ critique | | ✅ deep |
+  1546→  1546→| CRP | ✅ | | | | | | ✅ revise | | ✅ revise |
+  1547→  1547→| Self-Consistency | ✅ | | | | | | | | ✅ 3-vote |
+  1548→  1548→| TurboCompress | ❌ | | | | | | | ✅ fast | |
+  1549→  1549→| AdaptiveBudget | ❌ | | | | | | | ✅ budget | |
+  1550→  1550→| GST | ✅ | | | | ✅ track | | | | |
+  1551→  1551→
+  1552→  1552→### Jarvis Nodes (3) — 15 Techniques (11 Non-LLM + 4 LLM)
+  1553→  1553→
+  1554→  1554→| Technique | LLM? | Jarvis Node 1 (SENSE) | Jarvis Node 2 (EVALUATE) | Jarvis Node 3 (NOTIFY) |
+  1555→  1555→|-----------|------|----------------------|--------------------------|----------------------|
+  1556→  1556→| SmartRouter | ❌ | ✅ classify signals | | |
+  1557→  1557→| GSD | ❌ | | ✅ break complex eval | |
+  1558→  1558→| MAKER | ❌ | | ✅ bridge info gaps | |
+  1559→  1559→| ThoT | ❌ | | ✅ thread signals | |
+  1560→  1560→| FederatedReasoning | ❌ | | ✅ aggregate signals | |
+  1561→  1561→| ZeroShotValidator | ❌ | ✅ flag unusual patterns | ✅ flag unusual evals | |
+  1562→  1562→| MetaLearner | ❌ | | ✅ learn admin preferences | ✅ personalize delivery |
+  1563→  1563→| DynamicContext | ❌ | ✅ pull current state | ✅ context for eval | ✅ context for answers |
+  1564→  1564→| ContextualCompression | ❌ | | | ✅ compress reports |
+  1565→  1565→| TurboCompress | ❌ | | | ✅ fast chat summary |
+  1566→  1566→| AdaptiveBudget | ❌ | | | ✅ monitor Jarvis usage |
+  1567→  1567→| CoT | ✅ | | ✅ step-by-step reasoning | ✅ complex chat answers |
+  1568→  1568→| CLARA | ✅ | | ✅ clarify ambiguity | |
+  1569→  1569→| Step-Back | ✅ | | ✅ broader context | ✅ strategic answers |
+  1570→  1570→| Reflexion | ✅ | | ✅ self-critique evals | ✅ critique before send |
+  1571→  1571→
+  1572→  1572→---
+  1573→  1573→
+  1574→  1574→## 13. Dual Pipeline Flow
+  1575→  1575→
+  1576→  1576→### Path 1: Simple/Medium Tickets (Non-LLM Fast Track)
+  1577→  1577→
+  1578→  1578→```
+  1579→  1579→Node 1 (Classify) → Node 2 (Smart Route) → Node 3 (Knowledge Fetch)
+  1580→  1580→→ Node 7 (Simple/Medium Resolver)
+  1581→  1581→    → Layer 1: THINK (non-LLM reasoning)
+  1582→  1582→    → Layer 2: ACT (non-LLM actions)
+  1583→  1583→    → Layer 3: CHECK (non-LLM quality)
+  1584→  1584→        → PASS → Response Output (via UCB)
+  1585→  1585→        → FAIL (< 80% confidence) → Auto-upgrade to Complex Path (Node 4)
+  1586→  1586→```
+  1587→  1587→
+  1588→  1588→**Total LLM calls**: 0 in Node 7 (Node 1 has 1, Node 3 has 3-4)
+  1589→  1589→**Expected accuracy**: 88-90% (with safety net upgrade for tricky tickets)
+  1590→  1590→
+  1591→  1591→### Path 2: Complex/Hard Tickets (Full LLM Pipeline)
+  1592→  1592→
+  1593→  1593→```
+  1594→  1594→Node 1 (Classify) → Node 2 (Smart Route) → Node 3 (Knowledge Fetch)
+  1595→  1595→→ Node 4 (Reasoning) → Node 5 (Act + Verify) → Node 6 (Quality)
+  1596→  1596→    → PASS → Response Output (via UCB)
+  1597→  1597→    → FAIL (loop 1) → Back to Node 4
+  1598→  1598→        → Node 4 → Node 5 → Node 6
+  1599→  1599→            → PASS → Response Output (via UCB)
+  1600→  1600→            → FAIL (loop 2) → Node 8 (Super Node)
+  1601→  1601→                → PASS → Response Output (via UCB)
+  1602→  1602→                → FAIL → Human Escalation + Notification Center
+  1603→  1603→```
+  1604→  1604→
+  1605→  1605→**Total LLM calls**: 10-13 (1st pass), 16-20 (with 1 loop), 21-26 (with Super Node)
+  1606→  1606→**Expected accuracy**: 92-94% (1st pass), 94-96% (with loops), 95-97% (with Super Node)
+  1607→  1607→
+  1608→  1608→### Cost Per Ticket Type Summary
+  1609→  1609→
+  1610→  1610→| Ticket Type | Path | Avg Total LLM Calls | Est. Accuracy |
+  1611→  1611→|-------------|------|---------------------|---------------|
+  1612→  1612→| Simple | Nodes 1→2→3→7 | 4-5 (Node 1 + Node 3 only) | 88-90% |
+  1613→  1613→| Medium | Nodes 1→2→3→7 (with safety net) | 4-8 | 90-92% |
+  1614→  1614→| Complex (1st pass) | Nodes 1→2→3→4→5→6 | 10-13 | 92-94% |
+  1615→  1615→| Complex (1 loop) | Above + 4→5→6 again | 16-20 | 94-96% |
+  1616→  1616→| Complex (Super Node) | Above + Node 8 | 21-26 | 95-97% |
+  1617→  1617→
+  1618→  1618→---
+  1619→  1619→
+  1620→  1620→## 14. Variant System & Quota Management
+  1621→  1621→
+  1622→  1622→### Variant Tiers
+  1623→  1623→
+  1624→  1624→| Feature | Mini ($999/mo) | PARWA ($2,499/mo) | High ($4,999/mo) |
+  1625→  1625→|---------|----------------|--------------------|--------------------|
+  1626→  1626→| Ticket Quota | 500/month | TBD/month | TBD/month |
+  1627→  1627→| Simple tickets | ✅ | ✅ | ✅ |
+  1628→  1628→| Medium tickets | ✅ | ✅ | ✅ |
+  1629→  1629→| Complex reasoning | ❌ | ✅ | ✅ |
+  1630→  1630→| Execute refunds | ❌ (recommend only) | ✅ (≤ $500) | ✅ (unlimited) |
+  1631→  1631→| Execute credits | ❌ (recommend only) | ✅ (≤ $200) | ✅ (unlimited) |
+  1632→  1632→| Account changes | ❌ (recommend only) | ✅ (limited) | ✅ (full) |
+  1633→  1633→| Super Node | ❌ | ✅ | ✅ |
+  1634→  1634→| Quality loops | 0 | Max 2 | Max 2 |
+  1635→  1635→| AI Wiki access | Read only | Read + Learn | Read + Write + Learn |
+  1636→  1636→| Priority queue | Standard | Standard | High |
+  1637→  1637→| Integrations | 2 channels | 5 channels | Unlimited |
+  1638→  1638→
+  1639→  1639→### One Agent, Dynamic Restrictions
+  1640→  1640→
+  1641→  1641→**Core Principle**: Mini, PARWA, and High are NOT separate agents. They are the SAME agent with different RESTRICTIONS. One agent instance handles all tickets for a user, applying the correct restriction set per ticket based on Node 2's routing decision.
+  1642→  1642→
+  1643→  1643→```python
+  1644→  1644→variant_registry = {
+  1645→  1645→    "tenant_id": "tenant_abc123",
+  1646→  1646→    "user_id": "user_123",
+  1647→  1647→    "variants": {
+  1648→  1648→        "mini": {
+  1649→  1649→            "purchased": True,
+  1650→  1650→            "quota_total": 500,
+  1651→  1651→            "quota_remaining": 347,
+  1652→  1652→            "capabilities": ["recommend", "simple_info", "medium_info"]
+  1653→  1653→        },
+  1654→  1654→        "parwa": {
+  1655→  1655→            "purchased": False
+  1656→  1656→        },
+  1657→  1657→        "high": {
+  1658→  1658→            "purchased": True,
+  1659→  1659→            "quota_total": 2000,
+  1660→  1660→            "quota_remaining": 1856,
+  1661→  1661→            "capabilities": ["everything"]
+  1662→  1662→        }
+  1663→  1663→    }
+  1664→  1664→}
+  1665→  1665→```
+  1666→  1666→
+  1667→  1667→### Node 2 Routing Examples
+  1668→  1668→
+  1669→  1669→**"What's your pricing?" (simple, no execution)**:
+  1670→  1670→```
+  1671→  1671→Needs: simple_info
+  1672→  1672→Mini can handle? YES + has quota? YES → Use Mini quota
+  1673→  1673→```
+  1674→  1674→
+  1675→  1675→**"Refund $30" (needs execution)**:
+  1676→  1676→```
+  1677→  1677→Needs: execute_refund_30
+  1678→  1678→Mini can handle? NO (can't execute refunds)
+  1679→  1679→High can handle? YES + has quota? YES → Use High quota
+  1680→  1680→```
+  1681→  1681→
+  1682→  1682→**"What's your pricing?" BUT Mini quota = 0**:
+  1683→  1683→```
+  1684→  1684→Needs: simple_info
+  1685→  1685→Mini can handle? YES but quota = 0
+  1686→  1686→High can handle? YES + has quota? YES → Use High quota (expensive for simple ticket)
+  1687→  1687→```
+  1688→  1688→
+  1689→  1689→---
+  1690→  1690→
+  1691→  1691→## 15. Quality Loop & Super Node
+  1692→  1692→
+  1693→  1693→### Quality Loop Flow
+  1694→  1694→
+  1695→  1695→```
+  1696→  1696→Node 4 (Reason) → Node 5 (Act) → Node 6 (Quality Check)
+  1697→  1697→                                           │
+  1698→  1698→                                    quality_score > 90%?
+  1699→  1699→                                           │
+  1700→  1700→                                     YES → SEND
+  1701→  1701→                                     NO  → Loop back to Node 4
+  1702→  1702→                                           │
+  1703→  1703→                                    (2nd attempt)
+  1704→  1704→                                    Node 4 → Node 5 → Node 6
+  1705→  1705→                                                           │
+  1706→  1706→                                                    quality_score > 90%?
+  1707→  1707→                                                           │
+  1708→  1708→                                                     YES → SEND
+  1709→  1709→                                                     NO  → Node 8 (Super Node)
+  1710→  1710→```
+  1711→  1711→
+  1712→  1712→### Quality Scoring Formula
+  1713→  1713→
+  1714→  1714→```python
+  1715→  1715→quality_score = weighted_average([
+  1716→  1716→    reflexion_score * 0.30,       # LLM self-critique (most trusted)
+  1717→  1717→    crp_score * 0.25,             # Revision quality
+  1718→  1718→    zero_shot_score * 0.20,       # Statistical validity
+  1719→  1719→    thot_coherence * 0.15,        # Logical coherence
+  1720→  1720→    gsd_part_scores * 0.10        # Per-part quality
+  1721→  1721→])
+  1722→  1722→```
+  1723→  1723→
+  1724→  1724→### Super Node Escalation
+  1725→  1725→
+  1726→  1726→```
+  1727→  1727→IF quality_score > 90% → PASS → Format and send
+  1728→  1728→IF quality_score 70-90% AND loop_count < 2 → Loop back to Node 4
+  1729→  1729→IF loop_count >= 2 → Activate Node 8 (Super Node)
+  1730→  1730→
+  1731→  1731→Super Node:
+  1732→  1732→  IF quality > 85% → PASS → Format and send
+  1733→  1733→  IF quality <= 85% → ESCALATE TO HUMAN
+  1734→  1734→     → Notification Center alerts admin (unique key)
+  1735→  1735→     → Jarvis tracks as stuck problem
+  1736→  1736→     → Include: original ticket + all failed attempts + analysis
+  1737→  1737→```
+  1738→  1738→
+  1739→  1739→---
+  1740→  1740→
+  1741→  1741→## 16. MAKER Hallucination Prevention
+  1742→  1742→
+  1743→  1743→### 3 Safeguards
+  1744→  1744→
+  1745→  1745→**Safeguard 1: Confidence Scoring**
+  1746→  1746→```
+  1747→  1747→MAKER assigns a confidence score to each bridge connection:
+  1748→  1748→- High confidence (> 85%): "Pro plan refund → 30-day policy" (direct match)
+  1749→  1749→- Medium confidence (60-85%): "Pro plan refund → similar to Business plan" (inferred)
+  1750→  1750→- Low confidence (< 60%): "Pro plan refund → maybe related to annual billing" (weak)
+  1751→  1751→
+  1752→  1752→Only high + medium confidence bridges enter reasoning.
+  1753→  1753→Low confidence bridges are flagged but NOT used.
+  1754→  1754→```
+  1755→  1755→
+  1756→  1756→**Safeguard 2: ZeroShotValidator Gate**
+  1757→  1757→```
+  1758→  1758→Before MAKER's output enters reasoning:
+  1759→  1759→ZeroShotValidator checks:
+  1760→  1760→- Are the bridge connections logically consistent with knowledge from Node 3?
+  1761→  1761→- Does any bridge contradict known facts?
+  1762→  1762→- Are there alternative bridges that are more likely?
+  1763→  1763→
+  1764→  1764→If ZeroShotValidator flags a bridge → it's removed before reasoning uses it.
+  1765→  1765→```
+  1766→  1766→
+  1767→  1767→**Safeguard 3: Reverse Thinking Check**
+  1768→  1768→```
+  1769→  1769→After reasoning uses MAKER's bridges:
+  1770→  1770→Reverse Thinking verifies:
+  1771→  1771→- Does the final conclusion DEPEND on low-confidence bridges?
+  1772→  1772→- If we remove MAKER's bridges, does the answer change significantly?
+  1773→  1773→- If the answer depends on a low-confidence bridge → flag for quality loop
+  1774→  1774→```
+  1775→  1775→
+  1776→  1776→---
+  1777→  1777→
+  1778→  1778→## 17. Implementation Phases
+  1779→  1779→
+  1780→  1780→---
+  1781→  1781→
+  1782→  1782→### Phase 1: Foundation — Core Pipeline (Days 1-4)
+  1783→  1783→
+  1784→  1784→**Goal**: Core pipeline skeleton — all 8 nodes connected, basic flow working, key-based access
+  1785→  1785→
+  1786→  1786→**Tasks**:
+  1787→  1787→- [ ] Create new `graph_v2.py` with 8-node structure (replace 23-node + subgraphs)
+  1788→  1788→- [ ] Create `state_v2.py` with updated pipeline state (including tenant_id)
+  1789→  1789→- [ ] Implement Node 1: Ingest + Classify (SmartRouter + basic UoT + DynamicContext)
+  1790→  1790→- [ ] Implement Node 2: Smart Route (variant registry + quota tracker + basic routing)
+  1791→  1791→- [ ] Implement Node 3: Knowledge Fetch (basic RAG without CLARA yet)
+  1792→  1792→- [ ] Implement Node 4: Reasoning Engine (basic CoT only, no 4-layer yet)
+  1793→  1793→- [ ] Implement Node 5: Act + Verify (rule-based actions only)
+  1794→  1794→- [ ] Implement Node 6: Quality + Format (basic quality check, no Reflexion/CRP yet)
+  1795→  1795→- [ ] Implement Node 7: Simple/Medium Resolver (basic non-LLM layers)
+  1796→  1796→- [ ] Implement Node 8: Super Node (stub — just escalate to human for now)
+  1797→  1797→- [ ] Wire up dual pipeline: simple path vs. complex path
+  1798→  1798→- [ ] Wire up quality loop (Node 6 → Node 4, max 2 loops)
+  1799→  1799→- [ ] **Key-based access system**:
+  1800→  1800→  - [ ] Database schema: `tenants`, `users`, `access_keys`, `key_usage_audit`
+  1801→  1801→  - [ ] Key generation endpoint: `POST /api/auth/generate-key`
+  1802→  1802→  - [ ] Key validation middleware: verify key hash on every request
+  1803→  1803→  - [ ] Session management: JWT with tenant_id + session_id
+  1804→  1804→  - [ ] Admin-only endpoints: key regeneration, billing access
+  1805→  1805→  - [ ] Rate limiting: 5 failed attempts → 15-min lockout
+  1806→  1806→- [ ] **Multi-tenant isolation**:
+  1807→  1807→  - [ ] Add `tenant_id` to ALL data tables
+  1808→  1808→  - [ ] Enable Row-Level Security on ALL tables
+  1809→  1809→  - [ ] Set `app.tenant_id` session variable on each request
+  1810→  1810→- [ ] Test: 8 test tickets through full pipeline, verify flow is correct
+  1811→  1811→- [ ] Test: Key-based access — generate key, access dashboard, verify tenant isolation
+  1812→  1812→
+  1813→  1813→**Deliverable**: Working pipeline with all 8 nodes, key-based access, tenant isolation
+  1814→  1814→
+  1815→  1815→---
+  1816→  1816→
+  1817→  1817→### Phase 2: Intelligence — LLM Techniques (Days 5-8)
+  1818→  1818→
+  1819→  1819→**Goal**: Add all 14 LLM techniques to the correct nodes
+  1820→  1820→
+  1821→  1821→**Tasks**:
+  1822→  1822→- [ ] Node 1: Full UoT with confidence scoring
+  1823→  1823→- [ ] Node 3: CLARA as gatekeeper (3-question filter), HyDE, Multi-Query, Step-Back
+  1824→  1824→- [ ] Node 4: Full 4-layer architecture
+  1825→  1825→  - [ ] Layer 1: GSD + Least-to-Most
+  1826→  1826→  - [ ] Layer 2: CoT + MAKER + ToT
+  1827→  1827→  - [ ] Layer 3: Reverse Thinking + ZeroShotValidator + UoT
+  1828→  1828→  - [ ] Layer 4: ThoT + FederatedReasoning + MetaLearner
+  1829→  1829→- [ ] Node 5: ReAct for complex actions, Reverse Thinking for action validation
+  1830→  1830→- [ ] Node 6: Reflexion + CRP quality scoring
+  1831→  1831→- [ ] Node 8: Self-Consistency + ToT + Reverse Thinking + Reflexion + CRP + CoT
+  1832→  1832→- [ ] Test: Same 8 tickets, compare with Phase 1 results
+  1833→  1833→
+  1834→  1834→**Deliverable**: Full LLM technique integration, all 14 techniques active
+  1835→  1835→
+  1836→  1836→---
+  1837→  1837→
+  1838→  1838→### Phase 3: Optimization — Non-LLM Path (Days 9-11)
+  1839→  1839→
+  1840→  1840→**Goal**: Make Node 7 (Simple/Medium Resolver) fully functional with all 11 non-LLM techniques
+  1841→  1841→
+  1842→  1842→**Tasks**:
+  1843→  1843→- [ ] Node 7 Layer 1 (THINK): GSD + MAKER + ThoT + FederatedReasoning + MetaLearner + ZeroShotValidator
+  1844→  1844→- [ ] Node 7 Layer 2 (ACT): Rule-based actions + MAKER + GSD + ZeroShotValidator
+  1845→  1845→- [ ] Node 7 Layer 3 (CHECK): ZeroShotValidator + GSD + ThoT + ContextualCompression + TurboCompress + FederatedReasoning
+  1846→  1846→- [ ] Implement safety net: ZeroShotValidator < 80% → auto-upgrade to Node 4
+  1847→  1847→- [ ] Test: 4 simple tickets through Node 7, verify 0 LLM calls + good accuracy
+  1848→  1848→- [ ] Test: 1 tricky "simple" ticket, verify safety net catches it and upgrades
+  1849→  1849→
+  1850→  1850→**Deliverable**: Non-LLM fast track working, simple tickets resolved with 0 LLM calls
+  1851→  1851→
+  1852→  1852→---
+  1853→  1853→
+  1854→  1854→### Phase 4: Business Logic — Variants & Quotas (Days 12-14)
+  1855→  1855→
+  1856→  1856→**Goal**: Full variant system with quota management
+  1857→  1857→
+  1858→  1858→**Tasks**:
+  1859→  1859→- [ ] Node 2: Full variant registry with database storage
+  1860→  1860→- [ ] Node 2: Quota tracker with real-time countdown
+  1861→  1861→- [ ] Node 2: Capability matrix for all 3 tiers
+  1862→  1862→- [ ] Node 2: Three-dimensional routing (capability + quota + efficiency)
+  1863→  1863→- [ ] Node 5: Variant-aware action execution (restrictions applied from Node 2)
+  1864→  1864→- [ ] Node 7: Variant-aware simple ticket handling (Mini = recommend only)
+  1865→  1865→- [ ] AI Wiki access levels per variant (read / read+learn / read+write+learn)
+  1866→  1866→- [ ] Integration count limits per variant tier
+  1867→  1867→- [ ] Test: Same ticket through Mini vs. High → verify different restrictions
+  1868→  1868→- [ ] Test: Quota exhaustion → verify fallback to next tier
+  1869→  1869→- [ ] Test: Refund > $500 through PARWA → verify recommend-only behavior
+  1870→  1870→
+  1871→  1871→**Deliverable**: Complete variant system, quota management, variant-aware pipeline
+  1872→  1872→
+  1873→  1873→---
+  1874→  1874→
+  1875→  1875→### Phase 5: Quality & Safety (Days 15-17)
+  1876→  1876→
+  1877→  1877→**Goal**: Quality loop, Super Node, MAKER hallucination prevention
+  1878→  1878→
+  1879→  1879→**Tasks**:
+  1880→  1880→- [ ] Node 6: Full quality scoring formula (Reflexion + CRP + ZeroShotValidator + ThoT + GSD)
+  1881→  1881→- [ ] Quality loop: Node 6 → Node 4, max 2 loops
+  1882→  1882→- [ ] Node 8: Full Super Node implementation
+  1883→  1883→  - [ ] Reflexion: Analyze why previous 2 attempts failed
+  1884→  1884→  - [ ] Self-Consistency: 3 independent solutions with majority vote
+  1885→  1885→  - [ ] ToT: Deep path exploration
+  1886→  1886→  - [ ] Reverse Thinking: Backward validation
+  1887→  1887→  - [ ] CRP: Revision with failure context
+  1888→  1888→- [ ] Node 8: Escalation to human with full context
+  1889→  1889→- [ ] MAKER safeguards:
+  1890→  1890→  - [ ] Confidence scoring on bridge connections
+  1891→  1891→  - [ ] ZeroShotValidator gate before bridges enter reasoning
+  1892→  1892→  - [ ] Reverse Thinking check after reasoning uses bridges
+  1893→  1893→- [ ] Test: Hard ticket that fails quality loop → verify Super Node activates
+  1894→  1894→- [ ] Test: Impossible ticket → verify human escalation with context
+  1895→  1895→- [ ] Test: MAKER low-confidence bridge → verify it's caught and removed
+  1896→  1896→
+  1897→  1897→**Deliverable**: Quality loop, Super Node, MAKER safety — full safety net
+  1898→  1898→
+  1899→  1899→---
+  1900→  1900→
+  1901→  1901→### Phase 6: AI Wiki & Learning (Days 18-20)
+  1902→  1902→
+  1903→  1903→**Goal**: AI Wiki 3-section integration across all nodes
+  1904→  1904→
+  1905→  1905→**Tasks**:
+  1906→  1906→- [ ] AI Wiki database schema: `ai_wiki_entries` with section A/B/C
+  1907→  1907→- [ ] Section A: Ticket Patterns — PARWA writes on resolution, reads on Node 3 fetch
+  1908→  1908→- [ ] Section B: Admin Behavior — Jarvis writes on interactions, PARWA reads
+  1909→  1909→- [ ] Section C: Company Knowledge — Admin writes via dashboard, both read
+  1910→  1910→- [ ] Node 1: Read Wiki Section A for classification patterns
+  1911→  1911→- [ ] Node 3: Search Wiki for evidence, add new patterns (PARWA+)
+  1912→  1912→- [ ] Node 3: Policy sync check — compare Section C version before fetch
+  1913→  1913→- [ ] Node 4: Check Wiki for reasoning patterns that worked
+  1914→  1914→- [ ] Node 7: MetaLearner uses Wiki patterns for simple resolution
+  1915→  1915→- [ ] Node 8: Reflexion checks Wiki for similar hard tickets
+  1916→  1916→- [ ] Variant-based access control (read / read+learn / read+write+learn)
+  1917→  1917→- [ ] Vector store: Tenant-scoped namespaces for wiki embeddings
+  1918→  1918→- [ ] Test: Resolve ticket → verify Wiki Section A entry created → next similar ticket uses Wiki
+  1919→  1919→- [ ] Test: Mini user → verify read-only Wiki access
+  1920→  1920→
+  1921→  1921→**Deliverable**: AI Wiki fully integrated, 3-section design, learning loop active
+  1922→  1922→
+  1923→  1923→---
+  1924→  1924→
+  1925→  1925→### Phase 7: Integration Layer — UCB (Days 21-24)
+  1926→  1926→
+  1927→  1927→**Goal**: Unified Connector Bus — connect variants to Email, SMS, Calls, Chat, CRM, Helpdesk
+  1928→  1928→
+  1929→  1929→**Tasks**:
+  1930→  1930→- [ ] UCB core framework:
+  1931→  1931→  - [ ] Normalization engine: all incoming → standard ticket format
+  1932→  1932→  - [ ] Action adapters: outbound replies/actions through correct channel
+  1933→  1933→  - [ ] Sync adapters: fetch CRM data for context
+  1934→  1934→  - [ ] Health check system: monitor integration status every 60s
+  1935→  1935→  - [ ] Retry logic: 3 retries with exponential backoff
+  1936→  1936→  - [ ] Rate limiting: per-integration, per-tenant
+  1937→  1937→- [ ] Channel adapters (inbound):
+  1938→  1938→  - [ ] Email: SendGrid webhook → ticket
+  1939→  1939→  - [ ] SMS: Twilio webhook → ticket
+  1940→  1940→  - [ ] Calls: Twilio/Vonage transcript → ticket
+  1941→  1941→  - [ ] Chat: WhatsApp/Intercom/Crisp webhook → ticket
+  1942→  1942→- [ ] CRM adapters (sync + action):
+  1943→  1943→  - [ ] HubSpot: fetch customer data, execute refunds/credits
+  1944→  1944→  - [ ] Salesforce: fetch customer data, execute actions
+  1945→  1945→- [ ] Helpdesk adapters:
+  1946→  1946→  - [ ] Zendesk: sync tickets, update status
+  1947→  1947→  - [ ] Freshdesk: sync tickets, update status
+  1948→  1948→- [ ] Credential vault:
+  1949→  1949→  - [ ] AES-256 encryption per tenant
+  1950→  1950→  - [ ] OAuth token management
+  1951→  1951→  - [ ] API key rotation support
+  1952→  1952→- [ ] Integration registry database schema
+  1953→  1953→- [ ] PARWA Node 1: Receive tickets from UCB
+  1954→  1954→- [ ] PARWA Node 3: Fetch CRM data via UCB
+  1955→  1955→- [ ] PARWA Node 5: Execute actions via UCB
+  1956→  1956→- [ ] Jarvis SENSE: Monitor UCB health
+  1957→  1957→- [ ] Test: Email ticket comes in → PARWA processes → reply via email
+  1958→  1958→- [ ] Test: HubSpot customer data fetched in Node 3
+  1959→  1959→- [ ] Test: Integration goes down → Jarvis detects → Notification Center alerts
+  1960→  1960→
+  1961→  1961→**Deliverable**: Full UCB with all adapters, per-tenant credentials, health monitoring
+  1962→  1962→
+  1963→  1963→---
+  1964→  1964→
+  1965→  1965→### Phase 8: Jarvis — 3-Node Pipeline (Days 25-28)
+  1966→  1966→
+  1967→  1967→**Goal**: Jarvis SENSE, EVALUATE, NOTIFY — awareness + notification + chat
+  1968→  1968→
+  1969→  1969→**Tasks**:
+  1970→  1970→- [ ] Jarvis Node 1 (SENSE):
+  1971→  1971→  - [ ] Monitor PARWA pipeline states (all 8 nodes)
+  1972→  1972→  - [ ] Track quota usage and burn rate
+  1973→  1973→  - [ ] Watch for stuck/unsolved tickets (from Node 7 safety net, Node 8 failures)
+  1974→  1974→  - [ ] Monitor integration health (from UCB)
+  1975→  1975→  - [ ] Detect policy changes in AI Wiki Section C
+  1976→  1976→  - [ ] Track admin behavior patterns
+  1977→  1977→- [ ] Jarvis Node 2 (EVALUATE):
+  1978→  1978→  - [ ] CoT reasoning for complex evaluations
+  1979→  1979→  - [ ] CLARA for clarifying ambiguous signals
+  1980→  1980→  - [ ] Step-Back for broader context
+  1981→  1981→  - [ ] Reflexion for self-critique before notifying
+  1982→  1982→  - [ ] Priority scoring formula (impact, urgency, trend, admin preference, frequency)
+  1983→  1983→  - [ ] All 11 non-LLM techniques for fast evaluations
+  1984→  1984→- [ ] Jarvis Node 3 (NOTIFY):
+  1985→  1985→  - [ ] Push notifications to Notification Center
+  1986→  1986→  - [ ] Unique key generation: PARWA-NFY-XXX
+  1987→  1987→  - [ ] Batch similar notifications (5-min window)
+  1988→  1988→  - [ ] Answer admin chat questions (using AI Wiki + quota + variant data)
+  1989→  1989→  - [ ] Feed quota/variant info back to PARWA Node 2
+  1990→  1990→  - [ ] Update AI Wiki Section B (admin behavior patterns)
+  1991→  1991→- [ ] Notification Center:
+  1992→  1992→  - [ ] Database schema: `notifications` table
+  1993→  1993→  - [ ] Dashboard widget: priority-grouped notification feed
+  1994→  1994→  - [ ] Copy key → ask Jarvis integration
+  1995→  1995→  - [ ] Mark resolved / dismiss actions
+  1996→  1996→- [ ] Jarvis ↔ PARWA connections:
+  1997→  1997→  - [ ] SENSE reads PARWA pipeline state
+  1998→  1998→  - [ ] NOTIFY feeds quota data to PARWA Node 2
+  1999→  1999→  - [ ] Stuck tickets flow from PARWA to Jarvis
+  2000→  2000→- [ ] Test: Ticket stuck in Super Node → Jarvis detects → Notification with unique key
+
+[showing lines 1-2000 of 2002; use offset=2001 with limit to continue reading]
