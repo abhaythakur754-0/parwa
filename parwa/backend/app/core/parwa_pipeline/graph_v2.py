@@ -48,8 +48,21 @@ logger = logging.getLogger("parwa.pipeline.graph_v2")
 # ── Edge Functions ────────────────────────────────────────────────
 
 
+def _route_after_node_1(state: PipelineV2State) -> Literal["node_2", "__end__"]:
+    """After Node 1: if rejected (shutdown) or paused, end early."""
+    status = state.get("status", "")
+    if status in ("rejected", "paused"):
+        logger.info("Node 1 early exit: status=%s", status)
+        return "__end__"
+    return "node_2"
+
+
 def _route_after_node_2(state: PipelineV2State) -> Literal["node_3", "__end__"]:
-    """After Node 2: route to knowledge fetch (shared node for both paths)."""
+    """After Node 2: if paused/escalated by Jarvis flags, end early. Otherwise → Node 3."""
+    status = state.get("status", "")
+    if status in ("paused", "escalated"):
+        logger.info("Node 2 early exit: status=%s", status)
+        return "__end__"
     return "node_3"
 
 
@@ -116,6 +129,27 @@ def _increment_loop(state: PipelineV2State) -> dict:
     """Increment loop counter when looping back to Node 4."""
     return {"loop_count": state.get("loop_count", 0) + 1}
 
+
+
+
+# ── Wave 4: Load Jarvis flags at graph entry ────────────────
+
+async def _load_jarvis_flags(state: PipelineV2State) -> dict:
+    """Load all active Jarvis system flags into state.
+
+    Called as the first node in the graph so all subsequent nodes
+    have access to the flags without individual DB calls.
+    """
+    from app.core.parwa_pipeline.parwa_bridge import load_system_flags
+
+    tenant_id = state.get("tenant_id", "")
+    flags = await load_system_flags(tenant_id)
+
+    return {
+        "system_flags": flags,
+        "technique_log": [{"node": 0, "technique": "JARVIS_FLAG_LOAD", "duration_ms": 0,
+                           "result_summary": f"flags={len(flags.get('all_flags', []))} shutdown={flags.get('global_shutdown')}"}],
+    }
 
 def _finalize_simple(state: PipelineV2State) -> dict:
     """Set final response from simple resolver + wiki write-back."""
@@ -288,11 +322,17 @@ def build_parwa_pipeline() -> StateGraph:
     # Entry → Node 1
     graph.set_entry_point("node_1")
 
-    # Node 1 → Node 2
-    graph.add_edge("node_1", "node_2")
+    # Node 1 → SPLIT: rejected/paused → END, normal → Node 2
+    graph.add_conditional_edges("node_1", _route_after_node_1, {
+        "node_2": "node_2",
+        "__end__": "__end__",
+    })
 
-    # Node 2 → Node 3 (always go to knowledge fetch)
-    graph.add_edge("node_2", "node_3")
+    # Node 2 → SPLIT: paused → END, normal → Node 3
+    graph.add_conditional_edges("node_2", _route_after_node_2, {
+        "node_3": "node_3",
+        "__end__": "__end__",
+    })
 
     # Node 3 → SPLIT: simple → Node 7, complex → Node 4
     graph.add_conditional_edges("node_3", _route_after_node_3, {

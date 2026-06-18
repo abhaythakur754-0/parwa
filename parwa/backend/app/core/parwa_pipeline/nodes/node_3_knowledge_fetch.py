@@ -383,6 +383,21 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
     logs = []
     llm_calls = 0
 
+    # ── Wave 4: Inject Jarvis guidance for this ticket ─────
+    system_flags = state.get("system_flags")
+    if not system_flags:
+        try:
+            from app.core.parwa_pipeline.parwa_bridge import load_system_flags
+            system_flags = await load_system_flags(tenant_id)
+        except Exception:
+            system_flags = {}
+    guidance_map = system_flags.get("guidance", {})
+    ticket_id = state.get("ticket_id", "")
+    jarvis_guidance = guidance_map.get(ticket_id, "")
+    if jarvis_guidance:
+        logs.append({"node": 3, "technique": "JARVIS_GUIDANCE", "duration_ms": 0,
+                     "result_summary": f"guidance_len={len(jarvis_guidance)}"})
+
     # 1. CLARA: Gatekeeper (LLM) — the ONLY LLM call in Node 3 now
     clara_result = await _clara_gatekeep(query, ticket_type)
     logs.append({"node": 3, "technique": "CLARA", "duration_ms": 0, "result_summary": "gatekeep_done"})
@@ -448,6 +463,16 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
         state["ticket_id"], len(filtered), clara_result["knowledge_sufficient"], llm_calls, elapsed,
     )
 
+    # Wave 4: Inject Jarvis guidance as additional knowledge
+    if jarvis_guidance:
+        filtered.append({
+            "source": "jarvis_guidance",
+            "content": jarvis_guidance,
+            "relevance": 1.0,
+            "is_jarvis_guidance": True,
+        })
+        logger.info("Node 3: Injected Jarvis guidance for ticket %s (%d chars)", ticket_id, len(jarvis_guidance))
+
     return {
         "knowledge_context": filtered,
         "wiki_section_a": wiki_a,
@@ -459,6 +484,7 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
         "knowledge_contradictory": clara_result["knowledge_contradictory"],
         "policy_version": "v2.0",
         "policy_sync_status": sync_status,  # Phase 6: sync status
+        "jarvis_guidance": jarvis_guidance,
         "technique_log": logs,
         "node_3_token_usage": llm_calls,
         "total_token_usage": state.get("total_token_usage", 0) + llm_calls,

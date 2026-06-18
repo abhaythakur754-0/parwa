@@ -33,6 +33,7 @@ from app.core.parwa_pipeline.config import (
     NOTIFICATION_KEY_PREFIX, QUALITY_SUPER_THRESHOLD,
 )
 from app.core.parwa_pipeline.state_v2 import PipelineV2State
+from app.core.parwa_pipeline.parwa_bridge import write_to_jarvis_inbox
 
 logger = logging.getLogger("parwa.pipeline.node_8")
 
@@ -387,6 +388,24 @@ async def node_8_super_node(state: PipelineV2State) -> dict:
             "all_solutions": solutions,
         }
         logs.append({"node": 8, "technique": "Escalation", "duration_ms": 0, "result_summary": f"key={notification_key}"})
+
+        # ── Wave 4: Write to Jarvis inbox ──────────────────
+        try:
+            attempts_summary = "; ".join(previous_answers[:2]) if previous_answers else "No previous answers"
+            inbox_msg = await write_to_jarvis_inbox(
+                tenant_id=state.get("tenant_id", ""),
+                ticket_id=state.get("ticket_id", ""),
+                stuck_reason=f"Super Node quality {super_quality:.2f} <= {QUALITY_SUPER_THRESHOLD} after all techniques",
+                quality_score=super_quality,
+                what_was_tried=f"Techniques: Reflexion, SelfConsistency(2), ToT, ReverseThinking, CRP, CoT + 11 non-LLM. Previous attempts: {attempts_summary[:500]}",
+            )
+            if inbox_msg:
+                inbox_msg_id = inbox_msg.get("id")
+                logs.append({"node": 8, "technique": "JARVIS_INBOX_WRITE", "duration_ms": 0,
+                             "result_summary": f"inbox_id={inbox_msg_id}"})
+        except Exception as e:
+            logger.warning("Wave 4 inbox write failed (non-fatal): %s", e)
+
 
     elapsed = int((time.time() - start) * 1000)
     logger.info(

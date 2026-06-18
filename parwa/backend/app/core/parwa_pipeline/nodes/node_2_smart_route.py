@@ -208,6 +208,63 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
     action_details = state.get("action_details", {})
     logs = []
 
+    # ── Wave 4: Check Jarvis system flags ──────────────────
+    system_flags = state.get("system_flags")
+    if not system_flags:
+        try:
+            from app.core.parwa_pipeline.parwa_bridge import load_system_flags
+            system_flags = await load_system_flags(tenant_id)
+        except Exception:
+            system_flags = {}
+
+    # Check pause_action: if this action type is paused, reject
+    paused_actions = system_flags.get("paused_actions", [])
+    is_paused = (
+        "all" in paused_actions
+        or action in paused_actions
+        or any(p in action for p in paused_actions if p != "all")
+    )
+    if is_paused:
+        logs.append({"node": 2, "technique": "JARVIS_PAUSE_CHECK", "duration_ms": 0, "result_summary": f"action={action} PAUSED"})
+        logger.warning("Node 2: Action '%s' is paused by Jarvis for tenant %s", action, tenant_id)
+        return {
+            "route_decision": "simple_path",
+            "current_path": "simple_path",
+            "variant_tier": "parwa",
+            "quota_remaining": {},
+            "variant_capabilities": [],
+            "status": "paused",
+            "final_response": f"The action '{action}' is currently paused by your administrator. Your request has been noted but cannot be processed until the pause is lifted.",
+            "technique_log": logs,
+            "total_token_usage": state.get("total_token_usage", 0),
+        }
+
+    # Check redirect_channel: if this channel is redirected to human, override path
+    channel = state.get("channel_type", "")
+    redirected = system_flags.get("redirected_channels", {})
+    if channel and channel in redirected:
+        route_to = redirected[channel]
+        logs.append({"node": 2, "technique": "JARVIS_REDIRECT_CHECK", "duration_ms": 0, "result_summary": f"channel={channel} redirected to {route_to}"})
+        logger.info("Node 2: Channel '%s' redirected to '%s' by Jarvis", channel, route_to)
+        if route_to == "human":
+            return {
+                "route_decision": "simple_path",
+                "current_path": "simple_path",
+                "variant_tier": "parwa",
+                "quota_remaining": {},
+                "variant_capabilities": [],
+                "status": "escalated",
+                "escalation_context": {"reason": f"Channel '{channel}' redirected to human by Jarvis"},
+                "technique_log": logs,
+                "total_token_usage": state.get("total_token_usage", 0),
+            }
+
+    # Check force_mode: if Jarvis forced a mode, log it for downstream
+    force_mode = system_flags.get("force_mode")
+    if force_mode:
+        logs.append({"node": 2, "technique": "JARVIS_MODE_CHECK", "duration_ms": 0, "result_summary": f"mode={force_mode}"})
+
+
     # 1. Variant Registry check
     reg = MOCK_VARIANT_REGISTRY.get(tenant_id, {"tier": "parwa", "quota_remaining": 999})
     logs.append({"node": 2, "technique": "VariantRegistry", "duration_ms": 0, "result_summary": f"tier={reg.get('tier', 'unknown')}"})

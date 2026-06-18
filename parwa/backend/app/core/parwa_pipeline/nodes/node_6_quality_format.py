@@ -43,6 +43,7 @@ from app.core.parwa_pipeline.config import (
     QUALITY_LOOP_THRESHOLD, QUALITY_PASS_THRESHOLD, QUALITY_WEIGHTS,
 )
 from app.core.parwa_pipeline.state_v2 import PipelineV2State
+from app.core.parwa_pipeline.parwa_bridge import write_quality_score_to_jarvis
 
 logger = logging.getLogger("parwa.pipeline.node_6")
 
@@ -514,6 +515,21 @@ async def node_6_quality_format(state: PipelineV2State) -> dict:
         state["ticket_id"], quality_score, quality_passed, loop_count, llm_calls, elapsed,
         reflexion_score, crp_score, structure_score, kb_score, adequacy_score,
     )
+
+
+    # ── Wave 4: Write quality score to Jarvis DB ────────────
+    try:
+        await write_quality_score_to_jarvis(
+            tenant_id=state.get("tenant_id", ""),
+            ticket_id=state.get("ticket_id", ""),
+            quality_score=quality_score,
+            resolution_path=state.get("current_path", "unknown"),
+            nodes_reached=[log.get("node") for log in logs if "node" in log],
+            llm_calls=llm_calls,
+            tokens_used=state.get("total_token_usage", 0),
+        )
+    except Exception as e:
+        logger.warning("Wave 4 quality write-back failed (non-fatal): %s", e)
 
     return {
         "quality_score": quality_score,

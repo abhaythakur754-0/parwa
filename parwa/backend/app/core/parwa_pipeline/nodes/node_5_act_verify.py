@@ -293,8 +293,27 @@ async def node_5_act_verify(state: PipelineV2State) -> dict:
         for flag in zsv["flags"]:
             logs.append({"node": 5, "technique": "ZeroShotValidator", "duration_ms": 0, "result_summary": f"flag: {flag}"})
 
+
+    # ── Wave 4: Check Jarvis approval_overrides ─────────────
+    system_flags = state.get("system_flags", {})
+    approval_overrides = system_flags.get("approval_overrides", [])
+    ticket_type = state.get("ticket_type", "")
+    required_action = state.get("required_action", "")
+
+    # If this action type has an approval override, auto-approve
+    is_auto_approved = (
+        required_action in approval_overrides
+        or ticket_type in approval_overrides
+        or "all" in approval_overrides
+    )
+    if is_auto_approved:
+        logs.append({"node": 5, "technique": "JARVIS_APPROVAL_OVERRIDE", "duration_ms": 0,
+                     "result_summary": f"auto_approved action={required_action} type={ticket_type}"})
+        logger.info("Node 5: Auto-approved by Jarvis override: action=%s type=%s", required_action, ticket_type)
+
+
     # 7. UCB execute (mock — wired in Phase 7)
-    logs.append({"node": 5, "technique": "UCB", "duration_ms": 0, "result_summary": "action_executed"})
+    logs.append({"node": 5, "technique": "UCB", "duration_ms": 0, "result_summary": f"action_executed auto_approved={is_auto_approved}"})
 
     elapsed = int((time.time() - start) * 1000)
     logger.info(

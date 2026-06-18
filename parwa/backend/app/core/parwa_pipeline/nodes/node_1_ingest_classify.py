@@ -333,6 +333,24 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
     Runs: SmartRouter → DynamicContext → MetaLearner → UoT
     """
     start = time.time()
+    # ── Wave 4: Load and check Jarvis system flags (shutdown) ───────
+    system_flags = state.get("system_flags")
+    if not system_flags:
+        try:
+            from app.core.parwa_pipeline.parwa_bridge import load_system_flags
+            system_flags = await load_system_flags(state.get("tenant_id", ""))
+        except Exception:
+            system_flags = {}
+    if system_flags.get("global_shutdown"):
+        logger.warning("Node 1: GLOBAL SHUTDOWN active — rejecting ticket %s", state["ticket_id"])
+        return {
+            "status": "rejected",
+            "final_response": "System is currently under maintenance. Your request cannot be processed at this time.",
+            "technique_log": [{"node": 1, "technique": "JARVIS_SHUTDOWN_CHECK", "duration_ms": 0, "result_summary": "rejected_due_to_shutdown"}],
+            "errors": [{"node": "node_1", "error": "global_shutdown_active", "details": "Ticket rejected due to emergency shutdown flag"}],
+            "total_token_usage": state.get("total_token_usage", 0),
+        }
+
     query = state["query"]
     tenant_id = state["tenant_id"]
     customer_context = state.get("customer_context", {})
@@ -393,6 +411,7 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
         "classification_confidence": confidence,
         "routing_suggestion": routing_suggestion,
         "customer_context": {**customer_context, **dynamic_ctx},
+        "system_flags": system_flags,
         "technique_log": logs,
         "node_1_token_usage": 1,  # 1 LLM call (UoT)
         "total_token_usage": state.get("total_token_usage", 0) + 1,

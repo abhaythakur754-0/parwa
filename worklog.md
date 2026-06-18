@@ -141,3 +141,32 @@ Stage Summary:
   3F. Workflow Redirect — channel routing with temporal scope parsing ("for today", "for 2 hours")
 - Bug fixed: \x08 backspace characters in command_executor.py regex patterns
 - Total across all waves: 270 tests passing (Wave 1: 71, Wave 2: 94, Wave 3: 105)
+---
+Task ID: W4
+Agent: main
+Task: Jarvis Wave 4 — Bidirectional Channel (PARWA reads Jarvis flags + writes back)
+
+Work Log:
+- Read JARVIS_Complete_Roadmap.md for Wave 4 scope (5 deliverables: 4A-E)
+- Explored codebase: verified Wave 3 command_executor.py exists (932 lines), Wave 2 collectors in jarvis_db.py
+- Identified gaps: no jarvis_inbox table, no load_system_flags, PARWA nodes don't read flags, no quality write-back
+- Created wave4_build.py script to patch all files
+- Patched jarvis_db.py: added TABLE_INBOX constant, abstract methods to StorageBackend, InMemoryBackend, SupabaseBackend
+- Created parwa_bridge.py: load_system_flags() with 5s cache, write_quality_score_to_jarvis(), write_to_jarvis_inbox(), record_training_signal()
+- Patched state_v2.py: added system_flags, jarvis_guidance, quality_written_to_jarvis, inbox_message_id fields
+- Patched node_1: lazy-loads flags, checks global_shutdown
+- Patched node_2: checks pause_action (substring match), redirect_channel, force_mode
+- Patched node_3: reads guidance flags, injects as knowledge
+- Patched node_5: checks approval_override flags
+- Patched node_6: writes quality score to Jarvis DB
+- Patched node_8: writes to jarvis_inbox on escalation
+- Patched graph_v2.py: added _route_after_node_1, _route_after_node_2 for early exits
+- Created wave4_e2e_test.py: 24 tests, all passing
+
+Stage Summary:
+- Wave 4 deliverables: 4A (PARWA reads flags) ✅, 4B (inbox) ✅, 4C (guidance) ✅, 4D (quality write-back) ✅, 4E (training data) ✅
+- Key architecture: lazy-load pattern in each node via parwa_bridge, 5s cache
+- Files created: parwa_bridge.py, wave4_e2e_test.py
+- Files modified: jarvis_db.py, state_v2.py, node_1/2/3/5/6/8, graph_v2.py
+- Tests: 24/24 passing
+- Total across all waves: 294 tests passing (Wave 1: 71, Wave 2: 94, Wave 3: 105, Wave 4: 24)

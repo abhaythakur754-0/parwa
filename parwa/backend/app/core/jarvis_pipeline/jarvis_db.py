@@ -44,6 +44,7 @@ TABLE_CLIENT_LEGAL = "jarvis_client_legal"
 TABLE_PROVISIONING_LOGS = "jarvis_provisioning_logs"
 TABLE_TRAINING_DATA = "jarvis_training_data"
 TABLE_BATCH_QUEUE = "jarvis_batch_queue"
+TABLE_INBOX = "jarvis_inbox"
 
 # Priority constants
 PRIORITY_CRITICAL = "CRITICAL"
@@ -366,6 +367,50 @@ class StorageBackend(ABC):
         """Get outbox queue status (pending, sent, recalled, voided counts)."""
         ...
 
+
+    # ── Jarvis Inbox (Wave 4 — PARWA → Jarvis) ──────────
+
+    @abstractmethod
+    async def write_to_inbox(
+        self,
+        tenant_id: str,
+        ticket_id: str,
+        stuck_reason: str,
+        quality_score: float,
+        what_was_tried: str,
+        inbox_type: str = "parwa_stuck",
+    ) -> Dict[str, Any]:
+        """PARWA writes to Jarvis inbox when it needs help."""
+        ...
+
+    @abstractmethod
+    async def get_inbox_messages(
+        self, tenant_id: str, include_resolved: bool = False
+    ) -> List[Dict[str, Any]]:
+        """Get inbox messages for Jarvis to process."""
+        ...
+
+    @abstractmethod
+    async def resolve_inbox_message(self, message_id: str) -> bool:
+        """Mark inbox message as resolved."""
+        ...
+
+    # ── Training Data Collection (Wave 4) ────────────────
+
+    @abstractmethod
+    async def record_training_data(
+        self,
+        tenant_id: str,
+        ticket_id: str,
+        signal_type: str,  # "approved", "rejected", "edited"
+        original_response: str = "",
+        corrected_response: str = "",
+        quality_score: float = 0.0,
+        ticket_type: str = "",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Record training data from human approval/rejection/edit."""
+        ...
     # ── Utility ──────────────────────────────────────────────
 
     @abstractmethod
@@ -402,6 +447,8 @@ class InMemoryBackend(StorageBackend):
         self._load_status: Dict[str, Dict] = {}  # tenant_id -> {variant -> {concurrent, max_concurrent}}
         self._agent_configs: List[Dict] = []  # Wave 3: agent config store
         self._outbox: List[Dict] = []  # Wave 3: outbox queue (recall/void)
+        self._inbox: List[Dict] = []  # Wave 4: PARWA → Jarvis inbox
+        self._training_data_records: List[Dict] = []  # Wave 4: training data
 
     # ── Helpers ───────────────────────────────────────────────
 
@@ -707,6 +754,85 @@ class InMemoryBackend(StorageBackend):
         results = list(self._batch_metas.get(tenant_id, {}).values())
         self._batch_metas[tenant_id] = {}
         return results
+
+    # ── Jarvis Inbox (Wave 4) ─────────────────────────────
+
+    async def write_to_inbox(
+        self,
+        tenant_id: str,
+        ticket_id: str,
+        stuck_reason: str,
+        quality_score: float,
+        what_was_tried: str,
+        inbox_type: str = "parwa_stuck",
+    ) -> Dict[str, Any]:
+        msg = {
+            "id": str(uuid.uuid4()),
+            "tenant_id": tenant_id,
+            "ticket_id": ticket_id,
+            "stuck_reason": stuck_reason,
+            "quality_score": round(quality_score, 4),
+            "what_was_tried": what_was_tried[:1000],
+            "inbox_type": inbox_type,
+            "status": "pending",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "resolved_at": None,
+            "jarvis_response": None,
+        }
+        self._inbox.append(msg)
+        return msg
+
+    async def get_inbox_messages(
+        self, tenant_id: str, include_resolved: bool = False
+    ) -> List[Dict[str, Any]]:
+        msgs = [m for m in self._inbox if m["tenant_id"] == tenant_id]
+        if not include_resolved:
+            msgs = [m for m in msgs if m["status"] == "pending"]
+        return sorted(msgs, key=lambda m: m["created_at"], reverse=True)
+
+    async def resolve_inbox_message(self, message_id: str) -> bool:
+        for m in self._inbox:
+            if m["id"] == message_id and m["status"] == "pending":
+                m["status"] = "resolved"
+                m["resolved_at"] = datetime.now(timezone.utc).isoformat()
+                return True
+        return False
+
+    # ── Training Data (Wave 4) ─────────────────────────────
+
+    async def record_training_data(
+        self,
+        tenant_id: str,
+        ticket_id: str,
+        signal_type: str,
+        original_response: str = "",
+        corrected_response: str = "",
+        quality_score: float = 0.0,
+        ticket_type: str = "",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        record = {
+            "id": str(uuid.uuid4()),
+            "tenant_id": tenant_id,
+            "ticket_id": ticket_id,
+            "signal_type": signal_type,
+            "original_response": original_response[:2000],
+            "corrected_response": corrected_response[:2000],
+            "quality_score": round(quality_score, 4),
+            "ticket_type": ticket_type,
+            "metadata": metadata or {},
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        self._training_data_records.append(record)
+        return record
+
+    async def get_training_data(
+        self, tenant_id: str, signal_type: Optional[str] = None, limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        records = [r for r in self._training_data_records if r["tenant_id"] == tenant_id]
+        if signal_type:
+            records = [r for r in records if r["signal_type"] == signal_type]
+        return sorted(records, key=lambda r: r["created_at"], reverse=True)[:limit]
 
     # ── Utility ──────────────────────────────────────────────
 
@@ -1819,6 +1945,77 @@ class SupabaseBackend(StorageBackend):
             "recalled": by_status.get("recalled", 0),
             "voided": by_status.get("voided", 0),
         }
+
+    # ── Jarvis Inbox (Wave 4) ─────────────────────────────
+
+    async def write_to_inbox(
+        self,
+        tenant_id: str,
+        ticket_id: str,
+        stuck_reason: str,
+        quality_score: float,
+        what_was_tried: str,
+        inbox_type: str = "parwa_stuck",
+    ) -> Dict[str, Any]:
+        payload = {
+            "tenant_id": tenant_id,
+            "ticket_id": ticket_id,
+            "stuck_reason": stuck_reason,
+            "quality_score": quality_score,
+            "what_was_tried": what_was_tried[:1000],
+            "inbox_type": inbox_type,
+            "status": "pending",
+        }
+        return await self._rest_post(TABLE_INBOX, payload)
+
+    async def get_inbox_messages(
+        self, tenant_id: str, include_resolved: bool = False
+    ) -> List[Dict[str, Any]]:
+        query = f"tenant_id=eq.{tenant_id}&order=created_at.desc"
+        if not include_resolved:
+            query += "&status=eq.pending"
+        return await self._rest_get(TABLE_INBOX, query)
+
+    async def resolve_inbox_message(self, message_id: str) -> bool:
+        await self._rest_patch(
+            TABLE_INBOX,
+            f"id=eq.{message_id}",
+            {"status": "resolved", "resolved_at": datetime.now(timezone.utc).isoformat()},
+        )
+        return True
+
+    # ── Training Data (Wave 4) ─────────────────────────────
+
+    async def record_training_data(
+        self,
+        tenant_id: str,
+        ticket_id: str,
+        signal_type: str,
+        original_response: str = "",
+        corrected_response: str = "",
+        quality_score: float = 0.0,
+        ticket_type: str = "",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        payload = {
+            "tenant_id": tenant_id,
+            "ticket_id": ticket_id,
+            "signal_type": signal_type,
+            "original_response": original_response[:2000],
+            "corrected_response": corrected_response[:2000],
+            "quality_score": quality_score,
+            "ticket_type": ticket_type,
+            "metadata": metadata or {},
+        }
+        return await self._rest_post(TABLE_TRAINING_DATA, payload)
+
+    async def get_training_data(
+        self, tenant_id: str, signal_type: Optional[str] = None, limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        query = f"tenant_id=eq.{tenant_id}&order=created_at.desc&limit={limit}"
+        if signal_type:
+            query += f"&signal_type=eq.{signal_type}"
+        return await self._rest_get(TABLE_TRAINING_DATA, query)
 
     # ── Utility ──────────────────────────────────────────────
 
