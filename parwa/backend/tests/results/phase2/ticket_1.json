@@ -1,0 +1,127 @@
+{
+  "ticket_id": "tkt_p2_001",
+  "description": "Refund+credit+data retention",
+  "status": "escalated",
+  "ticket_type": "billing",
+  "complexity": "complex",
+  "route": "complex_path",
+  "llm_calls": 69,
+  "tokens": 69895,
+  "llm_errors": 0,
+  "quality_score": 0.8582,
+  "quality_details": {
+    "reflexion": 0.8,
+    "crp": 0.9,
+    "zero_shot": 1.0,
+    "thot_coherence": 1.0,
+    "gsd_part_scores": 0.9818
+  },
+  "super_node_quality": 0.695,
+  "loops": 2,
+  "escalated": true,
+  "time_s": 205.3,
+  "time_per_call_s": 2.98,
+  "node_breakdown": {
+    "node_1": {
+      "count": 6,
+      "techs": [
+        "DynamicContext",
+        "MetaLearner",
+        "SmartRouter",
+        "SmartRouter.action",
+        "SmartRouter.complexity",
+        "UoT"
+      ]
+    },
+    "node_2": {
+      "count": 3,
+      "techs": [
+        "QuotaTracker",
+        "RouteDecision",
+        "VariantRegistry"
+      ]
+    },
+    "node_3": {
+      "count": 10,
+      "techs": [
+        "AIWiki",
+        "CLARA",
+        "CLARA.reevaluate",
+        "ContextualCompression",
+        "DynamicContext",
+        "HyDE",
+        "MultiQuery",
+        "RAG",
+        "StepBack",
+        "UCB"
+      ]
+    },
+    "node_4": {
+      "count": 61,
+      "techs": [
+        "AnswerSynthesis",
+        "CoT",
+        "FederatedReasoning",
+        "GSD",
+        "GST",
+        "LeastToMost",
+        "MAKER",
+        "MetaLearner",
+        "ReverseThinking",
+        "ThoT",
+        "ToT",
+        "UoT",
+        "ZeroShotValidator"
+      ]
+    },
+    "node_5": {
+      "count": 24,
+      "techs": [
+        "GSD",
+        "MAKER",
+        "ReAct",
+        "ReverseThinking",
+        "RuleBasedAction",
+        "UCB",
+        "ZeroShotValidator"
+      ]
+    },
+    "node_6": {
+      "count": 21,
+      "techs": [
+        "CRP",
+        "ContextualCompression",
+        "FederatedReasoning",
+        "GSD",
+        "Reflexion",
+        "ThoT",
+        "ZeroShotValidator"
+      ]
+    },
+    "node_8": {
+      "count": 18,
+      "techs": [
+        "CRP",
+        "CoT",
+        "Escalation",
+        "Reflexion",
+        "ReverseThinking",
+        "SelfConsistency",
+        "ToT",
+        "adaptive_budget",
+        "contextual_compression",
+        "dynamic_context",
+        "federated",
+        "gsd",
+        "maker",
+        "meta_learner",
+        "smart_router",
+        "thot",
+        "turbo_compress",
+        "zero_shot"
+      ]
+    }
+  },
+  "response_preview": "Dear valued customer,\n\nThank you for reaching out to us regarding your annual Pro plan subscription cancellation and refund request. I understand that you've been a Pro plan customer for 8 months and are seeking a full refund of $1,200, taking into account the outstanding credit of $75 from a previous billing error.\n\nTo address your concerns, I've reviewed our billing policies and procedures. According to our Refund Policy, all customers are eligible for a full refund within 30 days of purchase, regardless of plan. Since you've been a Pro plan customer for 8 months (240 days), which is beyond the 30-day refund window, you are eligible for a prorated refund based on the unused months.\n\nTo calculate the refund amount, I'll apply the outstanding credit of $75 to your account. The total refund",
+  "errors": []
+}

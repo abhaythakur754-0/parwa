@@ -1,0 +1,127 @@
+{
+  "ticket_id": "tkt_p2_002",
+  "description": "Duplicate charge+pricing discrepancy",
+  "status": "escalated",
+  "ticket_type": "faq",
+  "complexity": "complex",
+  "route": "complex_path",
+  "llm_calls": 73,
+  "tokens": 76070,
+  "llm_errors": 0,
+  "quality_score": 0.8556,
+  "quality_details": {
+    "reflexion": 0.8,
+    "crp": 0.9,
+    "zero_shot": 1.0,
+    "thot_coherence": 1.0,
+    "gsd_part_scores": 0.9556
+  },
+  "super_node_quality": 0.6703,
+  "loops": 2,
+  "escalated": true,
+  "time_s": 276.3,
+  "time_per_call_s": 3.78,
+  "node_breakdown": {
+    "node_1": {
+      "count": 6,
+      "techs": [
+        "DynamicContext",
+        "MetaLearner",
+        "SmartRouter",
+        "SmartRouter.action",
+        "SmartRouter.complexity",
+        "UoT"
+      ]
+    },
+    "node_2": {
+      "count": 3,
+      "techs": [
+        "QuotaTracker",
+        "RouteDecision",
+        "VariantRegistry"
+      ]
+    },
+    "node_3": {
+      "count": 10,
+      "techs": [
+        "AIWiki",
+        "CLARA",
+        "CLARA.reevaluate",
+        "ContextualCompression",
+        "DynamicContext",
+        "HyDE",
+        "MultiQuery",
+        "RAG",
+        "StepBack",
+        "UCB"
+      ]
+    },
+    "node_4": {
+      "count": 65,
+      "techs": [
+        "AnswerSynthesis",
+        "CoT",
+        "FederatedReasoning",
+        "GSD",
+        "GST",
+        "LeastToMost",
+        "MAKER",
+        "MetaLearner",
+        "ReverseThinking",
+        "ThoT",
+        "ToT",
+        "UoT",
+        "ZeroShotValidator"
+      ]
+    },
+    "node_5": {
+      "count": 21,
+      "techs": [
+        "GSD",
+        "MAKER",
+        "ReAct",
+        "ReverseThinking",
+        "RuleBasedAction",
+        "UCB",
+        "ZeroShotValidator"
+      ]
+    },
+    "node_6": {
+      "count": 21,
+      "techs": [
+        "CRP",
+        "ContextualCompression",
+        "FederatedReasoning",
+        "GSD",
+        "Reflexion",
+        "ThoT",
+        "ZeroShotValidator"
+      ]
+    },
+    "node_8": {
+      "count": 18,
+      "techs": [
+        "CRP",
+        "CoT",
+        "Escalation",
+        "Reflexion",
+        "ReverseThinking",
+        "SelfConsistency",
+        "ToT",
+        "adaptive_budget",
+        "contextual_compression",
+        "dynamic_context",
+        "federated",
+        "gsd",
+        "maker",
+        "meta_learner",
+        "smart_router",
+        "thot",
+        "turbo_compress",
+        "zero_shot"
+      ]
+    }
+  },
+  "response_preview": "Dear [Customer],\n\nThank you for reaching out to us regarding the concerns you've experienced with your Pro plan account. We apologize for the inconvenience and appreciate the detailed information you've provided.\n\nFirstly, we'd like to address the duplicate charge of $149 on the 15th. We've investigated this issue, and we've found that the second charge was indeed incorrect, showing the High plan rate of $499 instead of the correct Pro plan rate of $149. We're going to reverse this duplicate charge immediately, and you should see the corrected amount reflected in your next invoice.\n\nRegarding the pricing discrepancy between your pricing page and your team member's pricing page, we've found that the issue lies in the fact that your team member is seeing a different pricing page due to the w",
+  "errors": []
+}

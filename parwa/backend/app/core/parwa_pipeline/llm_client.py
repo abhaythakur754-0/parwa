@@ -23,7 +23,7 @@ logger = logging.getLogger("parwa.pipeline.llm")
 
 _last_call_time: float = 0.0
 _rate_lock: asyncio.Lock = None
-MIN_CALL_INTERVAL: float = 1.5  # 40 RPM safe interval
+MIN_CALL_INTERVAL: float = 2.0  # 30 RPM safe (under 40 limit with margin)
 MAX_RETRIES: int = 3
 RETRY_BASE_DELAY: float = 3.0  # seconds, exponential backoff
 

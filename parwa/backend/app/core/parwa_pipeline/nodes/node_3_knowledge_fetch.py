@@ -1,23 +1,11 @@
 """
-Node 3: Knowledge Fetch + AI Wiki
+Node 3: Knowledge Fetch + AI Wiki — PHASE 2
 
-Question: What do we KNOW about this problem?
-
-Every ticket — simple or complex — goes through this node.
-You cannot answer any ticket without evidence.
-
-Techniques (in order):
-  1. CLARA.gatekeep()           — relevant? enough? contradictory? (LLM)
-  2. HyDE.generate()             — hypothetical answer as search query (LLM)
-  3. MultiQuery.rewrite()        — 3 different phrasings (LLM)
-  4. StepBack.zoom_out()         — broader principles (LLM)
-  5. RAG retrieval               — from vector store
-  6. ContextualCompression       — remove irrelevant paragraphs (non-LLM)
-  7. DynamicContext.pull()       — conversation history (non-LLM)
-  8. AI Wiki Section A/B/C read  — per client, isolated
-  9. CRM data fetch via UCB      — customer data from connected tools
-
-LLM calls: 3-4 (CLARA + HyDE + Multi-Query + Step-Back)
+Upgrades from Phase 1:
+  - Rich knowledge base (detailed policies with numbers, processes, timelines)
+  - LLM-based CLARA re-evaluation (not just doc count)
+  - Better contextual compression
+  - LLM-based contradiction detection
 """
 
 from __future__ import annotations
@@ -32,37 +20,120 @@ from app.core.parwa_pipeline.state_v2 import PipelineV2State
 logger = logging.getLogger("parwa.pipeline.node_3")
 
 
-# ── CLARA: Gatekeeper (LLM) ───────────────────────────────────────
+# ── PHASE 2: Rich Knowledge Base ──────────────────────────────────
+
+KNOWLEDGE_BASE: Dict[str, List[Dict[str, str]]] = {
+    "refund_request": [
+        {
+            "source": "refund_policy_v2",
+            "content": "Refund Policy (Updated 2026): All customers are eligible for a full refund within 30 days of purchase, regardless of plan. After 30 days: Pro plan customers receive prorated refunds based on unused months. High plan customers receive prorated refunds minus a 5% early termination fee. Mini plan customers are not eligible for refunds after 14 days. Refunds are processed to the ORIGINAL payment method within 5-7 business days. For amounts exceeding $500, manager approval is required (typically 1-2 business days). Outstanding credits are applied BEFORE calculating the refund amount. Annual plan refunds: customer pays full year upfront, refund = annual price - (monthly rate × months used) - any applicable fees. Customer data is retained for 30 days after cancellation, then permanently deleted unless the customer requests data export within that window.",
+            "section": "C",
+        },
+        {
+            "source": "refund_process_v2",
+            "content": "Refund Process Steps: 1) Verify customer identity (email + last 4 digits of payment method) 2) Check refund eligibility: plan type, purchase date, previous refunds 3) Calculate refund: start with annual price, subtract used portion at monthly rate, apply any outstanding credits, subtract early termination fee if applicable 4) For High plan: subtract 5% early termination fee 5) If amount > $500: route to finance team for manager approval 6) Process refund through Stripe/payment provider 7) Send confirmation email with refund ID and expected timeline 8) Update CRM with refund status. Average processing time: 3 business days for amounts under $500, 5-7 days for larger amounts.",
+            "section": "C",
+        },
+        {
+            "source": "credit_policy",
+            "content": "Credit Policy: Billing error credits are applied to the next invoice. If the customer has an outstanding credit at the time of cancellation, the credit amount is ADDED to the refund. Credits do not expire and can be applied to any future purchase. To apply a credit: verify the credit was approved (check billing_audit_log), confirm the amount, apply to current transaction before processing refund. Credits from billing errors are typically equal to the overcharged amount.",
+            "section": "C",
+        },
+        {
+            "source": "data_retention_policy",
+            "content": "Data Retention Policy: Upon account cancellation: all customer data is retained for 30 days in a read-only state. During this period, the customer can: 1) Reactivate their account (data restored fully), 2) Request a full data export (CSV/JSON format, provided within 24 hours), 3) Request immediate permanent deletion. After 30 days: data is permanently and irreversibly deleted from all systems including backups. Team member data follows the same policy. SSO configurations are preserved at the workspace level (not deleted with individual accounts).",
+            "section": "C",
+        },
+    ],
+    "billing": [
+        {
+            "source": "billing_policy_v2",
+            "content": "Billing Policy (2026): Subscriptions billed monthly (1st of month) or annually (on anniversary). Upgrades: take effect immediately, customer charged prorated difference. Downgrades: take effect at end of current billing cycle, no prorated credit for partial month. Failed payments: 3 retry attempts over 7 days, then account suspended (not deleted). Invoices generated on 1st of each month, sent to billing email. Payment methods: credit card, ACH, wire transfer. Duplicate charges: if customer is charged twice in one cycle, the second charge is immediately refunded. If the duplicate was at a DIFFERENT plan rate, investigate whether an unauthorized plan change occurred. Pricing page discrepancies: all users on the same workspace should see the same pricing. If different users see different prices, check: 1) Are they on the same workspace? 2) Is there a custom enterprise agreement? 3) Cache issue — clear and recheck.",
+            "section": "C",
+        },
+        {
+            "source": "billing_dispute_process",
+            "content": "Billing Dispute Resolution: 1) Acknowledge the dispute immediately 2) Pull the last 3 invoices for the account 3) Compare charged amounts with plan rates: Mini $999/mo, PARWA $2,499/mo, High $4,999/mo 4) If duplicate charge found: issue immediate refund for the duplicate 5) If wrong plan rate charged: refund the difference and correct the subscription 6) If pricing page shows wrong rate: this is a display bug, report to engineering, honor the lower price for the customer 7) Provide the customer with a detailed breakdown of all charges and corrections 8) Apply a 10% goodwill credit if the error was on our side. Resolution target: 24 hours for duplicate charges, 48 hours for pricing discrepancies.",
+            "section": "C",
+        },
+        {
+            "source": "plan_pricing",
+            "content": "Current Plan Pricing (2026): Mini plan — $999/month or $9,999/year (17% savings). Includes: 1 agent, 500 tickets/month, email+chat channels. PARWA plan — $2,499/month or $24,999/year (17% savings). Includes: 3 agents, 2,000 tickets/month, all channels. High plan — $4,999/month or $49,999/year (17% savings). Includes: 10 agents, 10,000 tickets/month, all channels + priority support + custom integrations. All plans include: AI resolution, knowledge base, analytics dashboard. Add-ons: Extra agent seats ($99/seat/month), extra tickets ($0.50/ticket over limit), priority support ($499/month). Team member pricing: all team members on the same workspace share the same per-seat rate based on the workspace plan.",
+            "section": "C",
+        },
+    ],
+    "technical": [
+        {
+            "source": "tech_troubleshooting_v2",
+            "content": "Technical Troubleshooting Guide: Login issues: 1) Check if password was recently changed (security log), 2) Check SSO sync status, 3) Clear browser cache/cookies, 4) Try incognito mode, 5) Check if account is locked (3 failed attempts = 15min lockout). SSO Issues: 1) Check last sync timestamp in admin panel, 2) Verify SSO provider status (Okta/Azure AD), 3) Check SSO certificate expiration, 4) Re-sync manually from admin panel. Unauthorized access: 1) Immediately lock the account, 2) Review audit log for all actions in the suspicious period, 3) Check for data exports during the period, 4) Remove any unauthorized users, 5) Force password reset, 6) Revoke all active sessions, 7) Notify the security team if financial data is involved. Data export check: go to Admin > Audit Log > filter by 'export' events in the relevant date range.",
+            "section": "C",
+        },
+        {
+            "source": "security_protocol",
+            "content": "Security Incident Response Protocol: For suspected unauthorized access: Priority: CRITICAL. Step 1: Lock the affected account immediately (prevents further unauthorized actions). Step 2: Audit — pull the full session log for the past 7 days, note all login IPs, actions taken, data accessed. Step 3: Check for data exfiltration — look for export events, API key creation, webhook modifications. Step 4: Remove any unauthorized users added during the suspicious period. Step 5: Reset the account password and invalidate all sessions. Step 6: Fix SSO sync if broken — typical fix: re-authenticate with identity provider, check SCIM provisioning. Step 7: Notify the customer with a full incident report. Step 8: If financial data was accessed, escalate to the security team for GDPR/compliance review. Response time target: account lock within 5 minutes, full investigation within 2 hours.",
+            "section": "C",
+        },
+    ],
+    "faq": [
+        {
+            "source": "general_faq_v2",
+            "content": "PARWA Platform FAQ: PARWA is an AI-powered customer support resolution platform. Plans: Mini ($999/mo), PARWA ($2,499/mo), High ($4,999/mo). All plans include 24/7 AI support. Platform supports: email, SMS, chat, phone, CRM integration (Salesforce, HubSpot), helpdesk integration (Zendesk, Intercom). Onboarding: 30-minute setup, 24-hour knowledge base import. Plan changes: upgrades immediate with prorated billing, downgrades at next cycle. Cancellation: 30-day refund window, data retained 30 days post-cancellation. Team members: can be added/removed from workspace settings. Each workspace has one billing owner.",
+            "section": "C",
+        },
+        {
+            "source": "plan_change_faq",
+            "content": "Plan Change FAQ: Upgrading: Immediate effect, prorated charge for remainder of billing cycle. Downgrading: Takes effect at end of current billing cycle. No partial month credit on downgrade. Annual to monthly: At end of annual term, converts to monthly billing. Mid-year changes: If on annual plan and want to change mid-year, customer pays the difference (upgrade) or receives prorated credit (downgrade) calculated as: (annual price paid) - (monthly rate × months used) - early termination fee if applicable. Team splits: If some team members need different plans, create a second workspace under the same organization. Each workspace is billed independently. Prorated credits from the old plan can be applied to new workspace(s) as billing credits.",
+            "section": "C",
+        },
+        {
+            "source": "team_management_faq",
+            "content": "Team Management FAQ: Adding team members: Admin goes to Settings > Team > Invite. Each seat costs based on the workspace plan. Removing team members: Their access is revoked immediately. They can be re-added later. If a team member has an open ticket when removed: the ticket remains assigned to the workspace and can be picked up by another member. No data is lost when a member is removed. Plan changes affecting teams: If workspace downgrades and has more seats than the new plan allows, excess members are moved to 'read-only' until seats are freed or plan is upgraded.",
+            "section": "C",
+        },
+    ],
+    "complaint": [
+        {
+            "source": "complaint_handling_v2",
+            "content": "Complaint Handling Policy (2026): Priority tiers: Pro plan customers with 1+ year tenure get expedited resolution (target: 4 hours). High plan customers: immediate escalation to senior support. All complaints logged with timestamp, category, and sentiment score. Billing complaints: forwarded to finance team, customer notified within 1 hour. Service quality complaints: trigger interaction review, agent coaching if needed. Compensation guidelines: Mini plan: up to $50 credit or 1 free month. Pro plan: up to $200 credit or 1 free month. High plan: up to $500 credit, custom resolution with account manager. All complaints older than 48 hours without resolution are auto-escalated to management.",
+            "section": "C",
+        },
+    ],
+    "account_change": [
+        {
+            "source": "account_policy_v2",
+            "content": "Account Change Policy (2026): Email changes: require verification of both old and new email addresses, 24-hour cooldown before taking effect. Password changes: invalidate all active sessions, require re-login on all devices. For security: if password was changed without user requesting it, treat as potential security incident (see security protocol). Plan upgrades: immediate with prorated billing for remainder of cycle. Plan downgrades: effective at next billing cycle, no mid-cycle credit. Account deletion: permanent after 30-day grace period, requires email confirmation, data export available before deletion. Team member additions: admin-only action, new member gets default permissions based on workspace plan. SSO configuration: managed at workspace level, not per-user. SSO sync runs every hour via SCIM. If sync fails, check: provider status, SCIM endpoint, certificate expiration.",
+            "section": "C",
+        },
+        {
+            "source": "workspace_management",
+            "content": "Workspace Management: Each organization can have multiple workspaces. Each workspace has its own plan, team, and billing. To split a team across plans: 1) Create a new workspace under the same organization 2) Move team members to the appropriate workspace 3) Each workspace gets its own subscription. Prorated credit from the original workspace can be transferred as billing credit to the new workspace. Billing consolidation: available for organizations with 3+ workspaces. Contact sales@parwa.ai for consolidated billing setup. Open tickets: stay with the original workspace. They are not transferred when team members move.",
+            "section": "C",
+        },
+    ],
+}
+
+
+# ── CLARA: Gatekeeper (LLM) — Phase 2: Better prompts ────────────
 
 
 async def _clara_gatekeep(query: str, ticket_type: str) -> Dict[str, Any]:
-    """CLARA asks 3 questions:
-    1. Is this knowledge RELEVANT to the ticket?
-    2. Do we have ENOUGH knowledge to answer?
-    3. Is this knowledge CONTRADICTORY?
+    """CLARA asks 3 questions with clearer LLM prompting."""
+    prompt = f"""You are CLARA, a knowledge quality gatekeeper for customer support.
 
-    Returns dict with gate results.
-    """
-    prompt = f"""You are a knowledge quality gatekeeper (CLARA).
+TICKET: "{query}"
+TYPE: {ticket_type}
 
-Ticket: "{query}"
-Type: {ticket_type}
+Analyze what knowledge is needed. Answer precisely:
 
-Answer these 3 questions with YES or NO:
-1. RELEVANT: Based on the ticket type, what kind of knowledge is needed to answer this?
-2. ENOUGH: What specific information is required?
-3. GAPS: What information might be MISSING that would help answer better?
+NEEDED_AREAS: <list 2-4 specific knowledge areas needed>
+REQUIRED_FACTS: <list specific facts/policies needed to answer>
+POSSIBLE_GAPS: <list what might be missing>"""
 
-Format:
-RELEVANT_KNOWLEDGE: <what knowledge areas are needed>
-REQUIRED_INFO: <what specific info is needed>
-POSSIBLE_GAPS: <what might be missing>"""
-
-    result = await llm_call(prompt, max_tokens=300)
+    result = await llm_call(prompt, max_tokens=250)
 
     return {
         "relevant_knowledge": result,
-        "knowledge_sufficient": False,  # Will be updated after retrieval
+        "knowledge_sufficient": False,
         "knowledge_contradictory": False,
     }
 
@@ -72,27 +143,27 @@ POSSIBLE_GAPS: <what might be missing>"""
 
 async def _hyde_generate(query: str, ticket_type: str) -> str:
     """Generate a hypothetical answer to use as a better search query."""
-    prompt = f"""Generate a hypothetical answer to this {ticket_type} support question.
-The answer should be detailed and factual-sounding, as if from a knowledge base article.
+    prompt = f"""Write a concise, factual answer to this {ticket_type} support question.
+Include specific numbers, policies, and processes where relevant.
 
 Question: "{query}"
 
-Hypothetical Answer:"""
+Answer:"""
 
-    return await llm_call(prompt, max_tokens=200)
+    return await llm_call(prompt, max_tokens=250)
 
 
-# ── Multi-Query: Rewrite question 3 ways (LLM) ───────────────────
+# ── MultiQuery: Rewrite question 3 ways (LLM) ───────────────────
 
 
 async def _multi_query_rewrite(query: str) -> List[str]:
-    """Rewrite the user's question in 3 different ways for better retrieval."""
-    prompt = f"""Rewrite this customer support question in 3 different ways.
-Each rewrite should capture the same intent but use different words/structure.
+    """Rewrite the user's question in 3 different ways."""
+    prompt = f"""Rewrite this customer support question in 3 different ways to improve search.
+Keep the core intent identical but vary the phrasing.
 
 Original: "{query}"
 
-Provide exactly 3 rewrites, one per line, numbered:"""
+3 rewrites (one per line, numbered):"""
 
     result = await llm_call(prompt, max_tokens=200)
     queries = [line.strip() for line in result.split("\n") if line.strip() and line.strip()[0].isdigit()]
@@ -103,99 +174,146 @@ Provide exactly 3 rewrites, one per line, numbered:"""
 
 
 async def _step_back(query: str, ticket_type: str) -> str:
-    """Step back to find broader principles related to the ticket."""
+    """Step back to find broader principles."""
     prompt = f"""A customer asked: "{query}" (type: {ticket_type})
 
-Instead of answering directly, what broader principles or policies are relevant?
-Think about the general category this falls under and what rules typically apply.
+What general principles, industry standards, or common policies apply?
+List 2-3 relevant principles with a brief explanation of each.
 
-Broader Principles:"""
+Principles:"""
 
-    return await llm_call(prompt, max_tokens=200)
+    return await llm_call(prompt, max_tokens=250)
 
 
 # ── ContextualCompression (non-LLM) ──────────────────────────────
 
 
 def _compress_context(documents: List[Dict[str, Any]], query: str) -> List[Dict[str, Any]]:
-    """Remove paragraphs irrelevant to the query.
-    Simple keyword-based compression for Phase 1."""
-    query_words = set(query.lower().split())
+    """Remove paragraphs irrelevant to the query."""
+    query_words = set(w.lower() for w in query.split() if len(w) > 3)
     compressed = []
 
     for doc in documents:
         text = doc.get("content", "").lower()
-        # Score relevance by keyword overlap
         doc_words = set(text.split())
-        overlap = len(query_words & doc_words)
-        if overlap > 0:
+        # More lenient: score based on significant word overlap
+        significant_overlap = len(query_words & doc_words)
+        total_significant = len(query_words) if query_words else 1
+        relevance = significant_overlap / total_significant
+        if relevance > 0.05:  # very lenient — keep most docs
             compressed.append(doc)
 
     return compressed if compressed else documents
 
 
-# ── Mock knowledge retrieval (replaced by real RAG in Phase 2) ─────
+# ── Knowledge Retrieval ────────────────────────────────────────────
 
-# For testing: returns mock knowledge based on ticket type
-MOCK_KNOWLEDGE: Dict[str, List[Dict[str, str]]] = {
-    "refund_request": [
-        {
-            "source": "refund_policy",
-            "content": "Refund Policy: Customers on Pro plan are eligible for a full refund within 30 days of purchase. Customers on Free plan are not eligible for refunds. Refunds are processed to the original payment method within 5-7 business days. Partial refunds are available for unused portions of annual plans. All refund requests are reviewed and may require manager approval for amounts exceeding $500.",
-            "section": "C",
-        },
-        {
-            "source": "refund_process",
-            "content": "Refund Process: 1) Verify customer identity and purchase details 2) Check refund eligibility based on plan and time 3) Calculate refund amount 4) Process through payment provider 5) Send confirmation email to customer. Refund status can be tracked in the customer portal.",
-            "section": "C",
-        },
-    ],
-    "billing": [
-        {
-            "source": "billing_policy",
-            "content": "Billing Policy: Subscriptions are billed monthly or annually based on the selected plan. Upgrades take effect immediately with prorated charges. Downgrades take effect at the end of the current billing cycle. Failed payment attempts result in a 7-day grace period before account suspension. Invoices are generated on the 1st of each month and sent to the billing email on file.",
-            "section": "C",
-        },
-    ],
-    "technical": [
-        {
-            "source": "tech_faq",
-            "content": "Common Technical Issues: If you cannot log in, try resetting your password via the 'Forgot Password' link. If the app is not loading, clear your browser cache and cookies. API errors (404, 500) should be reported to the technical team with the error code and timestamp. WebSocket connections require a stable internet connection.",
-            "section": "C",
-        },
-    ],
-    "faq": [
-        {
-            "source": "general_faq",
-            "content": "General FAQ: PARWA is an AI-powered customer support platform. We offer three plans: Mini ($999/mo), PARWA ($2,499/mo), and High ($4,999/mo). All plans include 24/7 AI support resolution. The platform integrates with email, SMS, chat, CRM, and helpdesk tools. Onboarding takes approximately 30 minutes.",
-            "section": "C",
-        },
-    ],
-    "complaint": [
-        {
-            "source": "complaint_handling",
-            "content": "Complaint Handling: All complaints are taken seriously. Priority customers (Pro plan, 1+ year tenure) receive expedited resolution. Complaints about billing are forwarded to the finance team. Service quality complaints trigger a review of the interaction. Compensation may be offered at the discretion of the support agent within tier limits. All complaints are logged for quality improvement.",
-            "section": "C",
-        },
-    ],
-    "account_change": [
-        {
-            "source": "account_policy",
-            "content": "Account Change Policy: Email changes require verification of both old and new email addresses. Password changes invalidate all active sessions. Plan upgrades are immediate with prorated billing. Plan downgrades take effect at next billing cycle. Account deletion is permanent and requires confirmation. Data export is available before deletion.",
-            "section": "C",
-        },
-    ],
-}
+
+def _retrieve_knowledge(
+    queries: List[str], ticket_type: str, tenant_id: str
+) -> List[Dict[str, Any]]:
+    """Retrieve knowledge documents from enriched knowledge base."""
+    # Primary: exact type match
+    docs = KNOWLEDGE_BASE.get(ticket_type, [])
+    
+    # Secondary: also pull from related types
+    related_types = {
+        "refund_request": ["billing"],
+        "billing": ["refund_request", "faq"],
+        "account_change": ["technical", "faq"],
+        "technical": ["account_change", "faq"],
+        "complaint": ["billing", "faq"],
+        "faq": ["billing", "account_change"],
+    }
+    for rt in related_types.get(ticket_type, []):
+        docs.extend(KNOWLEDGE_BASE.get(rt, []))
+
+    # Deduplicate by source
+    seen = set()
+    unique_docs = []
+    for d in docs:
+        if d["source"] not in seen:
+            seen.add(d["source"])
+            unique_docs.append({"content": d["content"], "source": d["source"], "section": d.get("section", "C")})
+
+    return unique_docs
+
+
+# ── PHASE 2: LLM-based CLARA re-evaluation ────────────────────────
+
+
+async def _clara_reevaluate(
+    query: str, ticket_type: str, documents: List[Dict[str, Any]], initial_analysis: str
+) -> Dict[str, bool]:
+    """LLM evaluates whether retrieved knowledge is sufficient and consistent."""
+    docs_text = "\n".join(f"- [{d['source']}] {d['content'][:300]}" for d in documents[:5])
+
+    prompt = f"""CLARA Re-evaluation.
+
+Ticket: "{query}"
+Type: {ticket_type}
+Initial analysis: {initial_analysis[:200]}
+Retrieved knowledge ({len(documents)} documents):
+{docs_text}
+
+Answer YES or NO for each:
+SUFFICIENT: Do we have enough specific information to answer this ticket accurately?
+CONSISTENT: Are the knowledge documents consistent with each other (no contradictions)?
+
+Format:
+SUFFICIENT: YES/NO
+CONSISTENT: YES/NO
+REASON: <one sentence>"""
+
+    result = await llm_call(prompt, max_tokens=150)
+    sufficient = "SUFFICIENT: YES" in result.upper()
+    consistent = "CONSISTENT: NO" not in result.upper()  # default to consistent
+
+    return {"knowledge_sufficient": sufficient, "knowledge_contradictory": not consistent}
+
+
+# ── Helpers ────────────────────────────────────────────────────────
+
+
+def _check_contradictions(documents: List[Dict[str, Any]]) -> bool:
+    """Quick keyword-level contradiction check."""
+    if len(documents) < 2:
+        return False
+    # Check for conflicting numbers (e.g., different refund percentages)
+    import re
+    all_numbers = {}
+    for doc in documents:
+        text = doc.get("content", "")
+        for match in re.finditer(r"(\d+)%", text):
+            num = int(match.group(1))
+            context = text[max(0, match.start()-30):match.end()+30].lower()
+            for keyword in ["refund", "fee", "credit", "discount"]:
+                if keyword in context:
+                    if keyword in all_numbers and all_numbers[keyword] != num:
+                        return True
+                    all_numbers[keyword] = num
+    return False
+
+
+def _read_ai_wiki(tenant_id: str, ticket_type: str) -> tuple:
+    """Read AI Wiki Sections A, B, C. Mock for Phase 6."""
+    return [], [], []
+
+
+def _fetch_crm_data(tenant_id: str, customer_context: Dict) -> Dict:
+    """Fetch CRM data via UCB. Mock for Phase 7."""
+    return {
+        "subscription_status": customer_context.get("account_tier", "free"),
+        "recent_interactions": customer_context.get("recent_ticket_count", 0),
+        "billing_email": customer_context.get("billing_email", "on file"),
+    }
 
 
 # ── Main Node Function ────────────────────────────────────────────
 
 
 async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
-    """Node 3: Knowledge Fetch — What do we KNOW?
-
-    Runs: CLARA → HyDE → Multi-Query → Step-Back → RAG → Compress → Wiki → UCB
-    """
+    """Node 3: Knowledge Fetch — Phase 2 with richer KB and LLM CLARA."""
     start = time.time()
     query = state["query"]
     tenant_id = state["tenant_id"]
@@ -203,56 +321,58 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
     logs = []
     llm_calls = 0
 
-    # 1. CLARA: Gatekeeper — what knowledge is needed? (LLM)
+    # 1. CLARA: Gatekeeper (LLM)
     clara_result = await _clara_gatekeep(query, ticket_type)
     logs.append({"node": 3, "technique": "CLARA", "duration_ms": 0, "result_summary": "gatekeep_done"})
     llm_calls += 1
 
-    # 2. HyDE: Generate hypothetical answer as search query (LLM)
+    # 2. HyDE (LLM)
     hypothetical = await _hyde_generate(query, ticket_type)
     logs.append({"node": 3, "technique": "HyDE", "duration_ms": 0, "result_summary": "hypothetical_generated"})
     llm_calls += 1
 
-    # 3. Multi-Query: Rewrite question 3 ways (LLM)
+    # 3. MultiQuery (LLM)
     rewrites = await _multi_query_rewrite(query)
     logs.append({"node": 3, "technique": "MultiQuery", "duration_ms": 0, "result_summary": f"{len(rewrites)} rewrites"})
     llm_calls += 1
 
-    # 4. Step-Back: Broader principles (LLM)
+    # 4. StepBack (LLM)
     broader = await _step_back(query, ticket_type)
     logs.append({"node": 3, "technique": "StepBack", "duration_ms": 0, "result_summary": "broader_principles"})
     llm_calls += 1
 
-    # 5. RAG Retrieval — search with all queries
+    # 5. RAG Retrieval
     all_queries = [query, hypothetical] + rewrites + [broader]
     documents = _retrieve_knowledge(all_queries, ticket_type, tenant_id)
     logs.append({"node": 3, "technique": "RAG", "duration_ms": 0, "result_summary": f"{len(documents)} docs"})
 
-    # 6. CLARA: Re-evaluate — is knowledge sufficient now?
-    clara_result["knowledge_sufficient"] = len(documents) >= 1
-    clara_result["knowledge_contradictory"] = _check_contradictions(documents)
+    # 6. CLARA: LLM-based re-evaluation (Phase 2)
+    clara_eval = await _clara_reevaluate(query, ticket_type, documents, clara_result["relevant_knowledge"])
+    clara_result["knowledge_sufficient"] = clara_eval["knowledge_sufficient"]
+    clara_result["knowledge_contradictory"] = clara_eval["knowledge_contradictory"]
     logs.append({"node": 3, "technique": "CLARA.reevaluate", "duration_ms": 0, "result_summary": f"sufficient={clara_result['knowledge_sufficient']}"})
+    llm_calls += 1
 
     # 7. ContextualCompression (non-LLM)
     compressed = _compress_context(documents, query)
     logs.append({"node": 3, "technique": "ContextualCompression", "duration_ms": 0, "result_summary": f"{len(documents)}→{len(compressed)}"})
 
-    # 8. DynamicContext: conversation history (non-LLM)
+    # 8. DynamicContext (non-LLM)
     dynamic_ctx = state.get("customer_context", {})
     logs.append({"node": 3, "technique": "DynamicContext", "duration_ms": 0, "result_summary": "context_pulled"})
 
-    # 9. AI Wiki reads (mock — wired in Phase 6)
+    # 9. AI Wiki (mock)
     wiki_a, wiki_b, wiki_c = _read_ai_wiki(tenant_id, ticket_type)
     logs.append({"node": 3, "technique": "AIWiki", "duration_ms": 0, "result_summary": f"A={len(wiki_a)} B={len(wiki_b)} C={len(wiki_c)}"})
 
-    # 10. CRM data fetch via UCB (mock — wired in Phase 7)
+    # 10. CRM via UCB (mock)
     crm_data = _fetch_crm_data(tenant_id, dynamic_ctx)
     logs.append({"node": 3, "technique": "UCB", "duration_ms": 0, "result_summary": "crm_fetched"})
 
     elapsed = int((time.time() - start) * 1000)
     logger.info(
-        "Node 3 complete: ticket=%s docs=%d llm_calls=%d [%dms]",
-        state["ticket_id"], len(compressed), llm_calls, elapsed,
+        "Node 3 complete: ticket=%s docs=%d sufficient=%s llm=%d [%dms]",
+        state["ticket_id"], len(compressed), clara_result["knowledge_sufficient"], llm_calls, elapsed,
     )
 
     return {
@@ -263,43 +383,8 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
         "crm_data": crm_data,
         "knowledge_sufficient": clara_result["knowledge_sufficient"],
         "knowledge_contradictory": clara_result["knowledge_contradictory"],
-        "policy_version": "v1.0",
+        "policy_version": "v2.0",
         "technique_log": logs,
         "node_3_token_usage": llm_calls,
         "total_token_usage": state.get("total_token_usage", 0) + llm_calls,
-    }
-
-
-# ── Helpers ────────────────────────────────────────────────────────
-
-
-def _retrieve_knowledge(
-    queries: List[str], ticket_type: str, tenant_id: str
-) -> List[Dict[str, Any]]:
-    """Retrieve knowledge documents. Mock for Phase 1."""
-    docs = MOCK_KNOWLEDGE.get(ticket_type, MOCK_KNOWLEDGE.get("faq", []))
-    # In production: vector store search with tenant scoping
-    return [{"content": d["content"], "source": d["source"], "section": d.get("section", "C")} for d in docs]
-
-
-def _check_contradictions(documents: List[Dict[str, Any]]) -> bool:
-    """Check for contradictory knowledge. Simple check for Phase 1."""
-    if len(documents) < 2:
-        return False
-    # In production: LLM-based contradiction detection
-    return False
-
-
-def _read_ai_wiki(
-    tenant_id: str, ticket_type: str
-) -> tuple:
-    """Read AI Wiki Sections A, B, C. Mock for Phase 6."""
-    return [], [], []
-
-
-def _fetch_crm_data(tenant_id: str, customer_context: Dict) -> Dict:
-    """Fetch CRM data via UCB. Mock for Phase 7."""
-    return {
-        "subscription_status": customer_context.get("account_tier", "free"),
-        "recent_interactions": customer_context.get("recent_ticket_count", 0),
     }
