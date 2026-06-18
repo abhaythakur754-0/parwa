@@ -1,0 +1,19 @@
+{
+  "ticket_id": "tkt_p4_001",
+  "description": "Simple: pricing FAQ",
+  "status": "resolved",
+  "route": "simple_path",
+  "calls": 2,
+  "tokens": 254,
+  "time_s": 2.6,
+  "resp_len": 690,
+  "resp_preview": "- All plans include: AI resolution, knowledge base, analytics dashboard\n- Billing Dispute Resolution: 1) Acknowledge the dispute immediately 2) Pull the last 3 invoices for the account 3) Compare charged amounts with plan rates: Mini $999/mo, PARWA $2,499/mo, High $4,999/mo 4) If duplicate charge fo",
+  "node_breakdown": {
+    "node_1": 6,
+    "node_2": 3,
+    "node_3": 7,
+    "node_7": 16
+  },
+  "n1_calls": 1,
+  "n3_calls": 1
+}

@@ -1,0 +1,19 @@
+{
+  "ticket_id": "tkt_p4_004",
+  "description": "Simple: feature inquiry",
+  "status": "resolved",
+  "route": "simple_path",
+  "calls": 2,
+  "tokens": 259,
+  "time_s": 2.7,
+  "resp_len": 115,
+  "resp_preview": "- PARWA plan \u2014 $2,499/month or $24,999/year (17% savings)\n- PARWA plan \u2014 $2,499/month or $24,999/year (17% savings)",
+  "node_breakdown": {
+    "node_1": 6,
+    "node_2": 3,
+    "node_3": 7,
+    "node_7": 16
+  },
+  "n1_calls": 1,
+  "n3_calls": 1
+}

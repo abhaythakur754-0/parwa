@@ -17,7 +17,8 @@ Decision:
   quality > 85% → SEND
   quality <= 85% → ESCALATE TO HUMAN + PARWA-NFY-XXX
 
-LLM calls: 5-6 (Self-Consistency = 3, plus ToT + Reverse Thinking + Reflexion)
+LLM calls: 5 (Self-Consistency = 2, plus Reflexion + ToT + Reverse + CRP + CoT)
+    Phase 4: 6→5 LLM calls (self-consistency 3→2)
 """
 
 from __future__ import annotations
@@ -71,12 +72,12 @@ FAILURE ANALYSIS:"""
 async def _self_consistency_solve(
     query: str, knowledge: str, failure_analysis: str
 ) -> tuple:
-    """3 independent solutions using different approaches. Majority vote wins."""
+    """2 independent solutions using different approaches. Best KB-aligned wins.
+    Phase 4: reduced from 3 to 2 (saves 1 LLM call on last-resort path)."""
 
     approaches = [
         "Solve this step-by-step, focusing on accuracy and policy compliance.",
-        "Solve this by first considering the customer's perspective and desired outcome.",
-        "Solve this by focusing on the most efficient resolution path.",
+        "Solve this by considering the customer's perspective and desired outcome.",
     ]
 
     solutions = []
@@ -92,7 +93,7 @@ Provide a complete answer:"""
         solution = await llm_call(prompt, max_tokens=400, temperature=0.7)  # higher temp for diversity
         solutions.append(solution)
 
-    # Majority vote: pick the one most aligned with knowledge
+    # Pick the one most aligned with knowledge
     kb_words = set(knowledge.lower().split())
     scores = []
     for sol in solutions:
@@ -301,11 +302,11 @@ async def node_8_super_node(state: PipelineV2State) -> dict:
     logs.append({"node": 8, "technique": "Reflexion", "duration_ms": 0, "result_summary": "failure_analyzed"})
     llm_calls += 1
 
-    # 2. Self-Consistency: 3 independent solutions (3 LLM calls)
+    # 2. Self-Consistency: 2 independent solutions (2 LLM calls, Phase 4: was 3)
     solutions, sc_scores, best_idx = await _self_consistency_solve(query, knowledge_str, failure_analysis)
     best_solution = solutions[best_idx]
-    logs.append({"node": 8, "technique": "SelfConsistency", "duration_ms": 0, "result_summary": f"3 solutions, best={best_idx}"})
-    llm_calls += 3
+    logs.append({"node": 8, "technique": "SelfConsistency", "duration_ms": 0, "result_summary": f"2 solutions, best={best_idx}"})
+    llm_calls += 2
 
     # 3. ToT: Deep exploration (LLM)
     explored = await _tot_deep_explore(query, knowledge_str, best_solution)

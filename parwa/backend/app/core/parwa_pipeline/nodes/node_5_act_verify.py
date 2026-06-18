@@ -155,7 +155,7 @@ Think about what needs to happen:
 THOUGHT:"""
 
     try:
-        thought = await llm_call(prompt, max_tokens=300, temperature=0.2)
+        thought = await llm_call(prompt, max_tokens=200, temperature=0.2)
     except Exception as e:
         thought = f"Action execution failed: {e}"
 
@@ -185,7 +185,7 @@ RISK: <low/medium/high>
 DETAILS: <brief>"""
 
     try:
-        text = await llm_call(prompt, max_tokens=200, temperature=0.2)
+        text = await llm_call(prompt, max_tokens=150, temperature=0.2)
         verified = "VERIFIED: YES" in text.upper()
         risk = "medium"
         if "RISK: LOW" in text.upper():

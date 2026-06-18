@@ -1,0 +1,19 @@
+{
+  "ticket_id": "tkt_p4_002",
+  "description": "Simple: password reset",
+  "status": "resolved",
+  "route": "simple_path",
+  "calls": 2,
+  "tokens": 258,
+  "time_s": 2.8,
+  "resp_len": 165,
+  "resp_preview": "- PARWA Platform FAQ: PARWA is an AI-powered customer support resolution platform\n- Password changes: invalidate all active sessions, require re-login on all devices",
+  "node_breakdown": {
+    "node_1": 6,
+    "node_2": 3,
+    "node_3": 7,
+    "node_7": 16
+  },
+  "n1_calls": 1,
+  "n3_calls": 1
+}

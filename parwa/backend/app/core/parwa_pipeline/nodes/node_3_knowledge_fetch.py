@@ -1,16 +1,20 @@
 """
-Node 3: Knowledge Fetch + AI Wiki — PHASE 2
+Node 3: Knowledge Fetch + AI Wiki — PHASE 4 (optimized)
 
-Upgrades from Phase 1:
-  - Rich knowledge base (detailed policies with numbers, processes, timelines)
-  - LLM-based CLARA re-evaluation (not just doc count)
-  - Better contextual compression
-  - LLM-based contradiction detection
+Phase 4 optimizations:
+  - REMOVED HyDE, MultiQuery, StepBack (3 LLM calls saved)
+    Reason: _retrieve_knowledge() is TYPE-BASED, not query-based.
+    Those techniques generated text that was NEVER used in retrieval.
+  - Smarter knowledge filtering: score each doc by keyword relevance,
+    pass only top-N to downstream nodes (reduces token waste)
+  - CLARA re-evaluate simplified: non-LLM heuristic replaces 1 LLM call
+  - Total: 5 LLM calls → 1 LLM call (CLARA gatekeep only)
 """
 
 from __future__ import annotations
 
 import logging
+import re
 import time
 from typing import Any, Dict, List
 
@@ -20,7 +24,7 @@ from app.core.parwa_pipeline.state_v2 import PipelineV2State
 logger = logging.getLogger("parwa.pipeline.node_3")
 
 
-# ── PHASE 2: Rich Knowledge Base ──────────────────────────────────
+# ── Rich Knowledge Base ──────────────────────────────────────────
 
 KNOWLEDGE_BASE: Dict[str, List[Dict[str, str]]] = {
     "refund_request": [
@@ -113,24 +117,18 @@ KNOWLEDGE_BASE: Dict[str, List[Dict[str, str]]] = {
 }
 
 
-# ── CLARA: Gatekeeper (LLM) — Phase 2: Better prompts ────────────
+# ── CLARA: Gatekeeper (LLM) — Phase 4: streamlined ──────────────
 
 
 async def _clara_gatekeep(query: str, ticket_type: str) -> Dict[str, Any]:
-    """CLARA asks 3 questions with clearer LLM prompting."""
-    prompt = f"""You are CLARA, a knowledge quality gatekeeper for customer support.
+    """CLARA identifies what knowledge is needed. Phase 4: concise prompt."""
+    prompt = f"""What knowledge areas are needed to answer this {ticket_type} ticket?
 
-TICKET: "{query}"
-TYPE: {ticket_type}
+Ticket: "{query}"
 
-Analyze what knowledge is needed. Answer precisely:
+List 2-4 specific knowledge areas needed (one line each, no explanation):"""
 
-NEEDED_AREAS: <list 2-4 specific knowledge areas needed>
-REQUIRED_FACTS: <list specific facts/policies needed to answer>
-POSSIBLE_GAPS: <list what might be missing>"""
-
-    result = await llm_call(prompt, max_tokens=250)
-
+    result = await llm_call(prompt, max_tokens=150)
     return {
         "relevant_knowledge": result,
         "knowledge_sufficient": False,
@@ -138,84 +136,15 @@ POSSIBLE_GAPS: <list what might be missing>"""
     }
 
 
-# ── HyDE: Hypothetical Document Embedding (LLM) ──────────────────
+# ── Knowledge Retrieval (type-based, non-LLM) ────────────────────
 
 
-async def _hyde_generate(query: str, ticket_type: str) -> str:
-    """Generate a hypothetical answer to use as a better search query."""
-    prompt = f"""Write a concise, factual answer to this {ticket_type} support question.
-Include specific numbers, policies, and processes where relevant.
-
-Question: "{query}"
-
-Answer:"""
-
-    return await llm_call(prompt, max_tokens=250)
-
-
-# ── MultiQuery: Rewrite question 3 ways (LLM) ───────────────────
-
-
-async def _multi_query_rewrite(query: str) -> List[str]:
-    """Rewrite the user's question in 3 different ways."""
-    prompt = f"""Rewrite this customer support question in 3 different ways to improve search.
-Keep the core intent identical but vary the phrasing.
-
-Original: "{query}"
-
-3 rewrites (one per line, numbered):"""
-
-    result = await llm_call(prompt, max_tokens=200)
-    queries = [line.strip() for line in result.split("\n") if line.strip() and line.strip()[0].isdigit()]
-    return queries[:3] if queries else [query]
-
-
-# ── Step-Back: Zoom out to broader principles (LLM) ───────────────
-
-
-async def _step_back(query: str, ticket_type: str) -> str:
-    """Step back to find broader principles."""
-    prompt = f"""A customer asked: "{query}" (type: {ticket_type})
-
-What general principles, industry standards, or common policies apply?
-List 2-3 relevant principles with a brief explanation of each.
-
-Principles:"""
-
-    return await llm_call(prompt, max_tokens=250)
-
-
-# ── ContextualCompression (non-LLM) ──────────────────────────────
-
-
-def _compress_context(documents: List[Dict[str, Any]], query: str) -> List[Dict[str, Any]]:
-    """Remove paragraphs irrelevant to the query."""
-    query_words = set(w.lower() for w in query.split() if len(w) > 3)
-    compressed = []
-
-    for doc in documents:
-        text = doc.get("content", "").lower()
-        doc_words = set(text.split())
-        # More lenient: score based on significant word overlap
-        significant_overlap = len(query_words & doc_words)
-        total_significant = len(query_words) if query_words else 1
-        relevance = significant_overlap / total_significant
-        if relevance > 0.05:  # very lenient — keep most docs
-            compressed.append(doc)
-
-    return compressed if compressed else documents
-
-
-# ── Knowledge Retrieval ────────────────────────────────────────────
-
-
-def _retrieve_knowledge(
-    queries: List[str], ticket_type: str, tenant_id: str
-) -> List[Dict[str, Any]]:
-    """Retrieve knowledge documents from enriched knowledge base."""
+def _retrieve_knowledge(ticket_type: str) -> List[Dict[str, Any]]:
+    """Retrieve knowledge documents based on ticket type.
+    Phase 4: Cleaner, no unused query parameters."""
     # Primary: exact type match
     docs = KNOWLEDGE_BASE.get(ticket_type, [])
-    
+
     # Secondary: also pull from related types
     related_types = {
         "refund_request": ["billing"],
@@ -234,42 +163,99 @@ def _retrieve_knowledge(
     for d in docs:
         if d["source"] not in seen:
             seen.add(d["source"])
-            unique_docs.append({"content": d["content"], "source": d["source"], "section": d.get("section", "C")})
+            unique_docs.append({
+                "content": d["content"],
+                "source": d["source"],
+                "section": d.get("section", "C"),
+            })
 
     return unique_docs
 
 
-# ── PHASE 2: LLM-based CLARA re-evaluation ────────────────────────
+# ── Phase 4: Smart knowledge filtering (non-LLM) ─────────────────
 
 
-async def _clara_reevaluate(
-    query: str, ticket_type: str, documents: List[Dict[str, Any]], initial_analysis: str
+def _filter_relevant_docs(
+    documents: List[Dict[str, Any]], query: str, ticket_type: str
+) -> List[Dict[str, Any]]:
+    """Score each doc by keyword relevance to query, keep top results.
+    This ensures only the most relevant KB chunks go to downstream nodes."""
+    if not documents:
+        return documents
+
+    query_lower = query.lower()
+    # Extract significant query terms
+    query_terms = set(w.lower() for w in query_lower.split() if len(w) > 3)
+    # Also add ticket-type-specific key terms
+    type_keywords = {
+        "refund_request": {"refund", "prorated", "termination", "fee", "credit", "eligible", "days", "annual", "monthly"},
+        "billing": {"charge", "invoice", "payment", "billed", "subscription", "duplicate", "price", "plan", "rate"},
+        "technical": {"login", "sso", "password", "access", "error", "cache", "sync", "session", "lockout", "certificate"},
+        "faq": {"plan", "pricing", "feature", "channel", "agent", "ticket", "onboarding", "integration"},
+        "complaint": {"complaint", "compensation", "credit", "escalate", "resolution", "priority", "tenure"},
+        "account_change": {"email", "password", "plan", "upgrade", "downgrade", "workspace", "member", "sso"},
+    }
+    query_terms |= type_keywords.get(ticket_type, set())
+
+    # Remove common filler
+    filler = {"that", "this", "have", "been", "will", "would", "could", "should",
+              "their", "there", "about", "which", "where", "when", "what", "with",
+              "from", "your", "just", "also", "than", "them", "they", "some"}
+    query_terms -= filler
+
+    # Score each document
+    scored_docs = []
+    for doc in documents:
+        text = doc.get("content", "").lower()
+        doc_words = set(text.split())
+        overlap = len(query_terms & doc_words)
+        # Also check for query phrase presence (bigrams)
+        query_bigrams = set()
+        words = query_lower.split()
+        for i in range(len(words) - 1):
+            bg = f"{words[i]} {words[i+1]}"
+            if len(bg) > 6:
+                query_bigrams.add(bg)
+        bigram_hits = sum(1 for bg in query_bigrams if bg in text)
+
+        score = overlap + (bigram_hits * 2)  # bigrams worth more
+        scored_docs.append((score, doc))
+
+    # Sort by relevance, keep all (but order matters for downstream truncation)
+    scored_docs.sort(key=lambda x: x[0], reverse=True)
+
+    # If we have more than 8 docs, trim to top 8 (reduces downstream token waste)
+    if len(scored_docs) > 8:
+        scored_docs = scored_docs[:8]
+
+    return [doc for _, doc in scored_docs]
+
+
+# ── Phase 4: Non-LLM CLARA sufficiency check (replaces 1 LLM call) ─
+
+
+def _check_knowledge_sufficiency(
+    documents: List[Dict[str, Any]], query: str, ticket_type: str
 ) -> Dict[str, bool]:
-    """LLM evaluates whether retrieved knowledge is sufficient and consistent."""
-    docs_text = "\n".join(f"- [{d['source']}] {d['content'][:300]}" for d in documents[:5])
+    """Non-LLM heuristic: do we have KB docs for this ticket type?
+    Replaces the LLM-based CLARA re-evaluate from Phase 2."""
+    has_primary = any(d.get("source", "") in {
+        "refund_policy_v2", "billing_policy_v2", "tech_troubleshooting_v2",
+        "general_faq_v2", "complaint_handling_v2", "account_policy_v2",
+    } for d in documents)
 
-    prompt = f"""CLARA Re-evaluation.
+    # If we have docs for the primary type, knowledge is likely sufficient
+    type_doc_counts = {
+        "refund_request": 4, "billing": 3, "technical": 2,
+        "faq": 3, "complaint": 1, "account_change": 2,
+    }
+    expected = type_doc_counts.get(ticket_type, 2)
+    sufficient = len(documents) >= max(expected - 1, 1) and has_primary
 
-Ticket: "{query}"
-Type: {ticket_type}
-Initial analysis: {initial_analysis[:200]}
-Retrieved knowledge ({len(documents)} documents):
-{docs_text}
-
-Answer YES or NO for each:
-SUFFICIENT: Do we have enough specific information to answer this ticket accurately?
-CONSISTENT: Are the knowledge documents consistent with each other (no contradictions)?
-
-Format:
-SUFFICIENT: YES/NO
-CONSISTENT: YES/NO
-REASON: <one sentence>"""
-
-    result = await llm_call(prompt, max_tokens=150)
-    sufficient = "SUFFICIENT: YES" in result.upper()
-    consistent = "CONSISTENT: NO" not in result.upper()  # default to consistent
-
-    return {"knowledge_sufficient": sufficient, "knowledge_contradictory": not consistent}
+    return {
+        "knowledge_sufficient": sufficient,
+        "knowledge_contradictory": False,  # our KB is internally consistent
+    }
 
 
 # ── Helpers ────────────────────────────────────────────────────────
@@ -279,8 +265,6 @@ def _check_contradictions(documents: List[Dict[str, Any]]) -> bool:
     """Quick keyword-level contradiction check."""
     if len(documents) < 2:
         return False
-    # Check for conflicting numbers (e.g., different refund percentages)
-    import re
     all_numbers = {}
     for doc in documents:
         text = doc.get("content", "")
@@ -313,7 +297,8 @@ def _fetch_crm_data(tenant_id: str, customer_context: Dict) -> Dict:
 
 
 async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
-    """Node 3: Knowledge Fetch — Phase 2 with richer KB and LLM CLARA."""
+    """Node 3: Knowledge Fetch — Phase 4 optimized.
+    LLM calls: 1 (was 5) — removed HyDE, MultiQuery, StepBack, CLARA re-evaluate."""
     start = time.time()
     query = state["query"]
     tenant_id = state["tenant_id"]
@@ -321,62 +306,53 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
     logs = []
     llm_calls = 0
 
-    # 1. CLARA: Gatekeeper (LLM)
+    # 1. CLARA: Gatekeeper (LLM) — the ONLY LLM call in Node 3 now
     clara_result = await _clara_gatekeep(query, ticket_type)
     logs.append({"node": 3, "technique": "CLARA", "duration_ms": 0, "result_summary": "gatekeep_done"})
     llm_calls += 1
 
-    # 2. HyDE (LLM)
-    hypothetical = await _hyde_generate(query, ticket_type)
-    logs.append({"node": 3, "technique": "HyDE", "duration_ms": 0, "result_summary": "hypothetical_generated"})
-    llm_calls += 1
-
-    # 3. MultiQuery (LLM)
-    rewrites = await _multi_query_rewrite(query)
-    logs.append({"node": 3, "technique": "MultiQuery", "duration_ms": 0, "result_summary": f"{len(rewrites)} rewrites"})
-    llm_calls += 1
-
-    # 4. StepBack (LLM)
-    broader = await _step_back(query, ticket_type)
-    logs.append({"node": 3, "technique": "StepBack", "duration_ms": 0, "result_summary": "broader_principles"})
-    llm_calls += 1
-
-    # 5. RAG Retrieval
-    all_queries = [query, hypothetical] + rewrites + [broader]
-    documents = _retrieve_knowledge(all_queries, ticket_type, tenant_id)
+    # 2. RAG Retrieval (non-LLM, type-based)
+    documents = _retrieve_knowledge(ticket_type)
     logs.append({"node": 3, "technique": "RAG", "duration_ms": 0, "result_summary": f"{len(documents)} docs"})
 
-    # 6. CLARA: LLM-based re-evaluation (Phase 2)
-    clara_eval = await _clara_reevaluate(query, ticket_type, documents, clara_result["relevant_knowledge"])
-    clara_result["knowledge_sufficient"] = clara_eval["knowledge_sufficient"]
-    clara_result["knowledge_contradictory"] = clara_eval["knowledge_contradictory"]
-    logs.append({"node": 3, "technique": "CLARA.reevaluate", "duration_ms": 0, "result_summary": f"sufficient={clara_result['knowledge_sufficient']}"})
-    llm_calls += 1
+    # 3. Smart knowledge filtering (Phase 4: non-LLM relevance ranking)
+    filtered = _filter_relevant_docs(documents, query, ticket_type)
+    logs.append({"node": 3, "technique": "SmartFilter", "duration_ms": 0, "result_summary": f"{len(documents)}→{len(filtered)}"})
 
-    # 7. ContextualCompression (non-LLM)
-    compressed = _compress_context(documents, query)
-    logs.append({"node": 3, "technique": "ContextualCompression", "duration_ms": 0, "result_summary": f"{len(documents)}→{len(compressed)}"})
+    # 4. Knowledge sufficiency check (Phase 4: non-LLM, replaces CLARA re-evaluate LLM call)
+    sufficiency = _check_knowledge_sufficiency(filtered, query, ticket_type)
+    clara_result["knowledge_sufficient"] = sufficiency["knowledge_sufficient"]
+    clara_result["knowledge_contradictory"] = sufficiency["knowledge_contradictory"]
+    logs.append({"node": 3, "technique": "SufficiencyCheck", "duration_ms": 0,
+                 "result_summary": f"sufficient={sufficiency['knowledge_sufficient']}"})
 
-    # 8. DynamicContext (non-LLM)
+    # 5. Contradiction check (non-LLM)
+    has_contradiction = _check_contradictions(filtered)
+    if has_contradiction:
+        clara_result["knowledge_contradictory"] = True
+        logs.append({"node": 3, "technique": "ContradictionCheck", "duration_ms": 0, "result_summary": "CONTRADICTION_FOUND"})
+
+    # 6. DynamicContext (non-LLM)
     dynamic_ctx = state.get("customer_context", {})
     logs.append({"node": 3, "technique": "DynamicContext", "duration_ms": 0, "result_summary": "context_pulled"})
 
-    # 9. AI Wiki (mock)
+    # 7. AI Wiki (mock)
     wiki_a, wiki_b, wiki_c = _read_ai_wiki(tenant_id, ticket_type)
-    logs.append({"node": 3, "technique": "AIWiki", "duration_ms": 0, "result_summary": f"A={len(wiki_a)} B={len(wiki_b)} C={len(wiki_c)}"})
+    logs.append({"node": 3, "technique": "AIWiki", "duration_ms": 0,
+                 "result_summary": f"A={len(wiki_a)} B={len(wiki_b)} C={len(wiki_c)}"})
 
-    # 10. CRM via UCB (mock)
+    # 8. CRM via UCB (mock)
     crm_data = _fetch_crm_data(tenant_id, dynamic_ctx)
     logs.append({"node": 3, "technique": "UCB", "duration_ms": 0, "result_summary": "crm_fetched"})
 
     elapsed = int((time.time() - start) * 1000)
     logger.info(
         "Node 3 complete: ticket=%s docs=%d sufficient=%s llm=%d [%dms]",
-        state["ticket_id"], len(compressed), clara_result["knowledge_sufficient"], llm_calls, elapsed,
+        state["ticket_id"], len(filtered), clara_result["knowledge_sufficient"], llm_calls, elapsed,
     )
 
     return {
-        "knowledge_context": compressed,
+        "knowledge_context": filtered,
         "wiki_section_a": wiki_a,
         "wiki_section_b": wiki_b,
         "wiki_section_c": wiki_c,

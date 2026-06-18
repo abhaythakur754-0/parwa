@@ -1,14 +1,20 @@
 """
-Node 4: Reasoning Engine — PHASE 4
+Node 4: Reasoning Engine — PHASE 4 (optimized)
 
-The BRAIN — 4-Layer Architecture
-
-Phase 4 upgrades (target: better answers → higher quality scores):
+Phase 4 upgrades:
   1. GSD decomposition prompt: more structured, numbered output
   2. CoT solve prompt: explicit "cite specific policy, amounts, timelines" instruction
   3. Answer synthesis: stronger knowledge grounding instruction
   4. Reverse Thinking: less harsh, "VALID: YES unless genuine error"
-  5. Reduced ToT calls per sub-problem (merge into single check)
+  5. ToT: Batch check ALL solutions in 1 LLM call (was N calls)
+
+Phase 4 token optimizations:
+  6. REMOVED LeastToMost ordering — 3 sub-problems, order doesn't matter (-1 LLM call)
+  7. REMOVED UoT self-confidence — redundant with Reverse Thinking (-1 LLM call)
+  8. Tighter max_tokens on several prompts
+  9. Knowledge passed to prompts is smarter-truncated
+
+Total: 9 LLM calls → 7 LLM calls per ticket
 """
 
 from __future__ import annotations
@@ -43,12 +49,11 @@ Do NOT include generic sub-problems like "understand the question" — make each
 2.
 3."""
 
-    result = await llm_call(prompt, max_tokens=200, temperature=0.2)
+    result = await llm_call(prompt, max_tokens=180, temperature=0.2)
     # Parse numbered list
     problems = []
     for line in result.split("\n"):
         line = line.strip()
-        # Match "1. " or "1) " patterns
         match = re.match(r'^\d+[\.\)]\s*(.+)', line)
         if match and len(match.group(1).strip()) > 10:
             problems.append(match.group(1).strip())
@@ -58,28 +63,6 @@ Do NOT include generic sub-problems like "understand the question" — make each
         "What do the policies say about this?",
         "What specific actions or amounts apply?",
     ]
-
-
-# ── Least-to-Most: Order sub-problems (LLM) ───────────────────────
-
-
-async def _least_to_most_order(sub_problems: List[str], knowledge: str) -> List[str]:
-    """Order sub-problems from easiest to hardest."""
-    if len(sub_problems) <= 1:
-        return sub_problems
-
-    prompt = f"""Order these sub-problems from EASIEST to HARDEST to answer.
-{chr(10).join(f'{i+1}. {p}' for i, p in enumerate(sub_problems))}
-
-Return in order, numbered 1-{len(sub_problems)}, one per line:"""
-
-    result = await llm_call(prompt, max_tokens=150, temperature=0.0)
-    ordered = []
-    for line in result.split("\n"):
-        match = re.match(r'^\d+[\.\)]\s*(.+)', line.strip())
-        if match:
-            ordered.append(match.group(1).strip())
-    return ordered if len(ordered) >= len(sub_problems) - 1 else sub_problems
 
 
 # ── MAKER: Bridge knowledge gaps (non-LLM) ────────────────────────
@@ -124,7 +107,7 @@ INSTRUCTIONS:
 
 Answer this sub-question specifically:"""
 
-    return await llm_call(prompt, max_tokens=500, temperature=0.3)
+    return await llm_call(prompt, max_tokens=450, temperature=0.3)
 
 
 # ── ToT: Quick completeness check (Phase 4: merged, fewer calls) ──
@@ -151,13 +134,12 @@ Format:
 2. COMPLETE or MISSING: ...
 3. COMPLETE or MISSING: ..."""
 
-    result = await llm_call(prompt, max_tokens=200, temperature=0.0)
+    result = await llm_call(prompt, max_tokens=180, temperature=0.0)
 
     # Parse the results
     improvements = []
     for line in result.split("\n"):
         if "MISSING" in line.upper():
-            # Extract what's missing
             match = re.search(r"MISSING:\s*(.+)", line, re.IGNORECASE)
             if match:
                 improvements.append(f"Missing: {match.group(1).strip()}")
@@ -283,7 +265,14 @@ Write the response:"""
 
 
 async def node_4_reasoning_engine(state: PipelineV2State) -> dict:
-    """Node 4: Reasoning Engine — Phase 4."""
+    """Node 4: Reasoning Engine — Phase 4 optimized.
+    LLM calls: 7 (was 9 in Phase 4 draft, was 11 in Phase 2)
+      - GSD decompose: 1
+      - 3x CoT solve: 3
+      - ToT batch check: 1
+      - Reverse Thinking: 1
+      - Answer Synthesis: 1
+    REMOVED: LeastToMost ordering (-1), UoT self-confidence (-1)"""
     start = time.time()
     query = state["query"]
     ticket_type = state["ticket_type"]
@@ -304,32 +293,30 @@ async def node_4_reasoning_engine(state: PipelineV2State) -> dict:
     logs.append({"node": 4, "technique": "GSD", "duration_ms": 0, "result_summary": f"{len(sub_problems)} sub-problems"})
     llm_calls += 1
 
-    ordered = await _least_to_most_order(sub_problems, knowledge_str)
-    logs.append({"node": 4, "technique": "LeastToMost", "duration_ms": 0, "result_summary": "ordered"})
-    llm_calls += 1
+    # Phase 4: NO LeastToMost ordering — 3 sub-problems don't need reordering
 
     # ── LAYER 2: SOLVE ────────────────────────────────────────────
-    bridges = _maker_bridge(ordered, knowledge_str)
+    bridges = _maker_bridge(sub_problems, knowledge_str)
     logs.append({"node": 4, "technique": "MAKER", "duration_ms": 0, "result_summary": f"{len(bridges)} bridges"})
 
     solutions = []
-    for sp in ordered:
+    for sp in sub_problems:
         sol = await _cot_solve(sp, knowledge_str, context_str, query)
         solutions.append(sol)
         logs.append({"node": 4, "technique": "CoT", "duration_ms": 0, "result_summary": f"solved: {sp[:40]}"})
         llm_calls += 1
 
     # ToT: Phase 4 — batch check (1 call instead of N)
-    tot_results = await _tot_batch_check(ordered, solutions, knowledge_str)
+    tot_results = await _tot_batch_check(sub_problems, solutions, knowledge_str)
     logs.append({"node": 4, "technique": "ToT", "duration_ms": 0, "result_summary": f"batch check: {len(tot_results)} items"})
-    llm_calls += 1  # Phase 4: 1 call instead of N
+    llm_calls += 1
 
     # GST
-    progress = _gst_track(ordered, solutions)
+    progress = _gst_track(sub_problems, solutions)
     logs.append({"node": 4, "technique": "GST", "duration_ms": 0, "result_summary": progress})
 
     # ── LAYER 3: VALIDATE ─────────────────────────────────────────
-    threaded = _thot_thread(ordered, solutions)
+    threaded = _thot_thread(sub_problems, solutions)
     logs.append({"node": 4, "technique": "ThoT", "duration_ms": 0, "result_summary": "threaded"})
 
     reverse_result = await _reverse_thinking_validate(query, threaded, knowledge_str)
@@ -339,24 +326,12 @@ async def node_4_reasoning_engine(state: PipelineV2State) -> dict:
     zero_shot_score = _zero_shot_validate(threaded, knowledge_str)
     logs.append({"node": 4, "technique": "ZeroShotValidator", "duration_ms": 0, "result_summary": f"score={zero_shot_score:.2f}"})
 
-    # UoT: confidence
-    uot_prompt = f"""Rate your confidence in this answer (0.0-1.0):
-Question: "{query}"
-Answer: {threaded[:800]}
-Reply with ONLY a number between 0.0 and 1.0."""
-    try:
-        uot_text = await llm_call(uot_prompt, max_tokens=10, temperature=0.0)
-        uot_conf = parse_confidence(uot_text, default=0.85)
-    except Exception:
-        uot_conf = 0.85
-    logs.append({"node": 4, "technique": "UoT", "duration_ms": 0, "result_summary": f"confidence={uot_conf:.2f}"})
-    llm_calls += 1
+    # Phase 4: NO UoT self-confidence — redundant with Reverse Thinking
 
     # ── LAYER 4: COMBINE ──────────────────────────────────────────
     aggregated = _federated_aggregate({
         "reverse": reverse_result["confidence"],
         "zero_shot": zero_shot_score,
-        "uot": uot_conf,
     })
     logs.append({"node": 4, "technique": "FederatedReasoning", "duration_ms": 0, "result_summary": f"aggregated={aggregated:.2f}"})
 
@@ -364,19 +339,19 @@ Reply with ONLY a number between 0.0 and 1.0."""
     logs.append({"node": 4, "technique": "MetaLearner", "duration_ms": 0, "result_summary": f"weights={weights}"})
 
     # Answer synthesis
-    formatted = await _synthesize_final_answer(query, ordered, solutions, knowledge_str, context_str, ticket_type)
+    formatted = await _synthesize_final_answer(query, sub_problems, solutions, knowledge_str, context_str, ticket_type)
     logs.append({"node": 4, "technique": "AnswerSynthesis", "duration_ms": 0, "result_summary": f"synthesized {len(formatted)} chars"})
     llm_calls += 1
 
     elapsed = int((time.time() - start) * 1000)
     logger.info(
         "Node 4 complete: ticket=%s sub=%d conf=%.2f llm=%d [%dms]",
-        state["ticket_id"], len(ordered), aggregated, llm_calls, elapsed,
+        state["ticket_id"], len(sub_problems), aggregated, llm_calls, elapsed,
     )
 
     return {
-        "sub_problems": ordered,
-        "sub_solutions": [{"problem": p, "solution": s} for p, s in zip(ordered, solutions)],
+        "sub_problems": sub_problems,
+        "sub_solutions": [{"problem": p, "solution": s} for p, s in zip(sub_problems, solutions)],
         "combined_answer": formatted,
         "reasoning_confidence": aggregated,
         "technique_log": logs,
