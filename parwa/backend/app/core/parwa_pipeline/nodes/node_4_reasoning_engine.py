@@ -499,12 +499,25 @@ async def node_4_reasoning_engine(state: PipelineV2State) -> dict:
       - Safeguard 3: Reverse check detects bridge dependency in final answer
     """
     start = time.time()
-    query = state["query"]
-    ticket_type = state["ticket_type"]
+    query = state.get("query", "")
+    ticket_type = state.get("ticket_type", "general")
     knowledge_docs = state.get("knowledge_context", [])
     customer_ctx = state.get("customer_context", {})
     wiki_c = state.get("wiki_section_c", [])
     crm_data = state.get("crm_data", {})
+
+    # If upstream nodes crashed and didn't set required fields, bail out safely
+    if not query:
+        logger.warning("Node 4: no query in state — upstream may have crashed")
+        return {
+            "combined_answer": "I'm sorry, I wasn't able to process your request. Our team has been notified.",
+            "reasoning_confidence": 0.0,
+            "techniques_used": [],
+            "technique_log": [{"node": 4, "technique": "UPSTREAM_CHECK", "duration_ms": 0, "result_summary": "no_query"}],
+            "node_4_token_usage": 0,
+            "total_token_usage": state.get("total_token_usage", 0),
+        }
+
     logs = []
     llm_calls = 0
 

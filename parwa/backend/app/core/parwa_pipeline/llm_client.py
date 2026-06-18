@@ -55,6 +55,31 @@ async def _wait_for_rate_limit():
         _last_call_time = time.monotonic()
 
 
+# Global pipeline timeout — no single ticket should take longer than this
+PIPELINE_HARD_TIMEOUT: float = 300.0  # 5 minutes absolute max
+_call_start_time: float = 0.0
+
+
+def set_pipeline_timeout(seconds: float = 300.0) -> None:
+    """Set the hard timeout for the current pipeline run."""
+    global PIPELINE_HARD_TIMEOUT, _call_start_time
+    PIPELINE_HARD_TIMEOUT = seconds
+    _call_start_time = time.monotonic()
+
+
+def _check_pipeline_timeout() -> None:
+    """Raise if the pipeline has exceeded its hard timeout.
+
+    This prevents a runaway quality loop or rate-limit backoff from
+    consuming unlimited time.  The caller should catch RuntimeError.
+    """
+    if _call_start_time and (time.monotonic() - _call_start_time) > PIPELINE_HARD_TIMEOUT:
+        raise RuntimeError(
+            f"Pipeline hard timeout ({PIPELINE_HARD_TIMEOUT:.0f}s) exceeded — "
+            f"aborting to prevent hang"
+        )
+
+
 async def llm_call(prompt: str, max_tokens: int = 256, temperature: float = 0.3) -> str:
     """Single LLM call to NVIDIA API with rate limiting and retries.
 
@@ -66,6 +91,9 @@ async def llm_call(prompt: str, max_tokens: int = 256, temperature: float = 0.3)
 
     _call_count += 1
     call_id = _call_count
+
+    # Hard-timeout guard — fail fast instead of hanging forever
+    _check_pipeline_timeout()
 
     url = f"{NVIDIA_API_BASE}/chat/completions"
     payload = {
@@ -83,10 +111,12 @@ async def llm_call(prompt: str, max_tokens: int = 256, temperature: float = 0.3)
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             t0 = time.monotonic()
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with httpx.AsyncClient(timeout=30.0) as client:
                 r = await client.post(url, json=payload, headers=headers)
 
             elapsed_ms = (time.monotonic() - t0) * 1000
+            if elapsed_ms > 15000:
+                logger.warning("LLM call #%d slow: %dms", call_id, int(elapsed_ms))
 
             if r.status_code == 200:
                 data = r.json()
@@ -141,11 +171,12 @@ def get_stats() -> dict:
 
 def reset_stats():
     """Reset statistics (for new test run)."""
-    global _call_count, _total_tokens, _total_errors, _last_call_time
+    global _call_count, _total_tokens, _total_errors, _last_call_time, _call_start_time
     _call_count = 0
     _total_tokens = 0
     _total_errors = 0
     _last_call_time = 0.0
+    _call_start_time = 0.0  # also reset timeout tracking
 
 
 def parse_confidence(text: str, default: float = 0.7) -> float:

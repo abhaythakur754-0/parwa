@@ -142,8 +142,6 @@ async def _react_execute(
     action: str, details: Dict, knowledge: str, crm_data: Dict
 ) -> Dict[str, Any]:
     """Think-Act-Observe loop for complex action execution."""
-    import litellm
-
     prompt = f"""You are executing a customer support action.
 
 Action: {action}
@@ -228,7 +226,7 @@ def _zero_shot_flag_action(action: str, details: Dict, knowledge: str) -> Dict[s
 async def node_5_act_verify(state: PipelineV2State) -> dict:
     """Node 5: Act + Verify — Did we DO the right thing?"""
     start = time.time()
-    action = state["required_action"]
+    action = state.get("required_action", "provide_info")
     details = state.get("action_details", {})
     tier = state.get("variant_tier", "parwa")
     knowledge_docs = state.get("knowledge_context", [])

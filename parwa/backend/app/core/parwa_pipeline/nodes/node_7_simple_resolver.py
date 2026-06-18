@@ -431,10 +431,10 @@ async def node_7_simple_resolver(state: PipelineV2State) -> dict:
     Safety net: < 80% → upgrade to Node 4.
     """
     start = time.time()
-    query = state["query"]
-    tenant_id = state["tenant_id"]
-    ticket_type = state["ticket_type"]
-    action = state["required_action"]
+    query = state.get("query", "")
+    tenant_id = state.get("tenant_id", "")
+    ticket_type = state.get("ticket_type", "general")
+    action = state.get("required_action", "provide_info")
     action_details = state.get("action_details", {})
     tier = state.get("variant_tier", "parwa")
     knowledge_docs = state.get("knowledge_context", [])

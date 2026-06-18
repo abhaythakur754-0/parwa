@@ -204,6 +204,7 @@ def run_parwa_pipeline(initial_state: PipelineV2State) -> PipelineV2State:
     """Run the pipeline and handle Phase 6 wiki write-back.
     
     Wraps the compiled graph to add wiki learning after resolution.
+    Safe to call from sync or async context.
     """
     import asyncio
     
@@ -221,7 +222,18 @@ def run_parwa_pipeline(initial_state: PipelineV2State) -> PipelineV2State:
         
         return result
     
-    return asyncio.get_event_loop().run_until_complete(_run())
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+    
+    if loop and loop.is_running():
+        # Already in async context — create a new thread with its own event loop
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, _run()).result()
+    else:
+        return asyncio.run(_run())
 
 
 def build_parwa_pipeline() -> StateGraph:
@@ -235,14 +247,38 @@ def build_parwa_pipeline() -> StateGraph:
     graph = StateGraph(PipelineV2State)
 
     # ── Add Nodes ─────────────────────────────────────────────────
-    graph.add_node("node_1", node_1_ingest_classify)
-    graph.add_node("node_2", node_2_smart_route)
-    graph.add_node("node_3", node_3_knowledge_fetch)
-    graph.add_node("node_4", node_4_reasoning_engine)
-    graph.add_node("node_5", node_5_act_verify)
-    graph.add_node("node_6", node_6_quality_format)
-    graph.add_node("node_7", node_7_simple_resolver)
-    graph.add_node("node_8", node_8_super_node)
+    # Wrap each node with crash resilience — any unhandled exception is
+    # caught, logged, and converted to a safe fallback so the pipeline
+    # NEVER crashes.  The error is recorded in state["errors"] for debugging.
+    import functools
+
+    def _safe_node(fn, node_name: str):
+        """Wrap a node function so unhandled exceptions become safe fallbacks."""
+        @functools.wraps(fn)
+        async def wrapper(state: PipelineV2State) -> dict:
+            try:
+                return await fn(state)
+            except Exception as exc:
+                logger.error(
+                    "%s CRASHED (%s): %s", node_name, type(exc).__name__, exc,
+                    exc_info=True,
+                )
+                # Return a minimal safe state so downstream nodes don't KeyError
+                return {
+                    "errors": [{"node": node_name, "error": str(exc), "type": type(exc).__name__}],
+                    "technique_log": [{"node": node_name.replace("node_", ""), "technique": "CRASH_RECOVERY", "duration_ms": 0, "result_summary": f"recovered from {type(exc).__name__}"}],
+                    "status": "stuck",
+                }
+        return wrapper
+
+    graph.add_node("node_1", _safe_node(node_1_ingest_classify, "node_1"))
+    graph.add_node("node_2", _safe_node(node_2_smart_route, "node_2"))
+    graph.add_node("node_3", _safe_node(node_3_knowledge_fetch, "node_3"))
+    graph.add_node("node_4", _safe_node(node_4_reasoning_engine, "node_4"))
+    graph.add_node("node_5", _safe_node(node_5_act_verify, "node_5"))
+    graph.add_node("node_6", _safe_node(node_6_quality_format, "node_6"))
+    graph.add_node("node_7", _safe_node(node_7_simple_resolver, "node_7"))
+    graph.add_node("node_8", _safe_node(node_8_super_node, "node_8"))
     graph.add_node("increment_loop", _increment_loop)
     graph.add_node("finalize_simple", _finalize_simple)
     graph.add_node("wiki_finalize", _wiki_finalize_complex)  # Phase 7: in-graph wiki write

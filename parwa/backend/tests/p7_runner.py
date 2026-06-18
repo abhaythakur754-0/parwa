@@ -15,13 +15,14 @@ os.makedirs('/home/z/my-project/parwa/backend/tests/results/phase7', exist_ok=Tr
 
 from app.core.parwa_pipeline.graph_v2 import build_parwa_pipeline
 from app.core.parwa_pipeline.nodes.node_2_smart_route import set_test_variant
-from app.core.parwa_pipeline.llm_client import reset_stats, get_stats
+from app.core.parwa_pipeline.llm_client import reset_stats, get_stats, set_pipeline_timeout
 from app.core.parwa_pipeline.ai_wiki_store import get_wiki_store
 
 RDIR = '/home/z/my-project/parwa/backend/tests/results/phase7'
 
 async def run_ticket(ticket_id, tenant_id, query, variant_tier, quota, customer_context, wiki_store):
     reset_stats()
+    set_pipeline_timeout(300)  # 5 min hard timeout per ticket
     set_test_variant(tenant_id, variant_tier, quota)
 
     pre_stats = wiki_store.get_stats(tenant_id)

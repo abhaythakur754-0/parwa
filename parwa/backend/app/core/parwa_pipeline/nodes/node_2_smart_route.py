@@ -194,10 +194,10 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
     0 LLM calls. Pure logic.
     """
     start = time.time()
-    tenant_id = state["tenant_id"]
-    ticket_type = state["ticket_type"]
-    complexity = state["complexity"]
-    action = state["required_action"]
+    tenant_id = state.get("tenant_id", "")
+    ticket_type = state.get("ticket_type", "general")
+    complexity = state.get("complexity", "simple")
+    action = state.get("required_action", "provide_info")
     action_details = state.get("action_details", {})
     logs = []
 

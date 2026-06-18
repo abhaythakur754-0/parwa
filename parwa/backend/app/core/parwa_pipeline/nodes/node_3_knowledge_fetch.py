@@ -350,9 +350,9 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
     """Node 3: Knowledge Fetch — Phase 4 optimized.
     LLM calls: 1 (was 5) — removed HyDE, MultiQuery, StepBack, CLARA re-evaluate."""
     start = time.time()
-    query = state["query"]
-    tenant_id = state["tenant_id"]
-    ticket_type = state["ticket_type"]
+    query = state.get("query", "")
+    tenant_id = state.get("tenant_id", "")
+    ticket_type = state.get("ticket_type", "general")
     logs = []
     llm_calls = 0
 
@@ -396,16 +396,20 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
                  "result_summary": wiki_log_msg})
     
     # 7b. Policy sync check (Phase 6: detect version changes)
-    from app.core.parwa_pipeline.ai_wiki_store import get_wiki_store
-    wiki_store = get_wiki_store()
-    current_policy_version = state.get("policy_version", "v2.0")
-    sync_status = wiki_store.check_policy_sync(tenant_id, current_policy_version)
-    if not sync_status["synced"]:
-        logs.append({
-            "node": 3, "technique": "PolicySyncCheck",
-            "duration_ms": 0,
-            "result_summary": f"POLICY_CHANGED {sync_status['previous_version']} → {sync_status['version']} ({sync_status.get('patterns_invalidated', 0)} invalidated)",
-        })
+    sync_status = {"synced": True, "version": "v2.0", "previous_version": None}
+    try:
+        from app.core.parwa_pipeline.ai_wiki_store import get_wiki_store
+        wiki_store = get_wiki_store()
+        current_policy_version = state.get("policy_version", "v2.0")
+        sync_status = wiki_store.check_policy_sync(tenant_id, current_policy_version)
+        if not sync_status["synced"]:
+            logs.append({
+                "node": 3, "technique": "PolicySyncCheck",
+                "duration_ms": 0,
+                "result_summary": f"POLICY_CHANGED {sync_status['previous_version']} → {sync_status['version']} ({sync_status.get('patterns_invalidated', 0)} invalidated)",
+            })
+    except Exception as e:
+        logger.warning("Policy sync check failed (non-fatal): %s", e)
 
     # 8. CRM via UCB (mock)
     crm_data = _fetch_crm_data(tenant_id, dynamic_ctx)

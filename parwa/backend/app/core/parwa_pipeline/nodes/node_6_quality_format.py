@@ -429,8 +429,23 @@ async def node_6_quality_format(state: PipelineV2State) -> dict:
       1. Reflexion critique: 1
       2. CRP revise + score: 1 (merged from 2 separate calls)"""
     start = time.time()
-    query = state["query"]
+    query = state.get("query", "")
     answer = state.get("combined_answer", "")
+
+    # If upstream crashed and produced no answer, fail quality immediately
+    if not answer or not query:
+        logger.warning("Node 6: missing query or answer — upstream may have crashed")
+        return {
+            "quality_score": 0.0,
+            "quality_details": {"reflexion": 0.0, "crp": 0.0},
+            "formatted_response": answer or "Unable to generate a response.",
+            "quality_passed": False,
+            "combined_answer": answer or "",
+            "technique_log": [{"node": 6, "technique": "UPSTREAM_CHECK", "duration_ms": 0, "result_summary": "no_answer_or_query"}],
+            "node_6_token_usage": 0,
+            "total_token_usage": state.get("total_token_usage", 0),
+        }
+
     knowledge_docs = state.get("knowledge_context", [])
     knowledge_str = "\n".join(d.get("content", "") for d in knowledge_docs)
     loop_count = state.get("loop_count", 0)
