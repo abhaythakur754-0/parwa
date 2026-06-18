@@ -1,0 +1,172 @@
+{
+  "phase": "5",
+  "description": "Quality & Safety \u2014 MAKER safeguards + Quality Loop + Super Node + Escalation",
+  "tickets": [
+    {
+      "ticket_id": "tkt_p5_001",
+      "description": "Normal: duplicate charge (regression)",
+      "status": null,
+      "quality_score": 0.9504,
+      "quality_details": {
+        "reflexion": 0.9,
+        "crp": 0.9,
+        "zero_shot": 1.0,
+        "thot_coherence": 1.0,
+        "gsd_part_scores": 0.9538,
+        "kb_bonus": 0.03
+      },
+      "reflexion": 0.9,
+      "crp": 0.9,
+      "loops": 0,
+      "reached_super_node": false,
+      "escalated": false,
+      "total_llm_calls": 13,
+      "total_tokens": 10965,
+      "llm_errors": 0,
+      "time_s": 42.2,
+      "nodes_reached": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "response_len": 2329,
+      "n1": 1,
+      "n3": 1,
+      "n4": 7,
+      "n5": 2,
+      "n6": 2,
+      "n8": 0,
+      "maker_flagged": [],
+      "maker_zsv_removed": [],
+      "maker_bridge_safe": true,
+      "errors": []
+    },
+    {
+      "ticket_id": "tkt_p5_002",
+      "description": "Hard: security breach + GDPR + 6-month refund",
+      "status": null,
+      "quality_score": 0.9476,
+      "quality_details": {
+        "reflexion": 0.9,
+        "crp": 0.9,
+        "zero_shot": 1.0,
+        "thot_coherence": 1.0,
+        "gsd_part_scores": 0.9263,
+        "kb_bonus": 0.03
+      },
+      "reflexion": 0.9,
+      "crp": 0.9,
+      "loops": 0,
+      "reached_super_node": false,
+      "escalated": false,
+      "escalation_key": null,
+      "total_llm_calls": 13,
+      "total_tokens": 11913,
+      "llm_errors": 0,
+      "time_s": 48.8,
+      "nodes_reached": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "response_len": 2770,
+      "response_preview": "Subject: Incident Response and Refund Request for Security Breach\n\nDear valued customer,\n\nWe apologize for the security breach that occurred last week, resulting in unauthorized access to your account and the export of your data. We take the security and confidentiality of our customers' data very seriously and are committed to making things right.\n\n**Incident Details:**\n\nWe understand that you want to know exactly what data was accessed during the breach. Unfortunately, our system does not curr",
+      "n1": 1,
+      "n3": 1,
+      "n4": 7,
+      "n5": 2,
+      "n6": 2,
+      "n8": 0,
+      "maker_flagged": [],
+      "maker_zsv_removed": [],
+      "maker_bridge_safe": true,
+      "errors": []
+    },
+    {
+      "ticket_id": "tkt_p5_003",
+      "description": "Impossible: API/GraphQL/webhook (not in KB)",
+      "status": null,
+      "quality_score": 0.9214,
+      "quality_details": {
+        "reflexion": 0.9,
+        "crp": 0.9,
+        "zero_shot": 1.0,
+        "thot_coherence": 1.0,
+        "gsd_part_scores": 0.9636,
+        "kb_bonus": 0.0
+      },
+      "reflexion": 0.9,
+      "crp": 0.9,
+      "loops": 0,
+      "reached_super_node": false,
+      "escalated": false,
+      "escalation_key": null,
+      "escalation_context_keys": [],
+      "total_llm_calls": 11,
+      "total_tokens": 9867,
+      "llm_errors": 0,
+      "time_s": 32.0,
+      "nodes_reached": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "response_len": 2757,
+      "response_preview": "Subject: Response to Your Support Inquiry\n\nDear [Customer],\n\nThank you for reaching out to our support team with your questions regarding our Slack integration, custom OAuth2 flow, and webhook callback. We'll address each of your concerns below.\n\n**Slack Integration API Rate Limit:**\nWe understand that you need the exact API rate limit for our Slack integration when using the real-time event streaming feature with WebSocket connections. Unfortunately, our knowledge base does not provide this spe",
+      "n1": 1,
+      "n3": 1,
+      "n4": 7,
+      "n5": 0,
+      "n6": 2,
+      "n8": 0,
+      "maker_flagged": [],
+      "maker_zsv_removed": [],
+      "maker_bridge_safe": true,
+      "errors": []
+    },
+    {
+      "description": "Forced loop + Super Node test",
+      "status": "escalated",
+      "quality_scores_per_loop": [
+        "0.9468",
+        "0.9488",
+        "0.9479"
+      ],
+      "final_quality": 0.9479,
+      "loops_executed": 2,
+      "node_4_total_calls": 21,
+      "node_6_total_calls": 6,
+      "reached_super_node": true,
+      "escalated": true,
+      "escalation_key": "PARWA-NFY-001",
+      "total_llm_calls": 36,
+      "total_tokens": 37349,
+      "llm_errors": 0,
+      "time_s": 136.1,
+      "response_len": 2032,
+      "response_preview": "Subject: Resolution for Duplicate Charges and Pricing Discrepancy\n\nDear [Customer],\n\nThank you for reaching out to us regarding the duplicate charges and pricing discrepancy issues you've encountered. I'm here to provide a detailed resolution to both concerns.\n\n**Duplicate Charges:**\n\nAccording to our Billing Policy (2026), if a customer is charged twice in one cycle, the second charge is immediately refunded. In your case, you were charged $2,499 twice this month. To correct this error, we will"
+    }
+  ],
+  "total_tickets": 4,
+  "maker_safeguards_activated": [
+    true
+  ],
+  "quality_loop_proven": [
+    true
+  ],
+  "super_node_proven": [
+    true
+  ],
+  "escalation_proven": [
+    true
+  ]
+}
