@@ -1,0 +1,1025 @@
+     1→"""
+     2→Jarvis Storage Backend — Dual Mode
+     3→
+     4→Modes:
+     5→  1. InMemory (default) — zero deps, works immediately for dev/testing
+     6→  2. Supabase (production) — uses httpx → Supabase REST API (PostgREST)
+     7→
+     8→Auto-detection: if SUPABASE_URL + SUPABASE_ANON_KEY env vars are set → Supabase.
+     9→Otherwise → InMemory.
+    10→
+    11→No new dependencies required. Uses only httpx (already installed).
+    12→"""
+    13→from __future__ import annotations
+    14→
+    15→import hashlib
+    16→import json
+    17→import logging
+    18→import os
+    19→import threading
+    20→import time
+    21→import uuid
+    22→from abc import ABC, abstractmethod
+    23→from datetime import datetime, timezone
+    24→from typing import Any, Dict, List, Optional, Tuple
+    25→
+    26→logger = logging.getLogger("jarvis.db")
+    27→
+    28→# ── Config ────────────────────────────────────────────────────
+    29→
+    30→SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+    31→SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+    32→
+    33→# Table name prefix — all Jarvis tables start with jarvis_
+    34→TABLE_NOTIFICATIONS = "jarvis_notifications"
+    35→TABLE_FLAGS = "jarvis_system_flags"
+    36→TABLE_AUDIT = "jarvis_audit_trail"
+    37→TABLE_QUALITY_SCORES = "jarvis_quality_scores"
+    38→TABLE_QUALITY_ALERTS = "jarvis_quality_alerts"
+    39→TABLE_TRAINING_SUGGESTIONS = "jarvis_training_suggestions"
+    40→TABLE_AGENT_CONFIGS = "jarvis_agent_configs"
+    41→TABLE_CLIENT_SKILLS = "jarvis_client_skills"
+    42→TABLE_FEATURE_FLAGS = "jarvis_feature_flags"
+    43→TABLE_CLIENT_LEGAL = "jarvis_client_legal"
+    44→TABLE_PROVISIONING_LOGS = "jarvis_provisioning_logs"
+    45→TABLE_TRAINING_DATA = "jarvis_training_data"
+    46→TABLE_BATCH_QUEUE = "jarvis_batch_queue"
+    47→
+    48→# Priority constants
+    49→PRIORITY_CRITICAL = "CRITICAL"
+    50→PRIORITY_HIGH = "HIGH"
+    51→PRIORITY_MEDIUM = "MEDIUM"
+    52→PRIORITY_LOW = "LOW"
+    53→
+    54→PRIORITY_THRESHOLDS = {
+    55→    PRIORITY_CRITICAL: 0.85,
+    56→    PRIORITY_HIGH: 0.65,
+    57→    PRIORITY_MEDIUM: 0.40,
+    58→}
+    59→
+    60→# Notification types
+    61→TYPE_STUCK_TICKET = "stuck_ticket"
+    62→TYPE_QUOTA_LOW = "quota_low"
+    63→TYPE_INTEGRATION_DOWN = "integration_down"
+    64→TYPE_ACCURACY_DROP = "accuracy_drop"
+    65→TYPE_POLICY_CHANGE = "policy_change"
+    66→TYPE_SLA_RISK = "sla_risk"
+    67→
+    68→# Roles that can execute admin commands
+    69→ADMIN_ROLES = {"admin", "owner", "supervisor"}
+    70→ALL_ROLES = {"admin", "owner", "supervisor", "team_member", "viewer"}
+    71→
+    72→
+    73→# ═══════════════════════════════════════════════════════════════
+    74→# ABSTRACT BASE
+    75→# ═══════════════════════════════════════════════════════════════
+    76→
+    77→class StorageBackend(ABC):
+    78→    """Abstract storage backend. All methods are async."""
+    79→
+    80→    # ── Notifications ────────────────────────────────────────
+    81→
+    82→    @abstractmethod
+    83→    async def create_notification(
+    84→        self,
+    85→        tenant_id: str,
+    86→        ntype: str,
+    87→        priority_score: float,
+    88→        title: str,
+    89→        description: str,
+    90→        related_tickets: Optional[List[str]] = None,
+    91→        batch_key: Optional[str] = None,
+    92→        source_data: Optional[Dict] = None,
+    93→    ) -> Dict[str, Any]:
+    94→        """Create a notification. Returns the full notification dict."""
+    95→        ...
+    96→
+    97→    @abstractmethod
+    98→    async def get_notification(self, key: str) -> Optional[Dict[str, Any]]:
+    99→        """Get notification by key (PARWA-NFY-XXX)."""
+   100→        ...
+   101→
+   102→    @abstractmethod
+   103→    async def get_notifications(
+   104→        self,
+   105→        tenant_id: str,
+   106→        include_resolved: bool = False,
+   107→        min_priority: Optional[str] = None,
+   108→    ) -> List[Dict[str, Any]]:
+   109→        """Get notifications for tenant, sorted by priority."""
+   110→        ...
+   111→
+   112→    @abstractmethod
+   113→    async def resolve_notification(self, key: str) -> bool:
+   114→        """Mark notification as resolved."""
+   115→        ...
+   116→
+   117→    @abstractmethod
+   118→    async def dismiss_notification(self, key: str) -> bool:
+   119→        """Mark notification as read."""
+   120→        ...
+   121→
+   122→    # ── System Flags ─────────────────────────────────────────
+   123→
+   124→    @abstractmethod
+   125→    async def set_flag(
+   126→        self,
+   127→        tenant_id: str,
+   128→        flag_type: str,
+   129→        flag_value: str,
+   130→        set_by: str,
+   131→        scope: str = "global",
+   132→        target_id: Optional[str] = None,
+   133→        reason: Optional[str] = None,
+   134→        expires_at: Optional[str] = None,
+   135→    ) -> Dict[str, Any]:
+   136→        """Set a system flag. Returns the flag dict."""
+   137→        ...
+   138→
+   139→    @abstractmethod
+   140→    async def get_active_flags(
+   141→        self, tenant_id: str, flag_type: Optional[str] = None
+   142→    ) -> List[Dict[str, Any]]:
+   143→        """Get active (non-revoked, non-expired) flags."""
+   144→        ...
+   145→
+   146→    @abstractmethod
+   147→    async def revoke_flag(self, flag_id: str, revoked_by: str) -> bool:
+   148→        """Revoke a system flag."""
+   149→        ...
+   150→
+   151→    # ── Audit Trail ──────────────────────────────────────────
+   152→
+   153→    @abstractmethod
+   154→    async def create_audit_entry(
+   155→        self,
+   156→        tenant_id: str,
+   157→        action: str,
+   158→        actor_email: str,
+   159→        target_type: Optional[str] = None,
+   160→        target_id: Optional[str] = None,
+   161→        payload: Optional[Dict] = None,
+   162→    ) -> Dict[str, Any]:
+   163→        """Create an audit trail entry (immutable)."""
+   164→        ...
+   165→
+   166→    @abstractmethod
+   167→    async def get_audit_trail(
+   168→        self,
+   169→        tenant_id: str,
+   170→        action: Optional[str] = None,
+   171→        limit: int = 50,
+   172→    ) -> List[Dict[str, Any]]:
+   173→        """Get audit trail for tenant."""
+   174→        ...
+   175→
+   176→    # ── Quality Scores ───────────────────────────────────────
+   177→
+   178→    @abstractmethod
+   179→    async def write_quality_score(
+   180→        self,
+   181→        tenant_id: str,
+   182→        ticket_id: str,
+   183→        overall_score: float,
+   184→        confidence_score: Optional[float] = None,
+   185→        resolution_path: Optional[str] = None,
+   186→        nodes_reached: Optional[List[str]] = None,
+   187→        llm_calls: int = 0,
+   188→        tokens_used: int = 0,
+   189→        model_used: Optional[str] = None,
+   190→        agent_id: Optional[str] = None,
+   191→    ) -> Dict[str, Any]:
+   192→        """Write a quality score (from PARWA Node 6)."""
+   193→        ...
+   194→
+   195→    @abstractmethod
+   196→    async def get_quality_stats(
+   197→        self, tenant_id: str, days: int = 7
+   198→    ) -> Dict[str, Any]:
+   199→        """Get aggregated quality stats for a tenant."""
+   200→        ...
+   201→
+   202→    # ── Batch Queue ──────────────────────────────────────────
+   203→
+   204→    @abstractmethod
+   205→    async def add_to_batch(
+   206→        self,
+   207→        tenant_id: str,
+   208→        batch_key: str,
+   209→        ticket_id: str,
+   210→        confidence: float,
+   211→    ) -> Optional[Dict[str, Any]]:
+   212→        """Add ticket to batch. Returns batch if window expired, else None."""
+   213→        ...
+   214→
+   215→    @abstractmethod
+   216→    async def flush_batches(self, tenant_id: str) -> List[Dict[str, Any]]:
+   217→        """Force-flush all pending batches."""
+   218→        ...
+   219→
+   220→    # ── Utility ──────────────────────────────────────────────
+   221→
+   222→    @abstractmethod
+   223→    async def get_notification_stats(self, tenant_id: str) -> Dict[str, Any]:
+   224→        """Get notification counts by priority and type."""
+   225→        ...
+   226→
+   227→    @abstractmethod
+   228→    async def health_check(self) -> Dict[str, Any]:
+   229→        """Check if the storage backend is healthy."""
+   230→        ...
+   231→
+   232→
+   233→# ═══════════════════════════════════════════════════════════════
+   234→# IN-MEMORY BACKEND (works immediately, no deps)
+   235→# ═══════════════════════════════════════════════════════════════
+   236→
+   237→class InMemoryBackend(StorageBackend):
+   238→    """In-memory storage. Data lost on restart. Perfect for dev/testing."""
+   239→
+   240→    def __init__(self):
+   241→        self._notifications: Dict[str, Dict] = {}
+   242→        self._flags: List[Dict] = []
+   243→        self._audit: List[Dict] = []
+   244→        self._quality_scores: List[Dict] = []
+   245→        self._batches: Dict[str, List[Dict]] = {}
+   246→        self._batch_metas: Dict[str, Dict] = {}
+   247→        self._lock = threading.Lock()
+   248→        self._next_nfy_id = 1
+   249→
+   250→    # ── Helpers ───────────────────────────────────────────────
+   251→
+   252→    def _next_notification_number(self) -> int:
+   253→        with self._lock:
+   254→            n = self._next_nfy_id
+   255→            self._next_nfy_id += 1
+   256→            return n
+   257→
+   258→    @staticmethod
+   259→    def _priority_from_score(score: float) -> str:
+   260→        if score >= PRIORITY_THRESHOLDS[PRIORITY_CRITICAL]:
+   261→            return PRIORITY_CRITICAL
+   262→        elif score >= PRIORITY_THRESHOLDS[PRIORITY_HIGH]:
+   263→            return PRIORITY_HIGH
+   264→        elif score >= PRIORITY_THRESHOLDS[PRIORITY_MEDIUM]:
+   265→            return PRIORITY_MEDIUM
+   266→        return PRIORITY_LOW
+   267→
+   268→    # ── Notifications ────────────────────────────────────────
+   269→
+   270→    async def create_notification(
+   271→        self,
+   272→        tenant_id: str,
+   273→        ntype: str,
+   274→        priority_score: float,
+   275→        title: str,
+   276→        description: str,
+   277→        related_tickets: Optional[List[str]] = None,
+   278→        batch_key: Optional[str] = None,
+   279→        source_data: Optional[Dict] = None,
+   280→    ) -> Dict[str, Any]:
+   281→        num = self._next_notification_number()
+   282→        key = f"PARWA-NFY-{num:03d}"
+   283→        now = time.time()
+   284→        nf = {
+   285→            "id": str(uuid.uuid4()),
+   286→            "tenant_id": tenant_id,
+   287→            "notification_key": key,
+   288→            "type": ntype,
+   289→            "priority": self._priority_from_score(priority_score),
+   290→            "priority_score": round(priority_score, 4),
+   291→            "title": title,
+   292→            "description": description,
+   293→            "related_tickets": related_tickets or [],
+   294→            "batch_key": batch_key,
+   295→            "source_data": source_data or {},
+   296→            "is_read": False,
+   297→            "is_resolved": False,
+   298→            "created_at": now,
+   299→            "resolved_at": None,
+   300→            "backend": "memory",
+   301→        }
+   302→        self._notifications[key] = nf
+   303→        logger.info("NFY created: %s type=%s score=%.3f [%s]", key, ntype, priority_score, tenant_id)
+   304→        return nf
+   305→
+   306→    async def get_notification(self, key: str) -> Optional[Dict[str, Any]]:
+   307→        return self._notifications.get(key)
+   308→
+   309→    async def get_notifications(
+   310→        self,
+   311→        tenant_id: str,
+   312→        include_resolved: bool = False,
+   313→        min_priority: Optional[str] = None,
+   314→    ) -> List[Dict[str, Any]]:
+   315→        priority_order = {PRIORITY_CRITICAL: 0, PRIORITY_HIGH: 1, PRIORITY_MEDIUM: 2, PRIORITY_LOW: 3}
+   316→        min_rank = priority_order.get(min_priority, 99) if min_priority else 99
+   317→        results = []
+   318→        for n in self._notifications.values():
+   319→            if n["tenant_id"] != tenant_id:
+   320→                continue
+   321→            if not include_resolved and n["is_resolved"]:
+   322→                continue
+   323→            if priority_order.get(n["priority"], 99) > min_rank:
+   324→                continue
+   325→            results.append(n)
+   326→        results.sort(key=lambda x: (-priority_order.get(x["priority"], 99), -x["created_at"]))
+   327→        return results
+   328→
+   329→    async def resolve_notification(self, key: str) -> bool:
+   330→        n = self._notifications.get(key)
+   331→        if n and not n["is_resolved"]:
+   332→            n["is_resolved"] = True
+   333→            n["resolved_at"] = time.time()
+   334→            return True
+   335→        return False
+   336→
+   337→    async def dismiss_notification(self, key: str) -> bool:
+   338→        n = self._notifications.get(key)
+   339→        if n:
+   340→            n["is_read"] = True
+   341→            return True
+   342→        return False
+   343→
+   344→    # ── System Flags ─────────────────────────────────────────
+   345→
+   346→    async def set_flag(
+   347→        self,
+   348→        tenant_id: str,
+   349→        flag_type: str,
+   350→        flag_value: str,
+   351→        set_by: str,
+   352→        scope: str = "global",
+   353→        target_id: Optional[str] = None,
+   354→        reason: Optional[str] = None,
+   355→        expires_at: Optional[str] = None,
+   356→    ) -> Dict[str, Any]:
+   357→        flag = {
+   358→            "id": str(uuid.uuid4()),
+   359→            "tenant_id": tenant_id,
+   360→            "flag_type": flag_type,
+   361→            "flag_value": flag_value,
+   362→            "scope": scope,
+   363→            "target_id": target_id,
+   364→            "set_by": set_by,
+   365→            "reason": reason,
+   366→            "expires_at": expires_at,
+   367→            "created_at": datetime.now(timezone.utc).isoformat(),
+   368→            "revoked_at": None,
+   369→            "backend": "memory",
+   370→        }
+   371→        self._flags.append(flag)
+   372→        logger.info("FLAG set: %s=%s scope=%s [%s]", flag_type, flag_value, scope, tenant_id)
+   373→        return flag
+   374→
+   375→    async def get_active_flags(
+   376→        self, tenant_id: str, flag_type: Optional[str] = None
+   377→    ) -> List[Dict[str, Any]]:
+   378→        now = datetime.now(timezone.utc)
+   379→        active = []
+   380→        for f in self._flags:
+   381→            if f["tenant_id"] != tenant_id:
+   382→                continue
+   383→            if f["revoked_at"] is not None:
+   384→                continue
+   385→            if f["expires_at"]:
+   386→                exp = datetime.fromisoformat(f["expires_at"]) if isinstance(f["expires_at"], str) else f["expires_at"]
+   387→                if exp < now:
+   388→                    continue
+   389→            if flag_type and f["flag_type"] != flag_type:
+   390→                continue
+   391→            active.append(f)
+   392→        return active
+   393→
+   394→    async def revoke_flag(self, flag_id: str, revoked_by: str) -> bool:
+   395→        for f in self._flags:
+   396→            if f["id"] == flag_id and f["revoked_at"] is None:
+   397→                f["revoked_at"] = datetime.now(timezone.utc).isoformat()
+   398→                logger.info("FLAG revoked: %s by %s", flag_id, revoked_by)
+   399→                return True
+   400→        return False
+   401→
+   402→    # ── Audit Trail ──────────────────────────────────────────
+   403→
+   404→    async def create_audit_entry(
+   405→        self,
+   406→        tenant_id: str,
+   407→        action: str,
+   408→        actor_email: str,
+   409→        target_type: Optional[str] = None,
+   410→        target_id: Optional[str] = None,
+   411→        payload: Optional[Dict] = None,
+   412→    ) -> Dict[str, Any]:
+   413→        payload_json = json.dumps(payload or {}, sort_keys=True)
+   414→        current_hash = hashlib.sha256(
+   415→            f"{tenant_id}:{action}:{payload_json}:{time.time()}".encode()
+   416→        ).hexdigest()[:64]
+   417→
+   418→        entry = {
+   419→            "id": len(self._audit) + 1,
+   420→            "tenant_id": tenant_id,
+   421→            "action": action,
+   422→            "actor_email": actor_email,
+   423→            "target_type": target_type,
+   424→            "target_id": target_id,
+   425→            "payload": payload or {},
+   426→            "current_hash": current_hash,
+   427→            "previous_hash": self._audit[-1]["current_hash"] if self._audit else None,
+   428→            "created_at": datetime.now(timezone.utc).isoformat(),
+   429→            "backend": "memory",
+   430→        }
+   431→        self._audit.append(entry)
+   432→        return entry
+   433→
+   434→    async def get_audit_trail(
+   435→        self,
+   436→        tenant_id: str,
+   437→        action: Optional[str] = None,
+   438→        limit: int = 50,
+   439→    ) -> List[Dict[str, Any]]:
+   440→        results = [e for e in self._audit if e["tenant_id"] == tenant_id]
+   441→        if action:
+   442→            results = [e for e in results if e["action"] == action]
+   443→        results.sort(key=lambda x: x["id"], reverse=True)
+   444→        return results[:limit]
+   445→
+   446→    # ── Quality Scores ───────────────────────────────────────
+   447→
+   448→    async def write_quality_score(
+   449→        self,
+   450→        tenant_id: str,
+   451→        ticket_id: str,
+   452→        overall_score: float,
+   453→        confidence_score: Optional[float] = None,
+   454→        resolution_path: Optional[str] = None,
+   455→        nodes_reached: Optional[List[str]] = None,
+   456→        llm_calls: int = 0,
+   457→        tokens_used: int = 0,
+   458→        model_used: Optional[str] = None,
+   459→        agent_id: Optional[str] = None,
+   460→    ) -> Dict[str, Any]:
+   461→        score = {
+   462→            "id": str(uuid.uuid4()),
+   463→            "tenant_id": tenant_id,
+   464→            "agent_id": agent_id,
+   465→            "ticket_id": ticket_id,
+   466→            "overall_score": round(overall_score, 2),
+   467→            "confidence_score": round(confidence_score, 2) if confidence_score else None,
+   468→            "resolution_path": resolution_path,
+   469→            "nodes_reached": nodes_reached or [],
+   470→            "llm_calls": llm_calls,
+   471→            "tokens_used": tokens_used,
+   472→            "model_used": model_used,
+   473→            "created_at": datetime.now(timezone.utc).isoformat(),
+   474→            "backend": "memory",
+   475→        }
+   476→        self._quality_scores.append(score)
+   477→        return score
+   478→
+   479→    async def get_quality_stats(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+   480→        tenant_scores = [s for s in self._quality_scores if s["tenant_id"] == tenant_id]
+   481→        total = len(tenant_scores)
+   482→        if total == 0:
+   483→            return {
+   484→                "tenant_id": tenant_id, "total_tickets": 0,
+   485→                "avg_quality": 0, "avg_confidence": 0,
+   486→                "auto_resolved": 0, "escalated": 0, "stuck": 0,
+   487→            }
+   488→        avg_q = sum(s["overall_score"] for s in tenant_scores) / total
+   489→        avg_c_vals = [s["confidence_score"] for s in tenant_scores if s.get("confidence_score")]
+   490→        avg_c = sum(avg_c_vals) / len(avg_c_vals) if avg_c_vals else 0
+   491→        paths = {}
+   492→        for s in tenant_scores:
+   493→            p = s.get("resolution_path", "unknown")
+   494→            paths[p] = paths.get(p, 0) + 1
+   495→        return {
+   496→            "tenant_id": tenant_id,
+   497→            "total_tickets": total,
+   498→            "avg_quality": round(avg_q, 4),
+   499→            "avg_confidence": round(avg_c, 4),
+   500→            "by_path": paths,
+   501→            "auto_resolved": paths.get("simple", 0) + paths.get("complex", 0),
+   502→            "escalated": paths.get("escalated", 0),
+   503→            "stuck": paths.get("stuck", 0),
+   504→        }
+   505→
+   506→    # ── Batch Queue ──────────────────────────────────────────
+   507→
+   508→    async def add_to_batch(
+   509→        self,
+   510→        tenant_id: str,
+   511→        batch_key: str,
+   512→        ticket_id: str,
+   513→        confidence: float,
+   514→    ) -> Optional[Dict[str, Any]]:
+   515→        BATCH_WINDOW_S = 300
+   516→        now = time.time()
+   517→
+   518→        if tenant_id not in self._batch_metas:
+   519→            self._batch_metas[tenant_id] = {}
+   520→
+   521→        # Find existing batch with same key within window
+   522→        existing_key = None
+   523→        for bk, meta in self._batch_metas[tenant_id].items():
+   524→            if bk == batch_key and (now - meta["batch_start"]) < BATCH_WINDOW_S:
+   525→                existing_key = bk
+   526→                break
+   527→
+   528→        if existing_key:
+   529→            meta = self._batch_metas[tenant_id][existing_key]
+   530→            meta["ticket_ids"].append(ticket_id)
+   531→            meta["signal_count"] = len(meta["ticket_ids"])
+   532→            meta["confidence_min"] = min(meta.get("confidence_min", 1.0), confidence)
+   533→            meta["confidence_max"] = max(meta.get("confidence_max", 0.0), confidence)
+   534→            # Don't flush yet — still within window
+   535→            return None
+   536→        else:
+   537→            meta = {
+   538→                "batch_key": batch_key,
+   539→                "tenant_id": tenant_id,
+   540→                "batch_start": now,
+   541→                "ticket_ids": [ticket_id],
+   542→                "signal_count": 1,
+   543→                "confidence_min": confidence,
+   544→                "confidence_max": confidence,
+   545→                "status": "pending",
+   546→            }
+   547→            self._batch_metas[tenant_id][batch_key] = meta
+   548→            return None
+   549→
+   550→    async def flush_batches(self, tenant_id: str) -> List[Dict[str, Any]]:
+   551→        results = list(self._batch_metas.get(tenant_id, {}).values())
+   552→        self._batch_metas[tenant_id] = {}
+   553→        return results
+   554→
+   555→    # ── Utility ──────────────────────────────────────────────
+   556→
+   557→    async def get_notification_stats(self, tenant_id: str) -> Dict[str, Any]:
+   558→        tenant_nfs = [n for n in self._notifications.values() if n["tenant_id"] == tenant_id]
+   559→        by_priority = {}
+   560→        for p in [PRIORITY_CRITICAL, PRIORITY_HIGH, PRIORITY_MEDIUM, PRIORITY_LOW]:
+   561→            by_priority[p] = sum(1 for n in tenant_nfs if n["priority"] == p)
+   562→        return {
+   563→            "total": len(tenant_nfs),
+   564→            "unread": sum(1 for n in tenant_nfs if not n["is_read"]),
+   565→            "unresolved": sum(1 for n in tenant_nfs if not n["is_resolved"]),
+   566→            "by_priority": by_priority,
+   567→        }
+   568→
+   569→    async def health_check(self) -> Dict[str, Any]:
+   570→        return {
+   571→            "backend": "memory",
+   572→            "status": "healthy",
+   573→            "notifications": len(self._notifications),
+   574→            "flags": len(self._flags),
+   575→            "audit_entries": len(self._audit),
+   576→            "quality_scores": len(self._quality_scores),
+   577→        }
+   578→
+   579→    def clear_all(self):
+   580→        """Clear all data (for testing)."""
+   581→        self._notifications.clear()
+   582→        self._flags.clear()
+   583→        self._audit.clear()
+   584→        self._quality_scores.clear()
+   585→        self._batches.clear()
+   586→        self._batch_metas.clear()
+   587→        self._next_nfy_id = 1
+   588→
+   589→
+   590→# ═══════════════════════════════════════════════════════════════
+   591→# SUPABASE BACKEND (httpx → PostgREST, no new deps)
+   592→# ═══════════════════════════════════════════════════════════════
+   593→
+   594→class SupabaseBackend(StorageBackend):
+   595→    """Supabase storage via REST API (PostgREST). Uses httpx.
+   596→
+   597→    Requires env vars: SUPABASE_URL, SUPABASE_ANON_KEY
+   598→    """
+   599→
+   600→    def __init__(self):
+   601→        if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+   602→            raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY must be set")
+   603→        self._url = SUPABASE_URL.rstrip("/")
+   604→        self._headers = {
+   605→            "apikey": SUPABASE_ANON_KEY,
+   606→            "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+   607→            "Content-Type": "application/json",
+   608→            "Prefer": "return=representation",
+   609→        }
+   610→        self._client = None  # Lazy init on first use
+   611→
+   612→    async def _get_client(self):
+   613→        if self._client is None or self._client.is_closed:
+   614→            import httpx
+   615→            self._client = httpx.AsyncClient(
+   616→                base_url=self._url,
+   617→                headers=self._headers,
+   618→                timeout=15.0,
+   619→            )
+   620→        return self._client
+   621→
+   622→    async def _rest_get(self, table: str, query: str = "") -> List[Dict]:
+   623→        client = await self._get_client()
+   624→        url = f"/rest/v1/{table}"
+   625→        if query:
+   626→            url += f"?{query}"
+   627→        r = await client.get(url)
+   628→        r.raise_for_status()
+   629→        return r.json() if r.text else []
+   630→
+   631→    async def _rest_post(self, table: str, data: Dict) -> Dict:
+   632→        client = await self._get_client()
+   633→        r = await client.post(f"/rest/v1/{table}", json=data)
+   634→        r.raise_for_status()
+   635→        result = r.json()
+   636→        if isinstance(result, list) and result:
+   637→            return result[0]
+   638→        return result
+   639→
+   640→    async def _rest_patch(self, table: str, filter_query: str, data: Dict) -> List[Dict]:
+   641→        client = await self._get_client()
+   642→        r = await client.patch(f"/rest/v1/{table}?{filter_query}", json=data)
+   643→        r.raise_for_status()
+   644→        return r.json() if r.text else []
+   645→
+   646→    async def close(self):
+   647→        if self._client and not self._client.is_closed:
+   648→            await self._client.aclose()
+   649→
+   650→    # ── Notifications ────────────────────────────────────────
+   651→
+   652→    async def create_notification(
+   653→        self,
+   654→        tenant_id: str,
+   655→        ntype: str,
+   656→        priority_score: float,
+   657→        title: str,
+   658→        description: str,
+   659→        related_tickets: Optional[List[str]] = None,
+   660→        batch_key: Optional[str] = None,
+   661→        source_data: Optional[Dict] = None,
+   662→    ) -> Dict[str, Any]:
+   663→        # Generate key locally to avoid race conditions
+   664→        existing = await self._rest_get(
+   665→            TABLE_NOTIFICATIONS,
+   666→            f"tenant_id=eq.{tenant_id}&select=notification_key&order=created_at.desc&limit=1"
+   667→        )
+   668→        next_num = 1
+   669→        if existing:
+   670→            import re
+   671→            m = re.search(r"PARWA-NFY-(\d+)", existing[0].get("notification_key", ""))
+   672→            if m:
+   673→                next_num = int(m.group(1)) + 1
+   674→        key = f"PARWA-NFY-{next_num:03d}"
+   675→
+   676→        priority = PRIORITY_LOW
+   677→        for pname, pthresh in PRIORITY_THRESHOLDS.items():
+   678→            if priority_score >= pthresh:
+   679→                priority = pname
+   680→                break
+   681→
+   682→        row = await self._rest_post(TABLE_NOTIFICATIONS, {
+   683→            "tenant_id": tenant_id,
+   684→            "notification_key": key,
+   685→            "type": ntype,
+   686→            "priority": priority,
+   687→            "priority_score": priority_score,
+   688→            "title": title,
+   689→            "description": description,
+   690→            "related_tickets": related_tickets or [],
+   691→            "batch_key": batch_key,
+   692→            "source_data": source_data or {},
+   693→        })
+   694→        row["backend"] = "supabase"
+   695→        return row
+   696→
+   697→    async def get_notification(self, key: str) -> Optional[Dict[str, Any]]:
+   698→        results = await self._rest_get(
+   699→            TABLE_NOTIFICATIONS,
+   700→            f"notification_key=eq.{key}&limit=1"
+   701→        )
+   702→        if results:
+   703→            results[0]["backend"] = "supabase"
+   704→            return results[0]
+   705→        return None
+   706→
+   707→    async def get_notifications(
+   708→        self,
+   709→        tenant_id: str,
+   710→        include_resolved: bool = False,
+   711→        min_priority: Optional[str] = None,
+   712→    ) -> List[Dict[str, Any]]:
+   713→        query = f"tenant_id=eq.{tenant_id}"
+   714→        if not include_resolved:
+   715→            query += "&is_resolved=eq.false"
+   716→        query += "&order=priority.asc,created_at.desc&limit=100"
+   717→        results = await self._rest_get(TABLE_NOTIFICATIONS, query)
+   718→        for r in results:
+   719→            r["backend"] = "supabase"
+   720→        return results
+   721→
+   722→    async def resolve_notification(self, key: str) -> bool:
+   723→        results = await self._rest_patch(
+   724→            TABLE_NOTIFICATIONS,
+   725→            f"notification_key=eq.{key}&is_resolved=eq.false",
+   726→            {"is_resolved": True, "resolved_at": datetime.now(timezone.utc).isoformat()},
+   727→        )
+   728→        return len(results) > 0
+   729→
+   730→    async def dismiss_notification(self, key: str) -> bool:
+   731→        results = await self._rest_patch(
+   732→            TABLE_NOTIFICATIONS,
+   733→            f"notification_key=eq.{key}",
+   734→            {"is_read": True},
+   735→        )
+   736→        return len(results) > 0
+   737→
+   738→    # ── System Flags ─────────────────────────────────────────
+   739→
+   740→    async def set_flag(
+   741→        self,
+   742→        tenant_id: str,
+   743→        flag_type: str,
+   744→        flag_value: str,
+   745→        set_by: str,
+   746→        scope: str = "global",
+   747→        target_id: Optional[str] = None,
+   748→        reason: Optional[str] = None,
+   749→        expires_at: Optional[str] = None,
+   750→    ) -> Dict[str, Any]:
+   751→        row = await self._rest_post(TABLE_FLAGS, {
+   752→            "tenant_id": tenant_id,
+   753→            "flag_type": flag_type,
+   754→            "flag_value": flag_value,
+   755→            "scope": scope,
+   756→            "target_id": target_id,
+   757→            "set_by": set_by,
+   758→            "reason": reason,
+   759→            "expires_at": expires_at,
+   760→        })
+   761→        row["backend"] = "supabase"
+   762→        return row
+   763→
+   764→    async def get_active_flags(
+   765→        self, tenant_id: str, flag_type: Optional[str] = None
+   766→    ) -> List[Dict[str, Any]]:
+   767→        query = f"tenant_id=eq.{tenant_id}&revoked_at=is.null"
+   768→        if flag_type:
+   769→            query += f"&flag_type=eq.{flag_type}"
+   770→        # Note: expires_at filtering done client-side (PostgREST can't do complex date comparisons easily)
+   771→        results = await self._rest_get(TABLE_FLAGS, query)
+   772→        now = datetime.now(timezone.utc)
+   773→        active = []
+   774→        for f in results:
+   775→            if f.get("expires_at"):
+   776→                exp = datetime.fromisoformat(f["expires_at"].replace("Z", "+00:00"))
+   777→                if exp < now:
+   778→                    continue
+   779→            f["backend"] = "supabase"
+   780→            active.append(f)
+   781→        return active
+   782→
+   783→    async def revoke_flag(self, flag_id: str, revoked_by: str) -> bool:
+   784→        results = await self._rest_patch(
+   785→            TABLE_FLAGS,
+   786→            f"id=eq.{flag_id}&revoked_at=is.null",
+   787→            {"revoked_at": datetime.now(timezone.utc).isoformat()},
+   788→        )
+   789→        return len(results) > 0
+   790→
+   791→    # ── Audit Trail ──────────────────────────────────────────
+   792→
+   793→    async def create_audit_entry(
+   794→        self,
+   795→        tenant_id: str,
+   796→        action: str,
+   797→        actor_email: str,
+   798→        target_type: Optional[str] = None,
+   799→        target_id: Optional[str] = None,
+   800→        payload: Optional[Dict] = None,
+   801→    ) -> Dict[str, Any]:
+   802→        payload_json = json.dumps(payload or {}, sort_keys=True)
+   803→        current_hash = hashlib.sha256(
+   804→            f"{tenant_id}:{action}:{payload_json}:{time.time()}".encode()
+   805→        ).hexdigest()[:64]
+   806→
+   807→        # Get previous hash
+   808→        prev = await self._rest_get(
+   809→            TABLE_AUDIT,
+   810→            f"tenant_id=eq.{tenant_id}&select=current_hash&order=created_at.desc&limit=1"
+   811→        )
+   812→        prev_hash = prev[0]["current_hash"] if prev else None
+   813→
+   814→        row = await self._rest_post(TABLE_AUDIT, {
+   815→            "tenant_id": tenant_id,
+   816→            "action": action,
+   817→            "actor_email": actor_email,
+   818→            "target_type": target_type,
+   819→            "target_id": target_id,
+   820→            "payload": payload or {},
+   821→            "previous_hash": prev_hash,
+   822→            "current_hash": current_hash,
+   823→        })
+   824→        row["backend"] = "supabase"
+   825→        return row
+   826→
+   827→    async def get_audit_trail(
+   828→        self,
+   829→        tenant_id: str,
+   830→        action: Optional[str] = None,
+   831→        limit: int = 50,
+   832→    ) -> List[Dict[str, Any]]:
+   833→        query = f"tenant_id=eq.{tenant_id}"
+   834→        if action:
+   835→            query += f"&action=eq.{action}"
+   836→        query += f"&order=created_at.desc&limit={limit}"
+   837→        results = await self._rest_get(TABLE_AUDIT, query)
+   838→        for r in results:
+   839→            r["backend"] = "supabase"
+   840→        return results
+   841→
+   842→    # ── Quality Scores ───────────────────────────────────────
+   843→
+   844→    async def write_quality_score(
+   845→        self,
+   846→        tenant_id: str,
+   847→        ticket_id: str,
+   848→        overall_score: float,
+   849→        confidence_score: Optional[float] = None,
+   850→        resolution_path: Optional[str] = None,
+   851→        nodes_reached: Optional[List[str]] = None,
+   852→        llm_calls: int = 0,
+   853→        tokens_used: int = 0,
+   854→        model_used: Optional[str] = None,
+   855→        agent_id: Optional[str] = None,
+   856→    ) -> Dict[str, Any]:
+   857→        row = await self._rest_post(TABLE_QUALITY_SCORES, {
+   858→            "tenant_id": tenant_id,
+   859→            "agent_id": agent_id,
+   860→            "ticket_id": ticket_id,
+   861→            "overall_score": overall_score,
+   862→            "confidence_score": confidence_score,
+   863→            "resolution_path": resolution_path,
+   864→            "nodes_reached": nodes_reached or [],
+   865→            "llm_calls": llm_calls,
+   866→            "tokens_used": tokens_used,
+   867→            "model_used": model_used,
+   868→        })
+   869→        row["backend"] = "supabase"
+   870→        return row
+   871→
+   872→    async def get_quality_stats(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+   873→        # Supabase RPC would be ideal, but for now use REST + client-side agg
+   874→        results = await self._rest_get(
+   875→            TABLE_QUALITY_SCORES,
+   876→            f"tenant_id=eq.{tenant_id}&select=overall_score,confidence_score,resolution_path&limit=1000"
+   877→        )
+   878→        total = len(results)
+   879→        if total == 0:
+   880→            return {
+   881→                "tenant_id": tenant_id, "total_tickets": 0,
+   882→                "avg_quality": 0, "avg_confidence": 0,
+   883→                "auto_resolved": 0, "escalated": 0, "stuck": 0,
+   884→            }
+   885→        avg_q = sum(float(s.get("overall_score", 0)) for s in results) / total
+   886→        c_vals = [float(s["confidence_score"]) for s in results if s.get("confidence_score")]
+   887→        avg_c = sum(c_vals) / len(c_vals) if c_vals else 0
+   888→        paths = {}
+   889→        for s in results:
+   890→            p = s.get("resolution_path", "unknown")
+   891→            paths[p] = paths.get(p, 0) + 1
+   892→        return {
+   893→            "tenant_id": tenant_id,
+   894→            "total_tickets": total,
+   895→            "avg_quality": round(avg_q, 4),
+   896→            "avg_confidence": round(avg_c, 4),
+   897→            "by_path": paths,
+   898→            "auto_resolved": paths.get("simple", 0) + paths.get("complex", 0),
+   899→            "escalated": paths.get("escalated", 0),
+   900→            "stuck": paths.get("stuck", 0),
+   901→        }
+   902→
+   903→    # ── Batch Queue ──────────────────────────────────────────
+   904→
+   905→    async def add_to_batch(
+   906→        self,
+   907→        tenant_id: str,
+   908→        batch_key: str,
+   909→        ticket_id: str,
+   910→        confidence: float,
+   911→    ) -> Optional[Dict[str, Any]]:
+   912→        # Check for existing batch
+   913→        existing = await self._rest_get(
+   914→            TABLE_BATCH_QUEUE,
+   915→            f"tenant_id=eq.{tenant_id}&batch_key=eq.{batch_key}&status=eq.pending"
+   916→            f"&expires_at=gt.{datetime.now(timezone.utc).isoformat()}"
+   917→        )
+   918→        if existing:
+   919→            batch = existing[0]
+   920→            ticket_ids = batch.get("ticket_ids", [])
+   921→            ticket_ids.append(ticket_id)
+   922→            await self._rest_patch(
+   923→                TABLE_BATCH_QUEUE,
+   924→                f"id=eq.{batch['id']}",
+   925→                {
+   926→                    "ticket_ids": ticket_ids,
+   927→                    "confidence_min": min(float(batch.get("confidence_min", 1.0)), confidence),
+   928→                    "confidence_max": max(float(batch.get("confidence_max", 0.0)), confidence),
+   929→                },
+   930→            )
+   931→            return None
+   932→
+   933→        # Create new batch
+   934→        await self._rest_post(TABLE_BATCH_QUEUE, {
+   935→            "tenant_id": tenant_id,
+   936→            "batch_key": batch_key,
+   937→            "ticket_ids": [ticket_id],
+   938→            "confidence_min": confidence,
+   939→            "confidence_max": confidence,
+   940→        })
+   941→        return None
+   942→
+   943→    async def flush_batches(self, tenant_id: str) -> List[Dict[str, Any]]:
+   944→        results = await self._rest_get(
+   945→            TABLE_BATCH_QUEUE,
+   946→            f"tenant_id=eq.{tenant_id}&status=eq.pending"
+   947→        )
+   948→        # Mark all as flushed
+   949→        for batch in results:
+   950→            await self._rest_patch(
+   951→                TABLE_BATCH_QUEUE,
+   952→                f"id=eq.{batch['id']}",
+   953→                {"status": "flushed"},
+   954→            )
+   955→        return results
+   956→
+   957→    # ── Utility ──────────────────────────────────────────────
+   958→
+   959→    async def get_notification_stats(self, tenant_id: str) -> Dict[str, Any]:
+   960→        all_nfs = await self._rest_get(
+   961→            TABLE_NOTIFICATIONS,
+   962→            f"tenant_id=eq.{tenant_id}&select=priority,is_read,is_resolved"
+   963→        )
+   964→        by_priority = {}
+   965→        for p in [PRIORITY_CRITICAL, PRIORITY_HIGH, PRIORITY_MEDIUM, PRIORITY_LOW]:
+   966→            by_priority[p] = sum(1 for n in all_nfs if n.get("priority") == p)
+   967→        return {
+   968→            "total": len(all_nfs),
+   969→            "unread": sum(1 for n in all_nfs if not n.get("is_read")),
+   970→            "unresolved": sum(1 for n in all_nfs if not n.get("is_resolved")),
+   971→            "by_priority": by_priority,
+   972→        }
+   973→
+   974→    async def health_check(self) -> Dict[str, Any]:
+   975→        try:
+   976→            client = await self._get_client()
+   977→            r = await client.get("/rest/v1/jarvis_notifications?select=id&limit=1")
+   978→            return {
+   979→                "backend": "supabase",
+   980→                "status": "healthy" if r.status_code == 200 else "degraded",
+   981→                "url": self._url,
+   982→            }
+   983→        except Exception as e:
+   984→            return {"backend": "supabase", "status": "error", "error": str(e)}
+   985→
+   986→
+   987→# ═══════════════════════════════════════════════════════════════
+   988→# GLOBAL INSTANCE — auto-detect mode
+   989→# ═══════════════════════════════════════════════════════════════
+   990→
+   991→_backend: Optional[StorageBackend] = None
+   992→
+   993→
+   994→def get_db() -> StorageBackend:
+   995→    """Get the active storage backend. Singleton.
+   996→
+   997→    Auto-detects:
+   998→      - SUPABASE_URL + SUPABASE_ANON_KEY set → SupabaseBackend
+   999→      - Otherwise → InMemoryBackend
+  1000→    """
+  1001→    global _backend
+  1002→    if _backend is None:
+  1003→        if SUPABASE_URL and SUPABASE_ANON_KEY:
+  1004→            logger.info("Jarvis DB: Using Supabase backend (%s)", SUPABASE_URL[:40])
+  1005→            _backend = SupabaseBackend()
+  1006→        else:
+  1007→            logger.info("Jarvis DB: Using InMemory backend (set SUPABASE_URL for production)")
+  1008→            _backend = InMemoryBackend()
+  1009→    return _backend
+  1010→
+  1011→
+  1012→def reset_db():
+  1013→    """Reset the global backend (for testing)."""
+  1014→    global _backend
+  1015→    if isinstance(_backend, SupabaseBackend):
+  1016→        import asyncio
+  1017→        asyncio.get_event_loop().run_until_complete(_backend.close())
+  1018→    _backend = None
+  1019→
+  1020→
+  1021→def use_in_memory():
+  1022→    """Force in-memory mode (for testing)."""
+  1023→    global _backend
+  1024→    _backend = InMemoryBackend()
+  1025→    logger.info("Jarvis DB: Forced to InMemory mode")
