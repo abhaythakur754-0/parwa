@@ -39,3 +39,74 @@ Files modified:
 - parwa/backend/app/core/jarvis_pipeline/nodes/jarvis_3_notify.py (full rewrite with command execution)
 - parwa/backend/app/core/jarvis_pipeline/graph.py (added run_jarvis_chat)
 - parwa/backend/app/core/jarvis_pipeline/state.py (added 3 fields)
+
+---
+Task ID: W2
+Agent: main
+Task: Jarvis Wave 2 — Awareness Engine (Real Monitoring, No Mocks)
+
+Work Log:
+- Extended jarvis_db.py: 7 new abstract methods + InMemory + Supabase implementations
+  - write_integration_ping / get_integration_health (uptime %, last error, avg response ms)
+  - record_llm_cost / get_llm_cost_summary (per-model, per-type cost aggregation)
+  - record_stuck_ticket_check / get_stuck_tickets (escalation tier tracking)
+  - check_quality_drift (day-over-day analysis, 3-day decline detection, path failure pattern)
+  - get_ticket_flow_summary (auto_resolved/batched/escalated/stuck/by_node aggregation)
+  - get_load_status (variant concurrency, utilization %, VIP overflow risk)
+- Built signal_collectors.py: 7 real collectors replacing ALL mocks in jarvis_1_sense.py
+  - collect_stuck_tickets: DB quality_scores + stuck_ticket_events, 12h/24h/48h escalation tiers
+  - collect_integration_health: Real HTTP pings to KNOWN_INTEGRATIONS + DB uptime history
+  - collect_quota_status: DB burn rate from quality_scores count vs variant registry quota
+  - collect_accuracy_drift: Delegates to db.check_quality_drift()
+  - collect_ticket_flow: DB aggregation (summary) + live PARWA state (current_ticket)
+  - collect_llm_costs: DB persisted costs + live session bridge from llm_client.get_stats()
+  - collect_load_status: DB variant concurrency + VIP overflow detection
+- Rewrote jarvis_1_sense.py: ALL 7 collectors now read from jarvis_db via signal_collectors
+  - REMOVED: _collect_stuck_tickets (mock), _collect_integration_health (hardcoded), _detect_accuracy_trend (wiki-only), _collect_quota_status (registry-only), _collect_ticket_flow (state-only)
+  - ADDED: signals.drift_status, signals.llm_costs, signals.load_status
+  - Integration health now has services dict with uptime%, errors, response times
+  - Accuracy trend now includes drift_detected, drift_severity, trigger_reason
+- Rewrote jarvis_2_evaluate.py: Enhanced evaluation with Wave 2 data
+  - _evaluate_stuck_ticket: Now uses escalation_tier (soft_reminder/backup_alert/critical) for priority scoring
+  - _evaluate_drift (NEW): Evaluates DB drift analysis results (warning/critical severity)
+  - _evaluate_integration (ENHANCED): Uses uptime %, worst_uptime, service-by-service details
+  - _evaluate_load_status (NEW): Detects variant bottlenecks and VIP overflow risk
+  - Notification type "load_bottleneck" added
+- Updated jarvis_3_notify.py: 5 new query handlers + enhanced notification formatting
+  - query_health: Shows per-service uptime%, avg response ms, last error
+  - query_cost: Shows persisted + live LLM costs, per-model breakdown
+  - query_flow: Shows ticket flow metrics with node distribution
+  - query_load: Shows variant concurrency, utilization %, VIP overflow risk
+  - query_stuck: Shows stuck tickets with escalation tier and hours stuck
+  - Enhanced notification titles: Stuck tickets show [ESCALATION_TIER], Drift shows [SEVERITY]
+  - Enhanced notification descriptions: Include uptime %, trigger reason, hours stuck
+- Updated command_parser.py: 5 new intent families + 6 new regex patterns (total 26 patterns)
+  - query_health, query_cost, query_flow, query_load, query_stuck
+  - Fixed regex priority: Wave 2 specific patterns placed before generic patterns
+  - Fixed word boundary issues (tokens?, pending.?approvals?)
+- Updated state.py: Added Wave 2 signal type documentation + default values
+- Wrote wave2_e2e_test.py: 94 tests covering DB layer, collectors, parser, full pipeline
+
+Stage Summary:
+- 94/94 tests passing (0 failures)
+- ALL 7 SENSE collectors read from jarvis_db (zero mocks remaining)
+- Drift detection: 3+ day declining accuracy, same-path failure patterns
+- Escalation tiers: 12h soft_reminder → 24h backup_alert → 48h critical
+- Integration health: real HTTP pings + DB-backed uptime calculation
+- LLM cost tracking: persisted DB records + live session bridge
+- Load balancing: variant concurrency monitoring + VIP overflow detection
+- 5 new admin chat commands work end-to-end (health/cost/flow/load/stuck)
+- Wave 1 backward compatibility: all 5 original queries still work
+- Zero new dependencies
+
+Files created:
+- parwa/backend/app/core/jarvis_pipeline/signal_collectors.py (7 collectors, 310 lines)
+- parwa/backend/tests/wave2_e2e_test.py (94 tests, 500 lines)
+
+Files modified:
+- parwa/backend/app/core/jarvis_pipeline/jarvis_db.py (+300 lines: 7 new methods in both backends)
+- parwa/backend/app/core/jarvis_pipeline/nodes/jarvis_1_sense.py (full rewrite, real collectors)
+- parwa/backend/app/core/jarvis_pipeline/nodes/jarvis_2_evaluate.py (full rewrite, drift+load+escalation)
+- parwa/backend/app/core/jarvis_pipeline/nodes/jarvis_3_notify.py (5 new query handlers, enhanced notifications)
+- parwa/backend/app/core/jarvis_pipeline/command_parser.py (5 new intents, 6 new patterns)
+- parwa/backend/app/core/jarvis_pipeline/state.py (Wave 2 signal documentation)

@@ -32,6 +32,14 @@ class JarvisState(TypedDict, total=False):
     signals: Dict[str, Any]
     sense_log: List[Dict[str, Any]]
 
+    # Wave 2: New signal sub-objects (populated by real collectors)
+    # These are inside signals dict, but listed here for type clarity:
+    # signals.drift_status: {drift_detected, drift_severity, trend_direction, ...}
+    # signals.llm_costs: {persisted: {...}, live_session: {...}, total_cost_usd}
+    # signals.load_status: {variants: [...], vip_overflow_risk}
+    # signals.integration_health: {services: {...}, degraded_count, healthy_count}
+    # signals.ticket_flow: {summary: {...}, current_ticket: {...}}
+
     # EVALUATE output
     evaluations: List[Dict[str, Any]]
     clara_result: str
@@ -81,10 +89,17 @@ def create_jarvis_state(
         "signals": {
             "stuck_tickets": [],
             "quota_status": {},
-            "integration_health": {},
+            "integration_health": {"services": {}, "degraded_count": 0, "healthy_count": 0},
             "policy_version": {},
             "accuracy_trend": "",
-            "ticket_flow": {},
+            "ticket_flow": {"summary": {}, "current_ticket": {}},
+            # Wave 2 new
+            "drift_status": {"drift_detected": False, "drift_severity": "none",
+                              "trend_direction": "stable", "trigger_reason": "no_data",
+                              "total_scores": 0},
+            "llm_costs": {"persisted": {}, "live_session": {}, "total_cost_usd": 0,
+                          "total_calls_combined": 0, "total_tokens_combined": 0},
+            "load_status": {"variants": [], "total_concurrent": 0, "vip_overflow_risk": False},
         },
         "sense_log": [],
 

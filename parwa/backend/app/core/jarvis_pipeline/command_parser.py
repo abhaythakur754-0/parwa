@@ -31,6 +31,11 @@ INTENT_QUERIES = {
     "query_notifications",# show notifications, what's PARWA-NFY-001
     "query_flags",        # what rules are active, show my rules
     "query_audit",        # who did what, show history
+    "query_health",       # Wave 2: integration health, uptime, pings
+    "query_cost",         # Wave 2: LLM costs, token usage, spend
+    "query_flow",         # Wave 2: ticket flow metrics, node-by-node
+    "query_load",         # Wave 2: variant load, concurrency, bottlenecks
+    "query_stuck",        # Wave 2: stuck tickets with escalation tiers
 }
 
 INTENT_CONTROLS = {
@@ -86,16 +91,35 @@ ALL_INTENTS = (
 
 _TIER1_PATTERNS = [
     # ── Queries ───────────────────────────────────────────────
-    (re.compile(r"\b(show|what'?s?|what is|tell me about|get)\b.*(system\s*status|status|uptime|mode)\b", re.I),
+    # System status (must NOT match "load status" or "service status")
+    (re.compile(r"\b(show|what'?s?|what is|tell me about|get)\b.*(system\s*status|uptime|mode)\b", re.I),
      "query_status", lambda m: "system"),
 
     (re.compile(r"\b(show|what'?s?|how many|tell me|get)\b.*(error|failure|failed|errors?)\b", re.I),
      "query_errors", lambda m: "all"),
 
-    (re.compile(r"\b(show|what'?s?|how many|tell me|get|list)\b.*(ticket|tickets|stuck|pending)\b", re.I),
+    # Wave 2 Queries — MUST come before generic ticket/quality patterns
+    # (more specific patterns first to prevent mis-routing)
+    (re.compile(r"\b(show|what'?s?|check|tell me|get)\b.*(integration|service|services?)\s*(health|status|uptime)\b", re.I),
+     "query_health", lambda m: "all"),
+
+    (re.compile(r"\b(show|what'?s?|how much|tell me|get)\b.*(cost|spend|spending|tokens?|bills?|llm)\b", re.I),
+     "query_cost", lambda m: "all"),
+
+    (re.compile(r"\b(show|what'?s?|tell me|get|how many)\b.*(ticket\s*flow|flow\s*metric|pipeline|funnel|resolved|escalated)\b", re.I),
+     "query_flow", lambda m: "all"),
+
+    (re.compile(r"\b(show|what'?s?|check|tell me|get)\b.*(load|concurrent|capacity|bottleneck|busy)\b", re.I),
+     "query_load", lambda m: "all"),
+
+    (re.compile(r"\b(show|what'?s?|how many|tell me|get)\b.*(stuck|stale|waiting|pending.?approvals?)\b", re.I),
+     "query_stuck", lambda m: "all"),
+
+    # Generic ticket (broader, catch what Wave 2 didn't)
+    (re.compile(r"\b(show|what'?s?|how many|tell me|get|list)\b.*(ticket|tickets)\b", re.I),
      "query_tickets", lambda m: "all"),
 
-    (re.compile(r"\b(show|what'?s?|how|tell me|get)\b.*(quality|accuracy|performance|drift|health)\b", re.I),
+    (re.compile(r"\b(show|what'?s?|how|tell me|get)\b.*(quality|accuracy|performance|drift)\b", re.I),
      "query_quality", lambda m: "all"),
 
     (re.compile(r"\b(show|what'?s?|how much|tell me|get)\b.*(quota|usage|remaining|limit|burn)\b", re.I),

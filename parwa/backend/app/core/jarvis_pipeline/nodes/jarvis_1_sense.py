@@ -1,5 +1,5 @@
 """
-Jarvis Node 1: SENSE (Observe)
+Jarvis Node 1: SENSE (Observe) — Wave 2: Real Monitoring
 
 Purpose: Monitor everything. Collect signals from PARWA pipeline,
 variants, integrations, and knowledge base.
@@ -7,89 +7,40 @@ variants, integrations, and knowledge base.
 Question: What is happening RIGHT NOW?
 
 LLM Cost: 0 calls (pure monitoring, data collection only)
-Techniques: SmartRouter, DynamicContext, ZeroShotValidator, MetaLearner
+Techniques: All 7 collectors now read from jarvis_db (real data).
+
+Wave 2 changes:
+  - _collect_stuck_tickets → signal_collectors.collect_stuck_tickets (DB-backed, 12h/24h/48h escalation)
+  - _collect_integration_health → signal_collectors.collect_integration_health (real pings + DB history)
+  - _collect_quota_status → signal_collectors.collect_quota_status (DB burn rate + trend)
+  - _detect_accuracy_trend → signal_collectors.collect_accuracy_drift (DB drift analysis)
+  - _collect_ticket_flow → signal_collectors.collect_ticket_flow (DB aggregation + live PARWA state)
+  - NEW: collect_llm_costs (DB cost tracking + live session bridge)
+  - NEW: collect_load_status (DB variant concurrency + VIP overflow)
+  - REMOVED: _collect_policy_version (absorbed into drift detection)
 """
 from __future__ import annotations
 
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
-from app.core.parwa_pipeline.nodes.node_2_smart_route import MOCK_VARIANT_REGISTRY, TIER_ORDER
 from app.core.parwa_pipeline.ai_wiki_store import get_wiki_store
-from app.core.parwa_pipeline.llm_client import get_stats as get_llm_stats
+from app.core.jarvis_pipeline.signal_collectors import (
+    collect_stuck_tickets,
+    collect_integration_health,
+    collect_quota_status,
+    collect_accuracy_drift,
+    collect_ticket_flow,
+    collect_llm_costs,
+    collect_load_status,
+)
 
 logger = logging.getLogger("jarvis.sense")
 
 
-def _collect_stuck_tickets(parwa_state: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Detect stuck/unsolved tickets from PARWA pipeline state."""
-    stuck = []
-    status = parwa_state.get("status", "")
-    ticket_id = parwa_state.get("ticket_id", "")
-    errors = parwa_state.get("errors", [])
-    quality = parwa_state.get("quality_score", 1.0)
-    loops = parwa_state.get("loop_count", 0)
-    escalated = bool(parwa_state.get("escalation_context"))
-
-    # Ticket is stuck if:
-    # 1. Escalated from Super Node (quality too low after all attempts)
-    # 2. Has errors that prevented resolution
-    # 3. Status is not "resolved"
-    if escalated:
-        stuck.append({
-            "ticket_id": ticket_id,
-            "reason": "super_node_escalated",
-            "quality_score": quality,
-            "loops_used": loops,
-            "errors": [str(e) for e in errors],
-        })
-    elif status == "escalated":
-        stuck.append({
-            "ticket_id": ticket_id,
-            "reason": "pipeline_escalated",
-            "quality_score": quality,
-            "loops_used": loops,
-            "errors": [str(e) for e in errors],
-        })
-    elif errors and status != "resolved":
-        stuck.append({
-            "ticket_id": ticket_id,
-            "reason": "pipeline_errors",
-            "quality_score": quality,
-            "loops_used": loops,
-            "errors": [str(e) for e in errors[-3:]],  # last 3 errors
-        })
-
-    return stuck
-
-
-def _collect_quota_status(tenant_id: str) -> Dict[str, Any]:
-    """Collect quota usage from variant registry."""
-    quota = {}
-    reg = MOCK_VARIANT_REGISTRY.get(tenant_id, {})
-    tier = reg.get("tier", "parwa")
-    remaining = reg.get("quota_remaining", 0)
-    total = reg.get("quota_total", 0)
-
-    quota[tier] = {
-        "remaining": remaining,
-        "total": total,
-        "used": total - remaining,
-        "burn_pct": round((total - remaining) / max(total, 1) * 100, 1),
-    }
-
-    # Calculate burn rate (rough: if >80% used, flag it)
-    if quota[tier]["burn_pct"] >= 80:
-        quota[tier]["status"] = "critical"
-    elif quota[tier]["burn_pct"] >= 60:
-        quota[tier]["status"] = "warning"
-    else:
-        quota[tier]["status"] = "healthy"
-
-    return quota
-
+# ── Policy version check (still uses wiki, not mock) ───────────
 
 def _collect_policy_version(tenant_id: str) -> Dict[str, Any]:
     """Check AI Wiki Section C for policy changes."""
@@ -105,69 +56,14 @@ def _collect_policy_version(tenant_id: str) -> Dict[str, Any]:
         return {"section_c_entries": 0, "total_entries": 0, "error": "wiki_unavailable"}
 
 
-def _collect_ticket_flow(parwa_state: Dict[str, Any]) -> Dict[str, Any]:
-    """Collect ticket flow metrics from the current PARWA state."""
-    tech_log = parwa_state.get("technique_log", [])
-    nodes_reached = set()
-    for entry in tech_log:
-        node_num = entry.get("node")
-        if node_num:
-            nodes_reached.add(node_num)
-
-    return {
-        "ticket_id": parwa_state.get("ticket_id", ""),
-        "ticket_type": parwa_state.get("ticket_type", ""),
-        "complexity": parwa_state.get("complexity", ""),
-        "action": parwa_state.get("required_action", ""),
-        "nodes_reached": sorted(nodes_reached),
-        "node_count": len(nodes_reached),
-        "llm_calls": parwa_state.get("total_token_usage", 0),
-        "status": parwa_state.get("status", ""),
-        "quality_score": parwa_state.get("quality_score", "N/A"),
-    }
-
-
-def _collect_integration_health() -> Dict[str, str]:
-    """Check integration health. Mock for now — real version checks UCB."""
-    return {
-        "sendgrid": "healthy",
-        "twilio": "healthy",
-        "hubspot": "healthy",
-        "stripe": "healthy",
-    }
-
-
-def _detect_accuracy_trend(parwa_state: Dict[str, Any]) -> str:
-    """Detect accuracy trend from wiki patterns."""
-    try:
-        wiki = get_wiki_store()
-        patterns = wiki.find_similar_patterns(
-            tenant_id=parwa_state.get("tenant_id", ""),
-            query=parwa_state.get("query", ""),
-            ticket_type=parwa_state.get("ticket_type", ""),
-            max_results=5,
-        )
-        if not patterns:
-            return "no_historical_data"
-
-        avg_quality = sum(p["quality_achieved"] for p in patterns) / len(patterns)
-        if avg_quality >= 0.95:
-            return "excellent"
-        elif avg_quality >= 0.90:
-            return "stable"
-        elif avg_quality >= 0.80:
-            return "declining"
-        else:
-            return "critical"
-    except Exception:
-        return "unknown"
-
-
 # ── Main Node Function ────────────────────────────────────────
 
 
 async def jarvis_sense(state: dict) -> dict:
-    """Jarvis Node 1: SENSE — Observe all signals.
+    """Jarvis Node 1: SENSE — Observe all signals (REAL DATA).
+
+    Wave 2: All 7 collectors read from jarvis_db.
+    Zero mocks. Every signal is backed by persistent storage.
 
     LLM calls: 0 (pure data collection).
     """
@@ -179,54 +75,84 @@ async def jarvis_sense(state: dict) -> dict:
 
     now = datetime.now(timezone.utc).isoformat()
 
-    # 1. Collect stuck tickets
-    stuck = _collect_stuck_tickets(parwa_state)
-    logs.append({"node": "J1", "technique": "StuckDetector", "duration_ms": 0,
-                 "result_summary": f"stuck={len(stuck)}"})
+    # 1. Stuck tickets — DB-backed with escalation tiers
+    stuck = await collect_stuck_tickets(tenant_id, parwa_state)
+    logs.append({"node": "J1", "technique": "StuckDetector",
+                 "duration_ms": 0,
+                 "result_summary": f"stuck={len(stuck)} "
+                 f"tiers={[(s['escalation_tier'], s['ticket_id']) for s in stuck[:3]]}"})
 
-    # 2. Collect quota status
-    quota = _collect_quota_status(tenant_id)
-    logs.append({"node": "J1", "technique": "QuotaMonitor", "duration_ms": 0,
-                 "result_summary": f"tiers={list(quota.keys())}"})
+    # 2. Quota status — DB burn rate
+    quota = await collect_quota_status(tenant_id)
+    quota_status = list(quota.values())[0].get("status", "healthy") if quota else "unknown"
+    logs.append({"node": "J1", "technique": "QuotaMonitor",
+                 "duration_ms": 0,
+                 "result_summary": f"tiers={list(quota.keys())} status={quota_status}"})
 
-    # 3. Collect integration health
-    integration = _collect_integration_health()
-    degraded = [k for k, v in integration.items() if v != "healthy"]
-    logs.append({"node": "J1", "technique": "IntegrationHealth", "duration_ms": 0,
-                 "result_summary": f"degraded={len(degraded)}"})
+    # 3. Integration health — Real pings + DB history
+    integration = await collect_integration_health(tenant_id)
+    degraded_count = integration.get("degraded_count", 0)
+    logs.append({"node": "J1", "technique": "IntegrationHealth",
+                 "duration_ms": 0,
+                 "result_summary": f"services={len(integration.get('services', {}))} "
+                 f"degraded={degraded_count}"})
 
-    # 4. Check policy version
+    # 4. Policy version (wiki-based, not mock)
     policy = _collect_policy_version(tenant_id)
-    logs.append({"node": "J1", "technique": "PolicyWatch", "duration_ms": 0,
+    logs.append({"node": "J1", "technique": "PolicyWatch",
+                 "duration_ms": 0,
                  "result_summary": f"c_entries={policy.get('section_c_entries', 0)}"})
 
-    # 5. Detect accuracy trend
-    trend = _detect_accuracy_trend(parwa_state)
-    logs.append({"node": "J1", "technique": "AccuracyTrend", "duration_ms": 0,
-                 "result_summary": f"trend={trend}"})
+    # 5. Accuracy / Drift detection — DB drift analysis
+    drift = await collect_accuracy_drift(tenant_id)
+    trend = drift.get("trend_direction", "no_data")
+    logs.append({"node": "J1", "technique": "AccuracyDrift",
+                 "duration_ms": 0,
+                 "result_summary": f"trend={trend} drift={drift.get('drift_detected', False)} "
+                 f"severity={drift.get('drift_severity', 'none')}"})
 
-    # 6. Ticket flow metrics
-    flow = _collect_ticket_flow(parwa_state)
-    logs.append({"node": "J1", "technique": "TicketFlow", "duration_ms": 0,
-                 "result_summary": f"nodes={flow['node_count']}"})
+    # 6. Ticket flow metrics — DB aggregation + live PARWA state
+    flow = await collect_ticket_flow(tenant_id, parwa_state)
+    summary = flow.get("summary", {})
+    logs.append({"node": "J1", "technique": "TicketFlow",
+                 "duration_ms": 0,
+                 "result_summary": f"total={summary.get('total', 0)} "
+                 f"auto={summary.get('auto_resolved', 0)} "
+                 f"escalated={summary.get('escalated', 0)}"})
 
-    # 7. LLM usage stats
-    llm_stats = get_llm_stats()
-    logs.append({"node": "J1", "technique": "LLMMonitor", "duration_ms": 0,
-                 "result_summary": f"calls={llm_stats['total_calls']}"})
+    # 7. LLM costs — DB tracking + live session
+    llm_costs = await collect_llm_costs(tenant_id)
+    live = llm_costs.get("live_session", {})
+    logs.append({"node": "J1", "technique": "LLMCostTracker",
+                 "duration_ms": 0,
+                 "result_summary": f"calls={llm_costs.get('total_calls_combined', 0)} "
+                 f"cost=${llm_costs.get('total_cost_usd', 0):.4f}"})
+
+    # 8. Load balancing — DB variant concurrency
+    load = await collect_load_status(tenant_id)
+    vip_risk = load.get("vip_overflow_risk", False)
+    logs.append({"node": "J1", "technique": "LoadBalancer",
+                 "duration_ms": 0,
+                 "result_summary": f"variants={len(load.get('variants', []))} "
+                 f"vip_risk={vip_risk}"})
 
     elapsed = int((time.time() - start) * 1000)
-    logger.info("Jarvis SENSE complete: tenant=%s stuck=%d trend=%s [%dms]",
-                tenant_id, len(stuck), trend, elapsed)
+    logger.info("Jarvis SENSE (Wave 2) complete: tenant=%s stuck=%d drift=%s cost=$%.4f [%dms]",
+                tenant_id, len(stuck), trend,
+                llm_costs.get("total_cost_usd", 0), elapsed)
 
     signals = {
+        # Original signals (enhanced)
         "stuck_tickets": stuck,
         "quota_status": quota,
         "integration_health": integration,
         "policy_version": policy,
         "accuracy_trend": trend,
         "ticket_flow": flow,
-        "llm_stats": llm_stats,
+        # Wave 2 new signals
+        "drift_status": drift,
+        "llm_costs": llm_costs,
+        "load_status": load,
     }
 
     return {

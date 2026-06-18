@@ -49,10 +49,13 @@ def _format_notification(ntype: str, ev: Dict) -> tuple:
         tid = signal.get("ticket_id", "unknown")
         reason = signal.get("reason", "unknown")
         quality = signal.get("quality_score", "?")
-        title = f"Stuck Ticket: {tid}"
+        escalation = ev.get("escalation_tier", "soft_reminder")
+        hours = signal.get("hours_stuck", 0)
+        title = f"Stuck Ticket [{escalation.upper()}]: {tid}"
         desc = (f"Ticket {tid} could not be resolved automatically. "
                 f"Reason: {reason}. Quality achieved: {quality}. "
                 f"Loops used: {signal.get('loops_used', 0)}. "
+                f"Hours stuck: {hours}. Escalation: {escalation}. "
                 f"Requires manual review.")
 
     elif ntype == TYPE_QUOTA_LOW:
@@ -65,16 +68,37 @@ def _format_notification(ntype: str, ev: Dict) -> tuple:
 
     elif ntype == TYPE_ACCURACY_DROP:
         trend = signal.get("trend", "unknown")
-        title = f"Accuracy Trend: {trend.upper()}"
-        desc = (f"Resolution accuracy trend is '{trend}'. "
+        severity = signal.get("severity", "warning")
+        trigger = signal.get("trigger", "unknown")
+        acc_7d = signal.get("accuracy_7d", "?")
+        acc_today = signal.get("accuracy_today", "?")
+        title = f"Accuracy Drift [{severity.upper()}]: {trend}"
+        desc = (f"Resolution accuracy trend is '{trend}' (severity: {severity}). "
+                f"7-day avg: {acc_7d}, Today: {acc_today}. "
+                f"Trigger: {trigger}. "
                 f"This may indicate KB gaps, policy changes, or model drift. "
                 f"Review recent resolutions and update knowledge base if needed.")
 
     elif ntype == TYPE_INTEGRATION_DOWN:
         degraded = signal.get("degraded_services", [])
-        names = ", ".join(f"{k} ({v})" for k, v in degraded)
-        title = f"Integration Issues: {len(degraded)} service(s) degraded"
-        desc = f"Degraded integrations: {names}. Check API credentials and service status."
+        worst_uptime = signal.get("worst_uptime_pct", 0)
+        names = ", ".join(f"{d['name']} ({d['status']}, uptime={d.get('uptime_pct', '?')}%)" for d in degraded)
+        title = f"Integration Issues: {signal.get('total_degraded', len(degraded))} service(s) degraded"
+        desc = (f"Degraded integrations: {names}. "
+                f"Worst uptime: {worst_uptime}%. "
+                f"Check API credentials and service status.")
+
+    elif ntype == "load_bottleneck":
+        at_cap = signal.get("at_capacity", [])
+        high_load = signal.get("high_load", [])
+        vip = signal.get("vip_overflow_risk", False)
+        bottlenecks = ", ".join(v["name"] for v in at_cap + high_load)
+        title = f"Load Bottleneck: {bottlenecks or 'All variants'}"
+        desc = (f"Variant load issue detected. "
+                f"At capacity: {', '.join(v['name'] for v in at_cap) or 'none'}. "
+                f"High load: {', '.join(v['name'] for v in high_load) or 'none'}. "
+                f"VIP overflow risk: {vip}. "
+                f"Consider scaling up or routing overflow to available variants.")
 
     else:
         title = f"Signal: {ntype}"
@@ -197,20 +221,29 @@ async def _handle_query(intent: str, target: str, tenant_id: str, signals: Dict,
         return f"**Recent Errors** ({len(errors)}):\n" + "\n".join(f"- {e}" for e in errors[-5:])
 
     if intent == "query_tickets":
-        ticket_flow = signals.get("ticket_flow", {})
-        quality = signals.get("accuracy_trend", "no_data")
+        flow = signals.get("ticket_flow", {})
+        summary = flow.get("summary", {}) if isinstance(flow, dict) else {}
+        current = flow.get("current_ticket", {}) if isinstance(flow, dict) else {}
+        drift = signals.get("drift_status", {})
         return (
-            f"**Ticket Flow**:\n"
-            f"Last Ticket: {ticket_flow.get('ticket_id', 'N/A')}\n"
-            f"Type: {ticket_flow.get('ticket_type', 'N/A')}\n"
-            f"Status: {ticket_flow.get('status', 'N/A')}\n"
-            f"Quality: {ticket_flow.get('quality_score', 'N/A')}\n"
-            f"Accuracy Trend: {quality}\n"
-            f"Nodes Reached: {ticket_flow.get('nodes_reached', [])}"
+            f"**Ticket Flow Summary**:\n"
+            f"Total Processed: {summary.get('total', 0)}\n"
+            f"Auto-Resolved: {summary.get('auto_resolved', 0)}\n"
+            f"Batched: {summary.get('batched', 0)}\n"
+            f"Escalated: {summary.get('escalated', 0)}\n"
+            f"Stuck: {summary.get('stuck', 0)}\n"
+            f"Avg Quality: {summary.get('avg_quality', 'N/A')}\n"
+            f"Avg LLM Calls: {summary.get('avg_llm_calls', 'N/A')}\n"
+            f"By Path: {summary.get('by_type', {})}\n"
+            f"Accuracy Trend: {drift.get('trend_direction', 'no_data')}"
         )
 
     if intent == "query_quality":
         stats = await db.get_quality_stats(tenant_id)
+        drift = signals.get("drift_status", {})
+        drift_line = f"\nDrift: {drift.get('trend_direction', 'no_data')}" \
+                    f" (detected={drift.get('drift_detected')}, severity={drift.get('drift_severity')})" \
+                    if drift.get('total_scores', 0) > 0 else "\nDrift: insufficient data"
         return (
             f"**Quality Metrics**:\n"
             f"Total Tickets: {stats['total_tickets']}\n"
@@ -220,6 +253,7 @@ async def _handle_query(intent: str, target: str, tenant_id: str, signals: Dict,
             f"Escalated: {stats['escalated']}\n"
             f"Stuck: {stats['stuck']}\n"
             f"By Path: {stats.get('by_path', {})}"
+            f"{drift_line}"
         )
 
     if intent == "query_quota":
@@ -284,6 +318,97 @@ async def _handle_query(intent: str, target: str, tenant_id: str, signals: Dict,
             )
         if len(trail) > 10:
             lines.append(f"  ... and {len(trail) - 10} more")
+        return "\n".join(lines)
+
+    # ── Wave 2 Query Handlers ─────────────────────────────
+
+    if intent == "query_health":
+        health = signals.get("integration_health", {})
+        services = health.get("services", {})
+        if not services:
+            return "No integration health data yet. Run a poll cycle first to collect ping data."
+        lines = [f"**Integration Health** ({health.get('healthy_count', 0)} healthy, "
+                 f"{health.get('degraded_count', 0)} degraded):"]
+        for svc_name, svc_data in services.items():
+            status_icon = "OK" if svc_data.get("status") == "healthy" else "!!"
+            lines.append(
+                f"  [{status_icon}] {svc_name}: {svc_data.get('status', '?')} "
+                f"(uptime={svc_data.get('uptime_pct', '?')}%, "
+                f"avg={svc_data.get('avg_response_ms', '?')}ms" +
+                (f", error: {svc_data.get('last_error', 'none')}"
+                 if svc_data.get('last_error') else ")")
+            )
+        return "\n".join(lines)
+
+    if intent == "query_cost":
+        costs = signals.get("llm_costs", {})
+        persisted = costs.get("persisted", {})
+        live = costs.get("live_session", {})
+        lines = [
+            f"**LLM Cost Summary**:",
+            f"  Total Cost (persisted): ${persisted.get('total_cost_usd', 0):.4f}",
+            f"  Total Calls (persisted): {persisted.get('total_calls', 0)}",
+            f"  Total Tokens (persisted): {persisted.get('total_tokens', 0)}",
+            f"  Combined Calls (incl. live): {costs.get('total_calls_combined', 0)}",
+            f"  Combined Tokens (incl. live): {costs.get('total_tokens_combined', 0)}",
+        ]
+        by_model = persisted.get("by_model", {})
+        if by_model:
+            lines.append("  By Model:")
+            for model, mdata in by_model.items():
+                lines.append(f"    {model}: ${mdata['cost']:.4f} ({mdata['calls']} calls, {mdata['tokens']} tokens)")
+        return "\n".join(lines)
+
+    if intent == "query_flow":
+        flow = signals.get("ticket_flow", {})
+        summary = flow.get("summary", {}) if isinstance(flow, dict) else {}
+        by_node = summary.get("by_node", {})
+        lines = [
+            f"**Ticket Flow Metrics**:",
+            f"  Total: {summary.get('total', 0)}",
+            f"  Auto-Resolved: {summary.get('auto_resolved', 0)}",
+            f"  Batched: {summary.get('batched', 0)}",
+            f"  Escalated: {summary.get('escalated', 0)}",
+            f"  Stuck: {summary.get('stuck', 0)}",
+            f"  Avg Quality: {summary.get('avg_quality', 0)}",
+            f"  Avg LLM Calls/Ticket: {summary.get('avg_llm_calls', 0)}",
+        ]
+        if by_node:
+            lines.append("  Node Distribution:")
+            for node, count in sorted(by_node.items()):
+                lines.append(f"    {node}: {count} tickets")
+        return "\n".join(lines)
+
+    if intent == "query_load":
+        load = signals.get("load_status", {})
+        variants = load.get("variants", [])
+        vip = load.get("vip_overflow_risk", False)
+        if not variants:
+            return "No variant load data. Configure agent_configs with max_concurrent to enable load monitoring."
+        lines = [f"**Load Status** (VIP overflow: {'YES' if vip else 'no'}):"]
+        for v in variants:
+            util = v.get("utilization_pct", 0)
+            status_icon = "!!" if v.get("status") in ("at_capacity", "high") else "OK"
+            lines.append(
+                f"  [{status_icon}] {v['name']}: {v.get('concurrent', 0)}/{v.get('max_concurrent', 5)} "
+                f"({util}% utilized, status: {v.get('status')})"
+            )
+        return "\n".join(lines)
+
+    if intent == "query_stuck":
+        stuck = signals.get("stuck_tickets", [])
+        if not stuck:
+            return "No stuck tickets. All clear."
+        lines = [f"**Stuck Tickets** ({len(stuck)}):"]
+        for s in stuck:
+            tier = s.get("escalation_tier", "?")
+            hours = s.get("hours_stuck", 0)
+            lines.append(
+                f"  [{tier.upper()}] {s.get('ticket_id', '?')}: "
+                f"reason={s.get('reason', '?')}, "
+                f"quality={s.get('quality_score', '?')}, "
+                f"{hours}h stuck, loops={s.get('loops_used', 0)}"
+            )
         return "\n".join(lines)
 
     return f"Query '{intent}' not yet implemented."

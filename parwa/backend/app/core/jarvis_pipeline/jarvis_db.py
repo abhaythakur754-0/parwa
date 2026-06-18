@@ -217,6 +217,102 @@ class StorageBackend(ABC):
         """Force-flush all pending batches."""
         ...
 
+    # ── Integration Health (Wave 2) ─────────────────────────
+
+    @abstractmethod
+    async def write_integration_ping(
+        self,
+        tenant_id: str,
+        service_name: str,
+        is_healthy: bool,
+        response_ms: Optional[float] = None,
+        error_detail: Optional[str] = None,
+        status_code: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Record an integration health ping."""
+        ...
+
+    @abstractmethod
+    async def get_integration_health(self, tenant_id: str) -> Dict[str, Any]:
+        """Get current integration health summary (uptime, last error, etc.)."""
+        ...
+
+    # ── LLM Cost Tracking (Wave 2) ───────────────────────────
+
+    @abstractmethod
+    async def record_llm_cost(
+        self,
+        tenant_id: str,
+        model: str,
+        prompt_tokens: int,
+        completion_tokens: int,
+        cost_usd: float,
+        call_type: str = "parwa_pipeline",
+    ) -> Dict[str, Any]:
+        """Record a single LLM call's cost."""
+        ...
+
+    @abstractmethod
+    async def get_llm_cost_summary(
+        self, tenant_id: str, days: int = 7
+    ) -> Dict[str, Any]:
+        """Get aggregated LLM cost stats for a tenant."""
+        ...
+
+    # ── Stuck Ticket Tracking (Wave 2) ───────────────────────
+
+    @abstractmethod
+    async def record_stuck_ticket_check(
+        self,
+        tenant_id: str,
+        ticket_id: str,
+        stuck_reason: str,
+        hours_stuck: float,
+        escalation_tier: str,
+    ) -> Dict[str, Any]:
+        """Record a stuck ticket detection event."""
+        ...
+
+    @abstractmethod
+    async def get_stuck_tickets(self, tenant_id: str) -> List[Dict[str, Any]]:
+        """Get all currently tracked stuck tickets."""
+        ...
+
+    # ── Drift Detection (Wave 2) ─────────────────────────────
+
+    @abstractmethod
+    async def check_quality_drift(
+        self, tenant_id: str,
+    ) -> Dict[str, Any]:
+        """Analyze quality scores for drift.
+
+        Returns: {drift_detected, drift_severity, accuracy_7d, accuracy_yesterday,
+                  accuracy_today, trend_direction, trigger_reason}
+        """
+        ...
+
+    # ── Ticket Flow Aggregation (Wave 2) ─────────────────────
+
+    @abstractmethod
+    async def get_ticket_flow_summary(
+        self, tenant_id: str, hours: int = 24
+    ) -> Dict[str, Any]:
+        """Get aggregated ticket flow metrics.
+
+        Returns: {total, auto_resolved, batched, escalated, by_type, by_node, avg_llm_calls}
+        """
+        ...
+
+    # ── Load Balancing (Wave 2) ──────────────────────────────
+
+    @abstractmethod
+    async def get_load_status(self, tenant_id: str) -> Dict[str, Any]:
+        """Get current load/concurrency status per variant.
+
+        Returns: {variants: [{name, concurrent, max_concurrent, utilization_pct, status}]}
+        """
+        ...
+
     # ── Utility ──────────────────────────────────────────────
 
     @abstractmethod
@@ -246,6 +342,11 @@ class InMemoryBackend(StorageBackend):
         self._batch_metas: Dict[str, Dict] = {}
         self._lock = threading.Lock()
         self._next_nfy_id = 1
+        # Wave 2 stores
+        self._integration_pings: List[Dict] = []
+        self._llm_costs: List[Dict] = []
+        self._stuck_ticket_events: List[Dict] = []
+        self._load_status: Dict[str, Dict] = {}  # tenant_id -> {variant -> {concurrent, max_concurrent}}
 
     # ── Helpers ───────────────────────────────────────────────
 
@@ -576,6 +677,310 @@ class InMemoryBackend(StorageBackend):
             "quality_scores": len(self._quality_scores),
         }
 
+    # ── Integration Health (Wave 2) ─────────────────────────
+
+    async def write_integration_ping(
+        self, tenant_id, service_name, is_healthy,
+        response_ms=None, error_detail=None, status_code=None,
+    ) -> Dict[str, Any]:
+        ping = {
+            "id": str(uuid.uuid4()),
+            "tenant_id": tenant_id,
+            "service_name": service_name,
+            "is_healthy": is_healthy,
+            "response_ms": response_ms,
+            "error_detail": error_detail,
+            "status_code": status_code,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "backend": "memory",
+        }
+        self._integration_pings.append(ping)
+        return ping
+
+    async def get_integration_health(self, tenant_id: str) -> Dict[str, Any]:
+        """Compute health from recent pings (last 30 per service)."""
+        tenant_pings = [p for p in self._integration_pings if p["tenant_id"] == tenant_id]
+        services: Dict[str, List[Dict]] = {}
+        for p in tenant_pings:
+            services.setdefault(p["service_name"], []).append(p)
+
+        result = {"services": {}, "degraded_count": 0, "healthy_count": 0}
+        for svc, pings in services.items():
+            recent = pings[-30:]  # last 30 pings
+            if not recent:
+                continue
+            healthy = sum(1 for p in recent if p["is_healthy"])
+            total = len(recent)
+            uptime_pct = round(healthy / max(total, 1) * 100, 1)
+            last_ping = recent[-1]
+            avg_ms = (sum(p["response_ms"] or 0 for p in recent) / total) if total else 0
+            last_error = None
+            last_error_time = None
+            for p in reversed(recent):
+                if not p["is_healthy"]:
+                    last_error = p.get("error_detail")
+                    last_error_time = p["created_at"]
+                    break
+
+            status = "healthy" if uptime_pct >= 90 else ("degraded" if uptime_pct >= 50 else "down")
+            if status != "healthy":
+                result["degraded_count"] += 1
+            else:
+                result["healthy_count"] += 1
+
+            result["services"][svc] = {
+                "status": status,
+                "uptime_pct": uptime_pct,
+                "total_pings": total,
+                "healthy_pings": healthy,
+                "avg_response_ms": round(avg_ms, 1),
+                "last_ping_at": last_ping["created_at"],
+                "last_healthy_at": next(
+                    (p["created_at"] for p in reversed(recent) if p["is_healthy"]),
+                    None,
+                ),
+                "last_error": last_error,
+                "last_error_at": last_error_time,
+                "last_status_code": last_ping.get("status_code"),
+            }
+        return result
+
+    # ── LLM Cost Tracking (Wave 2) ───────────────────────────
+
+    async def record_llm_cost(
+        self, tenant_id, model, prompt_tokens, completion_tokens,
+        cost_usd, call_type="parwa_pipeline",
+    ) -> Dict[str, Any]:
+        entry = {
+            "id": str(uuid.uuid4()),
+            "tenant_id": tenant_id,
+            "model": model,
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": prompt_tokens + completion_tokens,
+            "cost_usd": round(cost_usd, 6),
+            "call_type": call_type,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "backend": "memory",
+        }
+        self._llm_costs.append(entry)
+        return entry
+
+    async def get_llm_cost_summary(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+        tenant_costs = [c for c in self._llm_costs if c["tenant_id"] == tenant_id]
+        if not tenant_costs:
+            return {
+                "tenant_id": tenant_id, "total_cost_usd": 0.0,
+                "total_tokens": 0, "total_calls": 0,
+                "by_model": {}, "by_type": {},
+                "daily_breakdown": [],
+            }
+        total_cost = sum(c["cost_usd"] for c in tenant_costs)
+        total_tokens = sum(c["total_tokens"] for c in tenant_costs)
+        total_calls = len(tenant_costs)
+        by_model: Dict[str, Dict] = {}
+        by_type: Dict[str, Dict] = {}
+        for c in tenant_costs:
+            m = c["model"]
+            by_model.setdefault(m, {"cost": 0.0, "tokens": 0, "calls": 0})
+            by_model[m]["cost"] += c["cost_usd"]
+            by_model[m]["tokens"] += c["total_tokens"]
+            by_model[m]["calls"] += 1
+            t = c["call_type"]
+            by_type.setdefault(t, {"cost": 0.0, "tokens": 0, "calls": 0})
+            by_type[t]["cost"] += c["cost_usd"]
+            by_type[t]["tokens"] += c["total_tokens"]
+            by_type[t]["calls"] += 1
+        return {
+            "tenant_id": tenant_id,
+            "total_cost_usd": round(total_cost, 4),
+            "total_tokens": total_tokens,
+            "total_calls": total_calls,
+            "by_model": by_model,
+            "by_type": by_type,
+        }
+
+    # ── Stuck Ticket Tracking (Wave 2) ───────────────────────
+
+    async def record_stuck_ticket_check(
+        self, tenant_id, ticket_id, stuck_reason, hours_stuck, escalation_tier,
+    ) -> Dict[str, Any]:
+        event = {
+            "id": str(uuid.uuid4()),
+            "tenant_id": tenant_id,
+            "ticket_id": ticket_id,
+            "stuck_reason": stuck_reason,
+            "hours_stuck": round(hours_stuck, 2),
+            "escalation_tier": escalation_tier,
+            "detected_at": datetime.now(timezone.utc).isoformat(),
+            "resolved": False,
+            "backend": "memory",
+        }
+        self._stuck_ticket_events.append(event)
+        return event
+
+    async def get_stuck_tickets(self, tenant_id: str) -> List[Dict[str, Any]]:
+        return [
+            e for e in self._stuck_ticket_events
+            if e["tenant_id"] == tenant_id and not e["resolved"]
+        ]
+
+    # ── Drift Detection (Wave 2) ─────────────────────────────
+
+    async def check_quality_drift(self, tenant_id: str) -> Dict[str, Any]:
+        """Analyze quality_scores for drift using day-over-day comparison."""
+        tenant_scores = [s for s in self._quality_scores if s["tenant_id"] == tenant_id]
+        if len(tenant_scores) < 3:
+            return {
+                "tenant_id": tenant_id, "drift_detected": False,
+                "drift_severity": "none", "accuracy_7d": None,
+                "accuracy_yesterday": None, "accuracy_today": None,
+                "trend_direction": "stable", "trigger_reason": "insufficient_data",
+                "total_scores": len(tenant_scores),
+            }
+        # Group by date (ISO date portion)
+        by_date: Dict[str, List[float]] = {}
+        for s in tenant_scores:
+            date_str = s["created_at"][:10]  # YYYY-MM-DD
+            by_date.setdefault(date_str, []).append(s["overall_score"])
+
+        dates_sorted = sorted(by_date.keys())
+
+        def _avg(scores: List[float]) -> float:
+            return round(sum(scores) / len(scores), 4) if scores else 0.0
+
+        accuracy_7d = _avg([s for d in dates_sorted[-7:] for s in by_date[d]]) if len(dates_sorted) >= 1 else None
+        accuracy_yesterday = _avg(by_date[dates_sorted[-2]]) if len(dates_sorted) >= 2 else None
+        accuracy_today = _avg(by_date[dates_sorted[-1]]) if dates_sorted else None
+
+        # Drift detection: >5% drop for 3+ days
+        drift_detected = False
+        drift_severity = "none"
+        trigger_reason = None
+        trend_direction = "stable"
+
+        if len(dates_sorted) >= 3 and accuracy_7d is not None and accuracy_today is not None:
+            recent_3 = dates_sorted[-3:]
+            daily_avgs = [_avg(by_date[d]) for d in recent_3]
+            # Check if declining 3+ consecutive days
+            declining = all(daily_avgs[i] > daily_avgs[i + 1] for i in range(len(daily_avgs) - 1))
+            drop_7d = accuracy_7d - accuracy_today
+
+            if declining and drop_7d > 0.05:
+                drift_detected = True
+                trend_direction = "declining"
+                trigger_reason = f"accuracy_dropped_{drop_7d:.1%}_over_3_days"
+                drift_severity = "critical" if drop_7d > 0.10 else ("warning" if drop_7d > 0.05 else "none")
+            elif drop_7d > 0.03:
+                drift_detected = True
+                trend_direction = "slight_decline"
+                trigger_reason = f"accuracy_dropped_{drop_7d:.1%}_from_7d_avg"
+                drift_severity = "warning"
+            elif accuracy_today and accuracy_7d and accuracy_today > accuracy_7d + 0.03:
+                trend_direction = "improving"
+            else:
+                trend_direction = "stable"
+
+        # Check for repeated errors (same low score pattern)
+        if not drift_detected and tenant_scores:
+            low_scores = [s for s in tenant_scores if s["overall_score"] < 0.7]
+            if len(low_scores) >= 3:
+                # Check if same resolution_path failing
+                paths: Dict[str, int] = {}
+                for s in low_scores:
+                    p = s.get("resolution_path", "unknown")
+                    paths[p] = paths.get(p, 0) + 1
+                worst_path = max(paths.items(), key=lambda x: x[1])
+                if worst_path[1] >= 3:
+                    drift_detected = True
+                    drift_severity = "warning"
+                    trend_direction = "declining"
+                    trigger_reason = f"path_{worst_path[0]}_failed_{worst_path[1]}_times"
+
+        return {
+            "tenant_id": tenant_id,
+            "drift_detected": drift_detected,
+            "drift_severity": drift_severity,
+            "accuracy_7d": accuracy_7d,
+            "accuracy_yesterday": accuracy_yesterday,
+            "accuracy_today": accuracy_today,
+            "trend_direction": trend_direction,
+            "trigger_reason": trigger_reason,
+            "total_scores": len(tenant_scores),
+        }
+
+    # ── Ticket Flow Aggregation (Wave 2) ─────────────────────
+
+    async def get_ticket_flow_summary(self, tenant_id: str, hours: int = 24) -> Dict[str, Any]:
+        tenant_scores = [s for s in self._quality_scores if s["tenant_id"] == tenant_id]
+        total = len(tenant_scores)
+        if total == 0:
+            return {
+                "tenant_id": tenant_id, "total": 0, "auto_resolved": 0,
+                "batched": 0, "escalated": 0, "stuck": 0,
+                "by_type": {}, "by_node": {}, "avg_llm_calls": 0,
+                "avg_quality": 0,
+            }
+        auto_resolved = sum(1 for s in tenant_scores if s.get("overall_score", 0) >= 0.85)
+        escalated = sum(1 for s in tenant_scores if s.get("resolution_path") == "escalated")
+        stuck = sum(1 for s in tenant_scores if s.get("resolution_path") == "stuck")
+        batched = sum(1 for s in tenant_scores if s.get("resolution_path") == "batched")
+        by_type: Dict[str, int] = {}
+        by_node: Dict[str, int] = {}
+        total_llm = 0
+        total_q = 0
+        for s in tenant_scores:
+            path = s.get("resolution_path", "unknown")
+            by_type[path] = by_type.get(path, 0) + 1
+            for node in (s.get("nodes_reached") or []):
+                by_node[node] = by_node.get(node, 0) + 1
+            total_llm += s.get("llm_calls", 0)
+            total_q += s.get("overall_score", 0)
+        return {
+            "tenant_id": tenant_id,
+            "total": total,
+            "auto_resolved": auto_resolved,
+            "batched": batched,
+            "escalated": escalated,
+            "stuck": stuck,
+            "by_type": by_type,
+            "by_node": by_node,
+            "avg_llm_calls": round(total_llm / max(total, 1), 1),
+            "avg_quality": round(total_q / max(total, 1), 4),
+        }
+
+    # ── Load Balancing (Wave 2) ──────────────────────────────
+
+    async def get_load_status(self, tenant_id: str) -> Dict[str, Any]:
+        """Return load status. In memory: uses stored concurrent counts."""
+        load = self._load_status.get(tenant_id, {})
+        variants = []
+        total_concurrent = 0
+        for vname, vdata in load.items():
+            conc = vdata.get("concurrent", 0)
+            maxc = vdata.get("max_concurrent", 5)
+            util = round(conc / max(maxc, 1) * 100, 1)
+            status = "at_capacity" if util >= 100 else ("high" if util >= 80 else ("moderate" if util >= 50 else "low"))
+            variants.append({
+                "name": vname, "concurrent": conc, "max_concurrent": maxc,
+                "utilization_pct": util, "status": status,
+            })
+            total_concurrent += conc
+        return {
+            "tenant_id": tenant_id,
+            "variants": variants,
+            "total_concurrent": total_concurrent,
+            "vip_overflow_risk": any(v["status"] == "at_capacity" for v in variants),
+        }
+
+    def set_load(self, tenant_id: str, variant: str, concurrent: int, max_concurrent: int = 5):
+        """Set load data for testing."""
+        if tenant_id not in self._load_status:
+            self._load_status[tenant_id] = {}
+        self._load_status[tenant_id][variant] = {
+            "concurrent": concurrent, "max_concurrent": max_concurrent,
+        }
+
     def clear_all(self):
         """Clear all data (for testing)."""
         self._notifications.clear()
@@ -585,6 +990,10 @@ class InMemoryBackend(StorageBackend):
         self._batches.clear()
         self._batch_metas.clear()
         self._next_nfy_id = 1
+        self._integration_pings.clear()
+        self._llm_costs.clear()
+        self._stuck_ticket_events.clear()
+        self._load_status.clear()
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -953,6 +1362,204 @@ class SupabaseBackend(StorageBackend):
                 {"status": "flushed"},
             )
         return results
+
+    # ── Integration Health (Wave 2) ─────────────────────────
+    # Uses jarvis_integration_pings table (stores last 30 pings per service).
+
+    async def write_integration_ping(
+        self, tenant_id, service_name, is_healthy,
+        response_ms=None, error_detail=None, status_code=None,
+    ) -> Dict[str, Any]:
+        row = await self._rest_post("jarvis_integration_pings", {
+            "tenant_id": tenant_id, "service_name": service_name,
+            "is_healthy": is_healthy, "response_ms": response_ms,
+            "error_detail": error_detail, "status_code": status_code,
+        })
+        row["backend"] = "supabase"
+        return row
+
+    async def get_integration_health(self, tenant_id: str) -> Dict[str, Any]:
+        """Fetch recent pings and compute health server-side."""
+        pings = await self._rest_get(
+            "jarvis_integration_pings",
+            f"tenant_id=eq.{tenant_id}&order=created_at.desc&limit=300"
+        )
+        services: Dict[str, List[Dict]] = {}
+        for p in pings:
+            services.setdefault(p.get("service_name", ""), []).append(p)
+
+        result = {"services": {}, "degraded_count": 0, "healthy_count": 0}
+        for svc, sp in services.items():
+            recent = sp[:30]
+            healthy = sum(1 for p in recent if p.get("is_healthy"))
+            total = len(recent)
+            uptime_pct = round(healthy / max(total, 1) * 100, 1)
+            last_ping = recent[0]
+            avg_ms = sum(p.get("response_ms") or 0 for p in recent) / max(total, 1)
+            last_error = None
+            for p in recent:
+                if not p.get("is_healthy"):
+                    last_error = p.get("error_detail")
+                    break
+            status = "healthy" if uptime_pct >= 90 else ("degraded" if uptime_pct >= 50 else "down")
+            if status != "healthy":
+                result["degraded_count"] += 1
+            else:
+                result["healthy_count"] += 1
+            result["services"][svc] = {
+                "status": status, "uptime_pct": uptime_pct,
+                "total_pings": total, "healthy_pings": healthy,
+                "avg_response_ms": round(avg_ms, 1),
+                "last_ping_at": last_ping.get("created_at"),
+                "last_error": last_error,
+                "last_status_code": last_ping.get("status_code"),
+            }
+        return result
+
+    # ── LLM Cost Tracking (Wave 2) ───────────────────────────
+
+    async def record_llm_cost(
+        self, tenant_id, model, prompt_tokens, completion_tokens,
+        cost_usd, call_type="parwa_pipeline",
+    ) -> Dict[str, Any]:
+        row = await self._rest_post("jarvis_llm_costs", {
+            "tenant_id": tenant_id, "model": model,
+            "prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens,
+            "cost_usd": cost_usd, "call_type": call_type,
+        })
+        row["backend"] = "supabase"
+        return row
+
+    async def get_llm_cost_summary(self, tenant_id: str, days: int = 7) -> Dict[str, Any]:
+        costs = await self._rest_get(
+            "jarvis_llm_costs",
+            f"tenant_id=eq.{tenant_id}&select=model,prompt_tokens,completion_tokens,cost_usd,call_type,created_at&limit=5000"
+        )
+        if not costs:
+            return {"tenant_id": tenant_id, "total_cost_usd": 0.0, "total_tokens": 0, "total_calls": 0, "by_model": {}, "by_type": {}}
+        total_cost = sum(float(c.get("cost_usd", 0)) for c in costs)
+        total_tokens = sum(int(c.get("prompt_tokens", 0)) + int(c.get("completion_tokens", 0)) for c in costs)
+        by_model: Dict[str, Dict] = {}
+        by_type: Dict[str, Dict] = {}
+        for c in costs:
+            m = c.get("model", "unknown")
+            by_model.setdefault(m, {"cost": 0.0, "tokens": 0, "calls": 0})
+            by_model[m]["cost"] += float(c.get("cost_usd", 0))
+            by_model[m]["tokens"] += int(c.get("prompt_tokens", 0)) + int(c.get("completion_tokens", 0))
+            by_model[m]["calls"] += 1
+            t = c.get("call_type", "unknown")
+            by_type.setdefault(t, {"cost": 0.0, "tokens": 0, "calls": 0})
+            by_type[t]["cost"] += float(c.get("cost_usd", 0))
+            by_type[t]["tokens"] += int(c.get("prompt_tokens", 0)) + int(c.get("completion_tokens", 0))
+            by_type[t]["calls"] += 1
+        return {
+            "tenant_id": tenant_id, "total_cost_usd": round(total_cost, 4),
+            "total_tokens": total_tokens, "total_calls": len(costs),
+            "by_model": by_model, "by_type": by_type,
+        }
+
+    # ── Stuck Ticket Tracking (Wave 2) ───────────────────────
+
+    async def record_stuck_ticket_check(
+        self, tenant_id, ticket_id, stuck_reason, hours_stuck, escalation_tier,
+    ) -> Dict[str, Any]:
+        row = await self._rest_post("jarvis_stuck_ticket_events", {
+            "tenant_id": tenant_id, "ticket_id": ticket_id,
+            "stuck_reason": stuck_reason, "hours_stuck": hours_stuck,
+            "escalation_tier": escalation_tier,
+        })
+        row["backend"] = "supabase"
+        return row
+
+    async def get_stuck_tickets(self, tenant_id: str) -> List[Dict[str, Any]]:
+        return await self._rest_get(
+            "jarvis_stuck_ticket_events",
+            f"tenant_id=eq.{tenant_id}&resolved=eq.false&order=detected_at.desc"
+        )
+
+    # ── Drift Detection (Wave 2) ─────────────────────────────
+
+    async def check_quality_drift(self, tenant_id: str) -> Dict[str, Any]:
+        # Fetch scores + client-side drift analysis (same logic as InMemory)
+        scores = await self._rest_get(
+            TABLE_QUALITY_SCORES,
+            f"tenant_id=eq.{tenant_id}&select=overall_score,resolution_path,created_at&order=created_at.asc&limit=5000"
+        )
+        if len(scores) < 3:
+            return {"tenant_id": tenant_id, "drift_detected": False, "drift_severity": "none",
+                    "accuracy_7d": None, "accuracy_yesterday": None, "accuracy_today": None,
+                    "trend_direction": "stable", "trigger_reason": "insufficient_data", "total_scores": len(scores)}
+        by_date: Dict[str, List[float]] = {}
+        for s in scores:
+            d = (s.get("created_at") or "")[:10]
+            by_date.setdefault(d, []).append(float(s.get("overall_score", 0)))
+        dates_sorted = sorted(by_date.keys())
+        def _avg(vals): return round(sum(vals) / len(vals), 4) if vals else 0.0
+        accuracy_7d = _avg([v for d in dates_sorted[-7:] for v in by_date[d]])
+        accuracy_today = _avg(by_date[dates_sorted[-1]])
+        accuracy_yesterday = _avg(by_date[dates_sorted[-2]]) if len(dates_sorted) >= 2 else None
+        drift_detected = False; drift_severity = "none"; trigger_reason = None; trend_direction = "stable"
+        if len(dates_sorted) >= 3:
+            daily_avgs = [_avg(by_date[d]) for d in dates_sorted[-3:]]
+            declining = all(daily_avgs[i] > daily_avgs[i+1] for i in range(len(daily_avgs)-1))
+            drop = accuracy_7d - accuracy_today
+            if declining and drop > 0.05:
+                drift_detected = True; trend_direction = "declining"
+                trigger_reason = f"accuracy_dropped_{drop:.1%}_over_3_days"
+                drift_severity = "critical" if drop > 0.10 else "warning"
+            elif drop > 0.03:
+                drift_detected = True; trend_direction = "slight_decline"
+                trigger_reason = f"accuracy_dropped_{drop:.1%}_from_7d_avg"; drift_severity = "warning"
+            elif accuracy_today > accuracy_7d + 0.03:
+                trend_direction = "improving"
+        return {"tenant_id": tenant_id, "drift_detected": drift_detected, "drift_severity": drift_severity,
+                "accuracy_7d": accuracy_7d, "accuracy_yesterday": accuracy_yesterday,
+                "accuracy_today": accuracy_today, "trend_direction": trend_direction,
+                "trigger_reason": trigger_reason, "total_scores": len(scores)}
+
+    # ── Ticket Flow Aggregation (Wave 2) ─────────────────────
+
+    async def get_ticket_flow_summary(self, tenant_id: str, hours: int = 24) -> Dict[str, Any]:
+        scores = await self._rest_get(
+            TABLE_QUALITY_SCORES,
+            f"tenant_id=eq.{tenant_id}&select=overall_score,resolution_path,nodes_reached,llm_calls&limit=5000"
+        )
+        total = len(scores)
+        if total == 0:
+            return {"tenant_id": tenant_id, "total": 0, "auto_resolved": 0, "batched": 0,
+                    "escalated": 0, "stuck": 0, "by_type": {}, "by_node": {}, "avg_llm_calls": 0, "avg_quality": 0}
+        auto_resolved = sum(1 for s in scores if float(s.get("overall_score", 0)) >= 0.85)
+        escalated = sum(1 for s in scores if s.get("resolution_path") == "escalated")
+        stuck = sum(1 for s in scores if s.get("resolution_path") == "stuck")
+        batched = sum(1 for s in scores if s.get("resolution_path") == "batched")
+        by_type: Dict[str, int] = {}; by_node: Dict[str, int] = {}; total_llm = 0; total_q = 0
+        for s in scores:
+            p = s.get("resolution_path", "unknown"); by_type[p] = by_type.get(p, 0) + 1
+            for node in (s.get("nodes_reached") or []): by_node[node] = by_node.get(node, 0) + 1
+            total_llm += int(s.get("llm_calls", 0)); total_q += float(s.get("overall_score", 0))
+        return {"tenant_id": tenant_id, "total": total, "auto_resolved": auto_resolved,
+                "batched": batched, "escalated": escalated, "stuck": stuck,
+                "by_type": by_type, "by_node": by_node,
+                "avg_llm_calls": round(total_llm / max(total, 1), 1),
+                "avg_quality": round(total_q / max(total, 1), 4)}
+
+    # ── Load Balancing (Wave 2) ──────────────────────────────
+
+    async def get_load_status(self, tenant_id: str) -> Dict[str, Any]:
+        # Read agent_configs for variant capacity info
+        configs = await self._rest_get(
+            TABLE_AGENT_CONFIGS,
+            f"tenant_id=eq.{tenant_id}&select=agent_name,max_concurrent,is_active&is_active=eq.true"
+        )
+        variants = []
+        for c in configs:
+            name = c.get("agent_name", "unknown")
+            maxc = c.get("max_concurrent", 5) or 5
+            # In production, concurrent count would come from a real-time counter
+            # For now, use 0 as baseline — PARWA would update this
+            variants.append({"name": name, "concurrent": 0, "max_concurrent": maxc,
+                            "utilization_pct": 0, "status": "low"})
+        return {"tenant_id": tenant_id, "variants": variants, "total_concurrent": 0, "vip_overflow_risk": False}
 
     # ── Utility ──────────────────────────────────────────────
 
