@@ -169,10 +169,10 @@ def _register_handlers() -> None:
 
         if token:
             try:
-                from app.core.auth import (
-                    verify_access_token,
+                from app.core.parwa_core_bridge import (
+                    parwa_verify_access_token,
                 )
-                payload = verify_access_token(token)
+                payload = parwa_verify_access_token(token)
                 company_id = payload.get("company_id")
                 user_id = payload.get("sub")
             except Exception:

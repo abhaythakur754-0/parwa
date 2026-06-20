@@ -356,12 +356,11 @@ class IntegrationDisconnectHandler:
     def _open_circuit_breaker(self, integration_name: str) -> None:
         """Force-open the circuit breaker for an integration."""
         try:
-            from app.core.circuit_breaker_manager import get_circuit_breaker_manager
+            from app.core.parwa_core_bridge import get_parwa_circuit_breaker as get_circuit_breaker_manager
             cb_manager = get_circuit_breaker_manager()
             # Ensure a circuit breaker exists, then force-open it
             if integration_name not in cb_manager._breakers:
-                from app.core.circuit_breaker_manager import CircuitBreakerConfig
-                cb_manager.register(integration_name, CircuitBreakerConfig())
+                cb_manager.register(integration_name, None)
             cb_manager.force_open(integration_name)
         except ImportError:
             logger.debug("circuit_breaker_manager_not_available")
@@ -371,7 +370,7 @@ class IntegrationDisconnectHandler:
     def _close_circuit_breaker(self, integration_name: str) -> None:
         """Force-close the circuit breaker for an integration."""
         try:
-            from app.core.circuit_breaker_manager import get_circuit_breaker_manager
+            from app.core.parwa_core_bridge import get_parwa_circuit_breaker as get_circuit_breaker_manager
             cb_manager = get_circuit_breaker_manager()
             cb_manager.force_close(integration_name)
         except Exception as exc:

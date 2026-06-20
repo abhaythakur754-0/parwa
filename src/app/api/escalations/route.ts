@@ -149,6 +149,12 @@ export async function POST(request: NextRequest) {
     case 'auto-resume':
       backendPath = '/api/escalation/auto-resume';
       break;
+    case 'guidance-ticket':
+      backendPath = '/api/escalation/guidance-ticket';
+      break;
+    case 'batch-guidance-tickets':
+      backendPath = '/api/escalation/batch-guidance-tickets';
+      break;
     default:
       return NextResponse.json(
         { error: { message: `Unknown action: ${action}` } },

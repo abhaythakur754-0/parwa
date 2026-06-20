@@ -283,3 +283,47 @@ async def update_crm_status(
         "escalation_id": escalation_id,
         "crm_status": crm_status,
     }
+
+
+class GuidanceTicketRequest(BaseModel):
+    """Request to create a guidance-as-new-ticket."""
+    escalation_id: str = Field(..., description="Escalation ID to process")
+
+
+class BatchGuidanceTicketRequest(BaseModel):
+    """Request to batch-process failed escalations as guidance tickets."""
+    tenant_id: str = Field(..., description="Tenant ID")
+
+
+@router.post("/guidance-ticket")
+async def create_guidance_ticket_endpoint(req: GuidanceTicketRequest) -> Dict[str, Any]:
+    """Create a new ticket from human guidance when resume has failed.
+
+    Alternative to resume pipeline: uses human guidance as the PRIMARY answer
+    and validates it with LLM, rather than re-running the full reasoning pipeline.
+    """
+    from app.core.escalation_vault.guidance_ticket_flow import create_guidance_ticket
+
+    result = await create_guidance_ticket(req.escalation_id)
+
+    if not result.get("success"):
+        logger.warning(
+            "API: Guidance ticket failed for escalation=%s quality=%.4f",
+            req.escalation_id[:8],
+            result.get("quality_score", 0),
+        )
+
+    return result
+
+
+@router.post("/batch-guidance-tickets")
+async def batch_guidance_tickets_endpoint(req: BatchGuidanceTicketRequest) -> Dict[str, Any]:
+    """Batch-process all failed escalations as guidance tickets.
+
+    For escalations where the resume pipeline failed but human guidance exists,
+    this tries the lighter 'guidance-as-ticket' approach.
+    """
+    from app.core.escalation_vault.guidance_ticket_flow import batch_guidance_tickets
+
+    result = await batch_guidance_tickets(req.tenant_id)
+    return result

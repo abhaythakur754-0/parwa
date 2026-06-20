@@ -1,34 +1,27 @@
 """
-CSRF Protection Middleware (H-04, BC-008)
+CSRF Protection Middleware (H-04, BC-008) — Rust-accelerated.
 
-Pure ASGI middleware that provides CSRF defense for PARWA.
-- Primary defense: Origin/Referer header validation (Bearer-token API)
-- Secondary defense: CSRF token generation/validation for cookie paths
-- Adds Content-Security-Policy header (H-04 gap fix)
+Pure ASGI middleware that delegates CSRF logic to ``parwa_core_bridge``:
+- Origin/Referer validation via Rust ``CSRFValidator.is_valid_origin``
+- CSRF token generation via Rust ``CSRFValidator.generate_csrf_token``
+- CSRF token validation via Rust ``CSRFValidator.validate_csrf_token``
+- Adds Content-Security-Policy header (H-04)
 - Skips verification for webhook routes (/api/webhooks/)
 - Skips safe methods: GET, HEAD, OPTIONS
-- Logs all CSRF failures with correlation IDs
 - BC-008 compliant: never crashes on malformed input
 
 Configuration:
     CSRF_TRUSTED_ORIGINS: Comma-separated origin list (env var).
-        Falls back to CORS_ORIGINS if not set.
     CSRF_ENABLED: bool — Master switch (default true).
 """
 
-import hashlib
-import hmac
 import json
 import logging
 import os
-import re
 import secrets
 import time
-from urllib.parse import urlparse
 
 logger = logging.getLogger("parwa.middleware.csrf")
-
-# ── Configuration ──────────────────────────────────────────────────────
 
 # Cookie-based auth path prefixes that require CSRF tokens
 _COOKIE_AUTH_PREFIXES = (
@@ -39,10 +32,7 @@ _COOKIE_AUTH_PREFIXES = (
     "/api/refresh",
 )
 
-# Public auth endpoints that do NOT require CSRF tokens.
-# These are designed to be called without any prior session/cookies
-# (e.g. login, register, Google OAuth). Origin/Referer validation
-# is sufficient protection for these endpoints.
+# Public auth endpoints that do NOT require CSRF tokens
 _PUBLIC_AUTH_PATHS = (
     "/api/auth/login",
     "/api/auth/register",
@@ -55,17 +45,17 @@ _PUBLIC_AUTH_PATHS = (
     "/api/auth/check-email",
 )
 
-# Webhook routes that skip CSRF checks (have their own HMAC verification)
+# Webhook routes that skip CSRF checks
 _WEBHOOK_SKIP_PREFIXES = ("/api/webhooks/",)
 
-# Safe HTTP methods that skip CSRF checks
+# Safe HTTP methods
 _SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
 
-# CSRF cookie name and token TTL
+# CSRF cookie config
 _CSRF_COOKIE_NAME = "parwa_csrf"
 _CSRF_MAX_AGE = 3600  # 1 hour
 
-# Content-Security-Policy header value (H-04)
+# CSP header (H-04)
 _CSP_HEADER = (
     "default-src 'self'; "
     "script-src 'self'; "
@@ -78,53 +68,28 @@ _CSP_HEADER = (
     "form-action 'self'"
 )
 
+# Lazy-loaded bridge validator
+_validator = None
 
-def _parse_trusted_origins() -> list:
-    """Parse trusted origins from environment variable.
 
-    Reads CSRF_TRUSTED_ORIGINS first, falls back to CORS_ORIGINS,
-    then falls back to an empty list (effectively disabling CSRF
-    in local development where no origins are configured).
-    """
-    raw = os.environ.get("CSRF_TRUSTED_ORIGINS", "")
-    if not raw:
-        raw = os.environ.get("CORS_ORIGINS", "")
-    origins = [o.strip() for o in raw.split(",") if o.strip()]
-    # Always allow Vercel preview deployments for CSRF
-    # (they have dynamic subdomains like chat1-fixes-parwa.vercel.app)
-    # We can't enumerate them, so we add a wildcard check in _is_valid_origin
-    if origins:
-        logger.info(
-            "csrf_trusted_origins_configured count=%d",
-            len(origins),
-        )
-    return origins
+def _get_validator():
+    """Lazy-load the CSRF validator bridge."""
+    global _validator
+    if _validator is None:
+        from app.core.parwa_core_bridge import parwa_csrf_validator
+        _validator = parwa_csrf_validator()
+    return _validator
 
 
 class CSRFSecurityMiddleware:
     """Pure ASGI middleware for CSRF protection.
 
-    Defence-in-depth strategy:
-        1. Origin / Referer header validation (primary — for
-           Bearer-token API endpoints).
-        2. CSRF token cookie validation (secondary — for any
-           cookie-based auth endpoints).
-
-    H-19 additions:
-        - CSRF token cookie is generated and set on responses when
-          not already present, enabling the double-submit pattern.
-        - Requests with Authorization: Bearer header are exempted
-          from the CSRF cookie check (protected via Origin/Referer).
-        - CSRF cookie is NOT httpOnly so the frontend can read it
-          and send it as the x-csrf-token header.
-
-    The middleware never raises; all errors result in a 403 JSON
-    response (BC-008).
+    Delegates validation to Rust ``CSRFValidator`` via the bridge.
+    Pure-Python fallback is built into the bridge (BC-008).
     """
 
     def __init__(self, app):
         self.app = app
-        self._trusted_origins = _parse_trusted_origins()
 
     def _is_enabled(self) -> bool:
         """Check if CSRF middleware is enabled."""
@@ -136,7 +101,6 @@ class CSRFSecurityMiddleware:
 
     async def __call__(self, scope, receive, send):
         """Process a single ASGI HTTP request through CSRF checks."""
-        # Pass non-HTTP scopes through unchanged
         if scope.get("type") != "http":
             await self.app(scope, receive, send)
             return
@@ -149,8 +113,7 @@ class CSRFSecurityMiddleware:
         method = scope.get("method", "").upper()
         path = scope.get("path", "/")
 
-        # ── H-19: Check if request has an existing CSRF cookie ──
-        # If not, generate one and inject it into the response.
+        # ── Check for existing CSRF cookie ──
         request_headers = dict(scope.get("headers", []))
         cookie_header = request_headers.get(
             b"cookie", b"",
@@ -160,9 +123,15 @@ class CSRFSecurityMiddleware:
         )
         new_csrf_token = ""
         if not existing_csrf:
-            new_csrf_token = self.generate_csrf_token()
+            # Generate token via Rust bridge
+            try:
+                validator = _get_validator()
+                new_csrf_token = validator.generate_csrf_token()
+            except Exception:
+                # BC-008: fallback to Python token
+                new_csrf_token = secrets.token_hex(16)
 
-        # ── Add CSP header + CSRF cookie to all responses ──
+        # ── Wrap send to inject CSP header + CSRF cookie ──
         wrapped_send = self._wrap_send(send, new_csrf_token)
 
         # ── Fast-path: skip safe methods ──
@@ -170,13 +139,13 @@ class CSRFSecurityMiddleware:
             await self.app(scope, receive, wrapped_send)
             return
 
-        # ── Skip webhook routes (have own HMAC verification) ──
+        # ── Skip webhook routes ──
         for skip_prefix in _WEBHOOK_SKIP_PREFIXES:
             if path.startswith(skip_prefix):
                 await self.app(scope, receive, wrapped_send)
                 return
 
-        # ── H-19: Exempt Bearer token auth from CSRF cookie check ──
+        # ── Check Bearer/API key exemption ──
         auth_header = request_headers.get(
             b"authorization", b"",
         ).decode("utf-8", errors="replace").strip()
@@ -188,7 +157,7 @@ class CSRFSecurityMiddleware:
             or bool(api_key_header)
         )
 
-        # ── Validate Origin / Referer ──
+        # ── Validate Origin / Referer via Rust ──
         try:
             origin = request_headers.get(
                 b"origin", b"",
@@ -197,7 +166,8 @@ class CSRFSecurityMiddleware:
                 b"referer", b"",
             ).decode("utf-8", errors="replace")
 
-            if not self._is_valid_origin(origin, referer):
+            validator = _get_validator()
+            if not validator.is_valid_origin(origin, referer):
                 correlation_id = secrets.token_hex(8)
                 logger.warning(
                     "csrf_rejected method=%s path=%s "
@@ -215,7 +185,6 @@ class CSRFSecurityMiddleware:
                 return
 
         except Exception as exc:
-            # BC-008: Never crash — reject on unexpected errors
             logger.error(
                 "csrf_internal_error path=%s error=%s",
                 path, exc,
@@ -227,7 +196,6 @@ class CSRFSecurityMiddleware:
             return
 
         # ── For cookie-based auth paths, verify CSRF token ──
-        # H-19: Skip if Bearer token or API key is present.
         if self._is_cookie_auth_path(path) and not has_bearer:
             try:
                 csrf_token = self._extract_cookie(
@@ -251,7 +219,7 @@ class CSRFSecurityMiddleware:
                     )
                     return
 
-                if not self._validate_csrf_token(
+                if not self._validate_double_submit(
                     csrf_token, csrf_header,
                 ):
                     correlation_id = secrets.token_hex(8)
@@ -280,79 +248,22 @@ class CSRFSecurityMiddleware:
 
         await self.app(scope, receive, wrapped_send)
 
-    # ── Origin validation ──────────────────────────────────────────
-
-    def _is_valid_origin(
-        self, origin: str, referer: str,
-    ) -> bool:
-        """Validate Origin and/or Referer against trusted origins.
-
-        - If Origin is present, it must match a trusted origin.
-        - If Origin is absent but Referer is present, the Referer
-          origin must match.
-        - If both are absent, reject (no origin information).
-        - If no trusted origins are configured, allow (local dev).
-        - Always allow *.vercel.app origins (preview deployments).
-        """
-        # No trusted origins configured — allow (local dev)
-        if not self._trusted_origins:
-            return True
-
-        # Prefer Origin header
-        check_origin = origin
-        if not check_origin and referer:
-            # Extract origin from Referer URL
-            try:
-                parsed = urlparse(referer)
-                check_origin = f"{parsed.scheme}://{parsed.netloc}"
-            except Exception:
-                return False
-
-        if not check_origin:
-            return False
-
-        # Allow any Vercel preview deployment (dynamic subdomains)
-        # e.g. chat1-fixes-parwa.vercel.app, parwa-git-main-abhaythakur754-0.vercel.app
-        if re.match(r"^https://[a-z0-9\-]+\.(vercel\.app)$", check_origin):
-            return True
-
-        # Allow Vercel deploy preview URLs with double-dash format
-        # e.g. parwa-git-main-abhaythakur754-0s-projects.vercel.app
-        if re.match(r"^https://[a-z0-9\-]+(--[a-z0-9\-]+)?\.vercel\.app$", check_origin):
-            return True
-
-        # Check against trusted origins
-        for trusted in self._trusted_origins:
-            if check_origin == trusted or check_origin.startswith(trusted + "/"):
-                return True
-
-        return False
-
-    # ── CSRF token helpers ─────────────────────────────────────────
+    # ── Static helpers ────────────────────────────────────────────
 
     @staticmethod
     def _is_cookie_auth_path(path: str) -> bool:
-        """Check if path is a cookie-based auth endpoint that requires CSRF.
-
-        Public auth endpoints (login, register, google, etc.) are exempt
-        because they are designed to be called without any prior session.
-        Origin/Referer validation is sufficient protection for these.
-        """
-        # Public auth endpoints don't need CSRF tokens
+        """Check if path needs CSRF token (excludes public auth)."""
         if path in _PUBLIC_AUTH_PATHS:
             return False
         for prefix in _COOKIE_AUTH_PREFIXES:
-            # Strip trailing slash before appending to avoid double-slash
             base = prefix.rstrip("/")
             if path == prefix or path.startswith(base + "/"):
                 return True
         return False
 
     @staticmethod
-    def _extract_cookie(
-        cookie_header: str, name: str,
-    ) -> str:
-        """Extract a named cookie value from a Cookie header."""
+    def _extract_cookie(cookie_header: str, name: str) -> str:
+        """Extract a named cookie value from Cookie header."""
         if not cookie_header:
             return ""
         for part in cookie_header.split(";"):
@@ -362,102 +273,20 @@ class CSRFSecurityMiddleware:
         return ""
 
     @staticmethod
-    def generate_csrf_token(secret_key: str = "") -> str:
-        """Generate a new CSRF token.
-
-        The token is a random nonce combined with an HMAC using the
-        server secret, making tokens unforgeable without the secret.
-
-        Args:
-            secret_key: Server secret for HMAC. Falls back to
-                SECRET_KEY env var.
-
-        Returns:
-            Hex-encoded CSRF token string.
-        """
-        if not secret_key:
-            secret_key = os.environ.get(
-                "SECRET_KEY", "parwa-csrf-fallback",
-            )
-        nonce = secrets.token_hex(16)
-        timestamp = str(int(time.time()))
-        msg = f"{nonce}:{timestamp}"
-        sig = hmac.new(
-            secret_key.encode("utf-8"),
-            msg.encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest()[:16]
-        return f"{nonce}:{timestamp}:{sig}"
-
-    @staticmethod
-    def validate_csrf_token(
-        token: str,
-        secret_key: str = "",
-    ) -> bool:
-        """Validate a CSRF token.
-
-        Checks:
-            1. Token format (nonce:timestamp:sig)
-            2. Timestamp freshness (within _CSRF_MAX_AGE seconds)
-            3. HMAC signature validity
-
-        Args:
-            token: The CSRF token string to validate.
-            secret_key: Server secret for HMAC verification.
-
-        Returns:
-            True if token is valid, False otherwise.
-        """
-        if not token:
-            return False
-        try:
-            if not secret_key:
-                secret_key = os.environ.get(
-                    "SECRET_KEY", "parwa-csrf-fallback",
-                )
-            parts = token.split(":")
-            if len(parts) != 3:
-                return False
-            nonce, timestamp_str, sig = parts
-            # Check timestamp freshness
-            try:
-                ts = int(timestamp_str)
-                age = abs(time.time() - ts)
-                if age > _CSRF_MAX_AGE:
-                    return False
-            except (ValueError, TypeError):
-                return False
-            # Verify HMAC signature
-            msg = f"{nonce}:{timestamp_str}"
-            expected = hmac.new(
-                secret_key.encode("utf-8"),
-                msg.encode("utf-8"),
-                hashlib.sha256,
-            ).hexdigest()[:16]
-            return hmac.compare_digest(sig, expected)
-        except Exception:
-            return False
-
-    @staticmethod
-    def _validate_csrf_token(
+    def _validate_double_submit(
         cookie_token: str, header_token: str,
     ) -> bool:
-        """Validate that the CSRF cookie matches the header token.
-
-        The header token is the CSRF token; the cookie contains
-        the same token (double-submit cookie pattern).
-        """
+        """Validate CSRF cookie matches header token (double-submit)."""
         if not cookie_token or not header_token:
             return False
-        # Tokens must match exactly (double-submit pattern)
-        return hmac.compare_digest(cookie_token, header_token)
-
-    # ── Response helpers ───────────────────────────────────────────
+        import hmac
+        return hmac.compare_digest(
+            cookie_token, header_token,
+        )
 
     @staticmethod
     def _wrap_send(send, new_csrf_token: str = ""):
-        """Wrap the ASGI send callable to inject CSP header
-        and CSRF cookie (H-19)."""
+        """Wrap ASGI send to inject CSP header and CSRF cookie."""
         headers_injected = False
 
         async def wrapped_send(message):
@@ -467,7 +296,6 @@ class CSRFSecurityMiddleware:
                 and not headers_injected
             ):
                 headers = list(message.get("headers", []))
-                # Add CSP header if not already present
                 has_csp = any(
                     h[0].lower() == b"content-security-policy"
                     for h in headers
@@ -476,7 +304,6 @@ class CSRFSecurityMiddleware:
                     headers.append(
                         [b"content-security-policy", _CSP_HEADER.encode()]
                     )
-                # H-19: Set CSRF cookie if a new token was generated
                 if new_csrf_token:
                     csrf_cookie = (
                         f"{_CSRF_COOKIE_NAME}={new_csrf_token}; "

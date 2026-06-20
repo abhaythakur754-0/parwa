@@ -1,13 +1,11 @@
 """
-PARWA Rate Limit Middleware (BC-012 / F-018)
+PARWA Rate Limit Middleware (BC-012 / F-018) — Rust-accelerated.
 
-Enhanced middleware using per-endpoint-category rate limits.
-Routes requests to correct category based on path pattern.
-Uses the new rate_limit_service for advanced per-email,
-per-IP, per-API-key, and per-user rate limiting.
+Uses ``parwa_core_bridge`` to delegate to the Rust ``RateLimiter``
+for all rate-limit checks, classification, and failure tracking.
+Pure-Python fallback is built into the bridge (BC-008).
 
-Keeps backward compatibility with the old security/rate_limiter
-module (the old limiter is still available but not used here).
+Old dependency removed: ``app.services.rate_limit_service``
 """
 
 import logging
@@ -17,14 +15,12 @@ from starlette.requests import Request
 
 from app.core.security.utils import get_client_ip
 from app.middleware.error_handler import build_error_response
-from app.services.rate_limit_service import (
-    get_rate_limit_service,
-)
+from app.core.parwa_core_bridge import get_parwa_rate_limiter
 
 logger = logging.getLogger("parwa.middleware.rate_limit")
 
-# Shared service instance (per-process)
-_rate_limit_svc = get_rate_limit_service()
+# Shared bridge instance (per-process)
+_bridge = get_parwa_rate_limiter()
 
 # Paths that skip rate limiting (health, metrics)
 SKIP_PATHS = {"/health", "/ready", "/metrics"}
@@ -32,20 +28,20 @@ SKIP_PREFIXES = ("/api/webhooks/",)
 
 
 def get_rate_limiter():
-    """Get the shared rate limit service (compat wrapper)."""
-    return _rate_limit_svc
+    """Get the shared rate limit bridge (compat wrapper)."""
+    return _bridge
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Middleware that enforces per-category rate limiting.
 
-    - Routes to correct endpoint category based on path
+    All logic delegated to the Rust-backed bridge:
+    - Path classification
     - Per-email for auth endpoints (prevent enumeration)
     - Per-IP for general endpoints
-    - Per-API-key for integration endpoints
     - Progressive backoff on auth failures
     - Sets X-RateLimit-* headers on every response (BC-012)
-    - Skips health/ready/metrics and public API endpoints
+    - Skips health/ready/metrics and webhook endpoints
     """
 
     async def dispatch(self, request: Request, call_next):
@@ -55,19 +51,23 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if path in SKIP_PATHS:
             return await call_next(request)
 
-        # Skip rate limiting for public API prefixes
+        # Skip rate limiting for webhook prefixes
         for prefix in SKIP_PREFIXES:
             if path.startswith(prefix):
                 return await call_next(request)
 
         # Classify the endpoint category
-        svc = get_rate_limit_service()
+        svc = get_parwa_rate_limiter()
         category = svc.classify_path(path, request.method)
 
         # Extract identifier based on category
-        identifier = await svc.extract_identifier(
-            category, request,
-        )
+        try:
+            identifier = await svc.extract_identifier(
+                category, request,
+            )
+        except Exception:
+            logger.debug("rate_limit_identifier_extraction_failed")
+            identifier = "unknown"
 
         # Fallback: use IP if identifier extraction failed
         # Never skip rate limiting (L01: brute-force prevention)
@@ -78,17 +78,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Check rate limit
         try:
-            # F-018: Sync Redis time for consistent timestamps
+            # sync_redis_time is a no-op for Rust backend
             await svc.sync_redis_time()
-            result = svc.check_rate_limit(
-                category, identifier,
-            )
+            result = svc.check_rate_limit(category, identifier)
         except Exception as exc:
-            # FAIL-CLOSED: When Redis is unavailable or rate limit
-            # check fails, BLOCK the request with 503.  This prevents
-            # brute-force / DDoS from bypassing rate limits when
-            # Redis is down.  The in-memory fallback in
-            # rate_limit_service is NOT used here by default.
+            # FAIL-CLOSED: Block request when rate limit check fails
             logger.critical(
                 "rate_limit_check_failed_fail_closed path=%s "
                 "category=%s identifier=%s error=%s",
@@ -132,5 +126,3 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         for hdr, val in result.to_headers().items():
             response.headers[hdr] = val
         return response
-
-

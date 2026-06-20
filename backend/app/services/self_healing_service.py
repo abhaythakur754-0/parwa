@@ -397,9 +397,7 @@ class AnomalyDetector:
         """
         anomalies: List[Anomaly] = []
         try:
-            from app.core.circuit_breaker_manager import (
-                get_circuit_breaker_manager,
-            )
+            from app.core.parwa_core_bridge import get_parwa_circuit_breaker as get_circuit_breaker_manager
             manager = get_circuit_breaker_manager()
             states = manager.get_all_states()
 
@@ -696,9 +694,7 @@ class SelfHealingService:
             provider: Provider name (e.g., 'google_ai', 'cerebras', 'groq').
         """
         try:
-            from app.core.circuit_breaker_manager import (
-                get_circuit_breaker_manager,
-            )
+            from app.core.parwa_core_bridge import get_parwa_circuit_breaker as get_circuit_breaker_manager
             manager = get_circuit_breaker_manager()
 
             # Record the failure
@@ -752,9 +748,7 @@ class SelfHealingService:
             if reconnected:
                 # Record success in circuit breaker
                 try:
-                    from app.core.circuit_breaker_manager import (
-                        get_circuit_breaker_manager,
-                    )
+                    from app.core.parwa_core_bridge import get_parwa_circuit_breaker as get_circuit_breaker_manager
                     get_circuit_breaker_manager().record_success("redis")
                 except Exception:
                     pass
@@ -808,9 +802,7 @@ class SelfHealingService:
 
                 # Record success in circuit breaker
                 try:
-                    from app.core.circuit_breaker_manager import (
-                        get_circuit_breaker_manager,
-                    )
+                    from app.core.parwa_core_bridge import get_parwa_circuit_breaker as get_circuit_breaker_manager
                     get_circuit_breaker_manager().record_success("postgresql")
                 except Exception:
                     pass
@@ -1037,9 +1029,7 @@ class SelfHealingService:
             service: Service name whose circuit breaker to reset.
         """
         try:
-            from app.core.circuit_breaker_manager import (
-                get_circuit_breaker_manager,
-            )
+            from app.core.parwa_core_bridge import get_parwa_circuit_breaker as get_circuit_breaker_manager
             manager = get_circuit_breaker_manager()
 
             # Get current state

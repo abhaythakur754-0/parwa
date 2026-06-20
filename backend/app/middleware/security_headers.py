@@ -1,83 +1,43 @@
-"""PARWA Security Headers Middleware.
+"""PARWA Security Headers Middleware — Rust-accelerated.
 
-Adds security headers to all responses per BC-011/BC-012:
+Delegates header generation to ``parwa_core_bridge.parwa_get_security_headers()``
+which uses the Rust ``SecurityHeaders`` module. Adds headers to every response:
 - X-Content-Type-Options: nosniff
 - X-Frame-Options: DENY
 - X-XSS-Protection: 0 (modern browsers)
 - Referrer-Policy: strict-origin-when-cross-origin
 - Permissions-Policy: camera/mic/geo disabled
-- Content-Security-Policy: comprehensive restrictive policy (H-04)
+- Content-Security-Policy with per-request nonce (H-04)
 - Strict-Transport-Security: in production
 - Cache-Control: no-store on auth endpoints (M-11)
 """
 
-import hashlib
 import os
-import secrets
 
 from starlette.middleware.base import BaseHTTPMiddleware
 
-# M-11: Paths that must have Cache-Control: no-store
-AUTH_PATH_PREFIXES = (
-    "/api/auth/",
-    "/api/login",
-    "/api/register",
-    "/api/mfa/",
-    "/api/refresh",
-)
+from app.core.parwa_core_bridge import parwa_get_security_headers
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Add security headers to every response."""
+    """Add security headers to every response.
+
+    Delegates to Rust ``SecurityHeaders.generate_headers()`` via the bridge.
+    Pure-Python fallback is built into the bridge (BC-008).
+    """
 
     async def dispatch(self, request, call_next):
         response = await call_next(request)
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "0"
-        response.headers["Referrer-Policy"] = (
-            "strict-origin-when-cross-origin"
-        )
-        response.headers["Permissions-Policy"] = (
-            "camera=(), microphone=(), geolocation=()"
-        )
-        # H-04: Content-Security-Policy header (comprehensive)
-        # Nonce is generated per-request for script-src to allow
-        # inline scripts only when they carry the matching nonce.
-        # In production this should be injected via template.
-        csp_nonce = secrets.token_urlsafe(16)
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self' 'nonce-{nonce}'; "
-            "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: https: blob:; "
-            "font-src 'self' data:; "
-            "connect-src 'self' https://*.paddle.com https://api.stripe.com; "
-            "frame-ancestors 'none'; "
-            "base-uri 'self'; "
-            "form-action 'self'; "
-            "object-src 'none'; "
-            "upgrade-insecure-requests"
-        ).format(nonce=csp_nonce)
-        # Expose nonce to downstream code via a response header
-        # (templates/middleware can read it to inject into <script> tags)
-        response.headers["X-CSP-Nonce"] = csp_nonce
-        # HSTS only in production
-        env = os.environ.get("ENVIRONMENT", "development")
-        if env == "production":
-            response.headers["Strict-Transport-Security"] = (
-                "max-age=31536000; includeSubDomains"
-            )
-
-        # M-11: Prevent caching of auth responses
         path = request.url.path if hasattr(request, "url") else ""
-        for prefix in AUTH_PATH_PREFIXES:
-            if path.startswith(prefix):
-                response.headers["Cache-Control"] = (
-                    "no-store, no-cache, must-revalidate, max-age=0"
-                )
-                response.headers["Pragma"] = "no-cache"
-                response.headers["Expires"] = "0"
-                break
+
+        # Get environment from config or env var
+        environment = os.environ.get("ENVIRONMENT", "development")
+
+        # Delegate to bridge (Rust when available, Python fallback otherwise)
+        headers = parwa_get_security_headers(path, environment)
+
+        # Apply headers to response
+        for name, value in headers.items():
+            response.headers[name] = value
 
         return response

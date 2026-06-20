@@ -193,10 +193,7 @@ def run_circuit_breaker_health(self):
     Runs every 10 minutes via Celery Beat.
     """
     try:
-        from app.core.circuit_breaker_manager import (
-            CircuitState,
-            get_circuit_breaker_manager,
-        )
+        from app.core.parwa_core_bridge import get_parwa_circuit_breaker as get_circuit_breaker_manager
 
         manager = get_circuit_breaker_manager()
         states = manager.get_all_states()

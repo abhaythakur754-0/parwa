@@ -180,7 +180,7 @@ async def batch_resolve_identities(
     M-03: Per-user rate limit enforced (max 5 batch requests per minute).
     """
     import logging
-    from app.services.rate_limit_service import get_rate_limit_service
+    from app.core.parwa_core_bridge import get_parwa_rate_limiter as get_rate_limit_service
 
     logger = logging.getLogger("parwa.identity")
     company_id = current_user.company_id

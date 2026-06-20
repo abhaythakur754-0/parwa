@@ -461,6 +461,8 @@ interface EscalationStore {
   provideGuidanceByNotification: (notificationKey: string, guidance: string) => Promise<boolean>;
   resumeEscalation: (escalationId: string) => Promise<boolean>;
   autoResumeAll: (tenantId: string) => Promise<void>;
+  createGuidanceTicket: (escalationId: string) => Promise<boolean>;
+  batchGuidanceTickets: (tenantId: string) => Promise<void>;
 }
 
 // ── Store ────────────────────────────────────────────────────────────
@@ -725,6 +727,99 @@ export const useEscalationStore = create<EscalationStore>((set, get) => ({
       escalations: state.escalations.map((e) =>
         e.human_status === 'guidance_provided' && e.reprocess_status === 'pending'
           ? { ...e, reprocess_status: 'processing' as ReprocessStatus, updated_at: new Date().toISOString() }
+          : e,
+      ),
+      autoResumeResult: result,
+      loading: false,
+    }));
+    toast.success(result.message);
+  },
+
+  createGuidanceTicket: async (escalationId: string) => {
+    try {
+      const res = await fetch(`/api/escalations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'guidance-ticket', escalation_id: escalationId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          set((state) => ({
+            escalations: state.escalations.map((e) =>
+              e.escalation_id === escalationId
+                ? {
+                    ...e,
+                    reprocess_status: 'done' as ReprocessStatus,
+                    reprocess_result: data.guidance_result || '',
+                    reprocess_quality_score: data.quality_score ?? null,
+                    human_status: 'resolved' as HumanStatus,
+                    updated_at: new Date().toISOString(),
+                  }
+                : e,
+            ),
+          }));
+          toast.success('Guidance used as direct answer. Quality passed!');
+          return true;
+        } else {
+          toast.error(`Guidance ticket quality too low (${data.quality_score}). Resume failed.`);
+          return false;
+        }
+      }
+    } catch {
+      // Backend unavailable
+    }
+
+    // Mock fallback
+    await new Promise((r) => setTimeout(r, 600));
+    set((state) => ({
+      escalations: state.escalations.map((e) =>
+        e.escalation_id === escalationId
+          ? { ...e, reprocess_status: 'done' as ReprocessStatus, human_status: 'resolved' as HumanStatus, updated_at: new Date().toISOString() }
+          : e,
+      ),
+    }));
+    toast.success('Guidance used as direct answer.');
+    return true;
+  },
+
+  batchGuidanceTickets: async (tenantId: string) => {
+    set({ autoResumeResult: null, loading: true });
+    try {
+      const res = await fetch(`/api/escalations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'batch-guidance-tickets', tenant_id: tenantId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        set({
+          autoResumeResult: {
+            success: data.resolved ?? 0,
+            failed: data.failed ?? 0,
+            message: `${data.resolved ?? 0} guidance tickets resolved, ${data.failed ?? 0} failed.`,
+          },
+          loading: false,
+        });
+        toast.success(`Batch guidance tickets: ${data.resolved ?? 0} resolved, ${data.failed ?? 0} failed.`);
+        get().fetchEscalations(tenantId);
+        get().fetchStats(tenantId);
+        return;
+      }
+    } catch {
+      // Backend unavailable
+    }
+
+    // Mock fallback
+    await new Promise((r) => setTimeout(r, 1200));
+    const eligible = get().escalations.filter(
+      (e) => e.human_status === 'guidance_provided' && e.reprocess_status === 'failed',
+    );
+    const result = { success: eligible.length, failed: 0, message: `${eligible.length} failed escalations processed as guidance tickets.` };
+    set((state) => ({
+      escalations: state.escalations.map((e) =>
+        e.human_status === 'guidance_provided' && e.reprocess_status === 'failed'
+          ? { ...e, reprocess_status: 'done' as ReprocessStatus, human_status: 'resolved' as HumanStatus, updated_at: new Date().toISOString() }
           : e,
       ),
       autoResumeResult: result,

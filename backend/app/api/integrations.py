@@ -375,7 +375,7 @@ def api_integration_health(
     # Get circuit breaker states
     cb_states = {}
     try:
-        from app.core.circuit_breaker_manager import get_circuit_breaker_manager
+        from app.core.parwa_core_bridge import get_parwa_circuit_breaker as get_circuit_breaker_manager
         cb_manager = get_circuit_breaker_manager()
         cb_states = cb_manager.get_all_states()
     except Exception:
@@ -448,7 +448,7 @@ def api_integration_health(
 
     # Add overall circuit breaker health summary
     try:
-        from app.core.circuit_breaker_manager import get_circuit_breaker_manager
+        from app.core.parwa_core_bridge import get_parwa_circuit_breaker as get_circuit_breaker_manager
         cb_manager = get_circuit_breaker_manager()
         result["circuit_breaker_health"] = cb_manager.get_health_summary()
     except Exception:

@@ -13,7 +13,8 @@ from typing import Dict, Optional
 from fastapi import Depends, Header, Request
 from sqlalchemy.orm import Session
 
-from app.core.auth import verify_access_token, is_token_revoked
+from app.core.auth import is_token_revoked
+from app.core.parwa_core_bridge import parwa_verify_access_token as verify_access_token
 from app.exceptions import AuthenticationError
 from app.exceptions import AuthorizationError
 from database.base import get_db

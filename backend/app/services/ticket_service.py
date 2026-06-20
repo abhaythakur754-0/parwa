@@ -25,7 +25,7 @@ from app.exceptions import (
     AuthorizationError,
     ValidationError,
 )
-from app.services.rate_limit_service import RateLimitService
+from app.core.parwa_core_bridge import get_parwa_rate_limiter
 from database.models.tickets import (
     Customer,
     Ticket,
@@ -54,7 +54,7 @@ class TicketService:
     def __init__(self, db: Session, company_id: str):
         self.db = db
         self.company_id = company_id
-        self.rate_limit_service = RateLimitService()
+        self.rate_limit_service = get_parwa_rate_limiter()
 
     # ── CREATE ─────────────────────────────────────────────────────────────
 

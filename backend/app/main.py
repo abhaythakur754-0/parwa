@@ -117,6 +117,7 @@ from app.api.response import router as response_api_router  # Response generatio
 from app.api.system_health import router as system_health_router  # System health monitoring for frontend dashboard
 from app.api.approval import router as approval_router  # Approval queue + auto-approve rules
 from app.api.audit import router as audit_router  # Phase 9: Audit trail & AI action logging
+from app.api.escalation import router as escalation_router  # Escalation dashboard (was missing — caused 404s)
 
 from app.api.deps import get_current_user
 from database.models.core import User
@@ -284,6 +285,41 @@ async def lifespan(app: FastAPI):
             message="PARWA pipeline will be built on first request",
         )
         app.state.parwa_graph = None
+
+    # Phase 2: Initialize Rust parwa_core bridge (Tier-1 hot-path replacement)
+    try:
+        from app.core.parwa_core_bridge import (
+            is_parwa_core_available,
+            get_parwa_rate_limiter,
+            get_parwa_circuit_breaker,
+            get_parwa_pii_redactor,
+            get_bridge_diagnostics,
+        )
+        rust_available = is_parwa_core_available()
+        if rust_available:
+            # Pre-initialize singletons so they're warm before first request
+            get_parwa_rate_limiter()
+            get_parwa_circuit_breaker()
+            get_parwa_pii_redactor()
+            diagnostics = get_bridge_diagnostics()
+            logger = get_logger("lifespan")
+            logger.info(
+                "parwa_core_initialized",
+                rust_available=True,
+                diagnostics=diagnostics,
+            )
+        else:
+            logger = get_logger("lifespan")
+            logger.warning(
+                "parwa_core_not_available_fallback_to_python",
+                rust_available=False,
+            )
+    except Exception as exc:
+        logger = get_logger("lifespan")
+        logger.warning(
+            "parwa_core_init_failed_fallback_to_python",
+            error=str(exc),
+        )
 
     logger = get_logger("lifespan")
     logger.info(
@@ -500,6 +536,9 @@ app.include_router(approval_router, tags=["approvals"])  # prefix: /api/approval
 
 # Phase 9: Audit trail & AI action logging
 app.include_router(audit_router, tags=["audit"])  # prefix: /api/v1/audit (defined in router)
+
+# Escalation vault (dashboard — was missing from main.py, caused 404s on dashboard load)
+app.include_router(escalation_router, tags=["escalation"])  # prefix: /api/escalation
 
 
 # ── Exception Handlers (BC-012: structured JSON, no stack traces) ───

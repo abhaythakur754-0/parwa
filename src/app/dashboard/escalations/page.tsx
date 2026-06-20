@@ -616,17 +616,29 @@ function EscalationCard({
 }) {
   const openModal = useEscalationStore((s) => s.openModal);
   const resumeEscalation = useEscalationStore((s) => s.resumeEscalation);
+  const createGuidanceTicket = useEscalationStore((s) => s.createGuidanceTicket);
   const [resuming, setResuming] = useState(false);
+  const [guidanceTicketting, setGuidanceTicketting] = useState(false);
 
   const canProvideGuidance = escalation.human_status === 'pending';
   const canViewResult = escalation.reprocess_status === 'done' || escalation.reprocess_status === 'failed';
   const canResume = escalation.human_status === 'guidance_provided' && escalation.reprocess_status === 'pending';
+  const canGuidanceTicket =
+    (escalation.reprocess_status === 'failed' && escalation.human_status === 'guidance_provided') ||
+    (escalation.human_status === 'guidance_provided' && escalation.reprocess_status !== 'done');
 
   const handleResume = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setResuming(true);
     await resumeEscalation(escalation.escalation_id);
     setResuming(false);
+  };
+
+  const handleGuidanceTicket = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setGuidanceTicketting(true);
+    await createGuidanceTicket(escalation.escalation_id);
+    setGuidanceTicketting(false);
   };
 
   return (
@@ -722,6 +734,25 @@ function EscalationCard({
                 </svg>
               )}
               Resume
+            </button>
+          )}
+          {canGuidanceTicket && (
+            <button
+              onClick={handleGuidanceTicket}
+              disabled={guidanceTicketting}
+              className="inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-lg bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20 transition-colors disabled:opacity-50"
+            >
+              {guidanceTicketting ? (
+                <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : (
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
+                </svg>
+              )}
+              Use as Direct Answer
             </button>
           )}
           {canViewResult && (
@@ -842,11 +873,12 @@ export default function EscalationsPage() {
     setFilters,
     closeModal,
     autoResumeAll,
+    batchGuidanceTickets,
   } = useEscalationStore();
 
   const [autoResumeDialogOpen, setAutoResumeDialogOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(filters.search);
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Initial fetch
   useEffect(() => {
@@ -879,6 +911,10 @@ export default function EscalationsPage() {
     autoResumeAll(TENANT_ID);
   }, [autoResumeAll]);
 
+  const handleBatchGuidanceTickets = useCallback(() => {
+    batchGuidanceTickets(TENANT_ID);
+  }, [batchGuidanceTickets]);
+
   // Close modal handler
   const handleCloseModal = useCallback(() => {
     closeModal();
@@ -895,21 +931,38 @@ export default function EscalationsPage() {
               Tickets where PARWA AI needs human guidance to resolve
             </p>
           </div>
-          <button
-            onClick={() => setAutoResumeDialogOpen(true)}
-            disabled={loading || stats.guidance_provided === 0}
-            className="inline-flex items-center gap-2 text-[11px] font-medium px-4 py-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed self-start"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
-            </svg>
-            Auto-Resume All
-            {stats.guidance_provided > 0 && (
-              <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                {stats.guidance_provided}
-              </span>
+          <div className="flex items-center gap-2 self-start">
+            <button
+              onClick={() => setAutoResumeDialogOpen(true)}
+              disabled={loading || stats.guidance_provided === 0}
+              className="inline-flex items-center gap-2 text-[11px] font-medium px-4 py-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
+              </svg>
+              Auto-Resume All
+              {stats.guidance_provided > 0 && (
+                <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  {stats.guidance_provided}
+                </span>
+              )}
+            </button>
+            {stats.failed > 0 && (
+              <button
+                onClick={handleBatchGuidanceTickets}
+                disabled={loading}
+                className="inline-flex items-center gap-2 text-[11px] font-medium px-4 py-2 rounded-lg bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
+                </svg>
+                Retry Failed as Direct
+                <span className="bg-violet-500/20 text-violet-300 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  {stats.failed}
+                </span>
+              </button>
             )}
-          </button>
+          </div>
         </div>
 
         {/* Auto Resume Result Banner */}

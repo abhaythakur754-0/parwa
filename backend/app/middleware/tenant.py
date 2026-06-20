@@ -48,8 +48,8 @@ def _extract_company_id_from_jwt(request: Request) -> str | None:
         return None
 
     try:
-        from app.core.auth import verify_access_token
-        payload = verify_access_token(token)
+        from app.core.parwa_core_bridge import parwa_verify_access_token
+        payload = parwa_verify_access_token(token)
         return payload.get("company_id")
     except Exception:
         return None

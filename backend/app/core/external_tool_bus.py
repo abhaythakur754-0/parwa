@@ -999,7 +999,7 @@ class ExternalToolBus:
         Returns a degraded ToolResult if circuit is open, None if OK to proceed.
         """
         try:
-            from app.core.circuit_breaker_manager import get_circuit_breaker_manager
+            from app.core.parwa_core_bridge import get_parwa_circuit_breaker as get_circuit_breaker_manager
             cb_manager = get_circuit_breaker_manager()
             if not cb_manager.is_available(integration_name):
                 return self._degraded_result(channel, integration_name)
@@ -1031,7 +1031,7 @@ class ExternalToolBus:
     def _record_success(self, integration_name: str) -> None:
         """Record a successful call to the circuit breaker."""
         try:
-            from app.core.circuit_breaker_manager import get_circuit_breaker_manager
+            from app.core.parwa_core_bridge import get_parwa_circuit_breaker as get_circuit_breaker_manager
             cb_manager = get_circuit_breaker_manager()
             cb_manager.record_success(integration_name)
         except Exception:
@@ -1040,7 +1040,7 @@ class ExternalToolBus:
     def _record_failure(self, integration_name: str) -> None:
         """Record a failed call to the circuit breaker."""
         try:
-            from app.core.circuit_breaker_manager import get_circuit_breaker_manager
+            from app.core.parwa_core_bridge import get_parwa_circuit_breaker as get_circuit_breaker_manager
             cb_manager = get_circuit_breaker_manager()
             cb_manager.record_failure(integration_name)
         except Exception:
@@ -1124,14 +1124,11 @@ class ExternalToolBus:
         Allows dynamic registration for custom connectors and new integrations.
         """
         try:
-            from app.core.circuit_breaker_manager import (
-                CircuitBreakerConfig,
-                get_circuit_breaker_manager,
-            )
+            from app.core.parwa_core_bridge import get_parwa_circuit_breaker as get_circuit_breaker_manager
             cb_manager = get_circuit_breaker_manager()
             cb_manager.register(
                 integration_name,
-                CircuitBreakerConfig(failure_threshold=failure_threshold, timeout=timeout),
+                None,
             )
             logger.info(
                 "integration_circuit_breaker_registered name=%s threshold=%d timeout=%d",

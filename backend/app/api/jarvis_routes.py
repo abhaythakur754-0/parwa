@@ -64,7 +64,8 @@ async def _optional_auth(request: Request) -> Optional[Dict[str, Any]]:
     Returns None if no auth header (allows unauthenticated dev access).
     Raises 401 if auth header is present but invalid.
     """
-    from app.core.auth import verify_access_token, is_token_revoked
+    from app.core.parwa_core_bridge import parwa_verify_access_token
+    from app.core.auth import is_token_revoked
     from app.core.jarvis_pipeline.jarvis_auth import make_user_context
     from database.base import get_db as _get_db_session
     from database.models.core import User
@@ -78,7 +79,7 @@ async def _optional_auth(request: Request) -> Optional[Dict[str, Any]]:
         return None
 
     try:
-        payload = verify_access_token(token)
+        payload = parwa_verify_access_token(token)
         user_id = payload.get("sub")
         if not user_id:
             return None

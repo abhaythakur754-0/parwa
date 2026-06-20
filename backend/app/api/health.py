@@ -78,9 +78,7 @@ def _get_circuit_breaker_summary() -> dict:
     BC-012: No company data exposed.
     """
     try:
-        from app.core.circuit_breaker_manager import (
-            get_circuit_breaker_manager,
-        )
+        from app.core.parwa_core_bridge import get_parwa_circuit_breaker as get_circuit_breaker_manager
         manager = get_circuit_breaker_manager()
         return manager.get_health_summary()
     except Exception:
@@ -94,9 +92,7 @@ def _get_circuit_breaker_detail() -> dict:
     BC-012: No company data exposed.
     """
     try:
-        from app.core.circuit_breaker_manager import (
-            get_circuit_breaker_manager,
-        )
+        from app.core.parwa_core_bridge import get_parwa_circuit_breaker as get_circuit_breaker_manager
         manager = get_circuit_breaker_manager()
         return manager.get_all_states()
     except Exception:
@@ -416,9 +412,7 @@ async def metrics_endpoint(
 
     # Phase 6: Circuit breaker metrics
     try:
-        from app.core.circuit_breaker_manager import (
-            get_circuit_breaker_manager,
-        )
+        from app.core.parwa_core_bridge import get_parwa_circuit_breaker as get_circuit_breaker_manager
         cb_manager = get_circuit_breaker_manager()
         cb_metrics = cb_manager.get_metrics()
         metrics_text = cb_metrics.get("metrics_text", "")
