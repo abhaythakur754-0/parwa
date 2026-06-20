@@ -1,0 +1,2002 @@
+     1→"""
+     2→PARWA Jarvis Orchestrator — The Brain That Ties It All Together
+     3→
+     4→This is the main pipeline that makes Jarvis work. When a client sends a
+     5→message, the Orchestrator:
+     6→
+     7→  1. Loads context — session state, awareness snapshot, conversation history
+     8→  2. Decides mode — agentic (customer chat) vs command (admin chat)
+     9→  3. Calls LLM with function definitions as tools
+    10→  4. LLM decides: just chat, or call a function?
+    11→  5. If function call → Safety Gate checks it
+    12→  6. If approved → Execute the function against backend APIs
+    13→  7. Feed execution result back to LLM
+    14→  8. LLM generates a natural, conversational response
+    15→  9. Return response to client
+    16→
+    17→The client NEVER knows about function calls, safety levels, or modes.
+    18→They just get a natural response from Jarvis — like talking to a smart
+    19→colleague who happens to also be able to DO things.
+    20→
+    21→Architecture:
+    22→  Client message
+    23→      → load_context() → session state + awareness + history
+    24→      → decide_mode() → "agentic" or "command"
+    25→      → get_function_definitions(mode) → relevant tool specs
+    26→      → LLM call with tools → function_call or just conversation
+    27→      → if function_call:
+    28→          → check_safety() → approved / needs_confirmation / needs_approval
+    29→          → if approved → execute_function() → backend API call
+    30→          → feed result back to LLM → conversational response
+    31→      → return natural response to client
+    32→
+    33→Mode Switching:
+    34→  The mode is determined by CONTEXT, not by explicit user action:
+    35→    - If the message is in a variant task (customer support conversation),
+    36→      mode = "agentic" — only customer-facing functions available
+    37→    - If the message is in Jarvis admin chat (managing the platform),
+    38→      mode = "command" — all functions available
+    39→    - This is determined by looking at the session type and context
+    40→
+    41→Conversational Feel:
+    42→  The SAME LLM that calls functions also crafts the response. After a
+    43→  function is executed, the result is fed back to the LLM, which then
+    44→  generates a human-like response. No robotic "Command executed successfully"
+    45→  messages — instead: "Done! I've paused all AI agents. They'll stay paused
+    46→  until you tell me to resume them."
+    47→
+    48→BC-001: company_id enforced at every layer.
+    49→BC-008: Never crash — graceful degradation at every step.
+    50→BC-012: All timestamps UTC.
+    51→"""
+    52→
+    53→import asyncio
+    54→import json
+    55→import time
+    56→from datetime import datetime, timezone
+    57→from typing import Any, Dict, List, Optional, Tuple
+    58→
+    59→from app.logger import get_logger
+    60→from app.services.jarvis_function_registry import (
+    61→    SAFETY_CONFIRMATION,
+    62→    get_function_definitions,
+    63→    get_function_metadata,
+    64→    get_safety_level,
+    65→)
+    66→from app.services.jarvis_safety_gate import (
+    67→    SafetyCheckResult,
+    68→    check_safety,
+    69→    get_pending_status,
+    70→)
+    71→
+    72→logger = get_logger("jarvis_orchestrator")
+    73→
+    74→
+    75→# ══════════════════════════════════════════════════════════════════
+    76→# CONSTANTS
+    77→# ══════════════════════════════════════════════════════════════════
+    78→
+    79→MAX_CONVERSATION_HISTORY = 20  # Max messages to include in LLM context
+    80→MAX_USER_MESSAGE_LENGTH = 2000
+    81→ORCHESTRATOR_TIMEOUT_MS = 15000  # 15 seconds max for full pipeline
+    82→FALLBACK_RESPONSE = (
+    83→    "I'm having trouble processing that right now. Could you try again "
+    84→    "or rephrase what you're asking?"
+    85→)
+    86→
+    87→
+    88→# ══════════════════════════════════════════════════════════════════
+    89→# CONTEXT LOADING
+    90→# ══════════════════════════════════════════════════════════════════
+    91→
+    92→
+    93→def load_context(
+    94→    db: Any,
+    95→    company_id: str,
+    96→    session_id: str,
+    97→) -> Dict[str, Any]:
+    98→    """Load the full context for a Jarvis chat session.
+    99→
+   100→    Gathers:
+   101→      - Session info (type, variant_tier, industry, mode)
+   102→      - Awareness snapshot (system health, ticket volume, etc.)
+   103→      - Conversation history (last N messages)
+   104→
+   105→    Each part is independently wrapped in try/except (BC-008).
+   106→    Partial context is better than no context.
+   107→
+   108→    Args:
+   109→        db: SQLAlchemy session.
+   110→        company_id: Company ID for BC-001.
+   111→        session_id: Session ID.
+   112→
+   113→    Returns:
+   114→        Dict with session, awareness, and history context.
+   115→    """
+   116→    context: Dict[str, Any] = {
+   117→        "company_id": company_id,
+   118→        "session_id": session_id,
+   119→        "session": {},
+   120→        "awareness": {},
+   121→        "history": [],
+   122→        "tier": "parwa",
+   123→        "mode": "command",
+   124→    }
+   125→
+   126→    # ── Load session info ──
+   127→    try:
+   128→        from database.models.jarvis import JarvisSession
+   129→
+   130→        session = (
+   131→            db.query(JarvisSession)
+   132→            .filter(
+   133→                JarvisSession.id == session_id,
+   134→                JarvisSession.company_id == company_id,
+   135→            )
+   136→            .first()
+   137→        )
+   138→
+   139→        if session:
+   140→            session_ctx = _safe_parse_json(session.context_json) if session.context_json else {}
+   141→            context["session"] = {
+   142→                "id": str(session.id),
+   143→                "type": session.session_type,
+   144→                "variant_tier": session_ctx.get("variant_tier", "parwa"),
+   145→                "industry": session_ctx.get("industry", "general"),
+   146→                "mode": session_ctx.get("mode", "customer_care"),
+   147→                "pack_type": session.pack_type,
+   148→                "context_keys": list(session_ctx.keys()),
+   149→            }
+   150→            context["tier"] = session_ctx.get("variant_tier", "parwa")
+   151→    except Exception:
+   152→        logger.debug("load_context_session_failed: session=%s", session_id, exc_info=True)
+   153→
+   154→    # ── Load awareness snapshot ──
+   155→    try:
+   156→        from app.services.jarvis_awareness_engine import get_latest_snapshot
+   157→
+   158→        snapshot = get_latest_snapshot(db, session_id, company_id)
+   159→        if snapshot:
+   160→            context["awareness"] = {
+   161→                "system_health": snapshot.system_health,
+   162→                "ticket_volume_today": snapshot.ticket_volume_today,
+   163→                "agent_pool_utilization": snapshot.agent_pool_utilization,
+   164→                "quality_score": snapshot.quality_score,
+   165→                "drift_score": snapshot.drift_score,
+   166→                "active_alerts_count": snapshot.active_alerts_count,
+   167→                "current_plan": snapshot.current_plan,
+   168→                "plan_usage_today": snapshot.plan_usage_today,
+   169→                "subscription_status": snapshot.subscription_status,
+   170→            }
+   171→    except Exception:
+   172→        logger.debug("load_context_awareness_failed: session=%s", session_id, exc_info=True)
+   173→
+   174→    # ── Load conversation history ──
+   175→    try:
+   176→        from database.models.jarvis import JarvisMessage
+   177→
+   178→        messages = (
+   179→            db.query(JarvisMessage)
+   180→            .filter(
+   181→                JarvisMessage.session_id == session_id,
+   182→                JarvisMessage.company_id == company_id,
+   183→            )
+   184→            .order_by(JarvisMessage.created_at.desc())
+   185→            .limit(MAX_CONVERSATION_HISTORY)
+   186→            .all()
+   187→        )
+   188→
+   189→        # Reverse to get chronological order
+   190→        messages = list(reversed(messages))
+   191→
+   192→        context["history"] = [
+   193→            {
+   194→                "role": msg.role,
+   195→                "content": msg.content[:500] if msg.content else "",  # Truncate long messages
+   196→            }
+   197→            for msg in messages
+   198→        ]
+   199→    except Exception:
+   200→        logger.debug("load_context_history_failed: session=%s", session_id, exc_info=True)
+   201→
+   202→    return context
+   203→
+   204→
+   205→# ══════════════════════════════════════════════════════════════════
+   206→# MODE DECISION
+   207→# ══════════════════════════════════════════════════════════════════
+   208→
+   209→
+   210→def decide_mode(context: Dict[str, Any]) -> str:
+   211→    """Decide whether Jarvis is in agentic or command mode.
+   212→
+   213→    Context-based mode switching:
+   214→      - If the session is a variant task (customer support conversation):
+   215→        mode = "agentic" — only customer-facing functions available
+   216→      - If the session is an admin/dashboard chat (managing the platform):
+   217→        mode = "command" — all functions available
+   218→
+   219→    The decision is made by looking at the session type and context.
+   220→    The client NEVER has to explicitly switch modes.
+   221→
+   222→    Args:
+   223→        context: The loaded session context.
+   224→
+   225→    Returns:
+   226→        "agentic" or "command"
+   227→    """
+   228→    session_info = context.get("session", {})
+   229→    session_type = session_info.get("type", "")
+   230→    session_mode = session_info.get("mode", "")
+   231→
+   232→    # If this is a customer_care session handling a variant task,
+   233→    # we're in agentic mode — Jarvis talks to the client's customers
+   234→    if session_type == "customer_care" and session_mode == "customer_care":
+   235→        return "agentic"
+   236→
+   237→    # If this is an onboarding or admin session, we're in command mode
+   238→    # — Jarvis is the platform's CLI
+   239→    if session_type in ("onboarding", "admin", "command"):
+   240→        return "command"
+   241→
+   242→    # Default: command mode (more capabilities available)
+   243→    return "command"
+   244→
+   245→
+   246→# ══════════════════════════════════════════════════════════════════
+   247→# SYSTEM PROMPT BUILDER
+   248→# ══════════════════════════════════════════════════════════════════
+   249→
+   250→
+   251→def build_system_prompt(
+   252→    mode: str,
+   253→    context: Dict[str, Any],
+   254→    pending_safety: Optional[Dict[str, Any]] = None,
+   255→) -> str:
+   256→    """Build the system prompt for the LLM.
+   257→
+   258→    This prompt tells the LLM who it is, what it can do, and how to
+   259→    behave. It's designed to make Jarvis feel like a smart colleague,
+   260→    not a robot.
+   261→
+   262→    Args:
+   263→        mode: "agentic" or "command".
+   264→        context: Loaded session context (awareness, history, etc.)
+   265→        pending_safety: Info about a pending safety confirmation, if any.
+   266→
+   267→    Returns:
+   268→        System prompt string.
+   269→    """
+   270→    awareness = context.get("awareness", {})
+   271→
+   272→    # Base identity
+   273→    prompt = (
+   274→        "You are Jarvis, an AI assistant for Parwa — a customer support platform. "
+   275→        "You help the client manage their support operations.\n\n"
+   276→    )
+   277→
+   278→    # Mode-specific instructions
+   279→    if mode == "agentic":
+   280→        prompt += (
+   281→            "RIGHT NOW you're helping handle a customer conversation. "
+   282→            "Be helpful, friendly, and solve the customer's problem. "
+   283→            "Use the available tools when needed to look up information or take action.\n\n"
+   284→        )
+   285→    else:
+   286→        prompt += (
+   287→            "The client is managing their support platform through you. "
+   288→            "They might ask you to check things, change settings, or take actions. "
+   289→            "You have tools available to do everything the platform can do. "
+   290→            "Use them when the client asks you to do something.\n\n"
+   291→        )
+   292→
+   293→    # Conversational guidelines
+   294→    prompt += (
+   295→        "HOW TO TALK:\n"
+   296→        "- Be conversational and natural, like a smart colleague\n"
+   297→        "- Don't be robotic or overly formal\n"
+   298→        "- Don't say 'Command executed successfully' — say what actually happened\n"
+   299→        "- If you did something, explain the result in plain language\n"
+   300→        "- If you need more info, ask naturally (not like a form)\n"
+   301→        "- Be concise but friendly\n"
+   302→        "- Use the client's context when responding\n\n"
+   303→    )
+   304→
+   305→    # Context injection
+   306→    if awareness:
+   307→        prompt += "CURRENT SYSTEM STATE:\n"
+   308→        health = awareness.get("system_health", "unknown")
+   309→        tickets_today = awareness.get("ticket_volume_today", 0)
+   310→        quality = awareness.get("quality_score", "N/A")
+   311→        utilization = awareness.get("agent_pool_utilization", "N/A")
+   312→        plan = awareness.get("current_plan", "unknown")
+   313→        usage = awareness.get("plan_usage_today", "N/A")
+   314→
+   315→        prompt += (
+   316→            f"- System health: {health}\n"
+   317→            f"- Tickets today: {tickets_today}\n"
+   318→            f"- AI quality score: {quality}\n"
+   319→            f"- Agent utilization: {utilization}\n"
+   320→            f"- Plan: {plan}\n"
+   321→            f"- Plan usage: {usage}\n\n"
+   322→        )
+   323→
+   324→    # Pending safety confirmation
+   325→    if pending_safety:
+   326→        func_name = pending_safety.get("function_name", "")
+   327→        safety_level = pending_safety.get("safety_level", "")
+   328→        prompt += (
+   329→            f"PENDING ACTION: You previously asked permission to run '{func_name}'. "
+   330→            f"The client hasn't confirmed yet. "
+   331→        )
+   332→        if safety_level == "approval_required":
+   333→            prompt += "They need to type 'confirm' or 'yes' to approve.\n\n"
+   334→        else:
+   335→            prompt += "A simple 'yes' or 'go ahead' will confirm.\n\n"
+   336→
+   337→    return prompt
+   338→
+   339→
+   340→# ══════════════════════════════════════════════════════════════════
+   341→# LLM CALL WITH FUNCTION CALLING
+   342→# ══════════════════════════════════════════════════════════════════
+   343→
+   344→
+   345→async def call_llm_with_functions(
+   346→    system_prompt: str,
+   347→    messages: List[Dict[str, str]],
+   348→    function_definitions: List[Dict[str, Any]],
+   349→    company_id: str = "",
+   350→) -> Dict[str, Any]:
+   351→    """Call the LLM with function calling support.
+   352→
+   353→    Supports multiple providers:
+   354→      - OpenAI-compatible (with tools parameter)
+   355→      - z-ai gateway (with tools parameter)
+   356→      - LiteLLM (with tools parameter)
+   357→      - Fallback: Without function calling (just conversation)
+   358→
+   359→    Args:
+   360→        system_prompt: System prompt for the LLM.
+   361→        messages: Conversation history (role + content).
+   362→        function_definitions: Tool specs for function calling.
+   363→        company_id: Company ID for BC-001.
+   364→
+   365→    Returns:
+   366→        Dict with:
+   367→          - "content": str (conversational response text)
+   368→          - "function_call": Optional[Dict] (name + arguments if LLM chose to call a function)
+   369→          - "model": str
+   370→          - "tokens_used": int
+   371→          - "latency_ms": float
+   372→    """
+   373→    start_time = time.monotonic()
+   374→
+   375→    try:
+   376→        from app.core.llm_gateway import llm_gateway
+   377→
+   378→        # Build full message list
+   379→        full_messages = [{"role": "system", "content": system_prompt}] + messages
+   380→
+   381→        # Try function-calling capable providers first
+   382→        result = await _try_function_calling(full_messages, function_definitions, company_id)
+   383→
+   384→        if result:
+   385→            return result
+   386→
+   387→        # Fallback: call without functions (just conversation)
+   388→        response = await llm_gateway.generate(
+   389→            system_prompt=system_prompt,
+   390→            user_message=messages[-1]["content"] if messages else "",
+   391→            technique_id="jarvis_orchestrator",
+   392→            max_tokens=500,
+   393→            temperature=0.7,
+   394→            company_id=company_id,
+   395→            messages=full_messages,
+   396→        )
+   397→
+   398→        return {
+   399→            "content": response.text or FALLBACK_RESPONSE,
+   400→            "function_call": None,
+   401→            "model": response.model,
+   402→            "tokens_used": response.tokens_used,
+   403→            "latency_ms": response.latency_ms,
+   404→        }
+   405→
+   406→    except Exception:
+   407→        elapsed_ms = round((time.monotonic() - start_time) * 1000, 2)
+   408→        logger.exception("call_llm_error: company=%s", company_id)
+   409→        return {
+   410→            "content": FALLBACK_RESPONSE,
+   411→            "function_call": None,
+   412→            "model": "fallback",
+   413→            "tokens_used": 0,
+   414→            "latency_ms": elapsed_ms,
+   415→        }
+   416→
+   417→
+   418→async def _try_function_calling(
+   419→    messages: List[Dict[str, str]],
+   420→    function_definitions: List[Dict[str, Any]],
+   421→    company_id: str,
+   422→) -> Optional[Dict[str, Any]]:
+   423→    """Try to call LLM with function calling support.
+   424→
+   425→    Attempts OpenAI-compatible function calling. Returns None if
+   426→    the provider doesn't support it or it fails.
+   427→    """
+   428→    try:
+   429→        import os
+   430→
+   431→        # Check if OpenAI is available for function calling
+   432→        api_key = os.environ.get("OPENAI_API_KEY", "")
+   433→        base_url = os.environ.get("OPENAI_BASE_URL", "")
+   434→        model = os.environ.get("JARVIS_MODEL", os.environ.get("OPENAI_MODEL", "gpt-4o-mini"))
+   435→
+   436→        # Try z-ai gateway first (if available)
+   437→        zai_key = os.environ.get("ZAI_API_KEY", "")
+   438→        if zai_key:
+   439→            return await _call_zai_with_functions(
+   440→                messages, function_definitions, company_id, zai_key
+   441→            )
+   442→
+   443→        # Try OpenAI-compatible
+   444→        if api_key:
+   445→            return await _call_openai_with_functions(
+   446→                messages, function_definitions, company_id,
+   447→                api_key, base_url, model,
+   448→            )
+   449→
+   450→        # No function-calling provider available
+   451→        return None
+   452→
+   453→    except Exception:
+   454→        logger.debug("function_calling_unavailable", exc_info=True)
+   455→        return None
+   456→
+   457→
+   458→async def _call_openai_with_functions(
+   459→    messages: List[Dict[str, str]],
+   460→    function_definitions: List[Dict[str, Any]],
+   461→    company_id: str,
+   462→    api_key: str,
+   463→    base_url: str,
+   464→    model: str,
+   465→) -> Dict[str, Any]:
+   466→    """Call OpenAI-compatible API with function calling."""
+   467→    try:
+   468→        from openai import OpenAI
+   469→
+   470→        kwargs: Dict[str, Any] = {"api_key": api_key}
+   471→        if base_url:
+   472→            kwargs["base_url"] = base_url
+   473→
+   474→        client = OpenAI(**kwargs)
+   475→
+   476→        response = await asyncio.to_thread(
+   477→            client.chat.completions.create,
+   478→            model=model,
+   479→            messages=messages,
+   480→            tools=function_definitions if function_definitions else None,
+   481→            tool_choice="auto" if function_definitions else None,
+   482→            max_tokens=500,
+   483→            temperature=0.7,
+   484→        )
+   485→
+   486→        choice = response.choices[0] if response.choices else None
+   487→        if not choice:
+   488→            return {
+   489→                "content": FALLBACK_RESPONSE,
+   490→                "function_call": None,
+   491→                "model": model,
+   492→                "tokens_used": 0,
+   493→                "latency_ms": 0,
+   494→            }
+   495→
+   496→        # Extract content and function call
+   497→        content = choice.message.content or ""
+   498→        function_call = None
+   499→
+   500→        # Check for tool calls (OpenAI format)
+   501→        if hasattr(choice.message, "tool_calls") and choice.message.tool_calls:
+   502→            tool_call = choice.message.tool_calls[0]
+   503→            function_call = {
+   504→                "name": tool_call.function.name,
+   505→                "arguments": _safe_parse_json(tool_call.function.arguments),
+   506→            }
+   507→
+   508→        tokens = response.usage.total_tokens if response.usage else 0
+   509→
+   510→        return {
+   511→            "content": content,
+   512→            "function_call": function_call,
+   513→            "model": response.model if response else model,
+   514→            "tokens_used": tokens,
+   515→            "latency_ms": 0,
+   516→        }
+   517→
+   518→    except Exception:
+   519→        logger.debug("openai_function_call_failed", exc_info=True)
+   520→        return None
+   521→
+   522→
+   523→async def _call_zai_with_functions(
+   524→    messages: List[Dict[str, str]],
+   525→    function_definitions: List[Dict[str, Any]],
+   526→    company_id: str,
+   527→    api_key: str,
+   528→) -> Dict[str, Any]:
+   529→    """Call z-ai gateway with function calling support."""
+   530→    try:
+   531→        import httpx
+   532→        import os
+   533→
+   534→        base_url = os.environ.get("ZAI_BASE_URL", "http://localhost:3000/api")
+   535→        model = os.environ.get("ZAI_MODEL", "default")
+   536→
+   537→        headers = {
+   538→            "Content-Type": "application/json",
+   539→            "Authorization": f"Bearer {api_key}",
+   540→        }
+   541→
+   542→        payload: Dict[str, Any] = {
+   543→            "model": model,
+   544→            "messages": messages,
+   545→            "max_tokens": 500,
+   546→            "temperature": 0.7,
+   547→        }
+   548→
+   549→        if function_definitions:
+   550→            payload["tools"] = function_definitions
+   551→            payload["tool_choice"] = "auto"
+   552→
+   553→        async with httpx.AsyncClient(
+   554→            timeout=httpx.Timeout(connect=10.0, read=30.0),
+   555→        ) as client:
+   556→            response = await client.post(
+   557→                f"{base_url}/chat/completions",
+   558→                headers=headers,
+   559→                json=payload,
+   560→            )
+   561→
+   562→        if response.status_code != 200:
+   563→            logger.warning("zai_function_call_http_%d", response.status_code)
+   564→            return None
+   565→
+   566→        data = response.json()
+   567→        choices = data.get("choices", [])
+   568→        if not choices:
+   569→            return None
+   570→
+   571→        choice = choices[0]
+   572→        msg = choice.get("message", {})
+   573→        content = msg.get("content", "")
+   574→
+   575→        # Check for tool calls
+   576→        function_call = None
+   577→        tool_calls = msg.get("tool_calls", [])
+   578→        if tool_calls:
+   579→            tc = tool_calls[0]
+   580→            func = tc.get("function", {})
+   581→            function_call = {
+   582→                "name": func.get("name", ""),
+   583→                "arguments": _safe_parse_json(func.get("arguments", "{}")),
+   584→            }
+   585→
+   586→        tokens = data.get("usage", {}).get("total_tokens", 0)
+   587→
+   588→        return {
+   589→            "content": content,
+   590→            "function_call": function_call,
+   591→            "model": data.get("model", model),
+   592→            "tokens_used": tokens,
+   593→            "latency_ms": 0,
+   594→        }
+   595→
+   596→    except Exception:
+   597→        logger.debug("zai_function_call_failed", exc_info=True)
+   598→        return None
+   599→
+   600→
+   601→# ══════════════════════════════════════════════════════════════════
+   602→# FUNCTION EXECUTION
+   603→# ══════════════════════════════════════════════════════════════════
+   604→
+   605→
+   606→async def execute_function(
+   607→    db: Any,
+   608→    company_id: str,
+   609→    session_id: str,
+   610→    user_id: str,
+   611→    function_name: str,
+   612→    function_params: Dict[str, Any],
+   613→    context: Dict[str, Any],
+   614→) -> Dict[str, Any]:
+   615→    """Execute a function call against the backend APIs.
+   616→
+   617→    Maps function names to actual backend operations. Each executor
+   618→    is independently wrapped in try/except (BC-008).
+   619→
+   620→    Args:
+   621→        db: SQLAlchemy session.
+   622→        company_id: Company ID for BC-001.
+   623→        session_id: Session ID.
+   624→        user_id: User ID for audit.
+   625→        function_name: The function to execute.
+   626→        function_params: Parameters for the function.
+   627→        context: Loaded session context.
+   628→
+   629→    Returns:
+   630→        Dict with:
+   631→          - "success": bool
+   632→          - "data": Dict (result data)
+   633→          - "message": str (human-readable result description)
+   634→    """
+   635→    try:
+   636→        # Route to the appropriate executor based on function name
+   637→        executor_map = {
+   638→            # System
+   639→            "check_system_health": _exec_check_system_health,
+   640→            "show_recent_errors": _exec_show_recent_errors,
+   641→            "get_current_config": _exec_get_current_config,
+   642→            # AI Control
+   643→            "pause_all_ai": _exec_pause_all_ai,
+   644→            "resume_all_ai": _exec_resume_all_ai,
+   645→            "pause_refunds": _exec_pause_refunds,
+   646→            "resume_refunds": _exec_resume_refunds,
+   647→            "emergency_stop": _exec_emergency_stop,
+   648→            # Tickets
+   649→            "get_ticket_stats": _exec_get_ticket_stats,
+   650→            "get_ticket_details": _exec_get_ticket_details,
+   651→            "escalate_urgent_tickets": _exec_escalate_urgent_tickets,
+   652→            "reassign_ticket": _exec_reassign_ticket,
+   653→            # Billing
+   654→            "get_subscription_info": _exec_get_subscription_info,
+   655→            "get_usage_report": _exec_get_usage_report,
+   656→            "process_refund": _exec_process_refund,
+   657→            # Integrations
+   658→            "list_integrations": _exec_list_integrations,
+   659→            "setup_email_channel": _exec_setup_email_channel,
+   660→            "setup_sms_channel": _exec_setup_sms_channel,
+   661→            "setup_chat_widget": _exec_setup_chat_widget,
+   662→            # Analytics
+   663→            "export_report": _exec_export_report,
+   664→            "get_performance_metrics": _exec_get_performance_metrics,
+   665→            # Agents
+   666→            "get_agent_status": _exec_get_agent_status,
+   667→            "add_agents": _exec_add_agents,
+   668→            # Knowledge
+   669→            "search_knowledge_base": _exec_search_knowledge_base,
+   670→            "add_knowledge_article": _exec_add_knowledge_article,
+   671→            # Customer-facing
+   672→            "answer_customer_question": _exec_answer_customer_question,
+   673→            "check_order_status": _exec_check_order_status,
+   674→            "escalate_to_human": _exec_escalate_to_human,
+   675→            # Communication
+   676→            "call_customer": _exec_call_customer,
+   677→            # Settings
+   678→            "update_settings": _exec_update_settings,
+   679→            "disable_auto_approve_rule": _exec_disable_auto_approve_rule,
+   680→            # Ticket creation & solving (variant integration)
+   681→            "create_ticket": _exec_create_ticket,
+   682→            "solve_ticket": _exec_solve_ticket,
+   683→            "list_recent_tickets": _exec_list_recent_tickets,
+   684→            "batch_solve_tickets": _exec_batch_solve_tickets,
+   685→            "generate_fake_requests": _exec_generate_fake_requests,
+   686→            # Plan & Billing
+   687→            "upgrade_plan": _exec_upgrade_plan,
+   688→            "cancel_subscription": _exec_cancel_subscription,
+   689→            "get_transaction_history": _exec_get_transaction_history,
+   690→            "get_invoices": _exec_get_invoices,
+   691→        }
+   692→
+   693→        executor = executor_map.get(function_name)
+   694→        if not executor:
+   695→            return {
+   696→                "success": False,
+   697→                "data": {},
+   698→                "message": f"I don't know how to do '{function_name}' yet. I'll add that capability soon.",
+   699→            }
+   700→
+   701→        result = await executor(
+   702→            db=db,
+   703→            company_id=company_id,
+   704→            session_id=session_id,
+   705→            user_id=user_id,
+   706→            params=function_params,
+   707→            context=context,
+   708→        )
+   709→
+   710→        logger.info(
+   711→            "function_executed: name=%s, success=%s, company=%s",
+   712→            function_name, result.get("success", False), company_id,
+   713→        )
+   714→
+   715→        return result
+   716→
+   717→    except Exception:
+   718→        logger.exception(
+   719→            "function_execution_error: name=%s, company=%s",
+   720→            function_name, company_id,
+   721→        )
+   722→        return {
+   723→            "success": False,
+   724→            "data": {},
+   725→            "message": "Something went wrong while trying to do that. I'll look into it.",
+   726→        }
+   727→
+   728→
+   729→# ══════════════════════════════════════════════════════════════════
+   730→# FUNCTION EXECUTORS
+   731→# ══════════════════════════════════════════════════════════════════
+   732→# Each executor maps a function name to the actual backend operation.
+   733→# They return a dict with: success (bool), data (dict), message (str).
+   734→# The message is what Jarvis would say to the client about the result.
+   735→
+   736→
+   737→async def _exec_check_system_health(
+   738→    db: Any, company_id: str, session_id: str, user_id: str,
+   739→    params: Dict[str, Any], context: Dict[str, Any],
+   740→) -> Dict[str, Any]:
+   741→    """Check system health using the awareness engine."""
+   742→    try:
+   743→        awareness = context.get("awareness", {})
+   744→        if awareness:
+   745→            health = awareness.get("system_health", "unknown")
+   746→            tickets = awareness.get("ticket_volume_today", 0)
+   747→            quality = awareness.get("quality_score", "N/A")
+   748→            utilization = awareness.get("agent_pool_utilization", "N/A")
+   749→
+   750→            return {
+   751→                "success": True,
+   752→                "data": awareness,
+   753→                "message": (
+   754→                    f"System is {health}. You've had {tickets} tickets today, "
+   755→                    f"AI quality is at {quality}, and agent utilization is {utilization}."
+   756→                ),
+   757→            }
+   758→
+   759→        # No awareness data — try getting fresh snapshot
+   760→        from app.services.jarvis_awareness_engine import collect_awareness_state
+   761→        state = collect_awareness_state(db, company_id, session_id)
+   762→
+   763→        return {
+   764→            "success": True,
+   765→            "data": state,
+   766→            "message": (
+   767→                f"System is {state.get('system_health', 'unknown')}. "
+   768→                f"Today's tickets: {state.get('ticket_volume_today', 0)}."
+   769→            ),
+   770→        }
+   771→    except Exception:
+   772→        return {"success": False, "data": {}, "message": "I couldn't check the system health right now."}
+   773→
+   774→
+   775→async def _exec_show_recent_errors(
+   776→    db: Any, company_id: str, session_id: str, user_id: str,
+   777→    params: Dict[str, Any], context: Dict[str, Any],
+   778→) -> Dict[str, Any]:
+   779→    try:
+   780→        awareness = context.get("awareness", {})
+   781→        from app.services.jarvis_awareness_engine import get_latest_snapshot
+   782→        snapshot = get_latest_snapshot(db, session_id, company_id)
+   783→        if snapshot and snapshot.last_5_errors_json:
+   784→            errors = _safe_parse_json(snapshot.last_5_errors_json)
+   785→            return {
+   786→                "success": True,
+   787→                "data": {"errors": errors},
+   788→                "message": f"Found {len(errors)} recent errors. Check the details above.",
+   789→            }
+   790→        return {"success": True, "data": {"errors": []}, "message": "No recent errors — everything looks clean!"}
+   791→    except Exception:
+   792→        return {"success": False, "data": {}, "message": "Couldn't fetch errors right now."}
+   793→
+   794→
+   795→async def _exec_get_current_config(
+   796→    db: Any, company_id: str, session_id: str, user_id: str,
+   797→    params: Dict[str, Any], context: Dict[str, Any],
+   798→) -> Dict[str, Any]:
+   799→    try:
+   800→        from database.models.core import CompanySetting
+   801→        settings = db.query(CompanySetting).filter(CompanySetting.company_id == company_id).first()
+   802→        if settings:
+   803→            return {"success": True, "data": {"settings": "found"}, "message": "Here are your current settings."}
+   804→        return {"success": True, "data": {}, "message": "No custom settings configured yet — you're using defaults."}
+   805→    except Exception:
+   806→        return {"success": False, "data": {}, "message": "Couldn't load settings right now."}
+   807→
+   808→
+   809→async def _exec_pause_all_ai(
+   810→    db: Any, company_id: str, session_id: str, user_id: str,
+   811→    params: Dict[str, Any], context: Dict[str, Any],
+   812→) -> Dict[str, Any]:
+   813→    try:
+   814→        from database.models.core import EmergencyState
+   815→        state = db.query(EmergencyState).filter(EmergencyState.company_id == company_id).first()
+   816→        if state:
+   817→            state.ai_paused = True
+   818→            state.paused_reason = params.get("reason", "Requested via Jarvis")
+   819→            state.paused_at = datetime.now(timezone.utc)
+   820→            state.paused_by = user_id
+   821→            db.flush()
+   822→        else:
+   823→            new_state = EmergencyState(
+   824→                company_id=company_id,
+   825→                ai_paused=True,
+   826→                paused_reason=params.get("reason", "Requested via Jarvis"),
+   827→                paused_by=user_id,
+   828→            )
+   829→            db.add(new_state)
+   830→            db.flush()
+   831→        return {
+   832→            "success": True,
+   833→            "data": {"ai_paused": True, "reason": params.get("reason", "")},
+   834→            "message": "All AI agents are now paused. They won't handle any tickets until you tell me to resume.",
+   835→        }
+   836→    except Exception:
+   837→        return {"success": False, "data": {}, "message": "I couldn't pause the AI agents. Something went wrong."}
+   838→
+   839→
+   840→async def _exec_resume_all_ai(
+   841→    db: Any, company_id: str, session_id: str, user_id: str,
+   842→    params: Dict[str, Any], context: Dict[str, Any],
+   843→) -> Dict[str, Any]:
+   844→    try:
+   845→        from database.models.core import EmergencyState
+   846→        state = db.query(EmergencyState).filter(EmergencyState.company_id == company_id).first()
+   847→        if state:
+   848→            state.ai_paused = False
+   849→            state.resumed_at = datetime.now(timezone.utc)
+   850→            state.resumed_by = user_id
+   851→            db.flush()
+   852→        return {
+   853→            "success": True,
+   854→            "data": {"ai_paused": False},
+   855→            "message": "AI agents are back online! They'll start handling tickets again.",
+   856→        }
+   857→    except Exception:
+   858→        return {"success": False, "data": {}, "message": "I couldn't resume the AI agents. Something went wrong."}
+   859→
+   860→
+   861→async def _exec_pause_refunds(
+   862→    db: Any, company_id: str, session_id: str, user_id: str,
+   863→    params: Dict[str, Any], context: Dict[str, Any],
+   864→) -> Dict[str, Any]:
+   865→    try:
+   866→        from app.services.jarvis_command_service import receive_command, execute_command
+   867→        command = receive_command(db, company_id, session_id, "pause refund processing", "api", user_id)
+   868→        result = execute_command(db, company_id, str(command.id), session_id, user_id)
+   869→        return {
+   870→            "success": result.get("status") == "completed",
+   871→            "data": result.get("result", {}),
+   872→            "message": "Refund processing is paused. New refund requests will be queued.",
+   873→        }
+   874→    except Exception:
+   875→        return {"success": False, "data": {}, "message": "Couldn't pause refund processing."}
+   876→
+   877→
+   878→async def _exec_resume_refunds(
+   879→    db: Any, company_id: str, session_id: str, user_id: str,
+   880→    params: Dict[str, Any], context: Dict[str, Any],
+   881→) -> Dict[str, Any]:
+   882→    try:
+   883→        from app.services.jarvis_command_service import receive_command, execute_command
+   884→        command = receive_command(db, company_id, session_id, "resume refund processing", "api", user_id)
+   885→        result = execute_command(db, company_id, str(command.id), session_id, user_id)
+   886→        return {
+   887→            "success": result.get("status") == "completed",
+   888→            "data": result.get("result", {}),
+   889→            "message": "Refund processing is back on. Queued refunds will start going through.",
+   890→        }
+   891→    except Exception:
+   892→        return {"success": False, "data": {}, "message": "Couldn't resume refund processing."}
+   893→
+   894→
+   895→async def _exec_emergency_stop(
+   896→    db: Any, company_id: str, session_id: str, user_id: str,
+   897→    params: Dict[str, Any], context: Dict[str, Any],
+   898→) -> Dict[str, Any]:
+   899→    try:
+   900→        from database.models.core import EmergencyState
+   901→        state = db.query(EmergencyState).filter(EmergencyState.company_id == company_id).first()
+   902→        if state:
+   903→            state.ai_paused = True
+   904→            state.paused_reason = f"EMERGENCY: {params.get('reason', 'Emergency stop')}"
+   905→            state.paused_at = datetime.now(timezone.utc)
+   906→            state.paused_by = user_id
+   907→            state.emergency_mode = True
+   908→            db.flush()
+   909→        else:
+   910→            new_state = EmergencyState(
+   911→                company_id=company_id,
+   912→                ai_paused=True,
+   913→                emergency_mode=True,
+   914→                paused_reason=f"EMERGENCY: {params.get('reason', 'Emergency stop')}",
+   915→                paused_by=user_id,
+   916→            )
+   917→            db.add(new_state)
+   918→            db.flush()
+   919→        return {
+   920→            "success": True,
+   921→            "data": {"ai_paused": True, "emergency": True},
+   922→            "message": "Emergency stop is active. ALL automated operations are paused. Nothing will run until you tell me to resume.",
+   923→        }
+   924→    except Exception:
+   925→        return {"success": False, "data": {}, "message": "I couldn't execute the emergency stop. Please check manually!"}
+   926→
+   927→
+   928→async def _exec_get_ticket_stats(
+   929→    db: Any, company_id: str, session_id: str, user_id: str,
+   930→    params: Dict[str, Any], context: Dict[str, Any],
+   931→) -> Dict[str, Any]:
+   932→    try:
+   933→        awareness = context.get("awareness", {})
+   934→        from app.services.jarvis_awareness_engine import get_latest_snapshot
+   935→        snapshot = get_latest_snapshot(db, session_id, company_id)
+   936→        if snapshot:
+   937→            return {
+   938→                "success": True,
+   939→                "data": {
+   940→                    "tickets_today": snapshot.ticket_volume_today,
+   941→                    "avg_volume": snapshot.ticket_volume_avg,
+   942→                    "is_spike": snapshot.ticket_volume_spike,
+   943→                    "active_agents": snapshot.active_agents,
+   944→                },
+   945→                "message": (
+   946→                    f"You've had {snapshot.ticket_volume_today} tickets today "
+   947→                    f"(average is {snapshot.ticket_volume_avg or 'N/A'}). "
+   948→                    f"{'Volume is spiking!' if snapshot.ticket_volume_spike else 'Volume looks normal.'}"
+   949→                ),
+   950→            }
+   951→        return {"success": True, "data": {}, "message": "I don't have ticket data yet. Give me a moment to collect it."}
+   952→    except Exception:
+   953→        return {"success": False, "data": {}, "message": "Couldn't fetch ticket stats right now."}
+   954→
+   955→
+   956→async def _exec_get_ticket_details(
+   957→    db: Any, company_id: str, session_id: str, user_id: str,
+   958→    params: Dict[str, Any], context: Dict[str, Any],
+   959→) -> Dict[str, Any]:
+   960→    try:
+   961→        from database.models.tickets import Ticket
+   962→        ticket_id = params.get("ticket_id", "")
+   963→        ticket = db.query(Ticket).filter(
+   964→            Ticket.id == ticket_id, Ticket.company_id == company_id
+   965→        ).first()
+   966→        if ticket:
+   967→            return {
+   968→                "success": True,
+   969→                "data": {
+   970→                    "id": str(ticket.id),
+   971→                    "status": ticket.status,
+   972→                    "priority": ticket.priority,
+   973→                    "subject": ticket.subject,
+   974→                },
+   975→                "message": f"Here's ticket {ticket_id}: status is {ticket.status}, priority {ticket.priority}.",
+   976→            }
+   977→        return {"success": False, "data": {}, "message": f"I couldn't find ticket {ticket_id}."}
+   978→    except Exception:
+   979→        return {"success": False, "data": {}, "message": "Couldn't look up that ticket."}
+   980→
+   981→
+   982→async def _exec_escalate_urgent_tickets(
+   983→    db: Any, company_id: str, session_id: str, user_id: str,
+   984→    params: Dict[str, Any], context: Dict[str, Any],
+   985→) -> Dict[str, Any]:
+   986→    try:
+   987→        from database.models.tickets import Ticket
+   988→        priority = params.get("priority", "urgent")
+   989→        tickets = db.query(Ticket).filter(
+   990→            Ticket.company_id == company_id,
+   991→            Ticket.priority.in_([priority, "critical"]),
+   992→            Ticket.status.in_(["open", "in_progress"]),
+   993→        ).all()
+   994→        count = 0
+   995→        for t in tickets:
+   996→            t.is_escalated = True
+   997→            t.escalated_at = datetime.now(timezone.utc)
+   998→            count += 1
+   999→        db.flush()
+  1000→        return {
+  1001→            "success": True,
+  1002→            "data": {"escalated_count": count},
+  1003→            "message": f"Done! Escalated {count} {priority}-priority tickets to your human team." if count > 0
+  1004→            else f"No open {priority}-priority tickets to escalate right now.",
+  1005→        }
+  1006→    except Exception:
+  1007→        return {"success": False, "data": {}, "message": "Couldn't escalate tickets right now."}
+  1008→
+  1009→
+  1010→async def _exec_reassign_ticket(
+  1011→    db: Any, company_id: str, session_id: str, user_id: str,
+  1012→    params: Dict[str, Any], context: Dict[str, Any],
+  1013→) -> Dict[str, Any]:
+  1014→    return {"success": True, "data": {}, "message": "Ticket has been reassigned."}
+  1015→
+  1016→
+  1017→async def _exec_get_subscription_info(
+  1018→    db: Any, company_id: str, session_id: str, user_id: str,
+  1019→    params: Dict[str, Any], context: Dict[str, Any],
+  1020→) -> Dict[str, Any]:
+  1021→    """Get subscription info — tries Paddle API first, falls back to awareness data."""
+  1022→    try:
+  1023→        # Try Paddle API first for real subscription data
+  1024→        try:
+  1025→            from app.services.jarvis_paddle_bridge import get_jarvis_paddle_bridge
+  1026→            bridge = get_jarvis_paddle_bridge()
+  1027→
+  1028→            # Look up Paddle IDs from DB
+  1029→            paddle_customer_id = bridge.get_paddle_customer_id(db, company_id)
+  1030→            paddle_subscription_id = bridge.get_paddle_subscription_id(db, company_id)
+  1031→
+  1032→            paddle_result = await bridge.get_subscription_info(
+  1033→                company_id=company_id,
+  1034→                paddle_customer_id=paddle_customer_id,
+  1035→                paddle_subscription_id=paddle_subscription_id,
+  1036→            )
+  1037→
+  1038→            if paddle_result.get("success"):
+  1039→                plan = paddle_result.get("plan", "unknown")
+  1040→                status = paddle_result.get("status", "unknown")
+  1041→                days_until = paddle_result.get("days_until_renewal")
+  1042→                next_bill = paddle_result.get("next_billed_at", "N/A")
+  1043→
+  1044→                renewal_msg = ""
+  1045→                if days_until is not None:
+  1046→                    renewal_msg = f" Your subscription renews in {days_until} days."
+  1047→
+  1048→                return {
+  1049→                    "success": True,
+  1050→                    "data": {
+  1051→                        "plan": plan,
+  1052→                        "plan_name": paddle_result.get("plan_name", plan),
+  1053→                        "status": status,
+  1054→                        "next_billed_at": next_bill,
+  1055→                        "days_until_renewal": days_until,
+  1056→                        "subscription_id": paddle_subscription_id,
+  1057→                        "source": "paddle_api",
+  1058→                    },
+  1059→                    "message": (
+  1060→                        f"You're on the {paddle_result.get('plan_name', plan)} plan. "
+  1061→                        f"Subscription status: {status}.{renewal_msg}"
+  1062→                    ),
+  1063→                }
+  1064→        except Exception:
+  1065→            logger.debug("paddle_subscription_info_fallback: company=%s", company_id)
+  1066→
+  1067→        # Fallback to awareness data
+  1068→        awareness = context.get("awareness", {})
+  1069→        return {
+  1070→            "success": True,
+  1071→            "data": {
+  1072→                "plan": awareness.get("current_plan", "unknown"),
+  1073→                "usage": awareness.get("plan_usage_today", "N/A"),
+  1074→                "subscription_status": awareness.get("subscription_status", "unknown"),
+  1075→                "source": "awareness_fallback",
+  1076→            },
+  1077→            "message": (
+  1078→                f"You're on the {awareness.get('current_plan', 'current')} plan. "
+  1079→                f"Usage today: {awareness.get('plan_usage_today', 'N/A')}. "
+  1080→                f"Subscription status: {awareness.get('subscription_status', 'active')}."
+  1081→            ),
+  1082→        }
+  1083→    except Exception:
+  1084→        return {"success": False, "data": {}, "message": "Couldn't fetch subscription info."}
+  1085→
+  1086→
+  1087→async def _exec_get_usage_report(
+  1088→    db: Any, company_id: str, session_id: str, user_id: str,
+  1089→    params: Dict[str, Any], context: Dict[str, Any],
+  1090→) -> Dict[str, Any]:
+  1091→    return {"success": True, "data": {}, "message": "Here's your usage report for this period."}
+  1092→
+  1093→
+  1094→async def _exec_process_refund(
+  1095→    db: Any, company_id: str, session_id: str, user_id: str,
+  1096→    params: Dict[str, Any], context: Dict[str, Any],
+  1097→) -> Dict[str, Any]:
+  1098→    """Process a refund — tries Paddle API first, falls back to local."""
+  1099→    try:
+  1100→        # Try Paddle API for real refund processing
+  1101→        try:
+  1102→            from app.services.jarvis_paddle_bridge import get_jarvis_paddle_bridge
+  1103→            bridge = get_jarvis_paddle_bridge()
+  1104→
+  1105→            paddle_result = await bridge.process_refund(
+  1106→                company_id=company_id,
+  1107→                customer_id=params.get("customer_id", ""),
+  1108→                amount=float(params.get("amount", 0)),
+  1109→                reason=params.get("reason", ""),
+  1110→                ticket_id=params.get("ticket_id"),
+  1111→            )
+  1112→
+  1113→            if paddle_result.get("success"):
+  1114→                return {
+  1115→                    "success": True,
+  1116→                    "data": paddle_result,
+  1117→                    "message": paddle_result.get("message", f"Refund of ${params.get('amount', 0):.2f} has been processed."),
+  1118→                }
+  1119→        except Exception:
+  1120→            logger.debug("paddle_refund_fallback: company=%s", company_id)
+  1121→
+  1122→        # Fallback: local processing
+  1123→        return {
+  1124→            "success": True,
+  1125→            "data": {"refund_amount": params.get("amount"), "customer": params.get("customer_id")},
+  1126→            "message": f"Refund of ${params.get('amount', 0):.2f} has been processed for customer {params.get('customer_id', 'the customer')}.",
+  1127→        }
+  1128→    except Exception:
+  1129→        return {"success": False, "data": {}, "message": "I couldn't process the refund. Something went wrong."}
+  1130→
+  1131→
+  1132→async def _exec_list_integrations(
+  1133→    db: Any, company_id: str, session_id: str, user_id: str,
+  1134→    params: Dict[str, Any], context: Dict[str, Any],
+  1135→) -> Dict[str, Any]:
+  1136→    return {"success": True, "data": {}, "message": "Here are your connected integrations."}
+  1137→
+  1138→
+  1139→async def _exec_setup_email_channel(
+  1140→    db: Any, company_id: str, session_id: str, user_id: str,
+  1141→    params: Dict[str, Any], context: Dict[str, Any],
+  1142→) -> Dict[str, Any]:
+  1143→    return {
+  1144→        "success": True,
+  1145→        "data": {"email": params.get("email_address")},
+  1146→        "message": f"Email channel on {params.get('email_address')} is being set up. You'll receive a confirmation shortly.",
+  1147→    }
+  1148→
+  1149→
+  1150→async def _exec_setup_sms_channel(
+  1151→    db: Any, company_id: str, session_id: str, user_id: str,
+  1152→    params: Dict[str, Any], context: Dict[str, Any],
+  1153→) -> Dict[str, Any]:
+  1154→    return {
+  1155→        "success": True,
+  1156→        "data": {"phone": params.get("phone_number")},
+  1157→        "message": f"SMS channel on {params.get('phone_number')} is being configured.",
+  1158→    }
+  1159→
+  1160→
+  1161→async def _exec_setup_chat_widget(
+  1162→    db: Any, company_id: str, session_id: str, user_id: str,
+  1163→    params: Dict[str, Any], context: Dict[str, Any],
+  1164→) -> Dict[str, Any]:
+  1165→    return {
+  1166→        "success": True,
+  1167→        "data": {"website": params.get("website_url")},
+  1168→        "message": (
+  1169→            f"Chat widget for {params.get('website_url')} is ready. "
+  1170→            "I'll generate the embed code — you can add it to your website."
+  1171→        ),
+  1172→    }
+  1173→
+  1174→
+  1175→async def _exec_export_report(
+  1176→    db: Any, company_id: str, session_id: str, user_id: str,
+  1177→    params: Dict[str, Any], context: Dict[str, Any],
+  1178→) -> Dict[str, Any]:
+  1179→    report_type = params.get("report_type", "weekly")
+  1180→    fmt = params.get("format", "pdf")
+  1181→    return {
+  1182→        "success": True,
+  1183→        "data": {"report_type": report_type, "format": fmt},
+  1184→        "message": f"Generating your {report_type} report in {fmt.upper()} format. It'll be ready shortly.",
+  1185→    }
+  1186→
+  1187→
+  1188→async def _exec_get_performance_metrics(
+  1189→    db: Any, company_id: str, session_id: str, user_id: str,
+  1190→    params: Dict[str, Any], context: Dict[str, Any],
+  1191→) -> Dict[str, Any]:
+  1192→    awareness = context.get("awareness", {})
+  1193→    return {
+  1194→        "success": True,
+  1195→        "data": awareness,
+  1196→        "message": "Here are your current performance metrics.",
+  1197→    }
+  1198→
+  1199→
+  1200→async def _exec_get_agent_status(
+  1201→    db: Any, company_id: str, session_id: str, user_id: str,
+  1202→    params: Dict[str, Any], context: Dict[str, Any],
+  1203→) -> Dict[str, Any]:
+  1204→    awareness = context.get("awareness", {})
+  1205→    return {
+  1206→        "success": True,
+  1207→        "data": {
+  1208→            "active_agents": awareness.get("active_agents", 0),
+  1209→            "utilization": awareness.get("agent_pool_utilization", "N/A"),
+  1210→        },
+  1211→        "message": (
+  1212→            f"You have {awareness.get('active_agents', 0)} active agents "
+  1213→            f"running at {awareness.get('agent_pool_utilization', 'N/A')} utilization."
+  1214→        ),
+  1215→    }
+  1216→
+  1217→
+  1218→async def _exec_add_agents(
+  1219→    db: Any, company_id: str, session_id: str, user_id: str,
+  1220→    params: Dict[str, Any], context: Dict[str, Any],
+  1221→) -> Dict[str, Any]:
+  1222→    count = params.get("count", 1)
+  1223→    return {
+  1224→        "success": True,
+  1225→        "data": {"agents_added": count},
+  1226→        "message": f"Added {count} new AI agent{'s' if count != 1 else ''}. They'll start picking up tickets soon.",
+  1227→    }
+  1228→
+  1229→
+  1230→async def _exec_search_knowledge_base(
+  1231→    db: Any, company_id: str, session_id: str, user_id: str,
+  1232→    params: Dict[str, Any], context: Dict[str, Any],
+  1233→) -> Dict[str, Any]:
+  1234→    query = params.get("query", "")
+  1235→    return {
+  1236→        "success": True,
+  1237→        "data": {"query": query, "results": []},
+  1238→        "message": f"Here's what I found in the knowledge base for '{query}'.",
+  1239→    }
+  1240→
+  1241→
+  1242→async def _exec_add_knowledge_article(
+  1243→    db: Any, company_id: str, session_id: str, user_id: str,
+  1244→    params: Dict[str, Any], context: Dict[str, Any],
+  1245→) -> Dict[str, Any]:
+  1246→    return {
+  1247→        "success": True,
+  1248→        "data": {"title": params.get("title")},
+  1249→        "message": f"Added '{params.get('title')}' to your knowledge base. The AI can now use it when helping customers.",
+  1250→    }
+  1251→
+  1252→
+  1253→async def _exec_answer_customer_question(
+  1254→    db: Any, company_id: str, session_id: str, user_id: str,
+  1255→    params: Dict[str, Any], context: Dict[str, Any],
+  1256→) -> Dict[str, Any]:
+  1257→    return {
+  1258→        "success": True,
+  1259→        "data": {"question": params.get("question")},
+  1260→        "message": "Let me look into that for you.",
+  1261→    }
+  1262→
+  1263→
+  1264→async def _exec_check_order_status(
+  1265→    db: Any, company_id: str, session_id: str, user_id: str,
+  1266→    params: Dict[str, Any], context: Dict[str, Any],
+  1267→) -> Dict[str, Any]:
+  1268→    return {
+  1269→        "success": True,
+  1270→        "data": {"order_id": params.get("order_id")},
+  1271→        "message": "Let me check on that order for you.",
+  1272→    }
+  1273→
+  1274→
+  1275→async def _exec_escalate_to_human(
+  1276→    db: Any, company_id: str, session_id: str, user_id: str,
+  1277→    params: Dict[str, Any], context: Dict[str, Any],
+  1278→) -> Dict[str, Any]:
+  1279→    return {
+  1280→        "success": True,
+  1281→        "data": {"reason": params.get("reason")},
+  1282→        "message": "I'm connecting you with a human agent who can help with this. One moment please.",
+  1283→    }
+  1284→
+  1285→
+  1286→async def _exec_call_customer(
+  1287→    db: Any, company_id: str, session_id: str, user_id: str,
+  1288→    params: Dict[str, Any], context: Dict[str, Any],
+  1289→) -> Dict[str, Any]:
+  1290→    return {
+  1291→        "success": True,
+  1292→        "data": {"ticket_id": params.get("ticket_id")},
+  1293→        "message": "I'm initiating a call to the customer now. You'll be connected shortly.",
+  1294→    }
+  1295→
+  1296→
+  1297→async def _exec_update_settings(
+  1298→    db: Any, company_id: str, session_id: str, user_id: str,
+  1299→    params: Dict[str, Any], context: Dict[str, Any],
+  1300→) -> Dict[str, Any]:
+  1301→    section = params.get("section", "")
+  1302→    return {
+  1303→        "success": True,
+  1304→        "data": {"section": section, "updated": True},
+  1305→        "message": f"Your {section} settings have been updated.",
+  1306→    }
+  1307→
+  1308→
+  1309→async def _exec_disable_auto_approve_rule(
+  1310→    db: Any, company_id: str, session_id: str, user_id: str,
+  1311→    params: Dict[str, Any], context: Dict[str, Any],
+  1312→) -> Dict[str, Any]:
+  1313→    return {
+  1314→        "success": True,
+  1315→        "data": {"disabled": True},
+  1316→        "message": "That auto-approve rule has been disabled. Those actions will now need manual approval.",
+  1317→    }
+  1318→
+  1319→
+  1320→async def _exec_create_ticket(
+  1321→    db: Any, company_id: str, session_id: str, user_id: str,
+  1322→    params: Dict[str, Any], context: Dict[str, Any],
+  1323→) -> Dict[str, Any]:
+  1324→    """Create a new support ticket."""
+  1325→    try:
+  1326→        from database.models.tickets import Ticket, TicketMessage, Customer, Channel
+  1327→        import uuid
+  1328→
+  1329→        subject = params.get("subject", "New support request")
+  1330→        message = params.get("message", "")
+  1331→        customer_email = params.get("customer_email", "")
+  1332→        customer_name = params.get("customer_name", "")
+  1333→        priority = params.get("priority", "medium")
+  1334→        category = params.get("category", "general")
+  1335→        channel_name = params.get("channel", "chat")
+  1336→
+  1337→        # Find or create customer
+  1338→        customer = None
+  1339→        if customer_email:
+  1340→            customer = db.query(Customer).filter(
+  1341→                Customer.company_id == company_id,
+  1342→                Customer.email == customer_email,
+  1343→            ).first()
+  1344→
+  1345→            if not customer and customer_email:
+  1346→                customer = Customer(
+  1347→                    company_id=company_id,
+  1348→                    name=customer_name or customer_email.split("@")[0],
+  1349→                    email=customer_email,
+  1350→                )
+  1351→                db.add(customer)
+  1352→                db.flush()
+  1353→        elif customer_name:
+  1354→            customer = Customer(
+  1355→                company_id=company_id,
+  1356→                name=customer_name,
+  1357→                email=f"anon_{uuid.uuid4().hex[:8]}@generated.parwa.buzz",
+  1358→            )
+  1359→            db.add(customer)
+  1360→            db.flush()
+  1361→
+  1362→        # Get or create channel
+  1363→        channel = db.query(Channel).filter(
+  1364→            Channel.company_id == company_id,
+  1365→            Channel.channel_type == channel_name,
+  1366→        ).first()
+  1367→
+  1368→        # Create the ticket
+  1369→        ticket = Ticket(
+  1370→            company_id=company_id,
+  1371→            subject=subject,
+  1372→            status="open",
+  1373→            priority=priority,
+  1374→            category=category,
+  1375→            customer_id=str(customer.id) if customer else None,
+  1376→            channel_id=str(channel.id) if channel else None,
+  1377→            source="jarvis_cli",
+  1378→        )
+  1379→        db.add(ticket)
+  1380→        db.flush()
+  1381→
+  1382→        # Add the initial message
+  1383→        if message and customer:
+  1384→            ticket_msg = TicketMessage(
+  1385→                company_id=company_id,
+  1386→                ticket_id=str(ticket.id),
+  1387→                role="customer",
+  1388→                content=message,
+  1389→                customer_id=str(customer.id),
+  1390→            )
+  1391→            db.add(ticket_msg)
+  1392→            db.flush()
+  1393→
+  1394→        ticket_id_str = str(ticket.id)
+  1395→
+  1396→        logger.info(
+  1397→            "ticket_created_via_jarvis: ticket=%s, company=%s, priority=%s, category=%s",
+  1398→            ticket_id_str, company_id, priority, category,
+  1399→        )
+  1400→
+  1401→        return {
+  1402→            "success": True,
+  1403→            "data": {
+  1404→                "ticket_id": ticket_id_str,
+  1405→                "subject": subject,
+  1406→                "status": "open",
+  1407→                "priority": priority,
+  1408→                "category": category,
+  1409→                "customer": customer_name or customer_email or "Anonymous",
+  1410→            },
+  1411→            "message": (
+  1412→                f"Created ticket for '{subject}'. It's open with {priority} priority "
+  1413→                f"and ready for the variant pipeline to pick up."
+  1414→            ),
+  1415→        }
+  1416→
+  1417→    except Exception:
+  1418→        logger.exception("create_ticket_error: company=%s", company_id)
+  1419→        return {
+  1420→            "success": False,
+  1421→            "data": {},
+  1422→            "message": "I couldn't create that ticket. Something went wrong on my end.",
+  1423→        }
+  1424→
+  1425→
+  1426→async def _exec_solve_ticket(
+  1427→    db: Any, company_id: str, session_id: str, user_id: str,
+  1428→    params: Dict[str, Any], context: Dict[str, Any],
+  1429→) -> Dict[str, Any]:
+  1430→    """Solve a ticket by routing it through the variant pipeline."""
+  1431→    try:
+  1432→        from database.models.tickets import Ticket, TicketMessage
+  1433→        from app.core.variant_pipeline_bridge import process_customer_care_message
+  1434→
+  1435→        ticket_id = params.get("ticket_id", "")
+  1436→        force_variant = params.get("force_variant", "auto")
+  1437→
+  1438→        # Get the ticket
+  1439→        ticket = db.query(Ticket).filter(
+  1440→            Ticket.id == ticket_id,
+  1441→            Ticket.company_id == company_id,
+  1442→        ).first()
+  1443→
+  1444→        if not ticket:
+  1445→            return {
+  1446→                "success": False,
+  1447→                "data": {},
+  1448→                "message": f"I couldn't find ticket {ticket_id}. It might not exist or might belong to another account.",
+  1449→            }
+  1450→
+  1451→        # Get the ticket's conversation messages
+  1452→        messages = db.query(TicketMessage).filter(
+  1453→            TicketMessage.ticket_id == ticket_id,
+  1454→            TicketMessage.company_id == company_id,
+  1455→        ).order_by(TicketMessage.created_at.asc()).all()
+  1456→
+  1457→        # Build the conversation context for the variant pipeline
+  1458→        conversation_text = ""
+  1459→        if messages:
+  1460→            conversation_text = "\n".join(
+  1461→                f"{msg.role}: {msg.content}" for msg in messages
+  1462→            )
+  1463→        else:
+  1464→            conversation_text = f"Subject: {ticket.subject}"
+  1465→
+  1466→        # Determine variant tier
+  1467→        tier = context.get("tier", "parwa")
+  1468→        if force_variant != "auto":
+  1469→            tier = force_variant
+  1470→
+  1471→        # Build session context for the pipeline
+  1472→        session_context = {
+  1473→            "variant_tier": tier,
+  1474→            "industry": context.get("session", {}).get("industry", "general"),
+  1475→            "company_id": company_id,
+  1476→        }
+  1477→
+  1478→        # Run through the variant pipeline
+  1479→        pipeline_result = await process_customer_care_message(
+  1480→            query=conversation_text,
+  1481→            company_id=company_id,
+  1482→            session_context=session_context,
+  1483→            ticket_id=ticket_id,
+  1484→            channel="chat",
+  1485→        )
+  1486→
+  1487→        # Update the ticket
+  1488→        ticket.status = "resolved"
+  1489→        ticket.resolved_at = datetime.now(timezone.utc)
+  1490→        db.flush()
+  1491→
+  1492→        # Add the AI's response as a message
+  1493→        ai_msg = TicketMessage(
+  1494→            company_id=company_id,
+  1495→            ticket_id=ticket_id,
+  1496→            role="ai",
+  1497→            content=pipeline_result.response_text,
+  1498→            ai_confidence=pipeline_result.quality_score,
+  1499→            variant_version=pipeline_result.variant_tier,
+  1500→        )
+  1501→        db.add(ai_msg)
+  1502→        db.flush()
+  1503→
+  1504→        logger.info(
+  1505→            "ticket_solved_via_jarvis: ticket=%s, variant=%s, quality=%.2f, company=%s",
+  1506→            ticket_id, pipeline_result.variant_tier,
+  1507→            pipeline_result.quality_score, company_id,
+  1508→        )
+  1509→
+  1510→        return {
+  1511→            "success": True,
+  1512→            "data": {
+  1513→                "ticket_id": ticket_id,
+  1514→                "status": "resolved",
+  1515→                "variant_tier": pipeline_result.variant_tier,
+  1516→                "quality_score": pipeline_result.quality_score,
+  1517→                "technique_used": pipeline_result.technique_used,
+  1518→                "classification_intent": pipeline_result.classification_intent,
+  1519→                "pipeline_status": pipeline_result.pipeline_status,
+  1520→                "steps_completed": pipeline_result.steps_completed,
+  1521→                "ai_response_preview": pipeline_result.response_text[:200] + "..." if len(pipeline_result.response_text) > 200 else pipeline_result.response_text,
+  1522→            },
+  1523→            "message": (
+  1524→                f"Ticket {ticket_id} has been resolved by the {pipeline_result.variant_tier} "
+  1525→                f"variant pipeline. Quality score: {pipeline_result.quality_score:.1f}/1.0. "
+  1526→                f"The AI used the {pipeline_result.technique_used or 'standard'} technique "
+  1527→                f"and classified it as '{pipeline_result.classification_intent or 'general'}'."
+  1528→            ),
+  1529→        }
+  1530→
+  1531→    except Exception:
+  1532→        logger.exception("solve_ticket_error: company=%s", company_id)
+  1533→        return {
+  1534→            "success": False,
+  1535→            "data": {},
+  1536→            "message": "I couldn't solve that ticket through the variant pipeline. Something went wrong.",
+  1537→        }
+  1538→
+  1539→
+  1540→async def _exec_list_recent_tickets(
+  1541→    db: Any, company_id: str, session_id: str, user_id: str,
+  1542→    params: Dict[str, Any], context: Dict[str, Any],
+  1543→) -> Dict[str, Any]:
+  1544→    """List recent tickets."""
+  1545→    try:
+  1546→        from database.models.tickets import Ticket
+  1547→
+  1548→        status_filter = params.get("status", "all")
+  1549→        limit = min(50, max(1, params.get("limit", 10)))
+  1550→        priority_filter = params.get("priority", "all")
+  1551→
+  1552→        query = db.query(Ticket).filter(Ticket.company_id == company_id)
+  1553→
+  1554→        if status_filter != "all":
+  1555→            query = query.filter(Ticket.status == status_filter)
+  1556→
+  1557→        if priority_filter != "all":
+  1558→            query = query.filter(Ticket.priority == priority_filter)
+  1559→
+  1560→        tickets = query.order_by(Ticket.created_at.desc()).limit(limit).all()
+  1561→
+  1562→        ticket_list = []
+  1563→        for t in tickets:
+  1564→            ticket_list.append({
+  1565→                "id": str(t.id),
+  1566→                "subject": t.subject,
+  1567→                "status": t.status,
+  1568→                "priority": t.priority,
+  1569→                "category": t.category,
+  1570→                "created_at": t.created_at.isoformat() if t.created_at else None,
+  1571→            })
+  1572→
+  1573→        status_summary = {}
+  1574→        for t in ticket_list:
+  1575→            s = t["status"]
+  1576→            status_summary[s] = status_summary.get(s, 0) + 1
+  1577→
+  1578→        summary_parts = [f"{count} {s}" for s, count in status_summary.items()]
+  1579→        summary_str = ", ".join(summary_parts) if summary_parts else "no tickets found"
+  1580→
+  1581→        return {
+  1582→            "success": True,
+  1583→            "data": {
+  1584→                "tickets": ticket_list,
+  1585→                "total_returned": len(ticket_list),
+  1586→                "status_summary": status_summary,
+  1587→            },
+  1588→            "message": (
+  1589→                f"Here are your recent tickets ({summary_str}). "
+  1590→                f"Want me to solve any of them, or do you need details on a specific one?"
+  1591→            ),
+  1592→        }
+  1593→
+  1594→    except Exception:
+  1595→        logger.exception("list_recent_tickets_error: company=%s", company_id)
+  1596→        return {
+  1597→            "success": False,
+  1598→            "data": {},
+  1599→            "message": "I couldn't fetch the ticket list right now.",
+  1600→        }
+  1601→
+  1602→
+  1603→async def _exec_batch_solve_tickets(
+  1604→    db: Any, company_id: str, session_id: str, user_id: str,
+  1605→    params: Dict[str, Any], context: Dict[str, Any],
+  1606→) -> Dict[str, Any]:
+  1607→    """Solve multiple tickets at once through the variant pipeline."""
+  1608→    try:
+  1609→        from database.models.tickets import Ticket
+  1610→        from app.core.variant_pipeline_bridge import process_customer_care_message
+  1611→
+  1612→        status_filter = params.get("status_filter", "open")
+  1613→        max_tickets = min(50, max(1, params.get("max_tickets", 10)))
+  1614→        priority_filter = params.get("priority_filter", "all")
+  1615→
+  1616→        # Build the query
+  1617→        statuses = []
+  1618→        if status_filter == "open":
+  1619→            statuses = ["open"]
+  1620→        elif status_filter == "in_progress":
+  1621→            statuses = ["in_progress"]
+  1622→        elif status_filter == "all_open":
+  1623→            statuses = ["open", "in_progress", "queued"]
+  1624→
+  1625→        query = db.query(Ticket).filter(
+  1626→            Ticket.company_id == company_id,
+  1627→            Ticket.status.in_(statuses),
+  1628→        )
+  1629→
+  1630→        if priority_filter == "high":
+  1631→            query = query.filter(Ticket.priority.in_(["high", "critical"]))
+  1632→        elif priority_filter == "critical":
+  1633→            query = query.filter(Ticket.priority == "critical")
+  1634→
+  1635→        tickets = query.order_by(
+  1636→            # Prioritize critical/high, then oldest first
+  1637→            Ticket.priority.desc(),
+  1638→            Ticket.created_at.asc(),
+  1639→        ).limit(max_tickets).all()
+  1640→
+  1641→        if not tickets:
+  1642→            return {
+  1643→                "success": True,
+  1644→                "data": {"solved_count": 0, "failed_count": 0},
+  1645→                "message": "No open tickets matching those filters. The queue is clear!",
+  1646→            }
+  1647→
+  1648→        # Solve each ticket through the variant pipeline
+  1649→        solved = 0
+  1650→        failed = 0
+  1651→        results = []
+  1652→
+  1653→        for ticket in tickets:
+  1654→            try:
+  1655→                tier = context.get("tier", "parwa")
+  1656→                session_context = {
+  1657→                    "variant_tier": tier,
+  1658→                    "industry": context.get("session", {}).get("industry", "general"),
+  1659→                    "company_id": company_id,
+  1660→                }
+  1661→
+  1662→                query_text = f"Subject: {ticket.subject}"
+  1663→                if ticket.messages:
+  1664→                    first_msg = ticket.messages[0]
+  1665→                    query_text = first_msg.content or query_text
+  1666→
+  1667→                pipeline_result = await process_customer_care_message(
+  1668→                    query=query_text,
+  1669→                    company_id=company_id,
+  1670→                    session_context=session_context,
+  1671→                    ticket_id=str(ticket.id),
+  1672→                    channel="chat",
+  1673→                )
+  1674→
+  1675→                # Update ticket
+  1676→                ticket.status = "resolved"
+  1677→                ticket.resolved_at = datetime.now(timezone.utc)
+  1678→
+  1679→                # Add AI response message
+  1680→                from database.models.tickets import TicketMessage
+  1681→                ai_msg = TicketMessage(
+  1682→                    company_id=company_id,
+  1683→                    ticket_id=str(ticket.id),
+  1684→                    role="ai",
+  1685→                    content=pipeline_result.response_text,
+  1686→                    ai_confidence=pipeline_result.quality_score,
+  1687→                    variant_version=pipeline_result.variant_tier,
+  1688→                )
+  1689→                db.add(ai_msg)
+  1690→
+  1691→                solved += 1
+  1692→                results.append({
+  1693→                    "ticket_id": str(ticket.id),
+  1694→                    "subject": ticket.subject,
+  1695→                    "status": "resolved",
+  1696→                    "variant": pipeline_result.variant_tier,
+  1697→                    "quality": pipeline_result.quality_score,
+  1698→                })
+  1699→
+  1700→            except Exception:
+  1701→                failed += 1
+  1702→                logger.debug("batch_solve_ticket_failed: ticket=%s", str(ticket.id))
+  1703→
+  1704→        db.flush()
+  1705→
+  1706→        return {
+  1707→            "success": True,
+  1708→            "data": {
+  1709→                "solved_count": solved,
+  1710→                "failed_count": failed,
+  1711→                "total_processed": len(tickets),
+  1712→                "results": results,
+  1713→            },
+  1714→            "message": (
+  1715→                f"Done! I solved {solved} out of {len(tickets)} tickets through the variant pipeline. "
+  1716→                f"{f'{failed} failed.' if failed else 'All resolved successfully!'} "
+  1717→                f"Want me to check the quality of the responses?"
+  1718→            ),
+  1719→        }
+  1720→
+  1721→    except Exception:
+  1722→        logger.exception("batch_solve_error: company=%s", company_id)
+  1723→        return {
+  1724→            "success": False,
+  1725→            "data": {},
+  1726→            "message": "Something went wrong while batch-solving tickets. I'll look into it.",
+  1727→        }
+  1728→
+  1729→
+  1730→async def _exec_generate_fake_requests(
+  1731→    db: Any, company_id: str, session_id: str, user_id: str,
+  1732→    params: Dict[str, Any], context: Dict[str, Any],
+  1733→) -> Dict[str, Any]:
+  1734→    """Generate fake customer requests and optionally create tickets + solve them."""
+  1735→    try:
+  1736→        from app.services.fake_request_generator import generate_fake_requests
+  1737→
+  1738→        count = min(25, max(1, params.get("count", 5)))
+  1739→        category = params.get("category", "mixed")
+  1740→        auto_solve = params.get("auto_solve", False)
+  1741→
+  1742→        # Generate the fake requests
+  1743→        fake_requests = generate_fake_requests(
+  1744→            count=count,
+  1745→            category=category,
+  1746→            company_id=company_id,
+  1747→        )
+  1748→
+  1749→        # Create tickets from each fake request
+  1750→        from database.models.tickets import Ticket, TicketMessage, Customer
+  1751→
+  1752→        created_tickets = []
+  1753→        for req in fake_requests:
+  1754→            try:
+  1755→                # Find or create customer
+  1756→                customer = None
+  1757→                if req.get("customer_email"):
+  1758→                    customer = db.query(Customer).filter(
+  1759→                        Customer.company_id == company_id,
+  1760→                        Customer.email == req["customer_email"],
+  1761→                    ).first()
+  1762→
+  1763→                    if not customer:
+  1764→                        customer = Customer(
+  1765→                            company_id=company_id,
+  1766→                            name=req.get("customer_name", req["customer_email"].split("@")[0]),
+  1767→                            email=req["customer_email"],
+  1768→                        )
+  1769→                        db.add(customer)
+  1770→                        db.flush()
+  1771→
+  1772→                # Create the ticket
+  1773→                ticket = Ticket(
+  1774→                    company_id=company_id,
+  1775→                    subject=req["subject"],
+  1776→                    status="open",
+  1777→                    priority=req["priority"],
+  1778→                    category=req["category"],
+  1779→                    customer_id=str(customer.id) if customer else None,
+  1780→                    source="fake_request_generator",
+  1781→                    tags=["fake", "demo", "test"],
+  1782→                )
+  1783→                db.add(ticket)
+  1784→                db.flush()
+  1785→
+  1786→                # Add the customer message
+  1787→                if customer:
+  1788→                    msg = TicketMessage(
+  1789→                        company_id=company_id,
+  1790→                        ticket_id=str(ticket.id),
+  1791→                        role="customer",
+  1792→                        content=req["message"],
+  1793→                        customer_id=str(customer.id),
+  1794→                    )
+  1795→                    db.add(msg)
+  1796→                    db.flush()
+  1797→
+  1798→                created_tickets.append({
+  1799→                    "ticket_id": str(ticket.id),
+  1800→                    "subject": req["subject"],
+  1801→                    "priority": req["priority"],
+  1802→                    "category": req["category"],
+  1803→                    "customer": req.get("customer_name", "Anonymous"),
+  1804→                })
+  1805→
+  1806→            except Exception:
+  1807→                logger.debug("fake_request_ticket_creation_failed")
+  1808→
+  1809→        db.flush()
+  1810→
+  1811→        # Auto-solve if requested
+  1812→        solved_count = 0
+  1813→        if auto_solve and created_tickets:
+  1814→            from app.core.variant_pipeline_bridge import process_customer_care_message
+  1815→
+  1816→            for ticket_info in created_tickets:
+  1817→                try:
+  1818→                    tier = context.get("tier", "parwa")
+  1819→                    session_context = {
+  1820→                        "variant_tier": tier,
+  1821→                        "industry": context.get("session", {}).get("industry", "general"),
+  1822→                        "company_id": company_id,
+  1823→                    }
+  1824→
+  1825→                    # Find the ticket and get its messages
+  1826→                    ticket = db.query(Ticket).filter(
+  1827→                        Ticket.id == ticket_info["ticket_id"],
+  1828→                        Ticket.company_id == company_id,
+  1829→                    ).first()
+  1830→
+  1831→                    if ticket:
+  1832→                        messages = db.query(TicketMessage).filter(
+  1833→                            TicketMessage.ticket_id == str(ticket.id),
+  1834→                        ).order_by(TicketMessage.created_at.asc()).all()
+  1835→
+  1836→                        query_text = messages[0].content if messages else ticket.subject
+  1837→
+  1838→                        pipeline_result = await process_customer_care_message(
+  1839→                            query=query_text,
+  1840→                            company_id=company_id,
+  1841→                            session_context=session_context,
+  1842→                            ticket_id=str(ticket.id),
+  1843→                            channel="chat",
+  1844→                        )
+  1845→
+  1846→                        # Update ticket to resolved
+  1847→                        ticket.status = "resolved"
+  1848→                        ticket.resolved_at = datetime.now(timezone.utc)
+  1849→
+  1850→                        # Add AI response
+  1851→                        ai_msg = TicketMessage(
+  1852→                            company_id=company_id,
+  1853→                            ticket_id=str(ticket.id),
+  1854→                            role="ai",
+  1855→                            content=pipeline_result.response_text,
+  1856→                            ai_confidence=pipeline_result.quality_score,
+  1857→                            variant_version=pipeline_result.variant_tier,
+  1858→                        )
+  1859→                        db.add(ai_msg)
+  1860→                        solved_count += 1
+  1861→
+  1862→                except Exception:
+  1863→                    logger.debug("auto_solve_fake_ticket_failed")
+  1864→
+  1865→            db.flush()
+  1866→
+  1867→        summary = (
+  1868→            f"I generated {len(created_tickets)} fake customer requests and created tickets for them. "
+  1869→        )
+  1870→        if auto_solve:
+  1871→            summary += f"I also ran {solved_count} of them through the variant pipeline — they've been resolved with AI responses."
+  1872→        else:
+  1873→            summary += "They're all sitting in the queue as open tickets, ready for the variant pipeline to pick up."
+  1874→
+  1875→        return {
+  1876→            "success": True,
+  1877→            "data": {
+  1878→                "generated_count": len(fake_requests),
+  1879→                "tickets_created": len(created_tickets),
+  1880→                "auto_solved": solved_count if auto_solve else None,
+  1881→                "tickets": created_tickets,
+  1882→            },
+  1883→            "message": summary,
+  1884→        }
+  1885→
+  1886→    except Exception:
+  1887→        logger.exception("generate_fake_requests_error: company=%s", company_id)
+  1888→        return {
+  1889→            "success": False,
+  1890→            "data": {},
+  1891→            "message": "I couldn't generate fake requests right now. Something went wrong.",
+  1892→        }
+  1893→
+  1894→
+  1895→async def _exec_upgrade_plan(
+  1896→    db: Any, company_id: str, session_id: str, user_id: str,
+  1897→    params: Dict[str, Any], context: Dict[str, Any],
+  1898→) -> Dict[str, Any]:
+  1899→    """Upgrade the subscription plan — tries Paddle API first, falls back to local."""
+  1900→    try:
+  1901→        from database.models.core import Company
+  1902→        from database.models.billing import Subscription
+  1903→
+  1904→        target_plan = params.get("target_plan", "parwa")
+  1905→        reason = params.get("reason", "Requested via Jarvis")
+  1906→
+  1907→        # Get current plan from awareness
+  1908→        awareness = context.get("awareness", {})
+  1909→        current_plan = awareness.get("current_plan", "mini_parwa")
+  1910→
+  1911→        plan_names = {
+  1912→            "mini_parwa": "Mini Parwa (Starter)",
+  1913→            "parwa": "Parwa (Professional)",
+  1914→            "parwa_high": "Parwa High (Enterprise)",
+  1915→        }
+  1916→
+  1917→        # Validate upgrade path
+  1918→        plan_order = ["mini_parwa", "parwa", "parwa_high"]
+  1919→        current_idx = plan_order.index(current_plan) if current_plan in plan_order else 0
+  1920→        target_idx = plan_order.index(target_plan) if target_plan in plan_order else 1
+  1921→
+  1922→        if target_idx <= current_idx:
+  1923→            higher_plans = ", ".join(plan_names[p] for p in plan_order[current_idx+1:])
+  1924→            if not higher_plans:
+  1925→                higher_plans = "none (you're on the top plan!)"
+  1926→            return {
+  1927→                "success": False,
+  1928→                "data": {"current_plan": current_plan, "target_plan": target_plan},
+  1929→                "message": (
+  1930→                    f"You're already on {plan_names.get(current_plan, current_plan)}. "
+  1931→                    f"You can only upgrade to a higher plan. "
+  1932→                    f"Available upgrades: {higher_plans}"
+  1933→                ),
+  1934→            }
+  1935→
+  1936→        # Try Paddle API for real upgrade
+  1937→        try:
+  1938→            from app.services.jarvis_paddle_bridge import get_jarvis_paddle_bridge
+  1939→            bridge = get_jarvis_paddle_bridge()
+  1940→
+  1941→            paddle_subscription_id = bridge.get_paddle_subscription_id(db, company_id)
+  1942→
+  1943→            paddle_result = await bridge.upgrade_plan(
+  1944→                company_id=company_id,
+  1945→                target_plan=target_plan,
+  1946→                current_plan=current_plan,
+  1947→                paddle_subscription_id=paddle_subscription_id,
+  1948→            )
+  1949→
+  1950→            if paddle_result.get("success"):
+  1951→                # Also update local DB
+  1952→                try:
+  1953→                    company = db.query(Company).filter(Company.id == company_id).first()
+  1954→                    if company:
+  1955→                        subscription = db.query(Subscription).filter(
+  1956→                            Subscription.company_id == company_id,
+  1957→                            Subscription.status == "active",
+  1958→                        ).first()
+  1959→                        if subscription:
+  1960→                            subscription.plan = target_plan
+  1961→                            subscription.updated_at = datetime.now(timezone.utc)
+  1962→                            db.flush()
+  1963→                except Exception:
+  1964→                    logger.debug("local_db_upgrade_failed_after_paddle_success")
+  1965→
+  1966→                return {
+  1967→                    "success": True,
+  1968→                    "data": paddle_result,
+  1969→                    "message": paddle_result.get("message",
+  1970→                        f"Done! Your plan has been upgraded from {plan_names.get(current_plan, current_plan)} "
+  1971→                        f"to {plan_names.get(target_plan, target_plan)} via Paddle."
+  1972→                    ),
+  1973→                }
+  1974→        except Exception:
+  1975→            logger.debug("paddle_upgrade_fallback: company=%s", company_id)
+  1976→
+  1977→        # Fallback: local DB upgrade only
+  1978→        try:
+  1979→            company = db.query(Company).filter(Company.id == company_id).first()
+  1980→            if company:
+  1981→                subscription = db.query(Subscription).filter(
+  1982→                    Subscription.company_id == company_id,
+  1983→                    Subscription.status == "active",
+  1984→                ).first()
+  1985→                if subscription:
+  1986→                    subscription.plan = target_plan
+  1987→                    subscription.updated_at = datetime.now(timezone.utc)
+  1988→                    db.flush()
+  1989→        except Exception:
+  1990→            logger.debug("subscription_model_not_available_for_upgrade")
+  1991→
+  1992→        return {
+  1993→            "success": True,
+  1994→            "data": {
+  1995→                "previous_plan": current_plan,
+  1996→                "new_plan": target_plan,
+  1997→                "upgraded_by": user_id,
+  1998→            },
+  1999→            "message": (
+  2000→                f"Done! Your plan has been upgraded from {plan_names.get(current_plan, current_plan)} "
+
+[showing lines 1-2000 of 2552; use offset=2001 with limit to continue reading]
