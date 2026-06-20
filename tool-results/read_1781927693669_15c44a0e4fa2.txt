@@ -1,0 +1,1067 @@
+     1→"""
+     2→ParwaGraphState — Shared State for the Multi-Agent LangGraph System
+     3→
+     4→This TypedDict defines the single shared state object that flows through
+     5→ALL 24+ agent nodes in the PARWA LangGraph graph. Every node reads from
+     6→and writes to this state.
+     7→
+     8→Design Principles:
+     9→  1. Every field is Optional — nodes only read what they need, write what they produce
+    10→  2. Annotated[list, operator.add] for append-only lists (errors, audit trail)
+    11→  3. Annotated[dict, operator.or_] for merge-accumulated dicts (node_outputs)
+    12→  4. variant_tier is the KING field — it drives agent availability, MAKER mode,
+    13→     technique access, channel availability, and approval requirements
+    14→  5. Groups are logical, not enforced by Python — they help developers understand
+    15→     which fields belong together
+    16→
+    17→Groups (24):
+    18→  1. INPUT              — Raw query + metadata
+    19→  2. PII_REDACTION      — PII-scrubbed message + detected entities
+    20→  3. EMPATHY_ENGINE     — Sentiment, urgency, threat detection
+    21→  4. ROUTER_AGENT       — Intent, complexity, target agent selection
+    22→  5. DOMAIN_AGENT       — Agent response, confidence, proposed action
+    23→  6. MAKER_VALIDATOR    — K-solution generation, selection, red flags
+    24→  7. CONTROL_SYSTEM     — Approval decisions, confidence breakdowns
+    25→  8. DSPY_OPTIMIZER     — Prompt optimization metadata
+    26→  9. GUARDRAILS         — Safety checks, flags, blocks
+    27→  10. CHANNEL_DELIVERY   — Delivery status, confirmations
+    28→  11. STATE_UPDATE       — Persistence, audit, metrics
+    29→  12. GSD_STATE          — Guided Support Dialogue state machine
+    30→  13. METADATA           — Processing timing, token usage, execution log
+    31→  14. JARVIS_AWARENESS   — System-wide awareness for Jarvis Command Center
+    32→  15. EMERGENCY_CONTROLS — AI pause, circuit breakers, emergency state
+    33→  16. ANTI_ARBITRAGE     — Gaming detection, risk scoring
+    34→  17. BRAND_VOICE_RAG    — Brand voice application, RAG retrieval
+    35→  18. COLLECTIVE_INTEL   — Collective intelligence, reward signals
+    36→  19. SELF_HEALING_TRUST — API recovery, circuit breakers, trust scoring
+    37→  20. JARVIS_COMMAND     — NL parsing, Co-Pilot, Feed
+    38→  21. INTEGRATION        — External system health, connector data
+    39→  22. VOICE_CALL         — Call tracking, compliance
+    40→  23. SMS_COMPLIANCE     — TCPA, rate limits
+    41→  24. DYNAMIC_INSTRUCTION— Policy, undo, real-time updates
+    42→
+    43→BC-001: company_id (tenant_id) is always present for multi-tenant isolation.
+    44→BC-008: Never crash — all nodes wrap in try/except, write errors to state.errors.
+    45→BC-012: All timestamps UTC.
+    46→"""
+    47→
+    48→from __future__ import annotations
+    49→
+    50→import operator
+    51→from typing import Annotated, Any, Dict, List, Optional
+    52→
+    53→from typing import TypedDict
+    54→
+    55→
+    56→# ══════════════════════════════════════════════════════════════════
+    57→# Append-only list reducer: new items are appended, never replaced
+    58→# ══════════════════════════════════════════════════════════════════
+    59→
+    60→def _merge_lists(existing: List[Any], new: List[Any]) -> List[Any]:
+    61→    """Reducer: append new items to existing list."""
+    62→    return existing + new
+    63→
+    64→
+    65→def _merge_dicts(existing: Dict[str, Any], new: Dict[str, Any]) -> Dict[str, Any]:
+    66→    """Reducer: merge new dict into existing dict (new keys override)."""
+    67→    merged = {**existing, **new}
+    68→    return merged
+    69→
+    70→
+    71→def _max_float(existing: float, new: float) -> float:
+    72→    """Reducer: keep the maximum value (for scores)."""
+    73→    return max(existing, new)
+    74→
+    75→
+    76→def _replace(existing: Any, new: Any) -> Any:
+    77→    """Reducer: last write wins (default behavior)."""
+    78→    return new
+    79→
+    80→
+    81→# ══════════════════════════════════════════════════════════════════
+    82→# PARWA GRAPH STATE — 24 Groups, ~150 Fields
+    83→# ══════════════════════════════════════════════════════════════════
+    84→
+    85→
+    86→class ParwaGraphState(TypedDict, total=False):
+    87→    """
+    88→    Shared state flowing through all LangGraph agent nodes.
+    89→
+    90→    Every field is optional (total=False) because:
+    91→      - Nodes only write the fields they produce
+    92→      - The graph starts with minimal INPUT fields
+    93→      - Fields accumulate as the graph executes
+    94→
+    95→    variant_tier is the KING field — it determines:
+    96→      - Which agents are available (mini=3, pro=6, high=all)
+    97→      - MAKER mode (efficiency/balanced/conservative)
+    98→      - Technique access (T1 / T1+T2 / T1+T2+T3)
+    99→      - Channel availability (voice=pro+high, video=high)
+   100→      - Approval requirements (none / money+vip / all risky)
+   101→    """
+   102→
+   103→    # ──────────────────────────────────────────────────────────────
+   104→    # GROUP 1: INPUT (11 fields)
+   105→    # Raw query + metadata that starts the graph
+   106→    # ──────────────────────────────────────────────────────────────
+   107→
+   108→    message: str
+   109→    """Raw incoming message from customer (before PII redaction)."""
+   110→
+   111→    channel: str
+   112→    """Origin channel: email, sms, voice, chat, api."""
+   113→
+   114→    customer_id: str
+   115→    """Unique customer identifier (BC-001 tenant-scoped)."""
+   116→
+   117→    tenant_id: str
+   118→    """Company/tenant identifier — KING field for multi-tenant isolation (BC-001)."""
+   119→
+   120→    variant_tier: str
+   121→    """Variant tier: mini, pro, high — DRIVES EVERYTHING."""
+   122→
+   123→    customer_tier: str
+   124→    """Customer segment: free, pro, enterprise, vip."""
+   125→
+   126→    industry: str
+   127→    """Industry vertical for domain-specific handling."""
+   128→
+   129→    language: str
+   130→    """Detected/requested language code (e.g., en, hi, es)."""
+   131→
+   132→    conversation_id: str
+   133→    """Ongoing conversation identifier for continuity."""
+   134→
+   135→    ticket_id: str
+   136→    """Associated ticket identifier (created or existing)."""
+   137→
+   138→    session_id: str
+   139→    """Session identifier for state persistence."""
+   140→
+   141→    # ──────────────────────────────────────────────────────────────
+   142→    # GROUP 2: PII REDACTION (2 fields)
+   143→    # PII-scrubbed message + detected entities
+   144→    # ──────────────────────────────────────────────────────────────
+   145→
+   146→    pii_redacted_message: str
+   147→    """Message after PII entities have been redacted/masked."""
+   148→
+   149→    pii_entities_found: Annotated[List[Dict[str, Any]], _merge_lists]
+   150→    """List of PII entities detected: [{type, value, position, replacement}]."""
+   151→
+   152→    # ──────────────────────────────────────────────────────────────
+   153→    # GROUP 3: EMPATHY ENGINE (5 fields)
+   154→    # Sentiment, urgency, threat detection
+   155→    # ──────────────────────────────────────────────────────────────
+   156→
+   157→    sentiment_score: float
+   158→    """Sentiment score 0.0-1.0 (0=very negative, 1=very positive)."""
+   159→
+   160→    sentiment_intensity: str
+   161→    """Intensity level: low, medium, high, extreme."""
+   162→
+   163→    legal_threat_detected: bool
+   164→    """Whether legal threats were detected in the message."""
+   165→
+   166→    urgency: str
+   167→    """Urgency classification: low, medium, high, critical."""
+   168→
+   169→    sentiment_trend: str
+   170→    """Sentiment trend across conversation: improving, stable, declining, spiraling."""
+   171→
+   172→    # ──────────────────────────────────────────────────────────────
+   173→    # GROUP 4: ROUTER AGENT (6 fields)
+   174→    # Intent, complexity, target agent selection
+   175→    # ──────────────────────────────────────────────────────────────
+   176→
+   177→    intent: str
+   178→    """Classified intent: faq, refund, technical, billing, complaint, escalation, general."""
+   179→
+   180→    complexity_score: float
+   181→    """Query complexity 0.0-1.0."""
+   182→
+   183→    target_agent: str
+   184→    """Selected domain agent: faq, refund, technical, billing, complaint, escalation."""
+   185→
+   186→    model_tier: str
+   187→    """Selected model tier: light, medium, heavy."""
+   188→
+   189→    technique_stack: Annotated[List[str], _merge_lists]
+   190→    """Ordered list of technique IDs to apply (driven by variant_tier + signals)."""
+   191→
+   192→    signals_extracted: Dict[str, Any]
+   193→    """Extracted query signals for technique routing (QuerySignals as dict)."""
+   194→
+   195→    # ──────────────────────────────────────────────────────────────
+   196→    # GROUP 5: DOMAIN AGENT (6 fields)
+   197→    # Agent response, confidence, proposed action
+   198→    # ──────────────────────────────────────────────────────────────
+   199→
+   200→    agent_response: str
+   201→    """The domain agent's generated response text."""
+   202→
+   203→    agent_confidence: float
+   204→    """Agent's confidence in its response 0.0-1.0."""
+   205→
+   206→    proposed_action: str
+   207→    """Proposed action: respond, refund, escalate, create_ticket, etc."""
+   208→
+   209→    action_type: str
+   210→    """Action classification: informational, monetary, destructive, escalation."""
+   211→
+   212→    agent_reasoning: str
+   213→    """Agent's chain-of-thought reasoning for audit/debugging."""
+   214→
+   215→    agent_type: str
+   216→    """Which domain agent produced this: faq, refund, technical, billing, complaint, escalation."""
+   217→
+   218→    # ──────────────────────────────────────────────────────────────
+   219→    # GROUP 6: MAKER VALIDATOR (8 fields)
+   220→    # K-solution generation, selection, red flags
+   221→    # Applied to ALL tiers (mini=K3, pro=K3-5, high=K5-7)
+   222→    # ──────────────────────────────────────────────────────────────
+   223→
+   224→    k_solutions: Annotated[List[Dict[str, Any]], _merge_lists]
+   225→    """Generated K candidate solutions: [{solution, confidence, reasoning}]."""
+   226→
+   227→    selected_solution: str
+   228→    """The best solution selected by MAKER from K candidates."""
+   229→
+   230→    red_flag: bool
+   231→    """Whether MAKER detected a red flag (confidence below threshold)."""
+   232→
+   233→    maker_mode: str
+   234→    """Current MAKER mode: efficiency (mini), balanced (pro), conservative (high)."""
+   235→
+   236→    k_value_used: int
+   237→    """K value used for this execution (3/3-5/5-7 based on tier)."""
+   238→
+   239→    fake_threshold: float
+   240→    """Confidence threshold applied: 0.50 (mini), 0.60 (pro), 0.75 (high)."""
+   241→
+   242→    maker_decomposition: Dict[str, Any]
+   243→    """MAKER's problem decomposition for audit trail."""
+   244→
+   245→    maker_audit_trail: Annotated[List[Dict[str, Any]], _merge_lists]
+   246→    """Step-by-step audit of MAKER evaluation process."""
+   247→
+   248→    # ──────────────────────────────────────────────────────────────
+   249→    # GROUP 7: CONTROL SYSTEM (7 fields)
+   250→    # Approval decisions, confidence breakdowns, interrupt logic
+   251→    # ──────────────────────────────────────────────────────────────
+   252→
+   253→    approval_decision: str
+   254→    """Control decision: approved, rejected, needs_human_approval, auto_approved."""
+   255→
+   256→    confidence_breakdown: Dict[str, float]
+   257→    """Confidence breakdown: {agent_confidence, maker_confidence, guardrails_score, overall}."""
+   258→
+   259→    system_mode: str
+   260→    """System mode: auto, supervised, shadow, paused."""
+   261→
+   262→    dnd_applies: bool
+   263→    """Whether Do Not Disturb rules apply for this customer."""
+   264→
+   265→    money_rule_triggered: bool
+   266→    """Whether a monetary action rule was triggered (refund, discount, etc.)."""
+   267→
+   268→    vip_rule_triggered: bool
+   269→    """Whether a VIP customer rule was triggered."""
+   270→
+   271→    approval_timeout_seconds: int
+   272→    """Timeout for human approval before auto-escalation."""
+   273→
+   274→    # ──────────────────────────────────────────────────────────────
+   275→    # GROUP 8: DSPY OPTIMIZER (2 fields)
+   276→    # Prompt optimization metadata
+   277→    # ──────────────────────────────────────────────────────────────
+   278→
+   279→    prompt_optimized: bool
+   280→    """Whether DSPy prompt optimization was applied."""
+   281→
+   282→    optimized_prompt_version: str
+   283→    """Version identifier of the optimized prompt used."""
+   284→
+   285→    # ──────────────────────────────────────────────────────────────
+   286→    # GROUP 9: GUARDRAILS (3 fields)
+   287→    # Safety checks, flags, blocks
+   288→    # ──────────────────────────────────────────────────────────────
+   289→
+   290→    guardrails_passed: bool
+   291→    """Whether all guardrail checks passed."""
+   292→
+   293→    guardrails_flags: Annotated[List[Dict[str, Any]], _merge_lists]
+   294→    """List of guardrail flags: [{rule_id, severity, message}]."""
+   295→
+   296→    guardrails_blocked_reason: str
+   297→    """If blocked, the reason; empty string if not blocked."""
+   298→
+   299→    # ──────────────────────────────────────────────────────────────
+   300→    # GROUP 10: CHANNEL DELIVERY (6 fields)
+   301→    # Delivery status, confirmations, fallbacks
+   302→    # ──────────────────────────────────────────────────────────────
+   303→
+   304→    delivery_status: str
+   305→    """Delivery status: pending, sent, delivered, failed, bounced."""
+   306→
+   307→    delivery_channel: str
+   308→    """Actual delivery channel used (may differ from input channel after fallback)."""
+   309→
+   310→    delivery_timestamp: str
+   311→    """UTC ISO timestamp of delivery attempt."""
+   312→
+   313→    delivery_confirmation_id: str
+   314→    """Delivery confirmation/receipt identifier."""
+   315→
+   316→    delivery_failure_reason: str
+   317→    """Reason for delivery failure, if any."""
+   318→
+   319→    fallback_attempted: bool
+   320→    """Whether a fallback channel was attempted after primary failure."""
+   321→
+   322→    # ──────────────────────────────────────────────────────────────
+   323→    # GROUP 11: STATE UPDATE (8 fields)
+   324→    # Persistence, audit, metrics updates
+   325→    # ──────────────────────────────────────────────────────────────
+   326→
+   327→    ticket_created: bool
+   328→    """Whether a new ticket was created during this flow."""
+   329→
+   330→    ticket_updated: bool
+   331→    """Whether an existing ticket was updated."""
+   332→
+   333→    ticket_status: str
+   334→    """Current ticket status: open, in_progress, resolved, closed, escalated."""
+   335→
+   336→    gsd_state_persisted: bool
+   337→    """Whether GSD state was persisted to database."""
+   338→
+   339→    audit_log_written: bool
+   340→    """Whether an audit log entry was written."""
+   341→
+   342→    metrics_updated: bool
+   343→    """Whether metrics counters were incremented."""
+   344→
+   345→    jarvis_feed_pushed: bool
+   346→    """Whether state was pushed to Jarvis awareness feed."""
+   347→
+   348→    fifty_mistake_check: Dict[str, Any]
+   349→    """Agent Lightning 50-mistake rule check result: {agent_id, mistake_count, training_needed}."""
+   350→
+   351→    # ──────────────────────────────────────────────────────────────
+   352→    # GROUP 12: GSD STATE (4 fields)
+   353→    # Guided Support Dialogue state machine
+   354→    # ──────────────────────────────────────────────────────────────
+   355→
+   356→    gsd_state: str
+   357→    """Current GSD state: new, greeting, diagnosis, resolution, follow_up, escalate, human_handoff, closed."""
+   358→
+   359→    gsd_step: str
+   360→    """Current step within the GSD state."""
+   361→
+   362→    context_health: float
+   363→    """Context health score 0.0-1.0 (1.0 = perfectly healthy)."""
+   364→
+   365→    context_compressed: bool
+   366→    """Whether context compression was applied to manage token budget."""
+   367→
+   368→    # ──────────────────────────────────────────────────────────────
+   369→    # GROUP 13: METADATA (9 fields)
+   370→    # Processing timing, token usage, execution log
+   371→    # ──────────────────────────────────────────────────────────────
+   372→
+   373→    processing_start_time: str
+   374→    """UTC ISO timestamp when processing started."""
+   375→
+   376→    model_used: str
+   377→    """LLM model identifier used for primary generation."""
+   378→
+   379→    tokens_consumed: int
+   380→    """Total tokens consumed across all LLM calls."""
+   381→
+   382→    total_llm_calls: int
+   383→    """Total number of LLM API calls made."""
+   384→
+   385→    node_execution_log: Annotated[List[Dict[str, Any]], _merge_lists]
+   386→    """Per-node execution log: [{node_name, duration_ms, tokens, status, timestamp}]."""
+   387→
+   388→    error: str
+   389→    """Last error message, if any (non-fatal)."""
+   390→
+   391→    reward_signal: float
+   392→    """Reward signal for Collective Intelligence feedback (0.0-1.0)."""
+   393→
+   394→    shadow_mode_intercepted: bool
+   395→    """Whether this flow was intercepted in Shadow Mode (SHADOW→SUPERVISED→GRADUATED)."""
+   396→
+   397→    # ──────────────────────────────────────────────────────────────
+   398→    # GROUP 14: JARVIS AWARENESS (21 fields)
+   399→    # System-wide awareness for Jarvis Command Center
+   400→    # Jarvis needs to know EVERYTHING happening in the system
+   401→    # ──────────────────────────────────────────────────────────────
+   402→
+   403→    current_plan: str
+   404→    """Current subscription plan: mini, pro, high."""
+   405→
+   406→    plan_usage_today: float
+   407→    """Plan usage percentage today (0.0-100.0)."""
+   408→
+   409→    subscription_status: str
+   410→    """Subscription status: active, past_due, cancelled, trial."""
+   411→
+   412→    days_until_renewal: int
+   413→    """Days until subscription renewal date."""
+   414→
+   415→    system_health: str
+   416→    """Overall system health: healthy, degraded, critical, down."""
+   417→
+   418→    channel_health: Dict[str, str]
+   419→    """Per-channel health status: {email: healthy, sms: degraded, voice: healthy}."""
+   420→
+   421→    active_alerts: Annotated[List[Dict[str, Any]], _merge_lists]
+   422→    """Active system alerts: [{alert_id, severity, message, channel}]."""
+   423→
+   424→    ticket_volume_today: int
+   425→    """Total tickets processed today for this tenant."""
+   426→
+   427→    ticket_volume_avg: float
+   428→    """Average daily ticket volume (7-day rolling)."""
+   429→
+   430→    ticket_volume_spike: bool
+   431→    """Whether today's volume exceeds 2x average."""
+   432→
+   433→    active_agents: int
+   434→    """Number of currently active AI agents for this tenant."""
+   435→
+   436→    agent_pool_capacity: int
+   437→    """Maximum concurrent agents allowed for this tier."""
+   438→
+   439→    agent_pool_utilization: float
+   440→    """Agent pool utilization percentage (0.0-100.0)."""
+   441→
+   442→    training_running: bool
+   443→    """Whether Agent Lightning training is currently running."""
+   444→
+   445→    training_mistake_count: int
+   446→    """Current mistake count for Agent Lightning (out of 50)."""
+   447→
+   448→    training_model_version: str
+   449→    """Current model version being trained by Agent Lightning."""
+   450→
+   451→    drift_status: str
+   452→    """Model drift status: none, slight, moderate, severe."""
+   453→
+   454→    drift_score: float
+   455→    """Drift detection score (0.0-1.0, higher = more drift)."""
+   456→
+   457→    quality_score: float
+   458→    """Overall quality score across recent responses (0.0-1.0)."""
+   459→
+   460→    quality_alerts: Annotated[List[Dict[str, Any]], _merge_lists]
+   461→    """Quality-related alerts: [{metric, threshold, actual, severity}]."""
+   462→
+   463→    last_5_errors: Annotated[List[Dict[str, Any]], _merge_lists]
+   464→    """Last 5 error records: [{error, node, timestamp, tenant_id}]."""
+   465→
+   466→    # ──────────────────────────────────────────────────────────────
+   467→    # GROUP 15: EMERGENCY CONTROLS (6 fields)
+   468→    # AI pause, circuit breakers, emergency state
+   469→    # ──────────────────────────────────────────────────────────────
+   470→
+   471→    ai_paused: bool
+   472→    """Whether AI processing is globally paused for this tenant."""
+   473→
+   474→    paused_channels: Annotated[List[str], _merge_lists]
+   475→    """Channels where AI is currently paused: [email, sms, voice]."""
+   476→
+   477→    paused_actions: Annotated[List[str], _merge_lists]
+   478→    """Action types currently paused: [refund, escalation, etc.]."""
+   479→
+   480→    emergency_state: str
+   481→    """Emergency state: normal, yellow_alert, red_alert, full_stop."""
+   482→
+   483→    circuit_breaker_trips: int
+   484→    """Number of circuit breaker trips in the last hour."""
+   485→
+   486→    global_pause_reason: str
+   487→    """Reason for global AI pause, if any."""
+   488→
+   489→    # ──────────────────────────────────────────────────────────────
+   490→    # GROUP 16: ANTI-ARBITRAGE (4 fields)
+   491→    # Gaming detection, risk scoring
+   492→    # ──────────────────────────────────────────────────────────────
+   493→
+   494→    arbitrage_risk_score: float
+   495→    """Arbitrage risk score 0.0-1.0 (7 signal types aggregated)."""
+   496→
+   497→    arbitrage_signals: Annotated[List[Dict[str, Any]], _merge_lists]
+   498→    """Detected arbitrage signals: [{signal_type, value, threshold, triggered}]."""
+   499→
+   500→    active_sessions: int
+   501→    """Number of active sessions for this customer (gaming indicator)."""
+   502→
+   503→    plan_cycling_detected: bool
+   504→    """Whether plan cycling (subscribe/cancel/re-subscribe) was detected."""
+   505→
+   506→    # ──────────────────────────────────────────────────────────────
+   507→    # GROUP 17: BRAND VOICE & RAG (5 fields)
+   508→    # Brand voice application, RAG retrieval
+   509→    # ──────────────────────────────────────────────────────────────
+   510→
+   511→    brand_voice_applied: bool
+   512→    """Whether brand voice profile was applied to the response."""
+   513→
+   514→    brand_voice_profile: Dict[str, Any]
+   515→    """Applied brand voice settings: {tone, formality, greeting, closing, prohibited_terms}."""
+   516→
+   517→    rag_documents_retrieved: Annotated[List[Dict[str, Any]], _merge_lists]
+   518→    """RAG retrieved documents: [{doc_id, content, score, source}]."""
+   519→
+   520→    rag_reranked: bool
+   521→    """Whether RAG results were reranked for relevance."""
+   522→
+   523→    kb_documents_used: Annotated[List[str], _merge_lists]
+   524→    """Knowledge base document IDs used in response generation."""
+   525→
+   526→    # ──────────────────────────────────────────────────────────────
+   527→    # GROUP 18: COLLECTIVE INTELLIGENCE & REWARD (5 fields)
+   528→    # Shared learning, reward signals, manager corrections
+   529→    # ──────────────────────────────────────────────────────────────
+   530→
+   531→    collective_patterns_used: Annotated[List[Dict[str, Any]], _merge_lists]
+   532→    """Collective intelligence patterns applied: [{pattern_id, source, confidence}]."""
+   533→
+   534→    manager_correction: bool
+   535→    """Whether a human manager corrected this response."""
+   536→
+   537→    auto_approved_rule_created: bool
+   538→    """Whether an auto-approval rule was created from this interaction."""
+   539→
+   540→    batch_cluster_id: str
+   541→    """Batch processing cluster identifier for analytics."""
+   542→
+   543→    # ──────────────────────────────────────────────────────────────
+   544→    # GROUP 19: SELF-HEALING & TRUST (6 fields)
+   545→    # API recovery + circuit breakers + trust scoring
+   546→    # ──────────────────────────────────────────────────────────────
+   547→
+   548→    self_healing_enabled: bool
+   549→    """Whether self-healing is active for this tenant."""
+   550→
+   551→    api_recovery_attempted: bool
+   552→    """Whether an API recovery was attempted during this flow."""
+   553→
+   554→    api_recovery_success: bool
+   555→    """Whether the API recovery succeeded."""
+   556→
+   557→    circuit_breaker_state: str
+   558→    """Circuit breaker state: closed, open, half_open."""
+   559→
+   560→    trust_score: float
+   561→    """Overall trust score 0.0-1.0 for the current interaction."""
+   562→
+   563→    trust_violation: str
+   564→    """Trust violation type if any: none, confidence_below_threshold, policy_violation, hallucination_detected."""
+   565→
+   566→    # ──────────────────────────────────────────────────────────────
+   567→    # GROUP 20: JARVIS COMMAND CONTEXT (6 fields)
+   568→    # NL parsing + Co-Pilot + Feed
+   569→    # ──────────────────────────────────────────────────────────────
+   570→
+   571→    jarvis_command_parsed: str
+   572→    """Parsed Jarvis command from natural language input."""
+   573→
+   574→    jarvis_command_intent: str
+   575→    """Command intent: query, control, configure, report, override."""
+   576→
+   577→    co_pilot_suggestion: str
+   578→    """Co-Pilot suggestion text for the agent."""
+   579→
+   580→    co_pilot_suggestion_type: str
+   581→    """Suggestion type: response_template, escalation_hint, knowledge_link, policy_reminder."""
+   582→
+   583→    jarvis_feed_entry: Dict[str, Any]
+   584→    """Feed entry to push to Jarvis awareness feed."""
+   585→
+   586→    jarvis_command_metadata: Dict[str, Any]
+   587→    """Additional command metadata: {parsed_at, confidence, source, raw_input}."""
+   588→
+   589→    # ──────────────────────────────────────────────────────────────
+   590→    # GROUP 21: INTEGRATION & CONNECTOR (6 fields)
+   591→    # External system health + data
+   592→    # ──────────────────────────────────────────────────────────────
+   593→
+   594→    connector_health: Dict[str, str]
+   595→    """Per-connector health: {shopify: healthy, zendesk: degraded, slack: healthy}."""
+   596→
+   597→    connector_data_fetched: Annotated[List[Dict[str, Any]], _merge_lists]
+   598→    """Data fetched from external connectors: [{connector, data_type, record_count, fetch_time_ms}]."""
+   599→
+   600→    integration_sync_status: str
+   601→    """Integration sync status: synced, pending, failed, not_configured."""
+   602→
+   603→    webhook_events_pending: int
+   604→    """Number of pending webhook events to process."""
+   605→
+   606→    external_system_errors: Annotated[List[Dict[str, Any]], _merge_lists]
+   607→    """External system errors: [{system, error, timestamp, retry_count}]."""
+   608→
+   609→    connector_last_sync: Dict[str, str]
+   610→    """Last sync timestamps per connector: {shopify: "2024-01-01T00:00:00Z"}."""
+   611→
+   612→    # ──────────────────────────────────────────────────────────────
+   613→    # GROUP 22: VOICE CALL STATE (7 fields)
+   614→    # Call tracking + compliance
+   615→    # ──────────────────────────────────────────────────────────────
+   616→
+   617→    call_id: str
+   618→    """Voice call identifier (Twilio CallSid)."""
+   619→
+   620→    call_status: str
+   621→    """Call status: ringing, in_progress, completed, failed, no_answer, busy."""
+   622→
+   623→    call_duration_seconds: int
+   624→    """Call duration in seconds."""
+   625→
+   626→    call_recording_enabled: bool
+   627→    """Whether call recording is enabled (consent required)."""
+   628→
+   629→    call_transcription: str
+   630→    """Real-time call transcription text."""
+   631→
+   632→    call_participants: Annotated[List[Dict[str, Any]], _merge_lists]
+   633→    """Call participants: [{role, phone_number, joined_at, left_at}]."""
+   634→
+   635→    voice_consent_verified: bool
+   636→    """Whether voice consent was verified before the call."""
+   637→
+   638→    # ──────────────────────────────────────────────────────────────
+   639→    # GROUP 23: SMS COMPLIANCE (5 fields)
+   640→    # TCPA + rate limits
+   641→    # ──────────────────────────────────────────────────────────────
+   642→
+   643→    tcpa_consent_verified: bool
+   644→    """Whether TCPA consent was verified before SMS delivery."""
+   645→
+   646→    tcpa_consent_timestamp: str
+   647→    """UTC ISO timestamp when TCPA consent was verified."""
+   648→
+   649→    sms_rate_limit_remaining: int
+   650→    """Remaining SMS messages in current rate limit window."""
+   651→
+   652→    sms_opt_out: bool
+   653→    """Whether the customer has opted out of SMS communications."""
+   654→
+   655→    sms_compliance_flags: Annotated[List[Dict[str, Any]], _merge_lists]
+   656→    """SMS compliance flags: [{rule, status, message}]."""
+   657→
+   658→    # ──────────────────────────────────────────────────────────────
+   659→    # GROUP 24: DYNAMIC INSTRUCTION (6 fields)
+   660→    # Policy + undo + real-time update
+   661→    # ──────────────────────────────────────────────────────────────
+   662→
+   663→    dynamic_instructions: Annotated[List[Dict[str, Any]], _merge_lists]
+   664→    """Active dynamic instructions: [{instruction_id, type, content, priority, expires_at}]."""
+   665→
+   666→    policy_overrides: Dict[str, Any]
+   667→    """Active policy overrides: {rule_id: override_value}."""
+   668→
+   669→    undo_available: bool
+   670→    """Whether the last action can be undone."""
+   671→
+   672→    undo_action_id: str
+   673→    """ID of the action that can be undone, if available."""
+   674→
+   675→    instruction_version: int
+   676→    """Current version of the dynamic instruction set."""
+   677→
+   678→    instruction_updated_at: str
+   679→    """UTC ISO timestamp of last instruction update."""
+   680→
+   681→    node_outputs: Annotated[Dict[str, Any], _merge_dicts]
+   682→    """Accumulated outputs from each node: {node_name: output_dict}.
+   683→    This is the primary way nodes share data with downstream nodes."""
+   684→
+   685→    errors: Annotated[List[str], _merge_lists]
+   686→    """Accumulated error messages across all nodes (BC-008 graceful degradation)."""
+   687→
+   688→
+   689→# ══════════════════════════════════════════════════════════════════
+   690→# HELPER: Create default state for graph invocation
+   691→# ══════════════════════════════════════════════════════════════════
+   692→
+   693→
+   694→def create_initial_state(
+   695→    message: str,
+   696→    channel: str,
+   697→    customer_id: str,
+   698→    tenant_id: str,
+   699→    variant_tier: str,
+   700→    customer_tier: str = "free",
+   701→    industry: str = "general",
+   702→    language: str = "en",
+   703→    conversation_id: str = "",
+   704→    ticket_id: str = "",
+   705→    session_id: str = "",
+   706→) -> Dict[str, Any]:
+   707→    """
+   708→    Create the initial state dict for LangGraph graph invocation.
+   709→
+   710→    Only INPUT group fields are populated; all other groups start
+   711→    with empty/default values. Nodes will populate their fields
+   712→    as the graph executes.
+   713→
+   714→    Args:
+   715→        message: Raw incoming message from customer
+   716→        channel: Origin channel (email, sms, voice, chat, api)
+   717→        customer_id: Customer identifier
+   718→        tenant_id: Company/tenant identifier (BC-001)
+   719→        variant_tier: Variant tier (mini, pro, high)
+   720→        customer_tier: Customer segment (free, pro, enterprise, vip)
+   721→        industry: Industry vertical
+   722→        language: Language code
+   723→        conversation_id: Conversation ID (empty = new conversation)
+   724→        ticket_id: Ticket ID (empty = new ticket)
+   725→        session_id: Session ID (empty = new session)
+   726→
+   727→    Returns:
+   728→        Dict with all ParwaGraphState fields initialized to defaults.
+   729→    """
+   730→    from datetime import datetime, timezone
+   731→
+   732→    return {
+   733→        # GROUP 1: INPUT
+   734→        "message": message,
+   735→        "channel": channel,
+   736→        "customer_id": customer_id,
+   737→        "tenant_id": tenant_id,
+   738→        "variant_tier": variant_tier,
+   739→        "customer_tier": customer_tier,
+   740→        "industry": industry,
+   741→        "language": language,
+   742→        "conversation_id": conversation_id,
+   743→        "ticket_id": ticket_id,
+   744→        "session_id": session_id,
+   745→
+   746→        # GROUP 2: PII REDACTION
+   747→        "pii_redacted_message": "",
+   748→        "pii_entities_found": [],
+   749→
+   750→        # GROUP 3: EMPATHY ENGINE
+   751→        "sentiment_score": 0.5,
+   752→        "sentiment_intensity": "low",
+   753→        "legal_threat_detected": False,
+   754→        "urgency": "low",
+   755→        "sentiment_trend": "stable",
+   756→
+   757→        # GROUP 4: ROUTER AGENT
+   758→        "intent": "general",
+   759→        "complexity_score": 0.0,
+   760→        "target_agent": "faq",
+   761→        "model_tier": "medium",
+   762→        "technique_stack": [],
+   763→        "signals_extracted": {},
+   764→
+   765→        # GROUP 5: DOMAIN AGENT
+   766→        "agent_response": "",
+   767→        "agent_confidence": 0.0,
+   768→        "proposed_action": "respond",
+   769→        "action_type": "informational",
+   770→        "agent_reasoning": "",
+   771→        "agent_type": "",
+   772→
+   773→        # GROUP 6: MAKER VALIDATOR
+   774→        "k_solutions": [],
+   775→        "selected_solution": "",
+   776→        "red_flag": False,
+   777→        "maker_mode": "",
+   778→        "k_value_used": 0,
+   779→        "fake_threshold": 0.0,
+   780→        "maker_decomposition": {},
+   781→        "maker_audit_trail": [],
+   782→
+   783→        # GROUP 7: CONTROL SYSTEM
+   784→        "approval_decision": "",
+   785→        "confidence_breakdown": {},
+   786→        "system_mode": "auto",
+   787→        "dnd_applies": False,
+   788→        "money_rule_triggered": False,
+   789→        "vip_rule_triggered": False,
+   790→        "approval_timeout_seconds": 300,
+   791→
+   792→        # GROUP 8: DSPY OPTIMIZER
+   793→        "prompt_optimized": False,
+   794→        "optimized_prompt_version": "",
+   795→
+   796→        # GROUP 9: GUARDRAILS
+   797→        "guardrails_passed": False,
+   798→        "guardrails_flags": [],
+   799→        "guardrails_blocked_reason": "",
+   800→
+   801→        # GROUP 10: CHANNEL DELIVERY
+   802→        "delivery_status": "pending",
+   803→        "delivery_channel": "",
+   804→        "delivery_timestamp": "",
+   805→        "delivery_confirmation_id": "",
+   806→        "delivery_failure_reason": "",
+   807→        "fallback_attempted": False,
+   808→
+   809→        # GROUP 11: STATE UPDATE
+   810→        "ticket_created": False,
+   811→        "ticket_updated": False,
+   812→        "ticket_status": "open",
+   813→        "gsd_state_persisted": False,
+   814→        "audit_log_written": False,
+   815→        "metrics_updated": False,
+   816→        "jarvis_feed_pushed": False,
+   817→        "fifty_mistake_check": {},
+   818→
+   819→        # GROUP 12: GSD STATE
+   820→        "gsd_state": "new",
+   821→        "gsd_step": "",
+   822→        "context_health": 1.0,
+   823→        "context_compressed": False,
+   824→
+   825→        # GROUP 13: METADATA
+   826→        "processing_start_time": datetime.now(timezone.utc).isoformat(),
+   827→        "model_used": "",
+   828→        "tokens_consumed": 0,
+   829→        "total_llm_calls": 0,
+   830→        "node_execution_log": [],
+   831→        "error": "",
+   832→        "reward_signal": 0.0,
+   833→        "shadow_mode_intercepted": False,
+   834→
+   835→        # GROUP 14: JARVIS AWARENESS
+   836→        "current_plan": variant_tier,
+   837→        "plan_usage_today": 0.0,
+   838→        "subscription_status": "active",
+   839→        "days_until_renewal": 30,
+   840→        "system_health": "healthy",
+   841→        "channel_health": {},
+   842→        "active_alerts": [],
+   843→        "ticket_volume_today": 0,
+   844→        "ticket_volume_avg": 0.0,
+   845→        "ticket_volume_spike": False,
+   846→        "active_agents": 0,
+   847→        "agent_pool_capacity": 5,
+   848→        "agent_pool_utilization": 0.0,
+   849→        "training_running": False,
+   850→        "training_mistake_count": 0,
+   851→        "training_model_version": "",
+   852→        "drift_status": "none",
+   853→        "drift_score": 0.0,
+   854→        "quality_score": 0.0,
+   855→        "quality_alerts": [],
+   856→        "last_5_errors": [],
+   857→
+   858→        # GROUP 15: EMERGENCY CONTROLS
+   859→        "ai_paused": False,
+   860→        "paused_channels": [],
+   861→        "paused_actions": [],
+   862→        "emergency_state": "normal",
+   863→        "circuit_breaker_trips": 0,
+   864→        "global_pause_reason": "",
+   865→
+   866→        # GROUP 16: ANTI-ARBITRAGE
+   867→        "arbitrage_risk_score": 0.0,
+   868→        "arbitrage_signals": [],
+   869→        "active_sessions": 1,
+   870→        "plan_cycling_detected": False,
+   871→
+   872→        # GROUP 17: BRAND VOICE & RAG
+   873→        "brand_voice_applied": False,
+   874→        "brand_voice_profile": {},
+   875→        "rag_documents_retrieved": [],
+   876→        "rag_reranked": False,
+   877→        "kb_documents_used": [],
+   878→
+   879→        # GROUP 18: COLLECTIVE INTELLIGENCE & REWARD
+   880→        "collective_patterns_used": [],
+   881→        "manager_correction": False,
+   882→        "auto_approved_rule_created": False,
+   883→        "batch_cluster_id": "",
+   884→
+   885→        # GROUP 19: SELF-HEALING & TRUST
+   886→        "self_healing_enabled": True,
+   887→        "api_recovery_attempted": False,
+   888→        "api_recovery_success": False,
+   889→        "circuit_breaker_state": "closed",
+   890→        "trust_score": 1.0,
+   891→        "trust_violation": "none",
+   892→
+   893→        # GROUP 20: JARVIS COMMAND CONTEXT
+   894→        "jarvis_command_parsed": "",
+   895→        "jarvis_command_intent": "",
+   896→        "co_pilot_suggestion": "",
+   897→        "co_pilot_suggestion_type": "",
+   898→        "jarvis_feed_entry": {},
+   899→        "jarvis_command_metadata": {},
+   900→
+   901→        # GROUP 21: INTEGRATION & CONNECTOR
+   902→        "connector_health": {},
+   903→        "connector_data_fetched": [],
+   904→        "integration_sync_status": "not_configured",
+   905→        "webhook_events_pending": 0,
+   906→        "external_system_errors": [],
+   907→        "connector_last_sync": {},
+   908→
+   909→        # GROUP 22: VOICE CALL STATE
+   910→        "call_id": "",
+   911→        "call_status": "",
+   912→        "call_duration_seconds": 0,
+   913→        "call_recording_enabled": False,
+   914→        "call_transcription": "",
+   915→        "call_participants": [],
+   916→        "voice_consent_verified": False,
+   917→
+   918→        # GROUP 23: SMS COMPLIANCE
+   919→        "tcpa_consent_verified": False,
+   920→        "tcpa_consent_timestamp": "",
+   921→        "sms_rate_limit_remaining": 100,
+   922→        "sms_opt_out": False,
+   923→        "sms_compliance_flags": [],
+   924→
+   925→        # GROUP 24: DYNAMIC INSTRUCTION
+   926→        "dynamic_instructions": [],
+   927→        "policy_overrides": {},
+   928→        "undo_available": False,
+   929→        "undo_action_id": "",
+   930→        "instruction_version": 1,
+   931→        "instruction_updated_at": "",
+   932→
+   933→        # SHARED ACCUMULATORS
+   934→        "node_outputs": {},
+   935→        "errors": [],
+   936→    }
+   937→
+   938→
+   939→# ══════════════════════════════════════════════════════════════════
+   940→# STATE TRANSITION VALIDATION & SANITIZATION
+   941→# ══════════════════════════════════════════════════════════════════
+   942→
+   943→
+   944→def validate_and_sanitize_node_output(
+   945→    node_name: str,
+   946→    update: Dict[str, Any],
+   947→) -> Dict[str, Any]:
+   948→    """
+   949→    Validate and sanitize a node's output before it is written to state.
+   950→
+   951→    This is the recommended entry point for all nodes to call before
+   952→    returning their state update dict. It:
+   953→
+   954→      1. Validates the update against known field constraints
+   955→      2. Logs any validation errors with the node name for traceability
+   956→      3. Sanitizes invalid values to safe defaults
+   957→      4. Logs each correction with the node name
+   958→      5. Returns the sanitized update dict
+   959→
+   960→    This function NEVER raises exceptions (BC-008). If anything goes
+   961→    wrong internally, the original update is returned unchanged.
+   962→
+   963→    Args:
+   964→        node_name: Name of the node producing this update (for logging)
+   965→        update: Partial state update dict that the node wants to return
+   966→
+   967→    Returns:
+   968→        Sanitized update dict with invalid values corrected to safe defaults.
+   969→
+   970→    Example usage in a node::
+   971→
+   972→        def my_agent_node(state: ParwaGraphState) -> Dict[str, Any]:
+   973→            result = {
+   974→                "variant_tier": "pro",
+   975→                "agent_confidence": 0.85,
+   976→                "action_type": "informational",
+   977→            }
+   978→            return validate_and_sanitize_node_output("my_agent_node", result)
+   979→    """
+   980→    from app.core.langgraph.validators import (
+   981→        validate_state_transition,
+   982→        sanitize_state_update,
+   983→    )
+   984→    from app.logger import get_logger
+   985→
+   986→    _logger = get_logger("langgraph_state")
+   987→
+   988→    try:
+   989→        # Step 1: Validate — collect errors for logging
+   990→        errors = validate_state_transition(update)
+   991→        if errors:
+   992→            _logger.warning(
+   993→                "node_output_validation_errors",
+   994→                node=node_name,
+   995→                errors=errors,
+   996→                fields=list(update.keys()),
+   997→            )
+   998→
+   999→        # Step 2: Sanitize — correct invalid values to safe defaults
+  1000→        sanitized = sanitize_state_update(update)
+  1001→
+  1002→        # Step 3: Log summary if any corrections were made
+  1003→        if sanitized != update:
+  1004→            corrected_fields = [
+  1005→                key for key in update if update[key] != sanitized.get(key)
+  1006→            ]
+  1007→            _logger.info(
+  1008→                "node_output_sanitized",
+  1009→                node=node_name,
+  1010→                corrected_fields=corrected_fields,
+  1011→                original_values={k: update[k] for k in corrected_fields},
+  1012→                sanitized_values={k: sanitized[k] for k in corrected_fields},
+  1013→            )
+  1014→
+  1015→        return sanitized
+  1016→
+  1017→    except Exception as exc:
+  1018→        # BC-008: Never crash — if validation itself fails, return original
+  1019→        _logger.error(
+  1020→            "node_output_validation_failed_returning_original",
+  1021→            node=node_name,
+  1022→            error=str(exc),
+  1023→        )
+  1024→        return update
+  1025→
+  1026→
+  1027→# ══════════════════════════════════════════════════════════════════
+  1028→# FIELD COUNT VALIDATION
+  1029→# ══════════════════════════════════════════════════════════════════
+  1030→
+  1031→def _count_fields() -> Dict[str, int]:
+  1032→    """Count fields per group for documentation/validation."""
+  1033→    group_counts = {
+  1034→        "1_INPUT": 11,
+  1035→        "2_PII_REDACTION": 2,
+  1036→        "3_EMPATHY_ENGINE": 5,
+  1037→        "4_ROUTER_AGENT": 6,
+  1038→        "5_DOMAIN_AGENT": 6,
+  1039→        "6_MAKER_VALIDATOR": 8,
+  1040→        "7_CONTROL_SYSTEM": 7,
+  1041→        "8_DSPY_OPTIMIZER": 2,
+  1042→        "9_GUARDRAILS": 3,
+  1043→        "10_CHANNEL_DELIVERY": 6,
+  1044→        "11_STATE_UPDATE": 8,
+  1045→        "12_GSD_STATE": 4,
+  1046→        "13_METADATA": 9,
+  1047→        "14_JARVIS_AWARENESS": 21,
+  1048→        "15_EMERGENCY_CONTROLS": 6,
+  1049→        "16_ANTI_ARBITRAGE": 4,
+  1050→        "17_BRAND_VOICE_RAG": 5,
+  1051→        "18_COLLECTIVE_INTEL": 4,
+  1052→        "19_SELF_HEALING_TRUST": 6,
+  1053→        "20_JARVIS_COMMAND": 6,
+  1054→        "21_INTEGRATION": 6,
+  1055→        "22_VOICE_CALL": 7,
+  1056→        "23_SMS_COMPLIANCE": 5,
+  1057→        "24_DYNAMIC_INSTRUCTION": 6,
+  1058→    }
+  1059→    return group_counts
+  1060→
+  1061→
+  1062→def get_total_field_count() -> int:
+  1063→    """Get total field count across all groups."""
+  1064→    counts = _count_fields()
+  1065→    # +2 for node_outputs and errors which are shared accumulators
+  1066→    return sum(counts.values()) + 2
+  1067→
