@@ -573,26 +573,21 @@ def get_live_graph_state(
         Dict with live ParwaGraphState fields, or None if unavailable.
     """
     try:
-        from app.core.langgraph.graph import get_compiled_graph
+        from app.core.parwa_pipeline.graph_v2 import build_parwa_pipeline
 
-        graph = get_compiled_graph()
+        graph = build_parwa_pipeline().compile()
         if graph is None:
             return None
 
-        # Read from checkpointer using thread_id = session_id
-        config = {"configurable": {"thread_id": session_id}}
-        state_snapshot = graph.get_state(config)
-
-        if state_snapshot and state_snapshot.values:
-            live_state = dict(state_snapshot.values)
-            logger.debug(
-                "live_graph_state_retrieved: session=%s, keys=%d",
-                session_id, len(live_state),
-            )
-            return live_state
+        # V2 pipeline: per-request state, no checkpointer
+        # Return pipeline metadata instead
+        return {
+            "pipeline": "parwa_pipeline_v2_8node",
+            "note": "V2 pipeline uses per-request state; no persistent checkpointer.",
+        }
 
     except ImportError:
-        logger.debug("langgraph_not_available: skipping live state read")
+        logger.debug("parwa_pipeline_not_available: skipping live state read")
     except Exception as e:
         logger.debug(
             "live_graph_state_failed: session=%s, error=%s",

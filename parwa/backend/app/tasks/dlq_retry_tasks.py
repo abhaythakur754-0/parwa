@@ -44,7 +44,7 @@ def retry_eligible_dlq_entries() -> List[Dict[str, Any]]:
         List of DLQ entry dicts with state_snapshot parsed.
     """
     try:
-        from app.core.langgraph.dlq import get_dlq_entries
+        from app.core.parwa_pipeline.dlq import get_dlq_entries
         
         # Get unresolved entries (limited batch)
         entries = get_dlq_entries(
@@ -121,7 +121,7 @@ def process_dlq_retry(entry_id: str, state_snapshot: Dict[str, Any]) -> bool:
         True if retry succeeded, False otherwise
     """
     try:
-        from app.core.langgraph.dlq import retry_dlq_entry, resolve_dlq_entry
+        from app.core.parwa_pipeline.dlq import retry_dlq_entry, resolve_dlq_entry
         
         # Mark as retried (increment retry_count)
         retry_result = retry_dlq_entry(entry_id)

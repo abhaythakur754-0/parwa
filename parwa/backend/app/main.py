@@ -262,25 +262,25 @@ async def lifespan(app: FastAPI):
             error=str(exc),
         )
 
-    # Phase 4: Pre-build LangGraph multi-agent graph at startup
+    # Phase 4: Pre-build unified 8-node PARWA pipeline at startup
     try:
-        from app.core.langgraph import build_parwa_graph, get_checkpointer
-        checkpointer = get_checkpointer()
-        _parwa_graph = build_parwa_graph(checkpointer=checkpointer)
+        from app.core.parwa_pipeline.graph_v2 import build_parwa_pipeline
+        _parwa_graph = build_parwa_pipeline()
+        _compiled = _parwa_graph.compile()
         # Store graph on app.state for API endpoints to use
-        app.state.parwa_graph = _parwa_graph
+        app.state.parwa_graph = _compiled
         logger = get_logger("lifespan")
         logger.info(
-            "langgraph_graph_initialized",
-            node_count=19,
-            has_checkpointer=checkpointer is not None,
+            "parwa_pipeline_v2_initialized",
+            node_count=8,
+            pipeline_type="unified_8node",
         )
     except Exception as exc:
         logger = get_logger("lifespan")
         logger.warning(
-            "langgraph_graph_init_failed_fail_open",
+            "parwa_pipeline_init_failed_fail_open",
             error=str(exc),
-            message="LangGraph graph will be built on first request",
+            message="PARWA pipeline will be built on first request",
         )
         app.state.parwa_graph = None
 

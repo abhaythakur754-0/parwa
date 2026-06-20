@@ -1094,7 +1094,7 @@ class ExternalToolBus:
     def _is_transient_error(exc: Exception) -> bool:
         """Check if an exception is transient (retryable)."""
         try:
-            from app.core.langgraph.retry import is_transient_error
+            from app.core.parwa_pipeline.retry import is_transient_error
             return is_transient_error(exc)
         except ImportError:
             pass

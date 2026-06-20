@@ -166,30 +166,29 @@ async def _check_celery() -> Dict[str, Any]:
 
 
 async def _check_langgraph() -> Dict[str, Any]:
-    """Check LangGraph engine status.
+    """Check PARWA pipeline V2 status.
 
-    Verifies the LangGraph graph was initialized at startup and is
+    Verifies the 8-node pipeline was initialized at startup and is
     available on app.state.
     """
     start = time.monotonic()
     try:
-        # Check if LangGraph graph was initialized at startup
         from app.main import app
         graph = getattr(app.state, "parwa_graph", None)
         latency = round((time.monotonic() - start) * 1000, 2)
 
         if graph is None:
             return {
-                "name": "langgraph",
+                "name": "parwa_pipeline_v2",
                 "status": "degraded",
                 "latency_ms": latency,
                 "last_checked": datetime.now(timezone.utc).isoformat(),
                 "uptime": 50.0,
-                "message": "LangGraph graph not initialized",
+                "message": "PARWA pipeline not initialized",
             }
 
         return {
-            "name": "langgraph",
+            "name": "parwa_pipeline_v2",
             "status": "healthy",
             "latency_ms": latency,
             "last_checked": datetime.now(timezone.utc).isoformat(),
@@ -198,14 +197,14 @@ async def _check_langgraph() -> Dict[str, Any]:
         }
     except Exception as exc:
         latency = round((time.monotonic() - start) * 1000, 2)
-        logger.warning("system_health_langgraph_check_failed error=%s", exc)
+        logger.warning("system_health_parwa_pipeline_check_failed error=%s", exc)
         return {
-            "name": "langgraph",
+            "name": "parwa_pipeline_v2",
             "status": "degraded",
             "latency_ms": latency,
             "last_checked": datetime.now(timezone.utc).isoformat(),
             "uptime": 0.0,
-            "message": f"LangGraph unavailable: {str(exc)[:100]}",
+            "message": f"PARWA pipeline unavailable: {str(exc)[:100]}",
         }
 
 
@@ -488,7 +487,7 @@ async def system_health_endpoint(
 
     # Process results, handling any exceptions from gather
     services: List[Dict[str, Any]] = []
-    service_names = ["api", "database", "redis", "celery", "langgraph", "socketio", "email", "sms"]
+    service_names = ["api", "database", "redis", "celery", "parwa_pipeline", "socketio", "email", "sms"]
 
     for i, result in enumerate(results):
         if isinstance(result, Exception):

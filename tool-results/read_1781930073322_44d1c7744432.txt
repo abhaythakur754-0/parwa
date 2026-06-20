@@ -1,0 +1,252 @@
+     1→/home/z/my-project/parwa/backend/tests/test_mini_parwa_graph.py:74:from app.core.parwa_graph_state import create_initial_state
+     2→/home/z/my-project/parwa/backend/tests/test_mini_parwa_graph.py:104:    return create_initial_state(**defaults)
+     3→/home/z/my-project/parwa/backend/tests/test_langgraph_phase4.py:5:  - ParwaGraphState (24 groups, ~155 fields)
+     4→/home/z/my-project/parwa/backend/tests/test_langgraph_phase4.py:6:  - create_initial_state() factory
+     5→/home/z/my-project/parwa/backend/tests/test_langgraph_phase4.py:43:    from app.core.langgraph.state import create_initial_state
+     6→/home/z/my-project/parwa/backend/tests/test_langgraph_phase4.py:44:    return create_initial_state(
+     7→/home/z/my-project/parwa/backend/tests/test_langgraph_phase4.py:60:# 1. ParwaGraphState — Field Count & Structure (10 tests)
+     8→/home/z/my-project/parwa/backend/tests/test_langgraph_phase4.py:64:class TestParwaGraphStateStructure:
+     9→/home/z/my-project/parwa/backend/tests/test_langgraph_phase4.py:121:# 2. create_initial_state — Input Group (8 tests)
+    10→/home/z/my-project/parwa/backend/tests/test_langgraph_phase4.py:152:# 3. create_initial_state — Groups 2-18 Defaults (15 tests)
+    11→/home/z/my-project/parwa/backend/tests/test_langgraph_phase4.py:829:        """Verify all parameters flow into create_initial_state."""
+    12→/home/z/my-project/parwa/backend/tests/test_mini_parwa_nodes.py:90:from app.core.parwa_graph_state import create_initial_state
+    13→/home/z/my-project/parwa/backend/tests/test_mini_parwa_nodes.py:126:    return create_initial_state(**defaults)
+    14→/home/z/my-project/parwa/backend/app/api/schemas/workflow.py:737:    # New fields from 24-group ParwaGraphState
+    15→/home/z/my-project/parwa/backend/database/alembic/versions/020_jarvis_cc_tables.py:10:ParwaGraphState that currently exist only in-memory.
+    16→/home/z/my-project/parwa/backend/tests/week7/test_multi_tenant_isolation.py:533:        """ParwaGraphState must have tenant_id field."""
+    17→/home/z/my-project/parwa/backend/tests/week7/test_multi_tenant_isolation.py:536:            "ParwaGraphState must have tenant_id field for BC-001"
+    18→/home/z/my-project/parwa/backend/tests/week7/test_multi_tenant_isolation.py:544:    def test_create_initial_state_accepts_tenant_id(self):
+    19→/home/z/my-project/parwa/backend/tests/week7/test_multi_tenant_isolation.py:545:        """create_initial_state must accept tenant_id parameter."""
+    20→/home/z/my-project/parwa/backend/tests/week7/test_multi_tenant_isolation.py:548:            "create_initial_state must accept tenant_id"
+    21→/home/z/my-project/parwa/backend/tests/week7/test_multi_tenant_isolation.py:551:        """tenant_id must be in the INPUT group of ParwaGraphState."""
+    22→/home/z/my-project/parwa/backend/tests/week7/test_multi_tenant_isolation.py:558:        """create_initial_state must set tenant_id in initial state dict."""
+    23→/home/z/my-project/parwa/backend/tests/week7/test_multi_tenant_isolation.py:561:            "create_initial_state must set tenant_id from parameter"
+    24→/home/z/my-project/parwa/backend/database/models/jarvis_cc.py:5:that currently exists only in the LangGraph ParwaGraphState
+    25→/home/z/my-project/parwa/backend/database/models/jarvis_cc.py:32:    ParwaGraphState fields (avoiding schema changes when
+    26→/home/z/my-project/parwa/backend/database/models/jarvis_cc.py:85:    This table replaces the ephemeral ParwaGraphState fields for
+    27→/home/z/my-project/parwa/backend/database/models/jarvis_cc.py:168:    # Complete ParwaGraphState GROUP 14 fields as JSON.
+    28→/home/z/my-project/parwa/backend/database/models/jarvis_cc.py:227:    Maps to GROUP 20 (JARVIS_COMMAND) fields in ParwaGraphState.
+    29→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:5:  1. parwa_graph_state.py — ParwaGraphState, create_initial_state, helpers
+    30→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:28:    ParwaGraphState,
+    31→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:29:    create_initial_state,
+    32→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:103:    return create_initial_state(
+    33→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:120:    return create_initial_state(
+    34→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:137:    return create_initial_state(
+    35→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:156:class TestParwaGraphState:
+    36→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:157:    """Tests for ParwaGraphState TypedDict and helpers."""
+    37→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:159:    # -- create_initial_state --
+    38→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:161:    def test_create_initial_state_basic(self):
+    39→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:162:        """create_initial_state should return a dict with all required fields."""
+    40→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:163:        state = create_initial_state(
+    41→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:172:    def test_create_initial_state_all_incoming_fields(self):
+    42→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:174:        state = create_initial_state(
+    43→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:194:    def test_create_initial_state_defaults(self):
+    44→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:196:        state = create_initial_state(query="Hi", company_id="co_1", variant_tier="mini_parwa")
+    45→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:209:    def test_create_initial_state_pii_redacted_defaults_to_query(self):
+    46→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:211:        state = create_initial_state(query="My SSN is 123-45-6789", company_id="co_1", variant_tier="parwa")
+    47→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:214:    def test_create_initial_state_billing_tier_matches_variant(self):
+    48→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:217:            state = create_initial_state(query="Hi", company_id="co_1", variant_tier=tier)
+    49→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:220:    def test_create_initial_state_response_format_matches_channel(self):
+    50→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:223:            state = create_initial_state(
+    51→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:229:    def test_create_initial_state_empty_defaults(self):
+    52→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:231:        state = create_initial_state(
+    53→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:251:        state = create_initial_state(query="Hello", company_id="co_1", variant_tier="parwa")
+    54→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:276:        state = create_initial_state(query="Hi", company_id="co_1", variant_tier="parwa")
+    55→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:289:        state = create_initial_state(query="Hi", company_id="co_1", variant_tier="parwa")
+    56→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:300:        state = create_initial_state(query="Hi", company_id="co_1", variant_tier="parwa")
+    57→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:307:        state = create_initial_state(query="Hi", company_id="co_1", variant_tier="parwa")
+    58→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:329:        state = create_initial_state(query="Hi", company_id="co_1", variant_tier="parwa")
+    59→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:342:        state = create_initial_state(
+    60→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:354:        state = create_initial_state(query="Hi", company_id="co_1", variant_tier="parwa")
+    61→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:361:        state = create_initial_state(query="Hi", company_id="co_1", variant_tier="parwa")
+    62→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:1191:    """Integration: ParwaGraphState + VariantRouter."""
+    63→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:1195:        state = create_initial_state(query="Hi", company_id="co_1", variant_tier="mini_parwa")
+    64→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:1210:        state = create_initial_state(query="Hi", company_id="co_1", variant_tier="parwa")
+    65→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:1230:        state = create_initial_state(query="Hi", company_id="co_1", variant_tier="parwa_high")
+    66→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:1256:        state = create_initial_state(query="I'll sue you!", company_id="co_1", variant_tier="parwa_high")
+    67→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:1266:        state = create_initial_state(query="Hi", company_id="co_1", variant_tier="parwa")
+    68→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:1275:        state = create_initial_state(query="Hi", company_id="co_1", variant_tier="parwa")
+    69→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:1284:    """Integration: ParwaGraphState + VariantService."""
+    70→/home/z/my-project/parwa/backend/app/tests/test_variant_engine_foundation.py:1289:            state = create_initial_state(query="Hi", company_id="co_1", variant_tier=tier)
+    71→/home/z/my-project/parwa/backend/app/tests/test_langgraph_gaps_lg01_lg04_integration.py:333:        """create_initial_state should produce a state that passes validation."""
+    72→/home/z/my-project/parwa/backend/app/tests/test_langgraph_gaps_lg01_lg04_integration.py:334:        from app.core.langgraph.state import create_initial_state
+    73→/home/z/my-project/parwa/backend/app/tests/test_langgraph_gaps_lg01_lg04_integration.py:337:        state = create_initial_state(
+    74→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase2.py:11:Each test creates a minimal ParwaGraphState dict, calls the node
+    75→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase2.py:29:    """Create a minimal valid ParwaGraphState dict for testing."""
+    76→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase2.py:30:    from app.core.langgraph.state import create_initial_state
+    77→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase2.py:32:    base = create_initial_state(
+    78→/home/z/my-project/parwa/backend/app/services/jarvis_awareness_engine.py:33:    ParwaGraphState GROUP 14 fields
+    79→/home/z/my-project/parwa/backend/app/services/jarvis_awareness_engine.py:397:    ParwaGraphState. When provided, the live state is merged with the DB
+    80→/home/z/my-project/parwa/backend/app/services/jarvis_awareness_engine.py:405:        live_graph_state: Optional live ParwaGraphState dict from LangGraph.
+    81→/home/z/my-project/parwa/backend/app/services/jarvis_awareness_engine.py:473:    """Merge live LangGraph ParwaGraphState into DB-collected state.
+    82→/home/z/my-project/parwa/backend/app/services/jarvis_awareness_engine.py:480:    Mapping from ParwaGraphState GROUP 14 fields to awareness state keys:
+    83→/home/z/my-project/parwa/backend/app/services/jarvis_awareness_engine.py:505:        live_state: Live ParwaGraphState from LangGraph.
+    84→/home/z/my-project/parwa/backend/app/services/jarvis_awareness_engine.py:510:    # Mapping: ParwaGraphState key → awareness state key
+    85→/home/z/my-project/parwa/backend/app/services/jarvis_awareness_engine.py:559:    """Retrieve the current live LangGraph ParwaGraphState for a session.
+    86→/home/z/my-project/parwa/backend/app/services/jarvis_awareness_engine.py:573:        Dict with live ParwaGraphState fields, or None if unavailable.
+    87→/home/z/my-project/parwa/backend/app/services/jarvis_agents/command_state.py:5:It's separate from ParwaGraphState because the command graph runs
+    88→/home/z/my-project/parwa/backend/app/services/jarvis_agents/command_state.py:40:    Unlike ParwaGraphState (which handles customer messages), this state
+    89→/home/z/my-project/parwa/backend/app/services/jarvis_agents/pipeline_feedback.py:23:  Main Pipeline (ParwaGraphState) ← jarvis_awareness_injector_node reads it
+    90→/home/z/my-project/parwa/backend/app/services/jarvis_agents/pipeline_feedback.py:78:    and injects the feedback into ParwaGraphState.
+    91→/home/z/my-project/parwa/backend/app/services/jarvis_agents/pipeline_feedback.py:219:    """Map a Jarvis command result to ParwaGraphState field updates.
+    92→/home/z/my-project/parwa/backend/app/services/jarvis_agents/pipeline_feedback.py:231:        Dict of ParwaGraphState field names → new values.
+    93→/home/z/my-project/parwa/backend/app/services/jarvis_agents/pipeline_feedback.py:368:    this key and injects the updates into ParwaGraphState.
+    94→/home/z/my-project/parwa/backend/app/tests/test_jarvis_cc_models.py:77:        """Model should have all 21 GROUP 14 fields from ParwaGraphState."""
+    95→/home/z/my-project/parwa/backend/app/tests/test_jarvis_cc_models.py:198:        """Model should map all 6 GROUP 20 fields from ParwaGraphState."""
+    96→/home/z/my-project/parwa/backend/app/tests/test_jarvis_cc_models.py:754:    """Tests simulating the data flow from ParwaGraphState → DB."""
+    97→/home/z/my-project/parwa/backend/app/tests/test_jarvis_cc_models.py:758:        # Simulated GROUP 14 state from ParwaGraphState
+    98→/home/z/my-project/parwa/backend/app/services/jarvis_agents/nodes/jarvis_awareness_injector.py:6:ParwaGraphState GROUP 14/15/20 fields.
+    99→/home/z/my-project/parwa/backend/app/services/jarvis_agents/nodes/jarvis_awareness_injector.py:41:  and writes into ParwaGraphState fields.
+   100→/home/z/my-project/parwa/backend/app/services/jarvis_agents/nodes/jarvis_awareness_injector.py:58:    """Read Jarvis awareness from bridge and inject into ParwaGraphState.
+   101→/home/z/my-project/parwa/backend/app/services/jarvis_agents/nodes/jarvis_awareness_injector.py:70:        state: Current ParwaGraphState dict.
+   102→/home/z/my-project/parwa/backend/app/services/jarvis_agents/nodes/jarvis_awareness_injector.py:389:    # Map awareness fields to GROUP 14 ParwaGraphState fields
+   103→/home/z/my-project/parwa/backend/app/services/jarvis_agents/variant_bridge.py:8:     messages via ParwaGraphState (24 groups, ~150 fields)
+   104→/home/z/my-project/parwa/backend/app/services/jarvis_agents/variant_bridge.py:22:    → Writes JarvisCommandState fields into ParwaGraphState via Redis
+   105→/home/z/my-project/parwa/backend/app/services/jarvis_agents/variant_bridge.py:26:    → Reads ParwaGraphState GROUP 14/15/20 fields FROM Redis
+   106→/home/z/my-project/parwa/backend/app/services/jarvis_agents/variant_bridge.py:42:    → After command execution, writes result back to ParwaGraphState
+   107→/home/z/my-project/parwa/backend/app/services/jarvis_agents/variant_bridge.py:218:    """Inject JarvisCommandState fields into ParwaGraphState via Redis.
+   108→/home/z/my-project/parwa/backend/app/services/jarvis_agents/variant_bridge.py:225:    Fields mapped from JarvisCommandState → ParwaGraphState:
+   109→/home/z/my-project/parwa/backend/app/services/jarvis_agents/variant_bridge.py:343:    """Read ParwaGraphState GROUP 14/15/20 fields from Redis.
+   110→/home/z/my-project/parwa/backend/app/services/jarvis_agents/variant_bridge.py:436:    ParwaGraphState GROUP 14/15 fields.
+   111→/home/z/my-project/parwa/backend/app/services/jarvis_agents/variant_bridge.py:691:    """After a Jarvis command completes, write the result back to ParwaGraphState.
+   112→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:5:  1. ParwaGraphState — State creation, field presence, reducer behavior
+   113→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:33:class TestParwaGraphState:
+   114→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:34:    """Tests for ParwaGraphState TypedDict and create_initial_state."""
+   115→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:36:    def test_create_initial_state_has_all_groups(self):
+   116→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:37:        """Verify create_initial_state returns a dict with all 18 group prefixes."""
+   117→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:38:        from app.core.langgraph.state import create_initial_state
+   118→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:40:        state = create_initial_state(
+   119→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:202:    def test_create_initial_state_with_all_params(self):
+   120→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:203:        """Test create_initial_state with all parameters specified."""
+   121→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:204:        from app.core.langgraph.state import create_initial_state
+   122→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:206:        state = create_initial_state(
+   123→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:233:    def test_create_initial_state_variants(self):
+   124→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:235:        from app.core.langgraph.state import create_initial_state
+   125→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:238:            state = create_initial_state(
+   126→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:303:        from app.core.langgraph.state import create_initial_state
+   127→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:305:        state = create_initial_state(
+   128→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:316:        from app.core.langgraph.state import create_initial_state
+   129→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:318:        state = create_initial_state(
+   130→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:325:        state2 = create_initial_state(
+   131→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:1331:        from app.core.langgraph.state import create_initial_state
+   132→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:1335:            state = create_initial_state(
+   133→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:1347:        from app.core.langgraph.state import create_initial_state
+   134→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:1351:            state = create_initial_state(
+   135→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:1361:        from app.core.langgraph.state import create_initial_state
+   136→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:1369:        state = create_initial_state(
+   137→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:1395:        from app.core.langgraph.state import create_initial_state
+   138→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:1404:        state = create_initial_state(
+   139→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:1434:        from app.core.langgraph.state import create_initial_state
+   140→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase1.py:1443:        state = create_initial_state(
+   141→/home/z/my-project/parwa/backend/app/tests/test_langgraph_gaps_lg01_lg04_unit.py:773:    """LG-04: create_initial_state produces valid initial state."""
+   142→/home/z/my-project/parwa/backend/app/tests/test_langgraph_gaps_lg01_lg04_unit.py:775:    def test_create_initial_state_basic(self):
+   143→/home/z/my-project/parwa/backend/app/tests/test_langgraph_gaps_lg01_lg04_unit.py:776:        from app.core.langgraph.state import create_initial_state
+   144→/home/z/my-project/parwa/backend/app/tests/test_langgraph_gaps_lg01_lg04_unit.py:777:        state = create_initial_state(
+   145→/home/z/my-project/parwa/backend/app/tests/test_langgraph_gaps_lg01_lg04_unit.py:791:    def test_create_initial_state_all_groups_initialized(self):
+   146→/home/z/my-project/parwa/backend/app/tests/test_langgraph_gaps_lg01_lg04_unit.py:793:        from app.core.langgraph.state import create_initial_state
+   147→/home/z/my-project/parwa/backend/app/tests/test_langgraph_gaps_lg01_lg04_unit.py:794:        state = create_initial_state(
+   148→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase3.py:218:        from app.core.langgraph.state import create_initial_state
+   149→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase3.py:219:        base = create_initial_state(
+   150→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase4.py:80:        from app.core.langgraph import ParwaGraphState, create_initial_state
+   151→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase4.py:81:        assert ParwaGraphState is not None
+   152→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase4.py:82:        assert callable(create_initial_state)
+   153→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase4.py:692:        """Create a minimal valid ParwaGraphState dict for testing."""
+   154→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase4.py:693:        from app.core.langgraph.state import create_initial_state
+   155→/home/z/my-project/parwa/backend/app/tests/test_langgraph_phase4.py:695:        base = create_initial_state(
+   156→/home/z/my-project/parwa/backend/app/tests/test_enhancements.py:421:    """Test that enhancement fields work with ParwaGraphState."""
+   157→/home/z/my-project/parwa/backend/app/tests/test_enhancements.py:424:        from app.core.parwa_graph_state import create_initial_state
+   158→/home/z/my-project/parwa/backend/app/tests/test_enhancements.py:425:        state = create_initial_state(
+   159→/home/z/my-project/parwa/backend/app/tests/test_enhancements.py:443:        from app.core.parwa_graph_state import create_initial_state
+   160→/home/z/my-project/parwa/backend/app/tests/test_enhancements.py:444:        state = create_initial_state(
+   161→/home/z/my-project/parwa/backend/app/core/langgraph/validators.py:2:ParwaGraphState Validators — State Transition Validation & Sanitization
+   162→/home/z/my-project/parwa/backend/app/core/langgraph/validators.py:5:LangGraph system. Because ParwaGraphState is a plain TypedDict, any node
+   163→/home/z/my-project/parwa/backend/app/core/langgraph/__init__.py:10:  - state.py:    ParwaGraphState TypedDict (24 groups, ~155 fields)
+   164→/home/z/my-project/parwa/backend/app/core/langgraph/__init__.py:36:    ParwaGraphState,
+   165→/home/z/my-project/parwa/backend/app/core/langgraph/__init__.py:37:    create_initial_state,
+   166→/home/z/my-project/parwa/backend/app/core/langgraph/__init__.py:110:    "ParwaGraphState",
+   167→/home/z/my-project/parwa/backend/app/core/langgraph/__init__.py:111:    "create_initial_state",
+   168→/home/z/my-project/parwa/backend/app/core/parwa_high/ticket_service.py:293:            from app.core.parwa_graph_state import create_initial_state
+   169→/home/z/my-project/parwa/backend/app/core/parwa_high/ticket_service.py:295:            state = create_initial_state(
+   170→/home/z/my-project/parwa/backend/app/core/langgraph/nodes/02_empathy_engine.py:334:        state: Current ParwaGraphState dict.
+   171→/home/z/my-project/parwa/backend/app/core/parwa_high/graph.py:47:    ParwaGraphState,
+   172→/home/z/my-project/parwa/backend/app/core/parwa_high/graph.py:48:    create_initial_state,
+   173→/home/z/my-project/parwa/backend/app/core/parwa_high/graph.py:101:def route_after_gsd(state: ParwaGraphState) -> str:
+   174→/home/z/my-project/parwa/backend/app/core/parwa_high/graph.py:120:def route_after_classify_high(state: ParwaGraphState) -> str:
+   175→/home/z/my-project/parwa/backend/app/core/parwa_high/graph.py:170:def route_after_smart_enrichment_deep(state: ParwaGraphState) -> str:
+   176→/home/z/my-project/parwa/backend/app/core/parwa_high/graph.py:195:def route_after_deep_enrichment(state: ParwaGraphState) -> str:
+   177→/home/z/my-project/parwa/backend/app/core/parwa_high/graph.py:200:def route_after_reasoning(state: ParwaGraphState) -> str:
+   178→/home/z/my-project/parwa/backend/app/core/parwa_high/graph.py:205:def route_after_context_enrich(state: ParwaGraphState) -> str:
+   179→/home/z/my-project/parwa/backend/app/core/parwa_high/graph.py:210:def route_after_crp(state: ParwaGraphState) -> str:
+   180→/home/z/my-project/parwa/backend/app/core/parwa_high/graph.py:215:def route_after_clara_high(state: ParwaGraphState) -> str:
+   181→/home/z/my-project/parwa/backend/app/core/parwa_high/graph.py:232:def route_after_quality_retry(state: ParwaGraphState) -> str:
+   182→/home/z/my-project/parwa/backend/app/core/parwa_high/graph.py:237:def route_after_confidence(state: ParwaGraphState) -> str:
+   183→/home/z/my-project/parwa/backend/app/core/parwa_high/graph.py:242:def route_after_strategic_decision(state: ParwaGraphState) -> str:
+   184→/home/z/my-project/parwa/backend/app/core/parwa_high/graph.py:247:def route_after_peer_review(state: ParwaGraphState) -> str:
+   185→/home/z/my-project/parwa/backend/app/core/parwa_high/graph.py:252:def route_after_auto_action(state: ParwaGraphState) -> str:
+   186→/home/z/my-project/parwa/backend/app/core/parwa_high/graph.py:289:    graph = StateGraph(ParwaGraphState)
+   187→/home/z/my-project/parwa/backend/app/core/parwa_high/graph.py:552:    async def run(self, state: ParwaGraphState) -> ParwaGraphState:
+   188→/home/z/my-project/parwa/backend/app/core/parwa_high/graph.py:556:            state: Initial ParwaGraphState to process.
+   189→/home/z/my-project/parwa/backend/app/core/parwa_high/graph.py:559:            Final ParwaGraphState after pipeline execution.
+   190→/home/z/my-project/parwa/backend/app/core/parwa_high/graph.py:631:            initial_state = create_initial_state(
+   191→/home/z/my-project/parwa/backend/app/core/langgraph/nodes/19_voice_agent.py:166:        state: Current ParwaGraphState dict.
+   192→/home/z/my-project/parwa/backend/app/core/langgraph/nodes/19_voice_agent.py:228:        state: Current ParwaGraphState dict.
+   193→/home/z/my-project/parwa/backend/app/core/langgraph/nodes/05_faq_agent.py:291:            state: Current ParwaGraphState dict.
+   194→/home/z/my-project/parwa/backend/app/core/langgraph/nodes/05_faq_agent.py:332:        state: Current ParwaGraphState dict.
+   195→/home/z/my-project/parwa/backend/app/core/langgraph/nodes/15_channel_delivery.py:66:        state: Current ParwaGraphState dict.
+   196→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:16:  - Takes ParwaGraphState dict as input
+   197→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:71:    ParwaGraphState,
+   198→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:1162:def pii_check_node(state: ParwaGraphState) -> Dict[str, Any]:
+   199→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:1218:def empathy_check_node(state: ParwaGraphState) -> Dict[str, Any]:
+   200→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:1259:def emergency_check_node(state: ParwaGraphState) -> Dict[str, Any]:
+   201→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:1294:def gsd_state_node(state: ParwaGraphState) -> Dict[str, Any]:
+   202→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:1350:async def classify_node(state: ParwaGraphState) -> Dict[str, Any]:
+   203→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:1448:def extract_signals_node(state: ParwaGraphState) -> Dict[str, Any]:
+   204→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:1508:def technique_select_node(state: ParwaGraphState) -> Dict[str, Any]:
+   205→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:1603:async def reasoning_chain_node(state: ParwaGraphState) -> Dict[str, Any]:
+   206→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:1652:async def context_enrich_node(state: ParwaGraphState) -> Dict[str, Any]:
+   207→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:1710:async def context_compress_node(state: ParwaGraphState) -> Dict[str, Any]:
+   208→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:1793:async def generate_node(state: ParwaGraphState) -> Dict[str, Any]:
+   209→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:1907:def crp_compress_node(state: ParwaGraphState) -> Dict[str, Any]:
+   210→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:1955:def clara_quality_gate_node(state: ParwaGraphState) -> Dict[str, Any]:
+   211→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:2034:def quality_retry_node(state: ParwaGraphState) -> Dict[str, Any]:
+   212→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:2085:def confidence_assess_node(state: ParwaGraphState) -> Dict[str, Any]:
+   213→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:2136:def context_health_node(state: ParwaGraphState) -> Dict[str, Any]:
+   214→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:2220:def dedup_node(state: ParwaGraphState) -> Dict[str, Any]:
+   215→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:2279:def strategic_decision_node(state: ParwaGraphState) -> Dict[str, Any]:
+   216→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:2362:async def peer_review_node(state: ParwaGraphState) -> Dict[str, Any]:
+   217→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:2435:def format_node(state: ParwaGraphState) -> Dict[str, Any]:
+   218→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:2516:def smart_enrichment_node(state: ParwaGraphState) -> Dict[str, Any]:
+   219→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:2610:def auto_action_node(state: ParwaGraphState) -> Dict[str, Any]:
+   220→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:2676:def complaint_handler_node(state: ParwaGraphState) -> Dict[str, Any]:
+   221→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:2777:def retention_negotiator_node(state: ParwaGraphState) -> Dict[str, Any]:
+   222→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:2876:def billing_resolver_node(state: ParwaGraphState) -> Dict[str, Any]:
+   223→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:2974:def tech_diagnostic_node(state: ParwaGraphState) -> Dict[str, Any]:
+   224→/home/z/my-project/parwa/backend/app/core/parwa_high/nodes.py:3211:def shipping_tracker_node(state: ParwaGraphState) -> Dict[str, Any]:
+   225→/home/z/my-project/parwa/backend/app/core/langgraph/nodes/04_base_domain_agent.py:104:            state: Current ParwaGraphState dict.
+   226→/home/z/my-project/parwa/backend/app/core/langgraph/nodes/04_base_domain_agent.py:472:            state: Current ParwaGraphState dict.
+   227→/home/z/my-project/parwa/backend/app/core/langgraph/nodes/__init__.py:5:Each node is a function: (state: ParwaGraphState) -> dict
+   228→/home/z/my-project/parwa/backend/app/core/langgraph/nodes/03_router_agent.py:285:        state: Current ParwaGraphState dict.
+   229→/home/z/my-project/parwa/backend/app/core/langgraph/nodes/13_dspy_optimizer.py:267:        state: Current ParwaGraphState dict.
+   230→/home/z/my-project/parwa/backend/app/core/langgraph/nodes/06_refund_agent.py:304:            state: Current ParwaGraphState dict.
+   231→/home/z/my-project/parwa/backend/app/core/langgraph/nodes/06_refund_agent.py:359:        state: Current ParwaGraphState dict.
+   232→/home/z/my-project/parwa/backend/app/core/langgraph/nodes/14_guardrails.py:515:        state: Current ParwaGraphState dict.
+   233→/home/z/my-project/parwa/backend/app/core/mini_parwa/ticket_service.py:247:            from app.core.parwa_graph_state import create_initial_state
+   234→/home/z/my-project/parwa/backend/app/core/mini_parwa/ticket_service.py:250:            state = create_initial_state(
+   235→/home/z/my-project/parwa/backend/app/core/langgraph/nodes/08_billing_agent.py:254:            state: Current ParwaGraphState dict.
+   236→/home/z/my-project/parwa/backend/app/core/langgraph/nodes/08_billing_agent.py:299:        state: Current ParwaGraphState dict.
+   237→/home/z/my-project/parwa/backend/app/core/langgraph/nodes/18_sms_agent.py:144:        state: Current ParwaGraphState dict.
+   238→/home/z/my-project/parwa/backend/app/core/langgraph/nodes/18_sms_agent.py:206:        state: Current ParwaGraphState dict.
+   239→/home/z/my-project/parwa/backend/app/core/mini_parwa/graph.py:37:    ParwaGraphState,
+   240→/home/z/my-project/parwa/backend/app/core/mini_parwa/graph.py:38:    create_initial_state,
+   241→/home/z/my-project/parwa/backend/app/core/mini_parwa/graph.py:69:def route_after_gsd(state: ParwaGraphState) -> str:
+   242→/home/z/my-project/parwa/backend/app/core/mini_parwa/graph.py:90:def route_after_extract_signals(state: ParwaGraphState) -> str:
+   243→/home/z/my-project/parwa/backend/app/core/mini_parwa/graph.py:95:def route_after_crp(state: ParwaGraphState) -> str:
+   244→/home/z/my-project/parwa/backend/app/core/mini_parwa/graph.py:100:def route_after_clara(state: ParwaGraphState) -> str:
+   245→/home/z/my-project/parwa/backend/app/core/mini_parwa/graph.py:133:    graph = StateGraph(ParwaGraphState)
+   246→/home/z/my-project/parwa/backend/app/core/mini_parwa/graph.py:267:    async def run(self, state: ParwaGraphState) -> ParwaGraphState:
+   247→/home/z/my-project/parwa/backend/app/core/mini_parwa/graph.py:271:            state: Initial ParwaGraphState to process.
+   248→/home/z/my-project/parwa/backend/app/core/mini_parwa/graph.py:274:            Final ParwaGraphState after pipeline execution.
+   249→/home/z/my-project/parwa/backend/app/core/mini_parwa/graph.py:348:            initial_state = create_initial_state(
+   250→/home/z/my-project/parwa/backend/app/core/langgraph/nodes/01_pii_redaction.py:251:        state: Current ParwaGraphState dict.
+   251→
+   252→[Showing results with pagination = limit: 250]

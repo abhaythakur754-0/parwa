@@ -1,0 +1,766 @@
+     1→"""
+     2→Variant Service: Config resolution for the Variant Engine.
+     3→
+     4→Given a variant_tier + industry (or variant_instance_id), this service
+     5→returns the FULL pipeline config — which nodes to run, with what settings,
+     6→what model to use, what system prompt, what tools are available.
+     7→
+     8→This is the SINGLE SOURCE OF TRUTH for all variant×industry configurations.
+     9→No other module should hardcode variant configs — they all ask this service.
+    10→
+    11→Architecture:
+    12→  resolve(tier, industry) → VariantConfig
+    13→  resolve_by_instance(instance_id) → VariantConfig (looks up tier + industry)
+    14→
+    15→  VariantConfig contains EVERYTHING the pipeline needs:
+    16→    - Which steps to run
+    17→    - What LLM model each step should use
+    18→    - Token budgets per step
+    19→    - System prompts (industry-aware)
+    20→    - Available tools (industry-aware)
+    21→    - Quality thresholds
+    22→    - Cost limits
+    23→    - Timeout settings
+    24→
+    25→Design:
+    26→  - Configs are built from a 2D matrix: VARIANT_CONFIGS[tier][industry]
+    27→  - Industry-specific overrides layer on top of tier defaults
+    28→  - Instance-level overrides layer on top of industry configs
+    29→  - Priority: instance > industry > tier > global default
+    30→
+    31→BC-001: company_id first parameter on public methods.
+    32→BC-008: Every public method wrapped in try/except — never crash.
+    33→BC-012: All timestamps UTC.
+    34→"""
+    35→
+    36→from __future__ import annotations
+    37→
+    38→from dataclasses import dataclass, field
+    39→from typing import Any, Dict, List, Optional, Tuple
+    40→
+    41→from app.core.industry_enum import (
+    42→    Industry,
+    43→    INDUSTRY_METADATA,
+    44→    get_industry_prompt,
+    45→    get_industry_tools,
+    46→    get_industry_tone,
+    47→)
+    48→from app.core.variant_router import (
+    49→    get_mini_pipeline_steps,
+    50→    get_pro_pipeline_steps,
+    51→    get_high_pipeline_steps,
+    52→    ALL_NODES,
+    53→)
+    54→from app.logger import get_logger
+    55→
+    56→logger = get_logger("variant_service")
+    57→
+    58→
+    59→# ══════════════════════════════════════════════════════════════════
+    60→# DATA CLASSES
+    61→# ══════════════════════════════════════════════════════════════════
+    62→
+    63→
+    64→@dataclass
+    65→class StepConfig:
+    66→    """Configuration for a single pipeline step within a variant."""
+    67→
+    68→    step_id: str
+    69→    enabled: bool = True
+    70→    model: str = ""  # LLM model to use (empty = no LLM needed)
+    71→    max_tokens: int = 500
+    72→    timeout_seconds: float = 5.0
+    73→    cost_weight: float = 1.0  # Multiplier for billing
+    74→
+    75→
+    76→@dataclass
+    77→class VariantConfig:
+    78→    """Complete configuration for a variant×industry combination.
+    79→
+    80→    This is what the pipeline receives before execution. It tells
+    81→    every node exactly how to behave.
+    82→    """
+    83→
+    84→    variant_tier: str
+    85→    industry: str
+    86→    instance_id: str = ""
+    87→
+    88→    # Pipeline topology
+    89→    steps: List[str] = field(default_factory=list)
+    90→    step_configs: Dict[str, StepConfig] = field(default_factory=dict)
+    91→
+    92→    # Global limits
+    93→    max_total_tokens: int = 1000
+    94→    max_total_latency_ms: float = 20000.0
+    95→    max_cost_usd: float = 0.01
+    96→
+    97→    # Model selection
+    98→    classification_model: str = "gpt-4o-mini"
+    99→    generation_model: str = "gpt-4o-mini"
+   100→    quality_model: str = "gpt-4o-mini"
+   101→
+   102→    # Quality settings
+   103→    quality_threshold: float = 0.7  # 0.0-1.0 minimum quality score
+   104→    quality_max_retries: int = 1
+   105→
+   106→    # Industry settings
+   107→    system_prompt: str = ""
+   108→    available_tools: List[str] = field(default_factory=list)
+   109→    response_tone: str = "professional_adaptable"
+   110→
+   111→    # Technique settings
+   112→    techniques_allowed: List[str] = field(default_factory=list)
+   113→    technique_tier_max: int = 1  # 1, 2, or 3
+   114→
+   115→    # Operational
+   116→    enable_context_compression: bool = False
+   117→    enable_context_health: bool = False
+   118→    enable_dedup: bool = False
+   119→
+   120→    # Billing
+   121→    cost_per_query_estimate: float = 0.003
+   122→    billing_rate_per_1k_tokens: float = 0.00015
+   123→
+   124→    def to_dict(self) -> Dict[str, Any]:
+   125→        """Serialize to a plain dict for logging/debugging."""
+   126→        return {
+   127→            "variant_tier": self.variant_tier,
+   128→            "industry": self.industry,
+   129→            "instance_id": self.instance_id,
+   130→            "steps": list(self.steps),
+   131→            "max_total_tokens": self.max_total_tokens,
+   132→            "generation_model": self.generation_model,
+   133→            "quality_threshold": self.quality_threshold,
+   134→            "techniques_allowed": list(self.techniques_allowed),
+   135→            "cost_per_query_estimate": self.cost_per_query_estimate,
+   136→        }
+   137→
+   138→
+   139→# ══════════════════════════════════════════════════════════════════
+   140→# TIER DEFAULTS
+   141→# ══════════════════════════════════════════════════════════════════
+   142→
+   143→# Tier 1 techniques (Mini)
+   144→_TIER_1_TECHNIQUES = ["clara", "crp", "gsd"]
+   145→
+   146→# Tier 2 techniques (Pro)
+   147→_TIER_2_TECHNIQUES = [
+   148→    "chain_of_thought", "reverse_thinking", "react",
+   149→    "step_back", "thread_of_thought",
+   150→]
+   151→
+   152→# Tier 3 techniques (High)
+   153→_TIER_3_TECHNIQUES = [
+   154→    "gst", "universe_of_thoughts", "tree_of_thoughts",
+   155→    "self_consistency", "reflexion", "least_to_most",
+   156→]
+   157→
+   158→TIER_DEFAULTS: Dict[str, Dict[str, Any]] = {
+   159→    "mini_parwa": {
+   160→        "steps": get_mini_pipeline_steps,
+   161→        "max_total_tokens": 1000,
+   162→        "max_total_latency_ms": 20000.0,
+   163→        "max_cost_usd": 0.005,
+   164→        "classification_model": "gpt-4o-mini",
+   165→        "generation_model": "gpt-4o-mini",
+   166→        "quality_model": "gpt-4o-mini",  # not used for Mini but defined for fallback
+   167→        "quality_threshold": 0.6,  # lower threshold = less strict
+   168→        "quality_max_retries": 0,  # no retries for Mini
+   169→        "techniques_allowed": list(_TIER_1_TECHNIQUES),
+   170→        "technique_tier_max": 1,
+   171→        "enable_context_compression": False,
+   172→        "enable_context_health": False,
+   173→        "enable_dedup": False,
+   174→        "cost_per_query_estimate": 0.003,
+   175→        "billing_rate_per_1k_tokens": 0.00015,
+   176→    },
+   177→    "parwa": {
+   178→        "steps": get_pro_pipeline_steps,
+   179→        "max_total_tokens": 1500,
+   180→        "max_total_latency_ms": 30000.0,
+   181→        "max_cost_usd": 0.012,
+   182→        "classification_model": "gpt-4o-mini",
+   183→        "generation_model": "gpt-4o",
+   184→        "quality_model": "gpt-4o-mini",
+   185→        "quality_threshold": 0.7,
+   186→        "quality_max_retries": 1,
+   187→        "techniques_allowed": list(_TIER_1_TECHNIQUES + _TIER_2_TECHNIQUES),
+   188→        "technique_tier_max": 2,
+   189→        "enable_context_compression": False,
+   190→        "enable_context_health": False,
+   191→        "enable_dedup": False,
+   192→        "cost_per_query_estimate": 0.008,
+   193→        "billing_rate_per_1k_tokens": 0.00030,
+   194→    },
+   195→    "parwa_high": {
+   196→        "steps": get_high_pipeline_steps,
+   197→        "max_total_tokens": 2000,
+   198→        "max_total_latency_ms": 30000.0,
+   199→        "max_cost_usd": 0.020,
+   200→        "classification_model": "gpt-4o",
+   201→        "generation_model": "gpt-4o",
+   202→        "quality_model": "gpt-4o",
+   203→        "quality_threshold": 0.8,  # highest quality bar
+   204→        "quality_max_retries": 1,
+   205→        "techniques_allowed": list(
+   206→            _TIER_1_TECHNIQUES + _TIER_2_TECHNIQUES + _TIER_3_TECHNIQUES
+   207→        ),
+   208→        "technique_tier_max": 3,
+   209→        "enable_context_compression": True,
+   210→        "enable_context_health": True,
+   211→        "enable_dedup": True,
+   212→        "cost_per_query_estimate": 0.015,
+   213→        "billing_rate_per_1k_tokens": 0.00060,
+   214→    },
+   215→}
+   216→
+   217→
+   218→# ══════════════════════════════════════════════════════════════════
+   219→# INDUSTRY OVERRIDES
+   220→# ══════════════════════════════════════════════════════════════════
+   221→# These layer ON TOP of tier defaults.
+   222→# Only specify fields that differ from the tier default.
+   223→
+   224→INDUSTRY_OVERRIDES: Dict[str, Dict[str, Any]] = {
+   225→    Industry.ECOMMERCE.value: {
+   226→        # E-commerce often needs Pro for order tracking + returns
+   227→        "mini_parwa": {
+   228→            "quality_threshold": 0.65,  # Slightly higher for customer satisfaction
+   229→        },
+   230→        "parwa": {
+   231→            "quality_threshold": 0.75,
+   232→        },
+   233→        "parwa_high": {
+   234→            "quality_threshold": 0.85,
+   235→            "enable_context_compression": True,
+   236→        },
+   237→    },
+   238→    Industry.LOGISTICS.value: {
+   239→        # Logistics needs precise, factual responses
+   240→        "mini_parwa": {
+   241→            "quality_threshold": 0.65,
+   242→        },
+   243→        "parwa": {
+   244→            "quality_threshold": 0.75,
+   245→        },
+   246→        "parwa_high": {
+   247→            "quality_threshold": 0.85,
+   248→        },
+   249→    },
+   250→    Industry.SAAS.value: {
+   251→        # SaaS often has technical questions needing better models
+   252→        "mini_parwa": {
+   253→            "classification_model": "gpt-4o-mini",
+   254→        },
+   255→        "parwa": {
+   256→            "classification_model": "gpt-4o-mini",
+   257→            "generation_model": "gpt-4o",
+   258→        },
+   259→        "parwa_high": {
+   260→            "classification_model": "gpt-4o",
+   261→            "generation_model": "gpt-4o",
+   262→        },
+   263→    },
+   264→    Industry.GENERAL.value: {
+   265→        # General uses pure defaults — no overrides needed
+   266→    },
+   267→}
+   268→
+   269→
+   270→# ══════════════════════════════════════════════════════════════════
+   271→# STEP CONFIGS
+   272→# ══════════════════════════════════════════════════════════════════
+   273→
+   274→STEP_DEFAULTS: Dict[str, StepConfig] = {
+   275→    "pii_check": StepConfig(
+   276→        step_id="pii_check",
+   277→        enabled=True,
+   278→        model="",  # regex-based, no LLM
+   279→        max_tokens=0,
+   280→        timeout_seconds=2.0,
+   281→        cost_weight=0.0,  # FREE
+   282→    ),
+   283→    "empathy_check": StepConfig(
+   284→        step_id="empathy_check",
+   285→        enabled=True,
+   286→        model="",  # Can use LLM or sentiment analysis
+   287→        max_tokens=50,
+   288→        timeout_seconds=2.0,
+   289→        cost_weight=0.3,
+   290→    ),
+   291→    "emergency_check": StepConfig(
+   292→        step_id="emergency_check",
+   293→        enabled=True,
+   294→        model="",  # keyword/regex based, no LLM
+   295→        max_tokens=0,
+   296→        timeout_seconds=1.0,
+   297→        cost_weight=0.0,  # FREE
+   298→    ),
+   299→    "classify": StepConfig(
+   300→        step_id="classify",
+   301→        enabled=True,
+   302→        model="gpt-4o-mini",  # Overridden by tier config
+   303→        max_tokens=100,
+   304→        timeout_seconds=3.0,
+   305→        cost_weight=0.5,
+   306→    ),
+   307→    "extract_signals": StepConfig(
+   308→        step_id="extract_signals",
+   309→        enabled=True,
+   310→        model="gpt-4o-mini",
+   311→        max_tokens=150,
+   312→        timeout_seconds=4.0,
+   313→        cost_weight=0.7,
+   314→    ),
+   315→    "technique_select": StepConfig(
+   316→        step_id="technique_select",
+   317→        enabled=True,
+   318→        model="gpt-4o-mini",
+   319→        max_tokens=50,
+   320→        timeout_seconds=3.0,
+   321→        cost_weight=0.3,
+   322→    ),
+   323→    "context_compress": StepConfig(
+   324→        step_id="context_compress",
+   325→        enabled=True,
+   326→        model="gpt-4o-mini",
+   327→        max_tokens=200,
+   328→        timeout_seconds=5.0,
+   329→        cost_weight=0.3,
+   330→    ),
+   331→    "generate": StepConfig(
+   332→        step_id="generate",
+   333→        enabled=True,
+   334→        model="gpt-4o-mini",  # Overridden by tier config
+   335→        max_tokens=800,
+   336→        timeout_seconds=15.0,
+   337→        cost_weight=1.0,
+   338→    ),
+   339→    "quality_gate": StepConfig(
+   340→        step_id="quality_gate",
+   341→        enabled=True,
+   342→        model="gpt-4o-mini",
+   343→        max_tokens=200,
+   344→        timeout_seconds=5.0,
+   345→        cost_weight=0.5,
+   346→    ),
+   347→    "context_health": StepConfig(
+   348→        step_id="context_health",
+   349→        enabled=True,
+   350→        model="gpt-4o-mini",
+   351→        max_tokens=50,
+   352→        timeout_seconds=3.0,
+   353→        cost_weight=0.2,
+   354→    ),
+   355→    "dedup": StepConfig(
+   356→        step_id="dedup",
+   357→        enabled=True,
+   358→        model="",  # embedding similarity, no LLM
+   359→        max_tokens=0,
+   360→        timeout_seconds=2.0,
+   361→        cost_weight=0.1,
+   362→    ),
+   363→    "format": StepConfig(
+   364→        step_id="format",
+   365→        enabled=True,
+   366→        model="",  # template-based, no LLM
+   367→        max_tokens=100,
+   368→        timeout_seconds=2.0,
+   369→        cost_weight=0.0,  # FREE
+   370→    ),
+   371→}
+   372→
+   373→
+   374→# ══════════════════════════════════════════════════════════════════
+   375→# VARIANT SERVICE
+   376→# ══════════════════════════════════════════════════════════════════
+   377→
+   378→
+   379→class VariantService:
+   380→    """Single source of truth for variant×industry configuration.
+   381→
+   382→    Usage:
+   383→        service = VariantService()
+   384→
+   385→        # Resolve by tier + industry
+   386→        config = service.resolve("mini_parwa", "ecommerce")
+   387→
+   388→        # Resolve by instance (looks up tier + industry from DB)
+   389→        config = service.resolve_by_instance("inst_abc123")
+   390→
+   391→        # Access config fields
+   392→        config.steps              → ['pii_check', 'empathy_check', ...]
+   393→        config.generation_model   → 'gpt-4o-mini'
+   394→        config.system_prompt      → 'You are a customer service...'
+   395→        config.available_tools    → ['order_tracker', ...]
+   396→    """
+   397→
+   398→    def __init__(self) -> None:
+   399→        """Initialize the variant service."""
+   400→        logger.info(
+   401→            "VariantService initialized — %d tiers, %d industries",
+   402→            len(TIER_DEFAULTS),
+   403→            len(INDUSTRY_OVERRIDES),
+   404→        )
+   405→
+   406→    def resolve(
+   407→        self,
+   408→        variant_tier: str,
+   409→        industry: str = "general",
+   410→    ) -> VariantConfig:
+   411→        """Resolve full config for a variant_tier + industry combination.
+   412→
+   413→        Priority stack (later overrides earlier):
+   414→          1. Global tier defaults (TIER_DEFAULTS)
+   415→          2. Industry overrides (INDUSTRY_OVERRIDES)
+   416→          3. Instance-level overrides (future: from DB)
+   417→
+   418→        Args:
+   419→            variant_tier: 'mini_parwa' | 'parwa' | 'parwa_high'.
+   420→            industry: 'ecommerce' | 'logistics' | 'saas' | 'general'.
+   421→
+   422→        Returns:
+   423→            Fully resolved VariantConfig.
+   424→        """
+   425→        try:
+   426→            # 1. Start with tier defaults
+   427→            tier_config = TIER_DEFAULTS.get(
+   428→                variant_tier,
+   429→                TIER_DEFAULTS["parwa"],  # safe fallback
+   430→            )
+   431→
+   432→            # 2. Apply industry overrides
+   433→            industry_overrides = INDUSTRY_OVERRIDES.get(industry, {})
+   434→            tier_industry_overrides = industry_overrides.get(variant_tier, {})
+   435→
+   436→            # 3. Merge: tier defaults + industry overrides
+   437→            merged = {**tier_config, **tier_industry_overrides}
+   438→
+   439→            # 4. Resolve steps (it's a callable in tier defaults)
+   440→            steps_fn = merged.get("steps", get_pro_pipeline_steps)
+   441→            if callable(steps_fn):
+   442→                steps = steps_fn()
+   443→            else:
+   444→                steps = list(steps_fn)
+   445→
+   446→            # 5. Build step configs (disable steps not in this pipeline)
+   447→            step_configs: Dict[str, StepConfig] = {}
+   448→            for step_id in ALL_NODES:
+   449→                default = STEP_DEFAULTS.get(step_id, StepConfig(step_id=step_id))
+   450→                step_configs[step_id] = StepConfig(
+   451→                    step_id=step_id,
+   452→                    enabled=(step_id in steps),
+   453→                    model=merged.get(
+   454→                        f"{step_id}_model",
+   455→                        default.model,
+   456→                    ),
+   457→                    max_tokens=default.max_tokens,
+   458→                    timeout_seconds=default.timeout_seconds,
+   459→                    cost_weight=default.cost_weight,
+   460→                )
+   461→
+   462→            # Override classification/generation/quality models from merged config
+   463→            if "classification_model" in merged:
+   464→                step_configs["classify"].model = merged["classification_model"]
+   465→            if "generation_model" in merged:
+   466→                step_configs["generate"].model = merged["generation_model"]
+   467→            if "quality_model" in merged:
+   468→                step_configs["quality_gate"].model = merged["quality_model"]
+   469→
+   470→            # 6. Get industry-specific settings
+   471→            system_prompt = get_industry_prompt(industry)
+   472→            available_tools = get_industry_tools(industry)
+   473→            response_tone = get_industry_tone(industry)
+   474→
+   475→            # 7. Build the final config
+   476→            config = VariantConfig(
+   477→                variant_tier=variant_tier,
+   478→                industry=industry,
+   479→                steps=steps,
+   480→                step_configs=step_configs,
+   481→                max_total_tokens=merged.get("max_total_tokens", 1000),
+   482→                max_total_latency_ms=merged.get("max_total_latency_ms", 20000.0),
+   483→                max_cost_usd=merged.get("max_cost_usd", 0.01),
+   484→                classification_model=merged.get("classification_model", "gpt-4o-mini"),
+   485→                generation_model=merged.get("generation_model", "gpt-4o-mini"),
+   486→                quality_model=merged.get("quality_model", "gpt-4o-mini"),
+   487→                quality_threshold=merged.get("quality_threshold", 0.7),
+   488→                quality_max_retries=merged.get("quality_max_retries", 1),
+   489→                system_prompt=system_prompt,
+   490→                available_tools=available_tools,
+   491→                response_tone=response_tone,
+   492→                techniques_allowed=merged.get("techniques_allowed", []),
+   493→                technique_tier_max=merged.get("technique_tier_max", 1),
+   494→                enable_context_compression=merged.get("enable_context_compression", False),
+   495→                enable_context_health=merged.get("enable_context_health", False),
+   496→                enable_dedup=merged.get("enable_dedup", False),
+   497→                cost_per_query_estimate=merged.get("cost_per_query_estimate", 0.003),
+   498→                billing_rate_per_1k_tokens=merged.get("billing_rate_per_1k_tokens", 0.00015),
+   499→            )
+   500→
+   501→            logger.info(
+   502→                "VariantConfig resolved: tier=%s, industry=%s, "
+   503→                "steps=%d, model=%s, cost_est=$%.4f",
+   504→                variant_tier, industry, len(steps),
+   505→                config.generation_model,
+   506→                config.cost_per_query_estimate,
+   507→            )
+   508→
+   509→            return config
+   510→
+   511→        except Exception:
+   512→            logger.exception(
+   513→                "VariantService.resolve failed for tier=%s, industry=%s — "
+   514→                "returning safe fallback config",
+   515→                variant_tier, industry,
+   516→            )
+   517→            # BC-008: Return a safe minimal config
+   518→            return VariantConfig(
+   519→                variant_tier=variant_tier or "mini_parwa",
+   520→                industry=industry or "general",
+   521→                steps=get_mini_pipeline_steps(),
+   522→                max_total_tokens=500,
+   523→                generation_model="gpt-4o-mini",
+   524→                cost_per_query_estimate=0.003,
+   525→                system_prompt=get_industry_prompt("general"),
+   526→                available_tools=get_industry_tools("general"),
+   527→                response_tone="professional_adaptable",
+   528→            )
+   529→
+   530→    def resolve_by_instance(
+   531→        self,
+   532→        company_id: str,
+   533→        instance_id: str,
+   534→        db: Any = None,
+   535→    ) -> VariantConfig:
+   536→        """Resolve config by looking up instance details from DB.
+   537→
+   538→        1. Look up instance_id → variant_tier, industry
+   539→        2. Call resolve(tier, industry) for base config
+   540→        3. Apply instance-level overrides (from DB)
+   541→
+   542→        If a db session is provided, looks up the VariantInstance
+   543→        from the database. Otherwise, falls back to tier+industry
+   544→        resolution using a heuristic from the instance_id naming
+   545→        convention (inst_{variant_type}_{company_id}).
+   546→
+   547→        Args:
+   548→            company_id: Tenant identifier (BC-001).
+   549→            instance_id: Variant instance identifier.
+   550→            db: Optional SQLAlchemy session for DB lookups.
+   551→
+   552→        Returns:
+   553→            Fully resolved VariantConfig with instance overrides.
+   554→        """
+   555→        try:
+   556→            variant_tier = "parwa"
+   557→            industry = "general"
+   558→
+   559→            # ── DB-backed lookup ──
+   560→            if db is not None:
+   561→                try:
+   562→                    from database.models.variant_engine import VariantInstance
+   563→                    instance = (
+   564→                        db.query(VariantInstance)
+   565→                        .filter(
+   566→                            VariantInstance.id == instance_id,
+   567→                            VariantInstance.company_id == company_id,
+   568→                        )
+   569→                        .first()
+   570→                    )
+   571→                    if instance is not None:
+   572→                        variant_tier = instance.variant_type
+   573→                        # Try to derive industry from company settings
+   574→                        try:
+   575→                            from database.models.core import CompanySetting
+   576→                            setting = (
+   577→                                db.query(CompanySetting)
+   578→                                .filter(
+   579→                                    CompanySetting.company_id == company_id,
+   580→                                )
+   581→                                .first()
+   582→                            )
+   583→                            if setting and hasattr(setting, "industry"):
+   584→                                industry = setting.industry or "general"
+   585→                        except Exception:
+   586→                            pass  # Industry resolution is best-effort
+   587→
+   588→                        logger.info(
+   589→                            "resolve_by_instance: DB lookup succeeded — "
+   590→                            "instance_id=%s, company_id=%s, tier=%s, industry=%s",
+   591→                            instance_id, company_id, variant_tier, industry,
+   592→                        )
+   593→                    else:
+   594→                        logger.warning(
+   595→                            "resolve_by_instance: instance_id=%s not found "
+   596→                            "in DB for company_id=%s — using heuristic",
+   597→                            instance_id, company_id,
+   598→                        )
+   599→                except ImportError:
+   600→                    logger.warning(
+   601→                        "resolve_by_instance: VariantInstance model not "
+   602→                        "available — using heuristic fallback",
+   603→                    )
+   604→
+   605→            # ── Heuristic fallback from instance_id naming convention ──
+   606→            if db is None or variant_tier == "parwa":
+   607→                # Try to extract variant type from instance_id pattern:
+   608→                # inst_{variant_type}_{company_id} or inst_onboarding_{variant_type}_{company_id}
+   609→                if "mini_parwa" in instance_id or "mini" in instance_id:
+   610→                    variant_tier = "mini_parwa"
+   611→                elif "parwa_high" in instance_id or "high" in instance_id:
+   612→                    variant_tier = "parwa_high"
+   613→                elif "parwa" in instance_id:
+   614→                    variant_tier = "parwa"
+   615→
+   616→            # Resolve base config
+   617→            config = self.resolve(variant_tier, industry)
+   618→            config.instance_id = instance_id
+   619→
+   620→            # ── Apply instance-level overrides from DB ──
+   621→            if db is not None:
+   622→                try:
+   623→                    from database.models.variant_engine import VariantAICapability
+   624→                    import json
+   625→
+   626→                    overrides = (
+   627→                        db.query(VariantAICapability)
+   628→                        .filter(
+   629→                            VariantAICapability.company_id == company_id,
+   630→                            VariantAICapability.instance_id == instance_id,
+   631→                            VariantAICapability.is_enabled == True,
+   632→                        )
+   633→                        .all()
+   634→                    )
+   635→
+   636→                    for cap in overrides:
+   637→                        if cap.config_json:
+   638→                            try:
+   639→                                override_config = json.loads(cap.config_json)
+   640→                                # Apply model overrides
+   641→                                if "generation_model" in override_config:
+   642→                                    config.generation_model = override_config["generation_model"]
+   643→                                if "classification_model" in override_config:
+   644→                                    config.classification_model = override_config["classification_model"]
+   645→                                if "quality_model" in override_config:
+   646→                                    config.quality_model = override_config["quality_model"]
+   647→                                if "quality_threshold" in override_config:
+   648→                                    config.quality_threshold = float(
+   649→                                        override_config["quality_threshold"]
+   650→                                    )
+   651→                                if "max_total_tokens" in override_config:
+   652→                                    config.max_total_tokens = int(
+   653→                                        override_config["max_total_tokens"]
+   654→                                    )
+   655→                            except (json.JSONDecodeError, TypeError, ValueError):
+   656→                                pass
+   657→
+   658→                    if overrides:
+   659→                        logger.info(
+   660→                            "resolve_by_instance: applied %d instance-level "
+   661→                            "overrides for instance_id=%s",
+   662→                            len(overrides), instance_id,
+   663→                        )
+   664→                except ImportError:
+   665→                    pass  # VariantAICapability not available — skip overrides
+   666→
+   667→            return config
+   668→
+   669→        except Exception:
+   670→            logger.exception(
+   671→                "resolve_by_instance failed for company_id=%s, "
+   672→                "instance_id=%s — returning safe fallback",
+   673→                company_id, instance_id,
+   674→            )
+   675→            return self.resolve("mini_parwa", "general")
+   676→
+   677→    def resolve_for_shadow(
+   678→        self,
+   679→        company_id: str,
+   680→        live_variant: str,
+   681→        shadow_variant: str,
+   682→        industry: str = "general",
+   683→    ) -> Tuple[VariantConfig, VariantConfig]:
+   684→        """Resolve configs for both live and shadow variants.
+   685→
+   686→        Used by the Shadow Mode pipeline bridge to get both
+   687→        configurations simultaneously for comparison processing.
+   688→
+   689→        Args:
+   690→            company_id: Tenant identifier (BC-001).
+   691→            live_variant: Current live variant tier.
+   692→            shadow_variant: Variant being tested in shadow.
+   693→            industry: Industry vertical.
+   694→
+   695→        Returns:
+   696→            Tuple of (live_config, shadow_config).
+   697→        """
+   698→        try:
+   699→            live_config = self.resolve(live_variant, industry)
+   700→            shadow_config = self.resolve(shadow_variant, industry)
+   701→
+   702→            logger.info(
+   703→                "resolve_for_shadow: company_id=%s, live=%s, shadow=%s, "
+   704→                "industry=%s — live_steps=%d, shadow_steps=%d",
+   705→                company_id, live_variant, shadow_variant, industry,
+   706→                len(live_config.steps), len(shadow_config.steps),
+   707→            )
+   708→
+   709→            return (live_config, shadow_config)
+   710→
+   711→        except Exception:
+   712→            logger.exception(
+   713→                "resolve_for_shadow failed for company_id=%s — "
+   714→                "returning safe fallback configs",
+   715→                company_id,
+   716→            )
+   717→            return (self.resolve("mini_parwa", "general"),
+   718→                    self.resolve("parwa", "general"))
+   719→
+   720→    def get_all_configs(self) -> Dict[str, Dict[str, VariantConfig]]:
+   721→        """Get all variant×industry configurations.
+   722→
+   723→        Useful for the management UI to display the full config matrix.
+   724→
+   725→        Returns:
+   726→            Dict[variant_tier][industry] = VariantConfig
+   727→        """
+   728→        try:
+   729→            result: Dict[str, Dict[str, VariantConfig]] = {}
+   730→            for tier in TIER_DEFAULTS:
+   731→                result[tier] = {}
+   732→                for industry in [i.value for i in Industry]:
+   733→                    result[tier][industry] = self.resolve(tier, industry)
+   734→            return result
+   735→        except Exception:
+   736→            logger.exception("get_all_configs failed — returning empty dict")
+   737→            return {}
+   738→
+   739→    def get_config_summary(self) -> List[Dict[str, Any]]:
+   740→        """Get a summary of all configs for dashboard display.
+   741→
+   742→        Returns:
+   743→            List of dicts with key config fields per tier×industry.
+   744→        """
+   745→        try:
+   746→            summary = []
+   747→            for tier in TIER_DEFAULTS:
+   748→                for industry in [i.value for i in Industry]:
+   749→                    config = self.resolve(tier, industry)
+   750→                    summary.append({
+   751→                        "variant_tier": tier,
+   752→                        "industry": industry,
+   753→                        "steps_count": len(config.steps),
+   754→                        "steps": config.steps,
+   755→                        "generation_model": config.generation_model,
+   756→                        "max_tokens": config.max_total_tokens,
+   757→                        "quality_threshold": config.quality_threshold,
+   758→                        "techniques_count": len(config.techniques_allowed),
+   759→                        "cost_estimate": config.cost_per_query_estimate,
+   760→                        "tools_count": len(config.available_tools),
+   761→                    })
+   762→            return summary
+   763→        except Exception:
+   764→            logger.exception("get_config_summary failed — returning empty list")
+   765→            return []
+   766→

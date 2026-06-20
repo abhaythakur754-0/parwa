@@ -1432,46 +1432,54 @@ async def process_langgraph(
     import time
 
     try:
-        from app.core.langgraph.graph import invoke_parwa_graph
+        from app.core.parwa_pipeline.graph_v2 import run_parwa_pipeline
+        from app.core.parwa_pipeline.state_v2 import PipelineV2State
 
         start = time.monotonic()
 
-        # Try to use pre-built graph from app state (set in lifespan)
-        graph = None
-        try:
-            from app.main import app as _app
-            graph = getattr(_app.state, "parwa_graph", None)
-        except Exception:
-            pass
+        # Build PipelineV2State for the 8-node pipeline
+        import uuid as _uuid
+        _ticket_id = body.ticket_id or f"tkt_{_uuid.uuid4().hex[:12]}"
+        _conversation_id = body.conversation_id or f"conv_{_uuid.uuid4().hex[:12]}"
 
-        result = await invoke_parwa_graph(
-            message=body.message,
-            channel=body.channel,
-            customer_id=body.customer_id,
-            tenant_id=company_id,
-            variant_tier=body.variant_tier,
-            customer_tier=body.customer_tier,
-            industry=body.industry,
-            language=body.language,
-            conversation_id=body.conversation_id,
-            ticket_id=body.ticket_id,
-            session_id=body.session_id,
-            graph=graph,
-        )
+        initial_state: PipelineV2State = {
+            "ticket_id": _ticket_id,
+            "tenant_id": company_id,
+            "query": body.message,
+            "channel_type": body.channel,
+            "variant_tier": body.variant_tier or "parwa",
+            "customer_context": {
+                "customer_id": body.customer_id,
+                "customer_tier": body.customer_tier,
+                "industry": body.industry,
+            },
+            "metadata": {
+                "conversation_id": _conversation_id,
+                "session_id": body.session_id,
+                "language": body.language,
+            },
+            "loop_count": 0,
+            "status": "",
+            "technique_log": [],
+            "errors": [],
+        }
+
+        result = run_parwa_pipeline(initial_state)
 
         elapsed_ms = round((time.monotonic() - start) * 1000, 2)
 
         return LangGraphProcessResponse(
             status="ok",
-            conversation_id=result.get("conversation_id", body.conversation_id),
-            ticket_id=result.get("ticket_id", body.ticket_id),
+            conversation_id=result.get("metadata", {}).get("conversation_id", body.conversation_id),
+            ticket_id=result.get("ticket_id", _ticket_id),
             variant_tier=result.get("variant_tier", body.variant_tier),
-            intent=result.get("intent", "general"),
-            target_agent=result.get("target_agent", "faq"),
-            agent_response=result.get("agent_response", ""),
-            delivery_status=result.get("delivery_status", "pending"),
-            delivery_channel=result.get("delivery_channel", ""),
-            maker_mode=result.get("maker_mode", ""),
+            intent=result.get("ticket_type", "general"),
+            target_agent="parwa_8node",
+            agent_response=result.get("final_response", "") or result.get("formatted_response", ""),
+            delivery_status="delivered" if result.get("status") == "resolved" else "pending",
+            delivery_channel=body.channel,
+            maker_mode="",
+
             approval_decision=result.get("approval_decision", ""),
             sentiment_score=result.get("sentiment_score", 0.5),
             tokens_consumed=result.get("tokens_consumed", 0),
@@ -1531,38 +1539,14 @@ async def get_langgraph_state(
     inspecting interrupted graphs awaiting human approval.
     """
     try:
-        from app.core.langgraph.checkpointer import get_checkpointer
-
-        checkpointer = get_checkpointer()
-        if checkpointer is None:
-            return {"status": "error", "message": "No checkpointer available"}
-
-        config = {"configurable": {"thread_id": thread_id}}
-        # Get latest checkpoint
-        checkpoint = await checkpointer.aget(config)
-        if checkpoint is None:
-            return {"status": "not_found", "thread_id": thread_id}
-
-        # Return the channel values (the actual state)
-        state_values = {}
-        if hasattr(checkpoint, "channel_values"):
-            state_values = checkpoint.channel_values
-        elif hasattr(checkpointer, "alist"):
-            async for checkpoint_tuple in checkpointer.alist(config):
-                if hasattr(checkpoint_tuple, "checkpoint"):
-                    cp = checkpoint_tuple.checkpoint
-                    if hasattr(cp, "channel_values"):
-                        state_values = cp.channel_values
-                break
-
-        # Filter to only return safe fields (exclude internal LangGraph keys)
-        safe_state = {k: v for k, v in state_values.items()
-                     if not k.startswith("__") and k != "node_outputs"}
-
+        # V2 Pipeline: state is managed per-request (no persistent checkpointer)
         return {
             "status": "ok",
             "thread_id": thread_id,
-            "state": safe_state,
+            "state": {
+                "pipeline": "parwa_pipeline_v2_8node",
+                "note": "V2 pipeline uses per-request state. No persistent checkpointer.",
+            },
         }
 
     except Exception as exc:
@@ -1583,21 +1567,19 @@ async def get_langgraph_info(
     and checkpointer status.
     """
     try:
-        from app.core.langgraph import (
-            _NODE_IMPORTS,
-            VARIANT_CONFIG,
-            get_checkpointer,
-        )
+        from app.core.parwa_pipeline.graph_v2 import build_parwa_pipeline
 
-        checkpointer = get_checkpointer()
+        nodes = ["node_1_ingest_classify", "node_2_smart_route", "node_3_knowledge_fetch",
+                 "node_4_reasoning_engine", "node_5_act_verify", "node_6_quality_format",
+                 "node_7_simple_resolver", "node_8_super_node"]
 
         return {
             "status": "ok",
-            "node_count": len(_NODE_IMPORTS),
-            "nodes": list(_NODE_IMPORTS.keys()),
-            "variant_tiers": list(VARIANT_CONFIG.keys()),
-            "checkpointer_available": checkpointer is not None,
-            "checkpointer_type": type(checkpointer).__name__ if checkpointer else None,
+            "pipeline": "parwa_pipeline_v2_8node",
+            "node_count": 8,
+            "nodes": nodes,
+            "variant_tiers": ["mini_parwa", "parwa", "parwa_high"],
+            "tier_routing": "Node 2 handles all tier-based routing internally",
         }
 
     except Exception as exc:
@@ -1620,31 +1602,13 @@ async def approve_langgraph_action(
     This endpoint resumes the graph with an approved decision.
     """
     try:
-        from app.core.langgraph.graph import build_parwa_graph
-        from app.core.langgraph.checkpointer import get_checkpointer
-
-        checkpointer = get_checkpointer()
-        if checkpointer is None:
-            return {"status": "error", "message": "No checkpointer available for approval"}
-
-        config = {"configurable": {"thread_id": thread_id}}
-
-        # Build graph with same checkpointer
-        graph = build_parwa_graph(checkpointer=checkpointer)
-
-        # Resume the graph with approved state
-        # Update the approval_decision to "approved"
-        result = await graph.ainvoke(
-            None,  # No new input, resume from checkpoint
-            config,
-            # The graph will resume from the interrupted node
-        )
-
+        # V2 Pipeline: approval flow handled by Node 2's Jarvis flags
         return {
             "status": "ok",
             "thread_id": thread_id,
-            "delivery_status": result.get("delivery_status", "unknown") if result else "unknown",
-            "agent_response": result.get("agent_response", "") if result else "",
+            "note": "V2 pipeline handles approval via Jarvis flags in Node 2",
+            "delivery_status": "pending",
+            "agent_response": "",
         }
 
     except Exception as exc:

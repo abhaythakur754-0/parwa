@@ -1,29 +1,13 @@
 """
-Code-Orchestrated Router: Python conditional edges for LangGraph.
+Variant Router — V2 Unified PARWA Pipeline
 
-This is the routing brain of the Variant Engine. It decides which node
-runs next based on the current state — using PYTHON CODE, not LLM calls.
+Previously routed between 3 separate variant pipelines (mini 10-node,
+parwa 15-node, parwa_high 27-node). Now ALL tiers use the SAME 8-node
+PARWA pipeline — Node 2 (Smart Route) handles tier-based decisions
+internally.
 
-Why code routing (FREE):
-  - Routing is deterministic: variant_tier + industry + state → next node
-  - No LLM needed for "if variant is mini, go to generate"
-  - Saves ~$0.001 per query on routing (that's 33% of Mini's cost budget)
-  - Faster: Python if/else takes microseconds vs LLM call takes seconds
-  - Predictable: same input always gives same route
-
-When LLM IS used (inside nodes, not for routing):
-  - Classification: understanding what the customer wants
-  - Generation: writing the actual response
-  - Quality Gate: evaluating response quality
-  - Technique Execution: reasoning through complex problems
-
-Architecture:
-  The router is a collection of pure functions that take ParwaGraphState
-  and return the name of the next node. LangGraph's `add_conditional_edges`
-  wires these functions as decision points in the graph.
-
-  Each function is a "routing decision" that happens AFTER a specific node.
-  For example, `route_after_classify` decides what comes after classify.
+This module is preserved for backward compatibility. All routing
+functions now return the unified pipeline node names.
 
 BC-001: company_id first parameter on public methods.
 BC-008: Every function has a safe default — never crashes.
@@ -43,271 +27,138 @@ logger = get_logger("variant_router")
 # CONSTANTS
 # ══════════════════════════════════════════════════════════════════
 
-# Valid node names in the pipeline
-NODE_PII = "pii_check"
-NODE_EMPATHY = "empathy_check"
-NODE_EMERGENCY = "emergency_check"
-NODE_CLASSIFY = "classify"
-NODE_EXTRACT_SIGNALS = "extract_signals"
-NODE_TECHNIQUE_SELECT = "technique_select"
-NODE_CONTEXT_COMPRESS = "context_compress"
-NODE_GENERATE = "generate"
-NODE_QUALITY_GATE = "quality_gate"
-NODE_CONTEXT_HEALTH = "context_health"
-NODE_DEDUP = "dedup"
-NODE_FORMAT = "format"
+# 8-node pipeline node names
+NODE_INGEST_CLASSIFY = "node_1"
+NODE_SMART_ROUTE = "node_2"
+NODE_KNOWLEDGE_FETCH = "node_3"
+NODE_REASONING_ENGINE = "node_4"
+NODE_ACT_VERIFY = "node_5"
+NODE_QUALITY_FORMAT = "node_6"
+NODE_SIMPLE_RESOLVER = "node_7"
+NODE_SUPER_NODE = "node_8"
+
+# Legacy node name constants (for backward compatibility with any code
+# that references the old pipeline node names)
+NODE_PII = "node_1"
+NODE_EMPATHY = "node_1"
+NODE_EMERGENCY = "node_1"
+NODE_CLASSIFY = "node_1"
+NODE_EXTRACT_SIGNALS = "node_3"
+NODE_TECHNIQUE_SELECT = "node_4"
+NODE_CONTEXT_COMPRESS = "node_4"
+NODE_GENERATE = "node_4"
+NODE_QUALITY_GATE = "node_6"
+NODE_CONTEXT_HEALTH = "node_6"
+NODE_DEDUP = "node_6"
+NODE_FORMAT = "node_6"
 NODE_END = "__end__"
 
-# All valid node names (for validation)
 ALL_NODES = [
-    NODE_PII,
-    NODE_EMPATHY,
-    NODE_EMERGENCY,
-    NODE_CLASSIFY,
-    NODE_EXTRACT_SIGNALS,
-    NODE_TECHNIQUE_SELECT,
-    NODE_CONTEXT_COMPRESS,
-    NODE_GENERATE,
-    NODE_QUALITY_GATE,
-    NODE_CONTEXT_HEALTH,
-    NODE_DEDUP,
-    NODE_FORMAT,
+    NODE_INGEST_CLASSIFY,
+    NODE_SMART_ROUTE,
+    NODE_KNOWLEDGE_FETCH,
+    NODE_REASONING_ENGINE,
+    NODE_ACT_VERIFY,
+    NODE_QUALITY_FORMAT,
+    NODE_SIMPLE_RESOLVER,
+    NODE_SUPER_NODE,
 ]
 
 
 # ══════════════════════════════════════════════════════════════════
-# ROUTING FUNCTIONS
+# ROUTING FUNCTIONS (backward-compatible stubs)
 # ══════════════════════════════════════════════════════════════════
+# These functions are kept for backward compatibility. They are NOT
+# used by the new 8-node pipeline (which has its own routing in
+# graph_v2.py), but may be referenced by external code or tests.
 
 
 def route_after_pii(state: dict) -> str:
-    """Decide what comes after PII check.
-
-    Always goes to empathy check. PII is a safety gate that runs
-    first regardless of variant tier or industry.
-
-    Returns:
-        Next node name.
-    """
+    """Legacy stub. Routing is now handled inside graph_v2.py."""
     try:
-        return NODE_EMPATHY
+        return NODE_SMART_ROUTE
     except Exception:
-        return NODE_EMPATHY
+        return NODE_SMART_ROUTE
 
 
 def route_after_empathy(state: dict) -> str:
-    """Decide what comes after empathy check.
-
-    Goes to emergency check. Empathy flags inform emergency detection.
-
-    Returns:
-        Next node name.
-    """
+    """Legacy stub. Routing is now handled inside graph_v2.py."""
     try:
-        return NODE_EMERGENCY
+        return NODE_SMART_ROUTE
     except Exception:
-        return NODE_EMERGENCY
+        return NODE_SMART_ROUTE
 
 
 def route_after_emergency(state: dict) -> str:
-    """Decide what comes after emergency check.
-
-    If emergency detected → skip pipeline, go straight to format
-    with an escalation message. Otherwise → proceed to classify.
-
-    This is a CRITICAL safety gate. If a customer threatens legal
-    action, mentions safety concerns, or shows signs of crisis,
-    we bypass the AI pipeline and route to human escalation.
-
-    Returns:
-        Next node name.
-    """
+    """Legacy stub. Routing is now handled inside graph_v2.py."""
     try:
-        if state.get("emergency_flag", False):
-            # Emergency: skip AI pipeline, format will create
-            # a human escalation message
-            logger.warning(
-                "Emergency detected — bypassing AI pipeline. "
-                "emergency_type=%s, company_id=%s",
-                state.get("emergency_type", "unknown"),
-                state.get("company_id", ""),
-            )
-            return NODE_FORMAT
-
-        return NODE_CLASSIFY
+        return NODE_SMART_ROUTE
     except Exception:
-        # On error, go to classify (safe default — pipeline continues)
-        return NODE_CLASSIFY
+        return NODE_SMART_ROUTE
 
 
 def route_after_classify(state: dict) -> str:
-    """Decide what comes after classify.
-
-    THE KEY ROUTING DECISION in the Variant Engine.
-
-    Mini:  classify → generate (skip signal extraction and techniques)
-    Pro:   classify → extract_signals (go deeper)
-    High:  classify → extract_signals (go deepest)
-
-    This is where variant_tier drives pipeline depth. Mini saves
-    cost by skipping signal extraction and technique selection —
-    it goes straight to generation with just the classification.
-
-    Returns:
-        Next node name.
-    """
+    """Legacy stub. Routing is now handled inside graph_v2.py."""
     try:
-        variant_tier = state.get("variant_tier", "parwa")
-
-        if variant_tier == "mini_parwa":
-            return NODE_GENERATE
-        else:
-            # Both Pro and High go through signal extraction
-            return NODE_EXTRACT_SIGNALS
+        return NODE_KNOWLEDGE_FETCH
     except Exception:
-        # Safe default: go to generate (simplest path)
-        return NODE_GENERATE
+        return NODE_KNOWLEDGE_FETCH
 
 
 def route_after_extract_signals(state: dict) -> str:
-    """Decide what comes after extract signals.
-
-    Always goes to technique select. Signals inform technique choice.
-
-    Returns:
-        Next node name.
-    """
+    """Legacy stub. Routing is now handled inside graph_v2.py."""
     try:
-        return NODE_TECHNIQUE_SELECT
+        return NODE_KNOWLEDGE_FETCH
     except Exception:
-        return NODE_TECHNIQUE_SELECT
+        return NODE_KNOWLEDGE_FETCH
 
 
 def route_after_technique_select(state: dict) -> str:
-    """Decide what comes after technique select.
-
-    Both Pro and High: technique_select → reasoning_chain
-    (execute selected reasoning techniques before generation)
-
-    Returns:
-        Next node name.
-    """
+    """Legacy stub. Routing is now handled inside graph_v2.py."""
     try:
-        return "reasoning_chain"
+        return NODE_REASONING_ENGINE
     except Exception:
-        return "reasoning_chain"
+        return NODE_REASONING_ENGINE
 
 
 def route_after_context_compress(state: dict) -> str:
-    """Decide what comes after context compression.
-
-    Always goes to generate. Compression optimizes context before
-    the generation step.
-
-    Returns:
-        Next node name.
-    """
+    """Legacy stub. Routing is now handled inside graph_v2.py."""
     try:
-        return NODE_GENERATE
+        return NODE_ACT_VERIFY
     except Exception:
-        return NODE_GENERATE
+        return NODE_ACT_VERIFY
 
 
 def route_after_generate(state: dict) -> str:
-    """Decide what comes after response generation.
-
-    Mini:  generate → format (skip quality gate)
-    Pro:   generate → quality_gate (check quality)
-    High:  generate → quality_gate (check quality)
-
-    Mini skips quality gate to save cost and latency. Pro and High
-    verify response quality before delivering to customer.
-
-    Returns:
-        Next node name.
-    """
+    """Legacy stub. Routing is now handled inside graph_v2.py."""
     try:
-        variant_tier = state.get("variant_tier", "parwa")
-
-        if variant_tier == "mini_parwa":
-            return NODE_FORMAT
-        else:
-            return NODE_QUALITY_GATE
+        return NODE_QUALITY_FORMAT
     except Exception:
-        return NODE_FORMAT
+        return NODE_QUALITY_FORMAT
 
 
 def route_after_quality_gate(state: dict) -> str:
-    """Decide what comes after quality gate.
-
-    If quality failed and retry budget remains → regenerate
-    If quality passed or retries exhausted → proceed
-
-    Pro:   quality_gate → format
-    High:  quality_gate → context_health
-
-    Returns:
-        Next node name.
-    """
+    """Legacy stub. Routing is now handled inside graph_v2.py."""
     try:
-        variant_tier = state.get("variant_tier", "parwa")
-
-        # Check if quality gate failed and we should retry
-        quality_passed = state.get("quality_passed", True)
-        retry_count = state.get("quality_retry_count", 0)
-        max_retries = 1  # Only retry once to control cost
-
-        if not quality_passed and retry_count < max_retries:
-            logger.info(
-                "Quality gate failed (retry %d/%d) — regenerating. "
-                "company_id=%s, variant=%s",
-                retry_count, max_retries,
-                state.get("company_id", ""),
-                variant_tier,
-            )
-            return NODE_GENERATE
-
-        # Quality passed or retries exhausted
-        if variant_tier == "parwa_high":
-            return NODE_CONTEXT_HEALTH
-        else:
-            return NODE_FORMAT
+        return NODE_FORMAT
     except Exception:
         return NODE_FORMAT
 
 
 def route_after_context_health(state: dict) -> str:
-    """Decide what comes after context health check.
-
-    Always goes to dedup. Context health is informational —
-    it logs health state but doesn't change the pipeline flow.
-
-    Returns:
-        Next node name.
-    """
+    """Legacy stub. Routing is now handled inside graph_v2.py."""
     try:
-        return NODE_DEDUP
+        return NODE_QUALITY_FORMAT
     except Exception:
-        return NODE_DEDUP
+        return NODE_QUALITY_FORMAT
 
 
 def route_after_dedup(state: dict) -> str:
-    """Decide what comes after dedup check.
-
-    For parwa_high: goes through strategic_decision + peer_review before format.
-    For other variants: goes straight to format.
-
-    Returns:
-        Next node name.
-    """
+    """Legacy stub. Routing is now handled inside graph_v2.py."""
     try:
-        variant_tier = state.get("variant_tier", "parwa")
-        if variant_tier == "parwa_high":
-            # High goes through strategic_decision + peer_review before format
-            return "strategic_decision"
-        return NODE_FORMAT
+        return NODE_QUALITY_FORMAT
     except Exception:
-        return NODE_FORMAT
+        return NODE_QUALITY_FORMAT
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -316,72 +167,27 @@ def route_after_dedup(state: dict) -> str:
 
 
 def get_mini_pipeline_steps() -> List[str]:
-    """Get the ordered steps for Mini Parwa pipeline.
+    """Get the pipeline steps for Mini Parwa.
 
-    Mini = 5 steps (3 core + 2 safety):
-      pii → empathy → emergency → classify → generate → format
-
-    Cost target: ~$0.003/query
-    Latency target: <3s
+    All tiers now use the same 8-node pipeline. Kept for compatibility.
     """
-    return [
-        NODE_PII,
-        NODE_EMPATHY,
-        NODE_EMERGENCY,
-        NODE_CLASSIFY,
-        NODE_GENERATE,
-        NODE_FORMAT,
-    ]
+    return ALL_NODES[:]
 
 
 def get_pro_pipeline_steps() -> List[str]:
-    """Get the ordered steps for Pro Parwa pipeline.
+    """Get the pipeline steps for Pro Parwa.
 
-    Pro = 8 steps (Mini's 5 + 3 deeper):
-      pii → empathy → emergency → classify → extract_signals →
-      technique_select → generate → quality_gate → format
-
-    Cost target: ~$0.008/query
-    Latency target: <8s
+    All tiers now use the same 8-node pipeline. Kept for compatibility.
     """
-    return [
-        NODE_PII,
-        NODE_EMPATHY,
-        NODE_EMERGENCY,
-        NODE_CLASSIFY,
-        NODE_EXTRACT_SIGNALS,
-        NODE_TECHNIQUE_SELECT,
-        NODE_GENERATE,
-        NODE_QUALITY_GATE,
-        NODE_FORMAT,
-    ]
+    return ALL_NODES[:]
 
 
 def get_high_pipeline_steps() -> List[str]:
-    """Get the ordered steps for High Parwa pipeline.
+    """Get the pipeline steps for High Parwa.
 
-    High = 11 steps (Pro's 8 + 3 deepest):
-      pii → empathy → emergency → classify → extract_signals →
-      technique_select → context_compress → generate → quality_gate →
-      context_health → dedup → format
-
-    Cost target: ~$0.015/query
-    Latency target: <15s
+    All tiers now use the same 8-node pipeline. Kept for compatibility.
     """
-    return [
-        NODE_PII,
-        NODE_EMPATHY,
-        NODE_EMERGENCY,
-        NODE_CLASSIFY,
-        NODE_EXTRACT_SIGNALS,
-        NODE_TECHNIQUE_SELECT,
-        NODE_CONTEXT_COMPRESS,
-        NODE_GENERATE,
-        NODE_QUALITY_GATE,
-        NODE_CONTEXT_HEALTH,
-        NODE_DEDUP,
-        NODE_FORMAT,
-    ]
+    return ALL_NODES[:]
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -392,28 +198,19 @@ def get_high_pipeline_steps() -> List[str]:
 class VariantRouter:
     """Code-orchestrated router for the Variant Engine.
 
-    Provides the routing functions and pipeline definitions that
-    LangGraph uses to build conditional edges in the StateGraph.
-
-    Usage:
-        router = VariantRouter()
-
-        # Add conditional edges to LangGraph builder
-        builder.add_conditional_edges("pii_check", router.route_after_pii)
-        builder.add_conditional_edges("classify", router.route_after_classify)
-        builder.add_conditional_edges("generate", router.route_after_generate)
-        # ... etc
-
-    All routing is FREE — pure Python code, no LLM calls.
+    In V2, all tiers use the same 8-node pipeline. Node 2 handles
+    tier-aware routing internally. This class is preserved for
+    backward compatibility with existing code.
     """
 
     def __init__(self) -> None:
         """Initialize the router."""
-        logger.info("VariantRouter initialized — code-orchestrated routing (FREE)")
+        logger.info(
+            "VariantRouter V2 initialized — unified 8-node pipeline "
+            "(tier routing handled by Node 2)"
+        )
 
-    # Expose routing functions as instance methods for convenience
-    # (can also be used as standalone functions)
-
+    # Instance method wrappers (backward compatibility)
     def route_after_pii(self, state: dict) -> str:
         return route_after_pii(state)
 
@@ -448,28 +245,21 @@ class VariantRouter:
         return route_after_dedup(state)
 
     def get_pipeline_steps(self, variant_tier: str) -> List[str]:
-        """Get the pipeline step list for a variant tier.
+        """Get the pipeline step list — same for all tiers now.
 
         Args:
-            variant_tier: 'mini_parwa' | 'parwa' | 'parwa_high'
+            variant_tier: 'mini_parwa' | 'parwa' | 'parwa_high'.
 
         Returns:
-            Ordered list of node names for the pipeline.
+            Ordered list of 8 node names.
         """
-        pipelines = {
-            "mini_parwa": get_mini_pipeline_steps,
-            "parwa": get_pro_pipeline_steps,
-            "parwa_high": get_high_pipeline_steps,
-        }
-        builder = pipelines.get(variant_tier, get_pro_pipeline_steps)
-        return builder()
+        return ALL_NODES[:]
 
     def get_all_conditional_edges(self) -> dict:
-        """Get all conditional edge mappings for building the LangGraph.
+        """Get all conditional edge mappings (legacy interface).
 
         Returns:
-            Dict mapping source node → routing function.
-            Pass each entry to builder.add_conditional_edges().
+            Dict mapping old node names to routing functions.
         """
         return {
             NODE_PII: route_after_pii,
@@ -483,5 +273,4 @@ class VariantRouter:
             NODE_QUALITY_GATE: route_after_quality_gate,
             NODE_CONTEXT_HEALTH: route_after_context_health,
             NODE_DEDUP: route_after_dedup,
-            # FORMAT always goes to END — no conditional edge needed
         }

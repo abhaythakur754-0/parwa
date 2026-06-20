@@ -1,0 +1,1429 @@
+     1→"""
+     2→Variant Pipeline Bridge: Routes messages through the correct variant pipeline.
+     3→
+     4→This is the connection point between the Jarvis service and the
+     5→Mini Parwa / Parwa / Parwa High LangGraph pipelines.
+     6→
+     7→When a message comes in:
+     8→  1. Look up the variant tier from the session context
+     9→  2. Resolve the full VariantConfig (tier + industry)
+    10→  3. Run the message through the appropriate pipeline
+    11→  4. Return the response + metadata to the Jarvis service
+    12→
+    13→This bridge handles BOTH paths:
+    14→  - Customer care:   Always routes through variant pipeline (tier from handoff)
+    15→  - Onboarding:      Routes through variant pipeline IF variant_tier is set
+    16→                      in context (e.g. user selected a tier on Models page).
+    17→                      Falls back to direct AI if no tier is set.
+    18→
+    19→Pipeline Selection:
+    20→  - mini_parwa (Starter): 10-node pipeline, Tier 1 techniques
+    21→  - parwa (Growth):       15-node pipeline, Tier 1+2 techniques
+    22→  - parwa_high (High):    20-node pipeline, all techniques (falls back to parwa)
+    23→
+    24→Architecture:
+    25→  jarvis_service.send_message()
+    26→       ├─ (onboarding + variant_tier set)
+    27→       │    → variant_pipeline_bridge.process_onboarding_message()
+    28→       │         → Mini/Pro pipeline
+    29→       │
+    30→       ├─ (onboarding + no variant_tier)
+    31→       │    → _call_ai_provider() (direct AI, legacy)
+    32→       │
+    33→       └─ (customer_care)
+    34→            → variant_pipeline_bridge.process_customer_care_message()
+    35→                 → Mini/Pro pipeline
+    36→
+    37→BC-001: company_id first parameter on public methods.
+    38→BC-008: Every public method wrapped in try/except — never crash.
+    39→BC-012: All timestamps UTC.
+    40→"""
+    41→
+    42→from __future__ import annotations
+    43→
+    44→import asyncio
+    45→import concurrent.futures
+    46→import time
+    47→from datetime import datetime, timezone
+    48→from typing import Any, Dict, List, Optional, Tuple
+    49→
+    50→from app.core.variant_tier_mapper import (
+    51→    resolve_tier_from_context,
+    52→    resolve_industry_from_context,
+    53→    get_tier_metadata,
+    54→)
+    55→from app.logger import get_logger
+    56→
+    57→logger = get_logger("variant_pipeline_bridge")
+    58→
+    59→
+    60→# ══════════════════════════════════════════════════════════════════
+    61→# PIPELINE SINGLETONS (lazy-initialized)
+    62→# ══════════════════════════════════════════════════════════════════
+    63→
+    64→_mini_parwa_pipeline: Optional[Any] = None
+    65→_parwa_pipeline: Optional[Any] = None
+    66→_parwa_high_pipeline: Optional[Any] = None
+    67→
+    68→
+    69→def _get_mini_parwa_pipeline() -> Any:
+    70→    """Get or create the Mini Parwa pipeline singleton."""
+    71→    global _mini_parwa_pipeline
+    72→    if _mini_parwa_pipeline is None:
+    73→        try:
+    74→            from app.core.mini_parwa.graph import MiniParwaPipeline
+    75→            _mini_parwa_pipeline = MiniParwaPipeline()
+    76→            logger.info("MiniParwaPipeline singleton initialized for bridge")
+    77→        except Exception:
+    78→            logger.exception("Failed to initialize MiniParwaPipeline")
+    79→    return _mini_parwa_pipeline
+    80→
+    81→
+    82→def _get_parwa_pipeline() -> Any:
+    83→    """Get or create the Pro Parwa pipeline singleton."""
+    84→    global _parwa_pipeline
+    85→    if _parwa_pipeline is None:
+    86→        try:
+    87→            from app.core.parwa.graph import ParwaPipeline
+    88→            _parwa_pipeline = ParwaPipeline()
+    89→            logger.info("ParwaPipeline singleton initialized for bridge")
+    90→        except Exception:
+    91→            logger.exception("Failed to initialize ParwaPipeline")
+    92→    return _parwa_pipeline
+    93→
+    94→
+    95→def _get_parwa_high_pipeline() -> Any:
+    96→    """Get or create the High Parwa pipeline singleton."""
+    97→    global _parwa_high_pipeline
+    98→    if _parwa_high_pipeline is None:
+    99→        try:
+   100→            from app.core.parwa_high.graph import ParwaHighPipeline
+   101→            _parwa_high_pipeline = ParwaHighPipeline()
+   102→            logger.info("ParwaHighPipeline singleton initialized for bridge")
+   103→        except Exception:
+   104→            logger.exception("Failed to initialize ParwaHighPipeline")
+   105→    return _parwa_high_pipeline
+   106→
+   107→
+   108→# ══════════════════════════════════════════════════════════════════
+   109→# PIPELINE RESULT
+   110→# ══════════════════════════════════════════════════════════════════
+   111→
+   112→
+   113→class PipelineResult:
+   114→    """Result from processing a message through a variant pipeline."""
+   115→
+   116→    def __init__(
+   117→        self,
+   118→        response_text: str,
+   119→        variant_tier: str,
+   120→        industry: str,
+   121→        pipeline_status: str = "completed",
+   122→        quality_score: float = 0.0,
+   123→        total_latency_ms: float = 0.0,
+   124→        billing_tokens: int = 0,
+   125→        steps_completed: Optional[List[str]] = None,
+   126→        technique_used: str = "",
+   127→        emergency_flag: bool = False,
+   128→        empathy_score: float = 0.5,
+   129→        classification_intent: str = "",
+   130→        metadata: Optional[Dict[str, Any]] = None,
+   131→    ) -> None:
+   132→        self.response_text = response_text
+   133→        self.variant_tier = variant_tier
+   134→        self.industry = industry
+   135→        self.pipeline_status = pipeline_status
+   136→        self.quality_score = quality_score
+   137→        self.total_latency_ms = total_latency_ms
+   138→        self.billing_tokens = billing_tokens
+   139→        self.steps_completed = steps_completed or []
+   140→        self.technique_used = technique_used
+   141→        self.emergency_flag = emergency_flag
+   142→        self.empathy_score = empathy_score
+   143→        self.classification_intent = classification_intent
+   144→        self.metadata = metadata or {}
+   145→
+   146→    def to_dict(self) -> Dict[str, Any]:
+   147→        """Serialize to dict for logging/metadata."""
+   148→        return {
+   149→            "variant_tier": self.variant_tier,
+   150→            "industry": self.industry,
+   151→            "pipeline_status": self.pipeline_status,
+   152→            "quality_score": self.quality_score,
+   153→            "total_latency_ms": self.total_latency_ms,
+   154→            "billing_tokens": self.billing_tokens,
+   155→            "steps_completed": self.steps_completed,
+   156→            "technique_used": self.technique_used,
+   157→            "emergency_flag": self.emergency_flag,
+   158→            "empathy_score": self.empathy_score,
+   159→            "classification_intent": self.classification_intent,
+   160→        }
+   161→
+   162→
+   163→# ══════════════════════════════════════════════════════════════════
+   164→# CUSTOMER CARE ENTRY POINT
+   165→# ══════════════════════════════════════════════════════════════════
+   166→
+   167→
+   168→async def process_customer_care_message(
+   169→    query: str,
+   170→    company_id: str,
+   171→    session_context: Dict[str, Any],
+   172→    conversation_id: str = "",
+   173→    ticket_id: str = "",
+   174→    channel: str = "chat",
+   175→    customer_id: str = "",
+   176→    customer_tier: str = "free",
+   177→) -> PipelineResult:
+   178→    """Process a customer care message through the appropriate variant pipeline.
+   179→
+   180→    This is the entry point called by jarvis_service when handling
+   181→    customer_care type sessions.
+   182→
+   183→    Flow:
+   184→      1. Resolve variant_tier from session context
+   185→      2. Resolve industry from session context
+   186→      3. Select the appropriate pipeline
+   187→      4. Run the message through the pipeline
+   188→      5. Return a PipelineResult with response + metadata
+   189→
+   190→    Args:
+   191→        query: Customer's raw message.
+   192→        company_id: Tenant identifier (BC-001).
+   193→        session_context: The Jarvis session's context_json (dict).
+   194→        conversation_id: For multi-turn tracking.
+   195→        ticket_id: Ticket identifier.
+   196→        channel: Communication channel.
+   197→        customer_id: Customer identifier.
+   198→        customer_tier: Customer subscription tier.
+   199→
+   200→    Returns:
+   201→        PipelineResult with response text and all pipeline metadata.
+   202→    """
+   203→    start = time.monotonic()
+   204→    try:
+   205→        # ── Step 1: Resolve variant tier from context ──
+   206→        variant_tier = _resolve_tier_from_session(session_context)
+   207→
+   208→        # ── Step 2: Resolve industry from context ──
+   209→        industry = _resolve_industry_from_session(session_context)
+   210→
+   211→        # ── Step 3: Get variant instance_id from context ──
+   212→        variant_instance_id = session_context.get(
+   213→            "variant_instance_id", f"inst_{variant_tier}_{company_id}",
+   214→        )
+   215→
+   216→        logger.info(
+   217→            "process_customer_care_message: tier=%s, industry=%s, "
+   218→            "company_id=%s, instance=%s",
+   219→            variant_tier, industry, company_id, variant_instance_id,
+   220→        )
+   221→
+   222→        # ── Step 4: Select and run pipeline ──
+   223→        result = await _run_pipeline(
+   224→            variant_tier=variant_tier,
+   225→            query=query,
+   226→            company_id=company_id,
+   227→            industry=industry,
+   228→            variant_instance_id=variant_instance_id,
+   229→            conversation_id=conversation_id,
+   230→            ticket_id=ticket_id,
+   231→            channel=channel,
+   232→            customer_id=customer_id,
+   233→            customer_tier=customer_tier,
+   234→        )
+   235→
+   236→        # ── Step 5: Execute external tool actions (post-pipeline) ──
+   237→        # BC-008: Tool failures don't affect the pipeline result.
+   238→        # This is a fire-and-forget side effect — if it fails, the
+   239→        # customer still gets their AI response.
+   240→        try:
+   241→            from app.core.external_tool_executor import execute_pipeline_actions
+   242→
+   243→            # Extract customer contact info from session context
+   244→            customer_email = session_context.get("customer_email", "")
+   245→            customer_phone = session_context.get("customer_phone", "")
+   246→
+   247→            # Get raw pipeline result dict for action extraction
+   248→            raw_result = result.metadata or {}
+   249→            raw_result["step_outputs"] = raw_result.get("step_outputs", {})
+   250→            raw_result["emergency_flag"] = result.emergency_flag
+   251→            raw_result["quality_score"] = result.quality_score
+   252→            raw_result["pipeline_status"] = result.pipeline_status
+   253→
+   254→            tool_results = await execute_pipeline_actions(
+   255→                variant_tier=variant_tier,
+   256→                company_id=company_id,
+   257→                pipeline_result=raw_result,
+   258→                customer_email=customer_email,
+   259→                customer_phone=customer_phone,
+   260→                ticket_number=ticket_id,
+   261→                ticket_id=ticket_id,
+   262→            )
+   263→
+   264→            # Store tool execution results in metadata (non-blocking)
+   265→            if tool_results:
+   266→                result.metadata["external_tool_results"] = {
+   267→                    k: {"channel": v.channel.value if hasattr(v.channel, 'value') else v.channel,
+   268→                        "success": v.success,
+   269→                        "message_id": v.message_id, "error": v.error}
+   270→                    for k, v in tool_results.items()
+   271→                }
+   272→                result.metadata["tools_executed"] = len(tool_results)
+   273→                result.metadata["tools_succeeded"] = sum(
+   274→                    1 for v in tool_results.values() if v.success
+   275→                )
+   276→
+   277→        except Exception as tool_exc:
+   278→            # BC-008: Never crash — just log and continue
+   279→            logger.warning(
+   280→                "external_tool_execution_failed (non-blocking): %s",
+   281→                str(tool_exc)[:200],
+   282→            )
+   283→
+   284→        total_ms = round((time.monotonic() - start) * 1000, 2)
+   285→        logger.info(
+   286→            "process_customer_care_message_complete: tier=%s, status=%s, "
+   287→            "latency=%sms, quality=%.1f, steps=%d",
+   288→            variant_tier, result.pipeline_status, total_ms,
+   289→            result.quality_score, len(result.steps_completed),
+   290→        )
+   291→
+   292→        return result
+   293→
+   294→    except Exception:
+   295→        total_ms = round((time.monotonic() - start) * 1000, 2)
+   296→        logger.exception(
+   297→            "process_customer_care_message failed: company_id=%s, "
+   298→            "latency=%sms",
+   299→            company_id, total_ms,
+   300→        )
+   301→        # BC-008: Return a safe fallback result
+   302→        return PipelineResult(
+   303→            response_text=(
+   304→                "I apologize, I'm having trouble processing your request "
+   305→                "right now. A team member will follow up with you shortly."
+   306→            ),
+   307→            variant_tier=session_context.get("variant_tier", "mini_parwa"),
+   308→            industry=session_context.get("industry", "general"),
+   309→            pipeline_status="failed",
+   310→            total_latency_ms=total_ms,
+   311→            metadata={"error": "pipeline_bridge_failed"},
+   312→        )
+   313→
+   314→
+   315→def process_customer_care_message_sync(
+   316→    query: str,
+   317→    company_id: str,
+   318→    session_context: Dict[str, Any],
+   319→    conversation_id: str = "",
+   320→    ticket_id: str = "",
+   321→    channel: str = "chat",
+   322→    customer_id: str = "",
+   323→    customer_tier: str = "free",
+   324→) -> PipelineResult:
+   325→    """Synchronous wrapper for process_customer_care_message.
+   326→
+   327→    Handles the async/sync bridge for calling from jarvis_service
+   328→    which is synchronous. Uses ThreadPoolExecutor if no event loop.
+   329→
+   330→    Args:
+   331→        Same as process_customer_care_message.
+   332→
+   333→    Returns:
+   334→        PipelineResult with response text and all pipeline metadata.
+   335→    """
+   336→    try:
+   337→        try:
+   338→            loop = asyncio.get_running_loop()
+   339→            # We're inside an existing event loop — use thread pool
+   340→            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+   341→                future = pool.submit(
+   342→                    asyncio.run,
+   343→                    process_customer_care_message(
+   344→                        query=query,
+   345→                        company_id=company_id,
+   346→                        session_context=session_context,
+   347→                        conversation_id=conversation_id,
+   348→                        ticket_id=ticket_id,
+   349→                        channel=channel,
+   350→                        customer_id=customer_id,
+   351→                        customer_tier=customer_tier,
+   352→                    ),
+   353→                )
+   354→                return future.result(timeout=30)
+   355→        except RuntimeError:
+   356→            # No event loop — safe to use asyncio.run
+   357→            return asyncio.run(
+   358→                process_customer_care_message(
+   359→                    query=query,
+   360→                    company_id=company_id,
+   361→                    session_context=session_context,
+   362→                    conversation_id=conversation_id,
+   363→                    ticket_id=ticket_id,
+   364→                    channel=channel,
+   365→                    customer_id=customer_id,
+   366→                    customer_tier=customer_tier,
+   367→                )
+   368→            )
+   369→    except Exception:
+   370→        logger.exception("process_customer_care_message_sync failed")
+   371→        return PipelineResult(
+   372→            response_text=(
+   373→                "I apologize, I'm having trouble processing your request. "
+   374→                "A team member will follow up shortly."
+   375→            ),
+   376→            variant_tier="mini_parwa",
+   377→            industry="general",
+   378→            pipeline_status="failed",
+   379→            metadata={"error": "sync_wrapper_failed"},
+   380→        )
+   381→
+   382→
+   383→# ══════════════════════════════════════════════════════════════════
+   384→# ONBOARDING ENTRY POINT
+   385→# ══════════════════════════════════════════════════════════════════
+   386→
+   387→
+   388→async def process_onboarding_message(
+   389→    query: str,
+   390→    company_id: str,
+   391→    session_context: Dict[str, Any],
+   392→    conversation_id: str = "",
+   393→    ticket_id: str = "",
+   394→    channel: str = "chat",
+   395→    customer_id: str = "",
+   396→    customer_tier: str = "free",
+   397→) -> PipelineResult:
+   398→    """Process an onboarding message through the variant pipeline.
+   399→
+   400→    Called by jarvis_service when session.type == "onboarding" AND
+   401→    the session context has a variant_tier set (meaning the user
+   402→    selected a specific variant on the Models page).
+   403→
+   404→    If variant_tier is NOT set, the caller should fall back to
+   405→    the direct AI provider path (_call_ai_provider).
+   406→
+   407→    The pipeline runs in ONBOARDING MODE which means:
+   408→      - Emergency bypass still works (safety first)
+   409→      - GSD state tracks onboarding flow, not support flow
+   410→      - Classification is tuned for sales/onboarding intents
+   411→      - Generated response includes variant-aware context
+   412→
+   413→    Flow:
+   414→      1. Resolve variant_tier from session context
+   415→      2. Resolve industry from session context
+   416→      3. Run through the same pipeline as customer_care
+   417→      4. Return PipelineResult with response + metadata
+   418→
+   419→    Args:
+   420→        query: User's raw message.
+   421→        company_id: Tenant identifier (BC-001).
+   422→        session_context: The Jarvis session's context_json (dict).
+   423→        conversation_id: For multi-turn tracking.
+   424→        ticket_id: Ticket identifier.
+   425→        channel: Communication channel.
+   426→        customer_id: Customer identifier.
+   427→        customer_tier: Customer subscription tier.
+   428→
+   429→    Returns:
+   430→        PipelineResult with response text and all pipeline metadata.
+   431→    """
+   432→    start = time.monotonic()
+   433→    try:
+   434→        # ── Step 1: Resolve variant tier from context ──
+   435→        variant_tier = _resolve_tier_from_session(session_context)
+   436→
+   437→        # ── Step 2: Resolve industry from context ──
+   438→        industry = _resolve_industry_from_session(session_context)
+   439→
+   440→        # ── Step 3: Get variant instance_id from context ──
+   441→        variant_instance_id = session_context.get(
+   442→            "variant_instance_id", f"inst_onboarding_{variant_tier}_{company_id}",
+   443→        )
+   444→
+   445→        logger.info(
+   446→            "process_onboarding_message: tier=%s, industry=%s, "
+   447→            "company_id=%s, instance=%s",
+   448→            variant_tier, industry, company_id, variant_instance_id,
+   449→        )
+   450→
+   451→        # ── Step 4: Select and run pipeline (same as customer_care) ──
+   452→        result = await _run_pipeline(
+   453→            variant_tier=variant_tier,
+   454→            query=query,
+   455→            company_id=company_id,
+   456→            industry=industry,
+   457→            variant_instance_id=variant_instance_id,
+   458→            conversation_id=conversation_id,
+   459→            ticket_id=ticket_id,
+   460→            channel=channel,
+   461→            customer_id=customer_id,
+   462→            customer_tier=customer_tier,
+   463→        )
+   464→
+   465→        total_ms = round((time.monotonic() - start) * 1000, 2)
+   466→        logger.info(
+   467→            "process_onboarding_message_complete: tier=%s, status=%s, "
+   468→            "latency=%sms, quality=%.1f, steps=%d",
+   469→            variant_tier, result.pipeline_status, total_ms,
+   470→            result.quality_score, len(result.steps_completed),
+   471→        )
+   472→
+   473→        return result
+   474→
+   475→    except Exception:
+   476→        total_ms = round((time.monotonic() - start) * 1000, 2)
+   477→        logger.exception(
+   478→            "process_onboarding_message failed: company_id=%s, "
+   479→            "latency=%sms",
+   480→            company_id, total_ms,
+   481→        )
+   482→        # BC-008: Return a safe fallback result
+   483→        return PipelineResult(
+   484→            response_text=(
+   485→                "I apologize, I'm having trouble processing your request "
+   486→                "right now. Let me try a different approach."
+   487→            ),
+   488→            variant_tier=session_context.get("variant_tier", "mini_parwa"),
+   489→            industry=session_context.get("industry", "general"),
+   490→            pipeline_status="failed",
+   491→            total_latency_ms=total_ms,
+   492→            metadata={"error": "onboarding_pipeline_bridge_failed"},
+   493→        )
+   494→
+   495→
+   496→def process_onboarding_message_sync(
+   497→    query: str,
+   498→    company_id: str,
+   499→    session_context: Dict[str, Any],
+   500→    conversation_id: str = "",
+   501→    ticket_id: str = "",
+   502→    channel: str = "chat",
+   503→    customer_id: str = "",
+   504→    customer_tier: str = "free",
+   505→) -> PipelineResult:
+   506→    """Synchronous wrapper for process_onboarding_message.
+   507→
+   508→    Handles the async/sync bridge for calling from jarvis_service
+   509→    which is synchronous. Uses ThreadPoolExecutor if no event loop.
+   510→
+   511→    Args:
+   512→        Same as process_onboarding_message.
+   513→
+   514→    Returns:
+   515→        PipelineResult with response text and all pipeline metadata.
+   516→    """
+   517→    try:
+   518→        try:
+   519→            loop = asyncio.get_running_loop()
+   520→            # We're inside an existing event loop — use thread pool
+   521→            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+   522→                future = pool.submit(
+   523→                    asyncio.run,
+   524→                    process_onboarding_message(
+   525→                        query=query,
+   526→                        company_id=company_id,
+   527→                        session_context=session_context,
+   528→                        conversation_id=conversation_id,
+   529→                        ticket_id=ticket_id,
+   530→                        channel=channel,
+   531→                        customer_id=customer_id,
+   532→                        customer_tier=customer_tier,
+   533→                    ),
+   534→                )
+   535→                return future.result(timeout=30)
+   536→        except RuntimeError:
+   537→            # No event loop — safe to use asyncio.run
+   538→            return asyncio.run(
+   539→                process_onboarding_message(
+   540→                    query=query,
+   541→                    company_id=company_id,
+   542→                    session_context=session_context,
+   543→                    conversation_id=conversation_id,
+   544→                    ticket_id=ticket_id,
+   545→                    channel=channel,
+   546→                    customer_id=customer_id,
+   547→                    customer_tier=customer_tier,
+   548→                )
+   549→            )
+   550→    except Exception:
+   551→        logger.exception("process_onboarding_message_sync failed")
+   552→        return PipelineResult(
+   553→            response_text=(
+   554→                "I apologize, I'm having trouble processing your request. "
+   555→                "Let me try a different approach."
+   556→            ),
+   557→            variant_tier="mini_parwa",
+   558→            industry="general",
+   559→            pipeline_status="failed",
+   560→            metadata={"error": "onboarding_sync_wrapper_failed"},
+   561→        )
+   562→
+   563→
+   564→def has_variant_tier_in_context(session_context: Dict[str, Any]) -> bool:
+   565→    """Check if the session context has a variant_tier set.
+   566→
+   567→    Used by jarvis_service to decide whether to route onboarding
+   568→    messages through the variant pipeline or use direct AI.
+   569→
+   570→    Args:
+   571→        session_context: The Jarvis session's context_json (dict).
+   572→
+   573→    Returns:
+   574→        True if variant_tier is set and valid.
+   575→    """
+   576→    tier = session_context.get("variant_tier")
+   577→    return tier is not None and tier in ("mini_parwa", "parwa", "parwa_high")
+   578→
+   579→
+   580→# ══════════════════════════════════════════════════════════════════
+   581→# SHADOW MODE PROCESSING
+   582→# ══════════════════════════════════════════════════════════════════
+   583→
+   584→
+   585→async def process_shadow_mode(
+   586→    query: str,
+   587→    company_id: str,
+   588→    session_context: Dict[str, Any],
+   589→    conversation_id: str = "",
+   590→    ticket_id: str = "",
+   591→    channel: str = "chat",
+   592→    customer_id: str = "",
+   593→    customer_tier: str = "free",
+   594→) -> PipelineResult:
+   595→    """Process a message through both live and shadow variants.
+   596→
+   597→    When shadow mode is active for a company, this function:
+   598→      1. Runs the LIVE variant pipeline (normal processing)
+   599→      2. Runs the SHADOW variant pipeline (parallel, non-blocking)
+   600→      3. Compares the results (quality, latency, tokens)
+   601→      4. Records the comparison for analysis
+   602→      5. Returns the LIVE variant result (shadow is never shown to customer)
+   603→
+   604→    In SUPERVISED mode, the shadow variant's response is returned
+   605→    instead, but flagged for human review before delivery.
+   606→
+   607→    BC-001: company_id first parameter.
+   608→    BC-008: Never crashes — returns live result on shadow failure.
+   609→    BC-012: All timestamps UTC.
+   610→    """
+   611→    try:
+   612→        from app.services.shadow_mode_service import get_shadow_mode_service
+   613→
+   614→        service = get_shadow_mode_service()
+   615→        shadow_config = service.get_shadow_config(company_id)
+   616→
+   617→        if shadow_config is None:
+   618→            # No active shadow mode — just run normal pipeline
+   619→            return await process_customer_care_message(
+   620→                query=query,
+   621→                company_id=company_id,
+   622→                session_context=session_context,
+   623→                conversation_id=conversation_id,
+   624→                ticket_id=ticket_id,
+   625→                channel=channel,
+   626→                customer_id=customer_id,
+   627→                customer_tier=customer_tier,
+   628→            )
+   629→
+   630→        # Check if this message should be shadow-processed
+   631→        should_shadow, reason = service.should_process_shadow(
+   632→            company_id=company_id, message=query,
+   633→        )
+   634→
+   635→        if not should_shadow:
+   636→            logger.debug(
+   637→                "Shadow mode: skipping message for company_id=%s, reason=%s",
+   638→                company_id, reason,
+   639→            )
+   640→            return await process_customer_care_message(
+   641→                query=query,
+   642→                company_id=company_id,
+   643→                session_context=session_context,
+   644→                conversation_id=conversation_id,
+   645→                ticket_id=ticket_id,
+   646→                channel=channel,
+   647→                customer_id=customer_id,
+   648→                customer_tier=customer_tier,
+   649→            )
+   650→
+   651→        live_variant = shadow_config.get("live_variant", "mini_parwa")
+   652→        shadow_variant = shadow_config.get("shadow_variant", "parwa")
+   653→        shadow_status = shadow_config.get("status", "shadow")
+   654→
+   655→        logger.info(
+   656→            "Shadow mode processing: company_id=%s, live=%s, shadow=%s, "
+   657→            "status=%s, ticket_id=%s",
+   658→            company_id, live_variant, shadow_variant, shadow_status, ticket_id,
+   659→        )
+   660→
+   661→        # ── Run LIVE pipeline ──
+   662→        live_result = await _run_pipeline(
+   663→            variant_tier=live_variant,
+   664→            query=query,
+   665→            company_id=company_id,
+   666→            industry=_resolve_industry_from_session(session_context),
+   667→            conversation_id=conversation_id,
+   668→            ticket_id=ticket_id,
+   669→            channel=channel,
+   670→            customer_id=customer_id,
+   671→            customer_tier=customer_tier,
+   672→        )
+   673→
+   674→        # ── Run SHADOW pipeline (best-effort, don't fail on error) ──
+   675→        shadow_result = None
+   676→        try:
+   677→            shadow_result = await _run_pipeline(
+   678→                variant_tier=shadow_variant,
+   679→                query=query,
+   680→                company_id=company_id,
+   681→                industry=_resolve_industry_from_session(session_context),
+   682→                conversation_id=f"shadow_{conversation_id}",
+   683→                ticket_id=ticket_id,
+   684→                channel=channel,
+   685→                customer_id=customer_id,
+   686→                customer_tier=customer_tier,
+   687→            )
+   688→        except Exception:
+   689→            logger.exception(
+   690→                "Shadow pipeline failed for company_id=%s — "
+   691→                "continuing with live result only",
+   692→                company_id,
+   693→            )
+   694→
+   695→        # ── Record comparison ──
+   696→        if shadow_result is not None:
+   697→            try:
+   698→                from app.services.shadow_mode_service import ShadowComparison
+   699→
+   700→                live_quality = live_result.quality_score or 0.0
+   701→                shadow_quality = shadow_result.quality_score or 0.0
+   702→
+   703→                comparison = ShadowComparison(
+   704→                    company_id=company_id,
+   705→                    config_id=shadow_config.get("id", ""),
+   706→                    ticket_id=ticket_id,
+   707→                    conversation_id=conversation_id,
+   708→                    message_hash=service._hash_message(query),
+   709→                    live_variant=live_variant,
+   710→                    live_response=live_result.response_text[:500],
+   711→                    live_quality_score=live_quality,
+   712→                    live_latency_ms=int(live_result.total_latency_ms or 0),
+   713→                    live_tokens_used=live_result.billing_tokens or 0,
+   714→                    shadow_variant=shadow_variant,
+   715→                    shadow_response=shadow_result.response_text[:500],
+   716→                    shadow_quality_score=shadow_quality,
+   717→                    shadow_latency_ms=int(shadow_result.total_latency_ms or 0),
+   718→                    shadow_tokens_used=shadow_result.billing_tokens or 0,
+   719→                    quality_delta=round(shadow_quality - live_quality, 4),
+   720→                    latency_delta_ms=int(
+   721→                        (shadow_result.total_latency_ms or 0)
+   722→                        - (live_result.total_latency_ms or 0)
+   723→                    ),
+   724→                    token_delta=(shadow_result.billing_tokens or 0) - (live_result.billing_tokens or 0),
+   725→                    shadow_winner=shadow_quality >= live_quality,
+   726→                    mode_at_comparison=shadow_status,
+   727→                )
+   728→
+   729→                service.record_comparison(
+   730→                    company_id=company_id,
+   731→                    comparison=comparison,
+   732→                )
+   733→
+   734→            except Exception:
+   735→                logger.exception(
+   736→                    "Failed to record shadow comparison for company_id=%s",
+   737→                    company_id,
+   738→                )
+   739→
+   740→        # ── Determine which result to return ──
+   741→        if shadow_status == "supervised" and shadow_result is not None:
+   742→            # In supervised mode, return shadow result but flag for review
+   743→            shadow_result.metadata["shadow_mode"] = "supervised"
+   744→            shadow_result.metadata["requires_human_review"] = True
+   745→            shadow_result.metadata["live_response_available"] = True
+   746→            shadow_result.metadata["live_variant"] = live_variant
+   747→            logger.info(
+   748→                "Supervised mode: returning shadow result for review, "
+   749→                "company_id=%s, ticket_id=%s",
+   750→                company_id, ticket_id,
+   751→            )
+   752→            return shadow_result
+   753→        else:
+   754→            # In shadow mode, always return live result
+   755→            live_result.metadata["shadow_mode"] = "shadow"
+   756→            live_result.metadata["shadow_processed"] = shadow_result is not None
+   757→            live_result.metadata["shadow_variant"] = shadow_variant
+   758→            return live_result
+   759→
+   760→    except Exception:
+   761→        logger.exception(
+   762→            "process_shadow_mode failed for company_id=%s — "
+   763→            "falling back to normal processing",
+   764→            company_id,
+   765→        )
+   766→        return await process_customer_care_message(
+   767→            query=query,
+   768→            company_id=company_id,
+   769→            session_context=session_context,
+   770→            conversation_id=conversation_id,
+   771→            ticket_id=ticket_id,
+   772→            channel=channel,
+   773→            customer_id=customer_id,
+   774→            customer_tier=customer_tier,
+   775→        )
+   776→
+   777→
+   778→# ══════════════════════════════════════════════════════════════════
+   779→# UNIFIED PIPELINE RUNNER
+   780→# ══════════════════════════════════════════════════════════════════
+   781→
+   782→
+   783→async def _run_pipeline(
+   784→    variant_tier: str,
+   785→    query: str,
+   786→    company_id: str,
+   787→    industry: str,
+   788→    variant_instance_id: str = "",
+   789→    conversation_id: str = "",
+   790→    ticket_id: str = "",
+   791→    channel: str = "chat",
+   792→    customer_id: str = "",
+   793→    customer_tier: str = "free",
+   794→) -> PipelineResult:
+   795→    """Run the appropriate pipeline based on variant_tier.
+   796→
+   797→    Shared by both customer_care and onboarding paths.
+   798→
+   799→    Args:
+   800→        variant_tier: 'mini_parwa' | 'parwa' | 'parwa_high'.
+   801→        query: Customer's raw message.
+   802→        company_id: Tenant identifier (BC-001).
+   803→        industry: Industry enum value.
+   804→        variant_instance_id: Specific variant instance.
+   805→        conversation_id: For multi-turn tracking.
+   806→        ticket_id: Ticket identifier.
+   807→        channel: Communication channel.
+   808→        customer_id: Customer identifier.
+   809→        customer_tier: Customer subscription tier.
+   810→
+   811→    Returns:
+   812→        PipelineResult with response + full pipeline metadata.
+   813→    """
+   814→    if variant_tier == "mini_parwa":
+   815→        return await _run_mini_parwa(
+   816→            query=query,
+   817→            company_id=company_id,
+   818→            industry=industry,
+   819→            variant_instance_id=variant_instance_id,
+   820→            conversation_id=conversation_id,
+   821→            ticket_id=ticket_id,
+   822→            channel=channel,
+   823→            customer_id=customer_id,
+   824→            customer_tier=customer_tier,
+   825→        )
+   826→    elif variant_tier == "parwa":
+   827→        return await _run_parwa(
+   828→            query=query,
+   829→            company_id=company_id,
+   830→            industry=industry,
+   831→            variant_instance_id=variant_instance_id,
+   832→            conversation_id=conversation_id,
+   833→            ticket_id=ticket_id,
+   834→            channel=channel,
+   835→            customer_id=customer_id,
+   836→            customer_tier=customer_tier,
+   837→        )
+   838→    elif variant_tier == "parwa_high":
+   839→        return await _run_parwa_high(
+   840→            query=query,
+   841→            company_id=company_id,
+   842→            industry=industry,
+   843→            variant_instance_id=variant_instance_id,
+   844→            conversation_id=conversation_id,
+   845→            ticket_id=ticket_id,
+   846→            channel=channel,
+   847→            customer_id=customer_id,
+   848→            customer_tier=customer_tier,
+   849→        )
+   850→    else:
+   851→        # Default: mini_parwa (safest, cheapest)
+   852→        return await _run_mini_parwa(
+   853→            query=query,
+   854→            company_id=company_id,
+   855→            industry=industry,
+   856→            variant_instance_id=variant_instance_id,
+   857→            conversation_id=conversation_id,
+   858→            ticket_id=ticket_id,
+   859→            channel=channel,
+   860→            customer_id=customer_id,
+   861→            customer_tier=customer_tier,
+   862→        )
+   863→
+   864→
+   865→# ══════════════════════════════════════════════════════════════════
+   866→# PIPELINE RUNNERS
+   867→# ══════════════════════════════════════════════════════════════════
+   868→
+   869→
+   870→async def _run_mini_parwa(
+   871→    query: str,
+   872→    company_id: str,
+   873→    industry: str,
+   874→    variant_instance_id: str = "",
+   875→    conversation_id: str = "",
+   876→    ticket_id: str = "",
+   877→    channel: str = "chat",
+   878→    customer_id: str = "",
+   879→    customer_tier: str = "free",
+   880→) -> PipelineResult:
+   881→    """Run a message through the Mini Parwa 10-node pipeline.
+   882→
+   883→    Pipeline: pii_check → empathy_check → emergency_check → gsd_state
+   884→              → extract_signals → classify → generate → crp_compress
+   885→              → clara_quality_gate → format
+   886→
+   887→    Connected Frameworks (Tier 1 — Always Active):
+   888→      - CLARA (Quality Gate)
+   889→      - CRP (Token Compression)
+   890→      - GSD (State Engine)
+   891→      - Smart Router (Light tier)
+   892→      - Technique Router (Tier 1 only)
+   893→      - Confidence Scoring
+   894→
+   895→    Args:
+   896→        query: Customer's raw message.
+   897→        company_id: Tenant identifier (BC-001).
+   898→        industry: Industry enum value.
+   899→        variant_instance_id: Specific variant instance.
+   900→        conversation_id: For multi-turn tracking.
+   901→        ticket_id: Ticket identifier.
+   902→        channel: Communication channel.
+   903→        customer_id: Customer identifier.
+   904→        customer_tier: Customer subscription tier.
+   905→
+   906→    Returns:
+   907→        PipelineResult with response + full pipeline metadata.
+   908→    """
+   909→    try:
+   910→        pipeline = _get_mini_parwa_pipeline()
+   911→
+   912→        if pipeline is None:
+   913→            logger.error("MiniParwaPipeline not available — returning fallback")
+   914→            return PipelineResult(
+   915→                response_text=(
+   916→                    "I'm experiencing a temporary issue. "
+   917→                    "Our team has been notified and will respond shortly."
+   918→                ),
+   919→                variant_tier="mini_parwa",
+   920→                industry=industry,
+   921→                pipeline_status="pipeline_unavailable",
+   922→            )
+   923→
+   924→        # Run through Mini Parwa's process_ticket method
+   925→        result = await pipeline.process_ticket(
+   926→            query=query,
+   927→            company_id=company_id,
+   928→            industry=industry,
+   929→            channel=channel,
+   930→            customer_id=customer_id,
+   931→            customer_tier=customer_tier,
+   932→            conversation_id=conversation_id,
+   933→            ticket_id=ticket_id,
+   934→            variant_instance_id=variant_instance_id,
+   935→        )
+   936→
+   937→        # Extract the formatted response from pipeline result
+   938→        response_text = result.get("formatted_response", "") or result.get(
+   939→            "generated_response", ""
+   940→        )
+   941→
+   942→        # If pipeline generated an emergency escalation response
+   943→        if result.get("emergency_flag", False):
+   944→            emergency_type = result.get("emergency_type", "")
+   945→            response_text = result.get("formatted_response", "") or (
+   946→                "Your message has been flagged for priority handling. "
+   947→                "A senior team member will contact you directly. "
+   948→                f"Reference: {result.get('ticket_id', 'N/A')}"
+   949→            )
+   950→
+   951→        # If no response was generated, use fallback
+   952→        if not response_text:
+   953→            classification = result.get("classification", {})
+   954→            intent = classification.get("intent", "general")
+   955→            # Use template response based on intent
+   956→            from app.core.mini_parwa.nodes import TEMPLATE_RESPONSES
+   957→            response_text = TEMPLATE_RESPONSES.get(
+   958→                intent, TEMPLATE_RESPONSES["general"],
+   959→            )
+   960→
+   961→        return PipelineResult(
+   962→            response_text=response_text,
+   963→            variant_tier="mini_parwa",
+   964→            industry=industry,
+   965→            pipeline_status=result.get("pipeline_status", "completed"),
+   966→            quality_score=result.get("quality_score", 0.0),
+   967→            total_latency_ms=result.get("total_latency_ms", 0.0),
+   968→            billing_tokens=result.get("billing_tokens", 0),
+   969→            steps_completed=result.get("steps_completed", []),
+   970→            technique_used=result.get("technique", ""),
+   971→            emergency_flag=result.get("emergency_flag", False),
+   972→            empathy_score=result.get("empathy_score", 0.5),
+   973→            classification_intent=result.get("classification", {}).get("intent", ""),
+   974→            metadata={
+   975→                "ticket_id": result.get("ticket_id", ""),
+   976→                "conversation_id": result.get("conversation_id", ""),
+   977→                "pii_detected": result.get("pii_detected", False),
+   978→                "gsd_state": result.get("step_outputs", {}).get(
+   979→                    "gsd_state", {},
+   980→                ).get("to_state", ""),
+   981→                "crp_compression_ratio": result.get("step_outputs", {}).get(
+   982→                    "crp_compress", {},
+   983→                ).get("compression_ratio", 1.0),
+   984→                "clara_passed": result.get("step_outputs", {}).get(
+   985→                    "clara_quality_gate", {},
+   986→                ).get("passed", True),
+   987→            },
+   988→        )
+   989→
+   990→    except Exception:
+   991→        logger.exception("_run_mini_parwa failed")
+   992→        return PipelineResult(
+   993→            response_text=(
+   994→                "I apologize for the inconvenience. "
+   995→                "Our team will follow up with you shortly."
+   996→            ),
+   997→            variant_tier="mini_parwa",
+   998→            industry=industry,
+   999→            pipeline_status="failed",
+  1000→            metadata={"error": "mini_parwa_execution_failed"},
+  1001→        )
+  1002→
+  1003→
+  1004→async def _run_parwa(
+  1005→    query: str,
+  1006→    company_id: str,
+  1007→    industry: str,
+  1008→    variant_instance_id: str = "",
+  1009→    conversation_id: str = "",
+  1010→    ticket_id: str = "",
+  1011→    channel: str = "chat",
+  1012→    customer_id: str = "",
+  1013→    customer_tier: str = "free",
+  1014→) -> PipelineResult:
+  1015→    """Run a message through the Pro Parwa 15-node pipeline.
+  1016→
+  1017→    Pipeline: pii_check → empathy_check → emergency_check → gsd_state
+  1018→              → classify → extract_signals → technique_select
+  1019→              → reasoning_chain → context_enrich → generate
+  1020→              → crp_compress → clara_quality_gate → quality_retry
+  1021→              → confidence_assess → format
+  1022→
+  1023→    Connected Frameworks (Tier 1 + Tier 2):
+  1024→      - CLARA (Quality Gate, enhanced: threshold 85)
+  1025→      - CRP (Token Compression)
+  1026→      - GSD (State Engine)
+  1027→      - Smart Router (Medium tier)
+  1028→      - Technique Router (Tier 1+2)
+  1029→      - Confidence Scoring
+  1030→      - CoT, ReAct, Reverse Thinking, Step-Back, ThoT (Tier 2 conditional)
+  1031→
+  1032→    Args:
+  1033→        query: Customer's raw message.
+  1034→        company_id: Tenant identifier (BC-001).
+  1035→        industry: Industry enum value.
+  1036→        variant_instance_id: Specific variant instance.
+  1037→        conversation_id: For multi-turn tracking.
+  1038→        ticket_id: Ticket identifier.
+  1039→        channel: Communication channel.
+  1040→        customer_id: Customer identifier.
+  1041→        customer_tier: Customer subscription tier.
+  1042→
+  1043→    Returns:
+  1044→        PipelineResult with response + full pipeline metadata.
+  1045→    """
+  1046→    try:
+  1047→        pipeline = _get_parwa_pipeline()
+  1048→
+  1049→        if pipeline is None:
+  1050→            logger.error("ParwaPipeline not available — returning fallback")
+  1051→            return PipelineResult(
+  1052→                response_text=(
+  1053→                    "I'm experiencing a temporary issue. "
+  1054→                    "Our team has been notified and will respond shortly."
+  1055→                ),
+  1056→                variant_tier="parwa",
+  1057→                industry=industry,
+  1058→                pipeline_status="pipeline_unavailable",
+  1059→            )
+  1060→
+  1061→        # Run through Pro Parwa's process_ticket method
+  1062→        result = await pipeline.process_ticket(
+  1063→            query=query,
+  1064→            company_id=company_id,
+  1065→            industry=industry,
+  1066→            channel=channel,
+  1067→            customer_id=customer_id,
+  1068→            customer_tier=customer_tier,
+  1069→            conversation_id=conversation_id,
+  1070→            ticket_id=ticket_id,
+  1071→            variant_instance_id=variant_instance_id,
+  1072→        )
+  1073→
+  1074→        # Extract the formatted response from pipeline result
+  1075→        response_text = result.get("formatted_response", "") or result.get(
+  1076→            "generated_response", ""
+  1077→        )
+  1078→
+  1079→        # If pipeline generated an emergency escalation response
+  1080→        if result.get("emergency_flag", False):
+  1081→            response_text = result.get("formatted_response", "") or (
+  1082→                "Your message has been flagged for priority handling. "
+  1083→                "A senior team member will contact you directly within the hour. "
+  1084→                f"Reference: {result.get('ticket_id', 'N/A')}"
+  1085→            )
+  1086→
+  1087→        # If no response was generated, use fallback
+  1088→        if not response_text:
+  1089→            classification = result.get("classification", {})
+  1090→            intent = classification.get("intent", "general")
+  1091→            from app.core.parwa.nodes import TEMPLATE_RESPONSES
+  1092→            response_text = TEMPLATE_RESPONSES.get(
+  1093→                intent, TEMPLATE_RESPONSES["general"],
+  1094→            )
+  1095→
+  1096→        # Get technique info (Pro-specific)
+  1097→        technique_used = result.get("step_outputs", {}).get(
+  1098→            "technique_select", {},
+  1099→        ).get("primary_technique", "direct")
+  1100→        reasoning_technique = result.get("step_outputs", {}).get(
+  1101→            "reasoning_chain", {},
+  1102→        ).get("technique", "direct")
+  1103→
+  1104→        return PipelineResult(
+  1105→            response_text=response_text,
+  1106→            variant_tier="parwa",
+  1107→            industry=industry,
+  1108→            pipeline_status=result.get("pipeline_status", "completed"),
+  1109→            quality_score=result.get("quality_score", 0.0),
+  1110→            total_latency_ms=result.get("total_latency_ms", 0.0),
+  1111→            billing_tokens=result.get("billing_tokens", 0),
+  1112→            steps_completed=result.get("steps_completed", []),
+  1113→            technique_used=technique_used,
+  1114→            emergency_flag=result.get("emergency_flag", False),
+  1115→            empathy_score=result.get("empathy_score", 0.5),
+  1116→            classification_intent=result.get("classification", {}).get("intent", ""),
+  1117→            metadata={
+  1118→                "ticket_id": result.get("ticket_id", ""),
+  1119→                "conversation_id": result.get("conversation_id", ""),
+  1120→                "pii_detected": result.get("pii_detected", False),
+  1121→                "reasoning_technique": reasoning_technique,
+  1122→                "quality_passed": result.get("quality_passed", True),
+  1123→                "quality_retry_count": result.get("quality_retry_count", 0),
+  1124→                "gsd_state": result.get("step_outputs", {}).get(
+  1125→                    "gsd_state", {},
+  1126→                ).get("to_state", ""),
+  1127→                "crp_compression_ratio": result.get("step_outputs", {}).get(
+  1128→                    "crp_compress", {},
+  1129→                ).get("compression_ratio", 1.0),
+  1130→                "clara_passed": result.get("step_outputs", {}).get(
+  1131→                    "clara_quality_gate", {},
+  1132→                ).get("passed", True),
+  1133→                "confidence_score": result.get("step_outputs", {}).get(
+  1134→                    "confidence_assess", {},
+  1135→                ).get("confidence_score", 0.5),
+  1136→            },
+  1137→        )
+  1138→
+  1139→    except Exception:
+  1140→        logger.exception("_run_parwa failed")
+  1141→        return PipelineResult(
+  1142→            response_text=(
+  1143→                "I apologize for the inconvenience. "
+  1144→                "Our team will follow up with you shortly."
+  1145→            ),
+  1146→            variant_tier="parwa",
+  1147→            industry=industry,
+  1148→            pipeline_status="failed",
+  1149→            metadata={"error": "parwa_execution_failed"},
+  1150→        )
+  1151→
+  1152→
+  1153→# ══════════════════════════════════════════════════════════════════
+  1154→# HIGH PARWA PIPELINE RUNNER
+  1155→# ══════════════════════════════════════════════════════════════════
+  1156→
+  1157→
+  1158→async def _run_parwa_high(
+  1159→    query: str,
+  1160→    company_id: str,
+  1161→    industry: str,
+  1162→    variant_instance_id: str = "",
+  1163→    conversation_id: str = "",
+  1164→    ticket_id: str = "",
+  1165→    channel: str = "chat",
+  1166→    customer_id: str = "",
+  1167→    customer_tier: str = "free",
+  1168→) -> PipelineResult:
+  1169→    """Run a message through the High Parwa 20-node pipeline.
+  1170→
+  1171→    Pipeline: pii_check -> empathy_check -> emergency_check -> gsd_state
+  1172→              -> classify -> extract_signals -> technique_select
+  1173→              -> reasoning_chain -> context_enrich -> context_compress
+  1174→              -> generate -> crp_compress -> clara_quality_gate
+  1175→              -> quality_retry (max 2) -> confidence_assess
+  1176→              -> context_health -> dedup -> strategic_decision
+  1177→              -> peer_review -> format -> END
+  1178→
+  1179→    Connected Frameworks (Tier 1 + Tier 2 + Tier 3):
+  1180→      - CLARA (Quality Gate, strictest: threshold 95, 8-check)
+  1181→      - CRP (Token Compression)
+  1182→      - GSD (State Engine)
+  1183→      - Smart Router (Heavy tier)
+  1184→      - Technique Router (Tier 1+2+3)
+  1185→      - Confidence Scoring
+  1186→      - CoT, ReAct, Reverse Thinking, Step-Back, ThoT (Tier 2)
+  1187→      - GST, UoT, ToT, Self-Consistency, Reflexion, Least-to-Most (Tier 3)
+  1188→
+  1189→    Args:
+  1190→        query: Customer's raw message.
+  1191→        company_id: Tenant identifier (BC-001).
+  1192→        industry: Industry enum value.
+  1193→        variant_instance_id: Specific variant instance.
+  1194→        conversation_id: For multi-turn tracking.
+  1195→        ticket_id: Ticket identifier.
+  1196→        channel: Communication channel.
+  1197→        customer_id: Customer identifier.
+  1198→        customer_tier: Customer subscription tier.
+  1199→
+  1200→    Returns:
+  1201→        PipelineResult with response + full pipeline metadata.
+  1202→    """
+  1203→    try:
+  1204→        pipeline = _get_parwa_high_pipeline()
+  1205→
+  1206→        if pipeline is None:
+  1207→            logger.error("ParwaHighPipeline not available — falling back to Pro")
+  1208→            return await _run_parwa(
+  1209→                query=query,
+  1210→                company_id=company_id,
+  1211→                industry=industry,
+  1212→                variant_instance_id=variant_instance_id,
+  1213→                conversation_id=conversation_id,
+  1214→                ticket_id=ticket_id,
+  1215→                channel=channel,
+  1216→                customer_id=customer_id,
+  1217→                customer_tier=customer_tier,
+  1218→            )
+  1219→
+  1220→        # Run through High Parwa's process_ticket method
+  1221→        result = await pipeline.process_ticket(
+  1222→            query=query,
+  1223→            company_id=company_id,
+  1224→            industry=industry,
+  1225→            channel=channel,
+  1226→            customer_id=customer_id,
+  1227→            customer_tier=customer_tier,
+  1228→            conversation_id=conversation_id,
+  1229→            ticket_id=ticket_id,
+  1230→            variant_instance_id=variant_instance_id,
+  1231→        )
+  1232→
+  1233→        # Extract the formatted response from pipeline result
+  1234→        response_text = result.get("formatted_response", "") or result.get(
+  1235→            "generated_response", ""
+  1236→        )
+  1237→
+  1238→        # If pipeline generated an emergency escalation response
+  1239→        if result.get("emergency_flag", False):
+  1240→            response_text = result.get("formatted_response", "") or (
+  1241→                "Your message has been flagged for priority handling. "
+  1242→                "A senior team member will contact you directly. "
+  1243→                f"Reference: {result.get('ticket_id', 'N/A')}"
+  1244→            )
+  1245→
+  1246→        # If no response was generated, use fallback
+  1247→        if not response_text:
+  1248→            classification = result.get("classification", {})
+  1249→            intent = classification.get("intent", "general")
+  1250→            from app.core.parwa_high.nodes import TEMPLATE_RESPONSES
+  1251→            response_text = TEMPLATE_RESPONSES.get(
+  1252→                intent, TEMPLATE_RESPONSES["general"],
+  1253→            )
+  1254→
+  1255→        # Get technique info (High-specific)
+  1256→        technique_used = result.get("step_outputs", {}).get(
+  1257→            "technique_select", {},
+  1258→        ).get("primary_technique", "direct")
+  1259→        reasoning_technique = result.get("step_outputs", {}).get(
+  1260→            "reasoning_chain", {},
+  1261→        ).get("technique", "direct")
+  1262→
+  1263→        # Get peer review info (High-specific)
+  1264→        peer_review = result.get("step_outputs", {}).get("peer_review", {})
+  1265→
+  1266→        # Get strategic decision info (High-specific)
+  1267→        strategic_decision = result.get("step_outputs", {}).get(
+  1268→            "strategic_decision", {},
+  1269→        )
+  1270→
+  1271→        return PipelineResult(
+  1272→            response_text=response_text,
+  1273→            variant_tier="parwa_high",
+  1274→            industry=industry,
+  1275→            pipeline_status=result.get("pipeline_status", "completed"),
+  1276→            quality_score=result.get("quality_score", 0.0),
+  1277→            total_latency_ms=result.get("total_latency_ms", 0.0),
+  1278→            billing_tokens=result.get("billing_tokens", 0),
+  1279→            steps_completed=result.get("steps_completed", []),
+  1280→            technique_used=technique_used,
+  1281→            emergency_flag=result.get("emergency_flag", False),
+  1282→            empathy_score=result.get("empathy_score", 0.5),
+  1283→            classification_intent=result.get("classification", {}).get("intent", ""),
+  1284→            metadata={
+  1285→                "ticket_id": result.get("ticket_id", ""),
+  1286→                "conversation_id": result.get("conversation_id", ""),
+  1287→                "pii_detected": result.get("pii_detected", False),
+  1288→                "reasoning_technique": reasoning_technique,
+  1289→                "quality_passed": result.get("quality_passed", True),
+  1290→                "quality_retry_count": result.get("quality_retry_count", 0),
+  1291→                "peer_review_passed": peer_review.get("passed", True),
+  1292→                "peer_review_score": peer_review.get("review_score", 0.0),
+  1293→                "strategic_decision": strategic_decision.get("decision", "proceed"),
+  1294→                "context_health_score": result.get("step_outputs", {}).get(
+  1295→                    "context_health", {},
+  1296→                ).get("health_score", 1.0),
+  1297→                "dedup_is_duplicate": result.get(
+  1298→                    "dedup_is_duplicate", False,
+  1299→                ),
+  1300→                "context_compression_ratio": result.get(
+  1301→                    "context_compression_ratio", 1.0,
+  1302→                ),
+  1303→                "gsd_state": result.get("step_outputs", {}).get(
+  1304→                    "gsd_state", {},
+  1305→                ).get("to_state", ""),
+  1306→                "crp_compression_ratio": result.get("step_outputs", {}).get(
+  1307→                    "crp_compress", {},
+  1308→                ).get("compression_ratio", 1.0),
+  1309→                "clara_passed": result.get("step_outputs", {}).get(
+  1310→                    "clara_quality_gate", {},
+  1311→                ).get("passed", True),
+  1312→                "confidence_score": result.get("step_outputs", {}).get(
+  1313→                    "confidence_assess", {},
+  1314→                ).get("confidence_score", 0.5),
+  1315→            },
+  1316→        )
+  1317→
+  1318→    except Exception:
+  1319→        logger.exception("_run_parwa_high failed")
+  1320→        return PipelineResult(
+  1321→            response_text=(
+  1322→                "I apologize for the inconvenience. "
+  1323→                "Our team will follow up with you shortly."
+  1324→            ),
+  1325→            variant_tier="parwa_high",
+  1326→            industry=industry,
+  1327→            pipeline_status="failed",
+  1328→            metadata={"error": "parwa_high_execution_failed"},
+  1329→        )
+  1330→
+  1331→
+  1332→# ══════════════════════════════════════════════════════════════════
+  1333→# CONTEXT RESOLUTION HELPERS
+  1334→# ══════════════════════════════════════════════════════════════════
+  1335→
+  1336→
+  1337→def _resolve_tier_from_session(session_context: Dict[str, Any]) -> str:
+  1338→    """Resolve the variant tier from a session's context.
+  1339→
+  1340→    The context_json should contain variant_tier set during handoff
+  1341→    or during onboarding when user selects a variant on Models page.
+  1342→    If not present, tries to resolve from variant_id/selected_variants.
+  1343→
+  1344→    Args:
+  1345→        session_context: The Jarvis session's context_json (dict).
+  1346→
+  1347→    Returns:
+  1348→        Backend pipeline tier string.
+  1349→    """
+  1350→    try:
+  1351→        # Direct tier (set during handoff or Models page selection — best path)
+  1352→        tier = session_context.get("variant_tier")
+  1353→        if tier and tier in ("mini_parwa", "parwa", "parwa_high"):
+  1354→            return tier
+  1355→
+  1356→        # Try to resolve from variant_id
+  1357→        variant_id = session_context.get("variant_id")
+  1358→        if variant_id:
+  1359→            return resolve_tier_from_context(variant_id=variant_id)
+  1360→
+  1361→        # Try to resolve from selected_variants
+  1362→        selected_variants = session_context.get("selected_variants")
+  1363→        if selected_variants:
+  1364→            return resolve_tier_from_context(
+  1365→                selected_variants=selected_variants,
+  1366→            )
+  1367→
+  1368→        # Default: mini_parwa (safest, cheapest)
+  1369→        return "mini_parwa"
+  1370→
+  1371→    except Exception:
+  1372→        return "mini_parwa"
+  1373→
+  1374→
+  1375→def _resolve_industry_from_session(session_context: Dict[str, Any]) -> str:
+  1376→    """Resolve the industry from a session's context.
+  1377→
+  1378→    Args:
+  1379→        session_context: The Jarvis session's context_json (dict).
+  1380→
+  1381→    Returns:
+  1382→        Backend industry enum value.
+  1383→    """
+  1384→    try:
+  1385→        industry = session_context.get("industry")
+  1386→        return resolve_industry_from_context(industry=industry)
+  1387→    except Exception:
+  1388→        return "general"
+  1389→
+  1390→
+  1391→# ══════════════════════════════════════════════════════════════════
+  1392→# HEALTH CHECK
+  1393→# ══════════════════════════════════════════════════════════════════
+  1394→
+  1395→
+  1396→def health_check() -> Dict[str, Any]:
+  1397→    """Check if the variant pipeline bridge is operational.
+  1398→
+  1399→    Returns:
+  1400→        Dict with status and available pipelines.
+  1401→    """
+  1402→    try:
+  1403→        pipelines_available = {}
+  1404→
+  1405→        mini = _get_mini_parwa_pipeline()
+  1406→        pipelines_available["mini_parwa"] = mini is not None
+  1407→
+  1408→        # Pro Parwa is now implemented
+  1409→        pipelines_available["parwa"] = _get_parwa_pipeline() is not None
+  1410→        # High Parwa is now implemented
+  1411→        pipelines_available["parwa_high"] = _get_parwa_high_pipeline() is not None
+  1412→
+  1413→        all_ok = any(pipelines_available.values())
+  1414→
+  1415→        return {
+  1416→            "status": "healthy" if all_ok else "degraded",
+  1417→            "pipelines": pipelines_available,
+  1418→            "bridge_version": "2.0.0",
+  1419→            "supports_onboarding": True,
+  1420→            "checked_at": datetime.now(timezone.utc).isoformat(),
+  1421→        }
+  1422→
+  1423→    except Exception:
+  1424→        return {
+  1425→            "status": "unhealthy",
+  1426→            "pipelines": {},
+  1427→            "error": "health_check_failed",
+  1428→        }
+  1429→
