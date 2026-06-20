@@ -1,0 +1,578 @@
+   100→  2199→- [ ] Calls adapter (Twilio Voice/Vonage)
+   101→  2200→- [ ] Chat adapter (WhatsApp/Intercom/Crisp)
+   102→  2201→- [ ] CRM adapter (HubSpot/Salesforce)
+   103→  2202→- [ ] Helpdesk adapter (Zendesk/Freshdesk)
+   104→  2203→- [ ] Docs adapter (Notion/Confluence/Google Drive)
+   105→  2204→- [ ] Credential vault with AES-256 encryption
+   106→  2205→- [ ] Health checks every 60s
+   107→  2206→- [ ] Retry logic with exponential backoff
+   108→  2207→- [ ] Per-tenant rate limiting
+   109→  2208→
+   110→  2209→### Business Logic
+   111→  2210→
+   112→  2211→- [ ] Variant registry (Mini, PARWA, High)
+   113→  2212→- [ ] Quota tracking with real-time countdown
+   114→  2213→- [ ] Three-dimensional routing (capability + quota + efficiency)
+   115→  2214→- [ ] Variant-aware action execution (restrictions applied per ticket)
+   116→  2215→- [ ] One agent instance, dynamic restriction sets
+   117→  2216→
+   118→  2217→### Quality Targets
+   119→  2218→
+   120→  2219→- [ ] Simple tickets: 88-90% accuracy, 0 LLM calls in Node 7
+   121→  2220→- [ ] Complex tickets: 92-94% accuracy (1st pass), 94-96% (with loops)
+   122→  2221→- [ ] Super Node tickets: 95-97% accuracy
+   123→  2222→- [ ] Overall target: 90%+ across all ticket types
+   124→  2223→
+   125→  2224→### Operational Requirements
+   126→  2225→
+   127→  2226→- [ ] Rate limit management (NVIDIA API + ZAI SDK, ~50 RPM)
+   128→  2227→- [ ] Error handling for API failures mid-pipeline
+   129→  2228→- [ ] Monitoring and alerting for all nodes
+   130→  2229→- [ ] Cost tracking per ticket, per variant, per node, per tenant
+   131→  2230→- [ ] Caching for knowledge fetch results
+   132→  2231→- [ ] Fallback when knowledge base is unavailable
+   133→  2232→- [ ] Load tested at 50 RPM sustained
+   134→  2233→
+   135→  2234→### Testing Requirements
+   136→  2235→
+   137→  2236→- [ ] 8 diverse test tickets with real LLM calls
+   138→  2237→- [ ] All 3 variants tested with same tickets
+   139→  2238→- [ ] Quota exhaustion scenario tested
+   140→  2239→- [ ] Quality loop + Super Node tested
+   141→  2240→- [ ] MAKER hallucination prevention tested
+   142→  2241→- [ ] Safety net auto-upgrade tested
+   143→  2242→- [ ] Multi-tenant isolation tested (zero leakage)
+   144→  2243→- [ ] Jarvis end-to-end tested (stuck → notify → chat)
+   145→  2244→- [ ] UCB integrations tested (email/SMS/CRM)
+   146→  2245→- [ ] Onboarding → first victory flow tested
+   147→  2246→- [ ] Key-based access tested (multi-session, regeneration)
+   148→  2247→- [ ] Comparison with old 23-node pipeline
+   149→  2248→
+   150→  2249→---
+   151→  2250→
+   152→  2251→## 19. Dashboard Production Readiness
+   153→  2252→
+   154→  2253→### 19.1 Strategic Positioning
+   155→  2254→
+   156→  2255→**The positioning is fixed: PARWA is a headcount replacement platform.**
+   157→  2256→
+   158→  2257→This is the bold CFO-facing version, not the soft CSM-facing version. Every dashboard element, every metric, every notification must reinforce this positioning. The buyer is the CFO/VP Support/COO — they are buying PARWA to eliminate headcount cost, not to "make their team more productive."
+   159→  2258→
+   160→  2259→The moment PARWA's dashboard starts showing "your team is more productive" framing, we lose the differentiation against every other CX tool on the market. The competitive moat is the **headcount cost elimination** narrative, backed by the ROI Calculator showing real dollars saved.
+   161→  2260→
+   162→  2261→The softer "CSM superpowers" positioning is reserved for **internal champions** during the sales discovery process — once the CFO has approved the budget based on headcount savings, the internal champion (often a CS Ops lead) gets the "this makes your team 5x more effective" pitch to drive adoption. But the dashboard itself never softens — it always shows replacement dollars.
+   163→  2262→
+   164→  2263→### 19.2 Dashboard Removals — Delete These Features
+   165→  2264→
+   166→  2265→The current dashboard has features that contradict the headcount-replacement positioning or that expose internal architecture to end users. These must be removed before production.
+   167→  2266→
+   168→  2267→#### 19.2.1 Remove: Agent Builder (`/dashboard/agents/new`)
+   169→  2268→
+   170→  2269→**Current state:** Dead UI page with no backend wiring. Shows a fake "create new agent" form that does nothing.
+   171→  2270→
+   172→  2271→**Why remove entirely:**
+   173→  2272→- The architecture is **one agent per variant** with dynamic restrictions applied at runtime. There is no concept of "creating an agent" — the agent IS the variant.
+   174→  2273→- Exposing an agent builder implies PARWA is a "build your own AI agent" platform (AgentGPT, AutoGen, etc.) — that's a different market with different buyers and a worse unit economics.
+   175→  2274→- The agent builder creates the false impression that PARWA requires configuration work from the customer. It does not — PARWA works out of the box with the 6-step onboarding.
+   176→  2275→
+   177→  2276→**Action:** Delete the page, remove from navigation, remove from any internal links. Update sidebar nav to show only "Variants" (which already exists and works).
+   178→  2277→
+   179→  2278→**Files to delete:**
+   180→  2279→- `src/app/dashboard/agents/new/page.tsx`
+   181→  2280→- `src/app/dashboard/agents/page.tsx` (listing page — also unused)
+   182→  2281→- `src/components/dashboard/agent-builder/*` (entire folder if exists)
+   183→  2282→- Any Zustand store or hook referencing `agentBuilder`
+   184→  2283→
+   185→  2284→#### 19.2.2 Remove: Pipeline Visualization Page
+   186→  2285→
+   187→  2286→**Current state:** Mock page showing the 8 PARWA nodes with fake status indicators.
+   188→  2287→
+   189→  2288→**Why remove:**
+   190→  2289→- The 8-node PARWA pipeline is **internal architecture**. Showing it to end users is like Stripe showing their internal payment routing diagram to merchants. Customers don't care HOW the sausage is made — they care that tickets get resolved.
+   191→  2290→- Showing the pipeline invites the question "can I configure individual nodes?" — and the answer is no, which frustrates users.
+   192→  2291→- The pipeline visualization creates a false perception that PARWA requires monitoring. It does not — Jarvis monitors itself and surfaces only actionable issues via the Notification Center.
+   193→  2292→
+   194→  2293→**What replaces it:** A simple **System Health** indicator in the dashboard header (green/yellow/red dot) that reflects overall platform status. If green, no user action needed. If yellow/red, click to see Jarvis's diagnosis. No 8-node diagram, no per-node status, no technical jargon.
+   195→  2294→
+   196→  2295→**Action:** Delete the pipeline page, replace with a single status chip in the top nav.
+   197→  2296→
+   198→  2297→**Files to delete:**
+   199→  2298→- `src/app/dashboard/pipeline/page.tsx`
+   200→  2299→- Any pipeline visualization component folder
+   201→  2300→- Update sidebar nav to remove "Pipeline" entry
+   202→  2301→
+   203→  2302→#### 19.2.3 Remove: AI Wiki Viewer (Backend-Only Asset)
+   204→  2303→
+   205→  2304→**Current state:** Planned but not yet built. Some wireframes show a "View AI Wiki" page in the dashboard.
+   206→  2305→
+   207→  2306→**Why NOT to build it:**
+   208→  2307→- The AI Wiki is **food for the agents, not content for humans**. It's structured data (ticket patterns, admin behaviors, company knowledge) that the Reasoning Engine retrieves during ticket resolution.
+   209→  2308→- A human reading the AI Wiki would see something like: "PATTERN-4823: When user reports 'login failed' + tenant=AcmeCorp + time=09:00-11:00 EST → 87% probability of Okta sync issue. Action: check Okta connector, escalate to admin if persists." This is unreadable noise for a human but gold for an LLM.
+   210→  2309→- Showing the AI Wiki implies the customer needs to "review" or "approve" what the AI knows. They do not. The customer approved everything during the 6-step onboarding; thereafter PARWA manages the Wiki autonomously.
+   211→  2310→
+   212→  2311→**Exception — what the customer CAN see:**
+   213→  2312→- A **read-only "Knowledge Sources" panel** showing what documents they've uploaded (Section C — Company Knowledge). They can add/remove documents here. This is content management, not Wiki viewing.
+   214→  2313→- They do NOT see Section A (Ticket Patterns — PARWA writes) or Section B (Admin Behavior — Jarvis writes).
+   215→  2314→
+   216→  2315→**Action:** Do NOT build an AI Wiki viewer. Build a "Knowledge Sources" file manager only (for Section C content the admin uploads). Sections A and B remain backend-only.
+   217→  2316→
+   218→  2317→#### 19.2.4 Remove: Shadow Mode Page
+   219→  2318→
+   220→  2319→**Current state:** Silently 404s. No backend route.
+   221→  2320→
+   222→  2321→**Why remove:** Shadow mode (PARWA resolving tickets in parallel with humans for benchmarking) is a **sales/demo feature**, not a production feature. It belongs in a separate internal tool, not the customer dashboard.
+   223→  2322→
+   224→  2323→**Action:** Delete the nav entry. If shadow benchmarking is needed for a specific deal, build it as a one-off internal script, not a dashboard feature.
+   225→  2324→
+   226→  2325→#### 19.2.5 Remove: All Mock/Hardcoded Pages
+   227→  2326→
+   228→  2327→**Current state:** Billing page (hardcoded numbers), Notifications page (mock array), Profile page (stale localStorage).
+   229→  2328→
+   230→  2329→**Why remove:** These are broken. Either wire them to real backend data or remove them. There is no middle ground for production.
+   231→  2330→
+   232→  2331→**Action:** See Section 19.4 (Wiring Tasks) for what each must connect to.
+   233→  2332→
+   234→  2333→### 19.3 Dashboard Additions — New Features to Build
+   235→  2334→
+   236→  2335→These are the four Jarvis-powered features plus the ROI Calculator that close the "replace the CSM" pitch. Without these, the headcount-replacement story has gaps. With these, the pitch is airtight.
+   237→  2336→
+   238→  2337→#### 19.3.1 ADD: SLA Tracking (Jarvis Pre-Breach Alerts)
+   239→  2338→
+   240→  2339→**What it does:** Jarvis actively monitors every ticket's response-time SLA against the contracted SLA tier. When a ticket is approaching breach (configurable threshold: default 80% of SLA window elapsed), Jarvis fires a notification to the admin BEFORE the breach happens — not after.
+   241→  2340→
+   242→  2341→**Why this matters:** CSMs currently maintain SLA compliance by manually watching dashboards. PARWA replaces that manual monitoring with continuous Jarvis surveillance. This is one of the 8 PARWA-replaceable CSM duties.
+   243→  2342→
+   244→  2343→**Data flow:**
+   245→  2344→1. Each ticket ingested via Node 1 (Ingest+Classify) is tagged with the customer's SLA tier (e.g., "Critical: 1hr response, 4hr resolution")
+   246→  2345→2. Jarvis SENSE continuously polls ticket state every 30 seconds
+   247→  2346→3. Jarvis EVALUATE computes remaining SLA window per ticket
+   248→  2347→4. At 80% elapsed → Jarvis NOTIFY sends "SLA at risk" alert to admin (and assigned human if any)
+   249→  2348→5. At 100% elapsed → Jarvis NOTIFY sends "SLA breached" alert with auto-generated postmortem
+   250→  2349→
+   251→  2350→**Dashboard UI:**
+   252→  2351→- **SLA Dashboard page** with three sections:
+   253→  2352→  - **At-risk tickets** (red, 80-100% elapsed) — sortable by time remaining
+   254→  2353→  - **Breached tickets** (last 7 days, with root-cause analysis from Jarvis)
+   255→  2354→  - **SLA compliance trend** (line chart, last 30 days, per SLA tier)
+   256→  2355→- Per-ticket detail: SLA clock, time elapsed, time remaining, who Jarvis alerted, when
+   257→  2356→
+   258→  2357→**Backend requirements:**
+   259→  2358→- New table: `sla_policies` (per tenant, per customer tier)
+   260→  2359→- New table: `sla_events` (every SLA at-risk + breach event, with Jarvis analysis)
+   261→  2360→- New Jarvis polling job (every 30s per tenant)
+   262→  2361→- New API routes: `GET /api/v1/sla/at-risk`, `GET /api/v1/sla/breaches`, `GET /api/v1/sla/compliance`
+   263→  2362→
+   264→  2363→**Positioning in pitch:** *"Your CSM job posting says 'maintain SLA compliance.' That's a $95K/year human watching a clock. PARWA watches the clock in real time and alerts you before the breach — not after."*
+   265→  2364→
+   266→  2365→#### 19.3.2 ADD: Customer Health Scores (Jarvis-Computed)
+   267→  2366→
+   268→  2367→**What it does:** Jarvis computes a real-time health score (0-100) for every customer/account in the system, based on a weighted formula across multiple signals. CSMs currently do this manually in spreadsheets.
+   269→  2368→
+   270→  2369→**Why this matters:** Customer health scoring is the second-most-cited CSM duty in job postings. Without this feature, the "replace the CSM" pitch has a visible hole. With it, PARWA covers the entire CS operational stack.
+   271→  2370→
+   272→  2371→**Health score formula (default, admin-configurable per tenant):**
+   273→  2372→- **Ticket volume trend** (25%): decreasing = healthy, increasing = unhealthy
+   274→  2373→- **Sentiment trend** (20%): aggregated sentiment across all customer tickets (Node 6 Quality+Format produces sentiment score per ticket)
+   275→  2374→- **Resolution rate** (20%): % of tickets resolved by PARWA without human escalation
+   276→  2375→- **Time-to-resolution** (15%): trend vs. customer's historical baseline
+   277→  2376→- **Reopen rate** (10%): % of tickets reopened by customer after "resolved"
+   278→  2377→- **Product usage** (10%): pulled from customer's product analytics (via UCB integration to Segment/Amplitude/Mixpanel)
+   279→  2378→
+   280→  2379→**Data flow:**
+   281→  2380→1. Jarvis SENSE ingests all 6 signals continuously (or nightly for usage data)
+   282→  2381→2. Jarvis EVALUATE computes weighted score per account, stores in `customer_health` table
+   283→  2382→3. Jarvis EVALUATE detects score drops >10 points in 7 days → flags for proactive outreach (see 19.3.4)
+   284→  2383→4. Dashboard queries `customer_health` table for display
+   285→  2384→
+   286→  2385→**Dashboard UI:**
+   287→  2386→- **Customer Health page** with:
+   288→  2387→  - **Health matrix**: all accounts on a 0-100 color-coded grid (red <40, yellow 40-70, green >70)
+   289→  2388→  - **Trend chart**: per-account 90-day health trend
+   290→  2389→  - **Signal breakdown**: which signals are dragging the score down
+   291→  2390→  - **Drill-down**: click any account → see ticket history, sentiment trend, usage trend, last 5 Jarvis evaluations
+   292→  2391→
+   293→  2392→**Backend requirements:**
+   294→  2393→- New table: `customer_health` (account_id, score, signal_breakdown_json, updated_at)
+   295→  2394→- New table: `health_signals` (per-signal raw values per account per day)
+   296→  2395→- New Jarvis EVALUATE job (hourly per tenant)
+   297→  2396→- New API routes: `GET /api/v1/health/accounts`, `GET /api/v1/health/accounts/:id`, `GET /api/v1/health/accounts/:id/trend`
+   298→  2397→- UCB connectors for Segment, Amplitude, Mixpanel (for usage signal)
+   299→  2398→
+   300→  2399→**Positioning in pitch:** *"Your CSM maintains a customer health spreadsheet. PARWA computes it continuously from 6 live signals — and tells you which signal is dragging the score down. No spreadsheet updates, no quarterly review panic."*
+   301→  2400→
+   302→  2401→#### 19.3.3 ADD: QBR / Report Generator (One-Click)
+   303→  2402→
+   304→  2403→**What it does:** A single button — "Generate Quarterly Report" — that compiles everything Jarvis knows about a customer into a polished PDF executive summary. CSMs spend days on these; PARWA generates in 5 seconds.
+   305→  2404→
+   306→  2405→**Why this matters:** QBR generation is one of the most-cited CSM time-sinks in job postings. It's also a high-leverage moment — the QBR is often where renewals are won or lost. Automating it removes busywork AND improves quality (Jarvis sees more than any human CSM could).
+   307→  2406→
+   308→  2407→**Report contents (auto-compiled):**
+   309→  2408→1. **Executive summary** (1 paragraph, LLM-generated from ticket + health data)
+   310→  2409→2. **Ticket metrics** (volume, resolution rate, avg time-to-resolve, top 5 categories)
+   311→  2410→3. **SLA performance** (compliance %, breaches with root cause)
+   312→  2411→4. **Customer health trend** (chart + commentary)
+   313→  2412→5. **Sentiment trend** (chart + notable moments)
+   314→  2413→6. **Top resolved issues** (5 most impactful resolutions, with PARWA credit)
+   315→  2414→7. **Open risks** (Jarvis-flagged concerns going into next quarter)
+   316→  2415→8. **Recommendations** (LLM-generated next-quarter action items)
+   317→  2416→9. **ROI summary** (dollars saved this quarter vs. PARWA cost — pulled from ROI Calculator)
+   318→  2417→
+   319→  2418→**Data flow:**
+   320→  2419→1. Admin clicks "Generate QBR" button on any account page
+   321→  2420→2. Backend pulls all relevant data from `tickets`, `sla_events`, `customer_health`, `roi_events` tables for the selected quarter
+   322→  2421→3. LLM generates executive summary + recommendations (single LLM call, ~2k tokens)
+   323→  2422→4. ReportLab renders PDF with charts (matplotlib PNGs embedded)
+   324→  2423→5. PDF saved to tenant's S3 bucket, signed URL returned to dashboard
+   325→  2424→6. User downloads PDF or schedules auto-send to customer
+   326→  2425→
+   327→  2426→**Dashboard UI:**
+   328→  2427→- "Generate QBR" button on every account page
+   329→  2428→- QBR history list (last 12 reports per account)
+   330→  2429→- Optional: schedule auto-generation (e.g., generate first day of each quarter, email to admin)
+   331→  2430→
+   332→  2431→**Backend requirements:**
+   333→  2432→- New endpoint: `POST /api/v1/reports/qbr` (input: account_id, quarter)
+   334→  2433→- New endpoint: `GET /api/v1/reports/qbr/:id/download`
+   335→  2434→- LLM call: GPT-4-class model, structured prompt with all data injected
+   336→  2435→- PDF generation via ReportLab (existing pattern from PDF skill)
+   337→  2436→- Charts via matplotlib (existing pattern)
+   338→  2437→- S3 storage for generated PDFs
+   339→  2438→
+   340→  2439→**Positioning in pitch:** *"Your CSM spends 3 days per quarter per account building QBR decks. PARWA generates them in 5 seconds with more data than any human could compile. Your CSM reviews, edits, and presents — the busywork is gone."*
+   341→  2440→
+   342→  2441→#### 19.3.4 ADD: Proactive Outreach Suggestions (Jarvis-Initiated)
+   343→  2442→
+   344→  2443→**What it does:** Jarvis continuously analyzes every account for "reach out" signals and surfaces specific, actionable suggestions to the admin: "Customer X hasn't opened a ticket in 60 days but their product usage dropped 40% — reach out." CSMs do this from gut feel today; PARWA does it from data.
+   345→  2444→
+   346→  2445→**Why this matters:** This is the proactive-retention muscle that justifies the CSM salary. Without it, PARWA is reactive (resolves tickets well) but not proactive (prevents churn). Adding this closes the loop and makes the CSM replacement airtight.
+   347→  2446→
+   348→  2447→**Signal categories Jarvis watches for:**
+   349→  2448→- **Usage drop**: product usage down >30% in 30 days (via UCB → Segment/Amplitude)
+   350→  2449→- **Silence anomaly**: no tickets in 60+ days when historical avg is 5+/month (could mean churned silently or gave up)
+   351→  2450→- **Sentiment decline**: rolling 30-day sentiment down >15 points vs. previous 30 days
+   352→  2451→- **Ticket spike**: 2x normal ticket volume in 7 days (frustration building)
+   353→  2452→- **Reopen spike**: reopen rate >20% in last 14 days (resolutions not sticking)
+   354→  2453→- **SLA breach cluster**: 2+ SLA breaches in 30 days for same account
+   355→  2454→- **Admin policy change**: admin updated a policy that affects this account (Jarvis detects via Policy Change Detection — see Section 10)
+   356→  2455→- **Billing event**: failed payment, downgrade, or renewal approaching (via UCB → Stripe/billing system)
+   357→  2456→
+   358→  2457→**How Jarvis surfaces suggestions:**
+   359→  2458→- New dashboard widget: **Outreach Suggestions** (top of main dashboard, can't miss it)
+   360→  2459→- Each suggestion card shows: account name, signal type, severity (low/med/high), suggested action (LLM-generated email draft included), "Send" or "Dismiss" buttons
+   361→  2460→- Admin can: send the drafted email as-is, edit then send, dismiss (with reason — feeds back into Jarvis learning), or assign to a human teammate
+   362→  2461→- All outreach actions logged in `outreach_log` table for audit
+   363→  2462→
+   364→  2463→**Data flow:**
+   365→  2464→1. Jarvis EVALUATE runs nightly per tenant, scans every account for all 8 signal categories
+   366→  2465→2. New signals → inserted into `outreach_suggestions` table
+   367→  2466→3. Jarvis generates suggested email draft via LLM (single call per suggestion, ~500 tokens)
+   368→  2467→4. Dashboard polls `outreach_suggestions` table on page load + every 60s
+   369→  2468→5. Admin action updates suggestion status → feeds back into AI Wiki Section B (admin behavior)
+   370→  2469→
+   371→  2470→**Dashboard UI:**
+   372→  2471→- **Outreach Queue** page (full list, filterable by severity, signal type, account)
+   373→  2472→- **Outreach widget** on main dashboard (top 3 highest-severity, click to expand)
+   374→  2473→- Per-suggestion card: account, signal, suggested action, draft email, action buttons
+   375→  2474→- **History view**: all past suggestions with outcome (sent, dismissed, converted to ticket, etc.)
+   376→  2475→
+   377→  2476→**Backend requirements:**
+   378→  2477→- New table: `outreach_suggestions` (account_id, signal_type, severity, draft_email, status, created_at, resolved_at)
+   379→  2478→- New table: `outreach_log` (every send/dismiss/assign action)
+   380→  2479→- New Jarvis EVALUATE job (nightly per tenant)
+   381→  2480→- New API routes: `GET /api/v1/outreach/suggestions`, `POST /api/v1/outreach/suggestions/:id/send`, `POST /api/v1/outreach/suggestions/:id/dismiss`
+   382→  2481→
+   383→  2482→**Positioning in pitch:** *"Your CSM's gut says 'I should check in on Customer X.' PARWA's data says 'Customer X's usage dropped 40%, no tickets in 60 days, last sentiment score was 45/100 — here's a draft email, want me to send it?' That's not a CSM replacement. That's a CSM upgrade."*
+   384→  2483→
+   385→  2484→#### 19.3.5 ADD: ROI Calculator (Wire Already-Coded UI to Live Data)
+   386→  2485→
+   387→  2486→**Current state:** UI is already coded. Currently shows static/demo numbers. Needs to be wired to live backend data so the numbers reflect the actual tenant's real savings.
+   388→  2487→
+   389→  2488→**What it does:** Every time the admin logs in, the dashboard header shows a live counter: "PARWA has saved you $X this month by replacing Y hours of CSM/CSR work." Click to expand → full ROI breakdown page.
+   390→  2489→
+   391→  2490→**Why this matters:** This is the single highest-converting sales asset in the entire platform. Every login reminds the buyer why they're paying for PARWA. It makes the value visceral — not abstract, not promised, but realized and counted.
+   392→  2491→
+   393→  2492→**What "savings" are computed (per tenant, per month):**
+   394→  2493→
+   395→  2494→| Cost Category | Computation | Source Data |
+   396→  2495→|---------------|-------------|-------------|
+   397→  2496→| Tier 1 Support hours saved | (Tickets auto-resolved by PARWA) × (avg 12 min per ticket × $23/hr loaded Tier 1 cost) | `tickets` table where `resolved_by='parwa'` and `complexity='tier1'` |
+   398→  2497→| CSR hours saved | (Tickets auto-resolved) × (avg 8 min × $20/hr) | `tickets` table where `resolved_by='parwa'` and `complexity='basic'` |
+   399→  2498→| CSM hours saved | (Outreach suggestions auto-generated) × (avg 20 min × $45/hr) + (QBRs auto-generated × 24 hrs × $45/hr) | `outreach_suggestions` + `reports` tables |
+   400→  2499→| SLA breach cost avoided | (Breaches prevented by Jarvis pre-alert) × (avg breach penalty $500) | `sla_events` where `prevented=true` |
+   401→  2500→| Onboarding hours saved | (Customers onboarded via 6-step flow) × (avg 8 hrs × $45/hr) | `onboarding_events` table |
+   402→  2501→
+   403→  2502→**Total monthly savings** = sum of all 5 categories, minus PARWA's monthly cost (transparently shown).
+   404→  2503→
+   405→  2504→**Dashboard UI:**
+   406→  2505→- **Live counter in top nav** (next to notifications bell): "Saved $X this month" — updates on every page load
+   407→  2506→- **ROI page** (`/dashboard/roi`): 
+   408→  2507→  - Big number: total saved YTD
+   409→  2508→  - Breakdown chart: 5 cost categories as stacked bar chart, monthly
+   410→  2509→  - Trend line: savings over last 12 months
+   411→  2510→  - Comparison: "PARWA cost: $X/mo. Savings: $Y/mo. Net ROI: Zx"
+   412→  2511→  - "Share with my CFO" button → generates PDF executive summary of ROI
+   413→  2512→
+   414→  2513→**Backend requirements:**
+   415→  2514→- New table: `roi_events` (every savings-eligible event logged with $ value)
+   416→  2515→- New materialized view: `roi_monthly` (rolled-up monthly savings per tenant)
+   417→  2516→- New API routes: `GET /api/v1/roi/summary`, `GET /api/v1/roi/breakdown`, `GET /api/v1/roi/trend`, `POST /api/v1/roi/cfo-report`
+   418→  2517→- Event hooks: every ticket resolution, every outreach suggestion, every QBR generation, every SLA prevention → insert row into `roi_events`
+   419→  2518→
+   420→  2519→**Action items (since UI is coded):**
+   421→  2520→1. Identify the existing ROI Calculator component in the dashboard
+   422→  2521→2. Replace static/demo data with API calls to `/api/v1/roi/*`
+   423→  2522→3. Implement the 5 backend event hooks to populate `roi_events`
+   424→  2523→4. Build the materialized view for monthly rollup
+   425→  2524→5. Test with real tenant data (must show non-zero savings within first 24 hours of tenant using PARWA)
+   426→  2525→
+   427→  2526→**Positioning in pitch:** *"Every time your CFO logs in, the first thing they see is how much money PARWA saved this month. Not 'tickets resolved' — actual dollars. That's the conversation you want to have with your CFO every month, not the 'how do we justify the AI tool spend' conversation."*
+   428→  2527→
+   429→  2528→### 19.4 Dashboard Wiring Tasks — Fix the Broken Pages
+   430→  2529→
+   431→  2530→Beyond the additions above, the following existing pages must be wired to real backend data before production. These were identified in the dashboard audit.
+   432→  2531→
+   433→  2532→#### 19.4.1 Tickets Page → Wire to `/api/v1/tickets/*`
+   434→  2533→
+   435→  2534→**Current:** Uses localStorage only. Tickets created in dashboard never reach backend.
+   436→  2535→
+   437→  2536→**Required:**
+   438→  2537→- Replace localStorage reads with `GET /api/v1/tickets` (with pagination, filtering)
+   439→  2538→- Replace localStorage writes with `POST /api/v1/tickets` (create), `PATCH /api/v1/tickets/:id` (update)
+   440→  2539→- Real-time updates via Socket.io (already in stack) — listen for `ticket:created`, `ticket:resolved`, `ticket:escalated` events
+   441→  2540→- Show ticket count badge in sidebar with live updates
+   442→  2541→
+   443→  2542→#### 19.4.2 Billing Page → Wire to `/api/billing/*`
+   444→  2543→
+   445→  2544→**Current:** All hardcoded numbers.
+   446→  2545→
+   447→  2546→**Required:**
+   448→  2547→- Pull current plan from `GET /api/billing/subscription`
+   449→  2548→- Pull usage this cycle from `GET /api/billing/usage`
+   450→  2549→- Pull invoice history from `GET /api/billing/invoices`
+   451→  2550→- Upgrade/downgrade flow via `POST /api/billing/subscription/change`
+   452→  2551→- Paddle integration already exists in backend — ensure webhook events update dashboard in real-time
+   453→  2552→
+   454→  2553→#### 19.4.3 Notifications Page → Wire to `/api/v1/notifications`
+   455→  2554→
+   456→  2555→**Current:** Mock array of fake notifications.
+   457→  2556→
+   458→  2557→**Required:**
+   459→  2558→- Pull from `GET /api/v1/notifications` (with filter for unread)
+   460→  2559→- Mark as read via `PATCH /api/v1/notifications/:id/read`
+   461→  2560→- Real-time push via Socket.io — `notification:new` event
+   462→  2561→- Notification types: SLA at-risk, SLA breached, outreach suggestion, QBR ready, policy change detected, ROI milestone reached
+   463→  2562→
+   464→  2563→#### 19.4.4 Profile Page → Wire to `/api/v1/auth/me`
+   465→  2564→
+   466→  2565→**Current:** Reads stale localStorage.
+   467→  2566→
+   468→  2567→**Required:**
+   469→  2568→- On page load, fetch fresh profile from `GET /api/v1/auth/me`
+   470→  2569→- Allow update via `PATCH /api/v1/auth/me` (name, avatar, preferences)
+   471→  2570→- Show last login, sessions list, API key regeneration (with admin-only permission check)
+   472→  2571→- 2FA setup flow if not yet enabled
+   473→  2572→
+   474→  2573→#### 19.4.5 Integrations Page → Wire to UCB Connector Status
+   475→  2574→
+   476→  2575→**Current:** Shows static list of integrations with no live status.
+   477→  2576→
+   478→  2577→**Required:**
+   479→  2578→- Pull connected integrations from `GET /api/v1/integrations`
+   480→  2579→- Per-integration health status (last sync time, errors, credentials valid)
+   481→  2580→- Add/remove integration flow (OAuth for SaaS, API key for others)
+   482→  2581→- Test integration button (sends a ping, verifies 200 response)
+   483→  2582→
+   484→  2583→### 19.5 Dashboard Cleanup — Delete Dead Code
+   485→  2584→
+   486→  2585→~30 dead code files identified in audit. These must be deleted before production to reduce maintenance surface and avoid confusing future developers.
+   487→  2586→
+   488→  2587→**Cleanup process:**
+   489→  2588→1. Run dead code analysis: `npx ts-prune` to find unused exports
+   490→  2589→2. Cross-reference with file dependency tree (Next.js build output)
+   491→  2590→3. Manually verify each flagged file is truly unused (grep for imports)
+   492→  2591→4. Delete in batches: components → hooks → stores → utils → types
+   493→  2592→5. Run full test suite after each batch
+   494→  2593→6. Update sidebar nav, route definitions, and any dynamic imports
+   495→  2594→
+   496→  2595→**Expected outcome:** ~30 files deleted, bundle size reduced ~15-20%, build time reduced ~30%.
+   497→  2596→
+   498→  2597→### 19.6 Final Dashboard Information Architecture
+   499→  2598→
+   500→  2599→After all removals and additions, the production dashboard sidebar should be:
+   501→  2600→
+   502→  2601→```
+   503→  2602→DASHBOARD
+   504→  2603→├── Overview (main dashboard with ROI counter, outreach widget, SLA widget)
+   505→  2604→├── Tickets (live ticket queue, real-time)
+   506→  2605→├── Customer Health (health score matrix + trends)
+   507→  2606→├── SLA Tracking (at-risk, breaches, compliance trend)
+   508→  2607→├── Outreach Suggestions (Jarvis-proactive queue)
+   509→  2608→├── Reports (QBR generator, ROI report, history)
+   510→  2609→
+   511→  2610→VARIANT
+   512→  2611→├── Variants (list, create, manage)
+   513→  2612→├── Knowledge Sources (Section C file manager only)
+   514→  2613→
+   515→  2614→INTEGRATIONS
+   516→  2615→├── Connectors (UCB status, add/remove)
+   517→  2616→├── Notifications (Jarvis alerts, real-time)
+   518→  2617→
+   519→  2618→ACCOUNT
+   520→  2619→├── Billing (real subscription, usage, invoices)
+   521→  2620→├── Profile (fresh from /auth/me)
+   522→  2621→├── Settings (tenant preferences, SLA policy config)
+   523→  2622→├── API Keys (admin-only, generate/revoke)
+   524→  2623→```
+   525→  2624→
+   526→  2625→**What is NOT in the sidebar:**
+   527→  2626→- ❌ Agent Builder (removed — see 19.2.1)
+   528→  2627→- ❌ Pipeline visualization (removed — see 19.2.2)
+   529→  2628→- ❌ AI Wiki viewer (not built — see 19.2.3)
+   530→  2629→- ❌ Shadow Mode (removed — see 19.2.4)
+   531→  2630→
+   532→  2631→### 19.7 Dashboard Production Readiness Checklist
+   533→  2632→
+   534→  2633→Before declaring the dashboard production-ready, every item below must be verified:
+   535→  2634→
+   536→  2635→**Removals complete:**
+   537→  2636→- [ ] Agent Builder page deleted, no remaining references in codebase
+   538→  2637→- [ ] Pipeline visualization page deleted, replaced with status chip in top nav
+   539→  2638→- [ ] AI Wiki viewer NOT built (only Knowledge Sources file manager built)
+   540→  2639→- [ ] Shadow Mode nav entry removed
+   541→  2640→- [ ] All mock/hardcoded data removed from Billing, Notifications, Profile
+   542→  2641→
+   543→  2642→**Additions complete:**
+   544→  2643→- [ ] SLA Tracking page live, wired to Jarvis SENSE/EVALUATE/NOTIFY
+   545→  2644→- [ ] Customer Health page live, showing real scores from `customer_health` table
+   546→  2645→- [ ] QBR Generator page live, producing downloadable PDFs
+   547→  2646→- [ ] Outreach Suggestions page live, Jarvis generating nightly suggestions
+   548→  2647→- [ ] ROI Calculator wired to live `roi_events` data (counter in top nav showing real $)
+   549→  2648→- [ ] ROI "Share with CFO" PDF report generator working
+   550→  2649→
+   551→  2650→**Wiring complete:**
+   552→  2651→- [ ] Tickets page reads/writes via `/api/v1/tickets/*`, real-time via Socket.io
+   553→  2652→- [ ] Billing page reads from `/api/billing/*`, Paddle webhooks updating in real-time
+   554→  2653→- [ ] Notifications page reads from `/api/v1/notifications`, real-time push working
+   555→  2654→- [ ] Profile page fetches fresh from `/api/v1/auth/me` on every load
+   556→  2655→- [ ] Integrations page shows live UCB connector status with test button
+   557→  2656→
+   558→  2657→**Cleanup complete:**
+   559→  2658→- [ ] `npx ts-prune` run, all unused exports removed
+   560→  2659→- [ ] ~30 dead files deleted (verify with grep before deletion)
+   561→  2660→- [ ] Bundle size reduced (measure before/after)
+   562→  2661→- [ ] Build time reduced (measure before/after)
+   563→  2662→- [ ] Full E2E test suite passes on cleaned codebase
+   564→  2663→
+   565→  2664→**Positioning verification:**
+   566→  2665→- [ ] No "make your team more productive" language anywhere in dashboard
+   567→  2666→- [ ] ROI counter visible on every page (top nav)
+   568→  2667→- [ ] Every dashboard widget ties back to a dollar savings or a headcount cost
+   569→  2668→- [ ] Headcount replacement language consistent across dashboard, onboarding, and docs
+   570→  2669→
+   571→  2670→---
+   572→  2671→
+   573→  2672→## Appendix A: Node-by-Node LLM Call Summary (PARWA)
+   574→  2673→
+   575→  2674→| Node | Name | LLM Calls (avg) | LLM Techniques | Non-LLM Techniques |
+   576→  2675→|------|------|-----------------|----------------|---------------------|
+   577→  2676→| 1 | Ingest + Classify | 1 | UoT | SmartRouter, DynamicContext, MetaLearner |
+   578→  2677→| 2 | Smart Route | 0 | — | Variant Registry, Quota Tracker, Capability Matrix |
+   579→  2678→| 3 | Knowledge + AI Wiki | 3-4 | CLARA, HyDE, Multi-Query, Step-Back | ContextualCompression, DynamicContext |
+   580→  2679→| 4 | Reasoning Engine | 3-4 | CoT, ToT, Least-to-Most, Reverse Thinking, UoT, GST | GSD, MAKER, ZeroShotValidator, ThoT, FederatedReasoning, MetaLearner |
+   581→  2680→| 5 | Act + Verify | 1-2 | ReAct, Reverse Thinking | MAKER, GSD, ZeroShotValidator, Rule-based |
+   582→  2681→| 6 | Quality + Format | 2 | Reflexion, CRP | ZeroShotValidator, GSD, ThoT, ContextualCompression, FederatedReasoning |
+   583→  2682→| 7 | Simple/Medium | 0 | — | ALL 11 non-LLM techniques |
+   584→  2683→| 8 | Super Node | 5-6 | Self-Consistency, ToT, Reverse Thinking, Reflexion, CRP, CoT | ALL 11 non-LLM techniques |
+   585→  2684→
+   586→  2685→## Appendix B: Jarvis Node LLM Call Summary
+   587→  2686→
+   588→  2687→| Node | Name | LLM Calls (avg) | LLM Techniques | Non-LLM Techniques |
+   589→  2688→|------|------|-----------------|----------------|---------------------|
+   590→  2689→| SENSE | Observe | 0 | — | DynamicContext, SmartRouter, ZeroShotValidator |
+   591→  2690→| EVALUATE | Think | 1-2 | CoT, CLARA, Step-Back, Reflexion | GSD, MAKER, ThoT, FederatedReasoning, ZeroShotValidator, MetaLearner, DynamicContext |
+   592→  2691→| NOTIFY | Act + Verify | 1-2 | CoT, Step-Back, Reflexion | DynamicContext, MetaLearner, ContextualCompression, TurboCompress, AdaptiveBudget |
+   593→  2692→
+   594→  2693→## Appendix C: Complete System Data Flow
+   595→  2694→
+   596→  2695→```
+   597→  2696→1. CUSTOMER sends email/sms/chat/call
+   598→  2697→       │
+   599→  2698→2. UCB normalizes → creates ticket with tenant_id
+   600→  2699→       │
+   601→  2700→3. NODE 1 (Ingest+Classify) — Pattern match, intent parse, key extract
+   602→  2701→       │
+   603→  2702→4. NODE 2 (Smart Route) — Check tier, quota, efficiency → pick path
+   604→  2703→       │
+   605→  2704→5. NODE 3 (Knowledge Fetch + AI Wiki) — RAG search WITHIN tenant scope
+   606→  2705→       │                                    Fetch CRM data via UCB
+   607→  2706→       │                                    Policy sync check (Section C)
+   608→  2707→       │
+   609→  2708→6. SPLIT based on complexity
+   610→  2709→       │
+   611→  2710→   ┌───┴──────────────────────────┐
+   612→  2711→   │                              │
+   613→  2712→   Simple/Medium                Complex
+   614→  2713→   │                              │
+   615→  2714→7a. NODE 7 (Non-LLM Resolver)  7b. NODE 4 (Reasoning Engine)
+   616→  2715→    • Pattern match                • CoT, ToT, ReAct
+   617→  2716→    • Rule engine                  • Deep analysis
+   618→  2717→    • Template fill                • Multiple technique combo
+   619→  2718→    │                              │
+   620→  2719→    │                              ▼
+   621→  2720→    │                           8. NODE 5 (Act + Verify)
+   622→  2721→    │                              • Execute via UCB (reply email/SMS/etc)
+   623→  2722→    │                              • Verify result
+   624→  2723→    │                              │
+   625→  2724→    │                              ▼
+   626→  2725→    │                           9. NODE 6 (Quality + Format)
+   627→  2726→    │                              • Accuracy > 90%?
+   628→  2727→    │                              • Tone check
+   629→  2728→    │                              • Policy compliance (Section C)
+   630→  2729→    │                              │
+   631→  2730→    │                        ┌─────┴─────┐
+   632→  2731→    │                        │ PASS      │ FAIL (loop count < 2)
+   633→  2732→    │                        │           │ → Back to Node 4
+   634→  2733→    │                        │           │
+   635→  2734→    │                        │           │ FAIL (loop count = 2)
+   636→  2735→    │                        │           │ → Node 8 (Super Node)
+   637→  2736→    │                        ▼           ▼
+   638→  2737→   ┌──────────────────────────────────────────┐
+   639→  2738→   │              OUTCOME                      │
+   640→  2739→   │                                           │
+   641→  2740→   │  ✅ Resolved → Send reply via UCB         │
+   642→  2741→   │             → Update AI Wiki Section A    │
+   643→  2742→   │             → Deduct from quota           │
+   644→  2743→   │                                           │
+   645→  2744→   │  ❌ Stuck   → Jarvis SENSE detects        │
+   646→  2745→   │             → Notification Center alerts  │
+   647→  2746→   │             → Admin sees unique key       │
+   648→  2747→   │             → Admin can ask Jarvis        │
+   649→  2748→   │             → Admin gives manual command  │
+   650→  2749→   └──────────────────────────────────────────┘
+   651→  2750→```
+   652→  2751→
+   653→  2752→## Appendix D: Timeline Summary
+   654→  2753→
+   655→  2754→| Phase | Name | Days | Key Deliverable |
+   656→  2755→|-------|------|------|----------------|
+   657→  2756→| 1 | Foundation | 1-4 | 8-node pipeline + key access + tenant isolation |
+   658→  2757→| 2 | Intelligence | 5-8 | All 14 LLM techniques active |
+   659→  2758→| 3 | Optimization | 9-11 | Node 7 non-LLM path working |
+   660→  2759→| 4 | Business Logic | 12-14 | Variants + quotas + restrictions |
+   661→  2760→| 5 | Quality & Safety | 15-17 | Quality loop + Super Node + MAKER safety |
+   662→  2761→| 6 | AI Wiki | 18-20 | 3-section Wiki + learning loop |
+   663→  2762→| 7 | Integration Layer | 21-24 | UCB + Email/SMS/CRM/Chat adapters |
+   664→  2763→| 8 | Jarvis | 25-28 | 3-node Jarvis + Notification Center |
+   665→  2764→| 9 | Onboarding | 29-32 | 6-step wizard + key delivery + dashboard wiring |
+   666→  2765→| 10 | Integration Testing | 33-36 | End-to-end testing, multi-tenant verification |
+   667→  2766→| 11 | Production Hardening | 37-40 | Monitoring, security, load testing, dashboard polish |
+   668→  2767→
+   669→  2768→**Total**: ~40 days from foundation to production-ready
+   670→  2769→
+   671→  2770→---
+   672→  2771→
+   673→  2772→*Document generated: 2026-06-16*
+   674→  2773→*Architecture version: Ultimate v1.0*
+   675→  2774→*Systems: PARWA 8-Node + Jarvis 3-Node + Notification Center + AI Wiki + UCB + Key Access + Onboarding*
+   676→  2775→*Status: Complete architecture, ready for implementation*
+   677→  2776→
