@@ -1,170 +1,342 @@
 {
-  "core/auth/__init__.py": {
+  "backend/app/core/auth/__init__.py": {
     "mtime": 1781748476000,
     "hash": "386e7bf557a0317835776e197d355fb3"
   },
-  "core/auth/access_control.py": {
+  "backend/app/core/auth/access_control.py": {
     "mtime": 1781748464000,
     "hash": "4d1fc75bdf5fdd4b0520e3c17e62f779"
   },
-  "core/jarvis_pipeline/__init__.py": {
+  "backend/app/core/jarvis_pipeline/__init__.py": {
     "mtime": 1781778385000,
     "hash": "00d6644825fa4f778a78d84a8dc6f79d"
   },
-  "core/jarvis_pipeline/approval_gates.py": {
+  "backend/app/core/jarvis_pipeline/approval_gates.py": {
     "mtime": 1781797621000,
     "hash": "c22112d592ecf13a17ff86c72f9a63fa"
   },
-  "core/jarvis_pipeline/command_executor.py": {
+  "backend/app/core/jarvis_pipeline/command_executor.py": {
     "mtime": 1781794760000,
     "hash": "702fe97694f1282bf87108996e80370f"
   },
-  "core/jarvis_pipeline/command_parser.py": {
+  "backend/app/core/jarvis_pipeline/command_parser.py": {
     "mtime": 1781801426000,
     "hash": "4b5beaf8b8528d52241e7b678af10601"
   },
-  "core/jarvis_pipeline/confidence_engine.py": {
+  "backend/app/core/jarvis_pipeline/confidence_engine.py": {
     "mtime": 1781797449000,
     "hash": "37dfdd46a47a279d22df3c28cf74126c"
   },
-  "core/jarvis_pipeline/graph.py": {
+  "backend/app/core/jarvis_pipeline/graph.py": {
     "mtime": 1781786294000,
     "hash": "b2b7064a392aa638f0e419ca1d1882ab"
   },
-  "core/jarvis_pipeline/health_scorer.py": {
+  "backend/app/core/jarvis_pipeline/health_scorer.py": {
     "mtime": 1781801271000,
     "hash": "d154eeb4a1ec75332095e4b4c5d376ac"
   },
-  "core/jarvis_pipeline/jarvis_auth.py": {
+  "backend/app/core/jarvis_pipeline/jarvis_auth.py": {
     "mtime": 1781786074000,
     "hash": "d5d0280c30bf22d5b951da81aedd094e"
   },
-  "core/jarvis_pipeline/jarvis_db.py": {
+  "backend/app/core/jarvis_pipeline/jarvis_db.py": {
     "mtime": 1781802228000,
     "hash": "3cddd1562c37d8a6fa7be5145482faa7"
   },
-  "core/jarvis_pipeline/nodes/__init__.py": {
+  "backend/app/core/jarvis_pipeline/nodes/__init__.py": {
     "mtime": 1781778389000,
     "hash": "f89550e8e1dddb556cf0c8d194ebe391"
   },
-  "core/jarvis_pipeline/nodes/jarvis_1_sense.py": {
+  "backend/app/core/jarvis_pipeline/nodes/jarvis_1_sense.py": {
     "mtime": 1781787828000,
     "hash": "149b9b914240a3016497c632e55ee867"
   },
-  "core/jarvis_pipeline/nodes/jarvis_2_evaluate.py": {
+  "backend/app/core/jarvis_pipeline/nodes/jarvis_2_evaluate.py": {
     "mtime": 1781787899000,
     "hash": "3d2b97f9211660faa0c7f318c9ba4e6e"
   },
-  "core/jarvis_pipeline/nodes/jarvis_3_notify.py": {
+  "backend/app/core/jarvis_pipeline/nodes/jarvis_3_notify.py": {
     "mtime": 1781801542000,
     "hash": "e5f9c14e22619a276189a407bf233ffb"
   },
-  "core/jarvis_pipeline/notification_center.py": {
+  "backend/app/core/jarvis_pipeline/notification_center.py": {
     "mtime": 1781786153000,
     "hash": "d7ef2ed5b7cab5737d13ec6a70955d9e"
   },
-  "core/jarvis_pipeline/quality_coach.py": {
+  "backend/app/core/jarvis_pipeline/quality_coach.py": {
     "mtime": 1781801149000,
     "hash": "39efe6a0500ada27a5a0a331acd5088a"
   },
-  "core/jarvis_pipeline/report_generator.py": {
+  "backend/app/core/jarvis_pipeline/report_generator.py": {
     "mtime": 1781801085000,
     "hash": "5fff7c7672f34761e7864e284f840aab"
   },
-  "core/jarvis_pipeline/semantic_batcher.py": {
+  "backend/app/core/jarvis_pipeline/semantic_batcher.py": {
     "mtime": 1781797500000,
     "hash": "c9218445e4753f10908f5297569db6f8"
   },
-  "core/jarvis_pipeline/sentiment_router.py": {
+  "backend/app/core/jarvis_pipeline/sentiment_router.py": {
     "mtime": 1781797564000,
     "hash": "75774634ef08ded27dd60af59b42dd68"
   },
-  "core/jarvis_pipeline/signal_collectors.py": {
+  "backend/app/core/jarvis_pipeline/signal_collectors.py": {
     "mtime": 1781787782000,
     "hash": "e6c87fe5022af3eb84f3914feb15571e"
   },
-  "core/jarvis_pipeline/sla_calculator.py": {
+  "backend/app/core/jarvis_pipeline/sla_calculator.py": {
     "mtime": 1781801197000,
     "hash": "2f0922503db3a13d0cb1ffa9a27361ba"
   },
-  "core/jarvis_pipeline/state.py": {
+  "backend/app/core/jarvis_pipeline/state.py": {
     "mtime": 1781801312000,
     "hash": "784d9f200c36bf1a7e8cfd0a63209a1d"
   },
-  "core/jarvis_pipeline/variant_recommender.py": {
+  "backend/app/core/jarvis_pipeline/variant_recommender.py": {
     "mtime": 1781797682000,
     "hash": "172bfc5ec05ecb36a9f1cb443b5abbc1"
   },
-  "core/parwa_pipeline/__init__.py": {
+  "backend/app/core/parwa_pipeline/__init__.py": {
     "mtime": 1781744552000,
     "hash": "5312e146d0a74ef6449c4a5b2732693f"
   },
-  "core/parwa_pipeline/ai_wiki_store.py": {
+  "backend/app/core/parwa_pipeline/ai_wiki_store.py": {
     "mtime": 1781771255000,
     "hash": "6ac7f6b3d8a2fe979cd9e81b42461030"
   },
-  "core/parwa_pipeline/config.py": {
+  "backend/app/core/parwa_pipeline/config.py": {
     "mtime": 1781751535000,
     "hash": "ad5243b3e8638d89aa210602e326db06"
   },
-  "core/parwa_pipeline/graph_v2.py": {
+  "backend/app/core/parwa_pipeline/graph_v2.py": {
     "mtime": 1781796597000,
     "hash": "228ebfd36e2d47188988f1ced4892aab"
   },
-  "core/parwa_pipeline/llm_client.py": {
+  "backend/app/core/parwa_pipeline/llm_client.py": {
     "mtime": 1781773909000,
     "hash": "68ef85e6a1b1db6e36d1bd62ab0d31c0"
   },
-  "core/parwa_pipeline/nodes/__init__.py": {
+  "backend/app/core/parwa_pipeline/nodes/__init__.py": {
     "mtime": 1781744552000,
     "hash": "5b393032a381bba80e6276054bc61da7"
   },
-  "core/parwa_pipeline/nodes/node_1_ingest_classify.py": {
+  "backend/app/core/parwa_pipeline/nodes/node_1_ingest_classify.py": {
     "mtime": 1781796487000,
     "hash": "239a2ce3e810b3cc5aff3568de14a09b"
   },
-  "core/parwa_pipeline/nodes/node_2_smart_route.py": {
+  "backend/app/core/parwa_pipeline/nodes/node_2_smart_route.py": {
     "mtime": 1781796675000,
     "hash": "4e7a32f061f91a25e37a52be7459687b"
   },
-  "core/parwa_pipeline/nodes/node_3_knowledge_fetch.py": {
+  "backend/app/core/parwa_pipeline/nodes/node_3_knowledge_fetch.py": {
     "mtime": 1781796927000,
     "hash": "fc2d72f99384a1ca1b50a5b0d7beac31"
   },
-  "core/parwa_pipeline/nodes/node_4_reasoning_engine.py": {
+  "backend/app/core/parwa_pipeline/nodes/node_4_reasoning_engine.py": {
     "mtime": 1781773692000,
     "hash": "ca396a7649578f393f18744aa5a4acca"
   },
-  "core/parwa_pipeline/nodes/node_5_act_verify.py": {
+  "backend/app/core/parwa_pipeline/nodes/node_5_act_verify.py": {
     "mtime": 1781795805000,
     "hash": "e90a06b7fbfd4330baea37f722abf762"
   },
-  "core/parwa_pipeline/nodes/node_6_quality_format.py": {
+  "backend/app/core/parwa_pipeline/nodes/node_6_quality_format.py": {
     "mtime": 1781795805000,
     "hash": "d8c8473660a79bbcea308e045f92d65b"
   },
-  "core/parwa_pipeline/nodes/node_7_simple_resolver.py": {
+  "backend/app/core/parwa_pipeline/nodes/node_7_simple_resolver.py": {
     "mtime": 1781773740000,
     "hash": "15264ee9b12ee23b56d29d9790ef97fe"
   },
-  "core/parwa_pipeline/nodes/node_8_super_node.py": {
+  "backend/app/core/parwa_pipeline/nodes/node_8_super_node.py": {
     "mtime": 1781795805000,
     "hash": "631d472d85ba6ebb8e482cd105429eb0"
   },
-  "core/parwa_pipeline/parwa_bridge.py": {
+  "backend/app/core/parwa_pipeline/parwa_bridge.py": {
     "mtime": 1781797921000,
     "hash": "d08234882b1de2102b322bb59356c7de"
   },
-  "core/parwa_pipeline/state_v2.py": {
+  "backend/app/core/parwa_pipeline/state_v2.py": {
     "mtime": 1781795805000,
     "hash": "7d108de5b527311ad46d2a8eefdf1cf5"
   },
-  "core/tenant/__init__.py": {
+  "backend/app/core/tenant/__init__.py": {
     "mtime": 1781748539000,
     "hash": "17606a9df326e4284f0d336437191bea"
   },
-  "core/tenant/isolation.py": {
+  "backend/app/core/tenant/isolation.py": {
     "mtime": 1781748529000,
     "hash": "7ecd6f9bd3bfa6508ca6b89f5ebbe742"
+  },
+  "backend/schemas/jarvis_wave1_schema.sql": {
+    "mtime": 1781785782000,
+    "hash": "b3a189f2e67ede1c47f0cbad0d42c9d2"
+  },
+  "backend/schemas/phase1_schema.sql": {
+    "mtime": 1781748385000,
+    "hash": "272ef18835cb8aa5971efc8825bec7c3"
+  },
+  "backend/scripts/llm_proxy.js": {
+    "mtime": 1781750510000,
+    "hash": "24ff0377777296cb8c6de05b963f93be"
+  },
+  "backend/tests/live_runner.py": {
+    "mtime": 1781753804000,
+    "hash": "11b4c5b86ff49b2638bda598efea0f82"
+  },
+  "backend/tests/p2_runner.py": {
+    "mtime": 1781756794000,
+    "hash": "3cfca6301e45346c1f330d5de7bad8f9"
+  },
+  "backend/tests/p3_runner.py": {
+    "mtime": 1781760740000,
+    "hash": "71d732dccfa2afc7f945688479568694"
+  },
+  "backend/tests/p3_t5_only.py": {
+    "mtime": 1781761497000,
+    "hash": "0b836d64c7be1bbfc32a0f17b997aad2"
+  },
+  "backend/tests/p4_complex_only.py": {
+    "mtime": 1781763991000,
+    "hash": "5ba1b0aad84e66b04ede59186e536ccd"
+  },
+  "backend/tests/p4_runner.py": {
+    "mtime": 1781763683000,
+    "hash": "655d99f5b06bf8542f22f0b6f1ae361d"
+  },
+  "backend/tests/p4_t1_only.py": {
+    "mtime": 1781762801000,
+    "hash": "9fc977b8df4154df4ca73947602846d6"
+  },
+  "backend/tests/p5_loop_test.py": {
+    "mtime": 1781766155000,
+    "hash": "0010fcc8213d4ade19fca03b05a74f7f"
+  },
+  "backend/tests/p5_runner.py": {
+    "mtime": 1781765029000,
+    "hash": "296454c0cd26e0087012387e7ddece1a"
+  },
+  "backend/tests/p5_t1.py": {
+    "mtime": 1781765232000,
+    "hash": "b1ba8772f522d21f4b7aab38f34888eb"
+  },
+  "backend/tests/p5_t2.py": {
+    "mtime": 1781765324000,
+    "hash": "1f15c5f519b4551f2f61df37c1b61afb"
+  },
+  "backend/tests/p5_t3.py": {
+    "mtime": 1781765361000,
+    "hash": "37fa55929b8991e9c5dc21030977ff26"
+  },
+  "backend/tests/p6_both.py": {
+    "mtime": 1781769607000,
+    "hash": "d8327b06be2cd9def7f3f56bb762354b"
+  },
+  "backend/tests/p6_complex_only.py": {
+    "mtime": 1781768479000,
+    "hash": "6d2324cb23d5c069715230b8e27d86b9"
+  },
+  "backend/tests/p6_runner.py": {
+    "mtime": 1781768152000,
+    "hash": "0a64b93146123af91f059bed490d6b9d"
+  },
+  "backend/tests/p6_t1.py": {
+    "mtime": 1781769317000,
+    "hash": "85fe14858b1cbc1fa50e21e3ed60d848"
+  },
+  "backend/tests/p6_t2.py": {
+    "mtime": 1781769327000,
+    "hash": "ba20a3b59dba7ae2202ae4b5571b649a"
+  },
+  "backend/tests/p7_debug.py": {
+    "mtime": 1781771963000,
+    "hash": "dc88ef1e636f5ee57cc4427b7f2357f1"
+  },
+  "backend/tests/p7_final.py": {
+    "mtime": 1781772873000,
+    "hash": "a6910aa5e1b6e7fd1bedf518991b2af5"
+  },
+  "backend/tests/p7_minimal.py": {
+    "mtime": 1781772747000,
+    "hash": "50579728d058ada2fba94495765eb54b"
+  },
+  "backend/tests/p7_quick.py": {
+    "mtime": 1781775259000,
+    "hash": "5c07f72f7d2e78e8cbb4f989739462ef"
+  },
+  "backend/tests/p7_regression.py": {
+    "mtime": 1781775428000,
+    "hash": "926e07cea0c0a373ae1e9bc55c3f263c"
+  },
+  "backend/tests/p7_runner.py": {
+    "mtime": 1781775231000,
+    "hash": "16118be1aa3accf21bed753946bdbb83"
+  },
+  "backend/tests/p7_test.py": {
+    "mtime": 1781772470000,
+    "hash": "b0f8d6a905b59db189585bde93dab756"
+  },
+  "backend/tests/p8_runner.py": {
+    "mtime": 1781778772000,
+    "hash": "c6dce1239212001c8c9e5080af5e8e04"
+  },
+  "backend/tests/run_all_live.py": {
+    "mtime": 1781752168000,
+    "hash": "c3bc366bba14c2f637c3040805c199fe"
+  },
+  "backend/tests/test_crash_resilience.py": {
+    "mtime": 1781773825000,
+    "hash": "5aa6290dcf8af3a9db18e35ee5b717b5"
+  },
+  "backend/tests/test_phase1_production.py": {
+    "mtime": 1781748727000,
+    "hash": "2ac85ab81a72137731f53715391a8fc2"
+  },
+  "backend/tests/test_pipeline_v2.py": {
+    "mtime": 1781746133000,
+    "hash": "a296967e709f549d9df42d4b409cc844"
+  },
+  "backend/tests/test_single_ticket.py": {
+    "mtime": 1781751634000,
+    "hash": "59d0627ca9c6008a693ab32e264c5b0b"
+  },
+  "backend/tests/wave1_e2e_test.py": {
+    "mtime": 1781787091000,
+    "hash": "ba1405916dcd8eb84f4869af6f61a011"
+  },
+  "backend/tests/wave2_e2e_test.py": {
+    "mtime": 1781788651000,
+    "hash": "7ef560caa1009f3db1ae76378de76dc6"
+  },
+  "backend/tests/wave3_e2e_test.py": {
+    "mtime": 1781794848000,
+    "hash": "110bba7ba7b427908be4d29e33fc7f9c"
+  },
+  "backend/tests/wave4_e2e_test.py": {
+    "mtime": 1781797025000,
+    "hash": "f3a652e6222fa733750bc3fd43f81d78"
+  },
+  "backend/tests/wave5_e2e_test.py": {
+    "mtime": 1781798271000,
+    "hash": "7b6910737ffa93001a4f6fa53de0f9b1"
+  },
+  "backend/tests/wave6_e2e_test.py": {
+    "mtime": 1781803705000,
+    "hash": "c6c6f4c64b1adbd33e0038a67e45052d"
+  },
+  "CLAUDE.md": {
+    "mtime": 1781920129857.8218,
+    "hash": "43933251c7da7a98da7b57cd858902b1"
+  },
+  "backend/tests/results/phase4/t5_status.txt": {
+    "mtime": 1781764188000,
+    "hash": "18cfd52f09a7056f2f697d68bdc601b5"
+  },
+  "backend/tests/results/phase5/t2_status.txt": {
+    "mtime": 1781765583000,
+    "hash": "6396c4b7a5cd314e75c8cdce5961716e"
+  },
+  "backend/tests/results/phase5/t3_status.txt": {
+    "mtime": 1781765632000,
+    "hash": "d64e5671bf515d11374915c86e6693c4"
   }
 }
