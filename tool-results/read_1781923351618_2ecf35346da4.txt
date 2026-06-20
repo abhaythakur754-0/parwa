@@ -1,0 +1,847 @@
+     1→"""
+     2→PARWA Phase 9 — Onboarding & Auth Routes
+     3→
+     4→Complete multi-step onboarding flow for new tenants:
+     5→  Step 1: Account Setup (create tenant + admin user + initial API key)
+     6→  Step 2: Tier / Variant Selection
+     7→  Step 3: Integration Connect
+     8→  Step 4: Knowledge Base Upload
+     9→  Step 5: Policy Configuration
+    10→  Step 6: Key Generation + First Victory (test ticket)
+    11→
+    12→Auth routes for login, key management, and JWT/API-key middleware.
+    13→
+    14→Router variable is ``router = APIRouter()`` — mounted at ``/api`` prefix in main.py,
+    15→so all paths here are relative (e.g. ``/onboarding/account-setup`` → ``/api/onboarding/account-setup``).
+    16→"""
+    17→from __future__ import annotations
+    18→
+    19→import hashlib
+    20→import logging
+    21→import secrets
+    22→import time
+    23→import uuid
+    24→from datetime import datetime, timezone
+    25→from typing import Any, Dict, List, Optional
+    26→
+    27→from fastapi import APIRouter, Depends, HTTPException, Query, Request
+    28→
+    29→from app.api.models import (
+    30→    AccountSetupRequest,
+    31→    ConnectIntegrationRequest,
+    32→    GenerateKeyRequest,
+    33→    LoginRequest,
+    34→    RegisterKeyRequest,
+    35→    RevokeKeyRequest,
+    36→    SelectTierRequest,
+    37→    SetPolicyRequest,
+    38→    TestTicketRequest,
+    39→    UploadKBRequest,
+    40→)
+    41→from app.core.auth.access_control import (
+    42→    register_key,
+    43→    validate_request,
+    44→    create_jwt_session,
+    45→    list_keys,
+    46→    revoke_key,
+    47→)
+    48→from app.api.utils import _err, _hash_password, _verify_password
+    49→from app.core.tenant.isolation import (
+    50→    create_tenant,
+    51→    get_tenant,
+    52→    update_tenant,
+    53→    get_tier_permissions,
+    54→)
+    55→
+    56→logger = logging.getLogger("parwa.onboarding")
+    57→
+    58→router = APIRouter()
+    59→
+    60→
+    61→# ═══════════════════════════════════════════════════════════════
+    62→# In-Memory Stores (Phase 9 — production moves to DB)
+    63→# ═══════════════════════════════════════════════════════════════
+    64→
+    65→# Users store — keyed by user_id
+    66→_users: Dict[str, Dict[str, Any]] = {}
+    67→
+    68→# Email → user_id lookup for login
+    69→_email_index: Dict[str, str] = {}
+    70→
+    71→# Onboarding progress tracker — keyed by tenant_id
+    72→_onboarding_progress: Dict[str, Dict[str, Any]] = {}
+    73→
+    74→
+    75→# ═══════════════════════════════════════════════════════════════
+    76→# Helpers (onboarding-specific)
+    77→# ═══════════════════════════════════════════════════════════════
+    78→
+    79→
+    80→def _get_or_create_progress(tenant_id: str) -> Dict[str, Any]:
+    81→    """Get or create onboarding progress tracker for a tenant."""
+    82→    if tenant_id not in _onboarding_progress:
+    83→        _onboarding_progress[tenant_id] = {
+    84→            "tenant_id": tenant_id,
+    85→            "completed_steps": [],
+    86→            "started_at": datetime.now(timezone.utc).isoformat(),
+    87→        }
+    88→    return _onboarding_progress[tenant_id]
+    89→
+    90→
+    91→def _mark_step(tenant_id: str, step: int) -> None:
+    92→    """Mark an onboarding step as completed."""
+    93→    progress = _get_or_create_progress(tenant_id)
+    94→    if step not in progress["completed_steps"]:
+    95→        progress["completed_steps"].append(step)
+    96→    progress["last_updated"] = datetime.now(timezone.utc).isoformat()
+    97→
+    98→
+    99→def _require_tenant(tenant_id: str):
+   100→    """Validate tenant exists and is active, or raise 404."""
+   101→    tenant = get_tenant(tenant_id)
+   102→    if not tenant:
+   103→        raise _err(f"Tenant not found: {tenant_id}", 404)
+   104→    if tenant["status"] != "active":
+   105→        raise _err(f"Tenant is {tenant['status']}. Cannot proceed.", 403)
+   106→    return tenant
+   107→
+   108→
+   109→# ═══════════════════════════════════════════════════════════════
+   110→# Auth Middleware (FastAPI Dependency)
+   111→# ═══════════════════════════════════════════════════════════════
+   112→
+   113→async def get_auth_context(request: Request) -> Dict[str, Any]:
+   114→    """FastAPI dependency that extracts and validates auth from request.
+   115→
+   116→    Checks Authorization header for:
+   117→      - ``Bearer <jwt_token>``
+   118→      - ``Bearer pk_live_...`` or ``Bearer pk_test_...``
+   119→
+   120→    Returns a context dict with tenant_id, user_id, auth_method, etc.
+   121→    Raises HTTPException 401 if invalid.
+   122→    """
+   123→    auth_header = request.headers.get("Authorization", "")
+   124→    if not auth_header.startswith("Bearer "):
+   125→        raise _err(
+   126→            "Missing or invalid Authorization header. "
+   127→            "Use: Bearer <jwt_token> or Bearer <api_key>",
+   128→            401,
+   129→        )
+   130→
+   131→    token = auth_header[7:].strip()  # Strip "Bearer " prefix
+   132→    if not token:
+   133→        raise _err("Empty authorization token", 401)
+   134→
+   135→    # Determine token type
+   136→    if token.startswith("pk_live_") or token.startswith("pk_test_"):
+   137→        # API key authentication
+   138→        is_valid, context, error_msg = await validate_request(
+   139→            api_key=token,
+   140→            client_ip=request.client.host if request.client else "unknown",
+   141→        )
+   142→    else:
+   143→        # JWT authentication
+   144→        is_valid, context, error_msg = await validate_request(
+   145→            jwt_token=token,
+   146→            client_ip=request.client.host if request.client else "unknown",
+   147→        )
+   148→
+   149→    if not is_valid:
+   150→        raise _err(error_msg or "Authentication failed", 401)
+   151→
+   152→    logger.debug(
+   153→        "Auth context resolved: method=%s tenant=%s",
+   154→        context.get("auth_method"),
+   155→        context.get("tenant_id"),
+   156→    )
+   157→    return context
+   158→
+   159→
+   160→# ═══════════════════════════════════════════════════════════════
+   161→# Public: Tier Configuration (single source of truth)
+   162→# ═══════════════════════════════════════════════════════════════
+   163→
+   164→@router.get(
+   165→    "/tiers",
+   166→    summary="Return all tier configurations (public, no auth required)",
+   167→)
+   168→async def get_tiers():
+   169→    """Return the full tier capability matrix.
+   170→
+   171→    Frontend should fetch this on the tier selection step instead of
+   172→    hardcoding prices/features. This is the single source of truth.
+   173→    """
+   174→    from app.core.tenant.isolation import TIER_CAPABILITIES
+   175→
+   176→    return {
+   177→        "tiers": {
+   178→            tier_id: {
+   179→                "id": tier_id,
+   180→                "role": caps["role"],
+   181→                "monthly_price": caps["monthly_price"],
+   182→                "annual_price": int(caps["monthly_price"] * 10),  # 2 months free on annual
+   183→                "tickets_per_day": caps["tickets_per_day"],
+   184→                "overage_per_ticket": caps["overage_per_ticket"],
+   185→                "decision_making": caps["decision_making"],
+   186→                "refund_execution": caps["refund_execution"],
+   187→                "peer_review": caps["peer_review"],
+   188→                "voice_calls": caps["voice_calls"],
+   189→                "can_use_super_node": caps["can_use_super_node"],
+   190→                "max_kb_documents": caps["max_kb_documents"],
+   191→                "wiki_access": caps["wiki_access"],
+   192→            }
+   193→            for tier_id, caps in TIER_CAPABILITIES.items()
+   194→        }
+   195→    }
+   196→
+   197→
+   198→# ═══════════════════════════════════════════════════════════════
+   199→# Step 1: Account Setup
+   200→# ═══════════════════════════════════════════════════════════════
+   201→
+   202→@router.post(
+   203→    "/onboarding/account-setup",
+   204→    summary="Step 1 — Create tenant, admin user, initial API key and JWT",
+   205→)
+   206→async def account_setup(req: AccountSetupRequest):
+   207→    """Create a new tenant account with admin user and initial credentials."""
+   208→    # Validate unique email
+   209→    if req.admin_email.lower() in _email_index:
+   210→        raise _err(f"Email already registered: {req.admin_email}", 409)
+   211→
+   212→    # Generate slug from company name
+   213→    slug = req.company_name.lower().replace(" ", "-").replace("_", "-")
+   214→    slug = "".join(c for c in slug if c.isalnum() or c == "-")
+   215→    slug = slug[:50].strip("-")
+   216→
+   217→    # Create tenant
+   218→    try:
+   219→        tenant = create_tenant(
+   220→            name=req.company_name,
+   221→            slug=slug,
+   222→            tier="mini_parwa",
+   223→            settings={
+   224→                "industry": req.industry,
+   225→                "company_size": req.company_size,
+   226→                "onboarding_step": 1,
+   227→            },
+   228→        )
+   229→    except ValueError as e:
+   230→        raise _err(str(e), 409)
+   231→
+   232→    tenant_id = tenant["id"]
+   233→
+   234→    # Create admin user
+   235→    user_id = str(uuid.uuid4())
+   236→    password_hash = _hash_password(req.password)
+   237→    admin_user = {
+   238→        "user_id": user_id,
+   239→        "email": req.admin_email.lower(),
+   240→        "password_hash": password_hash,
+   241→        "role": "admin",
+   242→        "tenant_id": tenant_id,
+   243→        "created_at": datetime.now(timezone.utc).isoformat(),
+   244→    }
+   245→    _users[user_id] = admin_user
+   246→    _email_index[admin_user["email"]] = user_id
+   247→
+   248→    # Generate initial API key
+   249→    key_result = register_key(
+   250→        tenant_id=tenant_id,
+   251→        key_type="live",
+   252→        name=f"{req.company_name} — Initial Key",
+   253→        user_id=user_id,
+   254→    )
+   255→
+   256→    # Create JWT session
+   257→    jwt_token = create_jwt_session(
+   258→        tenant_id=tenant_id,
+   259→        user_id=user_id,
+   260→        extra_claims={"role": "admin", "email": req.admin_email},
+   261→    )
+   262→
+   263→    # Track onboarding progress
+   264→    _mark_step(tenant_id, 1)
+   265→
+   266→    logger.info(
+   267→        "Account created: tenant=%s (%s) admin=%s",
+   268→        tenant_id, req.company_name, req.admin_email,
+   269→    )
+   270→
+   271→    return {
+   272→        "tenant_id": tenant_id,
+   273→        "tenant_name": req.company_name,
+   274→        "admin_email": req.admin_email,
+   275→        "api_key": key_result["full_key"],  # Shown ONCE
+   276→        "jwt_token": jwt_token,
+   277→        "tier": "mini_parwa",
+   278→    }
+   279→
+   280→
+   281→# ═══════════════════════════════════════════════════════════════
+   282→# Step 2: Tier / Variant Selection
+   283→# ═══════════════════════════════════════════════════════════════
+   284→
+   285→@router.post(
+   286→    "/onboarding/select-tier",
+   287→    summary="Step 2 — Select pricing tier and billing cycle",
+   288→)
+   289→async def select_tier(req: SelectTierRequest):
+   290→    """Select a tier (mini_parwa / parwa / parwa_high) and billing cycle."""
+   291→    # Validate tier
+   292→    valid_tiers = ("mini_parwa", "parwa", "parwa_high")
+   293→    if req.tier not in valid_tiers:
+   294→        raise _err(f"Invalid tier: '{req.tier}'. Must be one of: {valid_tiers}", 400)
+   295→
+   296→    # Validate billing cycle
+   297→    valid_cycles = ("monthly", "annual")
+   298→    if req.billing_cycle not in valid_cycles:
+   299→        raise _err(
+   300→            f"Invalid billing_cycle: '{req.billing_cycle}'. Must be: {valid_cycles}",
+   301→            400,
+   302→        )
+   303→
+   304→    # Require tenant exists
+   305→    _require_tenant(req.tenant_id)
+   306→
+   307→    # Update tenant tier
+   308→    current_settings = get_tenant(req.tenant_id).get("settings", {})
+   309→    updated_settings = {
+   310→        **current_settings,
+   311→        "billing_cycle": req.billing_cycle,
+   312→        "tier_selected_at": datetime.now(timezone.utc).isoformat(),
+   313→    }
+   314→
+   315→    try:
+   316→        tenant = update_tenant(
+   317→            req.tenant_id,
+   318→            tier=req.tier,
+   319→            settings=updated_settings,
+   320→        )
+   321→    except ValueError as e:
+   322→        raise _err(str(e), 400)
+   323→
+   324→    _mark_step(req.tenant_id, 2)
+   325→
+   326→    capabilities = get_tier_permissions(req.tier)
+   327→
+   328→    logger.info("Tier selected: tenant=%s tier=%s cycle=%s", req.tenant_id, req.tier, req.billing_cycle)
+   329→
+   330→    return {
+   331→        "tenant_id": req.tenant_id,
+   332→        "tier": req.tier,
+   333→        "capabilities": capabilities,
+   334→        "billing_cycle": req.billing_cycle,
+   335→    }
+   336→
+   337→
+   338→# ═══════════════════════════════════════════════════════════════
+   339→# Step 3: Integration Setup
+   340→# ═══════════════════════════════════════════════════════════════
+   341→
+   342→@router.post(
+   343→    "/onboarding/connect-integration",
+   344→    summary="Step 3 — Connect a third-party integration",
+   345→)
+   346→async def connect_integration(req: ConnectIntegrationRequest):
+   347→    """Connect an external integration (Shopify, Zendesk, Gorgias, etc.)."""
+   348→    _require_tenant(req.tenant_id)
+   349→
+   350→    tenant = get_tenant(req.tenant_id)
+   351→    settings = tenant.get("settings", {})
+   352→
+   353→    # Initialize integrations list if not present
+   354→    integrations: List[Dict[str, Any]] = settings.get("integrations", [])
+   355→
+   356→    # Check for duplicate integration type
+   357→    for existing in integrations:
+   358→        if existing.get("integration_type") == req.integration_type:
+   359→            raise _err(
+   360→                f"Integration '{req.integration_type}' is already connected. "
+   361→                "Disconnect it first or use a different type.",
+   362→                409,
+   363→            )
+   364→
+   365→    integration_entry = {
+   366→        "integration_id": str(uuid.uuid4()),
+   367→        "integration_type": req.integration_type,
+   368→        "status": "connected",
+   369→        "health": "healthy",
+   370→        "credentials": req.credentials,
+   371→        "connected_at": datetime.now(timezone.utc).isoformat(),
+   372→        "last_health_check": datetime.now(timezone.utc).isoformat(),
+   373→    }
+   374→
+   375→    integrations.append(integration_entry)
+   376→    settings["integrations"] = integrations
+   377→
+   378→    update_tenant(req.tenant_id, settings=settings)
+   379→    _mark_step(req.tenant_id, 3)
+   380→
+   381→    logger.info(
+   382→        "Integration connected: tenant=%s type=%s",
+   383→        req.tenant_id, req.integration_type,
+   384→    )
+   385→
+   386→    return {
+   387→        "tenant_id": req.tenant_id,
+   388→        "integration_type": req.integration_type,
+   389→        "status": "connected",
+   390→        "health": "healthy",
+   391→    }
+   392→
+   393→
+   394→@router.get(
+   395→    "/onboarding/integrations",
+   396→    summary="Step 3 — List connected integrations",
+   397→)
+   398→async def list_integrations(tenant_id: str = Query(...)):
+   399→    """Return all connected integrations for a tenant."""
+   400→    _require_tenant(tenant_id)
+   401→
+   402→    tenant = get_tenant(tenant_id)
+   403→    settings = tenant.get("settings", {})
+   404→    integrations = settings.get("integrations", [])
+   405→
+   406→    # Sanitize — remove raw credentials from the response
+   407→    safe_integrations = []
+   408→    for integ in integrations:
+   409→        safe = {
+   410→            k: v for k, v in integ.items()
+   411→            if k != "credentials"
+   412→        }
+   413→        safe["has_credentials"] = bool(integ.get("credentials"))
+   414→        safe_integrations.append(safe)
+   415→
+   416→    return {
+   417→        "tenant_id": tenant_id,
+   418→        "integrations": safe_integrations,
+   419→        "count": len(safe_integrations),
+   420→    }
+   421→
+   422→
+   423→# ═══════════════════════════════════════════════════════════════
+   424→# Step 4: Knowledge Base Upload
+   425→# ═══════════════════════════════════════════════════════════════
+   426→
+   427→@router.post(
+   428→    "/onboarding/upload-kb",
+   429→    summary="Step 4 — Upload a knowledge base entry",
+   430→)
+   431→async def upload_kb(req: UploadKBRequest):
+   432→    """Store a knowledge base article / document for the tenant."""
+   433→    _require_tenant(req.tenant_id)
+   434→
+   435→    tenant = get_tenant(req.tenant_id)
+   436→    settings = tenant.get("settings", {})
+   437→
+   438→    kb_entries: List[Dict[str, Any]] = settings.get("knowledge_base", [])
+   439→
+   440→    entry_id = str(uuid.uuid4())
+   441→    entry = {
+   442→        "entry_id": entry_id,
+   443→        "title": req.title,
+   444→        "category": req.category,
+   445→        "content": req.content,
+   446→        "status": "indexed",
+   447→        "word_count": len(req.content.split()),
+   448→        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+   449→        "indexed_at": datetime.now(timezone.utc).isoformat(),
+   450→    }
+   451→
+   452→    kb_entries.append(entry)
+   453→    settings["knowledge_base"] = kb_entries
+   454→
+   455→    update_tenant(req.tenant_id, settings=settings)
+   456→    _mark_step(req.tenant_id, 4)
+   457→
+   458→    logger.info(
+   459→        "KB uploaded: tenant=%s entry=%s title='%s' category=%s",
+   460→        req.tenant_id, entry_id, req.title, req.category,
+   461→    )
+   462→
+   463→    return {
+   464→        "tenant_id": req.tenant_id,
+   465→        "entry_id": entry_id,
+   466→        "title": req.title,
+   467→        "category": req.category,
+   468→        "status": "indexed",
+   469→    }
+   470→
+   471→
+   472→@router.get(
+   473→    "/onboarding/knowledge-base",
+   474→    summary="Step 4 — List knowledge base entries",
+   475→)
+   476→async def list_knowledge_base(tenant_id: str = Query(...)):
+   477→    """Return all knowledge base entries for a tenant."""
+   478→    _require_tenant(tenant_id)
+   479→
+   480→    tenant = get_tenant(tenant_id)
+   481→    settings = tenant.get("settings", {})
+   482→    kb_entries = settings.get("knowledge_base", [])
+   483→
+   484→    # Return metadata only, not full content
+   485→    summaries = [
+   486→        {
+   487→            "entry_id": e["entry_id"],
+   488→            "title": e["title"],
+   489→            "category": e["category"],
+   490→            "status": e["status"],
+   491→            "word_count": e.get("word_count", 0),
+   492→            "uploaded_at": e.get("uploaded_at"),
+   493→            "content_preview": e["content"][:200] + "..." if len(e.get("content", "")) > 200 else e.get("content", ""),
+   494→        }
+   495→        for e in kb_entries
+   496→    ]
+   497→
+   498→    return {
+   499→        "tenant_id": tenant_id,
+   500→        "entries": summaries,
+   501→        "count": len(summaries),
+   502→    }
+   503→
+   504→
+   505→# ═══════════════════════════════════════════════════════════════
+   506→# Step 5: Policy Configuration
+   507→# ═══════════════════════════════════════════════════════════════
+   508→
+   509→@router.post(
+   510→    "/onboarding/set-policy",
+   511→    summary="Step 5 — Configure business policies",
+   512→)
+   513→async def set_policy(req: SetPolicyRequest):
+   514→    """Store business policies (refund rules, escalation, tone, etc.)."""
+   515→    _require_tenant(req.tenant_id)
+   516→
+   517→    tenant = get_tenant(req.tenant_id)
+   518→    settings = tenant.get("settings", {})
+   519→
+   520→    policies = req.policies
+   521→
+   522→    settings["policies"] = policies
+   523→    settings["policy_configured_at"] = datetime.now(timezone.utc).isoformat()
+   524→
+   525→    update_tenant(req.tenant_id, settings=settings)
+   526→    _mark_step(req.tenant_id, 5)
+   527→
+   528→    logger.info(
+   529→        "Policies configured: tenant=%s keys=%s",
+   530→        req.tenant_id, list(policies.keys()),
+   531→    )
+   532→
+   533→    return {
+   534→        "tenant_id": req.tenant_id,
+   535→        "policies_count": len(policies),
+   536→        "status": "configured",
+   537→    }
+   538→
+   539→
+   540→@router.get(
+   541→    "/onboarding/policies",
+   542→    summary="Step 5 — Get current policies",
+   543→)
+   544→async def get_policies(tenant_id: str = Query(...)):
+   545→    """Return the current policy configuration for a tenant."""
+   546→    _require_tenant(tenant_id)
+   547→
+   548→    tenant = get_tenant(tenant_id)
+   549→    settings = tenant.get("settings", {})
+   550→    policies = settings.get("policies", {})
+   551→
+   552→    return {
+   553→        "tenant_id": tenant_id,
+   554→        "policies": policies,
+   555→        "configured_at": settings.get("policy_configured_at"),
+   556→    }
+   557→
+   558→
+   559→# ═══════════════════════════════════════════════════════════════
+   560→# Step 6: Key Generation + First Victory
+   561→# ═══════════════════════════════════════════════════════════════
+   562→
+   563→@router.post(
+   564→    "/onboarding/generate-key",
+   565→    summary="Step 6 — Generate an additional API key",
+   566→)
+   567→async def generate_key(req: GenerateKeyRequest):
+   568→    """Generate a new live or test API key for the tenant."""
+   569→    _require_tenant(req.tenant_id)
+   570→
+   571→    # Validate key type
+   572→    if req.key_type not in ("live", "test"):
+   573→        raise _err("key_type must be 'live' or 'test'", 400)
+   574→
+   575→    key_result = register_key(
+   576→        tenant_id=req.tenant_id,
+   577→        key_type=req.key_type,
+   578→        name=req.name,
+   579→    )
+   580→
+   581→    logger.info(
+   582→        "Key generated: tenant=%s type=%s prefix=%s",
+   583→        req.tenant_id, req.key_type, key_result["key_prefix"],
+   584→    )
+   585→
+   586→    return {
+   587→        "key_id": key_result["key_id"],
+   588→        "full_key": key_result["full_key"],  # Shown ONCE
+   589→        "key_prefix": key_result["key_prefix"],
+   590→    }
+   591→
+   592→
+   593→@router.post(
+   594→    "/onboarding/test-ticket",
+   595→    summary="Step 6 — Submit a test ticket through the PARWA pipeline",
+   596→)
+   597→async def test_ticket(req: TestTicketRequest):
+   598→    """Submit a test ticket to verify the pipeline is working."""
+   599→    _require_tenant(req.tenant_id)
+   600→
+   601→    tenant = get_tenant(req.tenant_id)
+   602→    tier = tenant.get("tier", "mini_parwa")
+   603→
+   604→    try:
+   605→        from app.core.parwa_pipeline.graph_v2 import run_parwa_pipeline
+   606→
+   607→        ticket_id = f"test_{secrets.token_urlsafe(8)}"
+   608→
+   609→        result = await run_parwa_pipeline(
+   610→            tenant_id=req.tenant_id,
+   611→            query=req.query,
+   612→            channel_type="test",
+   613→            variant_tier=tier,
+   614→            customer_context={"is_test": True},
+   615→            sender="onboarding_test@parwa.ai",
+   616→        )
+   617→
+   618→        _mark_step(req.tenant_id, 6)
+   619→
+   620→        logger.info(
+   621→            "Test ticket processed: tenant=%s ticket=%s status=%s",
+   622→            req.tenant_id, ticket_id, result.get("status"),
+   623→        )
+   624→
+   625→        return {
+   626→            "ticket_id": ticket_id,
+   627→            "status": result.get("status", "completed"),
+   628→            "resolution": result.get("final_response", result.get("response", ""))[:500],
+   629→            "confidence": result.get("quality_score", result.get("confidence", 0.0)),
+   630→        }
+   631→
+   632→    except ImportError:
+   633→        logger.warning("PARWA pipeline not available, returning simulated test ticket")
+   634→        _mark_step(req.tenant_id, 6)
+   635→
+   636→        ticket_id = f"test_{secrets.token_urlsafe(8)}"
+   637→
+   638→        return {
+   639→            "ticket_id": ticket_id,
+   640→            "status": "completed",
+   641→            "resolution": (
+   642→                f"[Simulated] Thank you for your test query: '{req.query[:100]}'. "
+   643→                "Your PARWA AI assistant is configured and ready to handle support tickets."
+   644→            ),
+   645→            "confidence": 0.92,
+   646→        }
+   647→
+   648→    except Exception as exc:
+   649→        logger.error("Test ticket failed for tenant %s: %s", req.tenant_id, exc)
+   650→        raise _err(f"Test ticket failed: {exc}", 500)
+   651→
+   652→
+   653→@router.get(
+   654→    "/onboarding/status",
+   655→    summary="Step 6 — Get full onboarding status and readiness score",
+   656→)
+   657→async def onboarding_status(tenant_id: str = Query(...)):
+   658→    """Return the current onboarding progress, tenant info, and readiness score."""
+   659→    _require_tenant(tenant_id)
+   660→
+   661→    tenant = get_tenant(tenant_id)
+   662→    settings = tenant.get("settings", {})
+   663→    progress = _get_or_create_progress(tenant_id)
+   664→
+   665→    completed_steps = sorted(progress.get("completed_steps", []))
+   666→
+   667→    # Count resources
+   668→    integration_count = len(settings.get("integrations", []))
+   669→    kb_count = len(settings.get("knowledge_base", []))
+   670→    policies = settings.get("policies", {})
+   671→    policy_count = len(policies)
+   672→
+   673→    # Calculate readiness score (0–100)
+   674→    # Each completed step is worth ~16 points (6 steps = 96, bonus for resources)
+   675→    step_score = len(completed_steps) * 16
+   676→    resource_bonus = 0
+   677→
+   678→    if integration_count > 0:
+   679→        resource_bonus += 1
+   680→    if kb_count >= 3:
+   681→        resource_bonus += 1
+   682→    if policy_count >= 3:
+   683→        resource_bonus += 2
+   684→
+   685→    readiness_score = min(100, step_score + resource_bonus)
+   686→
+   687→    # Determine current step
+   688→    current_step = (max(completed_steps) + 1) if completed_steps else 1
+   689→    if current_step > 6:
+   690→        current_step = 6
+   691→
+   692→    logger.debug(
+   693→        "Onboarding status: tenant=%s steps=%s readiness=%d",
+   694→        tenant_id, completed_steps, readiness_score,
+   695→    )
+   696→
+   697→    return {
+   698→        "step": current_step,
+   699→        "completed_steps": completed_steps,
+   700→        "tenant": {
+   701→            "tenant_id": tenant_id,
+   702→            "name": tenant.get("name"),
+   703→            "tier": tenant.get("tier"),
+   704→            "status": tenant.get("status"),
+   705→        },
+   706→        "integration_count": integration_count,
+   707→        "kb_count": kb_count,
+   708→        "policy_count": policy_count,
+   709→        "readiness_score": readiness_score,
+   710→    }
+   711→
+   712→
+   713→# ═══════════════════════════════════════════════════════════════
+   714→# Auth Routes
+   715→# ═══════════════════════════════════════════════════════════════
+   716→
+   717→@router.post(
+   718→    "/auth/login",
+   719→    summary="Authenticate with email + password, receive JWT",
+   720→)
+   721→async def login(req: LoginRequest):
+   722→    """Verify credentials and return a JWT session token."""
+   723→    email = req.email.lower().strip()
+   724→    user_id = _email_index.get(email)
+   725→
+   726→    if not user_id:
+   727→        raise _err("Invalid email or password", 401)
+   728→
+   729→    user = _users.get(user_id)
+   730→    if not user:
+   731→        raise _err("Invalid email or password", 401)
+   732→
+   733→    # Verify password
+   734→    if not _verify_password(req.password, user["password_hash"]):
+   735→        raise _err("Invalid email or password", 401)
+   736→
+   737→    # Check tenant is active
+   738→    tenant = get_tenant(user["tenant_id"])
+   739→    if not tenant:
+   740→        raise _err("Tenant not found. Contact support.", 401)
+   741→    if tenant["status"] != "active":
+   742→        raise _err(f"Account suspended. Status: {tenant['status']}", 403)
+   743→
+   744→    # Generate JWT
+   745→    jwt_token = create_jwt_session(
+   746→        tenant_id=user["tenant_id"],
+   747→        user_id=user_id,
+   748→        extra_claims={"role": user["role"], "email": email},
+   749→    )
+   750→
+   751→    # Find the first active API key for this tenant (for dashboard use)
+   752→    tenant_keys = list_keys(user["tenant_id"])
+   753→    active_key_prefix = tenant_keys[0]["key_prefix"] if tenant_keys else ""
+   754→
+   755→    logger.info("Login successful: email=%s tenant=%s", email, user["tenant_id"])
+   756→
+   757→    return {
+   758→        "jwt_token": jwt_token,
+   759→        "tenant_id": user["tenant_id"],
+   760→        "company_name": tenant.get("name", ""),
+   761→        "user_email": email,
+   762→        "role": user["role"],
+   763→        "tier": tenant.get("tier", ""),
+   764→        "api_key": active_key_prefix,  # Safe prefix only; full key never returned on login
+   765→    }
+   766→
+   767→
+   768→@router.post(
+   769→    "/auth/register-key",
+   770→    summary="Generate a new API key (requires auth)",
+   771→)
+   772→async def register_new_key(
+   773→    req: RegisterKeyRequest,
+   774→    auth: Dict[str, Any] = Depends(get_auth_context),
+   775→):
+   776→    """Generate a new API key for the authenticated tenant."""
+   777→    if req.key_type not in ("live", "test"):
+   778→        raise _err("key_type must be 'live' or 'test'", 400)
+   779→
+   780→    # Verify tenant matches
+   781→    if auth.get("tenant_id") != req.tenant_id:
+   782→        raise _err("Cannot generate key for a different tenant", 403)
+   783→
+   784→    key_result = register_key(
+   785→        tenant_id=req.tenant_id,
+   786→        key_type=req.key_type,
+   787→        name=req.name,
+   788→        user_id=auth.get("user_id"),
+   789→    )
+   790→
+   791→    logger.info(
+   792→        "Key registered via auth: tenant=%s type=%s prefix=%s",
+   793→        req.tenant_id, req.key_type, key_result["key_prefix"],
+   794→    )
+   795→
+   796→    return {
+   797→        "full_key": key_result["full_key"],  # Shown ONCE
+   798→        "key_prefix": key_result["key_prefix"],
+   799→        "key_id": key_result["key_id"],
+   800→    }
+   801→
+   802→
+   803→@router.get(
+   804→    "/auth/keys",
+   805→    summary="List API keys for a tenant (requires auth)",
+   806→)
+   807→async def get_keys(
+   808→    tenant_id: str = Query(...),
+   809→    auth: Dict[str, Any] = Depends(get_auth_context),
+   810→):
+   811→    """Return all API keys (safe info only) for the authenticated tenant."""
+   812→    if auth.get("tenant_id") != tenant_id:
+   813→        raise _err("Cannot view keys for a different tenant", 403)
+   814→
+   815→    keys = list_keys(tenant_id)
+   816→
+   817→    return {
+   818→        "tenant_id": tenant_id,
+   819→        "keys": keys,
+   820→        "count": len(keys),
+   821→    }
+   822→
+   823→
+   824→@router.post(
+   825→    "/auth/revoke-key",
+   826→    summary="Revoke an API key (requires auth)",
+   827→)
+   828→async def revoke_key_endpoint(
+   829→    req: RevokeKeyRequest,
+   830→    auth: Dict[str, Any] = Depends(get_auth_context),
+   831→):
+   832→    """Revoke (deactivate) an API key."""
+   833→    if auth.get("tenant_id") != req.tenant_id:
+   834→        raise _err("Cannot revoke key for a different tenant", 403)
+   835→
+   836→    success = revoke_key(req.key_id)
+   837→    if not success:
+   838→        raise _err(f"Key not found: {req.key_id}", 404)
+   839→
+   840→    logger.info("Key revoked: key_id=%s tenant=%s", req.key_id, req.tenant_id)
+   841→
+   842→    return {
+   843→        "ok": True,
+   844→        "message": f"Key {req.key_id} has been revoked",
+   845→        "key_id": req.key_id,
+   846→    }
+   847→
