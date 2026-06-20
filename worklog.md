@@ -54,3 +54,25 @@ Stage Summary:
 - 3-node pipeline: SENSE→EVALUATE→NOTIFY (monitoring, quality, SLA, copilot, Wave 8)
 - All imports verified, auth fixed to use onboarding's existing JWT system
 - No push to GitHub (local changes only)
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Build JARVIS pipeline UI integration (API client + hooks + dashboard tabs)
+
+Work Log:
+- CREATED: src/lib/jarvis-pipeline-api.ts (300 lines) — Typed API client for all 30+ jarvis_routes.py endpoints (Chat, Notifications, Flags, Commands, Quality, SLA, Approvals, Emergency, Audit, Health/ROI, Wave 8)
+- CREATED: src/hooks/useJarvisPipeline.ts (502 lines) — 11 React hooks for pipeline features (useJarvisPipelineStatus, useJarvisQuality, useJarvisSLA, useJarvisApprovals, useJarvisNotifications, useJarvisWave8, useJarvisEmergency, useJarvisAudit, useJarvisROI, useJarvisCustomerHealth, useJarvisFlags, useJarvisCommandControl)
+- REWROTE: src/app/dashboard/jarvis/page.tsx (753 lines) — Enhanced dashboard with 7 tabs: Chat (existing JarvisCCChat + Shadow Mode), Quality (scores/drift/health/alerts/reports), SLA (status/credits), Approvals (pending/batch approve), Notifications (list/batch actions), Wave 8 (agents/provision/copilot/teach/skills), Audit (log table)
+- Preserved ALL existing functionality: JarvisCCChat, Command Palette, Shadow Mode controls
+- Dark theme: bg-[#111111]/[1A1A1A], orange accents, zinc text, subtle glows, smooth transitions
+
+Stage Summary:
+- Dashboard JARVIS page now exposes ALL 30+ pipeline features from temp
+- Tab-based navigation: Chat | Quality | SLA | Approvals | Notifications | Wave 8 | Audit
+- Quality tab: health score, drift detection, alerts with resolve, weekly reports, pause/resume pipeline
+- Wave 8 tab: agent list, copilot draft generation, skill teaching, provisioning logs
+- Approvals tab: pending approvals with batch approve
+- Notifications tab: severity-coded notifications with batch approve/reject/resolve
+- All data fetched via typed hooks → API client → backend endpoints
+- No push to GitHub (local changes only)
