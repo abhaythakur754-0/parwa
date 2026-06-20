@@ -1,0 +1,1317 @@
+     1→     1→# JARVIS — Complete Implementation Roadmap
+     2→     2→
+     3→     3→> **Vision**: Jarvis is not a chatbot. It is a **Business Operating System** that manages your entire AI workforce through natural language commands and visual state monitoring. It knows everything happening in the system at all times, can control every variant, and communicates with humans the way an operations manager would — proactively, intelligently, and with full transparency.
+     4→     4→>
+     5→     5→> **Architecture Principle**: Smart on-demand queries (~500 tokens/interaction). Never bulk-load. LLM decides what SQL is needed, executes exact query, formats only that result.
+     6→     6→>
+     7→     7→> **Current State**: ~15-20% complete. 3-node skeleton (SENSE → EVALUATE → NOTIFY) exists with in-memory notification center, mock data, and keyword-matched admin chat. All 33 capabilities below need real implementation.
+     8→     8→>
+     9→     9→> **External Services Available**: Supabase (PostgreSQL + pgvector), Google AI, Groq, Cerebras, LiteLLM (11 models), Google OAuth, Paddle, Vercel, Render
+    10→    10→>
+    11→    11→> **Missing Services** (needed later, not blockers): Twilio, Email provider (SendGrid/Mailgun), Sentry, Statuspage
+    12→    12→
+    13→    13→---
+    14→    14→
+    15→    15→## Table of Contents
+    16→    16→
+    17→    17→1. [What Jarvis IS and IS NOT](#1-what-jarvis-is-and-is-not)
+    18→    18→2. [Current State vs Full Vision](#2-current-state-vs-full-vision)
+    19→    19→3. [Architecture: How Jarvis Talks to Everything](#3-architecture-how-jarvis-talks-to-everything)
+    20→    20→4. [Jarvis Roadmap — 8 Waves](#4-jarvis-roadmap--8-waves)
+    21→    21→   - [Wave 1: Foundation — Database, Auth, Command Parser](#wave-1-foundation)
+    22→    22→   - [Wave 2: Awareness Engine — Real Monitoring](#wave-2-awareness-engine)
+    23→    23→   - [Wave 3: Control System — Commands That Change Behavior](#wave-3-control-system)
+    24→    24→   - [Wave 4: Jarvis-PARWA Bidirectional Channel](#wave-4-jarvis-parwa-bidirectional-channel)
+    25→    25→   - [Wave 5: Intelligence Layer — Batching, Confidence, Sentiment](#wave-5-intelligence-layer)
+    26→    26→   - [Wave 6: Reporting & Quality Coach](#wave-6-reporting--quality-coach)
+    27→    27→   - [Wave 7: Jarvis UI — The Iron Man Interface](#wave-7-jarvis-ui)
+    28→    28→   - [Wave 8: Advanced — Agent Creation, Proactive, Voice](#wave-8-advanced)
+    29→    29→5. [Database Schema — All Jarvis Tables](#5-database-schema--all-jarvis-tables)
+    30→    30→6. [API Endpoints — Complete List](#6-api-endpoints--complete-list)
+    31→    31→7. [LLM Cost Model Per Interaction](#7-llm-cost-model-per-interaction)
+    32→    32→8. [Dependency Map](#8-dependency-map)
+    33→    33→9. [Effort Estimates](#9-effort-estimates)
+    34→    34→
+    35→    35→---
+    36→    36→
+    37→    37→## 1. What Jarvis IS and IS NOT
+    38→    38→
+    39→    39→### Jarvis IS:
+    40→    40→- **A System-State-Aware Operating System** — Always knows current operational mode (Shadow, Supervised, Graduated)
+    41→    41→- **A proactive healer** — Detects API failures/DDOS attacks and fixes them automatically
+    42→    42→- **A behavioral controller** — Executes commands that change AI behavior via natural language
+    43→    43→- **A trust-building explainer** — Shows reasoning, GSD state, and safety mechanisms transparently
+    44→    44→- **A GSD Terminal Window** — Displays structured state execution steps in real time
+    45→    45→- **A quality coach** — QA reports, training suggestions, health scores
+    46→    46→- **A success coach** — Guides clients through onboarding milestones
+    47→    47→
+    48→    48→### Jarvis IS NOT:
+    49→    49→- A generic FAQ bot that answers scripted questions
+    50→    50→- A help desk agent that handles customer queries directly
+    51→    51→- A sales assistant that promotes products
+    52→    52→- An upgrade/payment handler (variants do that)
+    53→    53→
+    54→    54→### Core Interaction Loop (Every Jarvis Request):
+    55→    55→```
+    56→    56→1. Intent Classification  (~200 tokens, 1 LLM call) — What does the human want?
+    57→    57→2. DB Operation           (0 tokens, pure SQL)          — Execute exact query
+    58→    58→3. Response Formatting    (~300 tokens, 1 LLM call)    — Format result for human
+    59→    59→─────────────────────────────────────────────────────────────────
+    60→    60→Total: ~500 tokens per interaction
+    61→    61→```
+    62→    62→
+    63→    63→---
+    64→    64→
+    65→    65→## 2. Current State vs Full Vision
+    66→    66→
+    67→    67→### What EXISTS Today (Skeleton — ~15-20%):
+    68→    68→
+    69→    69→| Component | Status | Reality |
+    70→    70→|-----------|--------|---------|
+    71→    71→| `jarvis_1_sense.py` | Code exists | Read-only. Collects signals from in-memory PARWA state. Integration health is hardcoded mock (`{"sendgrid": "healthy"}`). No real DB queries. |
+    72→    72→| `jarvis_2_evaluate.py` | Code exists | Priority scoring formula works. CLARA + Reflexion LLM calls exist but only fire on "poll" trigger. No real data to evaluate. |
+    73→    73→| `jarvis_3_notify.py` | Code exists | Creates notifications in in-memory store. Admin chat is keyword-matched (checks for "PARWA-NFY", "quota", "quality" in question text). No natural language understanding. |
+    74→    74→| `notification_center.py` | Code exists | In-memory dict with batching (5-min window). NOT connected to Supabase. Loses all data on restart. |
+    75→    75→| `state.py` | Code exists | TypedDict definition, functional. |
+    76→    76→| `graph.py` | Code exists | Linear SENSE → EVALUATE → NOTIFY. Works. |
+    77→    77→
+    78→    78→### What DOES NOT Exist (80-85% gap):
+    79→    79→
+    80→    80→| Capability Category | Count | Status |
+    81→    81→|---------------------|-------|--------|
+    82→    82→| Real Supabase integration | — | ❌ No DB tables, no SQL queries, no connection pooling |
+    83→    83→| Natural language command execution | 25+ commands | ❌ Only keyword matching, no intent classification |
+    84→    84→| Control commands (pause/resume/route) | 8 types | ❌ No execution layer |
+    85→    85→| Jarvis → PARWA communication | — | ❌ No write-back to PARWA state/flags |
+    86→    86→| Confidence-based routing | 4 tiers | ❌ No scoring, no routing logic |
+    87→    87→| Sentiment-based routing (Empathy Engine) | 2 paths | ❌ No sentiment analysis |
+    88→    88→| Intelligent batching (semantic) | — | ❌ Only time-based batching exists |
+    89→    89→| Approval gates | 8 action types | ❌ No gate logic |
+    90→    90→| Notification table (PostgreSQL) | — | ❌ In-memory only |
+    91→    91→| Reporting (Weekly Wins, SLA, Drift) | 6 report types | ❌ No reports |
+    92→    92→| Quality Coach (alerts, training suggestions) | — | ❌ No quality tables |
+    93→    93→| Jarvis UI (Next.js) | Full dashboard | ❌ No frontend |
+    94→    94→| GSD Terminal Window | Real-time display | ❌ No streaming |
+    95→    95→| Agent creation from chat | — | ❌ No provisioning |
+    96→    96→| Emergency protocols (recall/void/shutdown) | 4 types | ❌ No protocols |
+    97→    97→| Proactive outreach | 3 types | ❌ No outbound |
+    98→    98→| Self-healing (API/DDOS) | — | ❌ No detection |
+    99→    99→| Live takeover | — | ❌ No real-time |
+   100→   100→| Co-Pilot mode | Draft composer | ❌ No drafting |
+   101→   101→| Dynamic instruction workflow | Teach via chat | ❌ No learning from commands |
+   102→   102→| Success Coach / Onboarding | — | ❌ No guidance |
+   103→   103→| Webhook health monitoring | — | ❌ No webhook checking |
+   104→   104→| SLA calculator | — | ❌ No tracking |
+   105→   105→| Context health meter | — | ❌ No token tracking |
+   106→   106→| Variant recommendation | — | ❌ No suggestion logic |
+   107→   107→
+   108→   108→---
+   109→   109→
+   110→   110→## 3. Architecture: How Jarvis Talks to Everything
+   111→   111→
+   112→   112→### 3.1 The Bidirectional Architecture
+   113→   113→
+   114→   114→```
+   115→   115→┌─────────────────────────────────────────────────────────────┐
+   116→   116→│                    HUMAN MANAGER                            │
+   117→   117→│           (Next.js Jarvis Dashboard / Chat)                 │
+   118→   118→└──────────────────────┬──────────────────────────────────────┘
+   119→   119→                       │ Natural Language
+   120→   120→                       ▼
+   121→   121→┌──────────────────────────────────────────────────────────────┐
+   122→   122→│                    JARVIS ENGINE                             │
+   123→   123→│                                                              │
+   124→   124→│  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐ │
+   125→   125→│  │ COMMAND  │──▶│  INTENT  │──▶│   DB     │──▶│ RESPONSE │ │
+   126→   126→│  │ INPUT    │   │ CLASSIFY │   │ EXECUTE  │   │ FORMAT   │ │
+   127→   127→│  └──────────┘   └──────────┘   └──────────┘   └──────────┘ │
+   128→   128→│       │              │               │               │       │
+   129→   129→│       │              │               │               │       │
+   130→   130→│  ┌────┴──────────────┴───────────────┴───────────────┴────┐  │
+   131→   131→│  │               SUPABASE (PostgreSQL + pgvector)         │  │
+   132→   132→│  │                                                        │  │
+   133→   133→│  │  notifications  │  agent_configs  │  system_flags     │  │
+   134→   134→│  │  tickets        │  quality_scores │  audit_trail      │  │
+   135→   135→│  │  feature_flags  │  client_skills  │  training_data    │  │
+   136→   136→│  │  client_legal   │  provision_logs │  batch_queue      │  │
+   137→   137→│  └────────────────────────┬───────────────────────────────┘  │
+   138→   138→│                           │                                  │
+   139→   139→│                    WRITE FLAGS / READ STATE                   │
+   140→   140→│                           │                                  │
+   141→   141→└───────────────────────────┼──────────────────────────────────┘
+   142→   142→                            │
+   143→   143→                            ▼
+   144→   144→┌──────────────────────────────────────────────────────────────┐
+   145→   145→│                 PARWA PIPELINE (Variants)                     │
+   146→   146→│                                                              │
+   147→   147→│  Node 2 (Smart Route) reads system_flags BEFORE routing      │
+   148→   148→│  Node 5 (Act+Verify) checks approval_gates BEFORE executing  │
+   149→   149→│  Node 6 (Quality) writes quality_scores AFTER scoring         │
+   150→   150→│  Node 8 (Super Node) reads guidance FROM Jarvis               │
+   151→   151→│                                                              │
+   152→   152→│  PARWA writes to: tickets, conversations, quality_scores      │
+   153→   153→│  Jarvis reads from: tickets, quality_scores, conversations    │
+   154→   154→│  Jarvis writes to: system_flags, agent_configs, notifications │
+   155→   155→└──────────────────────────────────────────────────────────────┘
+   156→   156→```
+   157→   157→
+   158→   158→### 3.2 Communication Mechanism
+   159→   159→
+   160→   160→Jarvis does NOT call PARWA functions directly. Communication is **bidirectional via shared Supabase tables**:
+   161→   161→
+   162→   162→**Jarvis → PARWA (Commands):**
+   163→   163→- Jarvis writes to `system_flags` table (e.g., `flag_type: "pause_refunds", value: true`)
+   164→   164→- PARWA Node 2 reads `system_flags` at the START of every ticket before routing
+   165→   165→- If a flag matches the current ticket type → PARWA obeys the flag
+   166→   166→
+   167→   167→**PARWA → Jarvis (Awareness):**
+   168→   168→- PARWA writes to `tickets`, `quality_scores`, `conversations` tables
+   169→   169→- Jarvis queries these tables on-demand when the admin asks or on poll cycle
+   170→   170→- Jarvis does NOT bulk-load — it runs exact SQL for what's needed
+   171→   171→
+   172→   172→### 3.3 The 3-Step Loop (Smart Data Access)
+   173→   173→
+   174→   174→```
+   175→   175→Human: "Jarvis, show me today's errors"
+   176→   176→
+   177→   177→Step 1 — INTENT CLASSIFY (~200 tokens, 1 LLM call)
+   178→   178→  LLM receives: "show me today's errors"
+   179→   179→  LLM outputs: {
+   180→   180→    "intent": "query_errors",
+   181→   181→    "time_range": "today",
+   182→   182→    "sql_needed": true,
+   183→   183→    "sql_template": "SELECT error_type, COUNT(*), MAX(occurred_at) 
+   184→   184→                     FROM error_logs 
+   185→   185→                     WHERE tenant_id=$1 AND occurred_at >= CURRENT_DATE
+   186→   186→                     GROUP BY error_type ORDER BY count DESC"
+   187→   187→  }
+   188→   188→
+   189→   189→Step 2 — DB EXECUTE (0 tokens, pure SQL)
+   190→   190→  Supabase executes: the exact SQL above
+   191→   191→  Returns: [{error_type: "api_timeout", count: 3, ...}, ...]
+   192→   192→
+   193→   193→Step 3 — RESPONSE FORMAT (~300 tokens, 1 LLM call)
+   194→   194→  LLM receives: the SQL result + human context
+   195→   195→  LLM outputs: "You've had 3 API timeouts today, all between 2-4 PM.
+   196→   196→               The last one was at 3:47 PM. This correlates with your
+   197→   197→               peak traffic window. Want me to increase the timeout limit?"
+   198→   198→```
+   199→   199→
+   200→   200→**Cost: ~500 tokens total per interaction.** Compare to bulk-loading everything (~50,000 tokens).
+   201→   201→
+   202→   202→---
+   203→   203→
+   204→   204→## 4. Jarvis Roadmap — 8 Waves
+   205→   205→
+   206→   206→Each wave is independently deployable. Dependencies are clearly marked.
+   207→   207→
+   208→   208→---
+   209→   209→
+   210→   210→### Wave 1: Foundation — Database, Auth, Command Parser
+   211→   211→
+   212→   212→**Goal**: Replace all in-memory mocks with real Supabase. Establish the command infrastructure that every subsequent wave builds on.
+   213→   213→
+   214→   214→**What Gets Built**:
+   215→   215→
+   216→   216→#### 1A. Supabase Database Schema
+   217→   217→Create ALL Jarvis tables in Supabase (see Section 5 for full schema):
+   218→   218→- `notifications` — Replace in-memory notification_center.py
+   219→   219→- `system_flags` — Global and per-tenant flags that PARWA reads
+   220→   220→- `audit_trail` — Immutable log of every Jarvis action
+   221→   221→- `quality_alerts` — Quality degradation alerts
+   222→   222→- `quality_scores` — Per-ticket quality metrics
+   223→   223→- `training_suggestions` — AI-generated improvement suggestions
+   224→   224→- `agent_configs` — Virtual agent configurations
+   225→   225→- `client_skills` — Custom skills taught via chat
+   226→   226→- `feature_flags` — Per-client feature toggles
+   227→   227→- `client_legal_config` — SLA, GDPR, compliance settings
+   228→   228→- `agent_provisioning_logs` — Agent creation history
+   229→   229→
+   230→   230→#### 1B. Supabase Connection Layer
+   231→   231→- `jarvis_db.py` — Connection pool (pool_size=20, max_overflow=10, pool_pre_ping=True)
+   232→   232→- Row-Level Security (RLS) policies on every table
+   233→   233→- Tenant isolation: every query filtered by `tenant_id`
+   234→   234→- Connection via Supabase pooler URL (port 6543)
+   235→   235→
+   236→   236→#### 1C. Natural Language Command Parser
+   237→   237→Replace keyword matching with real intent classification:
+   238→   238→```
+   239→   239→Input: "Jarvis, pause all refund processing"
+   240→   240→Output: {
+   241→   241→  "intent": "control_pause",
+   242→   242→  "target": "refund_processing",
+   243→   243→  "scope": "all",
+   244→   244→  "confidence": 0.97
+   245→   245→}
+   246→   246→```
+   247→   247→Supported intent families (expandable):
+   248→   248→- `query_*` — Information requests (errors, tickets, quality, quota, status)
+   249→   249→- `control_pause` / `control_resume` — Pause/resume capabilities
+   250→   250→- `control_route` — Redirect channels/capabilities
+   251→   251→- `control_mode` — Change system mode (Shadow/Supervised/Graduated)
+   252→   252→- `approve_*` / `reject_*` — Batch or individual approvals
+   253→   253→- `create_agent` — Provision new virtual agents
+   254→   254→- `teach_skill` — Dynamic instruction workflow
+   255→   255→- `emergency_*` — Recall, void, shutdown
+   256→   256→- `explain_*` — Why did X happen? (GSD state display)
+   257→   257→
+   258→   258→#### 1D. Auth Integration
+   259→   259→- Google OAuth → identify user role (ADMIN, OWNER, SUPERVISOR, TEAM_MEMBER)
+   260→   260→- Role-based access control for command authorization
+   261→   261→- Admin-only commands: emergency shutdown, agent provisioning, global pause
+   262→   262→- All commands logged to `audit_trail`
+   263→   263→
+   264→   264→#### 1E. Migrate notification_center.py
+   265→   265→- Replace `_store: Dict` with Supabase INSERT/SELECT
+   266→   266→- Replace `_batch_buffer: Dict` with `batch_queue` table
+   267→   267→- Keep the same API (create_notification, get_notification, resolve_notification)
+   268→   268→- 30-day retention (GDPR), then archive/anonymize
+   269→   269→
+   270→   270→**Deliverables**:
+   271→   271→- All 11 DB tables created in Supabase with RLS
+   272→   272→- `jarvis_db.py` connection module
+   273→   273→- `command_parser.py` — intent classification with 10+ intent families
+   274→   274→- Migrated `notification_center.py` → Supabase-backed
+   275→   275→- Auth middleware for Jarvis API routes
+   276→   276→- Tests: DB connection, RLS enforcement, command parsing
+   277→   277→
+   278→   278→**Effort**: 3-4 days
+   279→   279→
+   280→   280→**Dependencies**: Supabase project already exists. Google OAuth already configured.
+   281→   281→
+   282→   282→---
+   283→   283→
+   284→   284→### Wave 2: Awareness Engine — Real Monitoring
+   285→   285→
+   286→   286→**Goal**: Jarvis actually sees what's happening. Every signal collector in SENSE node becomes real.
+   287→   287→
+   288→   288→**What Gets Built**:
+   289→   289→
+   290→   290→#### 2A. Real Stuck Ticket Detection
+   291→   291→- Query `tickets` table: `WHERE status = 'pending_approval' AND created_at < NOW() - INTERVAL '12 hours'`
+   292→   292→- Escalation tiers: 12h soft reminder, 24h backup alert, 48h critical
+   293→   293→- Per-ticket: show quality_score, loop_count, error history, GSD state steps
+   294→   294→
+   295→   295→#### 2B. Real Integration Health (UCB Monitoring)
+   296→   296→- Replace hardcoded `{"sendgrid": "healthy"}` with actual health checks
+   297→   297→- For each connected integration (Shopify, Stripe, HubSpot, email, SMS):
+   298→   298→  - Store last successful ping timestamp
+   299→   299→  - Store last error + response code
+   300→   300→  - Calculate uptime percentage
+   301→   301→- Webhook health: detect malformed data, track delivery success rate
+   302→   302→- Self-healing: auto-restart failed connections (for retries, not permanent fixes)
+   303→   303→
+   304→   304→#### 2C. Real Quota Monitoring
+   305→   305→- Query `agent_configs` + usage tables for actual quota burn
+   306→   306→- Per-variant: remaining/total/used/burn_pct
+   307→   307→- Trend: compare today's burn rate vs yesterday's vs 7-day average
+   308→   308→- Alert when >60% used (warning), >80% (critical)
+   309→   309→
+   310→   310→#### 2D. Real Accuracy/Drift Detection
+   311→   311→- Query `quality_scores` table for recent tickets
+   312→   312→- Calculate 7-day rolling accuracy, confidence trend
+   313→   313→- Drift triggers: accuracy drops >5% for 3+ days, CSAT drops >0.3, same error 3+ times
+   314→   314→- Store drift status in `quality_alerts`
+   315→   315→
+   316→   316→#### 2E. Real Ticket Flow Metrics
+   317→   317→- Query `conversations` + `technique_log` for node-by-node flow
+   318→   318→- Show: which nodes each ticket reached, where it got stuck, LLM call count
+   319→   319→- Aggregate: "Today 450 tickets: 380 auto-resolved, 50 batched, 20 escalated"
+   320→   320→
+   321→   321→#### 2F. LLM Cost Tracking
+   322→   322→- Already partially exists in `llm_client.py` stats
+   323→   323→- Store per-tenant LLM costs in DB: tokens used, model used, cost estimate
+   324→   324→- Daily/weekly cost aggregation
+   325→   325→
+   326→   326→#### 2G. Load Balancing Awareness
+   327→   327→- Detect when a variant is at max concurrent capacity
+   328→   328→- VIP overflow alert: if VIP customer arrives and all agents busy → alert manager
+   329→   329→- Bottleneck detection: "PARWA High handling 5/5 concurrent calls"
+   330→   330→
+   331→   331→**Deliverables**:
+   332→   332→- All 7 SENSE collectors connected to real Supabase data
+   333→   333→- Integration health checker with auto-ping
+   334→   334→- Drift detection with configurable thresholds
+   335→   335→- Stuck ticket cron job (hourly check)
+   336→   336→- Cost tracking in DB
+   337→   337→
+   338→   338→**Effort**: 3-4 days
+   339→   339→
+   340→   340→**Dependencies**: Wave 1 (DB tables must exist)
+   341→   341→
+   342→   342→---
+   343→   343→
+   344→   344→### Wave 3: Control System — Commands That Change Behavior
+   345→   345→
+   346→   346→**Goal**: When the admin says "pause refunds", it ACTUALLY happens. Jarvis writes flags that PARWA obeys.
+   347→   347→
+   348→   348→**What Gets Built**:
+   349→   349→
+   350→   350→#### 3A. System Flags Engine
+   351→   351→The core of Jarvis control. A `system_flags` table that PARWA reads:
+   352→   352→```sql
+   353→   353→-- Example flags Jarvis writes:
+   354→   354→INSERT INTO system_flags (tenant_id, flag_type, flag_value, scope, set_by, reason)
+   355→   355→VALUES ('tenant_123', 'pause_action', 'refund', 'global', 'admin@example.com', 'Jarvis, pause all refund processing');
+   356→   356→```
+   357→   357→
+   358→   358→Flag types:
+   359→   359→- `pause_action` — Pause specific action types (refund, returns, account_changes)
+   360→   360→- `resume_action` — Resume paused actions
+   361→   361→- `redirect_channel` — Route channel to AI or human (e.g., "Handle all Instagram DMs today, I'll take calls")
+   362→   362→- `force_mode` — Change system mode (Shadow → Supervised → Graduated)
+   363→   363→- `approval_override` — "Always auto-approve this type" (creates permanent approval rule)
+   364→   364→- `disable_rule` — "Jarvis, undo my last rule" / "disable my last rule"
+   365→   365→- `variant_assignment` — Move skills between variants
+   366→   366→- `global_shutdown` — Emergency: kill all AI activity
+   367→   367→
+   368→   368→#### 3B. Command Execution Engine
+   369→   369→For each control command:
+   370→   370→1. Parse intent (Wave 1)
+   371→   371→2. Authorize (check role from Wave 1D)
+   372→   372→3. Validate (is this action legal? budget? plan limits?)
+   373→   373→4. Execute (write to `system_flags` + `audit_trail`)
+   374→   374→5. Confirm (format response to admin)
+   375→   375→
+   376→   376→#### 3C. Real-Time Policy Updates
+   377→   377→When admin clicks "Always Auto-Approve This Type":
+   378→   378→- Jarvis writes to `system_flags`: `{flag_type: "approval_override", flag_value: "address_change", scope: "permanent"}`
+   379→   379→- PARWA Node 5 reads this flag BEFORE checking approval gates
+   380→   380→- Future address changes skip the approval queue
+   381→   381→- Logged in `audit_trail`
+   382→   382→
+   383→   383→#### 3D. Skill Re-Assignment
+   384→   384→"Move Product Recommendations from Mini to PARWA":
+   385→   385→- Update `agent_configs` for both variants
+   386→   386→- Move associated knowledge base entries
+   387→   387→- Notify both variants of config change (via system_flags)
+   388→   388→- Verify: test query on new variant
+   389→   389→
+   390→   390→#### 3E. Emergency Protocols
+   391→   391→
+   392→   392→**Recall Protocol** (`"Jarvis, recall all emails sent for Free Shipping messages"`):
+   393→   393→1. Query `conversations` for matching messages
+   394→   394→2. Mark messages as recalled in DB
+   395→   395→3. If email provider connected: call Void API (non-financial only)
+   396→   396→4. Log to `audit_trail`
+   397→   397→
+   398→   398→**Void Protocol** (`"Delete pending messages for X"`):
+   399→   399→1. Query outbox queue for matching messages
+   400→   400→2. Remove from queue (before send, not after)
+   401→   401→3. Log action
+   402→   402→
+   403→   403→**Rage Quit / Emergency Shutdown** (`"Shut everything down"`):
+   404→   404→1. Write `global_shutdown` flag
+   405→   405→2. PARWA checks flag at Node 1 entry — rejects all new tickets
+   406→   406→3. In-flight tickets: allowed to complete current step, then stop
+   407→   407→4. Notify all active team members
+   408→   408→5. Log to `audit_trail`
+   409→   409→
+   410→   410→#### 3F. Workflow Redirect
+   411→   411→"Handle all Instagram DMs today, I'll take calls":
+   412→   412→- Write `redirect_channel` flag: `{channel: "instagram", route_to: "ai"}`
+   413→   413→- Write `redirect_channel` flag: `{channel: "calls", route_to: "human"}`
+   414→   414→- PARWA Node 2 reads flags → routes accordingly
+   415→   415→- Flags can have expiry (e.g., "for today" = set expires_at)
+   416→   416→
+   417→   417→**Deliverables**:
+   418→   418→- `system_flags` table with all flag types
+   419→   419→- `command_executor.py` — handles all control commands
+   420→   420→- PARWA Node 1 & Node 2 modified to read `system_flags` before processing
+   421→   421→- Emergency protocol handlers (recall, void, shutdown)
+   422→   422→- Audit trail for every command
+   423→   423→- Tests: pause/resume, redirect, emergency, undo
+   424→   424→
+   425→   425→**Effort**: 4-5 days
+   426→   426→
+   427→   427→**Dependencies**: Wave 1 (DB + command parser), Wave 2 (awareness of current state before changing it)
+   428→   428→
+   429→   429→---
+   430→   430→
+   431→   431→### Wave 4: Jarvis-PARWA Bidirectional Channel
+   432→   432→
+   433→   433→**Goal**: Jarvis and PARWA share state. PARWA asks Jarvis for help. Jarvis gives guidance. Full 2-way communication.
+   434→   434→
+   435→   435→**What Gets Built**:
+   436→   436→
+   437→   437→#### 4A. PARWA Reads Jarvis Flags
+   438→   438→Modify PARWA pipeline nodes to check `system_flags`:
+   439→   439→- **Node 1 (Ingest)**: Check `global_shutdown` flag → reject ticket immediately
+   440→   440→- **Node 2 (Route)**: Check `redirect_channel`, `force_mode`, `pause_action` flags
+   441→   441→- **Node 5 (Act+Verify)**: Check `approval_override` flags → skip approval for matching types
+   442→   442→- **Node 8 (Super Node)**: Check for guidance flags from Jarvis
+   443→   443→
+   444→   444→Implementation: Add a `load_system_flags(tenant_id)` function called at Node 1 entry, pass flags through state.
+   445→   445→
+   446→   446→#### 4B. PARWA Asks Jarvis for Help
+   447→   447→When PARWA's Super Node (Node 8) can't resolve a ticket:
+   448→   448→- Instead of just escalating, write to `jarvis_inbox` table
+   449→   449→- Include: ticket_id, stuck_reason, quality_score, what was tried
+   450→   450→- Jarvis picks this up on next poll cycle
+   451→   451→- Jarvis evaluates: "Can I help with DB data?" or "This needs human attention"
+   452→   452→
+   453→   453→#### 4C. Jarvis Guidance to PARWA
+   454→   454→Jarvis can write guidance that PARWA reads:
+   455→   455→```
+   456→   456→Jarvis writes to system_flags:
+   457→   457→{
+   458→   458→  flag_type: "guidance",
+   459→   459→  target_ticket: "TKT-882",
+   460→   460→  guidance: "Check Shopify order #1234 — customer already received replacement per ticket TKT-850",
+   461→   461→  set_by: "jarvis_auto"
+   462→   462→}
+   463→   463→```
+   464→   464→- PARWA Node 3 (Knowledge Fetch) reads guidance flags for the current ticket
+   465→   465→- Injects guidance as additional context for reasoning
+   466→   466→
+   467→   467→#### 4D. Quality Score Write-Back
+   468→   468→After PARWA Node 6 scores a ticket:
+   469→   469→- Write `quality_scores` row to Supabase
+   470→   470→- Jarvis can now query this data for drift detection, reporting, weekly summaries
+   471→   471→- Trigger Jarvis evaluation if quality drops below threshold
+   472→   472→
+   473→   473→#### 4E. Training Data Collection
+   474→   474→Every human approval/rejection becomes training data:
+   475→   475→- Approved → positive reward signal in `training_data`
+   476→   476→- Rejected → negative reward signal
+   477→   477→- Human edit of AI draft → both original + corrected stored
+   478→   478→- This feeds the AI Wiki Section B (behavior patterns) and future fine-tuning
+   479→   479→
+   480→   480→**Deliverables**:
+   481→   481→- `load_system_flags()` in PARWA pipeline
+   482→   482→- `jarvis_inbox` table for PARWA → Jarvis communication
+   483→   483→- Guidance injection in PARWA Node 3
+   484→   484→- Quality score write-back from Node 6
+   485→   485→- Training data collection from approval/rejection
+   486→   486→- End-to-end test: Jarvis pauses refunds → PARWA obeys → refund ticket gets paused
+   487→   487→
+   488→   488→**Effort**: 3-4 days
+   489→   489→
+   490→   490→**Dependencies**: Wave 1 (DB), Wave 3 (system_flags engine)
+   491→   491→
+   492→   492→---
+   493→   493→
+   494→   494→### Wave 5: Intelligence Layer — Batching, Confidence, Sentiment
+   495→   495→
+   496→   496→**Goal**: Jarvis doesn't just pass information — it clusters, scores, and routes intelligently.
+   497→   497→
+   498→   498→**What Gets Built**:
+   499→   499→
+   500→   500→#### 5A. Confidence-Based Routing
+   501→   501→Every PARWA decision gets a confidence score (0-100%). Jarvis uses this to decide what to show the manager:
+   502→   502→
+   503→   503→| Confidence | Action | Jarvis Behavior |
+   504→   504→|-----------|--------|-----------------|
+   505→   505→| **95%+** | AUTO | Log only. No notification. |
+   506→   506→| **85-95%** | BATCH | Group similar decisions. One-click approval. |
+   507→   507→| **70-84%** | ASK | Show detailed analysis. Manager reviews individually. |
+   508→   508→| **<70%** | ESCALATE | Beyond AI capability. Human judgment required. |
+   509→   509→
+   510→   510→Confidence = weighted average of:
+   511→   511→- Pattern match (how closely does this match training data?) — 30%
+   512→   512→- Policy alignment (does answer align with uploaded policies?) — 25%
+   513→   513→- Risk signals (fraud indicators, VIP customer, high value?) — 25%
+   514→   514→- Historical accuracy (has this type been resolved correctly before?) — 20%
+   515→   515→
+   516→   516→#### 5B. Intelligent Batching (Semantic Clustering)
+   517→   517→Replace time-based batching with semantic clustering:
+   518→   518→- Group tickets by similarity (not just time window)
+   519→   519→- Show: "Batch Request: 5 customers requesting address changes — Confidence: 94-98% — Risk: Low"
+   520→   520→- Manager actions: `[Approve Batch]` `[Reject Batch]` `[Review Individually]` `[Shadow This New Type]` `[Automate This Rule]`
+   521→   521→
+   522→   522→Implementation:
+   523→   523→- After PARWA resolves a ticket, store embedding of the ticket + decision
+   524→   524→- When batching, compare new tickets against recent batch using pgvector
+   525→   525→- If cosine similarity > 0.85 → same batch
+   526→   526→
+   527→   527→#### 5C. Sentiment Routing (Empathy Engine)
+   528→   528→Route customers based on emotional state, not just logic:
+   529→   529→- **Angry/Frustrated** (sentiment score < 0.3): Route directly to human manager. Alert: `[!] Angry Customer: Ticket #882`
+   530→   530→- **Happy/Neutral** (sentiment score > 0.6): Handle by AI autonomously (often Light Tier for speed/cost)
+   531→   531→- **Mixed/Uncertain** (0.3-0.6): Handle by AI but flag for manager review
+   532→   532→
+   533→   533→Sentiment analysis happens in PARWA Node 1 (already has classification). The sentiment score flows through state. Jarvis reads it and applies routing rules.
+   534→   534→
+   535→   535→#### 5D. Approval Gates
+   536→   536→Hard-coded safety rules that CANNOT be overridden by AI:
+   537→   537→- **Always require approval for**: Refunds (any amount), Returns, Account changes, Policy exceptions, VIP customer actions, Financial transactions (credits, adjustments, discounts >$10)
+   538→   538→- Approval gates live in `approval_gates` config (DB, not code)
+   539→   539→- Even "Always Auto-Approve" has a blacklist: refunds and account changes ALWAYS need approval regardless
+   540→   540→- State is preserved during approval wait — ticket doesn't get lost
+   541→   541→
+   542→   542→#### 5E. Variant Recommendation
+   543→   543→When a task seems too complex for current variant:
+   544→   544→- Jarvis analyzes: "This requires Shopify API calls + refund logic + cross-reference 3 orders"
+   545→   545→- Recommends: "This task needs PARWA High. Your current Mini variant can't handle multi-API calls. Want to upgrade?"
+   546→   546→- Checks: is the variant available? Is there budget? What's the queue depth?
+   547→   547→
+   548→   548→**Deliverables**:
+   549→   549→- Confidence scoring formula implemented in PARWA Node 6
+   550→   550→- Semantic batching with pgvector similarity
+   551→   551→- Sentiment routing rules in PARWA Node 2 + Jarvis
+   552→   552→- Approval gates configuration in DB
+   553→   553→- Variant recommendation logic
+   554→   554→- Tests: confidence routing, batch approval, sentiment escalation
+   555→   555→
+   556→   556→**Effort**: 4-5 days
+   557→   557→
+   558→   558→**Dependencies**: Wave 4 (PARWA writes quality scores), Wave 1 (pgvector)
+   559→   559→
+   560→   560→---
+   561→   561→
+   562→   562→### Wave 6: Reporting & Quality Coach
+   563→   563→
+   564→   564→**Goal**: Jarvis becomes the manager's intelligence report — weekly summaries, drift reports, SLA tracking, training suggestions.
+   565→   565→
+   566→   566→**What Gets Built**:
+   567→   567→
+   568→   568→#### 6A. Weekly Wins Report
+   569→   569→Auto-generated every Monday at 9 AM (cron):
+   570→   570→```
+   571→   571→Subject: "Week 2 Progress: Your AI is getting smarter"
+   572→   572→
+   573→   573→- Tickets Handled: 450 (vs your human team handling 12)
+   574→   574→- Money Saved: $340 (estimated at $8/ticket human cost)
+   575→   575→- New Skill Learned: "AI now knows how to handle 'Wrong Size' returns."
+   576→   576→- Prediction: "By next Monday, AI will be 90% ready on refund logic."
+   577→   577→- Top Improvement: Address change accuracy went from 78% → 94%
+   578→   578→- Needs Attention: 3 refund tickets had incorrect amounts (review needed)
+   579→   579→```
+   580→   580→
+   581→   581→Data sources: `tickets`, `quality_scores`, `training_data` — all via SQL aggregation.
+   582→   582→
+   583→   583→#### 6B. Performance Dashboard Data
+   584→   584→Real-time metrics Jarvis can report on demand:
+   585→   585→- **Volume & Accuracy**: Tickets handled, auto-resolved rate, approval requests, manager approvals/denials
+   586→   586→- **Confidence Trends**: Average confidence, trend direction (↑↓→), high/low confidence percentages
+   587→   587→- **Efficiency Gains**: Manager time saved, avg response time, Customer CSAT
+   588→   588→- **Learning Progress**: New patterns learned, policy updates integrated, error self-corrections
+   589→   589→
+   590→   590→#### 6C. Drift Detection & Alerts
+   591→   591→- Monitor: avg confidence (7-day rolling), accuracy rate, CSAT score, error frequency
+   592→   592→- Triggers auto-alert if: confidence drops >5% for 3+ days, accuracy <95%, CSAT drops >0.3, same error 3+ times
+   593→   593→- Alert types in `quality_alerts` table: `quality_drop`, `recurring_error`, `confidence_drift`, `csat_decline`
+   594→   594→- Resolution tracking: manager can mark alert as resolved, system tracks time-to-resolution
+   595→   595→
+   596→   596→#### 6D. Quality Coach Reports
+   597→   597→- `generate_weekly_quality_report()`: 7-day performance summary
+   598→   598→- `generate_mistake_analysis()`: Error breakdown by type with examples
+   599→   599→- `generate_training_priority_list()`: Ranked list of areas needing improvement
+   600→   600→- Agent health score: composite of accuracy, empathy, efficiency scores
+   601→   601→
+   602→   602→#### 6E. SLA Calculator
+   603→   603→- Track actual uptime vs 99.5% target
+   604→   604→- Credit computation: 10% monthly fee per 1% downtime below target
+   605→   605→- Per-client SLA config in `client_legal_config` table
+   606→   606→- Monthly SLA report generated automatically
+   607→   607→
+   608→   608→#### 6F. Customer Health Score
+   609→   609→- For onboarding clients: milestone-based health checkpoints
+   610→   610→- Composite score: KB coverage + accuracy + policy count + integration health
+   611→   611→- Success Coach AI: "You're 70% ready to go live. Add your return policy and you'll hit 85%."
+   612→   612→
+   613→   613→#### 6G. ROI Response
+   614→   614→When admin asks "Is this worth it?":
+   615→   615→- Jarvis calculates: current human cost vs AI cost
+   616→   616→- Factors in: tickets handled, time saved, accuracy improvement, SLA credits
+   617→   617→- Returns: "Based on your industry review time, you're spending ~$1,500/mo. PARWA handles 90% automatically at $300/mo. Net savings: $1,200/mo."
+   618→   618→
+   619→   619→**Deliverables**:
+   620→   620→- Weekly report generator (SQL + template)
+   621→   621→- Performance metrics API
+   622→   622→- Drift detection with auto-alerts
+   623→   623→- Quality Coach report functions
+   624→   624→- SLA calculator
+   625→   625→- Health score computation
+   626→   626→- ROI calculator
+   627→   627→- Cron jobs: weekly report (Monday 9 AM), drift check (daily), SLA report (monthly)
+   628→   628→
+   629→   629→**Effort**: 3-4 days
+   630→   630→
+   631→   631→**Dependencies**: Wave 2 (real data in DB), Wave 4 (quality_scores table)
+   632→   632→
+   633→   633→---
+   634→   634→
+   635→   635→### Wave 7: Jarvis UI — The Iron Man Interface
+   636→   636→
+   637→   637→**Goal**: The Next.js dashboard that makes Jarvis feel like a real Operating System. Terminal/CLI aesthetic. Real-time everything.
+   638→   638→
+   639→   639→**What Gets Built**:
+   640→   640→
+   641→   641→#### 7A. Jarvis Dashboard (Main Control Center)
+   642→   642→The day-to-day control center. Always visible elements:
+   643→   643→- **System State Indicator**: Current mode (Shadow/Supervised/Graduated) in header
+   644→   644→- **Active AI Agents**: Which variants are running, their status
+   645→   645→- **Uptime**: System uptime counter
+   646→   646→- **Live Activity Feed**: Color-coded real-time stream
+   647→   647→  - 🟢 Green: Auto-handled successfully
+   648→   648→  - 🟡 Yellow: Batched for approval (medium confidence)
+   649→   649→  - 🔴 Red: Escalated to you
+   650→   650→- **System Status Banner**: OPTIMAL / DEGRADED / CRITICAL
+   651→   651→
+   652→   652→#### 7B. Jarvis Chat Panel
+   653→   653→The primary interaction method. Natural language. No menus.
+   654→   654→
+   655→   655→Features:
+   656→   656→- Proactive greeting: "Good morning. I noticed your Shopify API is lagging. I've restarted the connection." [Yes, Check] [Ignore]
+   657→   657→- Command execution with Iron Man terminal display
+   658→   658→- Context health meter: `[Normal] Context Usage: 45% ████████░░░░░░░░░░`
+   659→   659→- 90% popup: "Jarvis recommends starting a new conversation. Current Chat: 11,500 tokens" [Start New Chat] [Continue Anyway]
+   660→   660→
+   661→   661→#### 7C. GSD Terminal Window
+   662→   662→Real-time display of PARWA's decision process:
+   663→   663→```
+   664→   664→JARVIS - OPERATING SYSTEM
+   665→   665→SYSTEM STATUS: OPTIMAL
+   666→   666→> [INIT] System Ready.
+   667→   667→> [INPUT] "I want a refund for order #8921"
+   668→   668→> [THINKING] Analyzing Request...
+   669→   669→> [TOOL] Calling Shopify API (get_order)...
+   670→   670→> [SUCCESS] Order found: Shipped.
+   671→   671→> [STATE UPDATE] Current Issue: Refund Request.
+   672→   672→> [DRAFTING] Generating Recommendation...
+   673→   673→Recommendation: APPROVE — Confidence: 87%
+   674→   674→[Approve Anyway] [Request Photo] [Deny] [Ask AI to Handle]
+   675→   675→```
+   676→   676→- Streams via WebSocket/Server-Sent Events
+   677→   677→- Shows each PARWA node as it executes
+   678→   678→- Shows technique being used (CoT, Reflexion, etc.)
+   679→   679→
+   680→   680→#### 7D. Batch Approval Interface
+   681→   681→The most-used daily feature. Reduces approval fatigue by 80%.
+   682→   682→- Shows: batch description, confidence range, risk indicator, total amount
+   683→   683→- Actions: `[Approve Batch]` `[Reject Batch]` `[Review Individually]` `[Automate This Rule]` `[Shadow This New Type]`
+   684→   684→- Keyboard shortcuts for power users
+   685→   685→
+   686→   686→#### 7E. Urgent Attention Panel
+   687→   687→- VIP customer alerts with strategic analysis (churn risk, LTV, expected value)
+   688→   688→- Sticky: stays visible until dismissed
+   689→   689→- One-click: "Listen Live" / "Take Over Call Immediately"
+   690→   690→
+   691→   691→#### 7F. Workforce Allocation Map
+   692→   692→- Visual diagram: which variants handle which task types
+   693→   693→- Real-time load: "PARWA High: 5/5 calls, PARWA Standard: 3/10, Mini: 0/20"
+   694→   694→- Drag-and-drop skill re-assignment
+   695→   695→
+   696→   696→#### 7G. Weekly Wins Banner
+   697→   697→- Persistent banner: "AI learned 12 new skills this week. Review time down 23%."
+   698→   698→- Click → opens full weekly report
+   699→   699→
+   700→   700→#### 7H. Health Card (Drift Report)
+   701→   701→- Visual health indicator: 🟢 Healthy / 🟡 Watch / 🔴 Action Needed
+   702→   702→- 7-day trend chart (confidence, accuracy, CSAT)
+   703→   703→- Click → opens detailed drift report
+   704→   704→
+   705→   705→#### 7I. Adaptation Tracker
+   706→   706→- "30-Day Promise" progress bar: `Day 14 / 30`
+   707→   707→- Milestone checkpoints: KB coverage, accuracy targets, policy count
+   708→   708→- Success Coach AI guidance at each milestone
+   709→   709→
+   710→   710→**Tech Stack**:
+   711→   711→- Next.js (already on Vercel)
+   712→   712→- Tailwind CSS for styling
+   713→   713→- Server-Sent Events for real-time streaming
+   714→   714→- Supabase real-time subscriptions for live data
+   715→   715→- React Query for data fetching + caching
+   716→   716→
+   717→   717→**Deliverables**:
+   718→   718→- Full Jarvis dashboard with 9 UI components
+   719→   719→- Real-time WebSocket/SSE streaming
+   720→   720→- Batch approval interface with keyboard shortcuts
+   721→   721→- GSD Terminal Window
+   722→   722→- Mobile-responsive layout
+   723→   723→- Auth integration (Google OAuth)
+   724→   724→
+   725→   725→**Effort**: 7-10 days
+   726→   726→
+   727→   727→**Dependencies**: Waves 1-6 (UI needs real data flowing through the system)
+   728→   728→
+   729→   729→---
+   730→   730→
+   731→   731→### Wave 8: Advanced — Agent Creation, Proactive, Voice
+   732→   732→
+   733→   733→**Goal**: The most ambitious capabilities. Agent creation from chat, proactive outreach, voice commands, co-pilot mode.
+   734→   734→
+   735→   735→**What Gets Built**:
+   736→   736→
+   737→   737→#### 8A. Agent Creation from Chat ("Chat-to-Infrastructure")
+   738→   738→"Jarvis, I'm getting crushed by sales emails. Add 2 Mini Agents to handle the load for the weekend."
+   739→   739→
+   740→   740→Flow:
+   741→   741→1. **Parse Command**: `parse_jarvis_command()` extracts: action=add, count=2, type=mini, duration=weekend
+   742→   742→2. **Authorize**: Check role (ADMIN/OWNER/SUPERVISOR only), account active
+   743→   743→3. **Budget Check**: Verify client balance can support additional agents
+   744→   744→4. **Plan Limit Check**: Max active agents for their plan
+   745→   745→5. **Execute**:
+   746→   746→   - Create rows in `agent_configs` (virtual agents = DB rows, NOT new containers)
+   747→   747→   - Clone context from existing agent of same type (brand voice, FAQ categories, greeting style)
+   748→   748→   - Set expiry if temporary (weekend = set expires_at to Monday)
+   749→   749→6. **Show Progress**: Iron Man Terminal display
+   750→   750→   ```
+   751→   751→   JARVIS - ORCHESTRATOR
+   752→   752→   > [INPUT] "Add 2 Mini for weekend"
+   753→   753→   > [PARSING] Intent Detected
+   754→   754→   > [VALIDATING] Role & Budget...
+   755→   755→   > [AUTHORIZED] Plan Limit OK
+   756→   756→   > [PROVISIONING] Agent Configs...
+   757→   757→   > [SUCCESS] Agents #88 & #89 Created
+   758→   758→   > [SYNCING] Knowledge Base (Brand Voice)
+   759→   759→   [OK] OPERATION COMPLETE — Provisioning ID: prov_99212
+   760→   760→   ```
+   761→   761→
+   762→   762→Safety limits:
+   763→   763→- Max 20 agents per single provision command
+   764→   764→- Budget hard check (can't go negative)
+   765→   765→- Plan tier limits enforced
+   766→   766→- All provisioning logged to `agent_provisioning_logs`
+   767→   767→
+   768→   768→#### 8B. Dynamic Instruction Workflow
+   769→   769→"Jarvis, here is how I want you to handle International Returns."
+   770→   770→
+   771→   771→Flow:
+   772→   772→1. Manager describes new process in natural language
+   773→   773→2. Jarvis uses LLM to parse into structured steps
+   774→   774→3. Store in `client_skills` table: `{skill_name: "international_returns", steps_json: [...], created_at: NOW()}`
+   775→   775→4. PARWA Node 3 fetches custom skills when relevant ticket arrives
+   776→   776→5. Jarvis confirms: "I've learned 'International Returns' in 4 steps. Want me to test it on a sample ticket?"
+   777→   777→
+   778→   778→When variants get stuck and ask Jarvis for help:
+   779→   779→- Jarvis checks `client_skills` for matching guidance
+   780→   780→- If found: provides the steps to the variant
+   781→   781→- If not found: "I don't have instructions for this. Asking your manager."
+   782→   782→
+   783→   783→#### 8C. Proactive Outbound (Feature-Flagged)
+   784→   784→- Abandoned cart recovery: detect abandoned cart via Shopify webhook → generate script → manager approves → send
+   785→   785→- Churn prediction: monitor usage patterns → flag disengagement → trigger proactive outreach
+   786→   786→- Proactive shipping delay alerts: detect delay from Shopify → notify customer before they complain
+   787→   787→- ALL proactive actions require manager approval (never auto-send outbound without permission)
+   788→   788→- Feature flag: `proactive_voice` enabled per client
+   789→   789→
+   790→   790→#### 8D. Co-Pilot Mode
+   791→   791→Jarvis drafts text for human review:
+   792→   792→- Manager types: "Reply to customer about delayed order"
+   793→   793→- Jarvis drafts response based on order data + policy + sentiment
+   794→   794→- Manager edits → AI learns from edits via training_data
+   795→   795→- Saves 90% of typing time
+   796→   796→
+   797→   797→#### 8E. Voice Command Support
+   798→   798→- All text commands also work via voice (Web Speech API for browser, Whisper for uploaded audio)
+   799→   799→- "Jarvis" wake word → records command → transcribes → processes same as text
+   800→   800→- Jarvis repeats back: "You said: pause all refund processing. Is that correct?" [Yes] [No]
+   801→   801→
+   802→   802→#### 8F. Live Takeover
+   803→   803→- Manager can "Listen Live" to any active AI conversation
+   804→   804→- "Take Over Call Immediately" — AI pauses, manager types/speaks directly
+   805→   805→- Jarvis logs the intervention with timestamp + reason
+   806→   806→- AI resumes after manager finishes
+   807→   807→
+   808→   808→#### 8G. DSPy-Integrated Corrections
+   809→   809→"Jarvis, fix this. Use code 'V2.0'":
+   810→   810→- Updates the Prompt Compiler for permanent fix (via DSPy)
+   811→   811→- Not just a one-time correction — improves the underlying prompt
+   812→   812→- Logged in `training_data` with before/after
+   813→   813→
+   814→   814→**Deliverables**:
+   815→   815→- Agent creation from chat (Option B: virtual configs in DB)
+   816→   816→- Dynamic instruction workflow (teach via chat)
+   817→   817→- Proactive outbound system (feature-flagged)
+   818→   818→- Co-Pilot mode
+   819→   819→- Voice command support
+   820→   820→- Live takeover
+   821→   821→- DSPy correction integration
+   822→   822→
+   823→   823→**Effort**: 7-10 days
+   824→   824→
+   825→   825→**Dependencies**: Waves 1-7. This is the capstone wave.
+   826→   826→
+   827→   827→---
+   828→   828→
+   829→   829→## 5. Database Schema — All Jarvis Tables
+   830→   830→
+   831→   831→### 5.1 `notifications` (replaces in-memory store)
+   832→   832→```sql
+   833→   833→CREATE TABLE notifications (
+   834→   834→  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+   835→   835→  tenant_id TEXT NOT NULL,
+   836→   836→  notification_key TEXT NOT NULL UNIQUE,  -- PARWA-NFY-XXX
+   837→   837→  type TEXT NOT NULL,                     -- stuck_ticket, quota_low, integration_down, accuracy_drop, sla_risk
+   838→   838→  priority TEXT NOT NULL DEFAULT 'MEDIUM', -- CRITICAL, HIGH, MEDIUM, LOW
+   839→   839→  priority_score DECIMAL(4,4) NOT NULL,
+   840→   840→  title TEXT NOT NULL,
+   841→   841→  description TEXT NOT NULL,
+   842→   842→  related_tickets TEXT[] DEFAULT '{}',
+   843→   843→  batch_key TEXT,
+   844→   844→  source_data JSONB DEFAULT '{}',
+   845→   845→  is_read BOOLEAN DEFAULT FALSE,
+   846→   846→  is_resolved BOOLEAN DEFAULT FALSE,
+   847→   847→  created_at TIMESTAMPTZ DEFAULT NOW(),
+   848→   848→  resolved_at TIMESTAMPTZ,
+   849→   849→  expires_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '30 days'
+   850→   850→);
+   851→   851→
+   852→   852→CREATE INDEX idx_notifications_tenant ON notifications(tenant_id, is_resolved);
+   853→   853→CREATE INDEX idx_notifications_priority ON notifications(tenant_id, priority, created_at DESC);
+   854→   854→```
+   855→   855→
+   856→   856→### 5.2 `system_flags`
+   857→   857→```sql
+   858→   858→CREATE TABLE system_flags (
+   859→   859→  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+   860→   860→  tenant_id TEXT NOT NULL,
+   861→   861→  flag_type TEXT NOT NULL,       -- pause_action, resume_action, redirect_channel, force_mode,
+   862→   862→                                  -- approval_override, disable_rule, guidance, global_shutdown
+   863→   863→  flag_value TEXT NOT NULL,
+   864→   864→  scope TEXT NOT NULL DEFAULT 'global',  -- global, per_ticket, per_channel, per_variant
+   865→   865→  target_id TEXT,                 -- ticket_id, channel_name, variant_id (for non-global scope)
+   866→   866→  set_by TEXT NOT NULL,           -- email or 'jarvis_auto'
+   867→   867→  reason TEXT,
+   868→   868→  expires_at TIMESTAMPTZ,         -- NULL = permanent, otherwise auto-expires
+   869→   869→  created_at TIMESTAMPTZ DEFAULT NOW(),
+   870→   870→  revoked_at TIMESTAMPTZ
+   871→   871→);
+   872→   872→
+   873→   873→CREATE INDEX idx_flags_tenant ON system_flags(tenant_id, flag_type, revoked_at);
+   874→   874→CREATE INDEX idx_flags_active ON system_flags(tenant_id) WHERE revoked_at IS NULL 
+   875→   875→  AND (expires_at IS NULL OR expires_at > NOW());
+   876→   876→```
+   877→   877→
+   878→   878→### 5.3 `audit_trail` (immutable append-only)
+   879→   879→```sql
+   880→   880→CREATE TABLE audit_trail (
+   881→   881→  id SERIAL PRIMARY KEY,
+   882→   882→  tenant_id TEXT NOT NULL,
+   883→   883→  action TEXT NOT NULL,
+   884→   884→  actor_email TEXT NOT NULL,
+   885→   885→  target_type TEXT,               -- 'ticket', 'flag', 'agent', 'notification', 'skill'
+   886→   886→  target_id TEXT,
+   887→   887→  timestamp TIMESTAMPTZ DEFAULT NOW(),
+   888→   888→  payload JSONB DEFAULT '{}',
+   889→   889→  previous_hash TEXT,
+   890→   890→  current_hash TEXT
+   891→   891→);
+   892→   892→
+   893→   893→-- Trigger to prevent UPDATE/DELETE
+   894→   894→CREATE OR REPLACE FUNCTION audit_trail_immutable()
+   895→   895→RETURNS TRIGGER AS $$
+   896→   896→BEGIN
+   897→   897→  RAISE EXCEPTION 'audit_trail is immutable — no UPDATE or DELETE allowed';
+   898→   898→END;
+   899→   899→$$ LANGUAGE plpgsql;
+   900→   900→
+   901→   901→CREATE TRIGGER audit_trail_no_modify
+   902→   902→  BEFORE UPDATE OR DELETE ON audit_trail
+   903→   903→  FOR EACH ROW EXECUTE FUNCTION audit_trail_immutable();
+   904→   904→```
+   905→   905→
+   906→   906→### 5.4 `quality_scores`
+   907→   907→```sql
+   908→   908→CREATE TABLE quality_scores (
+   909→   909→  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+   910→   910→  tenant_id TEXT NOT NULL,
+   911→   911→  agent_id TEXT,
+   912→   912→  ticket_id TEXT,
+   913→   913→  conversation_id UUID,
+   914→   914→  accuracy_score DECIMAL(3,2),
+   915→   915→  empathy_score DECIMAL(3,2),
+   916→   916→  efficiency_score DECIMAL(3,2),
+   917→   917→  overall_score DECIMAL(3,2),
+   918→   918→  confidence_score DECIMAL(3,2),
+   919→   919→  sentiment_score DECIMAL(3,2),
+   920→   920→  resolution_path TEXT,           -- simple, complex, escalated
+   921→   921→  nodes_reached TEXT[],
+   922→   922→  llm_calls INT DEFAULT 0,
+   923→   923→  tokens_used INT DEFAULT 0,
+   924→   924→  model_used TEXT,
+   925→   925→  created_at TIMESTAMPTZ DEFAULT NOW()
+   926→   926→);
+   927→   927→
+   928→   928→CREATE INDEX idx_quality_tenant_date ON quality_scores(tenant_id, created_at DESC);
+   929→   929→CREATE INDEX idx_quality_score ON quality_scores(tenant_id, overall_score);
+   930→   930→```
+   931→   931→
+   932→   932→### 5.5 `quality_alerts`
+   933→   933→```sql
+   934→   934→CREATE TABLE quality_alerts (
+   935→   935→  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+   936→   936→  tenant_id TEXT NOT NULL,
+   937→   937→  alert_type TEXT NOT NULL,       -- quality_drop, recurring_error, confidence_drift, csat_decline
+   938→   938→  severity TEXT NOT NULL DEFAULT 'medium',  -- low, medium, high, critical
+   939→   939→  message TEXT NOT NULL,
+   940→   940→  metric_name TEXT,
+   941→   941→  metric_value DECIMAL(5,2),
+   942→   942→  threshold_value DECIMAL(5,2),
+   943→   943→  resolved BOOLEAN DEFAULT FALSE,
+   944→   944→  resolved_at TIMESTAMPTZ,
+   945→   945→  resolved_by TEXT,
+   946→   946→  created_at TIMESTAMPTZ DEFAULT NOW()
+   947→   947→);
+   948→   948→
+   949→   949→CREATE INDEX idx_alerts_tenant ON quality_alerts(tenant_id, resolved, created_at DESC);
+   950→   950→```
+   951→   951→
+   952→   952→### 5.6 `training_suggestions`
+   953→   953→```sql
+   954→   954→CREATE TABLE training_suggestions (
+   955→   955→  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+   956→   956→  tenant_id TEXT NOT NULL,
+   957→   957→  suggestion_type TEXT NOT NULL,  -- new_knowledge, policy_update, skill_gap, kb_gap
+   958→   958→  description TEXT NOT NULL,
+   959→   959→  priority INT DEFAULT 0,          -- 0=highest
+   960→   960→  related_tickets TEXT[],
+   961→   961→  implemented BOOLEAN DEFAULT FALSE,
+   962→   962→  implemented_at TIMESTAMPTZ,
+   963→   963→  created_at TIMESTAMPTZ DEFAULT NOW()
+   964→   964→);
+   965→   965→```
+   966→   966→
+   967→   967→### 5.7 `agent_configs` (virtual agent registry)
+   968→   968→```sql
+   969→   969→CREATE TABLE agent_configs (
+   970→   970→  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+   971→   971→  tenant_id TEXT NOT NULL,
+   972→   972→  agent_name TEXT NOT NULL,
+   973→   973→  variant_type TEXT NOT NULL,      -- parwa, mini, trivya, high
+   974→   974→  status TEXT NOT NULL DEFAULT 'active',  -- active, paused, expired
+   975→   975→  capabilities TEXT[] DEFAULT '{}',
+   976→   976→  config JSONB DEFAULT '{}',       -- brand_voice, greeting_style, faq_categories, etc.
+   977→   977→  created_by TEXT NOT NULL,
+   978→   978→  provisioning_id TEXT,
+   979→   979→  expires_at TIMESTAMPTZ,          -- NULL = permanent
+   980→   980→  created_at TIMESTAMPTZ DEFAULT NOW()
+   981→   981→);
+   982→   982→
+   983→   983→CREATE INDEX idx_agents_tenant ON agent_configs(tenant_id, status);
+   984→   984→```
+   985→   985→
+   986→   986→### 5.8 `client_skills` (taught via chat)
+   987→   987→```sql
+   988→   988→CREATE TABLE client_skills (
+   989→   989→  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+   990→   990→  tenant_id TEXT NOT NULL,
+   991→   991→  skill_name TEXT NOT NULL,
+   992→   992→  description TEXT,
+   993→   993→  steps_json JSONB NOT NULL,       -- Array of step objects
+   994→   994→  source TEXT DEFAULT 'chat',      -- chat, upload, api
+   995→   995→  created_by TEXT,
+   996→   996→  created_at TIMESTAMPTZ DEFAULT NOW(),
+   997→   997→  updated_at TIMESTAMPTZ DEFAULT NOW()
+   998→   998→);
+   999→   999→
+  1000→  1000→CREATE UNIQUE INDEX idx_skills_tenant_name ON client_skills(tenant_id, skill_name);
+  1001→  1001→```
+  1002→  1002→
+  1003→  1003→### 5.9 `feature_flags`
+  1004→  1004→```sql
+  1005→  1005→CREATE TABLE feature_flags (
+  1006→  1006→  tenant_id TEXT NOT NULL,
+  1007→  1007→  feature_name TEXT NOT NULL,
+  1008→  1008→  enabled BOOLEAN DEFAULT FALSE,
+  1009→  1009→  rollout_percentage INT DEFAULT 100,
+  1010→  1010→  created_at TIMESTAMPTZ DEFAULT NOW(),
+  1011→  1011→  PRIMARY KEY (tenant_id, feature_name)
+  1012→  1012→);
+  1013→  1013→```
+  1014→  1014→
+  1015→  1015→### 5.10 `client_legal_config`
+  1016→  1016→```sql
+  1017→  1017→CREATE TABLE client_legal_config (
+  1018→  1018→  tenant_id TEXT PRIMARY KEY,
+  1019→  1019→  allows_data_sharing BOOLEAN DEFAULT FALSE,
+  1020→  1020→  waive_liability_cap BOOLEAN DEFAULT FALSE,
+  1021→  1021→  custom_sla_uptime_percentage DECIMAL(5,2) DEFAULT 99.50,
+  1022→  1022→  custom_sla_credit_percentage INT DEFAULT 10,
+  1023→  1023→  compliance_framework TEXT DEFAULT 'GDPR',
+  1024→  1024→  created_at TIMESTAMPTZ DEFAULT NOW()
+  1025→  1025→);
+  1026→  1026→```
+  1027→  1027→
+  1028→  1028→### 5.11 `agent_provisioning_logs`
+  1029→  1029→```sql
+  1030→  1030→CREATE TABLE agent_provisioning_logs (
+  1031→  1031→  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  1032→  1032→  tenant_id TEXT NOT NULL,
+  1033→  1033→  variant_type TEXT NOT NULL,
+  1034→  1034→  count INT NOT NULL,
+  1035→  1035→  agent_ids UUID[],               -- IDs of created agents
+  1036→  1036→  expiry_at TIMESTAMPTZ,
+  1037→  1037→  created_by TEXT NOT NULL,
+  1038→  1038→  created_at TIMESTAMPTZ DEFAULT NOW()
+  1039→  1039→);
+  1040→  1040→```
+  1041→  1041→
+  1042→  1042→### 5.12 `training_data` (from approvals/rejections)
+  1043→  1043→```sql
+  1044→  1044→CREATE TABLE training_data (
+  1045→  1045→  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  1046→  1046→  tenant_id TEXT NOT NULL,
+  1047→  1047→  ticket_id TEXT,
+  1048→  1048→  interaction_type TEXT NOT NULL,  -- approved, rejected, edited, corrected
+  1049→  1049→  original_prompt TEXT,
+  1050→  1050→  corrected_prompt TEXT,
+  1051→  1051→  original_response TEXT,
+  1052→  1052→  corrected_response TEXT,
+  1053→  1053→  user_feedback TEXT,
+  1054→  1054→  outcome TEXT,
+  1055→  1055→  created_at TIMESTAMPTZ DEFAULT NOW()
+  1056→  1056→);
+  1057→  1057→
+  1058→  1058→CREATE INDEX idx_training_tenant ON training_data(tenant_id, interaction_type, created_at DESC);
+  1059→  1059→```
+  1060→  1060→
+  1061→  1061→### 5.13 `batch_queue` (replaces in-memory batch buffer)
+  1062→  1062→```sql
+  1063→  1063→CREATE TABLE batch_queue (
+  1064→  1064→  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  1065→  1065→  tenant_id TEXT NOT NULL,
+  1066→  1066→  batch_key TEXT NOT NULL,
+  1067→  1067→  ticket_ids TEXT[] NOT NULL,
+  1068→  1068→  confidence_min DECIMAL(3,2),
+  1069→  1069→  confidence_max DECIMAL(3,2),
+  1070→  1070→  risk_level TEXT,
+  1071→  1071→  total_amount DECIMAL(10,2) DEFAULT 0,
+  1072→  1072→  status TEXT DEFAULT 'pending',   -- pending, approved, rejected, expired
+  1073→  1073→  created_at TIMESTAMPTZ DEFAULT NOW(),
+  1074→  1074→  expires_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '5 minutes'
+  1075→  1075→);
+  1076→  1076→
+  1077→  1077→CREATE INDEX idx_batch_tenant ON batch_queue(tenant_id, status, created_at DESC);
+  1078→  1078→```
+  1079→  1079→
+  1080→  1080→---
+  1081→  1081→
+  1082→  1082→## 6. API Endpoints — Complete List
+  1083→  1083→
+  1084→  1084→### 6.1 Jarvis Command Endpoints
+  1085→  1085→
+  1086→  1086→| Endpoint | Method | Purpose | Auth |
+  1087→  1087→|----------|--------|---------|------|
+  1088→  1088→| `/api/jarvis/chat` | POST | Main chat endpoint — natural language commands | All roles |
+  1089→  1089→| `/api/jarvis/notifications` | GET | Get notifications for tenant | All roles |
+  1090→  1090→| `/api/jarvis/notifications/:key/resolve` | POST | Mark notification resolved | All roles |
+  1091→  1091→| `/api/jarvis/notifications/batch/approve` | POST | Approve a batch of tickets | Admin+ |
+  1092→  1092→| `/api/jarvis/notifications/batch/reject` | POST | Reject a batch of tickets | Admin+ |
+  1093→  1093→| `/api/jarvis/status` | GET | System status, mode, active agents | All roles |
+  1094→  1094→| `/api/jarvis/metrics` | GET | Performance metrics (volume, accuracy, cost) | All roles |
+  1095→  1095→| `/api/jarvis/flags` | GET | List active system flags | Admin+ |
+  1096→  1096→| `/api/jarvis/flags` | POST | Set a system flag | Admin+ |
+  1097→  1097→| `/api/jarvis/flags/:id/revoke` | POST | Revoke a system flag | Admin+ |
+  1098→  1098→
+  1099→  1099→### 6.2 Control Endpoints
+  1100→  1100→
+  1101→  1101→| Endpoint | Method | Purpose | Auth |
+  1102→  1102→|----------|--------|---------|------|
+  1103→  1103→| `/api/jarvis/command/pause` | POST | Pause an action type | Admin+ |
+  1104→  1104→| `/api/jarvis/command/resume` | POST | Resume a paused action | Admin+ |
+  1105→  1105→| `/api/jarvis/command/redirect` | POST | Redirect channel to AI/human | Admin+ |
+  1106→  1106→| `/api/jarvis/command/mode` | POST | Change system mode | Admin+ |
+  1107→  1107→| `/api/jarvis/command/provision` | POST | Create new virtual agent | Admin/Owner only |
+  1108→  1108→| `/api/jarvis/command/teach` | POST | Teach a new skill via chat | Admin+ |
+  1109→  1109→
+  1110→  1110→### 6.3 Emergency Endpoints
+  1111→  1111→
+  1112→  1112→| Endpoint | Method | Purpose | Auth |
+  1113→  1113→|----------|--------|---------|------|
+  1114→  1114→| `/api/actions/recall` | POST | Recall sent messages (non-financial) | Admin/Owner only |
+  1115→  1115→| `/api/messages/void` | POST | Void pending messages from queue | Admin/Owner only |
+  1116→  1116→| `/api/emergency/shutdown` | POST | Emergency stop all AI activity | Owner only |
+  1117→  1117→| `/api/pause_all_refunds` | POST | Global refund pause | Owner only |
+  1118→  1118→
+  1119→  1119→### 6.4 Quality & Reporting Endpoints
+  1120→  1120→
+  1121→  1121→| Endpoint | Method | Purpose | Auth |
+  1122→  1122→|----------|--------|---------|------|
+  1123→  1123→| `/api/quality/scores` | GET | Quality scores for tenant | All roles |
+  1124→  1124→| `/api/quality/alerts` | GET | Active quality alerts | All roles |
+  1125→  1125→| `/api/quality/alerts/:id/resolve` | POST | Mark quality alert resolved | Admin+ |
+  1126→  1126→| `/api/quality/recommendations` | GET | Training recommendations | All roles |
+  1127→  1127→| `/api/quality/feedback` | POST | Submit quality feedback | All roles |
+  1128→  1128→| `/api/quality/weekly-report` | GET | Generate weekly report | All roles |
+  1129→  1129→| `/api/quality/health-score` | GET | Agent health score | All roles |
+  1130→  1130→| `/api/sla/status` | GET | SLA compliance status | All roles |
+  1131→  1131→| `/api/sla/credits` | GET | SLA credit calculation | Admin+ |
+  1132→  1132→
+  1133→  1133→### 6.5 Approval Endpoints
+  1134→  1134→
+  1135→  1135→| Endpoint | Method | Purpose | Auth |
+  1136→  1136→|----------|--------|---------|------|
+  1137→  1137→| `/api/approvals/pending` | GET | Get pending approvals | Admin+ |
+  1138→  1138→| `/api/approvals/:id/approve` | POST | Approve a ticket | Admin+ |
+  1139→  1139→| `/api/approvals/:id/reject` | POST | Reject a ticket | Admin+ |
+  1140→  1140→| `/api/approvals/batch` | POST | Batch approve/reject | Admin+ |
+  1141→  1141→
+  1142→  1142→### 6.6 Webhook Endpoints (External → PARWA/Jarvis)
+  1143→  1143→
+  1144→  1144→| Endpoint | Method | Purpose |
+  1145→  1145→|----------|--------|---------|
+  1146→  1146→| `/webhooks/shopify/orders/updated` | POST | Shopify order updates (HMAC verified) |
+  1147→  1147→| `/webhooks/stripe/events` | POST | Stripe events |
+  1148→  1148→| `/webhooks/hubspot/deals` | POST | HubSpot deal updates |
+  1149→  1149→
+  1150→  1150→---
+  1151→  1151→
+  1152→  1152→## 7. LLM Cost Model Per Interaction
+  1153→  1153→
+  1154→  1154→### 7.1 Standard Jarvis Interaction (Query)
+  1155→  1155→```
+  1156→  1156→Intent Classification:  ~200 tokens in, ~50 tokens out  = ~250 tokens (1 call)
+  1157→  1157→DB Operation:           0 tokens (pure SQL)
+  1158→  1158→Response Formatting:    ~300 tokens in, ~150 tokens out = ~450 tokens (1 call)
+  1159→  1159→────────────────────────────────────────────────────────────────────
+  1160→  1160→Total per interaction:  ~700 tokens, 2 LLM calls
+  1161→  1161→Cost (Light tier):      ~$0.0001 per interaction
+  1162→  1162→```
+  1163→  1163→
+  1164→  1164→### 7.2 Control Command (Pause/Resume/Route)
+  1165→  1165→```
+  1166→  1166→Intent Classification:  ~200 tokens in, ~50 tokens out  = ~250 tokens (1 call)
+  1167→  1167→DB Write:               0 tokens (pure SQL)
+  1168→  1168→Confirmation:           ~100 tokens in, ~50 tokens out  = ~150 tokens (1 call)
+  1169→  1169→────────────────────────────────────────────────────────────────────
+  1170→  1170→Total per command:      ~400 tokens, 2 LLM calls
+  1171→  1171→```
+  1172→  1172→
+  1173→  1173→### 7.3 Complex Evaluation (CLARA + Reflexion)
+  1174→  1174→```
+  1175→  1175→Signal Collection:      0 tokens (pure DB queries)
+  1176→  1176→CLARA Clarification:    ~300 tokens in, ~80 tokens out  = ~380 tokens (1 call)
+  1177→  1177→Reflexion Check:        ~400 tokens in, ~150 tokens out = ~550 tokens (1 call)
+  1178→  1178→Notification Format:    ~200 tokens in, ~100 tokens out = ~300 tokens (1 call)
+  1179→  1179→────────────────────────────────────────────────────────────────────
+  1180→  1180→Total per evaluation:   ~1,230 tokens, 3 LLM calls
+  1181→  1181→This only runs on poll cycle, not per-chat.
+  1182→  1182→```
+  1183→  1183→
+  1184→  1184→### 7.4 Weekly Report Generation
+  1185→  1185→```
+  1186→  1186→Data Aggregation:       0 tokens (SQL)
+  1187→  1187→Report Generation:      ~2,000 tokens in, ~800 tokens out = ~2,800 tokens (1 call)
+  1188→  1188→────────────────────────────────────────────────────────────────────
+  1189→  1189→Total per week:         ~2,800 tokens, 1 LLM call (runs once per week)
+  1190→  1190→```
+  1191→  1191→
+  1192→  1192→### 7.5 Monthly Cost Estimate (per tenant, moderate usage)
+  1193→  1193→```
+  1194→  1194→50 chat queries/day × 30 days = 1,500 interactions × 700 tokens = 1,050,000 tokens
+  1195→  1195→10 control commands/day × 30 = 300 × 400 = 120,000 tokens
+  1196→  1196→4 poll evaluations/day × 30 = 120 × 1,230 = 147,600 tokens
+  1197→  1197→4 weekly reports × 2,800 = 11,200 tokens
+  1198→  1198→────────────────────────────────────────────────────────────────────
+  1199→  1199→Total: ~1,328,800 tokens/month = ~1.3M tokens
+  1200→  1200→Cost (Light tier, Groq Llama): ~$0.13/month
+  1201→  1201→Cost (Mid tier, Gemini Flash): ~$0.66/month
+  1202→  1202→```
+  1203→  1203→
+  1204→  1204→Jarvis is CHEAP to run. The smart query pattern keeps costs near-zero.
+  1205→  1205→
+  1206→  1206→---
+  1207→  1207→
+  1208→  1208→## 8. Dependency Map
+  1209→  1209→
+  1210→  1210→```
+  1211→  1211→Wave 1: Foundation
+  1212→  1212→    │
+  1213→  1213→    ├──▶ Wave 2: Awareness (needs DB tables)
+  1214→  1214→    │
+  1215→  1215→    ├──▶ Wave 3: Control (needs DB + command parser)
+  1216→  1216→    │       │
+  1217→  1217→    │       └──▶ Wave 4: Bidirectional (needs system_flags)
+  1218→  1218→    │               │
+  1219→  1219→    │               ├──▶ Wave 5: Intelligence (needs quality_scores)
+  1220→  1220→    │               │       │
+  1221→  1221→    │               │       └──▶ Wave 6: Reporting (needs real data)
+  1222→  1222→    │               │               │
+  1223→  1223→    │               │               └──▶ Wave 7: UI (needs all data flows)
+  1224→  1224→    │               │                       │
+  1225→  1225→    │               │                       └──▶ Wave 8: Advanced (needs full system)
+  1226→  1226→    │               │
+  1227→  1227→    │               └──(directly)──▶ Wave 5, 6, 7, 8
+  1228→  1228→    │
+  1229→  1229→    └──▶ Wave 7 (UI needs auth from W1, but can start with mock data)
+  1230→  1230→```
+  1231→  1231→
+  1232→  1232→### Parallel Work Opportunities:
+  1233→  1233→- **Wave 7 (UI)** can start in parallel with Waves 2-6 using mock data, then connect to real APIs as they become available
+  1234→  1234→- **Wave 8 (Advanced)** features are independent of each other — can be built in any order once Waves 1-6 are done
+  1235→  1235→
+  1236→  1236→---
+  1237→  1237→
+  1238→  1238→## 9. Effort Estimates
+  1239→  1239→
+  1240→  1240→| Wave | Description | Days | Cumulative | Key Risk |
+  1241→  1241→|------|-------------|------|------------|----------|
+  1242→  1242→| **1** | Foundation (DB, Auth, Parser) | 3-4 | 3-4 | Supabase schema migrations |
+  1243→  1243→| **2** | Awareness (Real Monitoring) | 3-4 | 6-8 | Integration health checks need real API access |
+  1244→  1244→| **3** | Control (Commands → Behavior) | 4-5 | 10-13 | Modifying PARWA nodes to read flags |
+  1245→  1245→| **4** | Bidirectional (Jarvis ↔ PARWA) | 3-4 | 13-17 | Race conditions on flag reads/writes |
+  1246→  1246→| **5** | Intelligence (Batching, Confidence) | 4-5 | 17-22 | Semantic clustering accuracy |
+  1247→  1247→| **6** | Reporting (Quality Coach, SLA) | 3-4 | 20-26 | Report template quality |
+  1248→  1248→| **7** | Jarvis UI (Iron Man Interface) | 7-10 | 27-36 | Real-time streaming complexity |
+  1249→  1249→| **8** | Advanced (Agent Creation, Proactive) | 7-10 | 34-46 | Voice, proactive need external services |
+  1250→  1250→
+  1251→  1251→### Total Estimated Effort: **34-46 days** (single developer, full-time)
+  1252→  1252→
+  1253→  1253→### Suggested Sprint Breakdown:
+  1254→  1254→| Sprint | Waves | Duration |
+  1255→  1255→|--------|-------|----------|
+  1256→  1256→| Sprint 1 | Wave 1 + Wave 2 | 1 week |
+  1257→  1257→| Sprint 2 | Wave 3 + Wave 4 | 1-1.5 weeks |
+  1258→  1258→| Sprint 3 | Wave 5 + Wave 6 | 1-1.5 weeks |
+  1259→  1259→| Sprint 4 | Wave 7 (start) | 1-2 weeks |
+  1260→  1260→| Sprint 5 | Wave 7 (complete) + Wave 8 (start) | 1-2 weeks |
+  1261→  1261→| Sprint 6 | Wave 8 (complete) | 1-2 weeks |
+  1262→  1262→
+  1263→  1263→---
+  1264→  1264→
+  1265→  1265→## Appendix A: 33 Unique Capabilities — Full Checklist
+  1266→  1266→
+  1267→  1267→| # | Capability | Wave | Status |
+  1268→  1268→|---|-----------|------|--------|
+  1269→  1269→| 1 | Business Operating System (manages AI workforce) | All | 🟡 Skeleton |
+  1270→  1270→| 2 | Natural Language Command Execution | W1, W3 | 🟡 Keyword only |
+  1271→  1271→| 3 | Proactive Self-Healing (API/DDOS) | W2, W8 | ❌ None |
+  1272→  1272→| 4 | Behavioral Controller (change AI behavior) | W3 | ❌ None |
+  1273→  1273→| 5 | Trust Preservation Protocol (2-layer messaging) | W4 | ❌ None |
+  1274→  1274→| 6 | Co-Pilot Mode (draft text for human) | W8 | ❌ None |
+  1275→  1275→| 7 | Empathy Engine / Sentiment Routing | W5 | ❌ None |
+  1276→  1276→| 8 | Intelligent Batching (semantic clustering) | W5 | 🟡 Time-based only |
+  1277→  1277→| 9 | Real-Time Policy Training | W3 | ❌ None |
+  1278→  1278→| 10 | Dynamic Instruction Workflow (teach via chat) | W8 | ❌ None |
+  1279→  1279→| 11 | Agent Creation from Chat | W8 | ❌ None |
+  1280→  1280→| 12 | Context Health Meter | W7 | ❌ None |
+  1281→  1281→| 13 | GSD Terminal Window | W7 | ❌ None |
+  1282→  1282→| 14 | Approval Gates | W5 | ❌ None |
+  1283→  1283→| 15 | Confidence-Based Routing | W5 | ❌ None |
+  1284→  1284→| 16 | Weekly Wins Report | W6 | ❌ None |
+  1285→  1285→| 17 | Performance Dashboard | W6, W7 | ❌ None |
+  1286→  1286→| 18 | System-State Awareness (Shadow/Supervised/Graduated) | W2, W7 | ❌ None |
+  1287→  1287→| 19 | Proactive Outbound Voice | W8 | ❌ None |
+  1288→  1288→| 20 | Quality Coach (alerts, training suggestions) | W6 | ❌ None |
+  1289→  1289→| 21 | Success Coach AI (onboarding milestones) | W6, W8 | ❌ None |
+  1290→  1290→| 22 | Full System Overrides (pause/redirect) | W3 | ❌ None |
+  1291→  1291→| 23 | Emergency Brake (recall/void/shutdown) | W3 | ❌ None |
+  1292→  1292→| 24 | Webhook Health Monitoring | W2 | ❌ None |
+  1293→  1293→| 25 | Security/DDOS Shield | W2 | ❌ None |
+  1294→  1294→| 26 | SLA Calculator | W6 | ❌ None |
+  1295→  1295→| 27 | Iron Man Terminal UI | W7 | ❌ None |
+  1296→  1296→| 28 | Variant Recommendation | W5 | ❌ None |
+  1297→  1297→| 29 | Skill Re-Assignment | W3 | ❌ None |
+  1298→  1298→| 30 | Live Takeover | W8 | ❌ None |
+  1299→  1299→| 31 | DSPy-Integrated Corrections | W8 | ❌ None |
+  1300→  1300→| 32 | Onboarding Guide (learning status) | W6, W8 | ❌ None |
+  1301→  1301→| 33 | Integration Health Monitoring | W2 | 🟡 Mock only |
+  1302→  1302→
+  1303→  1303→---
+  1304→  1304→
+  1305→  1305→## Appendix B: What Jarvis Does NOT Handle
+  1306→  1306→
+  1307→  1307→These are explicitly OUT of Jarvis scope (handled by variants or other systems):
+  1308→  1308→
+  1309→  1309→| Function | Handled By | Why |
+  1310→  1310→|----------|-----------|-----|
+  1311→  1311→| Subscription upgrades/payments | Paddle + Variants | Financial operations |
+  1312→  1312→| Direct customer support | PARWA Variants | Jarvis manages, variants execute |
+  1313→  1313→| CRM data management | HubSpot/Salesforce + UCB | External system |
+  1314→  1314→| Email/SMS delivery | SendGrid/Twilio + UCB | External service |
+  1315→  1315→| Payment processing | Stripe/Paddle | External service |
+  1316→  1316→| User authentication flows | Google OAuth + Supabase Auth | Infrastructure |
+  1317→  1317→| Deploying new containers | Render/Railway | Infrastructure (Jarvis creates virtual configs, not containers) |

@@ -1,0 +1,821 @@
+     1→"""
+     2→Jarvis Node 3: NOTIFY (Act + Verify) — Wave 1 Wired Version
+     3→
+     4→Now uses:
+     5→  - command_parser for natural language understanding (not keyword matching)
+     6→  - jarvis_db for all storage (not in-memory dicts)
+     7→  - jarvis_auth for role-based authorization
+     8→  - Full pipeline: chat → parse → auth → execute → DB → response
+     9→
+    10→Question: HOW do we communicate this?
+    11→
+    12→LLM Cost: 0-2 calls
+    13→  - 0 for control/query commands (handled by DB directly)
+    14→  - 1 for complex responses (formatting DB data into natural language)
+    15→  - 1 for LLM fallback in command parser (Tier 2)
+    16→"""
+    17→from __future__ import annotations
+    18→
+    19→import logging
+    20→import time
+    21→from typing import Any, Dict, List, Optional
+    22→
+    23→from app.core.parwa_pipeline.llm_client import llm_call
+    24→from app.core.parwa_pipeline.ai_wiki_store import get_wiki_store
+    25→from app.core.jarvis_pipeline.jarvis_db import (
+    26→    get_db, PRIORITY_CRITICAL, PRIORITY_HIGH,
+    27→    TYPE_STUCK_TICKET, TYPE_QUOTA_LOW, TYPE_INTEGRATION_DOWN,
+    28→    TYPE_ACCURACY_DROP,
+    29→)
+    30→from app.core.jarvis_pipeline.command_parser import (
+    31→    classify_command, is_query_intent, is_control_intent,
+    32→    is_emergency_intent, is_approval_intent, is_report_intent,
+    33→)
+    34→from app.core.jarvis_pipeline.command_executor import (
+    35→    execute_command, validate_command, get_effective_flags,
+    36→    ExecutionResult,
+    37→)
+    38→from app.core.jarvis_pipeline.jarvis_auth import (
+    39→    authorize_command, make_user_context, AuthResult,
+    40→)
+    41→
+    42→logger = logging.getLogger("jarvis.notify")
+    43→
+    44→
+    45→# ── Notification Creation ─────────────────────────────────────
+    46→
+    47→def _format_notification(ntype: str, ev: Dict) -> tuple:
+    48→    """Format notification title and description by type."""
+    49→    signal = ev.get("signal", {})
+    50→    score = ev.get("priority_score", 0)
+    51→
+    52→    if ntype == TYPE_STUCK_TICKET:
+    53→        tid = signal.get("ticket_id", "unknown")
+    54→        reason = signal.get("reason", "unknown")
+    55→        quality = signal.get("quality_score", "?")
+    56→        escalation = ev.get("escalation_tier", "soft_reminder")
+    57→        hours = signal.get("hours_stuck", 0)
+    58→        title = f"Stuck Ticket [{escalation.upper()}]: {tid}"
+    59→        desc = (f"Ticket {tid} could not be resolved automatically. "
+    60→                f"Reason: {reason}. Quality achieved: {quality}. "
+    61→                f"Loops used: {signal.get('loops_used', 0)}. "
+    62→                f"Hours stuck: {hours}. Escalation: {escalation}. "
+    63→                f"Requires manual review.")
+    64→
+    65→    elif ntype == TYPE_QUOTA_LOW:
+    66→        data = list(signal.values())[0] if signal else {}
+    67→        tier = list(signal.keys())[0] if signal else "unknown"
+    68→        title = f"Quota {data.get('status', 'warning').upper()}: {tier}"
+    69→        desc = (f"{tier.capitalize()} plan quota is {data.get('burn_pct', 0)}% used "
+    70→                f"({data.get('remaining', 0)} of {data.get('total', 0)} remaining). "
+    71→                f"Consider upgrading or requesting additional quota.")
+    72→
+    73→    elif ntype == TYPE_ACCURACY_DROP:
+    74→        trend = signal.get("trend", "unknown")
+    75→        severity = signal.get("severity", "warning")
+    76→        trigger = signal.get("trigger", "unknown")
+    77→        acc_7d = signal.get("accuracy_7d", "?")
+    78→        acc_today = signal.get("accuracy_today", "?")
+    79→        title = f"Accuracy Drift [{severity.upper()}]: {trend}"
+    80→        desc = (f"Resolution accuracy trend is '{trend}' (severity: {severity}). "
+    81→                f"7-day avg: {acc_7d}, Today: {acc_today}. "
+    82→                f"Trigger: {trigger}. "
+    83→                f"This may indicate KB gaps, policy changes, or model drift. "
+    84→                f"Review recent resolutions and update knowledge base if needed.")
+    85→
+    86→    elif ntype == TYPE_INTEGRATION_DOWN:
+    87→        degraded = signal.get("degraded_services", [])
+    88→        worst_uptime = signal.get("worst_uptime_pct", 0)
+    89→        names = ", ".join(f"{d['name']} ({d['status']}, uptime={d.get('uptime_pct', '?')}%)" for d in degraded)
+    90→        title = f"Integration Issues: {signal.get('total_degraded', len(degraded))} service(s) degraded"
+    91→        desc = (f"Degraded integrations: {names}. "
+    92→                f"Worst uptime: {worst_uptime}%. "
+    93→                f"Check API credentials and service status.")
+    94→
+    95→    elif ntype == "load_bottleneck":
+    96→        at_cap = signal.get("at_capacity", [])
+    97→        high_load = signal.get("high_load", [])
+    98→        vip = signal.get("vip_overflow_risk", False)
+    99→        bottlenecks = ", ".join(v["name"] for v in at_cap + high_load)
+   100→        title = f"Load Bottleneck: {bottlenecks or 'All variants'}"
+   101→        desc = (f"Variant load issue detected. "
+   102→                f"At capacity: {', '.join(v['name'] for v in at_cap) or 'none'}. "
+   103→                f"High load: {', '.join(v['name'] for v in high_load) or 'none'}. "
+   104→                f"VIP overflow risk: {vip}. "
+   105→                f"Consider scaling up or routing overflow to available variants.")
+   106→
+   107→    else:
+   108→        title = f"Signal: {ntype}"
+   109→        desc = str(signal)
+   110→
+   111→    return title, desc
+   112→
+   113→
+   114→async def _create_notifications_from_evals(
+   115→    tenant_id: str,
+   116→    evaluations: List[Dict[str, Any]],
+   117→    db,
+   118→) -> List[Dict[str, Any]]:
+   119→    """Convert evaluations into notifications via DB. Filter LOW priority."""
+   120→    notifications = []
+   121→    for ev in evaluations:
+   122→        score = ev.get("priority_score", 0)
+   123→        if score < 0.40:
+   124→            logger.info("LOW priority signal filtered: %s (score=%.3f)", ev.get("type"), score)
+   125→            continue
+   126→
+   127→        ntype = ev.get("type", "unknown")
+   128→        title, desc = _format_notification(ntype, ev)
+   129→        related = ev.get("related_tickets", [])
+   130→
+   131→        nf = await db.create_notification(
+   132→            tenant_id=tenant_id,
+   133→            ntype=ntype,
+   134→            priority_score=score,
+   135→            title=title,
+   136→            description=desc,
+   137→            related_tickets=related,
+   138→            batch_key=ev.get("type", ""),
+   139→            source_data=ev.get("signal", {}),
+   140→        )
+   141→        notifications.append(nf)
+   142→
+   143→    return notifications
+   144→
+   145→
+   146→# ── Command Execution (NEW — Wave 1) ─────────────────────────
+   147→
+   148→async def _execute_command(
+   149→    intent_result: Dict[str, Any],
+   150→    auth_result: AuthResult,
+   151→    tenant_id: str,
+   152→    signals: Dict[str, Any],
+   153→    db,
+   154→    raw_input: str = "",
+   155→) -> str:
+   156→    """Execute a classified command and return the response text.
+   157→
+   158→    This is the core "Jarvis does things" function.
+   159→    Reads/writes DB based on intent. Returns human-readable response.
+   160→    """
+   161→    intent = intent_result["intent"]
+   162→    target = intent_result["target"]
+   163→
+   164→    # ── QUERY INTENTS ────────────────────────────────────
+   165→    if is_query_intent(intent):
+   166→        response = await _handle_query(intent, target, tenant_id, signals, db)
+   167→        # Log to audit
+   168→        await db.create_audit_entry(
+   169→            tenant_id=tenant_id,
+   170→            action=f"query:{intent}",
+   171→            actor_email=auth_result.email,
+   172→            target_type="query",
+   173→            payload={"intent": intent, "target": target},
+   174→        )
+   175→        return response
+   176→
+   177→    # ── CONTROL INTENTS ──────────────────────────────────
+   178→    if is_control_intent(intent):
+   179→        response = await _handle_control(intent, target, tenant_id, auth_result, db,
+   180→                                         raw_input=raw_input)
+   181→        return response
+   182→
+   183→    # ── APPROVAL INTENTS ─────────────────────────────────
+   184→    if is_approval_intent(intent):
+   185→        response = await _handle_approval(intent, target, tenant_id, auth_result, db)
+   186→        return response
+   187→
+   188→    # ── EMERGENCY INTENTS ────────────────────────────────
+   189→    if is_emergency_intent(intent):
+   190→        response = await _handle_emergency(intent, target, tenant_id, auth_result, db,
+   191→                                          raw_input=raw_input)
+   192→        return response
+   193→
+   194→    # ── EXPLAIN / TEACH / AGENT ──────────────────────────
+   195→    if intent == "explain_ticket":
+   196→        return await _handle_explain_ticket(target, tenant_id, signals, db)
+   197→    if intent == "explain_flag":
+   198→        return await _handle_explain_flags(tenant_id, db)
+   199→    if intent == "teach_skill":
+   200→        return await _handle_teach_skill(target, tenant_id, auth_result, db)
+   201→    if intent == "create_agent":
+   202→        return await _handle_create_agent(target, tenant_id, auth_result, db)
+   203→    if intent == "control_approval_override":
+   204→        # Wave 3: approval override via executor
+   205→        result = await execute_command(
+   206→            intent=intent, target=target, tenant_id=tenant_id,
+   207→            actor_email=auth_result.email, raw_input=raw_input,
+   208→        )
+   209→        return result.response
+   210→
+   211→    return f"I understood your command but don't have a handler for '{intent}' yet."
+   212→
+   213→
+   214→# ── Query Handlers ────────────────────────────────────────────
+   215→
+   216→async def _handle_query(intent: str, target: str, tenant_id: str, signals: Dict, db) -> str:
+   217→    """Handle all query intents — read from DB, format response."""
+   218→
+   219→    if intent == "query_status":
+   220→        health = await db.health_check()
+   221→        active_flags = await db.get_active_flags(tenant_id)
+   222→        paused = [f for f in active_flags if f["flag_type"] == "pause_action"]
+   223→        return (
+   224→            f"**System Status**: {health.get('status', 'unknown')}\n"
+   225→            f"Backend: {health.get('backend', 'unknown')}\n"
+   226→            f"Active Flags: {len(active_flags)}\n"
+   227→            f"Paused Actions: {len(paused)} {', '.join(f['flag_value'] for f in paused) if paused else 'none'}\n"
+   228→            f"Mode: Supervised (default)"
+   229→        )
+   230→
+   231→    if intent == "query_errors":
+   232→        errors = signals.get("errors", [])
+   233→        if not errors:
+   234→            return "No errors detected in the current session."
+   235→        return f"**Recent Errors** ({len(errors)}):\n" + "\n".join(f"- {e}" for e in errors[-5:])
+   236→
+   237→    if intent == "query_tickets":
+   238→        flow = signals.get("ticket_flow", {})
+   239→        summary = flow.get("summary", {}) if isinstance(flow, dict) else {}
+   240→        current = flow.get("current_ticket", {}) if isinstance(flow, dict) else {}
+   241→        drift = signals.get("drift_status", {})
+   242→        return (
+   243→            f"**Ticket Flow Summary**:\n"
+   244→            f"Total Processed: {summary.get('total', 0)}\n"
+   245→            f"Auto-Resolved: {summary.get('auto_resolved', 0)}\n"
+   246→            f"Batched: {summary.get('batched', 0)}\n"
+   247→            f"Escalated: {summary.get('escalated', 0)}\n"
+   248→            f"Stuck: {summary.get('stuck', 0)}\n"
+   249→            f"Avg Quality: {summary.get('avg_quality', 'N/A')}\n"
+   250→            f"Avg LLM Calls: {summary.get('avg_llm_calls', 'N/A')}\n"
+   251→            f"By Path: {summary.get('by_type', {})}\n"
+   252→            f"Accuracy Trend: {drift.get('trend_direction', 'no_data')}"
+   253→        )
+   254→
+   255→    if intent == "query_quality":
+   256→        stats = await db.get_quality_stats(tenant_id)
+   257→        drift = signals.get("drift_status", {})
+   258→        drift_line = f"\nDrift: {drift.get('trend_direction', 'no_data')}" \
+   259→                    f" (detected={drift.get('drift_detected')}, severity={drift.get('drift_severity')})" \
+   260→                    if drift.get('total_scores', 0) > 0 else "\nDrift: insufficient data"
+   261→        return (
+   262→            f"**Quality Metrics**:\n"
+   263→            f"Total Tickets: {stats['total_tickets']}\n"
+   264→            f"Average Quality: {stats['avg_quality']:.2%}\n"
+   265→            f"Average Confidence: {stats['avg_confidence']:.2%}\n"
+   266→            f"Auto-Resolved: {stats['auto_resolved']}\n"
+   267→            f"Escalated: {stats['escalated']}\n"
+   268→            f"Stuck: {stats['stuck']}\n"
+   269→            f"By Path: {stats.get('by_path', {})}"
+   270→            f"{drift_line}"
+   271→        )
+   272→
+   273→    if intent == "query_quota":
+   274→        quota = signals.get("quota_status", {})
+   275→        if not quota:
+   276→            return "No quota data available. Connect to billing system for live quota tracking."
+   277→        parts = []
+   278→        for tier, data in quota.items():
+   279→            parts.append(
+   280→                f"  {tier}: {data.get('remaining', 0)}/{data.get('total', 0)} "
+   281→                f"remaining ({data.get('burn_pct', 0)}% used, status: {data.get('status', 'unknown')})"
+   282→            )
+   283→        return f"**Quota Status**:\n" + "\n".join(parts)
+   284→
+   285→    if intent == "query_notifications":
+   286→        if target and target.startswith("PARWA-NFY"):
+   287→            # Specific notification lookup
+   288→            nf = await db.get_notification(target)
+   289→            if nf:
+   290→                return (
+   291→                    f"**{nf['title']}** (Key: {nf['notification_key']})\n\n"
+   292→                    f"{nf['description']}\n\n"
+   293→                    f"Priority: {nf['priority']} (score: {nf['priority_score']})\n"
+   294→                    f"Status: {'Resolved' if nf['is_resolved'] else 'Unresolved'}\n"
+   295→                    f"Type: {nf['type']}\n"
+   296→                    f"Related tickets: {', '.join(nf['related_tickets']) or 'None'}"
+   297→                )
+   298→            return f"Notification {target} not found."
+   299→        else:
+   300→            # List all notifications
+   301→            nfs = await db.get_notifications(tenant_id)
+   302→            if not nfs:
+   303→                return "No unresolved notifications. All clear."
+   304→            lines = [f"**Notifications** ({len(nfs)} unresolved):"]
+   305→            for nf in nfs[:10]:
+   306→                lines.append(f"  [{nf['priority']}] {nf['notification_key']}: {nf['title']}")
+   307→            if len(nfs) > 10:
+   308→                lines.append(f"  ... and {len(nfs) - 10} more")
+   309→            return "\n".join(lines)
+   310→
+   311→    if intent == "query_flags":
+   312→        flags = await db.get_active_flags(tenant_id)
+   313→        if not flags:
+   314→            return "No active flags/rules. System is running with default behavior."
+   315→        lines = [f"**Active Flags** ({len(flags)}):"]
+   316→        for f in flags:
+   317→            lines.append(
+   318→                f"  [{f['flag_type']}] {f['flag_value']} "
+   319→                f"(scope={f['scope']}, set by {f['set_by']})"
+   320→            )
+   321→        return "\n".join(lines)
+   322→
+   323→    if intent == "query_audit":
+   324→        trail = await db.get_audit_trail(tenant_id, limit=20)
+   325→        if not trail:
+   326→            return "No audit trail entries yet."
+   327→        lines = [f"**Recent Activity** ({len(trail)} entries):"]
+   328→        for entry in trail[:10]:
+   329→            lines.append(
+   330→                f"  [{entry['created_at'][:19]}] {entry['action']} "
+   331→                f"by {entry['actor_email']}"
+   332→            )
+   333→        if len(trail) > 10:
+   334→            lines.append(f"  ... and {len(trail) - 10} more")
+   335→        return "\n".join(lines)
+   336→
+   337→    # ── Wave 2 Query Handlers ─────────────────────────────
+   338→
+   339→    if intent == "query_health":
+   340→        health = signals.get("integration_health", {})
+   341→        services = health.get("services", {})
+   342→        if not services:
+   343→            return "No integration health data yet. Run a poll cycle first to collect ping data."
+   344→        lines = [f"**Integration Health** ({health.get('healthy_count', 0)} healthy, "
+   345→                 f"{health.get('degraded_count', 0)} degraded):"]
+   346→        for svc_name, svc_data in services.items():
+   347→            status_icon = "OK" if svc_data.get("status") == "healthy" else "!!"
+   348→            lines.append(
+   349→                f"  [{status_icon}] {svc_name}: {svc_data.get('status', '?')} "
+   350→                f"(uptime={svc_data.get('uptime_pct', '?')}%, "
+   351→                f"avg={svc_data.get('avg_response_ms', '?')}ms" +
+   352→                (f", error: {svc_data.get('last_error', 'none')}"
+   353→                 if svc_data.get('last_error') else ")")
+   354→            )
+   355→        return "\n".join(lines)
+   356→
+   357→    if intent == "query_cost":
+   358→        costs = signals.get("llm_costs", {})
+   359→        persisted = costs.get("persisted", {})
+   360→        live = costs.get("live_session", {})
+   361→        lines = [
+   362→            f"**LLM Cost Summary**:",
+   363→            f"  Total Cost (persisted): ${persisted.get('total_cost_usd', 0):.4f}",
+   364→            f"  Total Calls (persisted): {persisted.get('total_calls', 0)}",
+   365→            f"  Total Tokens (persisted): {persisted.get('total_tokens', 0)}",
+   366→            f"  Combined Calls (incl. live): {costs.get('total_calls_combined', 0)}",
+   367→            f"  Combined Tokens (incl. live): {costs.get('total_tokens_combined', 0)}",
+   368→        ]
+   369→        by_model = persisted.get("by_model", {})
+   370→        if by_model:
+   371→            lines.append("  By Model:")
+   372→            for model, mdata in by_model.items():
+   373→                lines.append(f"    {model}: ${mdata['cost']:.4f} ({mdata['calls']} calls, {mdata['tokens']} tokens)")
+   374→        return "\n".join(lines)
+   375→
+   376→    if intent == "query_flow":
+   377→        flow = signals.get("ticket_flow", {})
+   378→        summary = flow.get("summary", {}) if isinstance(flow, dict) else {}
+   379→        by_node = summary.get("by_node", {})
+   380→        lines = [
+   381→            f"**Ticket Flow Metrics**:",
+   382→            f"  Total: {summary.get('total', 0)}",
+   383→            f"  Auto-Resolved: {summary.get('auto_resolved', 0)}",
+   384→            f"  Batched: {summary.get('batched', 0)}",
+   385→            f"  Escalated: {summary.get('escalated', 0)}",
+   386→            f"  Stuck: {summary.get('stuck', 0)}",
+   387→            f"  Avg Quality: {summary.get('avg_quality', 0)}",
+   388→            f"  Avg LLM Calls/Ticket: {summary.get('avg_llm_calls', 0)}",
+   389→        ]
+   390→        if by_node:
+   391→            lines.append("  Node Distribution:")
+   392→            for node, count in sorted(by_node.items()):
+   393→                lines.append(f"    {node}: {count} tickets")
+   394→        return "\n".join(lines)
+   395→
+   396→    if intent == "query_load":
+   397→        load = signals.get("load_status", {})
+   398→        variants = load.get("variants", [])
+   399→        vip = load.get("vip_overflow_risk", False)
+   400→        if not variants:
+   401→            return "No variant load data. Configure agent_configs with max_concurrent to enable load monitoring."
+   402→        lines = [f"**Load Status** (VIP overflow: {'YES' if vip else 'no'}):"]
+   403→        for v in variants:
+   404→            util = v.get("utilization_pct", 0)
+   405→            status_icon = "!!" if v.get("status") in ("at_capacity", "high") else "OK"
+   406→            lines.append(
+   407→                f"  [{status_icon}] {v['name']}: {v.get('concurrent', 0)}/{v.get('max_concurrent', 5)} "
+   408→                f"({util}% utilized, status: {v.get('status')})"
+   409→            )
+   410→        return "\n".join(lines)
+   411→
+   412→    if intent == "query_stuck":
+   413→        stuck = signals.get("stuck_tickets", [])
+   414→        if not stuck:
+   415→            return "No stuck tickets. All clear."
+   416→        lines = [f"**Stuck Tickets** ({len(stuck)}):"]
+   417→        for s in stuck:
+   418→            tier = s.get("escalation_tier", "?")
+   419→            hours = s.get("hours_stuck", 0)
+   420→            lines.append(
+   421→                f"  [{tier.upper()}] {s.get('ticket_id', '?')}: "
+   422→                f"reason={s.get('reason', '?')}, "
+   423→                f"quality={s.get('quality_score', '?')}, "
+   424→                f"{hours}h stuck, loops={s.get('loops_used', 0)}"
+   425→            )
+   426→        return "\n".join(lines)
+   427→
+   428→    # ── Wave 6 Query Handlers ─────────────────────────────
+   429→
+   430→    if intent == "query_report":
+   431→        return await _handle_wave6_report(target, tenant_id, db)
+   432→
+   433→    if intent == "query_sla":
+   434→        return await _handle_wave6_sla(tenant_id, db)
+   435→
+   436→    if intent == "query_health_score":
+   437→        return await _handle_wave6_health_score(tenant_id, db)
+   438→
+   439→    if intent == "query_roi":
+   440→        return await _handle_wave6_roi(tenant_id, db)
+   441→
+   442→    if intent == "query_agent_health":
+   443→        return await _handle_wave6_agent_health(target, tenant_id, db)
+   444→
+   445→    return f"Query '{intent}' not yet implemented."
+   446→
+   447→
+   448→# ── Control Handlers ──────────────────────────────────────────
+   449→
+   450→async def _handle_control(intent: str, target: str, tenant_id: str, auth: AuthResult, db,
+   451→                           raw_input: str = "") -> str:
+   452→    """Handle control commands via command_executor (Wave 3).
+   453→
+   454→    5-step pipeline: validate → resolve → execute → verify → respond.
+   455→    All conflicts auto-resolved. All actions audited.
+   456→    """
+   457→    result = await execute_command(
+   458→        intent=intent,
+   459→        target=target,
+   460→        tenant_id=tenant_id,
+   461→        actor_email=auth.email,
+   462→        raw_input=raw_input,
+   463→    )
+   464→
+   465→    # Build response with warnings and conflict info
+   466→    response = result.response
+   467→    if result.warnings:
+   468→        response += "\n\nWarnings:\n" + "\n".join(f"  - {w}" for w in result.warnings)
+   469→    if result.conflicts_resolved:
+   470→        names = [f["flag_type"] + "=" + f["flag_value"] for f in result.conflicts_resolved]
+   471→        response += f"\n\nAuto-resolved conflicts: {', '.join(names)}"
+   472→    if result.undo_id:
+   473→        response += f"\n\nTo undo: **'disable my last rule'**"
+   474→
+   475→    return response
+   476→
+   477→
+   478→# ── Approval Handlers ─────────────────────────────────────────
+   479→
+   480→async def _handle_approval(intent: str, target: str, tenant_id: str, auth: AuthResult, db) -> str:
+   481→    """Handle approval/rejection commands."""
+   482→    await db.create_audit_entry(
+   483→        tenant_id=tenant_id, action=intent,
+   484→        actor_email=auth.email, target_type="approval", target_id=target,
+   485→        payload={"intent": intent},
+   486→    )
+   487→    if "batch" in intent:
+   488→        action = "approved" if "approve" in intent else "rejected"
+   489→        return f"[OK] Batch {action}. Full batch approval UI coming in Wave 7 (Jarvis UI)."
+   490→    else:
+   491→        action = "approved" if "approve" in intent else "rejected"
+   492→        return f"[OK] Ticket {target} {action}. Ticket-level approval tracking coming in Wave 5."
+   493→
+   494→
+   495→# ── Emergency Handlers ────────────────────────────────────────
+   496→
+   497→async def _handle_emergency(intent: str, target: str, tenant_id: str, auth: AuthResult, db,
+   498→                            raw_input: str = "") -> str:
+   499→    """Handle emergency commands via command_executor (Wave 3).
+   500→
+   501→    Real execution: recall marks outbox, void removes outbox, shutdown sets flag + notification.
+   502→    """
+   503→    result = await execute_command(
+   504→        intent=intent,
+   505→        target=target,
+   506→        tenant_id=tenant_id,
+   507→        actor_email=auth.email,
+   508→        raw_input=raw_input,
+   509→    )
+   510→
+   511→    response = result.response
+   512→    if result.warnings:
+   513→        response += "\n\nWarnings:\n" + "\n".join(f"  - {w}" for w in result.warnings)
+   514→    if result.undo_id and intent != "emergency_shutdown":
+   515→        response += f"\n\nTo undo: **'disable my last rule'**"
+   516→
+   517→    return response
+   518→
+   519→
+   520→# ── Explain / Teach / Agent Handlers ──────────────────────────
+   521→
+   522→async def _handle_explain_ticket(target: str, tenant_id: str, signals: Dict, db) -> str:
+   523→    """Explain why a ticket was resolved the way it was."""
+   524→    ticket_flow = signals.get("ticket_flow", {})
+   525→    return (
+   526→        f"**Ticket Explanation**:\n"
+   527→        f"Ticket: {ticket_flow.get('ticket_id', target)}\n"
+   528→        f"Type: {ticket_flow.get('ticket_type', 'N/A')}\n"
+   529→        f"Complexity: {ticket_flow.get('complexity', 'N/A')}\n"
+   530→        f"Action: {ticket_flow.get('action', 'N/A')}\n"
+   531→        f"Nodes Reached: {ticket_flow.get('nodes_reached', [])}\n"
+   532→        f"LLM Calls: {ticket_flow.get('llm_calls', 'N/A')}\n"
+   533→        f"Quality: {ticket_flow.get('quality_score', 'N/A')}\n\n"
+   534→        f"Full GSD state display coming in Wave 7 (Jarvis UI with GSD Terminal Window)."
+   535→    )
+   536→
+   537→
+   538→async def _handle_explain_flags(tenant_id: str, db) -> str:
+   539→    """Explain why each active rule exists."""
+   540→    flags = await db.get_active_flags(tenant_id)
+   541→    if not flags:
+   542→        return "No active rules to explain."
+   543→    lines = ["**Active Rules Explained**:"]
+   544→    for f in flags:
+   545→        lines.append(
+   546→            f"  **{f['flag_type']}={f['flag_value']}**\n"
+   547→            f"    Set by: {f['set_by']}\n"
+   548→            f"    Reason: {f.get('reason', 'No reason recorded')}\n"
+   549→            f"    Scope: {f['scope']}"
+   550→        )
+   551→    return "\n".join(lines)
+   552→
+   553→
+   554→async def _handle_teach_skill(target: str, tenant_id: str, auth: AuthResult, db) -> str:
+   555→    """Handle teach_skill — coming in Wave 8."""
+   556→    await db.create_audit_entry(
+   557→        tenant_id=tenant_id, action="teach_skill_attempted",
+   558→        actor_email=auth.email, target_type="skill", target_id=target,
+   559→    )
+   560→    return "[NOTED] Skill teaching received. Dynamic instruction workflow coming in Wave 8. For now, I've logged your intent."
+   561→
+   562→
+   563→async def _handle_create_agent(target: str, tenant_id: str, auth: AuthResult, db) -> str:
+   564→    """Handle agent creation — coming in Wave 8."""
+   565→    await db.create_audit_entry(
+   566→        tenant_id=tenant_id, action="create_agent_attempted",
+   567→        actor_email=auth.email, target_type="agent", target_id=target,
+   568→    )
+   569→    return "[NOTED] Agent creation request received. Virtual agent provisioning from chat coming in Wave 8."
+   570→
+   571→
+   572→# ── Wave 6 Report/Query Handlers ─────────────────────────────
+   573→
+   574→async def _handle_wave6_report(target: str, tenant_id: str, db) -> str:
+   575→    """Wave 6: Handle report queries — weekly wins or performance dashboard."""
+   576→    try:
+   577→        from app.core.jarvis_pipeline.report_generator import (
+   578→            generate_weekly_wins_report, get_performance_dashboard,
+   579→            format_weekly_report_text,
+   580→        )
+   581→
+   582→        if target == "dashboard":
+   583→            dashboard = await get_performance_dashboard(tenant_id)
+   584→            va = dashboard.get("volume_accuracy", {})
+   585→            ct = dashboard.get("confidence_trends", {})
+   586→            eg = dashboard.get("efficiency_gains", {})
+   587→            lines = [
+   588→                "**Performance Dashboard**:",
+   589→                f"  Tickets Handled: {va.get('total_tickets', 0)}",
+   590→                f"  Auto-Resolved: {va.get('auto_resolved', 0)} ({va.get('auto_resolve_pct', 0):.1f}%)",
+   591→                f"  Avg Quality: {va.get('avg_quality', 0):.1%}",
+   592→                f"  Quality Trend: {va.get('quality_trend', 'stable')}",
+   593→                f"  Avg Confidence: {ct.get('avg_confidence', 0):.1%} ({ct.get('trend_direction', 'N/A')})",
+   594→                f"  Manager Time Saved: {eg.get('manager_time_saved_minutes', 0):.0f} min",
+   595→                f"  Training Priorities: {eg.get('total_priority_areas', 0)} areas",
+   596→            ]
+   597→            return "\n".join(lines)
+   598→        else:
+   599→            report = await generate_weekly_wins_report(tenant_id)
+   600→            return format_weekly_report_text(report)
+   601→    except Exception as e:
+   602→        logger.error("Wave 6 report handler error: %s", e)
+   603→        return f"[ERROR] Failed to generate report: {e}"
+   604→
+   605→
+   606→async def _handle_wave6_sla(tenant_id: str, db) -> str:
+   607→    """Wave 6: Handle SLA queries."""
+   608→    try:
+   609→        from app.core.jarvis_pipeline.sla_calculator import compute_sla_status
+   610→
+   611→        sla = await compute_sla_status(tenant_id)
+   612→        status = sla.get("sla_status", "unknown")
+   613→        actual = sla.get("actual_uptime_pct", 0)
+   614→        target = sla.get("target_uptime_pct", 99.5)
+   615→        credit = sla.get("credit_owed_usd", 0)
+   616→        incidents = sla.get("incident_count", 0)
+   617→        lines = [
+   618→            "**SLA Status**:",
+   619→            f"  Status: {status.upper()}",
+   620→            f"  Actual Uptime: {actual:.2f}%",
+   621→            f"  Target Uptime: {target:.1f}%",
+   622→            f"  Gap: {sla.get('uptime_gap_pct', 0):.2f}%",
+   623→            f"  Downtime: {sla.get('total_downtime_seconds', 0):.0f} seconds",
+   624→            f"  Incidents: {incidents}",
+   625→        ]
+   626→        if credit > 0:
+   627→            lines.append(f"  Credit Owed: ${credit:.2f}")
+   628→        lines.append(f"\n{sla.get('recommendation', '')}")
+   629→        return "\n".join(lines)
+   630→    except Exception as e:
+   631→        logger.error("Wave 6 SLA handler error: %s", e)
+   632→        return f"[ERROR] Failed to compute SLA: {e}"
+   633→
+   634→
+   635→async def _handle_wave6_health_score(tenant_id: str, db) -> str:
+   636→    """Wave 6: Handle customer health score queries."""
+   637→    try:
+   638→        from app.core.jarvis_pipeline.health_scorer import get_customer_health
+   639→
+   640→        health = await get_customer_health(tenant_id)
+   641→        score = health.get("health_score", 0)
+   642→        pct = health.get("readiness_pct", 0)
+   643→        grade = health.get("grade", "early")
+   644→        achieved = health.get("achieved_milestones", 0)
+   645→        total = health.get("total_milestones", 0)
+   646→
+   647→        lines = [
+   648→            "**Customer Health Score**:",
+   649→            f"  Readiness: {pct}% (grade: {grade})",
+   650→            f"  Milestones: {achieved}/{total} achieved",
+   651→        ]
+   652→        for m in health.get("milestones", []):
+   653→            icon = "OK" if m["achieved"] else ".."
+   654→            lines.append(f"  [{icon}] {m['name']}: {'done' if m['achieved'] else 'pending'}")
+   655→        lines.append(f"\n{health.get('success_coach_message', '')}")
+   656→        return "\n".join(lines)
+   657→    except Exception as e:
+   658→        logger.error("Wave 6 health score handler error: %s", e)
+   659→        return f"[ERROR] Failed to compute health score: {e}"
+   660→
+   661→
+   662→async def _handle_wave6_roi(tenant_id: str, db) -> str:
+   663→    """Wave 6: Handle ROI queries."""
+   664→    try:
+   665→        from app.core.jarvis_pipeline.health_scorer import calculate_roi
+   666→
+   667→        roi = await calculate_roi(tenant_id)
+   668→        lines = [
+   669→            "**ROI Analysis** (30-day):",
+   670→            f"  Total Tickets: {roi.get('total_tickets', 0)}",
+   671→            f"  Auto-Resolved: {roi.get('auto_resolved', 0)} ({roi.get('auto_resolve_pct', 0):.1f}%)",
+   672→            f"  Human-Handled: {roi.get('human_handled', 0)}",
+   673→            f"  Human Cost (estimated): ${roi.get('human_cost_usd', 0):.2f}",
+   674→            f"  AI Cost: ${roi.get('ai_cost_usd', 0):.2f}",
+   675→            f"  Net Savings: ${roi.get('net_savings_usd', 0):.2f}",
+   676→            f"  ROI: {roi.get('roi_pct', 0):.1f}%",
+   677→            f"\n{roi.get('recommendation', '')}",
+   678→        ]
+   679→        return "\n".join(lines)
+   680→    except Exception as e:
+   681→        logger.error("Wave 6 ROI handler error: %s", e)
+   682→        return f"[ERROR] Failed to calculate ROI: {e}"
+   683→
+   684→
+   685→async def _handle_wave6_agent_health(target: str, tenant_id: str, db) -> str:
+   686→    """Wave 6: Handle agent health / quality coach queries."""
+   687→    try:
+   688→        from app.core.jarvis_pipeline.quality_coach import (
+   689→            get_agent_health_summary, generate_weekly_quality_report,
+   690→            generate_mistake_analysis, run_drift_check_and_alert,
+   691→        )
+   692→
+   693→        if target == "quality_report":
+   694→            report = await generate_weekly_quality_report(tenant_id)
+   695→            health = report.get("health_score", {})
+   696→            recs = report.get("recommendations", [])
+   697→            lines = [
+   698→                "**Weekly Quality Report**:",
+   699→                f"  Health Score: {health.get('health_score', 0):.1%} (Grade: {health.get('grade', '?')})",
+   700→                f"  Total Tickets: {report.get('performance', {}).get('total_tickets', 0)}",
+   701→                f"  Avg Quality: {report.get('performance', {}).get('avg_quality', 0):.1%}",
+   702→                f"  Mistakes: {report.get('mistakes', {}).get('total_mistakes', 0)}",
+   703→            ]
+   704→            if recs:
+   705→                lines.append("  Recommendations:")
+   706→                for r in recs[:5]:
+   707→                    lines.append(f"    - [{r.get('priority', '?')}] {r.get('text', '')[:100]}")
+   708→            return "\n".join(lines)
+   709→        else:
+   710→            summary = await get_agent_health_summary(tenant_id)
+   711→            score = summary.get("health_score", 0)
+   712→            grade = summary.get("grade", "?")
+   713→            weakest = summary.get("weakest_component", "?")
+   714→            components = summary.get("components", {})
+   715→            lines = [
+   716→                "**Agent Health Summary**:",
+   717→                f"  Score: {score:.1%} (Grade: {grade})",
+   718→                f"  Weakest: {weakest}",
+   719→            ]
+   720→            for name, val in components.items():
+   721→                if isinstance(val, (int, float)):
+   722→                    lines.append(f"    {name}: {val:.1%}")
+   723→            lines.append(f"\n{summary.get('recommendation', '')}")
+   724→            return "\n".join(lines)
+   725→    except Exception as e:
+   726→        logger.error("Wave 6 agent health handler error: %s", e)
+   727→        return f"[ERROR] Failed to get agent health: {e}"
+   728→
+   729→
+   730→# ── Main Node Function ────────────────────────────────────────
+   731→
+   732→
+   733→async def jarvis_notify(state: dict) -> dict:
+   734→    """Jarvis Node 3: NOTIFY — Act + Verify.
+   735→
+   736→    Wave 1: Now wired with command_parser + jarvis_auth + jarvis_db.
+   737→    Full pipeline: chat → parse → auth → execute → DB → response.
+   738→    """
+   739→    start = time.time()
+   740→    tenant_id = state.get("tenant_id", "")
+   741→    trigger = state.get("trigger", "poll")
+   742→    evaluations = state.get("evaluations", [])
+   743→    signals = state.get("signals", {})
+   744→    admin_question = state.get("admin_question", "")
+   745→    user_context = state.get("user_context", {})
+   746→    logs = []
+   747→    llm_calls = 0
+   748→
+   749→    db = get_db()
+   750→
+   751→    # 1. Create notifications from evaluations (poll/monitor mode)
+   752→    notifications = []
+   753→    if trigger in ("poll", "stuck_ticket") and evaluations:
+   754→        notifications = await _create_notifications_from_evals(tenant_id, evaluations, db)
+   755→        logs.append({"node": "J3", "technique": "CreateNotifications", "duration_ms": 0,
+   756→                     "result_summary": f"created={len(notifications)}"})
+   757→
+   758→    # 2. Handle admin chat (full pipeline: parse → auth → execute)
+   759→    chat_response = ""
+   760→    if trigger == "admin_chat" and admin_question:
+   761→        # Step 1: Classify intent
+   762→        intent_result = await classify_command(admin_question)
+   763→        if intent_result.get("classification_method") == "llm":
+   764→            llm_calls += 1
+   765→        logs.append({"node": "J3", "technique": "CommandParser",
+   766→                     "duration_ms": 0, "result_summary": f"intent={intent_result['intent']} "
+   767→                     f"method={intent_result['classification_method']} "
+   768→                     f"confidence={intent_result['confidence']}"} )
+   769→
+   770→        # Step 2: Authorize
+   771→        auth_result = await authorize_command(
+   772→            intent=intent_result["intent"],
+   773→            user_context=user_context,
+   774→            tenant_id=tenant_id,
+   775→        )
+   776→        logs.append({"node": "J3", "technique": "AuthCheck",
+   777→                     "duration_ms": 0, "result_summary": f"authorized={auth_result.authorized} "
+   778→                     f"role={auth_result.role}"})
+   779→
+   780→        # Step 3: Execute (or deny)
+   781→        if auth_result.authorized:
+   782→            chat_response = await _execute_command(
+   783→                intent_result=intent_result,
+   784→                auth_result=auth_result,
+   785→                tenant_id=tenant_id,
+   786→                signals=signals,
+   787→                db=db,
+   788→                raw_input=admin_question,
+   789→            )
+   790→            logs.append({"node": "J3", "technique": "ExecuteCommand",
+   791→                         "duration_ms": 0, "result_summary": f"executed={intent_result['intent']}"})
+   792→        else:
+   793→            chat_response = f"[DENIED] {auth_result.reason}"
+   794→            logs.append({"node": "J3", "technique": "AuthDenied",
+   795→                         "duration_ms": 0, "result_summary": auth_result.reason})
+   796→
+   797→    # 3. Build quota feedback for PARWA Node 2
+   798→    quota_feedback = {
+   799→        "tenant_id": tenant_id,
+   800→        "quota_status": signals.get("quota_status", {}),
+   801→        "variant_tier": list(signals.get("quota_status", {}).keys())[0] if signals.get("quota_status") else "parwa",
+   802→    }
+   803→
+   804→    # 4. Summary
+   805→    keys = [n["notification_key"] for n in notifications]
+   806→    elapsed = int((time.time() - start) * 1000)
+   807→    logger.info("Jarvis NOTIFY complete: tenant=%s notifications=%d chat=%s llm=%d auth=%s [%dms]",
+   808→                tenant_id, len(notifications), bool(chat_response), llm_calls,
+   809→                bool(user_context.get("role")), elapsed)
+   810→
+   811→    return {
+   812→        "notifications": notifications,
+   813→        "notification_keys": keys,
+   814→        "chat_response": chat_response,
+   815→        "quota_feedback": quota_feedback,
+   816→        "notify_log": logs,
+   817→        "total_token_usage": state.get("total_token_usage", 0) + llm_calls,
+   818→        "intent_result": intent_result if trigger == "admin_chat" else None,
+   819→        "auth_result": {"authorized": auth_result.authorized, "role": auth_result.role}
+   820→                        if trigger == "admin_chat" else None,
+   821→    }
