@@ -143,7 +143,7 @@ class TestPrerequisitesAPI:
 
     def test_get_prerequisites_returns_200(self, frontend_client):
         """GET /api/onboarding/prerequisites should return can_activate flag."""
-        resp = client.get("/api/onboarding/prerequisites")
+        resp = frontend_client.get("/api/onboarding/prerequisites")
         assert resp.status_code == 200
         data = resp.json()
         assert "can_activate" in data
@@ -155,7 +155,7 @@ class TestCostBreakdownAPI:
 
     def test_get_cost_breakdown_returns_200(self, frontend_client):
         """GET /api/onboarding/cost-breakdown should return breakdown data."""
-        resp = client.get("/api/onboarding/cost-breakdown")
+        resp = frontend_client.get("/api/onboarding/cost-breakdown")
         assert resp.status_code == 200
 
 
@@ -164,12 +164,12 @@ class TestIndustryCatalogAPI:
 
     def test_get_integration_catalog(self, frontend_client):
         """GET /api/integrations/catalog should return catalog."""
-        resp = client.get("/api/integrations/catalog")
+        resp = frontend_client.get("/api/integrations/catalog")
         assert resp.status_code == 200
 
     def test_get_available_integrations(self, frontend_client):
         """GET /api/integrations/available should return available integrations."""
-        resp = client.get("/api/integrations/available")
+        resp = frontend_client.get("/api/integrations/available")
         # May return 200 or 401/403 depending on auth
         assert resp.status_code in [200, 401, 403]
 
