@@ -1,0 +1,1945 @@
+     1→"""
+     2→Mini Parwa Pipeline Nodes — 10 agent-nodes for the LangGraph pipeline.
+     3→
+     4→Pipeline: pii_check -> empathy_check -> emergency_check -> gsd_state
+     5→        -> extract_signals -> classify -> generate -> crp_compress
+     6→        -> clara_quality_gate -> format -> END
+     7→
+     8→Each node:
+     9→  - Takes ParwaGraphState dict as input
+    10→  - Returns a dict with ONLY the fields it modified (LangGraph merges these)
+    11→  - Is wrapped in try/except (BC-008: never crash)
+    12→  - Appends to audit_log and errors using reducer pattern
+    13→  - Tracks timing in step_outputs
+    14→
+    15→Connected Frameworks (Tier 1 — Always Active, Even in Mini):
+    16→  - CLARA (Concise Logical Adaptive Response Architecture) — Quality gate
+    17→  - CRP (Concise Response Protocol) — Token waste elimination
+    18→  - GSD (Guided Support Dialogue) — State machine tracking
+    19→  - Smart Router (F-054) — Model tier selection (Light only for Mini)
+    20→  - Technique Router (BC-013) — Technique selection (Tier 1 only for Mini)
+    21→  - Confidence Scoring (F-059) — Response confidence assessment
+    22→
+    23→BC-001: company_id first parameter on public methods.
+    24→BC-008: Every public method wrapped in try/except — never crash.
+    25→BC-012: All timestamps UTC.
+    26→"""
+    27→
+    28→from __future__ import annotations
+    29→
+    30→import re
+    31→import time
+    32→import uuid
+    33→from datetime import datetime, timezone
+    34→from typing import Any, Dict, List, Optional
+    35→
+    36→from app.core.parwa_graph_state import (
+    37→    ParwaGraphState,
+    38→    append_audit_entry,
+    39→)
+    40→from app.core.pii_redaction_engine import PIIDetector
+    41→from app.core.classification_engine import ClassificationEngine, KeywordClassifier
+    42→from app.core.response_formatters import (
+    43→    FormattingContext,
+    44→    FormatterRegistry,
+    45→    create_default_registry,
+    46→)
+    47→from app.core.industry_enum import get_industry_prompt, get_industry_tone
+    48→from app.logger import get_logger
+    49→
+    50→logger = get_logger("mini_parwa_nodes")
+    51→
+    52→
+    53→# ══════════════════════════════════════════════════════════════════
+    54→# SHARED RESOURCES (lazy-initialized singletons)
+    55→# ══════════════════════════════════════════════════════════════════
+    56→
+    57→_pii_detector: Optional[PIIDetector] = None
+    58→_keyword_classifier: Optional[KeywordClassifier] = None
+    59→_formatter_registry: Optional[FormatterRegistry] = None
+    60→_gsd_manager: Optional[Any] = None
+    61→_technique_router: Optional[Any] = None
+    62→_smart_router: Optional[Any] = None
+    63→_confidence_engine: Optional[Any] = None
+    64→
+    65→
+    66→def _get_pii_detector() -> PIIDetector:
+    67→    """Get or create the PII detector singleton."""
+    68→    global _pii_detector
+    69→    if _pii_detector is None:
+    70→        _pii_detector = PIIDetector()
+    71→    return _pii_detector
+    72→
+    73→
+    74→def _get_keyword_classifier() -> KeywordClassifier:
+    75→    """Get or create the keyword classifier singleton."""
+    76→    global _keyword_classifier
+    77→    if _keyword_classifier is None:
+    78→        _keyword_classifier = KeywordClassifier()
+    79→    return _keyword_classifier
+    80→
+    81→
+    82→def _get_formatter_registry() -> FormatterRegistry:
+    83→    """Get or create the formatter registry singleton."""
+    84→    global _formatter_registry
+    85→    if _formatter_registry is None:
+    86→        _formatter_registry = create_default_registry()
+    87→    return _formatter_registry
+    88→
+    89→
+    90→def _get_gsd_manager() -> Any:
+    91→    """Get or create the SharedGSDManager singleton."""
+    92→    global _gsd_manager
+    93→    if _gsd_manager is None:
+    94→        try:
+    95→            from app.core.shared_gsd import SharedGSDManager
+    96→            _gsd_manager = SharedGSDManager()
+    97→        except Exception:
+    98→            logger.warning("gsd_manager_import_failed")
+    99→    return _gsd_manager
+   100→
+   101→
+   102→def _get_technique_router() -> Any:
+   103→    """Get or create the TechniqueRouter singleton (Mini: Light tier, Tier 1 only)."""
+   104→    global _technique_router
+   105→    if _technique_router is None:
+   106→        try:
+   107→            from app.core.technique_router import (
+   108→                TechniqueRouter,
+   109→                TechniqueID,
+   110→                TechniqueTier,
+   111→            )
+   112→            # Mini only enables Tier 1 techniques (CLARA, CRP, GSD)
+   113→            enabled = {
+   114→                TechniqueID.CLARA,
+   115→                TechniqueID.CRP,
+   116→                TechniqueID.GSD,
+   117→            }
+   118→            _technique_router = TechniqueRouter(
+   119→                model_tier="light",
+   120→                enabled_techniques=enabled,
+   121→            )
+   122→        except Exception:
+   123→            logger.warning("technique_router_import_failed")
+   124→    return _technique_router
+   125→
+   126→
+   127→def _get_smart_router() -> Any:
+   128→    """Get or create the SmartRouter singleton."""
+   129→    global _smart_router
+   130→    if _smart_router is None:
+   131→        try:
+   132→            from app.core.smart_router import SmartRouter
+   133→            _smart_router = SmartRouter()
+   134→        except Exception:
+   135→            logger.warning("smart_router_import_failed")
+   136→    return _smart_router
+   137→
+   138→
+   139→def _get_confidence_engine() -> Any:
+   140→    """Get or create the ConfidenceScoringEngine singleton."""
+   141→    global _confidence_engine
+   142→    if _confidence_engine is None:
+   143→        try:
+   144→            from app.core.confidence_scoring_engine import ConfidenceScoringEngine
+   145→            _confidence_engine = ConfidenceScoringEngine()
+   146→        except Exception:
+   147→            logger.warning("confidence_engine_import_failed")
+   148→    return _confidence_engine
+   149→
+   150→
+   151→# ══════════════════════════════════════════════════════════════════
+   152→# EMERGENCY KEYWORD PATTERNS (FREE — no LLM)
+   153→# ══════════════════════════════════════════════════════════════════
+   154→
+   155→EMERGENCY_PATTERNS: Dict[str, List[str]] = {
+   156→    "legal_threat": [
+   157→        "lawsuit", "sue", "lawyer", "attorney", "legal action",
+   158→        "take legal", "legal counsel", "court", "litigation",
+   159→        "subpoena", "deposition", "class action",
+   160→    ],
+   161→    "safety": [
+   162→        "self-harm", "suicide", "kill myself", "end my life",
+   163→        "hurt myself", "dangerous", "unsafe", "threat",
+   164→        "violence", "abuse", "domestic violence", "harm myself",
+   165→        "want to die", "don't want to live",
+   166→    ],
+   167→    "compliance": [
+   168→        "gdpr", "regulatory", "compliance violation", "data breach",
+   169→        "privacy violation", "hipaa", "pci compliance",
+   170→        "regulatory fine", "government investigation",
+   171→    ],
+   172→    "media": [
+   173→        "press", "media", "reporter", "journalist", "news",
+   174→        "social media", "twitter", "going public", "viral",
+   175→    ],
+   176→}
+   177→
+   178→
+   179→def _check_emergency_keywords(text: str) -> Dict[str, Any]:
+   180→    """Check text for emergency signals using keyword matching.
+   181→
+   182→    This is a safety gate — always runs, always FREE (no LLM).
+   183→
+   184→    Args:
+   185→        text: The text to check.
+   186→
+   187→    Returns:
+   188→        Dict with emergency_flag, emergency_type, and matched_keywords.
+   189→    """
+   190→    text_lower = text.lower()
+   191→    matched: Dict[str, List[str]] = {}
+   192→
+   193→    for emergency_type, keywords in EMERGENCY_PATTERNS.items():
+   194→        for keyword in keywords:
+   195→            pattern = r'\b' + re.escape(keyword) + r'\b'
+   196→            if re.search(pattern, text_lower):
+   197→                matched.setdefault(emergency_type, []).append(keyword)
+   198→
+   199→    if matched:
+   200→        priority_order = ["safety", "legal_threat", "compliance", "media"]
+   201→        for etype in priority_order:
+   202→            if etype in matched:
+   203→                return {
+   204→                    "emergency_flag": True,
+   205→                    "emergency_type": etype,
+   206→                    "matched_keywords": matched,
+   207→                }
+   208→
+   209→    return {
+   210→        "emergency_flag": False,
+   211→        "emergency_type": "",
+   212→        "matched_keywords": {},
+   213→    }
+   214→
+   215→
+   216→# ══════════════════════════════════════════════════════════════════
+   217→# EMPATHY KEYWORD PATTERNS (FALLBACK — used when LLM fails)
+   218→# ══════════════════════════════════════════════════════════════════
+   219→
+   220→EMPATHY_PATTERNS: Dict[str, List[str]] = {
+   221→    "frustrated": [
+   222→        "frustrated", "annoyed", "irritated", "fed up",
+   223→        "can't stand", "sick of", "had enough",
+   224→    ],
+   225→    "angry": [
+   226→        "angry", "furious", "outraged", "mad", "livid",
+   227→        "unacceptable", "ridiculous", "appalling",
+   228→    ],
+   229→    "sad": [
+   230→        "sad", "disappointed", "devastated", "heartbroken",
+   231→        "upset", "crying", "depressed", "hopeless",
+   232→    ],
+   233→    "urgent": [
+   234→        "urgent", "asap", "emergency", "immediately",
+   235→        "right now", "critical", "deadline",
+   236→    ],
+   237→    "confused": [
+   238→        "confused", "don't understand", "unclear",
+   239→        "lost", "help me", "can't figure out",
+   240→    ],
+   241→}
+   242→
+   243→
+   244→def _keyword_empathy_check(text: str) -> Dict[str, Any]:
+   245→    """Simple keyword-based empathy/sentiment analysis.
+   246→
+   247→    Used as a FREE fallback when LLM is unavailable.
+   248→
+   249→    Args:
+   250→        text: The text to analyze.
+   251→
+   252→    Returns:
+   253→        Dict with empathy_score and empathy_flags.
+   254→    """
+   255→    text_lower = text.lower()
+   256→    flags: List[str] = []
+   257→    total_matches = 0
+   258→
+   259→    for flag_name, keywords in EMPATHY_PATTERNS.items():
+   260→        for keyword in keywords:
+   261→            if " " in keyword:
+   262→                if keyword in text_lower:
+   263→                    flags.append(flag_name)
+   264→                    total_matches += 1
+   265→                    break
+   266→            else:
+   267→                pattern = r'\b' + re.escape(keyword) + r'\b'
+   268→                if re.search(pattern, text_lower):
+   269→                    flags.append(flag_name)
+   270→                    total_matches += 1
+   271→                    break
+   272→
+   273→    if not flags:
+   274→        empathy_score = 0.7
+   275→    elif len(flags) == 1:
+   276→        empathy_score = 0.4
+   277→    elif len(flags) == 2:
+   278→        empathy_score = 0.25
+   279→    else:
+   280→        empathy_score = 0.1
+   281→
+   282→    return {
+   283→        "empathy_score": empathy_score,
+   284→        "empathy_flags": flags,
+   285→    }
+   286→
+   287→
+   288→# ══════════════════════════════════════════════════════════════════
+   289→# TEMPLATE RESPONSES (FALLBACK — used when LLM fails)
+   290→# ══════════════════════════════════════════════════════════════════
+   291→
+   292→TEMPLATE_RESPONSES: Dict[str, str] = {
+   293→    "refund": (
+   294→        "Thank you for contacting us about your refund request. "
+   295→        "We understand this is important to you. "
+   296→        "Our team will review your request and get back to you within 24 hours. "
+   297→        "Your ticket has been created and you'll receive updates via email."
+   298→    ),
+   299→    "technical": (
+   300→        "Thank you for reporting this technical issue. "
+   301→        "We're sorry for the inconvenience. "
+   302→        "Our technical team has been notified and will investigate. "
+   303→        "We'll provide an update as soon as possible."
+   304→    ),
+   305→    "billing": (
+   306→        "Thank you for your billing inquiry. "
+   307→        "We take billing questions seriously. "
+   308→        "Our billing team will review your account and respond within 24 hours. "
+   309→        "Please don't hesitate to reach out if you need immediate assistance."
+   310→    ),
+   311→    "complaint": (
+   312→        "We're sorry to hear about your experience. "
+   313→        "Your feedback is very important to us. "
+   314→        "A senior team member will review your complaint and reach out personally. "
+   315→        "We're committed to resolving this for you."
+   316→    ),
+   317→    "cancellation": (
+   318→        "We're sorry to see you go. "
+   319→        "Your cancellation request has been received. "
+   320→        "A team member will contact you to confirm and discuss any alternatives. "
+   321→        "Is there anything we can do to change your mind?"
+   322→    ),
+   323→    "shipping": (
+   324→        "Thank you for your shipping inquiry. "
+   325→        "Let me help you with that. "
+   326→        "Our logistics team is checking your shipment status. "
+   327→        "You'll receive an update shortly."
+   328→    ),
+   329→    "account": (
+   330→        "Thank you for your account-related inquiry. "
+   331→        "For your security, we'll need to verify some details. "
+   332→        "Our support team will assist you shortly."
+   333→    ),
+   334→    "general": (
+   335→        "Thank you for reaching out to us. "
+   336→        "We've received your message and our team will get back to you as soon as possible. "
+   337→        "If your matter is urgent, please let us know and we'll prioritize it."
+   338→    ),
+   339→}
+   340→
+   341→EMERGENCY_RESPONSE_TEMPLATE = (
+   342→    "Your message has been flagged for priority handling. "
+   343→    "A senior team member will contact you directly. "
+   344→    "If this is an emergency requiring immediate attention, "
+   345→    "please call our emergency hotline. "
+   346→    "Your reference number is {ticket_id}."
+   347→)
+   348→
+   349→
+   350→# ══════════════════════════════════════════════════════════════════
+   351→# CRP FILLER PHRASES — Token waste to eliminate (F-140)
+   352→# ══════════════════════════════════════════════════════════════════
+   353→
+   354→CRP_FILLER_PHRASES: List[str] = [
+   355→    "I'd be happy to help you with that.",
+   356→    "I'd be happy to help with that.",
+   357→    "I would be happy to help you with that.",
+   358→    "Certainly, I can assist.",
+   359→    "Certainly, I can assist you with that.",
+   360→    "Let me look into that for you.",
+   361→    "I understand your concern.",
+   362→    "I understand your frustration.",
+   363→    "Thank you for reaching out to us.",
+   364→    "Please don't hesitate to reach out",
+   365→    "If you have any further questions",
+   366→    "If you need anything else",
+   367→    "Feel free to reach out",
+   368→    "Please let me know if you need anything else.",
+   369→    "Is there anything else I can help you with?",
+   370→]
+   371→
+   372→
+   373→def _apply_crp_compression(text: str) -> Dict[str, Any]:
+   374→    """Apply CRP (Concise Response Protocol) compression.
+   375→
+   376→    Removes filler phrases, redundant sentences, and verbose
+   377→    language while preserving all factual content.
+   378→
+   379→    Target: 30-40% token reduction with >95% information retention.
+   380→
+   381→    Args:
+   382→        text: The response text to compress.
+   383→
+   384→    Returns:
+   385→        Dict with compressed_text, tokens_removed, compression_ratio.
+   386→    """
+   387→    if not text:
+   388→        return {
+   389→            "compressed_text": text,
+   390→            "tokens_removed": 0,
+   391→            "compression_ratio": 1.0,
+   392→            "phrases_removed": [],
+   393→        }
+   394→
+   395→    original_tokens = len(text.split())
+   396→    compressed = text
+   397→    phrases_removed: List[str] = []
+   398→
+   399→    # Step 1: Remove filler phrases
+   400→    for phrase in CRP_FILLER_PHRASES:
+   401→        if phrase.lower() in compressed.lower():
+   402→            # Case-insensitive replacement
+   403→            pattern = re.compile(re.escape(phrase), re.IGNORECASE)
+   404→            compressed = pattern.sub("", compressed)
+   405→            phrases_removed.append(phrase)
+   406→
+   407→    # Step 2: Clean up double spaces and orphaned punctuation
+   408→    compressed = re.sub(r'\s{2,}', ' ', compressed)
+   409→    compressed = re.sub(r'\.\s*\.', '.', compressed)  # double periods
+   410→    compressed = re.sub(r'^\s+|\s+$', '', compressed, flags=re.MULTILINE)
+   411→    compressed = compressed.strip()
+   412→
+   413→    # Step 3: Remove redundant "Thank you" when it appears multiple times
+   414→    thank_you_count = len(re.findall(r'\bthank you\b', compressed, re.IGNORECASE))
+   415→    if thank_you_count > 1:
+   416→        # Keep only the first occurrence
+   417→        first = True
+   418→        parts = re.split(r'(\bThank you\b|\bthank you\b)', compressed, flags=re.IGNORECASE)
+   419→        result_parts = []
+   420→        for part in parts:
+   421→            if re.match(r'\bthank you\b', part, re.IGNORECASE):
+   422→                if first:
+   423→                    result_parts.append(part)
+   424→                    first = False
+   425→                else:
+   426→                    phrases_removed.append("duplicate thank you")
+   427→            else:
+   428→                result_parts.append(part)
+   429→        compressed = "".join(result_parts)
+   430→
+   431→    final_tokens = len(compressed.split())
+   432→    tokens_removed = max(0, original_tokens - final_tokens)
+   433→    compression_ratio = final_tokens / original_tokens if original_tokens > 0 else 1.0
+   434→
+   435→    return {
+   436→        "compressed_text": compressed,
+   437→        "tokens_removed": tokens_removed,
+   438→        "compression_ratio": round(compression_ratio, 3),
+   439→        "phrases_removed": phrases_removed,
+   440→    }
+   441→
+   442→
+   443→# ══════════════════════════════════════════════════════════════════
+   444→# CLARA QUALITY GATE — Response validation pipeline
+   445→# ══════════════════════════════════════════════════════════════════
+   446→
+   447→def _run_clara_quality_gate(
+   448→    response: str,
+   449→    query: str,
+   450→    industry: str,
+   451→    tone: str,
+   452→    empathy_score: float,
+   453→) -> Dict[str, Any]:
+   454→    """Run the CLARA quality gate pipeline on a generated response.
+   455→
+   456→    CLARA = Concise Logical Adaptive Response Architecture.
+   457→    Validates: Structure -> Logic -> Brand -> Tone -> Delivery
+   458→
+   459→    For Mini: Uses keyword/rule-based checks (FREE, no LLM).
+   460→    For Pro/High: Would use LLM-based validation.
+   461→
+   462→    Args:
+   463→        response: The generated response to validate.
+   464→        query: The original customer query.
+   465→        industry: Industry context for brand validation.
+   466→        tone: Expected brand tone.
+   467→        empathy_score: Customer empathy score for tone validation.
+   468→
+   469→    Returns:
+   470→        Dict with passed, score, issues, and adjusted_response.
+   471→    """
+   472→    if not response:
+   473→        return {
+   474→            "passed": False,
+   475→            "score": 0.0,
+   476→            "issues": ["empty_response"],
+   477→            "adjusted_response": response,
+   478→            "checks": {},
+   479→        }
+   480→
+   481→    checks: Dict[str, Dict[str, Any]] = {}
+   482→    issues: List[str] = []
+   483→    score = 100.0
+   484→
+   485→    # Check 1: STRUCTURE — Does response have logical structure?
+   486→    has_greeting = bool(re.search(
+   487→        r'\b(thank you|hello|hi|dear|greetings)\b',
+   488→        response, re.IGNORECASE,
+   489→    ))
+   490→    has_acknowledgment = bool(re.search(
+   491→        r'\b(understand|sorry|apologize|acknowledge|we see)\b',
+   492→        response, re.IGNORECASE,
+   493→    ))
+   494→    has_action = bool(re.search(
+   495→        r'\b(will|can|let me|our team|we\'ll|we will)\b',
+   496→        response, re.IGNORECASE,
+   497→    ))
+   498→
+   499→    structure_score = 0
+   500→    if has_greeting or has_acknowledgment:
+   501→        structure_score += 40
+   502→    if has_action:
+   503→        structure_score += 40
+   504→    if len(response.split('.')) >= 2:  # Has multiple sentences
+   505→        structure_score += 20
+   506→
+   507→    if structure_score < 40:
+   508→        issues.append("poor_structure")
+   509→        score -= 20
+   510→
+   511→    checks["structure"] = {
+   512→        "score": structure_score,
+   513→        "has_greeting": has_greeting,
+   514→        "has_acknowledgment": has_acknowledgment,
+   515→        "has_action": has_action,
+   516→    }
+   517→
+   518→    # Check 2: LOGIC — Does response address the query topic?
+   519→    query_tokens = set(re.findall(r'\b\w{4,}\b', query.lower()))
+   520→    response_tokens = set(re.findall(r'\b\w{4,}\b', response.lower()))
+   521→    stop_words = {
+   522→        "that", "this", "with", "have", "will", "been", "from",
+   523→        "they", "would", "could", "should", "there", "their",
+   524→        "about", "which", "when", "where", "your", "please",
+   525→    }
+   526→    query_content = query_tokens - stop_words
+   527→    response_content = response_tokens - stop_words
+   528→    overlap = query_content & response_content if query_content else set()
+   529→    logic_score = int(len(overlap) / max(len(query_content), 1) * 100)
+   530→
+   531→    if logic_score < 20:
+   532→        issues.append("off_topic")
+   533→        score -= 25
+   534→
+   535→    checks["logic"] = {
+   536→        "score": logic_score,
+   537→        "overlap_count": len(overlap),
+   538→        "query_content_count": len(query_content),
+   539→    }
+   540→
+   541→    # Check 3: BRAND — Is the tone appropriate for the industry?
+   542→    inappropriate_words = {
+   543→        "dude", "bro", "lol", "lmao", "rofl", "idk", "tbh",
+   544→        "ngl", "smh", "bruh", "yolo",
+   545→    }
+   546→    response_lower = response.lower()
+   547→    brand_violations = [w for w in inappropriate_words if w in response_lower.split()]
+   548→    brand_score = 100 - (len(brand_violations) * 25)
+   549→
+   550→    if brand_violations:
+   551→        issues.append("brand_violation")
+   552→        score -= len(brand_violations) * 15
+   553→
+   554→    checks["brand"] = {
+   555→        "score": max(0, brand_score),
+   556→        "violations": brand_violations,
+   557→    }
+   558→
+   559→    # Check 4: TONE — Is the empathy level appropriate?
+   560→    tone_score = 80  # Default good
+   561→    if empathy_score < 0.3 and not has_acknowledgment:
+   562→        # Customer is distressed but no empathy shown
+   563→        tone_score = 40
+   564→        issues.append("insufficient_empathy")
+   565→        score -= 15
+   566→    elif empathy_score > 0.6:
+   567→        tone_score = 90  # Neutral customer, neutral response is fine
+   568→
+   569→    checks["tone"] = {
+   570→        "score": tone_score,
+   571→        "empathy_score": empathy_score,
+   572→        "has_acknowledgment": has_acknowledgment,
+   573→    }
+   574→
+   575→    # Check 5: DELIVERY — Is the response complete and deliverable?
+   576→    delivery_score = 80
+   577→    if len(response.strip()) < 20:
+   578→        delivery_score = 30
+   579→        issues.append("response_too_short")
+   580→        score -= 20
+   581→    elif len(response.strip()) > 1000:
+   582→        delivery_score = 70
+   583→        # Not a failure, just info
+   584→
+   585→    # Check for placeholder text that shouldn't be delivered
+   586→    placeholders = re.findall(r'\{+\w+\}+', response)
+   587→    if placeholders:
+   588→        issues.append("unresolved_placeholders")
+   589→        score -= 10
+   590→        delivery_score -= 20
+   591→
+   592→    checks["delivery"] = {
+   593→        "score": delivery_score,
+   594→        "response_length": len(response),
+   595→        "has_placeholders": bool(placeholders),
+   596→    }
+   597→
+   598→    # Compute final score
+   599→    final_score = max(0.0, min(100.0, score))
+   600→    passed = final_score >= 60.0  # Mini threshold: 60 (lower than Pro's 85)
+   601→
+   602→    # Auto-fix: adjust response if minor issues
+   603→    adjusted_response = response
+   604→    if issues and "unresolved_placeholders" in issues:
+   605→        # Remove any unresolved template placeholders
+   606→        adjusted_response = re.sub(r'\{+\w+\}+', '', adjusted_response)
+   607→        adjusted_response = re.sub(r'\s{2,}', ' ', adjusted_response).strip()
+   608→
+   609→    return {
+   610→        "passed": passed,
+   611→        "score": round(final_score, 2),
+   612→        "issues": issues,
+   613→        "adjusted_response": adjusted_response,
+   614→        "checks": checks,
+   615→    }
+   616→
+   617→
+   618→# ══════════════════════════════════════════════════════════════════
+   619→# NODE FUNCTIONS — 10 Agent Nodes
+   620→# ══════════════════════════════════════════════════════════════════
+   621→
+   622→
+   623→def pii_check_node(state: ParwaGraphState) -> Dict[str, Any]:
+   624→    """Agent 1: PII Check — Detect and redact PII in the query.
+   625→
+   626→    Uses PIIDetector from app.core.pii_redaction_engine.
+   627→    This is a FREE step (regex-based, no LLM).
+   628→
+   629→    Writes: pii_detected, pii_redacted_query, pii_entities, current_step
+   630→    """
+   631→    start = time.monotonic()
+   632→    try:
+   633→        query = state.get("query", "")
+   634→        company_id = state.get("company_id", "")
+   635→
+   636→        if not query:
+   637→            return {
+   638→                "pii_detected": False,
+   639→                "pii_redacted_query": query,
+   640→                "pii_entities": [],
+   641→                "current_step": "pii_check",
+   642→                "step_outputs": {"pii_check": {"status": "skipped", "reason": "empty_query"}},
+   643→                "audit_log": [append_audit_entry(state, "pii_check", "skipped_empty_query")["audit_log"][0]],
+   644→            }
+   645→
+   646→        # Detect PII
+   647→        detector = _get_pii_detector()
+   648→        matches = detector.detect(query)
+   649→
+   650→        # Build PII entities list
+   651→        pii_entities = [
+   652→            {
+   653→                "type": m.pii_type,
+   654→                "value": m.value,
+   655→                "start": m.start,
+   656→                "end": m.end,
+   657→                "confidence": m.confidence,
+   658→            }
+   659→            for m in matches
+   660→        ]
+   661→
+   662→        # Simple redaction: replace PII values with tokens
+   663→        pii_detected = len(matches) > 0
+   664→        redacted_query = query
+   665→        if pii_detected:
+   666→            for match in sorted(matches, key=lambda m: m.start, reverse=True):
+   667→                token = f"{{{{{match.pii_type}}}}}"
+   668→                redacted_query = redacted_query[:match.start] + token + redacted_query[match.end:]
+   669→
+   670→        duration_ms = round((time.monotonic() - start) * 1000, 2)
+   671→
+   672→        audit_entry = append_audit_entry(
+   673→            state,
+   674→            step="pii_check",
+   675→            action="pii_detection_complete",
+   676→            duration_ms=duration_ms,
+   677→            tokens_used=0,
+   678→            details={
+   679→                "pii_detected": pii_detected,
+   680→                "entity_count": len(matches),
+   681→                "entity_types": list(set(m.pii_type for m in matches)),
+   682→            },
+   683→        )
+   684→
+   685→        return {
+   686→            "pii_detected": pii_detected,
+   687→            "pii_redacted_query": redacted_query,
+   688→            "pii_entities": pii_entities,
+   689→            "current_step": "pii_check",
+   690→            "step_outputs": {
+   691→                "pii_check": {
+   692→                    "status": "completed",
+   693→                    "pii_detected": pii_detected,
+   694→                    "entity_count": len(matches),
+   695→                    "duration_ms": duration_ms,
+   696→                }
+   697→            },
+   698→            "audit_log": audit_entry["audit_log"],
+   699→        }
+   700→
+   701→    except Exception as exc:
+   702→        duration_ms = round((time.monotonic() - start) * 1000, 2)
+   703→        logger.exception("pii_check_node_failed", error=str(exc))
+   704→        return {
+   705→            "pii_detected": False,
+   706→            "pii_redacted_query": state.get("query", ""),
+   707→            "pii_entities": [],
+   708→            "current_step": "pii_check",
+   709→            "errors": [f"pii_check: {str(exc)}"],
+   710→            "step_outputs": {
+   711→                "pii_check": {
+   712→                    "status": "error",
+   713→                    "error": str(exc),
+   714→                    "duration_ms": duration_ms,
+   715→                }
+   716→            },
+   717→            "audit_log": [append_audit_entry(
+   718→                state, "pii_check", "error",
+   719→                duration_ms=duration_ms,
+   720→                details={"error": str(exc)},
+   721→            )["audit_log"][0]],
+   722→        }
+   723→
+   724→
+   725→async def empathy_check_node(state: ParwaGraphState) -> Dict[str, Any]:
+   726→    """Agent 2: Empathy Check — Score empathy and detect emotional flags.
+   727→
+   728→    Uses LLM for sentiment/empathy analysis (via MiniLLMClient).
+   729→    FALLBACK: If LLM fails, uses keyword-based detection.
+   730→
+   731→    Also integrates with Smart Router for model selection.
+   732→
+   733→    Writes: empathy_score, empathy_flags, current_step
+   734→    """
+   735→    start = time.monotonic()
+   736→    try:
+   737→        query = state.get("pii_redacted_query") or state.get("query", "")
+   738→
+   739→        if not query:
+   740→            return {
+   741→                "empathy_score": 0.5,
+   742→                "empathy_flags": [],
+   743→                "current_step": "empathy_check",
+   744→                "step_outputs": {"empathy_check": {"status": "skipped", "reason": "empty_query"}},
+   745→                "audit_log": [append_audit_entry(state, "empathy_check", "skipped_empty_query")["audit_log"][0]],
+   746→            }
+   747→
+   748→        # Try LLM-based empathy check first
+   749→        empathy_score = 0.5
+   750→        empathy_flags: List[str] = []
+   751→        method = "keyword"
+   752→
+   753→        try:
+   754→            from app.core.mini_parwa.llm_client import MiniLLMClient
+   755→
+   756→            client = MiniLLMClient()
+   757→            if client.is_available:
+   758→                llm_response, tokens = await client.chat(
+   759→                    system_prompt=(
+   760→                        "Analyze the customer's emotional state. "
+   761→                        "Return JSON: {\"empathy_score\": <0.0-1.0>, "
+   762→                        "\"flags\": [\"frustrated\"|\"angry\"|\"sad\"|\"urgent\"|\"confused\"]}\n"
+   763→                        "Lower empathy_score means more distressed customer."
+   764→                    ),
+   765→                    user_message=query,
+   766→                    max_tokens=100,
+   767→                    temperature=0.3,
+   768→                )
+   769→
+   770→                if llm_response:
+   771→                    import json
+   772→                    json_match = re.search(r'\{[^}]+\}', llm_response)
+   773→                    if json_match:
+   774→                        data = json.loads(json_match.group())
+   775→                        empathy_score = float(data.get("empathy_score", 0.5))
+   776→                        empathy_score = max(0.0, min(1.0, empathy_score))
+   777→                        empathy_flags = data.get("flags", [])
+   778→                        if not isinstance(empathy_flags, list):
+   779→                            empathy_flags = []
+   780→                        method = "llm"
+   781→        except Exception:
+   782→            logger.info("empathy_llm_fallback_to_keyword")
+   783→
+   784→        # Fallback to keyword-based if LLM didn't work
+   785→        if method == "keyword":
+   786→            result = _keyword_empathy_check(query)
+   787→            empathy_score = result["empathy_score"]
+   788→            empathy_flags = result["empathy_flags"]
+   789→
+   790→        duration_ms = round((time.monotonic() - start) * 1000, 2)
+   791→
+   792→        audit_entry = append_audit_entry(
+   793→            state,
+   794→            step="empathy_check",
+   795→            action="empathy_analysis_complete",
+   796→            duration_ms=duration_ms,
+   797→            tokens_used=0,
+   798→            details={
+   799→                "empathy_score": empathy_score,
+   800→                "empathy_flags": empathy_flags,
+   801→                "method": method,
+   802→            },
+   803→        )
+   804→
+   805→        return {
+   806→            "empathy_score": empathy_score,
+   807→            "empathy_flags": empathy_flags,
+   808→            "current_step": "empathy_check",
+   809→            "step_outputs": {
+   810→                "empathy_check": {
+   811→                    "status": "completed",
+   812→                    "empathy_score": empathy_score,
+   813→                    "empathy_flags": empathy_flags,
+   814→                    "method": method,
+   815→                    "duration_ms": duration_ms,
+   816→                }
+   817→            },
+   818→            "audit_log": audit_entry["audit_log"],
+   819→        }
+   820→
+   821→    except Exception as exc:
+   822→        duration_ms = round((time.monotonic() - start) * 1000, 2)
+   823→        logger.exception("empathy_check_node_failed", error=str(exc))
+   824→        return {
+   825→            "empathy_score": 0.5,
+   826→            "empathy_flags": [],
+   827→            "current_step": "empathy_check",
+   828→            "errors": [f"empathy_check: {str(exc)}"],
+   829→            "step_outputs": {
+   830→                "empathy_check": {
+   831→                    "status": "error",
+   832→                    "error": str(exc),
+   833→                    "duration_ms": duration_ms,
+   834→                }
+   835→            },
+   836→            "audit_log": [append_audit_entry(
+   837→                state, "empathy_check", "error",
+   838→                duration_ms=duration_ms,
+   839→                details={"error": str(exc)},
+   840→            )["audit_log"][0]],
+   841→        }
+   842→
+   843→
+   844→def emergency_check_node(state: ParwaGraphState) -> Dict[str, Any]:
+   845→    """Agent 3: Emergency Check — Detect emergency signals.
+   846→
+   847→    Uses keyword matching (FREE, no LLM) — this is a safety gate.
+   848→    If emergency detected, the pipeline skips to format with an
+   849→    escalation message.
+   850→
+   851→    Writes: emergency_flag, emergency_type, current_step
+   852→    """
+   853→    start = time.monotonic()
+   854→    try:
+   855→        query = state.get("pii_redacted_query") or state.get("query", "")
+   856→
+   857→        if not query:
+   858→            return {
+   859→                "emergency_flag": False,
+   860→                "emergency_type": "",
+   861→                "current_step": "emergency_check",
+   862→                "step_outputs": {"emergency_check": {"status": "skipped", "reason": "empty_query"}},
+   863→                "audit_log": [append_audit_entry(state, "emergency_check", "skipped_empty_query")["audit_log"][0]],
+   864→            }
+   865→
+   866→        result = _check_emergency_keywords(query)
+   867→        emergency_flag = result["emergency_flag"]
+   868→        emergency_type = result["emergency_type"]
+   869→
+   870→        if emergency_flag:
+   871→            logger.warning(
+   872→                "emergency_detected",
+   873→                emergency_type=emergency_type,
+   874→                company_id=state.get("company_id", ""),
+   875→                matched_keywords=result.get("matched_keywords", {}),
+   876→            )
+   877→
+   878→        duration_ms = round((time.monotonic() - start) * 1000, 2)
+   879→
+   880→        audit_entry = append_audit_entry(
+   881→            state,
+   882→            step="emergency_check",
+   883→            action="emergency_detection_complete",
+   884→            duration_ms=duration_ms,
+   885→            tokens_used=0,
+   886→            details={
+   887→                "emergency_flag": emergency_flag,
+   888→                "emergency_type": emergency_type,
+   889→                "matched_keywords": result.get("matched_keywords", {}),
+   890→            },
+   891→        )
+   892→
+   893→        return {
+   894→            "emergency_flag": emergency_flag,
+   895→            "emergency_type": emergency_type,
+   896→            "current_step": "emergency_check",
+   897→            "step_outputs": {
+   898→                "emergency_check": {
+   899→                    "status": "completed",
+   900→                    "emergency_flag": emergency_flag,
+   901→                    "emergency_type": emergency_type,
+   902→                    "duration_ms": duration_ms,
+   903→                }
+   904→            },
+   905→            "audit_log": audit_entry["audit_log"],
+   906→        }
+   907→
+   908→    except Exception as exc:
+   909→        duration_ms = round((time.monotonic() - start) * 1000, 2)
+   910→        logger.exception("emergency_check_node_failed", error=str(exc))
+   911→        return {
+   912→            "emergency_flag": False,
+   913→            "emergency_type": "",
+   914→            "current_step": "emergency_check",
+   915→            "errors": [f"emergency_check: {str(exc)}"],
+   916→            "step_outputs": {
+   917→                "emergency_check": {
+   918→                    "status": "error",
+   919→                    "error": str(exc),
+   920→                    "duration_ms": duration_ms,
+   921→                }
+   922→            },
+   923→            "audit_log": [append_audit_entry(
+   924→                state, "emergency_check", "error",
+   925→                duration_ms=duration_ms,
+   926→                details={"error": str(exc)},
+   927→            )["audit_log"][0]],
+   928→        }
+   929→
+   930→
+   931→def gsd_state_node(state: ParwaGraphState) -> Dict[str, Any]:
+   932→    """Agent 4: GSD State — Track and update conversation state machine.
+   933→
+   934→    GSD = Guided Support Dialogue (F-053).
+   935→    State machine: NEW -> GREETING -> DIAGNOSIS -> RESOLUTION -> FOLLOW-UP -> CLOSED
+   936→
+   937→    For Mini: Simplified state transitions with keyword-based detection.
+   938→    Tracks state in SharedGSDManager for analytics and recovery.
+   939→
+   940→    Writes: gsd_state, current_step
+   941→    """
+   942→    start = time.monotonic()
+   943→    try:
+   944→        company_id = state.get("company_id", "")
+   945→        ticket_id = state.get("ticket_id", "")
+   946→        query = state.get("pii_redacted_query") or state.get("query", "")
+   947→        emergency_flag = state.get("emergency_flag", False)
+   948→        empathy_score = state.get("empathy_score", 0.5)
+   949→        classification = state.get("classification", {})
+   950→
+   951→        # Determine the GSD state transition
+   952→        gsd_manager = _get_gsd_manager()
+   953→        current_gsd_state = "new"
+   954→
+   955→        if gsd_manager:
+   956→            current_gsd_state = gsd_manager.get_current_state(
+   957→                company_id, ticket_id,
+   958→            ) or "new"
+   959→
+   960→        # Determine next state based on signals (code-orchestrated = FREE)
+   961→        if emergency_flag:
+   962→            next_state = "escalate"
+   963→        elif current_gsd_state == "new":
+   964→            next_state = "greeting"
+   965→        elif current_gsd_state == "greeting":
+   966→            # Has classification? Move to diagnosis
+   967→            if classification and classification.get("intent", "general") != "general":
+   968→                next_state = "diagnosis"
+   969→            else:
+   970→                next_state = "diagnosis"  # Default progression
+   971→        elif current_gsd_state == "diagnosis":
+   972→            # Has generated response? Move to resolution
+   973→            if state.get("generated_response"):
+   974→                next_state = "resolution"
+   975→            else:
+   976→                next_state = "diagnosis"  # Stay in diagnosis
+   977→        elif current_gsd_state == "resolution":
+   978→            next_state = "follow_up"
+   979→        elif current_gsd_state == "follow_up":
+   980→            next_state = "closed"
+   981→        else:
+   982→            next_state = current_gsd_state
+   983→
+   984→        # Record the transition
+   985→        if gsd_manager and next_state != current_gsd_state:
+   986→            gsd_manager.record_transition(
+   987→                company_id=company_id,
+   988→                ticket_id=ticket_id,
+   989→                from_state=current_gsd_state,
+   990→                to_state=next_state,
+   991→                metadata={
+   992→                    "emergency": emergency_flag,
+   993→                    "empathy_score": empathy_score,
+   994→                    "variant_tier": "mini_parwa",
+   995→                },
+   996→            )
+   997→
+   998→        # Check for stuck tickets and get recovery suggestions
+   999→        recovery_suggestions = []
+  1000→        if gsd_manager:
+  1001→            recovery_suggestions = gsd_manager.suggest_recovery(
+  1002→                company_id, ticket_id,
+  1003→            )
+  1004→
+  1005→        duration_ms = round((time.monotonic() - start) * 1000, 2)
+  1006→
+  1007→        audit_entry = append_audit_entry(
+  1008→            state,
+  1009→            step="gsd_state",
+  1010→            action="gsd_state_transition",
+  1011→            duration_ms=duration_ms,
+  1012→            tokens_used=0,
+  1013→            details={
+  1014→                "from_state": current_gsd_state,
+  1015→                "to_state": next_state,
+  1016→                "emergency": emergency_flag,
+  1017→            },
+  1018→        )
+  1019→
+  1020→        return {
+  1021→            "current_step": "gsd_state",
+  1022→            "step_outputs": {
+  1023→                "gsd_state": {
+  1024→                    "status": "completed",
+  1025→                    "from_state": current_gsd_state,
+  1026→                    "to_state": next_state,
+  1027→                    "recovery_suggestions": recovery_suggestions,
+  1028→                    "duration_ms": duration_ms,
+  1029→                }
+  1030→            },
+  1031→            "audit_log": audit_entry["audit_log"],
+  1032→        }
+  1033→
+  1034→    except Exception as exc:
+  1035→        duration_ms = round((time.monotonic() - start) * 1000, 2)
+  1036→        logger.exception("gsd_state_node_failed", error=str(exc))
+  1037→        return {
+  1038→            "current_step": "gsd_state",
+  1039→            "errors": [f"gsd_state: {str(exc)}"],
+  1040→            "step_outputs": {
+  1041→                "gsd_state": {
+  1042→                    "status": "error",
+  1043→                    "error": str(exc),
+  1044→                    "duration_ms": duration_ms,
+  1045→                }
+  1046→            },
+  1047→            "audit_log": [append_audit_entry(
+  1048→                state, "gsd_state", "error",
+  1049→                duration_ms=duration_ms,
+  1050→                details={"error": str(exc)},
+  1051→            )["audit_log"][0]],
+  1052→        }
+  1053→
+  1054→
+  1055→def extract_signals_node(state: ParwaGraphState) -> Dict[str, Any]:
+  1056→    """Agent 5: Extract Signals — Derive query signals for technique routing.
+  1057→
+  1058→    Extracts: complexity, sentiment, monetary value, intent, etc.
+  1059→    These signals feed into the Technique Router (BC-013).
+  1060→
+  1061→    For Mini: Keyword/rule-based signal extraction (FREE, no LLM).
+  1062→    Writes to state.signals which the Technique Router reads.
+  1063→
+  1064→    Writes: signals, technique, current_step
+  1065→    """
+  1066→    start = time.monotonic()
+  1067→    try:
+  1068→        query = state.get("pii_redacted_query") or state.get("query", "")
+  1069→        empathy_score = state.get("empathy_score", 0.5)
+  1070→        empathy_flags = state.get("empathy_flags", [])
+  1071→        customer_tier = state.get("customer_tier", "free")
+  1072→        classification = state.get("classification", {})
+  1073→        emergency_flag = state.get("emergency_flag", False)
+  1074→
+  1075→        # ── Signal Extraction (code-orchestrated = FREE) ───────
+  1076→
+  1077→        # 1. Query complexity (based on word count, question marks, multi-part)
+  1078→        word_count = len(query.split())
+  1079→        question_marks = query.count("?")
+  1080→        has_multi_part = bool(re.search(
+  1081→            r'\b(and|also|furthermore|moreover|as well|additionally)\b',
+  1082→            query, re.IGNORECASE,
+  1083→        ))
+  1084→        complexity = min(1.0, (word_count / 50) * 0.4 + question_marks * 0.15 + (0.3 if has_multi_part else 0.0))
+  1085→
+  1086→        # 2. Sentiment score (derived from empathy)
+  1087→        sentiment = empathy_score
+  1088→
+  1089→        # 3. Monetary value detection
+  1090→        monetary_match = re.search(
+  1091→            r'\$(\d+(?:,\d+)*(?:\.\d{2})?)',
+  1092→            query,
+  1093→        )
+  1094→        monetary_value = 0.0
+  1095→        if monetary_match:
+  1096→            monetary_value = float(monetary_match.group(1).replace(",", ""))
+  1097→
+  1098→        # 4. Intent type (from classification if available)
+  1099→        intent_type = classification.get("intent", "general") if classification else "general"
+  1100→
+  1101→        # 5. Turn count (from conversation_id presence)
+  1102→        conversation_id = state.get("conversation_id", "")
+  1103→        turn_count = 1 if conversation_id else 0
+  1104→
+  1105→        # 6. Resolution path count (estimate from query complexity)
+  1106→        resolution_path_count = 1
+  1107→        if complexity > 0.5 or intent_type in ("technical", "billing"):
+  1108→            resolution_path_count = 3
+  1109→        elif complexity > 0.3:
+  1110→            resolution_path_count = 2
+  1111→
+  1112→        # 7. External data required (detect order IDs, account numbers)
+  1113→        external_data = bool(re.search(
+  1114→            r'(order|account|invoice|ticket|tracking)\s*#?\s*\d+',
+  1115→            query, re.IGNORECASE,
+  1116→        ))
+  1117→
+  1118→        # 8. Reasoning loop detection (check step outputs for repeated steps)
+  1119→        reasoning_loop = False
+  1120→        step_outputs = state.get("step_outputs", {})
+  1121→        if isinstance(step_outputs, dict):
+  1122→            completed_steps = [k for k, v in step_outputs.items()
+  1123→                             if isinstance(v, dict) and v.get("status") == "completed"]
+  1124→            if completed_steps.count("classify") > 1:
+  1125→                reasoning_loop = True
+  1126→
+  1127→        # 9. Frustration score (derived from empathy + flags)
+  1128→        frustration_score = 0.0
+  1129→        if empathy_flags:
+  1130→            frustration_map = {
+  1131→                "frustrated": 50, "angry": 80, "urgent": 60,
+  1132→                "sad": 40, "confused": 30,
+  1133→            }
+  1134→            frustration_score = max(
+  1135→                frustration_map.get(f, 20) for f in empathy_flags
+  1136→            )
+  1137→
+  1138→        signals = {
+  1139→            "query_complexity": round(complexity, 3),
+  1140→            "confidence_score": 1.0,  # Will be updated by confidence scoring
+  1141→            "sentiment_score": round(sentiment, 3),
+  1142→            "frustration_score": frustration_score,
+  1143→            "customer_tier": customer_tier,
+  1144→            "monetary_value": monetary_value,
+  1145→            "turn_count": turn_count,
+  1146→            "intent_type": intent_type,
+  1147→            "previous_response_status": "none",
+  1148→            "reasoning_loop_detected": reasoning_loop,
+  1149→            "resolution_path_count": resolution_path_count,
+  1150→            "external_data_required": external_data,
+  1151→            "is_strategic_decision": False,
+  1152→        }
+  1153→
+  1154→        # ── Technique Router (BC-013) ──────────────────────────
+  1155→        technique_result = {}
+  1156→        try:
+  1157→            router = _get_technique_router()
+  1158→            if router:
+  1159→                from app.core.technique_router import QuerySignals
+  1160→                query_signals = QuerySignals(
+  1161→                    query_complexity=signals["query_complexity"],
+  1162→                    confidence_score=signals["confidence_score"],
+  1163→                    sentiment_score=signals["sentiment_score"],
+  1164→                    frustration_score=signals["frustration_score"],
+  1165→                    customer_tier=signals["customer_tier"],
+  1166→                    monetary_value=signals["monetary_value"],
+  1167→                    turn_count=signals["turn_count"],
+  1168→                    intent_type=signals["intent_type"],
+  1169→                    previous_response_status=signals["previous_response_status"],
+  1170→                    reasoning_loop_detected=signals["reasoning_loop_detected"],
+  1171→                    resolution_path_count=signals["resolution_path_count"],
+  1172→                    external_data_required=signals["external_data_required"],
+  1173→                    is_strategic_decision=signals["is_strategic_decision"],
+  1174→                )
+  1175→                router_result = router.route(query_signals)
+  1176→                technique_result = {
+  1177→                    "technique": "tier_1_only",
+  1178→                    "activated_techniques": [
+  1179→                        t.technique_id.value for t in router_result.activated_techniques
+  1180→                    ],
+  1181→                    "model_tier": router_result.model_tier,
+  1182→                    "trigger_rules_evaluated": router_result.trigger_rules_evaluated,
+  1183→                    "trigger_rules_matched": router_result.trigger_rules_matched,
+  1184→                    "total_estimated_tokens": router_result.total_estimated_tokens,
+  1185→                    "method": "technique_router",
+  1186→                }
+  1187→        except Exception:
+  1188→            logger.info("technique_router_fallback_to_defaults")
+  1189→            technique_result = {
+  1190→                "technique": "tier_1_only",
+  1191→                "activated_techniques": ["clara", "crp", "gsd"],
+  1192→                "model_tier": "light",
+  1193→                "trigger_rules_evaluated": 0,
+  1194→                "trigger_rules_matched": 0,
+  1195→                "total_estimated_tokens": 100,
+  1196→                "method": "fallback_defaults",
+  1197→            }
+  1198→
+  1199→        duration_ms = round((time.monotonic() - start) * 1000, 2)
+  1200→
+  1201→        audit_entry = append_audit_entry(
+  1202→            state,
+  1203→            step="extract_signals",
+  1204→            action="signals_extracted",
+  1205→            duration_ms=duration_ms,
+  1206→            tokens_used=0,
+  1207→            details={
+  1208→                "complexity": signals["query_complexity"],
+  1209→                "sentiment": signals["sentiment_score"],
+  1210→                "monetary_value": signals["monetary_value"],
+  1211→                "techniques_activated": technique_result.get("activated_techniques", []),
+  1212→            },
+  1213→        )
+  1214→
+  1215→        return {
+  1216→            "signals": signals,
+  1217→            "technique": technique_result,
+  1218→            "current_step": "extract_signals",
+  1219→            "step_outputs": {
+  1220→                "extract_signals": {
+  1221→                    "status": "completed",
+  1222→                    "complexity": signals["query_complexity"],
+  1223→                    "sentiment": signals["sentiment_score"],
+  1224→                    "monetary_value": signals["monetary_value"],
+  1225→                    "techniques": technique_result.get("activated_techniques", []),
+  1226→                    "duration_ms": duration_ms,
+  1227→                }
+  1228→            },
+  1229→            "audit_log": audit_entry["audit_log"],
+  1230→        }
+  1231→
+  1232→    except Exception as exc:
+  1233→        duration_ms = round((time.monotonic() - start) * 1000, 2)
+  1234→        logger.exception("extract_signals_node_failed", error=str(exc))
+  1235→        return {
+  1236→            "signals": {},
+  1237→            "technique": {
+  1238→                "technique": "tier_1_only",
+  1239→                "activated_techniques": ["clara", "crp", "gsd"],
+  1240→                "model_tier": "light",
+  1241→                "method": "error_fallback",
+  1242→            },
+  1243→            "current_step": "extract_signals",
+  1244→            "errors": [f"extract_signals: {str(exc)}"],
+  1245→            "step_outputs": {
+  1246→                "extract_signals": {
+  1247→                    "status": "error",
+  1248→                    "error": str(exc),
+  1249→                    "duration_ms": duration_ms,
+  1250→                }
+  1251→            },
+  1252→            "audit_log": [append_audit_entry(
+  1253→                state, "extract_signals", "error",
+  1254→                duration_ms=duration_ms,
+  1255→                details={"error": str(exc)},
+  1256→            )["audit_log"][0]],
+  1257→        }
+  1258→
+  1259→
+  1260→def classify_node(state: ParwaGraphState) -> Dict[str, Any]:
+  1261→    """Agent 6: Classify — Intent classification using keyword matching.
+  1262→
+  1263→    For Mini: uses keyword classification (no AI, saves cost).
+  1264→    Uses ClassificationEngine with use_ai=False.
+  1265→
+  1266→    Writes: classification, current_step
+  1267→    """
+  1268→    start = time.monotonic()
+  1269→    try:
+  1270→        query = state.get("pii_redacted_query") or state.get("query", "")
+  1271→
+  1272→        if not query:
+  1273→            return {
+  1274→                "classification": {
+  1275→                    "intent": "general",
+  1276→                    "confidence": 0.0,
+  1277→                    "secondary_intents": [],
+  1278→                    "method": "fallback",
+  1279→                },
+  1280→                "current_step": "classify",
+  1281→                "step_outputs": {"classify": {"status": "skipped", "reason": "empty_query"}},
+  1282→                "audit_log": [append_audit_entry(state, "classify", "skipped_empty_query")["audit_log"][0]],
+  1283→            }
+  1284→
+  1285→        # Use keyword classifier (FREE, no AI for Mini)
+  1286→        classifier = _get_keyword_classifier()
+  1287→        result = classifier.classify(query)
+  1288→
+  1289→        classification = {
+  1290→            "intent": result.primary_intent,
+  1291→            "confidence": result.primary_confidence,
+  1292→            "secondary_intents": [
+  1293→                {"intent": intent, "confidence": conf}
+  1294→                for intent, conf in result.secondary_intents
+  1295→            ],
+  1296→            "method": result.classification_method,
+  1297→        }
+  1298→
+  1299→        duration_ms = round((time.monotonic() - start) * 1000, 2)
+  1300→
+  1301→        audit_entry = append_audit_entry(
+  1302→            state,
+  1303→            step="classify",
+  1304→            action="classification_complete",
+  1305→            duration_ms=duration_ms,
+  1306→            tokens_used=0,
+  1307→            details={
+  1308→                "intent": classification["intent"],
+  1309→                "confidence": classification["confidence"],
+  1310→                "method": classification["method"],
+  1311→            },
+  1312→        )
+  1313→
+  1314→        return {
+  1315→            "classification": classification,
+  1316→            "current_step": "classify",
+  1317→            "step_outputs": {
+  1318→                "classify": {
+  1319→                    "status": "completed",
+  1320→                    "intent": classification["intent"],
+  1321→                    "confidence": classification["confidence"],
+  1322→                    "method": classification["method"],
+  1323→                    "duration_ms": duration_ms,
+  1324→                }
+  1325→            },
+  1326→            "audit_log": audit_entry["audit_log"],
+  1327→        }
+  1328→
+  1329→    except Exception as exc:
+  1330→        duration_ms = round((time.monotonic() - start) * 1000, 2)
+  1331→        logger.exception("classify_node_failed", error=str(exc))
+  1332→        return {
+  1333→            "classification": {
+  1334→                "intent": "general",
+  1335→                "confidence": 0.0,
+  1336→                "secondary_intents": [],
+  1337→                "method": "fallback",
+  1338→            },
+  1339→            "current_step": "classify",
+  1340→            "errors": [f"classify: {str(exc)}"],
+  1341→            "step_outputs": {
+  1342→                "classify": {
+  1343→                    "status": "error",
+  1344→                    "error": str(exc),
+  1345→                    "duration_ms": duration_ms,
+  1346→                }
+  1347→            },
+  1348→            "audit_log": [append_audit_entry(
+  1349→                state, "classify", "error",
+  1350→                duration_ms=duration_ms,
+  1351→                details={"error": str(exc)},
+  1352→            )["audit_log"][0]],
+  1353→        }
+  1354→
+  1355→
+  1356→async def generate_node(state: ParwaGraphState) -> Dict[str, Any]:
+  1357→    """Agent 7: Generate — Generate response using LLM.
+  1358→
+  1359→    Uses MiniLLMClient (gpt-4o-mini) for generation.
+  1360→    Integrates with Smart Router (F-054) for model selection.
+  1361→    FALLBACK: If LLM fails, uses template-based response.
+  1362→
+  1363→    Builds prompt from: industry system prompt + classification +
+  1364→    empathy context + GSD state + technique context + query.
+  1365→
+  1366→    Writes: generated_response, generation_model, generation_tokens, current_step
+  1367→    """
+  1368→    start = time.monotonic()
+  1369→    try:
+  1370→        query = state.get("pii_redacted_query") or state.get("query", "")
+  1371→        industry = state.get("industry", "general")
+  1372→        classification = state.get("classification", {})
+  1373→        empathy_score = state.get("empathy_score", 0.5)
+  1374→        empathy_flags = state.get("empathy_flags", [])
+  1375→        emergency_flag = state.get("emergency_flag", False)
+  1376→        ticket_id = state.get("ticket_id", "")
+  1377→        technique = state.get("technique", {})
+  1378→        signals = state.get("signals", {})
+  1379→
+  1380→        # If emergency was detected, use emergency template
+  1381→        if emergency_flag:
+  1382→            emergency_type = state.get("emergency_type", "")
+  1383→            emergency_response = EMERGENCY_RESPONSE_TEMPLATE.format(
+  1384→                ticket_id=ticket_id or "N/A"
+  1385→            )
+  1386→            duration_ms = round((time.monotonic() - start) * 1000, 2)
+  1387→            return {
+  1388→                "generated_response": emergency_response,
+  1389→                "generation_model": "template",
+  1390→                "generation_tokens": 0,
+  1391→                "current_step": "generate",
+  1392→                "step_outputs": {
+  1393→                    "generate": {
+  1394→                        "status": "completed",
+  1395→                        "method": "emergency_template",
+  1396→                        "emergency_type": emergency_type,
+  1397→                        "duration_ms": duration_ms,
+  1398→                    }
+  1399→                },
+  1400→                "audit_log": append_audit_entry(
+  1401→                    state,
+  1402→                    step="generate",
+  1403→                    action="emergency_template_generated",
+  1404→                    duration_ms=duration_ms,
+  1405→                    tokens_used=0,
+  1406→                    details={"emergency_type": emergency_type},
+  1407→                )["audit_log"],
+  1408→            }
+  1409→
+  1410→        # Build the generation prompt
+  1411→        system_prompt = get_industry_prompt(industry)
+  1412→
+  1413→        # Add GSD state context
+  1414→        step_outputs = state.get("step_outputs", {})
+  1415→        gsd_output = step_outputs.get("gsd_state", {})
+  1416→        if isinstance(gsd_output, dict) and gsd_output.get("to_state"):
+  1417→            system_prompt += (
+  1418→                f"\n\nConversation state: {gsd_output['to_state'].upper()}. "
+  1419→                "Respond appropriately for this conversation stage."
+  1420→            )
+  1421→
+  1422→        # Add technique context (Tier 1: CLARA structure guidance)
+  1423→        activated = technique.get("activated_techniques", [])
+  1424→        if "clara" in activated:
+  1425→            system_prompt += (
+  1426→                "\n\nRESPONSE STRUCTURE (CLARA): "
+  1427→                "1) Acknowledge the customer's concern. "
+  1428→                "2) Provide the solution or explanation. "
+  1429→                "3) State any action items or next steps. "
+  1430→                "4) Close with a helpful statement."
+  1431→            )
+  1432→
+  1433→        # Add empathy context
+  1434→        if empathy_flags and empathy_score < 0.5:
+  1435→            system_prompt += (
+  1436→                "\n\nIMPORTANT: The customer appears to be distressed "
+  1437→                f"(empathy score: {empathy_score:.1f}, flags: {', '.join(empathy_flags)}). "
+  1438→                "Be extra empathetic, acknowledge their feelings, "
+  1439→                "and prioritize resolving their issue."
+  1440→            )
+  1441→
+  1442→        # Add classification context
+  1443→        intent = classification.get("intent", "general")
+  1444→        confidence = classification.get("confidence", 0.0)
+  1445→        system_prompt += (
+  1446→            f"\n\nThe customer's intent is classified as '{intent}' "
+  1447→            f"(confidence: {confidence:.1%}). "
+  1448→            f"Tailor your response accordingly."
+  1449→        )
+  1450→
+  1451→        # Try LLM generation (with Smart Router awareness)
+  1452→        generated_response = ""
+  1453→        generation_tokens = 0
+  1454→        generation_model = "template"
+  1455→        method = "template"
+  1456→
+  1457→        try:
+  1458→            from app.core.mini_parwa.llm_client import MiniLLMClient
+  1459→
+  1460→            client = MiniLLMClient()
+  1461→            if client.is_available:
+  1462→                fallback_text = TEMPLATE_RESPONSES.get(
+  1463→                    intent, TEMPLATE_RESPONSES["general"]
+  1464→                )
+  1465→                response_text, tokens = await client.chat_with_fallback(
+  1466→                    system_prompt=system_prompt,
+  1467→                    user_message=query,
+  1468→                    fallback_text=fallback_text,
+  1469→                    max_tokens=256,
+  1470→                    temperature=0.7,
+  1471→                )
+  1472→                if response_text:
+  1473→                    generated_response = response_text
+  1474→                    generation_tokens = tokens
+  1475→                    generation_model = client.model
+  1476→                    method = "llm"
+  1477→        except Exception:
+  1478→            logger.info("generate_llm_fallback_to_template")
+  1479→
+  1480→        # Fallback to template if LLM didn't produce output
+  1481→        if not generated_response:
+  1482→            generated_response = TEMPLATE_RESPONSES.get(
+  1483→                intent, TEMPLATE_RESPONSES["general"]
+  1484→            )
+  1485→            method = "template"
+  1486→
+  1487→        duration_ms = round((time.monotonic() - start) * 1000, 2)
+  1488→
+  1489→        audit_entry = append_audit_entry(
+  1490→            state,
+  1491→            step="generate",
+  1492→            action="response_generated",
+  1493→            duration_ms=duration_ms,
+  1494→            tokens_used=generation_tokens,
+  1495→            details={
+  1496→                "method": method,
+  1497→                "model": generation_model,
+  1498→                "intent": intent,
+  1499→                "techniques_active": activated,
+  1500→            },
+  1501→        )
+  1502→
+  1503→        return {
+  1504→            "generated_response": generated_response,
+  1505→            "generation_model": generation_model,
+  1506→            "generation_tokens": generation_tokens,
+  1507→            "current_step": "generate",
+  1508→            "step_outputs": {
+  1509→                "generate": {
+  1510→                    "status": "completed",
+  1511→                    "method": method,
+  1512→                    "model": generation_model,
+  1513→                    "tokens": generation_tokens,
+  1514→                    "techniques_active": activated,
+  1515→                    "duration_ms": duration_ms,
+  1516→                }
+  1517→            },
+  1518→            "audit_log": audit_entry["audit_log"],
+  1519→        }
+  1520→
+  1521→    except Exception as exc:
+  1522→        duration_ms = round((time.monotonic() - start) * 1000, 2)
+  1523→        logger.exception("generate_node_failed", error=str(exc))
+  1524→
+  1525→        fallback = TEMPLATE_RESPONSES["general"]
+  1526→
+  1527→        return {
+  1528→            "generated_response": fallback,
+  1529→            "generation_model": "template",
+  1530→            "generation_tokens": 0,
+  1531→            "current_step": "generate",
+  1532→            "errors": [f"generate: {str(exc)}"],
+  1533→            "step_outputs": {
+  1534→                "generate": {
+  1535→                    "status": "error",
+  1536→                    "error": str(exc),
+  1537→                    "method": "template_fallback",
+  1538→                    "duration_ms": duration_ms,
+  1539→                }
+  1540→            },
+  1541→            "audit_log": [append_audit_entry(
+  1542→                state, "generate", "error_template_fallback",
+  1543→                duration_ms=duration_ms,
+  1544→                details={"error": str(exc)},
+  1545→            )["audit_log"][0]],
+  1546→        }
+  1547→
+  1548→
+  1549→def crp_compress_node(state: ParwaGraphState) -> Dict[str, Any]:
+  1550→    """Agent 8: CRP Compress — Apply Concise Response Protocol (F-140).
+  1551→
+  1552→    CRP = Tier 1 technique, always active for ALL variants (even Mini).
+  1553→    Eliminates filler phrases, redundancy, and verbose language.
+  1554→    Target: 30-40% token reduction, >95% information retention.
+  1555→
+  1556→    This is a FREE step (rule-based, no LLM).
+  1557→
+  1558→    Writes: generated_response (updated), crp_compression_ratio, current_step
+  1559→    """
+  1560→    start = time.monotonic()
+  1561→    try:
+  1562→        generated_response = state.get("generated_response", "")
+  1563→        technique = state.get("technique", {})
+  1564→
+  1565→        # Only run CRP if it's activated by the technique router
+  1566→        activated = technique.get("activated_techniques", [])
+  1567→        crp_active = "crp" in activated or not activated  # Default active
+  1568→
+  1569→        if not generated_response or not crp_active:
+  1570→            return {
+  1571→                "current_step": "crp_compress",
+  1572→                "step_outputs": {
+  1573→                    "crp_compress": {
+  1574→                        "status": "skipped",
+  1575→                        "reason": "empty_response" if not generated_response else "crp_not_active",
+  1576→                        "duration_ms": round((time.monotonic() - start) * 1000, 2),
+  1577→                    }
+  1578→                },
+  1579→                "audit_log": [append_audit_entry(
+  1580→                    state, "crp_compress", "skipped",
+  1581→                    duration_ms=round((time.monotonic() - start) * 1000, 2),
+  1582→                    details={"reason": "crp_not_active_or_empty"},
+  1583→                )["audit_log"][0]],
+  1584→            }
+  1585→
+  1586→        # Apply CRP compression
+  1587→        result = _apply_crp_compression(generated_response)
+  1588→        compressed = result["compressed_text"]
+  1589→
+  1590→        # Use compressed text as the new generated_response
+  1591→        duration_ms = round((time.monotonic() - start) * 1000, 2)
+  1592→
+  1593→        audit_entry = append_audit_entry(
+  1594→            state,
+  1595→            step="crp_compress",
+  1596→            action="crp_compression_applied",
+  1597→            duration_ms=duration_ms,
+  1598→            tokens_used=0,
+  1599→            details={
+  1600→                "tokens_removed": result["tokens_removed"],
+  1601→                "compression_ratio": result["compression_ratio"],
+  1602→                "phrases_removed": result["phrases_removed"],
+  1603→            },
+  1604→        )
+  1605→
+  1606→        return {
+  1607→            "generated_response": compressed,
+  1608→            "current_step": "crp_compress",
+  1609→            "step_outputs": {
+  1610→                "crp_compress": {
+  1611→                    "status": "completed",
+  1612→                    "tokens_removed": result["tokens_removed"],
+  1613→                    "compression_ratio": result["compression_ratio"],
+  1614→                    "phrases_removed": result["phrases_removed"],
+  1615→                    "duration_ms": duration_ms,
+  1616→                }
+  1617→            },
+  1618→            "audit_log": audit_entry["audit_log"],
+  1619→        }
+  1620→
+  1621→    except Exception as exc:
+  1622→        duration_ms = round((time.monotonic() - start) * 1000, 2)
+  1623→        logger.exception("crp_compress_node_failed", error=str(exc))
+  1624→        # CRP failure is non-fatal — just pass through the response
+  1625→        return {
+  1626→            "current_step": "crp_compress",
+  1627→            "errors": [f"crp_compress: {str(exc)}"],
+  1628→            "step_outputs": {
+  1629→                "crp_compress": {
+  1630→                    "status": "error",
+  1631→                    "error": str(exc),
+  1632→                    "duration_ms": duration_ms,
+  1633→                }
+  1634→            },
+  1635→            "audit_log": [append_audit_entry(
+  1636→                state, "crp_compress", "error",
+  1637→                duration_ms=duration_ms,
+  1638→                details={"error": str(exc)},
+  1639→            )["audit_log"][0]],
+  1640→        }
+  1641→
+  1642→
+  1643→def clara_quality_gate_node(state: ParwaGraphState) -> Dict[str, Any]:
+  1644→    """Agent 9: CLARA Quality Gate — Validate response quality (Tier 1).
+  1645→
+  1646→    CLARA = Concise Logical Adaptive Response Architecture.
+  1647→    Always active for ALL variants (even Mini).
+  1648→
+  1649→    Validates: Structure -> Logic -> Brand -> Tone -> Delivery
+  1650→    For Mini: Rule-based checks (FREE, no LLM).
+  1651→    For Pro/High: Would use LLM-based validation + retry loop.
+  1652→
+  1653→    If response fails quality gate: auto-fix minor issues, log major ones.
+  1654→    Writes: quality_score, quality_passed, quality_issues, current_step
+  1655→    """
+  1656→    start = time.monotonic()
+  1657→    try:
+  1658→        generated_response = state.get("generated_response", "")
+  1659→        query = state.get("pii_redacted_query") or state.get("query", "")
+  1660→        industry = state.get("industry", "general")
+  1661→        empathy_score = state.get("empathy_score", 0.5)
+  1662→        technique = state.get("technique", {})
+  1663→
+  1664→        # Only run CLARA if it's activated by the technique router
+  1665→        activated = technique.get("activated_techniques", [])
+  1666→        clara_active = "clara" in activated or not activated  # Default active
+  1667→
+  1668→        if not generated_response or not clara_active:
+  1669→            return {
+  1670→                "quality_score": 0.0,
+  1671→                "quality_passed": True,  # Default pass if skipped
+  1672→                "quality_issues": [],
+  1673→                "quality_retry_count": 0,
+  1674→                "current_step": "clara_quality_gate",
+  1675→                "step_outputs": {
+  1676→                    "clara_quality_gate": {
+  1677→                        "status": "skipped",
+  1678→                        "reason": "empty_response" if not generated_response else "clara_not_active",
+  1679→                        "duration_ms": round((time.monotonic() - start) * 1000, 2),
+  1680→                    }
+  1681→                },
+  1682→                "audit_log": [append_audit_entry(
+  1683→                    state, "clara_quality_gate", "skipped",
+  1684→                    duration_ms=round((time.monotonic() - start) * 1000, 2),
+  1685→                    details={"reason": "clara_not_active_or_empty"},
+  1686→                )["audit_log"][0]],
+  1687→            }
+  1688→
+  1689→        # Run CLARA quality gate
+  1690→        tone = get_industry_tone(industry)
+  1691→        result = _run_clara_quality_gate(
+  1692→            response=generated_response,
+  1693→            query=query,
+  1694→            industry=industry,
+  1695→            tone=tone,
+  1696→            empathy_score=empathy_score,
+  1697→        )
+  1698→
+  1699→        # If auto-fix was applied, update the generated_response
+  1700→        final_response = result["adjusted_response"]
+  1701→
+  1702→        # Run Confidence Scoring Engine (F-059) for additional validation
+  1703→        confidence_result = None
+  1704→        try:
+  1705→            confidence_engine = _get_confidence_engine()
+  1706→            if confidence_engine:
+  1707→                confidence_result = confidence_engine.score_response(
+  1708→                    company_id=state.get("company_id", ""),
+  1709→                    query=query,
+  1710→                    response=final_response,
+  1711→                    context={
+  1712→                        "model_tier": "tier_2",  # Mini uses light/mini models
+  1713→                        "pii_redacted": state.get("pii_detected", False),
+  1714→                    },
+  1715→                    config=None,  # Use defaults for Mini
+  1716→                )
+  1717→        except Exception:
+  1718→            logger.info("confidence_scoring_fallback")
+  1719→
+  1720→        # Combine CLARA score with confidence score
+  1721→        quality_score = result["score"] / 100.0  # Normalize to 0-1
+  1722→        if confidence_result:
+  1723→            # Weighted: 60% CLARA + 40% confidence
+  1724→            quality_score = (result["score"] * 0.6 + confidence_result.overall_score * 0.4) / 100.0
+  1725→
+  1726→        duration_ms = round((time.monotonic() - start) * 1000, 2)
+  1727→
+  1728→        audit_entry = append_audit_entry(
+  1729→            state,
+  1730→            step="clara_quality_gate",
+  1731→            action="quality_gate_complete",
+  1732→            duration_ms=duration_ms,
+  1733→            tokens_used=0,
+  1734→            details={
+  1735→                "clara_score": result["score"],
+  1736→                "clara_passed": result["passed"],
+  1737→                "clara_issues": result["issues"],
+  1738→                "confidence_score": confidence_result.overall_score if confidence_result else None,
+  1739→                "final_quality_score": round(quality_score, 3),
+  1740→            },
+  1741→        )
+  1742→
+  1743→        return {
+  1744→            "generated_response": final_response,
+  1745→            "quality_score": round(quality_score, 3),
+  1746→            "quality_passed": result["passed"],
+  1747→            "quality_issues": result["issues"],
+  1748→            "quality_retry_count": 0,
+  1749→            "current_step": "clara_quality_gate",
+  1750→            "step_outputs": {
+  1751→                "clara_quality_gate": {
+  1752→                    "status": "completed",
+  1753→                    "clara_score": result["score"],
+  1754→                    "clara_passed": result["passed"],
+  1755→                    "clara_issues": result["issues"],
+  1756→                    "confidence_score": confidence_result.overall_score if confidence_result else None,
+  1757→                    "final_quality_score": round(quality_score, 3),
+  1758→                    "duration_ms": duration_ms,
+  1759→                }
+  1760→            },
+  1761→            "audit_log": audit_entry["audit_log"],
+  1762→        }
+  1763→
+  1764→    except Exception as exc:
+  1765→        duration_ms = round((time.monotonic() - start) * 1000, 2)
+  1766→        logger.exception("clara_quality_gate_node_failed", error=str(exc))
+  1767→        # Quality gate failure is non-fatal — pass through
+  1768→        return {
+  1769→            "quality_score": 0.5,
+  1770→            "quality_passed": True,  # Default pass on error
+  1771→            "quality_issues": [f"clara_error: {str(exc)}"],
+  1772→            "quality_retry_count": 0,
+  1773→            "current_step": "clara_quality_gate",
+  1774→            "errors": [f"clara_quality_gate: {str(exc)}"],
+  1775→            "step_outputs": {
+  1776→                "clara_quality_gate": {
+  1777→                    "status": "error",
+  1778→                    "error": str(exc),
+  1779→                    "duration_ms": duration_ms,
+  1780→                }
+  1781→            },
+  1782→            "audit_log": [append_audit_entry(
+  1783→                state, "clara_quality_gate", "error",
+  1784→                duration_ms=duration_ms,
+  1785→                details={"error": str(exc)},
+  1786→            )["audit_log"][0]],
+  1787→        }
+  1788→
+  1789→
+  1790→def format_node(state: ParwaGraphState) -> Dict[str, Any]:
+  1791→    """Agent 10: Format — Format the generated response.
+  1792→
+  1793→    Uses FormatterRegistry with Mini defaults:
+  1794→    - token_limit, markdown, whitespace (3 formatters)
+  1795→
+  1796→    Writes: formatted_response, final_response, response_format,
+  1797→            pipeline_status, steps_completed, current_step
+  1798→    """
+  1799→    start = time.monotonic()
+  1800→    try:
+  1801→        generated_response = state.get("generated_response", "")
+  1802→        industry = state.get("industry", "general")
+  1803→        channel = state.get("channel", "chat")
+  1804→        emergency_flag = state.get("emergency_flag", False)
+  1805→        emergency_type = state.get("emergency_type", "")
+  1806→        empathy_score = state.get("empathy_score", 0.5)
+  1807→        customer_tier = state.get("customer_tier", "free")
+  1808→        classification = state.get("classification", {})
+  1809→        intent = classification.get("intent", "general") if classification else "general"
+  1810→        ticket_id = state.get("ticket_id", "")
+  1811→        tone = get_industry_tone(industry)
+  1812→
+  1813→        # Handle emergency bypass: if emergency flagged and generate was skipped,
+  1814→        # produce the emergency response here
+  1815→        if emergency_flag and not generated_response:
+  1816→            generated_response = EMERGENCY_RESPONSE_TEMPLATE.format(
+  1817→                ticket_id=ticket_id or "N/A"
+  1818→            )
+  1819→
+  1820→        # Determine response format based on channel
+  1821→        format_map = {
+  1822→            "chat": "chat",
+  1823→            "email": "email",
+  1824→            "phone": "phone_transcript",
+  1825→            "web_widget": "chat",
+  1826→            "social": "social",
+  1827→        }
+  1828→        response_format = format_map.get(channel, "chat")
+  1829→
+  1830→        # Build formatting context
+  1831→        context = FormattingContext(
+  1832→            company_id=state.get("company_id", ""),
+  1833→            variant_type="mini_parwa",
+  1834→            brand_voice=tone.replace("_", " ") if "_" in tone else tone,
+  1835→            model_tier="mini",
+  1836→            customer_tier=customer_tier,
+  1837→            intent_type=intent,
+  1838→            sentiment_score=empathy_score,
+  1839→            formality_level="medium",
+  1840→        )
+  1841→
+  1842→        # Apply formatters
+  1843→        registry = _get_formatter_registry()
+  1844→        format_result = registry.apply_all(generated_response, context)
+  1845→
+  1846→        formatted_response = format_result.formatted_text
+  1847→        formatters_applied = format_result.formatters_applied
+  1848→
+  1849→        # Build steps_completed from step_outputs
+  1850→        existing_steps = state.get("steps_completed", [])
+  1851→        completed = list(existing_steps)
+  1852→        completed.append("format")
+  1853→
+  1854→        # Track which pipeline steps completed
+  1855→        step_outputs = state.get("step_outputs", {})
+  1856→        for step_name in [
+  1857→            "pii_check", "empathy_check", "emergency_check",
+  1858→            "gsd_state", "extract_signals", "classify",
+  1859→            "generate", "crp_compress", "clara_quality_gate",
+  1860→        ]:
+  1861→            step_data = step_outputs.get(step_name, {})
+  1862→            if isinstance(step_data, dict) and step_data.get("status") == "completed":
+  1863→                if step_name not in completed:
+  1864→                    completed.append(step_name)
+  1865→
+  1866→        # Ensure order
+  1867→        all_steps = [
+  1868→            "pii_check", "empathy_check", "emergency_check",
+  1869→            "gsd_state", "extract_signals", "classify",
+  1870→            "generate", "crp_compress", "clara_quality_gate", "format",
+  1871→        ]
+  1872→        ordered_completed = [s for s in all_steps if s in completed]
+  1873→
+  1874→        # Determine pipeline status
+  1875→        has_errors = bool(state.get("errors", []))
+  1876→        if emergency_flag:
+  1877→            pipeline_status = "success"
+  1878→        elif has_errors:
+  1879→            pipeline_status = "partial"
+  1880→        else:
+  1881→            pipeline_status = "success"
+  1882→
+  1883→        duration_ms = round((time.monotonic() - start) * 1000, 2)
+  1884→
+  1885→        audit_entry = append_audit_entry(
+  1886→            state,
+  1887→            step="format",
+  1888→            action="response_formatted",
+  1889→            duration_ms=duration_ms,
+  1890→            tokens_used=0,
+  1891→            details={
+  1892→                "formatters_applied": formatters_applied,
+  1893→                "response_format": response_format,
+  1894→                "pipeline_status": pipeline_status,
+  1895→                "steps_completed": ordered_completed,
+  1896→            },
+  1897→        )
+  1898→
+  1899→        return {
+  1900→            "formatted_response": formatted_response,
+  1901→            "final_response": formatted_response,
+  1902→            "response_format": response_format,
+  1903→            "pipeline_status": pipeline_status,
+  1904→            "steps_completed": ordered_completed,
+  1905→            "current_step": "format",
+  1906→            "step_outputs": {
+  1907→                "format": {
+  1908→                    "status": "completed",
+  1909→                    "formatters_applied": formatters_applied,
+  1910→                    "response_format": response_format,
+  1911→                    "duration_ms": duration_ms,
+  1912→                }
+  1913→            },
+  1914→            "audit_log": audit_entry["audit_log"],
+  1915→        }
+  1916→
+  1917→    except Exception as exc:
+  1918→        duration_ms = round((time.monotonic() - start) * 1000, 2)
+  1919→        logger.exception("format_node_failed", error=str(exc))
+  1920→
+  1921→        generated_response = state.get("generated_response", "")
+  1922→        channel = state.get("channel", "chat")
+  1923→
+  1924→        return {
+  1925→            "formatted_response": generated_response,
+  1926→            "final_response": generated_response,
+  1927→            "response_format": channel,
+  1928→            "pipeline_status": "partial",
+  1929→            "steps_completed": ["format"],
+  1930→            "current_step": "format",
+  1931→            "errors": [f"format: {str(exc)}"],
+  1932→            "step_outputs": {
+  1933→                "format": {
+  1934→                    "status": "error",
+  1935→                    "error": str(exc),
+  1936→                    "duration_ms": duration_ms,
+  1937→                }
+  1938→            },
+  1939→            "audit_log": [append_audit_entry(
+  1940→                state, "format", "error",
+  1941→                duration_ms=duration_ms,
+  1942→                details={"error": str(exc)},
+  1943→            )["audit_log"][0]],
+  1944→        }
+  1945→
