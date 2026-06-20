@@ -1,0 +1,1174 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useCallback, useEffect } from 'react';
+     4→import { useRouter } from 'next/navigation';
+     5→import { useAuth } from '@/lib/auth-context';
+     6→import { jarvisApi } from '@/lib/api';
+     7→import { JarvisLogo, JarvisSpinner, JarvisErrorBox } from '@/components/ui';
+     8→import { type WizardData, STEPS, initialData, getStepDescription } from './types';
+     9→
+    10→// ── Shared UI Primitives ────────────────────────────────────
+    11→
+    12→function FieldGroup({ children }: { children: React.ReactNode }) {
+    13→  return <div className="flex flex-col gap-1">{children}</div>;
+    14→}
+    15→
+    16→// ── Main Wizard ───────────────────────────────────────────
+    17→export default function OnboardingPage() {
+    18→  const router = useRouter();
+    19→  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
+    20→  const [step, setStep] = useState(1);
+    21→  const [data, setData] = useState<WizardData>(initialData);
+    22→  const [error, setError] = useState('');
+    23→  const [globalLoading, setGlobalLoading] = useState(false);
+    24→
+    25→  // Resume: If already authenticated, redirect to dashboard
+    26→  useEffect(() => {
+    27→    if (!authLoading && isAuthenticated) {
+    28→      router.push('/');
+    29→    }
+    30→  }, [authLoading, isAuthenticated, router]);
+    31→
+    32→  const updateData = useCallback((partial: Partial<WizardData>) => {
+    33→    setData((prev) => ({ ...prev, ...partial }));
+    34→    setError('');
+    35→  }, []);
+    36→
+    37→  const goNext = () => {
+    38→    if (step < 6) setStep(step + 1);
+    39→  };
+    40→  const goBack = () => {
+    41→    if (step > 1) {
+    42→      setStep(step - 1);
+    43→      setError('');
+    44→    }
+    45→  };
+    46→
+    47→  const handleComplete = useCallback(() => {
+    48→    login({
+    49→      tenantId: data.tenantId,
+    50→      tenantName: data.tenantName,
+    51→      adminEmail: data.adminEmail,
+    52→      jwtToken: data.jwtToken,
+    53→      apiKey: data.apiKey || data.generatedKey,
+    54→      tier: data.tier,
+    55→    });
+    56→    router.push('/');
+    57→  }, [data, login, router]);
+    58→
+    59→  return (
+    60→    <div className="min-h-screen bg-jarvis-bg flex flex-col">
+    61→      {/* Header */}
+    62→      <header className="border-b border-jarvis-border px-6 py-4">
+    63→        <div className="max-w-5xl mx-auto">
+    64→          <div className="flex items-center justify-between mb-3">
+    65→            <JarvisLogo subtitle="Onboarding" />
+    66→            <span className="text-[10px] text-jarvis-muted tracking-widest">
+    67→              STEP {step}/{6}
+    68→            </span>
+    69→          </div>
+    70→
+    71→          {/* Progress bar */}
+    72→          <div className="flex gap-1">
+    73→            {STEPS.map((label, i) => {
+    74→              const stepNum = i + 1;
+    75→              const isActive = stepNum === step;
+    76→              const isComplete = stepNum < step;
+    77→              return (
+    78→                <React.Fragment key={label}>
+    79→                  {i > 0 && (
+    80→                    <div className="flex-1 h-px bg-jarvis-border relative top-3" />
+    81→                  )}
+    82→                  <div className="flex flex-col items-center gap-1 min-w-[60px]">
+    83→                    <div
+    84→                      className={`
+    85→                        w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all duration-300
+    86→                        ${isComplete ? 'bg-jarvis-green/20 border border-jarvis-green/50 text-jarvis-green' : ''}
+    87→                        ${isActive ? 'bg-jarvis-green/10 border border-jarvis-green/40 text-jarvis-green glow-green' : ''}
+    88→                        ${!isComplete && !isActive ? 'bg-jarvis-card border border-jarvis-border text-jarvis-muted' : ''}
+    89→                      `}
+    90→                    >
+    91→                      {isComplete ? '✓' : stepNum}
+    92→                    </div>
+    93→                    <span className={`text-[9px] tracking-wider uppercase whitespace-nowrap ${isActive ? 'text-jarvis-green' : 'text-jarvis-muted'}`}>
+    94→                      {label}
+    95→                    </span>
+    96→                  </div>
+    97→                </React.Fragment>
+    98→              );
+    99→            })}
+   100→          </div>
+   101→        </div>
+   102→      </header>
+   103→
+   104→      {/* Content */}
+   105→      <main className="flex-1 overflow-y-auto px-4 py-6">
+   106→        <div className="max-w-4xl mx-auto">
+   107→          {/* Step title */}
+   108→          <div className="mb-6">
+   109→            <h2 className="text-lg font-bold text-jarvis-text tracking-wider">{STEPS[step - 1]}</h2>
+   110→            <p className="text-[10px] text-jarvis-muted tracking-wider mt-1">
+   111→              {getStepDescription(step)}
+   112→            </p>
+   113→          </div>
+   114→
+   115→          {/* Error display */}
+   116→          {error && (
+   117→            <div className="mb-4 p-3 bg-jarvis-red/10 border border-jarvis-red/30 rounded-lg text-xs text-jarvis-red">
+   118→              <span className="font-bold">ERROR:</span> {error}
+   119→            </div>
+   120→          )}
+   121→
+   122→          {/* Steps */}
+   123→          {step === 1 && <Step1AccountSetup data={data} updateData={updateData} goNext={goNext} setError={setError} setLoading={setGlobalLoading} loading={globalLoading} />}
+   124→          {step === 2 && <Step2TierSelection data={data} updateData={updateData} goNext={goNext} setError={setError} setLoading={setGlobalLoading} loading={globalLoading} />}
+   125→          {step === 3 && <Step3Integrations data={data} updateData={updateData} goNext={goNext} setError={setError} setLoading={setGlobalLoading} loading={globalLoading} />}
+   126→          {step === 4 && <Step4KnowledgeBase data={data} updateData={updateData} goNext={goNext} setError={setError} setLoading={setGlobalLoading} loading={globalLoading} />}
+   127→          {step === 5 && <Step5PolicyConfig data={data} updateData={updateData} goNext={goNext} setError={setError} setLoading={setGlobalLoading} loading={globalLoading} />}
+   128→          {step === 6 && <Step6GoLive data={data} updateData={updateData} onComplete={handleComplete} setError={setError} setLoading={setGlobalLoading} loading={globalLoading} />}
+   129→
+   130→          {/* Navigation */}
+   131→          <div className="flex items-center justify-between mt-8 pt-4 border-t border-jarvis-border">
+   132→            <button
+   133→              onClick={goBack}
+   134→              disabled={step <= 1}
+   135→              className="jarvis-btn-ghost text-xs disabled:opacity-30 disabled:cursor-not-allowed"
+   136→            >
+   137→              ← BACK
+   138→            </button>
+   139→            <button
+   140→              onClick={step === 6 ? handleComplete : goNext}
+   141→              disabled={step === 6 && !data.generatedKey}
+   142→              className="jarvis-btn-primary text-xs disabled:opacity-30 disabled:cursor-not-allowed"
+   143→            >
+   144→              {step === 6 ? 'GO TO DASHBOARD →' : 'NEXT →'}
+   145→            </button>
+   146→          </div>
+   147→        </div>
+   148→      </main>
+   149→    </div>
+   150→  );
+   151→}
+   152→
+   153→// ── Step 1: Account Setup ──────────────────────────────────
+   154→function Step1AccountSetup({ data, updateData, goNext, setError, setLoading, loading }: {
+   155→  data: WizardData;
+   156→  updateData: (p: Partial<WizardData>) => void;
+   157→  goNext: () => void;
+   158→  setError: (e: string) => void;
+   159→  setLoading: (l: boolean) => void;
+   160→  loading: boolean;
+   161→}) {
+   162→  const [form, setForm] = useState({
+   163→    companyName: '',
+   164→    adminEmail: '',
+   165→    password: '',
+   166→    industry: '',
+   167→    companySize: '',
+   168→  });
+   169→
+   170→  const handleSubmit = async () => {
+   171→    if (!form.companyName || !form.adminEmail || !form.password || !form.industry || !form.companySize) {
+   172→      setError('All fields are required');
+   173→      return;
+   174→    }
+   175→    setLoading(true);
+   176→    try {
+   177→      const result = await jarvisApi.accountSetup({
+   178→        company_name: form.companyName,
+   179→        admin_email: form.adminEmail,
+   180→        password: form.password,
+   181→        industry: form.industry,
+   182→        company_size: form.companySize,
+   183→      });
+   184→      updateData({
+   185→        tenantId: result.tenant_id || result.tenantId || '',
+   186→        tenantName: form.companyName,
+   187→        adminEmail: form.adminEmail,
+   188→        jwtToken: result.jwt_token || result.jwtToken || result.token || '',
+   189→        apiKey: result.api_key || result.apiKey || '',
+   190→      });
+   191→      goNext();
+   192→    } catch (err: any) {
+   193→      setError(err.message || 'Account setup failed');
+   194→    } finally {
+   195→      setLoading(false);
+   196→    }
+   197→  };
+   198→
+   199→  const updateField = (key: string, value: string) => {
+   200→    setForm((prev) => ({ ...prev, [key]: value }));
+   201→  };
+   202→
+   203→  return (
+   204→    <div className="space-y-4 fade-in">
+   205→      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   206→        <FieldGroup>
+   207→          <label className="text-[10px] text-jarvis-muted tracking-wider uppercase">Company Name</label>
+   208→          <input
+   209→            type="text"
+   210→            className="jarvis-input mt-1"
+   211→            placeholder="Acme Corp"
+   212→            value={form.companyName}
+   213→            onChange={(e) => updateField('companyName', e.target.value)}
+   214→          />
+   215→        </FieldGroup>
+   216→        <FieldGroup>
+   217→          <label className="text-[10px] text-jarvis-muted tracking-wider uppercase">Admin Email</label>
+   218→          <input
+   219→            type="email"
+   220→            className="jarvis-input mt-1"
+   221→            placeholder="admin@acme.com"
+   222→            value={form.adminEmail}
+   223→            onChange={(e) => updateField('adminEmail', e.target.value)}
+   224→          />
+   225→        </FieldGroup>
+   226→      </div>
+   227→
+   228→      <FieldGroup>
+   229→        <label className="text-[10px] text-jarvis-muted tracking-wider uppercase">Password</label>
+   230→        <input
+   231→          type="password"
+   232→          className="jarvis-input mt-1"
+   233→          placeholder="••••••••"
+   234→          value={form.password}
+   235→          onChange={(e) => updateField('password', e.target.value)}
+   236→        />
+   237→      </FieldGroup>
+   238→
+   239→      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   240→        <FieldGroup>
+   241→          <label className="text-[10px] text-jarvis-muted tracking-wider uppercase">Industry</label>
+   242→          <select
+   243→            className="jarvis-input mt-1"
+   244→            value={form.industry}
+   245→            onChange={(e) => updateField('industry', e.target.value)}
+   246→          >
+   247→            <option value="">Select industry...</option>
+   248→            <option value="ecommerce">E-commerce</option>
+   249→            <option value="saas">SaaS</option>
+   250→            <option value="healthcare">Healthcare</option>
+   251→            <option value="finance">Finance</option>
+   252→            <option value="education">Education</option>
+   253→            <option value="other">Other</option>
+   254→          </select>
+   255→        </FieldGroup>
+   256→        <FieldGroup>
+   257→          <label className="text-[10px] text-jarvis-muted tracking-wider uppercase">Company Size</label>
+   258→          <select
+   259→            className="jarvis-input mt-1"
+   260→            value={form.companySize}
+   261→            onChange={(e) => updateField('companySize', e.target.value)}
+   262→          >
+   263→            <option value="">Select size...</option>
+   264→            <option value="1-10">1-10 employees</option>
+   265→            <option value="11-50">11-50 employees</option>
+   266→            <option value="51-200">51-200 employees</option>
+   267→            <option value="200+">200+ employees</option>
+   268→          </select>
+   269→        </FieldGroup>
+   270→      </div>
+   271→
+   272→      <div className="flex justify-end pt-2">
+   273→        <button
+   274→          onClick={handleSubmit}
+   275→          disabled={loading}
+   276→          className="jarvis-btn-primary text-xs disabled:opacity-50"
+   277→        >
+   278→          {loading ? (
+   279→            <span className="flex items-center gap-2">
+   280→              <span className="inline-block w-3 h-3 border border-jarvis-green/50 border-t-transparent rounded-full animate-spin" />
+   281→              CREATING...
+   282→            </span>
+   283→          ) : (
+   284→            'CREATE ACCOUNT →'
+   285→          )}
+   286→        </button>
+   287→      </div>
+   288→
+   289→      {data.tenantId && (
+   290→        <div className="jarvis-card border-jarvis-green/20">
+   291→          <div className="flex items-center gap-2 mb-2">
+   292→            <span className="text-jarvis-green text-xs">✓</span>
+   293→            <span className="text-[10px] text-jarvis-green tracking-wider uppercase font-bold">Account Created</span>
+   294→          </div>
+   295→          <div className="text-[10px] text-jarvis-muted space-y-1">
+   296→            <div className="flex justify-between">
+   297→              <span>TENANT ID</span>
+   298→              <span className="text-jarvis-cyan font-mono">{data.tenantId}</span>
+   299→            </div>
+   300→          </div>
+   301→        </div>
+   302→      )}
+   303→    </div>
+   304→  );
+   305→}
+   306→
+   307→// ── Step 2: Tier Selection ─────────────────────────────────
+   308→function Step2TierSelection({ data, updateData, goNext, setError, setLoading, loading }: {
+   309→  data: WizardData;
+   310→  updateData: (p: Partial<WizardData>) => void;
+   311→  goNext: () => void;
+   312→  setError: (e: string) => void;
+   313→  setLoading: (l: boolean) => void;
+   314→  loading: boolean;
+   315→}) {
+   316→  const [selectedTier, setSelectedTier] = useState(data.tier || '');
+   317→  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>(data.billingCycle as 'monthly' | 'annual' || 'monthly');
+   318→
+   319→  const tiers = [
+   320→    {
+   321→      id: 'mini_parwa',
+   322→      name: 'MINI PARWA',
+   323→      role: 'The 24/7 Trainee',
+   324→      monthlyPrice: 999,
+   325→      annualPrice: 799,
+   326→      desc: 'Handles repetitive tasks that freshers normally do — FAQs, order tracking, refund collection',
+   327→      features: [
+   328→        { label: 'Tickets/Day', value: '200' },
+   329→        { label: 'Decision Making', value: 'Collects only' },
+   330→        { label: 'Refund Execution', value: 'Never executes' },
+   331→        { label: 'Peer Review', value: 'No' },
+   332→        { label: 'Voice Calls', value: 'No' },
+   333→      ],
+   334→      overage: '+$0.10/ticket over 200',
+   335→      color: 'cyan',
+   336→    },
+   337→    {
+   338→      id: 'parwa',
+   339→      name: 'PARWA',
+   340→      role: 'The Junior Agent',
+   341→      monthlyPrice: 2499,
+   342→      annualPrice: 1999,
+   343→      desc: 'Autonomous resolution of 70-80% routine tasks with intelligent recommendations',
+   344→      badge: 'RECOMMENDED',
+   345→      features: [
+   346→        { label: 'Tickets/Day', value: '300' },
+   347→        { label: 'Decision Making', value: 'Recommends' },
+   348→        { label: 'Refund Execution', value: 'Human triggers' },
+   349→        { label: 'Peer Review', value: 'Ask High for help' },
+   350→        { label: 'Voice Calls', value: '3 concurrent' },
+   351→      ],
+   352→      overage: '+$0.10/ticket over 300',
+   353→      color: 'green',
+   354→    },
+   355→    {
+   356→      id: 'parwa_high',
+   357→      name: 'PARWA HIGH',
+   358→      role: 'The Senior Agent',
+   359→      monthlyPrice: 3999,
+   360→      annualPrice: 3199,
+   361→      desc: 'Eliminates 80-85% human workload — VIPs, fraud detection, strategic intelligence',
+   362→      features: [
+   363→        { label: 'Tickets/Day', value: '500+' },
+   364→        { label: 'Decision Making', value: 'Strategic' },
+   365→        { label: 'Refund Execution', value: 'VIP + auto' },
+   366→        { label: 'Peer Review', value: 'Quality Coach' },
+   367→        { label: 'Voice Calls', value: '5 + video' },
+   368→      ],
+   369→      overage: 'Included in base',
+   370→      color: 'yellow',
+   371→    },
+   372→  ];
+   373→
+   374→  const handleSelect = async () => {
+   375→    if (!selectedTier || !data.tenantId) {
+   376→      setError('No tenant ID found — go back to Step 1');
+   377→      return;
+   378→    }
+   379→    setLoading(true);
+   380→    try {
+   381→      await jarvisApi.selectTier({
+   382→        tenant_id: data.tenantId,
+   383→        tier: selectedTier,
+   384→        billing_cycle: billingCycle,
+   385→      });
+   386→      updateData({ tier: selectedTier, billingCycle });
+   387→      goNext();
+   388→    } catch (err: any) {
+   389→      setError(err.message || 'Tier selection failed');
+   390→    } finally {
+   391→      setLoading(false);
+   392→    }
+   393→  };
+   394→
+   395→  const colorClass = (tier: any, field: string) => {
+   396→    const map: Record<string, Record<string, string>> = {
+   397→      cyan: { text: 'text-jarvis-cyan', border: 'border-jarvis-cyan/30', bg: 'bg-jarvis-cyan/10', badge: 'jarvis-badge-cyan', glow: '' },
+   398→      green: { text: 'text-jarvis-green', border: 'border-jarvis-green/30', bg: 'bg-jarvis-green/10', badge: 'jarvis-badge-green', glow: 'glow-green' },
+   399→      yellow: { text: 'text-jarvis-yellow', border: 'border-jarvis-yellow/30', bg: 'bg-jarvis-yellow/10', badge: 'jarvis-badge-yellow', glow: '' },
+   400→    };
+   401→    return map[tier.color]?.[field] || '';
+   402→  };
+   403→
+   404→  return (
+   405→    <div className="space-y-4 fade-in">
+   406→      {/* Billing toggle */}
+   407→      <div className="flex items-center justify-center gap-3">
+   408→        <span className={`text-xs tracking-wider ${billingCycle === 'monthly' ? 'text-jarvis-green' : 'text-jarvis-muted'}`}>MONTHLY</span>
+   409→        <button
+   410→          onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'annual' : 'monthly')}
+   411→          className={`
+   412→            relative w-10 h-5 rounded-full transition-all duration-300
+   413→            ${billingCycle === 'annual' ? 'bg-jarvis-green/20 border-jarvis-green/40' : 'bg-jarvis-card border-jarvis-border'}
+   414→          `}
+   415→          style={{ border: '1px solid' }}
+   416→        >
+   417→          <div
+   418→            className={`
+   419→              absolute top-0.5 w-4 h-4 rounded-full transition-all duration-300
+   420→              ${billingCycle === 'annual' ? 'left-[22px] bg-jarvis-green' : 'left-0.5 bg-jarvis-muted'}
+   421→            `}
+   422→          />
+   423→        </button>
+   424→        <span className={`text-xs tracking-wider ${billingCycle === 'annual' ? 'text-jarvis-green' : 'text-jarvis-muted'}`}>
+   425→          ANNUAL <span className="text-[10px] jarvis-badge-green ml-1">-20%</span>
+   426→        </span>
+   427→      </div>
+   428→
+   429→      {/* Variant cards */}
+   430→      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+   431→        {tiers.map((tier) => {
+   432→          const isSelected = selectedTier === tier.id;
+   433→          const price = billingCycle === 'annual' ? tier.annualPrice : tier.monthlyPrice;
+   434→          return (
+   435→            <button
+   436→              key={tier.id}
+   437→              onClick={() => setSelectedTier(tier.id)}
+   438→              className={`
+   439→                text-left p-4 rounded-lg border transition-all duration-300 relative
+   440→                ${isSelected
+   441→                  ? 'bg-jarvis-green/5 border-jarvis-green/40 shadow-[0_0_20px_rgba(0,255,136,0.1)]'
+   442→                  : 'bg-jarvis-card border-jarvis-border hover:border-jarvis-muted'
+   443→                }
+   444→              `}
+   445→            >
+   446→              {tier.badge && (
+   447→                <span className={`absolute -top-2 right-3 ${colorClass(tier, 'badge')} text-[9px] px-2 py-0.5 rounded`}>
+   448→                  {tier.badge}
+   449→                </span>
+   450→              )}
+   451→              <div className="mb-3">
+   452→                <span className={`text-sm font-bold tracking-wider ${colorClass(tier, 'text')}`}>{tier.name}</span>
+   453→                <div className="text-[9px] text-jarvis-muted tracking-wider uppercase mt-0.5">{tier.role}</div>
+   454→                <p className="text-[10px] text-jarvis-muted mt-1">{tier.desc}</p>
+   455→              </div>
+   456→
+   457→              <div className="mb-4">
+   458→                <span className="text-xl font-bold text-jarvis-text">${price.toLocaleString()}</span>
+   459→                <span className="text-[10px] text-jarvis-muted">/mo</span>
+   460→                {billingCycle === 'annual' && (
+   461→                  <span className="ml-2 text-[9px] jarvis-badge-green">SAVE {((tier.monthlyPrice - tier.annualPrice) * 12).toLocaleString()}/yr</span>
+   462→                )}
+   463→              </div>
+   464→
+   465→              <div className="space-y-2">
+   466→                {tier.features.map((f) => (
+   467→                  <div key={f.label} className="flex justify-between text-[10px]">
+   468→                    <span className="text-jarvis-muted">{f.label}</span>
+   469→                    <span className="text-jarvis-text">{f.value}</span>
+   470→                  </div>
+   471→                ))}
+   472→              </div>
+   473→
+   474→              <div className="mt-3 pt-2 border-t border-jarvis-border/50">
+   475→                <span className="text-[9px] text-jarvis-muted">Overage: {tier.overage}</span>
+   476→              </div>
+   477→
+   478→              {isSelected && (
+   479→                <div className="mt-2 pt-2 border-t border-jarvis-green/20 flex items-center gap-2">
+   480→                  <span className="text-[10px] text-jarvis-green glow-green">✓ SELECTED</span>
+   481→                </div>
+   482→              )}
+   483→            </button>
+   484→          );
+   485→        })}
+   486→      </div>
+   487→
+   488→      <div className="flex justify-end pt-2">
+   489→        <button
+   490→          onClick={handleSelect}
+   491→          disabled={!selectedTier || loading}
+   492→          className="jarvis-btn-primary text-xs disabled:opacity-50"
+   493→        >
+   494→          {loading ? (
+   495→            <span className="flex items-center gap-2">
+   496→              <span className="inline-block w-3 h-3 border border-jarvis-green/50 border-t-transparent rounded-full animate-spin" />
+   497→              SELECTING...
+   498→            </span>
+   499→          ) : (
+   500→            'CONFIRM TIER →'
+   501→          )}
+   502→        </button>
+   503→      </div>
+   504→    </div>
+   505→  );
+   506→}
+   507→
+   508→// ── Step 3: Integrations ─────────────────────────────────
+   509→function Step3Integrations({ data, updateData, goNext, setError, setLoading, loading }: {
+   510→  data: WizardData;
+   511→  updateData: (p: Partial<WizardData>) => void;
+   512→  goNext: () => void;
+   513→  setError: (e: string) => void;
+   514→  setLoading: (l: boolean) => void;
+   515→  loading: boolean;
+   516→}) {
+   517→  const [connecting, setConnecting] = useState<string | null>(null);
+   518→  const [credForms, setCredForms] = useState<Record<string, string>>({});
+   519→
+   520→  const integrations = [
+   521→    { type: 'sendgrid', name: 'SendGrid', category: 'Email', icon: '✉', fields: ['API Key'] },
+   522→    { type: 'whatsapp', name: 'WhatsApp', category: 'Chat', icon: '◈', fields: ['Phone Number', 'API Key'] },
+   523→    { type: 'intercom', name: 'Intercom', category: 'Chat', icon: '◉', fields: ['Access Token'] },
+   524→    { type: 'hubspot', name: 'HubSpot', category: 'CRM', icon: '◎', fields: ['API Key'] },
+   525→    { type: 'salesforce', name: 'Salesforce', category: 'CRM', icon: '◈', fields: ['Client ID', 'Client Secret'] },
+   526→    { type: 'zendesk', name: 'Zendesk', category: 'Helpdesk', icon: '◈', fields: ['API Token', 'Email'] },
+   527→    { type: 'freshdesk', name: 'Freshdesk', category: 'Helpdesk', icon: '◉', fields: ['API Key', 'Domain'] },
+   528→  ];
+   529→
+   530→  const isConnected = (type: string) => data.integrations.some((i) => i.type === type && i.status === 'connected');
+   531→
+   532→  const handleConnect = async (type: string, fields: string[]) => {
+   533→    const creds: Record<string, string> = {};
+   534→    for (const field of fields) {
+   535→      const val = credForms[`${type}_${field.toLowerCase().replace(/ /g, '_')}`];
+   536→      if (!val) {
+   537→        setError(`Please fill in ${field} for ${type}`);
+   538→        return;
+   539→      }
+   540→      creds[field.toLowerCase().replace(/ /g, '_')] = val;
+   541→    }
+   542→
+   543→    setConnecting(type);
+   544→    try {
+   545→      await jarvisApi.connectIntegration({
+   546→        tenant_id: data.tenantId,
+   547→        integration_type: type,
+   548→        credentials: creds,
+   549→      });
+   550→      const newIntegrations = [...data.integrations.filter((i) => i.type !== type), { type, name: type, status: 'connected' }];
+   551→      updateData({ integrations: newIntegrations });
+   552→    } catch (err: any) {
+   553→      setError(err.message || `Failed to connect ${type}`);
+   554→    } finally {
+   555→      setConnecting(null);
+   556→    }
+   557→  };
+   558→
+   559→  return (
+   560→    <div className="space-y-4 fade-in">
+   561→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   562→        {integrations.map((integ) => {
+   563→          const connected = isConnected(integ.type);
+   564→          const isConnecting = connecting === integ.type;
+   565→          const showForm = !connected;
+   566→
+   567→          return (
+   568→            <div key={integ.type} className={`jarvis-card ${connected ? 'border-jarvis-green/30' : ''}`}>
+   569→              <div className="flex items-center justify-between mb-3">
+   570→                <div className="flex items-center gap-2">
+   571→                  <span className={`text-lg ${connected ? 'text-jarvis-green' : 'text-jarvis-muted'}`}>{integ.icon}</span>
+   572→                  <div>
+   573→                    <div className="text-xs font-bold text-jarvis-text">{integ.name}</div>
+   574→                    <div className="text-[9px] text-jarvis-muted tracking-wider uppercase">{integ.category}</div>
+   575→                  </div>
+   576→                </div>
+   577→                {connected && (
+   578→                  <span className="jarvis-badge-green text-[9px]">✓ LIVE</span>
+   579→                )}
+   580→              </div>
+   581→
+   582→              {showForm && (
+   583→                <div className="space-y-2">
+   584→                  {integ.fields.map((field) => (
+   585→                    <div key={field}>
+   586→                      <label className="text-[9px] text-jarvis-muted tracking-wider uppercase">{field}</label>
+   587→                      <input
+   588→                        type={field.toLowerCase().includes('secret') || field.toLowerCase() === 'api key' || field === 'API Token' || field === 'Access Token' ? 'password' : 'text'}
+   589→                        className="jarvis-input mt-0.5 text-xs py-1.5 px-3"
+   590→                        placeholder={`Enter ${field}...`}
+   591→                        value={credForms[`${integ.type}_${field.toLowerCase().replace(/ /g, '_')}`] || ''}
+   592→                        onChange={(e) => {
+   593→                          setCredForms((prev) => ({
+   594→                            ...prev,
+   595→                            [`${integ.type}_${field.toLowerCase().replace(/ /g, '_')}`]: e.target.value,
+   596→                          }));
+   597→                        }}
+   598→                      />
+   599→                    </div>
+   600→                  ))}
+   601→                  <button
+   602→                    onClick={() => handleConnect(integ.type, integ.fields)}
+   603→                    disabled={isConnecting}
+   604→                    className="jarvis-btn-primary text-[10px] w-full py-1.5 disabled:opacity-50"
+   605→                  >
+   606→                    {isConnecting ? 'CONNECTING...' : 'CONNECT'}
+   607→                  </button>
+   608→                </div>
+   609→              )}
+   610→            </div>
+   611→          );
+   612→        })}
+   613→      </div>
+   614→
+   615→      {/* Stats */}
+   616→      <div className="jarvis-card">
+   617→        <div className="flex items-center justify-between">
+   618→          <span className="text-[10px] text-jarvis-muted tracking-wider uppercase">Connected Integrations</span>
+   619→          <span className="text-sm font-bold text-jarvis-green">{data.integrations.filter((i) => i.status === 'connected').length}/{integrations.length}</span>
+   620→        </div>
+   621→      </div>
+   622→
+   623→      <div className="flex justify-end pt-2">
+   624→        <button
+   625→          onClick={goNext}
+   626→          className="jarvis-btn-primary text-xs"
+   627→        >
+   628→          SKIP OR CONTINUE →
+   629→        </button>
+   630→      </div>
+   631→    </div>
+   632→  );
+   633→}
+   634→
+   635→// ── Step 4: Knowledge Base ─────────────────────────────────
+   636→function Step4KnowledgeBase({ data, updateData, goNext, setError, setLoading, loading }: {
+   637→  data: WizardData;
+   638→  updateData: (p: Partial<WizardData>) => void;
+   639→  goNext: () => void;
+   640→  setError: (e: string) => void;
+   641→  setLoading: (l: boolean) => void;
+   642→  loading: boolean;
+   643→}) {
+   644→  const [title, setTitle] = useState('');
+   645→  const [content, setContent] = useState('');
+   646→  const [category, setCategory] = useState('general');
+   647→  const [uploading, setUploading] = useState(false);
+   648→
+   649→  const categories = ['General', 'Product', 'Billing', 'Returns', 'Shipping', 'Technical', 'FAQ'];
+   650→
+   651→  const handleAdd = async () => {
+   652→    if (!title.trim() || !content.trim()) {
+   653→      setError('Title and content are required');
+   654→      return;
+   655→    }
+   656→    setUploading(true);
+   657→    try {
+   658→      const result = await jarvisApi.uploadKB({
+   659→        tenant_id: data.tenantId,
+   660→        content,
+   661→        title,
+   662→        category,
+   663→      });
+   664→      const newEntry = {
+   665→        title,
+   666→        content,
+   667→        category,
+   668→        wordCount: content.split(/\s+/).filter(Boolean).length,
+   669→      };
+   670→      updateData({
+   671→        kbEntries: [...data.kbEntries, newEntry],
+   672→      });
+   673→      setTitle('');
+   674→      setContent('');
+   675→      setCategory('general');
+   676→    } catch (err: any) {
+   677→      setError(err.message || 'Failed to upload knowledge entry');
+   678→    } finally {
+   679→      setUploading(false);
+   680→    }
+   681→  };
+   682→
+   683→  const totalWords = data.kbEntries.reduce((sum, e) => sum + e.wordCount, 0);
+   684→
+   685→  return (
+   686→    <div className="space-y-4 fade-in">
+   687→      {/* Upload form */}
+   688→      <div className="jarvis-card">
+   689→        <div className="text-[10px] text-jarvis-muted tracking-wider uppercase mb-3">Add Knowledge Entry</div>
+   690→        <div className="space-y-3">
+   691→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   692→            <FieldGroup>
+   693→              <label className="text-[10px] text-jarvis-muted tracking-wider uppercase">Title</label>
+   694→              <input
+   695→                type="text"
+   696→                className="jarvis-input mt-1 text-xs"
+   697→                placeholder="e.g., Return Policy"
+   698→                value={title}
+   699→                onChange={(e) => setTitle(e.target.value)}
+   700→              />
+   701→            </FieldGroup>
+   702→            <FieldGroup>
+   703→              <label className="text-[10px] text-jarvis-muted tracking-wider uppercase">Category</label>
+   704→              <select
+   705→                className="jarvis-input mt-1 text-xs"
+   706→                value={category}
+   707→                onChange={(e) => setCategory(e.target.value)}
+   708→              >
+   709→                {categories.map((c) => (
+   710→                  <option key={c} value={c.toLowerCase()}>{c}</option>
+   711→                ))}
+   712→              </select>
+   713→            </FieldGroup>
+   714→          </div>
+   715→          <div>
+   716→            <label className="text-[10px] text-jarvis-muted tracking-wider uppercase">Content</label>
+   717→            <textarea
+   718→              className="jarvis-input mt-1 text-xs min-h-[120px] w-full resize-y"
+   719→              placeholder="Paste your knowledge content here..."
+   720→              value={content}
+   721→              onChange={(e) => setContent(e.target.value)}
+   722→            />
+   723→          </div>
+   724→          <div className="flex justify-end">
+   725→            <button
+   726→              onClick={handleAdd}
+   727→              disabled={uploading || !title.trim() || !content.trim()}
+   728→              className="jarvis-btn-primary text-[10px] disabled:opacity-50"
+   729→            >
+   730→              {uploading ? 'UPLOADING...' : '+ ADD ENTRY'}
+   731→            </button>
+   732→          </div>
+   733→        </div>
+   734→      </div>
+   735→
+   736→      {/* Stats */}
+   737→      <div className="grid grid-cols-2 gap-3">
+   738→        <div className="jarvis-card text-center">
+   739→          <div className="text-lg font-bold text-jarvis-cyan">{data.kbEntries.length}</div>
+   740→          <div className="text-[10px] text-jarvis-muted tracking-wider uppercase">Total Entries</div>
+   741→        </div>
+   742→        <div className="jarvis-card text-center">
+   743→          <div className="text-lg font-bold text-jarvis-green">{totalWords.toLocaleString()}</div>
+   744→          <div className="text-[10px] text-jarvis-muted tracking-wider uppercase">Total Words</div>
+   745→        </div>
+   746→      </div>
+   747→
+   748→      {/* Entry list */}
+   749→      {data.kbEntries.length > 0 && (
+   750→        <div className="jarvis-card">
+   751→          <div className="text-[10px] text-jarvis-muted tracking-wider uppercase mb-3">Uploaded Entries</div>
+   752→          <div className="space-y-2 max-h-48 overflow-y-auto">
+   753→            {data.kbEntries.map((entry, i) => (
+   754→              <div key={i} className="flex items-center justify-between py-2 border-b border-jarvis-border/50 last:border-0">
+   755→                <div className="flex items-center gap-3">
+   756→                  <span className="text-jarvis-green text-xs">✓</span>
+   757→                  <div>
+   758→                    <div className="text-xs text-jarvis-text">{entry.title}</div>
+   759→                    <div className="text-[9px] text-jarvis-muted">
+   760→                      {entry.category} · {entry.wordCount} words
+   761→                    </div>
+   762→                  </div>
+   763→                </div>
+   764→              </div>
+   765→            ))}
+   766→          </div>
+   767→        </div>
+   768→      )}
+   769→
+   770→      <div className="flex justify-end pt-2">
+   771→        <button
+   772→          onClick={goNext}
+   773→          className="jarvis-btn-primary text-xs"
+   774→        >
+   775→          SKIP OR CONTINUE →
+   776→        </button>
+   777→      </div>
+   778→    </div>
+   779→  );
+   780→}
+   781→
+   782→// ── Step 5: Policy Configuration ───────────────────────────
+   783→function Step5PolicyConfig({ data, updateData, goNext, setError, setLoading, loading }: {
+   784→  data: WizardData;
+   785→  updateData: (p: Partial<WizardData>) => void;
+   786→  goNext: () => void;
+   787→  setError: (e: string) => void;
+   788→  setLoading: (l: boolean) => void;
+   789→  loading: boolean;
+   790→}) {
+   791→  const [tone, setTone] = useState('professional');
+   792→  const [bizStart, setBizStart] = useState('09:00');
+   793→  const [bizEnd, setBizEnd] = useState('18:00');
+   794→  const [maxRefund, setMaxRefund] = useState('500');
+   795→  const [requireApproval, setRequireApproval] = useState(true);
+   796→  const [sentimentThreshold, setSentimentThreshold] = useState(0.3);
+   797→  const [keywords, setKeywords] = useState('');
+   798→  const [restrictRefund, setRestrictRefund] = useState(true);
+   799→  const [restrictDiscount, setRestrictDiscount] = useState(false);
+   800→  const [restrictPersonal, setRestrictPersonal] = useState(true);
+   801→
+   802→  const handleSave = async () => {
+   803→    const policies: Record<string, any> = {
+   804→      response_tone: tone,
+   805→      business_hours: { start: bizStart, end: bizEnd },
+   806→      refund_rules: { max_amount: parseFloat(maxRefund) || 500, require_approval: requireApproval },
+   807→      escalation_triggers: {
+   808→        sentiment_threshold: sentimentThreshold,
+   809→        keywords: keywords.split(',').map((k) => k.trim()).filter(Boolean),
+   810→      },
+   811→      restricted_actions: {
+   812→        refund_over_limit: restrictRefund,
+   813→        discount: restrictDiscount,
+   814→        personal_data: restrictPersonal,
+   815→      },
+   816→    };
+   817→
+   818→    setLoading(true);
+   819→    try {
+   820→      await jarvisApi.setPolicy({
+   821→        tenant_id: data.tenantId,
+   822→        policies,
+   823→      });
+   824→      updateData({ policies });
+   825→      goNext();
+   826→    } catch (err: any) {
+   827→      setError(err.message || 'Failed to save policies');
+   828→    } finally {
+   829→      setLoading(false);
+   830→    }
+   831→  };
+   832→
+   833→  return (
+   834→    <div className="space-y-4 fade-in">
+   835→      {/* Response Tone */}
+   836→      <div className="jarvis-card">
+   837→        <div className="text-[10px] text-jarvis-muted tracking-wider uppercase mb-3">Response Tone</div>
+   838→        <div className="flex gap-2">
+   839→          {['professional', 'friendly', 'concise'].map((t) => (
+   840→            <button
+   841→              key={t}
+   842→              onClick={() => setTone(t)}
+   843→              className={`
+   844→                flex-1 py-2 rounded-lg border text-xs tracking-wider uppercase transition-all
+   845→                ${tone === t
+   846→                  ? 'bg-jarvis-green/10 border-jarvis-green/30 text-jarvis-green'
+   847→                  : 'bg-jarvis-bg border-jarvis-border text-jarvis-muted hover:text-jarvis-text'
+   848→                }
+   849→              `}
+   850→            >
+   851→              {t}
+   852→            </button>
+   853→          ))}
+   854→        </div>
+   855→      </div>
+   856→
+   857→      {/* Business Hours */}
+   858→      <div className="jarvis-card">
+   859→        <div className="text-[10px] text-jarvis-muted tracking-wider uppercase mb-3">Business Hours</div>
+   860→        <div className="grid grid-cols-2 gap-3">
+   861→          <FieldGroup>
+   862→            <label className="text-[10px] text-jarvis-muted tracking-wider uppercase">Start</label>
+   863→            <input
+   864→              type="time"
+   865→              className="jarvis-input mt-1 text-xs"
+   866→              value={bizStart}
+   867→              onChange={(e) => setBizStart(e.target.value)}
+   868→            />
+   869→          </FieldGroup>
+   870→          <FieldGroup>
+   871→            <label className="text-[10px] text-jarvis-muted tracking-wider uppercase">End</label>
+   872→            <input
+   873→              type="time"
+   874→              className="jarvis-input mt-1 text-xs"
+   875→              value={bizEnd}
+   876→              onChange={(e) => setBizEnd(e.target.value)}
+   877→            />
+   878→          </FieldGroup>
+   879→        </div>
+   880→      </div>
+   881→
+   882→      {/* Refund Rules */}
+   883→      <div className="jarvis-card">
+   884→        <div className="text-[10px] text-jarvis-muted tracking-wider uppercase mb-3">Refund Rules</div>
+   885→        <div className="space-y-3">
+   886→          <FieldGroup>
+   887→            <label className="text-[10px] text-jarvis-muted tracking-wider uppercase">Max Auto-Refund Amount ($)</label>
+   888→            <input
+   889→              type="number"
+   890→              className="jarvis-input mt-1 text-xs w-full sm:w-48"
+   891→              value={maxRefund}
+   892→              onChange={(e) => setMaxRefund(e.target.value)}
+   893→            />
+   894→          </FieldGroup>
+   895→          <label className="flex items-center gap-2 cursor-pointer">
+   896→            <input
+   897→              type="checkbox"
+   898→              checked={requireApproval}
+   899→              onChange={(e) => setRequireApproval(e.target.checked)}
+   900→              className="w-3.5 h-3.5 rounded accent-jarvis-green"
+   901→            />
+   902→            <span className="text-xs text-jarvis-text">Require approval for amounts above threshold</span>
+   903→          </label>
+   904→        </div>
+   905→      </div>
+   906→
+   907→      {/* Escalation Triggers */}
+   908→      <div className="jarvis-card">
+   909→        <div className="text-[10px] text-jarvis-muted tracking-wider uppercase mb-3">Escalation Triggers</div>
+   910→        <div className="space-y-3">
+   911→          <FieldGroup>
+   912→            <label className="text-[10px] text-jarvis-muted tracking-wider uppercase">
+   913→              Sentiment Threshold: <span className="text-jarvis-yellow">{sentimentThreshold.toFixed(2)}</span>
+   914→            </label>
+   915→            <input
+   916→              type="range"
+   917→              min="0"
+   918→              max="1"
+   919→              step="0.05"
+   920→              value={sentimentThreshold}
+   921→              onChange={(e) => setSentimentThreshold(parseFloat(e.target.value))}
+   922→              className="w-full accent-jarvis-yellow mt-1"
+   923→            />
+   924→            <div className="flex justify-between text-[9px] text-jarvis-muted">
+   925→              <span>0.00 (Happy)</span>
+   926→              <span>1.00 (Angry)</span>
+   927→            </div>
+   928→          </FieldGroup>
+   929→          <FieldGroup>
+   930→            <label className="text-[10px] text-jarvis-muted tracking-wider uppercase">Escalation Keywords (comma separated)</label>
+   931→            <input
+   932→              type="text"
+   933→              className="jarvis-input mt-1 text-xs"
+   934→              placeholder="manager, supervisor, complaint, lawsuit..."
+   935→              value={keywords}
+   936→              onChange={(e) => setKeywords(e.target.value)}
+   937→            />
+   938→          </FieldGroup>
+   939→        </div>
+   940→      </div>
+   941→
+   942→      {/* Restricted Actions */}
+   943→      <div className="jarvis-card">
+   944→        <div className="text-[10px] text-jarvis-muted tracking-wider uppercase mb-3">Restricted Actions (require human approval)</div>
+   945→        <div className="space-y-2">
+   946→          <label className="flex items-center gap-2 cursor-pointer">
+   947→            <input
+   948→              type="checkbox"
+   949→              checked={restrictRefund}
+   950→              onChange={(e) => setRestrictRefund(e.target.checked)}
+   951→              className="w-3.5 h-3.5 rounded accent-jarvis-yellow"
+   952→            />
+   953→            <span className="text-xs text-jarvis-text">Refunds above threshold</span>
+   954→          </label>
+   955→          <label className="flex items-center gap-2 cursor-pointer">
+   956→            <input
+   957→              type="checkbox"
+   958→              checked={restrictDiscount}
+   959→              onChange={(e) => setRestrictDiscount(e.target.checked)}
+   960→              className="w-3.5 h-3.5 rounded accent-jarvis-yellow"
+   961→            />
+   962→            <span className="text-xs text-jarvis-text">Discounts</span>
+   963→          </label>
+   964→          <label className="flex items-center gap-2 cursor-pointer">
+   965→            <input
+   966→              type="checkbox"
+   967→              checked={restrictPersonal}
+   968→              onChange={(e) => setRestrictPersonal(e.target.checked)}
+   969→              className="w-3.5 h-3.5 rounded accent-jarvis-yellow"
+   970→            />
+   971→            <span className="text-xs text-jarvis-text">Personal data access</span>
+   972→          </label>
+   973→        </div>
+   974→      </div>
+   975→
+   976→      <div className="flex justify-end pt-2">
+   977→        <button
+   978→          onClick={handleSave}
+   979→          disabled={loading}
+   980→          className="jarvis-btn-primary text-xs disabled:opacity-50"
+   981→        >
+   982→          {loading ? (
+   983→            <span className="flex items-center gap-2">
+   984→              <span className="inline-block w-3 h-3 border border-jarvis-green/50 border-t-transparent rounded-full animate-spin" />
+   985→              SAVING...
+   986→            </span>
+   987→          ) : (
+   988→            'SAVE POLICIES →'
+   989→          )}
+   990→        </button>
+   991→      </div>
+   992→    </div>
+   993→  );
+   994→}
+   995→
+   996→// ── Step 6: Go Live ────────────────────────────────────────
+   997→function Step6GoLive({ data, updateData, onComplete, setError, setLoading, loading }: {
+   998→  data: WizardData;
+   999→  updateData: (p: Partial<WizardData>) => void;
+  1000→  onComplete: () => void;
+  1001→  setError: (e: string) => void;
+  1002→  setLoading: (l: boolean) => void;
+  1003→  loading: boolean;
+  1004→}) {
+  1005→  const [testQuery, setTestQuery] = useState('');
+  1006→  const [testResult, setTestResult] = useState<any>(null);
+  1007→  const [testLoading, setTestLoading] = useState(false);
+  1008→  const [copied, setCopied] = useState(false);
+  1009→
+  1010→  const handleGenerateKey = async () => {
+  1011→    setLoading(true);
+  1012→    try {
+  1013→      const result = await jarvisApi.generateKey({
+  1014→        tenant_id: data.tenantId,
+  1015→        key_type: 'live',
+  1016→        name: 'Production API Key',
+  1017→      });
+  1018→      const key = result.full_key || result.api_key || result.key || result.token || `pk_live_${Math.random().toString(36).substring(2, 15)}`;
+  1019→      updateData({ generatedKey: key });
+  1020→    } catch (err: any) {
+  1021→      setError(err.message || 'Key generation failed');
+  1022→    } finally {
+  1023→      setLoading(false);
+  1024→    }
+  1025→  };
+  1026→
+  1027→  const handleTestTicket = async () => {
+  1028→    if (!testQuery.trim()) return;
+  1029→    setTestLoading(true);
+  1030→    setTestResult(null);
+  1031→    try {
+  1032→      const result = await jarvisApi.testTicket({
+  1033→        tenant_id: data.tenantId,
+  1034→        query: testQuery,
+  1035→      });
+  1036→      setTestResult(result);
+  1037→    } catch (err: any) {
+  1038→      setTestResult({ error: true, message: err.message });
+  1039→    } finally {
+  1040→      setTestLoading(false);
+  1041→    }
+  1042→  };
+  1043→
+  1044→  const handleCopy = () => {
+  1045→    if (data.generatedKey) {
+  1046→      navigator.clipboard.writeText(data.generatedKey);
+  1047→      setCopied(true);
+  1048→      setTimeout(() => setCopied(false), 2000);
+  1049→    }
+  1050→  };
+  1051→
+  1052→  return (
+  1053→    <div className="space-y-4 fade-in">
+  1054→      {/* Key Generation */}
+  1055→      <div className="jarvis-card">
+  1056→        <div className="text-[10px] text-jarvis-muted tracking-wider uppercase mb-3">API Key Generation</div>
+  1057→        {!data.generatedKey ? (
+  1058→          <div className="text-center py-6">
+  1059→            <div className="text-jarvis-muted text-xs mb-4">Generate your production API key to enable live operations</div>
+  1060→            <button
+  1061→              onClick={handleGenerateKey}
+  1062→              disabled={loading}
+  1063→              className="jarvis-btn-primary text-xs disabled:opacity-50"
+  1064→            >
+  1065→              {loading ? 'GENERATING...' : '⚡ GENERATE API KEY'}
+  1066→            </button>
+  1067→          </div>
+  1068→        ) : (
+  1069→          <div className="space-y-3">
+  1070→            <div className="text-[10px] text-jarvis-green tracking-wider uppercase font-bold">✓ Key Generated</div>
+  1071→            <div className="bg-jarvis-bg border border-jarvis-border rounded-lg p-3 flex items-center justify-between gap-3">
+  1072→              <code className="text-xs text-jarvis-cyan break-all flex-1">{data.generatedKey}</code>
+  1073→              <button
+  1074→                onClick={handleCopy}
+  1075→                className="jarvis-btn-ghost text-[10px] px-2 py-1 shrink-0"
+  1076→              >
+  1077→                {copied ? 'COPIED!' : 'COPY'}
+  1078→              </button>
+  1079→            </div>
+  1080→            <div className="text-[9px] text-jarvis-yellow">⚠ Store this key securely. It will not be shown again.</div>
+  1081→          </div>
+  1082→        )}
+  1083→      </div>
+  1084→
+  1085→      {/* Test Ticket */}
+  1086→      <div className="jarvis-card">
+  1087→        <div className="text-[10px] text-jarvis-muted tracking-wider uppercase mb-3">Send Test Ticket</div>
+  1088→        <div className="space-y-3">
+  1089→          <div>
+  1090→            <label className="text-[10px] text-jarvis-muted tracking-wider uppercase">Test Query</label>
+  1091→            <div className="flex gap-2 mt-1">
+  1092→              <input
+  1093→                type="text"
+  1094→                className="jarvis-input text-xs flex-1"
+  1095→                placeholder="e.g., I want to return my order #12345"
+  1096→                value={testQuery}
+  1097→                onChange={(e) => setTestQuery(e.target.value)}
+  1098→              />
+  1099→              <button
+  1100→                onClick={handleTestTicket}
+  1101→                disabled={testLoading || !testQuery.trim()}
+  1102→                className="jarvis-btn-secondary text-[10px] shrink-0 disabled:opacity-50"
+  1103→              >
+  1104→                {testLoading ? '...' : 'TEST'}
+  1105→              </button>
+  1106→            </div>
+  1107→          </div>
+  1108→
+  1109→          {/* Predefined test queries */}
+  1110→          <div className="flex flex-wrap gap-2">
+  1111→            {[
+  1112→              'I want to return my order #12345',
+  1113→              'Can I get a discount?',
+  1114→              'What are your shipping options?',
+  1115→            ].map((q) => (
+  1116→              <button
+  1117→                key={q}
+  1118→                onClick={() => setTestQuery(q)}
+  1119→                className="text-[9px] text-jarvis-muted border border-jarvis-border rounded px-2 py-1 hover:text-jarvis-text hover:border-jarvis-muted transition-all"
+  1120→              >
+  1121→                {q}
+  1122→              </button>
+  1123→            ))}
+  1124→          </div>
+  1125→
+  1126→          {/* Result */}
+  1127→          {testResult && (
+  1128→            <div className={`p-3 rounded-lg border mt-2 ${testResult.error ? 'border-jarvis-red/30 bg-jarvis-red/5' : 'border-jarvis-green/30 bg-jarvis-green/5'}`}>
+  1129→              <div className="flex items-center gap-2 mb-2">
+  1130→                <span className={testResult.error ? 'text-jarvis-red' : 'text-jarvis-green'}>
+  1131→                  {testResult.error ? '✗' : '✓'}
+  1132→                </span>
+  1133→                <span className={`text-xs font-bold tracking-wider ${testResult.error ? 'text-jarvis-red' : 'text-jarvis-green'}`}>
+  1134→                  {testResult.error ? 'FAILED' : 'RESOLVED'}
+  1135→                </span>
+  1136→              </div>
+  1137→              {testResult.confidence !== undefined && (
+  1138→                <div className="text-[10px] text-jarvis-muted mb-2">
+  1139→                  Confidence: <span className="text-jarvis-yellow font-bold">{(testResult.confidence * 100).toFixed(1)}%</span>
+  1140→                </div>
+  1141→              )}
+  1142→              {testResult.response && (
+  1143→                <div className="text-xs text-jarvis-text mt-1 p-2 bg-jarvis-bg rounded border border-jarvis-border">
+  1144→                  {testResult.response}
+  1145→                </div>
+  1146→              )}
+  1147→              {testResult.message && (
+  1148→                <div className="text-[10px] text-jarvis-muted mt-1">{testResult.message}</div>
+  1149→              )}
+  1150→            </div>
+  1151→          )}
+  1152→        </div>
+  1153→      </div>
+  1154→
+  1155→      {/* Complete onboarding */}
+  1156→      <div className="jarvis-card border-jarvis-green/20 text-center py-6">
+  1157→        <div className="text-jarvis-green text-2xl mb-2 glow-green">◉</div>
+  1158→        <div className="text-sm font-bold text-jarvis-text mb-1">System Ready</div>
+  1159→        <div className="text-[10px] text-jarvis-muted max-w-md mx-auto mb-4">
+  1160→          Your JARVIS operating system is now configured and ready to process tickets.
+  1161→          Navigate to the dashboard to begin monitoring operations.
+  1162→        </div>
+  1163→        <button
+  1164→          onClick={onComplete}
+  1165→          disabled={!data.generatedKey}
+  1166→          className="jarvis-btn-primary text-xs disabled:opacity-50 px-6 py-2"
+  1167→        >
+  1168→          GO TO DASHBOARD →
+  1169→        </button>
+  1170→      </div>
+  1171→    </div>
+  1172→  );
+  1173→}
+  1174→
