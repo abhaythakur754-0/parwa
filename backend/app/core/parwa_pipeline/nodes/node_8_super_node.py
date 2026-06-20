@@ -386,6 +386,11 @@ async def node_8_super_node(state: PipelineV2State) -> dict:
             "super_node_quality": super_quality,
             "failure_analysis": failure_analysis,
             "all_solutions": solutions,
+            # Extra context for vault/CRM
+            "ticket_type": state.get("ticket_type", ""),
+            "complexity": state.get("complexity", ""),
+            "required_action": state.get("required_action", ""),
+            "what_was_tried": f"Techniques: Reflexion, SelfConsistency(2), ToT, ReverseThinking, CRP, CoT + 11 non-LLM",
         }
         logs.append({"node": 8, "technique": "Escalation", "duration_ms": 0, "result_summary": f"key={notification_key}"})
 
@@ -397,7 +402,7 @@ async def node_8_super_node(state: PipelineV2State) -> dict:
                 ticket_id=state.get("ticket_id", ""),
                 stuck_reason=f"Super Node quality {super_quality:.2f} <= {QUALITY_SUPER_THRESHOLD} after all techniques",
                 quality_score=super_quality,
-                what_was_tried=f"Techniques: Reflexion, SelfConsistency(2), ToT, ReverseThinking, CRP, CoT + 11 non-LLM. Previous attempts: {attempts_summary[:500]}",
+                what_was_tried=escalation_context["what_was_tried"] + f". Previous attempts: {attempts_summary[:500]}",
             )
             if inbox_msg:
                 inbox_msg_id = inbox_msg.get("id")
@@ -405,6 +410,37 @@ async def node_8_super_node(state: PipelineV2State) -> dict:
                              "result_summary": f"inbox_id={inbox_msg_id}"})
         except Exception as e:
             logger.warning("Wave 4 inbox write failed (non-fatal): %s", e)
+
+        # ── NEW: Save full pipeline state to Escalation Vault ──
+        try:
+            from app.core.escalation_vault.vault_manager import VaultManager
+            vault_record = await VaultManager.save_escalation_from_pipeline(
+                state=state,
+                escalation_context=escalation_context,
+                escalation_source="node_8_super_node",
+            )
+            if vault_record:
+                vault_id = vault_record.get("escalation_id", "")
+                logs.append({"node": 8, "technique": "VAULT_SAVE", "duration_ms": 0,
+                             "result_summary": f"vault_id={vault_id[:8]}"})
+        except Exception as e:
+            logger.warning("Vault save failed (non-fatal): %s", e)
+
+        # ── NEW: Push escalation back to CRM if CRM ticket exists ──
+        try:
+            crm_ticket_id = state.get("metadata", {}).get("crm_ticket_id", "")
+            crm_provider = state.get("metadata", {}).get("crm_provider", "")
+            if crm_ticket_id and crm_provider:
+                from app.core.crm_bridge.crm_bridge import CRMBridge
+                crm_result = await CRMBridge.push_escalation(
+                    provider=crm_provider,
+                    ticket_id=crm_ticket_id,
+                    escalation_context=escalation_context,
+                )
+                logs.append({"node": 8, "technique": "CRM_ESCALATION_PUSH", "duration_ms": 0,
+                             "result_summary": f"success={crm_result.get('success', False)}"})
+        except Exception as e:
+            logger.warning("CRM escalation push failed (non-fatal): %s", e)
 
 
     elapsed = int((time.time() - start) * 1000)

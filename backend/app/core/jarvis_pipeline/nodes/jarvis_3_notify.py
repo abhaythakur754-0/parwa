@@ -191,6 +191,12 @@ async def _execute_command(
                                           raw_input=raw_input)
         return response
 
+    # ── GUIDANCE INTENTS (escalated ticket human guidance) ──
+    if intent == "provide_guidance":
+        return await _handle_provide_guidance(target, tenant_id, auth_result, db, raw_input=raw_input)
+    if intent == "resume_ticket":
+        return await _handle_resume_ticket(target, tenant_id, auth_result, db)
+
     # ── EXPLAIN / TEACH / AGENT ──────────────────────────
     if intent == "explain_ticket":
         return await _handle_explain_ticket(target, tenant_id, signals, db)
@@ -515,6 +521,148 @@ async def _handle_emergency(intent: str, target: str, tenant_id: str, auth: Auth
         response += f"\n\nTo undo: **'disable my last rule'**"
 
     return response
+
+
+# ── Guidance Handlers (Escalation Vault Integration) ────────────
+
+async def _handle_provide_guidance(
+    target: str, tenant_id: str, auth: AuthResult, db,
+    raw_input: str = "",
+) -> str:
+    """Handle human guidance for an escalated ticket.
+
+    When a human agent provides guidance in JARVIS for a stuck ticket,
+    this saves the guidance to the escalation vault so PARWA can resume.
+
+    Usage:
+      "guide PARWA-NFY-001: Customer is on enterprise plan, approved for full refund"
+      "guide escalation_abc123: Try using the refund process v2 steps"
+    """
+    import re
+
+    # Parse: target is the notification key or escalation ID
+    # raw_input has the full guidance after the colon
+    guidance_text = ""
+    if ":" in raw_input:
+        parts = raw_input.split(":", 1)
+        guidance_text = parts[1].strip()
+    else:
+        # guidance_text is whatever comes after the intent+target
+        intent_prefix = f"guide {target}"
+        if raw_input.startswith(intent_prefix):
+            guidance_text = raw_input[len(intent_prefix):].strip()
+        elif raw_input.startswith(f"provide_guidance {target}"):
+            guidance_text = raw_input[len(f"provide_guidance {target}"):].strip()
+
+    if not guidance_text or len(guidance_text) < 5:
+        return (
+            "**[ERROR]** Guidance text too short. Please provide detailed guidance.\n\n"
+            "Usage: `guide <notification_key>: <your guidance>`\n"
+            "Example: `guide PARWA-NFY-001: Customer is enterprise, approved for $199 refund, ref #REF-8832`"
+        )
+
+    await db.create_audit_entry(
+        tenant_id=tenant_id,
+        action="provide_guidance",
+        actor_email=auth.email,
+        target_type="escalation",
+        target_id=target,
+        payload={"guidance": guidance_text, "source": "jarvis_chat"},
+    )
+
+    # Try to find escalation by notification key first, then by escalation ID
+    from app.core.escalation_vault.vault_manager import VaultManager
+
+    record = await VaultManager.get_escalation_by_notification(target)
+    if not record:
+        record = await VaultManager.get_escalation(target)
+
+    if not record:
+        return (
+            f"**[NOT FOUND]** No escalation found for '{target}'.\n\n"
+            "Use the notification key (PARWA-NFY-XXX) or escalation ID."
+        )
+
+    # Check if already resolved
+    if record.get("reprocess_status") == "done":
+        return (
+            f"**[ALREADY RESOLVED]** Escalation {record['escalation_id'][:8]} "
+            f"was already reprocessed on {record.get('reprocess_completed_at', 'unknown')}."
+        )
+
+    # Save guidance to vault
+    vault_record = await VaultManager.provide_human_guidance(
+        escalation_id=record["escalation_id"],
+        guidance=guidance_text,
+        source="jarvis_chat",
+    )
+
+    if vault_record:
+        return (
+            f"**[OK] Guidance saved** for escalation {record['escalation_id'][:8]}\n\n"
+            f"Original ticket: {record.get('original_ticket_id', '?')}\n"
+            f"Query: {record.get('original_query', '?')[:100]}...\n"
+            f"Guidance: {guidance_text[:200]}...\n\n"
+            f"Status: **Eligible for resume**\n\n"
+            f"To resume now: `resume {record['escalation_id'][:8]}`\n"
+            f"Or wait for auto-resume cron."
+        )
+    else:
+        return f"**[ERROR]** Failed to save guidance for escalation {record['escalation_id'][:8]}"
+
+
+async def _handle_resume_ticket(
+    target: str, tenant_id: str, auth: AuthResult, db,
+) -> str:
+    """Handle manual resume trigger for an escalated ticket.
+
+    Usage: "resume <escalation_id>"
+    """
+    await db.create_audit_entry(
+        tenant_id=tenant_id,
+        action="resume_ticket",
+        actor_email=auth.email,
+        target_type="escalation",
+        target_id=target,
+    )
+
+    from app.core.escalation_vault.vault_manager import VaultManager
+
+    # Find escalation by ID or notification key
+    record = await VaultManager.get_escalation(target)
+    if not record:
+        record = await VaultManager.get_escalation_by_notification(target)
+
+    if not record:
+        return f"**[NOT FOUND]** No escalation found for '{target}'."
+
+    if record.get("human_status") != "guidance_provided":
+        return (
+            f"**[NOT READY]** Escalation {record['escalation_id'][:8]} needs guidance first.\n"
+            f"Current status: {record.get('human_status', 'unknown')}\n\n"
+            f"Provide guidance: `guide {record.get('notification_key', record['escalation_id'][:12])}: <your guidance>`"
+        )
+
+    # Trigger resume pipeline
+    from app.core.escalation_vault.resume_pipeline import resume_escalated_ticket
+
+    result = await resume_escalated_ticket(record["escalation_id"], tenant_id)
+
+    if result.get("success"):
+        return (
+            f"**[RESOLVED]** Resume successful for escalation {record['escalation_id'][:8]}\n\n"
+            f"Quality: {result.get('reprocess_quality', 0):.2f}\n"
+            f"LLM calls: {result.get('llm_calls', 0)}\n"
+            f"Elapsed: {result.get('elapsed_ms', 0)}ms\n"
+            f"CRM push: {'Success' if result.get('crm_push', {}).get('success') else 'N/A'}\n\n"
+            f"Response preview: {result.get('reprocess_result', '')[:200]}..."
+        )
+    else:
+        return (
+            f"**[FAILED]** Resume did not pass quality check.\n\n"
+            f"Quality: {result.get('reprocess_quality', 0):.2f} (threshold: 0.88)\n"
+            f"This ticket still needs manual handling."
+        )
 
 
 # ── Explain / Teach / Agent Handlers ──────────────────────────

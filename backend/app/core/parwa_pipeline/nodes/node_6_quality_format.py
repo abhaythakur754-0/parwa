@@ -496,7 +496,17 @@ async def node_6_quality_format(state: PipelineV2State) -> dict:
     compressed = _compress_response(best_answer)
     logs.append({"node": 6, "technique": "ContextualCompression", "duration_ms": 0, "result_summary": f"{len(best_answer)}→{len(compressed)}"})
 
-    # 10. FederatedReasoning (Phase 7: restructured weights + floors)
+    # 10. Self-Consistency Check: compare multiple independent quality signals
+    # If Reflexion and CRP agree within 0.1, confidence is high
+    llm_signals = [reflexion_score, crp_score]
+    non_llm_signals = [zero_shot, structure_score, kb_score, adequacy_score]
+    consistency_gap = max(llm_signals) - min(llm_signals)
+    cross_method_agreement = sum(1 for s in non_llm_signals if s >= 0.85) / len(non_llm_signals)
+    self_consistency_score = 1.0 - (consistency_gap * 0.5) if consistency_gap < 0.2 else 0.8
+    logs.append({"node": 6, "technique": "Self_Consistency", "duration_ms": 0,
+                 "result_summary": f"llm_gap={consistency_gap:.2f} non_llm_agree={cross_method_agreement:.0%} score={self_consistency_score:.2f}"})
+
+    # 11. FederatedReasoning (Phase 7: restructured weights + floors)
     quality_result = _federated_quality(
         reflexion_score, crp_score, zero_shot, thot_score, gsd_score,
         structure_score, kb_score, adequacy_score,

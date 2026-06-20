@@ -16,6 +16,7 @@ Input from Jarvis: quota feed (Phase 8)
 from __future__ import annotations
 
 import logging
+import re
 import time
 from typing import Any, Dict, List
 
@@ -89,6 +90,57 @@ def set_test_variant(tenant_id: str, tier: str, quota: int) -> None:
     }
 
 
+# ── Keyword-Based Complexity Correction ──────────────────────────
+
+
+def _correct_complexity(query: str, complexity: str, action: str, ticket_type: str) -> tuple:
+    """Post-LLM correction: blend LLM classification with keyword heuristics.
+
+    Catches cases where the LLM misclassifies:
+      - Simple account changes tagged as complex
+      - Technical integration / billing disputes tagged as simple/medium
+    """
+    query_lower = query.lower()
+
+    # Strong indicators that should ALWAYS be complex regardless of LLM
+    strong_complex_patterns = [
+        r'\bintegrate\b.*\b(api|crm|erp|system|webhook)\b',       # Technical integration
+        r'\bapi\b.*\b(endpoint|connect|integration)\b',          # API integration
+        r'\b(overcharg|wrong charge|double charge|unauthorized charge)\b',  # Billing dispute
+        r'\brefund\b.*\b(subscription|plan|enterprise|difference)\b',       # Subscription refund
+        r'\b(chargeback|file\s+a\s+dispute)\b',                        # Escalation
+        r'\b(error|crash|500|403)\b.*\b(urgent|deadline|team)\b',     # Critical tech issue
+        r'\b(manager|supervisor)\b.*\b(complaint|terrible|worst)\b',  # Escalation complaint
+        r'\b(enterprise|plan)\b.*\b(charg|refund|credit)\b.*\b\d+', # Monetary dispute with amount
+    ]
+
+    for pattern in strong_complex_patterns:
+        if re.search(pattern, query_lower):
+            if complexity in ("simple", "medium"):
+                logger.info(
+                    "Complexity correction: %s → complex (keyword override)",
+                    complexity,
+                )
+                return "complex", action
+
+    # Strong indicators that should ALWAYS be simple regardless of LLM
+    strong_simple_patterns = [
+        r'^\s*I\s+(need\s+)?(want\s+)?to\s+(change|update)\s+my\s+(billing\s+)?(email|address|password|name|phone)\b',  # Simple account update
+        r'^\s*I\s+(need\s+)?(want\s+)?to\s+(change|update)\s+(my\s+)?billing\s+email\b',  # Explicit billing email
+    ]
+
+    for pattern in strong_simple_patterns:
+        if re.search(pattern, query_lower):
+            if complexity == "complex":
+                logger.info(
+                    "Complexity correction: %s → simple (keyword override)",
+                    complexity,
+                )
+                return "simple", "provide_info"
+
+    return complexity, action
+
+
 # ── Route Decision Logic (3-dimensional) ──────────────────────────
 
 
@@ -147,23 +199,51 @@ def _consume_quota(tenant_id: str, tier: str) -> None:
 TIER_ORDER = ["mini", "parwa", "high"]
 
 
+def _needs_complex_path(query: str) -> bool:
+    """Check if the query content requires complex path regardless of complexity label.
+
+    Some medium-complexity queries need the full reasoning pipeline
+    (technical integrations, multi-system questions, detailed how-tos).
+    """
+    query_lower = query.lower()
+    complex_content_patterns = [
+        r'\b(integrate|connect)\b.*\b(api|crm|erp|system|service)\b',
+        r'\bendpoint\b',
+        r'\bhow\s+do\s+i\s+(set\s+up|configure|implement)\b.*\b(api|webhook|integration)\b',
+        r'\b(ssl|oauth|authentication|sso)\b.*\b(integrate|setup|configure)\b',
+    ]
+    return any(re.search(p, query_lower) for p in complex_content_patterns)
+
+
 def _route_decision(
-    tenant_id: str, ticket_type: str, complexity: str, action: str, action_details: Dict
+    tenant_id: str, ticket_type: str, complexity: str, action: str, action_details: Dict,
+    query: str = ""
 ) -> tuple:
     """3-Dimensional Routing: capability + quota + efficiency.
 
     Returns (selected_tier, path, capabilities_list).
     Uses the LOWEST eligible tier to preserve higher quotas for harder tickets.
     """
+    # Apply keyword-based complexity correction first
+    corrected_complexity, corrected_action = _correct_complexity(query, complexity, action, ticket_type)
+
     # Determine which path
-    if complexity in ("simple", "medium") and action == "provide_info":
+    if corrected_complexity in ("simple", "medium") and corrected_action == "provide_info":
         target_path = "simple_path"
-    elif complexity in ("simple", "medium") and action == "recommend":
+    elif corrected_complexity in ("simple", "medium") and corrected_action == "recommend":
         target_path = "simple_path"
-    elif action == "investigate_billing":
+    elif corrected_complexity == "simple" and corrected_action == "account_change":
+        # Simple account changes don't need full reasoning pipeline
+        target_path = "simple_path"
+    elif corrected_action == "investigate_billing":
         # Phase 7: Billing investigation always needs complex reasoning path
         target_path = "complex_path"
     else:
+        target_path = "complex_path"
+
+    # Override: query content needs complex path even if corrected to simple/medium
+    if target_path == "simple_path" and _needs_complex_path(query):
+        logger.info("Path override: simple → complex (query content requires full reasoning)")
         target_path = "complex_path"
 
     # Find lowest eligible tier
@@ -277,9 +357,10 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
     }
     logs.append({"node": 2, "technique": "QuotaTracker", "duration_ms": 0, "result_summary": f"quota={quota_remaining}"})
 
-    # 3. 3-Dimensional route decision
+    # 3. 3-Dimensional route decision (with keyword correction)
     selected_tier, path, capabilities = _route_decision(
-        tenant_id, ticket_type, complexity, action, action_details
+        tenant_id, ticket_type, complexity, action, action_details,
+        query=state.get("query", "")
     )
     logs.append({"node": 2, "technique": "RouteDecision", "duration_ms": 0, "result_summary": f"tier={selected_tier} path={path}"})
 

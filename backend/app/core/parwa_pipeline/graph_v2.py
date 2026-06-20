@@ -152,8 +152,9 @@ async def _load_jarvis_flags(state: PipelineV2State) -> dict:
     }
 
 def _finalize_simple(state: PipelineV2State) -> dict:
-    """Set final response from simple resolver + wiki write-back."""
+    """Set final response from simple resolver + wiki write-back + CRM push-back."""
     _wiki_write_on_resolve(state, techniques=["Node7_SimpleResolver", "GSD", "MAKER", "FederatedReasoning"])
+    _crm_push_on_resolve(state, response=state.get("simple_answer", ""))
     return {
         "final_response": state.get("simple_answer", ""),
         "status": "resolved",
@@ -163,17 +164,83 @@ def _finalize_simple(state: PipelineV2State) -> dict:
 
 
 def _wiki_finalize_complex(state: PipelineV2State) -> dict:
-    """Phase 7: Wiki write-back for complex path + set final response.
+    """Phase 7: Wiki write-back for complex path + set final response + CRM push-back.
 
     This node is called AFTER Node 6 quality passes on the complex path.
     Previously wiki write-back was only in run_parwa_pipeline() wrapper,
     which tests bypassed via compiled.ainvoke().
     """
     _wiki_write_on_resolve(state)
+    response = state.get("formatted_response", "") or state.get("combined_answer", "")
+    _crm_push_on_resolve(state, response=response)
     return {
-        "final_response": state.get("formatted_response", "") or state.get("combined_answer", ""),
+        "final_response": response,
         "status": "resolved",
     }
+
+
+def _crm_push_on_resolve(state: PipelineV2State, response: str = "") -> None:
+    """Push resolved response back to CRM if a CRM ticket exists.
+
+    Non-blocking. Failures are silently logged — never breaks the pipeline.
+    Called from both _finalize_simple and _wiki_finalize_complex.
+    """
+    try:
+        metadata = state.get("metadata", {})
+        crm_ticket_id = metadata.get("crm_ticket_id", "")
+        crm_provider = metadata.get("crm_provider", "")
+
+        if not crm_ticket_id or not crm_provider:
+            return  # No CRM ticket — nothing to push
+
+        from app.core.crm_bridge.crm_bridge import CRMBridge
+
+        quality = state.get("quality_score", 0.0)
+        if state.get("simple_confidence"):
+            quality = max(quality, state["simple_confidence"])
+        if state.get("super_node_quality"):
+            quality = max(quality, state["super_node_quality"])
+
+        # Build internal note with AI classification
+        internal_note = (
+            f"Ticket Type: {state.get('ticket_type', 'unknown')} | "
+            f"Complexity: {state.get('complexity', 'unknown')} | "
+            f"Path: {state.get('route_decision', state.get('current_path', '?'))} | "
+            f"Quality: {quality:.2f} | "
+            f"Techniques: {', '.join(state.get('techniques_used', [])[:5])}"
+        )
+
+        # Use asyncio to run the async CRM push
+        import asyncio
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # We're inside an async graph — schedule as task
+            asyncio.ensure_future(
+                CRMBridge.push_response(
+                    provider=crm_provider,
+                    ticket_id=crm_ticket_id,
+                    response=response,
+                    status="resolved",
+                    internal_note=internal_note,
+                )
+            )
+        else:
+            loop.run_until_complete(
+                CRMBridge.push_response(
+                    provider=crm_provider,
+                    ticket_id=crm_ticket_id,
+                    response=response,
+                    status="resolved",
+                    internal_note=internal_note,
+                )
+            )
+
+        logger.info(
+            "CRM push-back: ticket=%s provider=%s",
+            crm_ticket_id, crm_provider,
+        )
+    except Exception as e:
+        logger.warning("CRM push-back failed (non-fatal): %s", e)
 
 
 def _wiki_write_on_resolve(state: PipelineV2State, techniques: list = None) -> None:
