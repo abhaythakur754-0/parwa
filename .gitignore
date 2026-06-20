@@ -1,0 +1,87 @@
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+.env.prod
+!.env.example
+!.env.prod.example
+!.env.rs256.example
+!.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+.Python
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.nuxt/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.pid
+*.seed
+*.log
+
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# MyPy / Pytest
+.mypy_cache/
+.pytest_cache/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Download / Upload dirs (local artifacts)
+download/
+upload/
+
+# Skills
+skills/
+
+# Agent context (local dev only)
+agent-ctx/
+
+# Worklog
+worklog.md
+
+# Database dumps
+*.sql.gz
+*.sql
+
+# Redis dumps
+dump.rdb
+
+# Graphify cache (large binary cache files)
+graphify-out/cache/
+test-results/
+test-results-*.png
+parwa/

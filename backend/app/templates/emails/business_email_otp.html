@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Your Business Email</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0D0D0D; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+        <tr>
+            <td align="center" style="padding: 40px 20px;">
+                <!-- Logo -->
+                <table role="presentation" width="100%" style="max-width: 500px;">
+                    <tr>
+                        <td align="center" style="padding-bottom: 30px;">
+                            <h1 style="color: #FF7F11; font-size: 32px; margin: 0; font-weight: 800;">PARWA</h1>
+                            <p style="color: #888; font-size: 14px; margin: 5px 0 0 0;">AI Workforce Platform</p>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Main Content Card -->
+                <table role="presentation" width="100%" style="max-width: 500px; background: linear-gradient(180deg, #1A1A1A 0%, #141414 100%); border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);">
+                    <tr>
+                        <td style="padding: 40px 30px;">
+                            <!-- Header -->
+                            <h2 style="color: #FFFFFF; font-size: 24px; margin: 0 0 10px 0; text-align: center;">
+                                Verify Your Business Email
+                            </h2>
+                            <p style="color: #AAAAAA; font-size: 16px; margin: 0 0 30px 0; text-align: center;">
+                                Hi {{ user_name }}, please use the code below to verify your business email address.
+                            </p>
+
+                            <!-- OTP Code Box -->
+                            <table role="presentation" width="100%">
+                                <tr>
+                                    <td align="center" style="padding: 20px;">
+                                        <div style="background: rgba(255, 127, 17, 0.1); border: 2px solid rgba(255, 127, 17, 0.3); border-radius: 12px; padding: 20px 40px; display: inline-block;">
+                                            <span style="font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #FF7F11; font-family: 'Courier New', monospace;">
+                                                {{ otp_code }}
+                                            </span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Expiry Notice -->
+                            <p style="color: #888888; font-size: 14px; text-align: center; margin: 20px 0;">
+                                ⏱️ This code will expire in <strong style="color: #FFFFFF;">{{ expires_minutes }} minutes</strong>
+                            </p>
+
+                            <!-- Divider -->
+                            <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 30px 0;"></div>
+
+                            <!-- Instructions -->
+                            <p style="color: #AAAAAA; font-size: 14px; margin: 0 0 15px 0;">
+                                <strong style="color: #FFFFFF;">How to use this code:</strong>
+                            </p>
+                            <ol style="color: #888888; font-size: 14px; margin: 0; padding-left: 20px; line-height: 1.8;">
+                                <li>Return to the PARWA onboarding page</li>
+                                <li>Enter the 6-digit code shown above</li>
+                                <li>Click "Verify" to complete verification</li>
+                            </ol>
+
+                            <!-- Warning -->
+                            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 15px; margin-top: 25px;">
+                                <p style="color: #F87171; font-size: 13px; margin: 0;">
+                                    ⚠️ <strong>Security Notice:</strong> Never share this code with anyone. PARWA will never ask for your verification code via phone or email.
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Footer -->
+                <table role="presentation" width="100%" style="max-width: 500px;">
+                    <tr>
+                        <td style="padding: 30px 0; text-align: center;">
+                            <p style="color: #666666; font-size: 12px; margin: 0;">
+                                This email was sent by PARWA AI Workforce Platform.<br>
+                                © 2026 PARWA. All rights reserved.
+                            </p>
+                            <p style="color: #555555; font-size: 11px; margin: 10px 0 0 0;">
+                                If you didn't request this code, you can safely ignore this email.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

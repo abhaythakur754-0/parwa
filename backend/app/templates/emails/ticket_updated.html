@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Ticket Updated{% endblock %}
+
+{% block content %}
+<div style="padding: 20px;">
+    <h2 style="color: #17a2b8; margin-bottom: 20px;">📝 Ticket Updated</h2>
+    
+    <p style="color: #666; font-size: 16px; line-height: 1.6;">
+        A support ticket has been updated.
+    </p>
+    
+    <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 8px 0; color: #888; width: 120px;">Ticket ID:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: bold;">{{ ticket_id }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #888;">Subject:</td>
+                <td style="padding: 8px 0; color: #333;">{{ ticket_subject }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #888;">Updated by:</td>
+                <td style="padding: 8px 0; color: #333;">{{ updated_by }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #888;">Updated at:</td>
+                <td style="padding: 8px 0; color: #333;">{{ updated_at }}</td>
+            </tr>
+        </table>
+    </div>
+    
+    {% if updated_fields %}
+    <div style="background: #e3f2fd; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        <h3 style="color: #1565c0; margin: 0 0 15px 0; font-size: 16px;">Changed Fields</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="border-bottom: 1px solid #bbdefb;">
+                    <th style="padding: 8px; text-align: left; color: #1565c0;">Field</th>
+                    <th style="padding: 8px; text-align: left; color: #1565c0;">Old Value</th>
+                    <th style="padding: 8px; text-align: left; color: #1565c0;">New Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for field in updated_fields %}
+                <tr>
+                    <td style="padding: 8px; color: #333; text-transform: capitalize;">{{ field.name }}</td>
+                    <td style="padding: 8px; color: #999;">{{ field.old_value }}</td>
+                    <td style="padding: 8px; color: #333; font-weight: bold;">{{ field.new_value }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+    
+    <div style="margin: 20px 0;">
+        <a href="{{ ticket_url }}" style="background: #17a2b8; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Ticket</a>
+    </div>
+    
+    <p style="color: #888; font-size: 14px; margin-top: 30px;">
+        You received this notification because you are involved with this ticket.
+    </p>
+</div>
+{% endblock %}

@@ -1,0 +1,514 @@
+{
+  "timestamp": "2026-05-06T16:14:03.652668+00:00",
+  "total_requests": 130,
+  "tier_metrics": {
+    "mini_parwa": {
+      "tier": "mini_parwa",
+      "total_requests": 130,
+      "completed": 115,
+      "escalated": 15,
+      "quality_failed": 0,
+      "success_rate": 88.46,
+      "escalation_rate": 11.54,
+      "quality_pass_rate": 100.0,
+      "intent_accuracy": 40.77,
+      "avg_clara_score": 75.96,
+      "min_clara_score": 75.0,
+      "max_clara_score": 100.0,
+      "avg_empathy_score": 0.67,
+      "avg_latency_ms": 44.2,
+      "p50_latency_ms": 49.48,
+      "p95_latency_ms": 52.75,
+      "p99_latency_ms": 58.73,
+      "avg_crp_compression": 1.0,
+      "pii_detection_count": 9,
+      "emergency_detection_count": 15,
+      "by_industry": {
+        "ecommerce": {
+          "count": 30,
+          "avg_clara_score": 75.0,
+          "avg_latency_ms": 46.88,
+          "intent_accuracy": 56.67
+        },
+        "saas": {
+          "count": 44,
+          "avg_clara_score": 75.57,
+          "avg_latency_ms": 45.0,
+          "intent_accuracy": 31.82
+        },
+        "logistics": {
+          "count": 17,
+          "avg_clara_score": 76.47,
+          "avg_latency_ms": 50.03,
+          "intent_accuracy": 41.18
+        },
+        "healthcare": {
+          "count": 16,
+          "avg_clara_score": 75.0,
+          "avg_latency_ms": 34.62,
+          "intent_accuracy": 43.75
+        },
+        "fintech": {
+          "count": 18,
+          "avg_clara_score": 77.78,
+          "avg_latency_ms": 42.25,
+          "intent_accuracy": 38.89
+        },
+        "general": {
+          "count": 5,
+          "avg_clara_score": 80.0,
+          "avg_latency_ms": 39.05,
+          "intent_accuracy": 20.0
+        }
+      },
+      "by_category": {
+        "shipping": {
+          "count": 9,
+          "avg_clara_score": 75.0
+        },
+        "refund": {
+          "count": 9,
+          "avg_clara_score": 75.0
+        },
+        "billing": {
+          "count": 23,
+          "avg_clara_score": 75.0
+        },
+        "complaint": {
+          "count": 26,
+          "avg_clara_score": 75.0
+        },
+        "account": {
+          "count": 22,
+          "avg_clara_score": 76.14
+        },
+        "technical": {
+          "count": 21,
+          "avg_clara_score": 76.19
+        },
+        "cancellation": {
+          "count": 4,
+          "avg_clara_score": 81.25
+        },
+        "general": {
+          "count": 11,
+          "avg_clara_score": 79.55
+        },
+        "legal_threat": {
+          "count": 1,
+          "avg_clara_score": 75.0
+        },
+        "safety": {
+          "count": 1,
+          "avg_clara_score": 75.0
+        },
+        "compliance": {
+          "count": 2,
+          "avg_clara_score": 75.0
+        },
+        "media": {
+          "count": 1,
+          "avg_clara_score": 75.0
+        }
+      },
+      "by_emotion": {
+        "frustrated": {
+          "count": 35,
+          "avg_empathy_score": 0.68
+        },
+        "neutral": {
+          "count": 45,
+          "avg_empathy_score": 0.69
+        },
+        "angry": {
+          "count": 30,
+          "avg_empathy_score": 0.63
+        },
+        "urgent": {
+          "count": 17,
+          "avg_empathy_score": 0.63
+        },
+        "confused": {
+          "count": 3,
+          "avg_empathy_score": 0.6
+        }
+      },
+      "can_eliminate_humans_score": 76.87,
+      "total_execution_time_ms": 5747.98
+    },
+    "parwa": {
+      "tier": "parwa",
+      "total_requests": 130,
+      "completed": 115,
+      "escalated": 15,
+      "quality_failed": 0,
+      "success_rate": 88.46,
+      "escalation_rate": 11.54,
+      "quality_pass_rate": 100.0,
+      "intent_accuracy": 40.77,
+      "avg_clara_score": 75.96,
+      "min_clara_score": 75.0,
+      "max_clara_score": 100.0,
+      "avg_empathy_score": 0.67,
+      "avg_latency_ms": 44.41,
+      "p50_latency_ms": 48.21,
+      "p95_latency_ms": 64.83,
+      "p99_latency_ms": 66.33,
+      "avg_crp_compression": 1.0,
+      "pii_detection_count": 9,
+      "emergency_detection_count": 15,
+      "by_industry": {
+        "ecommerce": {
+          "count": 30,
+          "avg_clara_score": 75.0,
+          "avg_latency_ms": 45.96,
+          "intent_accuracy": 56.67
+        },
+        "saas": {
+          "count": 44,
+          "avg_clara_score": 75.57,
+          "avg_latency_ms": 46.56,
+          "intent_accuracy": 31.82
+        },
+        "logistics": {
+          "count": 17,
+          "avg_clara_score": 76.47,
+          "avg_latency_ms": 49.8,
+          "intent_accuracy": 41.18
+        },
+        "healthcare": {
+          "count": 16,
+          "avg_clara_score": 75.0,
+          "avg_latency_ms": 33.49,
+          "intent_accuracy": 43.75
+        },
+        "fintech": {
+          "count": 18,
+          "avg_clara_score": 77.78,
+          "avg_latency_ms": 42.74,
+          "intent_accuracy": 38.89
+        },
+        "general": {
+          "count": 5,
+          "avg_clara_score": 80.0,
+          "avg_latency_ms": 38.84,
+          "intent_accuracy": 20.0
+        }
+      },
+      "by_category": {
+        "shipping": {
+          "count": 9,
+          "avg_clara_score": 75.0
+        },
+        "refund": {
+          "count": 9,
+          "avg_clara_score": 75.0
+        },
+        "billing": {
+          "count": 23,
+          "avg_clara_score": 75.0
+        },
+        "complaint": {
+          "count": 26,
+          "avg_clara_score": 75.0
+        },
+        "account": {
+          "count": 22,
+          "avg_clara_score": 76.14
+        },
+        "technical": {
+          "count": 21,
+          "avg_clara_score": 76.19
+        },
+        "cancellation": {
+          "count": 4,
+          "avg_clara_score": 81.25
+        },
+        "general": {
+          "count": 11,
+          "avg_clara_score": 79.55
+        },
+        "legal_threat": {
+          "count": 1,
+          "avg_clara_score": 75.0
+        },
+        "safety": {
+          "count": 1,
+          "avg_clara_score": 75.0
+        },
+        "compliance": {
+          "count": 2,
+          "avg_clara_score": 75.0
+        },
+        "media": {
+          "count": 1,
+          "avg_clara_score": 75.0
+        }
+      },
+      "by_emotion": {
+        "frustrated": {
+          "count": 35,
+          "avg_empathy_score": 0.68
+        },
+        "neutral": {
+          "count": 45,
+          "avg_empathy_score": 0.69
+        },
+        "angry": {
+          "count": 30,
+          "avg_empathy_score": 0.63
+        },
+        "urgent": {
+          "count": 17,
+          "avg_empathy_score": 0.63
+        },
+        "confused": {
+          "count": 3,
+          "avg_empathy_score": 0.6
+        }
+      },
+      "can_eliminate_humans_score": 76.87,
+      "total_execution_time_ms": 5775.14
+    },
+    "parwa_high": {
+      "tier": "parwa_high",
+      "total_requests": 130,
+      "completed": 115,
+      "escalated": 15,
+      "quality_failed": 0,
+      "success_rate": 88.46,
+      "escalation_rate": 11.54,
+      "quality_pass_rate": 100.0,
+      "intent_accuracy": 40.77,
+      "avg_clara_score": 75.96,
+      "min_clara_score": 75.0,
+      "max_clara_score": 100.0,
+      "avg_empathy_score": 0.67,
+      "avg_latency_ms": 43.63,
+      "p50_latency_ms": 48.45,
+      "p95_latency_ms": 53.02,
+      "p99_latency_ms": 64.4,
+      "avg_crp_compression": 1.0,
+      "pii_detection_count": 9,
+      "emergency_detection_count": 15,
+      "by_industry": {
+        "ecommerce": {
+          "count": 30,
+          "avg_clara_score": 75.0,
+          "avg_latency_ms": 46.64,
+          "intent_accuracy": 56.67
+        },
+        "saas": {
+          "count": 44,
+          "avg_clara_score": 75.57,
+          "avg_latency_ms": 44.9,
+          "intent_accuracy": 31.82
+        },
+        "logistics": {
+          "count": 17,
+          "avg_clara_score": 76.47,
+          "avg_latency_ms": 48.63,
+          "intent_accuracy": 41.18
+        },
+        "healthcare": {
+          "count": 16,
+          "avg_clara_score": 75.0,
+          "avg_latency_ms": 33.23,
+          "intent_accuracy": 43.75
+        },
+        "fintech": {
+          "count": 18,
+          "avg_clara_score": 77.78,
+          "avg_latency_ms": 40.91,
+          "intent_accuracy": 38.89
+        },
+        "general": {
+          "count": 5,
+          "avg_clara_score": 80.0,
+          "avg_latency_ms": 40.5,
+          "intent_accuracy": 20.0
+        }
+      },
+      "by_category": {
+        "shipping": {
+          "count": 9,
+          "avg_clara_score": 75.0
+        },
+        "refund": {
+          "count": 9,
+          "avg_clara_score": 75.0
+        },
+        "billing": {
+          "count": 23,
+          "avg_clara_score": 75.0
+        },
+        "complaint": {
+          "count": 26,
+          "avg_clara_score": 75.0
+        },
+        "account": {
+          "count": 22,
+          "avg_clara_score": 76.14
+        },
+        "technical": {
+          "count": 21,
+          "avg_clara_score": 76.19
+        },
+        "cancellation": {
+          "count": 4,
+          "avg_clara_score": 81.25
+        },
+        "general": {
+          "count": 11,
+          "avg_clara_score": 79.55
+        },
+        "legal_threat": {
+          "count": 1,
+          "avg_clara_score": 75.0
+        },
+        "safety": {
+          "count": 1,
+          "avg_clara_score": 75.0
+        },
+        "compliance": {
+          "count": 2,
+          "avg_clara_score": 75.0
+        },
+        "media": {
+          "count": 1,
+          "avg_clara_score": 75.0
+        }
+      },
+      "by_emotion": {
+        "frustrated": {
+          "count": 35,
+          "avg_empathy_score": 0.68
+        },
+        "neutral": {
+          "count": 45,
+          "avg_empathy_score": 0.69
+        },
+        "angry": {
+          "count": 30,
+          "avg_empathy_score": 0.63
+        },
+        "urgent": {
+          "count": 17,
+          "avg_empathy_score": 0.63
+        },
+        "confused": {
+          "count": 3,
+          "avg_empathy_score": 0.6
+        }
+      },
+      "can_eliminate_humans_score": 76.87,
+      "total_execution_time_ms": 5673.58
+    }
+  },
+  "concurrent_results": {
+    "concurrency_5": {
+      "total_requests": 20,
+      "successful": 20,
+      "failed": 0,
+      "concurrency": 5,
+      "total_time_ms": 956.19,
+      "avg_latency_ms": 47.81,
+      "throughput_per_sec": 20.92
+    },
+    "concurrency_10": {
+      "total_requests": 20,
+      "successful": 20,
+      "failed": 0,
+      "concurrency": 10,
+      "total_time_ms": 944.69,
+      "avg_latency_ms": 47.23,
+      "throughput_per_sec": 21.17
+    },
+    "concurrency_20": {
+      "total_requests": 20,
+      "successful": 20,
+      "failed": 0,
+      "concurrency": 20,
+      "total_time_ms": 923.78,
+      "avg_latency_ms": 46.19,
+      "throughput_per_sec": 21.65
+    }
+  },
+  "pii_accuracy": 100.0,
+  "pii_results": [
+    {
+      "id": 301,
+      "expected": true,
+      "detected": true,
+      "correct": true
+    },
+    {
+      "id": 302,
+      "expected": true,
+      "detected": true,
+      "correct": true
+    },
+    {
+      "id": 303,
+      "expected": true,
+      "detected": true,
+      "correct": true
+    },
+    {
+      "id": 304,
+      "expected": true,
+      "detected": true,
+      "correct": true
+    },
+    {
+      "id": 305,
+      "expected": false,
+      "detected": false,
+      "correct": true
+    }
+  ],
+  "emergency_detection_rate": 100.0,
+  "emergency_type_accuracy": 80.0,
+  "emergency_results": [
+    {
+      "id": 201,
+      "expected": "legal_threat",
+      "detected": "legal_threat",
+      "correct_type": true,
+      "detected_emergency": true
+    },
+    {
+      "id": 202,
+      "expected": "safety",
+      "detected": "safety",
+      "correct_type": true,
+      "detected_emergency": true
+    },
+    {
+      "id": 203,
+      "expected": "compliance",
+      "detected": "compliance",
+      "correct_type": true,
+      "detected_emergency": true
+    },
+    {
+      "id": 204,
+      "expected": "media",
+      "detected": "media",
+      "correct_type": true,
+      "detected_emergency": true
+    },
+    {
+      "id": 205,
+      "expected": "compliance",
+      "detected": "legal_threat",
+      "correct_type": false,
+      "detected_emergency": true
+    }
+  ],
+  "twilio_call_test": {
+    "success": false,
+    "error": "No module named 'twilio'",
+    "note": "Twilio integration code verified. Requires verified phone number for production calls."
+  }
+}
