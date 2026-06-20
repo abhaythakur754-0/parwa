@@ -30,3 +30,27 @@ Stage Summary:
 - PipelineResult class preserved for backward compat
 - All public API functions (process_customer_care_message, process_onboarding_message, has_variant_tier_in_context) unchanged
 - Test files still reference old code (will fail but won't break production) — to be updated later
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Merge temp JARVIS 3-node pipeline into onboarding
+
+Work Log:
+- Deep research: compared ALL JARVIS files between onboarding and temp (250+ files each)
+- Found: 100% of shared JARVIS code is identical between both projects
+- Found temp-only extras: jarvis_pipeline/ (25 files, 3-node SENSE→EVALUATE→NOTIFY), jarvis_routes.py (30+ endpoints), models.py, utils.py, sse.py, jarvis_wave1_schema.sql
+- COPIED: jarvis_pipeline/ (25 files) → onboarding backend/app/core/
+- COPIED: jarvis_routes.py + models.py + utils.py + sse.py → onboarding backend/app/api/
+- COPIED: jarvis_wave1_schema.sql → onboarding backend/schemas/
+- WIRED: jarvis_routes.py into main.py (import + include_router)
+- FIXED: broken import app.core.auth.access_control → app.core.auth.verify_access_token + is_token_revoked (using existing onboarding auth)
+- VERIFIED: all 100% imports resolve correctly, no route conflicts
+
+Stage Summary:
+- Onboarding now has COMPLETE temp JARVIS system (superset)
+- 25 new jarvis_pipeline files, 4 new API support files, 1 SQL schema
+- jarvis_routes.py registered in main.py with 30+ live endpoints
+- 3-node pipeline: SENSE→EVALUATE→NOTIFY (monitoring, quality, SLA, copilot, Wave 8)
+- All imports verified, auth fixed to use onboarding's existing JWT system
+- No push to GitHub (local changes only)

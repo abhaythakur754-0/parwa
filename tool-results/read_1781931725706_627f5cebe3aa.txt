@@ -1,0 +1,1044 @@
+    50→    50→router = APIRouter()
+    51→    51→
+    52→    52→# Default tenant used when none supplied
+    53→    53→_DEFAULT_TENANT = "default_tenant"
+    54→    54→
+    55→    55→
+    56→    56→# ── Optional Auth Dependency ────────────────────────────────
+    57→    57→# Validates JWT/API key if provided, but does NOT block unauthenticated requests.
+    58→    58→# This allows the dashboard to work in dev without forcing full auth,
+    59→    59→# while still validating credentials when they are present.
+    60→    60→
+    61→    61→async def _optional_auth(request: Request) -> Optional[Dict[str, Any]]:
+    62→    62→    """Extract auth context from request if Authorization header is present.
+    63→    63→
+    64→    64→    Returns None if no auth header (allows unauthenticated dev access).
+    65→    65→    Raises 401 if auth header is present but invalid.
+    66→    66→    """
+    67→    67→    from app.core.auth.access_control import validate_request
+    68→    68→
+    69→    69→    auth_header = request.headers.get("Authorization", "")
+    70→    70→    if not auth_header.startswith("Bearer "):
+    71→    71→        return None  # No auth provided — dev mode
+    72→    72→
+    73→    73→    token = auth_header[7:].strip()
+    74→    74→    if not token:
+    75→    75→        return None
+    76→    76→
+    77→    77→    client_ip = request.client.host if request.client else "unknown"
+    78→    78→    is_valid, context, _ = await validate_request(
+    79→    79→        api_key=token if token.startswith("pk_live_") or token.startswith("pk_test_") else None,
+    80→    80→        jwt_token=token if not (token.startswith("pk_live_") or token.startswith("pk_test_")) else None,
+    81→    81→        client_ip=client_ip,
+    82→    82→    )
+    83→    83→    if is_valid:
+    84→    84→        return context
+    85→    85→    return None  # Invalid but don't block — middleware can enforce later
+    86→    86→
+    87→    87→
+    88→    88→# ═══════════════════════════════════════════════════════════════
+    89→    89→# CHAT & COMMANDS
+    90→    90→# ═══════════════════════════════════════════════════════════════
+    91→    91→
+    92→    92→@router.post(
+    93→    93→    "/jarvis/chat",
+    94→    94→    summary="Main chat endpoint — runs full SENSE → EVALUATE → NOTIFY pipeline",
+    95→    95→    response_model=Dict[str, Any],
+    96→    96→)
+    97→    97→async def jarvis_chat(req: ChatRequest):
+    98→    98→    """Accept a natural-language question and run the full Jarvis pipeline."""
+    99→    99→    from app.core.jarvis_pipeline.graph import run_jarvis_chat
+   100→   100→
+   101→   101→    tenant_id = req.tenant_id or _DEFAULT_TENANT
+   102→   102→
+   103→   103→    # Emit SSE init event
+   104→   104→    await emit_pipeline_event(tenant_id, "init", {
+   105→   105→        "question": req.question,
+   106→   106→        "user_email": req.user_email,
+   107→   107→    })
+   108→   108→    await emit_pipeline_event(tenant_id, "sense_start", {})
+   109→   109→
+   110→   110→    try:
+   111→   111→        result = await run_jarvis_chat(
+   112→   112→            tenant_id=tenant_id,
+   113→   113→            question=req.question,
+   114→   114→            user_email=req.user_email,
+   115→   115→            user_role=req.user_role,
+   116→   116→        )
+   117→   117→    except Exception as exc:
+   118→   118→        await emit_pipeline_event(tenant_id, "error", {"error": str(exc)})
+   119→   119→        raise _err(f"Pipeline error: {exc}", 500)
+   120→   120→
+   121→   121→    # Emit pipeline completion events
+   122→   122→    await emit_pipeline_event(tenant_id, "sense_complete",
+   123→   123→                              {"signals": result.get("signals", {}).get("integration_health", {})})
+   124→   124→    await emit_pipeline_event(tenant_id, "evaluate_start", {})
+   125→   125→    await emit_pipeline_event(tenant_id, "evaluate_complete",
+   126→   126→                              {"evaluations": len(result.get("evaluations", []))})
+   127→   127→    await emit_pipeline_event(tenant_id, "notify_start", {})
+   128→   128→    await emit_pipeline_event(tenant_id, "notify_complete",
+   129→   129→                              {"notifications": len(result.get("notifications", []))})
+   130→   130→    await emit_pipeline_event(tenant_id, "done", {"chat_response": result.get("chat_response", "")[:200]})
+   131→   131→
+   132→   132→    return result
+   133→   133→
+   134→   134→
+   135→   135→@router.get(
+   136→   136→    "/jarvis/status",
+   137→   137→    summary="System status — integration health, load, active flags",
+   138→   138→    response_model=Dict[str, Any],
+   139→   139→)
+   140→   140→async def jarvis_status(
+   141→   141→    tenant_id: str = _DEFAULT_TENANT,
+   142→   142→):
+   143→   143→    """Return integration health, load status, active flags, and uptime info."""
+   144→   144→    from app.core.jarvis_pipeline.jarvis_db import get_db
+   145→   145→
+   146→   146→    db = get_db()
+   147→   147→    health = await db.get_integration_health(tenant_id)
+   148→   148→    load = await db.get_load_status(tenant_id)
+   149→   149→    flags = await db.get_active_flags(tenant_id)
+   150→   150→    now_iso = datetime.now(timezone.utc).isoformat()
+   151→   151→
+   152→   152→    return {
+   153→   153→        "tenant_id": tenant_id,
+   154→   154→        "timestamp": now_iso,
+   155→   155→        "integration_health": health,
+   156→   156→        "load_status": load,
+   157→   157→        "active_flags": flags,
+   158→   158→        "active_flags_count": len(flags),
+   159→   159→    }
+   160→   160→
+   161→   161→
+   162→   162→@router.get(
+   163→   163→    "/jarvis/metrics",
+   164→   164→    summary="Performance metrics — volume, accuracy, confidence, efficiency",
+   165→   165→    response_model=Dict[str, Any],
+   166→   166→)
+   167→   167→async def jarvis_metrics(
+   168→   168→    tenant_id: str = _DEFAULT_TENANT,
+   169→   169→    days: int = 7,
+   170→   170→):
+   171→   171→    """Performance dashboard data for a tenant over N days."""
+   172→   172→    from app.core.jarvis_pipeline.report_generator import get_performance_dashboard
+   173→   173→
+   174→   174→    return await get_performance_dashboard(tenant_id=tenant_id, days=days)
+   175→   175→
+   176→   176→
+   177→   177→# ═══════════════════════════════════════════════════════════════
+   178→   178→# NOTIFICATIONS
+   179→   179→# ═══════════════════════════════════════════════════════════════
+   180→   180→
+   181→   181→@router.get(
+   182→   182→    "/jarvis/notifications",
+   183→   183→    summary="Get notifications for a tenant",
+   184→   184→    response_model=Dict[str, Any],
+   185→   185→)
+   186→   186→async def get_notifications(tenant_id: str = _DEFAULT_TENANT, include_resolved: bool = False):
+   187→   187→    """List notifications ordered by priority."""
+   188→   188→    from app.core.jarvis_pipeline.notification_center import get_tenant_notifications
+   189→   189→
+   190→   190→    notifs = await get_tenant_notifications(
+   191→   191→        tenant_id=tenant_id,
+   192→   192→        include_resolved=include_resolved,
+   193→   193→    )
+   194→   194→    return {
+   195→   195→        "tenant_id": tenant_id,
+   196→   196→        "notifications": notifs,
+   197→   197→        "count": len(notifs),
+   198→   198→    }
+   199→   199→
+   200→   200→
+   201→   201→@router.post(
+   202→   202→    "/jarvis/notifications/{key}/resolve",
+   203→   203→    summary="Resolve a notification by key",
+   204→   204→    response_model=Dict[str, Any],
+   205→   205→)
+   206→   206→async def resolve_notification(key: str):
+   207→   207→    """Mark a notification as resolved."""
+   208→   208→    from app.core.jarvis_pipeline.notification_center import resolve_notification as resolve_ntf
+   209→   209→
+   210→   210→    ok = await resolve_ntf(key)
+   211→   211→    if not ok:
+   212→   212→        raise _err(f"Notification '{key}' not found or already resolved", 404)
+   213→   213→    return {"ok": True, "message": f"Notification '{key}' resolved", "key": key}
+   214→   214→
+   215→   215→
+   216→   216→@router.post(
+   217→   217→    "/jarvis/notifications/batch/approve",
+   218→   218→    summary="Approve all pending batches for a tenant",
+   219→   219→    response_model=Dict[str, Any],
+   220→   220→)
+   221→   221→async def approve_batch(req: BatchActionRequest):
+   222→   222→    """Approve (flush) pending notification batches."""
+   223→   223→    from app.core.jarvis_pipeline.notification_center import flush_batches
+   224→   224→    from app.core.jarvis_pipeline.jarvis_db import get_db
+   225→   225→
+   226→   226→    tenant_id = req.tenant_id or _DEFAULT_TENANT
+   227→   227→    db = get_db()
+   228→   228→
+   229→   229→    flushed = await flush_batches(tenant_id)
+   230→   230→
+   231→   231→    # Audit
+   232→   232→    await db.create_audit_entry(
+   233→   233→        tenant_id=tenant_id,
+   234→   234→        action="batch_approve",
+   235→   235→        actor_email="api",
+   236→   236→        target_type="batch",
+   237→   237→        target_id=req.batch_key,
+   238→   238→        payload={"batch_key": req.batch_key, "flushed_count": len(flushed)},
+   239→   239→    )
+   240→   240→
+   241→   241→    return {
+   242→   242→        "ok": True,
+   243→   243→        "action": "approve",
+   244→   244→        "tenant_id": tenant_id,
+   245→   245→        "batch_key": req.batch_key,
+   246→   246→        "flushed_count": len(flushed),
+   247→   247→        "batches": flushed,
+   248→   248→    }
+   249→   249→
+   250→   250→
+   251→   251→@router.post(
+   252→   252→    "/jarvis/notifications/batch/reject",
+   253→   253→    summary="Reject all pending batches for a tenant",
+   254→   254→    response_model=Dict[str, Any],
+   255→   255→)
+   256→   256→async def reject_batch(req: BatchActionRequest):
+   257→   257→    """Reject (flush & discard) pending notification batches."""
+   258→   258→    from app.core.jarvis_pipeline.notification_center import flush_batches
+   259→   259→    from app.core.jarvis_pipeline.jarvis_db import get_db
+   260→   260→
+   261→   261→    tenant_id = req.tenant_id or _DEFAULT_TENANT
+   262→   262→    db = get_db()
+   263→   263→
+   264→   264→    flushed = await flush_batches(tenant_id)
+   265→   265→
+   266→   266→    await db.create_audit_entry(
+   267→   267→        tenant_id=tenant_id,
+   268→   268→        action="batch_reject",
+   269→   269→        actor_email="api",
+   270→   270→        target_type="batch",
+   271→   271→        target_id=req.batch_key,
+   272→   272→        payload={"batch_key": req.batch_key, "flushed_count": len(flushed)},
+   273→   273→    )
+   274→   274→
+   275→   275→    return {
+   276→   276→        "ok": True,
+   277→   277→        "action": "reject",
+   278→   278→        "tenant_id": tenant_id,
+   279→   279→        "batch_key": req.batch_key,
+   280→   280→        "flushed_count": len(flushed),
+   281→   281→        "batches": flushed,
+   282→   282→    }
+   283→   283→
+   284→   284→
+   285→   285→# ═══════════════════════════════════════════════════════════════
+   286→   286→# FLAGS & CONTROL
+   287→   287→# ═══════════════════════════════════════════════════════════════
+   288→   288→
+   289→   289→@router.get(
+   290→   290→    "/jarvis/flags",
+   291→   291→    summary="List active system flags",
+   292→   292→    response_model=Dict[str, Any],
+   293→   293→)
+   294→   294→async def get_flags(
+   295→   295→    tenant_id: str = _DEFAULT_TENANT,
+   296→   296→    flag_type: str | None = None,
+   297→   297→):
+   298→   298→    """List all active flags for a tenant."""
+   299→   299→    from app.core.jarvis_pipeline.jarvis_db import get_db
+   300→   300→
+   301→   301→    db = get_db()
+   302→   302→    flags = await db.get_active_flags(tenant_id, flag_type=flag_type)
+   303→   303→    return {
+   304→   304→        "tenant_id": tenant_id,
+   305→   305→        "flags": flags,
+   306→   306→        "count": len(flags),
+   307→   307→    }
+   308→   308→
+   309→   309→
+   310→   310→@router.post(
+   311→   311→    "/jarvis/flags",
+   312→   312→    summary="Set a system flag",
+   313→   313→    response_model=Dict[str, Any],
+   314→   314→)
+   315→   315→async def set_flag(req: SetFlagRequest):
+   316→   316→    """Create a new system flag."""
+   317→   317→    from app.core.jarvis_pipeline.jarvis_db import get_db
+   318→   318→
+   319→   319→    tenant_id = req.tenant_id or _DEFAULT_TENANT
+   320→   320→    db = get_db()
+   321→   321→
+   322→   322→    flag = await db.set_flag(
+   323→   323→        tenant_id=tenant_id,
+   324→   324→        flag_type=req.flag_type,
+   325→   325→        flag_value=req.flag_value,
+   326→   326→        set_by="api_user",
+   327→   327→        scope=req.scope,
+   328→   328→        reason=req.reason,
+   329→   329→        expires_at=req.expires_at,
+   330→   330→    )
+   331→   331→
+   332→   332→    await db.create_audit_entry(
+   333→   333→        tenant_id=tenant_id,
+   334→   334→        action="set_flag",
+   335→   335→        actor_email="api_user",
+   336→   336→        target_type="flag",
+   337→   337→        target_id=flag.get("id", ""),
+   338→   338→        payload={
+   339→   339→            "flag_type": req.flag_type,
+   340→   340→            "flag_value": req.flag_value,
+   341→   341→            "scope": req.scope,
+   342→   342→            "reason": req.reason,
+   343→   343→        },
+   344→   344→    )
+   345→   345→
+   346→   346→    return {"ok": True, "flag": flag}
+   347→   347→
+   348→   348→
+   349→   349→@router.post(
+   350→   350→    "/jarvis/flags/{flag_id}/revoke",
+   351→   351→    summary="Revoke a system flag",
+   352→   352→    response_model=Dict[str, Any],
+   353→   353→)
+   354→   354→async def revoke_flag(flag_id: str, tenant_id: str = _DEFAULT_TENANT):
+   355→   355→    """Revoke an active flag by its ID."""
+   356→   356→    from app.core.jarvis_pipeline.jarvis_db import get_db
+   357→   357→
+   358→   358→    db = get_db()
+   359→   359→    ok = await db.revoke_flag(flag_id, revoked_by="api_user")
+   360→   360→    if not ok:
+   361→   361→        raise _err(f"Flag '{flag_id}' not found or already revoked", 404)
+   362→   362→
+   363→   363→    await db.create_audit_entry(
+   364→   364→        tenant_id=tenant_id,
+   365→   365→        action="revoke_flag",
+   366→   366→        actor_email="api_user",
+   367→   367→        target_type="flag",
+   368→   368→        target_id=flag_id,
+   369→   369→        payload={},
+   370→   370→    )
+   371→   371→
+   372→   372→    return {"ok": True, "message": f"Flag '{flag_id}' revoked", "flag_id": flag_id}
+   373→   373→
+   374→   374→
+   375→   375→# ═══════════════════════════════════════════════════════════════
+   376→   376→# CONTROL COMMANDS
+   377→   377→# ═══════════════════════════════════════════════════════════════
+   378→   378→
+   379→   379→@router.post(
+   380→   380→    "/jarvis/command/pause",
+   381→   381→    summary="Pause an action/channel",
+   382→   382→    response_model=Dict[str, Any],
+   383→   383→)
+   384→   384→async def command_pause(req: PauseRequest):
+   385→   385→    """Pause processing for a target (refund, return, all, etc.)."""
+   386→   386→    from app.core.jarvis_pipeline.command_executor import execute_command
+   387→   387→
+   388→   388→    tenant_id = req.tenant_id or _DEFAULT_TENANT
+   389→   389→    raw_input = f"pause {req.target}"
+   390→   390→    if req.duration:
+   391→   391→        raw_input += f" for {req.duration}"
+   392→   392→
+   393→   393→    result = await execute_command(
+   394→   394→        intent="control_pause",
+   395→   395→        target=req.target,
+   396→   396→        tenant_id=tenant_id,
+   397→   397→        actor_email=req.user_email,
+   398→   398→        raw_input=raw_input,
+   399→   399→    )
+   400→   400→    return result.to_dict()
+   401→   401→
+   402→   402→
+   403→   403→@router.post(
+   404→   404→    "/jarvis/command/resume",
+   405→   405→    summary="Resume a paused action/channel",
+   406→   406→    response_model=Dict[str, Any],
+   407→   407→)
+   408→   408→async def command_resume(req: ResumeRequest):
+   409→   409→    """Resume processing for a target."""
+   410→   410→    from app.core.jarvis_pipeline.command_executor import execute_command
+   411→   411→
+   412→   412→    tenant_id = req.tenant_id or _DEFAULT_TENANT
+   413→   413→    raw_input = f"resume {req.target}"
+   414→   414→
+   415→   415→    result = await execute_command(
+   416→   416→        intent="control_resume",
+   417→   417→        target=req.target,
+   418→   418→        tenant_id=tenant_id,
+   419→   419→        actor_email=req.user_email,
+   420→   420→        raw_input=raw_input,
+   421→   421→    )
+   422→   422→    return result.to_dict()
+   423→   423→
+   424→   424→
+   425→   425→@router.post(
+   426→   426→    "/jarvis/command/redirect",
+   427→   427→    summary="Redirect a channel to AI or human",
+   428→   428→    response_model=Dict[str, Any],
+   429→   429→)
+   430→   430→async def command_redirect(req: RedirectRequest):
+   431→   431→    """Redirect a channel to AI or human handler."""
+   432→   432→    from app.core.jarvis_pipeline.command_executor import execute_command
+   433→   433→
+   434→   434→    tenant_id = req.tenant_id or _DEFAULT_TENANT
+   435→   435→    raw_input = f"redirect {req.target} to {req.handler}"
+   436→   436→
+   437→   437→    result = await execute_command(
+   438→   438→        intent="control_route",
+   439→   439→        target=req.target,
+   440→   440→        tenant_id=tenant_id,
+   441→   441→        actor_email=req.user_email,
+   442→   442→        raw_input=raw_input,
+   443→   443→    )
+   444→   444→    return result.to_dict()
+   445→   445→
+   446→   446→
+   447→   447→@router.post(
+   448→   448→    "/jarvis/command/mode",
+   449→   449→    summary="Change system operating mode",
+   450→   450→    response_model=Dict[str, Any],
+   451→   451→)
+   452→   452→async def command_mode(req: ModeRequest):
+   453→   453→    """Switch between shadow / supervised / graduated mode."""
+   454→   454→    from app.core.jarvis_pipeline.command_executor import execute_command
+   455→   455→
+   456→   456→    tenant_id = req.tenant_id or _DEFAULT_TENANT
+   457→   457→    raw_input = f"switch mode to {req.mode}"
+   458→   458→
+   459→   459→    result = await execute_command(
+   460→   460→        intent="control_mode",
+   461→   461→        target=req.mode,
+   462→   462→        tenant_id=tenant_id,
+   463→   463→        actor_email=req.user_email,
+   464→   464→        raw_input=raw_input,
+   465→   465→    )
+   466→   466→    return result.to_dict()
+   467→   467→
+   468→   468→
+   469→   469→# ═══════════════════════════════════════════════════════════════
+   470→   470→# QUALITY & REPORTS
+   471→   471→# ═══════════════════════════════════════════════════════════════
+   472→   472→
+   473→   473→@router.get(
+   474→   474→    "/quality/scores",
+   475→   475→    summary="Quality scores — accuracy, volume, breakdown",
+   476→   476→    response_model=Dict[str, Any],
+   477→   477→)
+   478→   478→async def quality_scores(
+   479→   479→    tenant_id: str = _DEFAULT_TENANT,
+   480→   480→    days: int = 7,
+   481→   481→):
+   482→   482→    """Retrieve quality statistics for a tenant."""
+   483→   483→    from app.core.jarvis_pipeline.jarvis_db import get_db
+   484→   484→
+   485→   485→    db = get_db()
+   486→   486→    stats = await db.get_quality_stats(tenant_id, days=days)
+   487→   487→    return {"tenant_id": tenant_id, "days": days, **stats}
+   488→   488→
+   489→   489→
+   490→   490→@router.get(
+   491→   491→    "/quality/alerts",
+   492→   492→    summary="Quality alerts — drift, accuracy drops",
+   493→   493→    response_model=Dict[str, Any],
+   494→   494→)
+   495→   495→async def quality_alerts(tenant_id: str = _DEFAULT_TENANT):
+   496→   496→    """Get active quality alerts."""
+   497→   497→    from app.core.jarvis_pipeline.jarvis_db import get_db
+   498→   498→
+   499→   499→    db = get_db()
+   500→   500→    alerts = await db.get_quality_alerts(tenant_id, include_resolved=False)
+   501→   501→    return {"tenant_id": tenant_id, "alerts": alerts, "count": len(alerts)}
+   502→   502→
+   503→   503→
+   504→   504→@router.post(
+   505→   505→    "/quality/alerts/{alert_id}/resolve",
+   506→   506→    summary="Resolve a quality alert",
+   507→   507→    response_model=Dict[str, Any],
+   508→   508→)
+   509→   509→async def resolve_quality_alert(alert_id: str):
+   510→   510→    """Mark a quality alert as resolved."""
+   511→   511→    from app.core.jarvis_pipeline.jarvis_db import get_db
+   512→   512→
+   513→   513→    db = get_db()
+   514→   514→    ok = await db.resolve_quality_alert(alert_id)
+   515→   515→    if not ok:
+   516→   516→        raise _err(f"Quality alert '{alert_id}' not found or already resolved", 404)
+   517→   517→    return {"ok": True, "message": f"Alert '{alert_id}' resolved", "alert_id": alert_id}
+   518→   518→
+   519→   519→
+   520→   520→@router.get(
+   521→   521→    "/quality/recommendations",
+   522→   522→    summary="Training priority recommendations",
+   523→   523→    response_model=Dict[str, Any],
+   524→   524→)
+   525→   525→async def quality_recommendations(tenant_id: str = _DEFAULT_TENANT):
+   526→   526→    """Get ranked training priority list with actionable suggestions."""
+   527→   527→    from app.core.jarvis_pipeline.quality_coach import generate_training_priority_list
+   528→   528→
+   529→   529→    priorities = await generate_training_priority_list(tenant_id)
+   530→   530→    return {
+   531→   531→        "tenant_id": tenant_id,
+   532→   532→        "recommendations": priorities,
+   533→   533→        "count": len(priorities),
+   534→   534→    }
+   535→   535→
+   536→   536→
+   537→   537→@router.post(
+   538→   538→    "/quality/feedback",
+   539→   539→    summary="Submit training feedback",
+   540→   540→    response_model=Dict[str, Any],
+   541→   541→)
+   542→   542→async def quality_feedback(req: FeedbackRequest):
+   543→   543→    """Record approved/rejected training data for the AI."""
+   544→   544→    from app.core.jarvis_pipeline.jarvis_db import get_db
+   545→   545→
+   546→   546→    tenant_id = req.tenant_id or _DEFAULT_TENANT
+   547→   547→    db = get_db()
+   548→   548→
+   549→   549→    record = await db.record_training_data(
+   550→   550→        tenant_id=tenant_id,
+   551→   551→        ticket_id=req.ticket_id or "",
+   552→   552→        signal_type=req.signal_type,
+   553→   553→        original_response=req.ai_response,
+   554→   554→        corrected_response=req.correct_response,
+   555→   555→        quality_score=req.quality_score,
+   556→   556→        ticket_type=req.ticket_type,
+   557→   557→        metadata=req.metadata or {},
+   558→   558→    )
+   559→   559→
+   560→   560→    return {"ok": True, "tenant_id": tenant_id, "record": record}
+   561→   561→
+   562→   562→
+   563→   563→@router.get(
+   564→   564→    "/quality/weekly-report",
+   565→   565→    summary="Weekly wins report",
+   566→   566→    response_model=Dict[str, Any],
+   567→   567→)
+   568→   568→async def weekly_report(
+   569→   569→    tenant_id: str = _DEFAULT_TENANT,
+   570→   570→    days: int = 7,
+   571→   571→):
+   572→   572→    """Generate the weekly wins report."""
+   573→   573→    from app.core.jarvis_pipeline.report_generator import generate_weekly_wins_report
+   574→   574→
+   575→   575→    report = await generate_weekly_wins_report(tenant_id=tenant_id, days=days)
+   576→   576→    return report
+   577→   577→
+   578→   578→
+   579→   579→@router.get(
+   580→   580→    "/quality/health-score",
+   581→   581→    summary="Agent health score + coaching recommendation",
+   582→   582→    response_model=Dict[str, Any],
+   583→   583→)
+   584→   584→async def agent_health_score(tenant_id: str = _DEFAULT_TENANT):
+   585→   585→    """Get comprehensive agent health summary with coaching."""
+   586→   586→    from app.core.jarvis_pipeline.quality_coach import get_agent_health_summary
+   587→   587→
+   588→   588→    return await get_agent_health_summary(tenant_id)
+   589→   589→
+   590→   590→
+   591→   591→@router.get(
+   592→   592→    "/quality/drift-check",
+   593→   593→    summary="Run drift detection and create alerts",
+   594→   594→    response_model=Dict[str, Any],
+   595→   595→)
+   596→   596→async def drift_check(tenant_id: str = _DEFAULT_TENANT):
+   597→   597→    """Run drift check and auto-create alerts if drift detected."""
+   598→   598→    from app.core.jarvis_pipeline.quality_coach import run_drift_check_and_alert
+   599→   599→
+   600→   600→    return await run_drift_check_and_alert(tenant_id)
+   601→   601→
+   602→   602→
+   603→   603→# ═══════════════════════════════════════════════════════════════
+   604→   604→# SLA
+   605→   605→# ═══════════════════════════════════════════════════════════════
+   606→   606→
+   607→   607→@router.get(
+   608→   608→    "/sla/status",
+   609→   609→    summary="SLA status — uptime, incidents, credits",
+   610→   610→    response_model=Dict[str, Any],
+   611→   611→)
+   612→   612→async def sla_status(
+   613→   613→    tenant_id: str = _DEFAULT_TENANT,
+   614→   614→    days: int = 30,
+   615→   615→):
+   616→   616→    """Compute SLA status for a tenant."""
+   617→   617→    from app.core.jarvis_pipeline.sla_calculator import compute_sla_status
+   618→   618→
+   619→   619→    return await compute_sla_status(tenant_id=tenant_id, days=days)
+   620→   620→
+   621→   621→
+   622→   622→@router.get(
+   623→   623→    "/sla/credits",
+   624→   624→    summary="SLA credits owed",
+   625→   625→    response_model=Dict[str, Any],
+   626→   626→)
+   627→   627→async def sla_credits(
+   628→   628→    tenant_id: str = _DEFAULT_TENANT,
+   629→   629→    days: int = 30,
+   630→   630→):
+   631→   631→    """Get SLA credits information (part of SLA status)."""
+   632→   632→    from app.core.jarvis_pipeline.sla_calculator import compute_sla_status
+   633→   633→
+   634→   634→    status = await compute_sla_status(tenant_id=tenant_id, days=days)
+   635→   635→    return {
+   636→   636→        "tenant_id": tenant_id,
+   637→   637→        "period_days": days,
+   638→   638→        "credit_owed_usd": status.get("credit_owed_usd", 0),
+   639→   639→        "sla_status": status.get("sla_status", "meeting"),
+   640→   640→        "actual_uptime_pct": status.get("actual_uptime_pct", 100),
+   641→   641→        "target_uptime_pct": status.get("target_uptime_pct", 99.5),
+   642→   642→    }
+   643→   643→
+   644→   644→
+   645→   645→# ═══════════════════════════════════════════════════════════════
+   646→   646→# APPROVALS
+   647→   647→# ═══════════════════════════════════════════════════════════════
+   648→   648→
+   649→   649→@router.get(
+   650→   650→    "/approvals/pending",
+   651→   651→    summary="Pending approval batches",
+   652→   652→    response_model=Dict[str, Any],
+   653→   653→)
+   654→   654→async def approvals_pending(tenant_id: str = _DEFAULT_TENANT):
+   655→   655→    """Get pending approval batch queue."""
+   656→   656→    from app.core.jarvis_pipeline.jarvis_db import get_db
+   657→   657→
+   658→   658→    db = get_db()
+   659→   659→    # Access the internal batch metas for reading (non-destructive).
+   660→   660→    # InMemoryBackend stores them in _batch_metas, Supabase would need
+   661→   661→    # a dedicated query — fall back to empty list if unavailable.
+   662→   662→    if hasattr(db, "_batch_metas"):
+   663→   663→        pending = list(db._batch_metas.get(tenant_id, {}).values())
+   664→   664→    else:
+   665→   665→        pending = []
+   666→   666→    return {
+   667→   667→        "tenant_id": tenant_id,
+   668→   668→        "pending": pending,
+   669→   669→        "count": len(pending),
+   670→   670→    }
+   671→   671→
+   672→   672→
+   673→   673→@router.post(
+   674→   674→    "/approvals/batch",
+   675→   675→    summary="Batch approve or reject pending items",
+   676→   676→    response_model=Dict[str, Any],
+   677→   677→)
+   678→   678→async def approval_batch(req: ApprovalBatchRequest):
+   679→   679→    """Approve or reject a batch of pending items."""
+   680→   680→    from app.core.jarvis_pipeline.notification_center import flush_batches
+   681→   681→    from app.core.jarvis_pipeline.jarvis_db import get_db
+   682→   682→
+   683→   683→    tenant_id = req.tenant_id or _DEFAULT_TENANT
+   684→   684→    action = req.action.lower()
+   685→   685→
+   686→   686→    if action not in ("approve", "reject"):
+   687→   687→        raise _err("action must be 'approve' or 'reject'")
+   688→   688→
+   689→   689→    db = get_db()
+   690→   690→    flushed = await flush_batches(tenant_id)
+   691→   691→
+   692→   692→    await db.create_audit_entry(
+   693→   693→        tenant_id=tenant_id,
+   694→   694→        action=f"approval_{action}",
+   695→   695→        actor_email="api",
+   696→   696→        target_type="batch",
+   697→   697→        target_id=req.batch_key or "all",
+   698→   698→        payload={"action": action, "batch_key": req.batch_key, "flushed_count": len(flushed)},
+   699→   699→    )
+   700→   700→
+   701→   701→    return {
+   702→   702→        "ok": True,
+   703→   703→        "action": action,
+   704→   704→        "tenant_id": tenant_id,
+   705→   705→        "batch_key": req.batch_key,
+   706→   706→        "processed_count": len(flushed),
+   707→   707→        "batches": flushed,
+   708→   708→    }
+   709→   709→
+   710→   710→
+   711→   711→# ═══════════════════════════════════════════════════════════════
+   712→   712→# EMERGENCY
+   713→   713→# ═══════════════════════════════════════════════════════════════
+   714→   714→
+   715→   715→@router.post(
+   716→   716→    "/emergency/shutdown",
+   717→   717→    summary="Emergency stop — halt all AI processing",
+   718→   718→    response_model=Dict[str, Any],
+   719→   719→)
+   720→   720→async def emergency_shutdown(req: EmergencyShutdownRequest):
+   721→   721→    """Emergency shutdown — creates a global_shutdown flag."""
+   722→   722→    from app.core.jarvis_pipeline.command_executor import execute_command
+   723→   723→
+   724→   724→    tenant_id = req.tenant_id or _DEFAULT_TENANT
+   725→   725→
+   726→   726→    result = await execute_command(
+   727→   727→        intent="emergency_shutdown",
+   728→   728→        target="all",
+   729→   729→        tenant_id=tenant_id,
+   730→   730→        actor_email=req.user_email,
+   731→   731→        raw_input="emergency shutdown everything",
+   732→   732→    )
+   733→   733→    return result.to_dict()
+   734→   734→
+   735→   735→
+   736→   736→@router.post(
+   737→   737→    "/pause_all_refunds",
+   738→   738→    summary="Global refund pause — pause all refund processing",
+   739→   739→    response_model=Dict[str, Any],
+   740→   740→)
+   741→   741→async def pause_all_refunds(req: PauseAllRefundsRequest):
+   742→   742→    """Pause all refund processing globally."""
+   743→   743→    from app.core.jarvis_pipeline.command_executor import execute_command
+   744→   744→
+   745→   745→    tenant_id = req.tenant_id or _DEFAULT_TENANT
+   746→   746→
+   747→   747→    result = await execute_command(
+   748→   748→        intent="control_pause",
+   749→   749→        target="refund",
+   750→   750→        tenant_id=tenant_id,
+   751→   751→        actor_email=req.user_email,
+   752→   752→        raw_input="pause all refunds",
+   753→   753→    )
+   754→   754→    return result.to_dict()
+   755→   755→
+   756→   756→
+   757→   757→# ═══════════════════════════════════════════════════════════════
+   758→   758→# AUDIT
+   759→   759→# ═══════════════════════════════════════════════════════════════
+   760→   760→
+   761→   761→@router.get(
+   762→   762→    "/jarvis/audit",
+   763→   763→    summary="Audit trail — who did what and when",
+   764→   764→    response_model=Dict[str, Any],
+   765→   765→)
+   766→   766→async def audit_trail(
+   767→   767→    tenant_id: str = _DEFAULT_TENANT,
+   768→   768→    limit: int = 50,
+   769→   769→    action: str | None = None,
+   770→   770→):
+   771→   771→    """Get the audit trail for a tenant."""
+   772→   772→    from app.core.jarvis_pipeline.jarvis_db import get_db
+   773→   773→
+   774→   774→    db = get_db()
+   775→   775→    trail = await db.get_audit_trail(
+   776→   776→        tenant_id=tenant_id,
+   777→   777→        limit=limit,
+   778→   778→        action=action,
+   779→   779→    )
+   780→   780→    return {
+   781→   781→        "tenant_id": tenant_id,
+   782→   782→        "audit_trail": trail,
+   783→   783→        "count": len(trail),
+   784→   784→    }
+   785→   785→
+   786→   786→
+   787→   787→# ═══════════════════════════════════════════════════════════════
+   788→   788→# HEALTH & ROI
+   789→   789→# ═══════════════════════════════════════════════════════════════
+   790→   790→
+   791→   791→@router.get(
+   792→   792→    "/jarvis/customer-health",
+   793→   793→    summary="Customer health score — onboarding milestones & readiness",
+   794→   794→    response_model=Dict[str, Any],
+   795→   795→)
+   796→   796→async def customer_health(tenant_id: str = _DEFAULT_TENANT):
+   797→   797→    """Get comprehensive customer health score with milestone tracking."""
+   798→   798→    from app.core.jarvis_pipeline.health_scorer import get_customer_health
+   799→   799→
+   800→   800→    return await get_customer_health(tenant_id)
+   801→   801→
+   802→   802→
+   803→   803→@router.get(
+   804→   804→    "/jarvis/roi",
+   805→   805→    summary="ROI calculator — cost savings analysis",
+   806→   806→    response_model=Dict[str, Any],
+   807→   807→)
+   808→   808→async def roi_calculator(
+   809→   809→    tenant_id: str = _DEFAULT_TENANT,
+   810→   810→    days: int = 30,
+   811→   811→):
+   812→   812→    """Calculate ROI comparing human cost vs AI cost."""
+   813→   813→    from app.core.jarvis_pipeline.health_scorer import calculate_roi
+   814→   814→
+   815→   815→    return await calculate_roi(tenant_id=tenant_id, days=days)
+   816→   816→
+   817→   817→
+   818→   818→# ═══════════════════════════════════════════════════════════════
+   819→   819→# TICKET SUBMISSION (PARWA PIPELINE)
+   820→   820→# ═══════════════════════════════════════════════════════════════
+   821→   821→
+   822→   822→@router.post(
+   823→   823→    "/tickets/submit",
+   824→   824→    summary="Submit a ticket to the PARWA pipeline",
+   825→   825→    response_model=Dict[str, Any],
+   826→   826→)
+   827→   827→async def submit_ticket(req: TicketSubmitRequest):
+   828→   828→    """Run a customer ticket through the full PARWA pipeline.
+   829→   829→
+   830→   830→    This endpoint processes the ticket INSIDE the server process,
+   831→   831→    so quality scores, notifications, and audit entries are written
+   832→   832→    to the same shared DB that all API endpoints read from.
+   833→   833→
+   834→   834→    Flow: Ingest → Classify → Route → Knowledge → Reasoning/Simple
+   835→   835→          → Act+Verify → Quality → Finalize → END
+   836→   836→    """
+   837→   837→    import uuid
+   838→   838→    import time as _time
+   839→   839→
+   840→   840→    from app.core.parwa_pipeline.graph_v2 import run_parwa_pipeline
+   841→   841→    from app.core.parwa_pipeline.nodes.node_2_smart_route import set_test_variant
+   842→   842→
+   843→   843→    tenant_id = req.tenant_id or _DEFAULT_TENANT
+   844→   844→    ticket_id = f"tkt_api_{uuid.uuid4().hex[:8]}"
+   845→   845→
+   846→   846→    # Emit SSE events
+   847→   847→    await emit_pipeline_event(tenant_id, "ticket_received", {
+   848→   848→        "ticket_id": ticket_id,
+   849→   849→        "channel": req.channel_type,
+   850→   850→    })
+   851→   851→    await emit_pipeline_event(tenant_id, "pipeline_start", {"ticket_id": ticket_id})
+   852→   852→
+   853→   853→    # Set variant for this ticket
+   854→   854→    set_test_variant(tenant_id, req.variant_tier, 2000)
+   855→   855→
+   856→   856→    initial_state = {
+   857→   857→        "ticket_id": ticket_id,
+   858→   858→        "tenant_id": tenant_id,
+   859→   859→        "query": req.query,
+   860→   860→        "channel_type": req.channel_type,
+   861→   861→        "customer_context": req.customer_context or {},
+   862→   862→        "metadata": {
+   863→   863→            "sender": req.sender or "",
+   864→   864→            "timestamp": datetime.now(timezone.utc).isoformat(),
+   865→   865→            "source": "api_submission",
+   866→   866→        },
+   867→   867→        "loop_count": 0,
+   868→   868→        "total_token_usage": 0,
+   869→   869→        "technique_log": [],
+   870→   870→        "errors": [],
+   871→   871→    }
+   872→   872→
+   873→   873→    try:
+   874→   874→        start = _time.monotonic()
+   875→   875→        # run_parwa_pipeline is sync — handles async internally
+   876→   876→        result = run_parwa_pipeline(initial_state)
+   877→   877→        elapsed = round(_time.monotonic() - start, 2)
+   878→   878→
+   879→   879→        status = result.get("status", "unknown")
+   880→   880→        quality = result.get("quality_score", None)
+   881→   881→        route = result.get("route_decision", result.get("current_path", "unknown"))
+   882→   882→        response = (
+   883→   883→            result.get("final_response", "")
+   884→   884→            or result.get("formatted_response", "")
+   885→   885→            or result.get("simple_answer", "")
+   886→   886→            or result.get("super_node_answer", "")
+   887→   887→        )
+   888→   888→
+   889→   889→        # Emit completion events
+   890→   890→        await emit_pipeline_event(tenant_id, "pipeline_complete", {
+   891→   891→            "ticket_id": ticket_id,
+   892→   892→            "status": status,
+   893→   893→            "quality": quality,
+   894→   894→            "elapsed": elapsed,
+   895→   895→        })
+   896→   896→
+   897→   897→        # Write audit entry
+   898→   898→        from app.core.jarvis_pipeline.jarvis_db import get_db
+   899→   899→        db = get_db()
+   900→   900→        await db.create_audit_entry(
+   901→   901→            tenant_id=tenant_id,
+   902→   902→            action="ticket_processed",
+   903→   903→            actor_email="system",
+   904→   904→            target_type="ticket",
+   905→   905→            target_id=ticket_id,
+   906→   906→            payload={
+   907→   907→                "status": status,
+   908→   908→                "quality_score": quality,
+   909→   909→                "route": route,
+   910→   910→                "elapsed": elapsed,
+   911→   911→                "channel": req.channel_type,
+   912→   912→            },
+   913→   913→        )
+   914→   914→
+   915→   915→        return {
+   916→   916→            "ok": True,
+   917→   917→            "ticket_id": ticket_id,
+   918→   918→            "status": status,
+   919→   919→            "quality_score": quality,
+   920→   920→            "route": route,
+   921→   921→            "loop_count": result.get("loop_count", 0),
+   922→   922→            "escalated": bool(result.get("escalation_context")),
+   923→   923→            "elapsed_seconds": elapsed,
+   924→   924→            "response_preview": response[:500],
+   925→   925→        }
+   926→   926→
+   927→   927→    except Exception as exc:
+   928→   928→        await emit_pipeline_event(tenant_id, "pipeline_error", {
+   929→   929→            "ticket_id": ticket_id,
+   930→   930→            "error": str(exc),
+   931→   931→        })
+   932→   932→        raise _err(f"Pipeline error: {exc}", 500)
+   933→   933→
+   934→   934→
+   935→   935→# ═══════════════════════════════════════════════════════════════
+   936→   936→# WAVE 8 ROUTES — Agent Provisioning, Skills, Co-Pilot, Proactive
+   937→   937→# ═══════════════════════════════════════════════════════════════
+   938→   938→
+   939→   939→@router.get("/wave8/agents")
+   940→   940→async def list_agents(tenant_id: str = _DEFAULT_TENANT):
+   941→   941→    """List all agent configs for a tenant."""
+   942→   942→    from app.core.jarvis_pipeline.jarvis_db import get_db
+   943→   943→    db = get_db()
+   944→   944→    agents = await db.get_all_agent_configs(tenant_id)
+   945→   945→    return {"ok": True, "agents": agents, "count": len(agents)}
+   946→   946→
+   947→   947→
+   948→   948→@router.post("/wave8/provision")
+   949→   949→async def provision_agent_endpoint(request: dict):
+   950→   950→    """Provision new agents via chat command."""
+   951→   951→    tenant_id = request.get("tenant_id", _DEFAULT_TENANT)
+   952→   952→    raw_command = request.get("command", "")
+   953→   953→    actor_email = request.get("user_email", "admin@parwa.ai")
+   954→   954→
+   955→   955→    if not raw_command:
+   956→   956→        raise _err("Missing 'command' field", 400)
+   957→   957→
+   958→   958→    from app.core.jarvis_pipeline.agent_provisioner import (
+   959→   959→        parse_provision_command, provision_agents,
+   960→   960→    )
+   961→   961→    parsed = parse_provision_command(raw_command)
+   962→   962→    result = await provision_agents(
+   963→   963→        tenant_id=tenant_id,
+   964→   964→        actor_email=actor_email,
+   965→   965→        parsed=parsed,
+   966→   966→    )
+   967→   967→    return result
+   968→   968→
+   969→   969→
+   970→   970→@router.get("/wave8/skills")
+   971→   971→async def list_skills(tenant_id: str = _DEFAULT_TENANT):
+   972→   972→    """List all client skills for a tenant."""
+   973→   973→    from app.core.jarvis_pipeline.jarvis_db import get_db
+   974→   974→    db = get_db()
+   975→   975→    skills = await db.get_client_skills(tenant_id)
+   976→   976→    return {"ok": True, "skills": skills, "count": len(skills)}
+   977→   977→
+   978→   978→
+   979→   979→@router.post("/wave8/teach")
+   980→   980→async def teach_skill_endpoint(request: dict):
+   981→   981→    """Teach a new skill via natural language."""
+   982→   982→    tenant_id = request.get("tenant_id", _DEFAULT_TENANT)
+   983→   983→    description = request.get("description", "")
+   984→   984→    actor_email = request.get("user_email", "admin@parwa.ai")
+   985→   985→
+   986→   986→    if len(description) < 20:
+   987→   987→        raise _err("Description too short (min 20 chars)", 400)
+   988→   988→
+   989→   989→    from app.core.jarvis_pipeline.skill_instructor import teach_skill
+   990→   990→    result = await teach_skill(
+   991→   991→        tenant_id=tenant_id,
+   992→   992→        actor_email=actor_email,
+   993→   993→        raw_input=description,
+   994→   994→    )
+   995→   995→    return result
+   996→   996→
+   997→   997→
+   998→   998→@router.post("/wave8/copilot/draft")
+   999→   999→async def copilot_draft_endpoint(request: dict):
+  1000→  1000→    """Generate a co-pilot draft response."""
+  1001→  1001→    tenant_id = request.get("tenant_id", _DEFAULT_TENANT)
+  1002→  1002→    ticket_id = request.get("ticket_id", "manual")
+  1003→  1003→    customer_query = request.get("customer_query", "")
+  1004→  1004→    channel = request.get("channel", "chat")
+  1005→  1005→    actor_email = request.get("user_email", "admin@parwa.ai")
+  1006→  1006→
+  1007→  1007→    if not customer_query:
+  1008→  1008→        raise _err("Missing customer_query", 400)
+  1009→  1009→
+  1010→  1010→    from app.core.jarvis_pipeline.copilot_mode import draft_response
+  1011→  1011→    result = await draft_response(
+  1012→  1012→        tenant_id=tenant_id,
+  1013→  1013→        actor_email=actor_email,
+  1014→  1014→        ticket_id=ticket_id,
+  1015→  1015→        customer_query=customer_query,
+  1016→  1016→        channel=channel,
+  1017→  1017→    )
+  1018→  1018→    return result
+  1019→  1019→
+  1020→  1020→
+  1021→  1021→@router.post("/wave8/copilot/edit")
+  1022→  1022→async def copilot_edit_endpoint(request: dict):
+  1023→  1023→    """Save manager's edited draft for AI learning."""
+  1024→  1024→    tenant_id = request.get("tenant_id", _DEFAULT_TENANT)
+  1025→  1025→    draft_id = request.get("draft_id", "")
+  1026→  1026→    edited_text = request.get("edited_text", "")
+  1027→  1027→    actor_email = request.get("user_email", "admin@parwa.ai")
+  1028→  1028→
+  1029→  1029→    if not draft_id or not edited_text:
+  1030→  1030→        raise _err("Missing draft_id or edited_text", 400)
+  1031→  1031→
+  1032→  1032→    from app.core.jarvis_pipeline.copilot_mode import save_edited_draft
+  1033→  1033→    result = await save_edited_draft(
+  1034→  1034→        tenant_id=tenant_id,
+  1035→  1035→        draft_id=draft_id,
+  1036→  1036→        edited_text=edited_text,
+  1037→  1037→        actor_email=actor_email,
+  1038→  1038→    )
+  1039→  1039→    return result
+  1040→  1040→
+  1041→  1041→
+  1042→  1042→@router.post("/wave8/proactive")
+  1043→  1043→async def proactive_outreach_endpoint(request: dict):
+  1044→  1044→    """Create a proactive outreach message (requires approval)."""
+  1045→  1045→    tenant_id = request.get("tenant_id", _DEFAULT_TENANT)
+  1046→  1046→    outreach_type = request.get("type", "general")
+  1047→  1047→    customer_id = request.get("customer_id", "")
+  1048→  1048→    reason = request.get("reason", "")
+  1049→  1049→    draft_content = request.get("draft_content", "")
+  1050→  1050→    actor_email = request.get("user_email", "admin@parwa.ai")
+  1051→  1051→
+  1052→  1052→    from app.core.jarvis_pipeline.copilot_mode import create_proactive_outreach
+  1053→  1053→    result = await create_proactive_outreach(
+  1054→  1054→        tenant_id=tenant_id,
+  1055→  1055→        actor_email=actor_email,
+  1056→  1056→        outreach_type=outreach_type,
+  1057→  1057→        customer_id=customer_id,
+  1058→  1058→        reason=reason,
+  1059→  1059→        draft_content=draft_content,
+  1060→  1060→    )
+  1061→  1061→    return result
+  1062→  1062→
+  1063→  1063→
+  1064→  1064→@router.post("/wave8/correction")
+  1065→  1065→async def dspy_correction_endpoint(request: dict):
+  1066→  1066→    """Apply a DSPy correction."""
+  1067→  1067→    tenant_id = request.get("tenant_id", _DEFAULT_TENANT)
+  1068→  1068→    target = request.get("target", "")
+  1069→  1069→    code = request.get("code", "manual")
+  1070→  1070→    description = request.get("description", "")
+  1071→  1071→    actor_email = request.get("user_email", "admin@parwa.ai")
+  1072→  1072→
+  1073→  1073→    from app.core.jarvis_pipeline.copilot_mode import apply_dspy_correction
+  1074→  1074→    result = await apply_dspy_correction(
+  1075→  1075→        tenant_id=tenant_id,
+  1076→  1076→        actor_email=actor_email,
+  1077→  1077→        target_behavior=target,
+  1078→  1078→        correction_code=code,
+  1079→  1079→        description=description,
+  1080→  1080→    )
+  1081→  1081→    return result
+  1082→  1082→
+  1083→  1083→
+  1084→  1084→@router.get("/wave8/provisioning-logs")
+  1085→  1085→async def list_provisioning_logs(tenant_id: str = _DEFAULT_TENANT):
+  1086→  1086→    """List agent provisioning history."""
+  1087→  1087→    from app.core.jarvis_pipeline.jarvis_db import get_db
+  1088→  1088→    db = get_db()
+  1089→  1089→    # Use audit trail to get provisioning history
+  1090→  1090→    trail = await db.get_audit_trail(tenant_id, limit=50)
+  1091→  1091→    provisioning = [e for e in trail if e.get("action") == "agent_provisioned"]
+  1092→  1092→    return {"ok": True, "provisioning_logs": provisioning, "count": len(provisioning)}
+  1093→  1093→
