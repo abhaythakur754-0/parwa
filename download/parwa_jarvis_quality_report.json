@@ -1,0 +1,707 @@
+{
+  "unit_tests": [
+    {
+      "node": "Node1_Ingest_Classify",
+      "passed": true,
+      "elapsed_ms": 967,
+      "checks": [
+        [
+          "ticket_type",
+          true,
+          "billing"
+        ],
+        [
+          "complexity",
+          true,
+          "complex"
+        ],
+        [
+          "confidence",
+          true,
+          "0.90"
+        ],
+        [
+          "llm_called",
+          true,
+          1
+        ]
+      ],
+      "llm_calls": 1,
+      "tokens": 160,
+      "ticket_type": "billing",
+      "complexity": "complex",
+      "confidence": 0.9
+    },
+    {
+      "node": "Node2_Smart_Route",
+      "passed": true,
+      "elapsed_ms": 0,
+      "checks": [
+        [
+          "route_decision",
+          true,
+          "simple_path"
+        ],
+        [
+          "variant_tier",
+          true,
+          "parwa"
+        ]
+      ],
+      "llm_calls": 0,
+      "tokens": 0,
+      "route_decision": "simple_path",
+      "variant_tier": "parwa"
+    },
+    {
+      "node": "Node3_Knowledge_Fetch",
+      "passed": true,
+      "elapsed_ms": 755,
+      "checks": [
+        [
+          "knowledge_count",
+          true,
+          7
+        ]
+      ],
+      "llm_calls": 1,
+      "tokens": 103
+    },
+    {
+      "node": "Node4_Reasoning_Engine",
+      "passed": true,
+      "elapsed_ms": 15127,
+      "checks": [
+        [
+          "has_answer",
+          true,
+          "1684 chars"
+        ],
+        [
+          "confidence",
+          true,
+          "0.85"
+        ],
+        [
+          "sub_problems",
+          true,
+          3
+        ],
+        [
+          "llm_called",
+          true,
+          7
+        ]
+      ],
+      "llm_calls": 7,
+      "tokens": 3443,
+      "sub_problems_count": 3,
+      "confidence": 0.85,
+      "answer_preview": "Subject: Duplicate Charge Refund and Resolution\n\nDear valued customer,\n\nThank you for reaching out to us regarding the duplicate charge of $99 on your account. We apologize for the inconvenience this "
+    },
+    {
+      "node": "Node5_Act_Verify",
+      "passed": true,
+      "elapsed_ms": 3194,
+      "checks": [
+        [
+          "actions_verified",
+          true,
+          "True"
+        ],
+        [
+          "actions_taken_count",
+          true,
+          1
+        ]
+      ],
+      "llm_calls": 2,
+      "tokens": 490
+    },
+    {
+      "node": "Node6_Quality_Format",
+      "passed": true,
+      "elapsed_ms": 3375,
+      "checks": [
+        [
+          "quality_score",
+          true,
+          "0.982"
+        ],
+        [
+          "quality_passed",
+          true,
+          "True"
+        ],
+        [
+          "formatted_response",
+          true,
+          "289 chars"
+        ]
+      ],
+      "llm_calls": 2,
+      "tokens": 965,
+      "quality_score": 0.982,
+      "quality_passed": true
+    },
+    {
+      "node": "Node7_Simple_Resolver",
+      "passed": true,
+      "elapsed_ms": 1,
+      "checks": [
+        [
+          "has_answer",
+          true,
+          "121 chars"
+        ],
+        [
+          "confidence",
+          true,
+          "0.91"
+        ],
+        [
+          "no_llm_calls",
+          true,
+          0
+        ]
+      ],
+      "llm_calls": 0,
+      "tokens": 0,
+      "confidence": 0.9085
+    },
+    {
+      "node": "Node8_Super_Node",
+      "passed": true,
+      "elapsed_ms": 33369,
+      "checks": [
+        [
+          "quality",
+          true,
+          "0.526"
+        ],
+        [
+          "status",
+          true,
+          "escalated"
+        ],
+        [
+          "has_answer",
+          false,
+          "0 chars"
+        ]
+      ],
+      "llm_calls": 7,
+      "tokens": 6491,
+      "quality": 0.5258,
+      "status": "escalated"
+    }
+  ],
+  "integration_tests": [
+    {
+      "path": "simple_path",
+      "status": "resolved",
+      "nodes_run": [
+        "Node1",
+        "Node2",
+        "Node3",
+        "Node7"
+      ],
+      "total_time_ms": 2427,
+      "node_times": [
+        {
+          "node": "Node1",
+          "time_ms": 278
+        },
+        {
+          "node": "Node2",
+          "time_ms": 0
+        },
+        {
+          "node": "Node3",
+          "time_ms": 2148
+        },
+        {
+          "node": "Node7",
+          "time_ms": 1
+        }
+      ],
+      "llm_calls": 2,
+      "tokens": 242,
+      "auto_upgraded": false
+    },
+    {
+      "path": "complex_path",
+      "status": "resolved",
+      "nodes_run": [
+        "Node1",
+        "Node2",
+        "Node3",
+        "Node4_L0",
+        "Node5_L0",
+        "Node6_L0"
+      ],
+      "total_time_ms": 30025,
+      "node_times": [
+        {
+          "node": "Node1",
+          "time_ms": 259
+        },
+        {
+          "node": "Node2",
+          "time_ms": 0
+        },
+        {
+          "node": "Node3",
+          "time_ms": 2140
+        },
+        {
+          "node": "Node4_L0",
+          "time_ms": 17730
+        },
+        {
+          "node": "Node5_L0",
+          "time_ms": 3594
+        },
+        {
+          "node": "Node6_L0",
+          "time_ms": 6302
+        }
+      ],
+      "llm_calls": 13,
+      "tokens": 10860,
+      "quality_score": 1.0,
+      "loop_count": 0
+    }
+  ],
+  "realistic_tickets": [
+    {
+      "ticket_id": "TICK-001",
+      "query_preview": "I need to change my billing email from old@gmail.com to new@company.com. Can you",
+      "expected_complexity": "simple",
+      "actual_complexity": "simple",
+      "expected_path": "simple",
+      "actual_path": "complex_path",
+      "status": "resolved",
+      "quality_score": 1.0,
+      "confidence": 0.9,
+      "nodes_run": [
+        "Node1",
+        "Node2",
+        "Node3",
+        "Node4_L0",
+        "Node5_L0",
+        "Node6_L0"
+      ],
+      "total_time_ms": 32419,
+      "llm_calls": 13,
+      "tokens": 10342,
+      "response_preview": "Subject: Update on Billing Email and Current Billing Cycle\n\nDear [Customer],\n\nThank you for reaching out to us regarding the update of your billing em"
+    },
+    {
+      "ticket_id": "TICK-002",
+      "query_preview": "Your service is terrible! I've been waiting 3 weeks for a refund that was promis",
+      "expected_complexity": "complex",
+      "actual_complexity": "complex",
+      "expected_path": "complex",
+      "actual_path": "complex_path",
+      "status": "resolved",
+      "quality_score": 1.0,
+      "confidence": 0.8,
+      "nodes_run": [
+        "Node1",
+        "Node2",
+        "Node3",
+        "Node4_L0",
+        "Node5_L0",
+        "Node6_L0"
+      ],
+      "total_time_ms": 28724,
+      "llm_calls": 11,
+      "tokens": 10065,
+      "response_preview": "Subject: Refund Request and Plan Downgrade\n\nDear [Customer],\n\nThank you for reaching out to us regarding your refund request. We understand that you h"
+    },
+    {
+      "ticket_id": "TICK-003",
+      "query_preview": "How do I integrate your API with my existing CRM system? What endpoints are avai",
+      "expected_complexity": "medium",
+      "actual_complexity": "medium",
+      "expected_path": "complex",
+      "actual_path": "simple_path",
+      "status": "resolved",
+      "quality_score": 0,
+      "confidence": 0.9,
+      "nodes_run": [
+        "Node1",
+        "Node2",
+        "Node3",
+        "Node7"
+      ],
+      "total_time_ms": 2659,
+      "llm_calls": 2,
+      "tokens": 261,
+      "response_preview": "- Billing Dispute Resolution: 1) Acknowledge the dispute immediately 2) Pull the last 3 invoices for the account 3) Compare charged amounts with plan "
+    },
+    {
+      "ticket_id": "TICK-004",
+      "query_preview": "I was charged $199 for an Enterprise plan but I only signed up for Pro at $49/mo",
+      "expected_complexity": "complex",
+      "actual_complexity": "simple",
+      "expected_path": "complex",
+      "actual_path": "simple_path",
+      "status": "resolved",
+      "quality_score": 0,
+      "confidence": 0.8,
+      "nodes_run": [
+        "Node1",
+        "Node2",
+        "Node3",
+        "Node7"
+      ],
+      "total_time_ms": 8322,
+      "llm_calls": 2,
+      "tokens": 294,
+      "response_preview": "- Billing Dispute Resolution: 1) Acknowledge the dispute immediately 2) Pull the last 3 invoices for the account 3) Compare charged amounts with plan "
+    },
+    {
+      "ticket_id": "TICK-005",
+      "query_preview": "What are the differences between your Basic, Pro, and Enterprise plans? Do you o",
+      "expected_complexity": "simple",
+      "actual_complexity": "medium",
+      "expected_path": "simple",
+      "actual_path": "simple_path",
+      "status": "resolved",
+      "quality_score": 0,
+      "confidence": 0.9,
+      "nodes_run": [
+        "Node1",
+        "Node2",
+        "Node3",
+        "Node7"
+      ],
+      "total_time_ms": 2590,
+      "llm_calls": 2,
+      "tokens": 275,
+      "response_preview": "- Mid-year changes: If on annual plan and want to change mid-year, customer pays the difference (upgrade) or receives prorated credit (downgrade) calc"
+    },
+    {
+      "ticket_id": "TICK-006",
+      "query_preview": "I'm getting a 500 Internal Server Error every time I try to export my data as CS",
+      "expected_complexity": "hard",
+      "actual_complexity": "complex",
+      "expected_path": "complex",
+      "actual_path": "complex_path",
+      "status": "resolved",
+      "quality_score": 1.0,
+      "confidence": 0.8,
+      "nodes_run": [
+        "Node1",
+        "Node2",
+        "Node3",
+        "Node4_L0",
+        "Node5_L0",
+        "Node6_L0"
+      ],
+      "total_time_ms": 29335,
+      "llm_calls": 11,
+      "tokens": 10142,
+      "response_preview": "Subject: Urgent: 500 Internal Server Error with CSV Export\n\nDear [Customer's Name],\n\nThank you for reaching out to us regarding the issue you're exper"
+    }
+  ],
+  "participation_analysis": {
+    "technique_participation": {
+      "GSD": {
+        "invocations": 36,
+        "participating": true
+      },
+      "CoT": {
+        "invocations": 16,
+        "participating": true
+      },
+      "Reflexion": {
+        "invocations": 6,
+        "participating": true
+      },
+      "ToT": {
+        "invocations": 6,
+        "participating": true
+      },
+      "ReAct": {
+        "invocations": 2,
+        "participating": true
+      },
+      "MAKER": {
+        "invocations": 23,
+        "participating": true
+      },
+      "CRP": {
+        "invocations": 6,
+        "participating": true
+      },
+      "Reverse_Thinking": {
+        "invocations": 0,
+        "participating": false
+      },
+      "ZeroShot": {
+        "invocations": 1,
+        "participating": true
+      },
+      "FederatedReasoning": {
+        "invocations": 18,
+        "participating": true
+      },
+      "CLARA": {
+        "invocations": 8,
+        "participating": true
+      },
+      "Self_Consistency": {
+        "invocations": 0,
+        "participating": false
+      },
+      "ZeroShotValidator": {
+        "invocations": 38,
+        "participating": true
+      },
+      "UoT": {
+        "invocations": 8,
+        "participating": true
+      },
+      "ThoT": {
+        "invocations": 26,
+        "participating": true
+      },
+      "MetaLearner": {
+        "invocations": 21,
+        "participating": true
+      },
+      "ContextualCompression": {
+        "invocations": 13,
+        "participating": true
+      },
+      "AdaptiveBudget": {
+        "invocations": 8,
+        "participating": true
+      },
+      "TurboCompress": {
+        "invocations": 8,
+        "participating": true
+      },
+      "SmartRouter": {
+        "invocations": 8,
+        "participating": true
+      }
+    },
+    "feature_participation": {
+      "wiki_enrichment": {
+        "invocations": 3,
+        "participating": true
+      },
+      "wiki_writeback": {
+        "invocations": 0,
+        "participating": false
+      },
+      "quality_gate": {
+        "invocations": 7,
+        "participating": true
+      },
+      "safety_net_upgrade": {
+        "invocations": 4,
+        "participating": true
+      },
+      "escalation": {
+        "invocations": 1,
+        "participating": true
+      },
+      "approval_gates": {
+        "invocations": 1,
+        "participating": true
+      },
+      "rate_limiting": {
+        "invocations": 1,
+        "participating": true
+      },
+      "retry_backoff": {
+        "invocations": 0,
+        "participating": false
+      },
+      "pipeline_timeout": {
+        "invocations": 0,
+        "participating": false
+      },
+      "dlq_handling": {
+        "invocations": 0,
+        "participating": false
+      },
+      "confidence_scoring": {
+        "invocations": 1,
+        "participating": true
+      },
+      "sentiment_routing": {
+        "invocations": 0,
+        "participating": false
+      },
+      "semantic_batching": {
+        "invocations": 0,
+        "participating": false
+      },
+      "variant_recommendation": {
+        "invocations": 0,
+        "participating": false
+      },
+      "quota_management": {
+        "invocations": 1,
+        "participating": true
+      },
+      "policy_versioning": {
+        "invocations": 1,
+        "participating": true
+      },
+      "notification_dispatch": {
+        "invocations": 0,
+        "participating": false
+      },
+      "command_parsing": {
+        "invocations": 0,
+        "participating": false
+      },
+      "report_generation": {
+        "invocations": 0,
+        "participating": false
+      },
+      "quality_coaching": {
+        "invocations": 0,
+        "participating": false
+      },
+      "health_scoring": {
+        "invocations": 0,
+        "participating": false
+      },
+      "sla_calculation": {
+        "invocations": 0,
+        "participating": false
+      },
+      "agent_provisioning": {
+        "invocations": 0,
+        "participating": false
+      },
+      "copilot_mode": {
+        "invocations": 0,
+        "participating": false
+      },
+      "skill_instruction": {
+        "invocations": 0,
+        "participating": false
+      },
+      "signal_collection": {
+        "invocations": 0,
+        "participating": false
+      },
+      "priority_scoring": {
+        "invocations": 0,
+        "participating": false
+      }
+    },
+    "technique_coverage": "18/20 (90.0%)",
+    "feature_coverage": "9/27 (33.3%)",
+    "balance_ratio": 0.026,
+    "min_invocations": 1,
+    "max_invocations": 38,
+    "avg_invocations": 7.9,
+    "node_executions": {
+      "Node1": 72,
+      "Node2": 48,
+      "Node3": 80,
+      "Node4": 79,
+      "Node5": 16,
+      "Node6": 50,
+      "Node7": 84,
+      "Node8": 19,
+      "Node4_L0": 4,
+      "Node5_L0": 4,
+      "Node6_L0": 4
+    },
+    "path_distribution": {
+      "simple_path": 4,
+      "complex_path": 4
+    },
+    "errors": []
+  },
+  "quality_score": {
+    "overall_quality_score": 1066.3,
+    "grade": "A+ (Excellent)",
+    "breakdown": {
+      "unit_test_score": 100.0,
+      "unit_tests_passed": "8/8",
+      "integration_score": 100.0,
+      "integration_passed": "2/2",
+      "ticket_score": 70.0,
+      "ticket_resolution_rate": 100.0,
+      "avg_ticket_quality": 1.0,
+      "route_accuracy": 0.0,
+      "participation_score": 4984.0,
+      "technique_coverage": "18/20 (90.0%)",
+      "feature_coverage": "9/27 (33.3%)",
+      "balance_ratio": 0.026,
+      "llm_reliability": 100
+    },
+    "llm_usage": {
+      "total_llm_calls": 76,
+      "total_tokens": 54133
+    },
+    "ticket_details": [
+      {
+        "id": "TICK-001",
+        "status": "resolved",
+        "quality": 1.0,
+        "path": "complex_path",
+        "expected_path": "simple",
+        "confidence": 0.9,
+        "llm_calls": 13
+      },
+      {
+        "id": "TICK-002",
+        "status": "resolved",
+        "quality": 1.0,
+        "path": "complex_path",
+        "expected_path": "complex",
+        "confidence": 0.8,
+        "llm_calls": 11
+      },
+      {
+        "id": "TICK-003",
+        "status": "resolved",
+        "quality": 0,
+        "path": "simple_path",
+        "expected_path": "complex",
+        "confidence": 0.9,
+        "llm_calls": 2
+      },
+      {
+        "id": "TICK-004",
+        "status": "resolved",
+        "quality": 0,
+        "path": "simple_path",
+        "expected_path": "complex",
+        "confidence": 0.8,
+        "llm_calls": 2
+      },
+      {
+        "id": "TICK-005",
+        "status": "resolved",
+        "quality": 0,
+        "path": "simple_path",
+        "expected_path": "simple",
+        "confidence": 0.9,
+        "llm_calls": 2
+      },
+      {
+        "id": "TICK-006",
+        "status": "resolved",
+        "quality": 1.0,
+        "path": "complex_path",
+        "expected_path": "complex",
+        "confidence": 0.8,
+        "llm_calls": 11
+      }
+    ]
+  }
+}

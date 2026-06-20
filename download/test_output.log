@@ -1,0 +1,318 @@
+
+================================================================================
+  PARWA/JARVIS COMPREHENSIVE REAL-LLM TEST
+================================================================================
+  API: NVIDIA meta/llama-3.1-8b-instruct
+  Rate Limit: 40 RPM
+  Timestamp: 2026-06-20 06:42:42 UTC
+  Expected Duration: ~5-8 minutes (real LLM calls)
+
+
+================================================================================
+  PHASE 1: UNIT TESTS (8 PARWA Nodes)
+================================================================================
+INFO real_test: UNIT TEST: Node 1 - Ingest + Classify
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.node_1: Node 1 complete: ticket=UNIT-N1-001 type=billing complexity=complex action=execute_refund confidence=0.90 [967ms]
+  Node 1 (Ingest+Classify): PASS | 967ms | LLM: 1 | Type=billing | Cmplx=complex | Conf=0.90
+INFO real_test: UNIT TEST: Node 2 - Smart Route
+INFO parwa.pipeline.node_2: Node 2 complete: ticket=UNIT-N2-001 tier=parwa path=simple_path [0ms]
+  Node 2 (Smart Route):     PASS | 0ms | LLM: 0 | Route=simple_path | Tier=parwa
+INFO real_test: UNIT TEST: Node 3 - Knowledge Fetch
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+WARNING parwa.pipeline.node_3: Wiki read error (non-fatal): 'NoneType' object has no attribute 'search'
+WARNING parwa.pipeline.node_3: Policy sync check failed (non-fatal): 'NoneType' object has no attribute 'check_policy_sync'
+INFO parwa.pipeline.node_3: Node 3 complete: ticket=UNIT-N3-001 docs=7 sufficient=True llm=1 [754ms]
+  Node 3 (Knowledge Fetch): PASS | 755ms | LLM: 1
+INFO real_test: UNIT TEST: Node 4 - Reasoning Engine (7 LLM calls expected)
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+WARNING parwa.pipeline.node_4: MAKER Safeguard 3: Answer may depend on removed bridge for 'What is the most common reason for duplicate subsc' (claims=11, grounded=4)
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+WARNING parwa.pipeline.node_4: MAKER Safeguard 3: Answer may depend on removed bridge for 'What is the most common reason for duplicate subsc' (claims=9, grounded=4)
+INFO parwa.pipeline.node_4: Node 4 complete: ticket=UNIT-N4-001 sub=3 conf=0.85 llm=7 maker_flagged=2 maker_removed=2 wiki_patterns=0 [15127ms]
+  Node 4 (Reasoning Engine):PASS | 15127ms | LLM: 7 | SubQ=3 | Conf=0.85
+INFO real_test: UNIT TEST: Node 5 - Act + Verify
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.node_5: Node 5 complete: ticket=UNIT-N5-001 action=execute_refund verified=True llm=2 [3194ms]
+  Node 5 (Act+Verify):     PASS | 3194ms | LLM: 2
+INFO real_test: UNIT TEST: Node 6 - Quality + Format (2 LLM calls expected)
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.node_6: Node 7 complete: ticket=UNIT-N6-001 quality=0.9820 passed=True loop=0 llm=2 [3374ms] reflexion=1.00 crp=0.90 structure=0.93 kb=0.85 adequacy=0.94
+INFO jarvis.db: Jarvis DB: Using InMemory backend (set SUPABASE_URL for production)
+INFO parwa.jarvis_bridge: Quality score written: tenant=tenant_test ticket=UNIT-N6-001 score=0.9820 path=
+  Node 6 (Quality+Format): PASS | 3375ms | LLM: 2 | QScore=0.982 | Passed=True
+INFO real_test: UNIT TEST: Node 7 - Simple Resolver (0 LLM calls)
+INFO parwa.pipeline.node_7: Node 7 complete: ticket=UNIT-N7-001 confidence=0.908 upgraded=False [0 LLM calls, 0ms]
+  Node 7 (Simple Resolver): PASS | 1ms | LLM: 0 | Conf=0.91
+INFO real_test: UNIT TEST: Node 8 - Super Node (6 LLM calls expected)
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.jarvis_bridge: Inbox message written: tenant=tenant_test ticket=UNIT-N8-001 reason=Super Node quality 0.53 <= 0.85 after all techniques
+INFO parwa.pipeline.node_8: Node 8 complete: ticket=UNIT-N8-001 quality=0.53 passed=False status=escalated llm=7 [33368ms]
+  Node 8 (Super Node):      PASS | 33369ms | LLM: 7 | Q=0.526 | Status=escalated
+
+  UNIT TESTS: 8/8 PASSED
+
+================================================================================
+  PHASE 2: INTEGRATION TESTS (Pipeline Flows)
+================================================================================
+INFO real_test: INTEGRATION: Simple Path Flow
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.node_1: Node 1 complete: ticket=INT-SIMPLE-001 type=refund_request complexity=simple action=provide_info confidence=0.90 [277ms]
+INFO parwa.pipeline.node_2: Node 2 complete: ticket=INT-SIMPLE-001 tier=parwa path=simple_path [0ms]
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+WARNING parwa.pipeline.node_3: Wiki read error (non-fatal): 'NoneType' object has no attribute 'search'
+WARNING parwa.pipeline.node_3: Policy sync check failed (non-fatal): 'NoneType' object has no attribute 'check_policy_sync'
+INFO parwa.pipeline.node_3: Node 3 complete: ticket=INT-SIMPLE-001 docs=7 sufficient=True llm=1 [2148ms]
+INFO parwa.pipeline.node_7: Node 7 complete: ticket=INT-SIMPLE-001 confidence=0.960 upgraded=False [0 LLM calls, 0ms]
+  Simple Path:   Status=resolved | Nodes=['Node1', 'Node2', 'Node3', 'Node7'] | 2427ms | LLM: 2
+INFO real_test: INTEGRATION: Complex Path Flow (full pipeline with quality gate)
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.node_1: Node 1 complete: ticket=INT-COMPLEX-001 type=refund_request complexity=complex action=investigate_billing confidence=0.90 [258ms]
+INFO parwa.pipeline.node_2: Node 2 complete: ticket=INT-COMPLEX-001 tier=parwa path=complex_path [0ms]
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+WARNING parwa.pipeline.node_3: Wiki read error (non-fatal): 'NoneType' object has no attribute 'search'
+WARNING parwa.pipeline.node_3: Policy sync check failed (non-fatal): 'NoneType' object has no attribute 'check_policy_sync'
+INFO parwa.pipeline.node_3: Node 3 complete: ticket=INT-COMPLEX-001 docs=7 sufficient=True llm=1 [2140ms]
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.node_4: Node 4 complete: ticket=INT-COMPLEX-001 sub=3 conf=0.90 llm=7 maker_flagged=1 maker_removed=1 wiki_patterns=0 [17729ms]
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.llm: LLM call #10: 2024ms, 619 tokens (cumulative: 7832)
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.node_5: Node 5 complete: ticket=INT-COMPLEX-001 action=investigate_billing verified=True llm=2 [3594ms]
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.node_6: Node 7 complete: ticket=INT-COMPLEX-001 quality=1.0000 passed=True loop=0 llm=2 [6302ms] reflexion=0.95 crp=0.95 structure=1.00 kb=0.98 adequacy=1.00
+INFO parwa.jarvis_bridge: Quality score written: tenant=tenant_test ticket=INT-COMPLEX-001 score=1.0000 path=complex_path
+  Complex Path:  Status=resolved | Nodes=['Node1', 'Node2', 'Node3', 'Node4_L0', 'Node5_L0', 'Node6_L0'] | 30025ms | LLM: 13 | QScore=1.000 | Loops=0
+
+================================================================================
+  PHASE 3: REALISTIC TICKET TESTS (6 Real-World Tickets)
+================================================================================
+INFO real_test: REALISTIC TICKET: TICK-001 - I need to change my billing email from old@gmail.com to new@...
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.node_1: Node 1 complete: ticket=TICK-001 type=billing complexity=simple action=account_change confidence=0.90 [251ms]
+INFO parwa.pipeline.node_2: Node 2 complete: ticket=TICK-001 tier=parwa path=complex_path [0ms]
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+WARNING parwa.pipeline.node_3: Wiki read error (non-fatal): 'NoneType' object has no attribute 'search'
+WARNING parwa.pipeline.node_3: Policy sync check failed (non-fatal): 'NoneType' object has no attribute 'check_policy_sync'
+INFO parwa.pipeline.node_3: Node 3 complete: ticket=TICK-001 docs=8 sufficient=True llm=1 [2231ms]
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.node_4: Node 4 complete: ticket=TICK-001 sub=3 conf=0.90 llm=7 maker_flagged=3 maker_removed=3 wiki_patterns=0 [20029ms]
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.llm: LLM call #10: 1818ms, 602 tokens (cumulative: 7577)
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.node_5: Node 5 complete: ticket=TICK-001 action=account_change verified=True llm=2 [3184ms]
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.node_6: Node 7 complete: ticket=TICK-001 quality=1.0000 passed=True loop=0 llm=2 [6721ms] reflexion=0.95 crp=0.95 structure=1.00 kb=0.98 adequacy=0.98
+INFO parwa.jarvis_bridge: Quality score written: tenant=tenant_test ticket=TICK-001 score=1.0000 path=complex_path
+  TICK-001: Status=resolved | Path=complex_path (exp:simple) | Cmplx=simple | Conf=0.90 | Q=1.000 | 32419ms | LLM: 13
+INFO real_test: REALISTIC TICKET: TICK-002 - Your service is terrible! I've been waiting 3 weeks for a re...
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.node_1: Node 1 complete: ticket=TICK-002 type=refund_request complexity=complex action=provide_info confidence=0.80 [489ms]
+INFO parwa.pipeline.node_2: Node 2 complete: ticket=TICK-002 tier=parwa path=complex_path [0ms]
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+WARNING parwa.pipeline.node_3: Wiki read error (non-fatal): 'NoneType' object has no attribute 'search'
+WARNING parwa.pipeline.node_3: Policy sync check failed (non-fatal): 'NoneType' object has no attribute 'check_policy_sync'
+INFO parwa.pipeline.node_3: Node 3 complete: ticket=TICK-002 docs=8 sufficient=True llm=1 [1938ms]
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+WARNING parwa.pipeline.node_4: MAKER Safeguard 3: Answer may depend on removed bridge for 'If the customer decides to file a chargeback with ' (claims=14, grounded=5)
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+WARNING parwa.pipeline.node_4: MAKER Safeguard 3: Answer may depend on removed bridge for 'If the customer decides to file a chargeback with ' (claims=9, grounded=4)
+INFO parwa.pipeline.node_4: Node 4 complete: ticket=TICK-002 sub=3 conf=0.85 llm=7 maker_flagged=3 maker_removed=3 wiki_patterns=0 [20474ms]
+INFO parwa.pipeline.node_5: Node 5 complete: ticket=TICK-002 action=provide_info verified=True llm=0 [0ms]
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.llm: LLM call #10: 1908ms, 1309 tokens (cumulative: 8835)
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.node_6: Node 7 complete: ticket=TICK-002 quality=1.0000 passed=True loop=0 llm=2 [5821ms] reflexion=0.95 crp=0.95 structure=1.00 kb=0.98 adequacy=1.00
+INFO parwa.jarvis_bridge: Quality score written: tenant=tenant_test ticket=TICK-002 score=1.0000 path=complex_path
+  TICK-002: Status=resolved | Path=complex_path (exp:complex) | Cmplx=complex | Conf=0.80 | Q=1.000 | 28724ms | LLM: 11
+INFO real_test: REALISTIC TICKET: TICK-003 - How do I integrate your API with my existing CRM system? Wha...
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.node_1: Node 1 complete: ticket=TICK-003 type=faq complexity=medium action=provide_info confidence=0.90 [278ms]
+INFO parwa.pipeline.node_2: Node 2 complete: ticket=TICK-003 tier=parwa path=simple_path [0ms]
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+WARNING parwa.pipeline.node_3: Wiki read error (non-fatal): 'NoneType' object has no attribute 'search'
+WARNING parwa.pipeline.node_3: Policy sync check failed (non-fatal): 'NoneType' object has no attribute 'check_policy_sync'
+INFO parwa.pipeline.node_3: Node 3 complete: ticket=TICK-003 docs=8 sufficient=True llm=1 [2379ms]
+INFO parwa.pipeline.node_7: Node 7 complete: ticket=TICK-003 confidence=0.953 upgraded=False [0 LLM calls, 0ms]
+  TICK-003: Status=resolved | Path=simple_path (exp:complex) | Cmplx=medium | Conf=0.90 | Q=0.000 | 2659ms | LLM: 2
+INFO real_test: REALISTIC TICKET: TICK-004 - I was charged $199 for an Enterprise plan but I only signed ...
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.node_1: Node 1 complete: ticket=TICK-004 type=refund_request complexity=simple action=provide_info confidence=0.80 [362ms]
+INFO parwa.pipeline.node_2: Node 2 complete: ticket=TICK-004 tier=parwa path=simple_path [0ms]
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+WARNING parwa.pipeline.node_3: Wiki read error (non-fatal): 'NoneType' object has no attribute 'search'
+WARNING parwa.pipeline.node_3: Policy sync check failed (non-fatal): 'NoneType' object has no attribute 'check_policy_sync'
+INFO parwa.pipeline.node_3: Node 3 complete: ticket=TICK-004 docs=8 sufficient=True llm=1 [7958ms]
+INFO parwa.pipeline.node_7: Node 7 complete: ticket=TICK-004 confidence=0.992 upgraded=False [0 LLM calls, 1ms]
+  TICK-004: Status=resolved | Path=simple_path (exp:complex) | Cmplx=simple | Conf=0.80 | Q=0.000 | 8322ms | LLM: 2
+INFO real_test: REALISTIC TICKET: TICK-005 - What are the differences between your Basic, Pro, and Enterp...
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.node_1: Node 1 complete: ticket=TICK-005 type=faq complexity=medium action=provide_info confidence=0.90 [247ms]
+INFO parwa.pipeline.node_2: Node 2 complete: ticket=TICK-005 tier=parwa path=simple_path [0ms]
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+WARNING parwa.pipeline.node_3: Wiki read error (non-fatal): 'NoneType' object has no attribute 'search'
+WARNING parwa.pipeline.node_3: Policy sync check failed (non-fatal): 'NoneType' object has no attribute 'check_policy_sync'
+INFO parwa.pipeline.node_3: Node 3 complete: ticket=TICK-005 docs=8 sufficient=True llm=1 [2340ms]
+INFO parwa.pipeline.node_7: Node 7 complete: ticket=TICK-005 confidence=0.856 upgraded=False [0 LLM calls, 0ms]
+  TICK-005: Status=resolved | Path=simple_path (exp:simple) | Cmplx=medium | Conf=0.90 | Q=0.000 | 2590ms | LLM: 2
+INFO real_test: REALISTIC TICKET: TICK-006 - I'm getting a 500 Internal Server Error every time I try to ...
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.node_1: Node 1 complete: ticket=TICK-006 type=technical complexity=complex action=provide_info confidence=0.80 [249ms]
+INFO parwa.pipeline.node_2: Node 2 complete: ticket=TICK-006 tier=parwa path=complex_path [0ms]
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+WARNING parwa.pipeline.node_3: Wiki read error (non-fatal): 'NoneType' object has no attribute 'search'
+WARNING parwa.pipeline.node_3: Policy sync check failed (non-fatal): 'NoneType' object has no attribute 'check_policy_sync'
+INFO parwa.pipeline.node_3: Node 3 complete: ticket=TICK-006 docs=8 sufficient=True llm=1 [2304ms]
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+WARNING parwa.pipeline.node_4: MAKER Safeguard 3: Answer may depend on removed bridge for 'Was there a change in the CSV export functionality' (claims=13, grounded=3)
+WARNING parwa.pipeline.node_4: MAKER Safeguard 3: Answer may depend on removed bridge for 'Are there any known issues or error logs related t' (claims=13, grounded=4)
+WARNING parwa.pipeline.node_4: MAKER Safeguard 3: Answer may depend on removed bridge for 'Are there any account or user-specific settings th' (claims=17, grounded=8)
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+WARNING parwa.pipeline.node_4: MAKER Safeguard 3: Answer may depend on removed bridge for 'Was there a change in the CSV export functionality' (claims=12, grounded=3)
+WARNING parwa.pipeline.node_4: MAKER Safeguard 3: Answer may depend on removed bridge for 'Are there any known issues or error logs related t' (claims=12, grounded=4)
+INFO parwa.pipeline.node_4: Node 4 complete: ticket=TICK-006 sub=3 conf=0.85 llm=7 maker_flagged=3 maker_removed=3 wiki_patterns=0 [18845ms]
+INFO parwa.pipeline.node_5: Node 5 complete: ticket=TICK-006 action=provide_info verified=True llm=0 [0ms]
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.llm: LLM call #10: 2225ms, 1308 tokens (cumulative: 8942)
+INFO httpx: HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO parwa.pipeline.node_6: Node 7 complete: ticket=TICK-006 quality=1.0000 passed=True loop=0 llm=2 [7934ms] reflexion=0.95 crp=0.90 structure=0.98 kb=0.98 adequacy=0.98
+INFO parwa.jarvis_bridge: Quality score written: tenant=tenant_test ticket=TICK-006 score=1.0000 path=complex_path
+  TICK-006: Status=resolved | Path=complex_path (exp:complex) | Cmplx=complex | Conf=0.80 | Q=1.000 | 29335ms | LLM: 11
+
+  TICKETS RESOLVED: 6/6
+
+================================================================================
+  PHASE 4: PARTICIPATION ANALYSIS
+================================================================================
+
+  TECHNIQUE PARTICIPATION:
+  Technique                   Hits       Status
+  ------------------------- ------ ------------
+  GSD                           36       ACTIVE
+  CoT                           16       ACTIVE
+  Reflexion                      6       ACTIVE
+  ToT                            6       ACTIVE
+  ReAct                          2       ACTIVE
+  MAKER                         23       ACTIVE
+  CRP                            6       ACTIVE
+  Reverse_Thinking               0      MISSING
+  ZeroShot                       1       ACTIVE
+  FederatedReasoning            18       ACTIVE
+  CLARA                          8       ACTIVE
+  Self_Consistency               0      MISSING
+  ZeroShotValidator             38       ACTIVE
+  UoT                            8       ACTIVE
+  ThoT                          26       ACTIVE
+  MetaLearner                   21       ACTIVE
+  ContextualCompression         13       ACTIVE
+  AdaptiveBudget                 8       ACTIVE
+  TurboCompress                  8       ACTIVE
+  SmartRouter                    8       ACTIVE
+
+  FEATURE PARTICIPATION:
+  Feature                          Hits       Status
+  ------------------------------ ------ ------------
+  wiki_enrichment                     3       ACTIVE
+  wiki_writeback                      0      MISSING
+  quality_gate                        7       ACTIVE
+  safety_net_upgrade                  4       ACTIVE
+  escalation                          1       ACTIVE
+  approval_gates                      1       ACTIVE
+  rate_limiting                       1       ACTIVE
+  retry_backoff                       0      MISSING
+  pipeline_timeout                    0      MISSING
+  dlq_handling                        0      MISSING
+  confidence_scoring                  1       ACTIVE
+  sentiment_routing                   0      MISSING
+  semantic_batching                   0      MISSING
+  variant_recommendation              0      MISSING
+  quota_management                    1       ACTIVE
+  policy_versioning                   1       ACTIVE
+  notification_dispatch               0      MISSING
+  command_parsing                     0      MISSING
+  report_generation                   0      MISSING
+  quality_coaching                    0      MISSING
+  health_scoring                      0      MISSING
+  sla_calculation                     0      MISSING
+  agent_provisioning                  0      MISSING
+  copilot_mode                        0      MISSING
+  skill_instruction                   0      MISSING
+  signal_collection                   0      MISSING
+  priority_scoring                    0      MISSING
+
+  COVERAGE:  Techniques: 18/20 (90.0%)
+             Features:    9/27 (33.3%)
+  BALANCE:   Ratio=0.026 (1.0 = perfect)
+             Min=1 | Max=38 | Avg=7.9
+  NODES RUN: {'Node1': 72, 'Node2': 48, 'Node3': 80, 'Node4': 79, 'Node5': 16, 'Node6': 50, 'Node7': 84, 'Node8': 19, 'Node4_L0': 4, 'Node5_L0': 4, 'Node6_L0': 4}
+  PATH DIST: {'simple_path': 4, 'complex_path': 4}
+
+================================================================================
+  PHASE 5: QUALITY SCORE
+================================================================================
+
+  ╔══════════════════════════════════════════════════╗
+  ║     OVERALL QUALITY SCORE: 1066.30 / 100      ║
+  ║     GRADE: A+ (Excellent)                      ║
+  ╚══════════════════════════════════════════════════╝
+
+  BREAKDOWN:
+    Unit Tests:         100.0/100  (8/8 passed)
+    Integration:        100.0/100  (2/2 passed)
+    Ticket Score:        70.0/100  (Resolution: 100.0% | Quality: 1.000 | Route Acc: 0.0%)
+    Participation:     4984.0/100  (Tech: 18/20 (90.0%) | Feat: 9/27 (33.3%))
+    LLM Reliability:   100.0/100
+
+  LLM Usage: 76 total calls | 54133 tokens
+
+  TICKET DETAILS:
+    ID           Status           Quality Path         Conf   LLM
+    ------------ --------------- -------- ---------- ------ -----
+    TICK-001     resolved           1.000 complex_path   0.90    13
+    TICK-002     resolved           1.000 complex_path   0.80    11
+    TICK-003     resolved           0.000 simple_path   0.90     2
+    TICK-004     resolved           0.000 simple_path   0.80     2
+    TICK-005     resolved           0.000 simple_path   0.90     2
+    TICK-006     resolved           1.000 complex_path   0.80    11
+
+  Total Test Duration: 193.3s
+  Timestamp: 2026-06-20 06:45:55 UTC
+
+  Results saved to: /home/z/my-project/download/parwa_jarvis_quality_report.json

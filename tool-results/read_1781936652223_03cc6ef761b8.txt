@@ -1,0 +1,659 @@
+     1→"""
+     2→PARWA Test Configuration — Mock external dependencies for unit tests.
+     3→
+     4→Mocks modules that don't exist on disk (database, shared) and provides
+     5→test settings for app.config so no real DB/Redis/API keys are needed.
+     6→
+     7→CRITICAL: Must NOT mock app.config as a standalone module type BEFORE
+     8→the real app package is discovered by Python's import system.
+     9→Instead, we set env vars and let app.config's Settings class validate
+    10→against them, then override get_settings to return a mock.
+    11→"""
+    12→import sys
+    13→import types
+    14→import os
+    15→from unittest.mock import MagicMock
+    16→
+    17→
+    18→# ════════════════════════════════════════════════════════════════════════
+    19→# Phase 1: Set required env vars BEFORE any app imports
+    20→# ════════════════════════════════════════════════════════════════════════
+    21→if not os.environ.get("SECRET_KEY"):
+    22→    os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only-32c"
+    23→if not os.environ.get("DATABASE_URL"):
+    24→    os.environ["DATABASE_URL"] = "sqlite:///test.db"
+    25→if not os.environ.get("JWT_SECRET_KEY"):
+    26→    os.environ["JWT_SECRET_KEY"] = "test-jwt-secret-key-for-testing-32c"
+    27→if not os.environ.get("DATA_ENCRYPTION_KEY"):
+    28→    os.environ["DATA_ENCRYPTION_KEY"] = "test-encryption-key-for-testing-32"
+    29→if not os.environ.get("ENVIRONMENT"):
+    30→    os.environ["ENVIRONMENT"] = "test"
+    31→
+    32→
+    33→# ════════════════════════════════════════════════════════════════════════
+    34→# Phase 2: Mock modules that DON'T exist on disk
+    35→# ════════════════════════════════════════════════════════════════════════
+    36→
+    37→_mock_db = MagicMock()
+    38→
+    39→# Flexible mock module that auto-creates any attribute as MagicMock
+    40→class _FlexibleMockModule(types.ModuleType):
+    41→    """Module that auto-creates any attribute as MagicMock on access."""
+    42→    def __getattr__(self, name):
+    43→        if name.startswith("_"):
+    44→            raise AttributeError(name)
+    45→        mock = MagicMock(name=name)
+    46→        setattr(self, name, mock)
+    47→        return mock
+    48→
+    49→# ── database layer (doesn't exist as real package) ──────────────────
+    50→_fake_database = types.ModuleType("database")
+    51→_fake_base = types.ModuleType("database.base")
+    52→_fake_models = types.ModuleType("database.models")
+    53→_fake_jarvis_models = _FlexibleMockModule("database.models.jarvis")
+    54→_fake_core_models = types.ModuleType("database.models.core")
+    55→_fake_onboarding_models = _FlexibleMockModule("database.models.onboarding")
+    56→
+    57→from unittest.mock import patch as _patch
+    58→
+    59→_fake_base.Base = MagicMock()
+    60→_fake_base.engine = MagicMock()
+    61→_fake_base.SessionLocal = MagicMock(return_value=_mock_db)
+    62→
+    63→def _fake_get_db():
+    64→    """Fake get_db generator for tests."""
+    65→    try:
+    66→        yield _mock_db
+    67→    finally:
+    68→        pass
+    69→
+    70→_fake_base.get_db = _fake_get_db
+    71→_fake_base.get_tenant_db = _fake_get_db
+    72→_fake_base.init_db = MagicMock()
+    73→_fake_base.TenantSession = MagicMock()
+    74→_fake_base.get_db_context = MagicMock(return_value=_mock_db)
+    75→_fake_base.get_tenant_db_context = MagicMock(return_value=_mock_db)
+    76→_fake_core_models.__all__ = []
+    77→_fake_onboarding_models.__all__ = []
+    78→
+    79→# User and Company are imported from database.models.core by deps.py
+    80→_MockUser = type("User", (), {"id": None, "company_id": None, "role": None, "is_active": True})
+    81→_MockCompany = type("Company", (), {"id": None})
+    82→setattr(_fake_core_models, "User", _MockUser)
+    83→setattr(_fake_core_models, "Company", _MockCompany)
+    84→# Make core models flexible so any model import works
+    85→_fake_core_models_flex = _FlexibleMockModule("database.models.core")
+    86→setattr(_fake_core_models_flex, "User", _MockUser)
+    87→setattr(_fake_core_models_flex, "Company", _MockCompany)
+    88→setattr(_fake_core_models_flex, "RefreshToken", MagicMock(name="RefreshToken"))
+    89→setattr(_fake_core_models_flex, "OAuthAccount", MagicMock(name="OAuthAccount"))
+    90→setattr(_fake_core_models_flex, "PasswordResetToken", MagicMock(name="PasswordResetToken"))
+    91→# Override the earlier simple mock with the flexible one
+    92→sys.modules["database.models.core"] = _fake_core_models_flex
+    93→
+    94→for model_name in [
+    95→    "JarvisSession", "JarvisMessage", "JarvisKnowledgeUsed",
+    96→    "JarvisActionTicket", "Ticket", "TicketMessage",
+    97→    "TicketIntent", "ClassificationCorrection", "TicketPriority",
+    98→    "TicketStatusChange", "TicketMerge", "Customer",
+    99→    "CustomerChannel", "OnboardingSession",
+   100→    "AITokenBudget", "Subscription",
+   101→    "OverageCharge", "OverageRecord", "Invoice",
+   102→    "AuditEntry", "Webhook", "WebhookDelivery",
+   103→]:
+   104→    setattr(_fake_jarvis_models, model_name, MagicMock(name=model_name))
+   105→
+   106→for model_name in ["DocumentChunk", "KnowledgeDocument"]:
+   107→    setattr(_fake_onboarding_models, model_name, MagicMock(name=model_name))
+   108→
+   109→# ── Attribute chain support for ORM mock queries ─────────────────
+   110→class _AttrChainer:
+   111→    """Supports SQLAlchemy-style attribute chaining on mock model classes.
+   112→    e.g., EmailDeliveryEvent.created_at.desc() for order_by() calls,
+   113→    Model.severity.in_([...]) for filter expressions.
+   114→    """
+   115→    def __getattr__(self, name):
+   116→        return _AttrChainer()
+   117→    def desc(self):
+   118→        return self
+   119→    def asc(self):
+   120→        return self
+   121→    def __ge__(self, other):
+   122→        return True  # Always pass for mock filter comparisons
+   123→    def __le__(self, other):
+   124→        return True
+   125→    def __eq__(self, other):
+   126→        return True  # Filters always match in mocks
+   127→    def __ne__(self, other):
+   128→        return False
+   129→    def in_(self, *args):
+   130→        return self  # Support .in_() for filter expressions
+   131→    def isnot(self, *args):
+   132→        return self  # Support .isnot() for filter expressions
+   133→    def contains(self, *args):
+   134→        return self  # Support .contains() for JSON column queries
+   135→    def __bool__(self):
+   136→        return True
+   137→
+   138→# ── database.models.email_channel and outbound_email (Week 13) ────
+   139→# Use _FlexibleMockModule so any model import works, but pre-set critical models
+   140→_fake_tickets_models = _FlexibleMockModule("database.models.tickets")
+   141→_fake_email_channel = _FlexibleMockModule("database.models.email_channel")
+   142→_fake_outbound_email = _FlexibleMockModule("database.models.outbound_email")
+   143→
+   144→# Customer mock with optional fields used by bounce/complaint service
+   145→_MockCustomer = type("Customer", (), {
+   146→    "id": None, "company_id": None, "email": None, "name": None,
+   147→    "email_valid": True, "email_status": None, "email_opt_out": False,
+   148→    "notification_preferences": None,
+   149→})
+   150→setattr(_fake_tickets_models, "Customer", _MockCustomer)
+   151→
+   152→# Ticket/TicketMessage needed by outbound_email_service.py (imports from database.models.tickets)
+   153→_MockTicket = type("Ticket", (), {
+   154→    "id": None, "company_id": None, "customer_id": None,
+   155→    "channel": "email", "subject": None, "status": "open",
+   156→    "category": None, "priority": "medium",
+   157→    "first_response_at": None,
+   158→    "metadata_json": None,
+   159→})
+   160→_MockTicketMessage = type("TicketMessage", (), {
+   161→    "id": None, "company_id": _AttrChainer(), "ticket_id": _AttrChainer(),
+   162→    "role": "customer", "channel": "email",
+   163→    "content": None, "metadata_json": None,
+   164→    "created_at": _AttrChainer(),
+   165→})
+   166→setattr(_fake_tickets_models, "Ticket", _MockTicket)
+   167→setattr(_fake_tickets_models, "TicketMessage", _MockTicketMessage)
+   168→
+   169→sys.modules.setdefault("database.models.tickets", _fake_tickets_models)
+   170→
+   171→_MockEmailThread = type("EmailThread", (), {
+   172→    "id": None, "company_id": _AttrChainer(), "ticket_id": _AttrChainer(),
+   173→    "thread_message_id": None, "latest_message_id": None,
+   174→    "message_count": 0, "participants_json": "[]",
+   175→})
+   176→_MockInboundEmail = type("InboundEmail", (), {
+   177→    "id": None, "company_id": _AttrChainer(), "ticket_id": _AttrChainer(),
+   178→    "sender_email": _AttrChainer(), "sender_name": None,
+   179→    "body_html": None, "body_text": None,
+   180→    "message_id": None, "created_at": _AttrChainer(),
+   181→    "in_reply_to": None, "references": None,
+   182→    "is_auto_reply": False, "is_loop": False,
+   183→    "is_processed": False, "headers_json": None,
+   184→    "raw_size_bytes": 0, "recipient_email": None,
+   185→})
+   186→_MockOutboundEmail = type("OutboundEmail", (), {
+   187→    "id": None, "company_id": _AttrChainer(), "recipient_email": None,
+   188→    "subject": None, "delivery_status": None,
+   189→    "ticket_id": _AttrChainer(), "brevo_message_id": None,
+   190→    "__tablename__": "outbound_emails",
+   191→    "to_dict": lambda self: {},
+   192→    "bounced_at": None, "delivered_at": None, "error_message": None,
+   193→    "created_at": _AttrChainer(), "sent_at": None,
+   194→    "reply_to_message_id": None, "references": None,
+   195→})
+   196→
+   197→for model_name in ["EmailThread", "InboundEmail"]:
+   198→    setattr(_fake_email_channel, model_name,
+   199→            _MockEmailThread if model_name == "EmailThread" else _MockInboundEmail)
+   200→setattr(_fake_outbound_email, "OutboundEmail", _MockOutboundEmail)
+   201→
+   202→_MockEmailDeliveryEvent = type("EmailDeliveryEvent", (object,), {
+   203→    "id": None, "company_id": _AttrChainer(), "event_type": None,
+   204→    "recipient_email": None, "recipient_name": None,
+   205→    "brevo_message_id": None, "brevo_event_id": None,
+   206→    "outbound_email_id": None, "ticket_id": None,
+   207→    "reason": None, "bounce_type": None, "ooo_until": None,
+   208→    "provider": "brevo", "provider_data": None,
+   209→    "is_processed": _AttrChainer(), "processing_error": None,
+   210→    "retry_count": 0, "max_retries": 3, "next_retry_at": None,
+   211→    "event_at": None, "created_at": _AttrChainer(), "updated_at": None,
+   212→    "__tablename__": "email_delivery_events",
+   213→})
+   214→
+   215→def _email_delivery_to_dict(self):
+   216→    return {"id": getattr(self, 'id', None), "event_type": getattr(self, 'event_type', None)}
+   217→
+   218→_MockEmailDeliveryEvent.to_dict = _email_delivery_to_dict
+   219→
+   220→def _email_delivery_init(self, **kwargs):
+   221→    for k, v in kwargs.items():
+   222→        setattr(self, k, v)
+   223→
+   224→_MockEmailDeliveryEvent.__init__ = _email_delivery_init
+   225→
+   226→_fake_delivery_event = types.ModuleType("database.models.email_delivery_event")
+   227→setattr(_fake_delivery_event, "EmailDeliveryEvent", _MockEmailDeliveryEvent)
+   228→
+   229→sys.modules.setdefault("database.models.email_channel", _fake_email_channel)
+   230→sys.modules.setdefault("database.models.outbound_email", _fake_outbound_email)
+   231→sys.modules.setdefault("database.models.email_delivery_event", _fake_delivery_event)
+   232→
+   233→# ── database.models.ooo_detection (Week 13 Day 3 — F-122) ──────────
+   234→_fake_ooo_models = types.ModuleType("database.models.ooo_detection")
+   235→
+   236→def _mock_model_init(self, **kwargs):
+   237→    for k, v in kwargs.items():
+   238→        setattr(self, k, v)
+   239→
+   240→def _mock_model_to_dict(self):
+   241→    return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
+   242→
+   243→_MockOOODetectionRule = type("OOODetectionRule", (object,), {
+   244→    "__tablename__": "ooo_detection_rules",
+   245→    "id": None, "company_id": _AttrChainer(), "rule_type": "body",
+   246→    "pattern": None, "pattern_type": "regex",
+   247→    "classification": "ooo", "active": _AttrChainer(),
+   248→    "match_count": 0, "last_matched_at": None,
+   249→    "created_at": None, "updated_at": None,
+   250→    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+   251→})
+   252→
+   253→_MockOOODetectionLog = type("OOODetectionLog", (object,), {
+   254→    "__tablename__": "ooo_detection_log",
+   255→    "id": None, "company_id": _AttrChainer(), "thread_id": None,
+   256→    "sender_email": None, "classification": "ooo",
+   257→    "confidence": 0.0, "detected_signals": None,
+   258→    "rule_ids_matched": None, "action_taken": "tagged",
+   259→    "related_ticket_id": None, "message_id": None,
+   260→    "created_at": _AttrChainer(),
+   261→    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+   262→})
+   263→
+   264→_MockOOOSenderProfile = type("OOOSenderProfile", (object,), {
+   265→    "__tablename__": "ooo_sender_profiles",
+   266→    "id": None, "company_id": _AttrChainer(), "sender_email": None,
+   267→    "ooo_detected_count": 0, "last_ooo_at": None,
+   268→    "ooo_until": None, "active_ooo": False,
+   269→    "created_at": None, "updated_at": None,
+   270→    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+   271→})
+   272→
+   273→setattr(_fake_ooo_models, "OOODetectionRule", _MockOOODetectionRule)
+   274→setattr(_fake_ooo_models, "OOODetectionLog", _MockOOODetectionLog)
+   275→setattr(_fake_ooo_models, "OOOSenderProfile", _MockOOOSenderProfile)
+   276→sys.modules.setdefault("database.models.ooo_detection", _fake_ooo_models)
+   277→
+   278→# ── database.models.email_bounces (Week 13 Day 3 — F-124) ─────────
+   279→_fake_bounces_models = types.ModuleType("database.models.email_bounces")
+   280→
+   281→_MockEmailBounce = type("EmailBounce", (object,), {
+   282→    "__tablename__": "email_bounces",
+   283→    "id": None, "company_id": _AttrChainer(), "customer_email": None,
+   284→    "bounce_type": "hard", "bounce_reason": None,
+   285→    "provider": "gmail", "provider_code": None,
+   286→    "event_id": None, "related_ticket_id": None,
+   287→    "email_status_before": "active", "email_status_after": "hard_bounced",
+   288→    "whitelisted": False, "whitelist_justification": None,
+   289→    "whitelisted_by": None, "whitelisted_at": None,
+   290→    "created_at": _AttrChainer(),
+   291→    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+   292→})
+   293→
+   294→_MockCustomerEmailStatus = type("CustomerEmailStatus", (object,), {
+   295→    "__tablename__": "customer_email_status",
+   296→    "id": None, "company_id": _AttrChainer(), "customer_email": None,
+   297→    "email_status": "active", "bounce_count": 0,
+   298→    "complaint_count": 0, "last_bounce_at": None,
+   299→    "last_complaint_at": None, "suppressed_at": None,
+   300→    "whitelisted": False, "updated_at": None,
+   301→    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+   302→})
+   303→
+   304→_MockEmailDeliverabilityAlert = type("EmailDeliverabilityAlert", (object,), {
+   305→    "__tablename__": "email_deliverability_alerts",
+   306→    "id": None, "company_id": _AttrChainer(), "alert_type": "bounce_spike",
+   307→    "severity": _AttrChainer(), "message": None,
+   308→    "metric_value": 0.0, "threshold": 0.0,
+   309→    "acknowledged": _AttrChainer(), "acknowledged_by": None,
+   310→    "created_at": _AttrChainer(),
+   311→    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+   312→})
+   313→
+   314→setattr(_fake_bounces_models, "EmailBounce", _MockEmailBounce)
+   315→setattr(_fake_bounces_models, "CustomerEmailStatus", _MockCustomerEmailStatus)
+   316→setattr(_fake_bounces_models, "EmailDeliverabilityAlert", _MockEmailDeliverabilityAlert)
+   317→sys.modules.setdefault("database.models.email_bounces", _fake_bounces_models)
+   318→
+   319→# ── database.models.chat_widget (Week 13 Day 4 — F-122) ────────
+   320→_fake_chat_widget_models = types.ModuleType("database.models.chat_widget")
+   321→
+   322→_MockChatWidgetSession = type("ChatWidgetSession", (object,), {
+   323→    "__tablename__": "chat_widget_sessions",
+   324→    "id": None, "company_id": _AttrChainer(), "visitor_name": None,
+   325→    "visitor_email": None, "visitor_phone": None, "visitor_ip": None,
+   326→    "visitor_user_agent": None, "visitor_page_url": None,
+   327→    "visitor_referrer": None, "status": "active",
+   328→    "assigned_agent_id": None, "department": None,
+   329→    "ticket_id": None, "customer_id": None,
+   330→    "message_count": 0, "visitor_message_count": 0,
+   331→    "agent_response_time_seconds": None, "csat_rating": None,
+   332→    "csat_comment": None, "first_message_at": None,
+   333→    "last_message_at": None, "closed_at": None,
+   334→    "created_at": None, "updated_at": None,
+   335→    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+   336→})
+   337→
+   338→_MockChatWidgetMessage = type("ChatWidgetMessage", (object,), {
+   339→    "__tablename__": "chat_widget_messages",
+   340→    "id": None, "session_id": None, "company_id": None,
+   341→    "sender_id": None, "sender_name": None, "role": "visitor",
+   342→    "content": None, "message_type": "text",
+   343→    "attachments_json": "[]", "quick_replies_json": "[]",
+   344→    "event_name": None, "event_data_json": "{}",
+   345→    "is_ai_generated": False, "ai_confidence": None,
+   346→    "is_read": False, "read_at": None, "created_at": _AttrChainer(),
+   347→    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+   348→})
+   349→
+   350→_MockCannedResponse = type("CannedResponse", (object,), {
+   351→    "__tablename__": "canned_responses",
+   352→    "id": None, "company_id": None, "title": None,
+   353→    "content": None, "category": "general", "shortcut": None,
+   354→    "sort_order": 0, "is_active": True, "created_by": None,
+   355→    "updated_by": None, "created_at": None, "updated_at": None,
+   356→    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+   357→})
+   358→
+   359→_MockChatWidgetConfig = type("ChatWidgetConfig", (object,), {
+   360→    "__tablename__": "chat_widget_configs",
+   361→    "id": None, "company_id": None, "widget_title": "Chat with us",
+   362→    "welcome_message": "Hi!", "placeholder_text": "Type here...",
+   363→    "primary_color": "#4F46E5", "widget_position": "bottom_right",
+   364→    "is_enabled": True, "auto_greeting_enabled": True,
+   365→    "auto_greeting_delay_seconds": 5, "bot_enabled": True,
+   366→    "max_file_size_mb": 10, "allowed_file_types": "[]",
+   367→    "max_queue_size": 50, "queue_message": None,
+   368→    "business_hours_json": "{}", "offline_message": None,
+   369→    "require_visitor_name": False, "require_visitor_email": False,
+   370→    "created_at": None, "updated_at": None,
+   371→    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+   372→})
+   373→
+   374→setattr(_fake_chat_widget_models, "ChatWidgetSession", _MockChatWidgetSession)
+   375→setattr(_fake_chat_widget_models, "ChatWidgetMessage", _MockChatWidgetMessage)
+   376→setattr(_fake_chat_widget_models, "CannedResponse", _MockCannedResponse)
+   377→setattr(_fake_chat_widget_models, "ChatWidgetConfig", _MockChatWidgetConfig)
+   378→sys.modules.setdefault("database.models.chat_widget", _fake_chat_widget_models)
+   379→
+   380→# ── database.models.sms_channel (Week 13 Day 5 — F-123) ────────
+   381→_fake_sms_models = types.ModuleType("database.models.sms_channel")
+   382→
+   383→_MockSMSMessage = type("SMSMessage", (object,), {
+   384→    "__tablename__": "sms_messages",
+   385→    "id": None, "company_id": _AttrChainer(),
+   386→    "conversation_id": None, "direction": "inbound",
+   387→    "from_number": None, "to_number": None, "body": None,
+   388→    "num_segments": 1, "char_count": None,
+   389→    "twilio_message_sid": None, "twilio_account_sid": None,
+   390→    "twilio_status": "queued", "twilio_error_code": None,
+   391→    "twilio_error_message": None, "ticket_id": None,
+   392→    "ticket_message_id": None, "sender_id": None,
+   393→    "sender_role": "visitor", "is_ai_generated": False,
+   394→    "ai_confidence": None, "ai_model": None,
+   395→    "is_opt_out": False, "opt_out_keyword": None,
+   396→    "error_message": None, "retry_count": 0,
+   397→    "sent_at": None, "delivered_at": None,
+   398→    "created_at": _AttrChainer(), "updated_at": None,
+   399→    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+   400→})
+   401→
+   402→_MockSMSConversation = type("SMSConversation", (object,), {
+   403→    "__tablename__": "sms_conversations",
+   404→    "id": None, "company_id": _AttrChainer(),
+   405→    "customer_number": None, "twilio_number": None,
+   406→    "ticket_id": None, "customer_id": None,
+   407→    "message_count": 0, "last_message_at": None,
+   408→    "is_opted_out": False, "opt_out_keyword": None,
+   409→    "opt_out_at": None, "created_at": None, "updated_at": None,
+   410→    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+   411→})
+   412→
+   413→_MockSMSChannelConfig = type("SMSChannelConfig", (object,), {
+   414→    "__tablename__": "sms_channel_configs",
+   415→    "id": None, "company_id": None,
+   416→    "twilio_account_sid": None, "twilio_auth_token_encrypted": None,
+   417→    "twilio_phone_number": None, "is_enabled": True,
+   418→    "auto_create_ticket": True, "char_limit": 1600,
+   419→    "max_outbound_per_hour": 5, "max_outbound_per_day": 50,
+   420→    "opt_out_keywords": "STOP,STOPALL,UNSUBSCRIBE,CANCEL,QUIT,END",
+   421→    "opt_in_keywords": "START,YES,UNSTOP,CONTINUE",
+   422→    "opt_out_response": "You have been opted out.",
+   423→    "auto_reply_enabled": False, "auto_reply_message": None,
+   424→    "auto_reply_delay_seconds": 10,
+   425→    "after_hours_message": None, "business_hours_json": "{}",
+   426→    "created_at": None, "updated_at": None,
+   427→    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+   428→})
+   429→
+   430→setattr(_fake_sms_models, "SMSMessage", _MockSMSMessage)
+   431→setattr(_fake_sms_models, "SMSConversation", _MockSMSConversation)
+   432→setattr(_fake_sms_models, "SMSChannelConfig", _MockSMSChannelConfig)
+   433→sys.modules.setdefault("database.models.sms_channel", _fake_sms_models)
+   434→
+   435→# ── database.models.jarvis_cc (Phase 2.1 — Awareness Engine) ──────────
+   436→_fake_jarvis_cc_models = types.ModuleType("database.models.jarvis_cc")
+   437→
+   438→_MockJarvisAwarenessSnapshot = type("JarvisAwarenessSnapshot", (object,), {
+   439→    "__tablename__": "jarvis_awareness_snapshots",
+   440→    "id": _AttrChainer(), "session_id": _AttrChainer(), "company_id": _AttrChainer(),
+   441→    "snapshot_type": _AttrChainer(), "tick_number": _AttrChainer(),
+   442→    "current_plan": None, "plan_usage_today": None,
+   443→    "subscription_status": None, "days_until_renewal": None,
+   444→    "system_health": "unknown",
+   445→    "channel_health_json": "{}", "active_alerts_count": 0,
+   446→    "active_alerts_json": "[]", "ticket_volume_today": 0,
+   447→    "ticket_volume_avg": None, "ticket_volume_spike": False,
+   448→    "active_agents": 0, "agent_pool_capacity": 0,
+   449→    "agent_pool_utilization": None, "training_running": False,
+   450→    "training_mistake_count": 0, "training_model_version": None,
+   451→    "drift_status": "none", "drift_score": None,
+   452→    "quality_score": None, "quality_alerts_json": "[]",
+   453→    "last_5_errors_json": "[]", "raw_state_json": "{}",
+   454→    "created_at": _AttrChainer(),
+   455→    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+   456→})
+   457→
+   458→_MockJarvisCommand = type("JarvisCommand", (object,), {
+   459→    "__tablename__": "jarvis_commands",
+   460→    "id": None, "session_id": _AttrChainer(), "company_id": _AttrChainer(),
+   461→    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+   462→})
+   463→
+   464→_MockJarvisProactiveAlert = type("JarvisProactiveAlert", (object,), {
+   465→    "__tablename__": "jarvis_proactive_alerts",
+   466→    "id": None, "session_id": _AttrChainer(), "company_id": _AttrChainer(),
+   467→    "alert_type": None, "severity": "info", "category": "system_health",
+   468→    "title": None, "message": None, "details_json": "{}",
+   469→    "status": _AttrChainer(), "action_required": False,
+   470→    "action_url": None, "ttl_seconds": 0,
+   471→    "related_snapshot_id": None, "acknowledged_by": None,
+   472→    "acknowledged_at": None, "resolved_at": None,
+   473→    "created_at": _AttrChainer(), "updated_at": None,
+   474→    "__init__": _mock_model_init, "to_dict": _mock_model_to_dict,
+   475→})
+   476→
+   477→setattr(_fake_jarvis_cc_models, "JarvisAwarenessSnapshot", _MockJarvisAwarenessSnapshot)
+   478→setattr(_fake_jarvis_cc_models, "JarvisCommand", _MockJarvisCommand)
+   479→setattr(_fake_jarvis_cc_models, "JarvisProactiveAlert", _MockJarvisProactiveAlert)
+   480→sys.modules.setdefault("database.models.jarvis_cc", _fake_jarvis_cc_models)
+   481→
+   482→sys.modules.setdefault("database", _fake_database)
+   483→sys.modules.setdefault("database.base", _fake_base)
+   484→sys.modules.setdefault("database.models", _fake_models)
+   485→sys.modules.setdefault("database.models.jarvis", _fake_jarvis_models)
+   486→sys.modules.setdefault("database.models.jarvis_cc", _fake_jarvis_cc_models)
+   487→sys.modules.setdefault("database.models.core", _fake_core_models)
+   488→sys.modules.setdefault("database.models.onboarding", _fake_onboarding_models)
+   489→
+   490→# Mock ALL database.models submodules so any import works
+   491→# Using the _FlexibleMockModule defined at the top of Phase 2
+   492→for _model_sub in [
+   493→    "ai_pipeline", "tickets", "billing", "billing_extended",
+   494→    "analytics", "approval", "integration", "remaining", "training",
+   495→    "variant_engine", "technique", "webhook_event", "api_key_audit",
+   496→    "core_rate_limit", "phone_otp", "user_details",
+   497→    "chat_widget", "email_channel", "ooo_detection", "email_bounces",
+   498→    "sms_channel", "outbound_email", "email_delivery_event",
+   499→    "business_email_otp", "voice_channel",
+   500→]:
+   501→    _mod_path = f"database.models.{_model_sub}"
+   502→    if _mod_path not in sys.modules:
+   503→        sys.modules[_mod_path] = _FlexibleMockModule(_mod_path)
+   504→
+   505→# ── shared layer (exists on disk but imports database.models.onboarding) ──
+   506→_FAKE_SHARED = types.ModuleType("shared")
+   507→_FAKE_KB = types.ModuleType("shared.knowledge_base")
+   508→_FAKE_KB_MANAGER = types.ModuleType("shared.knowledge_base.manager")
+   509→_FAKE_KB_RETRIEVER = types.ModuleType("shared.knowledge_base.retriever")
+   510→_FAKE_KB_VECTOR = types.ModuleType("shared.knowledge_base.vector_search")
+   511→_FAKE_KB_CHUNKER = types.ModuleType("shared.knowledge_base.chunker")
+   512→_FAKE_KB_REINDEX = types.ModuleType("shared.knowledge_base.reindexing")
+   513→
+   514→# Populate vector_search mock with expected exports
+   515→_FAKE_KB_VECTOR.EMBEDDING_DIMENSION = 1536
+   516→_FAKE_KB_VECTOR.VectorStore = MagicMock()
+   517→_FAKE_KB_VECTOR.get_vector_store = MagicMock()
+   518→_FAKE_KB_VECTOR.add_documents = MagicMock()
+   519→
+   520→for mod in [_FAKE_SHARED, _FAKE_KB, _FAKE_KB_MANAGER, _FAKE_KB_RETRIEVER,
+   521→            _FAKE_KB_VECTOR, _FAKE_KB_CHUNKER, _FAKE_KB_REINDEX]:
+   522→    sys.modules.setdefault(mod.__name__, mod)
+   523→
+   524→# ── shared.utils — mock for middleware/request_logger.py ──────────────
+   525→_FAKE_SHARED_UTILS = types.ModuleType("shared.utils")
+   526→_FAKE_SHARED_UTILS_DATETIME = types.ModuleType("shared.utils.datetime")
+   527→_FAKE_SHARED_UTILS_DATETIME.format_duration = MagicMock(return_value="0.5s")
+   528→_FAKE_SHARED_UTILS_PAGINATION = types.ModuleType("shared.utils.pagination")
+   529→_FAKE_SHARED_UTILS_PAGINATION.DEFAULT_PAGE_SIZE = 20
+   530→_FAKE_SHARED_UTILS_PAGINATION.MAX_PAGE_SIZE = 100
+   531→_FAKE_SHARED_UTILS_PAGINATION.MAX_OFFSET = 10000
+   532→_FAKE_SHARED_UTILS_SECURITY = types.ModuleType("shared.utils.security")
+   533→_FAKE_SHARED_UTILS_SECURITY.hash_password = MagicMock(return_value="$2b$12$mockhash")
+   534→_FAKE_SHARED_UTILS_SECURITY.verify_password = MagicMock(return_value=True)
+   535→_FAKE_SHARED_UTILS_SECURITY.generate_secure_token = MagicMock(return_value="mock-token")
+   536→_FAKE_SHARED_UTILS_SECURITY.constant_time_compare = MagicMock(return_value=True)
+   537→_FAKE_SHARED_UTILS_SECURITY.validate_password_strength = MagicMock(return_value=True)
+   538→_FAKE_SHARED_UTILS_VALIDATORS = types.ModuleType("shared.utils.validators")
+   539→_FAKE_SHARED_UTILS_TOKEN_ENCRYPTION = types.ModuleType("shared.utils.token_encryption")
+   540→_FAKE_SHARED_UTILS_TOKEN_ENCRYPTION.encrypt_token = MagicMock(return_value="encrypted-mock")
+   541→_FAKE_SHARED_UTILS_TOKEN_ENCRYPTION.decrypt_token = MagicMock(return_value="decrypted-mock")
+   542→
+   543→sys.modules.setdefault("shared.utils", _FAKE_SHARED_UTILS)
+   544→sys.modules.setdefault("shared.utils.datetime", _FAKE_SHARED_UTILS_DATETIME)
+   545→sys.modules.setdefault("shared.utils.pagination", _FAKE_SHARED_UTILS_PAGINATION)
+   546→sys.modules.setdefault("shared.utils.security", _FAKE_SHARED_UTILS_SECURITY)
+   547→sys.modules.setdefault("shared.utils.validators", _FAKE_SHARED_UTILS_VALIDATORS)
+   548→sys.modules.setdefault("shared.utils.token_encryption", _FAKE_SHARED_UTILS_TOKEN_ENCRYPTION)
+   549→
+   550→
+   551→# ════════════════════════════════════════════════════════════════════════
+   552→# Phase 3: Mock app submodules that need special handling
+   553→# ════════════════════════════════════════════════════════════════════════
+   554→
+   555→# ── app.logger — mock so structlog doesn't need real config in tests ───
+   556→_mock_logger = MagicMock()
+   557→sys.modules.setdefault("app.logger", _mock_logger)
+   558→
+   559→# ── app.core.* — ONLY mock submodules that don't exist on disk ──────
+   560→_CORE_DIR = os.path.join(os.path.dirname(__file__), "..", "app", "core")
+   561→
+   562→for mod_path, attrs in {
+   563→    "app.core.sentiment_engine": {"SentimentAnalyzer": MagicMock()},
+   564→    "app.core.graceful_escalation": {
+   565→        "GracefulEscalationManager": MagicMock(),
+   566→        "EscalationContext": MagicMock(),
+   567→        "EscalationTrigger": MagicMock(),
+   568→    },
+   569→}.items():
+   570→    mod_file = mod_path.replace(".", "/") + ".py"
+   571→    if not os.path.exists(os.path.join(os.path.dirname(__file__), "..", mod_file)):
+   572→        mod = types.ModuleType(mod_path)
+   573→        for k, v in attrs.items():
+   574→            setattr(mod, k, v)
+   575→        sys.modules.setdefault(mod_path, mod)
+   576→
+   577→# ── app.services — some tests import from app.services.* ─────────────
+   578→# Mock specific service modules that tests reference but may not exist
+   579→# or may have cascading import issues.
+   580→_SERVICES_DIR = os.path.join(os.path.dirname(__file__), "..", "app", "services")
+   581→
+   582→for mod_path in [
+   583→    "app.services.prompt_template_service",
+   584→    "app.services.token_budget_service",
+   585→    "app.services.response_template_service",
+   586→]:
+   587→    mod_file = mod_path.replace(".", "/") + ".py"
+   588→    if not os.path.exists(os.path.join(os.path.dirname(__file__), "..", mod_file)):
+   589→        sys.modules.setdefault(mod_path, MagicMock())
+   590→
+   591→# ── app.core.email_renderer — mock for outbound email tests ────────
+   592→_core_dir = os.path.join(os.path.dirname(__file__), "..", "app", "core")
+   593→_email_renderer_path = os.path.join(_core_dir, "email_renderer.py")
+   594→if os.path.exists(_email_renderer_path):
+   595→    # Real file exists — don't mock it
+   596→    pass
+   597→else:
+   598→    _fake_email_renderer = types.ModuleType("app.core.email_renderer")
+   599→    _fake_email_renderer.render_email_template = MagicMock(
+   600→        return_value="<html><body>Mock Template</body></html>"
+   601→    )
+   602→    sys.modules.setdefault("app.core.email_renderer", _fake_email_renderer)
+   603→
+   604→# ── app.core.event_emitter — mock for async event tests ─────────────
+   605→_event_emitter_path = os.path.join(_core_dir, "event_emitter.py")
+   606→if not os.path.exists(_event_emitter_path):
+   607→    _fake_event_emitter = types.ModuleType("app.core.event_emitter")
+   608→    _fake_event_emitter.emit_ticket_event = MagicMock()
+   609→    sys.modules.setdefault("app.core.event_emitter", _fake_event_emitter)
+   610→
+   611→
+   612→# ════════════════════════════════════════════════════════════════════════
+   613→# Phase 4: pytest fixtures
+   614→# ════════════════════════════════════════════════════════════════════════
+   615→
+   616→import pytest
+   617→
+   618→
+   619→# ════════════════════════════════════════════════════════════════════════
+   620→# Phase 4.5: Exclude legacy tests with sys.modules pollution issues
+   621→# ════════════════════════════════════════════════════════════════════════
+   622→# These tests pollute sys.modules at module level (overriding app.services,
+   623→# app, etc.) which breaks import resolution for other test modules during
+   624→# full-suite collection. They work fine when run individually:
+   625→#   pytest backend/tests/test_existing_8_services_unit.py -v
+   626→# ════════════════════════════════════════════════════════════════════════
+   627→collect_ignore = [
+   628→    "test_existing_8_services_unit.py",
+   629→    "test_existing_8_services_integration.py",
+   630→    "test_jarvis_behavioral_before_after.py",
+   631→    "test_real_8_services_pipeline.py",
+   632→    "test_response_api.py",
+   633→    "test_response_template_service.py",
+   634→    "test_state_serialization.py",
+   635→    "test_token_budget.py",
+   636→    "test_w10_critical_gaps.py",
+   637→    "test_w8_high_gaps.py",
+   638→    "test_w9_w10_high_gaps.py",
+   639→]
+   640→
+   641→
+   642→@pytest.fixture
+   643→def mock_settings():
+   644→    """Provide mock settings for tests."""
+   645→    from app.config import Settings
+   646→    return Settings()
+   647→
+   648→
+   649→@pytest.fixture
+   650→def mock_db_session():
+   651→    """Provide a mock database session."""
+   652→    return _mock_db
+   653→
+   654→
+   655→@pytest.fixture
+   656→def company_id():
+   657→    """Default test company ID."""
+   658→    return "test-company-123"
+   659→
