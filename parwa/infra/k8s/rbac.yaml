@@ -1,0 +1,142 @@
+# ServiceAccounts
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: parwa-backend
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/part-of: parwa-platform
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: parwa-frontend
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/part-of: parwa-platform
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: parwa-worker
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/part-of: parwa-platform
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: parwa-mcp
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/part-of: parwa-platform
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: parwa-platform
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: parwa-grafana
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: parwa-platform
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: parwa-alertmanager
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: alertmanager
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: parwa-platform
+---
+# Backend Role — can read pods, secrets, configmaps
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: parwa-backend-role
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/part-of: parwa-platform
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: parwa-backend-rolebinding
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: parwa
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/part-of: parwa-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: parwa-backend-role
+subjects:
+  - kind: ServiceAccount
+    name: parwa-backend
+    namespace: parwa
+---
+# Prometheus ClusterRole — can read nodes, pods, services metrics across all namespaces
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: parwa-prometheus-clusterrole
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: parwa-platform
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/proxy", "nodes/metrics", "pods", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions", "networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  - nonResourceURLs: ["/metrics", "/metrics/cadvisor"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: parwa-prometheus-clusterrolebinding
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: parwa-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: parwa-prometheus-clusterrole
+subjects:
+  - kind: ServiceAccount
+    name: prometheus
+    namespace: parwa

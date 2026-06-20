@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards-provisioning
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: parwa-platform
+data:
+  dashboard.yml: |
+    apiVersion: 1
+    providers:
+      - name: 'Parwa - Database'
+        orgId: 1
+        folder: 'Parwa - Database'
+        type: file
+        disableDeletion: false
+        editable: false
+        updateIntervalSeconds: 30
+        folderUid: parwa-database
+        options:
+          path: /etc/grafana/provisioning/dashboards/json
+          foldersFromFilesStructure: false
+      - name: 'Parwa - Infrastructure'
+        orgId: 1
+        folder: 'Parwa - Infrastructure'
+        type: file
+        disableDeletion: false
+        editable: false
+        updateIntervalSeconds: 30
+        folderUid: parwa-infrastructure
+        options:
+          path: /etc/grafana/provisioning/dashboards/json
+          foldersFromFilesStructure: false
