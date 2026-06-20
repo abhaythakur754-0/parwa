@@ -1,0 +1,457 @@
+Total code nodes: 1922
+Total edges: 4462
+
+=== FILES BY NODE COUNT ===
+  jarvis_db.py: 264 symbols
+  wave5_e2e_test.py: 124 symbols
+  jarvis_routes.py: 86 symbols
+  wave7_e2e_test.py: 84 symbols
+  wave4_e2e_test.py: 68 symbols
+  wave6_e2e_test.py: 67 symbols
+  models.py: 50 symbols
+  ai_wiki_store.py: 43 symbols
+  onboarding_routes.py: 42 symbols
+  command_executor.py: 40 symbols
+  wave3_e2e_test.py: 40 symbols
+  access_control.py: 38 symbols
+  jarvis_3_notify.py: 36 symbols
+  node_7_simple_resolver.py: 35 symbols
+  graph_v2.py: 28 symbols
+  isolation.py: 28 symbols
+  node_4_reasoning_engine.py: 27 symbols
+  command_parser.py: 24 symbols
+  jarvis_2_evaluate.py: 22 symbols
+  wave8_e2e_test.py: 21 symbols
+  notification_center.py: 20 symbols
+  semantic_batcher.py: 20 symbols
+  node_6_quality_format.py: 20 symbols
+  parwa_bridge.py: 20 symbols
+  node_8_super_node.py: 19 symbols
+  signal_collectors.py: 18 symbols
+  node_3_knowledge_fetch.py: 18 symbols
+  jarvis_auth.py: 17 symbols
+  llm_client.py: 17 symbols
+  quality_coach.py: 16 symbols
+  report_generator.py: 16 symbols
+  node_1_ingest_classify.py: 16 symbols
+  node_5_act_verify.py: 16 symbols
+  wave7_e2e_full_test.py: 16 symbols
+  sse.py: 14 symbols
+  copilot_mode.py: 14 symbols
+  node_2_smart_route.py: 14 symbols
+  test_crash_resilience.py: 14 symbols
+  wave7_parwa_jarvis_test.py: 13 symbols
+  utils.py: 12 symbols
+  confidence_engine.py: 12 symbols
+  sla_calculator.py: 12 symbols
+  approval_gates.py: 10 symbols
+  graph.py: 10 symbols
+  health_scorer.py: 10 symbols
+  skill_instructor.py: 10 symbols
+  variant_recommender.py: 10 symbols
+  p8_runner.py: 9 symbols
+  wave7_e2e_selftest.py: 9 symbols
+  page.tsx: 9 symbols
+  wave1_e2e_test.py: 8 symbols
+  wave7_final_e2e_test.py: 8 symbols
+  auth-context.tsx: 8 symbols
+  test_phase1_production.py: 7 symbols
+  main.py: 6 symbols
+  agent_provisioner.py: 6 symbols
+  jarvis_1_sense.py: 6 symbols
+  sentiment_router.py: 6 symbols
+  state.py: 6 symbols
+  state_v2.py: 6 symbols
+  run_all_live.py: 6 symbols
+  test_pipeline_v2.py: 6 symbols
+  page.tsx: 6 symbols
+  ActiveAgents.tsx: 6 symbols
+  DashboardShell.tsx: 6 symbols
+  GSDTerminal.tsx: 6 symbols
+  LiveActivityFeed.tsx: 6 symbols
+  SystemStatusBar.tsx: 6 symbols
+  Wave8Panel.tsx: 6 symbols
+  useNotifications.ts: 6 symbols
+  live_runner.py: 5 symbols
+  wave7_http_test.py: 5 symbols
+  types.ts: 5 symbols
+  BatchApproval.tsx: 5 symbols
+  WorkforceMap.tsx: 5 symbols
+  api.ts: 5 symbols
+  middleware.ts: 5 symbols
+  p2_runner.py: 4 symbols
+  p3_runner.py: 4 symbols
+  p4_runner.py: 4 symbols
+  p5_runner.py: 4 symbols
+  p6_both.py: 4 symbols
+  p6_complex_only.py: 4 symbols
+  p6_runner.py: 4 symbols
+  p7_regression.py: 4 symbols
+  p7_runner.py: 4 symbols
+  p7_test.py: 4 symbols
+  test_single_ticket.py: 4 symbols
+  wave2_e2e_test.py: 4 symbols
+  ChatPanel.tsx: 4 symbols
+  HealthCard.tsx: 4 symbols
+  p3_t5_only.py: 3 symbols
+  p4_complex_only.py: 3 symbols
+  p4_t1_only.py: 3 symbols
+  p5_loop_test.py: 3 symbols
+  p5_t1.py: 3 symbols
+  p5_t2.py: 3 symbols
+  p5_t3.py: 3 symbols
+  p6_t1.py: 3 symbols
+  p6_t2.py: 3 symbols
+  p7_debug.py: 3 symbols
+  p7_final.py: 3 symbols
+  p7_quick.py: 3 symbols
+  layout.tsx: 3 symbols
+  AdaptationTracker.tsx: 3 symbols
+  QualityPanel.tsx: 3 symbols
+  JarvisErrorBox.tsx: 3 symbols
+  JarvisLogo.tsx: 3 symbols
+  JarvisSpinner.tsx: 3 symbols
+  useJarvisStatus.ts: 3 symbols
+  useMetrics.ts: 3 symbols
+  sse.ts: 3 symbols
+  __init__.py: 2 symbols
+  __init__.py: 2 symbols
+  __init__.py: 2 symbols
+  __init__.py: 2 symbols
+  config.py: 2 symbols
+  __init__.py: 2 symbols
+  __init__.py: 2 symbols
+  run_server.py: 2 symbols
+  p7_minimal.py: 2 symbols
+  page.tsx: 2 symbols
+  ApprovalPanel.tsx: 2 symbols
+  FlagPanel.tsx: 2 symbols
+  Providers.tsx: 2 symbols
+  SLAPanel.tsx: 2 symbols
+  UrgentAttention.tsx: 2 symbols
+  VoiceCommand.tsx: 2 symbols
+  WeeklyWinsBanner.tsx: 2 symbols
+  useSSE.ts: 2 symbols
+  __init__.py: 1 symbols
+  next-env.d.ts: 1 symbols
+  index.ts: 1 symbols
+
+=== CROSS-MODULE IMPORTS (wiring) ===
+  api_jarvis_routes --imports--> app_api_models  (backend/app/api/jarvis_routes.py)
+  api_jarvis_routes --imports--> app_api_utils  (backend/app/api/jarvis_routes.py)
+  api_jarvis_routes --imports--> app_api_sse  (backend/app/api/jarvis_routes.py)
+  api_main --imports--> fastapi_middleware_cors  (backend/app/api/main.py)
+  api_main --imports--> app_api_jarvis_routes  (backend/app/api/main.py)
+  api_main --imports--> app_api_sse  (backend/app/api/main.py)
+  api_main --imports--> app_api_onboarding_routes  (backend/app/api/main.py)
+  api_onboarding_routes --imports--> app_api_models  (backend/app/api/onboarding_routes.py)
+  api_onboarding_routes --imports--> app_core_auth_access_control  (backend/app/api/onboarding_routes.py)
+  api_onboarding_routes --imports--> app_api_utils  (backend/app/api/onboarding_routes.py)
+  api_onboarding_routes --imports--> app_core_tenant_isolation  (backend/app/api/onboarding_routes.py)
+  api_sse --imports--> fastapi_responses  (backend/app/api/sse.py)
+  auth_init --imports--> app_core_auth_access_control  (backend/app/core/auth/__init__.py)
+  jarvis_pipeline_init --imports--> app_core_jarvis_pipeline_nodes_jarvis_1_sense  (backend/app/core/jarvis_pipeline/__init__.py)
+  jarvis_pipeline_init --imports--> app_core_jarvis_pipeline_nodes_jarvis_2_evaluate  (backend/app/core/jarvis_pipeline/__init__.py)
+  jarvis_pipeline_init --imports--> app_core_jarvis_pipeline_nodes_jarvis_3_notify  (backend/app/core/jarvis_pipeline/__init__.py)
+  jarvis_pipeline_agent_provisioner --imports--> jarvis_db  (backend/app/core/jarvis_pipeline/agent_provisioner.py)
+  jarvis_pipeline_command_executor --imports--> jarvis_db  (backend/app/core/jarvis_pipeline/command_executor.py)
+  jarvis_pipeline_copilot_mode --imports--> jarvis_db  (backend/app/core/jarvis_pipeline/copilot_mode.py)
+  jarvis_pipeline_graph --imports--> langgraph_graph  (backend/app/core/jarvis_pipeline/graph.py)
+  jarvis_pipeline_graph --imports--> app_core_jarvis_pipeline_state  (backend/app/core/jarvis_pipeline/graph.py)
+  jarvis_pipeline_graph --imports--> app_core_jarvis_pipeline_nodes_jarvis_1_sense  (backend/app/core/jarvis_pipeline/graph.py)
+  jarvis_pipeline_graph --imports--> app_core_jarvis_pipeline_nodes_jarvis_2_evaluate  (backend/app/core/jarvis_pipeline/graph.py)
+  jarvis_pipeline_graph --imports--> app_core_jarvis_pipeline_nodes_jarvis_3_notify  (backend/app/core/jarvis_pipeline/graph.py)
+  jarvis_pipeline_graph --imports--> app_core_jarvis_pipeline_jarvis_db  (backend/app/core/jarvis_pipeline/graph.py)
+  jarvis_pipeline_health_scorer --imports--> app_core_jarvis_pipeline_jarvis_db  (backend/app/core/jarvis_pipeline/health_scorer.py)
+  jarvis_pipeline_jarvis_auth --imports--> command_parser  (backend/app/core/jarvis_pipeline/jarvis_auth.py)
+  jarvis_pipeline_jarvis_auth --imports--> jarvis_db  (backend/app/core/jarvis_pipeline/jarvis_auth.py)
+  nodes_jarvis_1_sense --imports--> app_core_parwa_pipeline_ai_wiki_store  (backend/app/core/jarvis_pipeline/nodes/jarvis_1_sense.py)
+  nodes_jarvis_1_sense --imports--> app_core_jarvis_pipeline_signal_collectors  (backend/app/core/jarvis_pipeline/nodes/jarvis_1_sense.py)
+  nodes_jarvis_2_evaluate --imports--> app_core_parwa_pipeline_llm_client  (backend/app/core/jarvis_pipeline/nodes/jarvis_2_evaluate.py)
+  nodes_jarvis_3_notify --imports--> app_core_parwa_pipeline_llm_client  (backend/app/core/jarvis_pipeline/nodes/jarvis_3_notify.py)
+  nodes_jarvis_3_notify --imports--> app_core_parwa_pipeline_ai_wiki_store  (backend/app/core/jarvis_pipeline/nodes/jarvis_3_notify.py)
+  nodes_jarvis_3_notify --imports--> app_core_jarvis_pipeline_jarvis_db  (backend/app/core/jarvis_pipeline/nodes/jarvis_3_notify.py)
+  nodes_jarvis_3_notify --imports--> app_core_jarvis_pipeline_command_parser  (backend/app/core/jarvis_pipeline/nodes/jarvis_3_notify.py)
+  nodes_jarvis_3_notify --imports--> app_core_jarvis_pipeline_command_executor  (backend/app/core/jarvis_pipeline/nodes/jarvis_3_notify.py)
+  nodes_jarvis_3_notify --imports--> app_core_jarvis_pipeline_jarvis_auth  (backend/app/core/jarvis_pipeline/nodes/jarvis_3_notify.py)
+  jarvis_pipeline_notification_center --imports--> jarvis_db  (backend/app/core/jarvis_pipeline/notification_center.py)
+  jarvis_pipeline_quality_coach --imports--> app_core_jarvis_pipeline_jarvis_db  (backend/app/core/jarvis_pipeline/quality_coach.py)
+  jarvis_pipeline_report_generator --imports--> app_core_jarvis_pipeline_jarvis_db  (backend/app/core/jarvis_pipeline/report_generator.py)
+  jarvis_pipeline_signal_collectors --imports--> app_core_jarvis_pipeline_jarvis_db  (backend/app/core/jarvis_pipeline/signal_collectors.py)
+  jarvis_pipeline_skill_instructor --imports--> jarvis_db  (backend/app/core/jarvis_pipeline/skill_instructor.py)
+  jarvis_pipeline_sla_calculator --imports--> app_core_jarvis_pipeline_jarvis_db  (backend/app/core/jarvis_pipeline/sla_calculator.py)
+  parwa_pipeline_init --imports--> app_core_parwa_pipeline_graph_v2  (backend/app/core/parwa_pipeline/__init__.py)
+  parwa_pipeline_init --imports--> app_core_parwa_pipeline_state_v2  (backend/app/core/parwa_pipeline/__init__.py)
+  parwa_pipeline_graph_v2 --imports--> langgraph_graph  (backend/app/core/parwa_pipeline/graph_v2.py)
+  parwa_pipeline_graph_v2 --imports--> app_core_parwa_pipeline_config  (backend/app/core/parwa_pipeline/graph_v2.py)
+  parwa_pipeline_graph_v2 --imports--> app_core_parwa_pipeline_nodes_node_1_ingest_classify  (backend/app/core/parwa_pipeline/graph_v2.py)
+  parwa_pipeline_graph_v2 --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/app/core/parwa_pipeline/graph_v2.py)
+  parwa_pipeline_graph_v2 --imports--> app_core_parwa_pipeline_nodes_node_3_knowledge_fetch  (backend/app/core/parwa_pipeline/graph_v2.py)
+  parwa_pipeline_graph_v2 --imports--> app_core_parwa_pipeline_nodes_node_4_reasoning_engine  (backend/app/core/parwa_pipeline/graph_v2.py)
+  parwa_pipeline_graph_v2 --imports--> app_core_parwa_pipeline_nodes_node_5_act_verify  (backend/app/core/parwa_pipeline/graph_v2.py)
+  parwa_pipeline_graph_v2 --imports--> app_core_parwa_pipeline_nodes_node_6_quality_format  (backend/app/core/parwa_pipeline/graph_v2.py)
+  parwa_pipeline_graph_v2 --imports--> app_core_parwa_pipeline_nodes_node_7_simple_resolver  (backend/app/core/parwa_pipeline/graph_v2.py)
+  parwa_pipeline_graph_v2 --imports--> app_core_parwa_pipeline_nodes_node_8_super_node  (backend/app/core/parwa_pipeline/graph_v2.py)
+  parwa_pipeline_graph_v2 --imports--> app_core_parwa_pipeline_state_v2  (backend/app/core/parwa_pipeline/graph_v2.py)
+  parwa_pipeline_llm_client --imports--> app_core_parwa_pipeline_config  (backend/app/core/parwa_pipeline/llm_client.py)
+  nodes_node_1_ingest_classify --imports--> app_core_parwa_pipeline_llm_client  (backend/app/core/parwa_pipeline/nodes/node_1_ingest_classify.py)
+  nodes_node_1_ingest_classify --imports--> app_core_parwa_pipeline_state_v2  (backend/app/core/parwa_pipeline/nodes/node_1_ingest_classify.py)
+  nodes_node_2_smart_route --imports--> app_core_parwa_pipeline_state_v2  (backend/app/core/parwa_pipeline/nodes/node_2_smart_route.py)
+  nodes_node_3_knowledge_fetch --imports--> app_core_parwa_pipeline_llm_client  (backend/app/core/parwa_pipeline/nodes/node_3_knowledge_fetch.py)
+  nodes_node_3_knowledge_fetch --imports--> app_core_parwa_pipeline_state_v2  (backend/app/core/parwa_pipeline/nodes/node_3_knowledge_fetch.py)
+  nodes_node_4_reasoning_engine --imports--> app_core_parwa_pipeline_llm_client  (backend/app/core/parwa_pipeline/nodes/node_4_reasoning_engine.py)
+  nodes_node_4_reasoning_engine --imports--> app_core_parwa_pipeline_state_v2  (backend/app/core/parwa_pipeline/nodes/node_4_reasoning_engine.py)
+  nodes_node_5_act_verify --imports--> app_core_parwa_pipeline_llm_client  (backend/app/core/parwa_pipeline/nodes/node_5_act_verify.py)
+  nodes_node_5_act_verify --imports--> app_core_parwa_pipeline_state_v2  (backend/app/core/parwa_pipeline/nodes/node_5_act_verify.py)
+  nodes_node_6_quality_format --imports--> app_core_parwa_pipeline_llm_client  (backend/app/core/parwa_pipeline/nodes/node_6_quality_format.py)
+  nodes_node_6_quality_format --imports--> app_core_parwa_pipeline_config  (backend/app/core/parwa_pipeline/nodes/node_6_quality_format.py)
+  nodes_node_6_quality_format --imports--> app_core_parwa_pipeline_state_v2  (backend/app/core/parwa_pipeline/nodes/node_6_quality_format.py)
+  nodes_node_6_quality_format --imports--> app_core_parwa_pipeline_parwa_bridge  (backend/app/core/parwa_pipeline/nodes/node_6_quality_format.py)
+  nodes_node_7_simple_resolver --imports--> app_core_parwa_pipeline_config  (backend/app/core/parwa_pipeline/nodes/node_7_simple_resolver.py)
+  nodes_node_7_simple_resolver --imports--> app_core_parwa_pipeline_state_v2  (backend/app/core/parwa_pipeline/nodes/node_7_simple_resolver.py)
+  nodes_node_8_super_node --imports--> app_core_parwa_pipeline_llm_client  (backend/app/core/parwa_pipeline/nodes/node_8_super_node.py)
+  nodes_node_8_super_node --imports--> app_core_parwa_pipeline_config  (backend/app/core/parwa_pipeline/nodes/node_8_super_node.py)
+  nodes_node_8_super_node --imports--> app_core_parwa_pipeline_state_v2  (backend/app/core/parwa_pipeline/nodes/node_8_super_node.py)
+  nodes_node_8_super_node --imports--> app_core_parwa_pipeline_parwa_bridge  (backend/app/core/parwa_pipeline/nodes/node_8_super_node.py)
+  tenant_init --imports--> app_core_tenant_isolation  (backend/app/core/tenant/__init__.py)
+  tenant_isolation --imports--> app_core_auth_access_control  (backend/app/core/tenant/isolation.py)
+  tests_live_runner --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/live_runner.py)
+  tests_live_runner --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/live_runner.py)
+  tests_live_runner --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/live_runner.py)
+  tests_p2_runner --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p2_runner.py)
+  tests_p2_runner --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p2_runner.py)
+  tests_p2_runner --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p2_runner.py)
+  tests_p3_runner --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p3_runner.py)
+  tests_p3_runner --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p3_runner.py)
+  tests_p3_runner --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p3_runner.py)
+  tests_p3_t5_only --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p3_t5_only.py)
+  tests_p3_t5_only --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p3_t5_only.py)
+  tests_p3_t5_only --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p3_t5_only.py)
+  tests_p4_complex_only --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p4_complex_only.py)
+  tests_p4_complex_only --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p4_complex_only.py)
+  tests_p4_complex_only --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p4_complex_only.py)
+  tests_p4_runner --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p4_runner.py)
+  tests_p4_runner --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p4_runner.py)
+  tests_p4_runner --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p4_runner.py)
+  tests_p4_t1_only --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p4_t1_only.py)
+  tests_p4_t1_only --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p4_t1_only.py)
+  tests_p4_t1_only --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p4_t1_only.py)
+  tests_p5_loop_test --imports--> app_core_parwa_pipeline_nodes_node_1_ingest_classify  (backend/tests/p5_loop_test.py)
+  tests_p5_loop_test --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p5_loop_test.py)
+  tests_p5_loop_test --imports--> app_core_parwa_pipeline_nodes_node_3_knowledge_fetch  (backend/tests/p5_loop_test.py)
+  tests_p5_loop_test --imports--> app_core_parwa_pipeline_nodes_node_4_reasoning_engine  (backend/tests/p5_loop_test.py)
+  tests_p5_loop_test --imports--> app_core_parwa_pipeline_nodes_node_5_act_verify  (backend/tests/p5_loop_test.py)
+  tests_p5_loop_test --imports--> app_core_parwa_pipeline_nodes_node_6_quality_format  (backend/tests/p5_loop_test.py)
+  tests_p5_loop_test --imports--> app_core_parwa_pipeline_nodes_node_8_super_node  (backend/tests/p5_loop_test.py)
+  tests_p5_loop_test --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p5_loop_test.py)
+  tests_p5_runner --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p5_runner.py)
+  tests_p5_runner --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p5_runner.py)
+  tests_p5_runner --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p5_runner.py)
+  tests_p5_t1 --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p5_t1.py)
+  tests_p5_t1 --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p5_t1.py)
+  tests_p5_t1 --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p5_t1.py)
+  tests_p5_t2 --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p5_t2.py)
+  tests_p5_t2 --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p5_t2.py)
+  tests_p5_t2 --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p5_t2.py)
+  tests_p5_t3 --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p5_t3.py)
+  tests_p5_t3 --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p5_t3.py)
+  tests_p5_t3 --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p5_t3.py)
+  tests_p6_both --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p6_both.py)
+  tests_p6_both --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p6_both.py)
+  tests_p6_both --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p6_both.py)
+  tests_p6_both --imports--> app_core_parwa_pipeline_ai_wiki_store  (backend/tests/p6_both.py)
+  tests_p6_complex_only --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p6_complex_only.py)
+  tests_p6_complex_only --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p6_complex_only.py)
+  tests_p6_complex_only --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p6_complex_only.py)
+  tests_p6_complex_only --imports--> app_core_parwa_pipeline_ai_wiki_store  (backend/tests/p6_complex_only.py)
+  tests_p6_runner --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p6_runner.py)
+  tests_p6_runner --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p6_runner.py)
+  tests_p6_runner --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p6_runner.py)
+  tests_p6_runner --imports--> app_core_parwa_pipeline_ai_wiki_store  (backend/tests/p6_runner.py)
+  tests_p6_t1 --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p6_t1.py)
+  tests_p6_t1 --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p6_t1.py)
+  tests_p6_t1 --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p6_t1.py)
+  tests_p6_t1 --imports--> app_core_parwa_pipeline_ai_wiki_store  (backend/tests/p6_t1.py)
+  tests_p6_t2 --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p6_t2.py)
+  tests_p6_t2 --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p6_t2.py)
+  tests_p6_t2 --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p6_t2.py)
+  tests_p6_t2 --imports--> app_core_parwa_pipeline_ai_wiki_store  (backend/tests/p6_t2.py)
+  tests_p7_debug --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p7_debug.py)
+  tests_p7_debug --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p7_debug.py)
+  tests_p7_debug --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p7_debug.py)
+  tests_p7_debug --imports--> app_core_parwa_pipeline_ai_wiki_store  (backend/tests/p7_debug.py)
+  tests_p7_final --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p7_final.py)
+  tests_p7_final --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p7_final.py)
+  tests_p7_final --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p7_final.py)
+  tests_p7_final --imports--> app_core_parwa_pipeline_ai_wiki_store  (backend/tests/p7_final.py)
+  tests_p7_minimal --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p7_minimal.py)
+  tests_p7_minimal --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p7_minimal.py)
+  tests_p7_minimal --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p7_minimal.py)
+  tests_p7_minimal --imports--> app_core_parwa_pipeline_ai_wiki_store  (backend/tests/p7_minimal.py)
+  tests_p7_quick --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p7_quick.py)
+  tests_p7_quick --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p7_quick.py)
+  tests_p7_quick --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p7_quick.py)
+  tests_p7_regression --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p7_regression.py)
+  tests_p7_regression --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p7_regression.py)
+  tests_p7_regression --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p7_regression.py)
+  tests_p7_runner --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p7_runner.py)
+  tests_p7_runner --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p7_runner.py)
+  tests_p7_runner --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p7_runner.py)
+  tests_p7_test --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p7_test.py)
+  tests_p7_test --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p7_test.py)
+  tests_p7_test --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p7_test.py)
+  tests_p7_test --imports--> app_core_parwa_pipeline_ai_wiki_store  (backend/tests/p7_test.py)
+  tests_p8_runner --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/p8_runner.py)
+  tests_p8_runner --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/p8_runner.py)
+  tests_p8_runner --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/p8_runner.py)
+  tests_p8_runner --imports--> app_core_jarvis_pipeline_graph  (backend/tests/p8_runner.py)
+  tests_p8_runner --imports--> app_core_jarvis_pipeline_notification_center  (backend/tests/p8_runner.py)
+  tests_run_all_live --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/run_all_live.py)
+  tests_run_all_live --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/run_all_live.py)
+  tests_run_all_live --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/run_all_live.py)
+  tests_test_crash_resilience --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/test_crash_resilience.py)
+  tests_test_crash_resilience --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/test_crash_resilience.py)
+  tests_test_crash_resilience --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/test_crash_resilience.py)
+  tests_test_phase1_production --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/test_phase1_production.py)
+  tests_test_phase1_production --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/test_phase1_production.py)
+  tests_test_phase1_production --imports--> app_core_auth_access_control  (backend/tests/test_phase1_production.py)
+  tests_test_phase1_production --imports--> app_core_tenant_isolation  (backend/tests/test_phase1_production.py)
+  tests_test_pipeline_v2 --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/test_pipeline_v2.py)
+  tests_test_pipeline_v2 --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/test_pipeline_v2.py)
+  tests_test_pipeline_v2 --imports--> unittest  (backend/tests/test_pipeline_v2.py)
+  tests_test_single_ticket --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/test_single_ticket.py)
+  tests_test_single_ticket --imports--> app_core_parwa_pipeline_nodes_node_2_smart_route  (backend/tests/test_single_ticket.py)
+  tests_test_single_ticket --imports--> app_core_parwa_pipeline_llm_client  (backend/tests/test_single_ticket.py)
+  tests_wave1_e2e_test --imports--> app_core_jarvis_pipeline_jarvis_db  (backend/tests/wave1_e2e_test.py)
+  tests_wave1_e2e_test --imports--> app_core_jarvis_pipeline_command_parser  (backend/tests/wave1_e2e_test.py)
+  tests_wave1_e2e_test --imports--> app_core_jarvis_pipeline_jarvis_auth  (backend/tests/wave1_e2e_test.py)
+  tests_wave1_e2e_test --imports--> app_core_jarvis_pipeline_graph  (backend/tests/wave1_e2e_test.py)
+  tests_wave2_e2e_test --imports--> app_core_jarvis_pipeline_jarvis_db  (backend/tests/wave2_e2e_test.py)
+  tests_wave2_e2e_test --imports--> app_core_jarvis_pipeline_command_parser  (backend/tests/wave2_e2e_test.py)
+  tests_wave2_e2e_test --imports--> app_core_jarvis_pipeline_jarvis_auth  (backend/tests/wave2_e2e_test.py)
+  tests_wave2_e2e_test --imports--> app_core_jarvis_pipeline_graph  (backend/tests/wave2_e2e_test.py)
+  tests_wave2_e2e_test --imports--> app_core_jarvis_pipeline_signal_collectors  (backend/tests/wave2_e2e_test.py)
+  tests_wave3_e2e_test --imports--> app_core_jarvis_pipeline_jarvis_db  (backend/tests/wave3_e2e_test.py)
+  tests_wave3_e2e_test --imports--> app_core_jarvis_pipeline_command_parser  (backend/tests/wave3_e2e_test.py)
+  tests_wave3_e2e_test --imports--> app_core_jarvis_pipeline_command_executor  (backend/tests/wave3_e2e_test.py)
+  tests_wave3_e2e_test --imports--> app_core_jarvis_pipeline_jarvis_auth  (backend/tests/wave3_e2e_test.py)
+  tests_wave3_e2e_test --imports--> app_core_jarvis_pipeline_graph  (backend/tests/wave3_e2e_test.py)
+  tests_wave4_e2e_test --imports--> app_core_jarvis_pipeline_jarvis_db  (backend/tests/wave4_e2e_test.py)
+  tests_wave4_e2e_test --imports--> app_core_parwa_pipeline_parwa_bridge  (backend/tests/wave4_e2e_test.py)
+  tests_wave4_e2e_test --imports--> app_core_parwa_pipeline_graph_v2  (backend/tests/wave4_e2e_test.py)
+  tests_wave5_e2e_test --imports--> app_core_jarvis_pipeline_jarvis_db  (backend/tests/wave5_e2e_test.py)
+  tests_wave5_e2e_test --imports--> app_core_jarvis_pipeline_confidence_engine  (backend/tests/wave5_e2e_test.py)
+  tests_wave5_e2e_test --imports--> app_core_jarvis_pipeline_semantic_batcher  (backend/tests/wave5_e2e_test.py)
+  tests_wave5_e2e_test --imports--> app_core_jarvis_pipeline_sentiment_router  (backend/tests/wave5_e2e_test.py)
+  tests_wave5_e2e_test --imports--> app_core_jarvis_pipeline_approval_gates  (backend/tests/wave5_e2e_test.py)
+  tests_wave5_e2e_test --imports--> app_core_jarvis_pipeline_variant_recommender  (backend/tests/wave5_e2e_test.py)
+  tests_wave5_e2e_test --imports--> app_core_parwa_pipeline_parwa_bridge  (backend/tests/wave5_e2e_test.py)
+  tests_wave6_e2e_test --imports--> app_core_jarvis_pipeline_jarvis_db  (backend/tests/wave6_e2e_test.py)
+  tests_wave6_e2e_test --imports--> app_core_jarvis_pipeline_report_generator  (backend/tests/wave6_e2e_test.py)
+  tests_wave6_e2e_test --imports--> app_core_jarvis_pipeline_quality_coach  (backend/tests/wave6_e2e_test.py)
+  tests_wave6_e2e_test --imports--> app_core_jarvis_pipeline_sla_calculator  (backend/tests/wave6_e2e_test.py)
+  tests_wave6_e2e_test --imports--> app_core_jarvis_pipeline_health_scorer  (backend/tests/wave6_e2e_test.py)
+  tests_wave6_e2e_test --imports--> app_core_jarvis_pipeline_command_parser  (backend/tests/wave6_e2e_test.py)
+  tests_wave7_e2e_test --imports--> httpx  (backend/tests/wave7_e2e_test.py)
+  tests_wave7_e2e_test --imports--> app_core_jarvis_pipeline_jarvis_db  (backend/tests/wave7_e2e_test.py)
+  tests_wave8_e2e_test --imports--> app_core_jarvis_pipeline_graph  (backend/tests/wave8_e2e_test.py)
+  tests_wave8_e2e_test --imports--> app_core_jarvis_pipeline_notification_center  (backend/tests/wave8_e2e_test.py)
+  tests_wave8_e2e_test --imports--> app_core_jarvis_pipeline_jarvis_db  (backend/tests/wave8_e2e_test.py)
+  tests_wave8_e2e_test --imports--> app_core_jarvis_pipeline_command_parser  (backend/tests/wave8_e2e_test.py)
+  tests_wave8_e2e_test --imports--> app_core_jarvis_pipeline_agent_provisioner  (backend/tests/wave8_e2e_test.py)
+  tests_wave8_e2e_test --imports--> app_core_jarvis_pipeline_skill_instructor  (backend/tests/wave8_e2e_test.py)
+  tests_wave8_e2e_test --imports--> app_core_jarvis_pipeline_copilot_mode  (backend/tests/wave8_e2e_test.py)
+  chat_page --imports--> components_dashboardshell  (frontend/src/app/chat/page.tsx)
+  chat_page --imports--> components_chatpanel  (frontend/src/app/chat/page.tsx)
+  app_layout --imports--> tmp_my_project_parwa_frontend_src_app_globals_css  (frontend/src/app/layout.tsx)
+  app_layout --imports--> components_providers  (frontend/src/app/layout.tsx)
+  onboarding_page --imports--> navigation  (frontend/src/app/onboarding/page.tsx)
+  onboarding_page --imports--> lib_auth_context  (frontend/src/app/onboarding/page.tsx)
+  onboarding_page --imports--> lib_api  (frontend/src/app/onboarding/page.tsx)
+  onboarding_page --imports--> ui_index  (frontend/src/app/onboarding/page.tsx)
+  onboarding_page --imports--> onboarding_types  (frontend/src/app/onboarding/page.tsx)
+  app_page --imports--> navigation  (frontend/src/app/page.tsx)
+  app_page --imports--> lib_auth_context  (frontend/src/app/page.tsx)
+  app_page --imports--> lib_api  (frontend/src/app/page.tsx)
+  app_page --imports--> components_dashboardshell  (frontend/src/app/page.tsx)
+  app_page --imports--> components_systemstatusbar  (frontend/src/app/page.tsx)
+  app_page --imports--> components_activeagents  (frontend/src/app/page.tsx)
+  app_page --imports--> components_liveactivityfeed  (frontend/src/app/page.tsx)
+  app_page --imports--> components_chatpanel  (frontend/src/app/page.tsx)
+  app_page --imports--> components_gsdterminal  (frontend/src/app/page.tsx)
+  app_page --imports--> components_batchapproval  (frontend/src/app/page.tsx)
+  app_page --imports--> components_urgentattention  (frontend/src/app/page.tsx)
+  app_page --imports--> components_workforcemap  (frontend/src/app/page.tsx)
+  app_page --imports--> components_weeklywinsbanner  (frontend/src/app/page.tsx)
+  app_page --imports--> components_healthcard  (frontend/src/app/page.tsx)
+  app_page --imports--> components_adaptationtracker  (frontend/src/app/page.tsx)
+  app_page --imports--> components_qualitypanel  (frontend/src/app/page.tsx)
+  app_page --imports--> components_slapanel  (frontend/src/app/page.tsx)
+  app_page --imports--> components_approvalpanel  (frontend/src/app/page.tsx)
+  app_page --imports--> components_flagpanel  (frontend/src/app/page.tsx)
+  app_page --imports--> components_wave8panel  (frontend/src/app/page.tsx)
+  app_page --imports--> components_voicecommand  (frontend/src/app/page.tsx)
+  app_page --imports--> hooks_usemetrics  (frontend/src/app/page.tsx)
+  app_page --imports--> ui_index  (frontend/src/app/page.tsx)
+  components_activeagents --imports--> hooks_usejarvisstatus  (frontend/src/components/ActiveAgents.tsx)
+  components_adaptationtracker --imports--> react_query  (frontend/src/components/AdaptationTracker.tsx)
+  components_adaptationtracker --imports--> lib_api  (frontend/src/components/AdaptationTracker.tsx)
+  components_adaptationtracker --imports--> lib_auth_context  (frontend/src/components/AdaptationTracker.tsx)
+  components_approvalpanel --imports--> react_query  (frontend/src/components/ApprovalPanel.tsx)
+  components_approvalpanel --imports--> lib_api  (frontend/src/components/ApprovalPanel.tsx)
+  components_approvalpanel --imports--> lib_auth_context  (frontend/src/components/ApprovalPanel.tsx)
+  components_batchapproval --imports--> react_query  (frontend/src/components/BatchApproval.tsx)
+  components_batchapproval --imports--> lib_api  (frontend/src/components/BatchApproval.tsx)
+  components_batchapproval --imports--> lib_auth_context  (frontend/src/components/BatchApproval.tsx)
+  components_chatpanel --imports--> react_query  (frontend/src/components/ChatPanel.tsx)
+  components_chatpanel --imports--> lib_api  (frontend/src/components/ChatPanel.tsx)
+  components_chatpanel --imports--> lib_auth_context  (frontend/src/components/ChatPanel.tsx)
+  components_dashboardshell --imports--> link  (frontend/src/components/DashboardShell.tsx)
+  components_dashboardshell --imports--> navigation  (frontend/src/components/DashboardShell.tsx)
+  components_dashboardshell --imports--> lib_auth_context  (frontend/src/components/DashboardShell.tsx)
+  components_dashboardshell --imports--> hooks_usejarvisstatus  (frontend/src/components/DashboardShell.tsx)
+  components_flagpanel --imports--> react_query  (frontend/src/components/FlagPanel.tsx)
+  components_flagpanel --imports--> lib_api  (frontend/src/components/FlagPanel.tsx)
+  components_flagpanel --imports--> lib_auth_context  (frontend/src/components/FlagPanel.tsx)
+  components_gsdterminal --imports--> hooks_usesse  (frontend/src/components/GSDTerminal.tsx)
+  components_gsdterminal --imports--> hooks_usejarvisstatus  (frontend/src/components/GSDTerminal.tsx)
+  components_healthcard --imports--> react_query  (frontend/src/components/HealthCard.tsx)
+  components_healthcard --imports--> lib_api  (frontend/src/components/HealthCard.tsx)
+  components_healthcard --imports--> lib_auth_context  (frontend/src/components/HealthCard.tsx)
+  components_liveactivityfeed --imports--> hooks_usenotifications  (frontend/src/components/LiveActivityFeed.tsx)
+  components_providers --imports--> react_query  (frontend/src/components/Providers.tsx)
+  components_providers --imports--> lib_auth_context  (frontend/src/components/Providers.tsx)
+  components_qualitypanel --imports--> react_query  (frontend/src/components/QualityPanel.tsx)
+  components_qualitypanel --imports--> lib_api  (frontend/src/components/QualityPanel.tsx)
+  components_qualitypanel --imports--> lib_auth_context  (frontend/src/components/QualityPanel.tsx)
+  components_slapanel --imports--> react_query  (frontend/src/components/SLAPanel.tsx)
+  components_slapanel --imports--> lib_api  (frontend/src/components/SLAPanel.tsx)
+  components_slapanel --imports--> lib_auth_context  (frontend/src/components/SLAPanel.tsx)
+  components_systemstatusbar --imports--> hooks_usejarvisstatus  (frontend/src/components/SystemStatusBar.tsx)
+  components_urgentattention --imports--> react_query  (frontend/src/components/UrgentAttention.tsx)
+  components_urgentattention --imports--> lib_api  (frontend/src/components/UrgentAttention.tsx)
+  components_urgentattention --imports--> lib_auth_context  (frontend/src/components/UrgentAttention.tsx)
+  components_voicecommand --imports--> lib_api  (frontend/src/components/VoiceCommand.tsx)
+  components_voicecommand --imports--> lib_auth_context  (frontend/src/components/VoiceCommand.tsx)
+  components_wave8panel --imports--> react_query  (frontend/src/components/Wave8Panel.tsx)
+  components_wave8panel --imports--> lib_api  (frontend/src/components/Wave8Panel.tsx)
+  components_wave8panel --imports--> lib_auth_context  (frontend/src/components/Wave8Panel.tsx)
+  components_weeklywinsbanner --imports--> react_query  (frontend/src/components/WeeklyWinsBanner.tsx)
+  components_weeklywinsbanner --imports--> lib_api  (frontend/src/components/WeeklyWinsBanner.tsx)
+  components_weeklywinsbanner --imports--> lib_auth_context  (frontend/src/components/WeeklyWinsBanner.tsx)
+  components_workforcemap --imports--> hooks_usejarvisstatus  (frontend/src/components/WorkforceMap.tsx)
+  ui_index --imports--> ui_jarvislogo  (frontend/src/components/ui/index.ts)
+  ui_index --imports--> ui_jarvisspinner  (frontend/src/components/ui/index.ts)
+  ui_index --imports--> ui_jarviserrorbox  (frontend/src/components/ui/index.ts)
+  hooks_usejarvisstatus --imports--> react_query  (frontend/src/hooks/useJarvisStatus.ts)
+  hooks_usejarvisstatus --imports--> lib_api  (frontend/src/hooks/useJarvisStatus.ts)
+  hooks_usejarvisstatus --imports--> lib_auth_context  (frontend/src/hooks/useJarvisStatus.ts)
+  hooks_usemetrics --imports--> react_query  (frontend/src/hooks/useMetrics.ts)
+  hooks_usemetrics --imports--> lib_api  (frontend/src/hooks/useMetrics.ts)
+  hooks_usemetrics --imports--> lib_auth_context  (frontend/src/hooks/useMetrics.ts)
+  hooks_usenotifications --imports--> react_query  (frontend/src/hooks/useNotifications.ts)
+  hooks_usenotifications --imports--> lib_api  (frontend/src/hooks/useNotifications.ts)
+  hooks_usenotifications --imports--> lib_auth_context  (frontend/src/hooks/useNotifications.ts)
+  hooks_usesse --imports--> lib_sse  (frontend/src/hooks/useSSE.ts)
+  src_middleware --imports--> server  (frontend/src/middleware.ts)
+  src_middleware --imports--> server  (frontend/src/middleware.ts)
