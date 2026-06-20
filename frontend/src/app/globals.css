@@ -1,0 +1,177 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --jarvis-bg: #0a0a0f;
+  --jarvis-card: #111827;
+  --jarvis-border: #1f2937;
+  --jarvis-green: #00ff88;
+  --jarvis-cyan: #06b6d4;
+  --jarvis-red: #ef4444;
+  --jarvis-yellow: #f59e0b;
+  --jarvis-text: #e5e7eb;
+  --jarvis-muted: #6b7280;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  background-color: var(--jarvis-bg);
+  color: var(--jarvis-text);
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0f;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1f2937;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #374151;
+}
+
+/* Card glow on hover */
+@layer components {
+  .jarvis-card {
+    @apply bg-jarvis-card border border-jarvis-border rounded-lg p-4 transition-all duration-300;
+  }
+
+  .jarvis-card:hover {
+    box-shadow: 0 0 15px rgba(0, 255, 136, 0.1), 0 0 30px rgba(0, 255, 136, 0.05);
+    border-color: rgba(0, 255, 136, 0.3);
+  }
+
+  .jarvis-badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+  }
+
+  .jarvis-badge-green {
+    @apply bg-green-900/30 text-jarvis-green border border-green-800/50;
+  }
+
+  .jarvis-badge-yellow {
+    @apply bg-yellow-900/30 text-jarvis-yellow border border-yellow-800/50;
+  }
+
+  .jarvis-badge-red {
+    @apply bg-red-900/30 text-jarvis-red border border-red-800/50;
+  }
+
+  .jarvis-badge-cyan {
+    @apply bg-cyan-900/30 text-jarvis-cyan border border-cyan-800/50;
+  }
+
+  .jarvis-btn {
+    @apply px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 border;
+  }
+
+  .jarvis-btn-primary {
+    @apply jarvis-btn bg-jarvis-green/10 text-jarvis-green border-jarvis-green/30 hover:bg-jarvis-green/20 hover:shadow-[0_0_10px_rgba(0,255,136,0.3)];
+  }
+
+  .jarvis-btn-danger {
+    @apply jarvis-btn bg-jarvis-red/10 text-jarvis-red border-jarvis-red/30 hover:bg-jarvis-red/20 hover:shadow-[0_0_10px_rgba(239,68,68,0.3)];
+  }
+
+  .jarvis-btn-secondary {
+    @apply jarvis-btn bg-jarvis-cyan/10 text-jarvis-cyan border-jarvis-cyan/30 hover:bg-jarvis-cyan/20 hover:shadow-[0_0_10px_rgba(6,182,212,0.3)];
+  }
+
+  .jarvis-btn-ghost {
+    @apply jarvis-btn bg-transparent text-jarvis-muted border-jarvis-border hover:text-jarvis-text hover:border-jarvis-muted;
+  }
+
+  .jarvis-input {
+    @apply bg-jarvis-bg border border-jarvis-border rounded-lg px-4 py-2 text-sm text-jarvis-text placeholder-jarvis-muted focus:outline-none focus:border-jarvis-green/50 focus:ring-1 focus:ring-jarvis-green/20 transition-all font-mono;
+  }
+
+  .terminal-text {
+    @apply font-mono text-sm leading-relaxed;
+  }
+
+  .glow-green {
+    text-shadow: 0 0 10px rgba(0, 255, 136, 0.5), 0 0 20px rgba(0, 255, 136, 0.3);
+  }
+
+  .glow-cyan {
+    text-shadow: 0 0 10px rgba(6, 182, 212, 0.5), 0 0 20px rgba(6, 182, 212, 0.3);
+  }
+
+  .progress-bar {
+    @apply h-2 bg-jarvis-bg rounded-full overflow-hidden;
+  }
+
+  .progress-bar-fill {
+    @apply h-full rounded-full transition-all duration-500;
+  }
+
+  .animate-scanline {
+    animation: scanline 8s linear infinite;
+    background: linear-gradient(
+      to bottom,
+      rgba(0, 255, 136, 0.03) 0%,
+      rgba(0, 255, 136, 0.03) 50%,
+      transparent 50%,
+      transparent 100%
+    );
+    background-size: 100% 4px;
+  }
+
+  @keyframes scanline {
+    0% { background-position: 0 0; }
+    100% { background-position: 0 100vh; }
+  }
+}
+
+/* Loading skeleton */
+.skeleton {
+  background: linear-gradient(90deg, #111827 25%, #1f2937 50%, #111827 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Fade in animation */
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Notification animations */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.slide-in-right {
+  animation: slideInRight 0.3s ease-out;
+}
