@@ -247,6 +247,211 @@ function CustomerContextPanel({
   );
 }
 
+// ── Discuss with Jarvis Panel ───────────────────────────────────────
+// Embedded chat with Jarvis AI that has full context about the ticket.
+// Uses Llama 3.1 via the /api/chat endpoint with ticket context injected.
+
+function DiscussWithJarvis({ ticket }: { ticket: Ticket }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState<Array<{role: 'user' | 'assistant'; content: string}>>([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Build system prompt with ticket context for Llama 3.1
+  const buildSystemPrompt = () => {
+    return `You are Jarvis, PARWA's AI assistant. You have deep knowledge of how PARWA's customer support automation works.
+
+CURRENT TICKET CONTEXT:
+- Ticket #: ${ticket.ticket_number}
+- Subject: ${ticket.subject}
+- Description: ${ticket.description || 'No description'}
+- Category: ${CATEGORY_LABELS[ticket.category]}
+- Priority: ${PRIORITY_LABELS[ticket.priority]}
+- Status: ${STATUS_LABELS[ticket.status]}
+- Channel: ${ticket.channel}
+- Customer: ${ticket.customer_name} (${ticket.customer_email})
+- AI Confidence: ${ticket.ai_confidence != null ? `${ticket.ai_confidence}%` : 'Not assessed yet'}
+- Variant Assigned: ${ticket.assigned_variant ? VARIANT_LABELS[ticket.assigned_variant] : 'None'}
+- KB Matched: ${ticket.kb_matched ? 'Yes' : 'No'}
+${ticket.resolution_time_hours ? `- Resolution Time: ${ticket.resolution_time_hours}h` : ''}
+${ticket.tags.length > 0 ? `- Tags: ${ticket.tags.join(', ')}` : ''}
+
+PARWA PIPELINE STATUS:
+${ticket.status === 'resolved' || ticket.status === 'closed' 
+  ? `This ticket is RESOLVED/CLOSED. It took ${ticket.resolution_time_hours || 'unknown'} hours to resolve.`
+  : ticket.skipped 
+    ? `This ticket was SKIPPED by the user - they want to handle it manually instead of AI auto-solving.`
+    : ticket.agent_stopped
+      ? `Agent processing was STOPPED by the user mid-work.`
+      : `This ticket is currently in the queue being processed by PARWA's AI pipeline.`}
+
+YOUR ROLE:
+- Answer questions about this specific ticket
+- Explain what PARWA's AI is doing or will do with this ticket
+- Suggest next steps if the user asks
+- If asked about resolution strategies, provide helpful guidance
+- Be concise but thorough - you're talking to a support agent using PARWA
+
+Company context: ${user?.company_name || 'Unknown company'}
+User asking: ${user?.full_name || 'User'}`;
+  };
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
+    
+    const userMsg = input.trim();
+    setInput('');
+    setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+    setIsLoading(true);
+
+    try {
+      const chatMessages = [
+        { role: 'system', content: buildSystemPrompt() },
+        ...messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+        { role: 'user', content: userMsg }
+      ];
+
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: chatMessages,
+          context: {
+            source: 'ticket_jarvis_chat',
+            ticket_id: ticket.id,
+            ticket_number: ticket.ticket_number,
+          }
+        }),
+      });
+
+      if (!res.ok) throw new Error('Chat request failed');
+      
+      const data = await res.json();
+      const aiReply = data?.reply || data?.message || data?.content || 'Sorry, I could not generate a response.';
+      
+      setMessages(prev => [...prev, { role: 'assistant', content: aiReply }]);
+    } catch (err) {
+      console.error('[Jarvis Chat]', err);
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: 'Sorry, I encountered an error. Please try again.' 
+      }]);
+      toast.error('Jarvis chat failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!isOpen) {
+    return (
+      <button
+        onClick={() => setIsOpen(true)}
+        className="inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-lg bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20 transition-colors"
+      >
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
+        </svg>
+        Discuss with Jarvis
+      </button>
+    );
+  }
+
+  return (
+    <div className="border-t border-white/[0.06] bg-gradient-to-b from-violet-500/5 to-transparent">
+      {/* Header */}
+      <div className="px-4 py-2.5 flex items-center justify-between border-b border-white/[0.06]">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-lg bg-violet-500/20 flex items-center justify-center">
+            <svg className="w-3.5 h-3.5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 0 0-2.455 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
+            </svg>
+          </div>
+          <span className="text-xs font-semibold text-violet-300">Discuss with Jarvis</span>
+          <span className="text-[10px] text-zinc-500">about #{ticket.ticket_number}</span>
+        </div>
+        <button
+          onClick={() => setIsOpen(false)}
+          className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.05] transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Messages */}
+      <div className="px-4 py-3 space-y-3 max-h-[240px] overflow-y-auto">
+        {messages.length === 0 && (
+          <div className="text-center py-4">
+            <p className="text-xs text-zinc-500 mb-2">Ask Jarvis about this ticket</p>
+            <div className="flex flex-wrap gap-1 justify-center">
+              {['What\'s the status?', 'Suggest resolution', 'Why skipped?'].map((suggestion) => (
+                <button
+                  key={suggestion}
+                  onClick={() => setInput(suggestion)}
+                  className="text-[10px] px-2 py-1 rounded-full bg-white/[0.04] text-zinc-400 border border-white/[0.06] hover:bg-white/[0.08] hover:text-zinc-300 transition-colors"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {messages.map((msg, i) => (
+          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[85%] rounded-lg px-3 py-2 text-xs ${
+              msg.role === 'user'
+                ? 'bg-violet-500/15 text-violet-200 border border-violet-500/20'
+                : 'bg-white/[0.04] text-zinc-300 border border-white/[0.06]'
+            }`}>
+              {msg.content}
+            </div>
+          </div>
+        ))}
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-zinc-400 flex items-center gap-2">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Jarvis is thinking...
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className="px-4 pb-3 flex gap-2">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+          placeholder="Ask about this ticket..."
+          className="flex-1 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white text-xs placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-violet-500/40 focus:border-violet-500/40"
+          disabled={isLoading}
+        />
+        <button
+          onClick={handleSend}
+          disabled={!input.trim() || isLoading}
+          className="px-3 py-2 rounded-lg bg-violet-500/20 text-violet-300 border border-violet-500/30 hover:bg-violet-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.126A59.768 59.768 0 0 1 21.485 12 59.77 59.77 0 0 1 3.27 20.876L5.999 12Zm0 0h7.5" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Ticket Detail Panel ─────────────────────────────────────────────
 
 function TicketDetailPanel({
@@ -262,6 +467,8 @@ function TicketDetailPanel({
   const updateTicketStatus = useTicketStore((s) => s.updateTicketStatus);
   const updatePriority = useTicketStore((s) => s.updatePriority);
   const addMessage = useTicketStore((s) => s.addMessage);
+  const skipTicket = useTicketStore((s) => s.skipTicket);
+  const unskipTicket = useTicketStore((s) => s.unskipTicket);
 
   const [replyText, setReplyText] = useState('');
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -438,6 +645,43 @@ function TicketDetailPanel({
             Escalate to Human
           </button>
         )}
+
+        {/* Skip / Don't-Solve Button — toggle to mark ticket for manual handling only */}
+        {ticket.status !== 'resolved' && ticket.status !== 'closed' && (
+          <button
+            onClick={() => {
+              if (ticket.skipped) {
+                unskipTicket(ticket.id);
+              } else {
+                skipTicket(ticket.id);
+              }
+            }}
+            className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-lg border transition-colors ${
+              ticket.skipped
+                ? 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20 hover:bg-zinc-500/20'
+                : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20 hover:bg-yellow-500/20'
+            }`}
+          >
+            {ticket.skipped ? (
+              <>
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+                </svg>
+                Unskip
+              </>
+            ) : (
+              <>
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+                Don't Auto-Solve
+              </>
+            )}
+          </button>
+        )}
+
+        {/* Discuss with Jarvis — always available */}
+        <DiscussWithJarvis ticket={ticket} />
 
         {/* Resume with Guidance — shown when AI paused (awaiting_human) */}
         {ticket.status === 'awaiting_human' && (
@@ -660,13 +904,24 @@ function TicketRow({
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left grid grid-cols-[5rem_1fr_8rem_6rem] gap-2 items-center px-4 py-3 border-b border-white/[0.03] transition-colors hover:bg-white/[0.02] ${
+      className={`w-full text-left grid grid-cols-[5rem_1fr_7rem_5rem_5rem] gap-2 items-center px-4 py-3 border-b border-white/[0.03] transition-colors hover:bg-white/[0.02] ${
         isSelected ? 'bg-orange-500/5 border-l-2 border-l-orange-500' : 'border-l-2 border-l-transparent'
-      }`}
+      } ${ticket.skipped ? 'opacity-60' : ''} ${ticket.agent_stopped ? 'bg-red-500/5' : ''}`}
     >
-      <span className="text-xs font-mono text-orange-400">{ticket.ticket_number}</span>
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs font-mono text-orange-400">{ticket.ticket_number}</span>
+        {/* Skip indicator */}
+        {ticket.skipped && (
+          <span title="Skipped - Won't auto-solve" className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
+        )}
+        {/* Stopped indicator */}
+        {ticket.agent_stopped && (
+          <span title="Agent stopped" className="w-1.5 h-1.5 rounded-full bg-red-400" />
+        )}
+      </div>
       <span className="text-xs text-white truncate font-medium">{ticket.subject}</span>
       <StatusBadge status={ticket.status} />
+      <PriorityBadge priority={ticket.priority} />
       <span className="text-[10px] text-zinc-500 tabular-nums">{formatRelativeDate(ticket.created_at)}</span>
     </button>
   );
@@ -690,12 +945,23 @@ function TicketCard({
         isSelected
           ? 'bg-orange-500/5 border-orange-500/30'
           : 'bg-white/[0.02] border-white/[0.06] hover:border-white/[0.12]'
-      }`}
+      } ${ticket.skipped ? 'opacity-60' : ''} ${ticket.agent_stopped ? 'border-red-500/20' : ''}`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-mono text-orange-400">{ticket.ticket_number}</span>
+            {/* Status indicators */}
+            {ticket.skipped && (
+              <span title="Skipped - Won't auto-solve" className="text-[9px] px-1.5 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
+                Skipped
+              </span>
+            )}
+            {ticket.agent_stopped && (
+              <span title="Agent stopped" className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">
+                Stopped
+              </span>
+            )}
             <PriorityBadge priority={ticket.priority} />
           </div>
           <p className="text-sm font-medium text-white truncate">{ticket.subject}</p>
@@ -1041,6 +1307,12 @@ export default function TicketsPage() {
   const init = useTicketStore((s) => s.init);
   const ticketStats = useTicketStore((s) => s.ticketStats);
   const addTicket = useTicketStore((s) => s.addTicket);
+  // NEW: Agent control methods
+  const stopAllAgents = useTicketStore((s) => s.stopAllAgents);
+  const resumeAllAgents = useTicketStore((s) => s.resumeAllAgents);
+  const agentStopped = useTicketStore((s) => s.agentStopped);
+  const getAutoSolvableTickets = useTicketStore((s) => s.getAutoSolvableTickets);
+  const getQueueTickets = useTicketStore((s) => s.getQueueTickets);
 
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
@@ -1050,6 +1322,7 @@ export default function TicketsPage() {
   const [channelFilter, setChannelFilter] = useState<TicketChannel | 'all'>('all');
   const [searchText, setSearchText] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const { user } = useAuth();
 
   // Initialize store on mount
   useEffect(() => {
@@ -1070,7 +1343,37 @@ export default function TicketsPage() {
   // Compute stats
   const stats = useMemo(() => ticketStats(), [tickets, ticketStats]);
 
-  // Filter tickets with AND logic
+  // ── SPLIT VIEW: Auto-Solvable vs In-Queue Tickets ──
+  // UPPER section: Tickets PARWA AI can auto-solve (KB matched or simple categories)
+  // LOWER section: Tickets in queue (filtered by company context)
+  const autoSolvableTickets = useMemo(() => getAutoSolvableTickets(), [tickets, getAutoSolvableTickets]);
+  
+  // Queue tickets filtered by user's company (each company sees only their tickets)
+  const queueTickets = useMemo(() => 
+    getQueueTickets(user?.company_id), 
+    [tickets, getQueueTickets, user?.company_id]
+  );
+
+  // Apply filters to both lists (for search/filter bar functionality)
+  const applyFilters = useCallback((ticketList: Ticket[]) => {
+    return ticketList.filter((t) => {
+      if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+      if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
+      if (categoryFilter !== 'all' && t.category !== categoryFilter) return false;
+      if (channelFilter !== 'all' && t.channel !== channelFilter) return false;
+      if (searchText.trim()) {
+        const q = searchText.toLowerCase();
+        const searchable = `${t.ticket_number} ${t.subject} ${t.customer_name} ${t.customer_email} ${t.description} ${t.tags.join(' ')}`.toLowerCase();
+        if (!searchable.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [statusFilter, priorityFilter, categoryFilter, channelFilter, searchText]);
+
+  const filteredAutoSolvable = useMemo(() => applyFilters(autoSolvableTickets), [autoSolvableTickets, applyFilters]);
+  const filteredQueue = useMemo(() => applyFilters(queueTickets), [queueTickets, applyFilters]);
+
+  // Legacy: all tickets for backward compatibility with detail panel selection
   const filteredTickets = useMemo(() => {
     return tickets.filter((t) => {
       if (statusFilter !== 'all' && t.status !== statusFilter) return false;
@@ -1174,6 +1477,47 @@ export default function TicketsPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {/* STOP / RESUME AGENT BUTTON — Global control */}
+            <button
+              onClick={() => {
+                if (agentStopped) {
+                  resumeAllAgents();
+                } else {
+                  stopAllAgents();
+                }
+              }}
+              className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-2 rounded-lg border transition-colors ${
+                agentStopped
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
+                  : 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20'
+              }`}
+              title={agentStopped ? "Resume all AI agent processing" : "Stop all AI agent processing"}
+            >
+              {agentStopped ? (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+                  </svg>
+                  Resume Agents
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
+                  </svg>
+                  Stop Agents
+                </>
+              )}
+            </button>
+
+            {/* Agent Status Indicator */}
+            {agentStopped && (
+              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                Agents Halted
+              </span>
+            )}
+
             <button
               onClick={() => setIsCreateModalOpen(true)}
               className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium transition-colors flex items-center gap-2"
@@ -1187,7 +1531,7 @@ export default function TicketsPage() {
         </div>
       </motion.div>
 
-      {/* Stats Bar */}
+      {/* Stats Bar — Split View Counts */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -1195,9 +1539,10 @@ export default function TicketsPage() {
         className="flex flex-wrap gap-2"
       >
         <StatPill label="Total" count={stats.total} dotColor="bg-zinc-400" />
-        <StatPill label="Not Solved" count={stats.byStatus.open + stats.byStatus.in_progress} dotColor="bg-blue-400" />
+        <StatPill label="Auto-Solvable" count={autoSolvableTickets.length} dotColor="bg-emerald-400" />
+        <StatPill label="In Queue" count={queueTickets.length} dotColor="bg-blue-400" />
         <StatPill label="Solved" count={stats.byStatus.resolved + stats.byStatus.closed} dotColor="bg-green-400" />
-        <StatPill label="Waiting for Human" count={stats.byStatus.awaiting_human} dotColor="bg-red-400" />
+        <StatPill label="Skipped" count={useTicketStore.getState().getSkippedTickets().length} dotColor="bg-yellow-400" />
       </motion.div>
 
       {/* Filter Row */}
@@ -1240,34 +1585,64 @@ export default function TicketsPage() {
         )}
       </motion.div>
 
-      {/* Ticket List + Detail */}
+      {/* ── SPLIT TICKET VIEW ── */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.15 }}
         className="flex flex-col lg:flex-row gap-4"
       >
-        {/* Ticket List */}
-        <div className="flex-1 min-w-0">
-          {filteredTickets.length === 0 ? (
-            <div className="bg-[#1A1A1A] border border-white/[0.06] rounded-xl">
-              <NoResultsState onClearFilters={clearFilters} />
+        {/* Ticket Lists — Split View */}
+        <div className="flex-1 min-w-0 space-y-6">
+          
+          {/* ═════════ UPPER SECTION: Auto-Solvable Tickets ═════════ */}
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                <h2 className="text-sm font-semibold text-white">Auto-Solvable by PARWA AI</h2>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  {filteredAutoSolvable.length} tickets
+                </span>
+              </div>
+              <span className="text-[10px] text-zinc-600">KB-matched or simple categories</span>
             </div>
-          ) : (
-            <>
-              {/* Desktop Table */}
-              <div className="hidden xl:block bg-[#1A1A1A] border border-white/[0.06] rounded-xl overflow-hidden">
-                {/* Table Header — simplified: Ticket #, Subject, Status, Created only */}
-                <div className="grid grid-cols-[5rem_1fr_8rem_6rem] gap-2 items-center px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
-                  <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Ticket #</span>
-                  <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Subject</span>
-                  <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Status</span>
-                  <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Created</span>
+
+            {filteredAutoSolvable.length === 0 ? (
+              <div className="bg-[#1A1A1A] border border-white/[0.06] rounded-xl p-6 text-center">
+                <svg className="w-8 h-8 mx-auto mb-2 text-zinc-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+                <p className="text-xs text-zinc-600">No auto-solvable tickets right now</p>
+                <p className="text-[10px] text-zinc-700 mt-1">Tickets that match KB articles or have simple categories will appear here</p>
+              </div>
+            ) : (
+              <>
+                {/* Desktop Table */}
+                <div className="hidden xl:block bg-[#1A1A1A] border border-emerald-500/10 rounded-xl overflow-hidden">
+                  <div className="grid grid-cols-[5rem_1fr_7rem_5rem_5rem] gap-2 items-center px-4 py-2.5 border-b border-white/[0.06] bg-emerald-500/5">
+                    <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">#</span>
+                    <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Subject</span>
+                    <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Status</span>
+                    <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Priority</span>
+                    <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Created</span>
+                  </div>
+                  <div className="max-h-[280px] overflow-y-auto">
+                    {filteredAutoSolvable.map((ticket) => (
+                      <TicketRow
+                        key={ticket.id}
+                        ticket={ticket}
+                        isSelected={selectedTicketId === ticket.id}
+                        onClick={() => setSelectedTicketId(selectedTicketId === ticket.id ? null : ticket.id)}
+                      />
+                    ))}
+                  </div>
                 </div>
-                {/* Rows */}
-                <div className="max-h-[calc(100vh-380px)] overflow-y-auto">
-                  {filteredTickets.map((ticket) => (
-                    <TicketRow
+
+                {/* Mobile Cards */}
+                <div className="xl:hidden space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                  {filteredAutoSolvable.map((ticket) => (
+                    <TicketCard
                       key={ticket.id}
                       ticket={ticket}
                       isSelected={selectedTicketId === ticket.id}
@@ -1275,28 +1650,71 @@ export default function TicketsPage() {
                     />
                   ))}
                 </div>
-              </div>
+              </>
+            )}
+          </section>
 
-              {/* Tablet / Mobile Cards */}
-              <div className="xl:hidden space-y-2 max-h-[calc(100vh-380px)] overflow-y-auto pr-1">
-                {filteredTickets.map((ticket) => (
-                  <TicketCard
-                    key={ticket.id}
-                    ticket={ticket}
-                    isSelected={selectedTicketId === ticket.id}
-                    onClick={() => setSelectedTicketId(selectedTicketId === ticket.id ? null : ticket.id)}
-                  />
-                ))}
+          {/* ═════════ LOWER SECTION: In-Queue Tickets (Company-Filtered) ═════════ */}
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-blue-400" />
+                <h2 className="text-sm font-semibold text-white">In Queue</h2>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                  {filteredQueue.length} tickets
+                </span>
               </div>
-            </>
-          )}
+              {user?.company_name && (
+                <span className="text-[10px] text-zinc-600">{user.company_name}</span>
+              )}
+            </div>
 
-          {/* Results count */}
-          {filteredTickets.length > 0 && (
-            <p className="text-[11px] text-zinc-600 mt-2">
-              Showing {filteredTickets.length} of {tickets.length} tickets
-            </p>
-          )}
+            {filteredQueue.length === 0 ? (
+              <div className="bg-[#1A1A1A] border border-white/[0.06] rounded-xl p-6 text-center">
+                <svg className="w-8 h-8 mx-auto mb-2 text-zinc-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
+                </svg>
+                <p className="text-xs text-zinc-600">Queue is empty</p>
+                <p className="text-[10px] text-zinc-700 mt-1">Tickets awaiting processing will appear here</p>
+              </div>
+            ) : (
+              <>
+                {/* Desktop Table */}
+                <div className="hidden xl:block bg-[#1A1A1A] border border-blue-500/10 rounded-xl overflow-hidden">
+                  <div className="grid grid-cols-[5rem_1fr_7rem_5rem_5rem] gap-2 items-center px-4 py-2.5 border-b border-white/[0.06] bg-blue-500/5">
+                    <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">#</span>
+                    <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Subject</span>
+                    <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Status</span>
+                    <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Priority</span>
+                    <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Created</span>
+                  </div>
+                  <div className="max-h-[280px] overflow-y-auto">
+                    {filteredQueue.map((ticket) => (
+                      <TicketRow
+                        key={ticket.id}
+                        ticket={ticket}
+                        isSelected={selectedTicketId === ticket.id}
+                        onClick={() => setSelectedTicketId(selectedTicketId === ticket.id ? null : ticket.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Mobile Cards */}
+                <div className="xl:hidden space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                  {filteredQueue.map((ticket) => (
+                    <TicketCard
+                      key={ticket.id}
+                      ticket={ticket}
+                      isSelected={selectedTicketId === ticket.id}
+                      onClick={() => setSelectedTicketId(selectedTicketId === ticket.id ? null : ticket.id)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+
         </div>
 
         {/* Detail Panel */}
