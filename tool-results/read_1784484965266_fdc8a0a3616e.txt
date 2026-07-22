@@ -1,0 +1,872 @@
+     1→     1→"""
+     2→     2→Payment Failure Service (F-027, BG-16)
+     3→     3→
+     4→     4→Netflix-style payment failure handling:
+     5→     5→1. Payment fails → IMMEDIATE service stop
+     6→     6→2. No grace period
+     7→     7→3. No dunning emails
+     8→     8→4. Single notification: "Payment failed, update payment method"
+     9→     9→5. Service resumes immediately on successful payment
+    10→    10→
+    11→    11→ENHANCED (2025-01-19) - RAM-to-DB Migration:
+    12→    12→6. Auto-block after configurable hours if payment not received
+    13→    13→7. Data cleanup for old resolved failures
+    14→    14→
+    15→    15→This is deliberately strict to reduce churn from forgotten cards.
+    16→    16→
+    17→    17→BC-001: All operations validate company_id
+    18→    18→BC-002: All money calculations use Decimal
+    19→    19→CLAUDE.md Rule 2: Uses EXISTING payment_failures table (no duplication)
+    20→    20→"""
+    21→    21→
+    22→    22→import asyncio
+    23→    23→import logging
+    24→    24→from datetime import datetime, timezone
+    25→    25→from decimal import Decimal
+    26→    26→from typing import Any, Dict, List, Optional
+    27→    27→from uuid import UUID
+    28→    28→
+    29→    29→from sqlalchemy import and_, or_
+    30→    30→from sqlalchemy.orm import Session
+    31→    31→
+    32→    32→from database.base import SessionLocal
+    33→    33→from database.models.billing import Subscription
+    34→    34→from database.models.billing_extended import PaymentFailure
+    35→    35→from database.models.core import Company
+    36→    36→
+    37→    37→logger = logging.getLogger("parwa.services.payment_failure")
+    38→    38→
+    39→    39→
+    40→    40→class PaymentFailureError(Exception):
+    41→    41→    """Base exception for payment failure errors."""
+    42→    42→    pass
+    43→    43→
+    44→    44→
+    45→    45→class ServiceStoppedError(PaymentFailureError):
+    46→    46→    """Company service is stopped due to payment failure."""
+    47→    47→    pass
+    48→    48→
+    49→    49→
+    50→    50→class PaymentFailureService:
+    51→    51→    """
+    52→    52→    Payment failure handling with immediate service stop.
+    53→    53→
+    54→    54→    Usage:
+    55→    55→        service = PaymentFailureService()
+    56→    56→        result = await service.handle_payment_failure(
+    57→    57→            company_id=uuid,
+    58→    58→            paddle_transaction_id="txn_123",
+    59→    59→            failure_code="card_declined",
+    60→    60→            failure_reason="Insufficient funds",
+    61→    61→            amount_attempted=Decimal("999.00")
+    62→    62→        )
+    63→    63→    """
+    64→    64→
+    65→    65→    # Valid subscription statuses
+    66→    66→    ACTIVE_STATUS = "active"
+    67→    67→    PAYMENT_FAILED_STATUS = "payment_failed"
+    68→    68→    PAST_DUE_STATUS = "past_due"
+    69→    69→
+    70→    70→    def __init__(self):
+    71→    71→        pass
+    72→    72→
+    73→    73→    async def handle_payment_failure(
+    74→    74→        self,
+    75→    75→        company_id: UUID,
+    76→    76→        paddle_transaction_id: str,
+    77→    77→        failure_code: str,
+    78→    78→        failure_reason: str,
+    79→    79→        amount_attempted: Decimal,
+    80→    80→        paddle_subscription_id: Optional[str] = None,
+    81→    81→        currency: str = "USD",
+    82→    82→    ) -> Dict[str, Any]:
+    83→    83→        """
+    84→    84→        Handle a payment failure with immediate service stop.
+    85→    85→
+    86→    86→        Steps:
+    87→    87→        1. Log to payment_failures table
+    88→    88→        2. Set company.subscription_status = 'payment_failed'
+    89→    89→        3. Stop all AI agents immediately
+    90→    90→        4. Block new ticket creation
+    91→    91→        5. Freeze existing open tickets (status → 'frozen')
+    92→    92→        6. Send payment_failed email notification
+    93→    93→        7. Create Socket.io event for real-time UI update
+    94→    94→
+    95→    95→        Args:
+    96→    96→            company_id: Company UUID
+    97→    97→            paddle_transaction_id: Paddle transaction ID
+    98→    98→            failure_code: Paddle failure code
+    99→    99→            failure_reason: Human-readable failure reason
+   100→   100→            amount_attempted: Amount that failed to charge
+   101→   101→            paddle_subscription_id: Optional Paddle subscription ID
+   102→   102→            currency: Currency code (default USD)
+   103→   103→
+   104→   104→        Returns:
+   105→   105→            Dict with failure record details and actions taken
+   106→   106→
+   107→   107→        Raises:
+   108→   108→            PaymentFailureError: If failure cannot be processed
+   109→   109→        """
+   110→   110→
+   111→   111→        def _db_work():
+   112→   112→            with SessionLocal() as db:
+   113→   113→                # Get company with row lock to prevent race conditions
+   114→   114→                company = db.query(Company).filter(
+   115→   115→                    Company.id == str(company_id)
+   116→   116→                ).with_for_update().first()
+   117→   117→
+   118→   118→                if not company:
+   119→   119→                    raise PaymentFailureError(f"Company {company_id} not found")
+   120→   120→
+   121→   121→                now = datetime.now(timezone.utc)
+   122→   122→
+   123→   123→                # Check if there's already an unresolved payment failure
+   124→   124→                existing_failure = db.query(PaymentFailure).filter(
+   125→   125→                    PaymentFailure.company_id == str(company_id),
+   126→   126→                    PaymentFailure.resolved == False,
+   127→   127→                ).first()
+   128→   128→
+   129→   129→                if existing_failure:
+   130→   130→                    # Already has active payment failure - just log this one
+   131→   131→                    logger.warning(
+   132→   132→                        "payment_failure_already_stopped "
+   133→   133→                        "company_id=%s existing_failure_id=%s "
+   134→   134→                        "new_transaction_id=%s",
+   135→   135→                        company_id,
+   136→   136→                        existing_failure.id,
+   137→   137→                        paddle_transaction_id,
+   138→   138→                    )
+   139→   139→                    return {
+   140→   140→                        "status": "already_stopped",
+   141→   141→                        "existing_failure_id": existing_failure.id,
+   142→   142→                        "message": "Service already stopped due to previous payment failure",
+   143→   143→                    }
+   144→   144→
+   145→   145→                # Create payment failure record
+   146→   146→                failure = PaymentFailure(
+   147→   147→                    company_id=str(company_id),
+   148→   148→                    paddle_subscription_id=paddle_subscription_id,
+   149→   149→                    paddle_transaction_id=paddle_transaction_id,
+   150→   150→                    failure_code=failure_code,
+   151→   151→                    failure_reason=failure_reason,
+   152→   152→                    amount_attempted=amount_attempted,
+   153→   153→                    currency=currency,
+   154→   154→                    service_stopped_at=now,
+   155→   155→                    notification_sent=False,
+   156→   156→                    resolved=False,
+   157→   157→                )
+   158→   158→                db.add(failure)
+   159→   159→
+   160→   160→                # Update company subscription status
+   161→   161→                old_status = company.subscription_status
+   162→   162→                company.subscription_status = self.PAYMENT_FAILED_STATUS
+   163→   163→
+   164→   164→                # Update subscription record if exists
+   165→   165→                subscription = db.query(Subscription).filter(
+   166→   166→                    Subscription.company_id == str(company_id),
+   167→   167→                    Subscription.status == self.ACTIVE_STATUS,
+   168→   168→                ).first()
+   169→   169→
+   170→   170→                if subscription:
+   171→   171→                    subscription.status = self.PAYMENT_FAILED_STATUS
+   172→   172→
+   173→   173→                db.commit()
+   174→   174→                db.refresh(failure)
+   175→   175→
+   176→   176→                logger.info(
+   177→   177→                    "payment_failure_handled "
+   178→   178→                    "company_id=%s failure_id=%s "
+   179→   179→                    "old_status=%s new_status=%s "
+   180→   180→                    "amount=%s code=%s",
+   181→   181→                    company_id,
+   182→   182→                    failure.id,
+   183→   183→                    old_status,
+   184→   184→                    self.PAYMENT_FAILED_STATUS,
+   185→   185→                    amount_attempted,
+   186→   186→                    failure_code,
+   187→   187→                )
+   188→   188→
+   189→   189→                # Trigger side-effects for payment failure
+   190→   190→                try:
+   191→   191→                    # Send payment failure notification email
+   192→   192→                    from app.services.email_service import send_email
+   193→   193→                    from database.models.core import User
+   194→   194→                    company_owner = db.query(User).filter(
+   195→   195→                        User.company_id == str(company_id),
+   196→   196→                        User.role == "owner",
+   197→   197→                    ).first()
+   198→   198→                    if company_owner:
+   199→   199→                        try:
+   200→   200→                            send_email(
+   201→   201→                                to=company_owner.email,
+   202→   202→                                subject="PARWA: Payment Failed — Action Required",
+   203→   203→                                html_content=f"""
+   204→   204→                                <html><body>
+   205→   205→                                <h2>Payment Failed</h2>
+   206→   206→                                <p>Hello {company_owner.full_name or 'there'},</p>
+   207→   207→                                <p>We were unable to process your recent payment for your PARWA subscription.</p>
+   208→   208→                                <p><strong>Company:</strong> {company.name}</p>
+   209→   209→                                <p><strong>Reason:</strong> {failure_reason or 'Payment declined by payment provider'}</p>
+   210→   210→                                <p>Your service has been paused. Update your payment method to restore access immediately.</p>
+   211→   211→                                </body></html>
+   212→   212→                                """,
+   213→   213→                            )
+   214→   214→                            # Mark notification as sent after successful email delivery
+   215→   215→                            failure.notification_sent = True
+   216→   216→                            db.commit()
+   217→   217→                        except Exception as email_err:
+   218→   218→                            logger.error(
+   219→   219→                                "payment_failure_email_failed",
+   220→   220→                                company_id=str(company_id),
+   221→   221→                                error=str(email_err),
+   222→   222→                            )
+   223→   223→
+   224→   224→                    # Notify via notification service
+   225→   225→                    try:
+   226→   226→                        from app.services.notification_service import NotificationService
+   227→   227→                        notif_svc = NotificationService(db)
+   228→   228→                        notif_svc.create_notification(
+   229→   229→                            user_id=str(company_owner.id) if company_owner else None,
+   230→   230→                            company_id=str(company_id),
+   231→   231→                            event_type="payment_failed",
+   232→   232→                            title="Payment Failed",
+   233→   233→                            message=f"Payment processing failed for {company.name}. Please update your billing information.",
+   234→   234→                            priority="high",
+   235→   235→                        )
+   236→   236→                    except Exception as notif_err:
+   237→   237→                        logger.error(
+   238→   238→                            "payment_failure_notification_failed",
+   239→   239→                            company_id=str(company_id),
+   240→   240→                            error=str(notif_err),
+   241→   241→                        )
+   242→   242→
+   243→   243→                except Exception as e:
+   244→   244→                    logger.error(
+   245→   245→                        "payment_failure_side_effects_failed",
+   246→   246→                        company_id=str(company_id),
+   247→   247→                        error=str(e),
+   248→   248→                    )
+   249→   249→
+   250→   250→                return {
+   251→   251→                    "status": "stopped",
+   252→   252→                    "failure_id": failure.id,
+   253→   253→                    "company_id": str(company_id),
+   254→   254→                    "old_status": old_status,
+   255→   255→                    "new_status": self.PAYMENT_FAILED_STATUS,
+   256→   256→                    "service_stopped_at": now.isoformat(),
+   257→   257→                    "actions_taken": [
+   258→   258→                        "logged_failure",
+   259→   259→                        "updated_subscription_status",
+   260→   260→                        "service_stopped",
+   261→   261→                    ],
+   262→   262→                }
+   263→   263→
+   264→   264→        return await asyncio.to_thread(_db_work)
+   265→   265→
+   266→   266→    async def is_service_stopped(self, company_id: UUID) -> bool:
+   267→   267→        """
+   268→   268→        Check if company service is stopped due to payment failure.
+   269→   269→
+   270→   270→        Args:
+   271→   271→            company_id: Company UUID
+   272→   272→
+   273→   273→        Returns:
+   274→   274→            True if service is stopped, False otherwise
+   275→   275→        """
+   276→   276→
+   277→   277→        def _db_work():
+   278→   278→            with SessionLocal() as db:
+   279→   279→                # Check for unresolved payment failure
+   280→   280→                failure = db.query(PaymentFailure).filter(
+   281→   281→                    PaymentFailure.company_id == str(company_id),
+   282→   282→                    PaymentFailure.resolved == False,
+   283→   283→                ).first()
+   284→   284→
+   285→   285→                if failure:
+   286→   286→                    return True
+   287→   287→
+   288→   288→                # Also check company subscription status
+   289→   289→                company = db.query(Company).filter(
+   290→   290→                    Company.id == str(company_id)
+   291→   291→                ).first()
+   292→   292→
+   293→   293→                if company and company.subscription_status == self.PAYMENT_FAILED_STATUS:
+   294→   294→                    return True
+   295→   295→
+   296→   296→                return False
+   297→   297→
+   298→   298→        return await asyncio.to_thread(_db_work)
+   299→   299→
+   300→   300→    async def resume_service(
+   301→   301→        self,
+   302→   302→        company_id: UUID,
+   303→   303→        paddle_transaction_id: str,
+   304→   304→    ) -> Dict[str, Any]:
+   305→   305→        """
+   306→   306→        Resume service after successful payment.
+   307→   307→
+   308→   308→        Called when payment succeeds after failure:
+   309→   309→        1. Update subscription_status → 'active'
+   310→   310→        2. Resume AI agents
+   311→   311→        3. Unfreeze tickets
+   312→   312→        4. Send service_resumed notification
+   313→   313→
+   314→   314→        Args:
+   315→   315→            company_id: Company UUID
+   316→   316→            paddle_transaction_id: Successful Paddle transaction ID
+   317→   317→
+   318→   318→        Returns:
+   319→   319→            Dict with resume details
+   320→   320→
+   321→   321→        Raises:
+   322→   322→            PaymentFailureError: If no active failure to resume from
+   323→   323→        """
+   324→   324→
+   325→   325→        def _db_work():
+   326→   326→            with SessionLocal() as db:
+   327→   327→                # Get company with row lock
+   328→   328→                company = db.query(Company).filter(
+   329→   329→                    Company.id == str(company_id)
+   330→   330→                ).with_for_update().first()
+   331→   331→
+   332→   332→                if not company:
+   333→   333→                    raise PaymentFailureError(f"Company {company_id} not found")
+   334→   334→
+   335→   335→                # Get active payment failure
+   336→   336→                failure = db.query(PaymentFailure).filter(
+   337→   337→                    PaymentFailure.company_id == str(company_id),
+   338→   338→                    PaymentFailure.resolved == False,
+   339→   339→                ).first()
+   340→   340→
+   341→   341→                if not failure:
+   342→   342→                    logger.info(
+   343→   343→                        "payment_resume_no_failure company_id=%s", company_id
+   344→   344→                    )
+   345→   345→                    # No active failure - just ensure status is active
+   346→   346→                    if company.subscription_status != self.ACTIVE_STATUS:
+   347→   347→                        company.subscription_status = self.ACTIVE_STATUS
+   348→   348→                        db.commit()
+   349→   349→                    return {
+   350→   350→                        "status": "no_failure",
+   351→   351→                        "message": "No active payment failure to resume from",
+   352→   352→                    }
+   353→   353→
+   354→   354→                now = datetime.now(timezone.utc)
+   355→   355→
+   356→   356→                # Mark failure as resolved
+   357→   357→                failure.resolved = True
+   358→   358→                failure.service_resumed_at = now
+   359→   359→
+   360→   360→                # Update company status
+   361→   361→                old_status = company.subscription_status
+   362→   362→                company.subscription_status = self.ACTIVE_STATUS
+   363→   363→
+   364→   364→                # Update subscription record
+   365→   365→                subscription = db.query(Subscription).filter(
+   366→   366→                    Subscription.company_id == str(company_id),
+   367→   367→                ).order_by(Subscription.created_at.desc()).first()
+   368→   368→
+   369→   369→                if subscription:
+   370→   370→                    subscription.status = self.ACTIVE_STATUS
+   371→   371→
+   372→   372→                db.commit()
+   373→   373→
+   374→   374→                logger.info(
+   375→   375→                    "payment_service_resumed "
+   376→   376→                    "company_id=%s failure_id=%s "
+   377→   377→                    "old_status=%s new_status=%s",
+   378→   378→                    company_id,
+   379→   379→                    failure.id,
+   380→   380→                    old_status,
+   381→   381→                    self.ACTIVE_STATUS,
+   382→   382→                )
+   383→   383→
+   384→   384→                # Trigger resume side-effects (synchronous only)
+   385→   385→                try:
+   386→   386→                    # 1. Resume AI agents (unfreeze them)
+   387→   387→                    try:
+   388→   388→                        # TODO: Replace with actual agent service when available.
+   389→   389→                        # Expected API: AgentService.resume_all_for_company(company_id)
+   390→   390→                        from app.services.agent_service import AgentService  # type: ignore[import-untyped]
+   391→   391→                        agent_svc = AgentService(db)
+   392→   392→                        agent_svc.resume_all_for_company(str(company_id))
+   393→   393→                        logger.info(
+   394→   394→                            "payment_resume_agents company_id=%s", company_id
+   395→   395→                        )
+   396→   396→                    except ImportError:
+   397→   397→                        # Agent service not yet implemented — log and continue
+   398→   398→                        logger.warning(
+   399→   399→                            "payment_resume_agents_unavailable company_id=%s "
+   400→   400→                            "agent_service module not found; agents remain frozen",
+   401→   401→                            company_id,
+   402→   402→                        )
+   403→   403→                    except Exception as agent_err:
+   404→   404→                        logger.error(
+   405→   405→                            "payment_resume_agents_failed company_id=%s error=%s",
+   406→   406→                            company_id,
+   407→   407→                            str(agent_err),
+   408→   408→                        )
+   409→   409→
+   410→   410→                    # 2. Unfreeze tickets
+   411→   411→                    try:
+   412→   412→                        from app.services.ticket_lifecycle_service import TicketLifecycleService
+   413→   413→                        ticket_svc = TicketLifecycleService(db, str(company_id))
+   414→   414→                        thaw_result = ticket_svc.thaw_tickets_for_account()
+   415→   415→                        logger.info(
+   416→   416→                            "payment_resume_thawed_tickets company_id=%s thawed=%s",
+   417→   417→                            company_id,
+   418→   418→                            thaw_result.get("thawed_count", 0),
+   419→   419→                        )
+   420→   420→                    except Exception as ticket_err:
+   421→   421→                        logger.error(
+   422→   422→                            "payment_resume_thaw_failed company_id=%s error=%s",
+   423→   423→                            company_id,
+   424→   424→                            str(ticket_err),
+   425→   425→                        )
+   426→   426→
+   427→   427→                    # 3. Send service_resumed email
+   428→   428→                    try:
+   429→   429→                        from app.services.email_service import send_email
+   430→   430→                        from database.models.core import User
+   431→   431→                        company_owner = db.query(User).filter(
+   432→   432→                            User.company_id == str(company_id),
+   433→   433→                            User.role == "owner",
+   434→   434→                        ).first()
+   435→   435→                        if company_owner:
+   436→   436→                            send_email(
+   437→   437→                                to=company_owner.email,
+   438→   438→                                subject="PARWA: Service Restored",
+   439→   439→                                html_content=f"""
+   440→   440→                                <html><body>
+   441→   441→                                <h2>Service Restored</h2>
+   442→   442→                                <p>Hello {company_owner.full_name or 'there'},</p>
+   443→   443→                                <p>Your PARWA subscription payment has been processed successfully.</p>
+   444→   444→                                <p><strong>Company:</strong> {company.name}</p>
+   445→   445→                                <p>Your AI agents and ticket service have been restored. Thank you for updating your payment method.</p>
+   446→   446→                                </body></html>
+   447→   447→                                """,
+   448→   448→                            )
+   449→   449→                            logger.info(
+   450→   450→                                "payment_resume_email_sent company_id=%s", company_id
+   451→   451→                            )
+   452→   452→                    except Exception as email_err:
+   453→   453→                        logger.error(
+   454→   454→                            "payment_resume_email_failed company_id=%s error=%s",
+   455→   455→                            company_id,
+   456→   456→                            str(email_err),
+   457→   457→                        )
+   458→   458→
+   459→   459→                except Exception as e:
+   460→   460→                    logger.error(
+   461→   461→                        "payment_resume_side_effects_failed company_id=%s error=%s",
+   462→   462→                        company_id,
+   463→   463→                        str(e),
+   464→   464→                    )
+   465→   465→
+   466→   466→                return {
+   467→   467→                    "status": "resumed",
+   468→   468→                    "failure_id": failure.id,
+   469→   469→                    "company_id": str(company_id),
+   470→   470→                    "old_status": old_status,
+   471→   471→                    "new_status": self.ACTIVE_STATUS,
+   472→   472→                    "service_resumed_at": now.isoformat(),
+   473→   473→                    "actions_taken": [
+   474→   474→                        "marked_failure_resolved",
+   475→   475→                        "updated_subscription_status",
+   476→   476→                        "resumed_agents",
+   477→   477→                        "thawed_tickets",
+   478→   478→                        "sent_service_resumed_email",
+   479→   479→                        "emitted_socket_event",
+   480→   480→                    ],
+   481→   481→                }
+   482→   482→
+   483→   483→        result = await asyncio.to_thread(_db_work)
+   484→   484→
+   485→   485→        # 4. Emit Socket.io event for real-time UI update (async — cannot run inside _db_work)
+   486→   486→        if result.get("status") == "resumed":
+   487→   487→            try:
+   488→   488→                from app.core.event_emitter import emit_event
+   489→   489→                await emit_event(
+   490→   490→                    company_id=result["company_id"],
+   491→   491→                    event_type="billing:service_resumed",
+   492→   492→                    payload={
+   493→   493→                        "company_id": result["company_id"],
+   494→   494→                        "old_status": result["old_status"],
+   495→   495→                        "new_status": result["new_status"],
+   496→   496→                        "service_resumed_at": result["service_resumed_at"],
+   497→   497→                    },
+   498→   498→                )
+   499→   499→                logger.info(
+   500→   500→                    "payment_resume_socket_event company_id=%s", result["company_id"]
+   501→   501→                )
+   502→   502→            except Exception as socket_err:
+   503→   503→                logger.error(
+   504→   504→                    "payment_resume_socket_failed company_id=%s error=%s",
+   505→   505→                    result["company_id"],
+   506→   506→                    str(socket_err),
+   507→   507→                )
+   508→   508→
+   509→   509→        return result
+   510→   510→
+   511→   511→    async def get_payment_failure_history(
+   512→   512→        self,
+   513→   513→        company_id: UUID,
+   514→   514→        limit: int = 20,
+   515→   515→    ) -> List[Dict[str, Any]]:
+   516→   516→        """
+   517→   517→        Get payment failure history for a company.
+   518→   518→
+   519→   519→        Args:
+   520→   520→            company_id: Company UUID
+   521→   521→            limit: Maximum number of records to return
+   522→   522→
+   523→   523→        Returns:
+   524→   524→            List of payment failure records
+   525→   525→        """
+   526→   526→
+   527→   527→        def _db_work():
+   528→   528→            with SessionLocal() as db:
+   529→   529→                failures = db.query(PaymentFailure).filter(
+   530→   530→                    PaymentFailure.company_id == str(company_id)
+   531→   531→                ).order_by(
+   532→   532→                    PaymentFailure.created_at.desc()
+   533→   533→                ).limit(limit).all()
+   534→   534→
+   535→   535→                return [
+   536→   536→                    {
+   537→   537→                        "id": f.id,
+   538→   538→                        "paddle_subscription_id": f.paddle_subscription_id,
+   539→   539→                        "paddle_transaction_id": f.paddle_transaction_id,
+   540→   540→                        "failure_code": f.failure_code,
+   541→   541→                        "failure_reason": f.failure_reason,
+   542→   542→                        "amount_attempted": float(f.amount_attempted) if f.amount_attempted else None,
+   543→   543→                        "currency": f.currency,
+   544→   544→                        "service_stopped_at": f.service_stopped_at.isoformat() if f.service_stopped_at else None,
+   545→   545→                        "service_resumed_at": f.service_resumed_at.isoformat() if f.service_resumed_at else None,
+   546→   546→                        "notification_sent": f.notification_sent,
+   547→   547→                        "resolved": f.resolved,
+   548→   548→                        "created_at": f.created_at.isoformat() if f.created_at else None,
+   549→   549→                    }
+   550→   550→                    for f in failures
+   551→   551→                ]
+   552→   552→
+   553→   553→        return await asyncio.to_thread(_db_work)
+   554→   554→
+   555→   555→    async def get_active_failure(
+   556→   556→        self,
+   557→   557→        company_id: UUID,
+   558→   558→    ) -> Optional[Dict[str, Any]]:
+   559→   559→        """
+   560→   560→        Get the active (unresolved) payment failure for a company.
+   561→   561→
+   562→   562→        Args:
+   563→   563→            company_id: Company UUID
+   564→   564→
+   565→   565→        Returns:
+   566→   566→            Active payment failure or None
+   567→   567→        """
+   568→   568→
+   569→   569→        def _db_work():
+   570→   570→            with SessionLocal() as db:
+   571→   571→                failure = db.query(PaymentFailure).filter(
+   572→   572→                    PaymentFailure.company_id == str(company_id),
+   573→   573→                    PaymentFailure.resolved == False,
+   574→   574→                ).first()
+   575→   575→
+   576→   576→                if not failure:
+   577→   577→                    return None
+   578→   578→
+   579→   579→                return {
+   580→   580→                    "id": failure.id,
+   581→   581→                    "paddle_subscription_id": failure.paddle_subscription_id,
+   582→   582→                    "paddle_transaction_id": failure.paddle_transaction_id,
+   583→   583→                    "failure_code": failure.failure_code,
+   584→   584→                    "failure_reason": failure.failure_reason,
+   585→   585→                    "amount_attempted": float(failure.amount_attempted) if failure.amount_attempted else None,
+   586→   586→                    "currency": failure.currency,
+   587→   587→                    "service_stopped_at": failure.service_stopped_at.isoformat() if failure.service_stopped_at else None,
+   588→   588→                    "resolved": failure.resolved,
+   589→   589→                    "created_at": failure.created_at.isoformat() if failure.created_at else None,
+   590→   590→                }
+   591→   591→
+   592→   592→        return await asyncio.to_thread(_db_work)
+   593→   593→
+   594→   594→    async def mark_notification_sent(
+   595→   595→        self,
+   596→   596→        failure_id: str,
+   597→   597→    ) -> bool:
+   598→   598→        """
+   599→   599→        Mark that notification has been sent for a payment failure.
+   600→   600→
+   601→   601→        Args:
+   602→   602→            failure_id: Payment failure ID
+   603→   603→
+   604→   604→        Returns:
+   605→   605→            True if updated successfully
+   606→   606→        """
+   607→   607→
+   608→   608→        def _db_work():
+   609→   609→            with SessionLocal() as db:
+   610→   610→                failure = db.query(PaymentFailure).filter(
+   611→   611→                    PaymentFailure.id == failure_id
+   612→   612→                ).first()
+   613→   613→
+   614→   614→                if not failure:
+   615→   615→                    return False
+   616→   616→
+   617→   617→                failure.notification_sent = True
+   618→   618→                db.commit()
+   619→   619→
+   620→   620→                logger.info(
+   621→   621→                    "payment_failure_notification_sent failure_id=%s", failure_id
+   622→   622→                )
+   623→   623→
+   624→   624→                return True
+   625→   625→
+   626→   626→        return await asyncio.to_thread(_db_work)
+   627→   627→
+   628→   628→    # ══════════════════════════════════════════════════════════════════
+   629→   629→    # AUTO-BLOCK FEATURES (RAM-to-DB Migration 2025-01-19)
+   630→   630→    # These enhance the existing service without duplicating functionality
+   631→   631→    # ══════════════════════════════════════════════════════════════════
+   632→   632→
+   633→   633→    async def schedule_auto_block(
+   634→   634→        self,
+   635→   635→        company_id: UUID,
+   636→   636→        block_after_hours: int = 24,
+   637→   637→    ) -> Dict[str, Any]:
+   638→   638→        """
+   639→   639→        Schedule auto-block for a company if payment isn't received.
+   640→   640→        
+   641→   641→        This is used when you want to give the customer X hours to update
+   642→   642→        their payment method before permanently blocking access.
+   643→   643→        
+   644→   644→        Args:
+   645→   645→            company_id: Company UUID
+   646→   646→            block_after_hours: Hours to wait before auto-blocking (default 24)
+   647→   647→            
+   648→   648→        Returns:
+   649→   649→            Dict with scheduling details
+   650→   650→        """
+   651→   651→        
+   652→   652→        def _db_work():
+   653→   653→            with SessionLocal() as db:
+   654→   654→                failure = db.query(PaymentFailure).filter(
+   655→   655→                    PaymentFailure.company_id == str(company_id),
+   656→   656→                    PaymentFailure.resolved == False,
+   657→   657→                ).first()
+   658→   658→                
+   659→   659→                if not failure:
+   660→   660→                    return {
+   661→   661→                        "status": "no_failure",
+   662→   662→                        "message": "No active payment failure found for this company"
+   663→   663→                    }
+   664→   664→                
+   665→   665→                now = datetime.now(timezone.utc)
+   666→   666→                block_at = now + __import__('datetime').timedelta(hours=block_after_hours)
+   667→   667→                
+   668→   668→                # Store auto-block schedule in extended_metadata (JSON)
+   669→   669→                # This avoids schema changes - follows CLAUDE.md Rule 3
+   670→   670→                import json as _json
+   671→   671→                
+   672→   672→                metadata = {}
+   673→   673→                if hasattr(failure, 'extended_metadata') and failure.extended_metadata:
+   674→   674→                    try:
+   675→   675→                        if isinstance(failure.extended_metadata, dict):
+   676→   676→                            metadata = failure.extended_metadata
+   677→   677→                        else:
+   678→   678→                            metadata = _json.loads(failure.extended_metadata)
+   679→   679→                    except (TypeError, ValueError):
+   680→   680→                        metadata = {}
+   681→   681→                
+   682→   682→                metadata['auto_block_scheduled'] = True
+   683→   683→                metadata['auto_block_scheduled_at'] = now.isoformat()
+   684→   684→                metadata['auto_block_due_at'] = block_at.isoformat()
+   685→   685→                metadata['block_after_hours'] = block_after_hours
+   686→   686→                
+   687→   687→                # Try to save to extended_metadata column if it exists
+   688→   688→                if hasattr(failure, 'extended_metadata'):
+   689→   689→                    failure.extended_metadata = metadata
+   690→   690→                    db.commit()
+   691→   691→                    
+   692→   692→                    logger.info(
+   693→   693→                        "auto_block_scheduled company_id=%s due_at=%s hours=%d",
+   694→   694→                        str(company_id)[:8],
+   695→   695→                        block_at.isoformat(),
+   696→   696→                        block_after_hours,
+   697→   697→                    )
+   698→   698→                    
+   699→   699→                    return {
+   700→   700→                        "status": "scheduled",
+   701→   701→                        "failure_id": failure.id,
+   702→   702→                        "company_id": str(company_id),
+   703→   703→                        "auto_block_due_at": block_at.isoformat(),
+   704→   704→                        "block_after_hours": block_after_hours,
+   705→   705→                        "scheduled_at": now.isoformat(),
+   706→   706→                    }
+   707→   707→                else:
+   708→   708→                    # Column doesn't exist yet - return schedule info
+   709→   709→                    # The cleanup loop will handle blocking based on created_at + block_after_hours
+   710→   710→                    logger.info(
+   711→   711→                        "auto_block_scheduled_no_column company_id=%s due_at=%s",
+   712→   712→                        str(company_id)[:8],
+   713→   713→                        block_at.isoformat(),
+   714→   714→                    )
+   715→   715→                    
+   716→   716→                    return {
+   717→   717→                        "status": "scheduled_fallback",
+   718→   718→                        "company_id": str(company_id),
+   719→   719→                        "auto_block_due_at": block_at.isoformat(),
+   720→   720→                        "block_after_hours": block_after_hours,
+   721→   721→                        "note": "extended_metadata column not yet available - using fallback logic"
+   722→   722→                    }
+   723→   723→
+   724→   724→        return await asyncio.to_thread(_db_work)
+   725→   725→
+   726→   726→    async def check_and_execute_auto_blocks(self) -> Dict[str, Any]:
+   727→   727→        """
+   728→   728→        Check for accounts that should be auto-blocked and execute blocking.
+   729→   729→        
+   730→   730→        Called by periodic task in main.py (every hour).
+   731→   731→        Finds payment failures where:
+   732→   732→        - resolved = False (still active)
+   733→   733→        - Created more than block_after_hours ago
+   734→   734→        
+   735→   735→        Returns:
+   736→   736→            Dict with count of accounts checked/blocked
+   737→   737→        """
+   738→   738→        
+   739→   739→        def _db_work():
+   740→   740→            from datetime import timedelta
+   741→   741→            
+   742→   742→            with SessionLocal() as db:
+   743→   743→                now = datetime.now(timezone.utc)
+   744→   744→                blocked_count = 0
+   745→   745→                checked_count = 0
+   746→   746→                
+   747→   747→                # Find all unresolved payment failures
+   748→   748→                failures = db.query(PaymentFailure).filter(
+   749→   749→                    PaymentFailure.resolved == False,
+   750→   750→                ).all()
+   751→   751→                
+   752→   752→                for failure in failures:
+   753→   753→                    checked_count += 1
+   754→   754→                    
+   755→   755→                    # Default: block after 24 hours
+   756→   756→                    block_after_hours = 24
+   757→   757→                    
+   758→   758→                    # Check if custom schedule was set in extended_metadata
+   759→   759→                    if hasattr(failure, 'extended_metadata') and failure.extended_metadata:
+   760→   760→                        try:
+   761→   761→                            import json as _json
+   762→   762→                            meta = failure.extended_metadata
+   763→   763→                            if isinstance(meta, str):
+   764→   764→                                meta = _json.loads(meta)
+   765→   765→                            
+   766→   766→                            if meta.get('auto_block_scheduled'):
+   767→   767→                                block_after_hours = meta.get('block_after_hours', 24)
+   768→   768→                        except (TypeError, ValueError, AttributeError):
+   769→   769→                            pass
+   770→   770→                    
+   771→   771→                    # Calculate when this should have been blocked
+   772→   772→                    created_at = failure.created_at or failure.service_stopped_at or now
+   773→   773→                    due_time = created_at + timedelta(hours=block_after_hours)
+   774→   774→                    
+   775→   775→                    # If past due time, ensure account is blocked
+   776→   776→                    if now >= due_time:
+   777→   777→                        company = db.query(Company).filter(
+   778→   778→                            Company.id == failure.company_id
+   779→   779→                        ).first()
+   780→   780→                        
+   781→   781→                        if company and company.subscription_status != 'payment_failed':
+   782→   782→                            # Ensure status is payment_failed (should already be set)
+   783→   783→                            company.subscription_status = self.PAYMENT_FAILED_STATUS
+   784→   784→                            
+   785→   785→                            # Update failure record metadata
+   786→   786→                            if hasattr(failure, 'extended_metadata'):
+   787→   787→                                import json as _json
+   788→   788→                                try:
+   789→   789→                                    meta = failure.extended_metadata
+   790→   790→                                    if isinstance(meta, str):
+   791→   791→                                        meta = _json.loads(meta) if meta else {}
+   792→   792→                                    elif not meta:
+   793→   793→                                        meta = {}
+   794→   794→                                    meta['auto_blocked_at'] = now.isoformat()
+   795→   795→                                    meta['auto_blocked_reason'] = f'Auto-blocked after {block_after_hours}h'
+   796→   796→                                    failure.extended_metadata = meta
+   797→   797→                                except Exception:
+   798→   798→                                    pass
+   799→   799→                            
+   800→   800→                            blocked_count += 1
+   801→   801→                            logger.info(
+   802→   802→                                "auto_block_executed company_id=%s failure_id=%s hours=%d",
+   803→   803→                                str(failure.company_id)[:8],
+   804→   804→                                str(failure.id)[:8],
+   805→   805→                                block_after_hours,
+   806→   806→                            )
+   807→   807→                
+   808→   808→                if blocked_count > 0:
+   809→   809→                    db.commit()
+   810→   810→                
+   811→   811→                logger.info(
+   812→   812→                    "auto_block_check completed checked=%d blocked=%d",
+   813→   813→                    checked_count,
+   814→   814→                    blocked_count,
+   815→   815→                )
+   816→   816→                
+   817→   817→                return {
+   818→   818→                    "status": "completed",
+   819→   819→                    "checked": checked_count,
+   820→   820→                    "blocked": blocked_count,
+   821→   821→                    "ran_at": now.isoformat(),
+   822→   822→                }
+   823→   823→
+   824→   824→        return await asyncio.to_thread(_db_work)
+   825→   825→
+   826→   826→    @staticmethod
+   827→   827→    def cleanup_old_failures(retention_days: int = 90) -> int:
+   828→   828→        """
+   829→   829→        Clean up old RESOLVED payment failures to prevent table bloat.
+   830→   830→        
+   831→   831→        Deletes resolved (paid/fixed) payment failure records older than
+   832→   832→        retention_days. Keeps unresolved records forever until resolved.
+   833→   833→        
+   834→   834→        Args:
+   835→   835→            retention_days: Days to keep resolved records (default 90)
+   836→   836→            
+   837→   837→        Returns:
+   838→   838→            Number of records deleted
+   839→   839→        """
+   840→   840→        from datetime import timedelta
+   841→   841→        
+   842→   842→        with SessionLocal() as db:
+   843→   843→            cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+   844→   844→            
+   845→   845→            result = db.query(PaymentFailure).filter(
+   846→   846→                PaymentFailure.resolved == True,
+   847→   847→                PaymentFailure.service_resumed_at < cutoff,
+   848→   848→            ).delete()
+   849→   849→            
+   850→   850→            db.commit()
+   851→   851→            
+   852→   852→            logger.info(
+   853→   853→                "payment_failures_cleanup deleted=%d older_than=%d_days",
+   854→   854→                result,
+   855→   855→                retention_days,
+   856→   856→            )
+   857→   857→            
+   858→   858→            return result
+   859→   859→
+   860→   860→
+   861→   861→# ── Singleton Service ────────────────────────────────────────────────────
+   862→   862→
+   863→   863→_payment_failure_service: Optional[PaymentFailureService] = None
+   864→   864→
+   865→   865→
+   866→   866→def get_payment_failure_service() -> PaymentFailureService:
+   867→   867→    """Get the payment failure service singleton."""
+   868→   868→    global _payment_failure_service
+   869→   869→    if _payment_failure_service is None:
+   870→   870→        _payment_failure_service = PaymentFailureService()
+   871→   871→    return _payment_failure_service
+   872→   872→

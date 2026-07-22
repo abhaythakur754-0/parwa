@@ -1,0 +1,622 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useEffect, useMemo } from 'react';
+     4→import {
+     5→  Loader2, CheckCircle2, XCircle, ChevronDown, ChevronUp,
+     6→  Plug, Search, AlertTriangle, ShieldCheck, Plus,
+     7→  Sparkles, TrendingUp, CreditCard, Truck, Mail, MessageSquare,
+     8→  BarChart3, Users, ShoppingCart, RefreshCw,
+     9→} from 'lucide-react';
+    10→import toast from 'react-hot-toast';
+    11→import { cn } from '@/lib/utils';
+    12→import {
+    13→  INTEGRATION_CATALOG,
+    14→  CATEGORY_META,
+    15→  type IntegrationDefinition,
+    16→  type IntegrationCategory,
+    17→  type AuthField,
+    18→} from '@/lib/integration-catalog';
+    19→import { CustomIntegrationForm } from './CustomIntegrationForm';
+    20→
+    21→// ── Props ────────────────────────────────────────────────────────────
+    22→
+    23→interface IntegrationStepProps {
+    24→  onNext: () => void;
+    25→  industry?: string;
+    26→}
+    27→
+    28→interface ConnectedIntegration {
+    29→  id: string;
+    30→  integration_type: string;
+    31→  name: string | null;
+    32→  status: string;
+    33→  last_test_result?: string | null;
+    34→}
+    35→
+    36→// ── Category icons ───────────────────────────────────────────────────
+    37→
+    38→const CATEGORY_ICONS: Record<IntegrationCategory, string> = {
+    39→  crm: '🎯',
+    40→  ecommerce: '🛒',
+    41→  helpdesk: '🎫',
+    42→  communication: '💬',
+    43→  analytics: '📊',
+    44→  marketing: '📧',
+    45→  payments: '💳',
+    46→  shipping: '📦',
+    47→  dev_tools: '🔧',
+    48→  productivity: '📝',
+    49→  custom: '🔌',
+    50→};
+    51→
+    52→// ── Component ────────────────────────────────────────────────────────
+    53→
+    54→export function IntegrationStep({ onNext }: IntegrationStepProps) {
+    55→  const [existingIntegrations, setExistingIntegrations] = useState<ConnectedIntegration[]>([]);
+    56→  const [isLoading, setIsLoading] = useState(true);
+    57→  const [selectedCategory, setSelectedCategory] = useState<IntegrationCategory | 'all'>('all');
+    58→  const [searchQuery, setSearchQuery] = useState('');
+    59→  const [expandedIntegration, setExpandedIntegration] = useState<string | null>(null);
+    60→  const [credentialValues, setCredentialValues] = useState<Record<string, Record<string, string>>>({});
+    61→  const [savingKey, setSavingKey] = useState<string | null>(null);
+    62→  const [verifyResults, setVerifyResults] = useState<Record<string, { verified: boolean; message: string }>>({});
+    63→  const [showCustomForm, setShowCustomForm] = useState(false);
+    64→  
+    65→  // CRM Analyzer state
+    66→  const [crmAnalysis, setCrmAnalysis] = useState<any>(null);
+    67→  const [isAnalyzing, setIsAnalyzing] = useState(false);
+    68→  const [hasAnalyzed, setHasAnalyzed] = useState(false);
+    69→
+    70→  // Fetch existing integrations
+    71→  useEffect(() => {
+    72→    fetch('/api/integrations', { credentials: 'include' })
+    73→      .then((res) => res.ok ? res.json() : null)
+    74→      .then((data) => {
+    75→        const items = Array.isArray(data) ? data : (data?.items || []);
+    76→        setExistingIntegrations(items);
+    77→      })
+    78→      .catch(() => {})
+    79→      .finally(() => setIsLoading(false));
+    80→  }, []);
+    81→
+    82→  // Filter integrations by category + search
+    83→  const filteredIntegrations = useMemo(() => {
+    84→    let list = INTEGRATION_CATALOG.filter(i => i.available !== false);
+    85→    if (selectedCategory !== 'all') {
+    86→      list = list.filter(i => i.category === selectedCategory);
+    87→    }
+    88→    if (searchQuery.trim()) {
+    89→      const q = searchQuery.toLowerCase();
+    90→      list = list.filter(i => i.name.toLowerCase().includes(q) || i.description.toLowerCase().includes(q));
+    91→    }
+    92→    return list;
+    93→  }, [selectedCategory, searchQuery]);
+    94→
+    95→  // Group by category
+    96→  const grouped = useMemo(() => {
+    97→    const groups: Record<string, IntegrationDefinition[]> = {};
+    98→    for (const integration of filteredIntegrations) {
+    99→      if (!groups[integration.category]) groups[integration.category] = [];
+   100→      groups[integration.category].push(integration);
+   101→    }
+   102→    // Sort categories by order
+   103→    return Object.entries(groups).sort((a, b) => {
+   104→      const orderA = CATEGORY_META[a[0] as IntegrationCategory]?.order ?? 99;
+   105→      const orderB = CATEGORY_META[b[0] as IntegrationCategory]?.order ?? 99;
+   106→      return orderA - orderB;
+   107→    });
+   108→  }, [filteredIntegrations]);
+   109→
+   110→  // Check if an integration is already connected
+   111→  const getExistingStatus = (key: string): ConnectedIntegration | null => {
+   112→    return existingIntegrations.find((i) => i.integration_type === key) || null;
+   113→  };
+   114→
+   115→  // Handle credential field change
+   116→  const handleFieldChange = (integrationKey: string, fieldName: string, value: string) => {
+   117→    setCredentialValues((prev) => ({
+   118→      ...prev,
+   119→      [integrationKey]: {
+   120→        ...(prev[integrationKey] || {}),
+   121→        [fieldName]: value,
+   122→      },
+   123→    }));
+   124→  };
+   125→
+   126→  // Save & Verify integration
+   127→  const handleSaveAndVerify = async (integration: IntegrationDefinition) => {
+   128→    const values = credentialValues[integration.key] || {};
+   129→    const requiredFields = integration.authSchema.fields.filter(f => f.required);
+   130→    const missing = requiredFields.filter(f => !values[f.name]?.trim());
+   131→
+   132→    if (missing.length > 0) {
+   133→      toast.error(`Please fill in: ${missing.map(f => f.label).join(', ')}`);
+   134→      return;
+   135→    }
+   136→
+   137→    setSavingKey(integration.key);
+   138→    try {
+   139→      // Check if integration already exists
+   140→      const existing = getExistingStatus(integration.key);
+   141→
+   142→      let integrationId = existing?.id;
+   143→
+   144→      if (!integrationId) {
+   145→        // Create new integration
+   146→        const createRes = await fetch('/api/integrations', {
+   147→          method: 'POST',
+   148→          headers: { 'Content-Type': 'application/json' },
+   149→          credentials: 'include',
+   150→          body: JSON.stringify({
+   151→            integration_type: integration.key,
+   152→            name: integration.name,
+   153→            credentials: values,
+   154→            settings: {},
+   155→          }),
+   156→        });
+   157→
+   158→        if (!createRes.ok) {
+   159→          const err = await createRes.json().catch(() => ({}));
+   160→          throw new Error(err.detail || err.message || 'Failed to save integration');
+   161→        }
+   162→
+   163→        const created = await createRes.json();
+   164→        integrationId = created.id;
+   165→      } else {
+   166→        // Update existing integration credentials
+   167→        const updateRes = await fetch(`/api/integrations/${integrationId}`, {
+   168→          method: 'PATCH',
+   169→          headers: { 'Content-Type': 'application/json' },
+   170→          credentials: 'include',
+   171→          body: JSON.stringify({
+   172→            credentials: values,
+   173→          }),
+   174→        });
+   175→
+   176→        if (!updateRes.ok) {
+   177→          throw new Error('Failed to update integration');
+   178→        }
+   179→      }
+   180→
+   181→      // Test/verify the integration
+   182→      const testRes = await fetch(`/api/integrations/${integrationId}/test`, {
+   183→        method: 'POST',
+   184→        credentials: 'include',
+   185→      });
+   186→
+   187→      const testData = await testRes.json().catch(() => ({}));
+   188→
+   189→      if (testRes.ok && testData.success) {
+   190→        setVerifyResults((prev) => ({
+   191→          ...prev,
+   192→          [integration.key]: { verified: true, message: testData.message || 'Verified' },
+   193→        }));
+   194→        toast.success(`${integration.name} verified successfully!`);
+   195→      } else {
+   196→        setVerifyResults((prev) => ({
+   197→          ...prev,
+   198→          [integration.key]: { verified: false, message: testData.message || testData.error || 'Verification failed' },
+   199→        }));
+   200→        toast.error(`${integration.name} verification failed: ${testData.message || testData.error || 'Invalid credentials'}`);
+   201→      }
+   202→
+   203→      // Refresh integrations list
+   204→      const refreshed = await fetch('/api/integrations', { credentials: 'include' });
+   205→      if (refreshed.ok) {
+   206→        const data = await refreshed.json();
+   207→        const items = Array.isArray(data) ? data : (data?.items || []);
+   208→        setExistingIntegrations(items);
+   209→      }
+   210→    } catch (err) {
+   211→      toast.error(err instanceof Error ? err.message : 'Failed to save integration');
+   212→    } finally {
+   213→      setSavingKey(null);
+   214→    }
+   215→  };
+   216→
+   217→  // Continue button
+   218→  const handleContinue = async () => {
+   219→    const verifiedCount = Object.values(verifyResults).filter(r => r.verified).length;
+   220→    const connectedCount = existingIntegrations.length;
+   221→
+   222→    if (connectedCount === 0) {
+   223→      toast.error('Please connect at least one integration to continue.');
+   224→      return;
+   225→    }
+   226→
+   227→    if (verifiedCount === 0 && connectedCount > 0) {
+   228→      // Some integrations connected but none verified — warn but allow
+   229→      toast('Note: Some integrations are not verified. You can verify them later in Settings.', { icon: '⚠️' });
+   230→    }
+   231→
+   232→    onNext();
+   233→  };
+   234→
+   235→  // Run CRM Analysis
+   236→  const runCRMAnalysis = async () => {
+   237→    if (existingIntegrations.length === 0) {
+   238→      toast.error('Please connect at least one integration first.');
+   239→      return;
+   240→    }
+   241→
+   242→    setIsAnalyzing(true);
+   243→    try {
+   244→      const response = await fetch('/api/integrations/analyze', {
+   245→        method: 'POST',
+   246→        headers: { 'Content-Type': 'application/json' },
+   247→        credentials: 'include',
+   248→      });
+   249→
+   250→      if (!response.ok) {
+   251→        throw new Error('Analysis failed');
+   252→      }
+   253→
+   254→      const data = await response.json();
+   255→      setCrmAnalysis(data);
+   256→      setHasAnalyzed(true);
+   257→      
+   258→      if (data.recommendations?.length > 0) {
+   259→        toast.success(`Found ${data.recommendations.length} recommendations for you!`);
+   260→      }
+   261→    } catch (error) {
+   262→      console.error('CRM Analysis error:', error);
+   263→      toast.error('Failed to analyze your integrations. You can continue anyway.');
+   264→    } finally {
+   265→      setIsAnalyzing(false);
+   266→    }
+   267→  };
+   268→
+   269→  if (isLoading) {
+   270→    return (
+   271→      <div className="flex items-center justify-center py-20">
+   272→        <Loader2 className="w-6 h-6 animate-spin text-orange-400" />
+   273→      </div>
+   274→    );
+   275→  }
+   276→
+   277→  return (
+   278→    <div className="max-w-3xl mx-auto">
+   279→      {/* Header */}
+   280→      <div className="text-center mb-6">
+   281→        <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-br from-orange-500/20 to-orange-600/10 border border-orange-500/20 flex items-center justify-center mb-3">
+   282→          <Plug className="w-6 h-6 text-orange-400" />
+   283→        </div>
+   284→        <h2 className="text-xl font-bold text-white">Connect Your Tools</h2>
+   285→        <p className="text-sm text-zinc-500 mt-1">
+   286→          Choose the tools your team uses. Enter credentials and verify to connect.
+   287→        </p>
+   288→      </div>
+   289→
+   290→      {/* Search */}
+   291→      <div className="relative mb-4">
+   292→        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+   293→        <input
+   294→          type="text"
+   295→          value={searchQuery}
+   296→          onChange={(e) => setSearchQuery(e.target.value)}
+   297→          placeholder="Search integrations..."
+   298→          className="w-full pl-9 pr-4 py-2.5 rounded-lg bg-white/[0.03] border border-white/[0.08] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+   299→        />
+   300→      </div>
+   301→
+   302→      {/* Category tabs */}
+   303→      <div className="flex flex-wrap gap-2 mb-6">
+   304→        <button
+   305→          onClick={() => setSelectedCategory('all')}
+   306→          className={cn(
+   307→            'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+   308→            selectedCategory === 'all'
+   309→              ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+   310→              : 'bg-white/[0.03] text-zinc-400 border border-white/[0.06] hover:bg-white/[0.06]'
+   311→          )}
+   312→        >
+   313→          All
+   314→        </button>
+   315→        {Object.entries(CATEGORY_META).map(([cat, meta]) => (
+   316→          <button
+   317→            key={cat}
+   318→            onClick={() => setSelectedCategory(cat as IntegrationCategory)}
+   319→            className={cn(
+   320→              'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5',
+   321→              selectedCategory === cat
+   322→                ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+   323→                : 'bg-white/[0.03] text-zinc-400 border border-white/[0.06] hover:bg-white/[0.06]'
+   324→            )}
+   325→          >
+   326→            <span>{CATEGORY_ICONS[cat as IntegrationCategory]}</span>
+   327→            {meta.label}
+   328→          </button>
+   329→        ))}
+   330→      </div>
+   331→
+   332→      {/* Integration list grouped by category */}
+   333→      <div className="space-y-6 mb-6">
+   334→        {grouped.map(([category, integrations]) => (
+   335→          <div key={category}>
+   336→            <h3 className="text-xs text-zinc-600 uppercase tracking-wider font-medium mb-3">
+   337→              {CATEGORY_ICONS[category as IntegrationCategory]} {CATEGORY_META[category as IntegrationCategory]?.label || category}
+   338→            </h3>
+   339→            <div className="space-y-2">
+   340→              {integrations.map((integration) => {
+   341→                const existing = getExistingStatus(integration.key);
+   342→                const isExpanded = expandedIntegration === integration.key;
+   343→                const verifyResult = verifyResults[integration.key];
+   344→                const isSaving = savingKey === integration.key;
+   345→                const values = credentialValues[integration.key] || {};
+   346→
+   347→                return (
+   348→                  <div
+   349→                    key={integration.key}
+   350→                    className={cn(
+   351→                      'rounded-xl border overflow-hidden transition-all',
+   352→                      existing?.status === 'active' && verifyResult?.verified
+   353→                        ? 'border-emerald-500/20 bg-emerald-500/[0.02]'
+   354→                        : existing?.status === 'active'
+   355→                        ? 'border-amber-500/20 bg-amber-500/[0.02]'
+   356→                        : 'border-white/[0.06] bg-white/[0.02]'
+   357→                    )}
+   358→                  >
+   359→                    {/* Header row */}
+   360→                    <button
+   361→                      onClick={() => setExpandedIntegration(isExpanded ? null : integration.key)}
+   362→                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.02] transition-colors"
+   363→                    >
+   364→                      <div className="flex items-center gap-3 min-w-0">
+   365→                        <span className="text-xl">{CATEGORY_ICONS[integration.category]}</span>
+   366→                        <div className="min-w-0 text-left">
+   367→                          <p className="text-sm font-medium text-white truncate">{integration.name}</p>
+   368→                          <p className="text-[10px] text-zinc-600 truncate">{integration.description}</p>
+   369→                        </div>
+   370→                      </div>
+   371→                      <div className="flex items-center gap-2 shrink-0">
+   372→                        {/* Status badge */}
+   373→                        {existing?.status === 'active' && verifyResult?.verified && (
+   374→                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+   375→                            <CheckCircle2 className="w-3 h-3" /> Verified
+   376→                          </span>
+   377→                        )}
+   378→                        {existing?.status === 'active' && !verifyResult?.verified && (
+   379→                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1">
+   380→                            <AlertTriangle className="w-3 h-3" /> Not Verified
+   381→                          </span>
+   382→                        )}
+   383→                        {isExpanded ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
+   384→                      </div>
+   385→                    </button>
+   386→
+   387→                    {/* Expanded credential form */}
+   388→                    {isExpanded && (
+   389→                      <div className="px-4 pb-4 pt-2 border-t border-white/[0.04] space-y-3">
+   390→                        {integration.authSchema.fields.map((field: AuthField) => (
+   391→                          <div key={field.name}>
+   392→                            <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium block mb-1">
+   393→                              {field.label} {field.required && <span className="text-red-400">*</span>}
+   394→                            </label>
+   395→                            <input
+   396→                              type={field.type === 'password' ? 'password' : 'text'}
+   397→                              value={values[field.name] || ''}
+   398→                              onChange={(e) => handleFieldChange(integration.key, field.name, e.target.value)}
+   399→                              placeholder={field.placeholder || ''}
+   400→                              className="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+   401→                            />
+   402→                          </div>
+   403→                        ))}
+   404→
+   405→                        {/* Verify result message */}
+   406→                        {verifyResult && (
+   407→                          <div className={cn(
+   408→                            'rounded-lg px-3 py-2 text-xs',
+   409→                            verifyResult.verified
+   410→                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+   411→                              : 'bg-red-500/10 text-red-400 border border-red-500/20'
+   412→                          )}>
+   413→                            {verifyResult.verified ? '✓ ' : '✗ '}{verifyResult.message}
+   414→                          </div>
+   415→                        )}
+   416→
+   417→                        {/* Save & Verify button */}
+   418→                        <button
+   419→                          onClick={() => handleSaveAndVerify(integration)}
+   420→                          disabled={isSaving}
+   421→                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500/20 text-orange-400 text-xs font-medium border border-orange-500/30 hover:bg-orange-500/30 transition-colors disabled:opacity-50"
+   422→                        >
+   423→                          {isSaving ? (
+   424→                            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...</>
+   425→                          ) : (
+   426→                            <><ShieldCheck className="w-3.5 h-3.5" /> Save & Verify</>
+   427→                          )}
+   428→                        </button>
+   429→                      </div>
+   430→                    )}
+   431→                  </div>
+   432→                );
+   433→              })}
+   434→            </div>
+   435→          </div>
+   436→        ))}
+   437→      </div>
+   438→
+   439→      {/* Add Custom Integration button */}
+   440→      <div className="mb-6">
+   441→        <button
+   442→          onClick={() => setShowCustomForm(!showCustomForm)}
+   443→          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-dashed border-white/[0.12] text-sm text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors w-full justify-center"
+   444→        >
+   445→          <Plus className="w-4 h-4" />
+   446→          {showCustomForm ? 'Cancel Custom Integration' : 'Add Custom Integration + Category'}
+   447→        </button>
+   448→      </div>
+   449→
+   450→      {/* Custom Integration Form */}
+   451→      {showCustomForm && (
+   452→        <div className="mb-6 rounded-xl bg-white/[0.02] border border-orange-500/15 p-5">
+   453→          <h3 className="text-sm font-semibold text-white mb-4">Create Custom Integration</h3>
+   454→          <CustomIntegrationForm
+   455→            onSaved={(newIntegration) => {
+   456→              setExistingIntegrations((prev) => [...prev, newIntegration]);
+   457→              setShowCustomForm(false);
+   458→              toast.success('Custom integration saved!');
+   459→            }}
+   460→          />
+   461→        </div>
+   462→      )}
+   463→
+   464→      {/* CRM Analyzer - Smart Recommendations */}
+   465→      {existingIntegrations.length > 0 && (
+   466→        <div className="mb-6 rounded-xl bg-gradient-to-br from-orange-500/10 to-amber-500/5 border border-orange-500/20 p-5">
+   467→          <div className="flex items-center justify-between mb-4">
+   468→            <div className="flex items-center gap-2">
+   469→              <Sparkles className="w-5 h-5 text-orange-400" />
+   470→              <h3 className="text-sm font-semibold text-white">Smart Recommendations</h3>
+   471→            </div>
+   472→            {!hasAnalyzed ? (
+   473→              <button
+   474→                onClick={runCRMAnalysis}
+   475→                disabled={isAnalyzing}
+   476→                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/20 text-orange-400 text-xs font-medium border border-orange-500/30 hover:bg-orange-500/30 transition-colors disabled:opacity-50"
+   477→              >
+   478→                {isAnalyzing ? (
+   479→                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Analyzing...</>
+   480→                ) : (
+   481→                  <><TrendingUp className="w-3.5 h-3.5" /> Analyze My Setup</>
+   482→                )}
+   483→              </button>
+   484→            ) : (
+   485→              <button
+   486→                onClick={runCRMAnalysis}
+   487→                disabled={isAnalyzing}
+   488→                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.05] text-zinc-400 text-xs font-medium border border-white/[0.08] hover:bg-white/[0.08] transition-colors disabled:opacity-50"
+   489→              >
+   490→                <RefreshCw className="w-3.5 h-3.5" /> Refresh
+   491→              </button>
+   492→            )}
+   493→          </div>
+   494→
+   495→          {/* Loading State */}
+   496→          {isAnalyzing && (
+   497→            <div className="space-y-3">
+   498→              <div className="flex items-center gap-2 text-xs text-zinc-400">
+   499→                <Loader2 className="w-4 h-4 animate-spin text-orange-400" />
+   500→                Analyzing your integrations with AI...
+   501→              </div>
+   502→              <div className="grid grid-cols-3 gap-2">
+   503→                {[1, 2, 3].map((i) => (
+   504→                  <div key={i} className="h-16 rounded-lg bg-white/[0.03] animate-pulse" />
+   505→                ))}
+   506→              </div>
+   507→            </div>
+   508→          )}
+   509→
+   510→          {/* Results */}
+   511→          {hasAnalyzed && crmAnalysis && !isAnalyzing && (
+   512→            <div className="space-y-4">
+   513→              {/* Data Profile Summary */}
+   514→              {crmAnalysis.data_profile && (
+   515→                <div className="grid grid-cols-4 gap-2 text-center">
+   516→                  <div className="rounded-lg bg-white/[0.03] p-2">
+   517→                    <Users className="w-4 h-4 text-blue-400 mx-auto mb-1" />
+   518→                    <p className="text-[10px] text-zinc-500">Contacts</p>
+   519→                    <p className="text-sm font-bold text-white">{crmAnalysis.data_profile.total_contacts?.toLocaleString() || 0}</p>
+   520→                  </div>
+   521→                  <div className="rounded-lg bg-white/[0.03] p-2">
+   522→                    <ShoppingCart className="w-4 h-4 text-green-400 mx-auto mb-1" />
+   523→                    <p className="text-[10px] text-zinc-500">Orders</p>
+   524→                    <p className="text-sm font-bold text-white">{crmAnalysis.data_profile.total_orders?.toLocaleString() || 0}</p>
+   525→                  </div>
+   526→                  <div className="rounded-lg bg-white/[0.03] p-2">
+   527→                    <BarChart3 className="w-4 h-4 text-purple-400 mx-auto mb-1" />
+   528→                    <p className="text-[10px] text-zinc-500">Deals</p>
+   529→                    <p className="text-sm font-bold text-white">{crmAnalysis.data_profile.total_deals?.toLocaleString() || 0}</p>
+   530→                  </div>
+   531→                  <div className="rounded-lg bg-white/[0.03] p-2">
+   532→                    <Plug className="w-4 h-4 text-orange-400 mx-auto mb-1" />
+   533→                    <p className="text-[10px] text-zinc-500">Connected</p>
+   534→                    <p className="text-sm font-bold text-white">{crmAnalysis.connected_integrations?.length || 0}</p>
+   535→                  </div>
+   536→                </div>
+   537→              )}
+   538→
+   539→              {/* Recommendations */}
+   540→              {crmAnalysis.recommendations && crmAnalysis.recommendations.length > 0 && (
+   541→                <div>
+   542→                  <p className="text-xs text-zinc-400 mb-2">
+   543→                    💡 Based on your data, we recommend adding:
+   544→                  </p>
+   545→                  <div className="space-y-2">
+   546→                    {crmAnalysis.recommendations.slice(0, 4).map((rec: any, idx: number) => {
+   547→                      const priorityColors = {
+   548→                        high: 'border-red-500/30 bg-red-500/[0.05]',
+   549→                        medium: 'border-amber-500/30 bg-amber-500/[0.05]',
+   550→                        low: 'border-blue-500/30 bg-blue-500/[0.05]',
+   551→                      };
+   552→                      const priorityBadges = {
+   553→                        high: 'bg-red-500/10 text-red-400 border-red-500/20',
+   554→                        medium: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+   555→                        low: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+   556→                      };
+   557→                      
+   558→                      return (
+   559→                        <div
+   560→                          key={idx}
+   561→                          className={`rounded-lg border p-3 ${priorityColors[rec.priority as keyof typeof priorityColors] || priorityColors.medium}`}
+   562→                        >
+   563→                          <div className="flex items-start justify-between gap-2">
+   564→                            <div className="flex-1 min-w-0">
+   565→                              <div className="flex items-center gap-2 mb-1">
+   566→                                <span className="text-sm font-medium text-white truncate">
+   567→                                  {rec.name || rec.integration_key}
+   568→                                </span>
+   569→                                <span className={`text-[9px] px-1.5 py-0.5 rounded-full border font-medium ${priorityBadges[rec.priority as keyof typeof priorityBadges] || priorityBadges.medium}`}>
+   570→                                  {rec.priority?.toUpperCase()}
+   571→                                </span>
+   572→                              </div>
+   573→                              <p className="text-[11px] text-zinc-400 line-clamp-2">
+   574→                                {rec.reason || rec.business_impact}
+   575→                              </p>
+   576→                            </div>
+   577→                          </div>
+   578→                        </div>
+   579→                      );
+   580→                    })}
+   581→                  </div>
+   582→                </div>
+   583→              )}
+   584→
+   585→              {/* Analysis Summary */}
+   586→              {crmAnalysis.analysis_summary && (
+   587→                <div className="rounded-lg bg-white/[0.02] p-3 border border-white/[0.04]">
+   588→                  <p className="text-[11px] text-zinc-300 leading-relaxed">
+   589→                    {crmAnalysis.analysis_summary}
+   590→                  </p>
+   591→                </div>
+   592→              )}
+   593→            </div>
+   594→          )}
+   595→
+   596→          {/* Empty state (not yet analyzed) */}
+   597→          {!hasAnalyzed && !isAnalyzing && (
+   598→            <div className="text-center py-4">
+   599→              <p className="text-xs text-zinc-500 mb-2">
+   600→                Curious which integrations would work best together?
+   601→              </p>
+   602→              <p className="text-[10px] text-zinc-600">
+   603→                Our AI will analyze your setup and suggest improvements.
+   604→              </p>
+   605→            </div>
+   606→          )}
+   607→        </div>
+   608→      )}
+   609→
+   610→      {/* Continue button */}
+   611→      <div className="flex justify-end">
+   612→        <button
+   613→          onClick={handleContinue}
+   614→          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] text-sm font-bold shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 hover:-translate-y-0.5 transition-all"
+   615→        >
+   616→          Continue
+   617→        </button>
+   618→      </div>
+   619→    </div>
+   620→  );
+   621→}
+   622→

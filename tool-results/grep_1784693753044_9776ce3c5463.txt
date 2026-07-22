@@ -1,0 +1,252 @@
+/home/z/my-project/parwa-src/backend/parwa_core/python/parwa_core/__init__.py:10:        JWTDecoder, SecurityHeaders, CSRFValidator,
+/home/z/my-project/parwa-src/backend/parwa_core/python/parwa_core/__init__.py:37:    # CSRF
+/home/z/my-project/parwa-src/backend/parwa_core/python/parwa_core/__init__.py:38:    csrf = CSRFValidator(trusted_origins=["https://app.parwa.ai"])
+/home/z/my-project/parwa-src/backend/parwa_core/python/parwa_core/__init__.py:39:    csrf.is_valid_origin("https://app.parwa.ai", "")
+/home/z/my-project/parwa-src/backend/parwa_core/python/parwa_core/__init__.py:40:    token = csrf.generate_csrf_token()
+/home/z/my-project/parwa-src/backend/parwa_core/python/parwa_core/__init__.py:41:    csrf.validate_csrf_token(token)
+/home/z/my-project/parwa-src/backend/parwa_core/python/parwa_core/__init__.py:51:        CSRFValidator,
+/home/z/my-project/parwa-src/backend/parwa_core/python/parwa_core/__init__.py:65:    CSRFValidator = None
+/home/z/my-project/parwa-src/backend/parwa_core/python/parwa_core/__init__.py:83:    "CSRFValidator",
+/home/z/my-project/parwa-src/backend/parwa_core/src/security.rs:39:pub fn generate_csrf_nonce() -> String {
+/home/z/my-project/parwa-src/backend/parwa_core/src/security.rs:50:pub fn verify_csrf_origin(origin: &str, allowed_origins: Vec<String>) -> bool {
+/home/z/my-project/parwa-src/backend/parwa_core/src/security.rs:92:        let nonce = generate_csrf_nonce();
+/home/z/my-project/parwa-src/backend/parwa_core/src/security.rs:104:        assert!(verify_csrf_origin(
+/home/z/my-project/parwa-src/backend/parwa_core/src/security.rs:108:        assert!(verify_csrf_origin(
+/home/z/my-project/parwa-src/backend/parwa_core/src/security.rs:119:        assert!(!verify_csrf_origin(
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:958:// 5. SECURITY HEADERS + CSRF
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:1019:struct CSRFValidator {
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:1026:impl CSRFValidator {
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:1028:    #[pyo3(signature = (trusted_origins=None, secret_key="parwa-csrf-fallback", max_age=3600.0))]
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:1030:        CSRFValidator {
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:1077:    /// Generate a CSRF token (nonce:timestamp:sig)
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:1078:    fn generate_csrf_token(&self) -> String {
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:1086:    /// Validate a CSRF token
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:1087:    fn validate_csrf_token(&self, token: &str) -> bool {
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:1124:    /// Check if a path is a cookie-auth path that requires CSRF tokens
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:1821:    m.add_class::<CSRFValidator>()?;
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2025:    fn test_csrf_token_generate_validate() {
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2026:        let csrf = CSRFValidator::new(None, "test-secret", 3600.0);
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2027:        let token = csrf.generate_csrf_token();
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2028:        assert!(csrf.validate_csrf_token(&token));
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2032:    fn test_csrf_token_invalid_format() {
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2033:        let csrf = CSRFValidator::new(None, "test-secret", 3600.0);
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2034:        assert!(!csrf.validate_csrf_token("invalid"));
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2035:        assert!(!csrf.validate_csrf_token(""));
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2036:        assert!(!csrf.validate_csrf_token("a:b"));
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2040:    fn test_csrf_token_wrong_secret() {
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2041:        let csrf1 = CSRFValidator::new(None, "secret-1", 3600.0);
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2042:        let csrf2 = CSRFValidator::new(None, "secret-2", 3600.0);
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2043:        let token = csrf1.generate_csrf_token();
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2044:        assert!(!csrf2.validate_csrf_token(&token));
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2048:    fn test_csrf_origin_validation() {
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2049:        let csrf = CSRFValidator::new(
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2053:        assert!(csrf.is_valid_origin("https://app.parwa.ai", ""));
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2054:        assert!(!csrf.is_valid_origin("https://evil.com", ""));
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2055:        assert!(csrf.is_valid_origin("https://parwa-git-main.vercel.app", ""));
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2059:    fn test_csrf_cookie_auth_path() {
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2060:        let csrf = CSRFValidator::new(None, "secret", 3600.0);
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2061:        assert!(!csrf.is_cookie_auth_path("/api/auth/login"));
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2062:        assert!(!csrf.is_cookie_auth_path("/api/auth/register"));
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2063:        assert!(csrf.is_cookie_auth_path("/api/auth/profile"));
+/home/z/my-project/parwa-src/backend/parwa_core/src/lib.rs:2064:        assert!(!csrf.is_cookie_auth_path("/api/tickets"));
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:2:CSRF Protection Middleware (H-04, BC-008) — Rust-accelerated.
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:4:Pure ASGI middleware that delegates CSRF logic to ``parwa_core_bridge``:
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:5:- Origin/Referer validation via Rust ``CSRFValidator.is_valid_origin``
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:6:- CSRF token generation via Rust ``CSRFValidator.generate_csrf_token``
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:7:- CSRF token validation via Rust ``CSRFValidator.validate_csrf_token``
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:14:    CSRF_TRUSTED_ORIGINS: Comma-separated origin list (env var).
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:15:    CSRF_ENABLED: bool — Master switch (default true).
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:24:logger = logging.getLogger("parwa.middleware.csrf")
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:26:# Cookie-based auth path prefixes that require CSRF tokens
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:35:# Public auth endpoints that do NOT require CSRF tokens
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:48:# Webhook routes that skip CSRF checks
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:54:# CSRF cookie config
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:55:_CSRF_COOKIE_NAME = "parwa_csrf"
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:56:_CSRF_MAX_AGE = 3600  # 1 hour
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:76:    """Lazy-load the CSRF validator bridge."""
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:79:        from app.core.parwa_core_bridge import parwa_csrf_validator
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:80:        _validator = parwa_csrf_validator()
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:84:class CSRFSecurityMiddleware:
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:85:    """Pure ASGI middleware for CSRF protection.
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:87:    Delegates validation to Rust ``CSRFValidator`` via the bridge.
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:95:        """Check if CSRF middleware is enabled."""
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:97:            "CSRF_ENABLED", "true",
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:103:        """Process a single ASGI HTTP request through CSRF checks."""
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:116:        # ── Check for existing CSRF cookie ──
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:121:        existing_csrf = self._extract_cookie(
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:122:            cookie_header, _CSRF_COOKIE_NAME,
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:124:        new_csrf_token = ""
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:125:        if not existing_csrf:
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:129:                new_csrf_token = validator.generate_csrf_token()
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:132:                new_csrf_token = secrets.token_hex(16)
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:134:        # ── Wrap send to inject CSP header + CSRF cookie ──
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:135:        wrapped_send = self._wrap_send(send, new_csrf_token)
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:173:                    "csrf_rejected method=%s path=%s "
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:182:                    "CSRF validation failed: invalid origin",
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:189:                "csrf_internal_error path=%s error=%s",
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:194:                "CSRF validation failed",
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:198:        # ── For cookie-based auth paths, verify CSRF token ──
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:201:                csrf_token = self._extract_cookie(
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:202:                    cookie_header, _CSRF_COOKIE_NAME,
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:204:                csrf_header = request_headers.get(
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:205:                    b"x-csrf-token", b"",
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:208:                if not csrf_token or not csrf_header:
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:211:                        "csrf_token_missing path=%s "
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:217:                        "CSRF token missing",
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:223:                    csrf_token, csrf_header,
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:227:                        "csrf_token_invalid path=%s "
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:233:                        "CSRF token invalid",
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:240:                    "csrf_token_error path=%s error=%s",
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:245:                    "CSRF validation failed",
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:255:        """Check if path needs CSRF token (excludes public auth)."""
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:279:        """Validate CSRF cookie matches header token (double-submit)."""
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:288:    def _wrap_send(send, new_csrf_token: str = ""):
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:289:        """Wrap ASGI send to inject CSP header and CSRF cookie."""
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:307:                if new_csrf_token:
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:308:                    csrf_cookie = (
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:309:                        f"{_CSRF_COOKIE_NAME}={new_csrf_token}; "
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:311:                        f"Max-Age={_CSRF_MAX_AGE}"
+/home/z/my-project/parwa-src/backend/app/middleware/csrf.py:314:                        [b"set-cookie", csrf_cookie.encode()]
+/home/z/my-project/parwa-src/backend/app/api/auth.py:468:    - Lax still prevents CSRF on POST/PUT/DELETE while allowing GET from links
+/home/z/my-project/parwa-src/backend/app/main.py:42:from app.middleware.csrf import CSRFSecurityMiddleware
+/home/z/my-project/parwa-src/backend/app/main.py:637:# 9. CSRF protection — Origin/Referer validation + double-submit cookie
+/home/z/my-project/parwa-src/backend/app/main.py:638:app.add_middleware(CSRFSecurityMiddleware)
+/home/z/my-project/parwa-src/backend/tests/week7/test_security_regression.py:159:    def test_csrf_protection_exists(self):
+/home/z/my-project/parwa-src/backend/tests/week7/test_security_regression.py:160:        """CSRF protection middleware exists."""
+/home/z/my-project/parwa-src/backend/tests/week7/test_security_regression.py:161:        csrf = BACKEND_DIR / "app" / "middleware" / "csrf.py"
+/home/z/my-project/parwa-src/backend/tests/week7/test_security_regression.py:162:        assert csrf.exists(), "CSRF middleware should exist"
+/home/z/my-project/parwa-src/backend/tests/test_week1_security.py:413:# H-19: CSRF Protection
+/home/z/my-project/parwa-src/backend/tests/test_week1_security.py:416:class TestH19CSRF:
+/home/z/my-project/parwa-src/backend/tests/test_week1_security.py:417:    """Verify CSRF middleware is complete."""
+/home/z/my-project/parwa-src/backend/tests/test_week1_security.py:419:    def test_csrf_token_generation(self):
+/home/z/my-project/parwa-src/backend/tests/test_week1_security.py:420:        csrf_path = "/home/z/my-project/parwa/backend/app/middleware/csrf.py"
+/home/z/my-project/parwa-src/backend/tests/test_week1_security.py:421:        with open(csrf_path) as f:
+/home/z/my-project/parwa-src/backend/tests/test_week1_security.py:423:        assert "generate_csrf" in content.lower() or "csrf_token" in content.lower(), \
+/home/z/my-project/parwa-src/backend/tests/test_week1_security.py:424:            "CSRF middleware must generate tokens"
+/home/z/my-project/parwa-src/backend/tests/test_week1_security.py:426:    def test_csrf_bearer_token_exemption(self):
+/home/z/my-project/parwa-src/backend/tests/test_week1_security.py:427:        csrf_path = "/home/z/my-project/parwa/backend/app/middleware/csrf.py"
+/home/z/my-project/parwa-src/backend/tests/test_week1_security.py:428:        with open(csrf_path) as f:
+/home/z/my-project/parwa-src/backend/tests/test_week1_security.py:431:            "CSRF must exempt Bearer token auth"
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:2:CSRF Protection Middleware — Unit Tests
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:4:Tests for CSRFSecurityMiddleware (pure ASGI middleware).
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:7:Run: cd /home/z/my-project/parwa && python -m pytest backend/tests/unit/test_csrf.py -v
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:19:from app.middleware.csrf import (
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:20:    CSRFSecurityMiddleware,
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:49:) -> CSRFSecurityMiddleware:
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:50:    """Create a CSRF middleware with controlled trusted origins."""
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:51:    app = CSRFSecurityMiddleware.__new__(CSRFSecurityMiddleware)
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:76:    csrf_token_header: str | None = None,
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:79:    """Run the CSRF middleware and return the ASGI messages."""
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:87:    if csrf_token_header is not None:
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:89:            [b"x-csrf-token", csrf_token_header.encode()],
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:130:class TestCSRFSafeMethods:
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:131:    """CSRF middleware must skip GET, HEAD, OPTIONS requests."""
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:142:        """POST should be checked by CSRF."""
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:153:        """DELETE should be checked by CSRF."""
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:166:class TestCSRFWebhookSkip:
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:167:    """CSRF middleware must skip /api/webhooks/ routes."""
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:180:        """Webhook routes should bypass CSRF regardless of origin."""
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:194:class TestCSRFOriginValidation:
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:195:    """CSRF middleware must validate Origin/Referer headers."""
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:258:        """CSRF rejection should include correlation_id in response."""
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:274:class TestCSRFNonHTTP:
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:275:    """CSRF middleware must pass non-HTTP scopes through."""
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:309:# CSRF token generation and validation
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:313:class TestCSRFTokens:
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:314:    """CSRF token generation and validation helpers."""
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:318:        token = CSRFSecurityMiddleware.generate_csrf_token(
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:330:        token = CSRFSecurityMiddleware.generate_csrf_token(
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:333:        assert CSRFSecurityMiddleware.validate_csrf_token(
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:339:        token = CSRFSecurityMiddleware.generate_csrf_token(
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:342:        assert not CSRFSecurityMiddleware.validate_csrf_token(
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:348:        token = CSRFSecurityMiddleware.generate_csrf_token(
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:354:        assert not CSRFSecurityMiddleware.validate_csrf_token(
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:360:        assert not CSRFSecurityMiddleware.validate_csrf_token("")
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:364:        assert not CSRFSecurityMiddleware.validate_csrf_token("abc")
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:365:        assert not CSRFSecurityMiddleware.validate_csrf_token("a:b:c:d")
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:382:        assert not CSRFSecurityMiddleware.validate_csrf_token(
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:392:class TestCSRFBC008:
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:393:    """CSRF middleware must never crash (BC-008)."""
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:435:            pytest.fail("CSRF middleware crashed on minimal scope")
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:460:class TestCSRFCSPInjection:
+/home/z/my-project/parwa-src/backend/tests/unit/test_csrf.py:461:    """CSRF middleware should inject CSP header on responses."""
+/home/z/my-project/parwa-src/backend/app/tests/test_production_readiness.py:5:- Security: TLS, auth, PII protection, CSRF, rate limiting
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:6:  JWTDecoder, SecurityHeaders, CSRFValidator
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1039:# 6. CSRF VALIDATOR
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1043:def csrf():
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1044:    """CSRFValidator with default trusted origins."""
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1045:    return parwa_core.CSRFValidator(
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1047:        secret_key="test-csrf-secret",
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1053:def csrf_no_origins():
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1054:    """CSRFValidator with no trusted origins (dev mode)."""
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1055:    return parwa_core.CSRFValidator(
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1057:        secret_key="test-csrf-secret",
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1062:class TestCSRFValidatorOriginValidation:
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1065:    def test_valid_origin(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1066:        assert csrf.is_valid_origin("https://app.parwa.ai") is True
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1068:    def test_invalid_origin(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1069:        assert csrf.is_valid_origin("https://evil.com") is False
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1071:    def test_no_trusted_origins_allows_all(self, csrf_no_origins):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1073:        assert csrf_no_origins.is_valid_origin("https://anything.com") is True
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1075:    def test_origin_with_trailing_slash(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1077:        assert csrf.is_valid_origin("https://app.parwa.ai/dashboard") is True
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1079:    def test_origin_different_scheme(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1081:        assert csrf.is_valid_origin("http://app.parwa.ai") is False
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1083:    def test_empty_origin_with_valid_referer(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1086:        result = csrf.is_valid_origin("", "https://app.parwa.ai/some/page")
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1089:    def test_empty_origin_empty_referer(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1093:        result = csrf.is_valid_origin("", "")
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1096:    def test_malformed_referer(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1098:        result = csrf.is_valid_origin("", "not-a-valid-url")
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1102:class TestCSRFValidatorVercelWildcards:
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1105:    def test_vercel_preview_allowed(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1107:        assert csrf.is_valid_origin("https://chat1-fixes-parwa.vercel.app") is True
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1109:    def test_vercel_double_dash_preview(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1111:        assert csrf.is_valid_origin(
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1115:    def test_vercel_with_path(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1120:        result = csrf.is_valid_origin("https://my-preview.vercel.app")
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1123:    def test_not_vercel_rejected(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1125:        assert csrf.is_valid_origin("https://parwa.evil.com") is False
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1127:    def test_vercel_http_rejected(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1129:        assert csrf.is_valid_origin("http://preview.vercel.app") is False
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1132:class TestCSRFValidatorTokenGeneration:
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1133:    """generate_csrf_token: produces a valid token."""
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1135:    def test_generate_returns_string(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1136:        token = csrf.generate_csrf_token()
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1140:    def test_generate_unique_tokens(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1142:        t1 = csrf.generate_csrf_token()
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1143:        t2 = csrf.generate_csrf_token()
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1146:    def test_token_has_expected_format(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1147:        """CSRF token should contain nonce, timestamp, and signature parts."""
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1148:        token = csrf.generate_csrf_token()
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1153:class TestCSRFValidatorTokenValidation:
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1154:    """validate_csrf_token: verify a generated token."""
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1156:    def test_validate_valid_token(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1157:        token = csrf.generate_csrf_token()
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1158:        assert csrf.validate_csrf_token(token) is True
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1160:    def test_validate_tampered_token(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1161:        token = csrf.generate_csrf_token()
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1164:        assert csrf.validate_csrf_token(tampered) is False
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1166:    def test_validate_empty_token(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1167:        assert csrf.validate_csrf_token("") is False
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1169:    def test_validate_garbage(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1170:        assert csrf.validate_csrf_token("not:proper:format:at:all") is False
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1174:        csrf_a = parwa_core.CSRFValidator(secret_key="secret_a", max_age=3600.0)
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1175:        csrf_b = parwa_core.CSRFValidator(secret_key="secret_b", max_age=3600.0)
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1176:        token = csrf_a.generate_csrf_token()
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1177:        assert csrf_b.validate_csrf_token(token) is False
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1181:        csrf_e = parwa_core.CSRFValidator(secret_key="exp_test", max_age=0.0)
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1182:        token = csrf_e.generate_csrf_token()
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1184:        assert csrf_e.validate_csrf_token(token) is False
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1188:        csrf_g = parwa_core.CSRFValidator(secret_key="fresh_test", max_age=3600.0)
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1189:        token = csrf_g.generate_csrf_token()
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1190:        assert csrf_g.validate_csrf_token(token) is True
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1193:class TestCSRFValidatorCookieAuthPaths:
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1194:    """is_cookie_auth_path: identify paths requiring CSRF cookie check."""
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1196:    def test_auth_path_is_cookie_auth(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1197:        assert csrf.is_cookie_auth_path("/api/auth/mfa/verify") is True
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1199:    def test_public_auth_login_not_cookie_auth(self, csrf):
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1200:        """Public login endpoints should NOT require cookie auth CSRF."""
+/home/z/my-project/parwa-src/backend/app/tests/test_parwa_core_integration.py:1203:        result = csrf.is_cookie_auth_path("/api/auth/login")
+
+[Showing results with pagination = limit: 250]

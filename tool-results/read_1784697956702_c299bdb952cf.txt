@@ -1,0 +1,2002 @@
+     1→"""
+     2→Smart Router (F-054): MAKER-Aware 3-Tier LLM Routing via Free Providers.
+     3→
+     4→Selects which AI MODEL to use per atomic step (not per query).
+     5→Aware of MAKER framework: one query = 6-24 LLM calls.
+     6→Intelligently assigns tiers: technique-boosted calls use LIGHT,
+     7→only raw reasoning needs MEDIUM/HEAVY.
+     8→
+     9→Providers: Google AI Studio, Cerebras, Groq (all free tiers).
+    10→Variant access: All variants get ALL model tiers; only restrictions differ.
+    11→User-validated: llama-3.1-8b (LIGHT) works best for ALL tasks.
+    12→Guardrail checks use gpt-oss-120b.
+    13→
+    14→BC-007: All AI model interaction MUST go through Smart Router.
+    15→BC-001: company_id is always second parameter.
+    16→BC-008: Graceful degradation -- always has a fallback.
+    17→BC-012: All timestamps UTC.
+    18→"""
+    19→
+    20→from __future__ import annotations
+    21→
+    22→import asyncio
+    23→import hashlib
+    24→import json
+    25→import logging
+    26→import os
+    27→import threading
+    28→import time
+    29→from collections import deque
+    30→from dataclasses import dataclass, field
+    31→from datetime import datetime, timezone
+    32→from enum import Enum
+    33→from typing import Any, Deque, Dict, List, Optional, Set, Tuple
+    34→
+    35→logger = logging.getLogger("parwa.smart_router")
+    36→
+    37→# LiteLLM — unified LLM API (BC-007)
+    38→try:
+    39→    import litellm
+    40→    _HAS_LITELLM = True
+    41→except ImportError:
+    42→    _HAS_LITELLM = False
+    43→    litellm = None  # type: ignore[assignment]
+    44→
+    45→# ── Ensure GEMINI_API_KEY is set for LiteLLM ──
+    46→# LiteLLM requires GEMINI_API_KEY for gemini/ prefix models.
+    47→# Render provides GOOGLE_AI_API_KEY; copy it so LiteLLM can find it.
+    48→if not os.environ.get("GEMINI_API_KEY") and os.environ.get("GOOGLE_AI_API_KEY"):
+    49→    os.environ["GEMINI_API_KEY"] = os.environ["GOOGLE_AI_API_KEY"]
+    50→
+    51→
+    52→# ── Enums ──────────────────────────────────────────────────────────
+    53→
+    54→
+    55→class ModelProvider(str, Enum):
+    56→    """Supported LLM providers (all free tiers)."""
+    57→    GOOGLE = "google"
+    58→    CEREBRAS = "cerebras"
+    59→    GROQ = "groq"
+    60→    NVIDIA = "nvidia"
+    61→    AI21 = "ai21"
+    62→
+    63→
+    64→class ModelTier(str, Enum):
+    65→    """Model complexity tiers matching PARWA pricing."""
+    66→    LIGHT = "light"
+    67→    MEDIUM = "medium"
+    68→    HEAVY = "heavy"
+    69→    GUARDRAIL = "guardrail"
+    70→    BUILDER = "builder"
+    71→
+    72→
+    73→class AtomicStepType(str, Enum):
+    74→    """All MAKER framework atomic step types."""
+    75→    INTENT_CLASSIFICATION = "intent_classification"
+    76→    PII_REDACTION = "pii_redaction"
+    77→    SENTIMENT_ANALYSIS = "sentiment_analysis"
+    78→    CLARA_QUALITY_GATE = "clara_quality_gate"
+    79→    CRP_TOKEN_TRIM = "crp_token_trim"
+    80→    GSD_STATE_STEP = "gsd_state_step"
+    81→    MAD_DECOMPOSE = "mad_decompose"
+    82→    MAD_ATOM_SIMPLE = "mad_atom_simple"
+    83→    MAD_ATOM_REASONING = "mad_atom_reasoning"
+    84→    COT_REASONING = "cot_reasoning"
+    85→    FAKE_VOTING = "fake_voting"
+    86→    CONSENSUS_ANALYSIS = "consensus_analysis"
+    87→    DRAFT_RESPONSE_SIMPLE = "draft_response_simple"
+    88→    DRAFT_RESPONSE_MODERATE = "draft_response_moderate"
+    89→    DRAFT_RESPONSE_COMPLEX = "draft_response_complex"
+    90→    REFLEXION_CYCLE = "reflexion_cycle"
+    91→    ESCALATE_TO_HUMAN = "escalate_to_human"
+    92→    GUARDRAIL_CHECK = "guardrail_check"
+    93→
+    94→
+    95→# ── Model Configuration ────────────────────────────────────────────
+    96→
+    97→
+    98→@dataclass
+    99→class ModelConfig:
+   100→    """Full configuration for a single model in the registry."""
+   101→    provider: ModelProvider
+   102→    model_id: str
+   103→    display_name: str
+   104→    tier: ModelTier
+   105→    priority: int  # 1 = primary within tier
+   106→    max_requests_per_day: int
+   107→    max_tokens_per_minute: int
+   108→    context_window: int
+   109→    api_endpoint_base: str
+   110→    is_openai_compatible: bool
+   111→    max_requests_per_minute: int = 0  # 0 = no per-minute limit
+   112→    recommended_for: List[AtomicStepType] = field(default_factory=list)
+   113→
+   114→
+   115→# ── Model Registry ─────────────────────────────────────────────────
+   116→
+   117→MODEL_REGISTRY: Dict[str, ModelConfig] = {
+   118→    # ═══════════════════════════════════════════════════════════════════
+   119→    # LIGHT TIER — 90% of traffic
+   120→    # ═══════════════════════════════════════════════════════════════════
+   121→
+   122→    # LIGHT priority order: Cerebras first (fastest inference), then Groq models, then AI21 last.
+   123→    "cerebras-llama3.1-8b": ModelConfig(
+   124→        provider=ModelProvider.CEREBRAS, model_id="llama3.1-8b",
+   125→        display_name="Llama 3.1 8B (Cerebras)", tier=ModelTier.LIGHT, priority=1,
+   126→        max_requests_per_day=14400, max_tokens_per_minute=60000, context_window=8192,
+   127→        api_endpoint_base="https://api.cerebras.ai/v1/chat/completions", is_openai_compatible=True,
+   128→    ),
+   129→    "groq-llama-3.1-8b-instant": ModelConfig(
+   130→        provider=ModelProvider.GROQ, model_id="llama-3.1-8b-instant",
+   131→        display_name="Llama 3.1 8B Instant (Groq)", tier=ModelTier.LIGHT, priority=2,
+   132→        max_requests_per_day=14400, max_tokens_per_minute=6000, context_window=8192,
+   133→        api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
+   134→    ),
+   135→    "groq-llama-3.3-70b": ModelConfig(
+   136→        provider=ModelProvider.GROQ, model_id="llama-3.3-70b-versatile",
+   137→        display_name="Llama 3.3 70B (Groq)", tier=ModelTier.LIGHT, priority=3,
+   138→        max_requests_per_day=1000, max_tokens_per_minute=12000, context_window=32768,
+   139→        api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
+   140→    ),
+   141→    "groq-llama-4-scout": ModelConfig(
+   142→        provider=ModelProvider.GROQ, model_id="meta-llama/llama-4-scout-17b-16e-instruct",
+   143→        display_name="Llama 4 Scout (Groq)", tier=ModelTier.LIGHT, priority=4,
+   144→        max_requests_per_day=1000, max_tokens_per_minute=30000, context_window=65536,
+   145→        api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
+   146→    ),
+   147→    "groq-qwen3-32b": ModelConfig(
+   148→        provider=ModelProvider.GROQ, model_id="qwen/qwen3-32b",
+   149→        display_name="Qwen3 32B (Groq)", tier=ModelTier.LIGHT, priority=5,
+   150→        max_requests_per_day=1000, max_tokens_per_minute=6000, context_window=32768,
+   151→        api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
+   152→    ),
+   153→    "groq-qwen3.6-27b": ModelConfig(
+   154→        provider=ModelProvider.GROQ, model_id="qwen/qwen3.6-27b",
+   155→        display_name="Qwen3.6 27B (Groq)", tier=ModelTier.LIGHT, priority=6,
+   156→        max_requests_per_day=1000, max_tokens_per_minute=8000, context_window=32768,
+   157→        api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
+   158→    ),
+   159→    "groq-allam-2-7b": ModelConfig(
+   160→        provider=ModelProvider.GROQ, model_id="allam-2-7b",
+   161→        display_name="Allam 2 7B (Groq)", tier=ModelTier.LIGHT, priority=7,
+   162→        max_requests_per_day=7000, max_tokens_per_minute=6000, context_window=8192,
+   163→        api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
+   164→    ),
+   165→    "groq-gpt-oss-120b-light": ModelConfig(
+   166→        provider=ModelProvider.GROQ, model_id="openai/gpt-oss-120b",
+   167→        display_name="GPT-OSS 120B (Groq)", tier=ModelTier.LIGHT, priority=8,
+   168→        max_requests_per_day=1000, max_tokens_per_minute=8000, context_window=65536,
+   169→        api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
+   170→    ),
+   171→    "groq-gpt-oss-20b-light": ModelConfig(
+   172→        provider=ModelProvider.GROQ, model_id="openai/gpt-oss-20b",
+   173→        display_name="GPT-OSS 20B (Groq)", tier=ModelTier.LIGHT, priority=9,
+   174→        max_requests_per_day=1000, max_tokens_per_minute=8000, context_window=65536,
+   175→        api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
+   176→    ),
+   177→    "groq-gpt-oss-safeguard-light": ModelConfig(
+   178→        provider=ModelProvider.GROQ, model_id="openai/gpt-oss-safeguard-20b",
+   179→        display_name="GPT-OSS Safeguard 20B (Groq)", tier=ModelTier.LIGHT, priority=10,
+   180→        max_requests_per_day=1000, max_tokens_per_minute=8000, context_window=65536,
+   181→        api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
+   182→    ),
+   183→    "ai21-jamba-mini": ModelConfig(
+   184→        provider=ModelProvider.AI21, model_id="jamba-2.0-mini",
+   185→        display_name="Jamba Mini 2 (AI21)", tier=ModelTier.LIGHT, priority=11,
+   186→        max_requests_per_day=999999, max_tokens_per_minute=999999, context_window=256000,
+   187→        api_endpoint_base="https://api.ai21.com/studio/v1/chat/completions", is_openai_compatible=True,
+   188→    ),
+   189→    "ai21-jamba-large": ModelConfig(
+   190→        provider=ModelProvider.AI21, model_id="jamba-1.7-large",
+   191→        display_name="Jamba Large 1.7 (AI21)", tier=ModelTier.LIGHT, priority=12,
+   192→        max_requests_per_day=999999, max_tokens_per_minute=999999, context_window=256000,
+   193→        api_endpoint_base="https://api.ai21.com/studio/v1/chat/completions", is_openai_compatible=True,
+   194→    ),
+   195→
+   196→    # ═══════════════════════════════════════════════════════════════════
+   197→    # MEDIUM TIER — 8% of traffic
+   198→    # ═══════════════════════════════════════════════════════════════════
+   199→
+   200→    # MEDIUM priority: Cerebras first (fastest), then Google, then NVIDIA last.
+   201→    "cerebras-gpt-oss-120b-medium": ModelConfig(
+   202→        provider=ModelProvider.CEREBRAS, model_id="gpt-oss-120b",
+   203→        display_name="GPT-OSS 120B (Cerebras)", tier=ModelTier.MEDIUM, priority=1,
+   204→        max_requests_per_day=14400, max_tokens_per_minute=60000, context_window=65536,
+   205→        api_endpoint_base="https://api.cerebras.ai/v1/chat/completions", is_openai_compatible=True,
+   206→    ),
+   207→    "google-gemini-3.5-flash": ModelConfig(
+   208→        provider=ModelProvider.GOOGLE, model_id="gemini-3.5-flash",
+   209→        display_name="Gemini 3.5 Flash (Google)", tier=ModelTier.MEDIUM, priority=2,
+   210→        max_requests_per_day=20, max_tokens_per_minute=999999, context_window=1048576,
+   211→        api_endpoint_base="https://generativelanguage.googleapis.com/v1beta/models", is_openai_compatible=False,
+   212→    ),
+   213→    "nvidia-glm-5.2-medium": ModelConfig(
+   214→        provider=ModelProvider.NVIDIA, model_id="z-ai/glm-5.2",
+   215→        display_name="GLM 5.2 (NVIDIA)", tier=ModelTier.MEDIUM, priority=3,
+   216→        max_requests_per_day=999999, max_tokens_per_minute=999999, context_window=1048576,
+   217→        api_endpoint_base="https://integrate.api.nvidia.com/v1/chat/completions", is_openai_compatible=True,
+   218→    ),
+   219→
+   220→    # ═══════════════════════════════════════════════════════════════════
+   221→    # HEAVY TIER — 2% of traffic
+   222→    # ═══════════════════════════════════════════════════════════════════
+   223→
+   224→    # HEAVY priority: Google first (best reasoning), then Cerebras, then NVIDIA last.
+   225→    "google-gemini-2.5-flash": ModelConfig(
+   226→        provider=ModelProvider.GOOGLE, model_id="gemini-2.5-flash",
+   227→        display_name="Gemini 2.5 Flash (Google)", tier=ModelTier.HEAVY, priority=1,
+   228→        max_requests_per_day=20, max_tokens_per_minute=999999, context_window=1048576,
+   229→        api_endpoint_base="https://generativelanguage.googleapis.com/v1beta/models", is_openai_compatible=False,
+   230→    ),
+   231→    "cerebras-gpt-oss-120b-heavy": ModelConfig(
+   232→        provider=ModelProvider.CEREBRAS, model_id="gpt-oss-120b",
+   233→        display_name="GPT-OSS 120B (Cerebras)", tier=ModelTier.HEAVY, priority=2,
+   234→        max_requests_per_day=14400, max_tokens_per_minute=60000, context_window=65536,
+   235→        api_endpoint_base="https://api.cerebras.ai/v1/chat/completions", is_openai_compatible=True,
+   236→    ),
+   237→    "nvidia-glm-5.2-heavy": ModelConfig(
+   238→        provider=ModelProvider.NVIDIA, model_id="z-ai/glm-5.2",
+   239→        display_name="GLM 5.2 (NVIDIA)", tier=ModelTier.HEAVY, priority=3,
+   240→        max_requests_per_day=999999, max_tokens_per_minute=999999, context_window=1048576,
+   241→        api_endpoint_base="https://integrate.api.nvidia.com/v1/chat/completions", is_openai_compatible=True,
+   242→    ),
+   243→
+   244→    # ═══════════════════════════════════════════════════════════════════
+   245→    # BUILDER TIER — agent creation only (NVIDIA dedicated)
+   246→    # ═══════════════════════════════════════════════════════════════════
+   247→
+   248→    "nvidia-glm-5.2-builder": ModelConfig(
+   249→        provider=ModelProvider.NVIDIA, model_id="z-ai/glm-5.2",
+   250→        display_name="GLM 5.2 (NVIDIA) — Builder", tier=ModelTier.BUILDER, priority=1,
+   251→        max_requests_per_day=999999, max_tokens_per_minute=999999, context_window=1048576,
+   252→        api_endpoint_base="https://integrate.api.nvidia.com/v1/chat/completions", is_openai_compatible=True,
+   253→    ),
+   254→
+   255→    # ═══════════════════════════════════════════════════════════════════
+   256→    # GUARDRAIL TIER
+   257→    # ═══════════════════════════════════════════════════════════════════
+   258→
+   259→    "groq-gpt-oss-safeguard-guardrail": ModelConfig(
+   260→        provider=ModelProvider.GROQ, model_id="openai/gpt-oss-safeguard-20b",
+   261→        display_name="GPT-OSS Safeguard 20B (Groq)", tier=ModelTier.GUARDRAIL, priority=1,
+   262→        max_requests_per_day=1000, max_tokens_per_minute=8000, context_window=65536,
+   263→        api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
+   264→        recommended_for=[AtomicStepType.GUARDRAIL_CHECK],
+   265→    ),
+   266→}
+   267→
+   268→# ── Variant Model Access (SG-03) ──────────────────────────────────
+   269→
+   270→VARIANT_MODEL_ACCESS: Dict[str, Set[ModelTier]] = {
+   271→    # All variants get ALL model tiers including BUILDER.
+   272→    "mini_parwa": {ModelTier.LIGHT, ModelTier.MEDIUM, ModelTier.HEAVY, ModelTier.GUARDRAIL},
+   273→    "parwa": {ModelTier.LIGHT, ModelTier.MEDIUM, ModelTier.HEAVY, ModelTier.GUARDRAIL, ModelTier.BUILDER},
+   274→    "parwa_high": {ModelTier.LIGHT, ModelTier.MEDIUM, ModelTier.HEAVY, ModelTier.GUARDRAIL, ModelTier.BUILDER},
+   275→}
+   276→
+   277→# ── Step -> Tier Mapping ──────────────────────────────────────────
+   278→
+   279→STEP_TIER_MAPPING: Dict[AtomicStepType, ModelTier] = {
+   280→    # LIGHT: 15 calls per normal ticket (Node 1, 3, 4 simple, 5, 6 quality, 7)
+   281→    AtomicStepType.INTENT_CLASSIFICATION: ModelTier.LIGHT,
+   282→    AtomicStepType.PII_REDACTION: ModelTier.LIGHT,
+   283→    AtomicStepType.SENTIMENT_ANALYSIS: ModelTier.LIGHT,
+   284→    AtomicStepType.CLARA_QUALITY_GATE: ModelTier.LIGHT,
+   285→    AtomicStepType.CRP_TOKEN_TRIM: ModelTier.LIGHT,
+   286→    AtomicStepType.GSD_STATE_STEP: ModelTier.LIGHT,
+   287→    AtomicStepType.MAD_DECOMPOSE: ModelTier.LIGHT,
+   288→    AtomicStepType.MAD_ATOM_SIMPLE: ModelTier.LIGHT,
+   289→    AtomicStepType.COT_REASONING: ModelTier.LIGHT,
+   290→    AtomicStepType.FAKE_VOTING: ModelTier.LIGHT,
+   291→    AtomicStepType.CONSENSUS_ANALYSIS: ModelTier.LIGHT,
+   292→    AtomicStepType.DRAFT_RESPONSE_SIMPLE: ModelTier.LIGHT,
+   293→    AtomicStepType.DRAFT_RESPONSE_MODERATE: ModelTier.LIGHT,
+   294→    AtomicStepType.ESCALATE_TO_HUMAN: ModelTier.LIGHT,
+   295→    # MEDIUM: 3 calls per ticket (Node 4 complex, Node 4.5 CoVe, Node 6 format)
+   296→    AtomicStepType.MAD_ATOM_REASONING: ModelTier.MEDIUM,
+   297→    AtomicStepType.DRAFT_RESPONSE_COMPLEX: ModelTier.MEDIUM,
+   298→    AtomicStepType.REFLEXION_CYCLE: ModelTier.MEDIUM,
+   299→    # GUARDRAIL: safety checks
+   300→    AtomicStepType.GUARDRAIL_CHECK: ModelTier.GUARDRAIL,
+   301→}
+   302→
+   303→# Tier fallback order: if a tier is unavailable, try next lower tier
+   304→TIER_FALLBACK_ORDER: List[ModelTier] = [
+   305→    ModelTier.BUILDER,
+   306→    ModelTier.HEAVY,
+   307→    ModelTier.MEDIUM,
+   308→    ModelTier.LIGHT,
+   309→]
+   310→
+   311→# ── Per-Provider RPM Limits (sliding 60s window) ───────────────────
+   312→# RPM is tracked PER PROVIDER (shared across all of that provider's models).
+   313→# When count == limit, we WAIT for the oldest timestamp to fall out of the
+   314→# 60s window — we do NOT switch providers for RPM. Provider switching only
+   315→# happens for: API errors, daily limits, broken APIs.
+   316→PROVIDER_RPM_LIMITS: Dict[ModelProvider, int] = {
+   317→    ModelProvider.CEREBRAS: 1000,  # token-based, effectively unlimited
+   318→    ModelProvider.GROQ: 30,        # 30 RPM shared across ALL Groq models
+   319→    ModelProvider.NVIDIA: 30,      # 30 RPM (safe; actual is 40)
+   320→    ModelProvider.GOOGLE: 20,
+   321→    ModelProvider.AI21: 200,       # credit-based, $10 free tier
+   322→}
+   323→
+   324→# ── Provider Usage Tracking ────────────────────────────────────────
+   325→
+   326→
+   327→@dataclass
+   328→class ProviderUsage:
+   329→    """Tracks usage and health for a single provider+model combination."""
+   330→    provider: ModelProvider
+   331→    model_id: str
+   332→    daily_count: int = 0
+   333→    daily_limit: int = 14400
+   334→    # RPM tracking (requests per minute — the real bottleneck)
+   335→    rpm_count: int = 0
+   336→    rpm_limit: int = 30
+   337→    rpm_window_start: float = 0.0
+   338→    # Legacy token tracking (kept for compatibility)
+   339→    minute_count: int = 0
+   340→    minute_limit: int = 30000
+   341→    minute_window_start: float = 0.0
+   342→    rate_limited_until: float = 0.0
+   343→    consecutive_failures: int = 0
+   344→    last_error: str = ""
+   345→    is_healthy: bool = True
+   346→    marked_unhealthy_at: float = 0.0
+   347→
+   348→    @property
+   349→    def registry_key(self) -> str:
+   350→        return f"{self.model_id}-{self.provider.value}"
+   351→
+   352→    def get_rpm_available(self) -> int:
+   353→        """How many more requests can we make this minute?"""
+   354→        import time as _t
+   355→        now = _t.time()
+   356→        # Reset window every 60 seconds
+   357→        if now - self.rpm_window_start > 60:
+   358→            self.rpm_window_start = now
+   359→            self.rpm_count = 0
+   360→            # Auto-recover from unhealthy state when window resets
+   361→            if not self.is_healthy:
+   362→                self.is_healthy = True
+   363→                self.consecutive_failures = 0
+   364→        return max(0, self.rpm_limit - self.rpm_count)
+   365→
+   366→
+   367→class ProviderHealthTracker:
+   368→    """Tracks health and rate limits for all provider+model combinations.
+   369→
+   370→    BC-008: Never crashes. Tracks failures, rate limits, and provides
+   371→    availability checks for the Smart Router's fallback logic.
+   372→    Uses class-level shared state so all SmartRouter instances across
+   373→    workers see the same health data.
+   374→    """
+   375→
+   376→    CONSECUTIVE_FAILURE_THRESHOLD = 3
+   377→    RATE_LIMIT_COOLDOWN_SECONDS = 60
+   378→    RATE_LIMIT_RETRY_AFTER_DEFAULT = 60  # seconds when 429 has no Retry-After
+   379→
+   380→    # Class-level shared state — all instances share the same tracker
+   381→    _shared_usage: Dict[str, ProviderUsage] = {}
+   382→    _shared_last_daily_reset: str = ""
+   383→    # Per-provider RPM sliding window: provider -> deque of call timestamps
+   384→    # Shared across ALL models of that provider (e.g. all Groq models share
+   385→    # the same 30 RPM budget). Tracked at the PROVIDER level, not per-model.
+   386→    _shared_provider_rpm: Dict[ModelProvider, Deque[float]] = {}
+   387→    _shared_provider_rpm_locks: Dict[ModelProvider, threading.Lock] = {}
+   388→
+   389→    def __init__(self) -> None:
+   390→        # Use class-level shared state for multi-worker consistency
+   391→        self._usage = ProviderHealthTracker._shared_usage
+   392→        self._last_daily_reset = ProviderHealthTracker._shared_last_daily_reset
+   393→        self._provider_rpm = ProviderHealthTracker._shared_provider_rpm
+   394→        self._provider_rpm_locks = ProviderHealthTracker._shared_provider_rpm_locks
+   395→        self._reset_daily_if_needed()
+   396→
+   397→    def _reset_daily_if_needed(self) -> None:
+   398→        """Reset daily counters at midnight UTC (BC-012)."""
+   399→        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+   400→        if today != self._last_daily_reset:
+   401→            logger.info(
+   402→                "Daily usage reset triggered for %s (was %s)",
+   403→                today, self._last_daily_reset,
+   404→            )
+   405→            self._last_daily_reset = today
+   406→            ProviderHealthTracker._shared_last_daily_reset = today
+   407→            for usage in self._usage.values():
+   408→                usage.daily_count = 0
+   409→
+   410→    def _ensure_usage(self, registry_key: str, config: ModelConfig) -> ProviderUsage:
+   411→        """Get or create ProviderUsage for a registry key."""
+   412→        if registry_key not in self._usage:
+   413→            # Set RPM limit based on provider (free tier limits)
+   414→            _RPM_LIMITS = {
+   415→                ModelProvider.GROQ: 28,       # 30 RPM, use 28 for safety
+   416→                ModelProvider.CEREBRAS: 28,   # 30 RPM, use 28 for safety
+   417→                ModelProvider.GOOGLE: 14,     # 15 RPM, use 14 for safety
+   418→                ModelProvider.NVIDIA: 38,     # 40 RPM shared, use 38 for safety
+   419→                ModelProvider.AI21: 190,      # 200 RPM, use 190 for safety
+   420→            }
+   421→            rpm_limit = _RPM_LIMITS.get(config.provider, 25)  # default 25 for unknown
+   422→            self._usage[registry_key] = ProviderUsage(
+   423→                provider=config.provider,
+   424→                model_id=config.model_id,
+   425→                daily_limit=config.max_requests_per_day,
+   426→                rpm_limit=rpm_limit,
+   427→                minute_limit=config.max_tokens_per_minute,
+   428→            )
+   429→        return self._usage[registry_key]
+   430→
+   431→    def record_success(
+   432→        self,
+   433→        provider: ModelProvider,
+   434→        model_id: str,
+   435→        tokens_used: int = 0,
+   436→    ) -> None:
+   437→        """Record a successful API call. Resets consecutive failure count."""
+   438→        registry_key = f"{model_id}-{provider.value}"
+   439→        # Find the config to get limits
+   440→        config = None
+   441→        for k, c in MODEL_REGISTRY.items():
+   442→            if k == registry_key:
+   443→                config = c
+   444→                break
+   445→
+   446→        usage = self._ensure_usage(
+   447→            registry_key,
+   448→            config or ModelConfig(
+   449→                provider=provider,
+   450→                model_id=model_id,
+   451→                display_name=model_id,
+   452→                tier=ModelTier.LIGHT,
+   453→                priority=99,
+   454→                max_requests_per_day=14400,
+   455→                max_tokens_per_minute=30000,
+   456→                context_window=8192,
+   457→                api_endpoint_base="",
+   458→                is_openai_compatible=True,
+   459→            ),
+   460→        )
+   461→
+   462→        self._reset_daily_if_needed()
+   463→        usage.consecutive_failures = 0
+   464→        usage.last_error = ""
+   465→        usage.is_healthy = True
+   466→        usage.daily_count += 1
+   467→
+   468→        # RPM tracking — increment request count per minute
+   469→        now = time.time()
+   470→        if now - usage.rpm_window_start > 60:
+   471→            usage.rpm_window_start = now
+   472→            usage.rpm_count = 1
+   473→        else:
+   474→            usage.rpm_count += 1
+   475→
+   476→        # Legacy token tracking (kept for compatibility)
+   477→        if now - usage.minute_window_start > 60:
+   478→            usage.minute_window_start = now
+   479→            usage.minute_count = tokens_used
+   480→        else:
+   481→            usage.minute_count += tokens_used
+   482→
+   483→        logger.debug(
+   484→            "Recorded success for %s (daily=%d, rpm=%d/%d, minute_tokens=%d)",
+   485→            registry_key, usage.daily_count, usage.rpm_count, usage.rpm_limit, usage.minute_count,
+   486→        )
+   487→
+   488→    def record_rate_limit(
+   489→        self,
+   490→        provider: ModelProvider,
+   491→        model_id: str,
+   492→        retry_after_seconds: int = 0,
+   493→    ) -> None:
+   494→        """Record a 429 rate limit response. Sets cooldown timer.
+   495→
+   496→        Respects Retry-After header if provided by the API.
+   497→        """
+   498→        registry_key = f"{model_id}-{provider.value}"
+   499→        config = None
+   500→        for k, c in MODEL_REGISTRY.items():
+   501→            if k == registry_key:
+   502→                config = c
+   503→                break
+   504→
+   505→        usage = self._ensure_usage(
+   506→            registry_key,
+   507→            config or ModelConfig(
+   508→                provider=provider, model_id=model_id,
+   509→                display_name=model_id, tier=ModelTier.LIGHT,
+   510→                priority=99, max_requests_per_day=14400,
+   511→                max_tokens_per_minute=30000, context_window=8192,
+   512→                api_endpoint_base="", is_openai_compatible=True,
+   513→            ),
+   514→        )
+   515→
+   516→        cooldown = max(
+   517→            retry_after_seconds if retry_after_seconds > 0 else self.RATE_LIMIT_RETRY_AFTER_DEFAULT,
+   518→            self.RATE_LIMIT_COOLDOWN_SECONDS,
+   519→        )
+   520→        usage.rate_limited_until = time.time() + cooldown
+   521→        usage.last_error = f"rate_limited_for_{cooldown}s"
+   522→        # Mark as temporarily unhealthy — will auto-recover when RPM window resets
+   523→        usage.is_healthy = False
+   524→        usage.marked_unhealthy_at = time.time()
+   525→        # Cap RPM count at limit so other providers get used
+   526→        usage.rpm_count = usage.rpm_limit
+   527→        logger.warning(
+   528→            "Rate limited: %s for %d seconds (retry_after=%d) — marked unhealthy, will auto-recover in 60s",
+   529→            registry_key, cooldown, retry_after_seconds,
+   530→        )
+   531→
+   532→    def record_failure(
+   533→        self,
+   534→        provider: ModelProvider,
+   535→        model_id: str,
+   536→        error_msg: str = "Unknown error",
+   537→    ) -> None:
+   538→        """Record a failed API call. Marks unhealthy after threshold."""
+   539→        registry_key = f"{model_id}-{provider.value}"
+   540→        config = None
+   541→        for k, c in MODEL_REGISTRY.items():
+   542→            if k == registry_key:
+   543→                config = c
+   544→                break
+   545→
+   546→        usage = self._ensure_usage(
+   547→            registry_key,
+   548→            config or ModelConfig(
+   549→                provider=provider,
+   550→                model_id=model_id,
+   551→                display_name=model_id,
+   552→                tier=ModelTier.LIGHT,
+   553→                priority=99,
+   554→                max_requests_per_day=14400,
+   555→                max_tokens_per_minute=30000,
+   556→                context_window=8192,
+   557→                api_endpoint_base="",
+   558→                is_openai_compatible=True,
+   559→            ),
+   560→        )
+   561→
+   562→        usage.consecutive_failures += 1
+   563→        usage.last_error = error_msg
+   564→
+   565→        if usage.consecutive_failures >= self.CONSECUTIVE_FAILURE_THRESHOLD:
+   566→            usage.is_healthy = False
+   567→            usage.marked_unhealthy_at = time.time()
+   568→            logger.warning(
+   569→                "Provider %s marked UNHEALTHY after %d consecutive failures: %s "
+   570→                "(will auto-recover in 60s when RPM window resets)",
+   571→                registry_key, usage.consecutive_failures, error_msg,
+   572→            )
+   573→        else:
+   574→            logger.debug(
+   575→                "Recorded failure for %s (consecutive=%d): %s",
+   576→                registry_key, usage.consecutive_failures, error_msg,
+   577→            )
+   578→
+   579→    def is_available(self, provider: ModelProvider, model_id: str) -> bool:
+   580→        """Check if a provider+model is usable (healthy + under daily limits).
+   581→
+   582→        NOTE: RPM is NOT checked here. RPM is enforced separately via
+   583→        ``acquire_provider_slot()`` which WAITS when the provider is at its
+   584→        RPM limit — it does not switch providers. Provider switching only
+   585→        happens for: API errors, daily limits, broken APIs.
+   586→
+   587→        This checks:
+   588→        1. Rate limit cooldown: are we in a 429 penalty box?
+   589→        2. Health: is the provider marked unhealthy? (auto-recovers in 60s)
+   590→        3. Daily limit: have we hit the daily cap?
+   591→        """
+   592→        registry_key = f"{model_id}-{provider.value}"
+   593→        if registry_key not in self._usage:
+   594→            return True  # No usage data = assume available
+   595→
+   596→        usage = self._usage[registry_key]
+   597→        self._reset_daily_if_needed()
+   598→
+   599→        # Check rate limit cooldown (429 penalty)
+   600→        if usage.rate_limited_until > time.time():
+   601→            return False
+   602→
+   603→        # Auto-recover health flag when RPM window resets
+   604→        # (calls get_rpm_available which resets the window)
+   605→        usage.get_rpm_available()
+   606→
+   607→        # If still unhealthy after window reset, provider is genuinely down
+   608→        if not usage.is_healthy:
+   609→            return False
+   610→
+   611→        # Check daily limit
+   612→        if usage.daily_count >= usage.daily_limit:
+   613→            logger.debug(
+   614→                "%s: daily limit reached (%d/%d)",
+   615→                registry_key, usage.daily_count, usage.daily_limit,
+   616→            )
+   617→            return False
+   618→
+   619→        return True
+   620→
+   621→    # ── Per-Provider RPM Sliding Window ──────────────────────────
+   622→    #
+   623→    # RPM is tracked PER PROVIDER (shared across all of that provider's
+   624→    # models). When count == limit, we WAIT for the oldest timestamp to
+   625→    # fall out of the 60s window — we do NOT switch providers for RPM.
+   626→    #
+   627→    # User rule: "Only wait when literally at 0 — no preemptive waiting".
+   628→    # So if even 1 slot is left, we take it immediately without waiting.
+   629→
+   630→    def _get_provider_lock(self, provider: ModelProvider) -> threading.Lock:
+   631→        """Get or create the per-provider lock for RPM slot acquisition."""
+   632→        if provider not in self._provider_rpm_locks:
+   633→            self._provider_rpm_locks[provider] = threading.Lock()
+   634→        return self._provider_rpm_locks[provider]
+   635→
+   636→    def _get_provider_timestamps(self, provider: ModelProvider) -> Deque[float]:
+   637→        """Get or create the per-provider timestamp deque."""
+   638→        if provider not in self._provider_rpm:
+   639→            self._provider_rpm[provider] = deque()
+   640→        return self._provider_rpm[provider]
+   641→
+   642→    @staticmethod
+   643→    def _prune_provider_timestamps(timestamps: Deque[float]) -> None:
+   644→        """Remove timestamps older than 60s from the front of the deque."""
+   645→        now = time.time()
+   646→        while timestamps and timestamps[0] <= now - 60:
+   647→            timestamps.popleft()
+   648→
+   649→    def acquire_provider_slot(
+   650→        self,
+   651→        provider: ModelProvider,
+   652→        max_wait_seconds: float = 65.0,
+   653→    ) -> bool:
+   654→        """Atomically wait for and acquire an RPM slot for a provider.
+   655→
+   656→        Behavior (per user spec):
+   657→        - If under limit (even by 1) → acquire immediately, no waiting.
+   658→        - If at limit (0 remaining) → calculate wait = 60 - (now - oldest),
+   659→          sleep, then retry SAME provider. Does NOT switch providers.
+   660→        - Returns True if slot acquired, False if max_wait_seconds exceeded.
+   661→
+   662→        This is a BLOCKING call. Safe to use from sync code and from async
+   663→        code running in a worker thread (each pipeline runs in its own thread
+   664→        with its own event loop, so blocking is acceptable).
+   665→        """
+   666→        limit = PROVIDER_RPM_LIMITS.get(provider, 30)
+   667→        lock = self._get_provider_lock(provider)
+   668→
+   669→        with lock:
+   670→            timestamps = self._get_provider_timestamps(provider)
+   671→            self._prune_provider_timestamps(timestamps)
+   672→
+   673→            if len(timestamps) < limit:
+   674→                # Slot available — take it immediately
+   675→                timestamps.append(time.time())
+   676→                return True
+   677→
+   678→            # At limit — calculate wait time for oldest timestamp to expire
+   679→            oldest = timestamps[0]
+   680→            wait_seconds = 60 - (time.time() - oldest)
+   681→
+   682→            if wait_seconds <= 0:
+   683→                # Edge case: oldest already expired between prune and now
+   684→                self._prune_provider_timestamps(timestamps)
+   685→                if len(timestamps) < limit:
+   686→                    timestamps.append(time.time())
+   687→                    return True
+   688→                wait_seconds = 1.0  # fallback
+   689→
+   690→            if wait_seconds > max_wait_seconds:
+   691→                logger.warning(
+   692→                    "Provider %s RPM wait %.1fs exceeds max_wait %.1fs — skipping slot acquire",
+   693→                    provider.value, wait_seconds, max_wait_seconds,
+   694→                )
+   695→                return False
+   696→
+   697→            logger.info(
+   698→                "Provider %s at RPM limit (%d/%d) — waiting %.1fs for slot",
+   699→                provider.value, len(timestamps), limit, wait_seconds,
+   700→            )
+   701→            time.sleep(wait_seconds + 0.1)  # small buffer for safety
+   702→
+   703→            # Re-prune and acquire
+   704→            self._prune_provider_timestamps(timestamps)
+   705→            if len(timestamps) < limit:
+   706→                timestamps.append(time.time())
+   707→                return True
+   708→
+   709→            # Still at limit after wait (very high contention) — bail out
+   710→            logger.warning(
+   711→                "Provider %s still at RPM limit after waiting %.1fs",
+   712→                provider.value, wait_seconds,
+   713→            )
+   714→            return False
+   715→
+   716→    def get_provider_rpm_status(self) -> Dict[str, Dict[str, Any]]:
+   717→        """Return per-provider RPM status for monitoring/debugging."""
+   718→        status: Dict[str, Dict[str, Any]] = {}
+   719→        for provider in ModelProvider:
+   720→            timestamps = self._provider_rpm.get(provider, deque())
+   721→            self._prune_provider_timestamps(timestamps)
+   722→            limit = PROVIDER_RPM_LIMITS.get(provider, 30)
+   723→            status[provider.value] = {
+   724→                "rpm_used": len(timestamps),
+   725→                "rpm_limit": limit,
+   726→                "rpm_available": max(0, limit - len(timestamps)),
+   727→            }
+   728→        return status
+   729→
+   730→    def get_daily_usage(self, provider: ModelProvider, model_id: str) -> int:
+   731→        """Get today's usage count for a provider+model."""
+   732→        registry_key = f"{model_id}-{provider.value}"
+   733→        self._reset_daily_if_needed()
+   734→        if registry_key not in self._usage:
+   735→            return 0
+   736→        return self._usage[registry_key].daily_count
+   737→
+   738→    def get_daily_remaining(
+   739→        self, provider: ModelProvider, model_id: str,
+   740→    ) -> int:
+   741→        """Get remaining daily requests for a provider+model."""
+   742→        registry_key = f"{model_id}-{provider.value}"
+   743→        self._reset_daily_if_needed()
+   744→        if registry_key not in self._usage:
+   745→            return MODEL_REGISTRY.get(
+   746→                registry_key,
+   747→                ModelConfig(
+   748→                    provider=provider, model_id=model_id,
+   749→                    display_name=model_id, tier=ModelTier.LIGHT,
+   750→                    priority=99, max_requests_per_day=14400,
+   751→                    max_tokens_per_minute=30000, context_window=8192,
+   752→                    api_endpoint_base="", is_openai_compatible=True,
+   753→                ),
+   754→            ).max_requests_per_day
+   755→        usage = self._usage[registry_key]
+   756→        return max(0, usage.daily_limit - usage.daily_count)
+   757→
+   758→    def check_rate_limit(
+   759→        self, provider: ModelProvider, model_id: str,
+   760→    ) -> bool:
+   761→        """Check if a provider+model is currently rate limited."""
+   762→        registry_key = f"{model_id}-{provider.value}"
+   763→        if registry_key not in self._usage:
+   764→            return False
+   765→        usage = self._usage[registry_key]
+   766→        return usage.rate_limited_until > time.time()
+   767→
+   768→    def reset_daily_counts(self) -> None:
+   769→        """Force-reset all daily counters."""
+   770→        for usage in self._usage.values():
+   771→            usage.daily_count = 0
+   772→        self._last_daily_reset = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+   773→        logger.info("Daily counts force-reset")
+   774→
+   775→    def get_all_status(self) -> dict:
+   776→        """Return health overview for all tracked provider+model combos."""
+   777→        self._reset_daily_if_needed()
+   778→        status: Dict[str, dict] = {}
+   779→        for registry_key, usage in self._usage.items():
+   780→            rpm_available = usage.get_rpm_available()
+   781→            status[registry_key] = {
+   782→                "provider": usage.provider.value,
+   783→                "rpm_used": usage.rpm_count,
+   784→                "rpm_limit": usage.rpm_limit,
+   785→                "rpm_available": rpm_available,
+   786→                "is_healthy": usage.is_healthy,
+   787→                "daily_count": usage.daily_count,
+   788→                "daily_limit": usage.daily_limit,
+   789→                "model_id": usage.model_id,
+   790→                "daily_remaining": max(0, usage.daily_limit - usage.daily_count),
+   791→                "minute_count": usage.minute_count,
+   792→                "minute_limit": usage.minute_limit,
+   793→                "consecutive_failures": usage.consecutive_failures,
+   794→                "last_error": usage.last_error,
+   795→                "rate_limited": usage.rate_limited_until > time.time(),
+   796→            }
+   797→        # Attach per-provider RPM sliding-window status (the real enforcement)
+   798→        status["_provider_rpm"] = self.get_provider_rpm_status()
+   799→        return status
+   800→
+   801→
+   802→# ── Exceptions ──────────────────────────────────────────────────────
+   803→
+   804→
+   805→class RateLimitError(Exception):
+   806→    """Raised when a provider returns HTTP 429 rate limit.
+   807→
+   808→    Carries provider/model info so the caller can record the cooldown.
+   809→    """
+   810→
+   811→    def __init__(
+   812→        self,
+   813→        provider: ModelProvider,
+   814→        model_id: str,
+   815→        retry_after: int = 0,
+   816→        detail: str = "",
+   817→    ) -> None:
+   818→        self.provider = provider
+   819→        self.model_id = model_id
+   820→        self.retry_after = retry_after
+   821→        self.detail = detail
+   822→        super().__init__(
+   823→            f"Rate limited: {model_id} ({provider.value}), "
+   824→            f"retry_after={retry_after}s, detail={detail}"
+   825→        )
+   826→
+   827→
+   828→# ── Routing Decision ───────────────────────────────────────────────
+   829→
+   830→
+   831→@dataclass
+   832→class RoutingDecision:
+   833→    """Result of the Smart Router's routing decision for one atomic step."""
+   834→    atomic_step_type: AtomicStepType
+   835→    model_config: ModelConfig
+   836→    provider: ModelProvider
+   837→    tier: ModelTier
+   838→    variant_type: str
+   839→    routing_reason: str
+   840→    fallback_models: List[ModelConfig] = field(default_factory=list)
+   841→    estimated_tokens: int = 0
+   842→    technique_boosted: bool = False
+   843→    routed_at: str = field(
+   844→        default_factory=lambda: datetime.now(timezone.utc).isoformat(),
+   845→    )
+   846→
+   847→
+   848→# ── Smart Router ───────────────────────────────────────────────────
+   849→
+   850→
+   851→class SmartRouter:
+   852→    """MAKER-Aware 3-Tier LLM Router (F-054).
+   853→
+   854→    Selects which AI model to use PER ATOMIC STEP (not per query).
+   855→    One customer query = 6-24 LLM calls via MAKER framework.
+   856→    Technique-boosted calls use LIGHT tier; only raw reasoning
+   857→    needs MEDIUM/HEAVY.
+   858→
+   859→    BC-007: All AI model interaction MUST go through Smart Router.
+   860→    BC-001: company_id is always second parameter.
+   861→    BC-008: Graceful degradation -- never crash.
+   862→    """
+   863→
+   864→    MAX_RETRIES = 2
+   865→    REQUEST_TIMEOUT_SECONDS = 30
+   866→
+   867→    def __init__(self, config: Any = None) -> None:
+   868→        """Initialize the router with model registry and shared health tracker."""
+   869→        self._config = config
+   870→        # Share health tracker across all instances
+   871→        self._health = ProviderHealthTracker()
+   872→        logger.info(
+   873→            "Smart Router initialized with %d models across %d tiers",
+   874→            len(MODEL_REGISTRY),
+   875→            len({m.tier for m in MODEL_REGISTRY.values()}),
+   876→        )
+   877→
+   878→    # ── Public API ──────────────────────────────────────────────
+   879→
+   880→    def route(
+   881→        self,
+   882→        company_id: str,
+   883→        variant_type: str,
+   884→        atomic_step: AtomicStepType,
+   885→        query_signals: Optional[dict] = None,
+   886→    ) -> RoutingDecision:
+   887→        """MAIN METHOD -- route one atomic step to a model.
+   888→
+   889→        BC-001: company_id is always second parameter.
+   890→        BC-008: Always returns a valid RoutingDecision.
+   891→        """
+   892→        try:
+   893→            return self._route_safe(
+   894→                company_id=company_id,
+   895→                variant_type=variant_type,
+   896→                atomic_step=atomic_step,
+   897→                query_signals=query_signals or {},
+   898→            )
+   899→        except Exception:
+   900→            # BC-008: Absolute safety net -- never crash
+   901→            logger.exception(
+   902→                "Smart Router routing failed, returning safe LIGHT fallback "
+   903→                "(company_id=%s, step=%s, variant=%s)",
+   904→                company_id, atomic_step.value, variant_type,
+   905→            )
+   906→            # Return first LIGHT model as ultimate fallback
+   907→            first_light = self._get_first_light_model()
+   908→            return RoutingDecision(
+   909→                atomic_step_type=atomic_step,
+   910→                model_config=first_light,
+   911→                provider=first_light.provider,
+   912→                tier=ModelTier.LIGHT,
+   913→                variant_type=variant_type,
+   914→                routing_reason="emergency_fallback_all_checks_failed",
+   915→            )
+   916→
+   917→    def route_batch(
+   918→        self,
+   919→        company_id: str,
+   920→        variant_type: str,
+   921→        steps: List[AtomicStepType],
+   922→        query_signals: Optional[dict] = None,
+   923→    ) -> List[RoutingDecision]:
+   924→        """Route multiple steps for a MAKER chain.
+   925→
+   926→        Returns a RoutingDecision for each atomic step, allowing
+   927→        the MAKER orchestrator to execute calls in parallel or sequence.
+   928→        """
+   929→        decisions: List[RoutingDecision] = []
+   930→        signals = query_signals or {}
+   931→        for step in steps:
+   932→            try:
+   933→                decision = self.route(company_id, variant_type, step, signals)
+   934→                decisions.append(decision)
+   935→            except Exception:
+   936→                # BC-008: Even in batch mode, never crash
+   937→                logger.exception(
+   938→                    "Batch routing failed for step=%s, inserting fallback",
+   939→                    step.value,
+   940→                )
+   941→                first_light = self._get_first_light_model()
+   942→                decisions.append(RoutingDecision(
+   943→                    atomic_step_type=step,
+   944→                    model_config=first_light,
+   945→                    provider=first_light.provider,
+   946→                    tier=ModelTier.LIGHT,
+   947→                    variant_type=variant_type,
+   948→                    routing_reason="batch_emergency_fallback",
+   949→                ))
+   950→        logger.info(
+   951→            "Batch routing complete: %d steps for company_id=%s, variant=%s",
+   952→            len(decisions), company_id, variant_type,
+   953→        )
+   954→        return decisions
+   955→
+   956→    def execute_llm_call(
+   957→        self,
+   958→        company_id: str,
+   959→        routing_decision: RoutingDecision,
+   960→        messages: list,
+   961→        temperature: float = 0.7,
+   962→        max_tokens: int = 1000,
+   963→    ) -> dict:
+   964→        """Execute an LLM API call using the routing decision.
+   965→
+   966→        Handles retry + fallback across providers.
+   967→        Uses sync wrapper over async HTTP calls.
+   968→
+   969→        BC-001: company_id is always second parameter.
+   970→        BC-008: Always returns a dict with 'content' key.
+   971→        """
+   972→        try:
+   973→            return self._execute_llm_call_safe(
+   974→                company_id, routing_decision, messages,
+   975→                temperature, max_tokens,
+   976→            )
+   977→        except Exception:
+   978→            # BC-008: Last resort fallback
+   979→            logger.exception(
+   980→                "execute_llm_call failed entirely (company_id=%s, model=%s)",
+   981→                company_id, routing_decision.model_config.model_id,
+   982→            )
+   983→            return {
+   984→                "content": "",
+   985→                "model": routing_decision.model_config.model_id,
+   986→                "provider": routing_decision.provider.value,
+   987→                "tier": routing_decision.tier.value,
+   988→                "atomic_step": routing_decision.atomic_step_type.value,
+   989→                "company_id": company_id,
+   990→                "fallback_used": True,
+   991→                "error": "All providers exhausted",
+   992→                "finish_reason": "error",
+   993→            }
+   994→
+   995→    async def async_execute_llm_call(
+   996→        self,
+   997→        company_id: str,
+   998→        routing_decision: RoutingDecision,
+   999→        messages: list,
+  1000→        temperature: float = 0.7,
+  1001→        max_tokens: int = 1000,
+  1002→    ) -> dict:
+  1003→        """Async version of execute_llm_call for MAKER concurrent execution.
+  1004→
+  1005→        Runs directly in the caller's event loop — no new_event_loop().
+  1006→        BC-001: company_id is always second parameter.
+  1007→        BC-008: Always returns a dict with 'content' key.
+  1008→        """
+  1009→        try:
+  1010→            return await self._execute_llm_call_safe_async(
+  1011→                company_id, routing_decision, messages,
+  1012→                temperature, max_tokens,
+  1013→            )
+  1014→        except Exception:
+  1015→            logger.exception(
+  1016→                "async_execute_llm_call failed (company_id=%s, model=%s)",
+  1017→                company_id, routing_decision.model_config.model_id,
+  1018→            )
+  1019→            return {
+  1020→                "content": "",
+  1021→                "model": routing_decision.model_config.model_id,
+  1022→                "provider": routing_decision.provider.value,
+  1023→                "tier": routing_decision.tier.value,
+  1024→                "atomic_step": routing_decision.atomic_step_type.value,
+  1025→                "company_id": company_id,
+  1026→                "fallback_used": True,
+  1027→                "error": "All providers exhausted",
+  1028→                "finish_reason": "error",
+  1029→            }
+  1030→
+  1031→    def get_variant_info(self, variant_type: str) -> dict:
+  1032→        """Return variant access info (SG-03)."""
+  1033→        allowed = self._get_allowed_tiers(variant_type)
+  1034→        models_by_tier: Dict[str, List[str]] = {}
+  1035→        for key, config in MODEL_REGISTRY.items():
+  1036→            tier_val = config.tier.value
+  1037→            if tier_val not in models_by_tier:
+  1038→                models_by_tier[tier_val] = []
+  1039→            if config.tier in allowed:
+  1040→                models_by_tier[tier_val].append(
+  1041→                    f"{config.display_name} ({config.provider.value})"
+  1042→                )
+  1043→        return {
+  1044→            "variant_type": variant_type,
+  1045→            "allowed_tiers": sorted(t.value for t in allowed),
+  1046→            "available_models": models_by_tier,
+  1047→            "total_available": sum(len(v) for v in models_by_tier.values()),
+  1048→        }
+  1049→
+  1050→    def get_provider_status(self) -> dict:
+  1051→        """Return all provider health status."""
+  1052→        return self._health.get_all_status()
+  1053→
+  1054→    # ── Internal Routing Logic ──────────────────────────────────
+  1055→
+  1056→    def _route_safe(
+  1057→        self,
+  1058→        company_id: str,
+  1059→        variant_type: str,
+  1060→        atomic_step: AtomicStepType,
+  1061→        query_signals: dict,
+  1062→    ) -> RoutingDecision:
+  1063→        """Safe routing with fallback chain."""
+  1064→        allowed_tiers = self._get_allowed_tiers(variant_type)
+  1065→        target_tier = self._get_step_tier(atomic_step, allowed_tiers, query_signals)
+  1066→
+  1067→        # GUARDRAIL is special -- always allowed, never downgraded
+  1068→        if target_tier == ModelTier.GUARDRAIL:
+  1069→            model, fallbacks = self._select_model(ModelTier.GUARDRAIL, query_signals)
+  1070→            return RoutingDecision(
+  1071→                atomic_step_type=atomic_step,
+  1072→                model_config=model,
+  1073→                provider=model.provider,
+  1074→                tier=ModelTier.GUARDRAIL,
+  1075→                variant_type=variant_type,
+  1076→                routing_reason=f"guardrail_step_always_guardrail_model",
+  1077→                fallback_models=fallbacks,
+  1078→                estimated_tokens=200,
+  1079→            )
+  1080→
+  1081→        # Try target tier first
+  1082→        model, fallbacks = self._select_model(target_tier, query_signals)
+  1083→        if model is not None and self._is_model_available(model):
+  1084→            reason = self._build_routing_reason(
+  1085→                target_tier, model, query_signals, atomic_step, variant_type,
+  1086→            )
+  1087→            return RoutingDecision(
+  1088→                atomic_step_type=atomic_step,
+  1089→                model_config=model,
+  1090→                provider=model.provider,
+  1091→                tier=target_tier,
+  1092→                variant_type=variant_type,
+  1093→                routing_reason=reason,
+  1094→                fallback_models=fallbacks,
+  1095→                estimated_tokens=self._estimate_tokens(atomic_step),
+  1096→                technique_boosted=self._is_technique_boosted(atomic_step),
+  1097→            )
+  1098→
+  1099→        # Fallback within same tier
+  1100→        fallback_model = self._fallback_within_tier(target_tier)
+  1101→        if fallback_model is not None:
+  1102→            logger.warning(
+  1103→                "Primary model unavailable for tier=%s step=%s, "
+  1104→                "using fallback within tier: %s",
+  1105→                target_tier.value, atomic_step.value,
+  1106→                fallback_model.display_name,
+  1107→            )
+  1108→            return RoutingDecision(
+  1109→                atomic_step_type=atomic_step,
+  1110→                model_config=fallback_model,
+  1111→                provider=fallback_model.provider,
+  1112→                tier=target_tier,
+  1113→                variant_type=variant_type,
+  1114→                routing_reason=f"fallback_within_{target_tier.value}",
+  1115→                estimated_tokens=self._estimate_tokens(atomic_step),
+  1116→            )
+  1117→
+  1118→        # Fallback to lower tier
+  1119→        lower_model = self._fallback_to_lower_tier(target_tier, allowed_tiers)
+  1120→        if lower_model is not None:
+  1121→            logger.warning(
+  1122→                "All models in tier=%s unavailable for step=%s, "
+  1123→                "degraded to tier=%s: %s",
+  1124→                target_tier.value, atomic_step.value,
+  1125→                lower_model.tier.value, lower_model.display_name,
+  1126→            )
+  1127→            return RoutingDecision(
+  1128→                atomic_step_type=atomic_step,
+  1129→                model_config=lower_model,
+  1130→                provider=lower_model.provider,
+  1131→                tier=lower_model.tier,
+  1132→                variant_type=variant_type,
+  1133→                routing_reason=(
+  1134→                    f"degraded_from_{target_tier.value}_"
+  1135→                    f"to_{lower_model.tier.value}"
+  1136→                ),
+  1137→                estimated_tokens=self._estimate_tokens(atomic_step),
+  1138→            )
+  1139→
+  1140→        # BC-008: Absolute fallback -- first LIGHT model
+  1141→        first_light = self._get_first_light_model()
+  1142→        logger.error(
+  1143→            "All tiers exhausted for step=%s, using absolute LIGHT fallback: %s",
+  1144→            atomic_step.value, first_light.display_name,
+  1145→        )
+  1146→        return RoutingDecision(
+  1147→            atomic_step_type=atomic_step,
+  1148→            model_config=first_light,
+  1149→            provider=first_light.provider,
+  1150→            tier=ModelTier.LIGHT,
+  1151→            variant_type=variant_type,
+  1152→            routing_reason="absolute_emergency_light_fallback",
+  1153→            estimated_tokens=self._estimate_tokens(atomic_step),
+  1154→        )
+  1155→
+  1156→    def _get_allowed_tiers(self, variant_type: str) -> Set[ModelTier]:
+  1157→        """Get allowed tiers for a variant type (SG-03).
+  1158→
+  1159→        Unknown variant types default to mini_parwa (safest).
+  1160→        """
+  1161→        if variant_type not in VARIANT_MODEL_ACCESS:
+  1162→            logger.warning(
+  1163→                "Unknown variant_type=%s, defaulting to mini_parwa (safest)",
+  1164→                variant_type,
+  1165→            )
+  1166→            return VARIANT_MODEL_ACCESS["mini_parwa"]
+  1167→        return VARIANT_MODEL_ACCESS[variant_type]
+  1168→
+  1169→    def _get_step_tier(
+  1170→        self,
+  1171→        atomic_step: AtomicStepType,
+  1172→        allowed_tiers: Set[ModelTier],
+  1173→        query_signals: dict,
+  1174→    ) -> ModelTier:
+  1175→        """Pick the tier for a given atomic step.
+  1176→
+  1177→        Respects variant gating: if recommended tier is not allowed,
+  1178→        degrades to the highest allowed tier.
+  1179→        """
+  1180→        recommended = STEP_TIER_MAPPING.get(atomic_step, ModelTier.LIGHT)
+  1181→
+  1182→        # GUARDRAIL tier is always allowed regardless of variant
+  1183→        if recommended == ModelTier.GUARDRAIL:
+  1184→            return ModelTier.GUARDRAIL
+  1185→
+  1186→        # Check if recommended tier is allowed by variant
+  1187→        if recommended in allowed_tiers:
+  1188→            return recommended
+  1189→
+  1190→        # Degrade to highest allowed tier
+  1191→        for tier in TIER_FALLBACK_ORDER:
+  1192→            if tier in allowed_tiers:
+  1193→                logger.info(
+  1194→                    "Step %s: recommended tier=%s not allowed by variant, "
+  1195→                    "degraded to tier=%s",
+  1196→                    atomic_step.value, recommended.value, tier.value,
+  1197→                )
+  1198→                return tier
+  1199→
+  1200→        # LIGHT is always allowed (it's in every variant)
+  1201→        return ModelTier.LIGHT
+  1202→
+  1203→    def _select_model(
+  1204→        self,
+  1205→        tier: ModelTier,
+  1206→        query_signals: dict,
+  1207→    ) -> Tuple[Optional[ModelConfig], List[ModelConfig]]:
+  1208→        """Pick primary model + list of fallbacks for a tier.
+  1209→
+  1210→        Models within a tier are sorted by priority (1 = best).
+  1211→        Returns (primary_model, fallback_models_list).
+  1212→        """
+  1213→        tier_models = [
+  1214→            config for config in MODEL_REGISTRY.values()
+  1215→            if config.tier == tier
+  1216→        ]
+  1217→        tier_models.sort(key=lambda m: m.priority)
+  1218→
+  1219→        primary: Optional[ModelConfig] = None
+  1220→        fallbacks: List[ModelConfig] = []
+  1221→
+  1222→        for model in tier_models:
+  1223→            if primary is None:
+  1224→                if self._is_model_available(model):
+  1225→                    primary = model
+  1226→                else:
+  1227→                    fallbacks.append(model)
+  1228→            else:
+  1229→                fallbacks.append(model)
+  1230→
+  1231→        # If no model is available, return first model anyway (BC-008)
+  1232→        if primary is None and tier_models:
+  1233→            primary = tier_models[0]
+  1234→            fallbacks = tier_models[1:]
+  1235→            logger.warning(
+  1236→                "No available model in tier=%s, forcing primary: %s",
+  1237→                tier.value, primary.display_name,
+  1238→            )
+  1239→
+  1240→        return primary, fallbacks
+  1241→
+  1242→    def _is_model_available(self, model_config: ModelConfig) -> bool:
+  1243→        """Check if a model's provider is healthy and under rate limits."""
+  1244→        return self._health.is_available(
+  1245→            model_config.provider, model_config.model_id,
+  1246→        )
+  1247→
+  1248→    def _fallback_within_tier(self, tier: ModelTier) -> Optional[ModelConfig]:
+  1249→        """Find next available model in the same tier."""
+  1250→        tier_models = [
+  1251→            config for config in MODEL_REGISTRY.values()
+  1252→            if config.tier == tier
+  1253→        ]
+  1254→        tier_models.sort(key=lambda m: m.priority)
+  1255→
+  1256→        for model in tier_models:
+  1257→            if self._is_model_available(model):
+  1258→                return model
+  1259→        return None
+  1260→
+  1261→    def _fallback_to_lower_tier(
+  1262→        self,
+  1263→        current_tier: ModelTier,
+  1264→        allowed_tiers: Set[ModelTier],
+  1265→    ) -> Optional[ModelConfig]:
+  1266→        """Degrade to the next lower available tier."""
+  1267→        tier_order = [ModelTier.HEAVY, ModelTier.MEDIUM, ModelTier.LIGHT]
+  1268→        try:
+  1269→            current_idx = tier_order.index(current_tier)
+  1270→        except ValueError:
+  1271→            current_idx = 0
+  1272→
+  1273→        for i in range(current_idx + 1, len(tier_order)):
+  1274→            lower_tier = tier_order[i]
+  1275→            if lower_tier not in allowed_tiers:
+  1276→                continue
+  1277→            model = self._fallback_within_tier(lower_tier)
+  1278→            if model is not None:
+  1279→                return model
+  1280→
+  1281→        return None
+  1282→
+  1283→    def _get_first_light_model(self) -> ModelConfig:
+  1284→        """Get the first LIGHT model as ultimate fallback."""
+  1285→        for config in MODEL_REGISTRY.values():
+  1286→            if config.tier == ModelTier.LIGHT:
+  1287→                return config
+  1288→        # Should never happen, but BC-008 demands a return
+  1289→        return ModelConfig(
+  1290→            provider=ModelProvider.CEREBRAS,
+  1291→            model_id="gpt-oss-120b",
+  1292→            display_name="Emergency Fallback GPT-OSS 120B",
+  1293→            tier=ModelTier.LIGHT,
+  1294→            priority=99,
+  1295→            max_requests_per_day=14400,
+  1296→            max_tokens_per_minute=60000,
+  1297→            context_window=8192,
+  1298→            api_endpoint_base="https://api.cerebras.ai/v1/chat/completions",
+  1299→            is_openai_compatible=True,
+  1300→        )
+  1301→
+  1302→    def _build_routing_reason(
+  1303→        self,
+  1304→        tier: ModelTier,
+  1305→        model: ModelConfig,
+  1306→        query_signals: dict,
+  1307→        atomic_step: AtomicStepType,
+  1308→        variant_type: str,
+  1309→    ) -> str:
+  1310→        """Build human-readable routing reason string."""
+  1311→        parts = [f"step={atomic_step.value}"]
+  1312→        parts.append(f"tier={tier.value}")
+  1313→
+  1314→        if query_signals.get("query_complexity", 0) > 0.7:
+  1315→            parts.append("high_complexity")
+  1316→        if query_signals.get("sentiment_score", 0.7) < 0.3:
+  1317→            parts.append("low_sentiment")
+  1318→        if query_signals.get("customer_tier") == "vip":
+  1319→            parts.append("vip_customer")
+  1320→
+  1321→        if self._is_technique_boosted(atomic_step):
+  1322→            parts.append("technique_boosted")
+  1323→
+  1324→        parts.append(f"variant={variant_type}")
+  1325→        parts.append(f"model={model.display_name}")
+  1326→
+  1327→        return "|".join(parts)
+  1328→
+  1329→    @staticmethod
+  1330→    def _estimate_tokens(atomic_step: AtomicStepType) -> int:
+  1331→        """Rough token estimate per atomic step."""
+  1332→        estimates = {
+  1333→            AtomicStepType.INTENT_CLASSIFICATION: 100,
+  1334→            AtomicStepType.PII_REDACTION: 150,
+  1335→            AtomicStepType.SENTIMENT_ANALYSIS: 80,
+  1336→            AtomicStepType.CLARA_QUALITY_GATE: 60,
+  1337→            AtomicStepType.CRP_TOKEN_TRIM: 50,
+  1338→            AtomicStepType.GSD_STATE_STEP: 70,
+  1339→            AtomicStepType.MAD_DECOMPOSE: 120,
+  1340→            AtomicStepType.MAD_ATOM_SIMPLE: 100,
+  1341→            AtomicStepType.MAD_ATOM_REASONING: 400,
+  1342→            AtomicStepType.COT_REASONING: 350,
+  1343→            AtomicStepType.FAKE_VOTING: 80,
+  1344→            AtomicStepType.CONSENSUS_ANALYSIS: 150,
+  1345→            AtomicStepType.DRAFT_RESPONSE_SIMPLE: 200,
+  1346→            AtomicStepType.DRAFT_RESPONSE_MODERATE: 500,
+  1347→            AtomicStepType.DRAFT_RESPONSE_COMPLEX: 800,
+  1348→            AtomicStepType.REFLEXION_CYCLE: 400,
+  1349→            AtomicStepType.ESCALATE_TO_HUMAN: 50,
+  1350→            AtomicStepType.GUARDRAIL_CHECK: 100,
+  1351→        }
+  1352→        return estimates.get(atomic_step, 200)
+  1353→
+  1354→    @staticmethod
+  1355→    def _is_technique_boosted(atomic_step: AtomicStepType) -> bool:
+  1356→        """Check if this step's intelligence comes from a technique, not model."""
+  1357→        technique_boosted_steps = {
+  1358→            AtomicStepType.COT_REASONING,
+  1359→            AtomicStepType.FAKE_VOTING,
+  1360→            AtomicStepType.CONSENSUS_ANALYSIS,
+  1361→            AtomicStepType.CLARA_QUALITY_GATE,
+  1362→            AtomicStepType.CRP_TOKEN_TRIM,
+  1363→            AtomicStepType.GSD_STATE_STEP,
+  1364→        }
+  1365→        return atomic_step in technique_boosted_steps
+  1366→
+  1367→    # ── LLM Execution ───────────────────────────────────────────
+  1368→
+  1369→    def _execute_llm_call_safe(
+  1370→        self,
+  1371→        company_id: str,
+  1372→        routing_decision: RoutingDecision,
+  1373→        messages: list,
+  1374→        temperature: float,
+  1375→        max_tokens: int,
+  1376→    ) -> dict:
+  1377→        """Execute LLM call via LiteLLM with retry + fallback (sync).
+  1378→
+  1379→        BC-001: company_id is always second parameter.
+  1380→        BC-008: Always returns a dict with 'content' key.
+  1381→        """
+  1382→        config = routing_decision.model_config
+  1383→        provider = config.provider
+  1384→        model_id = config.model_id
+  1385→
+  1386→        # Try LiteLLM first, fall back to raw HTTP on auth/missing errors
+  1387→        use_litellm = _HAS_LITELLM and litellm is not None
+  1388→        api_key = self._get_api_key(provider) if use_litellm else None
+  1389→
+  1390→        for attempt in range(self.MAX_RETRIES + 1):
+  1391→            try:
+  1392→                # Acquire per-provider RPM slot (waits at 0, never switches)
+  1393→                self._health.acquire_provider_slot(provider)
+  1394→
+  1395→                if use_litellm and api_key:
+  1396→                    result = self._call_litellm_sync(
+  1397→                        provider=provider,
+  1398→                        model_id=model_id,
+  1399→                        messages=messages,
+  1400→                        temperature=temperature,
+  1401→                        max_tokens=max_tokens,
+  1402→                    )
+  1403→                    self._health.record_success(
+  1404→                        provider, model_id,
+  1405→                        tokens_used=result.get("tokens_used", 0),
+  1406→                    )
+  1407→                    return result
+  1408→                else:
+  1409→                    # Fallback to raw HTTP if litellm not available or no API key
+  1410→                    result = self._call_provider(
+  1411→                        provider=provider,
+  1412→                        model_id=model_id,
+  1413→                        config=config,
+  1414→                        messages=messages,
+  1415→                        temperature=temperature,
+  1416→                        max_tokens=max_tokens,
+  1417→                        company_id=company_id,
+  1418→                    )
+  1419→                    self._health.record_success(
+  1420→                        provider, model_id,
+  1421→                        tokens_used=result.get("tokens_used", 0),
+  1422→                    )
+  1423→                    return result
+  1424→            except RateLimitError as rle:
+  1425→                self._health.record_rate_limit(
+  1426→                    provider, model_id,
+  1427→                    retry_after_seconds=rle.retry_after,
+  1428→                )
+  1429→                logger.warning(
+  1430→                    "Rate limited: %s model=%s attempt=%d retry_after=%d",
+  1431→                    provider.value, model_id, attempt + 1, rle.retry_after,
+  1432→                )
+  1433→                if attempt < self.MAX_RETRIES:
+  1434→                    continue
+  1435→            except Exception as exc:
+  1436→                # If litellm auth fails, switch to raw HTTP for remaining retries
+  1437→                if use_litellm and api_key and ("auth" in str(exc).lower() or "api_key" in str(exc).lower()):
+  1438→                    logger.warning(
+  1439→                        "LiteLLM auth failed, switching to raw HTTP: %s",
+  1440→                        str(exc),
+  1441→                    )
+  1442→                    use_litellm = False
+  1443→                    api_key = None
+  1444→                    continue
+  1445→                self._health.record_failure(provider, model_id, str(exc))
+  1446→                logger.warning(
+  1447→                    "Call failed: %s model=%s attempt=%d error=%s",
+  1448→                    provider.value, model_id, attempt + 1, str(exc),
+  1449→                )
+  1450→                if attempt < self.MAX_RETRIES:
+  1451→                    continue
+  1452→
+  1453→        # All retries exhausted, try fallback models
+  1454→        for fb in routing_decision.fallback_models:
+  1455→            if self._is_model_available(fb):
+  1456→                try:
+  1457→                    # Acquire RPM slot for the FALLBACK provider (may differ
+  1458→                    # from primary provider — track per-provider, not per-model)
+  1459→                    self._health.acquire_provider_slot(fb.provider)
+  1460→
+  1461→                    if _HAS_LITELLM and litellm is not None:
+  1462→                        result = self._call_litellm_sync(
+  1463→                            provider=fb.provider,
+  1464→                            model_id=fb.model_id,
+  1465→                            messages=messages,
+  1466→                            temperature=temperature,
+  1467→                            max_tokens=max_tokens,
+  1468→                        )
+  1469→                        self._health.record_success(fb.provider, fb.model_id)
+  1470→                        result["fallback_used"] = True
+  1471→                        return result
+  1472→                except Exception as exc:
+  1473→                    logger.warning(
+  1474→                        "Fallback failed: %s model=%s error=%s",
+  1475→                        fb.provider.value, fb.model_id, str(exc),
+  1476→                    )
+  1477→                    continue
+  1478→
+  1479→        # BC-008: Return empty fallback
+  1480→        return {
+  1481→            "content": "",
+  1482→            "model": model_id,
+  1483→            "provider": provider.value,
+  1484→            "tier": routing_decision.tier.value,
+  1485→            "atomic_step": routing_decision.atomic_step_type.value,
+  1486→            "company_id": company_id,
+  1487→            "fallback_used": True,
+  1488→            "error": "All providers exhausted",
+  1489→            "finish_reason": "error",
+  1490→        }
+  1491→
+  1492→    async def _execute_llm_call_safe_async(
+  1493→        self,
+  1494→        company_id: str,
+  1495→        routing_decision: RoutingDecision,
+  1496→        messages: list,
+  1497→        temperature: float,
+  1498→        max_tokens: int,
+  1499→    ) -> dict:
+  1500→        """Execute LLM call via LiteLLM with retry + fallback (async).
+  1501→
+  1502→        BC-001: company_id is always second parameter.
+  1503→        BC-008: Always returns a dict with 'content' key.
+  1504→        """
+  1505→        config = routing_decision.model_config
+  1506→        provider = config.provider
+  1507→        model_id = config.model_id
+  1508→
+  1509→        for attempt in range(self.MAX_RETRIES + 1):
+  1510→            try:
+  1511→                # Acquire per-provider RPM slot (waits at 0, never switches).
+  1512→                # Blocking call — acceptable because each pipeline runs in its
+  1513→                # own worker thread with its own event loop.
+  1514→                self._health.acquire_provider_slot(provider)
+  1515→
+  1516→                if _HAS_LITELLM and litellm is not None:
+  1517→                    result = await self._call_litellm_async(
+  1518→                        provider=provider,
+  1519→                        model_id=model_id,
+  1520→                        messages=messages,
+  1521→                        temperature=temperature,
+  1522→                        max_tokens=max_tokens,
+  1523→                    )
+  1524→                    self._health.record_success(
+  1525→                        provider, model_id,
+  1526→                        tokens_used=result.get("tokens_used", 0),
+  1527→                    )
+  1528→                    return result
+  1529→                else:
+  1530→                    # Fallback to raw async HTTP if litellm not available
+  1531→                    if config.is_openai_compatible:
+  1532→                        result = await self._call_openai_compatible_async(
+  1533→                            model_config=config,
+  1534→                            messages=messages,
+  1535→                            temperature=temperature,
+  1536→                            max_tokens=max_tokens,
+  1537→                        )
+  1538→                    else:
+  1539→                        result = await self._call_google_async(
+  1540→                            model_config=config,
+  1541→                            messages=messages,
+  1542→                            temperature=temperature,
+  1543→                            max_tokens=max_tokens,
+  1544→                        )
+  1545→                    self._health.record_success(
+  1546→                        provider, model_id,
+  1547→                        tokens_used=result.get("tokens_used", 0),
+  1548→                    )
+  1549→                    return result
+  1550→            except RateLimitError as rle:
+  1551→                self._health.record_rate_limit(
+  1552→                    provider, model_id,
+  1553→                    retry_after_seconds=rle.retry_after,
+  1554→                )
+  1555→                if attempt < self.MAX_RETRIES:
+  1556→                    await asyncio.sleep(1)
+  1557→                    continue
+  1558→            except Exception as exc:
+  1559→                self._health.record_failure(provider, model_id, str(exc))
+  1560→                if attempt < self.MAX_RETRIES:
+  1561→                    await asyncio.sleep(1)
+  1562→                    continue
+  1563→
+  1564→        # All retries exhausted, try fallback models
+  1565→        for fb in routing_decision.fallback_models:
+  1566→            if self._is_model_available(fb):
+  1567→                try:
+  1568→                    # Acquire RPM slot for the FALLBACK provider (may differ
+  1569→                    # from primary provider — track per-provider, not per-model)
+  1570→                    self._health.acquire_provider_slot(fb.provider)
+  1571→
+  1572→                    if _HAS_LITELLM and litellm is not None:
+  1573→                        result = await self._call_litellm_async(
+  1574→                            provider=fb.provider,
+  1575→                            model_id=fb.model_id,
+  1576→                            messages=messages,
+  1577→                            temperature=temperature,
+  1578→                            max_tokens=max_tokens,
+  1579→                        )
+  1580→                        self._health.record_success(fb.provider, fb.model_id)
+  1581→                        result["fallback_used"] = True
+  1582→                        return result
+  1583→                    elif fb.is_openai_compatible:
+  1584→                        result = await self._call_openai_compatible_async(
+  1585→                            model_config=fb,
+  1586→                            messages=messages,
+  1587→                            temperature=temperature,
+  1588→                            max_tokens=max_tokens,
+  1589→                        )
+  1590→                        self._health.record_success(fb.provider, fb.model_id)
+  1591→                        result["fallback_used"] = True
+  1592→                        return result
+  1593→                except Exception as exc:
+  1594→                    logger.warning("fallback_model_failed provider=%s error=%s", fb.provider.value, str(exc)[:150])
+  1595→                    continue
+  1596→
+  1597→        return {
+  1598→            "content": "",
+  1599→            "model": model_id,
+  1600→            "provider": provider.value,
+  1601→            "tier": routing_decision.tier.value,
+  1602→            "atomic_step": routing_decision.atomic_step_type.value,
+  1603→            "company_id": company_id,
+  1604→            "fallback_used": True,
+  1605→            "error": "All providers exhausted",
+  1606→            "finish_reason": "error",
+  1607→        }
+  1608→
+  1609→    # ── LiteLLM Integration (BC-007) ──────────────────────────────
+  1610→
+  1611→    @staticmethod
+  1612→    def _build_litellm_model_name(provider: ModelProvider, model_id: str) -> str:
+  1613→        """Build the LiteLLM model name from provider and model_id.
+  1614→
+  1615→        LiteLLM uses format: provider/model_id for custom providers.
+  1616→        For OpenAI-compatible: openai/model_id or just model_id.
+  1617→        """
+  1618→        mapping = {
+  1619→            ModelProvider.CEREBRAS: f"cerebras/{model_id}",
+  1620→            ModelProvider.GROQ: f"groq/{model_id}",
+  1621→            ModelProvider.GOOGLE: f"gemini/{model_id}",
+  1622→            ModelProvider.NVIDIA: f"nvidia/{model_id}",
+  1623→            ModelProvider.AI21: f"ai21/{model_id}",
+  1624→        }
+  1625→        return mapping.get(provider, f"openai/{model_id}")
+  1626→
+  1627→    def _call_litellm_sync(
+  1628→        self,
+  1629→        provider: ModelProvider,
+  1630→        model_id: str,
+  1631→        messages: list,
+  1632→        temperature: float,
+  1633→        max_tokens: int,
+  1634→    ) -> dict:
+  1635→        """Make a synchronous LLM call via LiteLLM.
+  1636→
+  1637→        Uses LiteLLM's unified API which handles provider-specific
+  1638→        payload formatting, retries, and token counting.
+  1639→
+  1640→        BC-007: All AI interaction through Smart Router.
+  1641→        """
+  1642→        litellm_model = self._build_litellm_model_name(provider, model_id)
+  1643→
+  1644→        # Set API keys from environment
+  1645→        api_key = self._get_api_key(provider)
+  1646→        kwargs: Dict[str, Any] = {
+  1647→            "model": litellm_model,
+  1648→            "messages": messages,
+  1649→            "temperature": temperature,
+  1650→            "max_tokens": max_tokens,
+  1651→            "timeout": self.REQUEST_TIMEOUT_SECONDS,
+  1652→        }
+  1653→        if api_key:
+  1654→            kwargs["api_key"] = api_key
+  1655→
+  1656→        response = litellm.completion(**kwargs)  # type: ignore[union-attr]
+  1657→        choice = response.choices[0]
+  1658→        content = choice.message.content or ""
+  1659→        usage = response.usage
+  1660→
+  1661→        return {
+  1662→            "content": content,
+  1663→            "model": model_id,
+  1664→            "provider": provider.value,
+  1665→            "finish_reason": choice.finish_reason or "stop",
+  1666→            "tokens_used": getattr(usage, 'total_tokens', 0),
+  1667→            "prompt_tokens": getattr(usage, 'prompt_tokens', 0),
+  1668→            "completion_tokens": getattr(usage, 'completion_tokens', 0),
+  1669→        }
+  1670→
+  1671→    async def _call_litellm_async(
+  1672→        self,
+  1673→        provider: ModelProvider,
+  1674→        model_id: str,
+  1675→        messages: list,
+  1676→        temperature: float,
+  1677→        max_tokens: int,
+  1678→    ) -> dict:
+  1679→        """Make an async LLM call via LiteLLM.
+  1680→
+  1681→        BC-007: All AI interaction through Smart Router.
+  1682→        """
+  1683→        litellm_model = self._build_litellm_model_name(provider, model_id)
+  1684→
+  1685→        api_key = self._get_api_key(provider)
+  1686→        kwargs: Dict[str, Any] = {
+  1687→            "model": litellm_model,
+  1688→            "messages": messages,
+  1689→            "temperature": temperature,
+  1690→            "max_tokens": max_tokens,
+  1691→            "timeout": self.REQUEST_TIMEOUT_SECONDS,
+  1692→        }
+  1693→        if api_key:
+  1694→            kwargs["api_key"] = api_key
+  1695→
+  1696→        response = await litellm.acompletion(**kwargs)  # type: ignore[union-attr]
+  1697→        choice = response.choices[0]
+  1698→        content = choice.message.content or ""
+  1699→        usage = response.usage
+  1700→
+  1701→        return {
+  1702→            "content": content,
+  1703→            "model": model_id,
+  1704→            "provider": provider.value,
+  1705→            "finish_reason": choice.finish_reason or "stop",
+  1706→            "tokens_used": getattr(usage, 'total_tokens', 0),
+  1707→            "prompt_tokens": getattr(usage, 'prompt_tokens', 0),
+  1708→            "completion_tokens": getattr(usage, 'completion_tokens', 0),
+  1709→        }
+  1710→
+  1711→    def _get_api_key(self, provider: ModelProvider) -> Optional[str]:
+  1712→        """Get API key for a provider from environment variables or Settings.
+  1713→
+  1714→        Checks multiple env var names for compatibility:
+  1715→        - Google: GOOGLE_API_KEY, GEMINI_API_KEY, GOOGLE_AI_API_KEY
+  1716→        - Groq: GROQ_API_KEY
+  1717→        - Cerebras: CEREBRAS_API_KEY
+  1718→        """
+  1719→        key_map = {
+  1720→            ModelProvider.CEREBRAS: (
+  1721→                os.environ.get("CEREBRAS_API_KEY")
+  1722→            ),
+  1723→            ModelProvider.GROQ: (
+  1724→                os.environ.get("GROQ_API_KEY")
+  1725→            ),
+  1726→            ModelProvider.GOOGLE: (
+  1727→                os.environ.get("GOOGLE_API_KEY")
+  1728→                or os.environ.get("GEMINI_API_KEY")
+  1729→                or os.environ.get("GOOGLE_AI_API_KEY")
+  1730→            ),
+  1731→            ModelProvider.NVIDIA: (
+  1732→                os.environ.get("NVIDIA_API_KEY")
+  1733→            ),
+  1734→            ModelProvider.AI21: (
+  1735→                os.environ.get("AI21_API_KEY")
+  1736→            ),
+  1737→        }
+  1738→        key = key_map.get(provider)
+  1739→
+  1740→        # Also try loading from Settings class (pydantic-settings)
+  1741→        if not key:
+  1742→            try:
+  1743→                from app.config import get_settings
+  1744→                settings = get_settings()
+  1745→                if provider == ModelProvider.CEREBRAS:
+  1746→                    key = getattr(settings, "CEREBRAS_API_KEY", None)
+  1747→                elif provider == ModelProvider.GROQ:
+  1748→                    key = getattr(settings, "GROQ_API_KEY", None)
+  1749→                elif provider == ModelProvider.GOOGLE:
+  1750→                    key = (
+  1751→                        getattr(settings, "GOOGLE_AI_API_KEY", None)
+  1752→                        or getattr(settings, "GOOGLE_API_KEY", None)
+  1753→                        or getattr(settings, "GEMINI_API_KEY", None)
+  1754→                    )
+  1755→            except Exception:
+  1756→                pass  # Settings not available (missing required vars)
+  1757→
+  1758→        return key or None
+  1759→
+  1760→    def _call_provider(
+  1761→        self,
+  1762→        model_config: ModelConfig,
+  1763→        messages: list,
+  1764→        temperature: float,
+  1765→        max_tokens: int,
+  1766→    ) -> dict:
+  1767→        """Call the appropriate LLM provider API.
+  1768→
+  1769→        Sync wrapper -- runs async call in event loop.
+  1770→        """
+  1771→        # Use httpx synchronous client instead of asyncio.new_event_loop()
+  1772→        # to avoid "attached to a different loop" errors in FastAPI.
+  1773→        import httpx
+  1774→
+  1775→        headers = {}
+  1776→        body: dict = {}
+  1777→
+  1778→        if model_config.is_openai_compatible:
+  1779→            api_url = model_config.base_url
+  1780→            api_key = model_config.api_key or ""
+  1781→            headers["Authorization"] = f"Bearer {api_key}"
+  1782→            headers["Content-Type"] = "application/json"
+  1783→            body = {
+  1784→                "model": model_config.model_id,
+  1785→                "messages": messages,
+  1786→                "temperature": temperature,
+  1787→                "max_tokens": max_tokens,
+  1788→            }
+  1789→        else:
+  1790→            # Google AI Studio
+  1791→            api_key = model_config.api_key or ""
+  1792→            headers["x-goog-api-key"] = api_key
+  1793→            headers["Content-Type"] = "application/json"
+  1794→            # Google API uses a different structure
+  1795→            body = {
+  1796→                "contents": [],
+  1797→                "generationConfig": {
+  1798→                    "temperature": temperature,
+  1799→                    "maxOutputTokens": max_tokens,
+  1800→                },
+  1801→            }
+  1802→            for msg in messages:
+  1803→                role = msg.get("role", "user")
+  1804→                content = msg.get("content", "")
+  1805→                if isinstance(content, str):
+  1806→                    body["contents"].append({"role": role, "parts": [{"text": content}]})
+  1807→                elif isinstance(content, list):
+  1808→                    parts = [{"text": p.get("text", "")} for p in content if isinstance(p, dict)]
+  1809→                    body["contents"].append({"role": role, "parts": parts})
+  1810→
+  1811→        try:
+  1812→            with httpx.Client(timeout=30.0) as client:
+  1813→                response = client.post(model_config.base_url, headers=headers, json=body)
+  1814→                response.raise_for_status()
+  1815→                data = response.json()
+  1816→
+  1817→            if model_config.is_openai_compatible:
+  1818→                return data
+  1819→            else:
+  1820→                # Parse Google format
+  1821→                candidates = data.get("candidates", [])
+  1822→                if candidates:
+  1823→                    text_parts = candidates[0].get("content", {}).get("parts", [])
+  1824→                    return {
+  1825→                        "choices": [{
+  1826→                            "message": {"role": "assistant", "content": text_parts[0].get("text", "")}
+  1827→                        }],
+  1828→                        "usage": data.get("usageMetadata", {}),
+  1829→                    }
+  1830→                return {"choices": [{"message": {"role": "assistant", "content": ""}}]}
+  1831→        except Exception as exc:
+  1832→            raise RuntimeError(f"LLM call failed for {model_config.model_id}: {exc}") from exc
+  1833→
+  1834→    @staticmethod
+  1835→    async def _call_google_async(
+  1836→        model_config: ModelConfig,
+  1837→        messages: list,
+  1838→        temperature: float,
+  1839→        max_tokens: int,
+  1840→    ) -> dict:
+  1841→        """Call Google AI Studio API (async)."""
+  1842→        import aiohttp
+  1843→
+  1844→        # Lazy import of config for API key
+  1845→        from app.config import get_settings
+  1846→        settings = get_settings()
+  1847→        api_key = settings.GOOGLE_AI_API_KEY
+  1848→
+  1849→        if not api_key:
+  1850→            raise ValueError("GOOGLE_AI_API_KEY not configured")
+  1851→
+  1852→        url = (
+  1853→            f"{model_config.api_endpoint_base}/"
+  1854→            f"{model_config.model_id}:generateContent?key={api_key}"
+  1855→        )
+  1856→
+  1857→        # Convert OpenAI-style messages to Google format
+  1858→        # Use systemInstruction for system messages (Google-native)
+  1859→        contents = []
+  1860→        system_instruction = None
+  1861→        for msg in messages:
+  1862→            role = msg.get("role", "user")
+  1863→            text = msg.get("content", "")
+  1864→            if role == "system":
+  1865→                # Google supports system via systemInstruction field
+  1866→                system_instruction = text
+  1867→            else:
+  1868→                contents.append({"role": role, "parts": [{"text": text}]})
+  1869→
+  1870→        payload = {
+  1871→            "contents": contents,
+  1872→            "generationConfig": {
+  1873→                "temperature": temperature,
+  1874→                "maxOutputTokens": max_tokens,
+  1875→            },
+  1876→        }
+  1877→        if system_instruction:
+  1878→            payload["systemInstruction"] = {
+  1879→                "parts": [{"text": system_instruction}]
+  1880→            }
+  1881→
+  1882→        timeout = aiohttp.ClientTimeout(total=30)
+  1883→        async with aiohttp.ClientSession(timeout=timeout) as session:
+  1884→            async with session.post(
+  1885→                url,
+  1886→                json=payload,
+  1887→                headers={"Content-Type": "application/json"},
+  1888→            ) as resp:
+  1889→                if resp.status == 429:
+  1890→                    # Rate limited — extract Retry-After if present
+  1891→                    retry_after = int(resp.headers.get("Retry-After", 0))
+  1892→                    text = await resp.text()
+  1893→                    # Raise a specific exception so caller can record rate limit
+  1894→                    raise RateLimitError(
+  1895→                        provider=model_config.provider,
+  1896→                        model_id=model_config.model_id,
+  1897→                        retry_after=retry_after,
+  1898→                        detail=text,
+  1899→                    )
+  1900→                if resp.status != 200:
+  1901→                    text = await resp.text()
+  1902→                    raise RuntimeError(
+  1903→                        f"Google API error {resp.status}: {text}"
+  1904→                    )
+  1905→                data = await resp.json()
+  1906→
+  1907→        # Parse response
+  1908→        candidates = data.get("candidates", [])
+  1909→        if not candidates:
+  1910→            return {
+  1911→                "content": "",
+  1912→                "model": model_config.model_id,
+  1913→                "provider": "google",
+  1914→                "finish_reason": "empty",
+  1915→            }
+  1916→
+  1917→        content_parts = candidates[0].get("content", {}).get("parts", [])
+  1918→        text = "".join(p.get("text", "") for p in content_parts)
+  1919→
+  1920→        usage = data.get("usageMetadata", {})
+  1921→        total_tokens = usage.get("totalTokenCount", 0)
+  1922→
+  1923→        return {
+  1924→            "content": text,
+  1925→            "model": model_config.model_id,
+  1926→            "provider": "google",
+  1927→            "finish_reason": candidates[0].get("finishReason", "stop"),
+  1928→            "total_tokens": total_tokens,
+  1929→        }
+  1930→
+  1931→    @staticmethod
+  1932→    async def _call_openai_compatible_async(
+  1933→        model_config: ModelConfig,
+  1934→        messages: list,
+  1935→        temperature: float,
+  1936→        max_tokens: int,
+  1937→    ) -> dict:
+  1938→        """Call OpenAI-compatible API -- Cerebras or Groq (async)."""
+  1939→        import aiohttp
+  1940→
+  1941→        from app.config import get_settings
+  1942→        settings = get_settings()
+  1943→
+  1944→        # Select API key based on provider
+  1945→        if model_config.provider == ModelProvider.CEREBRAS:
+  1946→            api_key = settings.CEREBRAS_API_KEY
+  1947→            if not api_key:
+  1948→                raise ValueError("CEREBRAS_API_KEY not configured")
+  1949→        elif model_config.provider == ModelProvider.GROQ:
+  1950→            api_key = settings.GROQ_API_KEY
+  1951→            if not api_key:
+  1952→                raise ValueError("GROQ_API_KEY not configured")
+  1953→        else:
+  1954→            raise ValueError(f"Unsupported provider: {model_config.provider}")
+  1955→
+  1956→        payload = {
+  1957→            "model": model_config.model_id,
+  1958→            "messages": messages,
+  1959→            "temperature": temperature,
+  1960→            "max_tokens": max_tokens,
+  1961→        }
+  1962→
+  1963→        timeout = aiohttp.ClientTimeout(total=30)
+  1964→        headers = {
+  1965→            "Authorization": f"Bearer {api_key}",
+  1966→            "Content-Type": "application/json",
+  1967→        }
+  1968→
+  1969→        async with aiohttp.ClientSession(timeout=timeout) as session:
+  1970→            async with session.post(
+  1971→                model_config.api_endpoint_base,
+  1972→                json=payload,
+  1973→                headers=headers,
+  1974→            ) as resp:
+  1975→                if resp.status == 429:
+  1976→                    retry_after = int(resp.headers.get("Retry-After", 0))
+  1977→                    text = await resp.text()
+  1978→                    raise RateLimitError(
+  1979→                        provider=model_config.provider,
+  1980→                        model_id=model_config.model_id,
+  1981→                        retry_after=retry_after,
+  1982→                        detail=text,
+  1983→                    )
+  1984→                if resp.status != 200:
+  1985→                    text = await resp.text()
+  1986→                    raise RuntimeError(
+  1987→                        f"{model_config.provider.value} API error "
+  1988→                        f"{resp.status}: {text}"
+  1989→                    )
+  1990→                data = await resp.json()
+  1991→
+  1992→        # Parse OpenAI-compatible response
+  1993→        choices = data.get("choices", [])
+  1994→        if not choices:
+  1995→            return {
+  1996→                "content": "",
+  1997→                "model": model_config.model_id,
+  1998→                "provider": model_config.provider.value,
+  1999→                "finish_reason": "empty",
+  2000→            }
+
+[showing lines 1-2000 of 2015; use offset=2001 with limit to continue reading]

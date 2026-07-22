@@ -1,0 +1,142 @@
+# PARWA — Render Blueprint
+# https://render.com/docs/blueprint-spec
+#
+# This file defines the Render deployment configuration.
+# It ensures the Docker build context is the repo root,
+# so requirements.txt and other shared files are available.
+
+services:
+  # ── Backend API ──────────────────────────────────────────────
+  - type: web
+    name: parwa-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    # Build context is backend/ so COPY . . gets backend code
+    buildContext: ./backend
+    plan: starter
+    region: oregon
+    branch: main
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PYTHONPATH
+        value: /app
+      - key: PORT
+        value: 8000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: parwa-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: parwa-redis
+          type: pserv
+          property: connectionstring
+      - key: SECRET_KEY
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: DATA_ENCRYPTION_KEY
+        sync: false
+      - key: PRICING_SIGNING_KEY
+        sync: false
+      - key: REFRESH_TOKEN_PEPPER
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: CORS_ORIGINS
+        value: https://parwa.buzz,https://parwa.vercel.app
+      - key: FRONTEND_URL
+        value: https://parwa.buzz
+      # Run pipeline synchronously in the request thread instead of dispatching
+      # to Celery. Celery is unhealthy on Render free tier (no separate worker
+      # service); sync is slower (3-5s per ticket) but RELIABLE — no 503s on
+      # ticket creation when Celery can't connect to Redis.
+      - key: FORCE_SYNC_PIPELINE
+        value: "true"
+      # LLM Provider API Keys (3 providers for 11-model Smart Router)
+      - key: GOOGLE_AI_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CEREBRAS_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      # LLM Models (user-validated: llama-3.1-8b for all tasks, gpt-oss-120b for guardrail)
+      - key: AI_LIGHT_MODEL
+        value: "groq/llama-3.1-8b"
+      - key: AI_MEDIUM_MODEL
+        value: "groq/llama-3.1-8b"
+      - key: AI_HEAVY_MODEL
+        value: "groq/gpt-oss-120b"
+      - key: AI_FAILOVER_MODEL
+        value: "groq/llama-3.1-8b"
+      - key: LLM_PROVIDER
+        value: "litellm"
+      - key: PARWA_SKIP_GLM
+        value: "1"
+    healthCheckPath: /health
+
+  # ── Celery Worker ───────────────────────────────────────────
+  - type: worker
+    name: parwa-worker
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile.celery
+    buildContext: ./backend
+    plan: starter
+    region: oregon
+    branch: main
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PYTHONPATH
+        value: /app
+      - key: DATABASE_URL
+        fromDatabase:
+          name: parwa-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: parwa-redis
+          type: pserv
+          property: connectionstring
+      - key: CELERY_BROKER_URL
+        fromService:
+          name: parwa-redis
+          type: pserv
+          property: connectionstring
+      - key: SECRET_KEY
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: DATA_ENCRYPTION_KEY
+        sync: false
+      - key: PRICING_SIGNING_KEY
+        sync: false
+      - key: REFRESH_TOKEN_PEPPER
+        sync: false
+
+  # ── Redis ───────────────────────────────────────────────────
+  - type: pserv
+    name: parwa-redis
+    runtime: docker
+    dockerfilePath: ./infra/docker/redis.Dockerfile
+    buildContext: .
+    plan: starter
+    region: oregon
+
+  # ── PostgreSQL Database ─────────────────────────────────────
+  - type: pserv
+    name: parwa-db
+    runtime: docker
+    dockerfilePath: ./infra/docker/postgres.Dockerfile
+    buildContext: .
+    plan: starter
+    region: oregon
+
+databases:
+  - name: parwa-db
+    databaseName: parwa_db
+    plan: starter
+    region: oregon

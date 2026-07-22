@@ -1,0 +1,233 @@
+// PARWA Production Schema - Supabase PostgreSQL
+// Onboarding + Payment + Knowledge Base tables
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Auth Users ───────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  full_name     String?   @map("full_name")
+  passwordHash  String?   @map("password_hash")
+  role          String    @default("user")
+  isActive      Boolean   @default(true) @map("is_active")
+  emailVerified Boolean   @default(false) @map("email_verified")
+  company       String?
+  industry      String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  onboardingSession OnboardingSession?
+  userDetails       UserDetails?
+  integrations      Integration[]
+  knowledgeBases    KnowledgeBase[]
+  knowledgeDocs     KnowledgeDocument[]
+  payments          Payment[]
+  subscriptions     Subscription[]
+
+  posts         Post[]
+
+  @@map("users")
+}
+
+// ── Onboarding ──────────────────────────────────────────────────────
+
+model OnboardingSession {
+  id                    String                   @id @default(cuid())
+  userId                String                   @unique @map("user_id")
+  user                  User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status                String                   @default("not_started") // not_started | in_progress | completed
+  currentStep           Int                      @default(1) @map("current_step")
+  completedSteps        Int[]                    @default([]) @map("completed_steps")
+  detailsCompleted      Boolean                  @default(false) @map("details_completed")
+  integrationCompleted  Boolean                  @default(false) @map("integration_completed")
+  kbCompleted           Boolean                  @default(false) @map("kb_completed")
+  firstVictoryCompleted Boolean                  @default(false) @map("first_victory_completed")
+  aiName                String?                  @default("Jarvis") @map("ai_name")
+  aiTone                String?                  @default("professional") @map("ai_tone")
+  aiGreeting            String?                 @map("ai_greeting")
+  selectedVariant       String?                 @map("selected_variant") // mini | parwa | high
+  selectedIndustry      String?                @map("selected_industry")
+  createdAt             DateTime                @default(now()) @map("created_at")
+  updatedAt             DateTime                @updatedAt @map("updated_at")
+  completedAt           DateTime?              @map("completed_at")
+
+  @@map("onboarding_sessions")
+}
+
+model UserDetails {
+  id                String    @id @default(cuid())
+  userId            String    @unique @map("user_id")
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName          String    @map("full_name")
+  companyName       String?   @map("company_name")
+  companyUrl        String?   @map("company_url")
+  workEmail         String?   @map("work_email")
+  workEmailVerified Boolean   @default(false) @map("work_email_verified")
+  industry          String?
+  companySize       String?   @map("company_size")
+  website           String?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  // Legal consent records
+  legalConsents      LegalConsent[]
+
+  @@map("user_details")
+}
+
+model LegalConsent {
+  id            String    @id @default(cuid())
+  userDetailsId String    @map("user_details_id")
+  userDetails   UserDetails @relation(fields: [userDetailsId], references: [id], onDelete: Cascade)
+  consentType   String    @map("consent_type") // terms | privacy | ai_data
+  acceptedAt    DateTime  @default(now()) @map("accepted_at")
+  ipAddress     String?   @map("ip_address")
+  userAgent     String?   @map("user_agent")
+
+  @@map("legal_consents")
+  @@index([userDetailsId, consentType])
+}
+
+// ── Integrations (Step 2) ────────────────────────────────────────────
+
+model Integration {
+  id              String    @id @default(cuid())
+  userId          String    @map("user_id")
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            String    // zendesk | intercom | freshdesk | crm | email | whatsapp | slack | custom
+  name            String
+  status          String    @default("pending") // pending | active | error
+  config          Json      @default("{}") // API keys, webhooks, etc.
+  kbConnectedId   String?   @map("kb_connected_id") // Link to KB if CRM has one
+  lastTestAt      DateTime? @map("last_test_at")
+  lastTestResult  String?   @map("last_test_result")
+  errorMessage    String?   @map("error_message")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("integrations")
+  @@index([userId, type])
+}
+
+// ── Knowledge Base (Step 3) ──────────────────────────────────────────
+
+model KnowledgeBase {
+  id            String    @id @default(cuid())
+  userId        String    @map("user_id")
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  type          String    @default("uploaded") // uploaded | connected | crm_synced
+  sourceUrl     String?   @map("source_url") // For connected KBs
+  crmType       String?   @map("crm_type") // hubspot | salesforce | zoho | etc.
+  status        String    @default("pending") // pending | processing | active | error
+  documentCount Int       @default(0) @map("document_count")
+  lastSyncedAt  DateTime? @map("last_synced_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  documents KnowledgeDocument[]
+
+  @@map("knowledge_bases")
+  @@index([userId])
+}
+
+model KnowledgeDocument {
+  id            String    @id @default(cuid())
+  kbId          String    @map("kb_id")
+  knowledgeBase KnowledgeBase @relation(fields: [kbId], references: [id], onDelete: Cascade)
+  userId        String    @map("user_id")
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  filename      String
+  fileSize      Int       @map("file_size")
+  mimeType      String    @map("mime_type")
+  status        String    @default("pending") // pending | processing | completed | failed
+  chunkCount    Int?      @map("chunk_count")
+  errorMessage String?   @map("error_message")
+  externalId    String?   @map("external_id") // For CRM-synced docs
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("knowledge_documents")
+  @@index([kbId, status])
+}
+
+// ── Payments (FlexPay / Razorpay) ────────────────────────────────────
+
+model Payment {
+  id              String    @id @default(cuid())
+  userId          String    @map("user_id")
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionId  String?   @map("subscription_id")
+  subscription    Subscription? @relation(fields: [subscriptionId], references: [id])
+  amount          Int       // in paise (smallest currency unit)
+  currency        String    @default("INR")
+  status          String    @default("pending") // pending | processing | completed | failed | refunded
+  paymentMethod   String?   @map("payment_method") // razorpay | card | upi | netbanking
+  razorpayOrderId  String?  @map("razorpay_order_id")
+  razorpayPaymentId String? @map("razorpay_payment_id")
+  razorpaySignature String? @map("razorpay_signature")
+  installmentNumber Int?    @map("installment_number")
+  totalInstallments  Int?   @map("total_installments")
+  receiptUrl      String?   @map("receipt_url")
+  errorMessage    String?   @map("error_message")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("payments")
+  @@index([userId, status])
+  @@index([razorpayOrderId])
+}
+
+model Subscription {
+  id              String    @id @default(cuid())
+  userId          String    @map("user_id")
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId          String    @map("plan_id") // mini | parwa | high
+  planName        String    @map("plan_name")
+  status          String    @default("active") // active | cancelled | expired | past_due
+  billingCycle    String    @default("monthly") // monthly | quarterly | yearly
+  amount          Int       // in paise per cycle
+  currency        String    @default("INR")
+  startDate       DateTime  @default(now()) @map("start_date")
+  endDate         DateTime? @map("end_date")
+  trialEndsAt     DateTime? @map("trial_ends_at")
+  kbIncluded      Boolean   @default(true) @map("kb_included")
+  maxDocuments    Int       @default(100) @map("max_documents")
+  currentPeriodStart DateTime @default(now()) @map("current_period_start")
+  currentPeriodEnd   DateTime @default(now()) @map("current_period_end")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  payments Payment[]
+
+  @@map("subscriptions")
+  @@index([userId, status])
+}
+
+// ── Legacy/Support Tables ────────────────────────────────────────────
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String?  @db.Text
+  published Boolean  @default(false)
+  authorId  String?  @map("author_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  author    User?    @relation(fields: [authorId], references: [id])
+
+  @@map("posts")
+}

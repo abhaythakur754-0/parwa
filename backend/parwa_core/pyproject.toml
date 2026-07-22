@@ -1,0 +1,13 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "parwa_core"
+version = "0.1.0"
+description = "PARWA Tier-1 hot-path modules in Rust (Rate Limiter, Circuit Breaker, PII Redaction, JWT, Security Headers)"
+requires-python = ">=3.10"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "parwa_core"

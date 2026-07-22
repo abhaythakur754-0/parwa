@@ -1,0 +1,260 @@
+{
+  "total_tests": 63,
+  "passed": 63,
+  "failed": 0,
+  "errors": [],
+  "details": {
+    "Channel enum has no WHATSAPP": {
+      "passed": true,
+      "detail": ""
+    },
+    "mini_parwa has email + chat only": {
+      "passed": true,
+      "detail": "Expected {email, chat}, got ['email', 'chat']"
+    },
+    "parwa has email + chat + SMS + voice": {
+      "passed": true,
+      "detail": "Got: ['email', 'voice', 'sms', 'chat']"
+    },
+    "parwa_high has email + chat + SMS + voice + push + webhook": {
+      "passed": true,
+      "detail": "Got: ['push', 'webhook', 'email', 'voice', 'chat', 'sms']"
+    },
+    "No variant has WhatsApp permission": {
+      "passed": true,
+      "detail": ""
+    },
+    "ExternalToolBus singleton accessible": {
+      "passed": true,
+      "detail": ""
+    },
+    "mini_parwa SMS not allowed": {
+      "passed": true,
+      "detail": ""
+    },
+    "parwa SMS allowed": {
+      "passed": true,
+      "detail": ""
+    },
+    "parwa_high voice allowed": {
+      "passed": true,
+      "detail": ""
+    },
+    "mini_parwa allowed channels = [chat, email]": {
+      "passed": true,
+      "detail": "Got: ['chat', 'email']"
+    },
+    "parwa allowed channels = [chat, email, sms, voice]": {
+      "passed": true,
+      "detail": "Got: ['chat', 'email', 'sms', 'voice']"
+    },
+    "parwa_high allowed channels = [chat, email, push, sms, voice, webhook]": {
+      "passed": true,
+      "detail": "Got: ['chat', 'email', 'push', 'sms', 'voice', 'webhook']"
+    },
+    "Invalid variant returns empty channels": {
+      "passed": true,
+      "detail": "Got: []"
+    },
+    "SMS server registers tools": {
+      "passed": true,
+      "detail": "Expected \u22652 tools, got 3"
+    },
+    "sms_send tool registered": {
+      "passed": true,
+      "detail": "Got: ['sms_send', 'sms_send_ticket_update', 'sms_status']"
+    },
+    "sms_status tool registered": {
+      "passed": true,
+      "detail": "Got: ['sms_send', 'sms_send_ticket_update', 'sms_status']"
+    },
+    "Email server registers tools": {
+      "passed": true,
+      "detail": "Expected \u22652 tools, got 3"
+    },
+    "email_send tool registered": {
+      "passed": true,
+      "detail": ""
+    },
+    "email_send_ticket_update tool registered": {
+      "passed": true,
+      "detail": ""
+    },
+    "Chat server registers tools": {
+      "passed": true,
+      "detail": "Expected \u22652 tools, got 3"
+    },
+    "chat_send_message tool registered": {
+      "passed": true,
+      "detail": ""
+    },
+    "Voice server registers tools": {
+      "passed": true,
+      "detail": "Expected \u22652 tools, got 4"
+    },
+    "voice_initiate_call tool registered": {
+      "passed": true,
+      "detail": ""
+    },
+    "mini_parwa SMS blocked by variant permission": {
+      "passed": true,
+      "detail": "Expected permission error, got: success=False, error=Channel 'sms' not available for variant 'mini_parwa'. Upgrade to 'parwa' or 'parwa_high' to access SMS."
+    },
+    "parwa SMS not blocked by variant permission": {
+      "passed": true,
+      "detail": "Got: SMS not configured. Missing env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER"
+    },
+    "parwa_high SMS not blocked by variant permission": {
+      "passed": true,
+      "detail": "Got: SMS not configured. Missing env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER"
+    },
+    "mini_parwa email NOT blocked by variant permission": {
+      "passed": true,
+      "detail": "Got: Email not configured. Missing: BREVO_API_KEY"
+    },
+    "parwa email NOT blocked by variant permission": {
+      "passed": true,
+      "detail": "Got: Email not configured. Missing: BREVO_API_KEY"
+    },
+    "parwa_high email NOT blocked by variant permission": {
+      "passed": true,
+      "detail": "Got: Email not configured. Missing: BREVO_API_KEY"
+    },
+    "Chat returns success (with template fallback)": {
+      "passed": true,
+      "detail": "Error: None"
+    },
+    "Chat reply contains refund-related content": {
+      "passed": true,
+      "detail": "Reply: I understand you'd like a refund. Let me look into this for you. Could you provide your order number"
+    },
+    "mini_parwa channel info returns dict": {
+      "passed": true,
+      "detail": "Got: {'variant': 'mini_parwa', 'channels': {'email': {'allowed': True, 'configured': False}, 'chat': {'allowed': True, 'configured': True}, 'sms': {'allowed': False, 'configured': False}, 'voice': {'allowed': False, 'configured': False}, 'push': {'allowed': False, 'configured': False}, 'webhook': {'allowed': False, 'configured': True}}, 'allowed_count': 2}"
+    },
+    "mini_parwa has 2 allowed channels": {
+      "passed": true,
+      "detail": "Got: 2"
+    },
+    "parwa has 4 allowed channels": {
+      "passed": true,
+      "detail": "Got: 4"
+    },
+    "parwa_high has 6 allowed channels": {
+      "passed": true,
+      "detail": "Got: 6"
+    },
+    "mini_parwa SMS not allowed (executor)": {
+      "passed": true,
+      "detail": ""
+    },
+    "parwa voice allowed (executor)": {
+      "passed": true,
+      "detail": ""
+    },
+    "Empty pipeline returns no tool results": {
+      "passed": true,
+      "detail": "Got: 0 results"
+    },
+    "Pipeline actions execute without crashing (BC-008)": {
+      "passed": true,
+      "detail": ""
+    },
+    "mini_parwa SMS action blocked by permissions": {
+      "passed": true,
+      "detail": "Results: [('send_sms', 'sms', False, \"Channel 'sms' not allowed for variant 'mini_parwa'\")]"
+    },
+    "No 'whatsapp' in Channel enum": {
+      "passed": true,
+      "detail": "Channels: ['email', 'chat', 'sms', 'voice', 'push', 'webhook']"
+    },
+    "No 'social' in Channel enum": {
+      "passed": true,
+      "detail": "Channels: ['email', 'chat', 'sms', 'voice', 'push', 'webhook']"
+    },
+    "No 'facebook' in Channel enum": {
+      "passed": true,
+      "detail": "Channels: ['email', 'chat', 'sms', 'voice', 'push', 'webhook']"
+    },
+    "No 'instagram' in Channel enum": {
+      "passed": true,
+      "detail": "Channels: ['email', 'chat', 'sms', 'voice', 'push', 'webhook']"
+    },
+    "No 'telegram' in Channel enum": {
+      "passed": true,
+      "detail": "Channels: ['email', 'chat', 'sms', 'voice', 'push', 'webhook']"
+    },
+    "No 'twitter' in Channel enum": {
+      "passed": true,
+      "detail": "Channels: ['email', 'chat', 'sms', 'voice', 'push', 'webhook']"
+    },
+    "mini_parwa has no social media channels": {
+      "passed": true,
+      "detail": "Channels: ['email', 'chat']"
+    },
+    "parwa has no social media channels": {
+      "passed": true,
+      "detail": "Channels: ['email', 'voice', 'sms', 'chat']"
+    },
+    "parwa_high has no social media channels": {
+      "passed": true,
+      "detail": "Channels: ['push', 'webhook', 'email', 'voice', 'chat', 'sms']"
+    },
+    "Provider status has no 'whatsapp' key": {
+      "passed": true,
+      "detail": "Keys: ['sms', 'voice', 'email', 'chat', 'push', 'webhook']"
+    },
+    "ExternalToolBus has no send_whatsapp method": {
+      "passed": true,
+      "detail": ""
+    },
+    "sms_server in ALL_SUB_SERVERS": {
+      "passed": true,
+      "detail": "Servers: ['faq_server', 'rag_server', 'kb_server', 'email_server', 'voice_server', 'chat_server', 'sms_server', 'ticketing_server', 'ecommerce_server', 'crm_server', 'analytics_server', 'monitoring_server', 'notification_server', 'compliance_server', 'sla_server']"
+    },
+    "email_server in ALL_SUB_SERVERS": {
+      "passed": true,
+      "detail": ""
+    },
+    "chat_server in ALL_SUB_SERVERS": {
+      "passed": true,
+      "detail": ""
+    },
+    "voice_server in ALL_SUB_SERVERS": {
+      "passed": true,
+      "detail": ""
+    },
+    "sms_status returns success": {
+      "passed": true,
+      "detail": "Error: None"
+    },
+    "mini_parwa sms_allowed = False": {
+      "passed": true,
+      "detail": "Got: sms_allowed=False"
+    },
+    "parwa sms_allowed = True": {
+      "passed": true,
+      "detail": "Got: sms_allowed=True"
+    },
+    "Voice server has 4 tools": {
+      "passed": true,
+      "detail": "Got 4: ['voice_initiate_call', 'voice_get_call_status', 'voice_end_call', 'voice_list_active_calls']"
+    },
+    "voice_initiate_call exists": {
+      "passed": true,
+      "detail": ""
+    },
+    "voice_get_call_status exists": {
+      "passed": true,
+      "detail": ""
+    },
+    "voice_end_call exists": {
+      "passed": true,
+      "detail": ""
+    },
+    "voice_list_active_calls exists": {
+      "passed": true,
+      "detail": ""
+    }
+  }
+}

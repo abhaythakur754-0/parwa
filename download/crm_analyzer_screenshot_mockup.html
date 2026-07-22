@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parwa CRM Analyzer - Live Results</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .card-shadow {
+            box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .high-priority {
+            border-left: 4px solid #ef4444;
+            background: linear-gradient(90deg, #fef2f2 0%, #ffffff 100%);
+        }
+        
+        .medium-priority {
+            border-left: 4px solid #f59e0b;
+            background: linear-gradient(90deg, #fffbeb 0%, #ffffff 100%);
+        }
+        
+        .low-priority {
+            border-left: 4px solid #3b82f6;
+            background: linear-gradient(90deg, #eff6ff 0%, #ffffff 100%);
+        }
+        
+        .status-connected {
+            background: linear-gradient(90deg, #dcfce7 0%, #ffffff 100%);
+            border-left: 4px solid #22c55e;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    
+    <!-- Header -->
+    <div class="gradient-bg text-white py-6 px-8">
+        <div class="max-w-6xl mx-auto">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                        <i class="fas fa-chart-line text-2xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold">CRM Analyzer</h1>
+                        <p class="text-white/80 text-sm">Integration Recommendations Engine</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="bg-white/20 px-4 py-2 rounded-full text-sm backdrop-blur-sm">
+                        <i class="fas fa-server mr-2"></i>FakeCRM Connected
+                    </span>
+                    <span class="bg-green-400 text-green-900 px-4 py-2 rounded-full text-sm font-semibold pulse-animation">
+                        <i class="fas fa-circle mr-2 text-xs"></i>LIVE
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-6xl mx-auto py-8 px-4">
+        
+        <!-- Analysis Summary Card -->
+        <div class="bg-white rounded-2xl card-shadow p-6 mb-6">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-800 flex items-center gap-3">
+                        <span class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-brain text-purple-600"></i>
+                        </span>
+                        AI Analysis Complete
+                    </h2>
+                    <p class="text-gray-500 mt-1 ml-13">Powered by NVIDIA GLM 5.2 • Analyzed just now</p>
+                </div>
+                <span class="bg-purple-100 text-purple-700 px-4 py-2 rounded-full text-sm font-semibold">
+                    Confidence: 94%
+                </span>
+            </div>
+            
+            <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-5 border border-purple-100">
+                <p class="text-gray-700 leading-relaxed">
+                    <strong>Your business shows strong CRM fundamentals</strong> with 50 contacts, 25 active deals ($485K pipeline), 
+                    and 40 orders ($125K revenue). However, <strong>critical gaps exist in payment processing and marketing 
+                    automation</strong> that are limiting growth potential.
+                </p>
+                <p class="text-gray-600 mt-2 text-sm">
+                    <i class="fas fa-lightbulb text-yellow-500 mr-2"></i>
+                    Priority should be given to connecting <strong>Stripe</strong> for revenue visibility and 
+                    <strong>Mailchimp</strong> for lead nurturing.
+                </p>
+            </div>
+        </div>
+
+        <!-- Data Profile Section -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            
+            <div class="bg-white rounded-xl card-shadow p-5">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-gray-500 text-sm font-medium">Contacts</span>
+                    <span class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-users text-blue-600 text-sm"></i>
+                    </span>
+                </div>
+                <p class="text-3xl font-bold text-gray-800">50</p>
+                <p class="text-green-600 text-sm mt-1"><i class="fas fa-check-circle mr-1"></i>Detected</p>
+            </div>
+            
+            <div class="bg-white rounded-xl card-shadow p-5">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-gray-500 text-sm font-medium">Deals Pipeline</span>
+                    <span class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-handshake text-green-600 text-sm"></i>
+                    </span>
+                </div>
+                <p class="text-3xl font-bold text-gray-800">$485K</p>
+                <p class="text-gray-500 text-sm mt-1">25 active deals</p>
+            </div>
+            
+            <div class="bg-white rounded-xl card-shadow p-5">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-gray-500 text-sm font-medium">Support Tickets</span>
+                    <span class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-ticket-alt text-orange-600 text-sm"></i>
+                    </span>
+                </div>
+                <p class="text-3xl font-bold text-gray-800">35</p>
+                <p class="text-orange-600 text-sm mt-1"><i class="fas fa-exclamation-circle mr-1"></i>12 open</p>
+            </div>
+            
+            <div class="bg-white rounded-xl card-shadow p-5">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-gray-500 text-sm font-medium">Orders</span>
+                    <span class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-shopping-cart text-purple-600 text-sm"></i>
+                    </span>
+                </div>
+                <p class="text-3xl font-bold text-gray-800">$125K</p>
+                <p class="text-gray-500 text-sm mt-1">40 total orders</p>
+            </div>
+            
+        </div>
+
+        <!-- Business Type Badge -->
+        <div class="bg-white rounded-xl card-shadow p-4 mb-6 flex items-center gap-6">
+            <div class="flex items-center gap-2">
+                <i class="fas fa-building text-gray-400"></i>
+                <span class="text-gray-600 text-sm">Business Type:</span>
+                <span class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-sm font-semibold">B2B SaaS / Technology</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <i class="fas fa-chart-bar text-gray-400"></i>
+                <span class="text-gray-600 text-sm">Data Maturity:</span>
+                <span class="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-sm font-semibold">Medium</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <i class="fas fa-plug text-gray-400"></i>
+                <span class="text-gray-600 text-sm">Connected:</span>
+                <span class="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-semibold">0 integrations</span>
+            </div>
+        </div>
+
+        <!-- Recommendations Header -->
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-bold text-gray-800">
+                <i class="fas fa-magic text-purple-600 mr-2"></i>
+                Smart Recommendations
+            </h3>
+            <div class="flex items-center gap-2 text-sm">
+                <span class="flex items-center gap-1"><span class="w-3 h-3 bg-red-500 rounded-full"></span>High Priority</span>
+                <span class="flex items-center gap-1"><span class="w-3 h-3 bg-yellow-500 rounded-full"></span>Medium</span>
+                <span class="flex items-center gap-1"><span class="w-3 h-3 bg-blue-500 rounded-full"></span>Low</span>
+            </div>
+        </div>
+
+        <!-- HIGH PRIORITY RECOMMENDATIONS -->
+        <div class="space-y-4 mb-6">
+            
+            <!-- Stripe Recommendation -->
+            <div class="bg-white rounded-xl card-shadow high-priority overflow-hidden">
+                <div class="p-6">
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-start gap-4">
+                            <div class="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                                <i class="fab fa-stripe-s text-white text-2xl"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-3 mb-1">
+                                    <h4 class="text-lg font-bold text-gray-800">Stripe</h4>
+                                    <span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-bold uppercase">🔴 High Priority</span>
+                                </div>
+                                <p class="text-gray-500 text-sm mb-2">Payment Processing</p>
+                                <p class="text-gray-700 text-sm leading-relaxed">
+                                    You have <strong>40+ orders but no payment integration</strong> - your revenue is invisible. 
+                                    Connect Stripe to track payments, subscriptions, and MRR in real-time.
+                                </p>
+                            </div>
+                        </div>
+                        <button class="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-all shadow-md hover:shadow-lg">
+                            <i class="fas fa-plus mr-2"></i>Connect
+                        </button>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t border-red-100 flex items-center gap-6 text-sm">
+                        <div class="flex items-center gap-2 text-green-600">
+                            <i class="fas fa-chart-line"></i>
+                            <span><strong>Business Impact:</strong> Track MRR, subscriptions, refunds automatically</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-gray-500">
+                            <i class="fas fa-clock"></i>
+                            <span>Setup: ~15 minutes</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-gray-500">
+                            <i class="fas fa-percentage"></i>
+                            <span>Confidence: 95%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mailchimp Recommendation -->
+            <div class="bg-white rounded-xl card-shadow high-priority overflow-hidden">
+                <div class="p-6">
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-start gap-4">
+                            <div class="w-14 h-14 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+                                <i class="fas fa-envelope text-white text-2xl"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-3 mb-1">
+                                    <h4 class="text-lg font-bold text-gray-800">Mailchimp</h4>
+                                    <span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-bold uppercase">🔴 High Priority</span>
+                                </div>
+                                <p class="text-gray-500 text-sm mb-2">Email Marketing Automation</p>
+                                <p class="text-gray-700 text-sm leading-relaxed">
+                                    Your <strong>50 contacts are sitting idle</strong> without email nurturing. Automate 
+                                    lead scoring, drip campaigns, and convert 23% more leads.
+                                </p>
+                            </div>
+                        </div>
+                        <button class="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-all shadow-md hover:shadow-lg">
+                            <i class="fas fa-plus mr-2"></i>Connect
+                        </button>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t border-red-100 flex items-center gap-6 text-sm">
+                        <div class="flex items-center gap-2 text-green-600">
+                            <i class="fas fa-arrow-trend-up"></i>
+                            <span><strong>Business Impact:</strong> +23% lead conversion with automated sequences</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-gray-500">
+                            <i class="fas fa-clock"></i>
+                            <span>Setup: ~20 minutes</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-gray-500">
+                            <i class="fas fa-percentage"></i>
+                            <span>Confidence: 90%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- MEDIUM PRIORITY RECOMMENDATIONS -->
+        <div class="space-y-4 mb-6">
+            
+            <!-- Slack Recommendation -->
+            <div class="bg-white rounded-xl card-shadow medium-priority overflow-hidden">
+                <div class="p-6">
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-start gap-4">
+                            <div class="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
+                                <i class="fab fa-slack text-white text-2xl"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-3 mb-1">
+                                    <h4 class="text-lg font-bold text-gray-800">Slack</h4>
+                                    <span class="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-xs font-bold uppercase">🟡 Medium Priority</span>
+                                </div>
+                                <p class="text-gray-500 text-sm mb-2">Team Communication</p>
+                                <p class="text-gray-700 text-sm leading-relaxed">
+                                    Get <strong>instant alerts when deals close or tickets escalate</strong>. Keep your 
+                                    team aligned with real-time notifications in dedicated channels.
+                                </p>
+                            </div>
+                        </div>
+                        <button class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-all shadow-md hover:shadow-lg">
+                            <i class="fas fa-plus mr-2"></i>Connect
+                        </button>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t border-yellow-100 flex items-center gap-6 text-sm">
+                        <div class="flex items-center gap-2 text-green-600">
+                            <i class="fas fa-bolt"></i>
+                            <span><strong>Business Impact:</strong> Reduce response time by 40%</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-gray-500">
+                            <i class="fas fa-clock"></i>
+                            <span>Setup: ~10 minutes</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-gray-500">
+                            <i class="fas fa-percentage"></i>
+                            <span>Confidence: 85%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mixpanel Recommendation -->
+            <div class="bg-white rounded-xl card-shadow medium-priority overflow-hidden">
+                <div class="p-6">
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-start gap-4">
+                            <div class="w-14 h-14 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-xl flex items-center justify-center shadow-lg">
+                                <i class="fas fa-chart-area text-white text-2xl"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-3 mb-1">
+                                    <h4 class="text-lg font-bold text-gray-800">Mixpanel</h4>
+                                    <span class="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-xs font-bold uppercase">🟡 Medium Priority</span>
+                                </div>
+                                <p class="text-gray-500 text-sm mb-2">Product Analytics</p>
+                                <p class="text-gray-700 text-sm leading-relaxed">
+                                    Understand <strong>how users interact with your products</strong>. Track feature adoption, 
+                                    funnels, and make data-driven product decisions.
+                                </p>
+                            </div>
+                        </div>
+                        <button class="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-all shadow-md hover:shadow-lg">
+                            <i class="fas fa-plus mr-2"></i>Connect
+                        </button>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t border-yellow-100 flex items-center gap-6 text-sm">
+                        <div class="flex items-center gap-2 text-green-600">
+                            <i class="fas fa-flask"></i>
+                            <span><strong>Business Impact:</strong> Data-driven decisions, funnel optimization</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-gray-500">
+                            <i class="fas fa-clock"></i>
+                            <span>Setup: ~30 minutes</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-gray-500">
+                            <i class="fas fa-percentage"></i>
+                            <span>Confidence: 80%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Zendesk Recommendation -->
+            <div class="bg-white rounded-xl card-shadow medium-priority overflow-hidden">
+                <div class="p-6">
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-start gap-4">
+                            <div class="w-14 h-14 bg-gradient-to-br from-green-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
+                                <i class="fas fa-headset text-white text-2xl"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-3 mb-1">
+                                    <h4 class="text-lg font-bold text-gray-800">Zendesk</h4>
+                                    <span class="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-xs font-bold uppercase">🟡 Medium Priority</span>
+                                </div>
+                                <p class="text-gray-500 text-sm mb-2">Helpdesk Support</p>
+                                <p class="text-gray-700 text-sm leading-relaxed">
+                                    Upgrade from basic tickets to <strong>full support workflow automation</strong>. 
+                                    Knowledge base, SLA tracking, and multi-channel support.
+                                </p>
+                            </div>
+                        </div>
+                        <button class="bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-all shadow-md hover:shadow-lg">
+                            <i class="fas fa-plus mr-2"></i>Connect
+                        </button>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t border-yellow-100 flex items-center gap-6 text-sm">
+                        <div class="flex items-center gap-2 text-green-600">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <span><strong>Business Impact:</strong> Reduce ticket resolution time by 35%</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-gray-500">
+                            <i class="fas fa-clock"></i>
+                            <span>Setup: ~25 minutes</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-gray-500">
+                            <i class="fas fa-percentage"></i>
+                            <span>Confidence: 78%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- LOW PRIORITY RECOMMENDATION -->
+        <div class="bg-white rounded-xl card-shadow low-priority overflow-hidden mb-6">
+            <div class="p-6">
+                <div class="flex items-start justify-between">
+                    <div class="flex items-start gap-4">
+                        <div class="w-14 h-14 bg-gradient-to-br from-gray-500 to-gray-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <i class="fas fa-truck text-white text-2xl"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-3 mb-1">
+                                <h4 class="text-lg font-bold text-gray-800">ShipStation</h4>
+                                <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-bold uppercase">🔵 Low Priority</span>
+                            </div>
+                            <p class="text-gray-500 text-sm mb-2">Shipping & Fulfillment</p>
+                            <p class="text-gray-700 text-sm leading-relaxed">
+                                If you ship physical goods, <strong>automate fulfillment tracking</strong>. Auto-sync orders, 
+                                print labels, and track deliveries from one dashboard.
+                            </p>
+                        </div>
+                    </div>
+                    <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-5 py-2.5 rounded-lg font-semibold text-sm transition-all">
+                        <i class="fas fa-plus mr-2"></i>Connect
+                    </button>
+                </div>
+                
+                <div class="mt-4 pt-4 border-t border-blue-100 flex items-center gap-6 text-sm">
+                    <div class="flex items-center gap-2 text-green-600">
+                        <i class="fas fa-box"></i>
+                        <span><strong>Business Impact:</strong> Auto-sync orders, print labels, track deliveries</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-gray-500">
+                        <i class="fas fa-clock"></i>
+                        <span>Setup: ~45 minutes</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-gray-500">
+                        <i class="fas fa-percentage"></i>
+                        <span>Confidence: 60%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Stats Footer -->
+        <div class="bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl p-6 text-white card-shadow">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div class="text-center">
+                    <p class="text-3xl font-bold">6</p>
+                    <p class="text-white/80 text-sm">Tools Recommended</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-3xl font-bold">2</p>
+                    <p class="text-white/80 text-sm">🔴 High Priority</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-3xl font-bold">~145 min</p>
+                    <p class="text-white/80 text-sm">Total Setup Time</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-3xl font-bold">+23%</p>
+                    <p class="text-white/80 text-sm">Expected Impact</p>
+                </div>
+            </div>
+            
+            <div class="mt-6 pt-6 border-t border-white/20 flex items-center justify-between">
+                <p class="text-white/80 text-sm">
+                    <i class="fas fa-database mr-2"></i>
+                    Analysis saved to database • Available in Dashboard → Integrations
+                </p>
+                <button class="bg-white text-purple-600 px-6 py-2.5 rounded-lg font-semibold hover:bg-white/90 transition-all">
+                    <i class="fas fa-share mr-2"></i>Share Results
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Timestamp -->
+    <div class="text-center py-6 text-gray-400 text-sm">
+        <i class="fas fa-shield-alt mr-2"></i>
+        Generated by Parwa CRM Analyzer • FakeCRM Test Server • NVIDIA GLM 5.2 AI
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,30 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust toolchain for parwa_core PyO3 module
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+    && . "$HOME/.cargo/env" && rustc --version
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Build Rust parwa_core (falls back to Python if build fails)
+COPY parwa_core/ /app/parwa_core/
+RUN . "$HOME/.cargo/env" \
+    && cd /app/parwa_core \
+    && pip install --no-cache-dir maturin \
+    && maturin develop --release --skip-install 2>/dev/null || echo "Rust build skipped, using Python fallbacks"
+
+COPY . .
+
+RUN groupadd -r parwa && useradd -r -g parwa parwa
+USER parwa
+
+CMD ["celery", "-A", "app.tasks.celery_app:app", "worker", "--loglevel=info", "--concurrency=4", "-Q", "default,ai_heavy,ai_light,email,webhook,analytics,training"]

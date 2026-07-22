@@ -1,0 +1,4 @@
+/target/
+*.so
+parwa_core.cpython-*.so
+target/

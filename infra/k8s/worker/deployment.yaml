@@ -1,0 +1,172 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: worker
+    app.kubernetes.io/component: background-jobs
+    app.kubernetes.io/part-of: parwa-platform
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: worker
+      app.kubernetes.io/component: background-jobs
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: worker
+        app.kubernetes.io/component: background-jobs
+        app.kubernetes.io/part-of: parwa-platform
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: parwa-worker     # #83: added ServiceAccount
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: parwa-worker
+      containers:
+        - name: worker
+          image: parwa/worker:v1.0.0
+          imagePullPolicy: Always
+          env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: parwa-config
+                  key: ENVIRONMENT
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: parwa-config
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: parwa-config
+                  key: DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: parwa-config
+                  key: DB_NAME
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: parwa-config
+                  key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: parwa-config
+                  key: REDIS_PORT
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: DB_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: REDIS_PASSWORD
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: SECRET_KEY
+            - name: CELERY_BROKER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: CELERY_BROKER_URL
+            - name: CELERY_RESULT_BACKEND
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: CELERY_RESULT_BACKEND
+            - name: CELERY_QUEUES
+              value: "default,ai,tickets,emails,billing,analytics,training,notifications"
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          startupProbe:                    # #68: allow slow start
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - celery -A backend.app.tasks.celery_app inspect ping --timeout 30
+            failureThreshold: 30
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - pgrep -f 'celery.worker' > /dev/null || exit 1
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - pgrep -f 'celery.worker' > /dev/null || exit 1
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: state-data
+              mountPath: /app/state_data
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: worker
+                topologyKey: kubernetes.io/hostname
+      nodeSelector:
+        workload-type: worker
+      tolerations:
+        - key: "workload-type"
+          operator: "Equal"
+          value: "worker"
+          effect: "NoSchedule"
+      topologySpreadConstraints:          # #70: spread across zones
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: worker
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: state-data
+          emptyDir: {}

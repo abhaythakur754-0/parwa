@@ -1,0 +1,1354 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+     4→     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→     5→import toast from 'react-hot-toast';
+     6→     6→import {
+     7→     7→  useTicketStore,
+     8→     8→  CATEGORY_LABELS,
+     9→     9→  PRIORITY_LABELS,
+    10→    10→  STATUS_LABELS,
+    11→    11→  CHANNEL_LABELS,
+    12→    12→  VARIANT_LABELS,
+    13→    13→  ALL_CATEGORIES,
+    14→    14→  ALL_STATUSES,
+    15→    15→  ALL_PRIORITIES,
+    16→    16→  ALL_CHANNELS,
+    17→    17→  ALL_VARIANTS,
+    18→    18→  type Ticket,
+    19→    19→  type TicketCategory,
+    20→    20→  type TicketPriority,
+    21→    21→  type TicketStatus,
+    22→    22→  type TicketChannel,
+    23→    23→  type TicketVariant,
+    24→    24→} from '@/lib/ticket-store';
+    25→    25→
+    26→    26→// ── AI Response Templates ──────────────────────────────────────────
+    27→    27→
+    28→    28→const AI_RESPONSES: Record<TicketVariant, Record<TicketCategory, string[]>> = {
+    29→    29→  light: {
+    30→    30→    billing_payments: [
+    31→    31→      "I've reviewed your billing concern. Let me pull up your recent transactions and help resolve this quickly.",
+    32→    32→      "Thank you for contacting us about this billing matter. I can see the charges in question and I'm happy to help.",
+    33→    33→    ],
+    34→    34→    order_management: [
+    35→    35→      "I've located your order in our system. Let me check the current status for you right away.",
+    36→    36→      "Thanks for providing your order number. I can see the tracking details — let me get that info for you.",
+    37→    37→    ],
+    38→    38→    account_management: [
+    39→    39→      "I can help you with your account settings. Let me verify your identity first for security purposes.",
+    40→    40→      "Thanks for reaching out about your account. I'll guide you through the process step by step.",
+    41→    41→    ],
+    42→    42→    technical_support: [
+    43→    43→      "I understand the technical issue you're experiencing. Let me check our knowledge base for known solutions.",
+    44→    44→      "Thanks for describing the issue. I have a few troubleshooting steps we can try together.",
+    45→    45→    ],
+    46→    46→    returns_exchanges: [
+    47→    47→      "I can help process your return or exchange. Let me pull up your order details.",
+    48→    48→      "Thank you for your patience. I'll get this return/exchange started for you right away.",
+    49→    49→    ],
+    50→    50→    shipping_delivery: [
+    51→    51→      "I've checked your shipping information. Let me look into the delivery status for you.",
+    52→    52→      "Thanks for your patience regarding the delivery. I'm checking the tracking details now.",
+    53→    53→    ],
+    54→    54→    product_information: [
+    55→    55→      "I'd be happy to provide information about that product. Let me pull up the specifications.",
+    56→    56→      "Great question! Here's what I can tell you about this product.",
+    57→    57→    ],
+    58→    58→    complaints: [
+    59→    59→      "I'm sorry to hear about your experience. Your feedback is important and I want to help make this right.",
+    60→    60→      "I understand your frustration and I sincerely apologize. Let me see what I can do to resolve this.",
+    61→    61→    ],
+    62→    62→    vip_enterprise: [
+    63→    63→      "Thank you for reaching out. As a valued enterprise customer, I'm prioritizing your request.",
+    64→    64→      "I appreciate you bringing this to our attention. Let me connect you with our enterprise support team.",
+    65→    65→    ],
+    66→    66→    fraud_security: [
+    67→    67→      "I take security concerns very seriously. Let me help secure your account immediately.",
+    68→    68→      "Thank you for reporting this. I'm initiating our security protocol right away.",
+    69→    69→    ],
+    70→    70→  },
+    71→    71→  medium: {
+    72→    72→    billing_payments: [
+    73→    73→      "I've analyzed your billing history and identified the issue. Here's what happened and how I'm going to resolve it: I'll initiate the necessary adjustments and you should see the correction within 2-3 business days.",
+    74→    74→      "After reviewing your account, I can see the billing discrepancy. This appears to be caused by a rate change that wasn't properly prorated. I'm correcting this now and will credit your account for the difference.",
+    75→    75→    ],
+    76→    76→    order_management: [
+    77→    77→      "I've traced your order through our fulfillment system and identified where it is in the process. There seems to be a slight delay at our distribution center. I'm expediting this and upgrading your shipping to express at no extra cost.",
+    78→    78→      "Your order has been located and I can see it's currently in transit. However, I notice there's been a routing issue that may cause a 1-2 day delay. I'm working with our logistics team to get this resolved as quickly as possible.",
+    79→    79→    ],
+    80→    80→    account_management: [
+    81→    81→      "I've reviewed your account configuration and found the issue. The settings change requires a sync across our systems. I've initiated the update and it should propagate within the hour. I'll also send you a confirmation email once everything is fully updated.",
+    82→    82→      "After investigating your account, I can see the root cause of the issue. This is related to a recent system migration that affected a subset of accounts. I'm applying a fix now and adding you to our priority support list to prevent future occurrences.",
+    83→    83→    ],
+    84→    84→    technical_support: [
+    85→    85→      "I've analyzed the error patterns you described and cross-referenced them with our known issues database. This appears to be a compatibility issue between your configuration and our latest release. I have a specific workaround that should resolve this while we prepare a permanent fix.",
+    86→    86→      "Based on the technical details you provided, I've identified the root cause. This is related to a change in our API authentication flow. Here are the specific steps to resolve this, along with code examples for your integration.",
+    87→    87→    ],
+    88→    88→    returns_exchanges: [
+    89→    89→      "I've reviewed your return request and verified the item eligibility. I'm processing your return now with our expedited handling. You'll receive a prepaid shipping label via email within 30 minutes, and the refund will be issued within 24 hours of the carrier scanning the return shipment.",
+    90→    90→      "Your exchange request has been approved. I've placed the replacement order and it will ship within 24 hours via express delivery. A return label for the original item has been generated and sent to your email. The exchange is being processed at no additional cost to you.",
+    91→    91→    ],
+    92→    92→    shipping_delivery: [
+    93→    93→      "I've contacted the carrier directly and obtained an update on your shipment. It appears there was a sorting error at the regional distribution center. I've filed a priority trace request and the carrier has committed to resolving this within 24 hours. If the package isn't located, I'll ship a replacement immediately.",
+    94→    94→      "I've investigated the delivery issue and found that your package was misrouted during transit. I've escalated this with our logistics partner and they've confirmed the package is being redirected to the correct address. Updated delivery estimate is within 48 hours.",
+    95→    95→    ],
+    96→    96→    product_information: [
+    97→    97→      "Here are the comprehensive specifications you requested. Based on your use case, I'd also recommend considering these specific features. Would you like me to schedule a demo or connect you with our product specialist for a more detailed consultation?",
+    98→    98→      "I've compiled detailed information about this product including compatibility notes, performance benchmarks, and customer feedback summaries. Based on your requirements, here's my assessment and recommendation.",
+    99→    99→    ],
+   100→   100→    complaints: [
+   101→   101→      "I've carefully reviewed your complaint and the full history of your interactions with our support team. I can see this has been an ongoing frustration, and I want to assure you that I'm taking personal ownership of resolving this. Here's my action plan with specific timelines and commitments.",
+   102→   102→      "Your complaint has been escalated to our Customer Experience team with the highest priority. I understand the impact this has had on your experience, and I'm implementing several corrective measures immediately. Here's what I'm doing to make this right.",
+   103→   103→    ],
+   104→   104→    vip_enterprise: [
+   105→   105→      "As an enterprise customer, I'm providing you with dedicated support for this matter. I've reviewed your account in detail and I'm coordinating with our enterprise solutions team to provide a comprehensive resolution. A senior technical consultant will be assigned to your case within the hour.",
+   106→   106→      "I understand the business impact this is having on your operations. I'm personally coordinating with our engineering, support, and management teams to ensure a rapid resolution. You'll receive updates every 2 hours until this is fully resolved.",
+   107→   107→    ],
+   108→   108→    fraud_security: [
+   109→   109→      "I've initiated our enhanced security protocol for your account. This includes a full audit of recent account activity, IP address verification, and session analysis. I'm also coordinating with our security engineering team to identify any potential vulnerabilities. A security specialist will contact you within 30 minutes with a detailed report.",
+   110→   110→      "Your security concern has been escalated to our Fraud Prevention team with P1 priority. I've taken immediate protective measures including account hardening and activity monitoring. Here's a detailed timeline of the suspicious activity I've identified so far.",
+   111→   111→    ],
+   112→   112→  },
+   113→   113→  heavy: {
+   114→   114→    billing_payments: [
+   115→   115→      "I've conducted a comprehensive analysis of your billing history spanning the past 12 months. The pattern I've identified indicates a systematic issue with how prorated charges are calculated during mid-cycle plan changes. This has affected approximately 3% of our customer base. I'm implementing a three-pronged approach: (1) immediate credit for all affected charges, (2) escalation to our billing engineering team to fix the root cause, and (3) a 60-day enhanced monitoring period for your account to ensure accuracy.",
+   116→   116→      "After a thorough review of your billing records, I've identified a complex interaction between our legacy billing system and the new tax calculation engine that's causing these discrepancies. The issue is specifically triggered when multi-currency transactions are involved with your enterprise account settings. I've created a custom billing adjustment and am working with our finance team to ensure this is permanently resolved. Your account has been credited $X.XX for all overcharges.",
+   117→   117→    ],
+   118→   118→    order_management: [
+   119→   119→      "I've performed a deep-dive analysis of your order lifecycle and identified a cascading failure in our fulfillment pipeline. The root cause is a synchronization issue between our inventory management system and the warehouse management system, which caused your order to be incorrectly flagged as 'pending allocation' for an extended period. I've resolved the immediate issue, escalated the systemic problem to our supply chain engineering team, and implemented a manual monitoring check on your remaining orders. Your order is now being express-shipped with delivery guaranteed within 48 hours.",
+   120→   120→    ],
+   121→   121→    account_management: [
+   122→   122→      "I've conducted a comprehensive audit of your account configuration and identified several interconnected issues stemming from a data migration that occurred during our platform upgrade. The migration affected account metadata, permission structures, and integration tokens. I'm executing a systematic remediation plan that will restore full functionality while preserving your historical data. I've also implemented additional safeguards to prevent similar issues during future migrations. You'll have full access restored within 2 hours, and I'll provide a detailed post-mortem report.",
+   123→   123→    ],
+   124→   124→    technical_support: [
+   125→   125→      "I've performed an in-depth technical analysis of the issues you're experiencing. The root cause is a complex interaction between your API integration architecture and our recent platform changes. Specifically, the issue stems from a breaking change in our webhook event payload structure that wasn't properly documented in our changelog. I've identified the exact API calls affected and have prepared a detailed migration guide with code examples for each affected endpoint. I'm also working with our documentation team to update our API reference. A dedicated integration engineer is being assigned to assist with your migration.",
+   126→   126→    ],
+   127→   127→    returns_exchanges: [
+   128→   128→      "I've reviewed your return/exchange situation holistically, taking into account your purchase history, the product condition report, and our return policy parameters. Given the circumstances, I'm authorizing an exception to our standard return window. Additionally, I'm upgrading your replacement shipment to priority express delivery and including a complimentary care package. I'm also creating a feedback loop with our quality assurance team regarding the specific product defect you experienced to prevent future occurrences.",
+   129→   129→    ],
+   130→   130→    shipping_delivery: [
+   131→   131→      "I've initiated a comprehensive logistics investigation involving our shipping partners, warehouse network, and delivery optimization systems. The delivery failure was caused by an unusual confluence of factors: a regional weather event, a carrier routing algorithm error, and a warehouse inventory allocation issue. I've implemented a custom delivery solution that bypasses the affected routing path. Your replacement package is being shipped via a dedicated courier with real-time GPS tracking, which I'll share with you directly. Expected delivery: 24 hours.",
+   132→   132→    ],
+   133→   133→    product_information: [
+   134→   134→      "I've compiled an exhaustive technical analysis of the product specifications, including compatibility matrices, performance benchmarks across different environments, and a comparison with alternative solutions in the market. Based on your specific requirements and use case, here's my detailed recommendation with a phased implementation strategy. I can also arrange a technical deep-dive session with our product engineering team if you'd like to discuss architecture and integration details.",
+   135→   135→    ],
+   136→   136→    complaints: [
+   137→   137→      "I've conducted a thorough review of your entire customer journey with our company, including every interaction, transaction, and touchpoint. Your frustration is completely justified, and I take full responsibility for the failures in our service delivery. I'm implementing a comprehensive remediation plan that addresses each of your concerns individually, with specific owners and deadlines. Additionally, I'm proposing structural changes to our support processes to prevent similar experiences for any customer. You'll receive a personal follow-up from our VP of Customer Experience within 24 hours.",
+   138→   138→    ],
+   139→   139→    vip_enterprise: [
+   140→   140→      "As a valued enterprise partner, I've engaged our executive response team to provide you with white-glove service for this matter. I've conducted a cross-functional analysis involving our engineering, product, support, and leadership teams. The resolution plan I'm presenting has been reviewed and approved by our CTO and VP of Customer Success. It includes immediate mitigation steps, short-term fixes, and long-term architectural improvements specifically tailored to your enterprise requirements. A dedicated technical account manager will be your single point of contact throughout this process.",
+   141→   141→    ],
+   142→   142→    fraud_security: [
+   143→   143→      "I've activated our highest-tier security response protocol. This involves our Security Operations Center (SOC), fraud investigation team, and external cybersecurity consultants. I've performed a preliminary forensic analysis that reveals a sophisticated attack vector — specifically, a session hijacking exploit that bypassed our standard authentication controls. I've implemented emergency security measures including mandatory session revalidation, enhanced logging, and behavioral analysis monitoring. Our security team is conducting a full forensic investigation, and I'll provide you with a detailed incident report within 4 hours. In the meantime, I recommend additional precautionary steps that I'll walk you through.",
+   144→   144→    ],
+   145→   145→  },
+   146→   146→};
+   147→   147→
+   148→   148→function getRandomAIResponse(variant: TicketVariant, category: TicketCategory): string {
+   149→   149→  const responses = AI_RESPONSES[variant]?.[category] ?? AI_RESPONSES.light.billing_payments;
+   150→   150→  return responses[Math.floor(Math.random() * responses.length)];
+   151→   151→}
+   152→   152→
+   153→   153→// ── Badge Components ────────────────────────────────────────────────
+   154→   154→
+   155→   155→function StatusBadge({ status }: { status: TicketStatus }) {
+   156→   156→  const styles: Record<TicketStatus, string> = {
+   157→   157→    open: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+   158→   158→    in_progress: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+   159→   159→    resolved: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+   160→   160→    closed: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
+   161→   161→    awaiting_client: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+   162→   162→    awaiting_human: 'bg-red-500/10 text-red-400 border-red-500/20',
+   163→   163→  };
+   164→   164→  return (
+   165→   165→    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${styles[status]}`}>
+   166→   166→      {STATUS_LABELS[status]}
+   167→   167→    </span>
+   168→   168→  );
+   169→   169→}
+   170→   170→
+   171→   171→function PriorityBadge({ priority }: { priority: TicketPriority }) {
+   172→   172→  const styles: Record<TicketPriority, string> = {
+   173→   173→    low: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
+   174→   174→    medium: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+   175→   175→    high: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+   176→   176→    critical: 'bg-red-500/10 text-red-400 border-red-500/20',
+   177→   177→  };
+   178→   178→  return (
+   179→   179→    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${styles[priority]}`}>
+   180→   180→      {PRIORITY_LABELS[priority]}
+   181→   181→    </span>
+   182→   182→  );
+   183→   183→}
+   184→   184→
+   185→   185→function VariantBadge({ variant }: { variant: TicketVariant }) {
+   186→   186→  const styles: Record<TicketVariant, string> = {
+   187→   187→    light: 'bg-zinc-500/10 text-zinc-300 border-zinc-500/20',
+   188→   188→    medium: 'bg-sky-500/10 text-sky-300 border-sky-500/20',
+   189→   189→    heavy: 'bg-orange-500/10 text-orange-300 border-orange-500/20',
+   190→   190→  };
+   191→   191→  return (
+   192→   192→    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${styles[variant]}`}>
+   193→   193→      {variant.toUpperCase()}
+   194→   194→    </span>
+   195→   195→  );
+   196→   196→}
+   197→   197→
+   198→   198→function ChannelIcon({ channel }: { channel: TicketChannel }) {
+   199→   199→  const icons: Record<TicketChannel, React.ReactNode> = {
+   200→   200→    email: (
+   201→   201→      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   202→   202→        <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+   203→   203→      </svg>
+   204→   204→    ),
+   205→   205→    chat: (
+   206→   206→      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   207→   207→        <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
+   208→   208→      </svg>
+   209→   209→    ),
+   210→   210→    sms: (
+   211→   211→      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   212→   212→        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+   213→   213→      </svg>
+   214→   214→    ),
+   215→   215→    voice: (
+   216→   216→      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   217→   217→        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
+   218→   218→      </svg>
+   219→   219→    ),
+   220→   220→  };
+   221→   221→  return <span className="text-zinc-500">{icons[channel]}</span>;
+   222→   222→}
+   223→   223→
+   224→   224→// ── Date Formatting ─────────────────────────────────────────────────
+   225→   225→
+   226→   226→function formatRelativeDate(dateStr: string): string {
+   227→   227→  const date = new Date(dateStr);
+   228→   228→  const now = new Date();
+   229→   229→  const diffMs = now.getTime() - date.getTime();
+   230→   230→  const diffMins = Math.floor(diffMs / 60000);
+   231→   231→  const diffHours = Math.floor(diffMs / 3600000);
+   232→   232→  const diffDays = Math.floor(diffMs / 86400000);
+   233→   233→
+   234→   234→  if (diffMins < 1) return 'just now';
+   235→   235→  if (diffMins < 60) return `${diffMins}m ago`;
+   236→   236→  if (diffHours < 24) return `${diffHours}h ago`;
+   237→   237→  if (diffDays < 7) return `${diffDays}d ago`;
+   238→   238→  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+   239→   239→}
+   240→   240→
+   241→   241→// ── Filter Dropdown ─────────────────────────────────────────────────
+   242→   242→
+   243→   243→function FilterSelect<T extends string>({
+   244→   244→  label,
+   245→   245→  value,
+   246→   246→  options,
+   247→   247→  onChange,
+   248→   248→}: {
+   249→   249→  label: string;
+   250→   250→  value: string;
+   251→   251→  options: { value: T; label: string }[];
+   252→   252→  onChange: (value: T | 'all') => void;
+   253→   253→}) {
+   254→   254→  return (
+   255→   255→    <div className="flex items-center gap-2">
+   256→   256→      <label className="text-[11px] text-zinc-500 whitespace-nowrap hidden sm:block">{label}</label>
+   257→   257→      <select
+   258→   258→        value={value}
+   259→   259→        onChange={(e) => onChange(e.target.value as T | 'all')}
+   260→   260→        className="h-8 bg-[#1A1A1A] border border-white/[0.06] rounded-lg px-2.5 text-xs text-zinc-300 focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer pr-7"
+   261→   261→        style={{
+   262→   262→          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+   263→   263→          backgroundRepeat: 'no-repeat',
+   264→   264→          backgroundPosition: 'right 8px center',
+   265→   265→        }}
+   266→   266→      >
+   267→   267→        <option value="all">All {label}</option>
+   268→   268→        {options.map((opt) => (
+   269→   269→          <option key={opt.value} value={opt.value}>
+   270→   270→            {opt.label}
+   271→   271→          </option>
+   272→   272→        ))}
+   273→   273→      </select>
+   274→   274→    </div>
+   275→   275→  );
+   276→   276→}
+   277→   277→
+   278→   278→// ── Create Ticket Modal ─────────────────────────────────────────────
+   279→   279→
+   280→   280→function CreateTicketModal({
+   281→   281→  open,
+   282→   282→  onClose,
+   283→   283→}: {
+   284→   284→  open: boolean;
+   285→   285→  onClose: () => void;
+   286→   286→}) {
+   287→   287→  const addTicket = useTicketStore((s) => s.addTicket);
+   288→   288→
+   289→   289→  const [subject, setSubject] = useState('');
+   290→   290→  const [description, setDescription] = useState('');
+   291→   291→  const [category, setCategory] = useState<TicketCategory>('billing_payments');
+   292→   292→  const [priority, setPriority] = useState<TicketPriority>('medium');
+   293→   293→  const [channel, setChannel] = useState<TicketChannel>('email');
+   294→   294→  const [customerName, setCustomerName] = useState('');
+   295→   295→  const [customerEmail, setCustomerEmail] = useState('');
+   296→   296→  const [customerPhone, setCustomerPhone] = useState('');
+   297→   297→  const [isSubmitting, setIsSubmitting] = useState(false);
+   298→   298→
+   299→   299→  const handleSubmit = async (e: React.FormEvent) => {
+   300→   300→    e.preventDefault();
+   301→   301→    if (!subject.trim() || !customerName.trim() || !customerEmail.trim()) {
+   302→   302→      toast.error('Please fill in all required fields');
+   303→   303→      return;
+   304→   304→    }
+   305→   305→
+   306→   306→    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+   307→   307→    if (!emailRegex.test(customerEmail.trim())) {
+   308→   308→      toast.error('Please enter a valid email address');
+   309→   309→      return;
+   310→   310→    }
+   311→   311→
+   312→   312→    setIsSubmitting(true);
+   313→   313→    await new Promise((r) => setTimeout(r, 300));
+   314→   314→
+   315→   315→    const ticket = addTicket({
+   316→   316→      subject: subject.trim(),
+   317→   317→      description: description.trim(),
+   318→   318→      category,
+   319→   319→      priority,
+   320→   320→      channel,
+   321→   321→      customer_name: customerName.trim(),
+   322→   322→      customer_email: customerEmail.trim(),
+   323→   323→    });
+   324→   324→
+   325→   325→    // Add initial customer message
+   326→   326→    const store = useTicketStore.getState();
+   327→   327→    store.addMessage(ticket.id, {
+   328→   328→      sender: 'customer',
+   329→   329→      sender_name: customerName.trim(),
+   330→   330→      content: description.trim() || subject.trim(),
+   331→   331→    });
+   332→   332→
+   333→   333→    // Send real notification (email/SMS) to customer — fire & forget
+   334→   334→    fetch('/api/ticket-solve', {
+   335→   335→      method: 'POST',
+   336→   336→      headers: { 'Content-Type': 'application/json' },
+   337→   337→      body: JSON.stringify({
+   338→   338→        ticketId: ticket.id,
+   339→   339→        ticketNumber: ticket.ticket_number,
+   340→   340→        customerMessage: description.trim() || subject.trim(),
+   341→   341→        variant: ticket.assigned_variant || 'light',
+   342→   342→        category,
+   343→   343→        priority,
+   344→   344→        channel,
+   345→   345→        customerName: customerName.trim(),
+   346→   346→        customerEmail: customerEmail.trim(),
+   347→   347→        customerPhone: customerPhone.trim() || undefined,
+   348→   348→        subject: subject.trim(),
+   349→   349→        conversationHistory: [],
+   350→   350→        skipAIResponse: true,
+   351→   351→      }),
+   352→   352→    }).catch(() => {});
+   353→   353→
+   354→   354→    toast.success(`Ticket ${ticket.ticket_number} created` + (channel === 'email' || channel === 'sms' ? ' — notification sent' : ''));
+   355→   355→    resetForm();
+   356→   356→    setIsSubmitting(false);
+   357→   357→    onClose();
+   358→   358→  };
+   359→   359→
+   360→   360→  const resetForm = () => {
+   361→   361→    setSubject('');
+   362→   362→    setDescription('');
+   363→   363→    setCategory('billing_payments');
+   364→   364→    setPriority('medium');
+   365→   365→    setChannel('email');
+   366→   366→    setCustomerName('');
+   367→   367→    setCustomerEmail('');
+   368→   368→    setCustomerPhone('');
+   369→   369→  };
+   370→   370→
+   371→   371→  if (!open) return null;
+   372→   372→
+   373→   373→  return (
+   374→   374→    <motion.div
+   375→   375→      initial={{ opacity: 0 }}
+   376→   376→      animate={{ opacity: 1 }}
+   377→   377→      exit={{ opacity: 0 }}
+   378→   378→      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+   379→   379→      onClick={(e) => e.target === e.currentTarget && onClose()}
+   380→   380→    >
+   381→   381→        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+   382→   382→        <motion.div
+   383→   383→          initial={{ opacity: 0, scale: 0.95, y: 10 }}
+   384→   384→          animate={{ opacity: 1, scale: 1, y: 0 }}
+   385→   385→          exit={{ opacity: 0, scale: 0.95, y: 10 }}
+   386→   386→          className="relative w-full max-w-lg bg-[#1A1A1A] border border-white/[0.06] rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
+   387→   387→        >
+   388→   388→          {/* Header */}
+   389→   389→          <div className="sticky top-0 bg-[#1A1A1A] border-b border-white/[0.06] p-5 flex items-center justify-between z-10">
+   390→   390→            <div>
+   391→   391→              <h2 className="text-white font-semibold">Create New Ticket</h2>
+   392→   392→              <p className="text-zinc-500 text-xs mt-0.5">
+   393→   393→                AI variant will be auto-assigned based on complexity
+   394→   394→              </p>
+   395→   395→            </div>
+   396→   396→            <button
+   397→   397→              onClick={onClose}
+   398→   398→              className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
+   399→   399→            >
+   400→   400→              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+   401→   401→                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+   402→   402→              </svg>
+   403→   403→            </button>
+   404→   404→          </div>
+   405→   405→
+   406→   406→          {/* Form */}
+   407→   407→          <form onSubmit={handleSubmit} className="p-5 space-y-4">
+   408→   408→            {/* Customer Info */}
+   409→   409→            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+   410→   410→              <div>
+   411→   411→                <label className="text-[11px] text-zinc-400 mb-1 block">
+   412→   412→                  Customer Name <span className="text-orange-400">*</span>
+   413→   413→                </label>
+   414→   414→                <input
+   415→   415→                  type="text"
+   416→   416→                  value={customerName}
+   417→   417→                  onChange={(e) => setCustomerName(e.target.value)}
+   418→   418→                  placeholder="John Doe"
+   419→   419→                  className="w-full h-9 bg-[#0F0F0F] border border-white/[0.06] rounded-lg px-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+   420→   420→                />
+   421→   421→              </div>
+   422→   422→              <div>
+   423→   423→                <label className="text-[11px] text-zinc-400 mb-1 block">
+   424→   424→                  Customer Email <span className="text-orange-400">*</span>
+   425→   425→                </label>
+   426→   426→                <input
+   427→   427→                  type="email"
+   428→   428→                  value={customerEmail}
+   429→   429→                  onChange={(e) => setCustomerEmail(e.target.value)}
+   430→   430→                  placeholder="john@example.com"
+   431→   431→                  className="w-full h-9 bg-[#0F0F0F] border border-white/[0.06] rounded-lg px-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+   432→   432→                />
+   433→   433→              </div>
+   434→   434→              <div>
+   435→   435→                <label className="text-[11px] text-zinc-400 mb-1 block">
+   436→   436→                  Phone <span className="text-zinc-600">(for SMS)</span>
+   437→   437→                </label>
+   438→   438→                <input
+   439→   439→                  type="tel"
+   440→   440→                  value={customerPhone}
+   441→   441→                  onChange={(e) => setCustomerPhone(e.target.value)}
+   442→   442→                  placeholder="+919652852014"
+   443→   443→                  className="w-full h-9 bg-[#0F0F0F] border border-white/[0.06] rounded-lg px-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+   444→   444→                />
+   445→   445→              </div>
+   446→   446→            </div>
+   447→   447→
+   448→   448→            {/* Subject */}
+   449→   449→            <div>
+   450→   450→              <label className="text-[11px] text-zinc-400 mb-1 block">
+   451→   451→                Subject <span className="text-orange-400">*</span>
+   452→   452→              </label>
+   453→   453→              <input
+   454→   454→                type="text"
+   455→   455→                value={subject}
+   456→   456→                onChange={(e) => setSubject(e.target.value)}
+   457→   457→                placeholder="Brief description of the issue"
+   458→   458→                className="w-full h-9 bg-[#0F0F0F] border border-white/[0.06] rounded-lg px-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+   459→   459→              />
+   460→   460→            </div>
+   461→   461→
+   462→   462→            {/* Description */}
+   463→   463→            <div>
+   464→   464→              <label className="text-[11px] text-zinc-400 mb-1 block">Description</label>
+   465→   465→              <textarea
+   466→   466→                value={description}
+   467→   467→                onChange={(e) => setDescription(e.target.value)}
+   468→   468→                placeholder="Detailed description of the issue or request..."
+   469→   469→                rows={3}
+   470→   470→                className="w-full bg-[#0F0F0F] border border-white/[0.06] rounded-lg px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors resize-none"
+   471→   471→              />
+   472→   472→            </div>
+   473→   473→
+   474→   474→            {/* Category, Priority, Channel */}
+   475→   475→            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+   476→   476→              <div>
+   477→   477→                <label className="text-[11px] text-zinc-400 mb-1 block">Category</label>
+   478→   478→                <select
+   479→   479→                  value={category}
+   480→   480→                  onChange={(e) => setCategory(e.target.value as TicketCategory)}
+   481→   481→                  className="w-full h-9 bg-[#0F0F0F] border border-white/[0.06] rounded-lg px-3 text-sm text-zinc-300 focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer pr-7"
+   482→   482→                  style={{
+   483→   483→                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+   484→   484→                    backgroundRepeat: 'no-repeat',
+   485→   485→                    backgroundPosition: 'right 8px center',
+   486→   486→                  }}
+   487→   487→                >
+   488→   488→                  {ALL_CATEGORIES.map((c) => (
+   489→   489→                    <option key={c} value={c}>
+   490→   490→                      {CATEGORY_LABELS[c]}
+   491→   491→                    </option>
+   492→   492→                  ))}
+   493→   493→                </select>
+   494→   494→              </div>
+   495→   495→              <div>
+   496→   496→                <label className="text-[11px] text-zinc-400 mb-1 block">Priority</label>
+   497→   497→                <select
+   498→   498→                  value={priority}
+   499→   499→                  onChange={(e) => setPriority(e.target.value as TicketPriority)}
+   500→   500→                  className="w-full h-9 bg-[#0F0F0F] border border-white/[0.06] rounded-lg px-3 text-sm text-zinc-300 focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer pr-7"
+   501→   501→                  style={{
+   502→   502→                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+   503→   503→                    backgroundRepeat: 'no-repeat',
+   504→   504→                    backgroundPosition: 'right 8px center',
+   505→   505→                  }}
+   506→   506→                >
+   507→   507→                  {ALL_PRIORITIES.map((p) => (
+   508→   508→                    <option key={p} value={p}>
+   509→   509→                      {PRIORITY_LABELS[p]}
+   510→   510→                    </option>
+   511→   511→                  ))}
+   512→   512→                </select>
+   513→   513→              </div>
+   514→   514→              <div>
+   515→   515→                <label className="text-[11px] text-zinc-400 mb-1 block">Channel</label>
+   516→   516→                <select
+   517→   517→                  value={channel}
+   518→   518→                  onChange={(e) => setChannel(e.target.value as TicketChannel)}
+   519→   519→                  className="w-full h-9 bg-[#0F0F0F] border border-white/[0.06] rounded-lg px-3 text-sm text-zinc-300 focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer pr-7"
+   520→   520→                  style={{
+   521→   521→                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+   522→   522→                    backgroundRepeat: 'no-repeat',
+   523→   523→                    backgroundPosition: 'right 8px center',
+   524→   524→                  }}
+   525→   525→                >
+   526→   526→                  {ALL_CHANNELS.map((ch) => (
+   527→   527→                    <option key={ch} value={ch}>
+   528→   528→                      {CHANNEL_LABELS[ch]}
+   529→   529→                    </option>
+   530→   530→                  ))}
+   531→   531→                </select>
+   532→   532→              </div>
+   533→   533→            </div>
+   534→   534→
+   535→   535→            {/* Auto-assign preview */}
+   536→   536→            <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-3 flex items-center gap-3">
+   537→   537→              <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+   538→   538→                <svg className="w-4 h-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   539→   539→                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
+   540→   540→                </svg>
+   541→   541→              </div>
+   542→   542→              <div>
+   543→   543→                <p className="text-xs text-zinc-300 font-medium">AI Auto-Assignment</p>
+   544→   544→                <p className="text-[11px] text-zinc-500">
+   545→   545→                  Will be routed to{' '}
+   546→   546→                  <span className="text-orange-400 font-medium">
+   547→   547→                    {priority === 'critical'
+   548→   548→                      ? 'Heavy (Claude 3.5)'
+   549→   549→                      : priority === 'high'
+   550→   550→                      ? 'Medium (Gemini Pro)'
+   551→   551→                      : ['fraud_security', 'vip_enterprise', 'complaints'].includes(category)
+   552→   552→                      ? 'Medium (Gemini Pro)'
+   553→   553→                      : 'Light (Gemini Flash)'}
+   554→   554→                  </span>
+   555→   555→                  {' '}based on priority & category rules
+   556→   556→                </p>
+   557→   557→              </div>
+   558→   558→            </div>
+   559→   559→
+   560→   560→            {/* Actions */}
+   561→   561→            <div className="flex gap-3 pt-2">
+   562→   562→              <button
+   563→   563→                type="button"
+   564→   564→                onClick={onClose}
+   565→   565→                className="flex-1 h-10 rounded-lg border border-white/[0.06] text-sm text-zinc-400 hover:text-zinc-300 hover:border-white/10 transition-colors"
+   566→   566→              >
+   567→   567→                Cancel
+   568→   568→              </button>
+   569→   569→              <button
+   570→   570→                type="submit"
+   571→   571→                disabled={isSubmitting}
+   572→   572→                className="flex-1 h-10 rounded-lg bg-orange-500 text-sm text-white font-medium hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+   573→   573→              >
+   574→   574→                {isSubmitting ? (
+   575→   575→                  <>
+   576→   576→                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+   577→   577→                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+   578→   578→                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+   579→   579→                    </svg>
+   580→   580→                    Creating...
+   581→   581→                  </>
+   582→   582→                ) : (
+   583→   583→                  'Create Ticket'
+   584→   584→                )}
+   585→   585→              </button>
+   586→   586→            </div>
+   587→   587→          </form>
+   588→   588→        </motion.div>
+   589→   589→      </motion.div>
+   590→   590→  );
+   591→   591→}
+   592→   592→
+   593→   593→// ── Ticket Detail Panel ─────────────────────────────────────────────
+   594→   594→
+   595→   595→function TicketDetailPanel({
+   596→   596→  ticketId,
+   597→   597→  onClose,
+   598→   598→}: {
+   599→   599→  ticketId: string;
+   600→   600→  onClose: () => void;
+   601→   601→}) {
+   602→   602→  const ticket = useTicketStore((s) => s.tickets.find(t => t.id === ticketId) ?? null);
+   603→   603→  const resolveTicket = useTicketStore((s) => s.resolveTicket);
+   604→   604→  const escalateToHuman = useTicketStore((s) => s.escalateToHuman);
+   605→   605→  const updatePriority = useTicketStore((s) => s.updatePriority);
+   606→   606→  const assignVariant = useTicketStore((s) => s.assignVariant);
+   607→   607→  const addMessage = useTicketStore((s) => s.addMessage);
+   608→   608→  const [resolutionText, setResolutionText] = useState('');
+   609→   609→  const [showResolveInput, setShowResolveInput] = useState(false);
+   610→   610→  const [showPriorityMenu, setShowPriorityMenu] = useState(false);
+   611→   611→  const [showVariantMenu, setShowVariantMenu] = useState(false);
+   612→   612→  const [newMessage, setNewMessage] = useState('');
+   613→   613→  const [isAiTyping, setIsAiTyping] = useState(false);
+   614→   614→  const messagesEndRef = useRef<HTMLDivElement>(null);
+   615→   615→  const aiTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+   616→   616→  const isAiRespondingRef = useRef(false);
+   617→   617→
+   618→   618→  // Cleanup AI timer on unmount
+   619→   619→  useEffect(() => () => { if (aiTimerRef.current) clearTimeout(aiTimerRef.current); }, []);
+   620→   620→
+   621→   621→  if (!ticket) return null;
+   622→   622→
+   623→   623→  const scrollToBottom = useCallback(() => {
+   624→   624→    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+   625→   625→  }, []);
+   626→   626→
+   627→   627→  useEffect(() => {
+   628→   628→    scrollToBottom();
+   629→   629→  }, [ticket.messages.length, isAiTyping, scrollToBottom]);
+   630→   630→
+   631→   631→  // Call REAL LLM API when opening an open ticket with an unanswered customer message
+   632→   632→  useEffect(() => {
+   633→   633→    if (!ticket || ticket.status !== 'open' || !ticket.assigned_variant || ticket.messages.length === 0) return;
+   634→   634→    if (isAiRespondingRef.current) return;
+   635→   635→    const lastCustomerMsg = [...ticket.messages].reverse().find(m => m.sender === 'customer');
+   636→   636→    if (lastCustomerMsg) {
+   637→   637→      const hasAiResponse = ticket.messages.some(
+   638→   638→        m => m.sender === 'ai_agent' && new Date(m.created_at) > new Date(lastCustomerMsg.created_at)
+   639→   639→      );
+   640→   640→      if (!hasAiResponse) {
+   641→   641→        isAiRespondingRef.current = true;
+   642→   642→        setIsAiTyping(true);
+   643→   643→        callRealAI(lastCustomerMsg.content);
+   644→   644→      }
+   645→   645→    }
+   646→   646→  }, [ticket?.id, ticket?.status, ticket?.assigned_variant, ticket?.messages.length]);
+   647→   647→
+   648→   648→  // Call REAL LLM via /api/ticket-solve
+   649→   649→  const callRealAI = async (customerText: string) => {
+   650→   650→    const currentTicket = useTicketStore.getState().getTicket(ticketId);
+   651→   651→    if (!currentTicket) { isAiRespondingRef.current = false; setIsAiTyping(false); return; }
+   652→   652→
+   653→   653→    const variant = currentTicket.assigned_variant ?? 'light';
+   654→   654→    try {
+   655→   655→      const res = await fetch('/api/ticket-solve', {
+   656→   656→        method: 'POST',
+   657→   657→        headers: { 'Content-Type': 'application/json' },
+   658→   658→        body: JSON.stringify({
+   659→   659→          ticketId,
+   660→   660→          ticketNumber: currentTicket.ticket_number,
+   661→   661→          customerMessage: customerText,
+   662→   662→          variant,
+   663→   663→          category: currentTicket.category,
+   664→   664→          priority: currentTicket.priority,
+   665→   665→          channel: currentTicket.channel,
+   666→   666→          customerName: currentTicket.customer_name,
+   667→   667→          customerEmail: currentTicket.customer_email,
+   668→   668→          subject: currentTicket.subject,
+   669→   669→          conversationHistory: currentTicket.messages.map(m => ({ role: m.sender === 'customer' ? 'user' : 'assistant', content: m.content, sender: m.sender })),
+   670→   670→        }),
+   671→   671→      });
+   672→   672→      const data = await res.json();
+   673→   673→      if (data.response) {
+   674→   674→        useTicketStore.getState().addMessage(ticketId, {
+   675→   675→          sender: 'ai_agent',
+   676→   676→          sender_name: 'PARWA AI',
+   677→   677→          content: data.response,
+   678→   678→          variant,
+   679→   679→        });
+   680→   680→        if (data.shouldEscalate) {
+   681→   681→          useTicketStore.getState().escalateToHuman(ticketId);
+   682→   682→          toast('Ticket escalated to human agent', { icon: '⚠️' });
+   683→   683→        } else {
+   684→   684→          toast.success(`${variant.toUpperCase()} variant responded`);
+   685→   685→        }
+   686→   686→      }
+   687→   687→    } catch (err) {
+   688→   688→      console.error('AI solve error:', err);
+   689→   689→      toast.error('AI response failed — using fallback');
+   690→   690→      // Fallback to canned response only if API fails
+   691→   691→      const response = getRandomAIResponse(variant, currentTicket.category);
+   692→   692→      useTicketStore.getState().addMessage(ticketId, {
+   693→   693→        sender: 'ai_agent', sender_name: 'PARWA AI', content: response, variant,
+   694→   694→      });
+   695→   695→    } finally {
+   696→   696→      setIsAiTyping(false);
+   697→   697→      isAiRespondingRef.current = false;
+   698→   698→    }
+   699→   699→  };
+   700→   700→
+   701→   701→  const handleSendMessage = () => {
+   702→   702→    if (!newMessage.trim() || !ticket) return;
+   703→   703→    addMessage(ticketId, {
+   704→   704→      sender: 'customer',
+   705→   705→      sender_name: ticket.customer_name,
+   706→   706→      content: newMessage.trim(),
+   707→   707→    });
+   708→   708→    setNewMessage('');
+   709→   709→
+   710→   710→    // Call REAL LLM API for follow-up messages (skip if one is already in-flight)
+   711→   711→    if (ticket.assigned_variant && !isAiRespondingRef.current) {
+   712→   712→      isAiRespondingRef.current = true;
+   713→   713→      setIsAiTyping(true);
+   714→   714→      callRealAI(newMessage.trim());
+   715→   715→    }
+   716→   716→  };
+   717→   717→
+   718→   718→  const handleResolve = () => {
+   719→   719→    if (!resolutionText.trim()) {
+   720→   720→      toast.error('Please provide resolution notes');
+   721→   721→      return;
+   722→   722→    }
+   723→   723→    resolveTicket(ticketId, resolutionText.trim());
+   724→   724→    setShowResolveInput(false);
+   725→   725→    setResolutionText('');
+   726→   726→    toast.success('Ticket resolved successfully');
+   727→   727→    onClose();
+   728→   728→  };
+   729→   729→
+   730→   730→  const handleEscalate = () => {
+   731→   731→    escalateToHuman(ticketId);
+   732→   732→    toast.success('Ticket escalated to human agent');
+   733→   733→    onClose();
+   734→   734→  };
+   735→   735→
+   736→   736→  return (
+   737→   737→    <motion.div
+   738→   738→      initial={{ opacity: 0 }}
+   739→   739→      animate={{ opacity: 1 }}
+   740→   740→      exit={{ opacity: 0 }}
+   741→   741→      className="fixed inset-0 z-50 flex"
+   742→   742→      onClick={(e) => e.target === e.currentTarget && onClose()}
+   743→   743→    >
+   744→   744→        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+   745→   745→        <motion.div
+   746→   746→          initial={{ x: '100%' }}
+   747→   747→          animate={{ x: 0 }}
+   748→   748→          exit={{ x: '100%' }}
+   749→   749→          transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+   750→   750→          className="relative w-full max-w-2xl ml-auto bg-[#0F0F0F] border-l border-white/[0.06] flex flex-col h-full"
+   751→   751→        >
+   752→   752→          {/* Header */}
+   753→   753→          <div className="border-b border-white/[0.06] p-4 flex-shrink-0">
+   754→   754→            <div className="flex items-start justify-between mb-3">
+   755→   755→              <div className="flex items-center gap-3 min-w-0">
+   756→   756→                <button
+   757→   757→                  onClick={onClose}
+   758→   758→                  className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-colors flex-shrink-0"
+   759→   759→                >
+   760→   760→                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+   761→   761→                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+   762→   762→                  </svg>
+   763→   763→                </button>
+   764→   764→                <div className="min-w-0">
+   765→   765→                  <p className="text-[11px] text-zinc-500 font-mono">{ticket.ticket_number}</p>
+   766→   766→                  <h2 className="text-white font-semibold text-sm truncate">{ticket.subject}</h2>
+   767→   767→                </div>
+   768→   768→              </div>
+   769→   769→              <div className="flex items-center gap-1.5 flex-shrink-0">
+   770→   770→                <StatusBadge status={ticket.status} />
+   771→   771→                <PriorityBadge priority={ticket.priority} />
+   772→   772→                {ticket.assigned_variant && <VariantBadge variant={ticket.assigned_variant} />}
+   773→   773→              </div>
+   774→   774→            </div>
+   775→   775→
+   776→   776→            {/* Meta info */}
+   777→   777→            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-zinc-500 ml-11">
+   778→   778→              <span>{ticket.customer_name}</span>
+   779→   779→              <span className="text-zinc-600">•</span>
+   780→   780→              <span>{ticket.customer_email}</span>
+   781→   781→              <span className="text-zinc-600">•</span>
+   782→   782→              <span>{CATEGORY_LABELS[ticket.category]}</span>
+   783→   783→              <span className="text-zinc-600">•</span>
+   784→   784→              <span className="flex items-center gap-1"><ChannelIcon channel={ticket.channel} />{CHANNEL_LABELS[ticket.channel]}</span>
+   785→   785→              <span className="text-zinc-600">•</span>
+   786→   786→              <span>{formatRelativeDate(ticket.created_at)}</span>
+   787→   787→            </div>
+   788→   788→          </div>
+   789→   789→
+   790→   790→          {/* Messages */}
+   791→   791→          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+   792→   792→            {ticket.messages.map((msg) => (
+   793→   793→              <motion.div
+   794→   794→                key={msg.id}
+   795→   795→                initial={{ opacity: 0, y: 8 }}
+   796→   796→                animate={{ opacity: 1, y: 0 }}
+   797→   797→                className={`flex ${msg.sender === 'customer' ? 'justify-end' : 'justify-start'}`}
+   798→   798→              >
+   799→   799→                <div
+   800→   800→                  className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+   801→   801→                    msg.sender === 'customer'
+   802→   802→                      ? 'bg-orange-500/10 border border-orange-500/20'
+   803→   803→                      : msg.sender === 'ai_agent'
+   804→   804→                      ? 'bg-[#1A1A1A] border border-white/[0.06]'
+   805→   805→                      : 'bg-zinc-500/5 border border-zinc-500/10'
+   806→   806→                  }`}
+   807→   807→                >
+   808→   808→                  <div className="flex items-center gap-2 mb-1">
+   809→   809→                    <span className="text-[11px] font-medium text-zinc-400">
+   810→   810→                      {msg.sender === 'customer'
+   811→   811→                        ? ticket.customer_name
+   812→   812→                        : msg.sender === 'ai_agent'
+   813→   813→                        ? `PARWA AI ${msg.variant ? `(${msg.variant.toUpperCase()})` : ''}`
+   814→   814→                        : 'System'}
+   815→   815→                    </span>
+   816→   816→                    <span className="text-[10px] text-zinc-600">
+   817→   817→                      {formatRelativeDate(msg.created_at)}
+   818→   818→                    </span>
+   819→   819→                  </div>
+   820→   820→                  <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
+   821→   821→                    {msg.content}
+   822→   822→                  </p>
+   823→   823→                </div>
+   824→   824→              </motion.div>
+   825→   825→            ))}
+   826→   826→
+   827→   827→            {/* AI Typing indicator */}
+   828→   828→            {isAiTyping && (
+   829→   829→              <motion.div
+   830→   830→                initial={{ opacity: 0, y: 8 }}
+   831→   831→                animate={{ opacity: 1, y: 0 }}
+   832→   832→                className="flex justify-start"
+   833→   833→              >
+   834→   834→                <div className="bg-[#1A1A1A] border border-white/[0.06] rounded-2xl px-4 py-3">
+   835→   835→                  <div className="flex items-center gap-2 mb-1">
+   836→   836→                    <span className="text-[11px] font-medium text-zinc-400">
+   837→   837→                      PARWA AI {ticket.assigned_variant ? `(${ticket.assigned_variant.toUpperCase()})` : ''}
+   838→   838→                    </span>
+   839→   839→                  </div>
+   840→   840→                  <div className="flex items-center gap-1">
+   841→   841→                    <div className="w-2 h-2 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+   842→   842→                    <div className="w-2 h-2 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+   843→   843→                    <div className="w-2 h-2 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+   844→   844→                  </div>
+   845→   845→                </div>
+   846→   846→              </motion.div>
+   847→   847→            )}
+   848→   848→
+   849→   849→            <div ref={messagesEndRef} />
+   850→   850→          </div>
+   851→   851→
+   852→   852→          {/* Resolve Input */}
+   853→   853→          {showResolveInput && (
+   854→   854→            <div className="border-t border-white/[0.06] p-4 bg-[#1A1A1A]">
+   855→   855→              <label className="text-[11px] text-zinc-400 mb-2 block">Resolution Notes</label>
+   856→   856→              <textarea
+   857→   857→                value={resolutionText}
+   858→   858→                onChange={(e) => setResolutionText(e.target.value)}
+   859→   859→                placeholder="Describe how the issue was resolved..."
+   860→   860→                rows={2}
+   861→   861→                className="w-full bg-[#0F0F0F] border border-white/[0.06] rounded-lg px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 resize-none mb-3"
+   862→   862→              />
+   863→   863→              <div className="flex gap-2">
+   864→   864→                <button
+   865→   865→                  onClick={() => setShowResolveInput(false)}
+   866→   866→                  className="flex-1 h-9 rounded-lg border border-white/[0.06] text-xs text-zinc-400 hover:text-zinc-300 transition-colors"
+   867→   867→                >
+   868→   868→                  Cancel
+   869→   869→                </button>
+   870→   870→                <button
+   871→   871→                  onClick={handleResolve}
+   872→   872→                  className="flex-1 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium hover:bg-emerald-500/20 transition-colors"
+   873→   873→                >
+   874→   874→                  Resolve Ticket
+   875→   875→                </button>
+   876→   876→              </div>
+   877→   877→            </div>
+   878→   878→          )}
+   879→   879→
+   880→   880→          {/* Action bar */}
+   881→   881→          <div className="border-t border-white/[0.06] p-3 flex-shrink-0">
+   882→   882→            {/* Quick actions row */}
+   883→   883→            <div className="flex items-center gap-2 mb-3 flex-wrap">
+   884→   884→              {(ticket.status === 'open' || ticket.status === 'in_progress' || ticket.status === 'awaiting_client') && (
+   885→   885→                <>
+   886→   886→                  <button
+   887→   887→                    onClick={() => setShowResolveInput(true)}
+   888→   888→                    className="h-8 px-3 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] font-medium hover:bg-emerald-500/20 transition-colors flex items-center gap-1.5"
+   889→   889→                  >
+   890→   890→                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   891→   891→                      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+   892→   892→                    </svg>
+   893→   893→                    Resolve
+   894→   894→                  </button>
+   895→   895→                  {(ticket.status === 'open' || ticket.status === 'in_progress') && (
+   896→   896→                  <button
+   897→   897→                    onClick={handleEscalate}
+   898→   898→                    className="h-8 px-3 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 text-[11px] font-medium hover:bg-red-500/20 transition-colors flex items-center gap-1.5"
+   899→   899→                  >
+   900→   900→                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   901→   901→                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+   902→   902→                    </svg>
+   903→   903→                    Escalate
+   904→   904→                  </button>
+   905→   905→                  )}
+   906→   906→                </>
+   907→   907→              )}
+   908→   908→
+   909→   909→              {/* Priority dropdown */}
+   910→   910→              <div className="relative">
+   911→   911→                <button
+   912→   912→                  onClick={() => { setShowPriorityMenu(!showPriorityMenu); setShowVariantMenu(false); }}
+   913→   913→                  className="h-8 px-3 rounded-lg bg-white/5 text-zinc-400 border border-white/10 text-[11px] font-medium hover:border-white/20 transition-colors"
+   914→   914→                >
+   915→   915→                  Priority: {PRIORITY_LABELS[ticket.priority]}
+   916→   916→                </button>
+   917→   917→                {showPriorityMenu && (
+   918→   918→                  <div className="absolute bottom-full mb-1 left-0 bg-[#1A1A1A] border border-white/[0.06] rounded-lg shadow-xl py-1 z-20 min-w-[120px]">
+   919→   919→                    {ALL_PRIORITIES.map((p) => (
+   920→   920→                      <button
+   921→   921→                        key={p}
+   922→   922→                        onClick={() => {
+   923→   923→                          updatePriority(ticket.id, p);
+   924→   924→                          setShowPriorityMenu(false);
+   925→   925→                          toast.success(`Priority updated to ${PRIORITY_LABELS[p]}`);
+   926→   926→                        }}
+   927→   927→                        className={`w-full px-3 py-1.5 text-left text-xs hover:bg-white/5 transition-colors flex items-center gap-2 ${
+   928→   928→                          ticket.priority === p ? 'text-orange-400' : 'text-zinc-300'
+   929→   929→                        }`}
+   930→   930→                      >
+   931→   931→                        <PriorityBadge priority={p} />
+   932→   932→                      </button>
+   933→   933→                    ))}
+   934→   934→                  </div>
+   935→   935→                )}
+   936→   936→              </div>
+   937→   937→
+   938→   938→              {/* Variant dropdown */}
+   939→   939→              <div className="relative">
+   940→   940→                <button
+   941→   941→                  onClick={() => { setShowVariantMenu(!showVariantMenu); setShowPriorityMenu(false); }}
+   942→   942→                  className="h-8 px-3 rounded-lg bg-white/5 text-zinc-400 border border-white/10 text-[11px] font-medium hover:border-white/20 transition-colors"
+   943→   943→                >
+   944→   944→                  AI: {ticket.assigned_variant ? ticket.assigned_variant.toUpperCase() : 'None'}
+   945→   945→                </button>
+   946→   946→                {showVariantMenu && (
+   947→   947→                  <div className="absolute bottom-full mb-1 left-0 bg-[#1A1A1A] border border-white/[0.06] rounded-lg shadow-xl py-1 z-20 min-w-[180px]">
+   948→   948→                    {ALL_VARIANTS.map((v) => (
+   949→   949→                      <button
+   950→   950→                        key={v}
+   951→   951→                        onClick={() => {
+   952→   952→                          assignVariant(ticket.id, v);
+   953→   953→                          setShowVariantMenu(false);
+   954→   954→                          toast.success(`Reassigned to ${VARIANT_LABELS[v]}`);
+   955→   955→                        }}
+   956→   956→                        className={`w-full px-3 py-1.5 text-left text-xs hover:bg-white/5 transition-colors ${
+   957→   957→                          ticket.assigned_variant === v ? 'text-orange-400' : 'text-zinc-300'
+   958→   958→                        }`}
+   959→   959→                      >
+   960→   960→                        <VariantBadge variant={v} />
+   961→   961→                        <span className="ml-2 text-[10px] text-zinc-500">{VARIANT_LABELS[v]}</span>
+   962→   962→                      </button>
+   963→   963→                    ))}
+   964→   964→                  </div>
+   965→   965→                )}
+   966→   966→              </div>
+   967→   967→
+   968→   968→              {/* Info badges */}
+   969→   969→              {ticket.ai_confidence && (
+   970→   970→                <span className="text-[10px] text-zinc-500 ml-auto hidden sm:block">
+   971→   971→                  Confidence: {ticket.ai_confidence}%
+   972→   972→                </span>
+   973→   973→              )}
+   974→   974→              {ticket.cost_per_ticket !== null && (
+   975→   975→                <span className="text-[10px] text-zinc-500 hidden sm:block">
+   976→   976→                  Cost: ${ticket.cost_per_ticket.toFixed(3)}
+   977→   977→                </span>
+   978→   978→              )}
+   979→   979→            </div>
+   980→   980→
+   981→   981→            {/* Message input */}
+   982→   982→            {ticket.status !== 'resolved' && ticket.status !== 'closed' && (
+   983→   983→              <div className="flex gap-2">
+   984→   984→                <input
+   985→   985→                  type="text"
+   986→   986→                  value={newMessage}
+   987→   987→                  onChange={(e) => setNewMessage(e.target.value)}
+   988→   988→                  onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+   989→   989→                  placeholder={`Message as ${ticket.customer_name}...`}
+   990→   990→                  className="flex-1 h-9 bg-[#1A1A1A] border border-white/[0.06] rounded-lg px-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+   991→   991→                />
+   992→   992→                <button
+   993→   993→                  onClick={handleSendMessage}
+   994→   994→                  disabled={!newMessage.trim() || isAiTyping}
+   995→   995→                  className="h-9 w-9 rounded-lg bg-orange-500 text-white flex items-center justify-center hover:bg-orange-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+   996→   996→                >
+   997→   997→                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+   998→   998→                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+   999→   999→                  </svg>
+  1000→  1000→                </button>
+  1001→  1001→              </div>
+  1002→  1002→            )}
+  1003→  1003→          </div>
+  1004→  1004→        </motion.div>
+  1005→  1005→    </motion.div>
+  1006→  1006→  );
+  1007→  1007→}
+  1008→  1008→
+  1009→  1009→// ── Main TicketsPage ────────────────────────────────────────────────
+  1010→  1010→
+  1011→  1011→export default function TicketsPage() {
+  1012→  1012→  const tickets = useTicketStore((s) => s.tickets);
+  1013→  1013→  const init = useTicketStore((s) => s.init);
+  1014→  1014→  const ticketStats = useTicketStore((s) => s.ticketStats);
+  1015→  1015→
+  1016→  1016→  const [showCreateModal, setShowCreateModal] = useState(false);
+  1017→  1017→  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  1018→  1018→  const selectedTicket = useTicketStore((s) => selectedTicketId ? s.tickets.find(t => t.id === selectedTicketId) ?? null : null);
+  1019→  1019→  const [search, setSearch] = useState('');
+  1020→  1020→  const [filterStatus, setFilterStatus] = useState<TicketStatus | 'all'>('all');
+  1021→  1021→  const [filterCategory, setFilterCategory] = useState<TicketCategory | 'all'>('all');
+  1022→  1022→  const [filterPriority, setFilterPriority] = useState<TicketPriority | 'all'>('all');
+  1023→  1023→  const [filterChannel, setFilterChannel] = useState<TicketChannel | 'all'>('all');
+  1024→  1024→  const [filterVariant, setFilterVariant] = useState<TicketVariant | 'all'>('all');
+  1025→  1025→  const [initialized, setInitialized] = useState(false);
+  1026→  1026→
+  1027→  1027→  // Initialize store from backend
+  1028→  1028→  useEffect(() => {
+  1029→  1029→    init();
+  1030→  1030→    setInitialized(true);
+  1031→  1031→  }, []);
+  1032→  1032→
+  1033→  1033→  const filteredTickets = useMemo(() => {
+  1034→  1034→    return tickets.filter((t) => {
+  1035→  1035→      if (filterStatus !== 'all' && t.status !== filterStatus) return false;
+  1036→  1036→      if (filterCategory !== 'all' && t.category !== filterCategory) return false;
+  1037→  1037→      if (filterPriority !== 'all' && t.priority !== filterPriority) return false;
+  1038→  1038→      if (filterChannel !== 'all' && t.channel !== filterChannel) return false;
+  1039→  1039→      if (filterVariant !== 'all' && t.assigned_variant !== filterVariant) return false;
+  1040→  1040→      if (search) {
+  1041→  1041→        const q = search.toLowerCase();
+  1042→  1042→        return (
+  1043→  1043→          t.ticket_number.toLowerCase().includes(q) ||
+  1044→  1044→          t.subject.toLowerCase().includes(q) ||
+  1045→  1045→          t.customer_name.toLowerCase().includes(q) ||
+  1046→  1046→          t.customer_email.toLowerCase().includes(q) ||
+  1047→  1047→          t.description.toLowerCase().includes(q)
+  1048→  1048→        );
+  1049→  1049→      }
+  1050→  1050→      return true;
+  1051→  1051→    });
+  1052→  1052→  }, [tickets, filterStatus, filterCategory, filterPriority, filterChannel, filterVariant, search]);
+  1053→  1053→
+  1054→  1054→  const stats = ticketStats();
+  1055→  1055→
+  1056→  1056→  const handleRowClick = (ticket: Ticket) => {
+  1057→  1057→    setSelectedTicketId(ticket.id);
+  1058→  1058→  };
+  1059→  1059→
+  1060→  1060→  return (
+  1061→  1061→    <div className="space-y-4">
+  1062→  1062→      {/* Header */}
+  1063→  1063→      <div className="flex items-center justify-between flex-wrap gap-3">
+  1064→  1064→        <div className="flex items-center gap-3">
+  1065→  1065→          <h1 className="text-xl font-bold text-white">Tickets</h1>
+  1066→  1066→          {initialized && (
+  1067→  1067→            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20">
+  1068→  1068→              {stats.total}
+  1069→  1069→            </span>
+  1070→  1070→          )}
+  1071→  1071→        </div>
+  1072→  1072→        <button
+  1073→  1073→          onClick={() => setShowCreateModal(true)}
+  1074→  1074→          className="h-9 px-4 rounded-lg bg-orange-500 text-white text-sm font-medium hover:bg-orange-600 transition-colors flex items-center gap-2"
+  1075→  1075→        >
+  1076→  1076→          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+  1077→  1077→            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+  1078→  1078→          </svg>
+  1079→  1079→          New Ticket
+  1080→  1080→        </button>
+  1081→  1081→      </div>
+  1082→  1082→
+  1083→  1083→      {/* Quick Status Overview */}
+  1084→  1084→      {initialized && (
+  1085→  1085→        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+  1086→  1086→          {ALL_STATUSES.map((status) => (
+  1087→  1087→            <button
+  1088→  1088→              key={status}
+  1089→  1089→              onClick={() => setFilterStatus(filterStatus === status ? 'all' : status)}
+  1090→  1090→              className={`rounded-lg border p-2.5 text-center transition-all ${
+  1091→  1091→                filterStatus === status
+  1092→  1092→                  ? 'border-orange-500/30 bg-orange-500/5'
+  1093→  1093→                  : 'border-white/[0.06] bg-[#1A1A1A] hover:border-white/[0.1]'
+  1094→  1094→              }`}
+  1095→  1095→            >
+  1096→  1096→              <div className={`text-lg font-bold ${
+  1097→  1097→                status === 'open' ? 'text-blue-400' :
+  1098→  1098→                status === 'in_progress' ? 'text-yellow-400' :
+  1099→  1099→                status === 'resolved' ? 'text-emerald-400' :
+  1100→  1100→                status === 'closed' ? 'text-zinc-400' :
+  1101→  1101→                status === 'awaiting_client' ? 'text-purple-400' :
+  1102→  1102→                'text-red-400'
+  1103→  1103→              }`}>
+  1104→  1104→                {stats.byStatus[status]}
+  1105→  1105→              </div>
+  1106→  1106→              <div className="text-[10px] text-zinc-500 mt-0.5 leading-tight">
+  1107→  1107→                {STATUS_LABELS[status]}
+  1108→  1108→              </div>
+  1109→  1109→            </button>
+  1110→  1110→          ))}
+  1111→  1111→        </div>
+  1112→  1112→      )}
+  1113→  1113→
+  1114→  1114→      {/* Search & Filters */}
+  1115→  1115→      {initialized && (
+  1116→  1116→        <div className="flex flex-wrap gap-2 items-center">
+  1117→  1117→          {/* Search */}
+  1118→  1118→          <div className="relative flex-1 min-w-[200px] max-w-xs">
+  1119→  1119→            <svg
+  1120→  1120→              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500"
+  1121→  1121→              fill="none"
+  1122→  1122→              viewBox="0 0 24 24"
+  1123→  1123→              stroke="currentColor"
+  1124→  1124→              strokeWidth={1.5}
+  1125→  1125→            >
+  1126→  1126→              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+  1127→  1127→            </svg>
+  1128→  1128→            <input
+  1129→  1129→              type="text"
+  1130→  1130→              value={search}
+  1131→  1131→              onChange={(e) => setSearch(e.target.value)}
+  1132→  1132→              placeholder="Search tickets..."
+  1133→  1133→              className="w-full h-8 bg-[#1A1A1A] border border-white/[0.06] rounded-lg pl-8 pr-3 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+  1134→  1134→            />
+  1135→  1135→          </div>
+  1136→  1136→
+  1137→  1137→          {/* Filter Dropdowns */}
+  1138→  1138→          <FilterSelect
+  1139→  1139→            label="Status"
+  1140→  1140→            value={filterStatus}
+  1141→  1141→            options={ALL_STATUSES.map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
+  1142→  1142→            onChange={setFilterStatus}
+  1143→  1143→          />
+  1144→  1144→          <FilterSelect
+  1145→  1145→            label="Category"
+  1146→  1146→            value={filterCategory}
+  1147→  1147→            options={ALL_CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABELS[c] }))}
+  1148→  1148→            onChange={setFilterCategory}
+  1149→  1149→          />
+  1150→  1150→          <FilterSelect
+  1151→  1151→            label="Priority"
+  1152→  1152→            value={filterPriority}
+  1153→  1153→            options={ALL_PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABELS[p] }))}
+  1154→  1154→            onChange={setFilterPriority}
+  1155→  1155→          />
+  1156→  1156→          <FilterSelect
+  1157→  1157→            label="Channel"
+  1158→  1158→            value={filterChannel}
+  1159→  1159→            options={ALL_CHANNELS.map((ch) => ({ value: ch, label: CHANNEL_LABELS[ch] }))}
+  1160→  1160→            onChange={setFilterChannel}
+  1161→  1161→          />
+  1162→  1162→          <FilterSelect
+  1163→  1163→            label="Variant"
+  1164→  1164→            value={filterVariant}
+  1165→  1165→            options={ALL_VARIANTS.map((v) => ({ value: v, label: v.toUpperCase() }))}
+  1166→  1166→            onChange={setFilterVariant}
+  1167→  1167→          />
+  1168→  1168→
+  1169→  1169→          {/* Clear filters */}
+  1170→  1170→          {(filterStatus !== 'all' || filterCategory !== 'all' || filterPriority !== 'all' || filterChannel !== 'all' || filterVariant !== 'all' || search) && (
+  1171→  1171→            <button
+  1172→  1172→              onClick={() => {
+  1173→  1173→                setFilterStatus('all');
+  1174→  1174→                setFilterCategory('all');
+  1175→  1175→                setFilterPriority('all');
+  1176→  1176→                setFilterChannel('all');
+  1177→  1177→                setFilterVariant('all');
+  1178→  1178→                setSearch('');
+  1179→  1179→              }}
+  1180→  1180→              className="h-8 px-3 rounded-lg text-[11px] text-orange-400 hover:bg-orange-500/10 transition-colors flex items-center gap-1"
+  1181→  1181→            >
+  1182→  1182→              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+  1183→  1183→                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+  1184→  1184→              </svg>
+  1185→  1185→              Clear
+  1186→  1186→            </button>
+  1187→  1187→          )}
+  1188→  1188→        </div>
+  1189→  1189→      )}
+  1190→  1190→
+  1191→  1191→      {/* Ticket Table */}
+  1192→  1192→      {!initialized ? (
+  1193→  1193→        <div className="rounded-xl border border-white/[0.06] bg-[#1A1A1A] flex items-center justify-center py-20">
+  1194→  1194→          <div className="flex items-center gap-3 text-zinc-500">
+  1195→  1195→            <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+  1196→  1196→              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+  1197→  1197→              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+  1198→  1198→            </svg>
+  1199→  1199→            <span className="text-sm">Loading tickets...</span>
+  1200→  1200→          </div>
+  1201→  1201→        </div>
+  1202→  1202→      ) : filteredTickets.length === 0 ? (
+  1203→  1203→        <div className="rounded-xl border border-white/[0.06] bg-[#1A1A1A]">
+  1204→  1204→          <div className="flex flex-col items-center justify-center py-16 px-6">
+  1205→  1205→            <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-white/5 mb-4">
+  1206→  1206→              <svg className="w-7 h-7 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+  1207→  1207→                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z" />
+  1208→  1208→              </svg>
+  1209→  1209→            </div>
+  1210→  1210→            <h3 className="text-sm font-semibold text-zinc-300 mb-1">
+  1211→  1211→              {search || filterStatus !== 'all' || filterCategory !== 'all' || filterPriority !== 'all' || filterChannel !== 'all' || filterVariant !== 'all'
+  1212→  1212→                ? 'No tickets match your filters'
+  1213→  1213→                : 'No tickets yet'}
+  1214→  1214→            </h3>
+  1215→  1215→            <p className="text-xs text-zinc-500 text-center">
+  1216→  1216→              {search || filterStatus !== 'all' || filterCategory !== 'all' || filterPriority !== 'all' || filterChannel !== 'all' || filterVariant !== 'all'
+  1217→  1217→                ? 'Try adjusting your search or filter criteria'
+  1218→  1218→                : 'Create your first ticket to get started'}
+  1219→  1219→            </p>
+  1220→  1220→          </div>
+  1221→  1221→        </div>
+  1222→  1222→      ) : (
+  1223→  1223→        <div className="rounded-xl border border-white/[0.06] bg-[#1A1A1A] overflow-hidden">
+  1224→  1224→          {/* Desktop Table */}
+  1225→  1225→          <div className="hidden lg:block overflow-x-auto">
+  1226→  1226→            <table className="w-full">
+  1227→  1227→              <thead>
+  1228→  1228→                <tr className="border-b border-white/[0.06]">
+  1229→  1229→                  <th className="text-left text-[11px] font-medium text-zinc-500 px-4 py-3 whitespace-nowrap">Ticket #</th>
+  1230→  1230→                  <th className="text-left text-[11px] font-medium text-zinc-500 px-4 py-3 whitespace-nowrap">Subject</th>
+  1231→  1231→                  <th className="text-left text-[11px] font-medium text-zinc-500 px-4 py-3 whitespace-nowrap">Customer</th>
+  1232→  1232→                  <th className="text-left text-[11px] font-medium text-zinc-500 px-4 py-3 whitespace-nowrap">Category</th>
+  1233→  1233→                  <th className="text-left text-[11px] font-medium text-zinc-500 px-4 py-3 whitespace-nowrap">Priority</th>
+  1234→  1234→                  <th className="text-left text-[11px] font-medium text-zinc-500 px-4 py-3 whitespace-nowrap">Status</th>
+  1235→  1235→                  <th className="text-left text-[11px] font-medium text-zinc-500 px-4 py-3 whitespace-nowrap">Channel</th>
+  1236→  1236→                  <th className="text-left text-[11px] font-medium text-zinc-500 px-4 py-3 whitespace-nowrap">Variant</th>
+  1237→  1237→                  <th className="text-left text-[11px] font-medium text-zinc-500 px-4 py-3 whitespace-nowrap">Created</th>
+  1238→  1238→                </tr>
+  1239→  1239→              </thead>
+  1240→  1240→              <tbody>
+  1241→  1241→                {filteredTickets.map((ticket) => (
+  1242→  1242→                  <tr
+  1243→  1243→                    key={ticket.id}
+  1244→  1244→                    onClick={() => handleRowClick(ticket)}
+  1245→  1245→                    className="border-b border-white/[0.03] hover:bg-white/[0.02] cursor-pointer transition-colors group"
+  1246→  1246→                  >
+  1247→  1247→                    <td className="px-4 py-3">
+  1248→  1248→                      <span className="text-[11px] font-mono text-orange-400/80">{ticket.ticket_number}</span>
+  1249→  1249→                    </td>
+  1250→  1250→                    <td className="px-4 py-3 max-w-[240px]">
+  1251→  1251→                      <p className="text-xs text-white truncate group-hover:text-orange-300 transition-colors">
+  1252→  1252→                        {ticket.subject}
+  1253→  1253→                      </p>
+  1254→  1254→                    </td>
+  1255→  1255→                    <td className="px-4 py-3">
+  1256→  1256→                      <p className="text-xs text-zinc-300">{ticket.customer_name}</p>
+  1257→  1257→                    </td>
+  1258→  1258→                    <td className="px-4 py-3">
+  1259→  1259→                      <span className="text-[11px] text-zinc-400">{CATEGORY_LABELS[ticket.category]}</span>
+  1260→  1260→                    </td>
+  1261→  1261→                    <td className="px-4 py-3">
+  1262→  1262→                      <PriorityBadge priority={ticket.priority} />
+  1263→  1263→                    </td>
+  1264→  1264→                    <td className="px-4 py-3">
+  1265→  1265→                      <StatusBadge status={ticket.status} />
+  1266→  1266→                    </td>
+  1267→  1267→                    <td className="px-4 py-3">
+  1268→  1268→                      <div className="flex items-center gap-1.5">
+  1269→  1269→                        <ChannelIcon channel={ticket.channel} />
+  1270→  1270→                        <span className="text-[11px] text-zinc-400">{CHANNEL_LABELS[ticket.channel]}</span>
+  1271→  1271→                      </div>
+  1272→  1272→                    </td>
+  1273→  1273→                    <td className="px-4 py-3">
+  1274→  1274→                      {ticket.assigned_variant ? (
+  1275→  1275→                        <VariantBadge variant={ticket.assigned_variant} />
+  1276→  1276→                      ) : (
+  1277→  1277→                        <span className="text-[10px] text-zinc-600">—</span>
+  1278→  1278→                      )}
+  1279→  1279→                    </td>
+  1280→  1280→                    <td className="px-4 py-3">
+  1281→  1281→                      <span className="text-[11px] text-zinc-500">{formatRelativeDate(ticket.created_at)}</span>
+  1282→  1282→                    </td>
+  1283→  1283→                  </tr>
+  1284→  1284→                ))}
+  1285→  1285→              </tbody>
+  1286→  1286→            </table>
+  1287→  1287→          </div>
+  1288→  1288→
+  1289→  1289→          {/* Mobile Cards */}
+  1290→  1290→          <div className="lg:hidden divide-y divide-white/[0.03]">
+  1291→  1291→            {filteredTickets.map((ticket) => (
+  1292→  1292→              <button
+  1293→  1293→                key={ticket.id}
+  1294→  1294→                onClick={() => handleRowClick(ticket)}
+  1295→  1295→                className="w-full p-4 text-left hover:bg-white/[0.02] transition-colors"
+  1296→  1296→              >
+  1297→  1297→                <div className="flex items-center justify-between mb-2">
+  1298→  1298→                  <span className="text-[11px] font-mono text-orange-400/80">{ticket.ticket_number}</span>
+  1299→  1299→                  <div className="flex items-center gap-1.5">
+  1300→  1300→                    <StatusBadge status={ticket.status} />
+  1301→  1301→                    <PriorityBadge priority={ticket.priority} />
+  1302→  1302→                  </div>
+  1303→  1303→                </div>
+  1304→  1304→                <p className="text-sm text-white mb-1.5 line-clamp-1">{ticket.subject}</p>
+  1305→  1305→                <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+  1306→  1306→                  <span>{ticket.customer_name}</span>
+  1307→  1307→                  <span className="text-zinc-700">•</span>
+  1308→  1308→                  <span>{CATEGORY_LABELS[ticket.category]}</span>
+  1309→  1309→                  <span className="text-zinc-700">•</span>
+  1310→  1310→                  <ChannelIcon channel={ticket.channel} />
+  1311→  1311→                  <span>{formatRelativeDate(ticket.created_at)}</span>
+  1312→  1312→                </div>
+  1313→  1313→              </button>
+  1314→  1314→            ))}
+  1315→  1315→          </div>
+  1316→  1316→
+  1317→  1317→          {/* Table footer */}
+  1318→  1318→          <div className="border-t border-white/[0.06] px-4 py-2.5 flex items-center justify-between">
+  1319→  1319→            <span className="text-[11px] text-zinc-500">
+  1320→  1320→              Showing {filteredTickets.length} of {stats.total} tickets
+  1321→  1321→            </span>
+  1322→  1322→            <div className="flex items-center gap-3 text-[11px] text-zinc-500">
+  1323→  1323→              <span>Resolution Rate: <span className="text-emerald-400 font-medium">{stats.resolutionRate}%</span></span>
+  1324→  1324→              {stats.avgResolutionTime && (
+  1325→  1325→                <span>Avg Resolution: <span className="text-zinc-300 font-medium">{stats.avgResolutionTime}h</span></span>
+  1326→  1326→              )}
+  1327→  1327→            </div>
+  1328→  1328→          </div>
+  1329→  1329→        </div>
+  1330→  1330→      )}
+  1331→  1331→
+  1332→  1332→      {/* Create Ticket Modal */}
+  1333→  1333→      <AnimatePresence>
+  1334→  1334→        {showCreateModal && (
+  1335→  1335→          <CreateTicketModal
+  1336→  1336→            open={showCreateModal}
+  1337→  1337→            onClose={() => setShowCreateModal(false)}
+  1338→  1338→          />
+  1339→  1339→        )}
+  1340→  1340→      </AnimatePresence>
+  1341→  1341→
+  1342→  1342→      {/* Ticket Detail Panel */}
+  1343→  1343→      <AnimatePresence>
+  1344→  1344→        {selectedTicket && (
+  1345→  1345→          <TicketDetailPanel
+  1346→  1346→            ticketId={selectedTicket.id}
+  1347→  1347→            onClose={() => setSelectedTicketId(null)}
+  1348→  1348→          />
+  1349→  1349→        )}
+  1350→  1350→      </AnimatePresence>
+  1351→  1351→    </div>
+  1352→  1352→  );
+  1353→  1353→}
+  1354→  1354→

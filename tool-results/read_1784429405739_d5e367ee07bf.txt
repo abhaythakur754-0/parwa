@@ -1,0 +1,1171 @@
+     1→"""
+     2→PARWA AI Engine API Router (Week 8).
+     3→
+     4→REST endpoints for all Day 1+2 AI Engine services including:
+     5→- Variant Capability Management (SG-01)
+     6→- Variant Instance Management (SG-37)
+     7→- Variant Orchestration (SG-38)
+     8→- Entitlement Checks (SG-05)
+     9→- Cost Protection (SG-35)
+    10→- Smart Router (F-054)
+    11→- Cold Start (SG-30)
+    12→- Model Failover (F-055)
+    13→
+    14→All endpoints follow BC-001 (company_id scoping), BC-011 (JWT auth),
+    15→and BC-012 (structured JSON responses).
+    16→
+    17→Import patterns:
+    18→  - Lazy service imports inside endpoint functions to avoid circular imports.
+    19→  - Dependencies: require_roles, get_company_id, get_current_user, get_db.
+    20→"""
+    21→
+    22→import json
+    23→from typing import Any, Dict, List, Optional
+    24→
+    25→from fastapi import APIRouter, Depends, Query
+    26→from pydantic import BaseModel, Field
+    27→from sqlalchemy.orm import Session
+    28→
+    29→from app.api.deps import (
+    30→    require_roles,
+    31→    get_company_id,
+    32→    get_current_user,
+    33→)
+    34→from app.exceptions import NotFoundError, ValidationError
+    35→from database.base import get_db
+    36→from database.models.core import User
+    37→
+    38→router = APIRouter(prefix="/api/ai", tags=["ai-engine"])
+    39→
+    40→
+    41→# ═══════════════════════════════════════════════════════════════════
+    42→# REQUEST SCHEMAS (M-14: Replace raw body:dict with Pydantic models)
+    43→# ═══════════════════════════════════════════════════════════════════
+    44→
+    45→
+    46→class UpdateCapabilityRequest(BaseModel):
+    47→    """Request to update a capability configuration."""
+    48→    variant_type: str = Field(..., description="Variant type (e.g. mini_parwa, parwa, parwa_high)")
+    49→    config: Dict[str, Any] = Field(default_factory=dict, description="Configuration key-value pairs")
+    50→    instance_id: Optional[str] = Field(None, description="Optional instance-level override")
+    51→
+    52→
+    53→class BatchCapabilityUpdateItem(BaseModel):
+    54→    """Single item in a batch capability update."""
+    55→    feature_id: str = Field(..., description="Feature ID to update")
+    56→    variant_type: str = Field(..., description="Variant type")
+    57→    is_enabled: bool = Field(..., description="Enable or disable the feature")
+    58→    instance_id: Optional[str] = Field(None, description="Optional instance override")
+    59→
+    60→
+    61→class BatchCapabilityUpdateRequest(BaseModel):
+    62→    """Request to batch update multiple capabilities."""
+    63→    updates: List[BatchCapabilityUpdateItem] = Field(..., description="List of capability updates")
+    64→
+    65→
+    66→class CreateInstanceRequest(BaseModel):
+    67→    """Request to create a new variant instance."""
+    68→    instance_name: str = Field(..., min_length=1, max_length=255, description="Instance name")
+    69→    variant_type: str = Field(..., description="Variant type (mini_parwa, parwa, parwa_high)")
+    70→    channel_assignment: Optional[List[str]] = Field(None, description="Channels assigned to this instance")
+    71→    capacity_config: Optional[Dict[str, Any]] = Field(None, description="Capacity configuration dict")
+    72→
+    73→
+    74→class UpdateInstanceRequest(BaseModel):
+    75→    """Request to update an instance's configuration."""
+    76→    channel_assignment: Optional[List[str]] = Field(None, description="Channels assigned to this instance")
+    77→    capacity_config: Optional[Dict[str, Any]] = Field(None, description="Capacity configuration dict")
+    78→
+    79→
+    80→class RouteTicketRequest(BaseModel):
+    81→    """Request to route a ticket to the best available instance."""
+    82→    ticket_id: str = Field(..., description="Ticket ID to route")
+    83→    channel: Optional[str] = Field(None, description="Channel of the ticket")
+    84→    strategy: Optional[str] = Field("least_loaded", description="Routing strategy")
+    85→    variant_type: Optional[str] = Field(None, description="Preferred variant type")
+    86→
+    87→
+    88→class TriggerWarmupRequest(BaseModel):
+    89→    """Request to trigger manual warmup for AI models."""
+    90→    variant_type: str = Field(..., description="Variant type to warm up")
+    91→
+    92→
+    93→class BatchEntitlementCheckRequest(BaseModel):
+    94→    """Request to batch check feature entitlements."""
+    95→    feature_ids: List[str] = Field(..., min_length=1, description="Feature IDs to check")
+    96→    variant_type: str = Field(..., description="Variant type")
+    97→    instance_id: Optional[str] = Field(None, description="Optional instance ID")
+    98→
+    99→
+   100→class InstanceOverrideRequest(BaseModel):
+   101→    """Request to create/update a per-instance feature override."""
+   102→    feature_id: str = Field(..., description="Feature ID")
+   103→    variant_type: str = Field(..., description="Variant type")
+   104→    instance_id: str = Field(..., description="Instance ID")
+   105→    is_enabled: bool = Field(..., description="Enable or disable")
+   106→    config_json: Optional[Dict[str, Any]] = Field(None, description="Optional configuration override")
+   107→
+   108→
+   109→class RemoveOverrideRequest(BaseModel):
+   110→    """Request to remove a per-instance feature override."""
+   111→    feature_id: str = Field(..., description="Feature ID")
+   112→    variant_type: str = Field(..., description="Variant type")
+   113→    instance_id: str = Field(..., description="Instance ID")
+   114→
+   115→
+   116→class ResetBudgetRequest(BaseModel):
+   117→    """Request to reset budget counters."""
+   118→    budget_type: str = Field("daily", description="Budget type: 'daily' or 'monthly'")
+   119→
+   120→
+   121→# ═══════════════════════════════════════════════════════════════════
+   122→# SERIALIZATION HELPERS
+   123→# ═══════════════════════════════════════════════════════════════════
+   124→
+   125→
+   126→def _serialize_capability(cap) -> dict:
+   127→    """Serialize a VariantAICapability ORM object to response dict."""
+   128→    config = {}
+   129→    if cap.config_json:
+   130→        try:
+   131→            config = json.loads(cap.config_json)
+   132→        except (json.JSONDecodeError, TypeError):
+   133→            config = {}
+   134→    return {
+   135→        "id": cap.id,
+   136→        "company_id": cap.company_id,
+   137→        "variant_type": cap.variant_type,
+   138→        "instance_id": cap.instance_id,
+   139→        "feature_id": cap.feature_id,
+   140→        "feature_name": cap.feature_name,
+   141→        "feature_category": cap.feature_category,
+   142→        "technique_tier": cap.technique_tier,
+   143→        "is_enabled": cap.is_enabled,
+   144→        "config": config,
+   145→        "created_at": (
+   146→            cap.created_at.isoformat() if cap.created_at else None
+   147→        ),
+   148→        "updated_at": (
+   149→            cap.updated_at.isoformat() if cap.updated_at else None
+   150→        ),
+   151→    }
+   152→
+   153→
+   154→def _serialize_instance(inst) -> dict:
+   155→    """Serialize a VariantInstance ORM object to response dict."""
+   156→    channels = []
+   157→    if inst.channel_assignment:
+   158→        try:
+   159→            channels = json.loads(inst.channel_assignment)
+   160→        except (json.JSONDecodeError, TypeError):
+   161→            channels = []
+   162→    capacity = {}
+   163→    if inst.capacity_config:
+   164→        try:
+   165→            capacity = json.loads(inst.capacity_config)
+   166→        except (json.JSONDecodeError, TypeError):
+   167→            capacity = {}
+   168→    return {
+   169→        "id": inst.id,
+   170→        "company_id": inst.company_id,
+   171→        "instance_name": inst.instance_name,
+   172→        "variant_type": inst.variant_type,
+   173→        "status": inst.status,
+   174→        "channel_assignment": channels,
+   175→        "capacity_config": capacity,
+   176→        "celery_queue_namespace": inst.celery_queue_namespace,
+   177→        "redis_partition_key": inst.redis_partition_key,
+   178→        "active_tickets_count": inst.active_tickets_count,
+   179→        "total_tickets_handled": inst.total_tickets_handled,
+   180→        "last_activity_at": (
+   181→            inst.last_activity_at.isoformat()
+   182→            if inst.last_activity_at else None
+   183→        ),
+   184→        "created_at": (
+   185→            inst.created_at.isoformat() if inst.created_at else None
+   186→        ),
+   187→        "updated_at": (
+   188→            inst.updated_at.isoformat() if inst.updated_at else None
+   189→        ),
+   190→    }
+   191→
+   192→
+   193→def _serialize_distribution(dist) -> dict:
+   194→    """Serialize a VariantWorkloadDistribution ORM object."""
+   195→    return {
+   196→        "id": dist.id,
+   197→        "company_id": dist.company_id,
+   198→        "instance_id": dist.instance_id,
+   199→        "ticket_id": dist.ticket_id,
+   200→        "strategy": dist.distribution_strategy,
+   201→        "status": dist.status,
+   202→        "assigned_at": (
+   203→            dist.assigned_at.isoformat() if dist.assigned_at else None
+   204→        ),
+   205→        "completed_at": (
+   206→            dist.completed_at.isoformat() if dist.completed_at else None
+   207→        ),
+   208→        "escalation_target": dist.escalation_target_instance_id,
+   209→        "rebalance_from": dist.rebalance_from_instance_id,
+   210→        "billing_charged_to": dist.billing_charged_to_instance,
+   211→    }
+   212→
+   213→
+   214→def _serialize_warmup_state(state) -> dict:
+   215→    """Serialize a TenantWarmupState dataclass to response dict."""
+   216→    if state is None:
+   217→        return {"status": "cold", "message": "No warmup data"}
+   218→
+   219→    models = {}
+   220→    for key, ms in state.models_warmed.items():
+   221→        models[key] = {
+   222→            "provider": ms.provider,
+   223→            "model_id": ms.model_id,
+   224→            "tier": ms.tier,
+   225→            "status": ms.status.value,
+   226→            "warmup_success": ms.warmup_success,
+   227→            "warmup_latency_ms": ms.warmup_latency_ms,
+   228→            "last_warmed_at": ms.last_warmed_at,
+   229→            "error_message": ms.error_message,
+   230→        }
+   231→
+   232→    return {
+   233→        "company_id": state.company_id,
+   234→        "variant_type": state.variant_type,
+   235→        "overall_status": state.overall_status.value,
+   236→        "models_warmed": models,
+   237→        "time_to_warm_ms": state.time_to_warm_ms,
+   238→        "fallback_used": state.fallback_used,
+   239→        "started_at": state.started_at,
+   240→        "completed_at": state.completed_at,
+   241→    }
+   242→
+   243→
+   244→# ═══════════════════════════════════════════════════════════════════
+   245→# Variant Capability Management (SG-01)
+   246→# ═══════════════════════════════════════════════════════════════════
+   247→
+   248→
+   249→@router.get("/capabilities")
+   250→def list_capabilities(
+   251→    company_id: str = Depends(get_company_id),
+   252→    db: Session = Depends(get_db),
+   253→    variant_type: Optional[str] = Query(None),
+   254→    instance_id: Optional[str] = Query(None),
+   255→    feature_category: Optional[str] = Query(None),
+   256→    enabled_only: bool = Query(False),
+   257→    user: User = Depends(require_roles("owner", "admin")),
+   258→) -> dict:
+   259→    """List all AI capabilities for the company.
+   260→
+   261→    Filter by variant_type, instance_id, feature_category, or
+   262→    enabled_only. Returns paginated-style list with total count.
+   263→    """
+   264→    from app.services.variant_capability_service import (
+   265→        list_capabilities as svc_list_capabilities,
+   266→    )
+   267→
+   268→    items = svc_list_capabilities(
+   269→        db,
+   270→        company_id=company_id,
+   271→        variant_type=variant_type,
+   272→        feature_category=feature_category,
+   273→        instance_id=instance_id,
+   274→        enabled_only=enabled_only,
+   275→    )
+   276→
+   277→    return {
+   278→        "items": [_serialize_capability(c) for c in items],
+   279→        "total": len(items),
+   280→    }
+   281→
+   282→
+   283→@router.get("/capabilities/{feature_id}")
+   284→def get_capability(
+   285→    feature_id: str,
+   286→    company_id: str = Depends(get_company_id),
+   287→    db: Session = Depends(get_db),
+   288→    variant_type: Optional[str] = Query(None),
+   289→    instance_id: Optional[str] = Query(None),
+   290→    user: User = Depends(require_roles("owner", "admin")),
+   291→) -> dict:
+   292→    """Get single capability detail by feature_id."""
+   293→    from app.services.variant_capability_service import (
+   294→        get_capability as svc_get_capability,
+   295→    )
+   296→
+   297→    cap = svc_get_capability(
+   298→        db,
+   299→        company_id=company_id,
+   300→        feature_id=feature_id,
+   301→        variant_type=variant_type,
+   302→        instance_id=instance_id,
+   303→    )
+   304→
+   305→    if cap is None:
+   306→        raise NotFoundError(
+   307→            message=f"Capability '{feature_id}' not found",
+   308→            details={"feature_id": feature_id},
+   309→        )
+   310→
+   311→    return {"status": "ok", "data": _serialize_capability(cap)}
+   312→
+   313→
+   314→@router.put("/capabilities/{feature_id}")
+   315→def update_capability(
+   316→    feature_id: str,
+   317→    body: UpdateCapabilityRequest,
+   318→    company_id: str = Depends(get_company_id),
+   319→    db: Session = Depends(get_db),
+   320→    user: User = Depends(require_roles("owner", "admin")),
+   321→) -> dict:
+   322→    """Update capability configuration for a feature.
+   323→
+   324→    Body must include 'variant_type' and 'config' keys.
+   325→    Optionally include 'instance_id' for instance-level override.
+   326→    """
+   327→    from app.services.variant_capability_service import (
+   328→        update_capability_config,
+   329→    )
+   330→
+   331→    updated = update_capability_config(
+   332→        db,
+   333→        company_id=company_id,
+   334→        feature_id=feature_id,
+   335→        variant_type=body.variant_type,
+   336→        config_json=body.config,
+   337→        instance_id=body.instance_id,
+   338→    )
+   339→
+   340→    return {"status": "ok", "data": _serialize_capability(updated)}
+   341→
+   342→
+   343→@router.post("/capabilities/batch")
+   344→def batch_update_capabilities(
+   345→    body: BatchCapabilityUpdateRequest,
+   346→    company_id: str = Depends(get_company_id),
+   347→    db: Session = Depends(get_db),
+   348→    user: User = Depends(require_roles("owner", "admin")),
+   349→) -> dict:
+   350→    """Batch enable/disable multiple capabilities.
+   351→
+   352→    Body must include 'updates' key: a list of dicts with
+   353→    feature_id, variant_type, is_enabled, and optional instance_id.
+   354→    """
+   355→    from app.services.variant_capability_service import (
+   356→        batch_update_capabilities,
+   357→    )
+   358→
+   359→    updates = [item.model_dump() for item in body.updates]
+   360→
+   361→    result = batch_update_capabilities(
+   362→        db,
+   363→        company_id=company_id,
+   364→        updates=updates,
+   365→    )
+   366→
+   367→    return {
+   368→        "status": "ok",
+   369→        "data": result,
+   370→    }
+   371→
+   372→
+   373→# ═══════════════════════════════════════════════════════════════════
+   374→# Variant Instance Management (SG-37)
+   375→# ═══════════════════════════════════════════════════════════════════
+   376→
+   377→
+   378→@router.get("/instances")
+   379→def list_instances(
+   380→    company_id: str = Depends(get_company_id),
+   381→    db: Session = Depends(get_db),
+   382→    variant_type: Optional[str] = Query(None),
+   383→    status: Optional[str] = Query(None),
+   384→    user: User = Depends(require_roles("owner", "admin")),
+   385→) -> dict:
+   386→    """List all variant instances for the company.
+   387→
+   388→    Filter by variant_type or status.
+   389→    """
+   390→    from app.services.variant_instance_service import (
+   391→        list_instances as svc_list_instances,
+   392→    )
+   393→
+   394→    items = svc_list_instances(
+   395→        db,
+   396→        company_id=company_id,
+   397→        variant_type=variant_type,
+   398→        status=status,
+   399→    )
+   400→
+   401→    return {
+   402→        "items": [_serialize_instance(i) for i in items],
+   403→        "total": len(items),
+   404→    }
+   405→
+   406→
+   407→@router.post("/instances")
+   408→def create_instance(
+   409→    body: CreateInstanceRequest,
+   410→    company_id: str = Depends(get_company_id),
+   411→    db: Session = Depends(get_db),
+   412→    user: User = Depends(require_roles("owner", "admin")),
+   413→) -> dict:
+   414→    """Register a new variant instance.
+   415→
+   416→    Body must include 'instance_name' and 'variant_type'.
+   417→    Optionally include 'channel_assignment' (list of strings)
+   418→    and 'capacity_config' (dict).
+   419→    """
+   420→    from app.services.variant_instance_service import (
+   421→        register_instance,
+   422→    )
+   423→
+   424→    instance = register_instance(
+   425→        db,
+   426→        company_id=company_id,
+   427→        instance_name=body.instance_name,
+   428→        variant_type=body.variant_type,
+   429→        channel_assignment=body.channel_assignment,
+   430→        capacity_config=body.capacity_config,
+   431→    )
+   432→
+   433→    return {"status": "ok", "data": _serialize_instance(instance)}
+   434→
+   435→
+   436→@router.get("/instances/{instance_id}")
+   437→def get_instance(
+   438→    instance_id: str,
+   439→    company_id: str = Depends(get_company_id),
+   440→    db: Session = Depends(get_db),
+   441→    user: User = Depends(require_roles("owner", "admin")),
+   442→) -> dict:
+   443→    """Get single instance detail by ID."""
+   444→    from app.services.variant_instance_service import (
+   445→        get_instance as svc_get_instance,
+   446→    )
+   447→
+   448→    instance = svc_get_instance(
+   449→        db,
+   450→        company_id=company_id,
+   451→        instance_id=instance_id,
+   452→    )
+   453→
+   454→    if instance is None:
+   455→        raise NotFoundError(
+   456→            message=f"Instance '{instance_id}' not found",
+   457→            details={"instance_id": instance_id},
+   458→        )
+   459→
+   460→    return {"status": "ok", "data": _serialize_instance(instance)}
+   461→
+   462→
+   463→@router.put("/instances/{instance_id}")
+   464→def update_instance(
+   465→    instance_id: str,
+   466→    body: UpdateInstanceRequest,
+   467→    company_id: str = Depends(get_company_id),
+   468→    db: Session = Depends(get_db),
+   469→    user: User = Depends(require_roles("owner", "admin")),
+   470→) -> dict:
+   471→    """Update an instance's configuration.
+   472→
+   473→    Supports updating 'channel_assignment' (list) and/or
+   474→    'capacity_config' (dict).
+   475→    """
+   476→    from app.services.variant_instance_service import (
+   477→        update_channel_assignment,
+   478→        update_capacity_config,
+   479→    )
+   480→
+   481→    if body.channel_assignment is None and body.capacity_config is None:
+   482→        raise ValidationError(
+   483→            message=(
+   484→                "At least one of channel_assignment or "
+   485→                "capacity_config must be provided"
+   486→            ),
+   487→        )
+   488→
+   489→    if body.channel_assignment is not None:
+   490→        instance = update_channel_assignment(
+   491→            db,
+   492→            company_id=company_id,
+   493→            instance_id=instance_id,
+   494→            channels=body.channel_assignment,
+   495→        )
+   496→    else:
+   497→        instance = update_capacity_config(
+   498→            db,
+   499→            company_id=company_id,
+   500→            instance_id=instance_id,
+   501→            config=body.capacity_config,
+   502→        )
+   503→
+   504→    if body.channel_assignment is not None and body.capacity_config is not None:
+   505→        instance = update_capacity_config(
+   506→            db,
+   507→            company_id=company_id,
+   508→            instance_id=instance_id,
+   509→            config=body.capacity_config,
+   510→        )
+   511→
+   512→    return {"status": "ok", "data": _serialize_instance(instance)}
+   513→
+   514→
+   515→@router.delete("/instances/{instance_id}")
+   516→def deactivate_instance(
+   517→    instance_id: str,
+   518→    company_id: str = Depends(get_company_id),
+   519→    db: Session = Depends(get_db),
+   520→    user: User = Depends(require_roles("owner", "admin")),
+   521→) -> dict:
+   522→    """Deactivate an instance (set status to 'inactive')."""
+   523→    from app.services.variant_instance_service import (
+   524→        deactivate_instance,
+   525→    )
+   526→
+   527→    instance = deactivate_instance(
+   528→        db,
+   529→        company_id=company_id,
+   530→        instance_id=instance_id,
+   531→    )
+   532→
+   533→    return {
+   534→        "status": "ok",
+   535→        "data": _serialize_instance(instance),
+   536→    }
+   537→
+   538→
+   539→@router.get("/instances/highest")
+   540→def get_highest_active_variant(
+   541→    company_id: str = Depends(get_company_id),
+   542→    db: Session = Depends(get_db),
+   543→    user: User = Depends(get_current_user),
+   544→) -> dict:
+   545→    """Get the highest active variant type for the company.
+   546→
+   547→    Returns the variant type with the highest tier that has
+   548→    at least one active instance. Priority: parwa_high > parwa > mini_parwa.
+   549→    """
+   550→    from app.services.variant_instance_service import (
+   551→        get_highest_active_variant,
+   552→    )
+   553→
+   554→    variant = get_highest_active_variant(db, company_id=company_id)
+   555→
+   556→    return {
+   557→        "status": "ok",
+   558→        "data": {
+   559→            "company_id": company_id,
+   560→            "highest_active_variant": variant,
+   561→        },
+   562→    }
+   563→
+   564→
+   565→# ═══════════════════════════════════════════════════════════════════
+   566→# Variant Orchestration (SG-38)
+   567→# ═══════════════════════════════════════════════════════════════════
+   568→
+   569→
+   570→@router.post("/orchestrate/route-ticket")
+   571→def route_ticket(
+   572→    body: RouteTicketRequest,
+   573→    company_id: str = Depends(get_company_id),
+   574→    db: Session = Depends(get_db),
+   575→    user: User = Depends(require_roles("owner", "admin")),
+   576→) -> dict:
+   577→    """Route a ticket to the best available instance.
+   578→
+   579→    Body must include 'ticket_id'. Optionally include 'channel',
+   580→    'strategy' (default: 'least_loaded'), and 'variant_type'.
+   581→    """
+   582→    from app.services.variant_orchestration_service import (
+   583→        route_ticket as svc_route_ticket,
+   584→    )
+   585→
+   586→    distribution = svc_route_ticket(
+   587→        db,
+   588→        company_id=company_id,
+   589→        ticket_id=body.ticket_id,
+   590→        channel=body.channel,
+   591→        strategy=body.strategy,
+   592→        variant_type=body.variant_type,
+   593→    )
+   594→
+   595→    return {"status": "ok", "data": _serialize_distribution(distribution)}
+   596→
+   597→
+   598→@router.get("/orchestrate/workload")
+   599→def get_workload_status(
+   600→    company_id: str = Depends(get_company_id),
+   601→    db: Session = Depends(get_db),
+   602→    user: User = Depends(get_current_user),
+   603→) -> dict:
+   604→    """Get workload distribution status across all instances."""
+   605→    from app.services.variant_orchestration_service import (
+   606→        get_all_instance_loads,
+   607→        get_orchestration_summary,
+   608→    )
+   609→
+   610→    loads = get_all_instance_loads(db, company_id=company_id)
+   611→    summary = get_orchestration_summary(db, company_id=company_id)
+   612→
+   613→    return {
+   614→        "status": "ok",
+   615→        "data": {
+   616→            "instance_loads": loads,
+   617→            "summary": summary,
+   618→        },
+   619→    }
+   620→
+   621→
+   622→@router.post("/orchestrate/rebalance")
+   623→def rebalance_workload(
+   624→    company_id: str = Depends(get_company_id),
+   625→    db: Session = Depends(get_db),
+   626→    user: User = Depends(require_roles("owner", "admin")),
+   627→) -> dict:
+   628→    """Trigger manual workload rebalance across instances.
+   629→
+   630→    Checks for overloaded instances and migrates tickets to
+   631→    underloaded instances.
+   632→    """
+   633→    from app.services.variant_orchestration_service import (
+   634→        rebalance_workload as svc_rebalance,
+   635→    )
+   636→
+   637→    result = svc_rebalance(db, company_id=company_id)
+   638→
+   639→    return {"status": "ok", "data": result}
+   640→
+   641→
+   642→# ═══════════════════════════════════════════════════════════════════
+   643→# Entitlement Checks (SG-05)
+   644→# ═══════════════════════════════════════════════════════════════════
+   645→
+   646→
+   647→@router.get("/entitlement/check")
+   648→def check_entitlement(
+   649→    company_id: str = Depends(get_company_id),
+   650→    db: Session = Depends(get_db),
+   651→    feature_id: str = Query(..., description="Feature ID to check"),
+   652→    variant_type: str = Query(..., description="Variant type"),
+   653→    instance_id: Optional[str] = Query(None),
+   654→    user: User = Depends(get_current_user),
+   655→) -> dict:
+   656→    """Check if a feature is entitled for the given variant/instance.
+   657→
+   658→    Returns EntitlementResult with is_entitled, reason, and
+   659→    optional upgrade_suggestion.
+   660→    """
+   661→    from app.services.entitlement_middleware import (
+   662→        check_entitlement as svc_check_entitlement,
+   663→    )
+   664→
+   665→    result = svc_check_entitlement(
+   666→        db,
+   667→        company_id=company_id,
+   668→        feature_id=feature_id,
+   669→        variant_type=variant_type,
+   670→        instance_id=instance_id,
+   671→    )
+   672→
+   673→    return {
+   674→        "status": "ok",
+   675→        "data": {
+   676→            "is_entitled": result.is_entitled,
+   677→            "feature_id": result.feature_id,
+   678→            "variant_type": result.variant_type,
+   679→            "reason": result.reason,
+   680→            "upgrade_suggestion": result.upgrade_suggestion,
+   681→        },
+   682→    }
+   683→
+   684→
+   685→@router.post("/entitlement/batch-check")
+   686→def batch_check_entitlements(
+   687→    body: BatchEntitlementCheckRequest,
+   688→    company_id: str = Depends(get_company_id),
+   689→    db: Session = Depends(get_db),
+   690→    user: User = Depends(get_current_user),
+   691→) -> dict:
+   692→    """Batch check multiple features for entitlement.
+   693→
+   694→    Body must include 'feature_ids' (list of strings) and
+   695→    'variant_type'. Optionally include 'instance_id'.
+   696→    """
+   697→    from app.services.entitlement_middleware import (
+   698→        batch_check_entitlements as svc_batch_check,
+   699→    )
+   700→
+   701→    result = svc_batch_check(
+   702→        db,
+   703→        company_id=company_id,
+   704→        feature_ids=body.feature_ids,
+   705→        variant_type=body.variant_type,
+   706→        instance_id=body.instance_id,
+   707→    )
+   708→
+   709→    return {"status": "ok", "data": result}
+   710→
+   711→
+   712→@router.get("/entitlement/summary")
+   713→def get_entitlement_summary(
+   714→    company_id: str = Depends(get_company_id),
+   715→    db: Session = Depends(get_db),
+   716→    variant_type: str = Query(..., description="Variant type"),
+   717→    instance_id: Optional[str] = Query(None),
+   718→    user: User = Depends(get_current_user),
+   719→) -> dict:
+   720→    """Get entitlement summary for a variant type.
+   721→
+   722→    Returns counts of enabled/disabled features, lists of
+   723→    feature IDs, and breakdown by category.
+   724→    """
+   725→    from app.services.entitlement_middleware import (
+   726→        get_entitlement_summary as svc_get_summary,
+   727→    )
+   728→
+   729→    summary = svc_get_summary(
+   730→        db,
+   731→        company_id=company_id,
+   732→        variant_type=variant_type,
+   733→        instance_id=instance_id,
+   734→    )
+   735→
+   736→    return {"status": "ok", "data": summary}
+   737→
+   738→
+   739→@router.get("/entitlement/upgrade-nudge")
+   740→def get_upgrade_nudge(
+   741→    company_id: str = Depends(get_company_id),
+   742→    db: Session = Depends(get_db),
+   743→    feature_id: str = Query(..., description="Feature ID"),
+   744→    variant_type: str = Query(..., description="Current variant type"),
+   745→    user: User = Depends(get_current_user),
+   746→) -> dict:
+   747→    """Get upgrade suggestion for a feature not in current plan.
+   748→
+   749→    Includes current plan, required plan, pricing, and
+   750→    feature details.
+   751→    """
+   752→    from app.services.entitlement_middleware import (
+   753→        get_upgrade_nudge as svc_get_upgrade_nudge,
+   754→    )
+   755→
+   756→    nudge = svc_get_upgrade_nudge(
+   757→        db,
+   758→        company_id=company_id,
+   759→        feature_id=feature_id,
+   760→        variant_type=variant_type,
+   761→    )
+   762→
+   763→    return {"status": "ok", "data": nudge}
+   764→
+   765→
+   766→@router.post("/entitlement/instance-override")
+   767→def create_instance_override(
+   768→    body: InstanceOverrideRequest,
+   769→    company_id: str = Depends(get_company_id),
+   770→    db: Session = Depends(get_db),
+   771→    user: User = Depends(require_roles("owner", "admin")),
+   772→) -> dict:
+   773→    """Create or update a per-instance feature override.
+   774→
+   775→    Body must include 'feature_id', 'variant_type', 'instance_id',
+   776→    and 'is_enabled'. Optionally include 'config_json'.
+   777→    """
+   778→    from app.services.entitlement_middleware import (
+   779→        create_instance_override as svc_create_override,
+   780→    )
+   781→
+   782→    override = svc_create_override(
+   783→        db,
+   784→        company_id=company_id,
+   785→        feature_id=body.feature_id,
+   786→        variant_type=body.variant_type,
+   787→        instance_id=body.instance_id,
+   788→        is_enabled=body.is_enabled,
+   789→        config_json=body.config_json,
+   790→    )
+   791→
+   792→    return {"status": "ok", "data": _serialize_capability(override)}
+   793→
+   794→
+   795→@router.delete("/entitlement/instance-override")
+   796→def remove_instance_override(
+   797→    body: RemoveOverrideRequest,
+   798→    company_id: str = Depends(get_company_id),
+   799→    db: Session = Depends(get_db),
+   800→    user: User = Depends(require_roles("owner", "admin")),
+   801→) -> dict:
+   802→    """Remove a per-instance feature override.
+   803→
+   804→    Body must include 'feature_id', 'variant_type', and 'instance_id'.
+   805→    After removal, the feature falls back to variant-type default.
+   806→    """
+   807→    from app.services.entitlement_middleware import (
+   808→        remove_instance_override as svc_remove_override,
+   809→    )
+   810→
+   811→    removed = svc_remove_override(
+   812→        db,
+   813→        company_id=company_id,
+   814→        feature_id=body.feature_id,
+   815→        variant_type=body.variant_type,
+   816→        instance_id=body.instance_id,
+   817→    )
+   818→
+   819→    return {
+   820→        "status": "ok",
+   821→        "data": {
+   822→            "removed": removed,
+   823→            "feature_id": body.feature_id,
+   824→            "instance_id": body.instance_id,
+   825→            "message": (
+   826→                "Override removed successfully"
+   827→                if removed
+   828→                else "No override found to remove"
+   829→            ),
+   830→        },
+   831→    }
+   832→
+   833→
+   834→# ═══════════════════════════════════════════════════════════════════
+   835→# Cost Protection (SG-35)
+   836→# ═══════════════════════════════════════════════════════════════════
+   837→
+   838→
+   839→@router.get("/cost/budget")
+   840→def get_budget_status(
+   841→    company_id: str = Depends(get_company_id),
+   842→    db: Session = Depends(get_db),
+   843→    budget_type: str = Query("daily", description="daily or monthly"),
+   844→    instance_id: Optional[str] = Query(None),
+   845→    user: User = Depends(get_current_user),
+   846→) -> dict:
+   847→    """Get current token budget status for the company.
+   848→
+   849→    Returns usage stats including used/max tokens, remaining,
+   850→    usage percentage, alert level, and status.
+   851→    """
+   852→    from app.services.cost_protection_service import (
+   853→        CostProtectionService,
+   854→    )
+   855→
+   856→    service = CostProtectionService(db)
+   857→    usage = service.get_usage(
+   858→        company_id=company_id,
+   859→        budget_type=budget_type,
+   860→        instance_id=instance_id,
+   861→    )
+   862→
+   863→    return {"status": "ok", "data": usage}
+   864→
+   865→
+   866→@router.post("/cost/budget/reset")
+   867→def reset_budget(
+   868→    body: ResetBudgetRequest,
+   869→    company_id: str = Depends(get_company_id),
+   870→    db: Session = Depends(get_db),
+   871→    user: User = Depends(require_roles("owner", "admin")),
+   872→) -> dict:
+   873→    """Reset daily/monthly budget counters.
+   874→
+   875→    Body should include 'budget_type' ('daily' or 'monthly').
+   876→    Resets used_tokens to 0, status to 'active', and clears alert_sent.
+   877→    """
+   878→    from app.services.cost_protection_service import (
+   879→        CostProtectionService,
+   880→    )
+   881→
+   882→    budget_type = body.budget_type
+   883→
+   884→    service = CostProtectionService(db)
+   885→
+   886→    if budget_type == "monthly":
+   887→        # Reset monthly budgets by resetting all daily budgets
+   888→        # and the monthly budget for current period
+   889→        result = service.reset_daily_budgets(company_id)
+   890→        # Also try to get and reset monthly usage
+   891→        monthly_usage = service.get_usage(
+   892→            company_id=company_id, budget_type="monthly",
+   893→        )
+   894→        result["monthly_reset"] = True
+   895→        result["monthly_status"] = monthly_usage.get("status")
+   896→    else:
+   897→        result = service.reset_daily_budgets(company_id)
+   898→
+   899→    return {"status": "ok", "data": result}
+   900→
+   901→
+   902→# ═══════════════════════════════════════════════════════════════════
+   903→# Smart Router (F-054)
+   904→# ═══════════════════════════════════════════════════════════════════
+   905→
+   906→
+   907→@router.get("/router/status")
+   908→def get_router_status(
+   909→    user: User = Depends(get_current_user),
+   910→) -> dict:
+   911→    """Get Smart Router health and overall provider status.
+   912→
+   913→    Returns health overview for all tracked provider+model
+   914→    combinations including availability, daily usage, and errors.
+   915→    """
+   916→    from app.core.smart_router import SmartRouter
+   917→
+   918→    router = SmartRouter()
+   919→    status = router.get_provider_status()
+   920→
+   921→    # Summary counts
+   922→    total_models = len(status)
+   923→    healthy = sum(1 for s in status.values() if s.get("is_healthy"))
+   924→    unhealthy = total_models - healthy
+   925→
+   926→    return {
+   927→        "status": "ok",
+   928→        "data": {
+   929→            "total_models": total_models,
+   930→            "healthy_models": healthy,
+   931→            "unhealthy_models": unhealthy,
+   932→            "providers": status,
+   933→        },
+   934→    }
+   935→
+   936→
+   937→@router.get("/router/providers")
+   938→def get_router_providers(
+   939→    user: User = Depends(get_current_user),
+   940→) -> dict:
+   941→    """List available providers with health and model details.
+   942→
+   943→    Returns structured list grouped by provider and tier.
+   944→    """
+   945→    from app.core.smart_router import (
+   946→        MODEL_REGISTRY,
+   947→        VARIANT_MODEL_ACCESS,
+   948→        ModelTier,
+   949→        ModelProvider,
+   950→    )
+   951→
+   952→    # Group models by provider
+   953→    providers = {}
+   954→    for key, config in MODEL_REGISTRY.items():
+   955→        provider = config.provider.value
+   956→        tier = config.tier.value
+   957→
+   958→        if provider not in providers:
+   959→            providers[provider] = {
+   960→                "provider": provider,
+   961→                "tiers": {},
+   962→                "total_models": 0,
+   963→            }
+   964→
+   965→        if tier not in providers[provider]["tiers"]:
+   966→            providers[provider]["tiers"][tier] = []
+   967→
+   968→        providers[provider]["tiers"][tier].append({
+   969→            "registry_key": key,
+   970→            "model_id": config.model_id,
+   971→            "display_name": config.display_name,
+   972→            "priority": config.priority,
+   973→            "context_window": config.context_window,
+   974→            "max_requests_per_day": config.max_requests_per_day,
+   975→            "is_openai_compatible": config.is_openai_compatible,
+   976→        })
+   977→        providers[provider]["total_models"] += 1
+   978→
+   979→    # Add variant access info
+   980→    variant_access = {}
+   981→    for vt, tiers in VARIANT_MODEL_ACCESS.items():
+   982→        variant_access[vt] = sorted(t.value for t in tiers)
+   983→
+   984→    return {
+   985→        "status": "ok",
+   986→        "data": {
+   987→            "providers": providers,
+   988→            "variant_model_access": variant_access,
+   989→            "total_providers": len(providers),
+   990→            "total_models": len(MODEL_REGISTRY),
+   991→        },
+   992→    }
+   993→
+   994→
+   995→# ═══════════════════════════════════════════════════════════════════
+   996→# Cold Start (SG-30)
+   997→# ═══════════════════════════════════════════════════════════════════
+   998→
+   999→
+  1000→@router.post("/cold-start/warmup")
+  1001→def trigger_warmup(
+  1002→    body: TriggerWarmupRequest,
+  1003→    company_id: str = Depends(get_company_id),
+  1004→    db: Session = Depends(get_db),
+  1005→    user: User = Depends(require_roles("owner", "admin")),
+  1006→) -> dict:
+  1007→    """Trigger manual warmup for the company's AI models.
+  1008→
+  1009→    Body must include 'variant_type'. Warms up all model
+  1010→    combos relevant to that variant tier.
+  1011→    """
+  1012→    from app.core.cold_start_service import get_cold_start_service
+  1013→
+  1014→    service = get_cold_start_service()
+  1015→    state = service.warmup_tenant(company_id, body.variant_type)
+  1016→
+  1017→    return {"status": "ok", "data": _serialize_warmup_state(state)}
+  1018→
+  1019→
+  1020→@router.get("/cold-start/status")
+  1021→def get_warmup_status(
+  1022→    company_id: str = Depends(get_company_id),
+  1023→    db: Session = Depends(get_db),
+  1024→    user: User = Depends(get_current_user),
+  1025→) -> dict:
+  1026→    """Get warmup status for the company.
+  1027→
+  1028→    Returns the current warmup state including which models
+  1029→    have been warmed and their status.
+  1030→    """
+  1031→    from app.core.cold_start_service import get_cold_start_service
+  1032→
+  1033→    service = get_cold_start_service()
+  1034→    state = service.get_tenant_status(company_id)
+  1035→
+  1036→    return {"status": "ok", "data": _serialize_warmup_state(state)}
+  1037→
+  1038→
+  1039→# ═══════════════════════════════════════════════════════════════════
+  1040→# Model Failover (F-055)
+  1041→# ═══════════════════════════════════════════════════════════════════
+  1042→
+  1043→
+  1044→@router.get("/failover/status")
+  1045→def get_failover_status(
+  1046→    user: User = Depends(get_current_user),
+  1047→) -> dict:
+  1048→    """Get failover chain status for all provider+model circuits.
+  1049→
+  1050→    Returns circuit breaker states, failure counts, and
+  1051→    availability info.
+  1052→    """
+  1053→    from app.core.model_failover import FailoverManager
+  1054→
+  1055→    manager = FailoverManager()
+  1056→    states = manager.get_all_circuit_states()
+  1057→
+  1058→    # Summary
+  1059→    total = len(states)
+  1060→    healthy = sum(
+  1061→        1 for s in states.values()
+  1062→        if s.get("state") == "healthy"
+  1063→    )
+  1064→    degraded = sum(
+  1065→        1 for s in states.values()
+  1066→        if s.get("state") == "degraded"
+  1067→    )
+  1068→    circuit_open = sum(
+  1069→        1 for s in states.values()
+  1070→        if s.get("state") == "circuit_open"
+  1071→    )
+  1072→
+  1073→    return {
+  1074→        "status": "ok",
+  1075→        "data": {
+  1076→            "total_circuits": total,
+  1077→            "healthy": healthy,
+  1078→            "degraded": degraded,
+  1079→            "circuit_open": circuit_open,
+  1080→            "circuits": states,
+  1081→        },
+  1082→    }
+  1083→
+  1084→
+  1085→@router.get("/failover/history")
+  1086→def get_failover_history(
+  1087→    company_id: str = Depends(get_company_id),
+  1088→    hours: int = Query(24, ge=1, le=168, description="Hours to look back"),
+  1089→    user: User = Depends(get_current_user),
+  1090→) -> dict:
+  1091→    """Get recent failover events for the company.
+  1092→
+  1093→    Returns aggregate failover stats by provider including
+  1094→    failure reasons and circuit states.
+  1095→    """
+  1096→    from app.core.model_failover import FailoverManager
+  1097→
+  1098→    manager = FailoverManager()
+  1099→    stats = manager.get_failover_stats(
+  1100→        company_id=company_id,
+  1101→        hours=hours,
+  1102→    )
+  1103→
+  1104→    return {"status": "ok", "data": stats}
+  1105→
+  1106→
+  1107→# ═══════════════════════════════════════════════════════════════════
+  1108→# AI Monitoring Dashboard (SG-19)
+  1109→# ═══════════════════════════════════════════════════════════════════
+  1110→
+  1111→
+  1112→@router.get("/monitoring/dashboard")
+  1113→def get_monitoring_dashboard(
+  1114→    company_id: str = Depends(get_company_id),
+  1115→    user: User = Depends(get_current_user),
+  1116→) -> dict:
+  1117→    """Get AI performance monitoring dashboard data.
+  1118→
+  1119→    Returns aggregated metrics including latency percentiles,
+  1120→    confidence distribution, guardrail pass rates, error rates,
+  1121→    provider comparisons, and active alerts.
+  1122→    """
+  1123→    from app.core.ai_monitoring_service import AIMonitoringService
+  1124→
+  1125→    monitor = AIMonitoringService()
+  1126→    dashboard = monitor.get_dashboard_data(company_id=company_id)
+  1127→
+  1128→    return {"status": "ok", "data": dashboard}
+  1129→
+  1130→
+  1131→@router.get("/monitoring/alerts")
+  1132→def get_monitoring_alerts(
+  1133→    company_id: str = Depends(get_company_id),
+  1134→    user: User = Depends(get_current_user),
+  1135→) -> dict:
+  1136→    """Get active alert conditions for the company.
+  1137→
+  1138→    Returns list of alert conditions that have been triggered,
+  1139→    including error rate, confidence, latency, and guardrail alerts.
+  1140→    """
+  1141→    from app.core.ai_monitoring_service import AIMonitoringService
+  1142→
+  1143→    monitor = AIMonitoringService()
+  1144→    alerts = monitor.get_alert_conditions(company_id=company_id)
+  1145→
+  1146→    return {
+  1147→        "status": "ok",
+  1148→        "data": {
+  1149→            "alerts": alerts,
+  1150→            "total": len(alerts),
+  1151→        },
+  1152→    }
+  1153→
+  1154→
+  1155→@router.get("/monitoring/metrics")
+  1156→def get_monitoring_metrics(
+  1157→    company_id: str = Depends(get_company_id),
+  1158→    user: User = Depends(get_current_user),
+  1159→) -> dict:
+  1160→    """Get detailed AI execution metrics.
+  1161→
+  1162→    Returns execution count, success rate, average latency,
+  1163→    fallback rate, error rate, and per-task-type breakdown.
+  1164→    """
+  1165→    from app.core.ai_monitoring_service import AIMonitoringService
+  1166→
+  1167→    monitor = AIMonitoringService()
+  1168→    metrics = monitor.get_metrics_summary(company_id=company_id)
+  1169→
+  1170→    return {"status": "ok", "data": metrics}
+  1171→

@@ -1,0 +1,871 @@
+     1→"""
+     2→Node 3: Knowledge Fetch + AI Wiki — PHASE 6 (Wiki Integration)
+     3→
+     4→Phase 4 optimizations (preserved):
+     5→  - REMOVED HyDE, MultiQuery, StepBack (3 LLM calls saved)
+     6→  - Smarter knowledge filtering: score each doc by keyword relevance
+     7→  - CLARA re-evaluate simplified: non-LLM heuristic replaces 1 LLM call
+     8→  - Total: 5 LLM calls → 1 LLM call (CLARA gatekeep only)
+     9→
+    10→Phase 6 upgrades (AI Wiki — all non-LLM, 0 extra calls):
+    11→  - _read_ai_wiki() now reads from real AI Wiki store
+    12→  - Section A: Similar ticket patterns from past resolutions
+    13→  - Section C: Company knowledge (admin-written policies)
+    14→  - Policy sync check: detects KB version changes, invalidates stale patterns
+    15→  - Wiki entries merged into knowledge_context for downstream nodes
+    16→"""
+    17→
+    18→from __future__ import annotations
+    19→
+    20→import logging
+    21→import re
+    22→import time
+    23→from typing import Any, Dict, List
+    24→
+    25→from app.core.parwa_pipeline.llm_client import llm_call
+    26→from app.core.parwa_pipeline.state_v2 import PipelineV2State
+    27→
+    28→logger = logging.getLogger("parwa.pipeline.node_3")
+    29→
+    30→
+    31→# ── Rich Knowledge Base ──────────────────────────────────────────
+    32→
+    33→KNOWLEDGE_BASE: Dict[str, List[Dict[str, str]]] = {
+    34→    "refund_request": [
+    35→        {
+    36→            "source": "refund_policy_v2",
+    37→            "content": "Refund Policy (Updated 2026): All customers are eligible for a full refund within 30 days of purchase, regardless of plan. After 30 days: Pro plan customers receive prorated refunds based on unused months. High plan customers receive prorated refunds minus a 5% early termination fee. Mini plan customers are not eligible for refunds after 14 days. Refunds are processed to the ORIGINAL payment method within 5-7 business days. For amounts exceeding $500, manager approval is required (typically 1-2 business days). Outstanding credits are applied BEFORE calculating the refund amount. Annual plan refunds: customer pays full year upfront, refund = annual price - (monthly rate × months used) - any applicable fees. Customer data is retained for 30 days after cancellation, then permanently deleted unless the customer requests data export within that window.",
+    38→            "section": "C",
+    39→        },
+    40→        {
+    41→            "source": "refund_process_v2",
+    42→            "content": "Refund Process Steps: 1) Verify customer identity (email + last 4 digits of payment method) 2) Check refund eligibility: plan type, purchase date, previous refunds 3) Calculate refund: start with annual price, subtract used portion at monthly rate, apply any outstanding credits, subtract early termination fee if applicable 4) For High plan: subtract 5% early termination fee 5) If amount > $500: route to finance team for manager approval 6) Process refund through Stripe/payment provider 7) Send confirmation email with refund ID and expected timeline 8) Update CRM with refund status. Average processing time: 3 business days for amounts under $500, 5-7 days for larger amounts.",
+    43→            "section": "C",
+    44→        },
+    45→        {
+    46→            "source": "credit_policy",
+    47→            "content": "Credit Policy: Billing error credits are applied to the next invoice. If the customer has an outstanding credit at the time of cancellation, the credit amount is ADDED to the refund. Credits do not expire and can be applied to any future purchase. To apply a credit: verify the credit was approved (check billing_audit_log), confirm the amount, apply to current transaction before processing refund. Credits from billing errors are typically equal to the overcharged amount.",
+    48→            "section": "C",
+    49→        },
+    50→        {
+    51→            "source": "data_retention_policy",
+    52→            "content": "Data Retention Policy: Upon account cancellation: all customer data is retained for 30 days in a read-only state. During this period, the customer can: 1) Reactivate their account (data restored fully), 2) Request a full data export (CSV/JSON format, provided within 24 hours), 3) Request immediate permanent deletion. After 30 days: data is permanently and irreversibly deleted from all systems including backups. Team member data follows the same policy. SSO configurations are preserved at the workspace level (not deleted with individual accounts).",
+    53→            "section": "C",
+    54→        },
+    55→    ],
+    56→    "billing": [
+    57→        {
+    58→            "source": "billing_policy_v2",
+    59→            "content": "Billing Policy (2026): Subscriptions billed monthly (1st of month) or annually (on anniversary). Upgrades: take effect immediately, customer charged prorated difference. Downgrades: take effect at end of current billing cycle, no prorated credit for partial month. Failed payments: 3 retry attempts over 7 days, then account suspended (not deleted). Invoices generated on 1st of each month, sent to billing email. Payment methods: credit card, ACH, wire transfer. Duplicate charges: if customer is charged twice in one cycle, the second charge is immediately refunded. If the duplicate was at a DIFFERENT plan rate, investigate whether an unauthorized plan change occurred. Pricing page discrepancies: all users on the same workspace should see the same pricing. If different users see different prices, check: 1) Are they on the same workspace? 2) Is there a custom enterprise agreement? 3) Cache issue — clear and recheck.",
+    60→            "section": "C",
+    61→        },
+    62→        {
+    63→            "source": "billing_dispute_process",
+    64→            "content": "Billing Dispute Resolution: 1) Acknowledge the dispute immediately 2) Pull the last 3 invoices for the account 3) Compare charged amounts with plan rates: Mini $999/mo, PARWA $2,499/mo, High $4,999/mo 4) If duplicate charge found: issue immediate refund for the duplicate 5) If wrong plan rate charged: refund the difference and correct the subscription 6) If pricing page shows wrong rate: this is a display bug, report to engineering, honor the lower price for the customer 7) Provide the customer with a detailed breakdown of all charges and corrections 8) Apply a 10% goodwill credit if the error was on our side. Resolution target: 24 hours for duplicate charges, 48 hours for pricing discrepancies.",
+    65→            "section": "C",
+    66→        },
+    67→        {
+    68→            "source": "plan_pricing",
+    69→            "content": "Current Plan Pricing (2026): Mini plan — $999/month or $9,999/year (17% savings). Includes: 1 agent, 500 tickets/month, email+chat channels. PARWA plan — $2,499/month or $24,999/year (17% savings). Includes: 3 agents, 2,000 tickets/month, all channels. High plan — $4,999/month or $49,999/year (17% savings). Includes: 10 agents, 10,000 tickets/month, all channels + priority support + custom integrations. All plans include: AI resolution, knowledge base, analytics dashboard. Add-ons: Extra agent seats ($99/seat/month), extra tickets ($0.50/ticket over limit), priority support ($499/month). Team member pricing: all team members on the same workspace share the same per-seat rate based on the workspace plan.",
+    70→            "section": "C",
+    71→        },
+    72→    ],
+    73→    "technical": [
+    74→        {
+    75→            "source": "tech_troubleshooting_v2",
+    76→            "content": "Technical Troubleshooting Guide: Login issues: 1) Check if password was recently changed (security log), 2) Check SSO sync status, 3) Clear browser cache/cookies, 4) Try incognito mode, 5) Check if account is locked (3 failed attempts = 15min lockout). SSO Issues: 1) Check last sync timestamp in admin panel, 2) Verify SSO provider status (Okta/Azure AD), 3) Check SSO certificate expiration, 4) Re-sync manually from admin panel. Unauthorized access: 1) Immediately lock the account, 2) Review audit log for all actions in the suspicious period, 3) Check for data exports during the period, 4) Remove any unauthorized users, 5) Force password reset, 6) Revoke all active sessions, 7) Notify the security team if financial data is involved. Data export check: go to Admin > Audit Log > filter by 'export' events in the relevant date range.",
+    77→            "section": "C",
+    78→        },
+    79→        {
+    80→            "source": "security_protocol",
+    81→            "content": "Security Incident Response Protocol: For suspected unauthorized access: Priority: CRITICAL. Step 1: Lock the affected account immediately (prevents further unauthorized actions). Step 2: Audit — pull the full session log for the past 7 days, note all login IPs, actions taken, data accessed. Step 3: Check for data exfiltration — look for export events, API key creation, webhook modifications. Step 4: Remove any unauthorized users added during the suspicious period. Step 5: Reset the account password and invalidate all sessions. Step 6: Fix SSO sync if broken — typical fix: re-authenticate with identity provider, check SCIM provisioning. Step 7: Notify the customer with a full incident report. Step 8: If financial data was accessed, escalate to the security team for GDPR/compliance review. Response time target: account lock within 5 minutes, full investigation within 2 hours.",
+    82→            "section": "C",
+    83→        },
+    84→    ],
+    85→    "faq": [
+    86→        {
+    87→            "source": "general_faq_v2",
+    88→            "content": "PARWA Platform FAQ: PARWA is an AI-powered customer support resolution platform. Plans: Mini ($999/mo), PARWA ($2,499/mo), High ($4,999/mo). All plans include 24/7 AI support. Platform supports: email, SMS, chat, phone, CRM integration (Salesforce, HubSpot), helpdesk integration (Zendesk, Intercom). Onboarding: 30-minute setup, 24-hour knowledge base import. Plan changes: upgrades immediate with prorated billing, downgrades at next cycle. Cancellation: 30-day refund window, data retained 30 days post-cancellation. Team members: can be added/removed from workspace settings. Each workspace has one billing owner.",
+    89→            "section": "C",
+    90→        },
+    91→        {
+    92→            "source": "plan_change_faq",
+    93→            "content": "Plan Change FAQ: Upgrading: Immediate effect, prorated charge for remainder of billing cycle. Downgrading: Takes effect at end of current billing cycle. No partial month credit on downgrade. Annual to monthly: At end of annual term, converts to monthly billing. Mid-year changes: If on annual plan and want to change mid-year, customer pays the difference (upgrade) or receives prorated credit (downgrade) calculated as: (annual price paid) - (monthly rate × months used) - early termination fee if applicable. Team splits: If some team members need different plans, create a second workspace under the same organization. Each workspace is billed independently. Prorated credits from the old plan can be applied to new workspace(s) as billing credits.",
+    94→            "section": "C",
+    95→        },
+    96→        {
+    97→            "source": "team_management_faq",
+    98→            "content": "Team Management FAQ: Adding team members: Admin goes to Settings > Team > Invite. Each seat costs based on the workspace plan. Removing team members: Their access is revoked immediately. They can be re-added later. If a team member has an open ticket when removed: the ticket remains assigned to the workspace and can be picked up by another member. No data is lost when a member is removed. Plan changes affecting teams: If workspace downgrades and has more seats than the new plan allows, excess members are moved to 'read-only' until seats are freed or plan is upgraded.",
+    99→            "section": "C",
+   100→        },
+   101→    ],
+   102→    "complaint": [
+   103→        {
+   104→            "source": "complaint_handling_v2",
+   105→            "content": "Complaint Handling Policy (2026): Priority tiers: Pro plan customers with 1+ year tenure get expedited resolution (target: 4 hours). High plan customers: immediate escalation to senior support. All complaints logged with timestamp, category, and sentiment score. Billing complaints: forwarded to finance team, customer notified within 1 hour. Service quality complaints: trigger interaction review, agent coaching if needed. Compensation guidelines: Mini plan: up to $50 credit or 1 free month. Pro plan: up to $200 credit or 1 free month. High plan: up to $500 credit, custom resolution with account manager. All complaints older than 48 hours without resolution are auto-escalated to management.",
+   106→            "section": "C",
+   107→        },
+   108→    ],
+   109→    "account_change": [
+   110→        {
+   111→            "source": "account_policy_v2",
+   112→            "content": "Account Change Policy (2026): Email changes: require verification of both old and new email addresses, 24-hour cooldown before taking effect. Password changes: invalidate all active sessions, require re-login on all devices. For security: if password was changed without user requesting it, treat as potential security incident (see security protocol). Plan upgrades: immediate with prorated billing for remainder of cycle. Plan downgrades: effective at next billing cycle, no mid-cycle credit. Account deletion: permanent after 30-day grace period, requires email confirmation, data export available before deletion. Team member additions: admin-only action, new member gets default permissions based on workspace plan. SSO configuration: managed at workspace level, not per-user. SSO sync runs every hour via SCIM. If sync fails, check: provider status, SCIM endpoint, certificate expiration.",
+   113→            "section": "C",
+   114→        },
+   115→        {
+   116→            "source": "workspace_management",
+   117→            "content": "Workspace Management: Each organization can have multiple workspaces. Each workspace has its own plan, team, and billing. To split a team across plans: 1) Create a new workspace under the same organization 2) Move team members to the appropriate workspace 3) Each workspace gets its own subscription. Prorated credit from the original workspace can be transferred as billing credit to the new workspace. Billing consolidation: available for organizations with 3+ workspaces. Contact sales@parwa.ai for consolidated billing setup. Open tickets: stay with the original workspace. They are not transferred when team members move.",
+   118→            "section": "C",
+   119→        },
+   120→    ],
+   121→}
+   122→
+   123→
+   124→# ── CLARA: Gatekeeper (LLM) — Phase 4: streamlined ──────────────
+   125→
+   126→
+   127→async def _clara_gatekeep(query: str, ticket_type: str) -> Dict[str, Any]:
+   128→    """CLARA identifies what knowledge is needed. Phase 4: concise prompt."""
+   129→    prompt = f"""What knowledge areas are needed to answer this {ticket_type} ticket?
+   130→
+   131→Ticket: "{query}"
+   132→
+   133→List 2-4 specific knowledge areas needed (one line each, no explanation):"""
+   134→
+   135→    result = await llm_call(prompt, max_tokens=150)
+   136→    return {
+   137→        "relevant_knowledge": result,
+   138→        "knowledge_sufficient": False,
+   139→        "knowledge_contradictory": False,
+   140→    }
+   141→
+   142→
+   143→# ── Knowledge Retrieval (type-based, non-LLM) ────────────────────
+   144→
+   145→
+   146→def _retrieve_knowledge(ticket_type: str, query: str = "", tenant_id: str = "") -> List[Dict[str, Any]]:
+   147→    """Retrieve knowledge documents for THIS tenant only.
+   148→
+   149→    Two-tier retrieval:
+   150→      1. PER-TENANT KB: query DocumentChunk table filtered by company_id
+   151→         (the tenant's own uploaded docs — real multi-tenant isolation)
+   152→      2. FALLBACK: shared KNOWLEDGE_BASE dict (platform default docs)
+   153→         only used when the tenant has no uploaded KB docs
+   154→
+   155→    BC-001: tenant_id scopes ALL queries. Company A NEVER sees Company B's docs.
+   156→    """
+   157→    # ── Tier 1: Per-tenant KB from PostgreSQL ────────────────────
+   158→    if tenant_id:
+   159→        try:
+   160→            from database.base import SessionLocal
+   161→            from database.models.onboarding import KnowledgeDocument, DocumentChunk
+   162→
+   163→            db = SessionLocal()
+   164→            try:
+   165→                # Get completed documents for THIS tenant only
+   166→                docs_query = db.query(KnowledgeDocument).filter(
+   167→                    KnowledgeDocument.company_id == tenant_id,
+   168→                    KnowledgeDocument.status == "completed",
+   169→                )
+   170→                tenant_docs = docs_query.all()
+   171→
+   172→                if tenant_docs:
+   173→                    # Get chunks for those documents — scoped by company_id
+   174→                    doc_ids = [d.id for d in tenant_docs]
+   175→                    chunks = db.query(DocumentChunk).filter(
+   176→                        DocumentChunk.company_id == tenant_id,
+   177→                        DocumentChunk.document_id.in_(doc_ids),
+   178→                    ).all()
+   179→
+   180→                    if chunks:
+   181→                        result = []
+   182→                        for chunk in chunks:
+   183→                            result.append({
+   184→                                "content": chunk.content,
+   185→                                "source": f"tenant_kb:{chunk.document_id}",
+   186→                                "section": "C",
+   187→                            })
+   188→                        logger.info(
+   189→                            "Node 3: Retrieved %d tenant KB chunks for company_id=%s",
+   190→                            len(result), tenant_id,
+   191→                        )
+   192→                        return result
+   193→                    else:
+   194→                        logger.info("Node 3: Tenant has docs but no chunks — falling back to default KB")
+   195→                else:
+   196→                    logger.info("Node 3: No tenant KB docs for company_id=%s — falling back to default KB", tenant_id)
+   197→            finally:
+   198→                db.close()
+   199→        except Exception as exc:
+   200→            logger.warning("Node 3: Tenant KB query failed: %s — falling back to default KB", str(exc)[:200])
+   201→
+   202→    # ── Tier 2: Fallback to shared default KB (platform docs) ────
+   203→    # Primary: exact type match
+   204→    docs = KNOWLEDGE_BASE.get(ticket_type, [])
+   205→
+   206→    # Secondary: also pull from related types
+   207→    related_types = {
+   208→        "refund_request": ["billing"],
+   209→        "billing": ["refund_request", "faq"],
+   210→        "account_change": ["technical", "faq"],
+   211→        "technical": ["account_change", "faq"],
+   212→        "complaint": ["billing", "faq"],
+   213→        "faq": ["billing", "account_change", "refund_request"],
+   214→    }
+   215→    for rt in related_types.get(ticket_type, []):
+   216→        docs.extend(KNOWLEDGE_BASE.get(rt, []))
+   217→
+   218→    # Phase 7: T2→T1 Cross-type pattern detection
+   219→    # If the query contains strong signals for a different type that isn't
+   220→    # already covered by primary or related_types, pull those docs too.
+   221→    if query:
+   222→        query_lower = query.lower()
+   223→        # Define cross-type signal patterns (query signals → should pull this type)
+   224→        cross_type_signals = {
+   225→            "refund_request": [r"\brefund\b", r"\bmoney\s+back\b", r"\breturn\s+my\b", r"\bprorated?\b", r"\beligibl", r"\btermination\s+fee\b"],
+   226→            "billing": [r"\bcharg(?:ed|e|es|ing)\b", r"\binvoice\b", r"\bpayment\b", r"\bovercharge", r"\bdouble\s+charge\b", r"\bpricing\b"],
+   227→            "technical": [r"\blogin\b", r"\bss[so]\b", r"\bpassword\b", r"\berror\b", r"\bcrash\b", r"\bnot\s+working\b", r"\bcan'?t\s+access\b", r"\bsession\b", r"\bcache\b"],
+   228→            "faq": [r"\bwhat\s+(?:is|are)\b", r"\bhow\s+(?:do|does|much|many)\b", r"\bfeature", r"\b(?:plan|plans?)\s*(?:pricing|cost|include)\b"],
+   229→            "complaint": [r"\bterrible\b", r"\bworst\b", r"\bunacceptab", r"\bfrustrat", r"\bdisappoint", r"\bnever\s+again\b"],
+   230→            "account_change": [r"\bchange\s+(?:email|password)\b", r"\bupgrade\b", r"\bdowngrade\b", r"\bswitch\s+plan\b", r"\bworkspace\b", r"\bteam\s+member\b"],
+   231→        }
+   232→        # Determine which types are already covered
+   233→        covered_types = {ticket_type} | set(related_types.get(ticket_type, []))
+   234→        for cross_type, patterns in cross_type_signals.items():
+   235→            if cross_type in covered_types:
+   236→                continue
+   237→            # If 2+ patterns match, this type is likely relevant
+   238→            match_count = sum(1 for pat in patterns if re.search(pat, query_lower))
+   239→            if match_count >= 2:
+   240→                extra_docs = KNOWLEDGE_BASE.get(cross_type, [])
+   241→                docs.extend(extra_docs)
+   242→
+   243→    # Deduplicate by source
+   244→    seen = set()
+   245→    unique_docs = []
+   246→    for d in docs:
+   247→        if d["source"] not in seen:
+   248→            seen.add(d["source"])
+   249→            unique_docs.append({
+   250→                "content": d["content"],
+   251→                "source": d["source"],
+   252→                "section": d.get("section", "C"),
+   253→            })
+   254→
+   255→    return unique_docs
+   256→
+   257→
+   258→# ── Phase 4: Smart knowledge filtering (non-LLM) ─────────────────
+   259→
+   260→
+   261→def _filter_relevant_docs(
+   262→    documents: List[Dict[str, Any]], query: str, ticket_type: str
+   263→) -> List[Dict[str, Any]]:
+   264→    """Score each doc by LLM-based semantic relevance to the query.
+   265→
+   266→    Uses Llama 3.1 8B to rate each KB doc's relevance (0-10) to the
+   267→    customer's query. This replaces the old keyword-overlap scoring
+   268→    which couldn't understand semantic meaning.
+   269→
+   270→    Falls back to keyword scoring if LLM is unavailable (BC-008).
+   271→    """
+   272→    if not documents:
+   273→        return documents
+   274→
+   275→    # ── LLM-based semantic relevance scoring ─────────────────────
+   276→    # Ask Llama 3.1 to rate each doc's relevance to the query (0-10).
+   277→    # This is the "knowledge base" — the LLM reads the query + doc title
+   278→    # and scores how relevant it is. Much better than keyword matching.
+   279→    try:
+   280→        import asyncio
+   281→        from app.core.parwa_pipeline.llm_client import llm_call
+   282→
+   283→        # Build a single prompt that scores ALL docs at once (1 LLM call, not N)
+   284→        doc_list = []
+   285→        for i, doc in enumerate(documents):
+   286→            title = doc.get("source", "unknown")
+   287→            content_preview = doc.get("content", "")[:200]
+   288→            doc_list.append(f"DOC {i}: [{title}] {content_preview}")
+   289→
+   290→        prompt = f"""Rate the relevance of each document to the customer's question (0-10).
+   291→
+   292→Customer question: "{query}"
+   293→
+   294→Documents:
+   295→{chr(10).join(doc_list)}
+   296→
+   297→Reply with ONLY the doc numbers and scores, one per line:
+   298→0: <score>
+   299→1: <score>
+   300→2: <score>
+   301→..."""
+   302→
+   303→        async def _score_docs():
+   304→            return await llm_call(prompt, max_tokens=100, temperature=0.1)
+   305→
+   306→        try:
+   307→            loop = asyncio.get_event_loop()
+   308→            if loop.is_running():
+   309→                # Already in async context — run in thread
+   310→                import concurrent.futures
+   311→                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+   312→                    result = pool.submit(asyncio.run, _score_docs).result(timeout=30)
+   313→            else:
+   314→                result = asyncio.run(_score_docs())
+   315→        except Exception:
+   316→            result = asyncio.run(_score_docs())
+   317→
+   318→        # Parse scores from LLM response
+   319→        scores: Dict[int, int] = {}
+   320→        for line in result.strip().split("\n"):
+   321→            parts = line.strip().split(":")
+   322→            if len(parts) == 2:
+   323→                try:
+   324→                    doc_idx = int(parts[0].strip())
+   325→                    score = int(parts[1].strip())
+   326→                    scores[doc_idx] = max(0, min(10, score))
+   327→                except ValueError:
+   328→                    continue
+   329→
+   330→        # If we got scores, sort docs by LLM relevance score
+   331→        if scores and len(scores) >= len(documents) // 2:
+   332→            scored_docs = []
+   333→            for i, doc in enumerate(documents):
+   334→                score = scores.get(i, 0)
+   335→                scored_docs.append((score, doc))
+   336→            scored_docs.sort(key=lambda x: x[0], reverse=True)
+   337→
+   338→            # Keep top 8 docs with score >= 3
+   339→            filtered = [doc for score, doc in scored_docs if score >= 3][:8]
+   340→            if filtered:
+   341→                return filtered
+   342→            # If all scored low, keep top 5 anyway
+   343→            return [doc for _, doc in scored_docs[:5]]
+   344→
+   345→        # If LLM scoring failed, fall through to keyword scoring below
+   346→        logger.warning("LLM relevance scoring failed — falling back to keyword filter")
+   347→
+   348→    except Exception as exc:
+   349→        logger.warning("LLM relevance scoring error: %s — falling back to keyword filter", str(exc)[:200])
+   350→
+   351→    # ── Fallback: keyword-based relevance scoring (original logic) ──
+   352→    query_lower = query.lower()
+   353→    query_terms = set(w.lower() for w in query_lower.split() if len(w) > 3)
+   354→    type_keywords = {
+   355→        "refund_request": {"refund", "prorated", "termination", "fee", "credit", "eligible", "days", "annual", "monthly"},
+   356→        "billing": {"charge", "invoice", "payment", "billed", "subscription", "duplicate", "price", "plan", "rate"},
+   357→        "technical": {"login", "sso", "password", "access", "error", "cache", "sync", "session", "lockout", "certificate"},
+   358→        "faq": {"plan", "pricing", "feature", "channel", "agent", "ticket", "onboarding", "integration"},
+   359→        "complaint": {"complaint", "compensation", "credit", "escalate", "resolution", "priority", "tenure"},
+   360→        "account_change": {"email", "password", "plan", "upgrade", "downgrade", "workspace", "member", "sso"},
+   361→    }
+   362→    query_terms |= type_keywords.get(ticket_type, set())
+   363→
+   364→    filler = {"that", "this", "have", "been", "will", "would", "could", "should",
+   365→              "their", "there", "about", "which", "where", "when", "what", "with",
+   366→              "from", "your", "just", "also", "than", "them", "they", "some"}
+   367→    query_terms -= filler
+   368→
+   369→    scored_docs = []
+   370→    for doc in documents:
+   371→        text = doc.get("content", "").lower()
+   372→        doc_words = set(text.split())
+   373→        overlap = len(query_terms & doc_words)
+   374→        query_bigrams = set()
+   375→        words = query_lower.split()
+   376→        for i in range(len(words) - 1):
+   377→            bg = f"{words[i]} {words[i+1]}"
+   378→            if len(bg) > 6:
+   379→                query_bigrams.add(bg)
+   380→        bigram_hits = sum(1 for bg in query_bigrams if bg in text)
+   381→        score = overlap + (bigram_hits * 2)
+   382→        scored_docs.append((score, doc))
+   383→
+   384→    scored_docs.sort(key=lambda x: x[0], reverse=True)
+   385→    if len(scored_docs) > 8:
+   386→        scored_docs = scored_docs[:8]
+   387→
+   388→    return [doc for _, doc in scored_docs]
+   389→
+   390→
+   391→# ── Phase 4: Non-LLM CLARA sufficiency check (replaces 1 LLM call) ─
+   392→
+   393→
+   394→def _check_knowledge_sufficiency(
+   395→    documents: List[Dict[str, Any]], query: str, ticket_type: str
+   396→) -> Dict[str, bool]:
+   397→    """Non-LLM heuristic: do we have KB docs for this ticket type?
+   398→    Replaces the LLM-based CLARA re-evaluate from Phase 2."""
+   399→    has_primary = any(d.get("source", "") in {
+   400→        "refund_policy_v2", "billing_policy_v2", "tech_troubleshooting_v2",
+   401→        "general_faq_v2", "complaint_handling_v2", "account_policy_v2",
+   402→    } for d in documents)
+   403→
+   404→    # If we have docs for the primary type, knowledge is likely sufficient
+   405→    type_doc_counts = {
+   406→        "refund_request": 4, "billing": 3, "technical": 2,
+   407→        "faq": 3, "complaint": 1, "account_change": 2,
+   408→    }
+   409→    expected = type_doc_counts.get(ticket_type, 2)
+   410→    sufficient = len(documents) >= max(expected - 1, 1) and has_primary
+   411→
+   412→    return {
+   413→        "knowledge_sufficient": sufficient,
+   414→        "knowledge_contradictory": False,  # our KB is internally consistent
+   415→    }
+   416→
+   417→
+   418→# ── Helpers ────────────────────────────────────────────────────────
+   419→
+   420→
+   421→def _check_contradictions(documents: List[Dict[str, Any]]) -> bool:
+   422→    """Quick keyword-level contradiction check."""
+   423→    if len(documents) < 2:
+   424→        return False
+   425→    all_numbers = {}
+   426→    for doc in documents:
+   427→        text = doc.get("content", "")
+   428→        for match in re.finditer(r"(\d+)%", text):
+   429→            num = int(match.group(1))
+   430→            context = text[max(0, match.start()-30):match.end()+30].lower()
+   431→            for keyword in ["refund", "fee", "credit", "discount"]:
+   432→                if keyword in context:
+   433→                    if keyword in all_numbers and all_numbers[keyword] != num:
+   434→                        return True
+   435→                    all_numbers[keyword] = num
+   436→    return False
+   437→
+   438→
+   439→def _read_ai_wiki(tenant_id: str, ticket_type: str, query: str, tier: str = "parwa") -> tuple:
+   440→    """Phase 6: Read AI Wiki Sections A, B, C from real store.
+   441→    
+   442→    Returns (section_a_entries, section_b_entries, section_c_entries)
+   443→    as lists of dicts in node format (same shape as KB docs).
+   444→    All non-LLM — keyword search only.
+   445→    """
+   446→    from app.core.parwa_pipeline.ai_wiki_store import get_wiki_store
+   447→    
+   448→    wiki = get_wiki_store()
+   449→    wiki_a_raw = []
+   450→    wiki_b_raw = []
+   451→    wiki_c_raw = []
+   452→    
+   453→    try:
+   454→        # Section A: Search for similar ticket patterns (top 3)
+   455→        wiki_a_raw = wiki.search(
+   456→            tenant_id=tenant_id, section="A", query=query,
+   457→            ticket_type=ticket_type, tier=tier, max_results=3,
+   458→        )
+   459→        
+   460→        # Section B: Read admin behavior patterns (all, max 2)
+   461→        wiki_b_raw = wiki.read(tenant_id=tenant_id, section="B", tier=tier)
+   462→        wiki_b_raw = wiki_b_raw[:2]  # limit for context window
+   463→        
+   464→        # Section C: Read company knowledge (all, max 3)
+   465→        wiki_c_raw = wiki.read(tenant_id=tenant_id, section="C", tier=tier)
+   466→        wiki_c_raw = wiki_c_raw[:3]
+   467→    except Exception as e:
+   468→        logger.warning("Wiki read error (non-fatal): %s", e)
+   469→    
+   470→    # Convert to node format (same shape as KB docs)
+   471→    wiki_a = [e.to_node_format() for e in wiki_a_raw]
+   472→    wiki_b = [e.to_node_format() for e in wiki_b_raw]
+   473→    wiki_c = [e.to_node_format() for e in wiki_c_raw]
+   474→    
+   475→    # Build wiki summary for similar patterns found
+   476→    wiki_patterns = []
+   477→    for entry in wiki_a_raw:
+   478→        c = entry.content
+   479→        wiki_patterns.append({
+   480→            "entry_key": entry.entry_key,
+   481→            "techniques_that_worked": c.get("techniques_that_worked", []),
+   482→            "quality_achieved": c.get("quality_achieved", 0),
+   483→            "answer_summary": c.get("answer_summary", "")[:200],
+   484→            "historical_success_rate": round(entry.success_count / max(entry.usage_count, 1), 3),
+   485→        })
+   486→    
+   487→    return wiki_a, wiki_b, wiki_c, wiki_patterns
+   488→
+   489→
+   490→async def _fetch_crm_data(tenant_id: str, customer_context: Dict) -> Dict:
+   491→    """Fetch real CRM data (HubSpot), e-commerce orders (Shopify), and carrier
+   492→    tracking (FedEx/UPS/DHL/USPS) for the customer associated with this ticket.
+   493→
+   494→    Replaces the previous mock that just echoed back data from customer_context.
+   495→    Now the AI pipeline can actually SEE the customer's CRM record, order
+   496→    history, and shipment status before generating a response.
+   497→
+   498→    Falls back gracefully:
+   499→      - If no CRM/ecommerce/carrier integration is connected, returns the
+   500→        minimal data from customer_context (same as the old mock).
+   501→      - If a provider call fails, logs the error and continues with partial data.
+   502→      - Never raises — node_3 must not crash the pipeline.
+   503→
+   504→    BC-001: tenant_id (company_id) scopes all credential lookups.
+   505→    """
+   506→    # Start with the baseline data from customer_context (always available).
+   507→    result: Dict = {
+   508→        "subscription_status": customer_context.get("account_tier", "free"),
+   509→        "recent_interactions": customer_context.get("recent_ticket_count", 0),
+   510→        "billing_email": customer_context.get("billing_email", "on file"),
+   511→        "crm_contact": None,
+   512→        "ecommerce_orders": None,
+   513→        "carrier_tracking": None,
+   514→    }
+   515→
+   516→    # Extract customer identifiers from context.
+   517→    customer_id = customer_context.get("customer_id", "")
+   518→    customer_email = customer_context.get("email", "") or customer_context.get("customer_email", "")
+   519→    customer_phone = customer_context.get("phone", "") or customer_context.get("customer_phone", "")
+   520→
+   521→    try:
+   522→        from app.services.integration_service import IntegrationService
+   523→        from database.base import SessionLocal
+   524→        from app.api.crm_actions import _resolve_crm_credentials, _hubspot_get_contact
+   525→        from app.api.ecommerce_actions import _resolve_ecommerce_credentials, _shopify_get_customer_orders
+   526→        from app.core.carrier_api_connector import CarrierAPIConnector
+   527→
+   528→        db = SessionLocal()
+   529→        try:
+   530→            # ── 1. CRM contact (auto-detect platform) ──
+   531→            if customer_id or customer_email or customer_phone:
+   532→                try:
+   533→                    # Try each CRM platform until one returns credentials
+   534→                    for crm_platform in ["hubspot", "salesforce", "pipedrive"]:
+   535→                        creds = _resolve_crm_credentials(db, type("U", (), {"company_id": tenant_id})(), crm_platform)
+   536→                        if not creds or not creds.get("access_token"):
+   537→                            continue
+   538→
+   539→                        import httpx
+   540→                        headers = {
+   541→                            "Authorization": f"Bearer {creds['access_token']}",
+   542→                            "Content-Type": "application/json",
+   543→                        }
+   544→
+   545→                        if crm_platform == "hubspot":
+   546→                            async with httpx.AsyncClient(timeout=10.0) as client:
+   547→                                contact_result = await _hubspot_get_contact(
+   548→                                    client, headers,
+   549→                                    contact_id=customer_id or None,
+   550→                                    email=customer_email or None,
+   551→                                    phone=customer_phone or None,
+   552→                                )
+   553→                                if contact_result["status"] == "ok":
+   554→                                    result["crm_contact"] = contact_result["data"]
+   555→                                    if contact_result["data"].get("email"):
+   556→                                        result["billing_email"] = contact_result["data"]["email"]
+   557→                                    break
+   558→
+   559→                        elif crm_platform == "salesforce":
+   560→                            # Salesforce REST API: query contact by email
+   561→                            instance_url = creds.get("instance_url", "")
+   562→                            async with httpx.AsyncClient(timeout=10.0) as client:
+   563→                                query = f"SELECT Id, FirstName, LastName, Email, Phone FROM Contact WHERE Email='{customer_email}' LIMIT 1" if customer_email else f"SELECT Id, FirstName, LastName, Email, Phone FROM Contact WHERE Id='{customer_id}' LIMIT 1"
+   564→                                sf_res = await client.get(
+   565→                                    f"{instance_url}/services/data/v58.0/query?q={query}",
+   566→                                    headers=headers,
+   567→                                )
+   568→                                if sf_res.status_code == 200:
+   569→                                    sf_data = sf_res.json()
+   570→                                    records = sf_data.get("records", [])
+   571→                                    if records:
+   572→                                        r = records[0]
+   573→                                        result["crm_contact"] = {
+   574→                                            "id": r.get("Id"),
+   575→                                            "email": r.get("Email"),
+   576→                                            "first_name": r.get("FirstName"),
+   577→                                            "last_name": r.get("LastName"),
+   578→                                            "phone": r.get("Phone"),
+   579→                                        }
+   580→                                        if r.get("Email"):
+   581→                                            result["billing_email"] = r["Email"]
+   582→                                        break
+   583→
+   584→                        elif crm_platform == "pipedrive":
+   585→                            # Pipedrive API: search for person by email
+   586→                            api_token = creds.get("api_token") or creds.get("access_token")
+   587→                            async with httpx.AsyncClient(timeout=10.0) as client:
+   588→                                pd_res = await client.get(
+   589→                                    f"https://api.pipedrive.com/v1/persons/search?term={customer_email}&api_token={api_token}",
+   590→                                )
+   591→                                if pd_res.status_code == 200:
+   592→                                    pd_data = pd_res.json()
+   593→                                    items = pd_data.get("data", {}).get("items", [])
+   594→                                    if items:
+   595→                                        person = items[0].get("item", {})
+   596→                                        result["crm_contact"] = {
+   597→                                            "id": person.get("id"),
+   598→                                            "email": customer_email,
+   599→                                            "first_name": person.get("name", "").split()[0] if person.get("name") else None,
+   600→                                            "phone": person.get("phone"),
+   601→                                        }
+   602→                                        break
+   603→
+   604→                except Exception as exc:
+   605→                    logger.warning("node3_crm_fetch_failed", extra={"error": str(exc)[:200]})
+   606→
+   607→            # ── 2. E-commerce orders (auto-detect platform) ──
+   608→            if customer_id or customer_email:
+   609→                try:
+   610→                    for eco_platform in ["shopify", "woocommerce"]:
+   611→                        creds = _resolve_ecommerce_credentials(db, type("U", (), {"company_id": tenant_id})(), eco_platform)
+   612→                        if not creds:
+   613→                            continue
+   614→
+   615→                        if eco_platform == "shopify" and creds.get("access_token") and creds.get("shop_domain"):
+   616→                            from app.api.ecommerce_actions import _shopify_base_url, _shopify_headers
+   617→                            import httpx
+   618→                            base_url = _shopify_base_url(creds["shop_domain"])
+   619→                            headers = _shopify_headers(creds["access_token"])
+   620→                            async with httpx.AsyncClient(timeout=10.0) as client:
+   621→                                orders_result = await _shopify_get_customer_orders(
+   622→                                    client, base_url, headers,
+   623→                                    customer_id=customer_id,
+   624→                                    limit=5,
+   625→                                )
+   626→                                if orders_result["status"] == "ok":
+   627→                                    result["ecommerce_orders"] = orders_result["data"]
+   628→                                    break
+   629→
+   630→                        elif eco_platform == "woocommerce":
+   631→                            # WooCommerce REST API
+   632→                            import httpx
+   633→                            wc_url = creds.get("shop_url", "").rstrip("/")
+   634→                            wc_key = creds.get("consumer_key", "")
+   635→                            wc_secret = creds.get("consumer_secret", "")
+   636→                            if wc_url and wc_key and wc_secret:
+   637→                                async with httpx.AsyncClient(timeout=10.0) as client:
+   638→                                    wc_res = await client.get(
+   639→                                        f"{wc_url}/wp-json/wc/v3/orders",
+   640→                                        params={"search": customer_email, "per_page": 5},
+   641→                                        auth=(wc_key, wc_secret),
+   642→                                    )
+   643→                                    if wc_res.status_code == 200:
+   644→                                        orders = wc_res.json()
+   645→                                        result["ecommerce_orders"] = [
+   646→                                            {
+   647→                                                "id": str(o.get("id")),
+   648→                                                "status": o.get("status"),
+   649→                                                "total": o.get("total"),
+   650→                                                "currency": o.get("currency"),
+   651→                                                "date_created": o.get("date_created"),
+   652→                                                "items": [{"name": i.get("name"), "quantity": i.get("quantity")} for i in o.get("line_items", [])],
+   653→                                            }
+   654→                                            for o in orders
+   655→                                        ]
+   656→                                        break
+   657→                except Exception as exc:
+   658→                    logger.warning("node3_ecommerce_fetch_failed", extra={"error": str(exc)[:200]})
+   659→
+   660→            # ── 3. Carrier tracking (if tracking_number in context) ──
+   661→            tracking_number = customer_context.get("tracking_number", "")
+   662→            if tracking_number:
+   663→                try:
+   664→                    connector = CarrierAPIConnector()
+   665→                    tracking = await connector.track_shipment(
+   666→                        company_id=tenant_id,
+   667→                        tracking_number=tracking_number,
+   668→                    )
+   669→                    if tracking.get("status") not in ("not_configured", "no_credentials", "error"):
+   670→                        result["carrier_tracking"] = tracking
+   671→                except Exception as exc:
+   672→                    logger.warning("node3_carrier_fetch_failed", extra={"error": str(exc)[:200]})
+   673→        finally:
+   674→            db.close()
+   675→    except Exception as exc:
+   676→        logger.warning("node3_fetch_crm_data_failed", extra={"error": str(exc)[:200]})
+   677→
+   678→    return result
+   679→
+   680→
+   681→# ── Main Node Function ────────────────────────────────────────────
+   682→
+   683→
+   684→async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
+   685→    """Node 3: Knowledge Fetch — Phase 4 optimized.
+   686→    LLM calls: 1 (was 5) — removed HyDE, MultiQuery, StepBack, CLARA re-evaluate."""
+   687→    start = time.time()
+   688→    query = state.get("query", "")
+   689→    tenant_id = state.get("tenant_id", "")
+   690→    ticket_type = state.get("ticket_type", "general")
+   691→    logs = []
+   692→    llm_calls = 0
+   693→
+   694→    # ── Wave 4: Inject Jarvis guidance for this ticket ─────
+   695→    system_flags = state.get("system_flags")
+   696→    if not system_flags:
+   697→        try:
+   698→            from app.core.parwa_pipeline.parwa_bridge import load_system_flags
+   699→            system_flags = await load_system_flags(tenant_id)
+   700→        except Exception:
+   701→            system_flags = {}
+   702→    guidance_map = system_flags.get("guidance", {})
+   703→    ticket_id = state.get("ticket_id", "")
+   704→    jarvis_guidance = guidance_map.get(ticket_id, "")
+   705→    if jarvis_guidance:
+   706→        logs.append({"node": 3, "technique": "JARVIS_GUIDANCE", "duration_ms": 0,
+   707→                     "result_summary": f"guidance_len={len(jarvis_guidance)}"})
+   708→
+   709→    # 1. CLARA: Gatekeeper (LLM) — the ONLY LLM call in Node 3 now
+   710→    clara_result = await _clara_gatekeep(query, ticket_type)
+   711→    logs.append({"node": 3, "technique": "CLARA", "duration_ms": 0, "result_summary": "gatekeep_done"})
+   712→    llm_calls += 1
+   713→
+   714→    # 2. RAG Retrieval (per-tenant KB first, fallback to shared default)
+   715→    documents = _retrieve_knowledge(ticket_type, query, tenant_id=tenant_id)
+   716→    logs.append({"node": 3, "technique": "RAG", "duration_ms": 0, "result_summary": f"{len(documents)} docs"})
+   717→
+   718→    # 3. Smart knowledge filtering (Phase 4: non-LLM relevance ranking)
+   719→    filtered = _filter_relevant_docs(documents, query, ticket_type)
+   720→    logs.append({"node": 3, "technique": "SmartFilter", "duration_ms": 0, "result_summary": f"{len(documents)}→{len(filtered)}"})
+   721→
+   722→    # 4. Knowledge sufficiency check (Phase 4: non-LLM, replaces CLARA re-evaluate LLM call)
+   723→    sufficiency = _check_knowledge_sufficiency(filtered, query, ticket_type)
+   724→    clara_result["knowledge_sufficient"] = sufficiency["knowledge_sufficient"]
+   725→    clara_result["knowledge_contradictory"] = sufficiency["knowledge_contradictory"]
+   726→    logs.append({"node": 3, "technique": "SufficiencyCheck", "duration_ms": 0,
+   727→                 "result_summary": f"sufficient={sufficiency['knowledge_sufficient']}"})
+   728→
+   729→    # ── P1 Notification: emit ticket:knowledge_gap ─────────────────
+   730→    # When the AI can't find enough knowledge to answer confidently, tell the
+   731→    # human so they know the AI is working blind. This helps the human decide
+   732→    # whether to intervene (provide more KB docs) or let the AI try anyway.
+   733→    if not sufficiency["knowledge_sufficient"]:
+   734→        # ── APPROACH A: Pause + ask for guidance ───────────────────
+   735→        # Node 3 has doubt (KB insufficient). Instead of continuing blind,
+   736→        # interrupt the pipeline and ask for guidance. When resumed,
+   737→        # the answer is injected into the knowledge context.
+   738→        #
+   739→        # IMPORTANT: interrupt() works by raising a special exception that
+   740→        # LangGraph catches internally to pause the graph. We must NOT
+   741→        # catch that exception — let it propagate so the graph pauses.
+   742→        from langgraph.types import interrupt
+   743→        guidance = interrupt({
+   744→            "node": 3,
+   745→            "question": (
+   746→                f"I don't have enough knowledge base documents to answer "
+   747→                f"this {ticket_type} ticket confidently. "
+   748→                f"Only {len(filtered)} relevant doc(s) found. "
+   749→                f"Can you provide guidance on how to handle this?"
+   750→            ),
+   751→            "ticket_id": state.get("ticket_id", ""),
+   752→            "ticket_type": ticket_type,
+   753→            "docs_found": len(filtered),
+   754→            "query_summary": query[:200],
+   755→        })
+   756→        # ── When resumed, execution continues HERE ─────────────────
+   757→        # `guidance` contains the human/variant's answer.
+   758→        # Inject it as a knowledge doc so downstream nodes can use it.
+   759→        logger.info(
+   760→            "Node 3 resumed with guidance: %s (ticket=%s)",
+   761→            str(guidance)[:100], state.get("ticket_id", ""),
+   762→        )
+   763→        filtered.append({
+   764→            "content": f"Human/Agent Guidance: {guidance}",
+   765→            "source": "human_guidance",
+   766→            "score": 1.0,
+   767→        })
+   768→        clara_result["knowledge_sufficient"] = True
+   769→        logs.append({
+   770→            "node": 3, "technique": "HumanGuidanceInjection",
+   771→            "duration_ms": 0,
+   772→            "result_summary": f"guidance injected ({len(str(guidance))} chars)",
+   773→        })
+   774→
+   775→        try:
+   776→            from app.core.event_emitter import emit_ticket_event
+   777→            await emit_ticket_event(
+   778→                company_id=tenant_id,
+   779→                event_type="ticket:knowledge_gap",
+   780→                payload={
+   781→                    "company_id": tenant_id,
+   782→                    "ticket_id": state.get("ticket_id", ""),
+   783→                    "ticket_type": ticket_type,
+   784→                    "query": query[:500],
+   785→                    "docs_found": len(filtered),
+   786→                    "contradictory": sufficiency["knowledge_contradictory"],
+   787→                    "node": 3,
+   788→                },
+   789→                correlation_id=state.get("ticket_id", ""),
+   790→            )
+   791→        except Exception as exc:
+   792→            logger.warning("node_3_knowledge_gap_notification_failed: %s", str(exc)[:200])
+   793→
+   794→    # 5. Contradiction check (non-LLM)
+   795→    has_contradiction = _check_contradictions(filtered)
+   796→    if has_contradiction:
+   797→        clara_result["knowledge_contradictory"] = True
+   798→        logs.append({"node": 3, "technique": "ContradictionCheck", "duration_ms": 0, "result_summary": "CONTRADICTION_FOUND"})
+   799→
+   800→    # 6. DynamicContext (non-LLM)
+   801→    dynamic_ctx = state.get("customer_context", {})
+   802→    logs.append({"node": 3, "technique": "DynamicContext", "duration_ms": 0, "result_summary": "context_pulled"})
+   803→
+   804→    # 7. AI Wiki (Phase 6: real store reads)
+   805→    tier = state.get("variant_tier", "parwa")
+   806→    wiki_a, wiki_b, wiki_c, wiki_patterns = _read_ai_wiki(tenant_id, ticket_type, query, tier)
+   807→    wiki_log_msg = f"A={len(wiki_a)} B={len(wiki_b)} C={len(wiki_c)}"
+   808→    if wiki_patterns:
+   809→        wiki_log_msg += f" patterns_found={len(wiki_patterns)}"
+   810→    logs.append({"node": 3, "technique": "AIWiki", "duration_ms": 0,
+   811→                 "result_summary": wiki_log_msg})
+   812→    
+   813→    # 7b. Policy sync check (Phase 6: detect version changes)
+   814→    sync_status = {"synced": True, "version": "v2.0", "previous_version": None}
+   815→    try:
+   816→        from app.core.parwa_pipeline.ai_wiki_store import get_wiki_store
+   817→        wiki_store = get_wiki_store()
+   818→        current_policy_version = state.get("policy_version", "v2.0")
+   819→        sync_status = wiki_store.check_policy_sync(tenant_id, current_policy_version)
+   820→        if not sync_status["synced"]:
+   821→            logs.append({
+   822→                "node": 3, "technique": "PolicySyncCheck",
+   823→                "duration_ms": 0,
+   824→                "result_summary": f"POLICY_CHANGED {sync_status['previous_version']} → {sync_status['version']} ({sync_status.get('patterns_invalidated', 0)} invalidated)",
+   825→            })
+   826→    except Exception as e:
+   827→        logger.warning("Policy sync check failed (non-fatal): %s", e)
+   828→
+   829→    # 8. CRM + E-commerce + Carrier data (real, via crm_actions/ecommerce_actions/carrier_api_connector)
+   830→    crm_data = await _fetch_crm_data(tenant_id, dynamic_ctx)
+   831→    crm_summary = "crm_fetched"
+   832→    if crm_data.get("crm_contact"):
+   833→        crm_summary += "+hubspot"
+   834→    if crm_data.get("ecommerce_orders"):
+   835→        crm_summary += "+shopify"
+   836→    if crm_data.get("carrier_tracking"):
+   837→        crm_summary += "+carrier"
+   838→    logs.append({"node": 3, "technique": "UCB", "duration_ms": 0, "result_summary": crm_summary})
+   839→
+   840→    elapsed = int((time.time() - start) * 1000)
+   841→    logger.info(
+   842→        "Node 3 complete: ticket=%s docs=%d sufficient=%s llm=%d [%dms]",
+   843→        state["ticket_id"], len(filtered), clara_result["knowledge_sufficient"], llm_calls, elapsed,
+   844→    )
+   845→
+   846→    # Wave 4: Inject Jarvis guidance as additional knowledge
+   847→    if jarvis_guidance:
+   848→        filtered.append({
+   849→            "source": "jarvis_guidance",
+   850→            "content": jarvis_guidance,
+   851→            "relevance": 1.0,
+   852→            "is_jarvis_guidance": True,
+   853→        })
+   854→        logger.info("Node 3: Injected Jarvis guidance for ticket %s (%d chars)", ticket_id, len(jarvis_guidance))
+   855→
+   856→    return {
+   857→        "knowledge_context": filtered,
+   858→        "wiki_section_a": wiki_a,
+   859→        "wiki_section_b": wiki_b,
+   860→        "wiki_section_c": wiki_c,
+   861→        "wiki_patterns": wiki_patterns,  # Phase 6: similar patterns for downstream nodes
+   862→        "crm_data": crm_data,
+   863→        "knowledge_sufficient": clara_result["knowledge_sufficient"],
+   864→        "knowledge_contradictory": clara_result["knowledge_contradictory"],
+   865→        "policy_version": "v2.0",
+   866→        "policy_sync_status": sync_status,  # Phase 6: sync status
+   867→        "jarvis_guidance": jarvis_guidance,
+   868→        "technique_log": logs,
+   869→        "node_3_token_usage": llm_calls,
+   870→        "total_token_usage": state.get("total_token_usage", 0) + llm_calls,
+   871→    }

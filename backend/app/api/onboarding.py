@@ -1,0 +1,554 @@
+"""
+PARWA Onboarding Router (Week 6 — F-028, F-029, F-034, F-035)
+
+Endpoints for onboarding wizard progression, legal consent,
+AI activation, and first victory celebration.
+
+- GET  /api/onboarding/state            — Get current onboarding state
+- POST /api/onboarding/start            — Start onboarding wizard
+- POST /api/onboarding/complete-step    — Complete a wizard step
+- POST /api/onboarding/legal-consent    — Accept legal consents (Step 2)
+- POST /api/onboarding/activate         — Activate AI assistant (Step 5)
+- GET  /api/onboarding/prerequisites    — Check AI activation prerequisites
+- GET  /api/onboarding/first-victory    — Get first victory status
+- POST /api/onboarding/first-victory    — Mark first victory completed
+
+BC-001: All operations scoped to authenticated user's company_id.
+"""
+
+import json as _json
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, Request
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_current_user
+from app.schemas.onboarding import (
+    LegalConsentRequest,
+    LegalConsentResponse,
+    AIConfigRequest,
+    AIConfigResponse,
+    MessageResponse,
+    StepCompleteResponse,
+    OnboardingStateResponse,
+    IntegrationStepRequest,
+    KnowledgeBaseStepRequest,
+    StepDataResponse,
+)
+from app.services.onboarding_service import (
+    get_or_create_session,
+    complete_step,
+    accept_legal_consents,
+    activate_ai,
+    get_first_victory_status,
+    complete_first_victory,
+)
+from app.services.user_details_service import (
+    check_ai_activation_prerequisites,
+    get_onboarding_state,
+)
+from database.base import get_db
+from database.models.core import User
+
+router = APIRouter(prefix="/api/onboarding", tags=["Onboarding"])
+
+
+# ── Get Onboarding State ───────────────────────────────────────────
+
+
+@router.get(
+    "/state",
+    response_model=OnboardingStateResponse,
+)
+def api_get_onboarding_state(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> OnboardingStateResponse:
+    """Get the current onboarding state for the user.
+
+    Returns the full onboarding session state including current step,
+    completed steps, and all progress flags. This is called by the
+    frontend wizard on page load to restore progress after a refresh.
+
+    If no session exists yet, creates one automatically.
+
+    BC-001: Scoped to user's company_id.
+    """
+    # Ensure a session exists (creates one if needed)
+    get_or_create_session(
+        db=db,
+        user_id=user.id,
+        company_id=user.company_id,
+    )
+    return get_onboarding_state(
+        db=db,
+        user_id=user.id,
+        company_id=user.company_id,
+    )
+
+
+# ── Start Onboarding ───────────────────────────────────────────────
+
+
+@router.post(
+    "/start",
+    response_model=OnboardingStateResponse,
+)
+def api_start_onboarding(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> OnboardingStateResponse:
+    """Start the onboarding wizard for the user.
+
+    Creates a new onboarding session if one does not already exist,
+    or returns the existing session state. This is called by the
+    frontend when the user first enters the onboarding flow.
+
+    BC-001: Scoped to user's company_id.
+    """
+    get_or_create_session(
+        db=db,
+        user_id=user.id,
+        company_id=user.company_id,
+    )
+    return get_onboarding_state(
+        db=db,
+        user_id=user.id,
+        company_id=user.company_id,
+    )
+
+
+# ── Industry & Variant Selection (Step 1) ─────────────────────────
+
+
+@router.post("/industry-variant")
+def api_industry_variant(
+    body: dict,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Save industry and variant selection from Step 1.
+
+    Updates the company's industry field and stores the selected
+    variant in the onboarding session metadata. This is called by
+    the frontend when the user completes Step 1 of the wizard.
+
+    BC-001: Scoped to user's company_id.
+    """
+    industry = body.get("industry", "other")
+    variant = body.get("variant", "parwa")
+    unique_id = body.get("unique_id", "").strip().lower()
+
+    # Update company industry + unique_id + subscription_tier
+    if user.company_id and industry:
+        try:
+            from database.models.core import Company
+            from database.models.variant_engine import VariantInstance
+            from app.core.pricing_config import normalize_variant_name, VariantType
+
+            company = db.query(Company).filter(Company.id == user.company_id).first()
+            if company:
+                company.industry = industry
+
+                # Set subscription_tier to the selected variant (canonical name)
+                # and mark as active (not "trial" — user chose this variant)
+                canonical_variant = normalize_variant_name(variant)
+                company.subscription_tier = canonical_variant
+                company.subscription_status = "active"
+
+                if unique_id:
+                    existing = db.query(Company).filter(
+                        Company.unique_id == unique_id,
+                        Company.id != user.company_id,
+                    ).first()
+                    if existing:
+                        return {
+                            "status": "error",
+                            "error": "UNIQUE_ID_TAKEN",
+                            "message": "This unique ID is already taken.",
+                        }
+                    company.unique_id = unique_id
+
+                # Delete any existing VariantInstances for this company
+                # (user changed their selection — old variant is replaced)
+                old_instances = db.query(VariantInstance).filter(
+                    VariantInstance.company_id == user.company_id,
+                ).all()
+                for old in old_instances:
+                    db.delete(old)
+
+                # Create a new VariantInstance for the selected variant
+                existing_instance = db.query(VariantInstance).filter(
+                    VariantInstance.company_id == user.company_id,
+                    VariantInstance.variant_type == canonical_variant,
+                ).first()
+
+                if not existing_instance:
+                    new_instance = VariantInstance(
+                        company_id=str(user.company_id),
+                        instance_name=f"{'Mini Parwa' if canonical_variant == 'starter' else 'Parwa' if canonical_variant == 'growth' else 'High Parwa'}",
+                        variant_type=canonical_variant,
+                        status="active",
+                        channel_assignment='["chat"]',
+                        capacity_config='{"max_concurrent": 10, "token_budget_share_pct": 100, "priority_weight": 1}',
+                    )
+                    db.add(new_instance)
+
+                db.commit()
+        except Exception:
+            db.rollback()
+
+    # Store variant in onboarding session metadata
+    try:
+        session = get_or_create_session(
+            db=db,
+            user_id=user.id,
+            company_id=user.company_id,
+        )
+        if session and hasattr(session, "metadata_") and session.metadata_:
+            session.metadata_["variant"] = variant
+            session.metadata_["industry"] = industry
+        elif session and hasattr(session, "metadata_"):
+            session.metadata_ = {"variant": variant, "industry": industry}
+        db.commit()
+    except Exception:
+        db.rollback()
+
+    return {"status": "ok", "industry": industry, "variant": variant}
+
+
+@router.get("/check-unique-id")
+def api_check_unique_id(
+    unique_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Check if a unique_id is available (not taken by another company).
+
+    Called by the onboarding form in real-time as the user types.
+    Returns: { "available": true/false }
+    """
+    cleaned = (unique_id or "").strip().lower()
+    if len(cleaned) < 3:
+        return {"available": False, "reason": "too_short"}
+
+    from database.models.core import Company
+    existing = db.query(Company).filter(
+        Company.unique_id == cleaned,
+        Company.id != user.company_id,
+    ).first()
+
+    return {"available": existing is None}
+
+
+# ── Step Completion ────────────────────────────────────────────────
+
+
+@router.post(
+    "/complete-step",
+    response_model=StepCompleteResponse,
+)
+def api_complete_step(
+    step: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> StepCompleteResponse:
+    """Complete a wizard step with race condition prevention.
+
+    GAP 1 FIX: Uses row-level locking for atomic step transitions.
+    Steps must be completed sequentially (no skipping).
+
+    BC-001: Scoped to user's company_id.
+
+    Args:
+        step: Step number to complete (1-5).
+    """
+    result = complete_step(
+        db=db,
+        user_id=user.id,
+        company_id=user.company_id,
+        step=step,
+    )
+    return StepCompleteResponse(
+        message=f"Step {step} completed successfully.",
+        current_step=result["current_step"],
+        completed_steps=result["completed_steps"],
+    )
+
+
+# ── Legal Consent (Step 2) ────────────────────────────────────────
+
+
+@router.post(
+    "/legal-consent",
+    response_model=LegalConsentResponse,
+)
+def api_legal_consent(
+    body: LegalConsentRequest,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> LegalConsentResponse:
+    """Accept legal consents (Step 2).
+
+    GAP 5 FIX: Uses server time for consent recording, not client time.
+    Validates all three consents are accepted before recording.
+    Creates an audit trail with IP and user agent.
+
+    BC-001: Scoped to user's company_id.
+    """
+    # Extract client info for audit trail
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+
+    result = accept_legal_consents(
+        db=db,
+        user_id=user.id,
+        company_id=user.company_id,
+        accept_terms=body.accept_terms,
+        accept_privacy=body.accept_privacy,
+        accept_ai_data=body.accept_ai_data,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+
+    return LegalConsentResponse(
+        message=result["message"],
+        terms_accepted_at=result["terms_accepted_at"],
+        privacy_accepted_at=result["privacy_accepted_at"],
+        ai_data_accepted_at=result["ai_data_accepted_at"],
+    )
+
+
+# ── Integrations (Step 3) ──────────────────────────────────────────
+
+
+@router.post(
+    "/integrations",
+    response_model=StepDataResponse,
+)
+def api_complete_integrations(
+    body: IntegrationStepRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> StepDataResponse:
+    """Complete integration step (Step 3).
+
+    Validates that at least one integration is provided,
+    saves integration data to the onboarding session,
+    and completes step 3.
+
+    BC-001: Scoped to user's company_id.
+    """
+    result = complete_step(
+        db=db,
+        user_id=user.id,
+        company_id=user.company_id,
+        step=3,
+    )
+    # Persist integration data on the session
+    from database.models.onboarding import OnboardingSession
+    session = db.query(OnboardingSession).filter(
+        OnboardingSession.user_id == user.id,
+        OnboardingSession.company_id == user.company_id,
+    ).first()
+    if session:
+        session.integrations = _json.dumps(body.integrations)
+        session.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(session)
+    return StepDataResponse(
+        message="Integrations saved successfully.",
+        current_step=result["current_step"],
+        completed_steps=result["completed_steps"],
+        status=result.get("status", "in_progress"),
+    )
+
+
+# ── Knowledge Base (Step 4) ────────────────────────────────────────
+
+
+@router.post(
+    "/knowledge-base",
+    response_model=StepDataResponse,
+)
+def api_complete_knowledge_base(
+    body: KnowledgeBaseStepRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> StepDataResponse:
+    """Complete knowledge base step (Step 4).
+
+    Validates that at least one file is provided,
+    saves KB file metadata to the onboarding session,
+    and completes step 4.
+
+    BC-001: Scoped to user's company_id.
+    """
+    result = complete_step(
+        db=db,
+        user_id=user.id,
+        company_id=user.company_id,
+        step=4,
+    )
+    # Persist knowledge base file metadata on the session
+    from database.models.onboarding import OnboardingSession
+    session = db.query(OnboardingSession).filter(
+        OnboardingSession.user_id == user.id,
+        OnboardingSession.company_id == user.company_id,
+    ).first()
+    if session:
+        session.knowledge_base_files = _json.dumps(body.files)
+        session.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(session)
+    return StepDataResponse(
+        message="Knowledge base files saved successfully.",
+        current_step=result["current_step"],
+        completed_steps=result["completed_steps"],
+        status=result.get("status", "in_progress"),
+    )
+
+
+# ── AI Activation (Step 5) ────────────────────────────────────────
+
+
+@router.get(
+    "/prerequisites",
+)
+def api_get_prerequisites(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Check AI activation prerequisites.
+
+    Returns which prerequisites are met and which are missing.
+    Used by the frontend to show/hide the activation button.
+
+    BC-001: Scoped to user's company_id.
+    """
+    prereqs = check_ai_activation_prerequisites(
+        db=db,
+        user_id=user.id,
+        company_id=user.company_id,
+    )
+    return prereqs
+
+
+@router.post(
+    "/activate",
+    response_model=AIConfigResponse,
+)
+def api_activate_ai(
+    body: AIConfigRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AIConfigResponse:
+    """Activate AI assistant for the company (Step 5).
+
+    Validates all prerequisites before activation:
+    - Legal consents accepted
+    - Email verified (if work email provided)
+    - At least one integration or KB document
+
+    F-034: AI Activation Gate.
+
+    BC-001: Scoped to user's company_id.
+    """
+    result = activate_ai(
+        db=db,
+        user_id=user.id,
+        company_id=user.company_id,
+        ai_name=body.ai_name,
+        ai_tone=body.ai_tone,
+        ai_response_style=body.ai_response_style,
+        ai_greeting=body.ai_greeting,
+    )
+
+    return AIConfigResponse(
+        ai_name=result["ai_name"],
+        ai_tone=result["ai_tone"],
+        ai_response_style=result["ai_response_style"],
+        ai_greeting=result["ai_greeting"],
+    )
+
+
+# ── First Victory (F-035) ─────────────────────────────────────────
+
+
+@router.get(
+    "/first-victory",
+)
+def api_get_first_victory(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Get first victory celebration status.
+
+    F-035: Returns whether the user has seen the celebration
+    and their AI config for personalized celebration.
+
+    BC-001: Scoped to user's company_id.
+    """
+    return get_first_victory_status(
+        db=db,
+        user_id=user.id,
+        company_id=user.company_id,
+    )
+
+
+@router.post(
+    "/first-victory",
+    response_model=MessageResponse,
+)
+def api_complete_first_victory(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    """Mark first victory celebration as completed.
+
+    F-035: Confetti + redirect to dashboard after completion.
+
+    BC-001: Scoped to user's company_id.
+    """
+    result = complete_first_victory(
+        db=db,
+        user_id=user.id,
+        company_id=user.company_id,
+    )
+    return MessageResponse(message=result["message"])
+
+
+@router.post("/verify-url")
+def api_verify_url(
+    body: dict,
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Verify that a company website URL is real and reachable.
+
+    Uses httpx to fetch the URL and check if it responds with a valid HTTP status.
+    """
+    import httpx
+
+    url = body.get("url", "").strip()
+    if not url:
+        return {"valid": False, "message": "URL is required"}
+
+    # Normalize URL
+    if not url.startswith("http://") and not url.startswith("https://"):
+        url = "https://" + url
+
+    # Basic URL validation
+    if "." not in url:
+        return {"valid": False, "message": "Invalid URL format"}
+
+    try:
+        response = httpx.get(url, timeout=10.0, follow_redirects=True, verify=False)
+        if response.status_code < 400:
+            return {"valid": True, "message": "Website verified"}
+        else:
+            return {"valid": False, "message": f"Website returned status {response.status_code}"}
+    except httpx.TimeoutException:
+        return {"valid": False, "message": "Website timed out — may not exist"}
+    except Exception:
+        return {"valid": False, "message": "Website not reachable"}

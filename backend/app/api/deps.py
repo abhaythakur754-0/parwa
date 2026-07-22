@@ -1,0 +1,270 @@
+"""
+PARWA Auth Dependencies (BC-011)
+
+FastAPI dependencies for route-level authentication and
+authorization. Used as dependency injection in route handlers.
+
+BC-001: Every authenticated request carries company_id.
+BC-011: JWT verification on every protected endpoint.
+"""
+
+from typing import Dict, Optional
+
+from fastapi import Depends, Header, Request
+from sqlalchemy.orm import Session
+
+from app.core.jwt_auth import is_token_revoked
+from app.core.parwa_core_bridge import parwa_verify_access_token as verify_access_token
+from app.exceptions import AuthenticationError
+from app.exceptions import AuthorizationError
+from database.base import get_db
+from database.models.core import User, Company
+
+
+async def get_current_user(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+) -> User:
+    """Extract and validate JWT from Authorization header.
+
+    BC-011: Every protected endpoint uses this dependency.
+    Sets company_id on the token for downstream tenant checks.
+    CROSS-6: Checks token blacklist (jti) after JWT verification.
+
+    Args:
+        authorization: The Authorization header value.
+        db: Database session.
+
+    Returns:
+        Authenticated User object.
+
+    Raises:
+        AuthenticationError: If token is missing, invalid, or revoked.
+    """
+    if not authorization:
+        raise AuthenticationError(
+            message="Authorization header required"
+        )
+
+    parts = authorization.split(" ", 1)
+    if len(parts) != 2 or parts[0] != "Bearer":
+        raise AuthenticationError(
+            message="Invalid authorization format. "
+                    "Use: Bearer <token>"
+        )
+
+    token = parts[1]
+    # parwa_verify_access_token requires the JWT secret as a positional arg.
+    # auth.verify_access_token (the pure-Python version) does not — it reads
+    # from settings. We try the bridge first (Rust-accelerated), and fall
+    # back to the pure-Python verifier if the bridge isn't available.
+    try:
+        from app.config import get_settings
+        settings = get_settings()
+        payload = verify_access_token(token, settings.JWT_SECRET_KEY)
+    except TypeError:
+        # Bridge not available — use pure-Python verifier which reads
+        # the secret from settings internally.
+        from app.core.jwt_auth import verify_access_token as _py_verify
+        payload = _py_verify(token)
+
+    # CROSS-6: Check token blacklist via jti.
+    # If the token has been explicitly revoked (logout, password
+    # change, admin revocation), reject it with 401.
+    jti = payload.get("jti")
+    if jti and await is_token_revoked(jti):
+        raise AuthenticationError(
+            message="Token has been revoked",
+            details={"reason": "blacklisted", "jti": jti},
+        )
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise AuthenticationError(
+            message="Invalid token payload"
+        )
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise AuthenticationError(
+            message="User not found"
+        )
+
+    if not user.is_active:
+        raise AuthenticationError(
+            message="Account is disabled"
+        )
+
+    # Store user info for downstream dependencies
+    user._token_payload = payload  # type: ignore[attr-defined]
+
+    return user
+
+
+def get_current_company(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Company:
+    """Fetch the authenticated user's company.
+
+    BC-001: Every user belongs to exactly one company.
+
+    Args:
+        user: Authenticated user (from get_current_user).
+        db: Database session.
+
+    Returns:
+        Company object.
+
+    Raises:
+        AuthenticationError: If company not found.
+    """
+    company = db.query(Company).filter(
+        Company.id == user.company_id
+    ).first()
+
+    if not company:
+        raise AuthenticationError(
+            message="Company not found for user"
+        )
+
+    return company
+
+
+def require_roles(*roles: str):
+    """Factory dependency that checks user role.
+
+    Usage:
+        @router.get("/admin/stuff")
+        async def admin_stuff(
+            user: User = Depends(require_roles("owner", "admin")),
+        ):
+            ...
+
+    Args:
+        *roles: Allowed role names.
+
+    Returns:
+        Dependency function.
+    """
+    def checker(
+        user: User = Depends(get_current_user),
+    ) -> User:
+        if user.role not in roles:
+            # M-01 FIX: Do NOT expose internal role names to the client.
+            # Return a fully generic error to prevent role enumeration.
+            raise AuthorizationError(
+                message="Insufficient permissions",
+                details=None,
+            )
+        return user
+
+    return checker
+
+
+def require_platform_admin(
+    user: User = Depends(get_current_user),
+) -> User:
+    """Dependency that requires platform admin access.
+
+    Platform admins can manage ALL companies, subscriptions, and
+    system configuration. This is separate from company-level roles.
+
+    A user must have is_platform_admin=True to access these endpoints.
+
+    Args:
+        user: Authenticated user (from get_current_user).
+
+    Returns:
+        User object.
+
+    Raises:
+        AuthorizationError: If user is not a platform admin.
+    """
+    if not getattr(user, "is_platform_admin", False):
+        # M-01 FIX: Do NOT expose internal permission structure.
+        raise AuthorizationError(
+            message="Insufficient permissions",
+            details=None,
+        )
+    return user
+
+
+def get_company_id(
+    user: User = Depends(get_current_user),
+) -> str:
+    """Extract company_id from authenticated user.
+
+    BC-001: Every user belongs to exactly one company.
+
+    Args:
+        user: Authenticated user (from get_current_user).
+
+    Returns:
+        Company ID string.
+
+    Raises:
+        AuthenticationError: If user has no company.
+    """
+    if not user.company_id:
+        raise AuthenticationError(
+            message="User has no associated company"
+        )
+    return str(user.company_id)
+
+
+async def optional_user(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+) -> Optional[User]:
+    """Extract user from JWT if present, else return None.
+
+    For endpoints that work for both authenticated and
+    anonymous users.
+
+    Args:
+        authorization: The Authorization header value.
+        db: Database session.
+
+    Returns:
+        User object or None.
+    """
+    if not authorization:
+        return None
+
+    try:
+        return await get_current_user(authorization, db)
+    except AuthenticationError:
+        return None
+
+
+def get_tenant_context(
+    request: Request,
+    user: User = Depends(get_current_user),
+) -> Dict:
+    """Extract tenant context from the request and authenticated user.
+
+    Returns a dict with company_id, user_id, and role for use in
+    tenant-scoped operations. Reads company_id from the request
+    state (set by TenantMiddleware) or falls back to the user's
+    company_id.
+
+    BC-001: Every request must be scoped to a single tenant.
+
+    Args:
+        request: The incoming HTTP request.
+        user: Authenticated user (from get_current_user).
+
+    Returns:
+        Dict with company_id, user_id, and role.
+    """
+    # Try request state first (set by TenantMiddleware)
+    company_id = getattr(request.state, "company_id", None)
+    if not company_id:
+        company_id = user.company_id
+
+    return {
+        "company_id": str(company_id) if company_id else None,
+        "user_id": str(user.id),
+        "role": user.role,
+    }

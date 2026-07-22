@@ -1,0 +1,1420 @@
+     1→"""
+     2→PARWA Jarvis Customer Care API Router
+     3→
+     4→FastAPI router for Jarvis in Customer Care mode (post-onboarding).
+     5→Completely separate from the onboarding jarvis.py router because
+     6→CC mode has fundamentally different endpoints and request shapes.
+     7→
+     8→Architecture:
+     9→  Client -> CC API -> jarvis_cc_service -> variant_pipeline_bridge -> Variant Pipelines
+    10→  Client -> CC API -> jarvis_awareness_engine -> snapshots/alerts (Phase 2.2)
+    11→
+    12→16 endpoints covering:
+    13→- Session management (create/resume, get, health)
+    14→- Message send with pipeline metadata
+    15→- Context get/update
+    16→- History (paginated)
+    17→- System prompt preview
+    18→- Awareness Engine tick/snapshot/alert/delta (Phase 2.2)
+    19→
+    20→Auth: All endpoints use get_current_user.
+    21→Error format: Matches PARWA standard {"error": {"code": ..., "message": ..., "details": ...}}
+    22→
+    23→BC-001: company_id extracted from authenticated user on every request.
+    24→BC-008: Graceful error handling -- never crash.
+    25→BC-012: All timestamps UTC.
+    26→"""
+    27→
+    28→import json
+    29→from typing import Any, Dict, List, Optional
+    30→
+    31→from fastapi import APIRouter, Depends, Query
+    32→from sqlalchemy.orm import Session
+    33→
+    34→from app.api.deps import get_current_user
+    35→from app.exceptions import ParwaBaseError
+    36→from app.schemas.jarvis_cc import (
+    37→    JarvisCCSessionCreate,
+    38→    JarvisCCSessionResponse,
+    39→    JarvisCCMessageSend,
+    40→    JarvisCCMessageResponse,
+    41→    JarvisCCHistoryResponse,
+    42→    JarvisCCContextResponse,
+    43→    JarvisCCContextUpdate,
+    44→    JarvisCCSessionHealthResponse,
+    45→    # Awareness Engine schemas (Phase 2.2)
+    46→    JarvisAwarenessTickRequest,
+    47→    JarvisAwarenessTickResponse,
+    48→    JarvisAwarenessSnapshotResponse,
+    49→    JarvisAwarenessSnapshotListResponse,
+    50→    JarvisProactiveAlertResponse,
+    51→    JarvisProactiveAlertListResponse,
+    52→    JarvisAlertAcknowledgeRequest,
+    53→    JarvisAlertDismissRequest,
+    54→    JarvisAlertResolveRequest,
+    55→    JarvisAwarenessDeltaResponse,
+    56→    # Command Layer schemas (Phase 3)
+    57→    JarvisCommandSend,
+    58→    JarvisCommandResponse,
+    59→    JarvisQuickCommandRequest,
+    60→    JarvisCommandUndoRequest,
+    61→    JarvisCommandHistoryResponse,
+    62→    JarvisQuickCommandListResponse,
+    63→    JarvisCoPilotSuggestionResponse,
+    64→    JarvisCustomQuickCommandAdd,
+    65→    JarvisCustomQuickCommandRemove,
+    66→)
+    67→from app.services import jarvis_cc_service
+    68→from app.services import jarvis_awareness_engine
+    69→from app.services import jarvis_command_service
+    70→from database.base import get_db
+    71→from database.models.core import User
+    72→
+    73→router = APIRouter(prefix="/api/jarvis/cc", tags=["Jarvis Customer Care"])
+    74→
+    75→
+    76→# ========================================================================
+    77→# SESSION ENDPOINTS
+    78→# ========================================================================
+    79→
+    80→
+    81→@router.post("/session", response_model=JarvisCCSessionResponse)
+    82→def create_cc_session(
+    83→    body: JarvisCCSessionCreate,
+    84→    user: User = Depends(get_current_user),
+    85→    db: Session = Depends(get_db),
+    86→):
+    87→    """Create or resume a customer care session.
+    88→
+    89→    After onboarding handoff, the client creates a CC session here.
+    90→    If an active CC session already exists for this user+company,
+    91→    it is resumed. The new session inherits variant_tier and
+    92→    industry from the most recent handoff (onboarding) session.
+    93→
+    94→    This is the entry point for the Jarvis CC dashboard.
+    95→    """
+    96→    if not user.company_id:
+    97→        return _error_response(
+    98→            "VALIDATION_ERROR",
+    99→            "User has no associated company",
+   100→            422,
+   101→        )
+   102→
+   103→    try:
+   104→        session = jarvis_cc_service.get_or_create_cc_session(
+   105→            db=db,
+   106→            user_id=str(user.id),
+   107→            company_id=str(user.company_id),
+   108→            existing_session_id=body.existing_session_id,
+   109→        )
+   110→        return _session_to_response(session)
+   111→    except ParwaBaseError:
+   112→        raise
+   113→    except Exception as exc:
+   114→        return _error_response(
+   115→            "INTERNAL_ERROR",
+   116→            "Failed to create customer care session",
+   117→            500,
+   118→            details={"error": str(exc)},
+   119→        )
+   120→
+   121→
+   122→@router.get("/session", response_model=JarvisCCSessionResponse)
+   123→def get_cc_session(
+   124→    session_id: str = Query(..., description="Customer care session ID"),
+   125→    user: User = Depends(get_current_user),
+   126→    db: Session = Depends(get_db),
+   127→):
+   128→    """Get customer care session details with context and limits."""
+   129→    try:
+   130→        session = jarvis_cc_service.get_cc_session(
+   131→            db=db,
+   132→            session_id=session_id,
+   133→            user_id=str(user.id),
+   134→            company_id=str(user.company_id),
+   135→        )
+   136→        return _session_to_response(session)
+   137→    except ParwaBaseError:
+   138→        raise
+   139→    except Exception as exc:
+   140→        return _error_response(
+   141→            "INTERNAL_ERROR",
+   142→            "Failed to get customer care session",
+   143→            500,
+   144→            details={"error": str(exc)},
+   145→        )
+   146→
+   147→
+   148→@router.get("/session/health", response_model=JarvisCCSessionHealthResponse)
+   149→def get_cc_session_health(
+   150→    session_id: str = Query(..., description="Customer care session ID"),
+   151→    user: User = Depends(get_current_user),
+   152→    db: Session = Depends(get_db),
+   153→):
+   154→    """Get operational health metrics for a customer care session.
+   155→
+   156→    Returns message counts, pipeline status, variant instance health,
+   157→    emergency state, and daily remaining limits.
+   158→    Used by the Jarvis CC dashboard for monitoring.
+   159→    """
+   160→    try:
+   161→        health = jarvis_cc_service.get_cc_session_health(
+   162→            db=db,
+   163→            session_id=session_id,
+   164→            user_id=str(user.id),
+   165→            company_id=str(user.company_id),
+   166→        )
+   167→        return JarvisCCSessionHealthResponse(**health)
+   168→    except ParwaBaseError:
+   169→        raise
+   170→    except Exception as exc:
+   171→        return _error_response(
+   172→            "INTERNAL_ERROR",
+   173→            "Failed to get session health",
+   174→            500,
+   175→            details={"error": str(exc)},
+   176→        )
+   177→
+   178→
+   179→# ========================================================================
+   180→# MESSAGE ENDPOINTS
+   181→# ========================================================================
+   182→
+   183→
+   184→@router.post("/message", response_model=JarvisCCMessageResponse)
+   185→def send_cc_message(
+   186→    body: JarvisCCMessageSend,
+   187→    user: User = Depends(get_current_user),
+   188→    db: Session = Depends(get_db),
+   189→):
+   190→    """Send a message to Jarvis in customer care mode.
+   191→
+   192→    This is the main interaction endpoint. The message is routed
+   193→    through the variant pipeline bridge with a 3-level fallback:
+   194→
+   195→    1. variant_pipeline_bridge (primary)
+   196→    2. Legacy AI pipeline (fallback 1)
+   197→    3. Direct AI provider (fallback 2)
+   198→
+   199→    Response includes pipeline metadata for dashboard display:
+   200→    quality_score, technique_used, latency, billing_tokens, etc.
+   201→    """
+   202→    try:
+   203→        user_msg, ai_msg, pipeline_metadata = jarvis_cc_service.send_cc_message(
+   204→            db=db,
+   205→            session_id=body.session_id,
+   206→            user_id=str(user.id),
+   207→            company_id=str(user.company_id),
+   208→            user_message=body.content,
+   209→            ticket_id=body.ticket_id,
+   210→            channel=body.channel,
+   211→        )
+   212→        return _ai_message_to_response(ai_msg, pipeline_metadata)
+   213→    except ParwaBaseError:
+   214→        raise
+   215→    except Exception as exc:
+   216→        return _error_response(
+   217→            "INTERNAL_ERROR",
+   218→            "Failed to process customer care message",
+   219→            500,
+   220→            details={"error": str(exc)},
+   221→        )
+   222→
+   223→
+   224→# ========================================================================
+   225→# CONTEXT ENDPOINTS
+   226→# ========================================================================
+   227→
+   228→
+   229→@router.get("/context", response_model=JarvisCCContextResponse)
+   230→def get_cc_context(
+   231→    session_id: str = Query(..., description="Customer care session ID"),
+   232→    user: User = Depends(get_current_user),
+   233→    db: Session = Depends(get_db),
+   234→):
+   235→    """Get the current context snapshot for a customer care session.
+   236→
+   237→    Returns both stored context (variant_tier, industry, etc.) and
+   238→    runtime-enriched data (instance status, ticket counts, emergency state).
+   239→    This is what the awareness engine (Phase 2) will read from.
+   240→    """
+   241→    try:
+   242→        context = jarvis_cc_service.get_cc_context(
+   243→            db=db,
+   244→            session_id=session_id,
+   245→            user_id=str(user.id),
+   246→            company_id=str(user.company_id),
+   247→        )
+   248→        return JarvisCCContextResponse(
+   249→            session_id=session_id,
+   250→            variant_tier=context.get("variant_tier", "mini_parwa"),
+   251→            variant_instance_id=context.get("variant_instance_id", ""),
+   252→            industry=context.get("industry", "general"),
+   253→            mode=context.get("mode", "customer_care"),
+   254→            awareness_enabled=context.get("awareness_enabled", False),
+   255→            pipeline_status=context.get("pipeline_status", "unknown"),
+   256→            last_pipeline_metadata=context.get("last_pipeline_metadata", {}),
+   257→            proactive_alerts=context.get("proactive_alerts", []),
+   258→            runtime=context.get("runtime", {}),
+   259→            full_context=context,
+   260→        )
+   261→    except ParwaBaseError:
+   262→        raise
+   263→    except Exception as exc:
+   264→        return _error_response(
+   265→            "INTERNAL_ERROR",
+   266→            "Failed to get customer care context",
+   267→            500,
+   268→            details={"error": str(exc)},
+   269→        )
+   270→
+   271→
+   272→@router.patch("/context", response_model=JarvisCCSessionResponse)
+   273→def update_cc_context(
+   274→    body: JarvisCCContextUpdate,
+   275→    session_id: str = Query(..., description="Customer care session ID"),
+   276→    user: User = Depends(get_current_user),
+   277→    db: Session = Depends(get_db),
+   278→):
+   279→    """Merge partial updates into the customer care session context.
+   280→
+   281→    Only provided fields are merged. Existing keys are preserved.
+   282→    Protected keys (variant_tier, variant_instance_id, industry)
+   283→    cannot be overwritten with None.
+   284→
+   285→    This is how the awareness engine (Phase 2) and command executor
+   286→    (Phase 3) will update the session context.
+   287→    """
+   288→    # Build partial updates dict from body
+   289→    partial_updates = {}
+   290→    if body.awareness_enabled is not None:
+   291→        partial_updates["awareness_enabled"] = body.awareness_enabled
+   292→    if body.proactive_alerts is not None:
+   293→        partial_updates["proactive_alerts"] = body.proactive_alerts
+   294→    if body.custom_fields is not None:
+   295→        partial_updates.update(body.custom_fields)
+   296→
+   297→    if not partial_updates:
+   298→        return _error_response(
+   299→            "VALIDATION_ERROR",
+   300→            "No fields provided for update",
+   301→            422,
+   302→        )
+   303→
+   304→    try:
+   305→        session = jarvis_cc_service.update_cc_context(
+   306→            db=db,
+   307→            session_id=session_id,
+   308→            user_id=str(user.id),
+   309→            company_id=str(user.company_id),
+   310→            partial_updates=partial_updates,
+   311→        )
+   312→        return _session_to_response(session)
+   313→    except ParwaBaseError:
+   314→        raise
+   315→    except Exception as exc:
+   316→        return _error_response(
+   317→            "INTERNAL_ERROR",
+   318→            "Failed to update customer care context",
+   319→            500,
+   320→            details={"error": str(exc)},
+   321→        )
+   322→
+   323→
+   324→# ========================================================================
+   325→# HISTORY ENDPOINT
+   326→# ========================================================================
+   327→
+   328→
+   329→@router.get("/history", response_model=JarvisCCHistoryResponse)
+   330→def get_cc_history(
+   331→    session_id: str = Query(..., description="Customer care session ID"),
+   332→    limit: int = Query(50, ge=1, le=200),
+   333→    offset: int = Query(0, ge=0),
+   334→    user: User = Depends(get_current_user),
+   335→    db: Session = Depends(get_db),
+   336→):
+   337→    """Get paginated message history for a customer care session.
+   338→
+   339→    Returns messages in chronological order (oldest first).
+   340→    Each message includes its metadata (pipeline info, channel, etc.).
+   341→    """
+   342→    try:
+   343→        messages, total = jarvis_cc_service.get_cc_history(
+   344→            db=db,
+   345→            session_id=session_id,
+   346→            user_id=str(user.id),
+   347→            company_id=str(user.company_id),
+   348→            limit=limit,
+   349→            offset=offset,
+   350→        )
+   351→        return JarvisCCHistoryResponse(
+   352→            messages=[
+   353→                JarvisCCMessageResponse(
+   354→                    id=msg["id"],
+   355→                    session_id=session_id,
+   356→                    role=msg["role"],
+   357→                    content=msg["content"],
+   358→                    message_type=msg.get("message_type", "text"),
+   359→                    metadata=msg.get("metadata", {}),
+   360→                    pipeline_metadata=msg.get("metadata", {}).get("pipeline_metadata", {}),
+   361→                    timestamp=msg.get("created_at"),
+   362→                )
+   363→                for msg in messages
+   364→            ],
+   365→            total=total,
+   366→            limit=limit,
+   367→            offset=offset,
+   368→            has_more=(offset + limit) < total,
+   369→        )
+   370→    except ParwaBaseError:
+   371→        raise
+   372→    except Exception as exc:
+   373→        return _error_response(
+   374→            "INTERNAL_ERROR",
+   375→            "Failed to get customer care history",
+   376→            500,
+   377→            details={"error": str(exc)},
+   378→        )
+   379→
+   380→
+   381→# ========================================================================
+   382→# SYSTEM PROMPT PREVIEW (DEBUG/ADMIN)
+   383→# ========================================================================
+   384→
+   385→
+   386→@router.get("/prompt")
+   387→def get_cc_system_prompt(
+   388→    session_id: str = Query(..., description="Customer care session ID"),
+   389→    user: User = Depends(get_current_user),
+   390→    db: Session = Depends(get_db),
+   391→):
+   392→    """Preview the system prompt for a CC session (debug/admin).
+   393→
+   394→    Returns the full system prompt that would be sent to the AI model.
+   395→    Useful for debugging prompt quality and verifying tenant-specific
+   396→    context (brand voice, KB, capabilities) is correctly injected.
+   397→    """
+   398→    try:
+   399→        prompt = jarvis_cc_service.build_cc_system_prompt(
+   400→            db=db,
+   401→            session_id=session_id,
+   402→            company_id=str(user.company_id),
+   403→        )
+   404→        return {"session_id": session_id, "prompt": prompt}
+   405→    except ParwaBaseError:
+   406→        raise
+   407→    except Exception as exc:
+   408→        return _error_response(
+   409→            "INTERNAL_ERROR",
+   410→            "Failed to generate system prompt",
+   411→            500,
+   412→            details={"error": str(exc)},
+   413→        )
+   414→
+   415→
+   416→# ========================================================================
+   417→# AWARENESS ENGINE ENDPOINTS (Phase 2.2)
+   418→# ========================================================================
+   419→
+   420→
+   421→@router.post("/awareness/tick", response_model=JarvisAwarenessTickResponse)
+   422→def awareness_tick(
+   423→    body: JarvisAwarenessTickRequest,
+   424→    user: User = Depends(get_current_user),
+   425→    db: Session = Depends(get_db),
+   426→):
+   427→    """Trigger an awareness tick for a customer care session.
+   428→
+   429→    This is the main entry point to the Awareness Engine. A tick
+   430→    collects current state from 7 monitoring domains, creates a
+   431→    snapshot, runs rule checks, and generates alerts if thresholds
+   432→    are breached.
+   433→
+   434→    Tick types:
+   435→      - periodic:  Automatic tick (every 30 seconds via Celery beat)
+   436→      - on_change: Triggered when a monitored field changes
+   437→      - manual:    User/admin triggers from dashboard
+   438→      - emergency: Written when emergency_state changes
+   439→
+   440→    Returns the tick result with snapshot ID, any alerts created,
+   441→    and a summary of the current system state.
+   442→    """
+   443→    if not user.company_id:
+   444→        return _error_response(
+   445→            "VALIDATION_ERROR",
+   446→            "User has no associated company",
+   447→            422,
+   448→        )
+   449→
+   450→    try:
+   451→        result = jarvis_awareness_engine.run_awareness_tick(
+   452→            db=db,
+   453→            company_id=str(user.company_id),
+   454→            session_id=body.session_id,
+   455→            user_id=str(user.id),
+   456→            tick_type=body.tick_type,
+   457→        )
+   458→        return JarvisAwarenessTickResponse(**result)
+   459→    except ParwaBaseError:
+   460→        raise
+   461→    except Exception as exc:
+   462→        return _error_response(
+   463→            "INTERNAL_ERROR",
+   464→            "Failed to run awareness tick",
+   465→            500,
+   466→            details={"error": str(exc)},
+   467→        )
+   468→
+   469→
+   470→@router.get("/awareness/snapshot", response_model=JarvisAwarenessSnapshotResponse)
+   471→def get_awareness_snapshot(
+   472→    session_id: str = Query(..., description="Customer care session ID"),
+   473→    user: User = Depends(get_current_user),
+   474→    db: Session = Depends(get_db),
+   475→):
+   476→    """Get the latest awareness snapshot for a session.
+   477→
+   478→    Returns the most recent snapshot with all 7 monitoring domain
+   479→    fields. This is what the dashboard displays in real-time.
+   480→    If no snapshot exists yet, returns a 404 error.
+   481→    """
+   482→    if not user.company_id:
+   483→        return _error_response(
+   484→            "VALIDATION_ERROR",
+   485→            "User has no associated company",
+   486→            422,
+   487→        )
+   488→
+   489→    try:
+   490→        snapshot = jarvis_awareness_engine.get_latest_snapshot(
+   491→            db=db,
+   492→            session_id=session_id,
+   493→            company_id=str(user.company_id),
+   494→        )
+   495→        if snapshot is None:
+   496→            return _error_response(
+   497→                "NOT_FOUND",
+   498→                "No awareness snapshot found for this session",
+   499→                404,
+   500→            )
+   501→        return _snapshot_to_response(snapshot)
+   502→    except ParwaBaseError:
+   503→        raise
+   504→    except Exception as exc:
+   505→        return _error_response(
+   506→            "INTERNAL_ERROR",
+   507→            "Failed to get awareness snapshot",
+   508→            500,
+   509→            details={"error": str(exc)},
+   510→        )
+   511→
+   512→
+   513→@router.get("/awareness/snapshots", response_model=JarvisAwarenessSnapshotListResponse)
+   514→def get_awareness_snapshots(
+   515→    session_id: str = Query(..., description="Customer care session ID"),
+   516→    limit: int = Query(50, ge=1, le=200),
+   517→    offset: int = Query(0, ge=0),
+   518→    user: User = Depends(get_current_user),
+   519→    db: Session = Depends(get_db),
+   520→):
+   521→    """Get paginated snapshot history for a session.
+   522→
+   523→    Returns snapshots in reverse chronological order (newest first).
+   524→    Used by the dashboard for trend analysis and historical debugging.
+   525→    Each snapshot includes all 7 domain fields plus metadata.
+   526→    """
+   527→    if not user.company_id:
+   528→        return _error_response(
+   529→            "VALIDATION_ERROR",
+   530→            "User has no associated company",
+   531→            422,
+   532→        )
+   533→
+   534→    try:
+   535→        snapshots, total = jarvis_awareness_engine.get_snapshot_history(
+   536→            db=db,
+   537→            session_id=session_id,
+   538→            company_id=str(user.company_id),
+   539→            limit=limit,
+   540→            offset=offset,
+   541→        )
+   542→        # Safety: ensure limit and offset are ints (not FastAPI Query objects
+   543→        # when called directly from tests bypassing FastAPI DI)
+   544→        _limit = _coerce_int(limit, 50)
+   545→        _offset = _coerce_int(offset, 0)
+   546→
+   547→        return JarvisAwarenessSnapshotListResponse(
+   548→            snapshots=[_snapshot_to_response(s) for s in snapshots],
+   549→            total=total,
+   550→            limit=_limit,
+   551→            offset=_offset,
+   552→            has_more=(_offset + _limit) < total,
+   553→        )
+   554→    except ParwaBaseError:
+   555→        raise
+   556→    except Exception as exc:
+   557→        return _error_response(
+   558→            "INTERNAL_ERROR",
+   559→            "Failed to get snapshot history",
+   560→            500,
+   561→            details={"error": str(exc)},
+   562→        )
+   563→
+   564→
+   565→@router.get("/awareness/alerts", response_model=JarvisProactiveAlertListResponse)
+   566→def get_awareness_alerts(
+   567→    session_id: str = Query(..., description="Customer care session ID"),
+   568→    severity: Optional[str] = Query(None, description="Filter by severity: info, warning, critical, emergency"),
+   569→    category: Optional[str] = Query(None, description="Filter by category: system_health, ticket_volume, etc."),
+   570→    limit: int = Query(50, ge=1, le=200),
+   571→    offset: int = Query(0, ge=0),
+   572→    user: User = Depends(get_current_user),
+   573→    db: Session = Depends(get_db),
+   574→):
+   575→    """Get active (non-resolved, non-expired) alerts for a session.
+   576→
+   577→    Returns alerts sorted by severity (emergency first) and then
+   578→    by creation time (newest first). Supports filtering by severity
+   579→    and category for dashboard views.
+   580→
+   581→    Alert lifecycle: active -> acknowledged -> dismissed/resolved/expired
+   582→    Only active and acknowledged alerts are returned by default.
+   583→    """
+   584→    if not user.company_id:
+   585→        return _error_response(
+   586→            "VALIDATION_ERROR",
+   587→            "User has no associated company",
+   588→            422,
+   589→        )
+   590→
+   591→    try:
+   592→        alerts, total = jarvis_awareness_engine.get_active_alerts(
+   593→            db=db,
+   594→            session_id=session_id,
+   595→            company_id=str(user.company_id),
+   596→            severity=severity,
+   597→            category=category,
+   598→            limit=limit,
+   599→            offset=offset,
+   600→        )
+   601→        _limit = _coerce_int(limit, 50)
+   602→        _offset = _coerce_int(offset, 0)
+   603→
+   604→        return JarvisProactiveAlertListResponse(
+   605→            alerts=[_alert_to_response(a) for a in alerts],
+   606→            total=total,
+   607→            limit=_limit,
+   608→            offset=_offset,
+   609→            has_more=(_offset + _limit) < total,
+   610→        )
+   611→    except ParwaBaseError:
+   612→        raise
+   613→    except Exception as exc:
+   614→        return _error_response(
+   615→            "INTERNAL_ERROR",
+   616→            "Failed to get alerts",
+   617→            500,
+   618→            details={"error": str(exc)},
+   619→        )
+   620→
+   621→
+   622→@router.post("/awareness/alerts/acknowledge", response_model=JarvisProactiveAlertResponse)
+   623→def acknowledge_alert(
+   624→    body: JarvisAlertAcknowledgeRequest,
+   625→    session_id: str = Query(..., description="Session ID for alert scoping"),
+   626→    user: User = Depends(get_current_user),
+   627→    db: Session = Depends(get_db),
+   628→):
+   629→    """Acknowledge an active alert.
+   630→
+   631→    Transitions the alert from 'active' to 'acknowledged' status.
+   632→    The alert remains visible on the dashboard but is marked as
+   633→    seen by the acknowledging user. Only active alerts can be
+   634→    acknowledged -- already acknowledged, dismissed, or resolved
+   635→    alerts will return a NOT_FOUND error.
+   636→
+   637→    This is the human-in-the-loop action: "I see this alert."
+   638→    """
+   639→    if not user.company_id:
+   640→        return _error_response(
+   641→            "VALIDATION_ERROR",
+   642→            "User has no associated company",
+   643→            422,
+   644→        )
+   645→
+   646→    try:
+   647→        alert = jarvis_awareness_engine.acknowledge_alert(
+   648→            db=db,
+   649→            alert_id=body.alert_id,
+   650→            session_id=session_id,
+   651→            company_id=str(user.company_id),
+   652→            user_id=str(user.id),
+   653→        )
+   654→        return _alert_to_response(alert)
+   655→    except ParwaBaseError:
+   656→        raise
+   657→    except Exception as exc:
+   658→        return _error_response(
+   659→            "INTERNAL_ERROR",
+   660→            "Failed to acknowledge alert",
+   661→            500,
+   662→            details={"error": str(exc)},
+   663→        )
+   664→
+   665→
+   666→@router.post("/awareness/alerts/dismiss", response_model=JarvisProactiveAlertResponse)
+   667→def dismiss_alert(
+   668→    body: JarvisAlertDismissRequest,
+   669→    session_id: str = Query(..., description="Session ID for alert scoping"),
+   670→    user: User = Depends(get_current_user),
+   671→    db: Session = Depends(get_db),
+   672→):
+   673→    """Dismiss an active or acknowledged alert.
+   674→
+   675→    Transitions the alert to 'dismissed' status. This means the
+   676→    user has reviewed the alert and decided no action is needed.
+   677→    Dismissed alerts are removed from the active dashboard view.
+   678→
+   679→    Only active or acknowledged alerts can be dismissed.
+   680→    """
+   681→    if not user.company_id:
+   682→        return _error_response(
+   683→            "VALIDATION_ERROR",
+   684→            "User has no associated company",
+   685→            422,
+   686→        )
+   687→
+   688→    try:
+   689→        alert = jarvis_awareness_engine.dismiss_alert(
+   690→            db=db,
+   691→            alert_id=body.alert_id,
+   692→            session_id=session_id,
+   693→            company_id=str(user.company_id),
+   694→            user_id=str(user.id),
+   695→        )
+   696→        return _alert_to_response(alert)
+   697→    except ParwaBaseError:
+   698→        raise
+   699→    except Exception as exc:
+   700→        return _error_response(
+   701→            "INTERNAL_ERROR",
+   702→            "Failed to dismiss alert",
+   703→            500,
+   704→            details={"error": str(exc)},
+   705→        )
+   706→
+   707→
+   708→@router.post("/awareness/alerts/resolve", response_model=JarvisProactiveAlertResponse)
+   709→def resolve_alert(
+   710→    body: JarvisAlertResolveRequest,
+   711→    session_id: str = Query(..., description="Session ID for alert scoping"),
+   712→    user: User = Depends(get_current_user),
+   713→    db: Session = Depends(get_db),
+   714→):
+   715→    """Resolve an active or acknowledged alert.
+   716→
+   717→    Typically called when the underlying issue has been fixed
+   718→    (e.g., system health recovered, quality score improved,
+   719→    ticket volume returned to normal).
+   720→
+   721→    Resolved alerts remain in the database for audit purposes
+   722→    but are no longer shown on the active dashboard view.
+   723→    """
+   724→    if not user.company_id:
+   725→        return _error_response(
+   726→            "VALIDATION_ERROR",
+   727→            "User has no associated company",
+   728→            422,
+   729→        )
+   730→
+   731→    try:
+   732→        alert = jarvis_awareness_engine.resolve_alert(
+   733→            db=db,
+   734→            alert_id=body.alert_id,
+   735→            session_id=session_id,
+   736→            company_id=str(user.company_id),
+   737→        )
+   738→        return _alert_to_response(alert)
+   739→    except ParwaBaseError:
+   740→        raise
+   741→    except Exception as exc:
+   742→        return _error_response(
+   743→            "INTERNAL_ERROR",
+   744→            "Failed to resolve alert",
+   745→            500,
+   746→            details={"error": str(exc)},
+   747→        )
+   748→
+   749→
+   750→@router.get("/awareness/delta", response_model=JarvisAwarenessDeltaResponse)
+   751→def get_awareness_delta(
+   752→    session_id: str = Query(..., description="Customer care session ID"),
+   753→    user: User = Depends(get_current_user),
+   754→    db: Session = Depends(get_db),
+   755→):
+   756→    """Get the delta between the two most recent awareness snapshots.
+   757→
+   758→    Shows what changed between the previous and current tick,
+   759→    including threshold crossings, status changes, and recovered
+   760→    fields. If no snapshot exists yet, returns an empty delta
+   761→    with is_first_tick=True.
+   762→
+   763→    Used by the dashboard to highlight changes and trigger
+   764→    on_change behaviors.
+   765→    """
+   766→    if not user.company_id:
+   767→        return _error_response(
+   768→            "VALIDATION_ERROR",
+   769→            "User has no associated company",
+   770→            422,
+   771→        )
+   772→
+   773→    try:
+   774→        # Get the two most recent snapshots
+   775→        snapshots, _ = jarvis_awareness_engine.get_snapshot_history(
+   776→            db=db,
+   777→            session_id=session_id,
+   778→            company_id=str(user.company_id),
+   779→            limit=2,
+   780→            offset=0,
+   781→        )
+   782→
+   783→        if not snapshots:
+   784→            return JarvisAwarenessDeltaResponse(
+   785→                changed_fields={},
+   786→                has_significant_changes=True,
+   787→                new_alerts=[],
+   788→                recovered=[],
+   789→                is_first_tick=True,
+   790→            )
+   791→
+   792→        # snapshots are newest-first from get_snapshot_history
+   793→        current_state = _safe_parse_json(snapshots[0].raw_state_json)
+   794→        previous_state = None
+   795→        if len(snapshots) > 1:
+   796→            previous_state = _safe_parse_json(snapshots[1].raw_state_json)
+   797→
+   798→        delta = jarvis_awareness_engine.compute_awareness_delta(
+   799→            current=current_state,
+   800→            previous=previous_state,
+   801→        )
+   802→        return JarvisAwarenessDeltaResponse(**delta)
+   803→    except ParwaBaseError:
+   804→        raise
+   805→    except Exception as exc:
+   806→        return _error_response(
+   807→            "INTERNAL_ERROR",
+   808→            "Failed to compute awareness delta",
+   809→            500,
+   810→            details={"error": str(exc)},
+   811→        )
+   812→
+   813→
+   814→# ========================================================================
+   815→# COMMAND LAYER ENDPOINTS (Phase 3)
+   816→# ========================================================================
+   817→
+   818→
+   819→@router.post("/command", response_model=JarvisCommandResponse)
+   820→def send_command(
+   821→    body: JarvisCommandSend,
+   822→    user: User = Depends(get_current_user),
+   823→    db: Session = Depends(get_db),
+   824→):
+   825→    """Send a natural language command to Jarvis.
+   826→
+   827→    Parses the NL input, creates a command record, executes the
+   828→    appropriate handler, and returns the result. This is the main
+   829→    entry point for the Command Layer.
+   830→
+   831→    Commands like "pause all AI", "show me today's errors",
+   832→    "export weekly report" are parsed without LLM for speed (<2s).
+   833→    """
+   834→    if not user.company_id:
+   835→        return _error_response(
+   836→            "VALIDATION_ERROR",
+   837→            "User has no associated company",
+   838→            422,
+   839→        )
+   840→
+   841→    try:
+   842→        # Step 1: Receive and parse the command
+   843→        command = jarvis_command_service.receive_command(
+   844→            db=db,
+   845→            company_id=str(user.company_id),
+   846→            session_id=body.session_id,
+   847→            raw_input=body.raw_input,
+   848→            source=body.source,
+   849→            user_id=str(user.id),
+   850→        )
+   851→
+   852→        # Step 2: Execute the command
+   853→        result = jarvis_command_service.execute_command(
+   854→            db=db,
+   855→            company_id=str(user.company_id),
+   856→            command_id=str(command.id),
+   857→            session_id=body.session_id,
+   858→            user_id=str(user.id),
+   859→        )
+   860→
+   861→        # Build response
+   862→        parsed = _safe_parse_json(command.command_parsed) if command.command_parsed else {}
+   863→
+   864→        return JarvisCommandResponse(
+   865→            command_id=result["command_id"],
+   866→            status=result["status"],
+   867→            action=result["action"],
+   868→            intent=command.command_intent,
+   869→            scope=parsed.get("scope"),
+   870→            target=parsed.get("target"),
+   871→            confidence=float(command.confidence) if command.confidence else None,
+   872→            result=result.get("result", {}),
+   873→            execution_time_ms=result.get("execution_time_ms", 0),
+   874→            undo_available=command.undo_available or False,
+   875→            error=result.get("error"),
+   876→            suggestion=parsed.get("suggestion"),
+   877→        )
+   878→    except ParwaBaseError:
+   879→        raise
+   880→    except Exception as exc:
+   881→        return _error_response(
+   882→            "INTERNAL_ERROR",
+   883→            "Failed to execute command",
+   884→            500,
+   885→            details={"error": str(exc)},
+   886→        )
+   887→
+   888→
+   889→@router.post("/command/quick", response_model=JarvisCommandResponse)
+   890→def execute_quick_command(
+   891→    body: JarvisQuickCommandRequest,
+   892→    user: User = Depends(get_current_user),
+   893→    db: Session = Depends(get_db),
+   894→):
+   895→    """Execute a quick command preset by ID.
+   896→
+   897→    Quick commands skip NL parsing — they go straight to execution
+   898→    because the action and intent are already known.
+   899→    """
+   900→    if not user.company_id:
+   901→        return _error_response(
+   902→            "VALIDATION_ERROR",
+   903→            "User has no associated company",
+   904→            422,
+   905→        )
+   906→
+   907→    try:
+   908→        result = jarvis_command_service.execute_quick_command(
+   909→            db=db,
+   910→            company_id=str(user.company_id),
+   911→            session_id=body.session_id,
+   912→            quick_command_id=body.quick_command_id,
+   913→            user_id=str(user.id),
+   914→        )
+   915→
+   916→        return JarvisCommandResponse(
+   917→            command_id=result.get("command_id", ""),
+   918→            status=result.get("status", "failed"),
+   919→            action=result.get("action", "unknown"),
+   920→            intent=None,
+   921→            result=result.get("result", {}),
+   922→            execution_time_ms=result.get("execution_time_ms", 0),
+   923→            undo_available=False,
+   924→            error=result.get("error"),
+   925→        )
+   926→    except ParwaBaseError:
+   927→        raise
+   928→    except Exception as exc:
+   929→        return _error_response(
+   930→            "INTERNAL_ERROR",
+   931→            "Failed to execute quick command",
+   932→            500,
+   933→            details={"error": str(exc)},
+   934→        )
+   935→
+   936→
+   937→@router.post("/command/undo", response_model=JarvisCommandResponse)
+   938→def undo_command(
+   939→    body: JarvisCommandUndoRequest,
+   940→    user: User = Depends(get_current_user),
+   941→    db: Session = Depends(get_db),
+   942→):
+   943→    """Undo the last undoable command (or a specific command).
+   944→
+   945→    Creates a new command that reverses the original action.
+   946→    Commands like 'pause all AI' can be undone (resumes AI).
+   947→    Query and report commands cannot be undone.
+   948→    """
+   949→    if not user.company_id:
+   950→        return _error_response(
+   951→            "VALIDATION_ERROR",
+   952→            "User has no associated company",
+   953→            422,
+   954→        )
+   955→
+   956→    try:
+   957→        result = jarvis_command_service.undo_command(
+   958→            db=db,
+   959→            company_id=str(user.company_id),
+   960→            session_id=body.session_id,
+   961→            user_id=str(user.id),
+   962→            command_id=body.command_id,
+   963→        )
+   964→
+   965→        return JarvisCommandResponse(
+   966→            command_id=result.get("undo_command_id", ""),
+   967→            status=result.get("status", "failed"),
+   968→            action="undo",
+   969→            intent="control",
+   970→            result=result.get("undo_result", {}),
+   971→            undo_available=False,
+   972→            error=result.get("error"),
+   973→        )
+   974→    except ParwaBaseError:
+   975→        raise
+   976→    except Exception as exc:
+   977→        return _error_response(
+   978→            "INTERNAL_ERROR",
+   979→            "Failed to undo command",
+   980→            500,
+   981→            details={"error": str(exc)},
+   982→        )
+   983→
+   984→
+   985→@router.get("/command/history", response_model=JarvisCommandHistoryResponse)
+   986→def get_command_history(
+   987→    session_id: str = Query(..., description="Customer care session ID"),
+   988→    status: Optional[str] = Query(None, description="Filter by status"),
+   989→    intent: Optional[str] = Query(None, description="Filter by intent"),
+   990→    source: Optional[str] = Query(None, description="Filter by source"),
+   991→    limit: int = Query(50, ge=1, le=200),
+   992→    offset: int = Query(0, ge=0),
+   993→    user: User = Depends(get_current_user),
+   994→    db: Session = Depends(get_db),
+   995→):
+   996→    """Get paginated command history for a session.
+   997→
+   998→    Returns commands in reverse chronological order (newest first).
+   999→    Filterable by status, intent, and source.
+  1000→    """
+  1001→    if not user.company_id:
+  1002→        return _error_response(
+  1003→            "VALIDATION_ERROR",
+  1004→            "User has no associated company",
+  1005→            422,
+  1006→        )
+  1007→
+  1008→    try:
+  1009→        commands, total = jarvis_command_service.get_command_history(
+  1010→            db=db,
+  1011→            company_id=str(user.company_id),
+  1012→            session_id=session_id,
+  1013→            status=status,
+  1014→            intent=intent,
+  1015→            source=source,
+  1016→            limit=limit,
+  1017→            offset=offset,
+  1018→        )
+  1019→        _limit = _coerce_int(limit, 50)
+  1020→        _offset = _coerce_int(offset, 0)
+  1021→
+  1022→        return JarvisCommandHistoryResponse(
+  1023→            commands=commands,
+  1024→            total=total,
+  1025→            limit=_limit,
+  1026→            offset=_offset,
+  1027→            has_more=(_offset + _limit) < total,
+  1028→        )
+  1029→    except ParwaBaseError:
+  1030→        raise
+  1031→    except Exception as exc:
+  1032→        return _error_response(
+  1033→            "INTERNAL_ERROR",
+  1034→            "Failed to get command history",
+  1035→            500,
+  1036→            details={"error": str(exc)},
+  1037→        )
+  1038→
+  1039→
+  1040→@router.get("/command/quick-commands", response_model=JarvisQuickCommandListResponse)
+  1041→def get_quick_commands(
+  1042→    session_id: str = Query(..., description="Customer care session ID"),
+  1043→    user: User = Depends(get_current_user),
+  1044→    db: Session = Depends(get_db),
+  1045→):
+  1046→    """Get available quick command presets for a session.
+  1047→
+  1048→    Returns default presets plus any tenant-specific custom presets.
+  1049→    """
+  1050→    if not user.company_id:
+  1051→        return _error_response(
+  1052→            "VALIDATION_ERROR",
+  1053→            "User has no associated company",
+  1054→            422,
+  1055→        )
+  1056→
+  1057→    try:
+  1058→        commands = jarvis_command_service.get_quick_commands(
+  1059→            db=db,
+  1060→            company_id=str(user.company_id),
+  1061→            session_id=session_id,
+  1062→        )
+  1063→        return JarvisQuickCommandListResponse(
+  1064→            commands=commands,
+  1065→            total=len(commands),
+  1066→        )
+  1067→    except ParwaBaseError:
+  1068→        raise
+  1069→    except Exception as exc:
+  1070→        return _error_response(
+  1071→            "INTERNAL_ERROR",
+  1072→            "Failed to get quick commands",
+  1073→            500,
+  1074→            details={"error": str(exc)},
+  1075→        )
+  1076→
+  1077→
+  1078→@router.get("/command/{command_id}")
+  1079→def get_command_by_id(
+  1080→    command_id: str,
+  1081→    session_id: str = Query(..., description="Customer care session ID"),
+  1082→    user: User = Depends(get_current_user),
+  1083→    db: Session = Depends(get_db),
+  1084→):
+  1085→    """Get a single command by ID with full audit details.
+  1086→
+  1087→    Returns all command fields including timestamps, parsed data,
+  1088→    execution result, and undo information.
+  1089→    """
+  1090→    if not user.company_id:
+  1091→        return _error_response(
+  1092→            "VALIDATION_ERROR",
+  1093→            "User has no associated company",
+  1094→            422,
+  1095→        )
+  1096→
+  1097→    try:
+  1098→        command = jarvis_command_service.get_command_by_id(
+  1099→            db=db,
+  1100→            company_id=str(user.company_id),
+  1101→            command_id=command_id,
+  1102→            session_id=session_id,
+  1103→        )
+  1104→        if not command:
+  1105→            return _error_response(
+  1106→                "NOT_FOUND",
+  1107→                "Command not found",
+  1108→                404,
+  1109→            )
+  1110→        return command
+  1111→    except ParwaBaseError:
+  1112→        raise
+  1113→    except Exception as exc:
+  1114→        return _error_response(
+  1115→            "INTERNAL_ERROR",
+  1116→            "Failed to get command",
+  1117→            500,
+  1118→            details={"error": str(exc)},
+  1119→        )
+  1120→
+  1121→
+  1122→@router.post("/command/co-pilot", response_model=JarvisCoPilotSuggestionResponse)
+  1123→def get_co_pilot_suggestion(
+  1124→    session_id: str = Query(..., description="Customer care session ID"),
+  1125→    user_context: Optional[str] = Query(None, description="Additional context from user's question"),
+  1126→    user: User = Depends(get_current_user),
+  1127→    db: Session = Depends(get_db),
+  1128→):
+  1129→    """Get a co-pilot suggestion based on current awareness state.
+  1130→
+  1131→    When a user asks an open question like "what should I do about
+  1132→    the ticket spike?", the co-pilot generates a contextual suggestion
+  1133→    based on the current awareness snapshot and active alerts.
+  1134→    """
+  1135→    if not user.company_id:
+  1136→        return _error_response(
+  1137→            "VALIDATION_ERROR",
+  1138→            "User has no associated company",
+  1139→            422,
+  1140→        )
+  1141→
+  1142→    try:
+  1143→        result = jarvis_command_service.generate_co_pilot_suggestion(
+  1144→            db=db,
+  1145→            company_id=str(user.company_id),
+  1146→            session_id=session_id,
+  1147→            user_context=user_context,
+  1148→        )
+  1149→        return JarvisCoPilotSuggestionResponse(**result)
+  1150→    except ParwaBaseError:
+  1151→        raise
+  1152→    except Exception as exc:
+  1153→        return _error_response(
+  1154→            "INTERNAL_ERROR",
+  1155→            "Failed to generate co-pilot suggestion",
+  1156→            500,
+  1157→            details={"error": str(exc)},
+  1158→        )
+  1159→
+  1160→
+  1161→@router.post("/command/custom-quick-command", response_model=Dict[str, Any])
+  1162→def add_custom_quick_command(
+  1163→    body: JarvisCustomQuickCommandAdd,
+  1164→    user: User = Depends(get_current_user),
+  1165→    db: Session = Depends(get_db),
+  1166→):
+  1167→    """Add a custom quick command preset for this tenant.
+  1168→
+  1169→    Custom presets are stored in the session context (max 50 per tenant).
+  1170→    Default quick commands cannot be modified.
+  1171→    """
+  1172→    if not user.company_id:
+  1173→        return _error_response(
+  1174→            "VALIDATION_ERROR",
+  1175→            "User has no associated company",
+  1176→            422,
+  1177→        )
+  1178→
+  1179→    try:
+  1180→        result = jarvis_command_service.add_custom_quick_command(
+  1181→            db=db,
+  1182→            company_id=str(user.company_id),
+  1183→            session_id=body.session_id,
+  1184→            label=body.label,
+  1185→            raw_input=body.raw_input,
+  1186→            action=body.action,
+  1187→            intent=body.intent,
+  1188→            icon=body.icon,
+  1189→            description=body.description,
+  1190→        )
+  1191→        return result
+  1192→    except ParwaBaseError:
+  1193→        raise
+  1194→    except Exception as exc:
+  1195→        return _error_response(
+  1196→            "INTERNAL_ERROR",
+  1197→            "Failed to add custom quick command",
+  1198→            500,
+  1199→            details={"error": str(exc)},
+  1200→        )
+  1201→
+  1202→
+  1203→@router.delete("/command/custom-quick-command")
+  1204→def remove_custom_quick_command(
+  1205→    body: JarvisCustomQuickCommandRemove,
+  1206→    user: User = Depends(get_current_user),
+  1207→    db: Session = Depends(get_db),
+  1208→):
+  1209→    """Remove a custom quick command preset.
+  1210→
+  1211→    Only custom commands (added via add_custom_quick_command) can be removed.
+  1212→    Default quick commands cannot be removed.
+  1213→    """
+  1214→    if not user.company_id:
+  1215→        return _error_response(
+  1216→            "VALIDATION_ERROR",
+  1217→            "User has no associated company",
+  1218→            422,
+  1219→        )
+  1220→
+  1221→    try:
+  1222→        removed = jarvis_command_service.remove_custom_quick_command(
+  1223→            db=db,
+  1224→            company_id=str(user.company_id),
+  1225→            session_id=body.session_id,
+  1226→            quick_command_id=body.quick_command_id,
+  1227→        )
+  1228→        return {"removed": removed, "quick_command_id": body.quick_command_id}
+  1229→    except ParwaBaseError:
+  1230→        raise
+  1231→    except Exception as exc:
+  1232→        return _error_response(
+  1233→            "INTERNAL_ERROR",
+  1234→            "Failed to remove custom quick command",
+  1235→            500,
+  1236→            details={"error": str(exc)},
+  1237→        )
+  1238→
+  1239→
+  1240→# ========================================================================
+  1241→# RESPONSE HELPERS
+  1242→# ========================================================================
+  1243→
+  1244→
+  1245→def _safe_parse_json(raw: str) -> dict:
+  1246→    """Safely parse JSON string to dict."""
+  1247→    try:
+  1248→        return json.loads(raw) if raw else {}
+  1249→    except (json.JSONDecodeError, TypeError):
+  1250→        return {}
+  1251→
+  1252→
+  1253→def _coerce_int(value, default: int = 0) -> int:
+  1254→    """Coerce a value to int, falling back to default.
+  1255→
+  1256→    Handles FastAPI Query objects that appear when endpoints are
+  1257→    called directly (bypassing FastAPI DI in unit tests).
+  1258→    """
+  1259→    if isinstance(value, int):
+  1260→        return value
+  1261→    try:
+  1262→        return int(value)
+  1263→    except (TypeError, ValueError):
+  1264→        return default
+  1265→
+  1266→
+  1267→def _session_to_response(session: object) -> JarvisCCSessionResponse:
+  1268→    """Convert JarvisSession ORM model to CC session response."""
+  1269→    ctx = {}
+  1270→    try:
+  1271→        ctx = json.loads(session.context_json) if session.context_json else {}
+  1272→    except (json.JSONDecodeError, TypeError):
+  1273→        pass
+  1274→
+  1275→    from app.services.jarvis_cc_service import CC_DAILY_MESSAGE_LIMIT
+  1276→
+  1277→    remaining = max(0, CC_DAILY_MESSAGE_LIMIT - session.message_count_today)
+  1278→
+  1279→    return JarvisCCSessionResponse(
+  1280→        id=str(session.id),
+  1281→        type=session.type,
+  1282→        context=ctx,
+  1283→        message_count_today=session.message_count_today,
+  1284→        total_message_count=session.total_message_count,
+  1285→        remaining_today=remaining,
+  1286→        is_active=session.is_active,
+  1287→        variant_tier=ctx.get("variant_tier", "mini_parwa"),
+  1288→        industry=ctx.get("industry", "general"),
+  1289→        awareness_enabled=ctx.get("awareness_enabled", False),
+  1290→        pipeline_status=ctx.get("pipeline_status", "unknown"),
+  1291→        created_at=(
+  1292→            session.created_at.isoformat() if session.created_at else None
+  1293→        ),
+  1294→        updated_at=(
+  1295→            session.updated_at.isoformat() if session.updated_at else None
+  1296→        ),
+  1297→    )
+  1298→
+  1299→
+  1300→def _ai_message_to_response(
+  1301→    ai_msg: object,
+  1302→    pipeline_metadata: dict,
+  1303→) -> JarvisCCMessageResponse:
+  1304→    """Convert JarvisMessage ORM model to CC message response."""
+  1305→    metadata = {}
+  1306→    try:
+  1307→        metadata = json.loads(ai_msg.metadata_json) if ai_msg.metadata_json else {}
+  1308→    except (json.JSONDecodeError, TypeError):
+  1309→        pass
+  1310→
+  1311→    return JarvisCCMessageResponse(
+  1312→        id=str(ai_msg.id),
+  1313→        session_id=str(ai_msg.session_id),
+  1314→        role=ai_msg.role,
+  1315→        content=ai_msg.content,
+  1316→        message_type=ai_msg.message_type,
+  1317→        metadata=metadata,
+  1318→        pipeline_metadata=pipeline_metadata,
+  1319→        timestamp=(
+  1320→            ai_msg.created_at.isoformat() if ai_msg.created_at else None
+  1321→        ),
+  1322→    )
+  1323→
+  1324→
+  1325→def _snapshot_to_response(snapshot: object) -> JarvisAwarenessSnapshotResponse:
+  1326→    """Convert JarvisAwarenessSnapshot ORM model to API response."""
+  1327→    channel_health = _safe_parse_json(snapshot.channel_health_json)
+  1328→    active_alerts_raw = _safe_parse_json(snapshot.active_alerts_json)
+  1329→    quality_alerts_raw = _safe_parse_json(snapshot.quality_alerts_json)
+  1330→    last_5_errors_raw = _safe_parse_json(snapshot.last_5_errors_json)
+  1331→
+  1332→    # Validate that list items are dicts (not ints, strings, etc.)
+  1333→    active_alerts = active_alerts_raw if isinstance(active_alerts_raw, list) and all(isinstance(x, dict) for x in active_alerts_raw) else []
+  1334→    quality_alerts = quality_alerts_raw if isinstance(quality_alerts_raw, list) and all(isinstance(x, dict) for x in quality_alerts_raw) else []
+  1335→    last_5_errors = last_5_errors_raw if isinstance(last_5_errors_raw, list) and all(isinstance(x, dict) for x in last_5_errors_raw) else []
+  1336→
+  1337→    return JarvisAwarenessSnapshotResponse(
+  1338→        id=str(snapshot.id),
+  1339→        session_id=str(snapshot.session_id),
+  1340→        company_id=str(snapshot.company_id),
+  1341→        snapshot_type=snapshot.snapshot_type or "periodic",
+  1342→        tick_number=snapshot.tick_number,
+  1343→        current_plan=snapshot.current_plan,
+  1344→        plan_usage_today=float(snapshot.plan_usage_today) if snapshot.plan_usage_today is not None else None,
+  1345→        subscription_status=snapshot.subscription_status,
+  1346→        days_until_renewal=snapshot.days_until_renewal,
+  1347→        system_health=snapshot.system_health or "unknown",
+  1348→        channel_health=channel_health if isinstance(channel_health, dict) else {},
+  1349→        active_alerts_count=snapshot.active_alerts_count or 0,
+  1350→        active_alerts=active_alerts if isinstance(active_alerts, list) else [],
+  1351→        ticket_volume_today=snapshot.ticket_volume_today or 0,
+  1352→        ticket_volume_avg=float(snapshot.ticket_volume_avg) if snapshot.ticket_volume_avg is not None else None,
+  1353→        ticket_volume_spike=snapshot.ticket_volume_spike or False,
+  1354→        active_agents=snapshot.active_agents or 0,
+  1355→        agent_pool_capacity=snapshot.agent_pool_capacity or 0,
+  1356→        agent_pool_utilization=float(snapshot.agent_pool_utilization) if snapshot.agent_pool_utilization is not None else None,
+  1357→        training_running=snapshot.training_running or False,
+  1358→        training_mistake_count=snapshot.training_mistake_count or 0,
+  1359→        training_model_version=snapshot.training_model_version,
+  1360→        drift_status=snapshot.drift_status or "none",
+  1361→        drift_score=float(snapshot.drift_score) if snapshot.drift_score is not None else None,
+  1362→        quality_score=float(snapshot.quality_score) if snapshot.quality_score is not None else None,
+  1363→        quality_alerts=quality_alerts if isinstance(quality_alerts, list) else [],
+  1364→        last_5_errors=last_5_errors if isinstance(last_5_errors, list) else [],
+  1365→        created_at=(
+  1366→            snapshot.created_at.isoformat() if snapshot.created_at else None
+  1367→        ),
+  1368→    )
+  1369→
+  1370→
+  1371→def _alert_to_response(alert: object) -> JarvisProactiveAlertResponse:
+  1372→    """Convert JarvisProactiveAlert ORM model to API response."""
+  1373→    details = _safe_parse_json(alert.details_json)
+  1374→
+  1375→    return JarvisProactiveAlertResponse(
+  1376→        id=str(alert.id),
+  1377→        session_id=str(alert.session_id),
+  1378→        company_id=str(alert.company_id),
+  1379→        alert_type=alert.alert_type,
+  1380→        severity=alert.severity or "info",
+  1381→        category=alert.category or "system_health",
+  1382→        title=alert.title,
+  1383→        message=alert.message,
+  1384→        details=details if isinstance(details, dict) else {},
+  1385→        status=alert.status or "active",
+  1386→        action_required=alert.action_required or False,
+  1387→        action_url=alert.action_url,
+  1388→        ttl_seconds=alert.ttl_seconds or 0,
+  1389→        related_snapshot_id=alert.related_snapshot_id,
+  1390→        acknowledged_by=alert.acknowledged_by,
+  1391→        acknowledged_at=(
+  1392→            alert.acknowledged_at.isoformat() if alert.acknowledged_at else None
+  1393→        ),
+  1394→        resolved_at=(
+  1395→            alert.resolved_at.isoformat() if alert.resolved_at else None
+  1396→        ),
+  1397→        created_at=(
+  1398→            alert.created_at.isoformat() if alert.created_at else None
+  1399→        ),
+  1400→        updated_at=(
+  1401→            alert.updated_at.isoformat() if alert.updated_at else None
+  1402→        ),
+  1403→    )
+  1404→
+  1405→
+  1406→def _error_response(
+  1407→    code: str,
+  1408→    message: str,
+  1409→    status_code: int,
+  1410→    details: object = None,
+  1411→) -> dict:
+  1412→    """Build a PARWA-standard error response dict."""
+  1413→    return {
+  1414→        "error": {
+  1415→            "code": code,
+  1416→            "message": message,
+  1417→            "details": details,
+  1418→        }
+  1419→    }
+  1420→

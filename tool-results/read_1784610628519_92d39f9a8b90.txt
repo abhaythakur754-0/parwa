@@ -1,0 +1,896 @@
+     1→"""
+     2→PARWA CRM Analyzer Service
+     3→
+     4→Analyzes connected CRM/integration data to recommend which additional 
+     5→integrations the company needs. Uses NVIDIA GLM 5.2 LLM for intelligent analysis.
+     6→
+     7→Business Value:
+     8→- Reduces user confusion about which integrations to connect
+     9→- Increases activation rate (more integrations = more value)
+    10→- Personalized recommendations based on actual data patterns
+    11→
+    12→BC-001: All operations scoped to company_id.
+    13→LLM: NVIDIA z-ai/glm-5.2 (user's preferred model)
+    14→"""
+    15→
+    16→import json
+    17→import logging
+    18→import os
+    19→from datetime import datetime, timezone
+    20→from typing import Any, Dict, List, Optional
+    21→
+    22→from sqlalchemy.orm import Session
+    23→
+    24→from app.core.integration_catalog import (
+    25→    CATALOG,
+    26→    IntegrationCategory,
+    27→    get_integration_by_key,
+    28→)
+    29→from app.services.integration_service import IntegrationService
+    30→from database.models.crm_analysis import CRMAnalysisResult
+    31→
+    32→logger = logging.getLogger("crm_analyzer")
+    33→
+    34→
+    35→class CRMAnalyzerService:
+    36→    """Analyzes CRM data and recommends missing integrations."""
+    37→
+    38→    def __init__(self, db: Session):
+    39→        self.db = db
+    40→        self.integration_service = IntegrationService(db)
+    41→
+    42→    async def analyze_company_crm(
+    43→        self,
+    44→        company_id: str,
+    45→    ) -> Dict[str, Any]:
+    46→        """Main entry point: Analyze company's CRM and return recommendations.
+    47→
+    48→        Steps:
+    49→        1. Get all connected integrations for this company
+    50→        2. Fetch sample data from each connected integration
+    51→        3. Analyze data patterns to detect business type and gaps
+    52→        4. Use LLM to generate personalized recommendations
+    53→        
+    54→        Returns:
+    55→            Dict with:
+    56→            - connected_integrations: list of currently connected
+    57→            - data_profile: summary of what data was found
+    58→            - recommendations: list of recommended integrations with reasons
+    59→            - analysis_summary: plain text explanation
+    60→        """
+    61→        logger.info("Starting CRM analysis for company %s", company_id)
+    62→
+    63→        # Step 1: Get connected integrations
+    64→        connected = await self._get_connected_integrations(company_id)
+    65→        
+    66→        # Step 2: Gather data from each integration
+    67→        data_profile = await self._gather_data_from_integrations(company_id, connected)
+    68→        
+    69→        # Step 3: Detect patterns and gaps
+    70→        detected_gaps = await self._detect_gaps(data_profile, connected)
+    71→        
+    72→        # Step 4: Generate LLM-powered recommendations
+    73→        recommendations = await self._generate_recommendations(
+    74→            company_id=company_id,
+    75→            data_profile=data_profile,
+    76→            connected=connected,
+    77→            gaps=detected_gaps,
+    78→        )
+    79→        
+    80→        # FIX: If no recommendations generated (new user with 0 integrations),
+    81→        # provide default "getting started" recommendations
+    82→        if not recommendations and not connected:
+    83→            logger.info("No integrations connected - providing default recommendations")
+    84→            recommendations = self._get_default_recommendations()
+    85→
+    86→        result = {
+    87→            "company_id": company_id,
+    88→            "analyzed_at": datetime.now(timezone.utc).isoformat(),
+    89→            "connected_integrations": connected,
+    90→            "data_profile": data_profile,
+    91→            "detected_gaps": detected_gaps,
+    92→            "recommendations": recommendations,
+    93→            "analysis_summary": self._build_summary(data_profile, recommendations),
+    94→        }
+    95→
+    96→        # Save to database for persistence (onboarding → dashboard transition)
+    97→        saved_result = self._save_analysis_result(result)
+    98→        if saved_result:
+    99→            result["analysis_id"] = str(saved_result.id)
+   100→            result["is_saved"] = True
+   101→        else:
+   102→            result["is_saved"] = False
+   103→
+   104→        logger.info("CRM analysis complete for company %s: %d recommendations (saved=%s)", 
+   105→                    company_id, len(recommendations), result["is_saved"])
+   106→        return result
+   107→
+   108→    async def _get_connected_integrations(
+   109→        self, company_id: str
+   110→    ) -> List[Dict[str, Any]]:
+   111→        """Get list of active integrations for a company."""
+   112→        from database.models.integration import Integration
+   113→
+   114→        rows = (
+   115→            self.db.query(Integration)
+   116→            .filter(
+   117→                Integration.company_id == company_id,
+   118→                Integration.status == "active",
+   119→            )
+   120→            .all()
+   121→        )
+   122→
+   123→        connected = []
+   124→        for row in rows:
+   125→            catalog_entry = get_integration_by_key(row.integration_type)
+   126→            connected.append({
+   127→                "id": str(row.id),
+   128→                "type": row.integration_type,
+   129→                "name": row.name,
+   130→                "category": catalog_entry.category.value if catalog_entry else "unknown",
+   131→                "connected_at": row.created_at.isoformat() if row.created_at else None,
+   132→            })
+   133→
+   134→        return connected
+   135→
+   136→    async def _gather_data_from_integrations(
+   137→        self,
+   138→        company_id: str,
+   139→        connected: List[Dict[str, Any]],
+   140→    ) -> Dict[str, Any]:
+   141→        """Gather sample data from each connected integration."""
+   142→        profile = {
+   143→            "total_contacts": 0,
+   144→            "total_orders": 0,
+   145→            "total_deals": 0,
+   146→            "has_products": False,
+   147→            "has_shipping_addresses": False,
+   148→            "has_payment_data": False,
+   149→            "has_email_campaigns": False,
+   150→            "has_ticket_data": False,
+   151→            "industries_detected": [],
+   152→            "data_points": [],
+   153→        }
+   154→
+   155→        for integration in connected:
+   156→            int_type = integration["type"]
+   157→            
+   158→            try:
+   159→                if int_type in ("hubspot", "salesforce", "pipedrive"):
+   160→                    crm_data = await self._fetch_crm_data(company_id, int_type)
+   161→                    profile["total_contacts"] += crm_data.get("contact_count", 0)
+   162→                    profile["total_deals"] += crm_data.get("deal_count", 0)
+   163→                    profile["has_products"] = profile["has_products"] or crm_data.get("has_products", False)
+   164→                    
+   165→                elif int_type in ("shopify", "woocommerce", "bigcommerce"):
+   166→                    ecommerce_data = await self._fetch_ecommerce_data(company_id, int_type)
+   167→                    profile["total_orders"] += ecommerce_data.get("order_count", 0)
+   168→                    profile["has_shipping_addresses"] = ecommerce_data.get("has_shipping_addresses", False)
+   169→                    profile["has_payment_data"] = profile.has_payment_data or ecommerce_data.get("has_payment_data", False)
+   170→                    profile["has_products"] = profile["has_products"] or ecommerce_data.get("has_products", False)
+   171→                    if ecommerce_data.get("industry"):
+   172→                        profile["industries_detected"].append("ecommerce")
+   173→                        
+   174→                elif int_type in ("stripe", "paddle", "paypal"):
+   175→                    payment_data = await self._fetch_payment_data(company_id, int_type)
+   176→                    profile["has_payment_data"] = True
+   177→                    profile["data_points"].append({
+   178→                        "source": int_type,
+   179→                        "type": "payment",
+   180→                        "count": payment_data.get("transaction_count", 0),
+   181→                    })
+   182→                    
+   183→                elif int_type in ("mailchimp", "klaviyo", "brevo"):
+   184→                    marketing_data = await self._fetch_marketing_data(company_id, int_type)
+   185→                    profile["has_email_campaigns"] = True
+   186→                    profile["data_points"].append({
+   187→                        "source": int_type,
+   188→                        "type": "marketing",
+   189→                        "subscriber_count": marketing_data.get("subscriber_count", 0),
+   190→                    })
+   191→                    
+   192→                elif int_type in ("zendesk", "freshdesk", "intercom", "gorgias"):
+   193→                    profile["has_ticket_data"] = True
+   194→                    
+   195→                elif int_type in ("shipstation", "aftership", "easypost", "fedex", "ups", "dhl"):
+   196→                    profile["has_shipping_addresses"] = True
+   197→
+   198→            except Exception as e:
+   199→                logger.warning("Failed to gather data from %s: %s", int_type, str(e)[:100])
+   200→                profile["data_points"].append({
+   201→                    "source": int_type,
+   202→                    "error": str(e)[:200],
+   203→                })
+   204→
+   205→        # Deduplicate industries
+   206→        profile["industries_detected"] = list(set(profile["industries_detected"]))
+   207→        return profile
+   208→
+   209→    async def _fetch_crm_data(
+   210→        self, company_id: str, crm_type: str
+   211→    ) -> Dict[str, Any]:
+   212→        """Fetch data summary from CRM integrations."""
+   213→        import httpx
+   214→
+   215→        creds = self.integration_service.get_credential_config(company_id, crm_type)
+   216→        if not creds:
+   217→            return {"contact_count": 0, "deal_count": 0, "has_products": False}
+   218→
+   219→        try:
+   220→            if crm_type == "hubspot":
+   221→                base_url = "https://api.hubapi.com"
+   222→                headers = {"Authorization": f"Bearer {creds.get('api_key', '')}"}
+   223→                
+   224→                async with httpx.AsyncClient(timeout=10.0) as client:
+   225→                    # Get contacts count
+   226→                    contacts_resp = await client.get(
+   227→                        f"{base_url}/crm/v3/objects/contacts",
+   228→                        params={"limit": 1},
+   229→                        headers=headers,
+   230→                    )
+   231→                    contact_count = contacts_resp.json().get("total", 0) if contacts_resp.status_code == 200 else 0
+   232→                    
+   233→                    # Get deals count
+   234→                    deals_resp = await client.get(
+   235→                        f"{base_url}/crm/v3/objects/deals",
+   236→                        params={"limit": 1},
+   237→                        headers=headers,
+   238→                    )
+   239→                    deal_count = deals_resp.json().get("total", 0) if deals_resp.status_code == 200 else 0
+   240→                    
+   241→                    # Check for products
+   242→                    products_resp = await client.get(
+   243→                        f"{base_url}/crm/v3/objects/products",
+   244→                        params={"limit": 1},
+   245→                        headers=headers,
+   246→                    )
+   247→                    has_products = products_resp.status_code == 200 and products_resp.json().get("total", 0) > 0
+   248→
+   249→                return {
+   250→                    "contact_count": contact_count,
+   251→                    "deal_count": deal_count,
+   252→                    "has_products": has_products,
+   253→                }
+   254→
+   255→            elif crm_type == "shopify":
+   256→                return await self._fetch_shopify_summary(creds)
+   257→
+   258→        except Exception as e:
+   259→            logger.warning("CRM data fetch failed for %s: %s", crm_type, e)
+   260→
+   261→        return {"contact_count": 0, "deal_count": 0, "has_products": False}
+   262→
+   263→    async def _fetch_ecommerce_data(
+   264→        self, company_id: str, eco_type: str
+   265→    ) -> Dict[str, Any]:
+   266→        """Fetch data summary from e-commerce integrations."""
+   267→        import httpx
+   268→
+   269→        creds = self.integration_service.get_credential_config(company_id, eco_type)
+   270→        if not creds:
+   271→            return {"order_count": 0, "has_shipping_addresses": False, "has_payment_data": False, "has_products": False}
+   272→
+   273→        try:
+   274→            if eco_type == "shopify":
+   275→                shopify_data = await self._fetch_shopify_summary(creds)
+   276→                return {
+   277→                    "order_count": shopify_data.get("order_count", 0),
+   278→                    "has_shipping_addresses": shopify_data.get("has_shipping_addresses", False),
+   279→                    "has_payment_data": True,  # Shopify always has payments
+   280→                    "has_products": shopify_data.get("has_products", False),
+   281→                    "industry": "ecommerce",
+   282→                }
+   283→
+   284→        except Exception as e:
+   285→            logger.warning("E-commerce data fetch failed for %s: %s", eco_type, e)
+   286→
+   287→        return {"order_count": 0, "has_shipping_addresses": False, "has_payment_data": False, "has_products": False}
+   288→
+   289→    async def _fetch_shopify_summary(self, creds: Dict[str, Any]) -> Dict[str, Any]:
+   290→        """Fetch summary data from Shopify store."""
+   291→        import httpx
+   292→
+   293→        store_url = creds.get("store_url", "").rstrip("/")
+   294→        token = creds.get("access_token", "")
+   295→        
+   296→        if not store_url or not token:
+   297→            return {"order_count": 0, "has_shipping_addresses": False, "has_products": False}
+   298→
+   299→        headers = {"X-Shopify-Access-Token": token}
+   300→        
+   301→        async with httpx.AsyncClient(timeout=10.0) as client:
+   302→            # Get order count
+   303→            orders_resp = await client.get(
+   304→                f"{store_url}/admin/api/2024-01/orders/count.json",
+   305→                headers=headers,
+   306→            )
+   307→            order_count = orders_resp.json().get("count", 0) if orders_resp.status_code == 200 else 0
+   308→            
+   309→            # Get product count
+   310→            products_resp = await client.get(
+   311→                f"{store_url}/admin/api/2024-01/products/count.json",
+   312→                headers=headers,
+   313→            )
+   314→            has_products = products_resp.json().get("count", 0) > 0 if products_resp.status_code == 200 else False
+   315→            
+   316→            # Check recent orders for shipping addresses
+   317→            shipping_check = await client.get(
+   318→                f"{store_url}/admin/api/2024-01/orders.json?limit=5&status=any",
+   319→                headers=headers,
+   320→            )
+   321→            has_shipping = False
+   322→            if shipping_check.status_code == 200:
+   323→                orders = shipping_check.json().get("orders", [])
+   324→                has_shipping = any(o.get("shipping_address") for o in orders)
+   325→
+   326→        return {
+   327→            "order_count": order_count,
+   328→            "has_shipping_addresses": has_shipping,
+   329→            "has_products": has_products,
+   330→        }
+   331→
+   332→    async def _fetch_payment_data(
+   333→        self, company_id: str, payment_type: str
+   334→    ) -> Dict[str, Any]:
+   335→        """Fetch data summary from payment integrations."""
+   336→        import httpx
+   337→
+   338→        creds = self.integration_service.get_credential_config(company_id, payment_type)
+   339→        if not creds:
+   340→            return {"transaction_count": 0}
+   341→
+   342→        try:
+   343→            if payment_type == "stripe":
+   344→                api_key = creds.get("api_key", "")
+   345→                headers = {"Authorization": f"Bearer {api_key}"}
+   346→                
+   347→                async with httpx.AsyncClient(timeout=10.0) as client:
+   348→                    # Get charge count (simplified)
+   349→                    resp = await client.get(
+   350→                        "https://api.stripe.com/v1/charges?limit=1",
+   351→                        headers=headers,
+   352→                    )
+   353→                    # Stripe returns array, we just need to know there's data
+   354→                    has_data = resp.status_code == 200
+   355→
+   356→                return {"transaction_count": 100 if has_data else 0}  # Simplified
+   357→
+   358→        except Exception as e:
+   359→            logger.warning("Payment data fetch failed for %s: %s", payment_type, e)
+   360→
+   361→        return {"transaction_count": 0}
+   362→
+   363→    async def _fetch_marketing_data(
+   364→        self, company_id: str, marketing_type: str
+   365→    ) -> Dict[str, Any]:
+   366→        """Fetch data summary from marketing integrations."""
+   367→        import httpx
+   368→
+   369→        creds = self.integration_service.get_credential_config(company_id, marketing_type)
+   370→        if not creds:
+   371→            return {"subscriber_count": 0}
+   372→
+   373→        try:
+   374→            if marketing_type == "mailchimp":
+   375→                api_key = creds.get("api_key", "")
+   376→                # Extract DC from API key (xxx-us123)
+   377→                dc = ""
+   378→                if "-" in api_key:
+   379→                    parts = api_key.rsplit("-", 1)
+   380→                    if len(parts) == 2:
+   381→                        dc = parts[-1]
+   382→                
+   383→                if dc:
+   384→                    headers = {"Authorization": f"Bearer {api_key}"}
+   385→                    async with httpx.AsyncClient(timeout=10.0) as client:
+   386→                        resp = await client.get(
+   387→                            f"https://{dc}.api.mailchimp.com/3.0/lists",
+   388→                            headers=headers,
+   389→                        )
+   390→                        if resp.status_code == 200:
+   391→                            lists = resp.json().get("lists", [])
+   392→                            total_subs = sum(l.get("stats", {}).get("member_count", 0) for l in lists)
+   393→                            return {"subscriber_count": total_subs}
+   394→
+   395→        except Exception as e:
+   396→            logger.warning("Marketing data fetch failed for %s: %s", marketing_type, e)
+   397→
+   398→        return {"subscriber_count": 0}
+   399→
+   400→    async def _detect_gaps(
+   401→        self,
+   402→        data_profile: Dict[str, Any],
+   403→        connected: List[Dict[str, Any]],
+   404→    ) -> List[Dict[str, Any]]:
+   405→        """Detect gaps between current setup and potential needs."""
+   406→        connected_types = {c["type"] for c in connected}
+   407→        gaps = []
+   408→
+   409→        # Gap detection rules
+   410→        gap_rules = [
+   411→            {
+   412→                "id": "shipping_missing",
+   413→                "condition": data_profile.get("total_orders", 0) > 0 and not data_profile.get("has_shipping_addresses"),
+   414→                "category": "shipping",
+   415→                "severity": "high",
+   416→                "message": "You have orders but no shipping integration for tracking",
+   417→                "recommended": ["shipstation", "aftership", "easypost"],
+   418→            },
+   419→            {
+   420→                "id": "payment_missing",
+   421→                "condition": data_profile.get("has_products") and not data_profile.get("has_payment_data"),
+   422→                "category": "payments",
+   423→                "severity": "high",
+   424→                "message": "You sell products but no payment processor is connected",
+   425→                "recommended": ["stripe", "paddle"],
+   426→            },
+   427→            {
+   428→                "id": "marketing_missing",
+   429→                "condition": data_profile.get("total_contacts", 0) > 100 and not data_profile.get("has_email_campaigns"),
+   430→                "category": "marketing",
+   431→                "severity": "medium",
+   432→                "message": f"You have {data_profile.get('total_contacts', 0)} contacts but no email marketing tool",
+   433→                "recommended": ["mailchimp", "klaviyo", "brevo"],
+   434→            },
+   435→            {
+   436→                "id": "helpdesk_missing",
+   437→                "condition": data_profile.get("total_contacts", 0) > 50 and not data_profile.get("has_ticket_data"),
+   438→                "category": "helpdesk",
+   439→                "severity": "medium",
+   440→                "message": "Growing customer base but no dedicated helpdesk system",
+   441→                "recommended": ["zendesk", "freshdesk", "intercom", "gorgias"],
+   442→            },
+   443→            {
+   444→                "id": "analytics_missing",
+   445→                "condition": data_profile.get("total_orders", 0) > 10 or data_profile.get("total_contacts", 0) > 100,
+   446→                "category": "analytics",
+   447→                "severity": "low",
+   448→                "message": "Significant activity but no analytics integration for insights",
+   449→                "recommended": ["mixpanel", "amplitude", "google_analytics"],
+   450→            },
+   451→            {
+   452→                "id": "communication_missing",
+   453→                "condition": data_profile.get("total_contacts", 0) > 20,
+   454→                "category": "communication",
+   455→                "severity": "low",
+   456→                "message": "Team communication could be improved with Slack integration",
+   457→                "recommended": ["slack"],
+   458→            },
+   459→        ]
+   460→
+   461→        for rule in gap_rules:
+   462→            if rule["condition"]:
+   463→                # Filter out already-connected recommendations
+   464→                available_recs = [r for r in rule["recommended"] if r not in connected_types]
+   465→                if available_recs:
+   466→                    gaps.append({
+   467→                        **rule,
+   468→                        "recommended": available_recs,
+   469→                    })
+   470→
+   471→        return gaps
+   472→
+   473→    async def _call_nvidia_glm(self, prompt: str, max_tokens: int = 800, temperature: float = 0.3) -> str:
+   474→        """Call NVIDIA GLM 5.2 directly for CRM analysis.
+   475→        
+   476→        Uses the same NVIDIA API key and endpoint as the main pipeline.
+   477→        Model: z-ai/glm-5.2 (your preferred LLM)
+   478→        
+   479→        This bypasses the generic llm_call to ensure we use NVIDIA GLM specifically
+   480→        for integration recommendations - giving more consistent results.
+   481→        """
+   482→        import httpx
+   483→        
+   484→        api_key = os.environ.get("NVIDIA_API_KEY", "")
+   485→        if not api_key:
+   486→            logger.warning("NVIDIA_API_KEY not set for CRM analysis")
+   487→            return ""
+   488→        
+   489→        messages = [
+   490→            {
+   491→                "role": "system",
+   492→                "content": "You are Parwa's intelligent integration advisor. You analyze business data and recommend specific third-party integrations that would improve their workflow. Always respond in valid JSON format."
+   493→            },
+   494→            {
+   495→                "role": "user", 
+   496→                "content": prompt
+   497→            }
+   498→        ]
+   499→        
+   500→        payload = {
+   501→            "model": "z-ai/glm-5.2",  # Your preferred NVIDIA GLM model
+   502→            "messages": messages,
+   503→            "temperature": temperature,
+   504→            "max_tokens": max_tokens,
+   505→        }
+   506→        headers = {
+   507→            "Authorization": f"Bearer {api_key}",
+   508→            "Content-Type": "application/json",
+   509→        }
+   510→        
+   511→        try:
+   512→            async with httpx.AsyncClient(timeout=60.0) as client:
+   513→                r = await client.post(
+   514→                    "https://integrate.api.nvidia.com/v1/chat/completions",
+   515→                    json=payload,
+   516→                    headers=headers,
+   517→                )
+   518→            
+   519→            if r.status_code == 200:
+   520→                data = r.json()
+   521→                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+   522→                usage = data.get("usage", {})
+   523→                logger.info(
+   524→                    "NVIDIA GLM CRM analysis complete: tokens=%s (prompt=%s, completion=%s)",
+   525→                    usage.get("total_tokens", "?"),
+   526→                    usage.get("prompt_tokens", "?"),
+   527→                    usage.get("completion_tokens", "?"),
+   528→                )
+   529→                return content.strip()
+   530→            else:
+   531→                logger.error("NVIDIA GLM API error %d: %s", r.status_code, r.text[:200])
+   532→                return ""
+   533→                
+   534→        except Exception as e:
+   535→            logger.error("NVIDIA GLM call failed: %s", str(e)[:200])
+   536→            return ""
+   537→
+   538→    async def _generate_recommendations(
+   539→        self,
+   540→        company_id: str,
+   541→        data_profile: Dict[str, Any],
+   542→        connected: List[Dict[str, Any]],
+   543→        gaps: List[Dict[str, Any]],
+   544→    ) -> List[Dict[str, Any]]:
+   545→        """Use NVIDIA GLM 5.2 to generate personalized integration recommendations."""
+   546→
+   547→        # Build context for LLM
+   548→        connected_names = [c["name"] for c in connected]
+   549→        connected_types = [c["type"] for c in connected]
+   550→
+   551→        prompt = f"""You are Parwa's integration advisor. Analyze this company's data and recommend specific integrations they need.
+   552→
+   553→COMPANY DATA PROFILE:
+   554→- Total Contacts: {data_profile.get('total_contacts', 0)}
+   555→- Total Orders: {data_profile.get('total_orders', 0)}
+   556→- Total Deals: {data_profile.get('total_deals', 0)}
+   557→- Has Products: {data_profile.get('has_products', False)}
+   558→- Has Shipping Data: {data_profile.get('has_shipping_addresses', False)}
+   559→- Has Payment Data: {data_profile.get('has_payment_data', False)}
+   560→- Has Email Marketing: {data_profile.get('has_email_campaigns', False)}
+   561→- Has Helpdesk: {data_profile.get('has_ticket_data', False)}
+   562→- Detected Industries: {data_profile.get('industries_detected', ['unknown'])}
+   563→- Data Points: {json.dumps(data_profile.get('data_points', [])[:3], indent=2)}
+   564→
+   565→CURRENTLY CONNECTED ({len(connected)}): {', '.join(connected_names) if connected_names else 'None'}
+   566→
+   567→DETECTED GAPS ({len(gaps)}):
+   568→{chr(10).join(f'- {g["message"]} (severity: {g["severity"]})' for g in gaps)}
+   569→
+   570→AVAILABLE INTEGRATIONS TO RECOMMEND FROM:
+   571→- Shipping: shipstation, aftership, easypost, fedex, ups, dhl
+   572→- Payments: stripe, paddle, paypal
+   573→- Marketing: mailchimp, klaviyo, brevo
+   574→- Helpdesk: zendesk, freshdesk, intercom, gorgias
+   575→- Analytics: mixpanel, amplitude, google_analytics
+   576→- Communication: slack, gmail
+   577→- Dev Tools: github, jira, linear, notion
+   578→
+   579→Respond in EXACTLY this JSON format (no markdown, no extra text):
+   580→{{
+   581→  "recommendations": [
+   582→    {{
+   583→      "integration_key": "stripe",
+   584→      "name": "Stripe",
+   585→      "category": "payments",
+   586→      "priority": "high|medium|low",
+   587→      "reason": "One sentence why they specifically need this",
+   588→      "business_impact": "What business outcome this enables"
+   589→    }}
+   590→  ],
+   591→  "overall_assessment": "2-3 sentences about their integration health"
+   592→}}"""
+   593→
+   594→        try:
+   595→            # Use NVIDIA GLM 5.2 directly (user's preferred LLM)
+   596→            response = await self._call_nvidia_glm(
+   597→                prompt=prompt,
+   598→                max_tokens=800,
+   599→                temperature=0.3,
+   600→            )
+   601→
+   602→            # Parse LLM response
+   603→            # Try to extract JSON from response
+   604→            json_str = response.strip()
+   605→            if "```json" in json_str:
+   606→                json_str = json_str.split("```json")[1].split("```")[0]
+   607→            elif "```" in json_str:
+   608→                json_str = json_str.split("```")[1].split("```")[0]
+   609→
+   610→            parsed = json.loads(json_str)
+   611→            recommendations = parsed.get("recommendations", [])
+   612→
+   613→            # Enrich with catalog data
+   614→            enriched = []
+   615→            seen_keys = set()
+   616→            for rec in recommendations:
+   617→                key = rec.get("integration_key", "")
+   618→                if key in seen_keys:
+   619→                    continue
+   620→                seen_keys.add(key)
+   621→
+   622→                catalog_entry = get_integration_by_key(key)
+   623→                enriched.append({
+   624→                    "integration_key": key,
+   625→                    "name": rec.get("name", catalog_entry.name if catalog_entry else key),
+   626→                    "category": rec.get("category", catalog_entry.category.value if catalog_entry else "unknown"),
+   627→                    "priority": rec.get("priority", "medium"),
+   628→                    "reason": rec.get("reason", ""),
+   629→                    "business_impact": rec.get("business_impact", ""),
+   630→                    "icon_id": catalog_entry.icon_id if catalog_entry else "",
+   631→                    "color_gradient": catalog_entry.color_gradient if catalog_entry else "",
+   632→                    "already_connected": key in connected_types,
+   633→                })
+   634→
+   635→            # Add any high-severity gaps that LLM might have missed
+   636→            for gap in gaps:
+   637→                if gap["severity"] == "high":
+   638→                    for rec_key in gap["recommended"]:
+   639→                        if rec_key not in seen_keys:
+   640→                            catalog_entry = get_integration_by_key(rec_key)
+   641→                            enriched.append({
+   642→                                "integration_key": rec_key,
+   643→                                "name": catalog_entry.name if catalog_entry else rec_key,
+   644→                                "category": gap.get("category", "unknown"),
+   645→                                "priority": "high",
+   646→                                "reason": gap.get("message", ""),
+   647→                                "business_impact": "Critical gap detected in your workflow",
+   648→                                "icon_id": catalog_entry.icon_id if catalog_entry else "",
+   649→                                "color_gradient": catalog_entry.color_gradient if catalog_entry else "",
+   650→                                "already_connected": rec_key in connected_types,
+   651→                            })
+   652→                            seen_keys.add(rec_key)
+   653→
+   654→            return enriched[:8]  # Max 8 recommendations to avoid overwhelm
+   655→
+   656→        except Exception as e:
+   657→            logger.error("LLM recommendation generation failed: %s", e)
+   658→            # Fallback: return gap-based recommendations without LLM
+   659→            return self._generate_fallback_recommendations(gaps, connected_types)
+   660→
+   661→    def _generate_fallback_recommendations(
+   662→        self,
+   663→        gaps: List[Dict[str, Any]],
+   664→        connected_types: List[str],
+   665→    ) -> List[Dict[str, Any]]:
+   666→        """Generate basic recommendations when LLM fails."""
+   667→        fallback = []
+   668→        seen = set()
+   669→
+   670→        for gap in gaps[:5]:  # Top 5 gaps only
+   671→            for key in gap.get("recommended", [])[:1]:  # Top rec per gap
+   672→                if key not in seen:
+   673→                    catalog_entry = get_integration_by_key(key)
+   674→                    fallback.append({
+   675→                        "integration_key": key,
+   676→                        "name": catalog_entry.name if catalog_entry else key,
+   677→                        "category": gap.get("category", "unknown"),
+   678→                        "priority": gap.get("severity", "medium"),
+   679→                        "reason": gap.get("message", ""),
+   680→                        "business_impact": "Recommended based on your data patterns",
+   681→                        "icon_id": catalog_entry.icon_id if catalog_entry else "",
+   682→                        "color_gradient": catalog_entry.color_gradient if catalog_entry else "",
+   683→                        "already_connected": key in connected_types,
+   684→                    })
+   685→                    seen.add(key)
+   686→
+   687→        return fallback
+   688→
+   689→    def _save_analysis_result(self, result: Dict[str, Any]) -> Optional[CRMAnalysisResult]:
+   690→        """Save analysis result to database for persistence."""
+   691→        try:
+   692→            # Check if recent analysis exists (avoid duplicates within 1 hour)
+   693→            from datetime import timedelta
+   694→            recent_cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
+   695→            
+   696→            existing = (
+   697→                self.db.query(CRMAnalysisResult)
+   698→                .filter(
+   699→                    CRMAnalysisResult.company_id == result["company_id"],
+   700→                    CRMAnalysisResult.analyzed_at >= recent_cutoff,
+   701→                )
+   702→                .first()
+   703→            )
+   704→            
+   705→            if existing:
+   706→                # Update existing record instead of creating duplicate
+   707→                existing.data_profile = result.get("data_profile", {})
+   708→                existing.connected_integrations = result.get("connected_integrations", [])
+   709→                existing.detected_gaps = result.get("detected_gaps", [])
+   710→                existing.recommendations = result.get("recommendations", [])
+   711→                existing.analysis_summary = result.get("analysis_summary", "")
+   712→                existing.updated_at = datetime.now(timezone.utc)
+   713→                self.db.commit()
+   714→                logger.info("Updated existing CRM analysis %s for company %s", 
+   715→                           existing.id[:8], result["company_id"])
+   716→                return existing
+   717→            
+   718→            # Create new record
+   719→            db_result = CRMAnalysisResult(
+   720→                company_id=result["company_id"],
+   721→                data_profile=result.get("data_profile", {}),
+   722→                connected_integrations=result.get("connected_integrations", []),
+   723→                detected_gaps=result.get("detected_gaps", []),
+   724→                recommendations=result.get("recommendations", []),
+   725→                analysis_summary=result.get("analysis_summary", ""),
+   726→                llm_model_used="z-ai/glm-5.2",
+   727→            )
+   728→            
+   729→            self.db.add(db_result)
+   730→            self.db.commit()
+   731→            self.db.refresh(db_result)
+   732→            
+   733→            logger.info("Saved CRM analysis %s for company %s (%d recs)", 
+   734→                       db_result.id[:8], result["company_id"], 
+   735→                       len(result.get("recommendations", [])))
+   736→            return db_result
+   737→            
+   738→        except Exception as e:
+   739→            logger.error("Failed to save CRM analysis result: %s", e)
+   740→            self.db.rollback()
+   741→            return None
+   742→
+   743→    def get_stored_analysis(
+   744→        self,
+   745→        company_id: str,
+   746→    ) -> Optional[Dict[str, Any]]:
+   747→        """Retrieve most recent stored analysis for a company.
+   748→        
+   749→        Used by Dashboard to show onboarding-time recommendations.
+   750→        """
+   751→        try:
+   752→            result = (
+   753→                self.db.query(CRMAnalysisResult)
+   754→                .filter(CRMAnalysisResult.company_id == company_id)
+   755→                .order_by(CRMAnalysisResult.analyzed_at.desc())
+   756→                .first()
+   757→            )
+   758→            
+   759→            if not result:
+   760→                return None
+   761→            
+   762→            return {
+   763→                "analysis_id": str(result.id),
+   764→                "company_id": result.company_id,
+   765→                "analyzed_at": result.analyzed_at.isoformat() if result.analyzed_at else None,
+   766→                "connected_integrations": result.connected_integrations or [],
+   767→                "data_profile": result.data_profile or {},
+   768→                "detected_gaps": result.detected_gaps or [],
+   769→                "recommendations": result.recommendations or [],
+   770→                "analysis_summary": result.analysis_summary or "",
+   771→                "is_actioned": result.is_actioned,
+   772→                "actioned_at": result.actioned_at.isoformat() if result.actioned_at else None,
+   773→                "llm_model_used": result.llm_model_used or "",
+   774→                "llm_tokens_used": result.llm_tokens_used or 0,
+   775→                "is_stored": True,
+   776→            }
+   777→            
+   778→        except Exception as e:
+   779→            logger.error("Failed to retrieve stored CRM analysis: %s", e)
+   780→            return None
+   781→
+   782→    def mark_recommendations_actioned(
+   783→        self,
+   784→        company_id: str,
+   785→        accepted_integration_keys: List[str],
+   786→    ) -> bool:
+   787→        """Mark that user acted on specific recommendations.
+   788→        
+   789→        Called when user connects an integration that was recommended.
+   790→        """
+   791→        try:
+   792→            result = (
+   793→                self.db.query(CRMAnalysisResult)
+   794→                .filter(CRMAnalysisResult.company_id == company_id)
+   795→                .order_by(CRMAnalysisResult.analyzed_at.desc())
+   796→                .first()
+   797→            )
+   798→            
+   799→            if not result:
+   800→                return False
+   801→            
+   802→            result.is_actioned = True
+   803→            result.actioned_at = datetime.now(timezone.utc)
+   804→            result.recommendations_accepted = accepted_integration_keys
+   805→            self.db.commit()
+   806→            
+   807→            logger.info("Marked CRM analysis %s as actioned with %d integrations", 
+   808→                       result.id[:8], len(accepted_integration_keys))
+   809→            return True
+   810→            
+   811→        except Exception as e:
+   812→            logger.error("Failed to mark CRM analysis as actioned: %s", e)
+   813→            self.db.rollback()
+   814→            return False
+   815→
+   816→    def _get_default_recommendations(self) -> List[Dict[str, Any]]:
+   817→        """Provide default recommendations for new users with 0 integrations.
+   818→        
+   819→        These are the most popular integrations that most businesses need
+   820→        to get started with Parwa.
+   821→        """
+   822→        default_keys = ["stripe", "mailchimp", "slack", "mixpanel", "zendesk"]
+   823→        defaults = []
+   824→        
+   825→        for key in default_keys:
+   826→            catalog_entry = get_integration_by_key(key)
+   827→            if catalog_entry:
+   828→                defaults.append({
+   829→                    "integration_key": key,
+   830→                    "name": catalog_entry.name,
+   831→                    "category": catalog_entry.category.value,
+   832→                    "priority": "medium",
+   833→                    "reason": self._get_default_reason(key),
+   834→                    "business_impact": "Essential integration to get started with Parwa",
+   835→                    "icon_id": catalog_entry.icon_id,
+   836→                    "color_gradient": catalog_entry.color_gradient,
+   837→                    "already_connected": False,
+   838→                    "is_default_recommendation": True,
+   839→                })
+   840→        
+   841→        return defaults
+   842→    
+   843→    def _get_default_reason(self, key: str) -> str:
+   844→        """Get reason for default recommendation."""
+   845→        reasons = {
+   846→            "stripe": "Accept payments online and manage subscriptions",
+   847→            "mailchimp": "Build email lists and run marketing campaigns",
+   848→            "slack": "Team communication and notifications",
+   849→            "mixpanel": "Track user behavior and product analytics",
+   850→            "zendesk": "Customer support ticket management",
+   851→        }
+   852→        return reasons.get(key, "Recommended for your business")
+   853→    
+   854→    def _build_summary(
+   855→        self,
+   856→        data_profile: Dict[str, Any],
+   857→        recommendations: List[Dict[str, Any]],
+   858→    ) -> str:
+   859→        """Build human-readable summary of the analysis."""
+   860→        high_priority = [r for r in recommendations if r.get("priority") == "high"]
+   861→        medium_priority = [r for r in recommendations if r.get("priority") == "medium"]
+   862→        
+   863→        # Check if these are default recommendations (new user)
+   864→        is_default = any(r.get("is_default_recommendation") for r in recommendations)
+   865→
+   866→        parts = []
+   867→        
+   868→        if is_default:
+   869→            # New user with no integrations
+   870→            parts.append(
+   871→                "Welcome to Parwa! Here are the top integrations we recommend "
+   872→                f"to get you started ({len(recommendations)} suggestions). "
+   873→                "Connect these to unlock the full power of your CRM workspace."
+   874→            )
+   875→        else:
+   876→            # Existing user with data
+   877→            parts.append(
+   878→                f"Based on your data ({data_profile.get('total_contacts', 0)} contacts, "
+   879→                f"{data_profile.get('total_orders', 0)} orders), ",
+   880→            )
+   881→
+   882→            if high_priority:
+   883→                parts.append(f"we found {len(high_priority)} urgent integration(s) you should add: ")
+   884→                parts.append(", ".join(r["name"] for r in high_priority[:3]))
+   885→                if len(high_priority) > 3:
+   886→                    parts.append(f", and {len(high_priority) - 3} more")
+   887→                parts.append(". ")
+   888→
+   889→            if medium_priority:
+   890→                parts.append(f"We also suggest {len(medium_priority)} optional improvement(s).")
+   891→
+   892→            if not high_priority and not medium_priority:
+   893→                parts.append("your integration setup looks good! No critical gaps detected.")
+   894→
+   895→        return "".join(parts)
+   896→

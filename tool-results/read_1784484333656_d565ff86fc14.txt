@@ -1,0 +1,961 @@
+     1→"""
+     2→PARWA FastAPI Application (BC-012)
+     3→
+     4→Main FastAPI app with:
+     5→- Health/ready/metrics endpoints (BC-012)
+     6→- Structured JSON error responses (BC-012)
+     7→- No stack traces to users (BC-012)
+     8→- OpenAPI schema hidden when DEBUG=False (BC-011)
+     9→- Redis connection pool + tenant-scoped keys (BC-001)
+    10→- Socket.io server with tenant rooms (BC-005)
+    11→- Event buffer for reconnection recovery (BC-005)
+    12→- Middleware wired: error_handler, request_logger, tenant, rate_limit
+    13→- APIKeyAuthMiddleware wired (BC-011)
+    14→- CORS middleware configured (frontend cross-origin access)
+    15→- Security headers middleware (HSTS, CSP, X-Frame-Options)
+    16→"""
+    17→
+    18→from contextlib import asynccontextmanager
+    19→import os
+    20→
+    21→from fastapi import Depends, FastAPI, Query, Request
+    22→from fastapi.middleware.cors import CORSMiddleware
+    23→from fastapi.responses import JSONResponse
+    24→
+    25→from app.config import get_settings
+    26→from app.exceptions import (
+    27→    AuthenticationError,
+    28→    AuthorizationError,
+    29→    NotFoundError,
+    30→    ParwaBaseError,
+    31→    RateLimitError,
+    32→    ValidationError,
+    33→)
+    34→from app.logger import configure_logging, get_logger
+    35→from app.middleware.error_handler import ErrorHandlerMiddleware
+    36→from app.middleware.tenant import TenantMiddleware
+    37→from app.middleware.rate_limit import RateLimitMiddleware
+    38→from app.middleware.request_logger import RequestLoggerMiddleware
+    39→from app.middleware.security_headers import (
+    40→    SecurityHeadersMiddleware,
+    41→)
+    42→from app.middleware.csrf import CSRFSecurityMiddleware
+    43→from app.middleware.api_key_auth import APIKeyAuthMiddleware
+    44→from app.middleware.ip_allowlist import (
+    45→    IPAllowlistMiddleware,
+    46→)
+    47→from app.middleware.activity_capture import ActivityCaptureMiddleware
+    48→from app.middleware.ai_entitlement import (
+    49→    AIEntitlementMiddleware,
+    50→)
+    51→from app.api.auth import router as auth_router
+    52→from app.api.mfa import router as mfa_router
+    53→from app.api.api_keys import router as api_keys_router
+    54→from app.api.client import router as client_router
+    55→from app.api.admin import router as admin_router
+    56→from app.api.admin_bootstrap import router as admin_bootstrap_router
+    57→from app.api.webhooks import router as webhook_router
+    58→from app.api.health import router as health_router
+    59→from app.api.user_details import router as user_details_router
+    60→from app.api.public import router as public_router
+    61→from app.api.pricing import router as pricing_router
+    62→from app.api.ai_engine import router as ai_engine_router
+    63→from app.api.ai_agent import router as ai_agent_router
+    64→from app.api.builder_agent import router as builder_agent_router  # Builder Agent: 4-stage agent creation pipeline
+    65→from app.api.jarvis import router as jarvis_router
+    66→from app.api.jarvis_cc import router as jarvis_cc_router
+    67→from app.api.onboarding_jarvis import router as onboarding_jarvis_router  # Onboarding Jarvis AI chat (LangGraph + orchestrator)
+    68→from app.api.onboarding import router as onboarding_router
+    69→from app.api.integrations import router as integrations_router
+    70→from app.api.crm_actions import router as crm_actions_router  # CRM action endpoints (called by MCP crm_server)
+    71→from app.api.ecommerce_actions import router as ecommerce_actions_router  # E-commerce action endpoints (called by MCP ecommerce_server)
+    72→from app.api.carrier_actions import router as carrier_actions_router  # Carrier action endpoints (called by MCP carrier_server)
+    73→from app.api.jarvis_integrations import router as jarvis_integrations_router  # Jarvis onboarding integration setup
+    74→from app.api.jarvis_onboarding import router as jarvis_onboarding_router  # Jarvis onboarding backend (awareness bridge)
+    75→from app.api.jarvis_routes import router as jarvis_routes_router  # Jarvis 3-Node Pipeline: SENSE→EVALUATE→NOTIFY (30+ endpoints)
+    76→from app.api.knowledge_base import router as knowledge_base_router
+    77→from app.api.verification import router as verification_router  # Week 6 Day 10-11: Business Email OTP
+    78→from app.api.ticket_analytics import router as analytics_router  # Phase 4: Ticket analytics dashboard
+    79→from app.api.email_channel import router as email_channel_router  # Week 13 Day 1: Email channel admin endpoints
+    80→from app.api.ooo_detection import router as ooo_detection_router  # Week 13 Day 3: OOO detection endpoints (F-122)
+    81→from app.api.bounce_complaint import router as bounce_complaint_router  # Week 13 Day 3: Bounce/complaint endpoints (F-124)
+    82→from app.api.chat_widget import router as chat_widget_router  # Week 13 Day 4: Chat widget endpoints (F-122)
+    83→from app.api.sms_channel import router as sms_channel_router  # Week 13 Day 5: SMS channel endpoints (F-123)
+    84→from app.api.voice_channel import router as voice_channel_router  # Voice Channel: Twilio voice calls, call history, config
+    85→from app.api.workflow import router as workflow_router  # Week 10: Workflow API (now with LangGraph multi-agent)
+    86→from app.api.tickets import router as tickets_router  # BUG-3 FIX: Day 26 Ticket CRUD (was dead code in api_router)
+    87→from app.api.technique_config import router as technique_config_router  # BUG-3 FIX: SG-17 Technique Config Admin (was dead code in api_router)
+    88→
+    89→# ── Previously Unregistered Routers (80+ dead endpoints now live) ──
+    90→from app.api.billing import router as billing_router  # Billing CRUD + Paddle integration
+    91→from app.api.billing_razorpay import router as billing_razorpay_router  # NEW: Razorpay billing endpoints
+    92→from app.api.razorpay_checkout import router as razorpay_checkout_router  # Razorpay Standard Checkout
+    93→from app.api.billing_webhooks import router as billing_webhooks_router  # Paddle webhook endpoints
+    94→from app.api.notifications import router as notifications_router  # Notification CRUD + preferences
+    95→from app.api.customers import router as customers_router  # Customer management
+    96→from app.api.sla import router as sla_router  # SLA policy management
+    97→from app.api.channels import router as channels_router  # Channel management
+    98→from app.api.identity import router as identity_router  # Identity resolution
+    99→from app.api.cross_channel import router as cross_channel_router  # Cross-channel customer recognition (Phase 8)
+   100→from app.api.integration_cache import router as integration_cache_router  # Integration data cache (Phase 7)
+   101→from app.api.custom_fields import router as custom_fields_router  # Custom field CRUD
+   102→from app.api.triggers import router as triggers_router  # Trigger management
+   103→from app.api.ticket_lifecycle import router as ticket_lifecycle_router  # Ticket lifecycle (escalate, reopen, freeze)
+   104→from app.api.ticket_lifecycle import incident_router  # Incident management
+   105→from app.api.ticket_lifecycle import spam_router  # Spam moderation
+   106→from app.api.ticket_messages import router as ticket_messages_router  # Ticket messages
+   107→from app.api.ticket_notes import router as ticket_notes_router  # Internal notes
+   108→from app.api.ticket_bulk import router as ticket_bulk_router  # Bulk ticket actions
+   109→from app.api.ticket_merge import router as ticket_merge_router  # Ticket merging
+   110→from app.api.ticket_search import router as ticket_search_router  # Ticket search
+   111→from app.api.ticket_timeline import router as ticket_timeline_router  # Ticket timeline
+   112→from app.api.ticket_assignment import router as ticket_assignment_router  # Ticket assignment
+   113→from app.api.ticket_assignment import rules_router as assignment_rules_router  # Assignment rules
+   114→from app.api.ticket_classification import router as ticket_classification_router  # Ticket classification
+   115→from app.api.ticket_templates import router as ticket_templates_router  # Ticket templates
+   116→from app.api.collisions import router as collisions_router  # Collision detection
+   117→from app.api.classification import router as classification_router  # Text classification
+   118→from app.api.signals import router as signals_router  # Signal extraction
+   119→from app.api.ai_classification import router as ai_classification_router  # AI classification
+   120→from app.api.ai_signals import router as ai_signals_router  # AI signal extraction
+   121→from app.api.rag import router as rag_router  # RAG retrieval
+   122→from app.api.response import router as response_api_router  # Response generation + brand voice + assignment + migration
+   123→from app.api.system_health import router as system_health_router  # System health monitoring for frontend dashboard
+   124→from app.api.approval import router as approval_router  # Approval queue + auto-approve rules
+   125→from app.api.audit import router as audit_router  # Phase 9: Audit trail & AI action logging
+   126→from app.api.escalation import router as escalation_router  # Escalation dashboard (was missing — caused 404s)
+   127→from app.api.dlq import router as dlq_router  # BC-018: DLQ ops dashboard + CRM-DLQ tile
+   128→from app.api.shadow_mode import router as shadow_mode_router  # Shadow Mode variant deployment dashboard
+   129→from app.api.debug import router as debug_router  # Debug endpoints for LLM testing
+   130→
+   131→from app.api.deps import get_current_user
+   132→from database.models.core import User
+   133→
+   134→# Import webhook handlers so their @register_handler decorators fire and
+   135→# populate the registry. These modules have no other import side-effects.
+   136→import app.webhooks.paddle_handler   # noqa: F401, E402
+   137→import app.webhooks.brevo_handler    # noqa: F401, E402
+   138→import app.webhooks.twilio_handler   # noqa: F401, E402
+   139→import app.webhooks.shopify_handler  # noqa: F401, E402
+   140→
+   141→# Track if logging has been configured (idempotent)
+   142→_logging_configured = False
+   143→
+   144→# Current environment (set at import time for test route guards)
+   145→_CURRENT_ENV = os.environ.get("ENVIRONMENT", "development")
+   146→
+   147→
+   148→def _ensure_logging():
+   149→    """Ensure logging is configured (safe to call multiple times)."""
+   150→    global _logging_configured  # noqa: PLW0603
+   151→    if not _logging_configured:
+   152→        env = os.environ.get("ENVIRONMENT", "production")
+   153→        configure_logging(env)
+   154→        _logging_configured = True
+   155→
+   156→
+   157→@asynccontextmanager
+   158→async def lifespan(app: FastAPI):
+   159→    """Application lifespan: startup and shutdown.
+   160→
+   161→    Startup:
+   162→    - Configure structured logging
+   163→    - Run database migrations (Alembic)
+   164→    - OpenAPI visibility based on DEBUG flag (BC-011)
+   165→    - Initialize Redis connection pool
+   166→    - Register Socket.io ASGI app
+   167→    - Pre-load Jarvis knowledge base
+   168→
+   169→    Shutdown:
+   170→    - Close Redis connection pool
+   171→    - Log shutdown event
+   172→    """
+   173→    settings = get_settings()
+   174→    configure_logging(settings.ENVIRONMENT)
+   175→
+   176→    # ── LLM Environment Bootstrap ──────────────────────────────────
+   177→    # LiteLLM requires GEMINI_API_KEY for gemini/ prefix models.
+   178→    # Render provides GOOGLE_AI_API_KEY; copy it so LiteLLM can find it.
+   179→    if not os.environ.get("GEMINI_API_KEY") and os.environ.get("GOOGLE_AI_API_KEY"):
+   180→        os.environ["GEMINI_API_KEY"] = os.environ["GOOGLE_AI_API_KEY"]
+   181→    # Ensure LLM_PROVIDER defaults to litellm for production
+   182→    if not os.environ.get("LLM_PROVIDER"):
+   183→        os.environ["LLM_PROVIDER"] = "litellm"
+   184→    # Log LLM configuration at startup
+   185→    _lifespan_logger = get_logger("lifespan")
+   186→    _lifespan_logger.info(
+   187→        "llm_env_bootstrapped",
+   188→        provider=os.environ.get("LLM_PROVIDER", "unset"),
+   189→        has_gemini_key=bool(os.environ.get("GEMINI_API_KEY")),
+   190→        has_groq_key=bool(os.environ.get("GROQ_API_KEY")),
+   191→        has_cerebras_key=bool(os.environ.get("CEREBRAS_API_KEY")),
+   192→    )
+   193→
+   194→    # Phase 6: Initialize Sentry error monitoring
+   195→    try:
+   196→        from app.core.sentry import init_sentry
+   197→        sentry_initialized = init_sentry()
+   198→        logger = get_logger("lifespan")
+   199→        logger.info("sentry_initialized", status=sentry_initialized)
+   200→    except Exception as exc:
+   201→        logger = get_logger("lifespan")
+   202→        logger.warning("sentry_init_failed", error=str(exc))
+   203→
+   204→    # ── Run Alembic migrations on startup ──
+   205→    try:
+   206→        import subprocess
+   207→        import pathlib
+   208→        # Resolve database directory:
+   209→        # - DATABASE_DIR env var takes priority (e.g. for custom Docker layouts)
+   210→        # - Docker: /app/database (buildContext is backend/, so backend/database -> /app/database)
+   211→        # - Local: backend/database relative to this file
+   212→        _db_dir = os.environ.get("DATABASE_DIR", "")
+   213→        if not _db_dir or not pathlib.Path(_db_dir).exists():
+   214→            for candidate in [
+   215→                pathlib.Path("/app/database"),
+   216→                pathlib.Path(__file__).resolve().parents[1] / "database",
+   217→            ]:
+   218→                if candidate.exists():
+   219→                    _db_dir = str(candidate)
+   220→                    break
+   221→        if _db_dir:
+   222→            # Use sys.executable -m alembic for reliable discovery (the
+   223→            # bare `alembic` command may not be in PATH inside Docker).
+   224→            import sys as _sys
+   225→            result = subprocess.run(
+   226→                [_sys.executable, "-m", "alembic", "-c", f"{_db_dir}/alembic.ini", "upgrade", "head"],
+   227→                cwd=_db_dir,
+   228→                capture_output=True,
+   229→                text=True,
+   230→                timeout=120,
+   231→            )
+   232→            if result.returncode == 0:
+   233→                logger = get_logger("lifespan")
+   234→                logger.info("alembic_migrations_completed")
+   235→            else:
+   236→                logger = get_logger("lifespan")
+   237→                logger.warning(
+   238→                    "alembic_migrations_failed",
+   239→                    returncode=result.returncode,
+   240→                    stdout=result.stdout[:500] if result.stdout else "",
+   241→                    stderr=result.stderr[:500] if result.stderr else "",
+   242→                )
+   243→        else:
+   244→            logger = get_logger("lifespan")
+   245→            logger.warning("alembic_skipped_database_dir_not_found")
+   246→    except Exception as exc:
+   247→        logger = get_logger("lifespan")
+   248→        logger.warning("alembic_migrations_error", error=str(exc))
+   249→
+   250→    # ── Direct SQL fallback for trial columns ──
+   251→    # If alembic failed to run migration 032 (e.g., due to PATH issues
+   252→    # in the Docker container), add the trial columns directly via SQL.
+   253→    # This is idempotent — uses IF NOT EXISTS so it's safe to run every
+   254→    # startup. Once alembic catches up, this becomes a no-op.
+   255→    try:
+   256→        from sqlalchemy import text as _sql_text
+   257→        from database.base import SessionLocal as _SL
+   258→        _db = _SL()
+   259→        try:
+   260→            _db.execute(_sql_text("ALTER TABLE companies ADD COLUMN IF NOT EXISTS is_trial BOOLEAN NOT NULL DEFAULT false"))
+   261→            _db.execute(_sql_text("ALTER TABLE companies ADD COLUMN IF NOT EXISTS trial_started_at TIMESTAMP WITH TIME ZONE"))
+   262→            _db.execute(_sql_text("ALTER TABLE companies ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMP WITH TIME ZONE"))
+   263→            _db.execute(_sql_text("ALTER TABLE companies ADD COLUMN IF NOT EXISTS trial_tickets_used INTEGER NOT NULL DEFAULT 0"))
+   264→            _db.commit()
+   265→            _lg = get_logger("lifespan")
+   266→            _lg.info("trial_columns_ensured_via_sql_fallback")
+   267→        finally:
+   268→            _db.close()
+   269→    except Exception as exc:
+   270→        _lg = get_logger("lifespan")
+   271→        _lg.warning("trial_columns_sql_fallback_failed", error=str(exc))
+   272→
+   273→    # Hide OpenAPI schema when not in debug mode (BC-011)
+   274→    if settings.DEBUG:
+   275→        app.docs_url = "/docs"
+   276→        app.redoc_url = "/redoc"
+   277→        app.openapi_url = "/openapi.json"
+   278→    else:
+   279→        app.docs_url = None
+   280→        app.redoc_url = None
+   281→        app.openapi_url = None
+   282→
+   283→    # Initialize Redis connection pool (BC-012: fail-open on error)
+   284→    try:
+   285→        from app.core.redis import get_redis
+   286→        redis_client = await get_redis()
+   287→        await redis_client.ping()
+   288→        logger = get_logger("lifespan")
+   289→        logger.info("redis_initialized")
+   290→    except Exception as exc:
+   291→        logger = get_logger("lifespan")
+   292→        logger.warning(
+   293→            "redis_init_failed_fail_open",
+   294→            error=str(exc),
+   295→        )
+   296→
+   297→    # Register Socket.io ASGI app on /ws path
+   298→    try:
+   299→        from app.core.socketio import create_socketio_app
+   300→        socketio_app = create_socketio_app()
+   301→        app.mount("/ws", socketio_app)
+   302→        logger.info("socketio_mounted", path="/ws")
+   303→    except Exception as exc:
+   304→        logger = get_logger("lifespan")
+   305→        logger.warning(
+   306→            "socketio_mount_failed",
+   307→            error=str(exc),
+   308→        )
+   309→
+   310→    # Phase 7: Pre-load Jarvis knowledge base at startup
+   311→    try:
+   312→        from app.services.jarvis_knowledge_service import load_all_knowledge
+   313→        load_all_knowledge()
+   314→        logger = get_logger("lifespan")
+   315→        logger.info("jarvis_knowledge_loaded")
+   316→    except Exception as exc:
+   317→        logger = get_logger("lifespan")
+   318→        logger.warning(
+   319→            "jarvis_knowledge_load_failed",
+   320→            error=str(exc),
+   321→        )
+   322→
+   323→    # Phase 4: Pre-build unified 8-node PARWA pipeline at startup
+   324→    try:
+   325→        from app.core.parwa_pipeline.graph_v2 import build_parwa_pipeline
+   326→        _parwa_graph = build_parwa_pipeline()
+   327→        _compiled = _parwa_graph.compile()
+   328→        # Store graph on app.state for API endpoints to use
+   329→        app.state.parwa_graph = _compiled
+   330→        logger = get_logger("lifespan")
+   331→        logger.info(
+   332→            "parwa_pipeline_v2_initialized",
+   333→            node_count=8,
+   334→            pipeline_type="unified_8node",
+   335→        )
+   336→    except Exception as exc:
+   337→        logger = get_logger("lifespan")
+   338→        logger.warning(
+   339→            "parwa_pipeline_init_failed_fail_open",
+   340→            error=str(exc),
+   341→            message="PARWA pipeline will be built on first request",
+   342→        )
+   343→        app.state.parwa_graph = None
+   344→
+   345→    # Phase 2: Initialize Rust parwa_core bridge (Tier-1 hot-path replacement)
+   346→    try:
+   347→        from app.core.parwa_core_bridge import (
+   348→            is_parwa_core_available,
+   349→            get_parwa_rate_limiter,
+   350→            get_parwa_circuit_breaker,
+   351→            get_parwa_pii_redactor,
+   352→            get_bridge_diagnostics,
+   353→        )
+   354→        rust_available = is_parwa_core_available()
+   355→        if rust_available:
+   356→            # Pre-initialize singletons so they're warm before first request
+   357→            get_parwa_rate_limiter()
+   358→            get_parwa_circuit_breaker()
+   359→            get_parwa_pii_redactor()
+   360→            diagnostics = get_bridge_diagnostics()
+   361→            logger = get_logger("lifespan")
+   362→            logger.info(
+   363→                "parwa_core_initialized",
+   364→                rust_available=True,
+   365→                diagnostics=diagnostics,
+   366→            )
+   367→        else:
+   368→            logger = get_logger("lifespan")
+   369→            logger.warning(
+   370→                "parwa_core_not_available_fallback_to_python",
+   371→                rust_available=False,
+   372→            )
+   373→    except Exception as exc:
+   374→        logger = get_logger("lifespan")
+   375→        logger.warning(
+   376→            "parwa_core_init_failed_fallback_to_python",
+   377→            error=str(exc),
+   378→        )
+   379→
+   380→    logger = get_logger("lifespan")
+   381→    logger.info(
+   382→        "parwa_startup",
+   383→        environment=settings.ENVIRONMENT,
+   384→        version=settings.APP_VERSION,
+   385→    )
+   386→
+   387→    # ── Gap 6: Auto-resume pending escalations every 5 minutes ──
+   388→    # Celery beat is configured but the worker isn't running on Render free
+   389→    # tier. This lightweight in-process loop ensures escalations with human
+   390→    # guidance get re-processed automatically without requiring a human to
+   391→    # click "Resume" in the dashboard. Runs as a fire-and-forget background
+   392→    # task; all errors are caught and logged so the loop never dies.
+   393→    import asyncio
+   394→
+   395→    async def _auto_resume_escalations_loop():
+   396→        # Wait 60s after startup before first run (let other services init)
+   397→        await asyncio.sleep(60)
+   398→        while True:
+   399→            try:
+   400→                from database.base import SessionLocal
+   401→                from database.models.core import Company
+   402→                from app.core.escalation_vault.resume_pipeline import auto_resume_pending
+   403→
+   404→                db = SessionLocal()
+   405→                try:
+   406→                    companies = db.query(Company).filter(
+   407→                        Company.subscription_status == "active",
+   408→                    ).all()
+   409→                    total_resumed = 0
+   410→                    for company in companies:
+   411→                        try:
+   412→                            result = await auto_resume_pending(str(company.id))
+   413→                            resumed = result.get("resolved", 0)
+   414→                            if resumed > 0:
+   415→                                total_resumed += resumed
+   416→                                logger.info(
+   417→                                    "auto_resume_loop: company=%s resumed=%d",
+   418→                                    str(company.id)[:8], resumed,
+   419→                                )
+   420→                        except Exception as company_exc:
+   421→                            logger.warning(
+   422→                                "auto_resume_company_failed company=%s err=%s",
+   423→                                str(company.id)[:8], str(company_exc)[:200],
+   424→                            )
+   425→                    if total_resumed > 0:
+   426→                        logger.info(
+   427→                            "auto_resume_loop_complete: total_resumed=%d companies=%d",
+   428→                            total_resumed, len(companies),
+   429→                        )
+   430→                finally:
+   431→                    db.close()
+   432→            except Exception as loop_exc:
+   433→                logger.warning(
+   434→                    "auto_resume_loop_error err=%s",
+   435→                    str(loop_exc)[:200],
+   436→                )
+   437→            # Sleep 5 minutes before next run
+   438→            await asyncio.sleep(300)
+   439→
+   440→    asyncio.create_task(_auto_resume_escalations_loop())
+   441→    logger.info("auto_resume_escalations_loop_started (runs every 5 min)")
+   442→
+   443→    # ── Start the DB-backed pipeline worker pool ──────────────────
+   444→    # 7 persistent workers poll the database for tickets with status='open'
+   445→    # and process them. This starts on server startup so tickets are picked
+   446→    # up immediately, even after a server restart.
+   447→    try:
+   448→        from app.services.pipeline_dispatcher import _start_pipeline_workers
+   449→        _start_pipeline_workers()
+   450→        logger.info("pipeline_worker_pool_started_on_startup")
+   451→    except Exception as exc:
+   452→        logger.warning("pipeline_worker_pool_start_failed: %s", str(exc)[:200])
+   453→
+   454→    # ── Stuck-ticket recovery loop ─────────────────────────────────
+   455→    # If a ticket's background dispatch thread fails to start (crash, OOM,
+   456→    # server restart), the ticket stays "open" forever with no AI response.
+   457→    # This loop checks every 3 minutes for tickets stuck in "open" status
+   458→    # for more than 15 minutes and re-dispatches them.
+   459→    #
+   460→    # IMPORTANT: The cutoff is 15 minutes (not 5) because with 7 concurrent
+   461→    # pipelines, a queue of 25 tickets takes ~4 minutes to drain. A 5-min
+   462→    # cutoff would re-dispatch tickets that are just waiting in the queue,
+   463→    # creating duplicate threads and causing OOM crashes.
+   464→    async def _stuck_ticket_recovery_loop():
+   465→        await asyncio.sleep(180)  # Wait 3 min after startup
+   466→        while True:
+   467→            try:
+   468→                from database.base import SessionLocal
+   469→                from database.models.tickets import Ticket, TicketMessage
+   470→                from datetime import datetime, timezone, timedelta
+   471→                from app.services.pipeline_dispatcher import dispatch_pipeline_for_ticket
+   472→
+   473→                db = SessionLocal()
+   474→                try:
+   475→                    # Re-dispatch tickets stuck in 'open' for >15 min
+   476→                    # (truly orphaned — never picked up by workers)
+   477→                    cutoff = datetime.now(timezone.utc) - timedelta(minutes=15)
+   478→                    stuck_tickets = db.query(Ticket).filter(
+   479→                        Ticket.status == "open",
+   480→                        Ticket.created_at < cutoff,
+   481→                    ).limit(5).all()
+   482→
+   483→                    # Also re-dispatch tickets stuck in 'processing' for >5 min
+   484→                    # (worker crashed mid-pipeline — reset to open so workers
+   485→                    # pick them up again)
+   486→                    processing_cutoff = datetime.now(timezone.utc) - timedelta(minutes=5)
+   487→                    stuck_processing = db.query(Ticket).filter(
+   488→                        Ticket.status == "processing",
+   489→                        Ticket.updated_at < processing_cutoff,
+   490→                    ).limit(5).all()
+   491→
+   492→                    all_stuck = stuck_tickets + stuck_processing
+   493→
+   494→                    if all_stuck:
+   495→                        logger.info(
+   496→                            "stuck_ticket_recovery: %d open + %d processing stuck",
+   497→                            len(stuck_tickets), len(stuck_processing),
+   498→                        )
+   499→
+   500→                    for ticket in all_stuck:
+   501→                        try:
+   502→                            # If ticket is stuck in 'processing', reset to 'open'
+   503→                            # so the DB-backed workers pick it up again
+   504→                            if ticket.status == "processing":
+   505→                                ticket.status = "open"
+   506→                                db.commit()
+   507→                                logger.info(
+   508→                                    "stuck_ticket_recovery: reset processing→open ticket %s",
+   509→                                    str(ticket.id)[:8],
+   510→                                )
+   511→                                continue
+   512→
+   513→                            # For 'open' tickets: check if AI message exists
+   514→                            has_ai = db.query(TicketMessage).filter(
+   515→                                TicketMessage.ticket_id == str(ticket.id),
+   516→                                TicketMessage.role == "ai",
+   517→                            ).first()
+   518→
+   519→                            if has_ai:
+   520→                                # Pipeline ran but didn't update status — mark as awaiting_human
+   521→                                ticket.status = "awaiting_human"
+   522→                                ticket.awaiting_human = True
+   523→                                db.commit()
+   524→                                logger.info(
+   525→                                    "stuck_ticket_recovery: ticket %s had AI msg, marking awaiting_human",
+   526→                                    str(ticket.id)[:8],
+   527→                                )
+   528→                            else:
+   529→                                # No AI message — pipeline never ran. Re-dispatch.
+   530→                                logger.info(
+   531→                                    "stuck_ticket_recovery: re-dispatching ticket %s",
+   532→                                    str(ticket.id)[:8],
+   533→                                )
+   534→                                dispatch_pipeline_for_ticket(
+   535→                                    ticket_id=str(ticket.id),
+   536→                                    company_id=ticket.company_id,
+   537→                                    priority=ticket.priority or "medium",
+   538→                                    channel="email",
+   539→                                    sync=True,
+   540→                                )
+   541→                        except Exception as ticket_exc:
+   542→                            logger.warning(
+   543→                                "stuck_ticket_recovery: failed for ticket %s: %s",
+   544→                                str(ticket.id)[:8], str(ticket_exc)[:150],
+   545→                            )
+   546→                finally:
+   547→                    db.close()
+   548→            except Exception as recovery_exc:
+   549→                logger.warning(
+   550→                    "stuck_ticket_recovery_loop_error: %s",
+   551→                    str(recovery_exc)[:200],
+   552→                )
+   553→            # Check every 3 minutes (was 2 — increased to reduce thread pile-up)
+   554→            await asyncio.sleep(180)
+   555→
+   556→    asyncio.create_task(_stuck_ticket_recovery_loop())
+   557→    logger.info("stuck_ticket_recovery_loop_started (checks every 3 min, cutoff 15 min)")
+   558→
+   559→    yield
+   560→
+   561→    # Shutdown: flush Sentry events
+   562→    try:
+   563→        from app.core.sentry import flush as sentry_flush
+   564→        sentry_flush(timeout=2.0)
+   565→    except Exception as exc:
+   566→        logger.warning("sentry_flush_error", error=str(exc))
+   567→
+   568→    # Shutdown: close Redis pool
+   569→    try:
+   570→        from app.core.redis import close_redis
+   571→        await close_redis()
+   572→        logger.info("redis_closed")
+   573→    except Exception as exc:
+   574→        logger.warning("redis_close_error", error=str(exc))
+   575→
+   576→    logger.info("parwa_shutdown")
+   577→
+   578→
+   579→# Load settings early to configure docs visibility at construction time.
+   580→# This avoids the issue where setting docs_url after construction does not
+   581→# register the OpenAPI routes (FastAPI registers routes at init time).
+   582→try:
+   583→    _init_settings = get_settings()
+   584→    _docs_url = "/docs" if _init_settings.DEBUG else None
+   585→    _redoc_url = "/redoc" if _init_settings.DEBUG else None
+   586→    _openapi_url = "/openapi.json" if _init_settings.DEBUG else None
+   587→except Exception:
+   588→    _docs_url = None
+   589→    _redoc_url = None
+   590→    _openapi_url = None
+   591→
+   592→app = FastAPI(
+   593→    title="PARWA API",
+   594→    description="AI-Powered Customer Support Platform",
+   595→    version=_init_settings.APP_VERSION,  # R-05: Single source of truth from config
+   596→    lifespan=lifespan,
+   597→    docs_url=_docs_url,
+   598→    redoc_url=_redoc_url,
+   599→    openapi_url=_openapi_url,
+   600→)
+   601→
+   602→
+   603→# ── Middleware Stack (order matters: outermost first) ──────────────
+   604→
+   605→# 1. Error handler (outermost) — correlation ID + structured errors
+   606→app.add_middleware(ErrorHandlerMiddleware)
+   607→
+   608→# 2. Request logger — audit trail for every request
+   609→app.add_middleware(RequestLoggerMiddleware)
+   610→
+   611→# 3. Activity capture — records non-agentic actions for Jarvis awareness
+   612→app.add_middleware(ActivityCaptureMiddleware)
+   613→
+   614→# 4. AI Entitlement — Week 8: feature gating for /api/ai/ paths
+   615→#    CRITICAL ORDERING: In Starlette, middleware added LATER runs EARLIER
+   616→#    in the request cycle. AIEntitlementMiddleware reads request.state.company_id
+   617→#    which is set by TenantMiddleware. So TenantMiddleware must run FIRST
+   618→#    (be added AFTER AIEntitlementMiddleware). This is why we add
+   619→#    AIEntitlementMiddleware here at #4, BEFORE TenantMiddleware at #5.
+   620→app.add_middleware(AIEntitlementMiddleware)
+   621→
+   622→# 5. Tenant middleware — BC-001 multi-tenant isolation
+   623→#    Runs AFTER AIEntitlementMiddleware in the request cycle (because it's
+   624→#    added later), so request.state.company_id IS set when AI entitlement
+   625→#    checks it.
+   626→app.add_middleware(TenantMiddleware)
+   627→
+   628→# 6. Rate limit middleware — BC-011/BC-012 rate limiting
+   629→app.add_middleware(RateLimitMiddleware)
+   630→
+   631→# 7. API Key auth — BC-011
+   632→app.add_middleware(APIKeyAuthMiddleware)
+   633→
+   634→# 8. Security headers — BC-011/BC-012
+   635→app.add_middleware(SecurityHeadersMiddleware)
+   636→
+   637→# 9. CSRF protection — Origin/Referer validation + double-submit cookie
+   638→app.add_middleware(CSRFSecurityMiddleware)
+   639→
+   640→# 10. IP allowlist — BC-012 (disabled by default)
+   641→# Set IP_ALLOWLIST_ENABLED=true to activate
+   642→app.add_middleware(IPAllowlistMiddleware)
+   643→
+   644→# 11. CORS middleware (frontend cross-origin access)
+   645→# SECURITY (C-05, L-16): Never fall back to wildcard ["*"] when
+   646→# allow_credentials=True. CORS origins must always be explicit,
+   647→# even when OpenAPI docs are hidden in non-debug mode.
+   648→# Per CORS spec, browsers reflect the requesting origin with credentials,
+   649→# effectively allowing any website to make credentialed requests.
+   650→try:
+   651→    _settings = get_settings()
+   652→    _cors_origins = (
+   653→        [o.strip() for o in _settings.CORS_ORIGINS.split(",") if o.strip()]
+   654→        if _settings.CORS_ORIGINS
+   655→        else [_settings.FRONTEND_URL]
+   656→    )
+   657→except Exception:
+   658→    # Fail closed: restrict to localhost rather than open wildcard
+   659→    _cors_origins = ["http://localhost:3000"]
+   660→
+   661→app.add_middleware(
+   662→    CORSMiddleware,
+   663→    allow_origins=_cors_origins,
+   664→    # Allow Vercel preview deployments
+   665→    # e.g. chat1-fixes-parwa.vercel.app, parwa-git-main-abhaythakur754-0.vercel.app
+   666→    allow_origin_regex=r"https://[a-z0-9\-]+\.(vercel\.app)|https://[a-z0-9\-]+--[a-z0-9\-]+\.vercel\.app",
+   667→    allow_credentials=True,
+   668→    allow_methods=["*"],
+   669→    allow_headers=["*"],
+   670→)
+   671→
+   672→
+   673→# ── Routers ────────────────────────────────────────────────────────
+   674→
+   675→app.include_router(health_router)
+   676→app.include_router(auth_router)
+   677→app.include_router(mfa_router)
+   678→app.include_router(api_keys_router)
+   679→app.include_router(client_router)
+   680→app.include_router(admin_router)
+   681→app.include_router(admin_bootstrap_router)
+   682→app.include_router(webhook_router)
+   683→app.include_router(user_details_router)
+   684→app.include_router(public_router)  # Public API for landing page (no auth required)
+   685→app.include_router(pricing_router)  # Pricing API (no auth required)
+   686→app.include_router(ai_engine_router)  # Week 8: AI Engine endpoints
+   687→app.include_router(ai_agent_router)  # SG-21/SG-22: AI agent assignments
+   688→app.include_router(builder_agent_router)  # Builder Agent: 4-stage agent creation + custom categories
+   689→app.include_router(jarvis_router)  # Week 6: Jarvis onboarding chat
+   690→app.include_router(jarvis_cc_router)  # Phase 2+: Jarvis Customer Care (awareness + commands)
+   691→app.include_router(onboarding_jarvis_router)  # Onboarding Jarvis AI chat (LangGraph + orchestrator)
+   692→app.include_router(onboarding_router)  # Week 6: Onboarding wizard (F-028 to F-035)
+   693→app.include_router(integrations_router)  # Week 6: Integration management (F-030/F-031)
+   694→app.include_router(crm_actions_router)  # CRM action endpoints (called by MCP crm_server)
+   695→app.include_router(ecommerce_actions_router)  # E-commerce action endpoints (called by MCP ecommerce_server)
+   696→app.include_router(carrier_actions_router)  # Carrier action endpoints (called by MCP carrier_server)
+   697→app.include_router(jarvis_integrations_router)  # Jarvis onboarding integration setup flow
+   698→app.include_router(jarvis_onboarding_router)  # Jarvis onboarding backend (awareness bridge to Activity Store)
+   699→app.include_router(jarvis_routes_router, tags=["jarvis-pipeline"])  # Jarvis 3-Node Pipeline: SENSE→EVALUATE→NOTIFY (quality, SLA, approvals, copilot, Wave 8)
+   700→app.include_router(knowledge_base_router)  # Week 6: Knowledge base (F-032/F-033)
+   701→app.include_router(verification_router)  # Week 6 Day 10-11: Business Email OTP verification
+   702→app.include_router(analytics_router)  # Phase 4: Ticket analytics dashboard
+   703→app.include_router(email_channel_router)  # Week 13 Day 1: Email channel admin endpoints
+   704→app.include_router(ooo_detection_router)  # Week 13 Day 3: OOO detection endpoints (F-122)
+   705→app.include_router(bounce_complaint_router)  # Week 13 Day 3: Bounce/complaint endpoints (F-124)
+   706→app.include_router(chat_widget_router)  # Week 13 Day 4: Chat widget endpoints (F-122)
+   707→app.include_router(sms_channel_router)  # Week 13 Day 5: SMS channel endpoints (F-123)
+   708→app.include_router(voice_channel_router)  # Voice Channel: Twilio voice calls
+   709→app.include_router(workflow_router)  # Week 10: Workflow API (now with LangGraph multi-agent)
+   710→app.include_router(tickets_router, prefix="/api/v1", tags=["tickets"])  # BUG-3 FIX: Tickets at /api/v1/tickets (matches variant_check.py)
+   711→app.include_router(technique_config_router, tags=["technique-config"])  # BUG-3 FIX: Technique Config at /api/techniques/config (router already has prefix)
+   712→
+   713→# ── Previously Unregistered Routers (80+ endpoints now live) ───────
+   714→
+   715→# Billing & Paddle
+   716→app.include_router(billing_router, tags=["billing"])  # prefix: /api/billing
+   717→app.include_router(billing_razorpay_router)  # NEW: Razorpay billing (/api/billing/razorpay/*)
+   718→app.include_router(razorpay_checkout_router)  # Razorpay Standard Checkout (/api/razorpay/*)
+   719→app.include_router(billing_webhooks_router, tags=["billing-webhooks"])  # prefix: /api/v1
+   720→
+   721→# Notifications
+   722→app.include_router(notifications_router, prefix="/api/v1", tags=["notifications"])  # prefix: /notifications -> /api/v1/notifications
+   723→
+   724→# Customer management
+   725→app.include_router(customers_router, prefix="/api/v1", tags=["customers"])  # prefix: /customers -> /api/v1/customers
+   726→
+   727→# SLA management
+   728→app.include_router(sla_router, prefix="/api/v1", tags=["sla"])  # prefix: /sla -> /api/v1/sla
+   729→
+   730→# Channel management
+   731→app.include_router(channels_router, prefix="/api/v1", tags=["channels"])  # prefix: /channels -> /api/v1/channels
+   732→
+   733→# Identity resolution
+   734→app.include_router(identity_router, prefix="/api/v1", tags=["identity"])  # prefix: /identity -> /api/v1/identity
+   735→
+   736→# Phase 7: Integration data caching
+   737→app.include_router(integration_cache_router, prefix="/api/v1", tags=["integration-cache"])  # prefix: /integration-cache -> /api/v1/integration-cache
+   738→
+   739→# Phase 8: Cross-channel customer recognition
+   740→app.include_router(cross_channel_router, prefix="/api/v1", tags=["cross-channel"])  # prefix: /cross-channel -> /api/v1/cross-channel
+   741→
+   742→# Custom fields
+   743→app.include_router(custom_fields_router, prefix="/api/v1", tags=["custom-fields"])  # prefix: /custom-fields -> /api/v1/custom-fields
+   744→
+   745→# Triggers
+   746→app.include_router(triggers_router, prefix="/api/v1", tags=["triggers"])  # prefix: /triggers -> /api/v1/triggers
+   747→
+   748→# Ticket sub-routers (all under /api/v1 to match tickets_router prefix)
+   749→app.include_router(ticket_lifecycle_router, prefix="/api/v1", tags=["ticket-lifecycle"])  # prefix: /tickets -> /api/v1/tickets
+   750→app.include_router(incident_router, prefix="/api/v1", tags=["incidents"])  # prefix: /incidents -> /api/v1/incidents
+   751→app.include_router(spam_router, prefix="/api/v1", tags=["spam"])  # prefix: /spam -> /api/v1/spam
+   752→app.include_router(ticket_messages_router, prefix="/api/v1", tags=["ticket-messages"])  # prefix: /tickets -> /api/v1/tickets
+   753→app.include_router(ticket_notes_router, prefix="/api/v1", tags=["ticket-notes"])  # prefix: /tickets -> /api/v1/tickets
+   754→app.include_router(ticket_bulk_router, prefix="/api/v1", tags=["ticket-bulk"])  # prefix: /tickets/bulk -> /api/v1/tickets/bulk
+   755→app.include_router(ticket_merge_router, prefix="/api/v1", tags=["ticket-merge"])  # prefix: /tickets/merge -> /api/v1/tickets/merge
+   756→app.include_router(ticket_search_router, prefix="/api/v1", tags=["ticket-search"])  # prefix: /tickets -> /api/v1/tickets
+   757→app.include_router(ticket_timeline_router, prefix="/api/v1", tags=["ticket-timeline"])  # prefix: /tickets -> /api/v1/tickets
+   758→app.include_router(ticket_assignment_router, prefix="/api/v1", tags=["ticket-assignment"])  # prefix: /tickets -> /api/v1/tickets
+   759→app.include_router(assignment_rules_router, prefix="/api/v1", tags=["assignment-rules"])  # prefix: /assignments/rules -> /api/v1/assignments/rules
+   760→app.include_router(ticket_classification_router, prefix="/api/v1", tags=["ticket-classification"])  # prefix: /tickets -> /api/v1/tickets
+   761→app.include_router(ticket_templates_router, prefix="/api/v1", tags=["ticket-templates"])  # prefix: /templates -> /api/v1/templates
+   762→app.include_router(collisions_router, prefix="/api/v1", tags=["ticket-collisions"])  # prefix: /tickets -> /api/v1/tickets
+   763→
+   764→# AI & Classification
+   765→app.include_router(classification_router, tags=["classification"])  # prefix: /api/classification
+   766→app.include_router(signals_router, tags=["signals"])  # prefix: /api/signals
+   767→app.include_router(ai_classification_router, tags=["ai-classification"])  # prefix: /api/ai/classification
+   768→app.include_router(ai_signals_router, tags=["ai-signals"])  # prefix: /api/ai/signals
+   769→app.include_router(rag_router, tags=["rag"])  # prefix: /api/rag
+   770→
+   771→# Response generation + brand voice + AI assignment + migration
+   772→app.include_router(response_api_router, tags=["response"])  # combined router with sub-routers
+   773→
+   774→# System health monitoring (consumed by frontend system-health-store)
+   775→app.include_router(system_health_router, tags=["system-health"])  # prefix: /api/system/health
+   776→
+   777→# Approval queue + auto-approve rules (human-in-the-loop)
+   778→app.include_router(approval_router, tags=["approvals"])  # prefix: /api/approvals (defined in router)
+   779→
+   780→# Phase 9: Audit trail & AI action logging
+   781→app.include_router(audit_router, tags=["audit"])  # prefix: /api/v1/audit (defined in router)
+   782→
+   783→# Escalation vault (dashboard — was missing from main.py, caused 404s on dashboard load)
+   784→app.include_router(escalation_router, tags=["escalation"])  # prefix: /api/escalations (plural — matches frontend)
+   785→
+   786→# DLQ ops dashboard + CRM-DLQ tile (BC-018). Prefix: /api/dlq
+   787→# Used by frontend /dashboard/crm-dlq page + main dashboard CRM DLQ count tile.
+   788→app.include_router(dlq_router, tags=["dlq"])
+   789→app.include_router(shadow_mode_router, tags=["shadow-mode"])  # prefix: /api/shadow-mode
+   790→app.include_router(debug_router, prefix="/api/v1", tags=["debug"])  # prefix: /api/v1/debug
+   791→
+   792→
+   793→# ── Exception Handlers (BC-012: structured JSON, no stack traces) ───
+   794→
+   795→
+   796→@app.exception_handler(ParwaBaseError)
+   797→async def parwa_exception_handler(
+   798→    request: Request, exc: ParwaBaseError,
+   799→) -> JSONResponse:
+   800→    """Handle all PARWA custom exceptions with structured JSON."""
+   801→    data = exc.to_dict()
+   802→    # BC-012: Include correlation ID in every error response
+   803→    correlation_id = getattr(request.state, "correlation_id", None)
+   804→    if correlation_id:
+   805→        data["correlation_id"] = correlation_id
+   806→    return JSONResponse(
+   807→        status_code=exc.status_code,
+   808→        content=data,
+   809→    )
+   810→
+   811→
+   812→@app.exception_handler(404)
+   813→async def not_found_handler(request: Request, exc: Exception) -> JSONResponse:
+   814→    """Handle 404 with structured JSON (BC-012)."""
+   815→    return JSONResponse(
+   816→        status_code=404,
+   817→        content={
+   818→            "error": {
+   819→                "code": "NOT_FOUND",
+   820→                "message": f"The path {request.url.path} was not found",
+   821→                "details": None,
+   822→            }
+   823→        },
+   824→    )
+   825→
+   826→
+   827→@app.exception_handler(422)
+   828→async def validation_error_handler(
+   829→    request: Request, exc: Exception,
+   830→) -> JSONResponse:
+   831→    """Handle 422 validation errors with structured JSON (BC-012)."""
+   832→    return JSONResponse(
+   833→        status_code=422,
+   834→        content={
+   835→            "error": {
+   836→                "code": "VALIDATION_ERROR",
+   837→                "message": "Request validation failed",
+   838→                "details": None,
+   839→            }
+   840→        },
+   841→    )
+   842→
+   843→
+   844→@app.exception_handler(500)
+   845→async def internal_error_handler(
+   846→    request: Request, exc: Exception,
+   847→) -> JSONResponse:
+   848→    """Handle 500 errors — NO stack traces to users (BC-012)."""
+   849→    _ensure_logging()
+   850→    logger = get_logger("error_handler")
+   851→    logger.error(
+   852→        "internal_error",
+   853→        path=request.url.path,
+   854→        method=request.method,
+   855→        error_type=type(exc).__name__,
+   856→        error_message=str(exc),
+   857→    )
+   858→    return JSONResponse(
+   859→        status_code=500,
+   860→        content={
+   861→            "error": {
+   862→                "code": "INTERNAL_ERROR",
+   863→                "message": "An internal error occurred",
+   864→                "details": None,
+   865→            }
+   866→        },
+   867→    )
+   868→
+   869→
+   870→# ── Events API (BC-005: reconnection recovery) ────────────────────
+   871→
+   872→
+   873→@app.get("/api/events/since", tags=["Events"])
+   874→async def get_events_since_endpoint(
+   875→    request: Request,
+   876→    last_seen: float = Query(
+   877→        ..., description="Epoch timestamp of last received event"
+   878→    ),
+   879→    # M-08 FIX: Require explicit authentication on the events endpoint.
+   880→    # Previously relied only on middleware-level tenant scoping, allowing
+   881→    # unauthenticated requests to reach the handler.
+   882→    current_user: User = Depends(get_current_user),
+   883→):
+   884→    """Fetch events missed during disconnection (BC-005).
+   885→
+   886→    On reconnect, the client calls this endpoint with their last_seen
+   887→    timestamp to fetch all events that occurred while disconnected.
+   888→
+   889→    BC-001: Events are scoped to the requesting tenant.
+   890→    BC-005: Event buffer stores events for 24 hours.
+   891→    M-08: Requires explicit JWT authentication.
+   892→    """
+   893→    company_id = getattr(request.state, "company_id", None)
+   894→    if not company_id:
+   895→        return JSONResponse(
+   896→            status_code=403,
+   897→            content={
+   898→                "error": {
+   899→                    "code": "AUTHORIZATION_ERROR",
+   900→                    "message": "Tenant identification required",
+   901→                    "details": None,
+   902→                }
+   903→            },
+   904→        )
+   905→
+   906→    from app.core.event_buffer import get_events_since
+   907→    events = await get_events_since(
+   908→        company_id=company_id,
+   909→        last_seen=last_seen,
+   910→    )
+   911→
+   912→    return {
+   913→        "events": events,
+   914→        "count": len(events),
+   915→        "last_seen": last_seen,
+   916→    }
+   917→
+   918→
+   919→# ── Test-only routes (only active in test environment) ──────────
+   920→
+   921→if _CURRENT_ENV == "test":
+   922→
+   923→    @app.get("/test/raise/not-found")
+   924→    async def _test_raise_not_found():
+   925→        raise NotFoundError(
+   926→            message="Test resource not found",
+   927→            details={"id": "123"},
+   928→        )
+   929→
+   930→    @app.get("/test/raise/validation")
+   931→    async def _test_raise_validation():
+   932→        raise ValidationError(
+   933→            message="Test validation",
+   934→            details=["field x invalid"],
+   935→        )
+   936→
+   937→    @app.get("/test/raise/authentication")
+   938→    async def _test_raise_authentication():
+   939→        raise AuthenticationError(
+   940→            message="Test auth failed",
+   941→            details={"reason": "bad token"},
+   942→        )
+   943→
+   944→    @app.get("/test/raise/authorization")
+   945→    async def _test_raise_authorization():
+   946→        raise AuthorizationError(
+   947→            message="Test forbidden",
+   948→            details={"required": "admin"},
+   949→        )
+   950→
+   951→    @app.get("/test/raise/rate-limit")
+   952→    async def _test_raise_rate_limit():
+   953→        raise RateLimitError(
+   954→            message="Test rate limit",
+   955→            details={"retry_after": 60},
+   956→        )
+   957→
+   958→    @app.get("/test/raise/internal")
+   959→    async def _test_raise_internal():
+   960→        raise ValueError("This simulates an unexpected 500 error")
+   961→

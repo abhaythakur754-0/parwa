@@ -1,0 +1,1138 @@
+     1→"""
+     2→Pipeline Dispatcher — triggers the 8-node PARWA pipeline on a ticket.
+     3→
+     4→Two modes:
+     5→  1. EMERGENCY (critical priority tickets): runs SYNCHRONOUSLY in the
+     6→     current request thread so the customer gets an AI response in the
+     7→     same HTTP response. Skips the Celery queue.
+     8→  2. STANDARD (high / medium / low priority): enqueues a Celery task
+     9→     for async processing. Falls back to synchronous execution if
+    10→     Celery is unavailable (Redis down) so the system still works.
+    11→
+    12→The dispatcher:
+    13→  1. Loads the ticket + first customer message from the DB
+    14→  2. Builds a PipelineV2State
+    15→  3. Runs the 8-node pipeline (Node 1 → Node 8)
+    16→  4. Stores the AI response as a TicketMessage (role="ai")
+    17→  5. Updates ticket.status → resolved | awaiting_human
+    18→  6. Writes cost/savings/confidence to ticket.metadata_json
+    19→  7. Triggers ChannelDispatcher to send the response to the customer
+    20→     (email reply / SMS / chat socket / voice)
+    21→
+    22→Used by:
+    23→  - app/api/tickets.py:create_ticket — auto-triggers after commit
+    24→  - app/api/workflow.py:process_endpoint — manual re-trigger
+    25→"""
+    26→
+    27→from __future__ import annotations
+    28→
+    29→import asyncio
+    30→import json
+    31→import logging
+    32→import threading
+    33→import uuid
+    34→from datetime import datetime, timezone
+    35→from typing import Any, Coroutine, Dict, Optional
+    36→
+    37→logger = logging.getLogger("parwa.pipeline_dispatcher")
+    38→
+    39→# ── Priority constants ────────────────────────────────────────────────────
+    40→CRITICAL_PRIORITY = "critical"
+    41→EMERGENCY_PRIORITIES = {CRITICAL_PRIORITY}
+    42→
+    43→# ── Database-backed worker pool (bulletproof, survives restarts) ────────
+    44→# Render starter plan has 512MB RAM and 1 CPU. Each pipeline uses ~40-50MB.
+    45→#
+    46→# ARCHITECTURE: DB-backed worker pool
+    47→# - 7 persistent worker threads run forever
+    48→# - Workers poll the DATABASE for tickets with status='open'
+    49→# - Worker claims a ticket atomically (UPDATE status='processing')
+    50→# - Worker runs the pipeline, then sets status='resolved' or 'awaiting_human'
+    51→# - If server crashes/restarts, unprocessed tickets are still in the DB
+    52→#   with status='open' → workers pick them up on next poll
+    53→#
+    54→# This is the same pattern used by Celery, RQ, Sidekiq — a durable queue
+    55→# backed by a database. No in-memory state, no lost tickets, no OOM.
+    56→import threading as _threading_mod
+    57→import time as _time_mod
+    58→
+    59→MAX_CONCURRENT_PIPELINES = 7
+    60→_workers_started = False
+    61→_workers_lock = _threading_mod.Lock()
+    62→
+    63→
+    64→def _claim_next_ticket():
+    65→    """Atomically claim the next 'open' ticket from the database.
+    66→    
+    67→    Uses SELECT ... FOR UPDATE SKIP LOCKED to claim a ticket without
+    68→    blocking other workers. Sets status='processing' so no other worker
+    69→    picks the same ticket.
+    70→    
+    71→    Returns (ticket_id, company_id, channel) or None if no tickets.
+    72→    """
+    73→    try:
+    74→        from database.base import SessionLocal
+    75→        from sqlalchemy import text
+    76→        
+    77→        db = SessionLocal()
+    78→        try:
+    79→            result = db.execute(text(
+    80→                "UPDATE tickets SET status = 'processing', updated_at = NOW() "
+    81→                "WHERE id = ("
+    82→                "  SELECT id FROM tickets "
+    83→                "  WHERE status = 'open' "
+    84→                "  ORDER BY created_at ASC "
+    85→                "  FOR UPDATE SKIP LOCKED "
+    86→                "  LIMIT 1"
+    87→                ") "
+    88→                "RETURNING id, company_id, channel"
+    89→            ))
+    90→            row = result.fetchone()
+    91→            db.commit()
+    92→            if row:
+    93→                return str(row[0]), str(row[1]), str(row[2]) if row[2] else "email"
+    94→            return None
+    95→        finally:
+    96→            db.close()
+    97→    except Exception as exc:
+    98→        logger.warning("claim_next_ticket_error: %s", str(exc)[:200])
+    99→        return None
+   100→
+   101→
+   102→def _start_pipeline_workers():
+   103→    """Start the persistent DB-backed worker pool (called once on startup)."""
+   104→    global _workers_started
+   105→    with _workers_lock:
+   106→        if _workers_started:
+   107→            return
+   108→        _workers_started = True
+   109→
+   110→        def _worker(worker_id: int):
+   111→            """Persistent worker — polls DB for open tickets and processes them."""
+   112→            while True:
+   113→                try:
+   114→                    claim = _claim_next_ticket()
+   115→                    if claim:
+   116→                        ticket_id, company_id, channel = claim
+   117→                        try:
+   118→                            logger.info(
+   119→                                "worker_%d claimed ticket=%s",
+   120→                                worker_id, ticket_id[:8],
+   121→                            )
+   122→                            _run_pipeline_sync(ticket_id, company_id, channel)
+   123→                        except Exception as exc:
+   124→                            logger.error(
+   125→                                "worker_%d pipeline_error ticket=%s err=%s",
+   126→                                worker_id, ticket_id[:8], str(exc)[:200],
+   127→                            )
+   128→                            # Mark ticket as awaiting_human so it's not lost
+   129→                            try:
+   130→                                from database.base import SessionLocal
+   131→                                from database.models.tickets import Ticket
+   132→                                db = SessionLocal()
+   133→                                try:
+   134→                                    ticket = db.query(Ticket).filter(
+   135→                                        Ticket.id == ticket_id
+   136→                                    ).first()
+   137→                                    if ticket and ticket.status == "processing":
+   138→                                        ticket.status = "awaiting_human"
+   139→                                        ticket.awaiting_human = True
+   140→                                        db.commit()
+   141→                                finally:
+   142→                                    db.close()
+   143→                            except:
+   144→                                pass
+   145→                    else:
+   146→                        # No tickets to process — sleep briefly
+   147→                        _time_mod.sleep(2)
+   148→                except Exception as exc:
+   149→                    logger.error("worker_%d crash: %s", worker_id, str(exc)[:200])
+   150→                    _time_mod.sleep(5)
+   151→
+   152→        for i in range(MAX_CONCURRENT_PIPELINES):
+   153→            t = _threading_mod.Thread(
+   154→                target=_worker, args=(i,), daemon=True,
+   155→                name=f"pipeline-worker-{i}",
+   156→            )
+   157→            t.start()
+   158→        logger.info(
+   159→            "db_backed_worker_pool_started: %d workers polling DB",
+   160→            MAX_CONCURRENT_PIPELINES,
+   161→        )
+   162→
+   163→
+   164→def _run_async_safely(coro: Coroutine[Any, Any, Any]) -> Any:
+   165→    """Run an async coroutine from sync code AND return its result.
+   166→
+   167→    Handles two cases:
+   168→    1. No running event loop in current thread → use ``asyncio.run``.
+   169→    2. Running event loop in current thread (e.g. FastAPI/uvicorn) →
+   170→       dispatch to a fresh worker thread that has no loop, run there,
+   171→       and return the result. This avoids the
+   172→       ``RuntimeError: asyncio.run() cannot be called from a running event loop``
+   173→       crash.
+   174→
+   175→    Used by _push_to_crm_outbound to call async CRMBridge methods from
+   176→    the sync pipeline dispatcher context.
+   177→    """
+   178→    try:
+   179→        asyncio.get_running_loop()
+   180→        result_holder: Dict[str, Any] = {}
+   181→
+   182→        def _worker() -> None:
+   183→            try:
+   184→                result_holder["value"] = asyncio.run(coro)
+   185→            except Exception as exc:  # noqa: BLE001
+   186→                result_holder["error"] = exc
+   187→
+   188→        t = threading.Thread(target=_worker, daemon=True)
+   189→        t.start()
+   190→        t.join()
+   191→        if "error" in result_holder:
+   192→            raise result_holder["error"]
+   193→        return result_holder.get("value")
+   194→    except RuntimeError:
+   195→        return asyncio.run(coro)
+   196→
+   197→
+   198→def dispatch_pipeline_for_ticket(
+   199→    ticket_id: str,
+   200→    company_id: str,
+   201→    priority: str,
+   202→    channel: str,
+   203→    sync: Optional[bool] = None,
+   204→) -> Dict[str, Any]:
+   205→    """Trigger the 8-node pipeline on a ticket.
+   206→
+   207→    Args:
+   208→        ticket_id: The ticket to process.
+   209→        company_id: Tenant ID for isolation.
+   210→        priority: Ticket priority (critical | high | medium | low).
+   211→            Critical tickets are processed SYNCHRONOUSLY (emergency path).
+   212→            Others are dispatched to Celery (async), with sync fallback.
+   213→        channel: Ticket channel (email | chat | sms | voice).
+   214→        sync: Force sync (True) or async (False). If None, auto-decides
+   215→            based on priority.
+   216→
+   217→    Returns:
+   218→        Dict with keys: status (sync|async|error), ticket_id, message_id?
+   219→    """
+   220→    if sync is None:
+   221→        # FORCE_SYNC_PIPELINE defaults to true — Celery worker isn't running
+   222→        # on Render free tier. Sync mode is slower but RELIABLE.
+   223→        # Set FORCE_SYNC_PIPELINE=false to use Celery (requires worker service).
+   224→        import os
+   225→        if os.environ.get("FORCE_SYNC_PIPELINE", "true").lower() in ("1", "true", "yes"):
+   226→            sync = True
+   227→        else:
+   228→            sync = priority in EMERGENCY_PRIORITIES
+   229→
+   230→    if sync:
+   231→        # ── DB-backed dispatch (bulletproof for high volume) ──
+   232→        # The ticket is already saved in the DB with status='open' by the
+   233→        # ticket creation endpoint. The 7 persistent workers are polling
+   234→        # the DB for 'open' tickets and will pick this one up within 2 seconds.
+   235→        #
+   236→        # No in-memory queue, no thread-per-ticket, no lost tickets on restart.
+   237→        # Just start the worker pool (idempotent — only starts once).
+   238→        _start_pipeline_workers()
+   239→        return {
+   240→            "status": "queued",
+   241→            "ticket_id": ticket_id,
+   242→            "message": f"Ticket queued in DB ({MAX_CONCURRENT_PIPELINES} workers polling)",
+   243→        }
+   244→
+   245→    # ── Async path: try Celery first, fall back to sync ──────────────
+   246→    try:
+   247→        from app.tasks.celery_app import app as celery_app
+   248→        task = celery_app.send_task(
+   249→            "parwa.run_pipeline_for_ticket",
+   250→            kwargs={"ticket_id": ticket_id, "company_id": company_id, "channel": channel},
+   251→        )
+   252→        return {
+   253→            "status": "async",
+   254→            "ticket_id": ticket_id,
+   255→            "task_id": task.id,
+   256→        }
+   257→    except Exception as exc:  # noqa: BLE001
+   258→        logger.warning(
+   259→            "pipeline_celery_dispatch_failed_falling_back_to_sync",
+   260→            extra={
+   261→                "ticket_id": ticket_id,
+   262→                "company_id": company_id,
+   263→                "error": str(exc)[:200],
+   264→            },
+   265→        )
+   266→        # Sync fallback — use the same DB-backed worker pool
+   267→        _start_pipeline_workers()
+   268→        return {
+   269→            "status": "queued",
+   270→            "ticket_id": ticket_id,
+   271→            "message": "Ticket queued in DB (Celery fallback)",
+   272→        }
+   273→
+   274→
+   275→def _run_pipeline_sync(
+   276→    ticket_id: str,
+   277→    company_id: str,
+   278→    channel: str,
+   279→) -> Dict[str, Any]:
+   280→    """Run the pipeline synchronously and persist the AI response.
+   281→
+   282→    Returns:
+   283→        Dict with status, ticket_id, message_id, ai_response (truncated).
+   284→    """
+   285→    from database.base import SessionLocal
+   286→    from database.models.tickets import Ticket, TicketMessage, Customer
+   287→
+   288→    db = SessionLocal()
+   289→    try:
+   290→        # ── Load ticket ────────────────────────────────────────────────
+   291→        ticket = db.query(Ticket).filter(
+   292→            Ticket.id == ticket_id,
+   293→            Ticket.company_id == company_id,
+   294→        ).first()
+   295→        if not ticket:
+   296→            logger.error("pipeline_ticket_not_found", extra={"ticket_id": ticket_id})
+   297→            return {"status": "error", "ticket_id": ticket_id, "error": "Ticket not found"}
+   298→
+   299→        # ── Load first customer message as the query ──────────────────
+   300→        first_msg = db.query(TicketMessage).filter(
+   301→            TicketMessage.ticket_id == ticket_id,
+   302→            TicketMessage.role == "customer",
+   303→        ).order_by(TicketMessage.created_at.asc()).first()
+   304→
+   305→        query_text = ""
+   306→        if first_msg:
+   307→            query_text = first_msg.content or ""
+   308→        if not query_text and ticket.subject:
+   309→            query_text = ticket.subject
+   310→        if not query_text:
+   311→            query_text = "(no customer query provided)"
+   312→
+   313→        # ── Load customer context ─────────────────────────────────────
+   314→        customer: Optional[Customer] = None
+   315→        if ticket.customer_id:
+   316→            customer = db.query(Customer).filter(
+   317→                Customer.id == ticket.customer_id,
+   318→                Customer.company_id == company_id,
+   319→            ).first()
+   320→
+   321→        customer_context: Dict[str, Any] = {
+   322→            "customer_id": ticket.customer_id or "",
+   323→            "email": customer.email if customer else "",
+   324→            "name": customer.name if customer else "",
+   325→            "phone": customer.phone if customer else "",
+   326→            "account_tier": "parwa",
+   327→        }
+   328→
+   329→        # ── Build pipeline state ──────────────────────────────────────
+   330→        try:
+   331→            from app.core.parwa_pipeline.state_v2 import PipelineV2State
+   332→        except ImportError:
+   333→            # state_v2 is a TypedDict — just use a plain dict
+   334→            PipelineV2State = dict  # type: ignore[assignment]
+   335→
+   336→        initial_state: PipelineV2State = {
+   337→            "ticket_id": ticket_id,
+   338→            "tenant_id": company_id,
+   339→            "query": query_text,
+   340→            "channel_type": channel,
+   341→            "customer_context": customer_context,
+   342→            "metadata": {
+   343→                "source": "dashboard_create",
+   344→                "ticket_id": ticket_id,
+   345→                "priority": ticket.priority,
+   346→                "category": ticket.category or "",
+   347→                "subject": ticket.subject or "",
+   348→            },
+   349→        }
+   350→
+   351→        # ── Run the 8-node pipeline ───────────────────────────────────
+   352→        import asyncio
+   353→        from app.core.parwa_pipeline.graph_v2 import build_parwa_pipeline, get_checkpointer
+   354→
+   355→        graph = build_parwa_pipeline()
+   356→        compiled = graph.compile(checkpointer=get_checkpointer())
+   357→        pipeline_config = {"configurable": {"thread_id": ticket_id}}
+   358→
+   359→        try:
+   360→            # graph_v2's compiled.ainvoke is async. We may be in sync or
+   361→            # async context — handle both.
+   362→            try:
+   363→                asyncio.get_running_loop()
+   364→                # Already in a loop — run in a worker thread to avoid
+   365→                # "asyncio.run() cannot be called from a running event loop"
+   366→                import threading
+   367→                result_holder: Dict[str, Any] = {}
+   368→
+   369→                def _worker() -> None:
+   370→                    try:
+   371→                        result_holder["value"] = asyncio.run(compiled.ainvoke(initial_state, config=pipeline_config))
+   372→                    except Exception as exc:  # noqa: BLE001
+   373→                        result_holder["error"] = exc
+   374→
+   375→                t = threading.Thread(target=_worker, daemon=True)
+   376→                t.start()
+   377→                t.join()
+   378→                if "error" in result_holder:
+   379→                    raise result_holder["error"]
+   380→                result = dict(result_holder["value"])
+   381→            except RuntimeError:
+   382→                # No running loop — safe to use asyncio.run
+   383→                result = dict(asyncio.run(compiled.ainvoke(initial_state, config=pipeline_config)))
+   384→        except Exception as exc:  # noqa: BLE001
+   385→            logger.error(
+   386→                "pipeline_execution_failed",
+   387→                extra={
+   388→                    "ticket_id": ticket_id,
+   389→                    "company_id": company_id,
+   390→                    "error": str(exc)[:300],
+   391→                },
+   392→            )
+   393→            # ── Fallback: write a contextual AI message so the ticket still
+   394→            # has a response and doesn't get stuck in "open" forever.
+   395→            ai_response_text = (
+   396→                f"Thank you for contacting us regarding \"{ticket.subject or 'your inquiry'}\". "
+   397→                f"I've received your message and a human agent will follow up with you shortly. "
+   398→                f"Your ticket has been logged and is being tracked."
+   399→            )
+   400→            _persist_ai_response(
+   401→                db=db,
+   402→                ticket=ticket,
+   403→                ai_response_text=ai_response_text,
+   404→                ai_response_html=f"<p>{ai_response_text}</p>",
+   405→                confidence=None,
+   406→                model_used="fallback",
+   407→                cost_per_ticket=0.0,
+   408→                savings_per_ticket=0.0,
+   409→                status="awaiting_human",
+   410→            )
+   411→
+   412→            # ── Gap 3: Dispatch fallback message to customer channel ──
+   413→            # Previously this only wrote to the DB — the customer never
+   414→            # received the email/SMS/chat notification. Now we dispatch
+   415→            # via ChannelDispatcher so the customer actually gets told
+   416→            # their ticket was received and is being escalated.
+   417→            try:
+   418→                from app.core.channel_dispatcher import ChannelDispatcher
+   419→                dispatcher = ChannelDispatcher(db)
+   420→                dispatcher.dispatch(
+   421→                    company_id=company_id,
+   422→                    ticket_id=ticket_id,
+   423→                    ai_response_html=f"<p>{ai_response_text}</p>",
+   424→                    ai_response_text=ai_response_text,
+   425→                    role="ai",
+   426→                    model_used="fallback",
+   427→                    confidence=None,
+   428→                )
+   429→            except Exception as dispatch_exc:  # noqa: BLE001
+   430→                logger.warning(
+   431→                    "channel_dispatch_failed_fallback",
+   432→                    extra={
+   433→                        "ticket_id": ticket_id,
+   434→                        "channel": channel,
+   435→                        "error": str(dispatch_exc)[:200],
+   436→                    },
+   437→                )
+   438→
+   439→            # CRM outbound push runs even on fallback — the tenant's CRM
+   440→            # should still know about the ticket even if AI couldn't resolve
+   441→            # it. Status will be "escalated" in the CRM.
+   442→            crm_create_result = _push_to_crm_outbound(
+   443→                db=db,
+   444→                ticket_id=ticket_id,
+   445→                company_id=company_id,
+   446→                subject=ticket.subject or "Customer Support Ticket",
+   447→                description=query_text,
+   448→                customer_email=customer.email if customer else "",
+   449→                customer_name=customer.name if customer else "",
+   450→                priority=ticket.priority,
+   451→                category=ticket.category or "",
+   452→                ai_response_text=ai_response_text,
+   453→                ai_response_html=f"<p>{ai_response_text}</p>",
+   454→                ticket_status="awaiting_human",
+   455→                model_used="fallback",
+   456→            )
+   457→
+   458→            return {
+   459→                "status": "error",
+   460→                "ticket_id": ticket_id,
+   461→                "error": str(exc)[:200],
+   462→                "fallback": True,
+   463→                "crm_pushed": crm_create_result.get("success", False),
+   464→                "crm_ticket_id": crm_create_result.get("crm_ticket_id", ""),
+   465→                "crm_provider": crm_create_result.get("crm_provider", ""),
+   466→            }
+   467→
+   468→        # ── Handle pipeline interrupt (node paused to ask a question) ──
+   469→        if "__interrupt__" in result:
+   470→            interrupt_data = result["__interrupt__"]
+   471→            question_text = ""
+   472→            customer_text = ""  # Customer-facing message (separate from internal question)
+   473→            if isinstance(interrupt_data, list) and interrupt_data:
+   474→                val = interrupt_data[0].value if hasattr(interrupt_data[0], 'value') else interrupt_data[0]
+   475→                if isinstance(val, dict):
+   476→                    question_text = val.get("question", str(val))
+   477→                    customer_text = val.get("customer_message", "")  # May be absent for older interrupts
+   478→                else:
+   479→                    question_text = str(val)
+   480→            # Customer sees the friendly message; falls back to question if absent
+   481→            display_text = customer_text or question_text
+   482→
+   483→            # ── Check if display_text contains internal vocabulary ──
+   484→            # If the interrupt came from a node that doesn't set customer_message
+   485→            # (e.g. Node 4/7 when KB docs are missing), the question text itself
+   486→            # may contain internal vocabulary. Replace with escalation template.
+   487→            _INTERNAL_MARKERS = (
+   488→                "gsd goals", "knowledge base documents", "can you provide guidance",
+   489→                "no ai agent claims", "relevant doc(s) found", "gaps:",
+   490→                "push it back to the crm", "action=escalate_human",
+   491→            )
+   492→            if any(marker in display_text.lower() for marker in _INTERNAL_MARKERS):
+   493→                customer_name = customer.name if customer else "Valued Customer"
+   494→                display_text = (
+   495→                    f"Dear {customer_name},\n\n"
+   496→                    f"Thank you for your patience. We want to let you know that "
+   497→                    f"your case ({ticket_id}) has been escalated to our "
+   498→                    f"specialist team for further review.\n\n"
+   499→                    f"A dedicated team member will contact you within 2 hours "
+   500→                    f"with an update and next steps.\n\n"
+   501→                    f"We understand the urgency of your request and are "
+   502→                    f"prioritising it accordingly.\n\n"
+   503→                    f"Kind regards,\n"
+   504→                    f"Support Team"
+   505→                )
+   506→                logger.info(
+   507→                    "replaced_interrupt_internal_vocab ticket=%s original=%s",
+   508→                    ticket_id, str(question_text)[:100],
+   509→                )
+   510→
+   511→            logger.info("pipeline_interrupted ticket=%s question=%s", ticket_id, str(question_text)[:100])
+   512→            _persist_ai_response(
+   513→                db=db, ticket=ticket, ai_response_text=display_text,
+   514→                ai_response_html=f"<p>{display_text}</p>",
+   515→                confidence=None, model_used="parwa_interrupt",
+   516→                cost_per_ticket=0.0, savings_per_ticket=0.0,
+   517→                status="awaiting_human",
+   518→            )
+   519→            return {"status": "interrupted", "ticket_id": ticket_id, "question": question_text, "message": "Pipeline paused — waiting for guidance to resume."}
+   520→
+   521→        # ── Extract pipeline result fields ────────────────────────────
+   522→        # ── Handle pipeline interrupt (node paused to ask a question) ──
+   523→        # When a node calls interrupt(), the pipeline PAUSES (Approach A).
+   524→        # The ticket is marked awaiting_human and the AI's question is saved
+   525→        # so the escalations page can show it + let human/variant answer.
+   526→        if result.get("pipeline_interrupted"):
+   527→            interrupt_question = result.get("interrupt_question", "")
+   528→            logger.info(
+   529→                "pipeline_interrupted ticket=%s question=%s",
+   530→                ticket_id, str(interrupt_question)[:100],
+   531→            )
+   532→            # Save the question as a ticket message so it's visible
+   533→            _persist_ai_response(
+   534→                db=db,
+   535→                ticket=ticket,
+   536→                ai_response_text=interrupt_question,
+   537→                ai_response_html=f"<p>{interrupt_question}</p>",
+   538→                confidence=None,
+   539→                model_used="parwa_interrupt",
+   540→                cost_per_ticket=0.0,
+   541→                savings_per_ticket=0.0,
+   542→                status="awaiting_human",
+   543→            )
+   544→            # Save pipeline state snapshot to DB so resume can restore it
+   545→            try:
+   546→                import json as _json
+   547→                from database.models.variant_engine import PipelineStateSnapshot
+   548→                snapshot = PipelineStateSnapshot(
+   549→                    company_id=company_id,
+   550→                    ticket_id=ticket_id,
+   551→                    current_node="interrupted",
+   552→                    state_data=_json.dumps(result, default=str)[:100000],
+   553→                    snapshot_type="checkpoint",
+   554→                )
+   555→                db.add(snapshot)
+   556→                db.commit()
+   557→            except Exception as exc:
+   558→                logger.warning("pipeline_state_snapshot_save_failed: %s", str(exc)[:150])
+   559→            return {
+   560→                "status": "interrupted",
+   561→                "ticket_id": ticket_id,
+   562→                "question": interrupt_question,
+   563→                "message": "Pipeline paused — waiting for guidance to resume.",
+   564→            }
+   565→
+   566→        ai_response_text = (
+   567→            result.get("final_response")
+   568→            or result.get("response")
+   569→            or ""
+   570→        )
+   571→        # ── Gap 2: Use polished escalation template when AI escalates ──
+   572→        # When the pipeline escalates (force_human_handoff, cove_blocked, or
+   573→        # non-resolved status) and either (a) no final_response was set, or
+   574→        # (b) the final_response contains internal vocabulary that shouldn't
+   575→        # be shown to customers, use the "Your Case Has Been Escalated"
+   576→        # template text instead.
+   577→        force_human = result.get("force_human_handoff", False)
+   578→        cove_blocked = result.get("cove_blocked", False)
+   579→        pipeline_status_raw = result.get("status", "resolved")
+   580→        is_escalating = force_human or cove_blocked or pipeline_status_raw != "resolved"
+   581→
+   582→        # Check if the AI response contains internal vocabulary that customers
+   583→        # shouldn't see (GSD goals, KB doc counts, guidance requests, etc.)
+   584→        _INTERNAL_MARKERS = (
+   585→            "gsd goals", "knowledge base documents", "can you provide guidance",
+   586→            "no ai agent claims", "relevant doc(s) found", "gaps:",
+   587→            "push it back to the crm", "action=escalate_human",
+   588→        )
+   589→        _looks_internal = bool(ai_response_text) and any(
+   590→            marker in ai_response_text.lower() for marker in _INTERNAL_MARKERS
+   591→        )
+   592→
+   593→        if is_escalating and (not ai_response_text or _looks_internal):
+   594→            customer_name = customer.name if customer else "Valued Customer"
+   595→            ai_response_text = (
+   596→                f"Dear {customer_name},\n\n"
+   597→                f"Thank you for your patience. We want to let you know that "
+   598→                f"your case ({ticket_id}) has been escalated to our "
+   599→                f"specialist team for further review.\n\n"
+   600→                f"A dedicated team member will contact you within 2 hours "
+   601→                f"with an update and next steps.\n\n"
+   602→                f"We understand the urgency of your request and are "
+   603→                f"prioritising it accordingly.\n\n"
+   604→                f"Kind regards,\n"
+   605→                f"Support Team"
+   606→            )
+   607→            if _looks_internal:
+   608→                logger.info(
+   609→                    "replaced_internal_vocabulary_with_template ticket=%s original_preview=%s",
+   610→                    ticket_id, str(result.get("final_response", ""))[:100],
+   611→                )
+   612→        ai_response_html = result.get("final_response_html") or f"<p>{ai_response_text}</p>"
+   613→        pipeline_status = result.get("status", "resolved")
+   614→        confidence = result.get("confidence")
+   615→        if confidence is not None:
+   616→            try:
+   617→                confidence = float(confidence)
+   618→                # Confidence may be 0-1 or 0-100; normalize to 0-100
+   619→                if confidence <= 1.0:
+   620→                    confidence = confidence * 100.0
+   621→            except (TypeError, ValueError):  # noqa: BLE001
+   622→                confidence = None
+   623→        model_used = result.get("model_used") or result.get("variant") or "parwa"
+   624→        cost = result.get("cost_usd") or result.get("cost") or 0.0
+   625→        try:
+   626→            cost = float(cost)
+   627→        except (TypeError, ValueError):  # noqa: BLE001
+   628→            cost = 0.0
+   629→        # Savings = (typical human agent cost $12.50) - AI cost
+   630→        savings = max(0.0, 12.5 - cost)
+   631→
+   632→        # ── Persist AI response as TicketMessage + update ticket ──────
+   633→        # Honor force_human_handoff from Node 5 (legal/sensitive intent):
+   634→        # even if the pipeline reports "resolved", legal threats must wait
+   635→        # for human review before being marked resolved.
+   636→        # (force_human already extracted above for template logic)
+   637→
+   638→        # Extract CRM/ecommerce/carrier data from pipeline state so it
+   639→        # can be persisted to the ticket's metadata_json — the dashboard
+   640→        # Customer Context Panel reads this to show the human agent what
+   641→        # data the AI used (orders, CRM profile, tracking, custom API data).
+   642→        crm_data = result.get("crm_data", {})
+   643→
+   644→        logger.info(
+   645→            "pipeline_dispatcher_force_human_check ticket=%s force_human=%s pipeline_status=%s result_keys=%s",
+   646→            ticket_id, force_human, pipeline_status, list(result.keys())[:15],
+   647→        )
+   648→        if force_human:
+   649→            pipeline_status = "awaiting_human"
+   650→
+   651→        # ── Gap 4: Create Escalation Vault entry for mid-pipeline escalations ──
+   652→        # Previously only Node 8 failures created a vault entry. Mid-pipeline
+   653→        # escalations (Node 1 legal keywords, Node 4 low confidence, Node 4.5
+   654→        # CoVe blocked, Node 5 force_human_handoff) only set the ticket status
+   655→        # to awaiting_human — the human agent had no vault context on the
+   656→        # Escalations dashboard. Now we create a vault entry for ALL escalations
+   657→        # so the human agent sees the full pipeline context.
+   658→        if force_human or cove_blocked or pipeline_status == "escalated":
+   659→            try:
+   660→                from app.core.escalation_vault.vault_manager import VaultManager
+   661→                # Build a minimal state dict for the vault (the full result
+   662→                # dict has all the pipeline state we need)
+   663→                vault_state = dict(result)
+   664→                vault_state.setdefault("tenant_id", company_id)
+   665→                vault_state.setdefault("ticket_id", ticket_id)
+   666→                vault_state.setdefault("query", query_text)
+   667→                # VaultManager.save_escalation_from_pipeline is async — use
+   668→                # _run_async_safely to call it from this sync function.
+   669→                vault_record = _run_async_safely(
+   670→                    VaultManager.save_escalation_from_pipeline(
+   671→                        state=vault_state,
+   672→                        escalation_context={
+   673→                            "failure_analysis": (
+   674→                                f"Mid-pipeline escalation: force_human={force_human}, "
+   675→                                f"cove_blocked={cove_blocked}, pipeline_status={pipeline_status}"
+   676→                            ),
+   677→                            "previous_attempts": [],
+   678→                        },
+   679→                        escalation_source="dispatcher_mid_pipeline",
+   680→                    )
+   681→                )
+   682→                if vault_record:
+   683→                    logger.info(
+   684→                        "vault_entry_created_mid_pipeline ticket=%s vault_id=%s",
+   685→                        ticket_id, vault_record.get("escalation_id", "?")[:8],
+   686→                    )
+   687→            except Exception as vault_exc:  # noqa: BLE001
+   688→                logger.warning(
+   689→                    "vault_save_failed_mid_pipeline ticket=%s err=%s",
+   690→                    ticket_id, str(vault_exc)[:200],
+   691→                )
+   692→
+   693→        new_status = "resolved" if pipeline_status == "resolved" else "awaiting_human"
+   694→        _persist_ai_response(
+   695→            db=db,
+   696→            ticket=ticket,
+   697→            ai_response_text=str(ai_response_text)[:6000],
+   698→            ai_response_html=str(ai_response_html)[:12000],
+   699→            confidence=confidence,
+   700→            model_used=str(model_used),
+   701→            cost_per_ticket=cost,
+   702→            savings_per_ticket=savings,
+   703→            status=new_status,
+   704→            crm_data=crm_data,
+   705→        )
+   706→
+   707→        # ── Dispatch to channel (email / chat / sms / voice) ─────────
+   708→        try:
+   709→            from app.core.channel_dispatcher import ChannelDispatcher
+   710→            dispatcher = ChannelDispatcher(db)
+   711→            dispatcher.dispatch(
+   712→                company_id=company_id,
+   713→                ticket_id=ticket_id,
+   714→                ai_response_html=str(ai_response_html)[:12000],
+   715→                ai_response_text=str(ai_response_text)[:6000],
+   716→                role="ai",
+   717→                model_used=str(model_used),
+   718→                confidence=confidence,
+   719→            )
+   720→        except Exception as exc:  # noqa: BLE001
+   721→            logger.warning(
+   722→                "channel_dispatch_failed",
+   723→                extra={
+   724→                    "ticket_id": ticket_id,
+   725→                    "channel": channel,
+   726→                    "error": str(exc)[:200],
+   727→                },
+   728→            )
+   729→
+   730→        # ── CRM outbound push (Option B) ─────────────────────────────
+   731→        # For manually-created tickets (source=dashboard_create), the ticket
+   732→        # did NOT come from a CRM webhook — so state["metadata"] has no
+   733→        # crm_ticket_id. If the tenant has a CRM integration configured
+   734→        # (hubspot / zendesk / generic), we CREATE a new ticket in their CRM
+   735→        # and push the AI response back to it. This way the tenant's human
+   736→        # support team has full visibility into AI-resolved tickets.
+   737→        #
+   738→        # If no integration is configured → skip silently (current behavior).
+   739→        # If CRM API fails → log warning + persist crm_create_status to
+   740→        # ticket metadata; the Parwa ticket is already resolved, so we do
+   741→        # NOT propagate the exception.
+   742→        crm_create_result = _push_to_crm_outbound(
+   743→            db=db,
+   744→            ticket_id=ticket_id,
+   745→            company_id=company_id,
+   746→            subject=ticket.subject or "Customer Support Ticket",
+   747→            description=query_text,
+   748→            customer_email=customer.email if customer else "",
+   749→            customer_name=customer.name if customer else "",
+   750→            priority=ticket.priority,
+   751→            category=ticket.category or "",
+   752→            ai_response_text=str(ai_response_text)[:6000],
+   753→            ai_response_html=str(ai_response_html)[:12000],
+   754→            ticket_status=new_status,
+   755→            model_used=str(model_used),
+   756→        )
+   757→
+   758→        logger.info(
+   759→            "pipeline_completed_sync",
+   760→            extra={
+   761→                "ticket_id": ticket_id,
+   762→                "company_id": company_id,
+   763→                "status": new_status,
+   764→                "confidence": confidence,
+   765→                "cost_usd": cost,
+   766→                "model_used": model_used,
+   767→                "crm_pushed": crm_create_result.get("success", False),
+   768→                "crm_ticket_id": crm_create_result.get("crm_ticket_id", ""),
+   769→            },
+   770→        )
+   771→
+   772→        return {
+   773→            "status": "sync",
+   774→            "ticket_id": ticket_id,
+   775→            "ai_response": str(ai_response_text)[:200],
+   776→            "confidence": confidence,
+   777→            "cost_per_ticket": cost,
+   778→            "new_ticket_status": new_status,
+   779→            "crm_pushed": crm_create_result.get("success", False),
+   780→            "crm_ticket_id": crm_create_result.get("crm_ticket_id", ""),
+   781→            "crm_provider": crm_create_result.get("crm_provider", ""),
+   782→        }
+   783→
+   784→    finally:
+   785→        db.close()
+   786→
+   787→
+   788→def _persist_ai_response(
+   789→    db,
+   790→    ticket,
+   791→    ai_response_text: str,
+   792→    ai_response_html: str,
+   793→    confidence: Optional[float],
+   794→    model_used: str,
+   795→    cost_per_ticket: float,
+   796→    savings_per_ticket: float,
+   797→    status: str,
+   798→    crm_data: Optional[dict] = None,
+   799→) -> str:
+   800→    """Persist the AI response as a TicketMessage + update ticket fields.
+   801→
+   802→    Args:
+   803→        db: SQLAlchemy session.
+   804→        ticket: Ticket model instance (will be mutated + committed).
+   805→        ai_response_text: Plain-text AI response.
+   806→        ai_response_html: HTML version of the response.
+   807→        confidence: 0-100 confidence score, or None.
+   808→        model_used: Model / variant name.
+   809→        cost_per_ticket: AI cost in USD.
+   810→        savings_per_ticket: Human-agent cost avoided (USD).
+   811→        status: New ticket status ("resolved" or "awaiting_human").
+   812→
+   813→    Returns:
+   814→        The new TicketMessage ID.
+   815→    """
+   816→    from database.models.tickets import TicketMessage
+   817→
+   818→    # ── Idempotency check: if an AI message already exists for this
+   819→    # ticket (e.g. written by ChannelDispatcher during Node 6.5 delivery),
+   820→    # skip the insert and return the existing message ID. This prevents
+   821→    # the duplicate-message bug where both the pipeline dispatcher AND
+   822→    # the channel dispatcher persist the same AI response.
+   823→    existing = (
+   824→        db.query(TicketMessage)
+   825→        .filter(
+   826→            TicketMessage.ticket_id == ticket.id,
+   827→            TicketMessage.role == "ai",
+   828→        )
+   829→        .order_by(TicketMessage.created_at.desc())
+   830→        .first()
+   831→    )
+   832→    if existing:
+   833→        # Still update ticket fields (status, timestamps) but don't insert
+   834→        # a duplicate AI message.
+   835→        now = datetime.now(timezone.utc)
+   836→        ticket.status = status
+   837→        ticket.variant_version = model_used
+   838→        ticket.awaiting_human = (status == "awaiting_human")
+   839→        if not ticket.first_response_at:
+   840→            ticket.first_response_at = now
+   841→        if status == "resolved" and not ticket.closed_at:
+   842→            ticket.closed_at = now
+   843→        ticket.updated_at = now
+   844→        try:
+   845→            db.commit()
+   846→        except Exception:
+   847→            db.rollback()
+   848→        return str(existing.id)
+   849→
+   850→    message_id = str(uuid.uuid4())
+   851→    now = datetime.now(timezone.utc)
+   852→
+   853→    # ── Create the AI TicketMessage ──────────────────────────────────
+   854→    ai_msg = TicketMessage(
+   855→        id=message_id,
+   856→        ticket_id=ticket.id,
+   857→        company_id=ticket.company_id,
+   858→        role="ai",
+   859→        content=ai_response_text,
+   860→        channel=ticket.channel,
+   861→        ai_confidence=confidence,
+   862→        variant_version=model_used,
+   863→        metadata_json=json.dumps({
+   864→            "ai_response_html": ai_response_html,
+   865→            "model_used": model_used,
+   866→            "cost_per_ticket": cost_per_ticket,
+   867→            "savings_per_ticket": savings_per_ticket,
+   868→        }),
+   869→        created_at=now,
+   870→    )
+   871→    db.add(ai_msg)
+   872→
+   873→    # ── Update ticket fields ─────────────────────────────────────────
+   874→    ticket.status = status
+   875→    ticket.variant_version = model_used
+   876→    ticket.awaiting_human = (status == "awaiting_human")
+   877→    if not ticket.first_response_at:
+   878→        ticket.first_response_at = now
+   879→    if status == "resolved" and not ticket.closed_at:
+   880→        ticket.closed_at = now
+   881→    ticket.updated_at = now
+   882→
+   883→    # ── Write cost/savings/confidence into ticket metadata ───────────
+   884→    metadata = {}
+   885→    if ticket.metadata_json:
+   886→        try:
+   887→            metadata = json.loads(ticket.metadata_json)
+   888→        except (json.JSONDecodeError, TypeError):
+   889→            metadata = {}
+   890→    if not isinstance(metadata, dict):
+   891→        metadata = {}
+   892→    metadata["cost_per_ticket"] = cost_per_ticket
+   893→    metadata["savings_per_ticket"] = savings_per_ticket
+   894→    if confidence is not None:
+   895→        metadata["ai_confidence"] = confidence
+   896→    metadata["model_used"] = model_used
+   897→    metadata["pipeline_completed_at"] = now.isoformat()
+   898→
+   899→    # Persist CRM/ecommerce/carrier data so the dashboard Customer Context
+   900→    # Panel can display what the AI saw (orders, CRM profile, tracking, etc.)
+   901→    if crm_data and isinstance(crm_data, dict):
+   902→        # Only save non-None values (skip empty fields)
+   903→        context = {}
+   904→        for k, v in crm_data.items():
+   905→            if v is not None:
+   906→                context[k] = v
+   907→        if context:
+   908→            # Truncate to avoid exceeding column size — keep first 2000 chars
+   909→            context_str = json.dumps(context)
+   910→            if len(context_str) > 2000:
+   911→                context_str = context_str[:2000]
+   912→            metadata["customer_context"] = json.loads(context_str)
+   913→    ticket.metadata_json = json.dumps(metadata)
+   914→
+   915→    db.commit()
+   916→    return message_id
+   917→
+   918→
+   919→def _push_to_crm_outbound(
+   920→    db,
+   921→    ticket_id: str,
+   922→    company_id: str,
+   923→    subject: str,
+   924→    description: str,
+   925→    customer_email: str,
+   926→    customer_name: str,
+   927→    priority: str,
+   928→    category: str,
+   929→    ai_response_text: str,
+   930→    ai_response_html: str,
+   931→    ticket_status: str,
+   932→    model_used: str,
+   933→) -> Dict[str, Any]:
+   934→    """Create a new ticket in the tenant's CRM + push the AI response to it.
+   935→
+   936→    Called after the Parwa ticket is resolved and the AI response is
+   937→    persisted. If the tenant has no CRM integration configured, returns
+   938→    {success: False, skipped: True, reason: "no_crm_integration"}. If the
+   939→    CRM API fails, returns {success: False, error: "..."} but does NOT
+   940→    raise — the Parwa ticket is already resolved and the customer already
+   941→    has the AI response via their channel.
+   942→
+   943→    On success, the new crm_ticket_id is persisted to
+   944→    ticket.metadata_json["crm_ticket_id"] so the Parwa UI can deep-link
+   945→    to the CRM ticket.
+   946→
+   947→    Args:
+   948→        db: SQLAlchemy session (used to load Integration + update Ticket metadata).
+   949→        ticket_id: Parwa ticket ID.
+   950→        company_id: Tenant scope.
+   951→        subject: Ticket subject (sent to CRM).
+   952→        description: First customer message (sent to CRM as content).
+   953→        customer_email: Customer email (for CRM contact association).
+   954→        customer_name: Customer name.
+   955→        priority: Ticket priority (critical/high/medium/low).
+   956→        category: Ticket category.
+   957→        ai_response_text: AI response plain text (pushed as reply to CRM ticket).
+   958→        ai_response_html: AI response HTML.
+   959→        ticket_status: "resolved" or "awaiting_human" — pushed to CRM.
+   960→        model_used: AI model name for the internal note.
+   961→
+   962→    Returns:
+   963→        Dict with: success (bool), skipped (bool, optional), crm_ticket_id,
+   964→        crm_provider, error, crm_ticket_url.
+   965→    """
+   966→    from database.models.tickets import Ticket
+   967→    from app.services.integration_service import IntegrationService
+   968→    from app.core.crm_bridge.crm_bridge import CRMBridge
+   969→
+   970→    svc = IntegrationService(db)
+   971→
+   972→    # ── Find the tenant's active CRM integration ─────────────────────
+   973→    # Try HubSpot first (most common), then Zendesk, then generic.
+   974→    crm_provider: Optional[str] = None
+   975→    crm_config: Optional[Dict[str, Any]] = None
+   976→    for provider in ("hubspot", "zendesk", "generic"):
+   977→        cfg = svc.get_credential_config(company_id, provider)
+   978→        if cfg:
+   979→            crm_provider = provider
+   980→            crm_config = cfg
+   981→            break
+   982→
+   983→    if not crm_provider:
+   984→        # Tenant has no CRM integration — skip silently. This is the
+   985→        # common case for email-only / chat-only tenants.
+   986→        return {
+   987→            "success": False,
+   988→            "skipped": True,
+   989→            "reason": "no_crm_integration",
+   990→        }
+   991→
+   992→    # ── Step 1: Create the ticket in the CRM ─────────────────────────
+   993→    create_result = _run_async_safely(CRMBridge.create_ticket(
+   994→        provider=crm_provider,
+   995→        subject=subject,
+   996→        content=description,
+   997→        customer_email=customer_email,
+   998→        customer_name=customer_name,
+   999→        priority=priority,
+  1000→        category=category,
+  1001→        config=crm_config,
+  1002→    ))
+  1003→
+  1004→    if not create_result.get("success"):
+  1005→        logger.warning(
+  1006→            "crm_outbound_create_failed",
+  1007→            extra={
+  1008→                "ticket_id": ticket_id,
+  1009→                "company_id": company_id,
+  1010→                "crm_provider": crm_provider,
+  1011→                "error": str(create_result.get("error", ""))[:200],
+  1012→            },
+  1013→        )
+  1014→        # Persist failure status to ticket metadata so the dashboard
+  1015→        # can show "CRM sync failed" without breaking the resolve flow.
+  1016→        _persist_crm_status_to_metadata(
+  1017→            db=db,
+  1018→            ticket_id=ticket_id,
+  1019→            crm_provider=crm_provider,
+  1020→            crm_ticket_id=None,
+  1021→            crm_create_status="failed",
+  1022→            crm_push_status="skipped",
+  1023→            crm_error=str(create_result.get("error", ""))[:300],
+  1024→        )
+  1025→        return create_result
+  1026→
+  1027→    crm_ticket_id = create_result.get("crm_ticket_id", "")
+  1028→    logger.info(
+  1029→        "crm_outbound_create_success",
+  1030→        extra={
+  1031→            "ticket_id": ticket_id,
+  1032→            "company_id": company_id,
+  1033→            "crm_provider": crm_provider,
+  1034→            "crm_ticket_id": crm_ticket_id,
+  1035→        },
+  1036→    )
+  1037→
+  1038→    # ── Step 2: Push the AI response to the new CRM ticket ───────────
+  1039→    # Map Parwa status → CRM status:
+  1040→    #   resolved       → "resolved"
+  1041→    #   awaiting_human → "escalated"
+  1042→    crm_status = "resolved" if ticket_status == "resolved" else "escalated"
+  1043→    internal_note = (
+  1044→        f"Ticket auto-resolved by PARWA AI (model={model_used}). "
+  1045→        f"Original Parwa ticket ID: {ticket_id}. "
+  1046→        f"Status: {ticket_status}."
+  1047→    )
+  1048→
+  1049→    push_result = _run_async_safely(CRMBridge.push_response(
+  1050→        provider=crm_provider,
+  1051→        ticket_id=crm_ticket_id,
+  1052→        response=ai_response_text,
+  1053→        status=crm_status,
+  1054→        internal_note=internal_note,
+  1055→        config=crm_config,
+  1056→    ))
+  1057→
+  1058→    push_success = push_result.get("success", False)
+  1059→    if not push_success:
+  1060→        logger.warning(
+  1061→            "crm_outbound_push_failed",
+  1062→            extra={
+  1063→                "ticket_id": ticket_id,
+  1064→                "crm_ticket_id": crm_ticket_id,
+  1065→                "crm_provider": crm_provider,
+  1066→                "error": str(push_result.get("error", ""))[:200],
+  1067→            },
+  1068→        )
+  1069→
+  1070→    # ── Step 3: Persist CRM IDs + status to ticket metadata ──────────
+  1071→    _persist_crm_status_to_metadata(
+  1072→        db=db,
+  1073→        ticket_id=ticket_id,
+  1074→        crm_provider=crm_provider,
+  1075→        crm_ticket_id=crm_ticket_id,
+  1076→        crm_create_status="success",
+  1077→        crm_push_status="success" if push_success else "failed",
+  1078→        crm_ticket_url=create_result.get("crm_ticket_url", ""),
+  1079→    )
+  1080→
+  1081→    return {
+  1082→        "success": True,
+  1083→        "crm_ticket_id": crm_ticket_id,
+  1084→        "crm_provider": crm_provider,
+  1085→        "crm_ticket_url": create_result.get("crm_ticket_url", ""),
+  1086→        "push_success": push_success,
+  1087→    }
+  1088→
+  1089→
+  1090→def _persist_crm_status_to_metadata(
+  1091→    db,
+  1092→    ticket_id: str,
+  1093→    crm_provider: Optional[str],
+  1094→    crm_ticket_id: Optional[str],
+  1095→    crm_create_status: str,
+  1096→    crm_push_status: str,
+  1097→    crm_error: str = "",
+  1098→    crm_ticket_url: str = "",
+  1099→) -> None:
+  1100→    """Persist CRM sync status into ticket.metadata_json.
+  1101→
+  1102→    This is best-effort: if it fails, the ticket is still resolved —
+  1103→    we just lose the CRM link in the dashboard.
+  1104→    """
+  1105→    try:
+  1106→        from database.models.tickets import Ticket
+  1107→        ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+  1108→        if not ticket:
+  1109→            return
+  1110→
+  1111→        metadata: Dict[str, Any] = {}
+  1112→        if ticket.metadata_json:
+  1113→            try:
+  1114→                metadata = json.loads(ticket.metadata_json)
+  1115→            except (json.JSONDecodeError, TypeError):
+  1116→                metadata = {}
+  1117→        if not isinstance(metadata, dict):
+  1118→            metadata = {}
+  1119→
+  1120→        metadata["crm_provider"] = crm_provider or ""
+  1121→        if crm_ticket_id:
+  1122→            metadata["crm_ticket_id"] = crm_ticket_id
+  1123→        metadata["crm_create_status"] = crm_create_status
+  1124→        metadata["crm_push_status"] = crm_push_status
+  1125→        if crm_error:
+  1126→            metadata["crm_error"] = crm_error
+  1127→        if crm_ticket_url:
+  1128→            metadata["crm_ticket_url"] = crm_ticket_url
+  1129→        metadata["crm_synced_at"] = datetime.now(timezone.utc).isoformat()
+  1130→
+  1131→        ticket.metadata_json = json.dumps(metadata)
+  1132→        db.commit()
+  1133→    except Exception as exc:  # noqa: BLE001
+  1134→        logger.warning(
+  1135→            "crm_metadata_persist_failed",
+  1136→            extra={"ticket_id": ticket_id, "error": str(exc)[:200]},
+  1137→        )
+  1138→

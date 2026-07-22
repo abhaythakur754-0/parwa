@@ -1,0 +1,56 @@
+{
+  "timestamp": "2026-07-22T06:49:08.593491+00:00",
+  "target_url": "https://parwa.buzz",
+  "crm_url": "http://localhost:8899",
+  "account": "parwatest2025@gmail.com",
+  "results": {
+    "crm_connection": {
+      "connected": false,
+      "method": "oauth_detected"
+    },
+    "ticket_push": {
+      "pushed": 0,
+      "failed": 0,
+      "total": 50
+    },
+    "knowledge_base": {
+      "uploaded": 4,
+      "total": 4
+    },
+    "tickets_verification": {
+      "visible": false,
+      "count": 0
+    },
+    "jarvis_test": {
+      "working": false,
+      "responses": [
+        {
+          "query": "Hello Jarvis!",
+          "got_response": false
+        },
+        {
+          "query": "How many open tickets do we have?",
+          "got_response": false
+        },
+        {
+          "query": "Show me high priority tickets",
+          "got_response": false
+        },
+        {
+          "query": "What's our most common issue?",
+          "got_response": false
+        }
+      ]
+    },
+    "escalation_test": {
+      "escalation_possible": true,
+      "tested": false
+    }
+  },
+  "summary": {
+    "total_checks": 14,
+    "passed": 4,
+    "score_percent": 28.6,
+    "production_ready": false
+  }
+}

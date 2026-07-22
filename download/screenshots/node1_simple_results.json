@@ -1,0 +1,9 @@
+{
+  "timestamp": "2026-07-22T07:12:26.119814+00:00",
+  "test": "node1_crm_retrieval_simple",
+  "login_success": true,
+  "crm_pre_existing_requests": 10,
+  "tickets_created_by_node1_simulation": 0,
+  "node1_working": false,
+  "production_ready": false
+}

@@ -1,0 +1,423 @@
+     1→================================================================================
+     2→🔍 PRODUCTION DATABASE COMPLETE AUDIT
+     3→   Time: 2026-07-19T19:01:00.671675
+     4→================================================================================
+     5→
+     6→╔══════════════════════════════════════════════════════════════════════════════╗
+     7→║                           📊 ALL TABLES IN DATABASE                         ║
+     8→╚══════════════════════════════════════════════════════════════════════════════╝
+     9→
+    10→Table Name                                       Columns       Row Count    Size Est.
+    11→----------------------------------------------------------------------------------
+    12→activity_log                                          18           ERROR          N/A
+    13→agent_config_history                                   7           ERROR          N/A
+    14→agent_mistakes                                        11               0           0B
+    15→agent_performance                                     11               0           0B
+    16→agents                                                11           ERROR          N/A
+    17→ai_agent_assignments                                  13           ERROR          N/A
+    18→ai_performance_variant_metrics                        15               0           0B
+    19→ai_response_feedback                                  10               0           0B
+    20→ai_token_budgets                                      14               0           0B
+    21→ai_wiki_entries                                       14               0           0B
+    22→api_key_audit_log                                      7               0           0B
+    23→api_keys                                              16               0           0B
+    24→api_providers                                          9               0           0B
+    25→approval_batches                                      11               0           0B
+    26→approval_queues                                       14               0           0B
+    27→assignment_rules                                       9               0           0B
+    28→audit_trail                                           12               0           0B
+    29→auto_approve_rules                                    10               0           0B
+    30→backup_codes                                           7               0           0B
+    31→bulk_action_failures                                   7               0           0B
+    32→bulk_action_logs                                       9               0           0B
+    33→business_email_otps                                   10               0           0B
+    34→cancellation_requests                                  9               0           0B
+    35→canned_responses                                      12               0           0B
+    36→channel_configs                                       11               0           0B
+    37→channels                                               6               0           0B
+    38→chat_widget_configs                                   21               0           0B
+    39→chat_widget_messages                                  17               0           0B
+    40→chat_widget_sessions                                  24               0           0B
+    41→checkpoint_blobs                                       6               0           0B
+    42→checkpoint_migrations                                  1           ERROR          N/A
+    43→checkpoint_writes                                      9               0           0B
+    44→checkpoints                                            7               0           0B
+    45→classification_corrections                            10               0           0B
+    46→classification_log                                    12               0           0B
+    47→client_refunds                                        11               0           0B
+    48→companies                                             15           ERROR          N/A
+    49→company_settings                                      19               0           0B
+    50→confidence_scores                                      9               0           0B
+    51→confidence_thresholds                                  9               0           0B
+    52→consent_records                                        9           ERROR          N/A
+    53→custom_fields                                         12               0           0B
+    54→customer_channels                                      9           ERROR          N/A
+    55→customer_email_status                                 11               0           0B
+    56→customer_merge_audits                                  8               0           0B
+    57→customers                                              9           ERROR          N/A
+    58→data_retention_policies                               10               0           0B
+    59→db_connections                                         9               0           0B
+    60→demo_sessions                                         13               0           0B
+    61→demo_usage_events                                      5               0           0B
+    62→demo_usage_sessions                                   15               0           0B
+    63→document_chunks                                        7           ERROR          N/A
+    64→drift_reports                                         10               0           0B
+    65→email_bounces                                         16               0           0B
+    66→email_deliverability_alerts                           10               0           0B
+    67→email_delivery_events                                 22               0           0B
+    68→email_logs                                            12               0           0B
+    69→email_threads                                          9               0           0B
+    70→emergency_states                                       8               0           0B
+    71→erasure_requests                                      22               0           0B
+    72→error_log                                             11               0           0B
+    73→event_buffer                                           7               0           0B
+    74→executed_actions                                      10               0           0B
+    75→feature_flags                                         11               0           0B
+    76→first_victories                                        9               0           0B
+    77→gsd_sessions                                           8               0           0B
+    78→guardrail_blocks                                      11               0           0B
+    79→guardrail_rules                                        9               0           0B
+    80→guardrails_audit_log                                  13               0           0B
+    81→guardrails_blocked_queue                              13               0           0B
+    82→human_corrections                                     12               0           0B
+    83→idempotency_keys                                      10               0           0B
+    84→identity_match_logs                                    9               0           0B
+    85→inbound_emails                                        19               0           0B
+    86→integrations                                          11           ERROR          N/A
+    87→invoices                                              10               0           0B
+    88→jarvis_action_tickets                                 10               0           0B
+    89→jarvis_activity_events                                21           ERROR          N/A
+    90→jarvis_awareness_snapshots                            48               0           0B
+    91→jarvis_commands                                       21               0           0B
+    92→jarvis_knowledge_used                                  5               0           0B
+    93→jarvis_messages                                        7           ERROR          N/A
+    94→jarvis_proactive_alerts                               20               0           0B
+    95→jarvis_safety_confirmations                           12               0           0B
+    96→jarvis_sessions                                       16           ERROR          N/A
+    97→knowledge_base                                         7           ERROR          N/A
+    98→knowledge_documents                                   15           ERROR          N/A
+    99→mcp_connections                                        9               0           0B
+   100→metric_aggregates                                      9               0           0B
+   101→mfa_secrets                                            6               0           0B
+   102→model_usage_logs                                      11               0           0B
+   103→newsletter_subscribers                                 7               0           0B
+   104→notification_logs                                     13               0           0B
+   105→notification_preference_audit                          9               0           0B
+   106→notification_preferences                               9               0           0B
+   107→notification_templates                                12               0           0B
+   108→notifications                                         17               0           0B
+   109→oauth_accounts                                        11           ERROR          N/A
+   110→onboarding_sessions                                   22           ERROR          N/A
+   111→ooo_detection_log                                     12               0           0B
+   112→ooo_detection_rules                                   11               0           0B
+   113→ooo_sender_profiles                                    9               0           0B
+   114→outbound_emails                                       23           ERROR          N/A
+   115→outgoing_webhooks                                     12               0           0B
+   116→overage_charges                                       10               0           0B
+   117→paddle_reconciliation_reports                          8               0           0B
+   118→paddle_webhook_events                                 13               0           0B
+   119→parwa_customers                                        6           ERROR          N/A
+   120→parwa_escalation_vault                                14               0           0B
+   121→parwa_invoices                                         8           ERROR          N/A
+   122→parwa_orders                                          10           ERROR          N/A
+   123→parwa_payments                                         8           ERROR          N/A
+   124→parwa_refunds                                          6           ERROR          N/A
+   125→password_reset_tokens                                  7               0           0B
+   126→payment_failures                                      14               0           0B
+   127→payment_methods                                       11               0           0B
+   128→phone_otps                                             8               0           0B
+   129→pipeline_state_snapshots                              12               0           0B
+   130→prompt_injection_attempts                             12               0           0B
+   131→prompt_templates                                       9               0           0B
+   132→proration_audits                                      16               0           0B
+   133→qa_scores                                             10               0           0B
+   134→rate_limit_counters                                    9               0           0B
+   135→rate_limit_events                                      7               0           0B
+   136→refresh_tokens                                        17           ERROR          N/A
+   137→response_templates                                    12               0           0B
+   138→rest_connectors                                       10           ERROR          N/A
+   139→roi_snapshots                                         11               0           0B
+   140→service_configs                                       10               0           0B
+   141→shadow_mode_configs                                   24               0           0B
+   142→shadow_mode_results                                   28               0           0B
+   143→sla_policies                                          10               0           0B
+   144→sla_timers                                            10               0           0B
+   145→sms_channel_configs                                   20               0           0B
+   146→sms_conversations                                     13               0           0B
+   147→sms_messages                                          29               0           0B
+   148→subscriptions                                          9               0           0B
+   149→technique_caches                                      11               0           0B
+   150→technique_configurations                              11               0           0B
+   151→technique_executions                                  23               0           0B
+   152→technique_versions                                    19               0           0B
+   153→ticket_assignments                                     8               0           0B
+   154→ticket_attachments                                     9               0           0B
+   155→ticket_collisions                                      9               0           0B
+   156→ticket_feedbacks                                      13               0           0B
+   157→ticket_intents                                         8               0           0B
+   158→ticket_internal_notes                                  7               0           0B
+   159→ticket_merges                                          9               0           0B
+   160→ticket_messages                                       13           ERROR          N/A
+   161→ticket_status_changes                                  8           ERROR          N/A
+   162→ticket_triggers                                       13               0           0B
+   163→tickets                                               31           ERROR          N/A
+   164→tickets_archive                                       31               0           0B
+   165→training_checkpoints                                   9               0           0B
+   166→training_datasets                                     10               0           0B
+   167→training_runs                                         15               0           0B
+   168→transactions                                           9               0           0B
+   169→undo_log                                               9               0           0B
+   170→usage_records                                         10           ERROR          N/A
+   171→user_details                                          14           ERROR          N/A
+   172→user_notification_preferences                          7               0           0B
+   173→users                                                 52           ERROR          N/A
+   174→variant_ai_capabilities                               12               0           0B
+   175→variant_instances                                     14           ERROR          N/A
+   176→variant_limits                                        10               0           0B
+   177→variant_workload_distribution                         12               0           0B
+   178→verification_tokens                                    8           ERROR          N/A
+   179→voice_calls                                           29               0           0B
+   180→voice_channel_configs                                 19               0           0B
+   181→voice_conversations                                   11               0           0B
+   182→webhook_events                                        13               0           0B
+   183→webhook_integrations                                   8               0           0B
+   184→webhook_sequences                                     11               0           0B
+   185→
+   186→----------------------------------------------------------------------------------
+   187→TOTAL: 139 tables | ~0 rows
+   188→
+   189→
+   190→╔══════════════════════════════════════════════════════════════════════════════╗
+   191→║            🗑️  CLEANUP ANALYSIS - What needs automatic deletion?           ║
+   192→╚══════════════════════════════════════════════════════════════════════════════╝
+   193→
+   194→
+   195→            📌 TEMPORARY/Ephemeral Data (Should be cleaned quickly)            
+   196→------------------------------------------------------------------------------
+   197→   Suggested Retention: 15 min - 24 hours
+   198→   Reason: Short-lived data, no long-term value
+   199→
+   200→   Tables:
+   201→     ✅ business_email_otps                                 0 rows  0B
+   202→     ✅ demo_sessions                                       0 rows  0B
+   203→     ✅ demo_usage_events                                   0 rows  0B
+   204→     ✅ demo_usage_sessions                                 0 rows  0B
+   205→     ✅ jarvis_safety_confirmations                         0 rows  0B
+   206→     ✅ notification_templates                              0 rows  0B
+   207→     ✅ password_reset_tokens                               0 rows  0B
+   208→     ✅ phone_otps                                          0 rows  0B
+   209→     ✅ prompt_injection_attempts                           0 rows  0B
+   210→     ✅ prompt_templates                                    0 rows  0B
+   211→     ✅ response_templates                                  0 rows  0B
+   212→
+   213→              📌 LOG/Audit Data (Keep for compliance then clean)               
+   214→------------------------------------------------------------------------------
+   215→   Suggested Retention: 7 - 90 days
+   216→   Reason: Useful for debugging but grows fast
+   217→
+   218→   Tables:
+   219→     ✅ activity_log                                       -1 rows  ERROR
+   220→     ✅ agent_config_history                               -1 rows  ERROR
+   221→     ✅ api_key_audit_log                                   0 rows  0B
+   222→     ✅ audit_trail                                         0 rows  0B
+   223→     ✅ bulk_action_logs                                    0 rows  0B
+   224→     ✅ classification_log                                  0 rows  0B
+   225→     ✅ customer_merge_audits                               0 rows  0B
+   226→     ✅ email_delivery_events                               0 rows  0B
+   227→     ✅ email_logs                                          0 rows  0B
+   228→     ✅ error_log                                           0 rows  0B
+   229→     ✅ event_buffer                                        0 rows  0B
+   230→     ✅ guardrails_audit_log                                0 rows  0B
+   231→     ✅ identity_match_logs                                 0 rows  0B
+   232→     ✅ jarvis_activity_events                             -1 rows  ERROR
+   233→     ✅ model_usage_logs                                    0 rows  0B
+   234→     ✅ notification_logs                                   0 rows  0B
+   235→     ✅ notification_preference_audit                       0 rows  0B
+   236→     ✅ ooo_detection_log                                   0 rows  0B
+   237→     ✅ paddle_webhook_events                               0 rows  0B
+   238→     ✅ proration_audits                                    0 rows  0B
+   239→     ✅ rate_limit_events                                   0 rows  0B
+   240→     ✅ undo_log                                            0 rows  0B
+   241→     ✅ webhook_events                                      0 rows  0B
+   242→
+   243→                📌 USER DATA (Keep active, clean old/resolved)                 
+   244→------------------------------------------------------------------------------
+   245→   Suggested Retention: 30 - 90 days
+   246→   Reason: Active data needed, old resolved data can go
+   247→
+   248→   Tables:
+   249→     ✅ chat_widget_configs                                 0 rows  0B
+   250→     ✅ chat_widget_messages                                0 rows  0B
+   251→     ✅ chat_widget_sessions                                0 rows  0B
+   252→     ✅ jarvis_action_tickets                               0 rows  0B
+   253→     ✅ jarvis_messages                                    -1 rows  ERROR
+   254→     ✅ payment_failures                                    0 rows  0B
+   255→     ✅ sms_messages                                        0 rows  0B
+   256→     ✅ ticket_assignments                                  0 rows  0B
+   257→     ✅ ticket_attachments                                  0 rows  0B
+   258→     ✅ ticket_collisions                                   0 rows  0B
+   259→     ✅ ticket_feedbacks                                    0 rows  0B
+   260→     ✅ ticket_intents                                      0 rows  0B
+   261→     ✅ ticket_internal_notes                               0 rows  0B
+   262→     ✅ ticket_merges                                       0 rows  0B
+   263→     ✅ ticket_messages                                    -1 rows  ERROR
+   264→     ✅ ticket_status_changes                              -1 rows  ERROR
+   265→     ✅ ticket_triggers                                     0 rows  0B
+   266→     ✅ tickets                                            -1 rows  ERROR
+   267→     ✅ tickets_archive                                     0 rows  0B
+   268→
+   269→                 📌 CORE/Persistent Data (NEVER auto-delete!)                  
+   270→------------------------------------------------------------------------------
+   271→   Suggested Retention: FOREVER
+   272→   Reason: Critical business data - keep indefinitely
+   273→
+   274→   Tables:
+   275→     ✅ agent_mistakes                                      0 rows  0B
+   276→     ✅ agent_performance                                   0 rows  0B
+   277→     ✅ agents                                             -1 rows  ERROR
+   278→     ✅ ai_agent_assignments                               -1 rows  ERROR
+   279→     ✅ company_settings                                    0 rows  0B
+   280→     ✅ customer_channels                                  -1 rows  ERROR
+   281→     ✅ customer_email_status                               0 rows  0B
+   282→     ✅ customers                                          -1 rows  ERROR
+   283→     ✅ document_chunks                                    -1 rows  ERROR
+   284→     ✅ integrations                                       -1 rows  ERROR
+   285→     ✅ jarvis_knowledge_used                               0 rows  0B
+   286→     ✅ knowledge_base                                     -1 rows  ERROR
+   287→     ✅ knowledge_documents                                -1 rows  ERROR
+   288→     ✅ oauth_accounts                                     -1 rows  ERROR
+   289→     ✅ parwa_customers                                    -1 rows  ERROR
+   290→     ✅ subscriptions                                       0 rows  0B
+   291→     ✅ user_details                                       -1 rows  ERROR
+   292→     ✅ user_notification_preferences                       0 rows  0B
+   293→     ✅ users                                              -1 rows  ERROR
+   294→     ✅ webhook_integrations                                0 rows  0B
+   295→
+   296→                 📌 SYSTEM/Metadata Tables (No cleanup needed)                 
+   297→------------------------------------------------------------------------------
+   298→   Suggested Retention: N/A
+   299→   Reason: Small metadata, system managed
+   300→
+   301→   Tables:
+   302→     ✅ ai_performance_variant_metrics                      0 rows  0B
+   303→     ✅ ai_response_feedback                                0 rows  0B
+   304→     ✅ ai_token_budgets                                    0 rows  0B
+   305→     ✅ ai_wiki_entries                                     0 rows  0B
+   306→     ✅ api_keys                                            0 rows  0B
+   307→     ✅ api_providers                                       0 rows  0B
+   308→     ✅ approval_batches                                    0 rows  0B
+   309→     ✅ approval_queues                                     0 rows  0B
+   310→     ✅ assignment_rules                                    0 rows  0B
+   311→     ✅ auto_approve_rules                                  0 rows  0B
+   312→     ✅ backup_codes                                        0 rows  0B
+   313→     ✅ bulk_action_failures                                0 rows  0B
+   314→     ✅ cancellation_requests                               0 rows  0B
+   315→     ✅ canned_responses                                    0 rows  0B
+   316→     ✅ channel_configs                                     0 rows  0B
+   317→     ✅ channels                                            0 rows  0B
+   318→     ✅ checkpoint_blobs                                    0 rows  0B
+   319→     ✅ checkpoint_migrations                              -1 rows  ERROR
+   320→     ✅ checkpoint_writes                                   0 rows  0B
+   321→     ✅ checkpoints                                         0 rows  0B
+   322→     ✅ classification_corrections                          0 rows  0B
+   323→     ✅ client_refunds                                      0 rows  0B
+   324→     ✅ companies                                          -1 rows  ERROR
+   325→     ✅ confidence_scores                                   0 rows  0B
+   326→     ✅ confidence_thresholds                               0 rows  0B
+   327→     ✅ consent_records                                    -1 rows  ERROR
+   328→     ✅ custom_fields                                       0 rows  0B
+   329→     ✅ data_retention_policies                             0 rows  0B
+   330→     ✅ db_connections                                      0 rows  0B
+   331→     ✅ drift_reports                                       0 rows  0B
+   332→     ✅ email_bounces                                       0 rows  0B
+   333→     ✅ email_deliverability_alerts                         0 rows  0B
+   334→     ✅ email_threads                                       0 rows  0B
+   335→     ✅ emergency_states                                    0 rows  0B
+   336→     ✅ erasure_requests                                    0 rows  0B
+   337→     ✅ executed_actions                                    0 rows  0B
+   338→     ✅ feature_flags                                       0 rows  0B
+   339→     ✅ first_victories                                     0 rows  0B
+   340→     ✅ gsd_sessions                                        0 rows  0B
+   341→     ✅ guardrail_blocks                                    0 rows  0B
+   342→     ✅ guardrail_rules                                     0 rows  0B
+   343→     ✅ guardrails_blocked_queue                            0 rows  0B
+   344→     ✅ human_corrections                                   0 rows  0B
+   345→     ✅ idempotency_keys                                    0 rows  0B
+   346→     ✅ inbound_emails                                      0 rows  0B
+   347→     ✅ invoices                                            0 rows  0B
+   348→     ✅ jarvis_awareness_snapshots                          0 rows  0B
+   349→     ✅ jarvis_commands                                     0 rows  0B
+   350→     ✅ jarvis_proactive_alerts                             0 rows  0B
+   351→     ✅ jarvis_sessions                                    -1 rows  ERROR
+   352→     ✅ mcp_connections                                     0 rows  0B
+   353→     ✅ metric_aggregates                                   0 rows  0B
+   354→     ✅ mfa_secrets                                         0 rows  0B
+   355→     ✅ newsletter_subscribers                              0 rows  0B
+   356→     ✅ notification_preferences                            0 rows  0B
+   357→     ✅ notifications                                       0 rows  0B
+   358→     ✅ onboarding_sessions                                -1 rows  ERROR
+   359→     ✅ ooo_detection_rules                                 0 rows  0B
+   360→     ✅ ooo_sender_profiles                                 0 rows  0B
+   361→     ✅ outbound_emails                                    -1 rows  ERROR
+   362→     ✅ outgoing_webhooks                                   0 rows  0B
+   363→     ✅ overage_charges                                     0 rows  0B
+   364→     ✅ paddle_reconciliation_reports                       0 rows  0B
+   365→     ✅ parwa_escalation_vault                              0 rows  0B
+   366→     ✅ parwa_invoices                                     -1 rows  ERROR
+   367→     ✅ parwa_orders                                       -1 rows  ERROR
+   368→     ✅ parwa_payments                                     -1 rows  ERROR
+   369→     ✅ parwa_refunds                                      -1 rows  ERROR
+   370→     ✅ payment_methods                                     0 rows  0B
+   371→     ✅ pipeline_state_snapshots                            0 rows  0B
+   372→     ✅ qa_scores                                           0 rows  0B
+   373→     ✅ rate_limit_counters                                 0 rows  0B
+   374→     ✅ refresh_tokens                                     -1 rows  ERROR
+   375→     ✅ rest_connectors                                    -1 rows  ERROR
+   376→     ✅ roi_snapshots                                       0 rows  0B
+   377→     ✅ service_configs                                     0 rows  0B
+   378→     ✅ shadow_mode_configs                                 0 rows  0B
+   379→     ✅ shadow_mode_results                                 0 rows  0B
+   380→     ✅ sla_policies                                        0 rows  0B
+   381→     ✅ sla_timers                                          0 rows  0B
+   382→     ✅ sms_channel_configs                                 0 rows  0B
+   383→     ✅ sms_conversations                                   0 rows  0B
+   384→     ✅ technique_caches                                    0 rows  0B
+   385→     ✅ technique_configurations                            0 rows  0B
+   386→     ✅ technique_executions                                0 rows  0B
+   387→     ✅ technique_versions                                  0 rows  0B
+   388→     ✅ training_checkpoints                                0 rows  0B
+   389→     ✅ training_datasets                                   0 rows  0B
+   390→     ✅ training_runs                                       0 rows  0B
+   391→     ✅ transactions                                        0 rows  0B
+   392→     ✅ usage_records                                      -1 rows  ERROR
+   393→     ✅ variant_ai_capabilities                             0 rows  0B
+   394→     ✅ variant_instances                                  -1 rows  ERROR
+   395→     ✅ variant_limits                                      0 rows  0B
+   396→     ✅ variant_workload_distribution                       0 rows  0B
+   397→     ✅ verification_tokens                                -1 rows  ERROR
+   398→     ✅ voice_calls                                         0 rows  0B
+   399→     ✅ voice_channel_configs                               0 rows  0B
+   400→     ✅ voice_conversations                                 0 rows  0B
+   401→     ✅ webhook_sequences                                   0 rows  0B
+   402→
+   403→
+   404→╔══════════════════════════════════════════════════════════════════════════════╗
+   405→║                        📋 RECOMMENDED CLEANUP SCHEDULE                      ║
+   406→╚══════════════════════════════════════════════════════════════════════════════╝
+   407→
+   408→Table                          Retention            Scope                  Priority
+   409→-------------------------------------------------------------------------------------
+   410→🔴 phone_otp                    15 minutes           UNVERIFIED only       
+   411→🔴 business_email_otp           15 minutes           UNVERIFIED only       
+   412→🟡 jarvis_safety_confirmations  Immediate mark expired Delete after 7 days   
+   413→🟢 demo_usage_events            30 days              All old events        
+   414→🟢 demo_usage_sessions          60 days              Expired/inactive only 
+   415→🟡 tickets (resolved/closed)    30 days              RESOLVED/CLOSED only  
+   416→🟡 ticket_messages              60 days              Orphaned messages     
+   417→🟢 payment_failures (resolved)  90 days              RESOLVED only         
+   418→🟢 audit_trail                  90 days              Old entries           
+   419→🟢 agent_config_history         180 days             Old versions          
+   420→
+   421→================================================================================
+   422→✅ AUDIT COMPLETE - Ready to implement cleanup functions!
+   423→================================================================================

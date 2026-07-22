@@ -1,0 +1,554 @@
+   801→                    msg.sender === 'customer'
+   802→                      ? 'bg-orange-500/10 border border-orange-500/20'
+   803→                      : msg.sender === 'ai_agent'
+   804→                      ? 'bg-[#1A1A1A] border border-white/[0.06]'
+   805→                      : 'bg-zinc-500/5 border border-zinc-500/10'
+   806→                  }`}
+   807→                >
+   808→                  <div className="flex items-center gap-2 mb-1">
+   809→                    <span className="text-[11px] font-medium text-zinc-400">
+   810→                      {msg.sender === 'customer'
+   811→                        ? ticket.customer_name
+   812→                        : msg.sender === 'ai_agent'
+   813→                        ? `PARWA AI ${msg.variant ? `(${msg.variant.toUpperCase()})` : ''}`
+   814→                        : 'System'}
+   815→                    </span>
+   816→                    <span className="text-[10px] text-zinc-600">
+   817→                      {formatRelativeDate(msg.created_at)}
+   818→                    </span>
+   819→                  </div>
+   820→                  <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
+   821→                    {msg.content}
+   822→                  </p>
+   823→                </div>
+   824→              </motion.div>
+   825→            ))}
+   826→
+   827→            {/* AI Typing indicator */}
+   828→            {isAiTyping && (
+   829→              <motion.div
+   830→                initial={{ opacity: 0, y: 8 }}
+   831→                animate={{ opacity: 1, y: 0 }}
+   832→                className="flex justify-start"
+   833→              >
+   834→                <div className="bg-[#1A1A1A] border border-white/[0.06] rounded-2xl px-4 py-3">
+   835→                  <div className="flex items-center gap-2 mb-1">
+   836→                    <span className="text-[11px] font-medium text-zinc-400">
+   837→                      PARWA AI {ticket.assigned_variant ? `(${ticket.assigned_variant.toUpperCase()})` : ''}
+   838→                    </span>
+   839→                  </div>
+   840→                  <div className="flex items-center gap-1">
+   841→                    <div className="w-2 h-2 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+   842→                    <div className="w-2 h-2 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+   843→                    <div className="w-2 h-2 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+   844→                  </div>
+   845→                </div>
+   846→              </motion.div>
+   847→            )}
+   848→
+   849→            <div ref={messagesEndRef} />
+   850→          </div>
+   851→
+   852→          {/* Resolve Input */}
+   853→          {showResolveInput && (
+   854→            <div className="border-t border-white/[0.06] p-4 bg-[#1A1A1A]">
+   855→              <label className="text-[11px] text-zinc-400 mb-2 block">Resolution Notes</label>
+   856→              <textarea
+   857→                value={resolutionText}
+   858→                onChange={(e) => setResolutionText(e.target.value)}
+   859→                placeholder="Describe how the issue was resolved..."
+   860→                rows={2}
+   861→                className="w-full bg-[#0F0F0F] border border-white/[0.06] rounded-lg px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 resize-none mb-3"
+   862→              />
+   863→              <div className="flex gap-2">
+   864→                <button
+   865→                  onClick={() => setShowResolveInput(false)}
+   866→                  className="flex-1 h-9 rounded-lg border border-white/[0.06] text-xs text-zinc-400 hover:text-zinc-300 transition-colors"
+   867→                >
+   868→                  Cancel
+   869→                </button>
+   870→                <button
+   871→                  onClick={handleResolve}
+   872→                  className="flex-1 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium hover:bg-emerald-500/20 transition-colors"
+   873→                >
+   874→                  Resolve Ticket
+   875→                </button>
+   876→              </div>
+   877→            </div>
+   878→          )}
+   879→
+   880→          {/* Action bar */}
+   881→          <div className="border-t border-white/[0.06] p-3 flex-shrink-0">
+   882→            {/* Quick actions row */}
+   883→            <div className="flex items-center gap-2 mb-3 flex-wrap">
+   884→              {(ticket.status === 'open' || ticket.status === 'in_progress' || ticket.status === 'awaiting_client') && (
+   885→                <>
+   886→                  <button
+   887→                    onClick={() => setShowResolveInput(true)}
+   888→                    className="h-8 px-3 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] font-medium hover:bg-emerald-500/20 transition-colors flex items-center gap-1.5"
+   889→                  >
+   890→                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   891→                      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+   892→                    </svg>
+   893→                    Resolve
+   894→                  </button>
+   895→                  {(ticket.status === 'open' || ticket.status === 'in_progress') && (
+   896→                  <button
+   897→                    onClick={handleEscalate}
+   898→                    className="h-8 px-3 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 text-[11px] font-medium hover:bg-red-500/20 transition-colors flex items-center gap-1.5"
+   899→                  >
+   900→                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   901→                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+   902→                    </svg>
+   903→                    Escalate
+   904→                  </button>
+   905→                  )}
+   906→                </>
+   907→              )}
+   908→
+   909→              {/* Priority dropdown */}
+   910→              <div className="relative">
+   911→                <button
+   912→                  onClick={() => { setShowPriorityMenu(!showPriorityMenu); setShowVariantMenu(false); }}
+   913→                  className="h-8 px-3 rounded-lg bg-white/5 text-zinc-400 border border-white/10 text-[11px] font-medium hover:border-white/20 transition-colors"
+   914→                >
+   915→                  Priority: {PRIORITY_LABELS[ticket.priority]}
+   916→                </button>
+   917→                {showPriorityMenu && (
+   918→                  <div className="absolute bottom-full mb-1 left-0 bg-[#1A1A1A] border border-white/[0.06] rounded-lg shadow-xl py-1 z-20 min-w-[120px]">
+   919→                    {ALL_PRIORITIES.map((p) => (
+   920→                      <button
+   921→                        key={p}
+   922→                        onClick={() => {
+   923→                          updatePriority(ticket.id, p);
+   924→                          setShowPriorityMenu(false);
+   925→                          toast.success(`Priority updated to ${PRIORITY_LABELS[p]}`);
+   926→                        }}
+   927→                        className={`w-full px-3 py-1.5 text-left text-xs hover:bg-white/5 transition-colors flex items-center gap-2 ${
+   928→                          ticket.priority === p ? 'text-orange-400' : 'text-zinc-300'
+   929→                        }`}
+   930→                      >
+   931→                        <PriorityBadge priority={p} />
+   932→                      </button>
+   933→                    ))}
+   934→                  </div>
+   935→                )}
+   936→              </div>
+   937→
+   938→              {/* Variant dropdown */}
+   939→              <div className="relative">
+   940→                <button
+   941→                  onClick={() => { setShowVariantMenu(!showVariantMenu); setShowPriorityMenu(false); }}
+   942→                  className="h-8 px-3 rounded-lg bg-white/5 text-zinc-400 border border-white/10 text-[11px] font-medium hover:border-white/20 transition-colors"
+   943→                >
+   944→                  AI: {ticket.assigned_variant ? ticket.assigned_variant.toUpperCase() : 'None'}
+   945→                </button>
+   946→                {showVariantMenu && (
+   947→                  <div className="absolute bottom-full mb-1 left-0 bg-[#1A1A1A] border border-white/[0.06] rounded-lg shadow-xl py-1 z-20 min-w-[180px]">
+   948→                    {ALL_VARIANTS.map((v) => (
+   949→                      <button
+   950→                        key={v}
+   951→                        onClick={() => {
+   952→                          assignVariant(ticket.id, v);
+   953→                          setShowVariantMenu(false);
+   954→                          toast.success(`Reassigned to ${VARIANT_LABELS[v]}`);
+   955→                        }}
+   956→                        className={`w-full px-3 py-1.5 text-left text-xs hover:bg-white/5 transition-colors ${
+   957→                          ticket.assigned_variant === v ? 'text-orange-400' : 'text-zinc-300'
+   958→                        }`}
+   959→                      >
+   960→                        <VariantBadge variant={v} />
+   961→                        <span className="ml-2 text-[10px] text-zinc-500">{VARIANT_LABELS[v]}</span>
+   962→                      </button>
+   963→                    ))}
+   964→                  </div>
+   965→                )}
+   966→              </div>
+   967→
+   968→              {/* Info badges */}
+   969→              {ticket.ai_confidence && (
+   970→                <span className="text-[10px] text-zinc-500 ml-auto hidden sm:block">
+   971→                  Confidence: {ticket.ai_confidence}%
+   972→                </span>
+   973→              )}
+   974→              {ticket.cost_per_ticket !== null && (
+   975→                <span className="text-[10px] text-zinc-500 hidden sm:block">
+   976→                  Cost: ${ticket.cost_per_ticket.toFixed(3)}
+   977→                </span>
+   978→              )}
+   979→            </div>
+   980→
+   981→            {/* Message input */}
+   982→            {ticket.status !== 'resolved' && ticket.status !== 'closed' && (
+   983→              <div className="flex gap-2">
+   984→                <input
+   985→                  type="text"
+   986→                  value={newMessage}
+   987→                  onChange={(e) => setNewMessage(e.target.value)}
+   988→                  onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+   989→                  placeholder={`Message as ${ticket.customer_name}...`}
+   990→                  className="flex-1 h-9 bg-[#1A1A1A] border border-white/[0.06] rounded-lg px-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+   991→                />
+   992→                <button
+   993→                  onClick={handleSendMessage}
+   994→                  disabled={!newMessage.trim() || isAiTyping}
+   995→                  className="h-9 w-9 rounded-lg bg-orange-500 text-white flex items-center justify-center hover:bg-orange-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+   996→                >
+   997→                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+   998→                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+   999→                  </svg>
+  1000→                </button>
+  1001→              </div>
+  1002→            )}
+  1003→          </div>
+  1004→        </motion.div>
+  1005→    </motion.div>
+  1006→  );
+  1007→}
+  1008→
+  1009→// ── Main TicketsPage ────────────────────────────────────────────────
+  1010→
+  1011→export default function TicketsPage() {
+  1012→  const tickets = useTicketStore((s) => s.tickets);
+  1013→  const init = useTicketStore((s) => s.init);
+  1014→  const ticketStats = useTicketStore((s) => s.ticketStats);
+  1015→
+  1016→  const [showCreateModal, setShowCreateModal] = useState(false);
+  1017→  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  1018→  const selectedTicket = useTicketStore((s) => selectedTicketId ? s.tickets.find(t => t.id === selectedTicketId) ?? null : null);
+  1019→  const [search, setSearch] = useState('');
+  1020→  const [filterStatus, setFilterStatus] = useState<TicketStatus | 'all'>('all');
+  1021→  const [filterCategory, setFilterCategory] = useState<TicketCategory | 'all'>('all');
+  1022→  const [filterPriority, setFilterPriority] = useState<TicketPriority | 'all'>('all');
+  1023→  const [filterChannel, setFilterChannel] = useState<TicketChannel | 'all'>('all');
+  1024→  const [filterVariant, setFilterVariant] = useState<TicketVariant | 'all'>('all');
+  1025→  const [initialized, setInitialized] = useState(false);
+  1026→
+  1027→  // Initialize store from backend
+  1028→  useEffect(() => {
+  1029→    init();
+  1030→    setInitialized(true);
+  1031→  }, []);
+  1032→
+  1033→  const filteredTickets = useMemo(() => {
+  1034→    return tickets.filter((t) => {
+  1035→      if (filterStatus !== 'all' && t.status !== filterStatus) return false;
+  1036→      if (filterCategory !== 'all' && t.category !== filterCategory) return false;
+  1037→      if (filterPriority !== 'all' && t.priority !== filterPriority) return false;
+  1038→      if (filterChannel !== 'all' && t.channel !== filterChannel) return false;
+  1039→      if (filterVariant !== 'all' && t.assigned_variant !== filterVariant) return false;
+  1040→      if (search) {
+  1041→        const q = search.toLowerCase();
+  1042→        return (
+  1043→          t.ticket_number.toLowerCase().includes(q) ||
+  1044→          t.subject.toLowerCase().includes(q) ||
+  1045→          t.customer_name.toLowerCase().includes(q) ||
+  1046→          t.customer_email.toLowerCase().includes(q) ||
+  1047→          t.description.toLowerCase().includes(q)
+  1048→        );
+  1049→      }
+  1050→      return true;
+  1051→    });
+  1052→  }, [tickets, filterStatus, filterCategory, filterPriority, filterChannel, filterVariant, search]);
+  1053→
+  1054→  const stats = ticketStats();
+  1055→
+  1056→  const handleRowClick = (ticket: Ticket) => {
+  1057→    setSelectedTicketId(ticket.id);
+  1058→  };
+  1059→
+  1060→  return (
+  1061→    <div className="space-y-4">
+  1062→      {/* Header */}
+  1063→      <div className="flex items-center justify-between flex-wrap gap-3">
+  1064→        <div className="flex items-center gap-3">
+  1065→          <h1 className="text-xl font-bold text-white">Tickets</h1>
+  1066→          {initialized && (
+  1067→            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20">
+  1068→              {stats.total}
+  1069→            </span>
+  1070→          )}
+  1071→        </div>
+  1072→        <button
+  1073→          onClick={() => setShowCreateModal(true)}
+  1074→          className="h-9 px-4 rounded-lg bg-orange-500 text-white text-sm font-medium hover:bg-orange-600 transition-colors flex items-center gap-2"
+  1075→        >
+  1076→          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+  1077→            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+  1078→          </svg>
+  1079→          New Ticket
+  1080→        </button>
+  1081→      </div>
+  1082→
+  1083→      {/* Quick Status Overview */}
+  1084→      {initialized && (
+  1085→        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+  1086→          {ALL_STATUSES.map((status) => (
+  1087→            <button
+  1088→              key={status}
+  1089→              onClick={() => setFilterStatus(filterStatus === status ? 'all' : status)}
+  1090→              className={`rounded-lg border p-2.5 text-center transition-all ${
+  1091→                filterStatus === status
+  1092→                  ? 'border-orange-500/30 bg-orange-500/5'
+  1093→                  : 'border-white/[0.06] bg-[#1A1A1A] hover:border-white/[0.1]'
+  1094→              }`}
+  1095→            >
+  1096→              <div className={`text-lg font-bold ${
+  1097→                status === 'open' ? 'text-blue-400' :
+  1098→                status === 'in_progress' ? 'text-yellow-400' :
+  1099→                status === 'resolved' ? 'text-emerald-400' :
+  1100→                status === 'closed' ? 'text-zinc-400' :
+  1101→                status === 'awaiting_client' ? 'text-purple-400' :
+  1102→                'text-red-400'
+  1103→              }`}>
+  1104→                {stats.byStatus[status]}
+  1105→              </div>
+  1106→              <div className="text-[10px] text-zinc-500 mt-0.5 leading-tight">
+  1107→                {STATUS_LABELS[status]}
+  1108→              </div>
+  1109→            </button>
+  1110→          ))}
+  1111→        </div>
+  1112→      )}
+  1113→
+  1114→      {/* Search & Filters */}
+  1115→      {initialized && (
+  1116→        <div className="flex flex-wrap gap-2 items-center">
+  1117→          {/* Search */}
+  1118→          <div className="relative flex-1 min-w-[200px] max-w-xs">
+  1119→            <svg
+  1120→              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500"
+  1121→              fill="none"
+  1122→              viewBox="0 0 24 24"
+  1123→              stroke="currentColor"
+  1124→              strokeWidth={1.5}
+  1125→            >
+  1126→              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+  1127→            </svg>
+  1128→            <input
+  1129→              type="text"
+  1130→              value={search}
+  1131→              onChange={(e) => setSearch(e.target.value)}
+  1132→              placeholder="Search tickets..."
+  1133→              className="w-full h-8 bg-[#1A1A1A] border border-white/[0.06] rounded-lg pl-8 pr-3 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+  1134→            />
+  1135→          </div>
+  1136→
+  1137→          {/* Filter Dropdowns */}
+  1138→          <FilterSelect
+  1139→            label="Status"
+  1140→            value={filterStatus}
+  1141→            options={ALL_STATUSES.map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
+  1142→            onChange={setFilterStatus}
+  1143→          />
+  1144→          <FilterSelect
+  1145→            label="Category"
+  1146→            value={filterCategory}
+  1147→            options={ALL_CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABELS[c] }))}
+  1148→            onChange={setFilterCategory}
+  1149→          />
+  1150→          <FilterSelect
+  1151→            label="Priority"
+  1152→            value={filterPriority}
+  1153→            options={ALL_PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABELS[p] }))}
+  1154→            onChange={setFilterPriority}
+  1155→          />
+  1156→          <FilterSelect
+  1157→            label="Channel"
+  1158→            value={filterChannel}
+  1159→            options={ALL_CHANNELS.map((ch) => ({ value: ch, label: CHANNEL_LABELS[ch] }))}
+  1160→            onChange={setFilterChannel}
+  1161→          />
+  1162→          <FilterSelect
+  1163→            label="Variant"
+  1164→            value={filterVariant}
+  1165→            options={ALL_VARIANTS.map((v) => ({ value: v, label: v.toUpperCase() }))}
+  1166→            onChange={setFilterVariant}
+  1167→          />
+  1168→
+  1169→          {/* Clear filters */}
+  1170→          {(filterStatus !== 'all' || filterCategory !== 'all' || filterPriority !== 'all' || filterChannel !== 'all' || filterVariant !== 'all' || search) && (
+  1171→            <button
+  1172→              onClick={() => {
+  1173→                setFilterStatus('all');
+  1174→                setFilterCategory('all');
+  1175→                setFilterPriority('all');
+  1176→                setFilterChannel('all');
+  1177→                setFilterVariant('all');
+  1178→                setSearch('');
+  1179→              }}
+  1180→              className="h-8 px-3 rounded-lg text-[11px] text-orange-400 hover:bg-orange-500/10 transition-colors flex items-center gap-1"
+  1181→            >
+  1182→              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+  1183→                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+  1184→              </svg>
+  1185→              Clear
+  1186→            </button>
+  1187→          )}
+  1188→        </div>
+  1189→      )}
+  1190→
+  1191→      {/* Ticket Table */}
+  1192→      {!initialized ? (
+  1193→        <div className="rounded-xl border border-white/[0.06] bg-[#1A1A1A] flex items-center justify-center py-20">
+  1194→          <div className="flex items-center gap-3 text-zinc-500">
+  1195→            <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+  1196→              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+  1197→              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+  1198→            </svg>
+  1199→            <span className="text-sm">Loading tickets...</span>
+  1200→          </div>
+  1201→        </div>
+  1202→      ) : filteredTickets.length === 0 ? (
+  1203→        <div className="rounded-xl border border-white/[0.06] bg-[#1A1A1A]">
+  1204→          <div className="flex flex-col items-center justify-center py-16 px-6">
+  1205→            <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-white/5 mb-4">
+  1206→              <svg className="w-7 h-7 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+  1207→                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z" />
+  1208→              </svg>
+  1209→            </div>
+  1210→            <h3 className="text-sm font-semibold text-zinc-300 mb-1">
+  1211→              {search || filterStatus !== 'all' || filterCategory !== 'all' || filterPriority !== 'all' || filterChannel !== 'all' || filterVariant !== 'all'
+  1212→                ? 'No tickets match your filters'
+  1213→                : 'No tickets yet'}
+  1214→            </h3>
+  1215→            <p className="text-xs text-zinc-500 text-center">
+  1216→              {search || filterStatus !== 'all' || filterCategory !== 'all' || filterPriority !== 'all' || filterChannel !== 'all' || filterVariant !== 'all'
+  1217→                ? 'Try adjusting your search or filter criteria'
+  1218→                : 'Create your first ticket to get started'}
+  1219→            </p>
+  1220→          </div>
+  1221→        </div>
+  1222→      ) : (
+  1223→        <div className="rounded-xl border border-white/[0.06] bg-[#1A1A1A] overflow-hidden">
+  1224→          {/* Desktop Table */}
+  1225→          <div className="hidden lg:block overflow-x-auto">
+  1226→            <table className="w-full">
+  1227→              <thead>
+  1228→                <tr className="border-b border-white/[0.06]">
+  1229→                  <th className="text-left text-[11px] font-medium text-zinc-500 px-4 py-3 whitespace-nowrap">Ticket #</th>
+  1230→                  <th className="text-left text-[11px] font-medium text-zinc-500 px-4 py-3 whitespace-nowrap">Subject</th>
+  1231→                  <th className="text-left text-[11px] font-medium text-zinc-500 px-4 py-3 whitespace-nowrap">Customer</th>
+  1232→                  <th className="text-left text-[11px] font-medium text-zinc-500 px-4 py-3 whitespace-nowrap">Category</th>
+  1233→                  <th className="text-left text-[11px] font-medium text-zinc-500 px-4 py-3 whitespace-nowrap">Priority</th>
+  1234→                  <th className="text-left text-[11px] font-medium text-zinc-500 px-4 py-3 whitespace-nowrap">Status</th>
+  1235→                  <th className="text-left text-[11px] font-medium text-zinc-500 px-4 py-3 whitespace-nowrap">Channel</th>
+  1236→                  <th className="text-left text-[11px] font-medium text-zinc-500 px-4 py-3 whitespace-nowrap">Variant</th>
+  1237→                  <th className="text-left text-[11px] font-medium text-zinc-500 px-4 py-3 whitespace-nowrap">Created</th>
+  1238→                </tr>
+  1239→              </thead>
+  1240→              <tbody>
+  1241→                {filteredTickets.map((ticket) => (
+  1242→                  <tr
+  1243→                    key={ticket.id}
+  1244→                    onClick={() => handleRowClick(ticket)}
+  1245→                    className="border-b border-white/[0.03] hover:bg-white/[0.02] cursor-pointer transition-colors group"
+  1246→                  >
+  1247→                    <td className="px-4 py-3">
+  1248→                      <span className="text-[11px] font-mono text-orange-400/80">{ticket.ticket_number}</span>
+  1249→                    </td>
+  1250→                    <td className="px-4 py-3 max-w-[240px]">
+  1251→                      <p className="text-xs text-white truncate group-hover:text-orange-300 transition-colors">
+  1252→                        {ticket.subject}
+  1253→                      </p>
+  1254→                    </td>
+  1255→                    <td className="px-4 py-3">
+  1256→                      <p className="text-xs text-zinc-300">{ticket.customer_name}</p>
+  1257→                    </td>
+  1258→                    <td className="px-4 py-3">
+  1259→                      <span className="text-[11px] text-zinc-400">{CATEGORY_LABELS[ticket.category]}</span>
+  1260→                    </td>
+  1261→                    <td className="px-4 py-3">
+  1262→                      <PriorityBadge priority={ticket.priority} />
+  1263→                    </td>
+  1264→                    <td className="px-4 py-3">
+  1265→                      <StatusBadge status={ticket.status} />
+  1266→                    </td>
+  1267→                    <td className="px-4 py-3">
+  1268→                      <div className="flex items-center gap-1.5">
+  1269→                        <ChannelIcon channel={ticket.channel} />
+  1270→                        <span className="text-[11px] text-zinc-400">{CHANNEL_LABELS[ticket.channel]}</span>
+  1271→                      </div>
+  1272→                    </td>
+  1273→                    <td className="px-4 py-3">
+  1274→                      {ticket.assigned_variant ? (
+  1275→                        <VariantBadge variant={ticket.assigned_variant} />
+  1276→                      ) : (
+  1277→                        <span className="text-[10px] text-zinc-600">—</span>
+  1278→                      )}
+  1279→                    </td>
+  1280→                    <td className="px-4 py-3">
+  1281→                      <span className="text-[11px] text-zinc-500">{formatRelativeDate(ticket.created_at)}</span>
+  1282→                    </td>
+  1283→                  </tr>
+  1284→                ))}
+  1285→              </tbody>
+  1286→            </table>
+  1287→          </div>
+  1288→
+  1289→          {/* Mobile Cards */}
+  1290→          <div className="lg:hidden divide-y divide-white/[0.03]">
+  1291→            {filteredTickets.map((ticket) => (
+  1292→              <button
+  1293→                key={ticket.id}
+  1294→                onClick={() => handleRowClick(ticket)}
+  1295→                className="w-full p-4 text-left hover:bg-white/[0.02] transition-colors"
+  1296→              >
+  1297→                <div className="flex items-center justify-between mb-2">
+  1298→                  <span className="text-[11px] font-mono text-orange-400/80">{ticket.ticket_number}</span>
+  1299→                  <div className="flex items-center gap-1.5">
+  1300→                    <StatusBadge status={ticket.status} />
+  1301→                    <PriorityBadge priority={ticket.priority} />
+  1302→                  </div>
+  1303→                </div>
+  1304→                <p className="text-sm text-white mb-1.5 line-clamp-1">{ticket.subject}</p>
+  1305→                <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+  1306→                  <span>{ticket.customer_name}</span>
+  1307→                  <span className="text-zinc-700">•</span>
+  1308→                  <span>{CATEGORY_LABELS[ticket.category]}</span>
+  1309→                  <span className="text-zinc-700">•</span>
+  1310→                  <ChannelIcon channel={ticket.channel} />
+  1311→                  <span>{formatRelativeDate(ticket.created_at)}</span>
+  1312→                </div>
+  1313→              </button>
+  1314→            ))}
+  1315→          </div>
+  1316→
+  1317→          {/* Table footer */}
+  1318→          <div className="border-t border-white/[0.06] px-4 py-2.5 flex items-center justify-between">
+  1319→            <span className="text-[11px] text-zinc-500">
+  1320→              Showing {filteredTickets.length} of {stats.total} tickets
+  1321→            </span>
+  1322→            <div className="flex items-center gap-3 text-[11px] text-zinc-500">
+  1323→              <span>Resolution Rate: <span className="text-emerald-400 font-medium">{stats.resolutionRate}%</span></span>
+  1324→              {stats.avgResolutionTime && (
+  1325→                <span>Avg Resolution: <span className="text-zinc-300 font-medium">{stats.avgResolutionTime}h</span></span>
+  1326→              )}
+  1327→            </div>
+  1328→          </div>
+  1329→        </div>
+  1330→      )}
+  1331→
+  1332→      {/* Create Ticket Modal */}
+  1333→      <AnimatePresence>
+  1334→        {showCreateModal && (
+  1335→          <CreateTicketModal
+  1336→            open={showCreateModal}
+  1337→            onClose={() => setShowCreateModal(false)}
+  1338→          />
+  1339→        )}
+  1340→      </AnimatePresence>
+  1341→
+  1342→      {/* Ticket Detail Panel */}
+  1343→      <AnimatePresence>
+  1344→        {selectedTicket && (
+  1345→          <TicketDetailPanel
+  1346→            ticketId={selectedTicket.id}
+  1347→            onClose={() => setSelectedTicketId(null)}
+  1348→          />
+  1349→        )}
+  1350→      </AnimatePresence>
+  1351→    </div>
+  1352→  );
+  1353→}
+  1354→

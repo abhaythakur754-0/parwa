@@ -1,0 +1,1 @@
+{"name": "fake-crm-server", "version": "1.0.0", "description": "Mock CRM platform for testing Parwa integrations - Exposed via ZAI", "main": "index.ts", "scripts": {"dev": "bun --hot run index.ts"}, "dependencies": {"hono": "^4.6.0"}}

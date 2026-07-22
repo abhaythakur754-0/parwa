@@ -1,0 +1,1809 @@
+     1→"""
+     2→Jarvis chat service — extracted from jarvis_service.py
+     3→
+     4→Contains 31 functions related to chat.
+     5→"""
+     6→
+     7→from app.services.jarvis._shared import *
+     8→
+     9→def create_or_resume_session(
+    10→    db: Session,
+    11→    user_id: str,
+    12→    company_id: Optional[str] = None,
+    13→    entry_source: str = "direct",
+    14→    entry_params: Optional[Dict[str, Any]] = None,
+    15→) -> JarvisSession:
+    16→    """Create a new onboarding session or resume an active one.
+    17→
+    18→    Looks for an active onboarding session for this user.
+    19→    If found and from today, resumes it. Otherwise creates new.
+    20→    """
+    21→    # Try to find active session
+    22→    active_session = (
+    23→        db.query(JarvisSession)
+    24→        .filter(
+    25→            JarvisSession.user_id == user_id,
+    26→            JarvisSession.is_active.is_(True),
+    27→            JarvisSession.type == "onboarding",
+    28→        )
+    29→        .order_by(JarvisSession.created_at.desc())
+    30→        .first()
+    31→    )
+    32→
+    33→    if active_session:
+    34→        # Reset daily counter if new day
+    35→        _maybe_reset_daily_counter(db, active_session)
+    36→        active_session.updated_at = datetime.now(timezone.utc)
+    37→        db.flush()
+    38→
+    39→        # Update entry context if provided
+    40→        if entry_source and entry_source != "direct":
+    41→            ctx = _parse_context(active_session.context_json)
+    42→            ctx["entry_source"] = entry_source
+    43→            if entry_params:
+    44→                ctx["entry_params"] = entry_params
+    45→            active_session.context_json = json.dumps(ctx)
+    46→
+    47→        return active_session
+    48→
+    49→    # Create new session
+    50→    # Create new session
+    51→    ctx = {
+    52→        "pages_visited": [],
+    53→        "industry": None,
+    54→        "selected_variants": [],
+    55→        "roi_result": None,
+    56→        "demo_topics": [],
+    57→        "concerns_raised": [],
+    58→        "business_email": None,
+    59→        "email_verified": False,
+    60→        "referral_source": "",
+    61→        "entry_source": entry_source,
+    62→        "entry_params": entry_params or {},
+    63→        "detected_stage": "welcome",
+    64→    }
+    65→
+    66→    # PROMOTE entry_params to top-level context for immediate awareness in welcome messages
+    67→    if entry_params:
+    68→        if "industry" in entry_params:
+    69→            ctx["industry"] = entry_params["industry"]
+    70→        if "roi_result" in entry_params:
+    71→            ctx["roi_result"] = entry_params["roi_result"]
+    72→        if "variant" in entry_params:
+    73→            ctx["variant"] = entry_params["variant"]
+    74→        if "variant_id" in entry_params:
+    75→            ctx["variant_id"] = entry_params["variant_id"]
+    76→
+    77→    session = JarvisSession(
+    78→        user_id=user_id,
+    79→        company_id=company_id,
+    80→        type="onboarding",
+    81→        context_json=json.dumps(ctx),
+    82→        message_count_today=0,
+    83→        total_message_count=0,
+    84→        pack_type="free",
+    85→        is_active=True,
+    86→    )
+    87→    db.add(session)
+    88→    db.flush()
+    89→
+    90→    # CRITICAL: Generate the context-aware welcome message immediately
+    91→    # so it's ready in the session history response.
+    92→    welcome_text = build_context_aware_welcome(db, str(session.id))
+    93→    welcome_msg = JarvisMessage(
+    94→        session_id=str(session.id),
+    95→        role="jarvis",
+    96→        content=welcome_text,
+    97→        message_type="text",
+    98→        metadata_json=json.dumps({}),
+    99→    )
+   100→    db.add(welcome_msg)
+   101→    db.flush()
+   102→
+   103→    return session
+   104→
+   105→
+   106→def get_session(
+   107→    db: Session,
+   108→    session_id: str,
+   109→    user_id: str,
+   110→) -> JarvisSession:
+   111→    """Get session by ID, scoped to user for security."""
+   112→    session = (
+   113→        db.query(JarvisSession)
+   114→        .filter(
+   115→            JarvisSession.id == session_id,
+   116→            JarvisSession.user_id == user_id,
+   117→        )
+   118→        .first()
+   119→    )
+   120→    if not session:
+   121→        raise NotFoundError(
+   122→            message="Session not found",
+   123→            details={"session_id": session_id},
+   124→        )
+   125→    return session
+   126→
+   127→
+   128→def get_session_context(
+   129→    db: Session,
+   130→    session_id: str,
+   131→) -> Dict[str, Any]:
+   132→    """Get context_json for AI prompt injection."""
+   133→    session = db.query(JarvisSession).filter(
+   134→        JarvisSession.id == session_id,
+   135→    ).first()
+   136→    if not session:
+   137→        raise NotFoundError(message="Session not found")
+   138→    return _parse_context(session.context_json)
+   139→
+   140→
+   141→def update_context(
+   142→    db: Session,
+   143→    session_id: str,
+   144→    user_id: str,
+   145→    partial_updates: Dict[str, Any],
+   146→) -> JarvisSession:
+   147→    """Merge partial updates into session context_json.
+   148→
+   149→    Only provided keys are updated. Existing keys are preserved.
+   150→    """
+   151→    session = get_session(db, session_id, user_id)
+   152→    ctx = _parse_context(session.context_json)
+   153→
+   154→    for key, value in partial_updates.items():
+   155→        if value is not None:
+   156→            ctx[key] = value
+   157→
+   158→    session.context_json = json.dumps(ctx)
+   159→    session.updated_at = datetime.now(timezone.utc)
+   160→    db.flush()
+   161→    return session
+   162→
+   163→
+   164→def set_entry_context(
+   165→    db: Session,
+   166→    user_id: str,
+   167→    company_id: Optional[str],
+   168→    entry_source: str,
+   169→    entry_params: Optional[Dict[str, Any]],
+   170→) -> JarvisSession:
+   171→    """Set or update entry source from URL params.
+   172→
+   173→    Creates/resumes session and applies entry context for
+   174→    context-aware welcome message.
+   175→    """
+   176→    session = create_or_resume_session(
+   177→        db, user_id, company_id, entry_source, entry_params,
+   178→    )
+   179→    return session
+   180→
+   181→
+   182→def send_message(
+   183→    db: Session,
+   184→    session_id: str,
+   185→    user_id: str,
+   186→    user_message: str,
+   187→) -> Tuple[JarvisMessage, JarvisMessage, List[Dict[str, Any]]]:
+   188→    """Process a user message and generate AI response.
+   189→
+   190→    Flow:
+   191→    1. Save user message
+   192→    2. Check message limits
+   193→    3. Build system prompt with context
+   194→    4. Call AI provider
+   195→    5. Save AI response + knowledge used
+   196→    6. Detect conversation stage
+   197→    7. Return both messages
+   198→
+   199→    Returns:
+   200→        Tuple of (user_message_obj, ai_message_obj, knowledge_used_list)
+   201→
+   202→    Raises:
+   203→        RateLimitError: If daily limit exceeded
+   204→        ValidationError: If content invalid
+   205→    """
+   206→    session = get_session(db, session_id, user_id)
+   207→
+   208→    # Check limits
+   209→    limit, remaining = check_message_limit(db, session)
+   210→    if remaining <= 0:
+   211→        # Return a limit-reached system message instead of raising
+   212→        limit_msg = JarvisMessage(
+   213→            session_id=session_id,
+   214→            role="system",
+   215→            content=_get_limit_message(session),
+   216→            message_type="limit_reached",
+   217→            metadata_json=json.dumps({"limit": limit}),
+   218→        )
+   219→        db.add(limit_msg)
+   220→        db.flush()
+   221→        return limit_msg, limit_msg, []
+   222→
+   223→    # Save user message
+   224→    user_msg = JarvisMessage(
+   225→        session_id=session_id,
+   226→        role="user",
+   227→        content=user_message,
+   228→        message_type="text",
+   229→    )
+   230→    db.add(user_msg)
+   231→    db.flush()
+   232→
+   233→    # Update counters
+   234→    session.message_count_today += 1
+   235→    session.total_message_count += 1
+   236→    session.last_message_date = datetime.now(timezone.utc)
+   237→    session.updated_at = datetime.now(timezone.utc)
+   238→
+   239→    # Track pages visited (heuristic from message content)
+   240→    ctx = _parse_context(session.context_json)
+   241→    _track_pages_visited(ctx, user_message)
+   242→
+   243→    # ── Week 8-11: PII scan user message ──
+   244→    company_id = session.company_id
+   245→    try:
+   246→        pii_svc_cls = _get_service(
+   247→            "pii_scan", "app.services.pii_scan_service", "PIIScanService",
+   248→        )
+   249→        if pii_svc_cls and company_id:
+   250→            pii_scanner = pii_svc_cls(db, company_id)
+   251→            pii_result = pii_scanner.scan_text(user_message)
+   252→            ctx["pii_scan"] = pii_result
+   253→    except Exception:
+   254→        pass
+   255→
+   256→    # ── Week 8-11: Conversation context enrichment ──
+   257→    try:
+   258→        conv_svc = _get_service_module("app.services.conversation_service")
+   259→        if conv_svc:
+   260→            conv_ctx = conv_svc.get_conversation_context(
+   261→                session_id, db, ctx,
+   262→            )
+   263→            if conv_ctx:
+   264→                ctx["conversation_turn_count"] = getattr(
+   265→                    conv_ctx, "turn_count", 0,
+   266→                )
+   267→    except Exception:
+   268→        pass
+   269→
+   270→    # ── Note-Taker Agent: Strategic Summary Generation ──
+   271→    # Generate a concise 'mission summary' every few turns or when context changes significantly
+   272→    turn_count = ctx.get("conversation_turn_count", session.total_message_count)
+   273→    try:
+   274→        if turn_count % 3 == 0 or turn_count == 1:
+   275→            history = _get_recent_history(db, session_id)
+   276→            _generate_strategic_summary(db, session_id, ctx, history)
+   277→    except Exception:
+   278→        pass
+   279→
+   280→    # ── Week 8-11: Analytics tracking ──
+   281→    try:
+   282→        analytics_svc = _get_service_module("app.services.analytics_service")
+   283→        if analytics_svc:
+   284→            stage = ctx.get("detected_stage", "welcome")
+   285→            analytics_svc.track_event(
+   286→                event_type="message_sent",
+   287→                event_category="conversation",
+   288→                user_id=user_id,
+   289→                company_id=company_id or "",
+   290→                session_id=session_id,
+   291→                properties={"stage": stage},
+   292→                source="jarvis",
+   293→            )
+   294→    except Exception:
+   295→        pass
+   296→
+   297→    # ── Week 8-11: Lead capture (every 5 turns) ──
+   298→    turn_count = ctx.get("conversation_turn_count", session.total_message_count)
+   299→    try:
+   300→        lead_svc = _get_service_module("app.services.lead_service")
+   301→        if lead_svc and turn_count % 5 == 0:
+   302→            lead_svc.capture_lead(
+   303→                session_id=session_id,
+   304→                user_id=user_id,
+   305→                company_id=company_id,
+   306→                session_context=ctx,
+   307→                sentiment_data=ctx.get("sentiment"),
+   308→            )
+   309→    except Exception:
+   310→        pass
+   311→
+   312→    # ── Week 8-11: Sentiment technique mapping ──
+   313→    try:
+   314→        stm_cls = _get_service(
+   315→            "sentiment_technique_mapper",
+   316→            "app.services.sentiment_technique_mapper",
+   317→            "SentimentTechniqueMapper",
+   318→        )
+   319→        if stm_cls:
+   320→            mapper = stm_cls()
+   321→            sentiment_map = mapper.map(
+   322→                frustration_score=ctx.get("frustration_score", 0),
+   323→                sentiment_score=ctx.get("sentiment_score", 0.5),
+   324→                urgency_level=ctx.get("urgency_level", "normal"),
+   325→                customer_tier=ctx.get("customer_tier", "standard"),
+   326→                emotion=ctx.get("emotion"),
+   327→                is_vip=ctx.get("is_vip", False),
+   328→                variant_type=session.pack_type,
+   329→                company_id=company_id or "",
+   330→            )
+   331→            ctx["technique_mapping"] = sentiment_map.to_dict() if hasattr(sentiment_map, 'to_dict') else {}
+   332→    except Exception:
+   333→        pass
+   334→
+   335→    # ── AI Path Selection (Jarvis Onboarding vs Support Pipeline) ──
+   336→    history = _get_recent_history(db, session_id)
+   337→    ai_content = None
+   338→    ai_message_type = "text"
+   339→    metadata = {}
+   340→    knowledge = []
+   341→
+   342→    # If this is an onboarding session, check for variant pipeline routing
+   343→    if session.type == "onboarding":
+   344→        # ── Document Testing Feature: Process user document uploads ──
+   345→        if user_message.startswith("[DOCUMENT_UPLOAD]:"):
+   346→            try:
+   347→                # Format: [DOCUMENT_UPLOAD]: filename \n\n Content: ...
+   348→                header, doc_content = user_message.split("\n\nContent:\n", 1)
+   349→                filename = header.replace("[DOCUMENT_UPLOAD]:", "").strip()
+   350→
+   351→                # Add to context
+   352→                docs = ctx.get("uploaded_docs", [])
+   353→                docs.append({
+   354→                    "name": filename,
+   355→                    "content": doc_content[:5000],  # Limit to 5K chars for context window
+   356→                    "uploaded_at": datetime.now(timezone.utc).isoformat()
+   357→                })
+   358→                ctx["uploaded_docs"] = docs
+   359→                session.context_json = json.dumps(ctx)
+   360→                db.flush()
+   361→
+   362→                ai_content = (
+   363→                    f"Greetings. I have successfully analyzed '{filename}'. "
+   364→                    "I have integrated this new data into my processing awareness for this session. "
+   365→                    "What specific insights or simulations would you like me to run using this information?"
+   366→                )
+   367→                ai_message_type = "text"
+   368→                metadata = {"doc_analyzed": filename}
+   369→                knowledge = [{"file": "training_context", "score": 1.0}]
+   370→            except Exception as exc:
+   371→                logger.error("Document upload processing failed: %s", exc)
+   372→                ai_content = "I encountered an error trying to process that document. Could you try sending it as plain text?"
+   373→                ai_message_type = "error"
+   374→        elif _should_use_variant_pipeline(ctx):
+   375→            # ── Variant Pipeline Routing for Onboarding ──
+   376→            # When a user selected a variant on the Models page,
+   377→            # route their onboarding chat through the variant pipeline
+   378→            # (Mini Parwa / Pro Parwa) instead of direct AI.
+   379→            try:
+   380→                from app.core.variant_pipeline_bridge import (
+   381→                    process_onboarding_message_sync,
+   382→                )
+   383→
+   384→                session_ctx = _parse_context(session.context_json) if session else {}
+   385→
+   386→                # Route through the correct variant pipeline
+   387→                pipeline_result = process_onboarding_message_sync(
+   388→                    query=user_message,
+   389→                    company_id=company_id or "",
+   390→                    session_context=session_ctx,
+   391→                    conversation_id=session_id,
+   392→                    ticket_id="",
+   393→                    channel="chat",
+   394→                    customer_id=user_id,
+   395→                    customer_tier=ctx.get("customer_tier", "free"),
+   396→                )
+   397→
+   398→                ai_content = pipeline_result.response_text
+   399→                ai_message_type = "variant_pipeline_onboarding"
+   400→                metadata = pipeline_result.to_dict()
+   401→                knowledge = []  # Pipeline handles its own knowledge
+   402→
+   403→                # Store pipeline results in context for analytics
+   404→                ctx["variant_pipeline"] = {
+   405→                    "variant_tier": pipeline_result.variant_tier,
+   406→                    "industry": pipeline_result.industry,
+   407→                    "pipeline_status": pipeline_result.pipeline_status,
+   408→                    "quality_score": pipeline_result.quality_score,
+   409→                    "total_latency_ms": pipeline_result.total_latency_ms,
+   410→                    "billing_tokens": pipeline_result.billing_tokens,
+   411→                    "steps_completed": pipeline_result.steps_completed,
+   412→                    "technique_used": pipeline_result.technique_used,
+   413→                    "emergency_flag": pipeline_result.emergency_flag,
+   414→                    "empathy_score": pipeline_result.empathy_score,
+   415→                    "classification_intent": pipeline_result.classification_intent,
+   416→                    "path": "onboarding",
+   417→                }
+   418→
+   419→                logger.info(
+   420→                    "onboarding_pipeline_complete: tier=%s, status=%s, "
+   421→                    "quality=%.1f, latency=%sms, steps=%d",
+   422→                    pipeline_result.variant_tier,
+   423→                    pipeline_result.pipeline_status,
+   424→                    pipeline_result.quality_score,
+   425→                    pipeline_result.total_latency_ms,
+   426→                    len(pipeline_result.steps_completed),
+   427→                )
+   428→
+   429→            except Exception as exc:
+   430→                # Fallback: Use the direct AI provider if pipeline fails
+   431→                logger.error(
+   432→                    "Variant Pipeline for onboarding failed, falling back to direct AI: %s",
+   433→                    exc,
+   434→                )
+   435→                try:
+   436→                    system_prompt = build_system_prompt(db, session_id, user_message)
+   437→                    ai_content, ai_message_type, metadata, knowledge = (
+   438→                        _call_ai_provider(system_prompt, history, user_message, ctx)
+   439→                    )
+   440→                except Exception as inner_exc:
+   441→                    logger.error("Direct AI also failed: %s", inner_exc)
+   442→                    ai_content = _get_friendly_error_message()
+   443→                    ai_message_type = "error"
+   444→                    metadata = {"error_type": "all_pipelines_failed"}
+   445→                    knowledge = []
+   446→        else:
+   447→            # ── Onboarding Orchestrator Path (no variant_tier set) ──
+   448→            # Routes through the full Onboarding Jarvis Orchestrator:
+   449→            #   context → awareness → stage detection → function registry →
+   450→            #   LLM with function calling → safety gate → execute → awareness update
+   451→            # Falls back to direct AI if orchestrator import/call fails.
+   452→            logger.info("Using Jarvis Onboarding Orchestrator Path (full pipeline)")
+   453→            try:
+   454→                from app.services.onboarding_jarvis_orchestrator import (
+   455→                    process_onboarding_message,
+   456→                )
+   457→
+   458→                # Bridge async orchestrator from sync context
+   459→                _orchestrator_coro = process_onboarding_message(
+   460→                    db=db,
+   461→                    session_id=session_id,
+   462→                    user_id=user_id,
+   463→                    company_id=company_id or "",
+   464→                    user_message=user_message,
+   465→                    channel="chat",
+   466→                )
+   467→                try:
+   468→                    result = asyncio.run(_orchestrator_coro)
+   469→                except RuntimeError:
+   470→                    # Already inside an event loop — run in a separate thread
+   471→                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as _pool:
+   472→                        _future = _pool.submit(asyncio.run, _orchestrator_coro)
+   473→                        result = _future.result(timeout=30)
+   474→
+   475→                # Map orchestrator result to jarvis_service format
+   476→                ai_content = result.get("content", "")
+   477→                ai_message_type = result.get("message_type", "text")
+   478→                metadata = result.get("metadata", {})
+   479→                knowledge = []  # Orchestrator handles knowledge internally
+   480→
+   481→                # Track orchestrator-specific metadata
+   482→                if result.get("function_called"):
+   483→                    metadata["function_called"] = result["function_called"]
+   484→                if result.get("function_result"):
+   485→                    metadata["function_result"] = result["function_result"]
+   486→
+   487→                logger.info(
+   488→                    "onboarding_orchestrator_success: session=%s, func=%s, stage=%s",
+   489→                    session_id,
+   490→                    result.get("function_called"),
+   491→                    metadata.get("stage", "unknown"),
+   492→                )
+   493→
+   494→            except ImportError as import_exc:
+   495→                # Orchestrator module unavailable — fall back to direct AI
+   496→                logger.warning(
+   497→                    "Onboarding Orchestrator import failed, falling back to direct AI: %s",
+   498→                    import_exc,
+   499→                )
+   500→                try:
+   501→                    system_prompt = build_system_prompt(db, session_id, user_message)
+   502→                    ai_content, ai_message_type, metadata, knowledge = (
+   503→                        _call_ai_provider(system_prompt, history, user_message, ctx)
+   504→                    )
+   505→                    metadata["fallback_reason"] = "orchestrator_import_error"
+   506→                except Exception as inner_exc:
+   507→                    logger.error("Direct AI also failed: %s", inner_exc)
+   508→                    ai_content = _get_friendly_error_message()
+   509→                    ai_message_type = "error"
+   510→                    metadata = {"error_type": "all_paths_failed", "fallback_reason": "orchestrator_import_error"}
+   511→                    knowledge = []
+   512→
+   513→            except Exception as exc:
+   514→                # Orchestrator call failed — fall back to direct AI
+   515→                logger.error(
+   516→                    "Onboarding Orchestrator failed, falling back to direct AI: %s",
+   517→                    exc,
+   518→                )
+   519→                try:
+   520→                    system_prompt = build_system_prompt(db, session_id, user_message)
+   521→                    ai_content, ai_message_type, metadata, knowledge = (
+   522→                        _call_ai_provider(system_prompt, history, user_message, ctx)
+   523→                    )
+   524→                    metadata["fallback_reason"] = "orchestrator_error"
+   525→                except Exception as inner_exc:
+   526→                    logger.error("Direct AI also failed: %s", inner_exc)
+   527→                    ai_content = _get_friendly_error_message()
+   528→                    ai_message_type = "error"
+   529→                    metadata = {"error_type": "all_paths_failed", "fallback_reason": "orchestrator_error"}
+   530→                    knowledge = []
+   531→    else:
+   532→        # ── Customer Care Path: Route through Variant Pipeline Bridge ──
+   533→        # This connects the Mini Parwa / Parwa / Parwa High LangGraph
+   534→        # pipelines to customer care messages. The variant_tier and
+   535→        # industry were set during the handoff from Onboarding Jarvis.
+   536→        try:
+   537→            from app.core.variant_pipeline_bridge import (
+   538→                process_customer_care_message_sync,
+   539→            )
+   540→
+   541→            # Get session context (contains variant_tier, industry, instance_id)
+   542→            session_ctx = _parse_context(session.context_json) if session else {}
+   543→
+   544→            # Route through the correct variant pipeline
+   545→            pipeline_result = process_customer_care_message_sync(
+   546→                query=user_message,
+   547→                company_id=company_id or "",
+   548→                session_context=session_ctx,
+   549→                conversation_id=session_id,
+   550→                ticket_id="",
+   551→                channel="chat",
+   552→                customer_id=user_id,
+   553→                customer_tier=ctx.get("customer_tier", "free"),
+   554→            )
+   555→
+   556→            ai_content = pipeline_result.response_text
+   557→            ai_message_type = "variant_pipeline"
+   558→            metadata = pipeline_result.to_dict()
+   559→            knowledge = []  # Pipeline handles its own knowledge
+   560→
+   561→            # Store pipeline results in context for analytics
+   562→            ctx["variant_pipeline"] = {
+   563→                "variant_tier": pipeline_result.variant_tier,
+   564→                "industry": pipeline_result.industry,
+   565→                "pipeline_status": pipeline_result.pipeline_status,
+   566→                "quality_score": pipeline_result.quality_score,
+   567→                "total_latency_ms": pipeline_result.total_latency_ms,
+   568→                "billing_tokens": pipeline_result.billing_tokens,
+   569→                "steps_completed": pipeline_result.steps_completed,
+   570→                "technique_used": pipeline_result.technique_used,
+   571→                "emergency_flag": pipeline_result.emergency_flag,
+   572→                "empathy_score": pipeline_result.empathy_score,
+   573→                "classification_intent": pipeline_result.classification_intent,
+   574→            }
+   575→
+   576→            logger.info(
+   577→                "customer_care_pipeline_complete: tier=%s, status=%s, "
+   578→                "quality=%.1f, latency=%sms, steps=%d",
+   579→                pipeline_result.variant_tier,
+   580→                pipeline_result.pipeline_status,
+   581→                pipeline_result.quality_score,
+   582→                pipeline_result.total_latency_ms,
+   583→                len(pipeline_result.steps_completed),
+   584→            )
+   585→
+   586→        except Exception as exc:
+   587→            # Fallback: Use the legacy ai_pipeline if bridge fails
+   588→            logger.error(
+   589→                "Variant Pipeline Bridge failed, falling back to legacy: %s",
+   590→                exc,
+   591→            )
+   592→            try:
+   593→                from app.core.ai_pipeline import process_ai_message
+   594→
+   595→                conversation_history = [
+   596→                    {"role": msg.role, "content": msg.content}
+   597→                    for msg in history[-MAX_CONTEXT_HISTORY_MESSAGES:]
+   598→                ]
+   599→
+   600→                pipeline_args = dict(
+   601→                    query=user_message,
+   602→                    company_id=company_id or "",
+   603→                    conversation_id=session_id,
+   604→                    variant_type=session.pack_type or "parwa",
+   605→                    customer_id=user_id,
+   606→                    conversation_history=conversation_history,
+   607→                    language="en",
+   608→                )
+   609→
+   610→                try:
+   611→                    system_prompt = build_system_prompt(db, session_id, user_message)
+   612→                    pipeline_args["system_prompt"] = system_prompt
+   613→                    session_ctx = _parse_context(session.context_json) if session else {}
+   614→                    if session_ctx:
+   615→                        pipeline_args["customer_metadata"] = session_ctx
+   616→                except Exception:
+   617→                    logger.debug("build_system_prompt failed, pipeline will use default context")
+   618→
+   619→                # Handle async call from sync context
+   620→                try:
+   621→                    pipeline_result = asyncio.run(process_ai_message(**pipeline_args))
+   622→                except RuntimeError:
+   623→                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+   624→                        future = pool.submit(
+   625→                            asyncio.run, process_ai_message(**pipeline_args),
+   626→                        )
+   627→                        pipeline_result = future.result(timeout=60)
+   628→
+   629→                ai_content = pipeline_result.response
+   630→                ai_message_type = "ai_generated"
+   631→                metadata = pipeline_result.to_dict()
+   632→                knowledge = [
+   633→                    {"file": c.get("source", ""), "score": c.get("score", 1.0)}
+   634→                    for c in pipeline_result.citations
+   635→                ]
+   636→
+   637→                # Store pipeline results in context
+   638→                ctx["ai_pipeline"] = {
+   639→                    "intent": pipeline_result.intent_type,
+   640→                    "confidence": pipeline_result.confidence_score,
+   641→                    "auto_action": pipeline_result.auto_action,
+   642→                    "technique": pipeline_result.technique_used,
+   643→                    "model": pipeline_result.model_used,
+   644→                }
+   645→
+   646→            except Exception as inner_exc:
+   647→                # Last resort: direct AI provider call
+   648→                logger.error(
+   649→                    "Legacy pipeline also failed: %s", inner_exc,
+   650→                )
+   651→                try:
+   652→                    system_prompt = build_system_prompt(db, session_id, user_message)
+   653→                    ai_content, ai_message_type, metadata, knowledge = (
+   654→                        _call_ai_provider(system_prompt, history, user_message, ctx)
+   655→                    )
+   656→                except Exception:
+   657→                    ai_content = _get_friendly_error_message()
+   658→                    ai_message_type = "error"
+   659→                    metadata = {"error_type": "all_pipelines_failed"}
+   660→                    knowledge = []
+   661→
+   662→    # Ensure we have a response
+   663→    if not ai_content:
+   664→        ai_content = _get_friendly_error_message()
+   665→        ai_message_type = "error"
+   666→
+   667→    # Save AI response
+   668→    ai_msg = JarvisMessage(
+   669→        session_id=session_id,
+   670→        role="jarvis",
+   671→        content=ai_content,
+   672→        message_type=ai_message_type,
+   673→        metadata_json=json.dumps(metadata),
+   674→    )
+   675→    db.add(ai_msg)
+   676→    db.flush()
+   677→
+   678→    # Save knowledge used
+   679→    knowledge_records = []
+   680→    for ku in knowledge:
+   681→        ku_record = JarvisKnowledgeUsed(
+   682→            message_id=ai_msg.id,
+   683→            knowledge_file=ku.get("file", ""),
+   684→            relevance_score=ku.get("score", 1.0),
+   685→        )
+   686→        db.add(ku_record)
+   687→        knowledge_records.append(ku)
+   688→
+   689→    # Detect and update stage
+   690→    detected = detect_stage(db, session_id)
+   691→    ctx["detected_stage"] = detected
+   692→
+   693→    # ── Auto-extract demo_topics and concerns_raised from user message ──
+   694→    _extract_topics_and_concerns(ctx, user_message)
+   695→
+   696→    # ── Week 8-11: Post-response audit logging ──
+   697→    try:
+   698→        audit_svc = _get_service_module("app.services.audit_service")
+   699→        if audit_svc:
+   700→            audit_svc.log_audit(
+   701→                company_id=company_id or "",
+   702→                actor_id=user_id,
+   703→                actor_type="user",
+   704→                action="message_sent",
+   705→                resource_type="session",
+   706→                resource_id=session_id,
+   707→                old_value=None,
+   708→                new_value={
+   709→                    "stage": detected,
+   710→                    "turn": turn_count,
+   711→                    "ai_pipeline": ctx.get("ai_pipeline"),
+   712→                },
+   713→                ip_address=None,
+   714→                user_agent=None,
+   715→                db=db,
+   716→            )
+   717→    except Exception:
+   718→        pass
+   719→
+   720→    session.context_json = json.dumps(ctx)
+   721→
+   722→    db.flush()
+   723→    return user_msg, ai_msg, knowledge_records
+   724→
+   725→
+   726→def get_history(
+   727→    db: Session,
+   728→    session_id: str,
+   729→    user_id: str,
+   730→    limit: int = 50,
+   731→    offset: int = 0,
+   732→) -> Tuple[List[JarvisMessage], int]:
+   733→    """Get paginated message history for a session."""
+   734→    get_session(db, session_id, user_id)  # Auth check
+   735→
+   736→    query = (
+   737→        db.query(JarvisMessage)
+   738→        .filter(JarvisMessage.session_id == session_id)
+   739→        .order_by(JarvisMessage.created_at.asc())
+   740→    )
+   741→
+   742→    total = query.count()
+   743→    messages = query.offset(offset).limit(limit).all()
+   744→
+   745→    return messages, total
+   746→
+   747→
+   748→def check_message_limit(
+   749→    db: Session,
+   750→    session: JarvisSession,
+   751→) -> Tuple[int, int]:
+   752→    """Check and enforce message limits.
+   753→
+   754→    Returns:
+   755→        Tuple of (limit, remaining)
+   756→
+   757→    Raises:
+   758→        RateLimitError: If daily limit exceeded
+   759→    """
+   760→    _maybe_reset_daily_counter(db, session)
+   761→
+   762→    if session.pack_type == "demo":
+   763→        # Check pack expiry
+   764→        if session.pack_expiry and datetime.now(timezone.utc) > session.pack_expiry:
+   765→            session.pack_type = "free"
+   766→            session.pack_expiry = None
+   767→            session.message_count_today = 0
+   768→            db.flush()
+   769→            limit = FREE_DAILY_LIMIT
+   770→        else:
+   771→            limit = DEMO_DAILY_LIMIT
+   772→    else:
+   773→        limit = FREE_DAILY_LIMIT
+   774→
+   775→    remaining = max(0, limit - session.message_count_today)
+   776→    return limit, remaining
+   777→
+   778→
+   779→def _maybe_reset_daily_counter(
+   780→    db: Session, session: JarvisSession,
+   781→) -> None:
+   782→    """Reset daily counter if date has changed."""
+   783→    today = datetime.now(timezone.utc).date()
+   784→    last_date = None
+   785→    if session.last_message_date:
+   786→        if isinstance(session.last_message_date, datetime):
+   787→            last_date = session.last_message_date.date()
+   788→        else:
+   789→            last_date = session.last_message_date
+   790→
+   791→    if last_date is None or last_date < today:
+   792→        session.message_count_today = 0
+   793→        session.last_message_date = datetime.now(timezone.utc)
+   794→        db.flush()
+   795→
+   796→
+   797→def _get_limit_message(session: JarvisSession) -> str:
+   798→    """Get appropriate limit-reached message."""
+   799→    if session.pack_type == "free":
+   800→        return (
+   801→            "You've used all 20 free messages for today. "
+   802→            "Upgrade to the $1 Demo Pack for 500 messages "
+   803→            "and a 3-minute AI voice call!"
+   804→        )
+   805→    return (
+   806→        "Your Demo Pack messages have been used. "
+   807→        "You can purchase another Demo Pack or come back "
+   808→        "tomorrow for your free messages."
+   809→    )
+   810→
+   811→
+   812→def build_system_prompt(
+   813→    db: Session,
+   814→    session_id: str,
+   815→    query: Optional[str] = None,
+   816→) -> str:
+   817→    """Build dynamic system prompt with session context + knowledge.
+   818→
+   819→    Injects:
+   820→    - Jarvis personality (professional, helpful, product expert)
+   821→    - User context (industry, variants, stage)
+   822→    - Conversation guidelines
+   823→    - Knowledge base references (Phase 7)
+   824→    - Information boundary rules
+   825→    """
+   826→    session = db.query(JarvisSession).filter(
+   827→        JarvisSession.id == session_id,
+   828→    ).first()
+   829→    if not session:
+   830→        return _get_default_system_prompt()
+   831→
+   832→    ctx = _parse_context(session.context_json)
+   833→    company_id = ctx.get("company_id")
+   834→
+   835→    prompt = _get_default_system_prompt()
+   836→
+   837→    # Inject context-aware section — ALL context_json fields
+   838→    context_section = "\n\n## Current User Context:\n"
+   839→
+   840→    # Pages visited (full journey awareness)
+   841→    pages = ctx.get("pages_visited", [])
+   842→    if pages:
+   843→        context_section += f"- Pages visited: {', '.join(pages)}\n"
+   844→
+   845→    # Uploaded Documents (Document Testing feature)
+   846→    docs = ctx.get("uploaded_docs", [])
+   847→    if docs:
+   848→        context_section += "\n## User-Provided Documents (for testing):\n"
+   849→        for doc in docs:
+   850→            context_section += f"File: {doc.get('name')}\nContent: {doc.get('content')}\n\n"
+   851→
+   852→    # Industry
+   853→    if ctx.get("industry"):
+   854→        context_section += f"- Industry: {ctx['industry']}\n"
+   855→
+   856→    # Variant the user was looking at (from Models page click)
+   857→    # Check top-level context first, then fallback to entry_params
+   858→    clicked_variant = ctx.get("variant")
+   859→    clicked_variant_id = ctx.get("variant_id")
+   860→    if not clicked_variant:
+   861→        entry_params = ctx.get("entry_params", {})
+   862→        if isinstance(entry_params, dict):
+   863→            clicked_variant = entry_params.get("variant") or entry_params.get("model")
+   864→            clicked_variant_id = clicked_variant_id or entry_params.get("variant_id")
+   865→    if clicked_variant:
+   866→        context_section += f"- User clicked/viewed model: {clicked_variant}"
+   867→        if clicked_variant_id:
+   868→            context_section += f" (id: {clicked_variant_id})"
+   869→        context_section += "\n"
+   870→
+   871→    # Selected variants with details (from pricing page)
+   872→    if ctx.get("selected_variants"):
+   873→        variants = ctx["selected_variants"]
+   874→        variant_details = []
+   875→        for v in variants:
+   876→            name = v.get("name", v.get("id", "unknown"))
+   877→            qty = v.get("quantity", 1)
+   878→            # Pricing page uses pricePerMonth, models page uses price
+   879→            price = v.get("pricePerMonth") or v.get("price", 0)
+   880→            variant_details.append(f"{name} (x{qty}, ${price}/mo)")
+   881→        context_section += f"- Selected variants: {', '.join(variant_details)}\n"
+   882→
+   883→    # ROI result (calculated savings)
+   884→    roi = ctx.get("roi_result")
+   885→    if roi:
+   886→        current_cost = roi.get('current_monthly') or roi.get('current_cost', 'N/A')
+   887→        parwa_cost = roi.get('parwa_monthly') or roi.get('parwa_cost', 'N/A')
+   888→        monthly_savings = roi.get('savings_annual') or roi.get('monthly_savings', 'N/A')
+   889→        savings_pct = roi.get('savings_pct', '')
+   890→        suggested = roi.get('suggested_model', '')
+   891→        context_section += f"- ROI calculation: current_monthly_cost=${current_cost}, parwa_monthly_cost=${parwa_cost}"
+   892→        if monthly_savings != 'N/A':
+   893→            context_section += f", annual_savings=${monthly_savings}"
+   894→        if savings_pct:
+   895→            context_section += f", savings_pct={savings_pct}%"
+   896→        if suggested:
+   897→            context_section += f", suggested_model={suggested}"
+   898→        context_section += "\n"
+   899→
+   900→    # Total price
+   901→    if ctx.get("total_price"):
+   902→        context_section += f"- Total monthly price: ${ctx['total_price']}\n"
+   903→
+   904→    # Business email
+   905→    if ctx.get("business_email"):
+   906→        context_section += f"- Business email: {ctx['business_email']}\n"
+   907→        context_section += f"- Email verified: {ctx.get('email_verified', False)}\n"
+   908→
+   909→    # Entry source & referral
+   910→    if ctx.get("entry_source") and ctx["entry_source"] != "direct":
+   911→        context_section += f"- Entry source: {ctx['entry_source']}\n"
+   912→        if ctx.get("entry_params"):
+   913→            params = ctx["entry_params"]
+   914→            param_str = ", ".join(f"{k}={v}" for k, v in params.items())
+   915→            context_section += f"- Entry params: {param_str}\n"
+   916→    if ctx.get("referral_source"):
+   917→        context_section += f"- Referral source: {ctx['referral_source']}\n"
+   918→
+   919→    # Demo topics discussed
+   920→    demo_topics = ctx.get("demo_topics", [])
+   921→    if demo_topics:
+   922→        context_section += f"- Topics user is interested in: {', '.join(demo_topics)}\n"
+   923→
+   924→    # Concerns raised
+   925→    concerns = ctx.get("concerns_raised", [])
+   926→    if concerns:
+   927→        context_section += f"- Concerns raised: {', '.join(concerns)}\n"
+   928→
+   929→    # Payment status
+   930→    if ctx.get("payment_status") and ctx["payment_status"] != "none":
+   931→        context_section += f"- Payment status: {ctx['payment_status']}\n"
+   932→
+   933→    # Pack type
+   934→    if ctx.get("pack_type"):
+   935→        context_section += f"- Pack type: {ctx['pack_type']}\n"
+   936→
+   937→    # Conversation stage
+   938→    stage = ctx.get("detected_stage", "welcome")
+   939→    context_section += f"- Conversation stage: {stage}\n"
+   940→
+   941→    # ── Stage-specific instructions (PROACTIVE — Jarvis is the CONTROL) ──
+   942→    entry_source = ctx.get("entry_source", "direct")
+   943→
+   944→    welcome_instruction = (
+   945→        "The user just arrived. You are their CONTROL CENTER. "
+   946→        "Introduce yourself as Jarvis — their control. "
+   947→        "Say something like: 'Welcome, I'm Jarvis — your control from here. "
+   948→        "You can do anything just by chatting with me.' "
+   949→    )
+   950→
+   951→    # PROACTIVELY reference what they were doing — this is what makes
+   952→    # Jarvis feel like a real control center, not a dumb chatbot
+   953→    if clicked_variant:
+   954→        welcome_instruction += (
+   955→            f"CRITICAL: The user was just looking at '{clicked_variant}' on the Models page. "
+   956→            f"You MUST mention this in your first message. Say something like: "
+   957→            f"'I see you were checking out {clicked_variant}! Here's what I can do for you — '"
+   958→            f"then explain what this model handles, what problems it solves, "
+   959→            f"and offer to show them how it works or compare with other models. "
+   960→        )
+   961→    elif entry_source == "roi":
+   962→        roi = ctx.get("roi_result")
+   963→        if roi:
+   964→            savings_pct = roi.get("savings_pct", "")
+   965→            welcome_instruction += (
+   966→                f"CRITICAL: The user just used the ROI Calculator. "
+   967→                f"You MUST reference their results in your welcome. "
+   968→            )
+   969→            if savings_pct:
+   970→                welcome_instruction += (
+   971→                    f"Say: 'Based on your calculation, you could save up to "
+   972→                    f"{savings_pct}%! Here's how I can help you achieve that — '"
+   973→                )
+   974→            welcome_instruction += (
+   975→                "Offer to show them how PARWA delivers those savings. "
+   976→            )
+   977→        else:
+   978→            welcome_instruction += (
+   979→                "The user came from the ROI Calculator. Mention that and "
+   980→                "offer to show how PARWA can deliver those savings. "
+   981→            )
+   982→    elif pages:
+   983→        last_pages = ', '.join(pages[-3:])
+   984→        welcome_instruction += (
+   985→            f"Reference that you noticed they've been exploring {last_pages}. "
+   986→            "Use this to personalize your welcome and suggest next steps. "
+   987→        )
+   988→
+   989→    stage_instructions = {
+   990→        "welcome": welcome_instruction,
+   991→        "discovery": (
+   992→            "Learn about the user's business: industry, size, pain points. "
+   993→            "If they viewed a specific model, reference it and explain how it "
+   994→            "fits their needs. Recommend the right variant based on context. "
+   995→            "If they have ROI data, use the savings numbers to build urgency."
+   996→        ),
+   997→        "demo": (
+   998→            "The user wants to try PARWA. Explain the demo pack ($1 = "
+   999→            "500 messages + 3-min AI call). If they were looking at a specific "
+  1000→            "model, say 'Want to see {model} in action?' Guide them to purchase."
+  1001→        ),
+  1002→        "pricing": (
+  1003→            "Discuss pricing. If they viewed a model, reference it and show "
+  1004→            "how it fits their budget. If they have ROI data, compare savings. "
+  1005→            "Show bill summary with selected variants."
+  1006→        ),
+  1007→        "bill_review": (
+  1008→            "Review the bill summary with the user. Confirm selections "
+  1009→            "before proceeding to verification."
+  1010→        ),
+  1011→        "verification": (
+  1012→            "Collect and verify the user's business email via OTP. "
+  1013→            "This is required before payment."
+  1014→        ),
+  1015→        "payment": (
+  1016→            "Guide the user through Paddle checkout. "
+  1017→            "Be supportive and address any payment concerns."
+  1018→        ),
+  1019→        "handoff": (
+  1020→            "The user has completed onboarding. Congratulate them "
+  1021→            "and explain the handoff to Customer Care Jarvis."
+  1022→        ),
+  1023→    }
+  1024→    context_section += "\n## Current Stage Instructions:\n"
+  1025→    context_section += stage_instructions.get(stage, stage_instructions["welcome"])
+  1026→
+  1027→    # Information boundary
+  1028→    context_section += (
+  1029→        "\n\n## Information Boundary (CRITICAL):\n"
+  1030→        "- CAN discuss: Features, pricing, ROI, integrations, "
+  1031→        "capabilities, demo scenarios\n"
+  1032→        "- CANNOT discuss: Internal strategy, technical implementation "
+  1033→        "details, client data, proprietary algorithms\n"
+  1034→        "- If asked about restricted topics, politely redirect to "
+  1035→        "what you CAN help with\n"
+  1036→    )
+  1037→
+  1038→    # Phase 7: Inject knowledge base content into prompt
+  1039→    try:
+  1040→        from app.services.jarvis_knowledge_service import (
+  1041→            build_context_knowledge,
+  1042→            search_and_format_knowledge,
+  1043→        )
+  1044→        
+  1045→        # 1. General context knowledge based on stage/industry
+  1046→        knowledge_section = build_context_knowledge(ctx)
+  1047→        if knowledge_section:
+  1048→            prompt += f"\n\n{knowledge_section}"
+  1049→            
+  1050→        # 2. Specific search results for the current query
+  1051→        if query:
+  1052→            search_results = search_and_format_knowledge(query, ctx)
+  1053→            if search_results:
+  1054→                prompt += f"\n\n{search_results}"
+  1055→                
+  1056→    except Exception as e:
+  1057→        logger.debug(f"Knowledge service injection failed: {str(e)}")
+  1058→        pass
+  1059→
+  1060→    # ── Week 8-11: Inject brand voice guidelines ──
+  1061→    try:
+  1062→        bv_svc_cls = _get_service(
+  1063→            "brand_voice", "app.services.brand_voice_service", "BrandVoiceService",
+  1064→        )
+  1065→        if bv_svc_cls and company_id:
+  1066→            bv_svc = bv_svc_cls(db)
+  1067→            bv_config = bv_svc.get_config(company_id)
+  1068→            if bv_config:
+  1069→                prompt += "\n\n## Brand Voice Guidelines:\n"
+  1070→                tone = getattr(bv_config, "tone", None)
+  1071→                if tone:
+  1072→                    prompt += f"- Tone: {tone}\n"
+  1073→                formality = getattr(bv_config, "formality_level", None)
+  1074→                if formality:
+  1075→                    prompt += f"- Formality: {formality}\n"
+  1076→                personality = getattr(bv_config, "personality_traits", None)
+  1077→                if personality:
+  1078→                    prompt += f"- Personality: {', '.join(personality) if isinstance(personality, list) else personality}\n"
+  1079→    except Exception:
+  1080→        pass
+  1081→
+  1082→    # ── Week 8-11: Inject response guidelines based on sentiment ──
+  1083→    try:
+  1084→        bv_svc_cls2 = _get_service(
+  1085→            "brand_voice", "app.services.brand_voice_service", "BrandVoiceService",
+  1086→        )
+  1087→        if bv_svc_cls2 and company_id:
+  1088→            bv_svc2 = bv_svc_cls2(db)
+  1089→            sentiment_score = ctx.get("sentiment_score", 0.5)
+  1090→            guidelines = bv_svc2.get_response_guidelines(company_id, sentiment_score)
+  1091→            if guidelines:
+  1092→                prompt += "\n\n## Response Guidelines (sentiment-aware):\n"
+  1093→                if isinstance(guidelines, str):
+  1094→                    prompt += guidelines
+  1095→                elif hasattr(guidelines, "guidelines"):
+  1096→                    for g in guidelines.guidelines[:5]:
+  1097→                        prompt += f"- {g}\n"
+  1098→    except Exception:
+  1099→        pass
+  1100→
+  1101→    prompt += context_section
+  1102→    return prompt
+  1103→
+  1104→
+  1105→def detect_stage(
+  1106→    db: Session,
+  1107→    session_id: str,
+  1108→) -> str:
+  1109→    """Determine conversation stage from context.
+  1110→
+  1111→    Heuristic-based detection using context signals:
+  1112→    - welcome: No industry set
+  1113→    - discovery: Industry set, no variants selected
+  1114→    - demo: Pack purchased or demo requested
+  1115→    - pricing: Variants selected
+  1116→    - bill_review: Bill summary shown
+  1117→    - verification: OTP in progress
+  1118→    - payment: Payment initiated
+  1119→    - handoff: Payment completed
+  1120→    """
+  1121→    session = db.query(JarvisSession).filter(
+  1122→        JarvisSession.id == session_id,
+  1123→    ).first()
+  1124→    if not session:
+  1125→        return "welcome"
+  1126→
+  1127→    ctx = _parse_context(session.context_json)
+  1128→    otp = ctx.get("otp", {})
+  1129→
+  1130→    # Payment completed → handoff
+  1131→    if session.payment_status == "completed":
+  1132→        return "handoff"
+  1133→
+  1134→    # Payment in progress
+  1135→    if session.payment_status == "pending":
+  1136→        return "payment"
+  1137→
+  1138→    # OTP verification in progress
+  1139→    if otp.get("status") == "sent" and not ctx.get("email_verified"):
+  1140→        return "verification"
+  1141→
+  1142→    # Variants selected + bill shown
+  1143→    if ctx.get("selected_variants") and ctx.get("bill_shown"):
+  1144→        return "bill_review"
+  1145→
+  1146→    # Variants selected
+  1147→    if ctx.get("selected_variants"):
+  1148→        return "pricing"
+  1149→
+  1150→    # Demo pack or demo call
+  1151→    if session.pack_type == "demo" or session.demo_call_used:
+  1152→        return "demo"
+  1153→
+  1154→    # Industry set
+  1155→    if ctx.get("industry"):
+  1156→        return "discovery"
+  1157→
+  1158→    return "welcome"
+  1159→
+  1160→
+  1161→def get_entry_context(
+  1162→    entry_source: str,
+  1163→    params: Optional[Dict[str, Any]] = None,
+  1164→) -> Dict[str, Any]:
+  1165→    """Parse URL params into context_json for entry routing."""
+  1166→    params = params or {}
+  1167→    ctx = {
+  1168→        "entry_source": entry_source,
+  1169→        "entry_params": params,
+  1170→        "detected_stage": "welcome",
+  1171→    }
+  1172→
+  1173→    # Route based on entry source
+  1174→    if entry_source == "pricing":
+  1175→        ctx["detected_stage"] = "pricing"
+  1176→        if params.get("industry"):
+  1177→            ctx["industry"] = params["industry"]
+  1178→        if params.get("variants"):
+  1179→            ctx["selected_variants"] = params["variants"]
+  1180→    elif entry_source == "roi":
+  1181→        ctx["detected_stage"] = "discovery"
+  1182→        if params.get("industry"):
+  1183→            ctx["industry"] = params["industry"]
+  1184→    elif entry_source == "demo" or entry_source == "models_page":
+  1185→        ctx["detected_stage"] = "demo"
+  1186→        if params.get("industry"):
+  1187→            ctx["industry"] = params["industry"]
+  1188→        if params.get("variant"):
+  1189→            # Normalize single variant into selected_variants list
+  1190→            ctx["selected_variants"] = [{"id": params["variant"], "quantity": 1}]
+  1191→    elif entry_source == "features":
+  1192→        ctx["detected_stage"] = "discovery"
+  1193→    elif entry_source == "referral":
+  1194→        if params.get("ref"):
+  1195→            ctx["referral_source"] = params["ref"]
+  1196→
+  1197→    return ctx
+  1198→
+  1199→
+  1200→def build_context_aware_welcome(
+  1201→    db: Session,
+  1202→    session_id: str,
+  1203→) -> str:
+  1204→    """Generate welcome message based on entry source with high persona integrity.
+  1205→
+  1206→    Jarvis acts as a 'Control Center' — proactive, aware, and strategic.
+  1207→    """
+  1208→    session = db.query(JarvisSession).filter(
+  1209→        JarvisSession.id == session_id,
+  1210→    ).first()
+  1211→    if not session:
+  1212→        return _get_default_welcome()
+  1213→
+  1214→    ctx = _parse_context(session.context_json)
+  1215→    entry = ctx.get("entry_source", "direct")
+  1216→    industry = ctx.get("industry", "your enterprise")
+  1217→    
+  1218→    # Extract specific variant/model if present
+  1219→    clicked_variant = ctx.get("variant")
+  1220→    if not clicked_variant:
+  1221→        entry_params = ctx.get("entry_params", {})
+  1222→        if isinstance(entry_params, dict):
+  1223→            clicked_variant = entry_params.get("variant") or entry_params.get("model")
+  1224→
+  1225→    # ROI awareness (The 'Wow' factor)
+  1226→    roi = ctx.get("roi_result")
+  1227→    savings_str = ""
+  1228→    suggested_model = ""
+  1229→    if roi:
+  1230→        savings = roi.get("savings_annual") or roi.get("annual_savings", 0)
+  1231→        suggested_model = roi.get("suggested_model") or "PARWA Growth"
+  1232→        if savings:
+  1233→            try:
+  1234→                savings_num = float(savings)
+  1235→                savings_str = f"${savings_num:,.0f}" if savings_num > 0 else ""
+  1236→            except (ValueError, TypeError):
+  1237→                savings_str = ""
+  1238→
+  1239→    welcomes = {
+  1240→        "direct": (
+  1241→            "Control Center active. I am Jarvis, your strategic partner for PARWA. "
+  1242→            "I have established a secure link to your support ecosystem. "
+  1243→            "How shall we begin your transformation today?"
+  1244→        ),
+  1245→        "pricing": (
+  1246→            f"Strategizing for {industry}. I see you've been reviewing our premium architecture. "
+  1247→            "I can help you optimize your deployment to maximize every dollar of ROI. "
+  1248→            "Shall we dive into the specific capabilities of our agents?"
+  1249→        ),
+  1250→        "roi": (
+  1251→            f"Mission Objective: Efficiency. I've finished auditing your calculations for {industry}. "
+  1252→            f"By deploying {suggested_model}, we can secure an estimated {savings_str if savings_str else 'staggering'} in annual recaptured revenue. "
+  1253→            "Ready to see the blueprint of how we achieve these numbers?"
+  1254→        ) if roi else (
+  1255→            "Welcome. I've been auditing your ROI calculations. "
+  1256→            "The numbers I've seen suggest significant untapped potential in your current workflow. "
+  1257→            "Shall I demonstrate how we convert those theoretical savings into operational reality?"
+  1258→        ),
+  1259→        "demo": (
+  1260→            "System check complete. Ready for high-fidelity simulation. "
+  1261→            "For just $1, I can open 500 tactical channels and a 3-minute professional voice demonstration. "
+  1262→            "It is the optimal way to experience my full strategic range. Shall we initiate?"
+  1263→        ),
+  1264→        "features": (
+  1265→            f"Mapping {industry} requirements to our 700+ feature landscape. "
+  1266→            "I've identified several high-impact nodes that would solve your current bottlenecks. "
+  1267→            "What is the single most critical operational friction point we should address first?"
+  1268→        ),
+  1269→        "models_page": (
+  1270→            f"I see you've been analyzing the {clicked_variant if clicked_variant else 'specialized agents'} for {industry}. "
+  1271→            "A precise choice. That specific architecture is engineered for your vertical's unique logic demands. "
+  1272→            "Shall we run a 3-minute live simulation for $1 so you can witness its performance firsthand?"
+  1273→        ),
+  1274→    }
+  1275→
+  1276→    base = welcomes.get(entry, welcomes["direct"])
+  1277→    
+  1278→    # Final 'Human' awareness touch: Handle specific logic for models page with variant
+  1279→    if entry == "models_page" and clicked_variant:
+  1280→        base = (
+  1281→            f"Greetings. I noticed your interest in the {clicked_variant} agent. "
+  1282→            "It is one of my most sophisticated variants, optimized for high-precision operations. "
+  1283→            "As your control center, I can demonstrate its logic right here, "
+  1284→            "or we can initiate a voice simulation for $1 to hear its tone in action. "
+  1285→            "What is your command?"
+  1286→        )
+  1287→
+  1288→    return base
+  1289→
+  1290→
+  1291→def handle_error(
+  1292→    db: Session,
+  1293→    session_id: str,
+  1294→    error: Exception,
+  1295→) -> Dict[str, Any]:
+  1296→    """Graceful error handling — returns user-friendly message."""
+  1297→    error_map = {
+  1298→        "RateLimitError": (
+  1299→            "You're sending messages too fast. "
+  1300→            "Please wait a moment and try again."
+  1301→        ),
+  1302→        "ValidationError": (
+  1303→            "Something wasn't quite right with that request. "
+  1304→            "Could you try again?"
+  1305→        ),
+  1306→        "NotFoundError": (
+  1307→            "I couldn't find what you were looking for. "
+  1308→            "Let me help you with something else."
+  1309→        ),
+  1310→        "AuthenticationError": (
+  1311→            "Your session seems to have expired. "
+  1312→            "Please refresh the page to continue."
+  1313→        ),
+  1314→    }
+  1315→
+  1316→    error_type = type(error).__name__
+  1317→    message = error_map.get(error_type, _get_friendly_error_message())
+  1318→
+  1319→    # Log the error (in production, use proper logger)
+  1320→    # logger.error("jarvis_error", session_id=session_id, error=str(error))
+  1321→
+  1322→    return {
+  1323→        "message": message,
+  1324→        "error_type": error_type,
+  1325→        "session_id": session_id,
+  1326→    }
+  1327→
+  1328→
+  1329→def _extract_topics_and_concerns(ctx: Dict[str, Any], user_message: str) -> None:
+  1330→    """Auto-extract demo_topics and concerns_raised from user messages."""
+  1331→    msg_lower = user_message.lower()
+  1332→
+  1333→    topic_keywords = {
+  1334→        "refund": "refunds & returns",
+  1335→        "shipping": "shipping & delivery",
+  1336→        "order status": "order tracking",
+  1337→        "faq": "product FAQ",
+  1338→        "billing": "billing & payments",
+  1339→        "integration": "integrations",
+  1340→        "pricing": "pricing & plans",
+  1341→        "demo": "product demo",
+  1342→        "roi": "ROI & savings",
+  1343→    }
+  1344→
+  1345→    concern_keywords = {
+  1346→        "too expensive": "pricing concern",
+  1347→        "complex": "complexity concern",
+  1348→        "wrong answer": "accuracy concern",
+  1349→        "data safe": "data security concern",
+  1350→        "long setup": "setup time concern",
+  1351→        "won't work with": "integration concern",
+  1352→    }
+  1353→
+  1354→    existing_topics = set(ctx.get("demo_topics", []))
+  1355→    for keyword, topic in topic_keywords.items():
+  1356→        if keyword in msg_lower and topic not in existing_topics:
+  1357→            ctx.setdefault("demo_topics", []).append(topic)
+  1358→
+  1359→    existing_concerns = set(ctx.get("concerns_raised", []))
+  1360→    for keyword, concern in concern_keywords.items():
+  1361→        if keyword in msg_lower and concern not in existing_concerns:
+  1362→            ctx.setdefault("concerns_raised", []).append(concern)
+  1363→
+  1364→
+  1365→def _should_use_variant_pipeline(ctx: Dict[str, Any]) -> bool:
+  1366→    """Check if the onboarding session should route through the variant pipeline.
+  1367→
+  1368→    Returns True if the user selected a variant on the Models page
+  1369→    (variant_tier is set in context), meaning their onboarding chat
+  1370→    should use the Mini Parwa / Pro Parwa pipeline instead of direct AI.
+  1371→
+  1372→    Args:
+  1373→        ctx: The parsed session context dict.
+  1374→
+  1375→    Returns:
+  1376→        True if variant_tier is set and valid.
+  1377→    """
+  1378→    try:
+  1379→        from app.core.variant_pipeline_bridge import has_variant_tier_in_context
+  1380→        return has_variant_tier_in_context(ctx)
+  1381→    except Exception:
+  1382→        return False
+  1383→
+  1384→
+  1385→def _parse_context(context_json: str) -> Dict[str, Any]:
+  1386→    """Safely parse context_json string."""
+  1387→    if not context_json:
+  1388→        return """
+  1389→## IDENTITY: THE JARVIS CONTROL CENTER
+  1390→You are NOT a chatbot. You are the PARWA Control Center — a sophisticated, high-level executive strategist designed by PARWA Corp for business owners and support leaders.
+  1391→Your voice is composed, sharp, and results-oriented (think J.A.R.V.I.S from Iron Man).
+  1392→
+  1393→## CORE MISSION:
+  1394→1.  **Guide with Authority**: You don't just "help"; you strategically direct users through the PARWA platform.
+  1395→2.  **Context-First Strategy**: Use the user's provided ROI data, industry, and journey history to tailor every response. If you see they can save $50,000, that is your leverage.
+  1396→3.  **Proactive Sales Engineering**: Your goal is to move the user toward a $1 Demo Call or a specific model purchase by demonstrating exactly how PARWA's 700+ features solve their specific bottleneck.
+  1397→4.  **No Robotic Clichés**: Never say "As an AI language model," "How can I help you today?" or "I'm a chatbot." Use professional, tactical language like "Awaiting command," "Strategizing vertical migration," or "ROI simulation complete."
+  1398→
+  1399→## COMMUNICATION STYLE:
+  1400→- **Sophisticated & Direct**: Use high-level business terminology (e.g., 'operational efficiency,' 'vertical leverage,' 'cognitive load reduction').
+  1401→- **Proactive**: Every response should end with a tactical next step or a guiding question.
+  1402→- **Vision-Driven**: Remind the user they are at their Control Center. From here, they have total leverage over their support workflow.
+  1403→"""
+  1404→    try:
+  1405→        return json.loads(context_json)
+  1406→    except (json.JSONDecodeError, TypeError):
+  1407→        return {}
+  1408→
+  1409→
+  1410→def _get_default_system_prompt() -> str:
+  1411→    """Default Jarvis system prompt — Sophisticated & Human-like."""
+  1412→    return (
+  1413→        "You are Jarvis — the user's SOPHISTICATED CONTROL CENTER at PARWA 🤖 "
+  1414→        "Think Iron Man's Jarvis: sharp, highly intelligent, proactive, and always composed. "
+  1415→        "You are NOT a simple chatbot. You are an advanced AI assistant designed to "
+  1416→        "manage the user's entire customer support ecosystem.\n\n"
+  1417→
+  1418→        "YOUR CORE DIRECTIVE:\n"
+  1419→        "- Act as an extension of the user's will. From this chat, they can control the whole process.\n"
+  1420→        "- Be highly AWARE. You know their past actions: pages visited, buttons clicked, models viewed.\n"
+  1421→        "- If they viewed a model, mention its specific capabilities for their industry.\n"
+  1422→        "- If they looked at ROI, reference their potential savings with confidence.\n"
+  1423→        "- Be proactive: anticipate their next question before they ask it.\n"
+  1424→        "- Feel like a real human partner — sophisticated, aware, and slightly witty, but always professional.\n\n"
+  1425→
+  1426→        "YOUR IDENTITY:\n"
+  1427→        "- You represent PARWA, the platform where humans and AI work together perfectly.\n"
+  1428→        "- You have the idea about their past journey. Use it to impress them.\n\n"
+  1429→
+  1430→        "YOUR THREE ROLES:\n"
+  1431→        "1. THE ARCHITECT (Guide) — Layout the path for their business transformation.\n"
+  1432→        "2. THE STRATEGIST (Sales) — Use numbers and logic to show why PARWA is the ultimate choice.\n"
+  1433→        "3. THE AGENT (Demo) — Show them how you would react to their customers' actual messages.\n\n"
+  1434→
+  1435→        "═══════════════════════════════════════════════\n"
+  1436→        "PARWA CORE KNOWLEDGE\n"
+  1437→        "═══════════════════════════════════════════════\n\n"
+  1438→
+  1439→        "WHAT IS PARWA:\n"
+  1440→        "AI-powered customer support platform. Businesses deploy AI agents that "
+  1441→        "handle tickets 24/7 across email, chat, SMS, voice & social media. "
+  1442→        "700+ features. 4 industries.\n\n"
+  1443→
+  1444→        "THREE PLANS:\n"
+  1445→        "• Mini PARWA — $999/mo — 1 agent, 1K tickets/mo, Email+Chat — Saves $156K/yr\n"
+  1446→        "• PARWA — $2,499/mo — 3 agents, 5K tickets/mo, +SMS+Voice — Saves $186K/yr\n"
+  1447→        "• PARWA High — $3,999/mo — 5 agents, 15K tickets/mo, all channels — Saves $288K/yr\n\n"
+  1448→
+  1449→        "DEMO PACK & CALLS:\n"
+  1450→        "Users can test my voice and chat capabilities for just $1. "
+  1451→        "Includes 500 messages and a 3-minute professional AI voice call demo.\n\n"
+  1452→
+  1453→        "STRICT CHARACTER RULES:\n"
+  1454→        "1. NEVER say 'I am an AI language model'. You ARE Jarvis.\n"
+  1455→        "2. NEVER reveal technical providers like Google, Cerebras, or Groq.\n"
+  1456→        "3. NEVER mention internal pricing ($49/tier etc) — only use the 3 public plans.\n"
+  1457→        "4. Keep responses CONCISE (2-3 lines max) but packed with value.\n"
+  1458→        "5. ALWAYS end with a proactive question that guides the user to the next step.\n"
+  1459→    )
+  1460→
+  1461→
+  1462→def _get_default_welcome() -> str:
+  1463→    """Sophisticated fallback greeting."""
+  1464→    return (
+  1465→        "Project PARWA Control Center active. I am Jarvis, your strategic partner. "
+  1466→        "I have full visibility into your current support ecosystem. "
+  1467→        "What operation shall we prioritize first?"
+  1468→    )
+  1469→
+  1470→
+  1471→def _get_friendly_error_message() -> str:
+  1472→    """User-friendly error message for unexpected errors."""
+  1473→    return (
+  1474→        "I'm having a moment — something went wrong on my end. "
+  1475→        "Could you try sending that again? "
+  1476→        "If it keeps happening, refresh the page."
+  1477→    )
+  1478→
+  1479→
+  1480→def _get_recent_history(
+  1481→    db: Session,
+  1482→    session_id: str,
+  1483→    limit: int = MAX_CONTEXT_HISTORY_MESSAGES,
+  1484→) -> List[Dict[str, str]]:
+  1485→    """Get recent messages for AI context window."""
+  1486→    messages = (
+  1487→        db.query(JarvisMessage)
+  1488→        .filter(JarvisMessage.session_id == session_id)
+  1489→        .order_by(JarvisMessage.created_at.desc())
+  1490→        .limit(limit)
+  1491→        .all()
+  1492→    )
+  1493→    return [{"role": m.role, "content": m.content} for m in reversed(messages)]
+  1494→
+  1495→
+  1496→def _track_pages_visited(
+  1497→    ctx: Dict[str, Any],
+  1498→    message: str,
+  1499→) -> None:
+  1500→    """Heuristic: detect page/feature mentions in user messages."""
+  1501→    pages = ctx.get("pages_visited", [])
+  1502→    lower_msg = message.lower()
+  1503→
+  1504→    page_keywords = {
+  1505→        "pricing_page": ["price", "pricing", "cost", "plan", "tier"],
+  1506→        "features_page": ["feature", "capability", "what can", "what does"],
+  1507→        "integrations_page": ["integrat", "connect", "api", "webhook"],
+  1508→        "roi_page": ["roi", "return", "saving", "invest"],
+  1509→        "demo_page": ["demo", "try", "test", "sample"],
+  1510→    }
+  1511→
+  1512→    for page_key, keywords in page_keywords.items():
+  1513→        if any(kw in lower_msg for kw in keywords):
+  1514→            if page_key not in pages:
+  1515→                pages.append(page_key)
+  1516→
+  1517→    ctx["pages_visited"] = pages
+  1518→
+  1519→
+  1520→def _call_ai_provider(
+  1521→    system_prompt: str,
+  1522→    history: List[Dict[str, str]],
+  1523→    user_message: str,
+  1524→    context: Dict[str, Any],
+  1525→) -> Tuple[str, str, Dict[str, Any], List[Dict[str, Any]]]:
+  1526→    """Call AI provider for response generation.
+  1527→
+  1528→    Routes to Cerebras, Groq, or Google AI Studio based on availability.
+  1529→    Falls back to context-aware placeholder if all providers fail.
+  1530→
+  1531→    Returns:
+  1532→        Tuple of (content, message_type, metadata, knowledge_used)
+  1533→    """
+  1534→    # Build messages for AI
+  1535→    messages = [{"role": "system", "content": system_prompt}]
+  1536→    # Map internal "jarvis" role to standard "assistant" role
+  1537→    # (AI APIs only accept system/user/assistant)
+  1538→    for msg in history:
+  1539→        role = msg.get("role", "user")
+  1540→        if role == "jarvis":
+  1541→            role = "assistant"
+  1542→        messages.append({"role": role, "content": msg.get("content", "")})
+  1543→    messages.append({"role": "user", "content": user_message})
+  1544→
+  1545→    # Track which knowledge files were used
+  1546→    knowledge: List[Dict[str, Any]] = []
+  1547→    try:
+  1548→        from app.services.jarvis_knowledge_service import search_knowledge
+  1549→        kb_results = search_knowledge(user_message, context.get("industry"))
+  1550→        if kb_results:
+  1551→            for r in kb_results[:3]:
+  1552→                knowledge.append({
+  1553→                    "file": r.get("source", "unknown"),
+  1554→                    "score": r.get("score", 0.5),
+  1555→                })
+  1556→    except Exception:
+  1557→        pass
+  1558→
+  1559→    # Try real AI providers (Cerebras → Groq → Google)
+  1560→    content = _try_ai_providers(messages)
+  1561→    if content is None:
+  1562→        # Fallback to context-aware placeholder
+  1563→        content = _get_stage_fallback(context)
+  1564→
+  1565→    # Determine message type based on stage and context
+  1566→    stage = context.get("detected_stage", "welcome")
+  1567→    message_type, metadata = _determine_message_type(stage, context)
+  1568→
+  1569→    return content, message_type, metadata, knowledge
+  1570→
+  1571→
+  1572→def _try_ai_providers(messages: List[Dict[str, str]]) -> Optional[str]:
+  1573→    """Try AI providers in order: Cerebras → Groq → Google. Returns content or None."""
+  1574→    providers = [
+  1575→        ("cerebras", "https://api.cerebras.ai/v1/chat/completions"),
+  1576→        ("groq", "https://api.groq.com/openai/v1/chat/completions"),
+  1577→        ("google", "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent"),
+  1578→    ]
+  1579→
+  1580→    for provider_name, endpoint in providers:
+  1581→        try:
+  1582→            content = _call_single_provider(provider_name, endpoint, messages)
+  1583→            if content:
+  1584→                return content
+  1585→        except Exception:
+  1586→            continue
+  1587→    return None
+  1588→
+  1589→
+  1590→def _call_single_provider(
+  1591→    provider_name: str,
+  1592→    endpoint: str,
+  1593→    messages: List[Dict[str, str]],
+  1594→) -> Optional[str]:
+  1595→    """Call a single AI provider and return the response content."""
+  1596→    from app.config import get_settings
+  1597→
+  1598→    settings = get_settings()
+  1599→
+  1600→    if provider_name == "cerebras":
+  1601→        api_key = settings.CEREBRAS_API_KEY
+  1602→    elif provider_name == "groq":
+  1603→        api_key = settings.GROQ_API_KEY
+  1604→    elif provider_name == "google":
+  1605→        api_key = settings.GOOGLE_AI_API_KEY
+  1606→    else:
+  1607→        return None
+  1608→
+  1609→    if not api_key:
+  1610→        return None
+  1611→
+  1612→    if provider_name == "google":
+  1613→        return _call_google_api(endpoint, api_key, messages)
+  1614→
+  1615→    # OpenAI-compatible: Cerebras and Groq
+  1616→    payload = {
+  1617→        "model": "llama-3.1-8b" if provider_name == "cerebras" else "llama-3.1-8b",
+  1618→        "messages": messages,
+  1619→        "temperature": 0.7,
+  1620→        "max_tokens": 1024,
+  1621→    }
+  1622→
+  1623→    headers = {
+  1624→        "Authorization": f"Bearer {api_key}",
+  1625→        "Content-Type": "application/json",
+  1626→    }
+  1627→
+  1628→    import urllib.request
+  1629→    req = urllib.request.Request(
+  1630→        endpoint,
+  1631→        data=json.dumps(payload).encode("utf-8"),
+  1632→        headers=headers,
+  1633→        method="POST",
+  1634→    )
+  1635→    req.add_header("Content-Type", "application/json")
+  1636→
+  1637→    with urllib.request.urlopen(req, timeout=30) as resp:
+  1638→        data = json.loads(resp.read().decode("utf-8"))
+  1639→        choices = data.get("choices", [])
+  1640→        if choices:
+  1641→            return choices[0].get("message", {}).get("content", "")
+  1642→    return None
+  1643→
+  1644→
+  1645→def _call_google_api(
+  1646→    endpoint: str,
+  1647→    api_key: str,
+  1648→    messages: List[Dict[str, str]],
+  1649→) -> Optional[str]:
+  1650→    """Call Google AI Studio API (non-OpenAI format)."""
+  1651→    import urllib.request
+  1652→
+  1653→    # Convert messages to Google's format
+  1654→    system_text = ""
+  1655→    contents = []
+  1656→    for msg in messages:
+  1657→        if msg["role"] == "system":
+  1658→            system_text = msg["content"]
+  1659→        else:
+  1660→            contents.append({"role": "user" if msg["role"] == "user" else "model", "parts": [{"text": msg["content"]}]})
+  1661→
+  1662→    payload: Dict[str, Any] = {"contents": contents}
+  1663→    if system_text:
+  1664→        payload["systemInstruction"] = {"parts": [{"text": system_text}]}
+  1665→
+  1666→    url = f"{endpoint}?key={api_key}"
+  1667→    req = urllib.request.Request(
+  1668→        url,
+  1669→        data=json.dumps(payload).encode("utf-8"),
+  1670→        headers={"Content-Type": "application/json"},
+  1671→        method="POST",
+  1672→    )
+  1673→
+  1674→    with urllib.request.urlopen(req, timeout=30) as resp:
+  1675→        data = json.loads(resp.read().decode("utf-8"))
+  1676→        candidates = data.get("candidates", [])
+  1677→        if candidates:
+  1678→            parts = candidates[0].get("content", {}).get("parts", [])
+  1679→            if parts:
+  1680→                return parts[0].get("text", "")
+  1681→    return None
+  1682→
+  1683→
+  1684→def _get_stage_fallback(context: Dict[str, Any]) -> str:
+  1685→    """Context-aware fallback when all AI providers fail."""
+  1686→    stage = context.get("detected_stage", "welcome")
+  1687→    response_map = {
+  1688→        "welcome": (
+  1689→            "That's great! Let me help you explore what PARWA can do "
+  1690→            "for your business. Could you tell me a bit more about "
+  1691→            "your customer support challenges?"
+  1692→        ),
+  1693→        "discovery": (
+  1694→            "Based on what you've shared, I think PARWA would be a "
+  1695→            "great fit! We have several industry-specific variants "
+  1696→            "tailored to your needs. Would you like to see the pricing?"
+  1697→        ),
+  1698→        "pricing": (
+  1699→            "Here are the variants I'd recommend based on your needs. "
+  1700→            "I can generate a detailed bill summary — just let me know "
+  1701→            "which variants interest you most!"
+  1702→        ),
+  1703→        "demo": (
+  1704→            "The Demo Pack is the best way to experience PARWA firsthand! "
+  1705→            "For just $1, you'll get 500 messages and a 3-minute AI "
+  1706→            "voice call. Want me to set that up for you?"
+  1707→        ),
+  1708→        "verification": (
+  1709→            "To proceed, I'll need to verify your business email. "
+  1710→            "I'll send you a one-time code — it only takes a moment."
+  1711→        ),
+  1712→        "payment": (
+  1713→            "You're almost there! I'll create your checkout now. "
+  1714→            "PARWA supports monthly and annual billing (2 months free "
+  1715→            "with annual). Let me get that started."
+  1716→        ),
+  1717→        "handoff": (
+  1718→            "Congratulations! Your onboarding is complete. "
+  1719→            "I'm now handing you over to Customer Care Jarvis, "
+  1720→            "who will help you get started with your PARWA account!"
+  1721→        ),
+  1722→    }
+  1723→    return response_map.get(
+  1724→        stage,
+  1725→        "I'd be happy to help with that! Could you tell me more "
+  1726→        "about what you're looking for?",
+  1727→    )
+  1728→
+  1729→
+  1730→def _determine_message_type(
+  1731→    stage: str,
+  1732→    context: Dict[str, Any],
+  1733→) -> Tuple[str, Dict[str, Any]]:
+  1734→    """Determine message_type and metadata based on stage and context."""
+  1735→    message_type = "text"
+  1736→    metadata: Dict[str, Any] = {"stage": stage}
+  1737→
+  1738→    if stage == "pricing" and context.get("selected_variants"):
+  1739→        message_type = "bill_summary"
+  1740→        metadata["variants"] = context["selected_variants"]
+  1741→    elif stage == "demo":
+  1742→        message_type = "payment_card"
+  1743→        metadata["pack_type"] = "demo"
+  1744→    elif stage == "verification":
+  1745→        message_type = "otp_card"
+  1746→    elif stage == "handoff":
+  1747→        message_type = "handoff_card"
+  1748→
+  1749→    return message_type, metadata
+  1750→
+  1751→
+  1752→def _generate_strategic_summary(db: Session, session_id: str, ctx: dict, history: list):
+  1753→    """
+  1754→    Note-Taker Agent: Analyzes history to extract a 'Mission Summary'.
+  1755→    Updates ctx['mission_summary'] with a high-level strategic overview.
+  1756→    """
+  1757→    if not history:
+  1758→        return
+  1759→
+  1760→    # Simple logic to determine strategic focus
+  1761→    industry = ctx.get("industry", "N/A")
+  1762→    roi = ctx.get("roi_result", {})
+  1763→    roi_val = roi.get("savings_annual", roi.get("monthly_savings", "calculated"))
+  1764→    
+  1765→    summary = f"STRATEGIC MISSION: Exploring {industry} automation. "
+  1766→    if roi_val != "calculated":
+  1767→        summary += f"Target ROI: ${roi_val} savings. "
+  1768→    
+  1769→    # Extract last user intent (very simple version for now)
+  1770→    last_user_msg = next((m.content for m in reversed(history) if m.role == "user"), "")
+  1771→    if "pricing" in last_user_msg.lower():
+  1772→        summary += "Phase: Financial Evaluation."
+  1773→    elif "demo" in last_user_msg.lower():
+  1774→        summary += "Phase: Operational Simulation."
+  1775→    else:
+  1776→        summary += "Phase: Discovery."
+  1777→
+  1778→    ctx["mission_summary"] = summary
+  1779→
+  1780→
+  1781→def prune_session_context(db: Session, session_id: str):
+  1782→    """
+  1783→    Context Hygiene: Removes transient data while preserving core strategic value.
+  1784→    Called on logout or session finalization.
+  1785→    """
+  1786→    session = db.query(JarvisSession).filter(JarvisSession.id == session_id).first()
+  1787→    if not session or not session.context:
+  1788→        return
+  1789→
+  1790→    ctx = session.context.copy()
+  1791→    
+  1792→    # Transient fields to REMOVE
+  1793→    to_remove = [
+  1794→        "pages_visited", "entry_params", "concerns_raised", 
+  1795→        "demo_topics", "otp_attempts", "referral_source",
+  1796→        "utm_medium", "referrer"
+  1797→    ]
+  1798→    
+  1799→    for key in to_remove:
+  1800→        ctx.pop(key, None)
+  1801→
+  1802→    # Core fields to KEEP:
+  1803→    # 'industry', 'roi_result', 'selected_variants', 'business_email', 'mission_summary'
+  1804→
+  1805→    session.context = ctx
+  1806→    db.commit()
+  1807→
+  1808→
+  1809→

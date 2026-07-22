@@ -1,0 +1,632 @@
+     1→"""
+     2→PARWA ReAct Tool — CRM Integration  (F-157)
+     3→
+     4→Exposes CRM-related actions to the ReAct agent:
+     5→- get_customer             Fetch full customer profile from HubSpot
+     6→- search_customers         Search customers by name/email/phone via HubSpot search API
+     7→- update_customer          Update customer fields via HubSpot Contacts PATCH
+     8→- get_interaction_history  Get recent engagements (notes/emails) for a customer
+     9→- add_note                 Attach a note to a customer record via HubSpot Notes API
+    10→- get_customer_stats       Aggregate stats: contact + deals + engagement count
+    11→
+    12→All actions are scoped to *company_id* (BC-001) and return structured
+    13→ToolResult (BC-008). No mock data — when no HubSpot integration is connected
+    14→or the API call fails, the tool returns success=False with an honest error.
+    15→
+    16→Fix history:
+    17→  Previously this tool returned _mock_customer() data with random names,
+    18→  emails, phones, and tiers. The ReAct agent would confidently reason
+    19→  about non-existent customers. Now it calls the real HubSpot API using
+    20→  the tenant's stored credentials (IntegrationService.get_credential_config).
+    21→"""
+    22→
+    23→from __future__ import annotations
+    24→
+    25→import logging
+    26→import time
+    27→from datetime import datetime, timezone
+    28→from typing import Any, Optional
+    29→
+    30→import httpx
+    31→
+    32→from .base import ActionSchema, BaseReactTool, ToolResult, ToolSchema
+    33→
+    34→logger = logging.getLogger(__name__)
+    35→
+    36→# ── HubSpot API constants ─────────────────────────────────────────
+    37→# Same endpoints used by HubSpotAdapter.push_response_to_crm and crm_actions.py.
+    38→HUBSPOT_BASE = "https://api.hubapi.com/crm/v3/objects"
+    39→HUBSPOT_TIMEOUT = 15.0
+    40→HUBSPOT_CONTACT_PROPERTIES = [
+    41→    "email", "firstname", "lastname", "phone", "company",
+    42→    "lifecyclestage", "city", "state", "country", "createdate", "lastmodifieddate",
+    43→]
+    44→
+    45→
+    46→def _hubspot_headers(access_token: str) -> dict[str, str]:
+    47→    return {
+    48→        "Authorization": f"Bearer {access_token}",
+    49→        "Content-Type": "application/json",
+    50→    }
+    51→
+    52→
+    53→def _shape_contact(raw: dict[str, Any]) -> dict[str, Any]:
+    54→    """Normalize HubSpot contact object to the shape the ReAct agent expects."""
+    55→    props = raw.get("properties", {}) or {}
+    56→    first = props.get("firstname", "") or ""
+    57→    last = props.get("lastname", "") or ""
+    58→    full_name = (first + " " + last).strip()
+    59→    return {
+    60→        "customer_id": str(raw.get("id", "")),
+    61→        "name": full_name,
+    62→        "first_name": first,
+    63→        "last_name": last,
+    64→        "email": props.get("email", "") or "",
+    65→        "phone": props.get("phone", "") or "",
+    66→        "company": props.get("company", "") or "",
+    67→        "country": props.get("country", "") or "",
+    68→        "lifecycle_stage": props.get("lifecyclestage", "") or "",
+    69→        "created_at": props.get("createdate", "") or "",
+    70→        "last_active_at": props.get("lastmodifieddate", "") or "",
+    71→    }
+    72→
+    73→
+    74→def _not_connected_result(action: str) -> ToolResult:
+    75→    """Honest failure when no HubSpot integration is connected for this tenant."""
+    76→    return ToolResult(
+    77→        success=False,
+    78→        error="HubSpot integration is not connected for this tenant. Connect HubSpot in Settings → Integrations to enable CRM tools.",
+    79→        data=None,
+    80→        execution_time_ms=0,
+    81→    )
+    82→
+    83→
+    84→def _external_error_result(action: str, error: str) -> ToolResult:
+    85→    return ToolResult(
+    86→        success=False,
+    87→        error=f"HubSpot API error during {action}: {error[:300]}",
+    88→        data=None,
+    89→        execution_time_ms=0,
+    90→    )
+    91→
+    92→
+    93→def _not_found_result(action: str, customer_id: str) -> ToolResult:
+    94→    return ToolResult(
+    95→        success=False,
+    96→        error=f"Customer '{customer_id}' not found in HubSpot.",
+    97→        data=None,
+    98→        execution_time_ms=0,
+    99→    )
+   100→
+   101→
+   102→# ── Tool Implementation ────────────────────────────────────────────
+   103→
+   104→
+   105→class CRMTool(BaseReactTool):
+   106→    """ReAct tool for CRM system integration — wired to real HubSpot API."""
+   107→
+   108→    def __init__(self) -> None:
+   109→        # No in-memory caches — every call hits HubSpot for fresh data.
+   110→        # The IntegrationService credential lookup is cheap (one indexed query).
+   111→        pass
+   112→
+   113→    # ── Metadata ────────────────────────────────────────────────
+   114→
+   115→    @property
+   116→    def name(self) -> str:
+   117→        return "crm_integration"
+   118→
+   119→    @property
+   120→    def description(self) -> str:
+   121→        return (
+   122→            "Look up customers, update records, get interaction history, "
+   123→            "manage contacts, and view customer statistics"
+   124→        )
+   125→
+   126→    @property
+   127→    def actions(self) -> list[str]:
+   128→        return [
+   129→            "get_customer",
+   130→            "search_customers",
+   131→            "update_customer",
+   132→            "get_interaction_history",
+   133→            "add_note",
+   134→            "get_customer_stats",
+   135→        ]
+   136→
+   137→    # ── Schema (unchanged — keeps callers compatible) ──────────
+   138→
+   139→    def get_schema(self) -> ToolSchema:
+   140→        return ToolSchema(
+   141→            tool_name=self.name,
+   142→            description=self.description,
+   143→            actions=[
+   144→                ActionSchema(
+   145→                    name="get_customer",
+   146→                    description="Fetch full customer profile by ID from HubSpot",
+   147→                    parameters={
+   148→                        "type": "object",
+   149→                        "properties": {
+   150→                            "customer_id": {"type": "string", "description": "HubSpot contact ID"},
+   151→                        },
+   152→                        "required": ["customer_id"],
+   153→                    },
+   154→                    required_params=["customer_id"],
+   155→                    returns="Full customer object with contact info and lifecycle stage",
+   156→                ),
+   157→                ActionSchema(
+   158→                    name="search_customers",
+   159→                    description="Search HubSpot contacts by name, email, or phone",
+   160→                    parameters={
+   161→                        "type": "object",
+   162→                        "properties": {
+   163→                            "query": {"type": "string", "description": "Search query (name, email, or phone)"},
+   164→                            "limit": {"type": "integer", "description": "Max results (1-100)", "default": 10},
+   165→                        },
+   166→                        "required": ["query"],
+   167→                    },
+   168→                    required_params=["query"],
+   169→                    returns="List of matching customer summaries",
+   170→                ),
+   171→                ActionSchema(
+   172→                    name="update_customer",
+   173→                    description="Update customer fields via HubSpot Contacts PATCH",
+   174→                    parameters={
+   175→                        "type": "object",
+   176→                        "properties": {
+   177→                            "customer_id": {"type": "string", "description": "HubSpot contact ID to update"},
+   178→                            "name": {"type": "string", "description": "New full name (split into first/last)"},
+   179→                            "email": {"type": "string", "description": "New email address"},
+   180→                            "phone": {"type": "string", "description": "New phone number"},
+   181→                        },
+   182→                        "required": ["customer_id"],
+   183→                    },
+   184→                    required_params=["customer_id"],
+   185→                    returns="Updated customer object",
+   186→                ),
+   187→                ActionSchema(
+   188→                    name="get_interaction_history",
+   189→                    description="Get recent HubSpot engagements (notes/emails) for a customer",
+   190→                    parameters={
+   191→                        "type": "object",
+   192→                        "properties": {
+   193→                            "customer_id": {"type": "string", "description": "HubSpot contact ID"},
+   194→                            "limit": {"type": "integer", "description": "Max interactions (1-50)", "default": 10},
+   195→                        },
+   196→                        "required": ["customer_id"],
+   197→                    },
+   198→                    required_params=["customer_id"],
+   199→                    returns="List of engagement records with timestamps and types",
+   200→                ),
+   201→                ActionSchema(
+   202→                    name="add_note",
+   203→                    description="Attach a note to a HubSpot contact record",
+   204→                    parameters={
+   205→                        "type": "object",
+   206→                        "properties": {
+   207→                            "customer_id": {"type": "string", "description": "HubSpot contact ID"},
+   208→                            "content": {"type": "string", "description": "Note content"},
+   209→                            "author": {"type": "string", "description": "Note author name (prefixed to body)"},
+   210→                        },
+   211→                        "required": ["customer_id", "content"],
+   212→                    },
+   213→                    required_params=["customer_id", "content"],
+   214→                    returns="Note object with note_id",
+   215→                ),
+   216→                ActionSchema(
+   217→                    name="get_customer_stats",
+   218→                    description="Get aggregate stats for a customer (deals + engagement count)",
+   219→                    parameters={
+   220→                        "type": "object",
+   221→                        "properties": {
+   222→                            "customer_id": {"type": "string", "description": "HubSpot contact ID"},
+   223→                        },
+   224→                        "required": ["customer_id"],
+   225→                    },
+   226→                    required_params=["customer_id"],
+   227→                    returns="Stats dict with deal count, total deal value, and engagement score",
+   228→                ),
+   229→            ],
+   230→        )
+   231→
+   232→    # ── Credential Resolution ──────────────────────────────────
+   233→
+   234→    def _resolve_creds(self, company_id: str) -> Optional[dict[str, Any]]:
+   235→        """Resolve the tenant's active HubSpot credentials via IntegrationService.
+   236→
+   237→        BC-001: scoped by company_id. Returns None when no HubSpot integration
+   238→        is connected.
+   239→        """
+   240→        try:
+   241→            from database.base import SessionLocal
+   242→            from app.services.integration_service import IntegrationService
+   243→            db = SessionLocal()
+   244→            try:
+   245→                return IntegrationService(db).get_credential_config(company_id, "hubspot")
+   246→            finally:
+   247→                db.close()
+   248→        except Exception as exc:
+   249→            logger.exception("crm_tool_credential_resolution_failed", extra={"error": str(exc)[:200]})
+   250→            return None
+   251→
+   252→    # ── Execution Router ───────────────────────────────────────
+   253→
+   254→    async def _do_execute(
+   255→        self,
+   256→        action: str,
+   257→        company_id: str,
+   258→        **params: Any,
+   259→    ) -> ToolResult:
+   260→        """Route action to the appropriate handler."""
+   261→        if action == "__health_check__":
+   262→            return ToolResult(success=True, error=None, data={"status": "ok"}, execution_time_ms=0)
+   263→
+   264→        handler = {
+   265→            "get_customer": self._get_customer,
+   266→            "search_customers": self._search_customers,
+   267→            "update_customer": self._update_customer,
+   268→            "get_interaction_history": self._get_interaction_history,
+   269→            "add_note": self._add_note,
+   270→            "get_customer_stats": self._get_customer_stats,
+   271→        }.get(action)
+   272→
+   273→        if handler is None:
+   274→            return ToolResult(
+   275→                success=False,
+   276→                error=f"Unknown action: {action}. Available: {', '.join(self.actions)}",
+   277→                data=None,
+   278→                execution_time_ms=0,
+   279→            )
+   280→
+   281→        return await handler(company_id, **params)
+   282→
+   283→    # ── Action Handlers ─────────────────────────────────────────
+   284→
+   285→    async def _get_customer(self, company_id: str, **params: Any) -> ToolResult:
+   286→        """Fetch a customer profile from HubSpot by contact ID."""
+   287→        customer_id: str = params.get("customer_id", "")
+   288→        if not customer_id:
+   289→            return ToolResult(success=False, error="customer_id is required", data=None, execution_time_ms=0)
+   290→
+   291→        creds = self._resolve_creds(company_id)
+   292→        if not creds or not creds.get("access_token"):
+   293→            return _not_connected_result("get_customer")
+   294→
+   295→        headers = _hubspot_headers(creds["access_token"])
+   296→        start = time.time()
+   297→        try:
+   298→            async with httpx.AsyncClient(timeout=HUBSPOT_TIMEOUT) as client:
+   299→                resp = await client.get(
+   300→                    f"{HUBSPOT_BASE}/contacts/{customer_id}",
+   301→                    headers=headers,
+   302→                    params={"properties": ",".join(HUBSPOT_CONTACT_PROPERTIES)},
+   303→                )
+   304→        except httpx.HTTPError as exc:
+   305→            return _external_error_result("get_customer", f"network_error: {exc}")
+   306→
+   307→        elapsed_ms = int((time.time() - start) * 1000)
+   308→        if resp.status_code == 404:
+   309→            return _not_found_result("get_customer", customer_id)
+   310→        if resp.status_code >= 400:
+   311→            return _external_error_result("get_customer", f"hubspot_{resp.status_code}: {resp.text[:200]}")
+   312→
+   313→        contact = _shape_contact(resp.json())
+   314→        return ToolResult(success=True, error=None, data=contact, execution_time_ms=elapsed_ms)
+   315→
+   316→    async def _search_customers(self, company_id: str, **params: Any) -> ToolResult:
+   317→        """Search HubSpot contacts by name/email/phone using the search API."""
+   318→        query: str = params.get("query", "").strip()
+   319→        limit: int = min(max(params.get("limit", 10), 1), 100)
+   320→        if not query:
+   321→            return ToolResult(success=False, error="query is required", data=None, execution_time_ms=0)
+   322→
+   323→        creds = self._resolve_creds(company_id)
+   324→        if not creds or not creds.get("access_token"):
+   325→            return _not_connected_result("search_customers")
+   326→
+   327→        headers = _hubspot_headers(creds["access_token"])
+   328→        # Build filter groups: match query against firstname, lastname, email, or phone.
+   329→        search_payload = {
+   330→            "filterGroups": [
+   331→                {
+   332→                    "filters": [
+   333→                        {"propertyName": "email", "operator": "CONTAINS_TOKEN", "value": query},
+   334→                    ],
+   335→                },
+   336→                {
+   337→                    "filters": [
+   338→                        {"propertyName": "firstname", "operator": "CONTAINS_TOKEN", "value": query},
+   339→                    ],
+   340→                },
+   341→                {
+   342→                    "filters": [
+   343→                        {"propertyName": "lastname", "operator": "CONTAINS_TOKEN", "value": query},
+   344→                    ],
+   345→                },
+   346→                {
+   347→                    "filters": [
+   348→                        {"propertyName": "phone", "operator": "CONTAINS_TOKEN", "value": query},
+   349→                    ],
+   350→                },
+   351→            ],
+   352→            "properties": HUBSPOT_CONTACT_PROPERTIES,
+   353→            "limit": limit,
+   354→        }
+   355→        start = time.time()
+   356→        try:
+   357→            async with httpx.AsyncClient(timeout=HUBSPOT_TIMEOUT) as client:
+   358→                resp = await client.post(
+   359→                    f"{HUBSPOT_BASE}/contacts/search",
+   360→                    headers=headers,
+   361→                    json=search_payload,
+   362→                )
+   363→        except httpx.HTTPError as exc:
+   364→            return _external_error_result("search_customers", f"network_error: {exc}")
+   365→
+   366→        elapsed_ms = int((time.time() - start) * 1000)
+   367→        if resp.status_code >= 400:
+   368→            return _external_error_result("search_customers", f"hubspot_{resp.status_code}: {resp.text[:200]}")
+   369→
+   370→        results = resp.json().get("results", []) or []
+   371→        customers = [_shape_contact(r) for r in results]
+   372→        return ToolResult(
+   373→            success=True, error=None,
+   374→            data={"customers": customers, "total": len(customers), "query": query},
+   375→            execution_time_ms=elapsed_ms,
+   376→        )
+   377→
+   378→    async def _update_customer(self, company_id: str, **params: Any) -> ToolResult:
+   379→        """Update customer fields via HubSpot Contacts PATCH."""
+   380→        customer_id: str = params.get("customer_id", "")
+   381→        if not customer_id:
+   382→            return ToolResult(success=False, error="customer_id is required", data=None, execution_time_ms=0)
+   383→
+   384→        # Build the properties payload from accepted params.
+   385→        properties: dict[str, str] = {}
+   386→        if "email" in params and params["email"]:
+   387→            properties["email"] = str(params["email"])
+   388→        if "phone" in params and params["phone"]:
+   389→            properties["phone"] = str(params["phone"])
+   390→        if "name" in params and params["name"]:
+   391→            # HubSpot stores first/last separately.
+   392→            parts = str(params["name"]).split(maxsplit=1)
+   393→            properties["firstname"] = parts[0]
+   394→            if len(parts) > 1:
+   395→                properties["lastname"] = parts[1]
+   396→
+   397→        if not properties:
+   398→            return ToolResult(
+   399→                success=False,
+   400→                error="No fields to update. Provide name, email, or phone.",
+   401→                data=None, execution_time_ms=0,
+   402→            )
+   403→
+   404→        creds = self._resolve_creds(company_id)
+   405→        if not creds or not creds.get("access_token"):
+   406→            return _not_connected_result("update_customer")
+   407→
+   408→        headers = _hubspot_headers(creds["access_token"])
+   409→        start = time.time()
+   410→        try:
+   411→            async with httpx.AsyncClient(timeout=HUBSPOT_TIMEOUT) as client:
+   412→                resp = await client.patch(
+   413→                    f"{HUBSPOT_BASE}/contacts/{customer_id}",
+   414→                    headers=headers,
+   415→                    json={"properties": properties},
+   416→                )
+   417→        except httpx.HTTPError as exc:
+   418→            return _external_error_result("update_customer", f"network_error: {exc}")
+   419→
+   420→        elapsed_ms = int((time.time() - start) * 1000)
+   421→        if resp.status_code == 404:
+   422→            return _not_found_result("update_customer", customer_id)
+   423→        if resp.status_code >= 400:
+   424→            return _external_error_result("update_customer", f"hubspot_{resp.status_code}: {resp.text[:200]}")
+   425→
+   426→        updated = _shape_contact(resp.json())
+   427→        updated["updated_fields"] = list(properties.keys())
+   428→        return ToolResult(success=True, error=None, data=updated, execution_time_ms=elapsed_ms)
+   429→
+   430→    async def _get_interaction_history(self, company_id: str, **params: Any) -> ToolResult:
+   431→        """Get recent HubSpot engagements associated with a contact.
+   432→
+   433→        Uses the v3 associations API: /contacts/{id}/associations/engagements
+   434→        Then batch-reads the engagement objects.
+   435→        """
+   436→        customer_id: str = params.get("customer_id", "")
+   437→        limit: int = min(max(params.get("limit", 10), 1), 50)
+   438→        if not customer_id:
+   439→            return ToolResult(success=False, error="customer_id is required", data=None, execution_time_ms=0)
+   440→
+   441→        creds = self._resolve_creds(company_id)
+   442→        if not creds or not creds.get("access_token"):
+   443→            return _not_connected_result("get_interaction_history")
+   444→
+   445→        headers = _hubspot_headers(creds["access_token"])
+   446→        start = time.time()
+   447→        try:
+   448→            async with httpx.AsyncClient(timeout=HUBSPOT_TIMEOUT) as client:
+   449→                # 1. Get associated engagement IDs.
+   450→                assoc = await client.get(
+   451→                    f"{HUBSPOT_BASE}/contacts/{customer_id}/associations/engagements",
+   452→                    headers=headers,
+   453→                )
+   454→                if assoc.status_code == 404:
+   455→                    return _not_found_result("get_interaction_history", customer_id)
+   456→                if assoc.status_code >= 400:
+   457→                    return _external_error_result("get_interaction_history", f"hubspot_{assoc.status_code}: {assoc.text[:200]}")
+   458→
+   459→                engagement_ids = [str(r.get("id")) for r in assoc.json().get("results", []) if r.get("id")]
+   460→                if not engagement_ids:
+   461→                    elapsed = int((time.time() - start) * 1000)
+   462→                    return ToolResult(
+   463→                        success=True, error=None,
+   464→                        data={"customer_id": customer_id, "interactions": [], "total": 0},
+   465→                        execution_time_ms=elapsed,
+   466→                    )
+   467→
+   468→                # 2. Batch-read engagement objects (max 100 per call).
+   469→                batch = await client.post(
+   470→                    f"{HUBSPOT_BASE}/engagements/batch/read",
+   471→                    headers=headers,
+   472→                    json={"inputs": [{"id": eid} for eid in engagement_ids[:limit]]},
+   473→                )
+   474→        except httpx.HTTPError as exc:
+   475→            return _external_error_result("get_interaction_history", f"network_error: {exc}")
+   476→
+   477→        elapsed_ms = int((time.time() - start) * 1000)
+   478→        if batch.status_code >= 400:
+   479→            return _external_error_result("get_interaction_history", f"hubspot_{batch.status_code}: {batch.text[:200]}")
+   480→
+   481→        interactions: list[dict[str, Any]] = []
+   482→        for r in batch.json().get("results", []):
+   483→            props = r.get("properties", {}) or {}
+   484→            interactions.append({
+   485→                "interaction_id": str(r.get("id", "")),
+   486→                "customer_id": customer_id,
+   487→                "type": props.get("hs_engagement_type", "NOTE"),
+   488→                "subject": props.get("hs_engagement_source", "") or props.get("hs_note_body", "")[:80],
+   489→                "summary": (props.get("hs_note_body", "") or props.get("hs_email_subject", ""))[:200],
+   490→                "created_at": props.get("hs_timestamp", "") or props.get("hs_createdate", ""),
+   491→            })
+   492→        return ToolResult(
+   493→            success=True, error=None,
+   494→            data={"customer_id": customer_id, "interactions": interactions, "total": len(interactions)},
+   495→            execution_time_ms=elapsed_ms,
+   496→        )
+   497→
+   498→    async def _add_note(self, company_id: str, **params: Any) -> ToolResult:
+   499→        """Attach a note to a HubSpot contact record.
+   500→
+   501→        Two-step: POST /objects/notes to create the note, then PUT
+   502→        /objects/notes/{id}/associations/contact/{contact_id}/note_to_contact
+   503→        to associate it.
+   504→        """
+   505→        customer_id: str = params.get("customer_id", "")
+   506→        content: str = params.get("content", "").strip()
+   507→        author: Optional[str] = params.get("author")
+   508→        if not customer_id:
+   509→            return ToolResult(success=False, error="customer_id is required", data=None, execution_time_ms=0)
+   510→        if not content:
+   511→            return ToolResult(success=False, error="Note content cannot be empty", data=None, execution_time_ms=0)
+   512→
+   513→        creds = self._resolve_creds(company_id)
+   514→        if not creds or not creds.get("access_token"):
+   515→            return _not_connected_result("add_note")
+   516→
+   517→        headers = _hubspot_headers(creds["access_token"])
+   518→        body = f"[{author}] {content}" if author else content
+   519→        note_payload = {
+   520→            "properties": {
+   521→                "hs_note_body": body[:32000],
+   522→                "hs_timestamp": str(int(time.time() * 1000)),
+   523→            },
+   524→        }
+   525→        start = time.time()
+   526→        try:
+   527→            async with httpx.AsyncClient(timeout=HUBSPOT_TIMEOUT) as client:
+   528→                resp = await client.post(f"{HUBSPOT_BASE}/notes", headers=headers, json=note_payload)
+   529→                if resp.status_code >= 400:
+   530→                    return _external_error_result("add_note", f"hubspot_{resp.status_code}: {resp.text[:200]}")
+   531→                note_id = resp.json().get("id", "")
+   532→                if not note_id:
+   533→                    return _external_error_result("add_note", "HubSpot returned no note id")
+   534→
+   535→                # Associate the note with the contact.
+   536→                assoc = await client.put(
+   537→                    f"{HUBSPOT_BASE}/notes/{note_id}/associations/contact/{customer_id}/note_to_contact",
+   538→                    headers=headers,
+   539→                )
+   540→                associated = assoc.status_code < 400
+   541→                if not associated:
+   542→                    logger.warning(
+   543→                        "crm_tool_note_association_failed",
+   544→                        extra={"note_id": note_id, "contact_id": customer_id, "status": assoc.status_code},
+   545→                    )
+   546→        except httpx.HTTPError as exc:
+   547→            return _external_error_result("add_note", f"network_error: {exc}")
+   548→
+   549→        elapsed_ms = int((time.time() - start) * 1000)
+   550→        return ToolResult(
+   551→            success=True, error=None,
+   552→            data={
+   553→                "note_id": note_id,
+   554→                "customer_id": customer_id,
+   555→                "content": body,
+   556→                "associated": associated,
+   557→                "created_at": datetime.now(timezone.utc).isoformat(),
+   558→            },
+   559→            execution_time_ms=elapsed_ms,
+   560→        )
+   561→
+   562→    async def _get_customer_stats(self, company_id: str, **params: Any) -> ToolResult:
+   563→        """Aggregate stats: contact info + deal count + total deal value."""
+   564→        customer_id: str = params.get("customer_id", "")
+   565→        if not customer_id:
+   566→            return ToolResult(success=False, error="customer_id is required", data=None, execution_time_ms=0)
+   567→
+   568→        creds = self._resolve_creds(company_id)
+   569→        if not creds or not creds.get("access_token"):
+   570→            return _not_connected_result("get_customer_stats")
+   571→
+   572→        headers = _hubspot_headers(creds["access_token"])
+   573→        start = time.time()
+   574→        try:
+   575→            async with httpx.AsyncClient(timeout=HUBSPOT_TIMEOUT) as client:
+   576→                # 1. Fetch contact.
+   577→                contact_resp = await client.get(
+   578→                    f"{HUBSPOT_BASE}/contacts/{customer_id}",
+   579→                    headers=headers,
+   580→                    params={"properties": ",".join(HUBSPOT_CONTACT_PROPERTIES)},
+   581→                )
+   582→                if contact_resp.status_code == 404:
+   583→                    return _not_found_result("get_customer_stats", customer_id)
+   584→                if contact_resp.status_code >= 400:
+   585→                    return _external_error_result("get_customer_stats", f"hubspot_{contact_resp.status_code}: {contact_resp.text[:200]}")
+   586→                contact = _shape_contact(contact_resp.json())
+   587→
+   588→                # 2. Fetch associated deals.
+   589→                deals_resp = await client.get(
+   590→                    f"{HUBSPOT_BASE}/contacts/{customer_id}/associations/deals",
+   591→                    headers=headers,
+   592→                )
+   593→                deal_ids = []
+   594→                if deals_resp.status_code < 400:
+   595→                    deal_ids = [str(r.get("id")) for r in deals_resp.json().get("results", []) if r.get("id")]
+   596→
+   597→                # 3. Batch-read deal properties for totals.
+   598→                total_value = 0.0
+   599→                deal_count = len(deal_ids)
+   600→                if deal_ids:
+   601→                    batch = await client.post(
+   602→                        f"{HUBSPOT_BASE}/deals/batch/read",
+   603→                        headers=headers,
+   604→                        json={"inputs": [{"id": did} for did in deal_ids[:100]]},
+   605→                        params={"properties": "amount,dealname,dealstage,closedate"},
+   606→                    )
+   607→                    if batch.status_code < 400:
+   608→                        for r in batch.json().get("results", []):
+   609→                            props = r.get("properties", {}) or {}
+   610→                            amount_str = props.get("amount", "") or "0"
+   611→                            try:
+   612→                                total_value += float(amount_str)
+   613→                            except (TypeError, ValueError):
+   614→                                pass
+   615→        except httpx.HTTPError as exc:
+   616→            return _external_error_result("get_customer_stats", f"network_error: {exc}")
+   617→
+   618→        elapsed_ms = int((time.time() - start) * 1000)
+   619→        return ToolResult(
+   620→            success=True, error=None,
+   621→            data={
+   622→                "customer_id": customer_id,
+   623→                "name": contact["name"],
+   624→                "email": contact["email"],
+   625→                "lifecycle_stage": contact["lifecycle_stage"],
+   626→                "deal_count": deal_count,
+   627→                "total_deal_value": round(total_value, 2),
+   628→                "last_active_at": contact["last_active_at"],
+   629→            },
+   630→            execution_time_ms=elapsed_ms,
+   631→        )
+   632→
