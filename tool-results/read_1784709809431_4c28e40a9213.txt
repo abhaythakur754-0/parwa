@@ -1,0 +1,1418 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import { Loader2 } from 'lucide-react';
+     6→import toast from 'react-hot-toast';
+     7→import {
+     8→  useTicketStore,
+     9→  fetchTicketMessages,
+    10→  CATEGORY_LABELS,
+    11→  PRIORITY_LABELS,
+    12→  STATUS_LABELS,
+    13→  CHANNEL_LABELS,
+    14→  VARIANT_LABELS,
+    15→  ALL_STATUSES,
+    16→  ALL_PRIORITIES,
+    17→  ALL_CATEGORIES,
+    18→  ALL_CHANNELS,
+    19→  ALL_VARIANTS,
+    20→  type Ticket,
+    21→  type TicketStatus,
+    22→  type TicketPriority,
+    23→  type TicketCategory,
+    24→  type TicketChannel,
+    25→  type TicketVariant,
+    26→} from '@/lib/ticket-store';
+    27→import { useAuth } from '@/hooks/useAuth';
+    28→import { WelcomeCard } from '@/components/dashboard';
+    29→
+    30→// ── Color Maps ──────────────────────────────────────────────────────
+    31→
+    32→const PRIORITY_COLORS: Record<TicketPriority, { dot: string; badge: string }> = {
+    33→  low: { dot: 'bg-green-400', badge: 'bg-green-500/10 text-green-400 border-green-500/20' },
+    34→  medium: { dot: 'bg-yellow-400', badge: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' },
+    35→  high: { dot: 'bg-orange-400', badge: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
+    36→  critical: { dot: 'bg-red-400', badge: 'bg-red-500/10 text-red-400 border-red-500/20' },
+    37→};
+    38→
+    39→const STATUS_COLORS: Record<TicketStatus, { dot: string; badge: string }> = {
+    40→  open: { dot: 'bg-blue-400', badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+    41→  in_progress: { dot: 'bg-blue-400', badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+    42→  resolved: { dot: 'bg-green-400', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+    43→  closed: { dot: 'bg-green-400', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+    44→  awaiting_human: { dot: 'bg-red-400', badge: 'bg-red-500/10 text-red-400 border-red-500/20' },
+    45→  awaiting_client: { dot: 'bg-blue-400', badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+    46→};
+    47→
+    48→// Simplified status display — 3 options only (per user request):
+    49→//   Solved = resolved + closed
+    50→//   Not Solved = open + in_progress + awaiting_client
+    51→//   Waiting for Human = awaiting_human
+    52→function getDisplayStatus(status: TicketStatus): 'solved' | 'not_solved' | 'waiting' {
+    53→  if (status === 'resolved' || status === 'closed') return 'solved';
+    54→  if (status === 'awaiting_human') return 'waiting';
+    55→  return 'not_solved';
+    56→}
+    57→
+    58→const DISPLAY_STATUS_LABELS: Record<'solved' | 'not_solved' | 'waiting', string> = {
+    59→  solved: 'Solved',
+    60→  not_solved: 'Not Solved',
+    61→  waiting: 'Waiting for Human',
+    62→};
+    63→
+    64→const DISPLAY_STATUS_COLORS: Record<'solved' | 'not_solved' | 'waiting', { dot: string; badge: string }> = {
+    65→  solved: { dot: 'bg-green-400', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+    66→  not_solved: { dot: 'bg-blue-400', badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+    67→  waiting: { dot: 'bg-red-400', badge: 'bg-red-500/10 text-red-400 border-red-500/20' },
+    68→};
+    69→
+    70→const VARIANT_COLORS: Record<TicketVariant, string> = {
+    71→  light: 'bg-zinc-500/10 text-zinc-300 border-zinc-500/20',
+    72→  medium: 'bg-sky-500/10 text-sky-300 border-sky-500/20',
+    73→  heavy: 'bg-orange-500/10 text-orange-300 border-orange-500/20',
+    74→};
+    75→
+    76→// ── Helpers ─────────────────────────────────────────────────────────
+    77→
+    78→function formatRelativeDate(dateStr: string): string {
+    79→  const diff = Date.now() - new Date(dateStr).getTime();
+    80→  const mins = Math.floor(diff / 60000);
+    81→  if (mins < 1) return 'just now';
+    82→  if (mins < 60) return `${mins}m ago`;
+    83→  const hrs = Math.floor(mins / 60);
+    84→  if (hrs < 24) return `${hrs}h ago`;
+    85→  const days = Math.floor(hrs / 24);
+    86→  if (days < 7) return `${days}d ago`;
+    87→  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    88→}
+    89→
+    90→function formatDate(dateStr: string): string {
+    91→  return new Date(dateStr).toLocaleDateString('en-US', {
+    92→    month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    93→  });
+    94→}
+    95→
+    96→// ── Badge Components ────────────────────────────────────────────────
+    97→
+    98→function StatusBadge({ status }: { status: TicketStatus }) {
+    99→  const displayStatus = getDisplayStatus(status);
+   100→  const c = DISPLAY_STATUS_COLORS[displayStatus];
+   101→  return (
+   102→    <span className={`inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded-full border ${c.badge}`}>
+   103→      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+   104→      {DISPLAY_STATUS_LABELS[displayStatus]}
+   105→    </span>
+   106→  );
+   107→}
+   108→
+   109→function PriorityBadge({ priority }: { priority: TicketPriority }) {
+   110→  const c = PRIORITY_COLORS[priority];
+   111→  return (
+   112→    <span className={`inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded-full border ${c.badge}`}>
+   113→      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+   114→      {PRIORITY_LABELS[priority]}
+   115→    </span>
+   116→  );
+   117→}
+   118→
+   119→function VariantBadge({ variant }: { variant: TicketVariant }) {
+   120→  return (
+   121→    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${VARIANT_COLORS[variant]}`}>
+   122→      {VARIANT_LABELS[variant]}
+   123→    </span>
+   124→  );
+   125→}
+   126→
+   127→// ── Filter Dropdown ─────────────────────────────────────────────────
+   128→
+   129→function FilterSelect<T extends string>({
+   130→  label,
+   131→  value,
+   132→  options,
+   133→  onChange,
+   134→}: {
+   135→  label: string;
+   136→  value: string;
+   137→  options: { value: T; label: string }[];
+   138→  onChange: (value: T | 'all') => void;
+   139→}) {
+   140→  return (
+   141→    <div className="flex items-center gap-2">
+   142→      <label className="text-[11px] text-zinc-500 whitespace-nowrap hidden sm:block">{label}</label>
+   143→      <select
+   144→        value={value}
+   145→        onChange={(e) => onChange(e.target.value as T | 'all')}
+   146→        className="h-8 bg-[#1A1A1A] border border-white/[0.06] rounded-lg px-2.5 text-xs text-zinc-300 focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer pr-7"
+   147→        style={{
+   148→          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+   149→          backgroundRepeat: 'no-repeat',
+   150→          backgroundPosition: 'right 8px center',
+   151→        }}
+   152→      >
+   153→        <option value="all">All {label}</option>
+   154→        {options.map((opt) => (
+   155→          <option key={opt.value} value={opt.value}>{opt.label}</option>
+   156→        ))}
+   157→      </select>
+   158→    </div>
+   159→  );
+   160→}
+   161→
+   162→// ── Stat Pill ───────────────────────────────────────────────────────
+   163→
+   164→function StatPill({
+   165→  label,
+   166→  count,
+   167→  dotColor,
+   168→}: {
+   169→  label: string;
+   170→  count: number;
+   171→  dotColor: string;
+   172→}) {
+   173→  return (
+   174→    <div className="flex items-center gap-2 bg-[#1A1A1A] border border-white/[0.06] rounded-lg px-3 py-2">
+   175→      <span className={`w-2 h-2 rounded-full ${dotColor}`} />
+   176→      <span className="text-xs text-zinc-400">{label}</span>
+   177→      <span className="text-sm font-semibold text-white tabular-nums">{count}</span>
+   178→    </div>
+   179→  );
+   180→}
+   181→
+   182→// ── Customer Context Panel (shows integration data) ─────────────────
+   183→
+   184→function CustomerContextPanel({
+   185→  ticketId,
+   186→  customerEmail,
+   187→}: {
+   188→  ticketId: string;
+   189→  customerEmail: string;
+   190→}) {
+   191→  const [contextData, setContextData] = useState<Record<string, unknown> | null>(null);
+   192→  const [loading, setLoading] = useState(true);
+   193→
+   194→  useEffect(() => {
+   195→    let cancelled = false;
+   196→    setLoading(true);
+   197→    // Fetch the ticket detail from the backend — it includes metadata_json
+   198→    // which may contain CRM data, ecommerce orders, and carrier tracking
+   199→    // that Node 3 fetched during pipeline processing.
+   200→    fetch(`/api/v1/tickets/${ticketId}`, { credentials: 'include' })
+   201→      .then((r) => r.json())
+   202→      .then((data) => {
+   203→        if (cancelled) return;
+   204→        // The metadata_json field may contain CRM/ecommerce/carrier data
+   205→        const meta = data.metadata_json || {};
+   206→        setContextData(meta);
+   207→      })
+   208→      .catch(() => {
+   209→        if (!cancelled) setContextData(null);
+   210→      })
+   211→      .finally(() => {
+   212→        if (!cancelled) setLoading(false);
+   213→      });
+   214→    return () => { cancelled = true; };
+   215→  }, [ticketId]);
+   216→
+   217→  if (loading) {
+   218→    return (
+   219→      <div className="px-4 py-3 border-b border-white/[0.06]">
+   220→        <p className="text-[10px] text-zinc-600">Loading customer context...</p>
+   221→      </div>
+   222→    );
+   223→  }
+   224→
+   225→  if (!contextData || Object.keys(contextData).length === 0) {
+   226→    return null; // No integration data — don't show the panel
+   227→  }
+   228→
+   229→  return (
+   230→    <div className="px-4 py-3 border-b border-white/[0.06] bg-white/[0.01]">
+   231→      <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-2">
+   232→        Customer Context
+   233→      </p>
+   234→      <div className="space-y-1.5 text-[11px]">
+   235→        {Object.entries(contextData).slice(0, 8).map(([key, value]) => (
+   236→          <div key={key} className="flex justify-between gap-2">
+   237→            <span className="text-zinc-500 capitalize">{key.replace(/_/g, ' ')}</span>
+   238→            <span className="text-zinc-300 text-right truncate max-w-[200px]">
+   239→              {typeof value === 'object'
+   240→                ? JSON.stringify(value).slice(0, 80) + '...'
+   241→                : String(value).slice(0, 80)}
+   242→            </span>
+   243→          </div>
+   244→        ))}
+   245→      </div>
+   246→    </div>
+   247→  );
+   248→}
+   249→
+   250→// ── Ticket Detail Panel ─────────────────────────────────────────────
+   251→
+   252→function TicketDetailPanel({
+   253→  ticket,
+   254→  onClose,
+   255→}: {
+   256→  ticket: Ticket;
+   257→  onClose: () => void;
+   258→}) {
+   259→  const resolveTicket = useTicketStore((s) => s.resolveTicket);
+   260→  const escalateToHuman = useTicketStore((s) => s.escalateToHuman);
+   261→  const resumeWithGuidance = useTicketStore((s) => s.resumeWithGuidance);
+   262→  const updateTicketStatus = useTicketStore((s) => s.updateTicketStatus);
+   263→  const updatePriority = useTicketStore((s) => s.updatePriority);
+   264→  const addMessage = useTicketStore((s) => s.addMessage);
+   265→
+   266→  const [replyText, setReplyText] = useState('');
+   267→  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+   268→  const [priorityDropdownOpen, setPriorityDropdownOpen] = useState(false);
+   269→  const messagesEndRef = useRef<HTMLDivElement>(null);
+   270→  const statusRef = useRef<HTMLDivElement>(null);
+   271→  const priorityRef = useRef<HTMLDivElement>(null);
+   272→
+   273→  // Scroll messages to bottom on open / new message
+   274→  useEffect(() => {
+   275→    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+   276→  }, [ticket.messages.length]);
+   277→
+   278→  // Close dropdowns on outside click
+   279→  useEffect(() => {
+   280→    function handleClick(e: MouseEvent) {
+   281→      if (statusRef.current && !statusRef.current.contains(e.target as Node)) setStatusDropdownOpen(false);
+   282→      if (priorityRef.current && !priorityRef.current.contains(e.target as Node)) setPriorityDropdownOpen(false);
+   283→    }
+   284→    document.addEventListener('mousedown', handleClick);
+   285→    return () => document.removeEventListener('mousedown', handleClick);
+   286→  }, []);
+   287→
+   288→  const handleResolve = () => {
+   289→    resolveTicket(ticket.id);
+   290→  };
+   291→
+   292→  const handleEscalate = () => {
+   293→    escalateToHuman(ticket.id);
+   294→  };
+   295→
+   296→  const [guidanceText, setGuidanceText] = useState('');
+   297→  const [resuming, setResuming] = useState(false);
+   298→
+   299→  const handleResumeWithGuidance = async () => {
+   300→    if (!guidanceText.trim()) {
+   301→      toast.error('Please enter guidance for the AI to resume with.');
+   302→      return;
+   303→    }
+   304→    setResuming(true);
+   305→    const ok = await resumeWithGuidance(ticket.id, guidanceText.trim());
+   306→    if (ok) {
+   307→      toast.success('Pipeline resumed with guidance. AI is processing...');
+   308→      setGuidanceText('');
+   309→    } else {
+   310→      toast.error('Failed to resume pipeline. Please try again.');
+   311→    }
+   312→    setResuming(false);
+   313→  };
+   314→
+   315→  const handleSendReply = () => {
+   316→    if (!replyText.trim()) return;
+   317→    addMessage(ticket.id, {
+   318→      sender: 'human_agent',
+   319→      sender_name: 'Human Agent',
+   320→      content: replyText.trim(),
+   321→      variant: ticket.assigned_variant ?? undefined,
+   322→    });
+   323→    setReplyText('');
+   324→  };
+   325→
+   326→  const handleStatusChange = (status: TicketStatus) => {
+   327→    updateTicketStatus(ticket.id, status);
+   328→    setStatusDropdownOpen(false);
+   329→  };
+   330→
+   331→  const handlePriorityChange = (priority: TicketPriority) => {
+   332→    updatePriority(ticket.id, priority);
+   333→    setPriorityDropdownOpen(false);
+   334→  };
+   335→
+   336→  return (
+   337→    <motion.div
+   338→      initial={{ opacity: 0, x: 20 }}
+   339→      animate={{ opacity: 1, x: 0 }}
+   340→      exit={{ opacity: 0, x: 20 }}
+   341→      transition={{ duration: 0.25 }}
+   342→      className="w-full lg:w-[440px] xl:w-[480px] shrink-0 bg-[#1A1A1A] border border-white/[0.06] rounded-xl overflow-hidden flex flex-col max-h-[calc(100vh-180px)]"
+   343→    >
+   344→      {/* Header */}
+   345→      <div className="p-4 border-b border-white/[0.06] flex items-start justify-between gap-3">
+   346→        <div className="min-w-0">
+   347→          <div className="flex items-center gap-2 mb-1">
+   348→            <span className="text-xs font-mono text-orange-400">{ticket.ticket_number}</span>
+   349→            <StatusBadge status={ticket.status} />
+   350→            <PriorityBadge priority={ticket.priority} />
+   351→          </div>
+   352→          <h3 className="text-sm font-semibold text-white truncate">{ticket.subject}</h3>
+   353→        </div>
+   354→        <button
+   355→          onClick={onClose}
+   356→          className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-colors shrink-0"
+   357→          aria-label="Close detail panel"
+   358→        >
+   359→          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+   360→            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+   361→          </svg>
+   362→        </button>
+   363→      </div>
+   364→
+   365→      {/* Customer Info */}
+   366→      <div className="px-4 py-3 border-b border-white/[0.06] bg-white/[0.01]">
+   367→        <div className="flex items-center gap-3">
+   368→          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500/20 to-amber-500/20 border border-orange-500/20 flex items-center justify-center text-xs font-semibold text-orange-300">
+   369→            {ticket.customer_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+   370→          </div>
+   371→          <div className="min-w-0">
+   372→            <p className="text-sm font-medium text-white truncate">{ticket.customer_name}</p>
+   373→            <p className="text-xs text-zinc-500 truncate">{ticket.customer_email}</p>
+   374→          </div>
+   375→        </div>
+   376→        <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+   377→          <div className="text-zinc-500">Category</div>
+   378→          <div className="text-zinc-300">{CATEGORY_LABELS[ticket.category]}</div>
+   379→          <div className="text-zinc-500">Channel</div>
+   380→          <div className="text-zinc-300 capitalize">{CHANNEL_LABELS[ticket.channel]}</div>
+   381→          <div className="text-zinc-500">Variant</div>
+   382→          <div className="text-zinc-300">{ticket.assigned_variant ? VARIANT_LABELS[ticket.assigned_variant] : '—'}</div>
+   383→          <div className="text-zinc-500">AI Confidence</div>
+   384→          <div className="text-zinc-300">{ticket.ai_confidence != null ? `${ticket.ai_confidence}%` : '—'}</div>
+   385→          <div className="text-zinc-500">Created</div>
+   386→          <div className="text-zinc-300">{formatDate(ticket.created_at)}</div>
+   387→          {ticket.resolved_at && (
+   388→            <>
+   389→              <div className="text-zinc-500">Resolved</div>
+   390→              <div className="text-zinc-300">{formatDate(ticket.resolved_at)}</div>
+   391→            </>
+   392→          )}
+   393→          {ticket.resolution_time_hours != null && (
+   394→            <>
+   395→              <div className="text-zinc-500">Resolution Time</div>
+   396→              <div className="text-zinc-300">{ticket.resolution_time_hours}h</div>
+   397→            </>
+   398→          )}
+   399→        </div>
+   400→        {ticket.description && (
+   401→          <p className="mt-2 text-xs text-zinc-400 leading-relaxed line-clamp-3">{ticket.description}</p>
+   402→        )}
+   403→        {ticket.tags.length > 0 && (
+   404→          <div className="mt-2 flex flex-wrap gap-1">
+   405→            {ticket.tags.map((tag) => (
+   406→              <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.05] text-zinc-500 border border-white/[0.04]">
+   407→                {tag}
+   408→              </span>
+   409→            ))}
+   410→          </div>
+   411→        )}
+   412→      </div>
+   413→
+   414→      {/* Customer Context (from integrations — CRM, e-commerce, carrier) */}
+   415→      <CustomerContextPanel ticketId={ticket.id} customerEmail={ticket.customer_email} />
+   416→
+   417→      {/* Action Buttons */}
+   418→      <div className="px-4 py-3 border-b border-white/[0.06] flex flex-wrap items-center gap-2">
+   419→        {ticket.status !== 'resolved' && ticket.status !== 'closed' && (
+   420→          <button
+   421→            onClick={handleResolve}
+   422→            className="inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+   423→          >
+   424→            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+   425→              <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+   426→            </svg>
+   427→            Resolve
+   428→          </button>
+   429→        )}
+   430→        {ticket.status !== 'awaiting_human' && ticket.status !== 'resolved' && ticket.status !== 'closed' && (
+   431→          <button
+   432→            onClick={handleEscalate}
+   433→            className="inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors"
+   434→          >
+   435→            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+   436→              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+   437→            </svg>
+   438→            Escalate to Human
+   439→          </button>
+   440→        )}
+   441→
+   442→        {/* Resume with Guidance — shown when AI paused (awaiting_human) */}
+   443→        {ticket.status === 'awaiting_human' && (
+   444→          <div className="w-full mt-2 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 space-y-2">
+   445→            <div className="flex items-center gap-1.5">
+   446→              <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+   447→                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+   448→              </svg>
+   449→              <span className="text-[11px] font-medium text-amber-400">AI Paused — Needs Guidance</span>
+   450→            </div>
+   451→            <p className="text-[10px] text-zinc-500">
+   452→              The AI pipeline paused because it needs help. Enter guidance below and
+   453→              the pipeline will resume from where it stopped — no restart needed.
+   454→            </p>
+   455→            <textarea
+   456→              value={guidanceText}
+   457→              onChange={(e) => setGuidanceText(e.target.value)}
+   458→              placeholder="e.g. The refund policy allows full refunds within 30 days. Approve the $50 refund."
+   459→              rows={2}
+   460→              className="w-full px-2 py-1.5 rounded-md bg-white/[0.03] border border-white/[0.06] text-white text-xs placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500/40 focus:border-amber-500/40 resize-none"
+   461→            />
+   462→            <div className="flex items-center gap-2">
+   463→              <button
+   464→                onClick={handleResumeWithGuidance}
+   465→                disabled={resuming || !guidanceText.trim()}
+   466→                className="inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+   467→              >
+   468→                {resuming ? (
+   469→                  <>
+   470→                    <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
+   471→                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+   472→                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+   473→                    </svg>
+   474→                    Resuming...
+   475→                  </>
+   476→                ) : (
+   477→                  <>
+   478→                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+   479→                      <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+   480→                    </svg>
+   481→                    Resume with Guidance
+   482→                  </>
+   483→                )}
+   484→              </button>
+   485→              <span className="text-[10px] text-zinc-600">
+   486→                {guidanceText.trim().length} chars
+   487→              </span>
+   488→            </div>
+   489→          </div>
+   490→        )}
+   491→
+   492→        {/* Change Priority dropdown */}
+   493→        <div ref={priorityRef} className="relative">
+   494→          <button
+   495→            onClick={() => { setPriorityDropdownOpen(!priorityDropdownOpen); setStatusDropdownOpen(false); }}
+   496→            className="inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-lg bg-white/[0.04] text-zinc-300 border border-white/[0.06] hover:bg-white/[0.08] transition-colors"
+   497→          >
+   498→            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+   499→              <path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h5.25m5.25-.75L17.25 9m0 0L21 12.75M17.25 9v12" />
+   500→            </svg>
+   501→            Priority
+   502→          </button>
+   503→          <AnimatePresence>
+   504→            {priorityDropdownOpen && (
+   505→              <motion.div
+   506→                initial={{ opacity: 0, y: -4 }}
+   507→                animate={{ opacity: 1, y: 0 }}
+   508→                exit={{ opacity: 0, y: -4 }}
+   509→                className="absolute top-full left-0 mt-1 w-40 bg-[#1A1A1A] border border-white/[0.06] rounded-lg shadow-xl z-20 py-1 overflow-hidden"
+   510→              >
+   511→                {ALL_PRIORITIES.map((p) => (
+   512→                  <button
+   513→                    key={p}
+   514→                    onClick={() => handlePriorityChange(p)}
+   515→                    className={`w-full text-left text-xs px-3 py-2 hover:bg-white/[0.05] transition-colors flex items-center gap-2 ${
+   516→                      ticket.priority === p ? 'text-orange-400' : 'text-zinc-300'
+   517→                    }`}
+   518→                  >
+   519→                    <span className={`w-1.5 h-1.5 rounded-full ${PRIORITY_COLORS[p].dot}`} />
+   520→                    {PRIORITY_LABELS[p]}
+   521→                    {ticket.priority === p && (
+   522→                      <svg className="w-3 h-3 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+   523→                        <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+   524→                      </svg>
+   525→                    )}
+   526→                  </button>
+   527→                ))}
+   528→              </motion.div>
+   529→            )}
+   530→          </AnimatePresence>
+   531→        </div>
+   532→
+   533→        {/* Change Status dropdown */}
+   534→        <div ref={statusRef} className="relative">
+   535→          <button
+   536→            onClick={() => { setStatusDropdownOpen(!statusDropdownOpen); setPriorityDropdownOpen(false); }}
+   537→            className="inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-lg bg-white/[0.04] text-zinc-300 border border-white/[0.06] hover:bg-white/[0.08] transition-colors"
+   538→          >
+   539→            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+   540→              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
+   541→            </svg>
+   542→            Status
+   543→          </button>
+   544→          <AnimatePresence>
+   545→            {statusDropdownOpen && (
+   546→              <motion.div
+   547→                initial={{ opacity: 0, y: -4 }}
+   548→                animate={{ opacity: 1, y: 0 }}
+   549→                exit={{ opacity: 0, y: -4 }}
+   550→                className="absolute top-full left-0 mt-1 w-48 bg-[#1A1A1A] border border-white/[0.06] rounded-lg shadow-xl z-20 py-1 overflow-hidden"
+   551→              >
+   552→                {ALL_STATUSES.map((s) => (
+   553→                  <button
+   554→                    key={s}
+   555→                    onClick={() => handleStatusChange(s)}
+   556→                    className={`w-full text-left text-xs px-3 py-2 hover:bg-white/[0.05] transition-colors flex items-center gap-2 ${
+   557→                      ticket.status === s ? 'text-orange-400' : 'text-zinc-300'
+   558→                    }`}
+   559→                  >
+   560→                    <span className={`w-1.5 h-1.5 rounded-full ${STATUS_COLORS[s].dot}`} />
+   561→                    {STATUS_LABELS[s]}
+   562→                    {ticket.status === s && (
+   563→                      <svg className="w-3 h-3 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+   564→                        <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+   565→                      </svg>
+   566→                    )}
+   567→                  </button>
+   568→                ))}
+   569→              </motion.div>
+   570→            )}
+   571→          </AnimatePresence>
+   572→        </div>
+   573→      </div>
+   574→
+   575→      {/* Message Thread */}
+   576→      <div className="flex-1 overflow-y-auto min-h-0 px-4 py-3 space-y-3">
+   577→        {ticket.messages.length === 0 ? (
+   578→          <p className="text-xs text-zinc-600 text-center py-6">No messages yet</p>
+   579→        ) : (
+   580→          ticket.messages.map((msg) => {
+   581→            const isCustomer = msg.sender === 'customer';
+   582→            const isAI = msg.sender === 'ai_agent';
+   583→            const isSystem = msg.sender === 'system';
+   584→            return (
+   585→              <div key={msg.id} className={`flex ${isCustomer ? 'justify-start' : 'justify-end'}`}>
+   586→                <div
+   587→                  className={`max-w-[85%] rounded-xl px-3 py-2 ${
+   588→                    isCustomer
+   589→                      ? 'bg-white/[0.04] border border-white/[0.06] rounded-bl-sm'
+   590→                      : isSystem
+   591→                      ? 'bg-amber-500/5 border border-amber-500/10 rounded-br-sm'
+   592→                      : 'bg-orange-500/10 border border-orange-500/15 rounded-br-sm'
+   593→                  }`}
+   594→                >
+   595→                  <div className="flex items-center gap-1.5 mb-1">
+   596→                    <span className={`text-[10px] font-semibold ${isCustomer ? 'text-zinc-400' : isSystem ? 'text-amber-400' : 'text-orange-400'}`}>
+   597→                      {msg.sender_name}
+   598→                    </span>
+   599→                    {isAI && msg.variant && (
+   600→                      <span className="text-[9px] px-1 py-0.5 rounded bg-orange-500/10 text-orange-300 border border-orange-500/10">
+   601→                        {msg.variant}
+   602→                      </span>
+   603→                    )}
+   604→                    <span className="text-[9px] text-zinc-600">{formatRelativeDate(msg.created_at)}</span>
+   605→                  </div>
+   606→                  <p className="text-xs text-zinc-300 leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+   607→                </div>
+   608→              </div>
+   609→            );
+   610→          })
+   611→        )}
+   612→        <div ref={messagesEndRef} />
+   613→      </div>
+   614→
+   615→      {/* Reply Input */}
+   616→      {ticket.status !== 'resolved' && ticket.status !== 'closed' && (
+   617→        <div className="px-4 py-3 border-t border-white/[0.06]">
+   618→          <div className="flex items-end gap-2">
+   619→            <textarea
+   620→              value={replyText}
+   621→              onChange={(e) => setReplyText(e.target.value)}
+   622→              onKeyDown={(e) => {
+   623→                if (e.key === 'Enter' && !e.shiftKey) {
+   624→                  e.preventDefault();
+   625→                  handleSendReply();
+   626→                }
+   627→              }}
+   628→              placeholder="Type a reply..."
+   629→              rows={2}
+   630→              className="flex-1 bg-[#0A0A0A] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors resize-none"
+   631→            />
+   632→            <button
+   633→              onClick={handleSendReply}
+   634→              disabled={!replyText.trim()}
+   635→              className="h-9 w-9 flex items-center justify-center rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+   636→              aria-label="Send reply"
+   637→            >
+   638→              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+   639→                <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+   640→              </svg>
+   641→            </button>
+   642→          </div>
+   643→        </div>
+   644→      )}
+   645→    </motion.div>
+   646→  );
+   647→}
+   648→
+   649→// ── Ticket Row ──────────────────────────────────────────────────────
+   650→
+   651→function TicketRow({
+   652→  ticket,
+   653→  isSelected,
+   654→  onClick,
+   655→}: {
+   656→  ticket: Ticket;
+   657→  isSelected: boolean;
+   658→  onClick: () => void;
+   659→}) {
+   660→  return (
+   661→    <button
+   662→      onClick={onClick}
+   663→      className={`w-full text-left grid grid-cols-[5rem_1fr_8rem_6rem] gap-2 items-center px-4 py-3 border-b border-white/[0.03] transition-colors hover:bg-white/[0.02] ${
+   664→        isSelected ? 'bg-orange-500/5 border-l-2 border-l-orange-500' : 'border-l-2 border-l-transparent'
+   665→      }`}
+   666→    >
+   667→      <span className="text-xs font-mono text-orange-400">{ticket.ticket_number}</span>
+   668→      <span className="text-xs text-white truncate font-medium">{ticket.subject}</span>
+   669→      <StatusBadge status={ticket.status} />
+   670→      <span className="text-[10px] text-zinc-500 tabular-nums">{formatRelativeDate(ticket.created_at)}</span>
+   671→    </button>
+   672→  );
+   673→}
+   674→
+   675→// ── Mobile Ticket Card ──────────────────────────────────────────────
+   676→
+   677→function TicketCard({
+   678→  ticket,
+   679→  isSelected,
+   680→  onClick,
+   681→}: {
+   682→  ticket: Ticket;
+   683→  isSelected: boolean;
+   684→  onClick: () => void;
+   685→}) {
+   686→  return (
+   687→    <button
+   688→      onClick={onClick}
+   689→      className={`w-full text-left p-4 rounded-xl border transition-colors ${
+   690→        isSelected
+   691→          ? 'bg-orange-500/5 border-orange-500/30'
+   692→          : 'bg-white/[0.02] border-white/[0.06] hover:border-white/[0.12]'
+   693→      }`}
+   694→    >
+   695→      <div className="flex items-start justify-between gap-2 mb-2">
+   696→        <div className="min-w-0">
+   697→          <div className="flex items-center gap-2 mb-1">
+   698→            <span className="text-xs font-mono text-orange-400">{ticket.ticket_number}</span>
+   699→            <PriorityBadge priority={ticket.priority} />
+   700→          </div>
+   701→          <p className="text-sm font-medium text-white truncate">{ticket.subject}</p>
+   702→        </div>
+   703→        <StatusBadge status={ticket.status} />
+   704→      </div>
+   705→      <div className="flex items-center gap-3 text-xs text-zinc-500">
+   706→        <span>{ticket.customer_name}</span>
+   707→        <span>&middot;</span>
+   708→        <span>{CATEGORY_LABELS[ticket.category]}</span>
+   709→        <span>&middot;</span>
+   710→        <span>{formatRelativeDate(ticket.created_at)}</span>
+   711→      </div>
+   712→    </button>
+   713→  );
+   714→}
+   715→
+   716→// ── Skeleton Loader ─────────────────────────────────────────────────
+   717→
+   718→function SkeletonLoader() {
+   719→  return (
+   720→    <div className="space-y-6 animate-pulse">
+   721→      {/* Stats skeleton */}
+   722→      <div className="flex flex-wrap gap-2">
+   723→        {Array.from({ length: 5 }).map((_, i) => (
+   724→          <div key={i} className="h-9 w-28 bg-white/[0.04] rounded-lg" />
+   725→        ))}
+   726→      </div>
+   727→      {/* Filter skeleton */}
+   728→      <div className="flex flex-wrap gap-2">
+   729→        {Array.from({ length: 5 }).map((_, i) => (
+   730→          <div key={i} className="h-8 w-32 bg-white/[0.04] rounded-lg" />
+   731→        ))}
+   732→      </div>
+   733→      {/* Table skeleton */}
+   734→      <div className="bg-[#1A1A1A] border border-white/[0.06] rounded-xl overflow-hidden">
+   735→        <div className="px-4 py-3 border-b border-white/[0.06]">
+   736→          <div className="h-3 w-40 bg-white/[0.04] rounded" />
+   737→        </div>
+   738→        {Array.from({ length: 8 }).map((_, i) => (
+   739→          <div key={i} className="px-4 py-3 border-b border-white/[0.03] flex gap-4">
+   740→            <div className="h-3 w-16 bg-white/[0.04] rounded" />
+   741→            <div className="h-3 flex-1 bg-white/[0.04] rounded" />
+   742→            <div className="h-3 w-20 bg-white/[0.04] rounded" />
+   743→            <div className="h-3 w-14 bg-white/[0.04] rounded" />
+   744→            <div className="h-3 w-16 bg-white/[0.04] rounded" />
+   745→          </div>
+   746→        ))}
+   747→      </div>
+   748→    </div>
+   749→  );
+   750→}
+   751→
+   752→// ── Empty State ─────────────────────────────────────────────────────
+   753→
+   754→function EmptyState({ onCreate }: { onCreate?: () => void }) {
+   755→  return (
+   756→    <motion.div
+   757→      initial={{ opacity: 0, y: 16 }}
+   758→      animate={{ opacity: 1, y: 0 }}
+   759→      transition={{ duration: 0.4 }}
+   760→      className="flex flex-col items-center justify-center py-20 text-center"
+   761→    >
+   762→      <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-5">
+   763→        <svg className="w-8 h-8 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+   764→          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 0 1 0 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 0 1 0-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z" />
+   765→        </svg>
+   766→      </div>
+   767→      <h3 className="text-base font-semibold text-zinc-300 mb-1.5">No tickets yet</h3>
+   768→      <p className="text-sm text-zinc-500 max-w-sm mb-5">
+   769→        Your ticket inbox is empty. Create a ticket manually or wait for
+   770→        customers to email / chat / call — inbound tickets will appear here
+   771→        automatically.
+   772→      </p>
+   773→      {onCreate && (
+   774→        <button
+   775→          onClick={onCreate}
+   776→          className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium transition-colors flex items-center gap-2"
+   777→        >
+   778→          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+   779→            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+   780→          </svg>
+   781→          Create First Ticket
+   782→        </button>
+   783→      )}
+   784→    </motion.div>
+   785→  );
+   786→}
+   787→
+   788→// ── Create Ticket Modal (Simplified) ─────────────────────────────────
+   789→//
+   790→// Per user request 2026-07-13: remove all unnecessary fields.
+   791→// Only show: body (the ticket content) + tool selector dropdown
+   792→// (which connected integration the AI should fetch data from).
+   793→// Customer info is auto-filled with defaults — the user testing the
+   794→// AI doesn't need to enter customer name/email.
+   795→
+   796→interface CreateTicketFormData {
+   797→  subject: string;
+   798→  description: string;
+   799→  customer_name: string;
+   800→  customer_email: string;
+   801→  category: TicketCategory;
+   802→  priority: TicketPriority;
+   803→  channel: TicketChannel;
+   804→  tags: string[];
+   805→  metadata_json: Record<string, unknown>;
+   806→}
+   807→
+   808→interface ConnectedIntegration {
+   809→  id: string;
+   810→  integration_type: string;
+   811→  name: string | null;
+   812→  status: string;
+   813→}
+   814→
+   815→const INTEGRATION_ICONS: Record<string, string> = {
+   816→  hubspot: '🎯', shopify: '🛒', salesforce: '☁️', zendesk: '🎫',
+   817→  slack: '💬', gmail: '📧', intercom: '💭', pipedrive: '📊',
+   818→  supabase: '🗄️', razorpay: '💳', custom: '🔌',
+   819→};
+   820→
+   821→const INTEGRATION_NAMES: Record<string, string> = {
+   822→  hubspot: 'HubSpot', shopify: 'Shopify', salesforce: 'Salesforce',
+   823→  zendesk: 'Zendesk', slack: 'Slack', gmail: 'Gmail', intercom: 'Intercom',
+   824→  pipedrive: 'Pipedrive', supabase: 'Supabase CRM', razorpay: 'Razorpay',
+   825→  custom: 'Custom Connector',
+   826→};
+   827→
+   828→function CreateTicketModal({
+   829→  open,
+   830→  onClose,
+   831→  onSubmit,
+   832→}: {
+   833→  open: boolean;
+   834→  onClose: () => void;
+   835→  onSubmit: (data: CreateTicketFormData) => void;
+   836→}) {
+   837→  const [description, setDescription] = useState('');
+   838→  const [selectedTool, setSelectedTool] = useState<string>('');
+   839→  const [integrations, setIntegrations] = useState<ConnectedIntegration[]>([]);
+   840→  const [submitting, setSubmitting] = useState(false);
+   841→
+   842→  // Fetch connected integrations (tools) when modal opens
+   843→  useEffect(() => {
+   844→    if (!open) return;
+   845→    setDescription('');
+   846→    setSelectedTool('');
+   847→    fetch('/api/integrations', { credentials: 'include' })
+   848→      .then((res) => res.ok ? res.json() : null)
+   849→      .then((data) => {
+   850→        const list = Array.isArray(data) ? data : (data?.items || []);
+   851→        setIntegrations(list.filter((i: ConnectedIntegration) =>
+   852→          i.status === 'active' || i.status === 'connected'
+   853→        ));
+   854→      })
+   855→      .catch(() => {});
+   856→  }, [open]);
+   857→
+   858→  const canSubmit = description.trim().length > 0;
+   859→
+   860→  const handleSubmit = (e: React.FormEvent) => {
+   861→    e.preventDefault();
+   862→    if (!canSubmit) return;
+   863→    setSubmitting(true);
+   864→    try {
+   865→      const subject = description.trim().slice(0, 60) + (description.length > 60 ? '…' : '');
+   866→      const formData: CreateTicketFormData = {
+   867→        subject,
+   868→        description,
+   869→        customer_name: 'Customer',
+   870→        customer_email: `customer-${Date.now()}@ticket.parwa.buzz`,
+   871→        category: 'technical_support' as TicketCategory,
+   872→        priority: 'medium' as TicketPriority,
+   873→        channel: 'email' as TicketChannel,
+   874→        tags: [],
+   875→        metadata_json: selectedTool ? { source_tool: selectedTool } : {},
+   876→      };
+   877→      onSubmit(formData);
+   878→      onClose();
+   879→    } finally {
+   880→      setSubmitting(false);
+   881→    }
+   882→  };
+   883→
+   884→  if (!open) return null;
+   885→
+   886→  const inputClasses = "w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white text-sm placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-orange-500/40 focus:border-orange-500/40";
+   887→
+   888→  return (
+   889→    <AnimatePresence>
+   890→      <motion.div
+   891→        initial={{ opacity: 0 }}
+   892→        animate={{ opacity: 1 }}
+   893→        exit={{ opacity: 0 }}
+   894→        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+   895→        onClick={onClose}
+   896→      >
+   897→        <motion.div
+   898→          initial={{ scale: 0.96, opacity: 0, y: 8 }}
+   899→          animate={{ scale: 1, opacity: 1, y: 0 }}
+   900→          exit={{ scale: 0.96, opacity: 0, y: 8 }}
+   901→          transition={{ duration: 0.18 }}
+   902→          className="w-full max-w-xl rounded-2xl bg-[#161616] border border-white/[0.08] shadow-2xl"
+   903→          onClick={(e) => e.stopPropagation()}
+   904→        >
+   905→          {/* Header */}
+   906→          <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+   907→            <div>
+   908→              <h2 className="text-lg font-semibold text-white">Create Ticket</h2>
+   909→              <p className="text-xs text-zinc-500 mt-0.5">
+   910→                The AI pipeline will resolve it automatically
+   911→              </p>
+   912→            </div>
+   913→            <button
+   914→              onClick={onClose}
+   915→              className="text-zinc-500 hover:text-zinc-300 transition-colors"
+   916→              aria-label="Close"
+   917→            >
+   918→              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+   919→                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+   920→              </svg>
+   921→            </button>
+   922→          </div>
+   923→
+   924→          {/* Form */}
+   925→          <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+   926→            {/* Tool selector — which connected integration to fetch data from */}
+   927→            <div>
+   928→              <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+   929→                Fetch data from (optional)
+   930→              </label>
+   931→              <select
+   932→                value={selectedTool}
+   933→                onChange={(e) => setSelectedTool(e.target.value)}
+   934→                className={inputClasses}
+   935→              >
+   936→                <option value="" className="bg-[#161616]">— None (AI only) —</option>
+   937→                {integrations.map((i) => {
+   938→                  const icon = INTEGRATION_ICONS[i.integration_type] || '🔌';
+   939→                  const name = INTEGRATION_NAMES[i.integration_type] || i.name || i.integration_type;
+   940→                  return (
+   941→                    <option key={i.id} value={i.integration_type} className="bg-[#161616]">
+   942→                      {icon} {name}
+   943→                    </option>
+   944→                  );
+   945→                })}
+   946→              </select>
+   947→              {integrations.length === 0 && (
+   948→                <p className="text-[11px] text-zinc-600 mt-1">
+   949→                  No integrations connected. The AI will respond using its knowledge base only.
+   950→                </p>
+   951→              )}
+   952→            </div>
+   953→
+   954→            {/* Body — the ticket content */}
+   955→            <div>
+   956→              <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+   957→                What does the customer need? *
+   958→              </label>
+   959→              <textarea
+   960→                required
+   961→                value={description}
+   962→                onChange={(e) => setDescription(e.target.value)}
+   963→                placeholder="e.g. Where is my refund for order ORD-1001? I placed it 5 days ago."
+   964→                rows={6}
+   965→                className={inputClasses + ' resize-none'}
+   966→                autoFocus
+   967→              />
+   968→              <p className="text-[11px] text-zinc-600 mt-1">
+   969→                The AI reads this, fetches data from your connected tool (if selected),
+   970→                generates a response, and quality-checks it before replying.
+   971→              </p>
+   972→            </div>
+   973→          </form>
+   974→
+   975→          {/* Footer */}
+   976→          <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-white/[0.06]">
+   977→            <button
+   978→              type="button"
+   979→              onClick={onClose}
+   980→              className="px-4 py-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.04] text-sm font-medium transition-colors"
+   981→            >
+   982→              Cancel
+   983→            </button>
+   984→            <button
+   985→              type="button"
+   986→              onClick={handleSubmit}
+   987→              disabled={submitting || !canSubmit}
+   988→              className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 disabled:bg-zinc-700 disabled:text-zinc-500 text-white text-sm font-medium transition-colors flex items-center gap-2"
+   989→            >
+   990→              {submitting ? (
+   991→                <>
+   992→                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+   993→                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+   994→                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+   995→                  </svg>
+   996→                  Creating…
+   997→                </>
+   998→              ) : (
+   999→                <>
+  1000→                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+  1001→                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+  1002→                  </svg>
+  1003→                  Create Ticket
+  1004→                </>
+  1005→              )}
+  1006→            </button>
+  1007→          </div>
+  1008→        </motion.div>
+  1009→      </motion.div>
+  1010→    </AnimatePresence>
+  1011→  );
+  1012→}
+  1013→
+  1014→// ── No Results State ────────────────────────────────────────────────
+  1015→
+  1016→function NoResultsState({ onClearFilters }: { onClearFilters: () => void }) {
+  1017→  return (
+  1018→    <div className="flex flex-col items-center justify-center py-16 text-center">
+  1019→      <div className="w-12 h-12 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-4">
+  1020→        <svg className="w-6 h-6 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+  1021→          <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+  1022→        </svg>
+  1023→      </div>
+  1024→      <h3 className="text-sm font-semibold text-zinc-300 mb-1">No matching tickets</h3>
+  1025→      <p className="text-xs text-zinc-500 mb-4">Try adjusting your filters or search term</p>
+  1026→      <button
+  1027→        onClick={onClearFilters}
+  1028→        className="text-xs font-medium text-orange-400 hover:text-orange-300 transition-colors"
+  1029→      >
+  1030→        Clear all filters
+  1031→      </button>
+  1032→    </div>
+  1033→  );
+  1034→}
+  1035→
+  1036→// ── Main Page ───────────────────────────────────────────────────────
+  1037→
+  1038→export default function TicketsPage() {
+  1039→  const tickets = useTicketStore((s) => s.tickets);
+  1040→  const initialized = useTicketStore((s) => s.initialized);
+  1041→  const init = useTicketStore((s) => s.init);
+  1042→  const ticketStats = useTicketStore((s) => s.ticketStats);
+  1043→  const addTicket = useTicketStore((s) => s.addTicket);
+  1044→
+  1045→  const [isLoading, setIsLoading] = useState(true);
+  1046→  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  1047→  const [statusFilter, setStatusFilter] = useState<TicketStatus | 'all'>('all');
+  1048→  const [priorityFilter, setPriorityFilter] = useState<TicketPriority | 'all'>('all');
+  1049→  const [categoryFilter, setCategoryFilter] = useState<TicketCategory | 'all'>('all');
+  1050→  const [channelFilter, setChannelFilter] = useState<TicketChannel | 'all'>('all');
+  1051→  const [searchText, setSearchText] = useState('');
+  1052→  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  1053→
+  1054→  // Initialize store on mount
+  1055→  useEffect(() => {
+  1056→    init();
+  1057→    // If init didn't set initialized (no localStorage data), mark it ourselves
+  1058→    // so the loading state resolves
+  1059→    const timer = setTimeout(() => setIsLoading(false), 400);
+  1060→    return () => clearTimeout(timer);
+  1061→  }, [init]);
+  1062→
+  1063→  // Also stop loading when store initializes from localStorage
+  1064→  useEffect(() => {
+  1065→    if (initialized) {
+  1066→      setIsLoading(false);
+  1067→    }
+  1068→  }, [initialized]);
+  1069→
+  1070→  // Compute stats
+  1071→  const stats = useMemo(() => ticketStats(), [tickets, ticketStats]);
+  1072→
+  1073→  // Filter tickets with AND logic
+  1074→  const filteredTickets = useMemo(() => {
+  1075→    return tickets.filter((t) => {
+  1076→      if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+  1077→      if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
+  1078→      if (categoryFilter !== 'all' && t.category !== categoryFilter) return false;
+  1079→      if (channelFilter !== 'all' && t.channel !== channelFilter) return false;
+  1080→      if (searchText.trim()) {
+  1081→        const q = searchText.toLowerCase();
+  1082→        const searchable = `${t.ticket_number} ${t.subject} ${t.customer_name} ${t.customer_email} ${t.description} ${t.tags.join(' ')}`.toLowerCase();
+  1083→        if (!searchable.includes(q)) return false;
+  1084→      }
+  1085→      return true;
+  1086→    });
+  1087→  }, [tickets, statusFilter, priorityFilter, categoryFilter, channelFilter, searchText]);
+  1088→
+  1089→  // Get selected ticket object
+  1090→  const selectedTicket = useMemo(
+  1091→    () => tickets.find((t) => t.id === selectedTicketId) ?? null,
+  1092→    [tickets, selectedTicketId]
+  1093→  );
+  1094→
+  1095→  // Fetch messages when a ticket is opened in the detail panel
+  1096→  useEffect(() => {
+  1097→    if (selectedTicketId) {
+  1098→      void fetchTicketMessages(selectedTicketId);
+  1099→    }
+  1100→  }, [selectedTicketId]);
+  1101→
+  1102→  const clearFilters = useCallback(() => {
+  1103→    setStatusFilter('all');
+  1104→    setPriorityFilter('all');
+  1105→    setCategoryFilter('all');
+  1106→    setChannelFilter('all');
+  1107→    setSearchText('');
+  1108→  }, []);
+  1109→
+  1110→  const hasActiveFilters = statusFilter !== 'all' || priorityFilter !== 'all' || categoryFilter !== 'all' || channelFilter !== 'all' || searchText.trim() !== '';
+  1111→
+  1112→  // ── Loading ──────────────────────────────────────────────────────
+  1113→  if (isLoading) {
+  1114→    return (
+  1115→      <div className="space-y-6">
+  1116→        <div>
+  1117→          <h1 className="text-2xl font-bold text-white">Tickets</h1>
+  1118→          <p className="text-zinc-400 mt-1">Manage and track customer support tickets</p>
+  1119→        </div>
+  1120→        <SkeletonLoader />
+  1121→      </div>
+  1122→    );
+  1123→  }
+  1124→
+  1125→  // ── Empty state ──────────────────────────────────────────────────
+  1126→  if (tickets.length === 0) {
+  1127→    return (
+  1128→      <div className="space-y-6">
+  1129→        <div className="flex items-center justify-between">
+  1130→          <div>
+  1131→            <h1 className="text-2xl font-bold text-white">Tickets</h1>
+  1132→            <p className="text-zinc-400 mt-1">Manage and track customer support tickets</p>
+  1133→          </div>
+  1134→          <button
+  1135→            onClick={() => setIsCreateModalOpen(true)}
+  1136→            className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium transition-colors flex items-center gap-2"
+  1137→          >
+  1138→            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+  1139→              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+  1140→            </svg>
+  1141→            Create Ticket
+  1142→          </button>
+  1143→        </div>
+  1144→        <EmptyState onCreate={() => setIsCreateModalOpen(true)} />
+  1145→        <CreateTicketModal
+  1146→          open={isCreateModalOpen}
+  1147→          onClose={() => setIsCreateModalOpen(false)}
+  1148→          onSubmit={(data) => addTicket(data)}
+  1149→        />
+  1150→      </div>
+  1151→    );
+  1152→  }
+  1153→
+  1154→  // ── Main Render ──────────────────────────────────────────────────
+  1155→  return (
+  1156→    <div className="space-y-6">
+  1157→      {/* ── Welcome Card (real variant subscription data) ── */}
+  1158→      <WelcomeCardSection />
+  1159→
+  1160→      {/* ── Connected Integrations ── */}
+  1161→      <ConnectedIntegrationsSection />
+  1162→
+  1163→      {/* Header */}
+  1164→      <motion.div
+  1165→        initial={{ opacity: 0, y: -8 }}
+  1166→        animate={{ opacity: 1, y: 0 }}
+  1167→        transition={{ duration: 0.35 }}
+  1168→      >
+  1169→        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+  1170→          <div>
+  1171→            <h1 className="text-2xl font-bold text-white">Tickets</h1>
+  1172→            <p className="text-sm text-zinc-500 mt-1">
+  1173→              Manage and track customer support tickets
+  1174→            </p>
+  1175→          </div>
+  1176→          <div className="flex items-center gap-2">
+  1177→            <button
+  1178→              onClick={() => setIsCreateModalOpen(true)}
+  1179→              className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium transition-colors flex items-center gap-2"
+  1180→            >
+  1181→              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+  1182→                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+  1183→              </svg>
+  1184→              Create Ticket
+  1185→            </button>
+  1186→          </div>
+  1187→        </div>
+  1188→      </motion.div>
+  1189→
+  1190→      {/* Stats Bar */}
+  1191→      <motion.div
+  1192→        initial={{ opacity: 0, y: 8 }}
+  1193→        animate={{ opacity: 1, y: 0 }}
+  1194→        transition={{ duration: 0.35, delay: 0.05 }}
+  1195→        className="flex flex-wrap gap-2"
+  1196→      >
+  1197→        <StatPill label="Total" count={stats.total} dotColor="bg-zinc-400" />
+  1198→        <StatPill label="Not Solved" count={stats.byStatus.open + stats.byStatus.in_progress} dotColor="bg-blue-400" />
+  1199→        <StatPill label="Solved" count={stats.byStatus.resolved + stats.byStatus.closed} dotColor="bg-green-400" />
+  1200→        <StatPill label="Waiting for Human" count={stats.byStatus.awaiting_human} dotColor="bg-red-400" />
+  1201→      </motion.div>
+  1202→
+  1203→      {/* Filter Row */}
+  1204→      <motion.div
+  1205→        initial={{ opacity: 0, y: 8 }}
+  1206→        animate={{ opacity: 1, y: 0 }}
+  1207→        transition={{ duration: 0.35, delay: 0.1 }}
+  1208→        className="flex flex-wrap items-center gap-2"
+  1209→      >
+  1210→        <FilterSelect
+  1211→          label="Status"
+  1212→          value={statusFilter}
+  1213→          options={ALL_STATUSES.map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
+  1214→          onChange={setStatusFilter}
+  1215→        />
+  1216→        <div className="flex items-center gap-2 flex-1 min-w-[180px]">
+  1217→          <div className="relative flex-1">
+  1218→            <svg
+  1219→              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none"
+  1220→              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+  1221→            >
+  1222→              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+  1223→            </svg>
+  1224→            <input
+  1225→              type="text"
+  1226→              value={searchText}
+  1227→              onChange={(e) => setSearchText(e.target.value)}
+  1228→              placeholder="Search tickets..."
+  1229→              className="w-full h-8 bg-[#1A1A1A] border border-white/[0.06] rounded-lg pl-8 pr-3 text-xs text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+  1230→            />
+  1231→          </div>
+  1232→        </div>
+  1233→        {hasActiveFilters && (
+  1234→          <button
+  1235→            onClick={clearFilters}
+  1236→            className="text-[11px] font-medium text-orange-400 hover:text-orange-300 transition-colors whitespace-nowrap"
+  1237→          >
+  1238→            Clear filters
+  1239→          </button>
+  1240→        )}
+  1241→      </motion.div>
+  1242→
+  1243→      {/* Ticket List + Detail */}
+  1244→      <motion.div
+  1245→        initial={{ opacity: 0, y: 8 }}
+  1246→        animate={{ opacity: 1, y: 0 }}
+  1247→        transition={{ duration: 0.35, delay: 0.15 }}
+  1248→        className="flex flex-col lg:flex-row gap-4"
+  1249→      >
+  1250→        {/* Ticket List */}
+  1251→        <div className="flex-1 min-w-0">
+  1252→          {filteredTickets.length === 0 ? (
+  1253→            <div className="bg-[#1A1A1A] border border-white/[0.06] rounded-xl">
+  1254→              <NoResultsState onClearFilters={clearFilters} />
+  1255→            </div>
+  1256→          ) : (
+  1257→            <>
+  1258→              {/* Desktop Table */}
+  1259→              <div className="hidden xl:block bg-[#1A1A1A] border border-white/[0.06] rounded-xl overflow-hidden">
+  1260→                {/* Table Header — simplified: Ticket #, Subject, Status, Created only */}
+  1261→                <div className="grid grid-cols-[5rem_1fr_8rem_6rem] gap-2 items-center px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
+  1262→                  <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Ticket #</span>
+  1263→                  <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Subject</span>
+  1264→                  <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Status</span>
+  1265→                  <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Created</span>
+  1266→                </div>
+  1267→                {/* Rows */}
+  1268→                <div className="max-h-[calc(100vh-380px)] overflow-y-auto">
+  1269→                  {filteredTickets.map((ticket) => (
+  1270→                    <TicketRow
+  1271→                      key={ticket.id}
+  1272→                      ticket={ticket}
+  1273→                      isSelected={selectedTicketId === ticket.id}
+  1274→                      onClick={() => setSelectedTicketId(selectedTicketId === ticket.id ? null : ticket.id)}
+  1275→                    />
+  1276→                  ))}
+  1277→                </div>
+  1278→              </div>
+  1279→
+  1280→              {/* Tablet / Mobile Cards */}
+  1281→              <div className="xl:hidden space-y-2 max-h-[calc(100vh-380px)] overflow-y-auto pr-1">
+  1282→                {filteredTickets.map((ticket) => (
+  1283→                  <TicketCard
+  1284→                    key={ticket.id}
+  1285→                    ticket={ticket}
+  1286→                    isSelected={selectedTicketId === ticket.id}
+  1287→                    onClick={() => setSelectedTicketId(selectedTicketId === ticket.id ? null : ticket.id)}
+  1288→                  />
+  1289→                ))}
+  1290→              </div>
+  1291→            </>
+  1292→          )}
+  1293→
+  1294→          {/* Results count */}
+  1295→          {filteredTickets.length > 0 && (
+  1296→            <p className="text-[11px] text-zinc-600 mt-2">
+  1297→              Showing {filteredTickets.length} of {tickets.length} tickets
+  1298→            </p>
+  1299→          )}
+  1300→        </div>
+  1301→
+  1302→        {/* Detail Panel */}
+  1303→        <AnimatePresence mode="wait">
+  1304→          {selectedTicket && (
+  1305→            <TicketDetailPanel
+  1306→              ticket={selectedTicket}
+  1307→              onClose={() => setSelectedTicketId(null)}
+  1308→            />
+  1309→          )}
+  1310→        </AnimatePresence>
+  1311→      </motion.div>
+  1312→
+  1313→      {/* Click-away hint when no ticket selected */}
+  1314→      {!selectedTicket && filteredTickets.length > 0 && (
+  1315→        <motion.p
+  1316→          initial={{ opacity: 0 }}
+  1317→          animate={{ opacity: 1 }}
+  1318→          transition={{ delay: 0.5 }}
+  1319→          className="text-[11px] text-zinc-600 text-center"
+  1320→        >
+  1321→          Click a ticket to view details and take actions
+  1322→        </motion.p>
+  1323→      )}
+  1324→
+  1325→      {/* Create Ticket Modal */}
+  1326→      <CreateTicketModal
+  1327→        open={isCreateModalOpen}
+  1328→        onClose={() => setIsCreateModalOpen(false)}
+  1329→        onSubmit={(data) => addTicket(data)}
+  1330→      />
+  1331→    </div>
+  1332→  );
+  1333→}
+  1334→
+  1335→// ────────────────────────────────────────────────────────────────────────
+  1336→// WELCOME CARD SECTION
+  1337→// Renders the WelcomeCard which shows the user's real subscribed variants
+  1338→// + monthly ticket usage. NO mock data, NO ROI/AI-cost widgets.
+  1339→// (Per user request 2026-07-12: remove AI Cost Savings, ROI, Active Agents
+  1340→//  and Customer Satisfaction KPICards — they were misleading and showed
+  1341→//  zero-data states before any tickets had been resolved.)
+  1342→// ────────────────────────────────────────────────────────────────────────
+  1343→
+  1344→function WelcomeCardSection() {
+  1345→  const { user } = useAuth();
+  1346→  return (
+  1347→    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+  1348→      <WelcomeCard
+  1349→        userName={user?.full_name}
+  1350→        companyName={user?.company_name}
+  1351→        uniqueId={user?.unique_id}
+  1352→        industry="Support"
+  1353→      />
+  1354→    </motion.div>
+  1355→  );
+  1356→}
+  1357→
+  1358→// ────────────────────────────────────────────────────────────────────────
+  1359→// CONNECTED INTEGRATIONS SECTION
+  1360→// Shows which integrations the user has connected during onboarding.
+  1361→// Fetches from /api/integrations (same endpoint used by Settings page).
+  1362→// ────────────────────────────────────────────────────────────────────────
+  1363→
+  1364→// NOTE: ConnectedIntegration interface, INTEGRATION_ICONS, and INTEGRATION_NAMES
+  1365→// are now defined above (near CreateTicketModal) to avoid duplication.
+  1366→
+  1367→function ConnectedIntegrationsSection() {
+  1368→  const [integrations, setIntegrations] = useState<ConnectedIntegration[]>([]);
+  1369→  const [loading, setLoading] = useState(true);
+  1370→
+  1371→  useEffect(() => {
+  1372→    const controller = new AbortController();
+  1373→    fetch('/api/integrations', { credentials: 'include', signal: controller.signal })
+  1374→      .then((res) => res.ok ? res.json() : null)
+  1375→      .then((data) => {
+  1376→        if (Array.isArray(data)) {
+  1377→          setIntegrations(data.filter((i: ConnectedIntegration) => i.status === 'active' || i.status === 'connected'));
+  1378→        } else if (data?.items && Array.isArray(data.items)) {
+  1379→          setIntegrations(data.items.filter((i: ConnectedIntegration) => i.status === 'active' || i.status === 'connected'));
+  1380→        }
+  1381→      })
+  1382→      .catch(() => {})
+  1383→      .finally(() => setLoading(false));
+  1384→    return () => controller.abort();
+  1385→  }, []);
+  1386→
+  1387→  if (loading || integrations.length === 0) return null;
+  1388→
+  1389→  return (
+  1390→    <motion.div
+  1391→      initial={{ opacity: 0, y: 8 }}
+  1392→      animate={{ opacity: 1, y: 0 }}
+  1393→      transition={{ duration: 0.35, delay: 0.1 }}
+  1394→      className="space-y-4"
+  1395→    >
+  1396→      <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Connected Integrations</h2>
+  1397→      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+  1398→        {integrations.map((integration) => {
+  1399→          const icon = INTEGRATION_ICONS[integration.integration_type] || '🔌';
+  1400→          const name = INTEGRATION_NAMES[integration.integration_type] || integration.name || integration.integration_type;
+  1401→          return (
+  1402→            <div key={integration.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#1A1A1A] border border-white/[0.06]">
+  1403→              <span className="text-2xl">{icon}</span>
+  1404→              <div className="min-w-0">
+  1405→                <p className="text-sm font-medium text-white truncate">{name}</p>
+  1406→                <p className="text-[10px] text-emerald-400 flex items-center gap-1">
+  1407→                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+  1408→                  {integration.status}
+  1409→                </p>
+  1410→              </div>
+  1411→            </div>
+  1412→          );
+  1413→        })}
+  1414→      </div>
+  1415→    </motion.div>
+  1416→  );
+  1417→}
+  1418→
