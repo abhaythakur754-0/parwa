@@ -1,0 +1,3 @@
+{
+  "/api/integration-cache/[...path]/route": "app/api/integration-cache/[...path]/route.js"
+}

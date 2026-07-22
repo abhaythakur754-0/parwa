@@ -1,0 +1,3 @@
+{
+  "/api/integrations/custom/[...path]/route": "app/api/integrations/custom/[...path]/route.js"
+}

@@ -1,0 +1,3 @@
+{
+  "/api/cross-channel/[...path]/route": "app/api/cross-channel/[...path]/route.js"
+}

@@ -1,0 +1,3 @@
+{
+  "/api/onboarding-jarvis/[...path]/route": "app/api/onboarding-jarvis/[...path]/route.js"
+}

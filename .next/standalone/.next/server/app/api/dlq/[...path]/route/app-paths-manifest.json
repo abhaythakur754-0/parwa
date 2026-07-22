@@ -1,0 +1,3 @@
+{
+  "/api/dlq/[...path]/route": "app/api/dlq/[...path]/route.js"
+}

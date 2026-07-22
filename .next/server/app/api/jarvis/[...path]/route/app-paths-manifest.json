@@ -1,0 +1,3 @@
+{
+  "/api/jarvis/[...path]/route": "app/api/jarvis/[...path]/route.js"
+}

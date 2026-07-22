@@ -1,0 +1,3 @@
+{
+  "/api/flexpay/plan/[planId]/route": "app/api/flexpay/plan/[planId]/route.js"
+}

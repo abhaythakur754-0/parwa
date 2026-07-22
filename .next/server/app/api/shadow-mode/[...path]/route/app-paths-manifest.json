@@ -1,0 +1,3 @@
+{
+  "/api/shadow-mode/[...path]/route": "app/api/shadow-mode/[...path]/route.js"
+}
