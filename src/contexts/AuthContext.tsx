@@ -142,7 +142,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Backend returned 401/403 — access token may be expired.
         // Try to refresh the token using the refresh token (parwa_rt cookie).
-        // Only if refresh ALSO fails do we log the user out.
+        // Only if refresh ALSO fails with 401 do we log the user out.
+        // If refresh fails due to timeout/network (Render cold start), stay logged in.
         if (response && (response.status === 401 || response.status === 403)) {
           console.warn('[AuthContext] Access token expired — attempting refresh');
           try {
@@ -151,7 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               headers: { 'Content-Type': 'application/json' },
               credentials: 'include',
               body: '{}',
-              signal: AbortSignal.timeout(5000),
+              signal: AbortSignal.timeout(15000), // 15s — Render cold start can take 30s+
             });
 
             if (refreshRes.ok) {
@@ -159,7 +160,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const retryRes = await fetch('/api/auth/me-proxy', {
                 method: 'GET',
                 credentials: 'include',
-                signal: AbortSignal.timeout(3000),
+                signal: AbortSignal.timeout(8000),
               });
 
               if (retryRes.ok) {
@@ -183,13 +184,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
             }
 
-            // Refresh also failed — session is truly invalid
-            console.warn('[AuthContext] Token refresh failed — logging out');
-            localStorage.removeItem(USER_KEY);
+            // Check WHY refresh failed:
+            // - 401/403 = refresh token is actually invalid → log out
+            // - 503/500/timeout = backend cold start or down → stay logged in
+            if (refreshRes.status === 401 || refreshRes.status === 403) {
+              // Refresh token is genuinely invalid — session is truly over
+              console.warn('[AuthContext] Refresh token invalid — logging out');
+              localStorage.removeItem(USER_KEY);
+            } else {
+              // Backend returned non-401 error (503, 500, etc.) — likely cold start
+              // Stay logged in with cached data (Netflix-style)
+              console.warn('[AuthContext] Refresh failed (non-401) — staying logged in, backend may be cold-starting');
+              setState({
+                user: cachedUser,
+                isAuthenticated: true,
+                isLoading: false,
+                isInitialized: true,
+                backendUnreachable: true,
+              });
+              return;
+            }
           } catch (refreshErr) {
-            // Refresh endpoint unreachable — stay logged in with cached data
-            // (Netflix-style — don't log out during backend cold start)
-            console.warn('[AuthContext] Refresh endpoint unreachable — staying logged in with cached data');
+            // Refresh endpoint unreachable (timeout/network error) — this is a
+            // Render cold start, NOT an invalid session. Stay logged in.
+            console.warn('[AuthContext] Refresh endpoint unreachable (cold start?) — staying logged in with cached data');
             setState({
               user: cachedUser,
               isAuthenticated: true,
