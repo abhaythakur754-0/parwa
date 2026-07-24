@@ -1,13 +1,12 @@
 """
 Billing services — organized domain folder.
 
-Contains 17 service modules.
 Re-exports from the flat services/ directory for backward compatibility.
+Paddle was removed on 2026-06-24; Razorpay is the billing provider.
 """
 
-from app.services.paddle_service import *  # noqa: F401,F403
-from app.services.paddle_reconciliation_service import *  # noqa: F401,F403
 from app.services.subscription_service import *  # noqa: F401,F403
+from app.services.razorpay_service import *  # noqa: F401,F403
 from app.services.invoice_service import *  # noqa: F401,F403
 from app.services.payment_service import *  # noqa: F401,F403
 from app.services.payment_failure_service import *  # noqa: F401,F403
@@ -22,4 +21,3 @@ from app.services.demo_billing_service import *  # noqa: F401,F403
 from app.services.demo_usage_service import *  # noqa: F401,F403
 from app.services.pricing_service import *  # noqa: F401,F403
 from app.services.client_factory import *  # noqa: F401,F403
-

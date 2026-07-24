@@ -170,70 +170,8 @@ class Settings(BaseSettings):
     RAZORPAY_WEBHOOK_SECRET: str = ""
     RAZORPAY_TEST_MODE: str = "true"
 
-    # ── Payments (Paddle — legacy, kept for migration) ────────
-    PADDLE_CLIENT_TOKEN: str = ""
-    PADDLE_API_KEY: str = ""
-    PADDLE_WEBHOOK_SECRET: str = ""
-    PADDLE_WEBHOOK_NOTIFICATION_SET_ID: str = ""  # Webhook notification set ID from Paddle dashboard
-    # Paddle Price IDs — override via env when products are created in Paddle dashboard
-    # Format: JSON string {"demo_pack": "pri_xxx", "mini_parwa": "pri_xxx", ...}
-    PADDLE_PRICE_IDS: str = ""  # Optional: JSON override for all price IDs
-    PADDLE_NOTIFICATION_SET_ID: str = ""  # Paddle webhook notification set ID
-
-    @field_validator("PADDLE_CLIENT_TOKEN")
-    @classmethod
-    def validate_paddle_client_token(cls, v: str) -> str:
-        if not v:
-            warnings.warn(
-                "PADDLE_CLIENT_TOKEN is empty — Paddle client-side checkout will not work. "
-                "Set PADDLE_CLIENT_TOKEN in production!",
-                stacklevel=2,
-            )
-        return v
-
-    @field_validator("PADDLE_API_KEY")
-    @classmethod
-    def validate_paddle_api_key(cls, v: str) -> str:
-        if not v:
-            warnings.warn(
-                "PADDLE_API_KEY is empty — Paddle server-side API calls will not work. "
-                "Set PADDLE_API_KEY in production!",
-                stacklevel=2,
-            )
-        return v
-
-    @field_validator("PADDLE_WEBHOOK_SECRET")
-    @classmethod
-    def validate_paddle_webhook_secret(cls, v: str) -> str:
-        if not v:
-            warnings.warn(
-                "PADDLE_WEBHOOK_SECRET is empty — Paddle webhook signatures cannot be verified. "
-                "Set PADDLE_WEBHOOK_SECRET in production!",
-                stacklevel=2,
-            )
-        return v
-
-    @field_validator("PADDLE_PRICE_IDS")
-    @classmethod
-    def validate_paddle_price_ids(cls, v: str) -> str:
-        if not v:
-            warnings.warn(
-                "PADDLE_PRICE_IDS is empty — Paddle product price mapping is not configured. "
-                "Set PADDLE_PRICE_IDS in production!",
-                stacklevel=2,
-            )
-        return v
-
-    @field_validator("NEXT_PUBLIC_PADDLE_KEY")
-    @classmethod
-    def validate_next_public_paddle_key(cls, v: str) -> str:
-        if not v:
-            warnings.warn(
-                "NEXT_PUBLIC_PADDLE_KEY is empty — Paddle frontend integration will not work. "
-                "Set NEXT_PUBLIC_PADDLE_KEY in production!",
-                stacklevel=2,
-            )
-        return v
+    # NOTE: Paddle was removed on 2026-06-24. Razorpay is the billing provider.
+    # (See RAZORPAY_* settings above and app.clients.razorpay_client.)
 
     # ── Shopify (F-131) ─────────────────────────────────────────
     SHOPIFY_WEBHOOK_SECRET: str = ""
@@ -505,7 +443,6 @@ class Settings(BaseSettings):
 
     # ── Misc ─────────────────────────────────────────────────────
     NEXT_PUBLIC_API_URL: str = ""
-    NEXT_PUBLIC_PADDLE_KEY: str = ""
     COLAB_WEBHOOK_URL: str = ""
     MODEL_REGISTRY_PATH: str = "models"
 

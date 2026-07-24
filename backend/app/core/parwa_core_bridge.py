@@ -1153,7 +1153,7 @@ def parwa_get_security_headers(
         "style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data: https: blob:; "
         "font-src 'self' data:; "
-        "connect-src 'self' https://*.paddle.com https://api.stripe.com; "
+        "connect-src 'self' https://api.stripe.com; "
         "frame-ancestors 'none'; "
         "base-uri 'self'; "
         "form-action 'self'; "

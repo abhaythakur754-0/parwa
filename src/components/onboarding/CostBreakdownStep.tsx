@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { cn } from '@/lib/utils';
-import { openCheckoutWithItems, getPaddleInstance, VARIANT_PRICE_IDS } from '@/lib/paddle';
 import type { ParwaVariant } from './IndustryVariantStep';
 import type { PricingContext } from './IndustryVariantStep';
 import {
@@ -256,7 +255,6 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
   const [activeVariants, setActiveVariants] = useState<VariantTier[]>([initialTier]);
   const [addOns, setAddOns] = useState<{ voice: boolean; customApi: boolean }>({ voice: false, customApi: false });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [paddleStatus, setPaddleStatus] = useState<'unknown' | 'ready' | 'unavailable'>('unknown');
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   // Restore add-ons from localStorage
@@ -274,14 +272,9 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
     }
   }, []);
 
-  // Check if Paddle.js is available
-  useEffect(() => {
-    getPaddleInstance().then((paddle) => {
-      setPaddleStatus(paddle ? 'ready' : 'unavailable');
-    }).catch(() => {
-      setPaddleStatus('unavailable');
-    });
-  }, []);
+  // NOTE: Paddle was removed — payments are now handled by Razorpay via
+  // the server-side /api/onboarding/checkout endpoint. No client-side
+  // payment SDK is required.
 
   // ── Calculations (pure math — D7, D10) ──────────────────────────────
 
@@ -365,27 +358,11 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
 
       localStorage.setItem('parwa_pricing_context', JSON.stringify(context));
 
-      // ── Paddle Checkout Flow ──────────────────────────────────────
-      const checkoutItems: Array<{ priceId: string; quantity: number }> = [];
-
-      // Add each active variant as a Paddle line item
-      for (const tier of activeVariants) {
-        const variantPriceId = VARIANT_PRICE_IDS[tier];
-        if (variantPriceId) {
-          checkoutItems.push({ priceId: variantPriceId, quantity: 1 });
-        }
-      }
-
-      // Voice add-on (only for mini where it's not included)
-      if (addOns.voice && !activeVariants.some((t) => ADD_ONS.find(a => a.key === 'voice')!.includedIn.includes(t))) {
-        checkoutItems.push({ priceId: 'pri_voice_addon_01', quantity: 1 });
-      }
-
-      // Custom API add-on (only for variants where it's not included)
-      if (addOns.customApi && !activeVariants.some((t) => ADD_ONS.find(a => a.key === 'customApi')!.includedIn.includes(t))) {
-        checkoutItems.push({ priceId: 'pri_custom_api_addon_01', quantity: 1 });
-      }
-
+      // ── Razorpay Checkout Flow ───────────────────────────────────
+      // Paddle was removed; checkout is now handled server-side via the
+      // /api/onboarding/checkout endpoint, which returns a Razorpay
+      // checkout_url. We redirect to it; if no URL is returned, we save
+      // the configuration and let the user complete payment later.
       const customData = {
         source: 'parwa_onboarding',
         variant: primaryVariant,
@@ -396,7 +373,6 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
       };
 
       // Try server-side transaction first
-      let transactionId: string | null = null;
       let checkoutUrl: string | null = null;
 
       try {
@@ -409,44 +385,25 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
             addOns,
             totalMonthly,
             industry: context.industry,
+            customData,
           }),
         });
 
         if (res.ok) {
           const checkoutData = await res.json();
-          transactionId = checkoutData.transaction_id || null;
           checkoutUrl = checkoutData.checkout_url || null;
         }
       } catch {
-        // API unavailable — continue with client-side Paddle checkout
+        // API unavailable — fall through to save-and-proceed
       }
 
-      // If we got a checkout_url, redirect to it
+      // If we got a checkout_url, redirect to it (Razorpay hosted checkout)
       if (checkoutUrl) {
         window.location.href = checkoutUrl;
         return;
       }
 
-      // Client-side Paddle checkout (items-based)
-      if (paddleStatus === 'ready' && checkoutItems.length > 0) {
-        const opened = await openCheckoutWithItems(
-          checkoutItems,
-          customData,
-          () => {
-            toast.success('Payment successful! Welcome to PARWA!');
-            onComplete();
-          },
-          () => {
-            toast('Checkout closed. You can try again anytime.', { icon: 'ℹ️' });
-            setIsSubmitting(false);
-          },
-        );
-        if (opened) {
-          return;
-        }
-      }
-
-      // Fallback: No Paddle available — save configuration and proceed
+      // Fallback: checkout endpoint unavailable — save configuration and proceed
       toast.success('Configuration saved! Complete payment to activate your plan.');
       onComplete();
     } catch (err) {
@@ -471,25 +428,12 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
         </p>
       </div>
 
-      {/* ── Paddle Status Indicator ─────────────────────────────────── */}
-      {paddleStatus === 'unavailable' && (
-        <div className="rounded-xl border border-amber-500/20 p-4 flex items-start gap-3" style={{ background: 'rgba(245,158,11,0.05)' }}>
-          <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-medium text-amber-300">Payment checkout unavailable</p>
-            <p className="text-[10px] text-orange-200/30 mt-1">
-              Paddle payment gateway is not configured. Your configuration will be saved and you can complete payment later.
-            </p>
-          </div>
-        </div>
-      )}
-      {paddleStatus === 'ready' && (
-        <div className="rounded-xl border border-emerald-500/20 p-3 flex items-center gap-2" style={{ background: 'rgba(16,185,129,0.04)' }}>
-          <Shield className="w-4 h-4 text-emerald-400" />
-          <p className="text-xs text-emerald-400">Secure checkout powered by Paddle</p>
-          <ExternalLink className="w-3 h-3 text-emerald-400/60 ml-auto" />
-        </div>
-      )}
+      {/* ── Payment Provider Notice ───────────────────────────────── */}
+      <div className="rounded-xl border border-emerald-500/20 p-3 flex items-center gap-2" style={{ background: 'rgba(16,185,129,0.04)' }}>
+        <Shield className="w-4 h-4 text-emerald-400" />
+        <p className="text-xs text-emerald-400">Payments handled by Razorpay</p>
+        <ExternalLink className="w-3 h-3 text-emerald-400/60 ml-auto" />
+      </div>
 
       {/* ── 1. Variant Mixer ──────────────────────────────────────────── */}
       <div className="space-y-3">

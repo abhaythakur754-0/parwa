@@ -1,11 +1,12 @@
 """
-Invoice Service (F-023)
+Invoice Service — DB-only (Razorpay is the billing provider)
 
-Handles invoice management:
-- List invoices for a company
-- Get invoice PDF (from Paddle or generate)
-- Sync invoices from Paddle API
-- Track invoice status
+Paddle was removed on 2026-06-24. Invoices are now created locally when
+Razorpay webhooks fire (see `app.services.razorpay_service._handle_charged`
+and `_handle_payment_captured`). This service owns:
+- Listing / fetching invoices from the local DB
+- Generating PDF invoices locally (reportlab)
+- Creating / updating invoice records (used by webhook handlers)
 
 BC-001: All operations validate company_id
 BC-002: All money calculations use Decimal
@@ -15,23 +16,20 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from uuid import UUID
 
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
-from app.clients.paddle_client import (
-    PaddleClient,
-    PaddleError,
-    get_paddle_client,
-)
 from database.base import SessionLocal
 from database.models.billing import Invoice, Subscription
 from database.models.core import Company
 
 logger = logging.getLogger("parwa.services.invoice")
 
+
+# ── Exceptions ──────────────────────────────────────────────────────────
 
 class InvoiceError(Exception):
     """Base exception for invoice errors."""
@@ -42,7 +40,6 @@ class InvoiceError(Exception):
 
 
 class InvoiceNotFoundError(InvoiceError):
-    """Invoice not found."""
     def __init__(self, message: str = "Invoice not found", **kwargs):
         self.message = message
         self.kwargs = kwargs
@@ -50,31 +47,20 @@ class InvoiceNotFoundError(InvoiceError):
 
 
 class InvoiceAccessDeniedError(InvoiceError):
-    """Access denied to invoice."""
     def __init__(self, message: str = "Access denied to invoice", **kwargs):
         self.message = message
         self.kwargs = kwargs
         super().__init__(self.message)
 
 
+# ── Service ─────────────────────────────────────────────────────────────
+
 class InvoiceService:
-    """
-    Invoice management service.
+    """Invoice management service (DB-only, no provider sync)."""
 
-    Usage:
-        service = InvoiceService()
-        invoices = await service.get_invoice_list(company_id)
-        pdf = await service.get_invoice_pdf(company_id, invoice_id)
-    """
-
-    def __init__(self, paddle_client: Optional[PaddleClient] = None):
-        self._paddle_client = paddle_client
-
-    async def _get_paddle(self) -> PaddleClient:
-        """Get Paddle client (lazy initialization)."""
-        if self._paddle_client is None:
-            self._paddle_client = get_paddle_client()
-        return self._paddle_client
+    def __init__(self, *args, **kwargs):
+        # No provider client anymore. Args kept for backward-compat calls.
+        pass
 
     async def get_invoice_list(
         self,
@@ -82,28 +68,16 @@ class InvoiceService:
         page: int = 1,
         page_size: int = 20,
     ) -> Dict[str, Any]:
-        """
-        Get paginated invoice list for a company.
-
-        Args:
-            company_id: Company UUID
-            page: Page number (1-indexed)
-            page_size: Items per page (max 50)
-
-        Returns:
-            Dict with invoices list and pagination info
-        """
-        page_size = min(page_size, 50)  # Cap at 50
+        """Get paginated invoice list for a company."""
+        page_size = min(page_size, 50)
         offset = (page - 1) * page_size
 
         def _db_work():
             with SessionLocal() as db:
-                # Get total count
                 total = db.query(Invoice).filter(
                     Invoice.company_id == str(company_id),
                 ).count()
 
-                # Get paginated invoices
                 invoices = db.query(Invoice).filter(
                     Invoice.company_id == str(company_id),
                 ).order_by(
@@ -133,7 +107,6 @@ class InvoiceService:
                         "total_pages": (total + page_size - 1) // page_size,
                     },
                 }
-
         return await asyncio.to_thread(_db_work)
 
     async def get_invoice(
@@ -141,20 +114,7 @@ class InvoiceService:
         company_id: UUID,
         invoice_id: str,
     ) -> Dict[str, Any]:
-        """
-        Get single invoice details.
-
-        Args:
-            company_id: Company UUID
-            invoice_id: Invoice UUID
-
-        Returns:
-            Invoice details dict
-
-        Raises:
-            InvoiceNotFoundError: Invoice not found
-            InvoiceAccessDeniedError: Invoice belongs to different company
-        """
+        """Get single invoice details."""
         def _db_work():
             with SessionLocal() as db:
                 invoice = db.query(Invoice).filter(
@@ -162,15 +122,11 @@ class InvoiceService:
                 ).first()
 
                 if not invoice:
-                    raise InvoiceNotFoundError(
-                        f"Invoice {invoice_id} not found"
-                    )
+                    raise InvoiceNotFoundError(f"Invoice {invoice_id} not found")
 
                 # BC-001: Validate company_id
                 if invoice.company_id != str(company_id):
-                    raise InvoiceAccessDeniedError(
-                        "Access denied to this invoice"
-                    )
+                    raise InvoiceAccessDeniedError("Access denied to this invoice")
 
                 return {
                     "id": invoice.id,
@@ -184,7 +140,6 @@ class InvoiceService:
                     "paid_at": invoice.paid_at.isoformat() if invoice.paid_at else None,
                     "created_at": invoice.created_at.isoformat() if invoice.created_at else None,
                 }
-
         return await asyncio.to_thread(_db_work)
 
     async def get_invoice_pdf(
@@ -192,69 +147,12 @@ class InvoiceService:
         company_id: UUID,
         invoice_id: str,
     ) -> bytes:
-        """
-        Get invoice PDF bytes.
-
-        First validates access, then fetches PDF from Paddle.
-
-        Args:
-            company_id: Company UUID
-            invoice_id: Invoice UUID
-
-        Returns:
-            PDF bytes
-
-        Raises:
-            InvoiceNotFoundError: Invoice not found
-            InvoiceAccessDeniedError: Access denied
-            InvoiceError: PDF generation failed
-        """
-        # First validate access
+        """Get invoice PDF bytes — always generated locally now (Paddle removed)."""
         invoice = await self.get_invoice(company_id, invoice_id)
+        return await self._generate_local_pdf(invoice)
 
-        if not invoice.get("paddle_invoice_id"):
-            # Generate local PDF if no Paddle invoice
-            return await self._generate_local_pdf(invoice)
-
-        try:
-            paddle = await self._get_paddle()
-            pdf_bytes = await paddle.get_invoice_pdf(
-                invoice["paddle_invoice_id"]
-            )
-            logger.info(
-                "invoice_pdf_retrieved company_id=%s invoice_id=%s",
-                company_id,
-                invoice_id,
-            )
-            return pdf_bytes
-
-        except PaddleError as e:
-            logger.error(
-                "invoice_pdf_failed company_id=%s invoice_id=%s error=%s",
-                company_id,
-                invoice_id,
-                str(e),
-            )
-            # Fallback to local PDF generation
-            return await self._generate_local_pdf(invoice)
-
-    async def _generate_local_pdf(
-        self,
-        invoice: Dict[str, Any],
-    ) -> bytes:
-        """
-        Generate a simple PDF invoice locally.
-
-        Used when Paddle PDF is unavailable.
-
-        Args:
-            invoice: Invoice dict
-
-        Returns:
-            PDF bytes
-        """
-        # Simple PDF generation using reportlab-style approach
-        # In production, would use reportlab or weasyprint
+    async def _generate_local_pdf(self, invoice: Dict[str, Any]) -> bytes:
+        """Generate a simple PDF invoice locally using reportlab."""
         try:
             from reportlab.lib.pagesizes import letter
             from reportlab.lib.units import inch
@@ -265,17 +163,13 @@ class InvoiceService:
             c = canvas.Canvas(buffer, pagesize=letter)
             width, height = letter
 
-            # Header
             c.setFont("Helvetica-Bold", 24)
             c.drawString(inch, height - inch, "PARWA")
-
             c.setFont("Helvetica", 12)
             c.drawString(inch, height - 1.5 * inch, "Invoice")
 
-            # Invoice details
             c.setFont("Helvetica-Bold", 12)
             y = height - 2.5 * inch
-
             c.drawString(inch, y, f"Invoice ID: {invoice.get('id', 'N/A')}")
             y -= 0.3 * inch
             c.drawString(inch, y, f"Amount: {invoice.get('amount', '0.00')} {invoice.get('currency', 'USD')}")
@@ -286,144 +180,22 @@ class InvoiceService:
             if invoice.get("invoice_date"):
                 c.drawString(inch, y, f"Date: {invoice['invoice_date']}")
                 y -= 0.3 * inch
-
             if invoice.get("due_date"):
                 c.drawString(inch, y, f"Due: {invoice['due_date']}")
                 y -= 0.3 * inch
 
-            # Footer
             c.setFont("Helvetica", 10)
             c.drawString(inch, inch, "Thank you for your business!")
-
             c.save()
             buffer.seek(0)
 
-            logger.info(
-                "invoice_pdf_generated_locally invoice_id=%s",
-                invoice.get("id"),
-            )
+            logger.info("invoice_pdf_generated_locally invoice_id=%s", invoice.get("id"))
             return buffer.read()
 
         except ImportError:
-            # reportlab not available - return minimal PDF
-            logger.warning(
-                "reportlab_not_available invoice_id=%s",
-                invoice.get("id"),
-            )
-            # Return a minimal valid PDF
-            minimal_pdf = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\nxref\n0 4\n0000000000 65535 f\n0000000009 00000 n\n0000000058 00000 n\n0000000115 00000 n\ntrailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n190\n%%EOF"
-            return minimal_pdf
-
-    async def sync_invoices_from_paddle(
-        self,
-        company_id: UUID,
-    ) -> Dict[str, Any]:
-        """
-        Sync recent invoices from Paddle API.
-
-        Pulls invoices and stores/updates in local DB.
-
-        Args:
-            company_id: Company UUID
-
-        Returns:
-            Sync result with count of invoices synced
-        """
-        # DB operation 1: Get company's paddle_customer_id
-        def _get_company():
-            with SessionLocal() as db:
-                company = db.query(Company).filter(
-                    Company.id == str(company_id),
-                ).first()
-                return company.paddle_customer_id if company else None
-
-        paddle_customer_id = await asyncio.to_thread(_get_company)
-
-        if not paddle_customer_id:
-            logger.info(
-                "invoice_sync_skipped company_id=%s reason=no_paddle_customer",
-                company_id,
-            )
-            return {
-                "synced": 0,
-                "message": "No Paddle customer ID found",
-            }
-
-        try:
-            paddle = await self._get_paddle()
-
-            # Get transactions (Paddle invoices are tied to transactions)
-            result = await paddle.list_transactions(
-                customer_id=paddle_customer_id,
-                per_page=50,
-            )
-
-            transactions = result.get("data", [])
-
-            # DB operation 2: Upsert invoices
-            def _upsert_invoices():
-                with SessionLocal() as db:
-                    synced = 0
-
-                    for txn in transactions:
-                        txn_id = txn.get("id")
-                        if not txn_id:
-                            continue
-
-                        # Check for existing invoice
-                        existing = db.query(Invoice).filter(
-                            Invoice.paddle_invoice_id == txn_id,
-                        ).first()
-
-                        invoice_data = {
-                            "company_id": str(company_id),
-                            "paddle_invoice_id": txn_id,
-                            "amount": Decimal(str(txn.get("amount", "0"))),
-                            "currency": txn.get("currency_code", "USD"),
-                            "status": txn.get("status", "pending"),
-                            "invoice_date": datetime.fromisoformat(
-                                txn["created_at"].replace("Z", "+00:00")
-                            ) if txn.get("created_at") else None,
-                        }
-
-                        if existing:
-                            # Update existing
-                            for key, value in invoice_data.items():
-                                if key != "company_id":
-                                    setattr(existing, key, value)
-                        else:
-                            # Create new
-                            invoice = Invoice(**invoice_data)
-                            db.add(invoice)
-
-                        synced += 1
-
-                    db.commit()
-                    return synced
-
-            synced = await asyncio.to_thread(_upsert_invoices)
-
-            logger.info(
-                "invoice_sync_complete company_id=%s synced=%d",
-                company_id,
-                synced,
-            )
-
-            return {
-                "synced": synced,
-                "message": f"Synced {synced} invoices from Paddle",
-            }
-
-        except PaddleError as e:
-            logger.error(
-                "invoice_sync_failed company_id=%s error=%s",
-                company_id,
-                str(e),
-            )
-            return {
-                "synced": 0,
-                "message": f"Sync failed: {str(e)}",
-            }
+            logger.warning("reportlab_not_available invoice_id=%s", invoice.get("id"))
+            # Minimal valid PDF fallback
+            return b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\nxref\n0 4\n0000000000 65535 f\n0000000009 00000 n\n0000000058 00000 n\n0000000115 00000 n\ntrailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n190\n%%EOF"
 
     async def create_invoice_record(
         self,
@@ -435,22 +207,10 @@ class InvoiceService:
         invoice_date: Optional[datetime] = None,
         due_date: Optional[datetime] = None,
     ) -> Dict[str, Any]:
-        """
-        Create a new invoice record.
+        """Create a new invoice record (used by Razorpay webhook handlers).
 
-        Used when processing webhooks or manual billing operations.
-
-        Args:
-            company_id: Company UUID
-            amount: Invoice amount
-            currency: Currency code (default USD)
-            paddle_invoice_id: Paddle invoice ID if available
-            status: Invoice status (default pending)
-            invoice_date: Invoice date
-            due_date: Due date
-
-        Returns:
-            Created invoice dict
+        Note: `paddle_invoice_id` field name is kept on the DB model for
+        backward compat — it now stores the Razorpay payment_id.
         """
         def _db_work():
             with SessionLocal() as db:
@@ -466,14 +226,10 @@ class InvoiceService:
                 db.add(invoice)
                 db.commit()
                 db.refresh(invoice)
-
                 logger.info(
                     "invoice_created company_id=%s invoice_id=%s amount=%s",
-                    company_id,
-                    invoice.id,
-                    amount,
+                    company_id, invoice.id, amount,
                 )
-
                 return {
                     "id": invoice.id,
                     "company_id": invoice.company_id,
@@ -482,7 +238,6 @@ class InvoiceService:
                     "status": invoice.status,
                     "created_at": invoice.created_at.isoformat(),
                 }
-
         return await asyncio.to_thread(_db_work)
 
     async def update_invoice_status(
@@ -491,17 +246,7 @@ class InvoiceService:
         status: str,
         paid_at: Optional[datetime] = None,
     ) -> Dict[str, Any]:
-        """
-        Update invoice status.
-
-        Args:
-            invoice_id: Invoice UUID
-            status: New status
-            paid_at: Payment timestamp (if paid)
-
-        Returns:
-            Updated invoice dict
-        """
+        """Update invoice status."""
         valid_statuses = {"pending", "paid", "void", "refunded"}
         if status not in valid_statuses:
             raise InvoiceError(
@@ -513,11 +258,8 @@ class InvoiceService:
                 invoice = db.query(Invoice).filter(
                     Invoice.id == invoice_id,
                 ).first()
-
                 if not invoice:
-                    raise InvoiceNotFoundError(
-                        f"Invoice {invoice_id} not found"
-                    )
+                    raise InvoiceNotFoundError(f"Invoice {invoice_id} not found")
 
                 invoice.status = status
                 if paid_at:
@@ -527,29 +269,28 @@ class InvoiceService:
 
                 db.commit()
                 db.refresh(invoice)
-
-                logger.info(
-                    "invoice_status_updated invoice_id=%s status=%s",
-                    invoice_id,
-                    status,
-                )
-
+                logger.info("invoice_status_updated invoice_id=%s status=%s", invoice_id, status)
                 return {
                     "id": invoice.id,
                     "status": invoice.status,
                     "paid_at": invoice.paid_at.isoformat() if invoice.paid_at else None,
                 }
-
         return await asyncio.to_thread(_db_work)
 
+    # ── Deprecated provider-side sync ───────────────────────────────────
 
-# ── Singleton Service ────────────────────────────────────────────────────
+    async def sync_invoices_from_paddle(self, *args, **kwargs):
+        """Deprecated — Paddle is removed. Invoices are created locally
+        when Razorpay webhooks fire (see razorpay_service._handle_charged)."""
+        return {"synced": 0, "message": "Paddle is removed. Invoices sync via Razorpay webhooks."}
+
+
+# ── Singleton ───────────────────────────────────────────────────────────
 
 _invoice_service: Optional[InvoiceService] = None
 
 
 def get_invoice_service() -> InvoiceService:
-    """Get the invoice service singleton."""
     global _invoice_service
     if _invoice_service is None:
         _invoice_service = InvoiceService()

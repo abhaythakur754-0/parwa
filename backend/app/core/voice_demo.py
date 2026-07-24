@@ -9,7 +9,7 @@ Design decisions
 ----------------
 1. No real Twilio — pipeline uses placeholder STT/TTS that simulate
    voice processing.  Real Twilio lands in Week 13 (F-127).
-2. Payment — token-based verification (consistent with Paddle checkout
+2. Payment — token-based verification (consistent with Razorpay checkout
    flow used elsewhere in the project).
 3. Session management — in-memory dict with TTL.
 4. BC-002 — all money uses ``Decimal`` (never float).
@@ -130,12 +130,12 @@ class VoiceDemoSession:
 
     # Internal bookkeeping
     _payment_token_hash: Optional[str] = field(default=None, repr=False)
-    _paddle_transaction_id: Optional[str] = field(default=None, repr=False)
+    _payment_transaction_id: Optional[str] = field(default=None, repr=False)
 
 
 @dataclass
 class PaymentIntent:
-    """Lightweight payment intent (Paddle checkout token)."""
+    """Lightweight payment intent (Razorpay checkout token)."""
 
     session_id: str
     amount: Decimal
@@ -188,7 +188,7 @@ class DemoSummary:
 class VoiceDemoPayment:
     """Handles the $1 demo paywall via token-based verification.
 
-    In production this would integrate with Paddle checkout.  For now we
+    In production this would integrate with Razorpay checkout.  For now we
     use a simple HMAC-based token scheme: the token is
     ``sha256(session_id + secret_salt + amount)``.  A valid token means
     the payment is considered completed.
@@ -224,7 +224,7 @@ class VoiceDemoPayment:
             amount=amount,
             currency="USD",
             status=PaymentStatus.PENDING,
-            checkout_url=f"https://pay.paddle.com/checkout/demo/{session_id}?token={token}",
+            checkout_url=f"https://api.razorpay.com/v1/checkout/demo/{session_id}?token={token}",
             created_at=_now_utc(),
         )
 
@@ -242,7 +242,7 @@ class VoiceDemoPayment:
     def refund_if_needed(self, session_id: str, amount_paid: Decimal = Decimal("0.00")) -> RefundResult:
         """Attempt a refund (placeholder — always succeeds in demo mode).
 
-        In production this would call ``PaddleClient``.
+        In production this would call the Razorpay refunds API.
         """
         if not session_id:
             return RefundResult(

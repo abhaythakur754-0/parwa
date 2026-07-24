@@ -7,7 +7,7 @@ parameter (BC-001) and route to the 'webhook' queue.
 
 Tasks:
 - process_webhook_event: Generic webhook processor
-- process_paddle_webhook: Paddle-specific events
+- process_paddle_webhook: No-op (Paddle was removed; kept for scheduler compat)
 - process_twilio_webhook: Twilio SMS/voice events
 - process_brevo_webhook: Brevo inbound email events
 - process_shopify_webhook: Shopify order events
@@ -95,41 +95,30 @@ def process_webhook_event(
 def process_paddle_webhook(
     self, company_id: str, event_db_id: str,
 ):
-    """Process Paddle webhook event (subscription, payment).
+    """Process Paddle webhook event (no-op; Paddle was removed).
+
+    NOTE: Paddle was removed; this task is kept as a no-op so any
+    external callers / scheduler entries don't break.
 
     Args:
         company_id: Tenant company ID (BC-001).
         event_db_id: Webhook event database record ID.
     """
+    logger.info(
+        "webhook_paddle_skipped reason=Paddle was removed event_db_id=%s",
+        event_db_id,
+    )
     try:
-        from app.services.webhook_service import (
-            get_webhook_event,
-            mark_webhook_processed,
-        )
-
-        event = get_webhook_event(event_db_id)
-        from app.webhooks import dispatch_event
-        dispatch_event("paddle", event)
+        from app.services.webhook_service import mark_webhook_processed
         mark_webhook_processed(
-            event_db_id, status="processed",
+            event_db_id, status="skipped",
+            error="Paddle was removed",
         )
-    except Exception as exc:
+    except Exception as e:
         logger.error(
-            "webhook_paddle_failed",
-            event_db_id=event_db_id,
-            error=str(exc),
-            company_id=company_id,
+            "webhook_paddle_mark_skipped_error",
+            event_db_id=event_db_id, error=str(e),
         )
-        try:
-            from app.services.webhook_service import (
-                mark_webhook_processed,
-            )
-            mark_webhook_processed(
-                event_db_id, status="failed",
-                error=str(exc)[:500],
-            )
-        except Exception as e:
-            logger.error("webhook_paddle_mark_failed_error", event_db_id=event_db_id, error=str(e))
 
 
 @app.task(
@@ -276,7 +265,7 @@ def process_shopify_webhook(
 # ── Provider handlers now use registry (Day 23) ──────────
 # Import handlers to register them with the registry.
 # Actual processing is in backend.app.webhooks.{provider}_handler
-import app.webhooks.paddle_handler  # noqa: E402, F401
+# NOTE: Paddle was removed — paddle_handler.py has been deleted.
 import app.webhooks.brevo_handler  # noqa: E402, F401
 import app.webhooks.twilio_handler  # noqa: E402, F401
 import app.webhooks.shopify_handler  # noqa: E402, F401

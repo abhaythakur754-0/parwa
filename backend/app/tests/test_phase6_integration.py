@@ -5,7 +5,7 @@ Validates that all Phase 6 components work together:
 1. Sentry captures errors that circuit breakers detect
 2. Self-healing resets circuit breakers
 3. Redis key manager works with circuit breaker state
-4. Paddle reconciliation uses idempotency with Redis
+4. [REMOVED] Paddle reconciliation used idempotency with Redis (Paddle was removed)
 5. Health endpoint reports all Phase 6 status
 6. Anomaly detection triggers self-healing actions
 7. Structured logging records Phase 6 events
@@ -235,84 +235,10 @@ class TestRedisKeyManagerCircuitBreakerIntegration:
 
 
 # ============================================================
-# 4. Paddle Reconciliation + Idempotency Integration
+# 4. [REMOVED] Paddle Reconciliation + Idempotency Integration
+#    (Paddle was removed; paddle_reconciliation_service.py has been
+#     deleted. Tests removed.)
 # ============================================================
-
-
-class TestPaddleReconciliationIntegration:
-    """Validate Paddle reconciliation uses idempotency with Redis."""
-
-    def test_idempotency_key_is_deterministic(self):
-        """Same event must always produce same idempotency key."""
-        from app.services.paddle_reconciliation_service import (
-            PaddleReconciliationService,
-        )
-
-        service = PaddleReconciliationService(db_session=None, redis_client=None)
-
-        key1 = service.compute_idempotency_key(
-            "subscription.activated", "evt_abc123"
-        )
-        key2 = service.compute_idempotency_key(
-            "subscription.activated", "evt_abc123"
-        )
-        assert key1 == key2, "Idempotency key must be deterministic"
-
-    def test_different_events_produce_different_keys(self):
-        """Different events must produce different idempotency keys."""
-        from app.services.paddle_reconciliation_service import (
-            PaddleReconciliationService,
-        )
-
-        service = PaddleReconciliationService(db_session=None, redis_client=None)
-
-        key1 = service.compute_idempotency_key(
-            "subscription.activated", "evt_abc123"
-        )
-        key2 = service.compute_idempotency_key(
-            "subscription.canceled", "evt_abc123"
-        )
-        assert key1 != key2, "Different events must produce different keys"
-
-    def test_idempotency_key_is_sha256(self):
-        """Idempotency key must be SHA-256 (64 hex chars)."""
-        from app.services.paddle_reconciliation_service import (
-            PaddleReconciliationService,
-        )
-
-        service = PaddleReconciliationService(db_session=None, redis_client=None)
-        key = service.compute_idempotency_key("subscription.updated", "evt_xyz789")
-        assert len(key) == 64, f"SHA-256 key must be 64 hex chars, got {len(key)}"
-        assert all(c in "0123456789abcdef" for c in key), "Key must be hex string"
-
-    @pytest.mark.asyncio
-    async def test_paddle_webhook_rejects_missing_event_data(self):
-        """Webhook processing must reject events missing required data."""
-        from app.services.paddle_reconciliation_service import (
-            PaddleReconciliationService,
-        )
-
-        service = PaddleReconciliationService(db_session=None, redis_client=None)
-
-        # Missing event_type
-        result = await service.process_webhook(
-            payload={"event_id": "123"}, signature=""
-        )
-        assert result.status == "rejected", "Must reject missing event_type"
-
-        # Missing event_id
-        result = await service.process_webhook(
-            payload={"event_type": "test"}, signature=""
-        )
-        assert result.status == "rejected", "Must reject missing event_id"
-
-    def test_paddle_service_has_circuit_breaker(self):
-        """Paddle must have a circuit breaker registered."""
-        from app.core.circuit_breaker_manager import get_circuit_breaker_manager
-
-        manager = get_circuit_breaker_manager()
-        state = manager.get_state("paddle")
-        assert state is not None, "Paddle must have a circuit breaker"
 
 
 # ============================================================

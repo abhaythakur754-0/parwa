@@ -5,9 +5,11 @@ Mirrors the CRM/email/SMS bridge patterns. Provides a single PaymentBridge
 facade that delegates to provider-specific adapters:
 
 Supported Payment Providers:
-  - Paddle — existing integration (full subscription lifecycle)
+  - Razorpay — primary provider (subscriptions + one-time payments)
   - Stripe — alternative provider (subscriptions + one-time payments)
   - Generic — for any payment provider with webhook support
+
+NOTE: Paddle was removed; the PaddlePaymentAdapter has been deleted.
 
 Each adapter implements:
   - parse_webhook_event(): Parse inbound payment webhook into PARWA format
@@ -49,7 +51,7 @@ class PaymentAdapter(ABC):
             {
                 "event_id": "evt_123",              # Provider event ID (for idempotency)
                 "event_type": "subscription.created", # Normalized event type
-                "provider": "paddle",
+                "provider": "razorpay",
                 "company_id": "comp_123",            # Tenant ID (from metadata or lookup)
                 "customer_id": "cust_456",           # Provider customer ID
                 "subscription_id": "sub_789",        # Provider subscription ID (if applicable)
@@ -75,135 +77,6 @@ class PaymentAdapter(ABC):
             {"status": "active|past_due|canceled|...", "current_period_end": "...", ...}
         """
         ...
-
-
-# ═══════════════════════════════════════════════════════════════
-# PADDLE ADAPTER (wraps existing paddle_handler.py)
-# ═══════════════════════════════════════════════════════════════
-
-class PaddlePaymentAdapter(PaymentAdapter):
-    """Paddle payment adapter.
-
-    Wraps the existing paddle_handler.py logic in the PaymentAdapter
-    interface. Paddle handles subscriptions, one-time payments, refunds.
-    """
-
-    PROVIDER = "paddle"
-
-    async def parse_webhook_event(self, payload: Dict[str, Any], headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
-        """Parse Paddle webhook event.
-
-        Paddle sends JSON webhook with event_type, event_id, occurred_at,
-        and a `data` object containing the resource (subscription, transaction, etc.).
-        """
-        try:
-            event_id = payload.get("event_id", "")
-            event_type = payload.get("event_type", "")
-            occurred_at = payload.get("occurred_at", "")
-
-            data = payload.get("data", {})
-
-            # Extract common fields
-            company_id = data.get("custom_data", {}).get("company_id", "") if isinstance(data.get("custom_data"), dict) else ""
-            customer_id = data.get("customer_id", "")
-            subscription_id = data.get("id", "") if event_type.startswith("subscription.") else data.get("subscription_id", "")
-
-            # Extract amount/currency if present
-            amount = None
-            currency = None
-            if "totals" in data:
-                totals = data["totals"]
-                amount = totals.get("total")
-                currency = totals.get("currency_code")
-            elif "amount" in data:
-                amount = data.get("amount")
-                currency = data.get("currency_code", data.get("currency"))
-
-            # Map Paddle event types to normalized status
-            status_map = {
-                "subscription.created": "active",
-                "subscription.activated": "active",
-                "subscription.updated": "active",
-                "subscription.canceled": "canceled",
-                "subscription.past_due": "past_due",
-                "subscription.paused": "paused",
-                "subscription.resumed": "active",
-                "transaction.completed": "paid",
-                "transaction.paid": "paid",
-                "transaction.payment_failed": "failed",
-                "transaction.canceled": "canceled",
-            }
-            status = status_map.get(event_type, "")
-
-            return {
-                "event_id": event_id,
-                "event_type": event_type,
-                "provider": self.PROVIDER,
-                "company_id": company_id,
-                "customer_id": customer_id,
-                "subscription_id": subscription_id,
-                "amount": amount,
-                "currency": currency,
-                "status": status,
-                "occurred_at": occurred_at,
-                "raw_event": payload,
-            }
-        except Exception as exc:
-            logger.error("paddle_parse_failed error=%s", str(exc)[:200])
-            return {"_error": str(exc)[:200]}
-
-    def validate_webhook(self, payload: Dict[str, Any], headers: Dict[str, str]) -> bool:
-        """Validate Paddle webhook signature.
-
-        Paddle signs webhooks with X-Paddle-Signature header containing
-        HMAC-SHA256 of the payload with the webhook secret. The existing
-        billing_webhooks.py does proper HMAC verification — this is a
-        passthrough that delegates to the same logic.
-        """
-        try:
-            # Reuse existing Paddle HMAC verification from billing_webhooks.py
-            from app.api.billing_webhooks import _verify_paddle_signature
-            return _verify_paddle_signature(payload, headers)
-        except ImportError:
-            # Fallback: check signature header exists
-            signature = headers.get("X-Paddle-Signature", "") or headers.get("x-paddle-signature", "")
-            return bool(signature)
-        except Exception as exc:
-            logger.warning("paddle_validate_failed error=%s", str(exc)[:200])
-            return False
-
-    async def get_subscription_status(self, subscription_id: str, config: Optional[Dict] = None) -> Dict[str, Any]:
-        """Query Paddle API for subscription status."""
-        try:
-            if not config:
-                return {"success": False, "error": "No Paddle config provided"}
-
-            api_key = config.get("api_key", "")
-            environment = config.get("environment", "sandbox")
-            base_url = "https://api.paddle.com" if environment == "production" else "https://sandbox-api.paddle.com"
-
-            import httpx
-            url = f"{base_url}/subscriptions/{subscription_id}"
-            headers = {"Authorization": f"Bearer {api_key}"}
-
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.get(url, headers=headers)
-                resp_data = resp.json()
-
-            if resp.status_code == 200:
-                data = resp_data.get("data", {})
-                return {
-                    "success": True,
-                    "status": data.get("status", ""),
-                    "current_period_end": data.get("current_billing_period", {}).get("ends_at", ""),
-                    "next_billed_at": data.get("next_billed_at", ""),
-                    "provider_response": data,
-                }
-            else:
-                return {"success": False, "error": f"Paddle API error {resp.status_code}"}
-        except Exception as exc:
-            logger.error("paddle_subscription_status_failed error=%s", str(exc)[:200])
-            return {"success": False, "error": str(exc)[:200]}
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -410,7 +283,7 @@ class GenericPaymentAdapter(PaymentAdapter):
 # ═══════════════════════════════════════════════════════════════
 
 _PAYMENT_ADAPTERS: Dict[str, PaymentAdapter] = {
-    "paddle": PaddlePaymentAdapter(),
+    # NOTE: Paddle was removed — PaddlePaymentAdapter has been deleted.
     "stripe": StripePaymentAdapter(),
     "generic": GenericPaymentAdapter(),
     "paypal": GenericPaymentAdapter(),  # alias — use generic adapter
@@ -424,7 +297,7 @@ class PaymentBridge:
 
     Usage:
         result = await PaymentBridge.ingest_webhook("stripe", payload, headers)
-        result = await PaymentBridge.get_subscription_status("paddle", "sub_123", config)
+        result = await PaymentBridge.get_subscription_status("razorpay", "sub_123", config)
     """
 
     @staticmethod
@@ -441,7 +314,7 @@ class PaymentBridge:
         """Parse and validate an inbound payment webhook.
 
         Args:
-            provider: Payment provider name (paddle, stripe, generic, paypal, etc.).
+            provider: Payment provider name (razorpay, stripe, generic, paypal, etc.).
             payload: Raw webhook payload.
             headers: HTTP headers (for signature validation).
 

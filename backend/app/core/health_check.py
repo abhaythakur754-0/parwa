@@ -128,7 +128,6 @@ DEPENDENCY_GRAPH: Dict[str, List[str]] = {
     "celery_queues": ["celery"],
     "socketio": ["redis"],
     # External services have no internal dependencies
-    "external_paddle": [],
     "external_brevo": [],
     "external_twilio": [],
     "disk_space": [],
@@ -464,7 +463,7 @@ async def check_external_service(
     external health checks must be pure connectivity probes.
 
     Args:
-        name: Subsystem name (e.g., 'external_paddle').
+        name: Subsystem name.
         url: Base URL of the external service.
         degraded_timeout: Latency threshold for degraded state.
         unhealthy_timeout: Latency threshold for unhealthy state.
@@ -625,13 +624,11 @@ async def run_health_checks(
                 from app.config import get_settings
                 get_settings()  # noqa: F841 — verify config is valid
                 ext_urls = {
-                    "external_paddle": "https://vendors.paddle.com",
                     "external_brevo": "https://api.brevo.com",
                     "external_twilio": "https://api.twilio.com",
                 }
             except Exception:
                 ext_urls = {
-                    "external_paddle": "https://vendors.paddle.com",
                     "external_brevo": "https://api.brevo.com",
                     "external_twilio": "https://api.twilio.com",
                 }

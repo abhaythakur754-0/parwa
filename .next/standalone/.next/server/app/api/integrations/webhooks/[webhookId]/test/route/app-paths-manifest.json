@@ -1,3 +1,0 @@
-{
-  "/api/integrations/webhooks/[webhookId]/test/route": "app/api/integrations/webhooks/[webhookId]/test/route.js"
-}

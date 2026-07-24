@@ -177,7 +177,7 @@ export interface OtpState {
 
 export interface PaymentState {
   status: 'idle' | 'processing' | 'success' | 'failed';
-  paddle_url: string | null;
+  checkout_url: string | null;
   error: string | null;
 }
 

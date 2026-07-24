@@ -26,8 +26,6 @@ from database.models.jarvis import (
     JarvisKnowledgeUsed,
     JarvisActionTicket,
 )
-from app.services.paddle_service import get_paddle_service
-from app.clients.paddle_client import get_paddle_client
 from app.services.email_service import send_email
 from app.core.email_renderer import render_email_template
 
@@ -116,7 +114,6 @@ def _get_service(service_name: str) -> Any:
         "phone_otp": "app.services.phone_otp_service",
         "business_email_otp": "app.services.business_email_otp_service",
         "self_healing": "app.services.self_healing_service",
-        "paddle_reconciliation": "app.services.paddle_reconciliation_service",
         "client_refund": "app.services.client_refund_service",
         "cross_channel": "app.services.cross_channel_service",
         "data_freshness": "app.services.data_freshness_service",

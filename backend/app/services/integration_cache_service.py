@@ -94,7 +94,6 @@ INTEGRATION_DEFAULT_FRESHNESS: Dict[str, DataFreshness] = {
     # Payments — transaction status is realtime
     "stripe": DataFreshness.REALTIME,
     "paypal": DataFreshness.REALTIME,
-    "paddle": DataFreshness.REALTIME,
     "quickbooks": DataFreshness.SEMI_STATIC,
     # Dev tools — project info rarely changes
     "github": DataFreshness.SEMI_STATIC,

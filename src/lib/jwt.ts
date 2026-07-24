@@ -202,6 +202,10 @@ export interface VerifiedToken {
 /**
  * Verify a JWT token and return the decoded payload.
  * Supports both HS256 and RS256 tokens.
+ *
+ * IMPORTANT: Does NOT enforce issuer/audience claims so that tokens issued
+ * by the PARWA backend (which doesn't set iss/aud) are accepted. The
+ * backend is the sole token issuer — the frontend only verifies.
  * Returns null if invalid/expired.
  */
 export async function verifyToken(
@@ -209,10 +213,9 @@ export async function verifyToken(
 ): Promise<VerifiedToken | null> {
   try {
     const verificationKey = await getVerificationKey();
-    const { payload } = await jwtVerify(token, verificationKey, {
-      issuer: "parwa:frontend",
-      audience: "parwa:app",
-    });
+    // No issuer/audience check — backend tokens don't carry these claims.
+    // Signature + expiry verification is sufficient for frontend route protection.
+    const { payload } = await jwtVerify(token, verificationKey);
     return { payload: payload as unknown as VerifiedToken["payload"] };
   } catch {
     return null;

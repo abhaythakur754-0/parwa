@@ -2389,7 +2389,7 @@ async def _fetch_crm_data(tenant_id: str, customer_context: Dict) -> Dict:
                 if integration_type in ("hubspot", "salesforce", "pipedrive",
                                         "shopify", "woocommerce", "bigcommerce",
                                         "fedex", "ups", "dhl", "usps",
-                                        "stripe", "paddle", "paypal"):
+                                        "stripe", "paypal"):
                     continue
                 # This is a custom/other integration — try to fetch data
                 config = integration.get("config", {})

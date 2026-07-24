@@ -63,7 +63,7 @@ const DEFAULT_OTP_STATE: OtpState = {
 
 const DEFAULT_PAYMENT_STATE: PaymentState = {
   status: 'idle',
-  paddle_url: null,
+  checkout_url: null,
   error: null,
 };
 
@@ -593,7 +593,7 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
       const sessionId = sessionRef.current;
       if (!sessionId) return null;
 
-      setPaymentState({ status: 'processing', paddle_url: null, error: null });
+      setPaymentState({ status: 'processing', checkout_url: null, error: null });
       setError(null);
 
       try {
@@ -605,14 +605,14 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
 
         setPaymentState({
           status: 'processing',
-          paddle_url: result.checkout_url,
+          checkout_url: result.checkout_url,
           error: null,
         });
 
         return result.checkout_url;
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Payment creation failed';
-        setPaymentState({ status: 'failed', paddle_url: null, error: msg });
+        setPaymentState({ status: 'failed', checkout_url: null, error: msg });
         setError(msg);
         return null;
       }

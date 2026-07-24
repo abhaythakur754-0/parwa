@@ -4,7 +4,12 @@ PARWA Production Integration Connector
 
 Connects variant pipelines to real production services:
   - Email/SMS/Voice: Routed through ExternalToolBus (single integration layer)
-  - Paddle (Billing): Process subscriptions, handle refunds, manage payments
+  - Billing (Razorpay): Handled out-of-band via Razorpay webhooks + DB services
+
+NOTE: Paddle was removed; the PaddleBillingConnector class has been deleted.
+Refunds are now handled by Razorpay (delegated to razorpay_service). The
+ProductionConnector keeps a `self.billing = None` attribute and a no-op
+path in handle_refund_approved so existing callers don't break.
 
 This module makes PARWA variants capable of operating independently
 without Jarvis — fulfilling the product vision of eliminating human workload.
@@ -27,8 +32,8 @@ Environment Variables Required (fallback when no DB config):
   TWILIO_AUTH_TOKEN   — Twilio Auth Token
   TWILIO_API_KEY      — Twilio API Key
   TWILIO_PHONE_NUMBER — Twilio outbound phone number
-  PADDLE_API_KEY      — Paddle API key
-  PADDLE_CLIENT_TOKEN — Paddle Client-side token
+  RAZORPAY_KEY_ID     — Razorpay Key ID
+  RAZORPAY_KEY_SECRET — Razorpay Key Secret
 """
 
 from __future__ import annotations
@@ -93,251 +98,6 @@ def _tool_result_to_integration(result: ToolResult, action: str) -> IntegrationR
 
 
 # ════════════════════════════════════════════════════════════════
-# PADDLE BILLING CONNECTOR
-# ════════════════════════════════════════════════════════════════
-
-class PaddleBillingConnector:
-    """Production Paddle billing integration.
-
-    Capabilities:
-      - Process subscription signups
-      - Handle variant tier upgrades/downgrades
-      - Process prorated billing
-      - Execute refund transactions (with approval gate)
-      - Manage payment methods
-      - Handle payment failures and retries
-      - Generate invoices
-    """
-
-    BASE_URL = "https://vendors.paddle.com/api/2.0"
-
-    def __init__(
-        self,
-        api_key: Optional[str] = None,
-        client_token: Optional[str] = None,
-    ) -> None:
-        self._api_key = api_key or os.environ.get("PADDLE_API_KEY", "")
-        self._client_token = client_token or os.environ.get("PADDLE_CLIENT_TOKEN", "")
-        self._available = bool(self._api_key)
-
-    @property
-    def is_available(self) -> bool:
-        return self._available
-
-    async def process_refund(
-        self,
-        order_id: str,
-        amount: float,
-        reason: str = "requested_by_customer",
-        approved_by: str = "",
-        confidence: float = 0.0,
-    ) -> IntegrationResult:
-        """Process a refund via Paddle API.
-
-        CRITICAL: This is the "Human-Triggered API" architecture.
-        The AI only RECOMMENDS. A human must APPROVE.
-        This function is called ONLY after manager approval.
-
-        Args:
-            order_id: The Paddle order/checkout ID.
-            amount: Refund amount in original currency.
-            reason: Refund reason code.
-            approved_by: Email/ID of the human who approved.
-            confidence: AI confidence score that led to this refund.
-        """
-        start = time.monotonic()
-        if not self._available:
-            return IntegrationResult(
-                status=IntegrationStatus.UNAVAILABLE,
-                provider="paddle",
-                action="process_refund",
-                message="Paddle API key not configured",
-            )
-
-        try:
-            import httpx
-
-            # Paddle refund API
-            data = {
-                "order_id": order_id,
-                "amount": str(amount),
-                "reason": reason,
-            }
-
-            headers = {
-                "Authorization": f"Bearer {self._api_key}",
-                "Content-Type": "application/json",
-            }
-
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    f"{self.BASE_URL}/payment/refund",
-                    headers=headers,
-                    json=data,
-                )
-
-            latency = round((time.monotonic() - start) * 1000, 2)
-
-            if response.status_code == 200:
-                resp_data = response.json()
-                return IntegrationResult(
-                    status=IntegrationStatus.SUCCESS,
-                    provider="paddle",
-                    action="process_refund",
-                    external_id=resp_data.get("refund_id", ""),
-                    message="Refund processed successfully",
-                    latency_ms=latency,
-                    metadata={
-                        "order_id": order_id,
-                        "amount": amount,
-                        "approved_by": approved_by,
-                        "ai_confidence": confidence,
-                        "audit_trail": True,
-                    },
-                )
-            else:
-                return IntegrationResult(
-                    status=IntegrationStatus.FAILED,
-                    provider="paddle",
-                    action="process_refund",
-                    error=f"HTTP {response.status_code}: {response.text[:200]}",
-                    latency_ms=latency,
-                )
-
-        except Exception as e:
-            return IntegrationResult(
-                status=IntegrationStatus.FAILED,
-                provider="paddle",
-                action="process_refund",
-                error=str(e),
-            )
-
-    async def get_subscription_info(
-        self,
-        subscription_id: str,
-    ) -> IntegrationResult:
-        """Get subscription details from Paddle."""
-        start = time.monotonic()
-        if not self._available:
-            return IntegrationResult(
-                status=IntegrationStatus.UNAVAILABLE,
-                provider="paddle",
-                action="get_subscription",
-            )
-
-        try:
-            import httpx
-
-            headers = {
-                "Authorization": f"Bearer {self._api_key}",
-            }
-
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(
-                    f"{self.BASE_URL}/subscription/{subscription_id}",
-                    headers=headers,
-                )
-
-            latency = round((time.monotonic() - start) * 1000, 2)
-
-            if response.status_code == 200:
-                return IntegrationResult(
-                    status=IntegrationStatus.SUCCESS,
-                    provider="paddle",
-                    action="get_subscription",
-                    external_id=subscription_id,
-                    latency_ms=latency,
-                    metadata=response.json(),
-                )
-            else:
-                return IntegrationResult(
-                    status=IntegrationStatus.FAILED,
-                    provider="paddle",
-                    action="get_subscription",
-                    error=f"HTTP {response.status_code}",
-                    latency_ms=latency,
-                )
-
-        except Exception as e:
-            return IntegrationResult(
-                status=IntegrationStatus.FAILED,
-                provider="paddle",
-                action="get_subscription",
-                error=str(e),
-            )
-
-    async def update_subscription(
-        self,
-        subscription_id: str,
-        plan_id: str,
-        prorate: bool = True,
-    ) -> IntegrationResult:
-        """Update a subscription (upgrade/downgrade variant tier).
-
-        Args:
-            subscription_id: Paddle subscription ID.
-            plan_id: New plan ID to switch to.
-            prorate: Whether to prorate the billing.
-        """
-        start = time.monotonic()
-        if not self._available:
-            return IntegrationResult(
-                status=IntegrationStatus.UNAVAILABLE,
-                provider="paddle",
-                action="update_subscription",
-            )
-
-        try:
-            import httpx
-
-            headers = {
-                "Authorization": f"Bearer {self._api_key}",
-                "Content-Type": "application/json",
-            }
-
-            data = {
-                "plan_id": plan_id,
-                "prorate": prorate,
-            }
-
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    f"{self.BASE_URL}/subscription/{subscription_id}/update",
-                    headers=headers,
-                    json=data,
-                )
-
-            latency = round((time.monotonic() - start) * 1000, 2)
-
-            if response.status_code == 200:
-                return IntegrationResult(
-                    status=IntegrationStatus.SUCCESS,
-                    provider="paddle",
-                    action="update_subscription",
-                    external_id=subscription_id,
-                    message="Subscription updated",
-                    latency_ms=latency,
-                    metadata={"plan_id": plan_id, "prorated": prorate},
-                )
-            else:
-                return IntegrationResult(
-                    status=IntegrationStatus.FAILED,
-                    provider="paddle",
-                    action="update_subscription",
-                    error=f"HTTP {response.status_code}",
-                    latency_ms=latency,
-                )
-
-        except Exception as e:
-            return IntegrationResult(
-                status=IntegrationStatus.FAILED,
-                provider="paddle",
-                action="update_subscription",
-                error=str(e),
-            )
-
-
-# ════════════════════════════════════════════════════════════════
 # UNIFIED PRODUCTION CONNECTOR
 # ════════════════════════════════════════════════════════════════
 
@@ -346,20 +106,24 @@ class ProductionConnector:
 
     Channel communication (email, SMS, voice) is routed through
     the ExternalToolBus — the SINGLE integration layer for all
-    external tool calls. Billing goes through PaddleBillingConnector.
+    external tool calls. Billing is handled out-of-band by Razorpay
+    (Paddle was removed).
 
     Workflows:
       - When a ticket is created → Send confirmation email
       - When a refund is recommended → Send approval request to manager
-      - When a refund is approved → Execute via Paddle + Send notification
+      - When a refund is approved → Send notification (refund execution is delegated to Razorpay)
       - When a VIP needs attention → Make outbound call via Twilio
       - When an order ships → Send SMS update via Twilio
-      - When a subscription changes → Update via Paddle + Send email
+      - When a subscription changes → Handled by Razorpay webhook → DB update
     """
 
     def __init__(self, tool_bus: Optional[ExternalToolBus] = None) -> None:
         self.tool_bus = tool_bus or external_tool_bus
-        self.billing = PaddleBillingConnector()
+        # NOTE: Paddle was removed. Billing is now handled by Razorpay
+        # (out-of-band via webhooks). `self.billing` is kept as None for
+        # backward-compat with any callers that read it.
+        self.billing = None
 
     @property
     def is_available(self) -> Dict[str, bool]:
@@ -369,7 +133,7 @@ class ProductionConnector:
             "email": provider_status.get("email", {}).get("configured", False),
             "sms": provider_status.get("sms", {}).get("configured", False),
             "voice": provider_status.get("voice", {}).get("configured", False),
-            "paddle_billing": self.billing.is_available,
+            "razorpay_billing": bool(os.environ.get("RAZORPAY_KEY_ID")),
         }
 
     async def handle_ticket_created(
@@ -527,12 +291,27 @@ class ProductionConnector:
         """
         results: Dict[str, IntegrationResult] = {}
 
-        # Execute the refund via Paddle
-        results["refund_execution"] = await self.billing.process_refund(
-            order_id=order_id,
-            amount=amount,
-            approved_by=approved_by,
-            confidence=confidence,
+        # NOTE: Paddle was removed. Refund execution is delegated to Razorpay
+        # (handled out-of-band via the Razorpay service / webhooks). We log
+        # the intent and return an UNAVAILABLE result so the customer-facing
+        # notification still fires.
+        logger.warning(
+            "refund_execution_skipped reason=Paddle was removed; "
+            "delegate to razorpay_service order_id=%s amount=%s approved_by=%s",
+            order_id, amount, approved_by,
+        )
+        results["refund_execution"] = IntegrationResult(
+            status=IntegrationStatus.UNAVAILABLE,
+            provider="razorpay",
+            action="process_refund",
+            message="Paddle was removed; refund must be executed via Razorpay service",
+            metadata={
+                "order_id": order_id,
+                "amount": amount,
+                "approved_by": approved_by,
+                "ai_confidence": confidence,
+                "audit_trail": True,
+            },
         )
 
         # Notify customer

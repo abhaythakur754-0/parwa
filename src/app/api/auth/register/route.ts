@@ -1,17 +1,16 @@
 /**
  * PARWA Register API Route
  *
- * Handles user registration by:
- * 1. Forwarding registration data to the backend (primary)
- * 2. Storing the backend's JWT tokens in httpOnly cookies
- * 3. Falling back to local Prisma if backend is unreachable (dev only)
+ * Forwards registration data to the backend (sole token issuer) and stores
+ * the backend's JWT tokens in httpOnly cookies. The frontend never mints
+ * its own tokens — this was the root cause of the dual-JWT auth bug.
+ *
+ * If the backend is unreachable, returns 503 (no local fallback that
+ * would create divergent auth state).
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
-import crypto from "crypto";
-import { db } from "@/lib/db";
-import { signAccessToken, signRefreshToken, validatePasswordStrength } from "@/lib/jwt";
+import { validatePasswordStrength } from "@/lib/jwt";
 import { setAuthCookies } from "@/lib/auth-cookies";
 import { backendProxy } from "@/lib/backend-proxy";
 
@@ -45,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // ── Try backend first ──────────────────────────────────────
+    // ── Backend is the sole token issuer ──────────────────────
     try {
       const { response: backendRes } = await backendProxy("/api/auth/register", {
         method: "POST",
@@ -63,7 +62,6 @@ export async function POST(request: NextRequest) {
       if (backendRes.ok) {
         const data = await backendRes.json();
 
-        // Backend returns AuthResponse: { user, tokens, is_new_user }
         const authData = data.data || data;
         const userObj = authData.user || data.user;
         const tokensObj = authData.tokens || data.tokens;
@@ -84,7 +82,6 @@ export async function POST(request: NextRequest) {
             is_new_user: isNewUser,
           });
 
-          // Store BACKEND's tokens in cookies
           setAuthCookies(
             response,
             tokensObj.access_token,
@@ -98,17 +95,10 @@ export async function POST(request: NextRequest) {
       }
 
       // Backend returned conflict (email exists) OR validation error.
-      // The PARWA backend returns HTTP 422 (not 409) for duplicate emails,
-      // with a structured error body: {"error":{"code":"VALIDATION_ERROR","message":"Email already registered",...}}
-      // Handle both 409 and 422 with the same extraction logic.
       if (backendRes.status === 409 || backendRes.status === 422) {
         let errorData: Record<string, unknown> = {};
         try { errorData = await backendRes.json(); } catch { /* ignore */ }
 
-        // Extract message from the backend's structured error format:
-        // {"error":{"message":"..."}}  (PARWA backend)
-        // {"detail":"..."}              (FastAPI default — string, array, or object)
-        // {"message":"..."}             (simple format)
         const errorWrapper = errorData.error as Record<string, unknown> | undefined;
         const detail = errorData.detail;
         let message = "";
@@ -124,7 +114,6 @@ export async function POST(request: NextRequest) {
           message = errorData.message;
         }
 
-        // If the backend says the email is already registered, use a clear message
         if (!message || /email already|already registered|already exists/i.test(message)) {
           message = "An account with this email already exists. Please sign in instead.";
         }
@@ -135,10 +124,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // CSRF / Origin errors — do NOT fall through to local Prisma
-      // A 403 from the backend is a CSRF rejection, not a real auth error.
-      // Falling through to Prisma causes a broken "server error" because
-      // Prisma isn't configured on Vercel deployments.
+      // CSRF / Origin errors — return 503
       if (backendRes.status === 403) {
         let errorData: Record<string, unknown> = {};
         try { errorData = await backendRes.json(); } catch { /* ignore */ }
@@ -156,100 +142,16 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Other backend errors — fall through to local
-      console.warn("[register] Backend returned", backendRes.status, "— falling back to local");
-    } catch {
-      // Backend unreachable — fall through to local DB
-      console.warn("[register] Backend unreachable — falling back to local");
-    }
-
-    // ── Local Prisma fallback ──────────────────────────────────
-    try {
-      const existingUser = await db.user.findUnique({
-        where: { email: normalizedEmail },
-      });
-
-      if (existingUser) {
-        return NextResponse.json(
-          { status: "error", message: "An account with this email already exists." },
-          { status: 409 }
-        );
-      }
-
-      // Hash password
-      const salt = await bcrypt.genSalt(12);
-      const password_hash = await bcrypt.hash(password, salt);
-
-      // New users start unverified
-      const verificationToken = crypto.randomBytes(32).toString("hex");
-      const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-      const user = await db.user.create({
-        data: {
-          email: normalizedEmail,
-          password_hash,
-          full_name: fullName || null,
-          company_name: companyName || null,
-          industry: industry || null,
-          is_verified: false,
-          verification_token: verificationToken,
-          verification_token_expires: verificationTokenExpires,
-        },
-      });
-
-      // Send verification email (non-blocking)
-      try {
-        const { sendEmail } = await import("@/lib/email");
-        const verificationUrl = `/api/auth/verify-email?token=${verificationToken}`;
-        const htmlContent = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #E06A00;">Welcome to PARWA!</h2>
-            <p>Hi ${fullName || "there"},</p>
-            <p>Please verify your email address by clicking the link below:</p>
-            <p><a href="${verificationUrl}" style="display: inline-block; padding: 12px 24px; background: #E06A00; color: white; text-decoration: none; border-radius: 8px;">Verify Email</a></p>
-            <p>This link expires in 24 hours.</p>
-          </div>
-        `;
-        await sendEmail(normalizedEmail, "PARWA — Verify Your Email", htmlContent);
-      } catch (emailError) {
-        console.error("Failed to send verification email:", emailError);
-      }
-
-      // Sign our own JWT tokens (local fallback only)
-      // NOTE: company_id must be a UUID-like string for the backend's
-      // TenantMiddleware. Use user.id as company_id (1:1 company per user).
-      const jwtPayload = {
-        sub: user.id,
-        email: user.email,
-        role: "member",
-        company_id: user.id,
-        is_verified: user.emailVerified,
-      };
-
-      const accessToken = await signAccessToken(jwtPayload);
-      const refreshToken = await signRefreshToken(jwtPayload);
-
-      const userData = {
-        id: user.id,
-        email: user.email,
-        fullName: user.name,
-        isVerified: user.emailVerified,
-      };
-
-      const response = NextResponse.json({
-        status: "success",
-        message: "Account created successfully! Please check your email to verify your account.",
-        user: userData,
-      });
-
-      setAuthCookies(response, accessToken, refreshToken, userData);
-
-      return response;
-    } catch (dbError) {
-      // Prisma/DB not available (e.g., on Vercel without DATABASE_URL)
-      console.error("[register] Local DB fallback failed:", dbError);
+      // Other backend errors — no local fallback
+      console.error("[register] Backend returned", backendRes.status);
       return NextResponse.json(
-        { status: "error", message: "The server is starting up — please wait a moment and try again." },
+        { status: "error", message: "Registration service unavailable. Please try again." },
+        { status: 503 }
+      );
+    } catch {
+      console.error("[register] Backend unreachable");
+      return NextResponse.json(
+        { status: "error", message: "Registration service unavailable. Please try again." },
         { status: 503 }
       );
     }

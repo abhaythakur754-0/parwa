@@ -3,8 +3,8 @@ PARWA Billing Tasks (Day 22, Day 23, BC-004, BC-002)
 
 Celery tasks for billing operations:
 - daily_overage_charge_task: Charge for usage over plan limits (F-024)
-- invoice_sync_task: Sync invoices from Paddle (F-023)
-- subscription_check_task: Check subscription status
+- invoice_sync_task: Invoice sync (Paddle was removed — now a no-op)
+- subscription_check_task: Check subscription status (Paddle was removed — now a no-op)
 - process_all_overages_task: Batch process overages for all companies
 - send_usage_warning_task: Send warning when approaching limit
 - send_renewal_reminder_task: Send renewal reminder X days before auto-charge
@@ -51,7 +51,7 @@ def daily_overage_charge(self, company_id: str) -> dict:
     2. Calculates yesterday's ticket usage
     3. Determines overage (tickets over limit)
     4. Creates overage charge at $0.10/ticket
-    5. Submits charge to Paddle
+    5. Records the overage charge in the DB (Paddle was removed)
     6. Sends email + Socket.io notification
 
     Args:
@@ -208,14 +208,13 @@ def process_all_overages(self, target_date: str = None) -> dict:
 @with_company_id
 def invoice_sync(self, company_id: str) -> dict:
     """
-    Sync invoices from Paddle billing provider.
+    Sync invoices from billing provider.
 
     F-023: Invoice History
 
-    This task:
-    1. Fetches recent invoices from Paddle API
-    2. Creates/updates local invoice records
-    3. Stores PDF URLs for download
+    NOTE: Paddle was removed; invoices are now generated DB-side by
+    invoice_service. This task is kept as a no-op so the existing Celery
+    Beat schedule / scheduler registrations don't break.
 
     Args:
         company_id: Company UUID string
@@ -223,104 +222,21 @@ def invoice_sync(self, company_id: str) -> dict:
     Returns:
         Dict with sync status and invoice count
     """
-    try:
-        from app.clients.paddle_client import get_paddle_client
-        from database.models.billing import Invoice
-        import asyncio
-
-        with SessionLocal() as db:
-            company = db.query(Company).filter(
-                Company.id == company_id
-            ).first()
-
-            if not company or not company.paddle_customer_id:
-                return {
-                    "status": "skipped",
-                    "company_id": company_id,
-                    "reason": "no_paddle_customer",
-                    "invoices_synced": 0,
-                    "new_invoices": 0,
-                }
-
-            # Fetch invoices from Paddle
-            paddle = get_paddle_client()
-
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                invoices = loop.run_until_complete(
-                    paddle.list_invoices(customer_id=company.paddle_customer_id)
-                )
-            finally:
-                loop.close()
-
-            invoices_synced = 0
-            new_invoices = 0
-
-            for inv_data in invoices.get("data", []):
-                paddle_invoice_id = inv_data.get("id")
-                if not paddle_invoice_id:
-                    continue
-
-                # Check if invoice exists
-                existing = db.query(Invoice).filter(
-                    Invoice.paddle_invoice_id == paddle_invoice_id,
-                ).first()
-
-                if existing:
-                    # Update existing
-                    existing.status = inv_data.get("status", existing.status)
-                    existing.amount = Decimal(str(inv_data.get("total", 0)))
-                    if inv_data.get("paid_at"):
-                        existing.paid_at = datetime.fromisoformat(
-                            inv_data["paid_at"].replace("Z", "+00:00")
-                        )
-                else:
-                    # Create new
-                    invoice = Invoice(
-                        company_id=company_id,
-                        paddle_invoice_id=paddle_invoice_id,
-                        amount=Decimal(str(inv_data.get("total", 0))),
-                        currency=inv_data.get("currency", "USD"),
-                        status=inv_data.get("status", "draft"),
-                        invoice_date=datetime.fromisoformat(
-                            inv_data.get("created_at", datetime.now(timezone.utc).isoformat()).replace("Z", "+00:00")
-                        ) if inv_data.get("created_at") else None,
-                    )
-                    db.add(invoice)
-                    new_invoices += 1
-
-                invoices_synced += 1
-
-            db.commit()
-
-        logger.info(
-            "invoice_sync_success",
-            extra={
-                "task": self.name,
-                "company_id": company_id,
-                "invoices_synced": invoices_synced,
-                "new_invoices": new_invoices,
-            },
-        )
-
-        return {
-            "status": "synced",
+    logger.info(
+        "invoice_sync_skipped",
+        extra={
+            "task": self.name,
             "company_id": company_id,
-            "invoices_synced": invoices_synced,
-            "new_invoices": new_invoices,
-        }
-
-    except Exception as exc:
-        logger.error(
-            "invoice_sync_failed",
-            extra={
-                "task": self.name,
-                "company_id": company_id,
-                "error": str(exc)[:200],
-            },
-        )
-        raise
+            "reason": "Paddle was removed; invoices are DB-managed",
+        },
+    )
+    return {
+        "status": "skipped",
+        "company_id": company_id,
+        "reason": "Paddle was removed; invoices are DB-managed",
+        "invoices_synced": 0,
+        "new_invoices": 0,
+    }
 
 
 @app.task(
@@ -338,8 +254,10 @@ def subscription_check(self, company_id: str) -> dict:
     """
     Check subscription status and plan limits.
 
-    This task verifies the subscription is still active in Paddle
-    and updates local status if needed.
+    NOTE: Paddle was removed; subscription status is now sourced directly
+    from the local DB (managed by subscription_service / Razorpay webhooks).
+    This task is kept as a no-op so the existing Celery Beat schedule /
+    scheduler registrations don't break.
 
     Args:
         company_id: Company UUID string
@@ -348,58 +266,39 @@ def subscription_check(self, company_id: str) -> dict:
         Dict with subscription status
     """
     try:
-        from app.clients.paddle_client import get_paddle_client
-        import asyncio
-
         with SessionLocal() as db:
             subscription = db.query(Subscription).filter(
                 Subscription.company_id == company_id,
             ).order_by(Subscription.created_at.desc()).first()
 
             if not subscription:
-                return {
+                result = {
                     "status": "not_found",
                     "company_id": company_id,
                     "plan": None,
                     "valid_until": None,
                 }
-
-            # Check with Paddle if we have subscription ID
-            if subscription.paddle_subscription_id:
-                paddle = get_paddle_client()
-
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    paddle_sub = loop.run_until_complete(
-                        paddle.get_subscription(subscription.paddle_subscription_id)
-                    )
-                finally:
-                    loop.close()
-
-                paddle_status = paddle_sub.get("data", {}).get("status")
-
-                # Update local status if different
-                if paddle_status and paddle_status != subscription.status:
-                    subscription.status = paddle_status
-                    db.commit()
+            else:
+                result = {
+                    "status": subscription.status,
+                    "company_id": company_id,
+                    "plan": subscription.tier,
+                    "valid_until": subscription.current_period_end.isoformat()
+                    if subscription.current_period_end
+                    else None,
+                }
 
         logger.info(
             "subscription_check_success",
             extra={
                 "task": self.name,
                 "company_id": company_id,
-                "plan": subscription.tier if subscription else None,
-                "status": subscription.status if subscription else None,
+                "plan": result.get("plan"),
+                "status": result.get("status"),
+                "source": "db_only",
             },
         )
-
-        return {
-            "status": subscription.status if subscription else "none",
-            "company_id": company_id,
-            "plan": subscription.tier if subscription else "free",
-            "valid_until": subscription.current_period_end.isoformat() if subscription and subscription.current_period_end else None,
-        }
+        return result
 
     except Exception as exc:
         logger.error(
@@ -597,9 +496,10 @@ def send_renewal_reminder(
     """
     Send a renewal reminder for a company's upcoming auto-charge.
 
-    Paddle auto-charges the saved payment method on `current_period_end`.
-    This task runs X days before that date to notify the subscriber
-    ("Your subscription renews on YYYY-MM-DD, $XXX will be charged").
+    The billing provider auto-charges the saved payment method on
+    `current_period_end` (Razorpay; Paddle was removed). This task runs
+    X days before that date to notify the subscriber ("Your subscription
+    renews on YYYY-MM-DD, $XXX will be charged").
 
     Args:
         company_id: Company UUID string
@@ -800,8 +700,8 @@ def subscription_check_all(self) -> dict:
     Batch dispatch subscription status syncs for all companies.
 
     Called by Celery Beat daily. For each company with a subscription,
-    dispatches a subscription_check task that syncs local status with
-    Paddle (catches past_due, canceled, etc.).
+    dispatches a subscription_check task that reads local DB status
+    (Paddle was removed; status is managed by Razorpay webhooks).
 
     Returns:
         Dict with batch summary

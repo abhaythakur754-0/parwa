@@ -76,12 +76,6 @@ PROVIDER_KEY_PATTERNS: Dict[str, Dict[str, Any]] = {
         "category": ProviderCategory.SMS,
     },
     # ── Payment ──────────────────────────────────────────────────────────
-    "paddle": {
-        "prefix": ["pdl_"],
-        "length": None,
-        "regex": r"^pdl_[a-zA-Z0-9_]+$",
-        "category": ProviderCategory.PAYMENT,
-    },
     "stripe": {
         "prefix": ["sk_live_", "sk_test_"],
         "length": None,

@@ -1,9 +1,9 @@
 /**
  * PARWA PaymentCard (Week 6 — Day 4 Phase 6)
  *
- * Shows $1 demo pack OR variant payment with Paddle checkout button.
+ * Shows $1 demo pack OR variant payment with Razorpay checkout button.
  * Metadata: { type: 'demo_pack' | 'variant', amount: number, currency: string,
- *             paddle_url?: string, checkout_url?: string }
+ *             checkout_url?: string }
  */
 
 'use client';
@@ -30,7 +30,7 @@ export function PaymentCard({
   const type = (metadata.type as string) || 'demo_pack';
   const amount = (metadata.amount as number) || 1;
   const currency = (metadata.currency as string) || 'USD';
-  const paddleUrl = (metadata.paddle_url || metadata.checkout_url) as string | null;
+  const checkoutUrl = metadata.checkout_url as string | null;
 
   const isDemoPack = type === 'demo_pack';
   const title = isDemoPack ? 'Demo Pack' : 'Payment';
@@ -44,9 +44,9 @@ export function PaymentCard({
     setError(null);
 
     try {
-      if (paddleUrl) {
-        const opened = window.open(paddleUrl, '_blank', 'noopener,noreferrer');
-        if (!opened) window.location.href = paddleUrl;
+      if (checkoutUrl) {
+        const opened = window.open(checkoutUrl, '_blank', 'noopener,noreferrer');
+        if (!opened) window.location.href = checkoutUrl;
       } else if (isDemoPack && onPurchaseDemoPack) {
         await onPurchaseDemoPack();
       } else if (!isDemoPack && onCreatePayment) {
@@ -90,7 +90,7 @@ export function PaymentCard({
           </>
         ) : (
           <>
-            <FeatureItem text="Secure checkout via Paddle" />
+            <FeatureItem text="Secure checkout via Razorpay" />
             <FeatureItem text="Instant activation" />
             <FeatureItem text="Cancel anytime" />
           </>
@@ -130,7 +130,7 @@ export function PaymentCard({
       {/* Secure badge */}
       <p className="text-[10px] text-white/25 text-center mt-2 flex items-center justify-center gap-1">
         <ShieldCheck className="w-3 h-3" />
-        Secured by Paddle · SSL encrypted
+        Secured by Razorpay · SSL encrypted
         {isDemoPack && (
           <span className="ml-1 text-white/20">· 24-hour validity</span>
         )}

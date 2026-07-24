@@ -133,7 +133,7 @@ export async function verifyOtp(
   });
 }
 
-/** Create Paddle checkout session */
+/** Create Razorpay checkout session */
 export async function createPayment(
   sessionId: string,
   planId: string,

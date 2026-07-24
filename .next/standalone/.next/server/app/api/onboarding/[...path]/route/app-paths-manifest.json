@@ -1,3 +1,0 @@
-{
-  "/api/onboarding/[...path]/route": "app/api/onboarding/[...path]/route.js"
-}

@@ -1,16 +1,15 @@
 /**
  * PARWA Login API Route
  *
- * Handles email/password login by:
- * 1. Forwarding credentials to the backend (primary)
- * 2. Storing the backend's JWT tokens in httpOnly cookies
- * 3. Falling back to local Prisma if backend is unreachable (dev only)
+ * Forwards credentials to the backend (sole token issuer) and stores the
+ * backend's JWT tokens in httpOnly cookies. The frontend never mints its
+ * own tokens — this was the root cause of the dual-JWT auth bug.
+ *
+ * If the backend is unreachable, returns 503 (no local fallback that
+ * would create divergent auth state).
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
-import { db } from "@/lib/db";
-import { signAccessToken, signRefreshToken } from "@/lib/jwt";
 import { setAuthCookies } from "@/lib/auth-cookies";
 import { backendProxy } from "@/lib/backend-proxy";
 
@@ -35,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // ── Try backend first ──────────────────────────────────────
+    // ── Backend is the sole token issuer ──────────────────────
     try {
       const { response: backendRes } = await backendProxy("/api/auth/login", {
         method: "POST",
@@ -75,7 +74,6 @@ export async function POST(request: NextRequest) {
       }
 
       // Backend returned 403 — could be CSRF/origin error or forbidden
-      // Do NOT fall through to local Prisma — return a clear error instead
       if (backendRes.status === 403) {
         let errorData: Record<string, unknown> = {};
         try { errorData = await backendRes.json(); } catch { /* ignore */ }
@@ -86,7 +84,6 @@ export async function POST(request: NextRequest) {
             ? String((detail as Record<string, unknown>).message)
             : (typeof detail === "string" ? detail : null)
             || (typeof errorMsg === "string" ? errorMsg : null);
-        // If it's a CSRF/origin error, return 503 (service unavailable) not 403
         const isCSRF = rawMessage?.toLowerCase().includes('csrf') ||
           rawMessage?.toLowerCase().includes('invalid origin');
         if (isCSRF) {
@@ -105,8 +102,6 @@ export async function POST(request: NextRequest) {
       if (backendRes.status === 401) {
         let errorData: Record<string, unknown> = {};
         try { errorData = await backendRes.json(); } catch { /* ignore */ }
-        // Extract from PARWA backend's structured format {"error":{"message":"..."}}
-        // or FastAPI's {"detail":"..."} or simple {"message":"..."}
         const errorWrapper = errorData.error as Record<string, unknown> | undefined;
         const detail = errorData.detail;
         const message =
@@ -122,88 +117,17 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Other backend errors — fall through to local
-      console.warn("[login] Backend returned", backendRes.status, "— falling back to local");
-    } catch {
-      // Backend unreachable — fall through to local DB
-      console.warn("[login] Backend unreachable — falling back to local");
-    }
-
-    // ── Local Prisma fallback ──────────────────────────────────
-    try {
-      const user = await db.user.findUnique({
-        where: { email: normalizedEmail },
-      });
-
-      if (!user) {
-        return NextResponse.json(
-          { status: "error", message: "Invalid email or password." },
-          { status: 401 }
-        );
-      }
-
-      if (!user.passwordHash) {
-        return NextResponse.json(
-          { status: "error", message: "Invalid email or password." },
-          { status: 401 }
-        );
-      }
-
-      const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-      if (!isPasswordValid) {
-        return NextResponse.json(
-          { status: "error", message: "Invalid email or password." },
-          { status: 401 }
-        );
-      }
-
-      if (!user.emailVerified) {
-        return NextResponse.json(
-          {
-            status: "error",
-            message: "Please verify your email address before logging in.",
-          },
-          { status: 403 }
-        );
-      }
-
-      // Sign our own JWT tokens (local fallback only)
-      // NOTE: company_id must be a UUID-like string for the backend's
-      // TenantMiddleware. The Prisma User model doesn't have a company_id
-      // column, so we derive one deterministically from the user's email
-      // to ensure consistency across login sessions.
-      const jwtPayload = {
-        sub: user.id,
-        email: user.email,
-        role: "member",
-        company_id: user.id, // Use user.id as company_id (1:1 company per user)
-        is_verified: user.emailVerified,
-      };
-
-      const accessToken = await signAccessToken(jwtPayload);
-      const refreshToken = await signRefreshToken(jwtPayload);
-
-      const userData = {
-        id: user.id,
-        email: user.email,
-        fullName: user.name,
-        isVerified: user.emailVerified,
-      };
-
-      const response = NextResponse.json({
-        status: "success",
-        message: "Login successful.",
-        user: userData,
-      });
-
-      setAuthCookies(response, accessToken, refreshToken, userData);
-
-      return response;
-    } catch (dbError) {
-      // Prisma/DB not available (e.g., on Vercel without DATABASE_URL)
-      console.error("[login] Local DB fallback failed:", dbError);
+      // Other backend errors — no local fallback (backend is sole issuer)
+      console.error("[login] Backend returned", backendRes.status);
       return NextResponse.json(
-        { status: "error", message: "The server is starting up — please wait a moment and try again." },
+        { status: "error", message: "Login service unavailable. Please try again." },
+        { status: 503 }
+      );
+    } catch {
+      // Backend unreachable — no local fallback (would create divergent auth)
+      console.error("[login] Backend unreachable");
+      return NextResponse.json(
+        { status: "error", message: "Login service unavailable. Please try again." },
         { status: 503 }
       );
     }

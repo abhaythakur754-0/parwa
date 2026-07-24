@@ -35,11 +35,6 @@ from app.schemas.billing import (
     VariantType,
     VARIANT_LIMITS,
 )
-from app.clients.paddle_client import (
-    PaddleClient,
-    PaddleError,
-    get_paddle_client,
-)
 from database.base import SessionLocal
 from database.models.billing import Subscription, OverageCharge
 from database.models.billing_extended import UsageRecord, get_variant_limits
@@ -76,14 +71,9 @@ class OverageService:
         usage = await service.get_usage_info(company_id)
     """
 
-    def __init__(self, paddle_client: Optional[PaddleClient] = None):
-        self._paddle_client = paddle_client
-
-    async def _get_paddle(self) -> PaddleClient:
-        """Get Paddle client (lazy initialization)."""
-        if self._paddle_client is None:
-            self._paddle_client = get_paddle_client()
-        return self._paddle_client
+    def __init__(self, *args, **kwargs):
+        # No provider client anymore (Paddle removed; Razorpay handles billing).
+        pass
 
     async def process_daily_overage(
         self,
@@ -290,120 +280,50 @@ class OverageService:
                 "minimum_charge": str(MINIMUM_OVERAGE_CHARGE),
             }
 
-        # ── Step 3: Submit charge to Paddle (async, non-DB) ──
-        try:
-            paddle = await self._get_paddle()
-            charge_result = await self._submit_paddle_charge(
-                paddle=paddle,
-                company=company,
-                subscription=subscription,
-                overage_charge=overage_charge,
-            )
+        # ── Step 3: Record overage charge (no provider call) ──
+        # Paddle was removed. Overage charges are now recorded in the DB
+        # with status="recorded" and added to the company's next Razorpay
+        # invoice cycle. A real-money charge can be submitted later via
+        # Razorpay's one-time payment API if needed.
+        def _db_mark_recorded():
+            with SessionLocal() as db:
+                oc = db.query(OverageCharge).filter(
+                    OverageCharge.id == overage_charge.id
+                ).first()
+                if oc:
+                    oc.status = "recorded"
+                    db.commit()
 
-            def _db_mark_charged():
-                with SessionLocal() as db:
-                    oc = db.query(OverageCharge).filter(
-                        OverageCharge.id == overage_charge.id
-                    ).first()
-                    if oc:
-                        oc.status = "charged"
-                        oc.paddle_charge_id = charge_result.get("charge_id")
-                        db.commit()
+        await asyncio.to_thread(_db_mark_recorded)
 
-            await asyncio.to_thread(_db_mark_charged)
+        logger.info(
+            "overage_recorded company_id=%s amount=%s charge_id=%s",
+            company_id,
+            overage_result["overage_charges"],
+            overage_charge.id,
+        )
 
-            logger.info(
-                "overage_charged company_id=%s amount=%s paddle_id=%s",
-                company_id,
-                overage_result["overage_charges"],
-                charge_result.get("charge_id"),
-            )
-
-            # Send notifications (async, non-DB)
-            await self._send_notifications(
-                company=company,
-                overage_charge=overage_charge,
-                usage_info={
-                    "tickets_used": total_tickets,
-                    "ticket_limit": ticket_limit,
-                    "overage_tickets": overage_result["overage_tickets"],
-                    "overage_charges": overage_result["overage_charges"],
-                },
-            )
-
-            return {
-                "status": "charged",
-                "company_id": str(company_id),
-                "date": target_date.isoformat(),
+        # Send notifications (async, non-DB)
+        await self._send_notifications(
+            company=company,
+            overage_charge=overage_charge,
+            usage_info={
+                "tickets_used": total_tickets,
+                "ticket_limit": ticket_limit,
                 "overage_tickets": overage_result["overage_tickets"],
-                "overage_charges": str(overage_result["overage_charges"]),
-                "paddle_charge_id": charge_result.get("charge_id"),
-                "overage_charge_id": overage_charge.id,
-            }
+                "overage_charges": overage_result["overage_charges"],
+            },
+        )
 
-        except AttributeError as e:
-            # PaddleClient.create_transaction() does not exist yet
-            # (being added separately). Mark as pending_provider so it can
-            # be retried later when the method is available.
-            logger.warning(
-                "overage_paddle_method_missing company_id=%s error=%s",
-                company_id,
-                str(e),
-            )
-
-            def _db_mark_pending_provider():
-                with SessionLocal() as db:
-                    oc = db.query(OverageCharge).filter(
-                        OverageCharge.id == overage_charge.id
-                    ).first()
-                    if oc:
-                        oc.status = "pending_provider"
-                        oc.retry_count = (oc.retry_count or 0) + 1
-                        oc.last_retry_at = datetime.now(timezone.utc)
-                        db.commit()
-
-            await asyncio.to_thread(_db_mark_pending_provider)
-
-            return {
-                "status": "pending_provider",
-                "company_id": str(company_id),
-                "date": target_date.isoformat(),
-                "overage_tickets": overage_result["overage_tickets"],
-                "overage_charges": str(overage_result["overage_charges"]),
-                "error": str(e),
-                "message": "Paddle create_transaction not available yet; charge queued for retry",
-            }
-
-        except PaddleError as e:
-            logger.error(
-                "overage_paddle_failed company_id=%s error=%s",
-                company_id,
-                str(e),
-            )
-
-            def _db_mark_retry_pending():
-                with SessionLocal() as db:
-                    oc = db.query(OverageCharge).filter(
-                        OverageCharge.id == overage_charge.id
-                    ).first()
-                    if oc:
-                        oc.status = "retry_pending"
-                        oc.retry_count = (oc.retry_count or 0) + 1
-                        oc.last_retry_at = datetime.now(timezone.utc)
-                        db.commit()
-                        return oc.retry_count
-
-            retry_count = await asyncio.to_thread(_db_mark_retry_pending)
-
-            return {
-                "status": "retry_pending",
-                "company_id": str(company_id),
-                "date": target_date.isoformat(),
-                "overage_tickets": overage_result["overage_tickets"],
-                "overage_charges": str(overage_result["overage_charges"]),
-                "error": str(e),
-                "retry_count": retry_count,
-            }
+        return {
+            "status": "recorded",
+            "company_id": str(company_id),
+            "date": target_date.isoformat(),
+            "overage_tickets": overage_result["overage_tickets"],
+            "overage_charges": str(overage_result["overage_charges"]),
+            "overage_charge_id": overage_charge.id,
+            "message": "Overage recorded; will be added to next billing cycle.",
+        }
 
     def _calculate_overage(
         self,
@@ -437,55 +357,6 @@ class OverageService:
             "tickets_used": tickets_used,
             "ticket_limit": ticket_limit,
         }
-
-    async def _submit_paddle_charge(
-        self,
-        paddle: PaddleClient,
-        company: Company,
-        subscription: Subscription,
-        overage_charge: OverageCharge,
-    ) -> Dict[str, Any]:
-        """
-        Submit overage charge to Paddle.
-
-        Uses Paddle's transaction API to create a one-time charge.
-
-        Args:
-            paddle: Paddle client
-            company: Company model
-            subscription: Subscription model
-            overage_charge: OverageCharge model
-
-        Returns:
-            Dict with charge_id and status
-        """
-        try:
-            # Create one-time charge in Paddle
-            result = await paddle.create_transaction(
-                customer_id=company.paddle_customer_id,
-                items=[{
-                    "price_id": "pri_overage",  # Overage price ID in Paddle
-                    "quantity": overage_charge.tickets_over_limit,
-                }],
-                custom_data={
-                    "company_id": str(company.id),
-                    "charge_type": "overage",
-                    "overage_date": overage_charge.date.isoformat(),
-                },
-            )
-
-            return {
-                "charge_id": result.get("data", {}).get("id"),
-                "status": "submitted",
-            }
-
-        except Exception as e:
-            logger.error(
-                "paddle_charge_failed company_id=%s error=%s",
-                company.id,
-                str(e),
-            )
-            raise
 
     async def _send_notifications(
         self,

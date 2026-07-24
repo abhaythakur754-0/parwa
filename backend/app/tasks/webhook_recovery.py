@@ -8,10 +8,11 @@ These tasks ensure no webhook events are lost due to:
 - Transient errors
 
 Tasks:
-- recover_missed_webhooks: Periodic check for missed Paddle events
+- recover_missed_webhooks: No-op (Paddle was removed; Razorpay webhooks are now handled inline)
 - process_stuck_webhooks: Retry events stuck in pending/processing
 - cleanup_idempotency_keys: Remove expired idempotency keys
 - cleanup_webhook_sequences: Remove old processed sequences
+- process_pending_events: No-op (Paddle was removed)
 """
 
 import logging
@@ -31,202 +32,48 @@ logger = logging.getLogger("parwa.webhook_recovery")
 )
 def recover_missed_webhooks(self):
     """
-    Periodic task to recover missed Paddle webhooks.
+    Periodic task to recover missed webhooks.
 
-    Runs every hour. For each active subscription:
-    1. Call Paddle API to get recent events
-    2. Compare with webhook_sequences table
-    3. Process any missing events
-
-    This ensures no events are lost due to downtime or network issues.
+    NOTE: Paddle was removed; Razorpay webhooks are now handled inline
+    by the Razorpay webhook handler. There is no external event-list API
+    to poll, so this task is a no-op kept for scheduler compatibility.
     """
-    logger.info("webhook_recovery_started")
-
-    recovered_count = 0
-    error_count = 0
-
-    try:
-        # Get all companies with active subscriptions
-        from database.base import SessionLocal
-        from database.models.core import Company
-
-        db = SessionLocal()
-        try:
-            companies = db.query(Company).filter(
-                Company.subscription_status.in_(["active", "past_due", "paused"]),
-                Company.paddle_subscription_id.isnot(None),
-            ).all()
-
-            logger.info(
-                "webhook_recovery_companies_found count=%d",
-                len(companies),
-            )
-
-            for company in companies:
-                try:
-                    recovered = _recover_company_webhooks(
-                        company.id,
-                        company.paddle_subscription_id,
-                    )
-                    recovered_count += recovered
-
-                except Exception as e:
-                    error_count += 1
-                    logger.error(
-                        "webhook_recovery_company_failed company_id=%s error=%s",
-                        company.id, str(e),
-                    )
-
-        finally:
-            db.close()
-
-        logger.info(
-            "webhook_recovery_completed recovered=%d errors=%d",
-            recovered_count, error_count,
-        )
-
-        return {
-            "recovered": recovered_count,
-            "errors": error_count,
-        }
-
-    except Exception as e:
-        logger.error("webhook_recovery_failed error=%s", str(e))
-        raise
+    logger.info(
+        "webhook_recovery_skipped reason=Paddle was removed"
+    )
+    return {
+        "status": "skipped",
+        "reason": "Paddle was removed",
+        "recovered": 0,
+        "errors": 0,
+    }
 
 
 def _recover_company_webhooks(company_id: str, subscription_id: str) -> int:
     """
     Recover missed webhooks for a specific company.
 
-    Returns count of recovered events.
+    NOTE: Paddle was removed; this is now a no-op. Returns 0.
     """
-    from app.services.webhook_ordering_service import (
-        get_or_create_webhook_sequence,
-        get_pending_events_ordered,
-        mark_sequence_processing,
-        mark_sequence_processed,
-        mark_sequence_failed,
+    logger.info(
+        "webhook_recovery_company_skipped company_id=%s reason=Paddle was removed",
+        company_id,
     )
-    from app.clients.paddle_client import get_paddle_client
-    from database.base import SessionLocal
-    from database.models.billing_extended import WebhookSequence
-
-    db = SessionLocal()
-    recovered = 0
-
-    try:
-        # Get recent events from Paddle
-        paddle = get_paddle_client()
-
-        try:
-            # Try to fetch events from Paddle API
-            # Note: This requires the Paddle client to have event listing capability
-            events = paddle.list_subscription_events(subscription_id)
-        except Exception as e:
-            logger.warning(
-                "webhook_recovery_paddle_error company_id=%s error=%s",
-                company_id, str(e),
-            )
-            # Fall back to processing stuck events
-            events = []
-
-        # Check which events we're missing
-        for event in events:
-            event_id = event.get("event_id") or event.get("id")
-
-            if not event_id:
-                continue
-
-            # Check if we have this event
-            existing = db.query(WebhookSequence).filter(
-                WebhookSequence.paddle_event_id == event_id,
-            ).first()
-
-            if not existing:
-                # We missed this event - process it
-                logger.info(
-                    "webhook_recovery_missing_event event_id=%s company_id=%s",
-                    event_id, company_id,
-                )
-
-                # Create sequence record and process
-                _process_recovered_event(company_id, event)
-                recovered += 1
-
-    except Exception as e:
-        logger.error(
-            "webhook_recovery_company_error company_id=%s error=%s",
-            company_id, str(e),
-        )
-    finally:
-        db.close()
-
-    return recovered
+    return 0
 
 
 def _process_recovered_event(company_id: str, event: dict) -> None:
-    """Process a recovered webhook event."""
-    from app.services.webhook_ordering_service import (
-        get_or_create_webhook_sequence,
-        mark_sequence_processing,
-        mark_sequence_processed,
-        mark_sequence_failed,
+    """
+    Process a recovered webhook event.
+
+    NOTE: Paddle was removed; this is now a no-op (the paddle_handler has
+    been deleted). Kept for backward-compat external callers.
+    """
+    logger.info(
+        "webhook_recovery_event_skipped company_id=%s reason=Paddle was removed",
+        company_id,
     )
-    from app.webhooks.paddle_handler import handle_paddle_event
-
-    event_id = event.get("event_id") or event.get("id")
-    event_type = event.get("event_type")
-    occurred_at_str = event.get("occurred_at")
-
-    # Parse occurred_at
-    try:
-        occurred_at = datetime.fromisoformat(occurred_at_str.replace("Z", "+00:00"))
-    except (ValueError, AttributeError):
-        occurred_at = datetime.now(timezone.utc)
-
-    # Create sequence record
-    sequence = get_or_create_webhook_sequence(
-        paddle_event_id=event_id,
-        event_type=event_type,
-        occurred_at=occurred_at,
-        company_id=company_id,
-    )
-
-    if sequence.status == "processed":
-        return  # Already done
-
-    # Mark as processing
-    mark_sequence_processing(sequence.id)
-
-    try:
-        # Format event for handler
-        formatted_event = {
-            "event_id": event_id,
-            "event_type": event_type,
-            "company_id": company_id,
-            "payload": event,
-            "occurred_at": occurred_at,
-        }
-
-        # Process via handler
-        result = handle_paddle_event(formatted_event)
-
-        if result.get("status") == "processed":
-            mark_sequence_processed(sequence.id)
-            logger.info(
-                "webhook_recovery_processed event_id=%s company_id=%s",
-                event_id, company_id,
-            )
-        else:
-            mark_sequence_failed(sequence.id, result.get("error", "Unknown error"))
-
-    except Exception as e:
-        mark_sequence_failed(sequence.id, str(e))
-        logger.error(
-            "webhook_recovery_process_failed event_id=%s error=%s",
-            event_id, str(e),
-        )
+    return None
 
 
 @app.task(
@@ -338,58 +185,19 @@ def process_pending_events(self, company_id: str):
     """
     Process all pending webhook events for a company.
 
-    This ensures events are processed in the correct order.
+    NOTE: Paddle was removed; the paddle_handler has been deleted. This
+    task is a no-op kept for scheduler compatibility. Razorpay webhook
+    events are processed inline by the Razorpay webhook handler.
 
     Args:
         company_id: The company ID to process events for
     """
-    logger.info("pending_events_processing_started company_id=%s", company_id)
-
-    from app.services.webhook_ordering_service import (
-        get_pending_events_ordered,
-        mark_sequence_processing,
-        mark_sequence_processed,
-        mark_sequence_failed,
-        get_next_processing_order,
-    )
-    from app.webhooks.paddle_handler import handle_paddle_event
-
-    events = get_pending_events_ordered(company_id)
-    processed_count = 0
-
-    for sequence in events:
-        try:
-            # Mark as processing
-            mark_sequence_processing(sequence.id)
-
-            # Parse event data
-            event_data = {
-                "event_id": sequence.paddle_event_id,
-                "event_type": sequence.event_type,
-                "company_id": company_id,
-                "occurred_at": sequence.occurred_at,
-            }
-
-            # Process
-            result = handle_paddle_event(event_data)
-
-            if result.get("status") == "processed":
-                order = get_next_processing_order(company_id)
-                mark_sequence_processed(sequence.id, order)
-                processed_count += 1
-            else:
-                mark_sequence_failed(sequence.id, result.get("error", "Unknown error"))
-
-        except Exception as e:
-            mark_sequence_failed(sequence.id, str(e))
-            logger.error(
-                "pending_event_process_failed sequence_id=%s error=%s",
-                sequence.id, str(e),
-            )
-
     logger.info(
-        "pending_events_processing_completed company_id=%s processed=%d",
-        company_id, processed_count,
+        "pending_events_processing_skipped company_id=%s reason=Paddle was removed",
+        company_id,
     )
-
-    return {"processed": processed_count}
+    return {
+        "status": "skipped",
+        "reason": "Paddle was removed",
+        "processed": 0,
+    }

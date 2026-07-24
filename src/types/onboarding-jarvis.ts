@@ -74,7 +74,7 @@ export interface OtpState {
 
 export interface PaymentState {
   status: 'idle' | 'processing' | 'success' | 'failed';
-  paddle_url: string | null;
+  checkout_url: string | null;
   error: string | null;
 }
 
@@ -120,7 +120,6 @@ export interface PaymentCardData {
   amount: number;
   description: string;
   checkout_url?: string;
-  paddle_checkout?: boolean;
 }
 
 export interface OtpCardData {

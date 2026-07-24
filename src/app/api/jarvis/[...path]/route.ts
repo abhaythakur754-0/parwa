@@ -15,7 +15,7 @@
  *   POST /api/jarvis/demo-pack/purchase   — Purchase demo pack (with bill summary)
  *   GET  /api/jarvis/demo-pack/status     — Get demo pack status
  *   POST /api/jarvis/payment/create       — Create payment (itemized checkout)
- *   POST /api/jarvis/payment/webhook      — Simulated Paddle webhook
+ *   POST /api/jarvis/payment/webhook      — Simulated Razorpay webhook
  *   GET  /api/jarvis/payment/status       — Get payment status
  *   POST /api/jarvis/demo-call/initiate   — Initiate demo call (creates ticket)
  *   POST /api/jarvis/handoff              — Execute handoff (creates ticket)
@@ -1483,7 +1483,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       const transactionId = `txn_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       const checkoutItems = Buffer.from(JSON.stringify({ items, subtotal, tax, total })).toString('base64url');
-      const checkoutUrl = `https://pay.paddle.com/checkout/${transactionId}?items=${checkoutItems}&currency=USD`;
+      const checkoutUrl = `https://api.razorpay.com/v1/checkout/${transactionId}?items=${checkoutItems}&currency=USD`;
 
       // Store payment state in session context
       session.context.payment_data = {
@@ -1623,7 +1623,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ session, new_welcome: welcomeMsg });
     }
 
-    // ── POST /payment/webhook — Simulated Paddle Webhook ─────────
+    // ── POST /payment/webhook — Simulated Razorpay Webhook ───────
     if (endpoint === 'payment/webhook') {
       const body = await request.json();
       const { session_id, event_type, transaction_id } = body;

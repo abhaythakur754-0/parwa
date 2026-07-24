@@ -87,10 +87,9 @@ from app.api.tickets import router as tickets_router  # BUG-3 FIX: Day 26 Ticket
 from app.api.technique_config import router as technique_config_router  # BUG-3 FIX: SG-17 Technique Config Admin (was dead code in api_router)
 
 # ── Previously Unregistered Routers (80+ dead endpoints now live) ──
-from app.api.billing import router as billing_router  # Billing CRUD + Paddle integration
-from app.api.billing_razorpay import router as billing_razorpay_router  # NEW: Razorpay billing endpoints
+from app.api.billing import router as billing_router  # Billing CRUD (DB-only, Razorpay is the provider)
+from app.api.billing_razorpay import router as billing_razorpay_router  # Razorpay billing endpoints
 from app.api.razorpay_checkout import router as razorpay_checkout_router  # Razorpay Standard Checkout
-from app.api.billing_webhooks import router as billing_webhooks_router  # Paddle webhook endpoints
 from app.api.notifications import router as notifications_router  # Notification CRUD + preferences
 from app.api.customers import router as customers_router  # Customer management
 from app.api.sla import router as sla_router  # SLA policy management
@@ -133,7 +132,6 @@ from database.models.core import User
 
 # Import webhook handlers so their @register_handler decorators fire and
 # populate the registry. These modules have no other import side-effects.
-import app.webhooks.paddle_handler   # noqa: F401, E402
 import app.webhooks.brevo_handler    # noqa: F401, E402
 import app.webhooks.twilio_handler   # noqa: F401, E402
 import app.webhooks.shopify_handler  # noqa: F401, E402
@@ -712,11 +710,10 @@ app.include_router(technique_config_router, tags=["technique-config"])  # BUG-3 
 
 # ── Previously Unregistered Routers (80+ endpoints now live) ───────
 
-# Billing & Paddle
+# Billing (Razorpay is the provider; Paddle was removed)
 app.include_router(billing_router, tags=["billing"])  # prefix: /api/billing
-app.include_router(billing_razorpay_router)  # NEW: Razorpay billing (/api/billing/razorpay/*)
+app.include_router(billing_razorpay_router)  # Razorpay billing (/api/billing/razorpay/*)
 app.include_router(razorpay_checkout_router)  # Razorpay Standard Checkout (/api/razorpay/*)
-app.include_router(billing_webhooks_router, tags=["billing-webhooks"])  # prefix: /api/v1
 
 # Notifications
 app.include_router(notifications_router, prefix="/api/v1", tags=["notifications"])  # prefix: /notifications -> /api/v1/notifications

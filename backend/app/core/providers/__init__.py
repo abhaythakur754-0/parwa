@@ -41,7 +41,6 @@ from .email_mailgun import MailgunProvider
 from .email_postmark import PostmarkProvider
 from .sms_twilio import TwilioProvider
 from .sms_vonage import VonageProvider
-from .payment_paddle import PaddleProvider
 from .payment_stripe import StripeProvider
 
 
@@ -62,7 +61,6 @@ def _auto_register() -> None:
         ("sms", "twilio", TwilioProvider),
         ("sms", "vonage", VonageProvider),
         # Payment
-        ("payment", "paddle", PaddleProvider),
         ("payment", "stripe", StripeProvider),
     ]
 
@@ -102,6 +100,5 @@ __all__ = [
     "TwilioProvider",
     "VonageProvider",
     # Payment providers
-    "PaddleProvider",
     "StripeProvider",
 ]

@@ -401,15 +401,6 @@ CATALOG: List[IntegrationDefinition] = [
         icon_id="stripe", color_gradient="from-indigo-500 to-indigo-400",
     ),
     IntegrationDefinition(
-        key="paddle", name="Paddle",
-        description="Access subscriptions, transactions, and pricing data from Paddle.",
-        category=IntegrationCategory.PAYMENTS, tier=IntegrationTier.TIER1_PREBUILT,
-        auth_schema=AuthSchema(AuthType.BEARER, [AuthField("api_key", "API Key", "password", True, "pd_live_xxx")]),
-        test_connection=TestConnectionConfig("GET", "https://sandbox-api.paddle.com/transactions", {"Authorization": "Bearer {api_key}"}, "status_200", "Connected to Paddle"),
-        suggested_industries=[ParwaIndustry.SAAS, ParwaIndustry.OTHER],
-        icon_id="paddle", color_gradient="from-cyan-500 to-cyan-400",
-    ),
-    IntegrationDefinition(
         key="paypal", name="PayPal",
         description="Access transactions, refunds, and dispute data from PayPal.",
         category=IntegrationCategory.PAYMENTS, tier=IntegrationTier.TIER1_PREBUILT,

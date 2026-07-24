@@ -25,3 +25,14 @@
 - Stale browser cookies may auto-redirect users to /dashboard after a DB wipe.
   Fix planned: stale-session detector (verify cookie against backend on app load,
   auto-clear if user no longer exists).
+
+## Recent Change (2026-06-24)
+- **Paddle fully removed.** Razorpay is now the ONLY billing provider.
+  - All Paddle backend files deleted (client, service, reconciliation, bridge, handler, schema)
+  - 3 billing services rewritten as DB-only (subscription/invoice/overage)
+  - billing_webhooks.py router deleted (was Paddle-only)
+  - @paddle/paddle-js removed from package.json
+  - All PADDLE_* env vars removed
+  - DB columns (paddle_subscription_id etc.) kept for backward compat — now store Razorpay IDs
+- **Redis IS in use** (33 Celery task modules + celery_app.py). Previous STATE.md claim "no Redis" was stale.
+- **Rust parwa_core extension** (rate limiter, circuit breaker, crypto, HMAC) — source exists at backend/parwa_core/src/ but NOT compiled (.so missing). Needs `maturin develop` before prod deploy.

@@ -1,3 +1,0 @@
-module.exports=[92749,e=>{"use strict";let r=process.env.BACKEND_URL||"http://localhost:5100";async function s(e,s,o){try{let t=await fetch(`${r}/api/v1/email/send`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to:[e],subject:s,body:o,html_body:o})}),n=await t.json();if(t.ok&&n.success)return{success:!0};return console.error("[Email] Backend error:",t.status,JSON.stringify(n)),{success:!1,error:n.error||n.message||`Backend returned ${t.status}`}}catch(r){let e=r instanceof Error?r.message:"Unknown error";return console.error("[Email] Send error:",e),{success:!1,error:e}}}e.s(["sendEmail",0,s])}];
-
-//# sourceMappingURL=src_lib_email_ts_0_r3dgd._.js.map

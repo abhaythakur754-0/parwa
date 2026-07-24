@@ -392,38 +392,9 @@ class TestMigrationUUIDConsistency:
 
 
 # ════════════════════════════════════════════════════════════════════
-# P0-INFRA: Paddle idempotency is Redis-backed
+# [REMOVED] P0-INFRA: Paddle idempotency is Redis-backed
+# (Paddle was removed; paddle_service.py has been deleted.)
 # ════════════════════════════════════════════════════════════════════
-
-
-class TestPaddleIdempotencyRedis:
-    """Verify Paddle webhook idempotency uses Redis, not in-memory."""
-
-    def test_is_duplicate_event_uses_redis(self):
-        """PaddleService.is_duplicate_event uses Redis SET with NX."""
-        source = _read_source("backend/app/services/paddle_service.py")
-        # Find the is_duplicate_event function
-        assert "is_duplicate_event" in source, (
-            "PaddleService missing is_duplicate_event method"
-        )
-        # Should use Redis, not a Python dict/set
-        assert "redis" in source.lower() or "get_redis" in source, (
-            "PaddleService.is_duplicate_event doesn't use Redis"
-        )
-
-    def test_is_duplicate_event_has_nx_flag(self):
-        """PaddleService.is_duplicate_event uses NX flag for atomicity."""
-        source = _read_source("backend/app/services/paddle_service.py")
-        assert "nx=True" in source, (
-            "PaddleService.is_duplicate_event doesn't use NX flag"
-        )
-
-    def test_is_duplicate_event_has_ttl(self):
-        """PaddleService.is_duplicate_event sets TTL on Redis keys."""
-        source = _read_source("backend/app/services/paddle_service.py")
-        assert "ex=" in source or "ex =" in source, (
-            "PaddleService.is_duplicate_event doesn't set TTL on Redis keys"
-        )
 
 
 # ════════════════════════════════════════════════════════════════════

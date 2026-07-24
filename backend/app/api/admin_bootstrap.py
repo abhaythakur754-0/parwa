@@ -404,8 +404,6 @@ def nuke_all_data():
         "payment_methods",
         "usage_records",
         "client_refunds",
-        "paddle_webhook_events",
-        "paddle_reconciliation_reports",
         "refresh_tokens",
         "mfa_secrets",
         "backup_codes",

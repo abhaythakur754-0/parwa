@@ -37,7 +37,7 @@ Demo Stages (conversation flow):
   pricing     → Show plans, ROI, handle objections
   bill_review → Review selected variants and total cost
   verification → OTP / email verification
-  payment     → Paddle checkout, demo pack purchase
+  payment     → Razorpay checkout, demo pack purchase
   handoff     → Transition to post-onboarding customer care Jarvis
 
 Channel Types:
@@ -88,7 +88,7 @@ CATEGORY_GUIDE = "guide"                # Navigation/guidance functions
 CATEGORY_COMMUNICATION = "communication"  # Chat/call channel functions
 CATEGORY_KNOWLEDGE = "knowledge"        # Knowledge base functions
 CATEGORY_VERIFICATION = "verification"  # OTP and email verification
-CATEGORY_PAYMENT = "payment"            # Demo pack purchase, Paddle checkout
+CATEGORY_PAYMENT = "payment"            # Demo pack purchase, Razorpay checkout
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -650,7 +650,7 @@ ONBOARDING_FUNCTION_REGISTRY: List[Dict[str, Any]] = [
     },
 
     # ────────────────────────────────────────────────────────────
-    # PAYMENT — Demo pack, variant subscription, Paddle checkout
+    # PAYMENT — Demo pack, variant subscription, Razorpay checkout
     # ────────────────────────────────────────────────────────────
     {
         "name": "purchase_demo_pack",
@@ -683,8 +683,8 @@ ONBOARDING_FUNCTION_REGISTRY: List[Dict[str, Any]] = [
     {
         "name": "create_payment_session",
         "description": (
-            "Create a Paddle checkout session for a variant subscription. "
-            "Returns a Paddle checkout URL where the client can complete "
+            "Create a Razorpay checkout session for a variant subscription. "
+            "Returns a Razorpay checkout URL where the client can complete "
             "payment. This is for the full subscription (not the $1 demo "
             "pack). Use when the user is ready to buy, wants to subscribe, "
             "or says 'checkout', 'pay', 'sign up'."

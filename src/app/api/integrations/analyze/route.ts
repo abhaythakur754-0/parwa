@@ -98,7 +98,7 @@ function getFallbackRecommendations(industry?: string, connectedCount?: number):
         category: 'payments',
         message: 'No payment processing integration connected',
         impact: 'Cannot track revenue automatically',
-        recommended: ['stripe', 'paddle'],
+        recommended: ['stripe', 'razorpay'],
       },
       {
         id: 'gap_002',

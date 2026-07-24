@@ -568,58 +568,8 @@ class BillingIntelligenceEngine:
               - refund_amount: Optional[float]
               - processing_time_hours: int
         """
-        try:
-            import uuid
-            dispute_id = f"pad_{uuid.uuid4().hex[:10]}"
-
-            auto_resolvable = dispute.get("auto_resolvable", False)
-            resolution_type = dispute.get("resolution_type", "manual_review")
-            max_refund_pct = dispute.get("max_refund_percentage", 0)
-
-            auto_resolved = False
-            resolution_action = "manual_review"
-            refund_amount = None
-            processing_hours = 48
-
-            if auto_resolvable:
-                auto_resolved = True
-                if resolution_type == "refund_duplicate":
-                    resolution_action = "auto_refund_duplicate"
-                    refund_amount = None  # Will be determined by Paddle
-                    processing_hours = 24
-                elif resolution_type == "check_refund_status":
-                    resolution_action = "check_refund_status_api"
-                    processing_hours = 2
-                elif resolution_type == "verify_trial_and_refund_if_valid":
-                    resolution_action = "verify_trial_auto_refund"
-                    processing_hours = 12
-                elif resolution_type == "pause_retry_and_notify":
-                    resolution_action = "pause_payment_retries"
-                    processing_hours = 1
-                elif resolution_type in ("adjust_charge", "explain_price_change_or_grandfather"):
-                    resolution_action = "review_and_adjust"
-                    processing_hours = 24
-
-            # Anomaly speeds up resolution
-            if anomaly.get("anomaly_detected", False) and anomaly.get("severity") == "high":
-                processing_hours = max(1, processing_hours // 2)
-
-            return {
-                "dispute_id": dispute_id,
-                "auto_resolved": auto_resolved,
-                "resolution_action": resolution_action,
-                "refund_amount": refund_amount,
-                "processing_time_hours": processing_hours,
-            }
-        except Exception:
-            logger.exception("paddle_dispute_resolution_failed")
-            return {
-                "dispute_id": "",
-                "auto_resolved": False,
-                "resolution_action": "manual_review",
-                "refund_amount": None,
-                "processing_time_hours": 48,
-            }
+                """Paddle was removed 2026-06-24. Disputes now require manual review."""
+        return {"status": "manual_review_required", "reason": "Paddle removed"}
 
     def _anomaly_recommendation(self, anomaly_types: List[str], severity: str) -> str:
         """Generate recommendation based on anomaly types."""

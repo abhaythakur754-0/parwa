@@ -1,2 +1,61 @@
+# Dependencies
 skills/
 node_modules/
+backend/venv/
+backend/.venv/
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+.eggs/
+dist/
+build/
+target/
+
+# Rust build (parwa_core)
+backend/parwa_core/target/
+
+# Next.js
+.next/
+out/
+
+# Graphify (knowledge graph — regenerable)
+graphify-out/
+graphify-env/
+
+# Test / coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Env files (NEVER commit real secrets)
+.env
+.env.local
+.env.*.local
+*.env
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+dev.log
+server.log
+
+# Tool results / temp
+tool-results/
+.tmp/
+tmp/
+download/
+*.tsbuildinfo

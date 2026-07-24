@@ -15,7 +15,7 @@
  *   GET  /api/onboarding-jarvis/demo-pack/status      — Demo pack status
  *   POST /api/onboarding-jarvis/verify/send-otp       — Send OTP to business email
  *   POST /api/onboarding-jarvis/verify/verify-otp     — Verify OTP code
- *   POST /api/onboarding-jarvis/payment/create        — Create Paddle checkout session
+ *   POST /api/onboarding-jarvis/payment/create        — Create Razorpay checkout session
  *   POST /api/onboarding-jarvis/handoff               — Execute handoff to customer care
  */
 
@@ -1174,7 +1174,7 @@ export async function POST(
       const total = subtotal + tax;
 
       const transactionId = `txn_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const checkoutUrl = `https://pay.paddle.com/checkout/${transactionId}?currency=USD`;
+      const checkoutUrl = `https://api.razorpay.com/v1/checkout/${transactionId}?currency=USD`;
 
       session.context.payment_data = {
         transaction_id: transactionId,

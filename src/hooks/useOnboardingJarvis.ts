@@ -34,7 +34,7 @@ export function useOnboardingJarvis() {
     status: 'idle', email: '', attempts: 0, expires_at: null,
   });
   const [paymentState, setPaymentState] = useState<PaymentState>({
-    status: 'idle', paddle_url: null, error: null,
+    status: 'idle', checkout_url: null, error: null,
   });
   const [demoCallState, setDemoCallState] = useState<DemoCallState>({
     status: 'idle', phone: null, duration: 0,
@@ -142,7 +142,7 @@ export function useOnboardingJarvis() {
         setOtpState(prev => ({ ...prev, status: 'sent', email: result.card_data?.email || '' }));
       } else if (result.card_type === 'payment_card') {
         if (result.card_data?.checkout_url) {
-          setPaymentState({ status: 'success', paddle_url: result.card_data.checkout_url, error: null });
+          setPaymentState({ status: 'success', checkout_url: result.card_data.checkout_url, error: null });
         }
       } else if (result.card_type === 'demo_call_card') {
         setDemoCallState(prev => ({
@@ -258,14 +258,14 @@ export function useOnboardingJarvis() {
     email: string,
   ): Promise<string | null> => {
     if (!session) return null;
-    setPaymentState({ status: 'processing', paddle_url: null, error: null });
+    setPaymentState({ status: 'processing', checkout_url: null, error: null });
     try {
       const result = await api.createPayment(session.session_id, planId, variantIds, email);
       const url = result.checkout_url || result.data?.checkout_url || null;
-      setPaymentState({ status: 'success', paddle_url: url, error: null });
+      setPaymentState({ status: 'success', checkout_url: url, error: null });
       return url;
     } catch (e: any) {
-      setPaymentState({ status: 'failed', paddle_url: null, error: e.message });
+      setPaymentState({ status: 'failed', checkout_url: null, error: e.message });
       return null;
     }
   }, [session]);
