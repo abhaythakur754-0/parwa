@@ -287,24 +287,8 @@ class TestReliabilityReadiness:
 
     @pytest.mark.skip(reason="Paddle removed 2026-06-24")
     def test_paddle_idempotency_implemented(self):
-        """Paddle webhooks must have idempotency protection."""
-        try:
-    from app.services.paddle_reconciliation_service import *
-except ImportError:
-    pass
-
-        service = PaddleReconciliationService(db_session=None, redis_client=None)
-        assert hasattr(service, "compute_idempotency_key"), (
-            "PaddleReconciliationService must have compute_idempotency_key"
-        )
-        assert hasattr(service, "process_webhook"), (
-            "PaddleReconciliationService must have process_webhook"
-        )
-        # Verify idempotency key is deterministic
-        key1 = service.compute_idempotency_key("subscription.activated", "evt_123")
-        key2 = service.compute_idempotency_key("subscription.activated", "evt_123")
-        assert key1 == key2, "Idempotency key must be deterministic"
-        assert len(key1) == 64, "SHA-256 idempotency key must be 64 hex chars"
+        """Paddle webhooks must have idempotency protection — SKIPPED (Paddle removed)."""
+        pass
 
     def test_llm_failover_configured(self):
         """LLM provider failover must be configured."""

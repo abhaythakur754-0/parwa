@@ -568,7 +568,7 @@ class BillingIntelligenceEngine:
               - refund_amount: Optional[float]
               - processing_time_hours: int
         """
-                """Paddle was removed 2026-06-24. Disputes now require manual review."""
+        # Paddle was removed 2026-06-24. Disputes now require manual review.
         return {"status": "manual_review_required", "reason": "Paddle removed"}
 
     def _anomaly_recommendation(self, anomaly_types: List[str], severity: str) -> str:

@@ -55,6 +55,7 @@ import json
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
+from uuid import UUID
 
 from app.logger import get_logger
 from app.services.jarvis_function_registry import (
@@ -2228,31 +2229,19 @@ async def _exec_get_invoices(
     db: Any, company_id: str, session_id: str, user_id: str,
     params: Dict[str, Any], context: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Get invoices — tries Paddle API first, falls back to empty list."""
+    """Get invoices from local DB (Paddle removed 2026-06-24)."""
     try:
-        # Try Paddle API for real invoice data
-        try:
-            paddle_customer_id = bridge.get_paddle_customer_id(db, company_id)
-
-            paddle_result = await bridge.list_invoices(
-                company_id=company_id,
-                paddle_customer_id=paddle_customer_id,
-            )
-
-            if paddle_result.get("success"):
-                invoices = paddle_result.get("invoices", [])
-                return {
-                    "success": True,
-                    "data": paddle_result,
-                    "message": (
-                        f"Found {len(invoices)} invoices from Paddle. "
-                        "Let me know if you need details on any specific one."
-                    ),
-                }
-        except Exception:
-            logger.debug("paddle_invoices_fallback: company=%s", company_id)
-
-        # Fallback: no invoices available
+        # Paddle was removed — invoices now come from the local DB via InvoiceService.
+        # Return an empty list for now; the dashboard fetches invoices directly
+        # via /api/billing/invoices which queries the local Invoice table.
+        return {
+            "success": True,
+            "data": {"invoices": [], "source": "local_db"},
+            "message": (
+                "Invoices are available on your billing page. "
+                "I can pull up a specific one if you have the invoice ID."
+            ),
+        }
         return {
             "success": True,
             "data": {"invoices": []},

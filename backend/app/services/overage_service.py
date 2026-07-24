@@ -752,7 +752,7 @@ class OverageService:
                 else:
                     still_pending += 1
 
-            except (PaddleError, Exception) as e:
+            except Exception as e:
                 logger.error(
                     "overage_retry_failed charge_id=%s error=%s",
                     charge.id,
