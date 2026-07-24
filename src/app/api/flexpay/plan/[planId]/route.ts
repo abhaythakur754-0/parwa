@@ -53,7 +53,13 @@ export async function GET(req: NextRequest, context: RouteContext) {
     const progress = calculatePlanProgress(plan, completedDays.size);
 
     // Get recent installment history (last 10)
-    const recentInstallments = [];
+    const recentInstallments: Array<{
+      dayNumber: number;
+      amount: number | undefined;
+      status: string;
+      processedAt: string | undefined;
+      hasSecondaryCharge: boolean;
+    }> = [];
     for (let day = Math.max(1, progress.daysCompleted - 9); day <= progress.daysCompleted; day++) {
       const status = getInstallmentStatus(planId, day);
       if (status) {

@@ -72,13 +72,13 @@ export async function POST(request: NextRequest) {
       const detailsId = userDetails?.id || userId;
       
       if (accept_terms) {
-        await saveLegalConsent(detailsId, 'terms', request.ip);
+        await saveLegalConsent(detailsId, 'terms', request.headers.get('x-forwarded-for') || undefined);
       }
       if (accept_privacy) {
-        await saveLegalConsent(detailsId, 'privacy', request.ip);
+        await saveLegalConsent(detailsId, 'privacy', request.headers.get('x-forwarded-for') || undefined);
       }
       if (accept_ai_data) {
-        await saveLegalConsent(detailsId, 'ai_data', request.ip);
+        await saveLegalConsent(detailsId, 'ai_data', request.headers.get('x-forwarded-for') || undefined);
       }
     }
 

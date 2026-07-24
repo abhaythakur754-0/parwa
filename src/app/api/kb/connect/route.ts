@@ -31,9 +31,11 @@ function getUserId(req: NextRequest): string | null {
 }
 
 export async function POST(request: NextRequest) {
+  let userId: string | null = null;
+  let body: any = {};
   try {
-    const userId = getUserId(request);
-    
+    userId = getUserId(request);
+
     if (!userId) {
       return NextResponse.json(
         { error: 'unauthorized', message: 'User not authenticated' },
@@ -41,7 +43,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    body = await request.json();
     const { kb_id, name, crm_type, source_url } = body;
 
     // Validate required fields
@@ -76,12 +78,12 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[KB Connect Error]:', error);
     
-    // Return mock success for demo mode
+    // Return mock success for demo mode (userId/body may be undefined in catch scope)
     return NextResponse.json({
       success: true,
       data: {
         id: `demo-kb-${Date.now()}`,
-        user_id: userId,
+        user_id: userId ?? 'unknown',
         name: body?.name || 'Connected KB',
         type: 'connected',
         crm_type: body?.crm_type,

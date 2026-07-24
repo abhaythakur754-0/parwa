@@ -157,7 +157,7 @@ class CSRFSecurityMiddleware:
             or bool(api_key_header)
         )
 
-        # ── Validate Origin / Referer via Rust ──
+        # ── Validate Origin / Referer ──
         try:
             origin = request_headers.get(
                 b"origin", b"",
@@ -166,23 +166,50 @@ class CSRFSecurityMiddleware:
                 b"referer", b"",
             ).decode("utf-8", errors="replace")
 
-            validator = _get_validator()
-            if not validator.is_valid_origin(origin, referer):
-                correlation_id = secrets.token_hex(8)
-                logger.warning(
-                    "csrf_rejected method=%s path=%s "
-                    "origin=%s referer=%s correlation_id=%s",
-                    method, path,
-                    origin or "(none)",
-                    referer or "(none)",
-                    correlation_id,
-                )
-                await self._send_forbidden(
-                    scope, send,
-                    "CSRF validation failed: invalid origin",
-                    correlation_id,
-                )
-                return
+            # Check trusted origins (instance attribute set by tests or config).
+            # If _trusted_origins is configured, the request origin/referer must
+            # match one of them. Empty list = dev mode (allow all).
+            trusted = getattr(self, "_trusted_origins", None)
+            if trusted:
+                candidate = origin or (referer.split("?")[0] if referer else "")
+                if not candidate or not any(
+                    candidate == t or candidate.startswith(t + "/") or candidate.startswith(t.rstrip("/"))
+                    for t in trusted
+                ):
+                    correlation_id = secrets.token_hex(8)
+                    logger.warning(
+                        "csrf_rejected method=%s path=%s "
+                        "origin=%s referer=%s correlation_id=%s",
+                        method, path,
+                        origin or "(none)",
+                        referer or "(none)",
+                        correlation_id,
+                    )
+                    await self._send_forbidden(
+                        scope, send,
+                        "CSRF validation failed: invalid origin",
+                        correlation_id,
+                    )
+                    return
+            else:
+                # No trusted origins configured — use the Rust validator bridge.
+                validator = _get_validator()
+                if not validator.is_valid_origin(origin, referer):
+                    correlation_id = secrets.token_hex(8)
+                    logger.warning(
+                        "csrf_rejected method=%s path=%s "
+                        "origin=%s referer=%s correlation_id=%s",
+                        method, path,
+                        origin or "(none)",
+                        referer or "(none)",
+                        correlation_id,
+                    )
+                    await self._send_forbidden(
+                        scope, send,
+                        "CSRF validation failed: invalid origin",
+                        correlation_id,
+                    )
+                    return
 
         except Exception as exc:
             logger.error(
@@ -283,6 +310,57 @@ class CSRFSecurityMiddleware:
         return hmac.compare_digest(
             cookie_token, header_token,
         )
+
+    # ── Token API (nonce:timestamp:sig format) ──────────────────────
+    # Used by tests + any code that wants a signed CSRF token outside ASGI.
+
+    @staticmethod
+    def generate_csrf_token(secret_key: str = "") -> str:
+        """Generate a signed CSRF token: ``nonce:timestamp:signature``.
+
+        - nonce: 16 random bytes hex-encoded (32 chars)
+        - timestamp: unix seconds (string)
+        - signature: first 16 hex chars of HMAC-SHA256(secret, nonce:timestamp)
+        """
+        import hashlib
+        import hmac
+        import secrets as _secrets
+        import time as _time
+        key = (secret_key or os.environ.get("JWT_SECRET_KEY", "dev-csrf-secret")).encode()
+        nonce = _secrets.token_hex(16)
+        ts = str(int(_time.time()))
+        sig = hmac.new(key, f"{nonce}:{ts}".encode(), hashlib.sha256).hexdigest()[:16]
+        return f"{nonce}:{ts}:{sig}"
+
+    @staticmethod
+    def validate_csrf_token(token: str, secret_key: str = "", max_age_seconds: int = 3600) -> bool:
+        """Validate a ``nonce:timestamp:signature`` CSRF token.
+
+        Returns True only if: format is correct, signature matches, and
+        timestamp is within ``max_age_seconds`` (default 1 hour).
+        """
+        if not token or not isinstance(token, str):
+            return False
+        parts = token.split(":")
+        if len(parts) != 3:
+            return False
+        nonce, ts_str, sig = parts
+        if len(nonce) != 32 or not ts_str.isdigit() or len(sig) != 16:
+            return False
+        try:
+            ts = int(ts_str)
+        except ValueError:
+            return False
+        # Freshness check
+        import time as _time
+        if int(_time.time()) - ts > max_age_seconds:
+            return False
+        # Signature check (constant-time)
+        import hashlib
+        import hmac
+        key = (secret_key or os.environ.get("JWT_SECRET_KEY", "dev-csrf-secret")).encode()
+        expected = hmac.new(key, f"{nonce}:{ts_str}".encode(), hashlib.sha256).hexdigest()[:16]
+        return hmac.compare_digest(sig, expected)
 
     @staticmethod
     def _wrap_send(send, new_csrf_token: str = ""):

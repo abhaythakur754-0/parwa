@@ -53,7 +53,6 @@ export async function POST(request: NextRequest) {
       kb_completed: true,
       selected_variant: variant || 'parwa',
       selected_industry: industry || 'other',
-      updated_at: new Date().toISOString(),
     });
 
     console.log(`[Onboarding] 🎉 Account activated for user ${userId}`, { variant, industry });

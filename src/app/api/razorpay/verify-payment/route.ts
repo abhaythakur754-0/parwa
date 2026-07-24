@@ -164,7 +164,10 @@ async function sendReceiptEmail(userId: string, receiptData: {
       await sendPaymentReceipt({
         to: userDetails.work_email,
         userName: userDetails.full_name,
-        ...receiptData,
+        amount: receiptData.amount,
+        planName: receiptData.plan_name,
+        orderId: receiptData.order_id,
+        status: receiptData.status as 'completed' | 'processing' | 'failed',
       });
       
       console.log(`[Email] 📧 Receipt sent to ${userDetails.work_email}`);

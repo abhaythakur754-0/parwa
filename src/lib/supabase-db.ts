@@ -40,11 +40,12 @@ export class SupabaseClient {
   }
 
   /**
-   * Fetch records from a table
+   * Fetch records from a table (returns a query builder).
+   * Synchronous — the returned select/insert/update/delete methods are async.
    */
-  async from(table: string) {
+  from(table: string) {
     const url = `${this.baseUrl}/${table}`;
-    
+
     return {
       select: async (columns = '*', options?: QueryOptions) => {
         let queryUrl = `${url}?select=${columns}`;
@@ -379,6 +380,8 @@ export interface PaymentData {
   razorpay_order_id?: string;
   razorpay_payment_id?: string;
   razorpay_signature?: string;
+  plan_id?: string;
+  plan_name?: string;
 }
 
 export async function createPayment(data: PaymentData) {

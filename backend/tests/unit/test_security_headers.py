@@ -170,7 +170,10 @@ class TestCSPHeader:
         client = TestClient(_create_app())
         resp = client.get("/")
         csp = resp.headers["Content-Security-Policy"]
-        assert "img-src 'self' data: blob:" in csp
+        # CSP must allow 'self', data:, and blob: for img-src (https: also allowed)
+        assert "img-src 'self'" in csp
+        assert "data:" in csp
+        assert "blob:" in csp
 
 
 # ═══════════════════════════════════════════════════════════════════

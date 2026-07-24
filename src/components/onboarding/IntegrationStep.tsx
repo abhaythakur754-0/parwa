@@ -51,7 +51,7 @@ const CATEGORY_ICONS: Record<IntegrationCategory, string> = {
 
 // ── Component ────────────────────────────────────────────────────────
 
-export function IntegrationStep({ onNext }: IntegrationStepProps) {
+export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
   const [existingIntegrations, setExistingIntegrations] = useState<ConnectedIntegration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<IntegrationCategory | 'all'>('all');

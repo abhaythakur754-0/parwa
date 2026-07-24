@@ -89,6 +89,9 @@ function mapBackendTicket(bt: Record<string, unknown>): Ticket {
     savings_per_ticket: null,
     messages: [],
     tags,
+    skipped: false,
+    agent_stopped: false,
+    kb_matched: false,
   };
 }
 

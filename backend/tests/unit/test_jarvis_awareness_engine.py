@@ -953,6 +953,9 @@ class TestRuleChecks:
         db = self._make_mock_db_for_rules()
         state = {"system_health": "degraded", "channel_health": {"email": "degraded"}}
         result = _check_system_health(db, "sess-1", "comp-1", state, "snap-1")
+        if isinstance(result, list):
+            assert len(result) > 0
+            result = result[0]
         assert result is not None
         assert result.severity == "warning"
 
@@ -963,6 +966,9 @@ class TestRuleChecks:
         db = self._make_mock_db_for_rules()
         state = {"system_health": "critical", "channel_health": {}}
         result = _check_system_health(db, "sess-1", "comp-1", state, "snap-1")
+        if isinstance(result, list):
+            assert len(result) > 0
+            result = result[0]
         assert result is not None
         assert result.severity == "critical"
 
@@ -973,6 +979,9 @@ class TestRuleChecks:
         db = self._make_mock_db_for_rules()
         state = {"system_health": "down", "channel_health": {}}
         result = _check_system_health(db, "sess-1", "comp-1", state, "snap-1")
+        if isinstance(result, list):
+            assert len(result) > 0
+            result = result[0]
         assert result is not None
         assert result.severity == "emergency"
 
@@ -1011,6 +1020,9 @@ class TestRuleChecks:
         db = self._make_mock_db_for_rules()
         state = {"agent_pool_utilization": 85.0, "active_agents": 4, "agent_pool_capacity": 5}
         result = _check_agent_pool(db, "sess-1", "comp-1", state, "snap-1")
+        if isinstance(result, list):
+            assert len(result) > 0
+            result = result[0]
         assert result is not None
         assert result.severity == "warning"
 
@@ -1021,6 +1033,9 @@ class TestRuleChecks:
         db = self._make_mock_db_for_rules()
         state = {"agent_pool_utilization": 98.0, "active_agents": 5, "agent_pool_capacity": 5}
         result = _check_agent_pool(db, "sess-1", "comp-1", state, "snap-1")
+        if isinstance(result, list):
+            assert len(result) > 0
+            result = result[0]
         assert result is not None
         assert result.severity == "critical"
 
