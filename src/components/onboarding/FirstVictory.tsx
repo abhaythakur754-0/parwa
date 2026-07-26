@@ -34,8 +34,8 @@ export function FirstVictory({ aiName = 'Jarvis', aiGreeting }: FirstVictoryProp
       if (ctx) {
         const pricing = JSON.parse(ctx) as Record<string, unknown>;
         const variant = String(pricing.variant || '').toLowerCase();
-        if (variant === 'mini' || variant === 'mini-parwa') {
-          router.push('/dashboard?variant=mini');
+        if (variant === 'parwa' || variant === 'mini-parwa' || variant === 'mini') {
+          router.push('/dashboard?variant=parwa');
           return;
         }
         if (variant === 'parwa-high' || variant === 'high') {

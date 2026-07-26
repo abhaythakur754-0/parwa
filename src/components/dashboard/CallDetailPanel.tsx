@@ -39,7 +39,6 @@ const statusColors: Record<string, string> = {
 };
 
 const variantLabels: Record<string, string> = {
-  mini: 'Mini',
   parwa: 'Parwa',
   high: 'High',
 };

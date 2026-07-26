@@ -20,14 +20,13 @@ interface MakeCallDialogProps {
 }
 
 const VARIANT_OPTIONS = [
-  { value: 'mini', label: 'Mini', description: 'Basic AI agent' },
   { value: 'parwa', label: 'Parwa', description: 'Smart AI agent with recommendations' },
   { value: 'high', label: 'High', description: 'Fully autonomous AI agent' },
 ];
 
 export function MakeCallDialog({ open, onClose, onCall, defaultNumber = '' }: MakeCallDialogProps) {
   const [phoneNumber, setPhoneNumber] = useState(defaultNumber);
-  const [variant, setVariant] = useState('mini');
+  const [variant, setVariant] = useState('parwa');
   const [message, setMessage] = useState('');
   const [isCalling, setIsCalling] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +47,7 @@ export function MakeCallDialog({ open, onClose, onCall, defaultNumber = '' }: Ma
       await onCall(phoneNumber.replace(/[\s\-()]/g, ''), variant, message || undefined);
       // Reset and close on success
       setPhoneNumber(defaultNumber);
-      setVariant('mini');
+      setVariant('parwa');
       setMessage('');
       onClose();
     } catch (err) {

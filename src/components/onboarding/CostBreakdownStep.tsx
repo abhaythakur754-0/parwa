@@ -44,14 +44,6 @@ const VARIANT_DISPLAY: Record<VariantTier, {
   ticketVolume: number;
   tagline: string;
 }> = {
-  mini: {
-    name: VARIANT_DISPLAY_NAMES.mini,
-    price: VARIANT_PRICES.mini,
-    priceLabel: `$${VARIANT_PRICES.mini.toLocaleString()}/mo`,
-    aiPipeline: VARIANT_AI_INFO.mini.pipelineSteps,
-    ticketVolume: VARIANT_LIMITS.mini.monthlyTickets,
-    tagline: VARIANT_AI_INFO.mini.techniques,
-  },
   parwa: {
     name: VARIANT_DISPLAY_NAMES.parwa,
     price: VARIANT_PRICES.parwa,
@@ -446,8 +438,8 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
             Each variant adds its own ticket allocation and AI pipeline
           </span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {(['mini', 'parwa', 'high'] as VariantTier[]).map((tier) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {(['parwa', 'high'] as VariantTier[]).map((tier) => (
             <VariantMixerCard
               key={tier}
               tier={tier}
@@ -573,7 +565,7 @@ export function CostBreakdownStep({ variant, onComplete }: CostBreakdownStepProp
             <span className="text-sm text-orange-200/50 flex items-center gap-1.5">
               <div className={cn(
                 'w-2 h-2 rounded-full',
-                tier === 'mini' ? 'bg-emerald-400' : tier === 'parwa' ? 'bg-orange-400' : 'bg-purple-400'
+                tier === 'parwa' ? 'bg-orange-400' : 'bg-purple-400'
               )} />
               {VARIANT_DISPLAY[tier].name}
             </span>

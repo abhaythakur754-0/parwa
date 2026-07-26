@@ -24,9 +24,9 @@ export function BillSummary({ metadata, onConfirm, onChangePlan }: BillSummaryPr
   const totalMonthly = metadata.totalMonthly as number || 0;
 
   const planNames: Record<string, string> = {
-    'mini-parwa': 'mini parwa',
-    'parwa': 'parwa',
-    'high-parwa': 'high parwa',
+    'mini-parwa': 'PARWA',
+    'parwa': 'PARWA',
+    'high-parwa': 'PARWA High',
   };
 
   const variants = (metadata.variants as Array<Record<string, unknown>>) || [];

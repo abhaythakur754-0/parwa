@@ -31,11 +31,11 @@ function mapBackendTicket(bt: Record<string, unknown>): Ticket {
   // Derive assigned_variant from variant_version string
   const vv = String(bt.variant_version ?? '').toLowerCase();
   let assignedVariant: TicketVariant | null = null;
-  if (vv.includes('light') || vv.includes('mini')) {
+  if (vv.includes('light') || vv.includes('mini') || vv.includes('parwa')) {
     assignedVariant = 'light';
   } else if (vv.includes('heavy') || vv.includes('high')) {
     assignedVariant = 'heavy';
-  } else if (vv.includes('medium') || vv.includes('parwa')) {
+  } else if (vv.includes('medium')) {
     assignedVariant = 'medium';
   }
 

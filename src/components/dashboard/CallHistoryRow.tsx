@@ -36,13 +36,11 @@ const statusBadgeConfig: Record<string, { classes: string; label: string }> = {
 };
 
 const variantColors: Record<string, string> = {
-  mini: 'text-zinc-500',
   parwa: 'text-blue-400',
   high: 'text-purple-400',
 };
 
 const variantLabels: Record<string, string> = {
-  mini: 'Mini',
   parwa: 'Parwa',
   high: 'High',
 };

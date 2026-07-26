@@ -14,7 +14,6 @@ import type { EnableShadowModeRequest } from '@/types/shadow-mode';
 // ── Variant Options ─────────────────────────────────────────────────
 
 const variantOptions = [
-  { value: 'mini', label: 'Mini', description: 'Lightweight agent for simple queries' },
   { value: 'parwa', label: 'Parwa', description: 'Full technique suite with RAG support' },
   { value: 'high', label: 'High', description: 'Advanced reasoning and escalation' },
 ];
@@ -40,7 +39,7 @@ export function EnableShadowModeDialog({
   preselectedLiveVariant,
   preselectedShadowVariant,
 }: EnableShadowModeDialogProps) {
-  const [liveVariant, setLiveVariant] = useState(preselectedLiveVariant || 'mini');
+  const [liveVariant, setLiveVariant] = useState(preselectedLiveVariant || 'parwa');
   const [shadowVariant, setShadowVariant] = useState(preselectedShadowVariant || 'parwa');
   const [sampleRate, setSampleRate] = useState(1.0);
   const [autoGradThreshold, setAutoGradThreshold] = useState(0.95);

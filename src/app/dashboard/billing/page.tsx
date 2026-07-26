@@ -17,7 +17,6 @@ interface TicketsByVariant { tickets_by_variant: Record<string, number>; total_r
 interface Invoice { id: string; amount: number; currency: string; status: string; invoice_date: string | null; paid_at: string | null; }
 
 const VARIANT_META: Record<string, { name: string; color: string; bg: string; border: string; dot: string }> = {
-  mini: { name: 'Mini PARWA', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', dot: 'bg-emerald-400' },
   parwa: { name: 'PARWA', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', dot: 'bg-purple-400' },
   high: { name: 'PARWA High', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', dot: 'bg-amber-400' },
 };
@@ -136,7 +135,7 @@ export default function BillingPage() {
         credentials: 'include',
         body: JSON.stringify({
           companyId,
-          tier: variantKey as 'mini' | 'parwa' | 'high',
+          tier: variantKey as 'parwa' | 'high',
           totalAmount: monthlyPrice,
           customerEmail: user.email,
           customerName: user.name,
@@ -522,7 +521,7 @@ export default function BillingPage() {
                 currency="INR"
                 isFlexPayMode={true}
                 companyId={user.company_id || user.id || ''}
-                tier={showFlexPayConfirm.variant.key as 'mini' | 'parwa' | 'high'}
+                tier={showFlexPayConfirm.variant.key as 'parwa' | 'high'}
                 totalAmount={showFlexPayConfirm.variant.monthly_price}
                 planId={showFlexPayConfirm.planId}
                 customerEmail={user.email || ''}

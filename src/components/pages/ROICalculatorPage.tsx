@@ -30,7 +30,6 @@ interface ParwaModel {
 }
 
 const PARWA_MODELS: ParwaModel[] = [
-  { id: 'parwa-mini', name: 'PARWA Mini', tagline: 'The 24/7 Trainee', tier: 'Entry', price: 999, aiResolution: 0.60, agents: 0, ticketCapacity: '999 tickets/mo', channels: ['Email', 'Chat'], description: 'Your first AI teammate. Handles FAQs, ticket intake, and basic queries autonomously.', bestFor: 'Small teams with FAQ-heavy support', tierLabel: 'Entry Level', tierColor: 'text-emerald-400', tierBorder: 'border-emerald-500/30', tierBg: 'bg-emerald-500/5' },
   { id: 'parwa-parwa', name: 'PARWA', tagline: 'The Junior Agent', tier: 'Parwa', price: 2499, aiResolution: 0.78, agents: 5, ticketCapacity: '2,499 tickets/mo', channels: ['Email', 'Chat', 'SMS', 'Voice'], description: 'Your smartest junior agent. Resolves ~78% of tickets autonomously with multi-channel support.', bestFor: 'Growing businesses needing multi-channel support', tierLabel: 'Most Popular', tierColor: 'text-orange-400', tierBorder: 'border-orange-500/30', tierBg: 'bg-orange-500/5' },
   { id: 'parwa-high', name: 'PARWA High', tagline: 'The Senior Agent', tier: 'Enterprise', price: 3999, aiResolution: 0.88, agents: 8, ticketCapacity: '3,999 tickets/mo', channels: ['Email', 'Chat', 'SMS', 'Voice', 'Social', 'Video'], description: 'Your most experienced senior agent. Handles complex cases and provides strategic insights with unlimited AI agents.', bestFor: 'Enterprise teams with complex cases', tierLabel: 'Enterprise', tierColor: 'text-purple-400', tierBorder: 'border-purple-500/30', tierBg: 'bg-purple-500/5' },
 ];
@@ -87,14 +86,12 @@ function getRecommendedModel(tickets: number, agentCount: number, industry: stri
   const reasons: string[] = [];
   const industryLabel = INDUSTRIES.find((i) => i.id === industry)?.label || 'your industry';
 
-  if (tickets <= 999 && agentCount <= 5) {
+  if (tickets <= 2499 && agentCount <= 15) {
     recommended = PARWA_MODELS[0];
-    reasons.push(`Your volume of ${fmtNum(tickets)} tickets/month fits within the Mini tier.`);
-  } else if (tickets <= 2499 && agentCount <= 15) {
-    recommended = PARWA_MODELS[1];
-    reasons.push(`Your ${fmtNum(tickets)} tickets/month exceeds Mini — Parwa gives room to scale.`);
+    reasons.push(`Your volume of ${fmtNum(tickets)} tickets/month fits within the PARWA tier.`);
   } else {
-    recommended = PARWA_MODELS[2];
+    recommended = PARWA_MODELS[1];
+    reasons.push(`Your ${fmtNum(tickets)} tickets/month exceeds PARWA capacity — PARWA High gives you room to scale.`);
     reasons.push(`Your volume requires High's 3,999 ticket capacity.`);
   }
   reasons.push(`Parwa resolves ~${Math.round(recommended.aiResolution * 100)}% of tickets autonomously.`);

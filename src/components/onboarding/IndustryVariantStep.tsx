@@ -9,7 +9,6 @@ import {
   ArrowRight,
   CheckCircle2,
   Sparkles,
-  Zap,
   Crown,
   Loader2,
   X,
@@ -20,7 +19,7 @@ import type { ParwaIndustry } from '@/lib/integration-catalog';
 
 // ── Variant Types ──────────────────────────────────────────────────────
 
-export type ParwaVariant = 'mini' | 'parwa' | 'high';
+export type ParwaVariant = 'parwa' | 'high';
 
 export interface VariantDefinition {
   key: ParwaVariant;
@@ -52,19 +51,6 @@ export interface PricingContext {
 import { VARIANT_PRICES, VARIANT_AI_INFO, VARIANT_LIMITS } from '@/lib/pricing-config';
 
 const VARIANTS: VariantDefinition[] = [
-  {
-    key: 'mini',
-    name: 'Mini PARWA',
-    price: VARIANT_PRICES.mini,
-    priceLabel: `$${VARIANT_PRICES.mini.toLocaleString()}/mo`,
-    aiPipeline: VARIANT_AI_INFO.mini.pipelineSteps,
-    ticketVolume: VARIANT_LIMITS.mini.monthlyTickets,
-    customApi: false,
-    openApiImport: false,
-    concurrentAiCalls: VARIANT_AI_INFO.mini.concurrentCalls,
-    description: 'Perfect for small teams getting started with AI support.',
-    badge: undefined,
-  },
   {
     key: 'parwa',
     name: 'PARWA',
@@ -364,7 +350,7 @@ export function IndustryVariantStep({ onComplete }: IndustryVariantStepProps) {
         <label className="text-xs text-orange-200/40 uppercase tracking-wider font-medium">
           2. Choose your plan
         </label>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {VARIANTS.map((v) => {
             const isSelected = variant === v.key;
 
@@ -402,7 +388,6 @@ export function IndustryVariantStep({ onComplete }: IndustryVariantStepProps) {
 
                 {/* Icon */}
                 <div className="flex items-center gap-2 mb-3">
-                  {v.key === 'mini' && <Zap className="w-4 h-4 text-amber-400" />}
                   {v.key === 'parwa' && <Sparkles className="w-4 h-4 text-orange-400" />}
                   {v.key === 'high' && <Crown className="w-4 h-4 text-yellow-400" />}
                   <span className={cn(

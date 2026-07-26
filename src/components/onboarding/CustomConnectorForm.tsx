@@ -46,7 +46,7 @@ interface CustomConnectorFormProps {
   /** 'custom' for Tier 3, 'openapi' for Tier 2 */
   mode: 'custom' | 'openapi';
   /** Current variant to check permissions */
-  variant?: 'mini' | 'parwa' | 'high';
+  variant?: 'parwa' | 'high';
   /** Callback when connector is saved */
   onSaved?: () => void;
   /** Callback to close the form */

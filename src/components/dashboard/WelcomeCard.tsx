@@ -6,7 +6,7 @@
  *   - Onboarding data: Company URL, Email, Connected KB
  *   - "Your Active Variants" panel — pulled from /api/billing/razorpay/subscriptions
  *     (real data, NOT mock). For each subscribed variant shows:
- *       • Variant name (Mini / PARWA / PARWA High)
+ *       • Variant name (PARWA / PARWA High)
  *       • Seats (quantity)
  *       • Monthly ticket limit (quantity × VARIANT_LIMITS[variant].monthlyTickets)
  *       • Combined usage progress bar (tickets used this month / total limit)
@@ -67,13 +67,13 @@ interface ActiveVariant {
 // ── Helpers ──────────────────────────────────────────────────────────
 
 const VARIANT_TIER_KEYS: Record<string, VariantTier> = {
-  mini: 'mini',
   parwa: 'parwa',
   high: 'high',
-  // Legacy aliases that may still exist in DB rows
-  starter: 'mini',
+  // Legacy aliases that may still exist in DB rows — auto-upgraded to parwa
+  mini: 'parwa',
+  starter: 'parwa',
   growth: 'parwa',
-  mini_parwa: 'mini',
+  mini_parwa: 'parwa',
   parwa_high: 'high',
 };
 
@@ -83,8 +83,7 @@ function normalizeVariant(raw: string | undefined | null): VariantTier | null {
 }
 
 const VARIANT_DOT: Record<VariantTier, string> = {
-  mini: 'bg-emerald-400',
-  parwa: 'bg-sky-400',
+  parwa: 'bg-purple-400',
   high: 'bg-amber-400',
 };
 

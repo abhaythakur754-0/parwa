@@ -438,7 +438,6 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                     onChange={(e) => setDefaultVariant(e.target.value)}
                     className="w-full h-9 px-3 rounded-lg bg-[#0F0F0F] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-emerald-500/40"
                   >
-                    <option value="mini">Mini — Basic AI agent</option>
                     <option value="parwa">Parwa — Smart AI with recommendations</option>
                     <option value="high">High — Fully autonomous AI</option>
                   </select>
@@ -585,7 +584,6 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                     onChange={(e) => setDefaultVariant(e.target.value)}
                     className="w-full h-9 px-3 rounded-lg bg-[#0F0F0F] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-emerald-500/40"
                   >
-                    <option value="mini">Mini — Basic AI agent</option>
                     <option value="parwa">Parwa — Smart AI with recommendations</option>
                     <option value="high">High — Fully autonomous AI</option>
                   </select>

@@ -19,7 +19,7 @@ interface RazorpayCheckoutProps {
   /** Company ID for FlexPay */
   companyId?: string;
   /** Subscription tier for FlexPay */
-  tier?: 'mini' | 'parwa' | 'high';
+  tier?: 'parwa' | 'high';
   /** Total subscription amount for FlexPay plan */
   totalAmount?: number;
   /** Plan ID if already created */
@@ -365,7 +365,7 @@ export function RazorpayCheckout({
  */
 export function FlexPayCheckoutButton(props: {
   companyId: string;
-  tier: 'mini' | 'parwa' | 'high';
+  tier: 'parwa' | 'high';
   totalAmount: number;
   customerEmail: string;
   customerName: string;

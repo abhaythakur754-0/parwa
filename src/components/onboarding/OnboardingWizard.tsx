@@ -141,14 +141,15 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   const cameFromPricing = source === 'pricing';
 
   // Map variant_id from URL to ParwaVariant type
-  // Models page sends: 'mini' | 'parwa' | 'high'
-  // ParwaVariant type is: 'mini' | 'parwa' | 'high'
+  // Models page sends: 'parwa' | 'high'
+  // ParwaVariant type is: 'parwa' | 'high'
   React.useEffect(() => {
     if (variantIdParam && !selectedVariant) {
       const variantMap: Record<string, ParwaVariant> = {
-        'mini': 'mini',
         'parwa': 'parwa',
         'high': 'high',
+        // Legacy 'mini' auto-upgrades to 'parwa'
+        'mini': 'parwa',
       };
       const mapped = variantMap[variantIdParam];
       if (mapped) {

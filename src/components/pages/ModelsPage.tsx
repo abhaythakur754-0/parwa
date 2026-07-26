@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 
 type Industry = 'ecommerce' | 'saas' | 'logistics' | 'others';
-type VariantId = 'mini' | 'parwa' | 'high';
+type VariantId = 'parwa' | 'high';
 
 interface IndustryConfig {
   id: Industry;
@@ -47,37 +47,32 @@ const industries: IndustryConfig[] = [
 ];
 
 const commonFeatures: Record<VariantId, string[]> = {
-  mini: ['No AI agents — data collection only', '999 tickets/month', 'Email & Chat channels', 'FAQ handling from knowledge base', 'Phone — 2 concurrent calls', 'Automated data collection & intake'],
   parwa: ['Up to 5 AI agents', '2,499 tickets/month', 'Email, Chat, SMS & Voice', 'AI decision recommendations', 'Smart Router — 3-tier LLM routing', 'Agent Lightning — continuous learning', 'Batch approval system', 'Advanced analytics & ROI tracking'],
   high: ['Up to 8 AI agents (+$3/each extra)', '3,999 tickets/month', 'Email, Chat, SMS & Voice channels', 'Quality coaching system', 'Churn prediction & proactive retention', 'Video support & screen sharing', 'Up to 5 concurrent voice calls', 'Strategic insights & revenue analytics', 'Custom integrations & API access', 'Peer review system', 'Priority support', 'Full autonomous operations'],
 };
 
 const uniqueFeatures: Record<Industry, Record<VariantId, string[]>> = {
-  ecommerce: { mini: ['Order status & tracking automation', 'Return eligibility checking'], parwa: ['Cart abandonment detection', 'Visual Damage Verification', 'Recommends refunds based on policy'], high: ['Cart Recovery Intelligence', 'Sizing Anomaly Detection', 'Fraud pattern detection'] },
-  saas: { mini: ['Technical FAQ handling', 'Subscription status checking'], parwa: ['Technical Troubleshooting Flow', 'API Error Diagnosis', 'In-App Guidance'], high: ['Churn Prediction Engine', 'Complex technical troubleshooting', 'Feature adoption strategies'] },
-  logistics: { mini: ['Shipping FAQ handling', 'Delivery tracking via APIs'], parwa: ['GPS Tracking Integration', 'Driver Coordination', 'Route optimization'], high: ['Proof of Delivery Management', 'Hazmat Protocol', 'Freight Damage Claims'] },
-  others: { mini: ['General inquiry handling', 'Billing & payment status'], parwa: ['Multi-department routing', 'Custom workflow automation'], high: ['Full custom workflow engine', 'Advanced pattern recognition', 'Cross-department coordination'] },
+  ecommerce: { parwa: ['Cart abandonment detection', 'Visual Damage Verification', 'Recommends refunds based on policy'], high: ['Cart Recovery Intelligence', 'Sizing Anomaly Detection', 'Fraud pattern detection'] },
+  saas: { parwa: ['Technical Troubleshooting Flow', 'API Error Diagnosis', 'In-App Guidance'], high: ['Churn Prediction Engine', 'Complex technical troubleshooting', 'Feature adoption strategies'] },
+  logistics: { parwa: ['GPS Tracking Integration', 'Driver Coordination', 'Route optimization'], high: ['Proof of Delivery Management', 'Hazmat Protocol', 'Freight Damage Claims'] },
+  others: { parwa: ['Multi-department routing', 'Custom workflow automation'], high: ['Full custom workflow engine', 'Advanced pattern recognition', 'Cross-department coordination'] },
 };
 
 const variantData: Record<Industry, VariantData[]> = {
   ecommerce: [
-    { id: 'mini', name: 'PARWA Mini', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 999, channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'SMS', icon: <Phone className="w-3.5 h-3.5" /> }, { label: 'Phone', icon: <Phone className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.mini, uniqueFeatures: uniqueFeatures.ecommerce.mini, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'E-commerce SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
-    { id: 'parwa', name: 'PARWA', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 2499, badge: 'Recommended', channels: [{ label: 'All Mini + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.parwa, uniqueFeatures: uniqueFeatures.ecommerce.parwa, keyAdvantage: 'Cuts review time by 80%', smartDecisions: 'Recommends refunds based on policy', roi: 'Replaces ~$18k/month in junior agent salaries', bestFor: 'E-commerce SMBs with 200–500 daily tickets', coreCapability: 'Everything Mini does + Intelligent Recommendations.' },
+    { id: 'parwa', name: 'PARWA', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 2499, badge: 'Recommended', channels: [{ label: 'Email, Chat, SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.parwa, uniqueFeatures: uniqueFeatures.ecommerce.parwa, keyAdvantage: 'Cuts review time by 80%', smartDecisions: 'Recommends refunds based on policy', roi: 'Replaces ~$18k/month in junior agent salaries', bestFor: 'E-commerce SMBs with 200–500 daily tickets', coreCapability: 'Intelligent Recommendations + AI Decision Engine.' },
     { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 3999, channels: [{ label: 'All Parwa + Video', icon: <Video className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.high, uniqueFeatures: uniqueFeatures.ecommerce.high, keyAdvantage: 'Approves returns up to $50', roi: 'Replaces ~$28k/month in senior agent salaries', bestFor: 'E-commerce SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support.' },
   ],
   saas: [
-    { id: 'mini', name: 'PARWA Mini', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 999, channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.mini, uniqueFeatures: uniqueFeatures.saas.mini, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'SaaS SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
-    { id: 'parwa', name: 'PARWA', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 2499, badge: 'Recommended', channels: [{ label: 'All Mini + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.parwa, uniqueFeatures: uniqueFeatures.saas.parwa, keyAdvantage: 'Cuts review time by 80%', roi: 'Replaces ~$18k/month in junior agent salaries', bestFor: 'SaaS SMBs with 200–500 daily tickets', coreCapability: 'Everything Mini does + Intelligent Recommendations.' },
+    { id: 'parwa', name: 'PARWA', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 2499, badge: 'Recommended', channels: [{ label: 'Email, Chat, SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.parwa, uniqueFeatures: uniqueFeatures.saas.parwa, keyAdvantage: 'Cuts review time by 80%', roi: 'Replaces ~$18k/month in junior agent salaries', bestFor: 'SaaS SMBs with 200–500 daily tickets', coreCapability: 'Intelligent Recommendations + AI Decision Engine.' },
     { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 3999, channels: [{ label: 'All Parwa + Video', icon: <Video className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.high, uniqueFeatures: uniqueFeatures.saas.high, keyAdvantage: 'Churn prediction engine', roi: 'Replaces ~$28k/month in senior agent salaries', bestFor: 'SaaS SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support.' },
   ],
   logistics: [
-    { id: 'mini', name: 'PARWA Mini', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 999, channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }, { label: 'SMS', icon: <Phone className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.mini, uniqueFeatures: uniqueFeatures.logistics.mini, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'Logistics SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
-    { id: 'parwa', name: 'PARWA', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 2499, badge: 'Recommended', channels: [{ label: 'All Mini + Voice', icon: <Zap className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.parwa, uniqueFeatures: uniqueFeatures.logistics.parwa, keyAdvantage: 'GPS tracking, driver coordination', roi: 'Replaces ~$18k/month in junior coordinator salaries', bestFor: 'Logistics SMBs with 200–500 daily tickets', coreCapability: 'Everything Mini does + Intelligent Recommendations.' },
+    { id: 'parwa', name: 'PARWA', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 2499, badge: 'Recommended', channels: [{ label: 'Email, Chat, SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.parwa, uniqueFeatures: uniqueFeatures.logistics.parwa, keyAdvantage: 'GPS tracking, driver coordination', roi: 'Replaces ~$18k/month in junior coordinator salaries', bestFor: 'Logistics SMBs with 200–500 daily tickets', coreCapability: 'Intelligent Recommendations + AI Decision Engine.' },
     { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 3999, channels: [{ label: 'All Parwa + Video', icon: <Video className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.high, uniqueFeatures: uniqueFeatures.logistics.high, keyAdvantage: 'POD management, hazmat protocol', roi: 'Replaces ~$28k/month in senior coordinator salaries', bestFor: 'Logistics SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support.' },
   ],
   others: [
-    { id: 'mini', name: 'PARWA Mini', tagline: '"The 24/7 Trainee"', monthlyPrice: 999, annualPrice: 799, ticketsPerMonth: 999, channels: [{ label: 'Email', icon: <Mail className="w-3.5 h-3.5" /> }, { label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.mini, uniqueFeatures: uniqueFeatures.others.mini, roi: 'Replaces ~$14k/month in trainee salaries', bestFor: 'SMBs with 50–200 daily tickets', coreLimitation: 'CANNOT make decisions — only collects data.' },
-    { id: 'parwa', name: 'PARWA', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 2499, badge: 'Recommended', channels: [{ label: 'All Mini + SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.parwa, uniqueFeatures: uniqueFeatures.others.parwa, keyAdvantage: 'Intelligent routing, adaptive learning', roi: 'Replaces ~$18k/month in junior agent salaries', bestFor: 'SMBs with 200–500 daily tickets', coreCapability: 'Everything Mini does + Intelligent Recommendations.' },
+    { id: 'parwa', name: 'PARWA', tagline: '"The Junior Agent"', monthlyPrice: 2499, annualPrice: 1999, ticketsPerMonth: 2499, badge: 'Recommended', channels: [{ label: 'Email, Chat, SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.parwa, uniqueFeatures: uniqueFeatures.others.parwa, keyAdvantage: 'Intelligent routing, adaptive learning', roi: 'Replaces ~$18k/month in junior agent salaries', bestFor: 'SMBs with 200–500 daily tickets', coreCapability: 'Intelligent Recommendations + AI Decision Engine.' },
     { id: 'high', name: 'PARWA High', tagline: '"The Senior Agent"', monthlyPrice: 3999, annualPrice: 3199, ticketsPerMonth: 3999, channels: [{ label: 'All Parwa + Video', icon: <Video className="w-3.5 h-3.5" /> }], commonFeatures: commonFeatures.high, uniqueFeatures: uniqueFeatures.others.high, keyAdvantage: 'Custom workflows, cross-department coordination', roi: 'Replaces ~$28k/month in senior agent salaries', bestFor: 'SMBs with 500+ daily tickets', coreCapability: 'VIP Handling, Strategic Intelligence, Video Support.' },
   ],
 };
@@ -93,11 +88,11 @@ export default function ModelsPage() {
   const { isAuthenticated } = useAuth();
   const [selectedIndustry, setSelectedIndustry] = useState<Industry | null>(null);
   const [isAnnual, setIsAnnual] = useState(false);
-  const [quantities, setQuantities] = useState<Record<VariantId, number>>({ mini: 0, parwa: 0, high: 0 });
+  const [quantities, setQuantities] = useState<Record<VariantId, number>>({ parwa: 0, high: 0 });
 
   const handleIndustryClick = (id: Industry) => {
     setSelectedIndustry(selectedIndustry === id ? null : id);
-    setQuantities({ mini: 0, parwa: 0, high: 0 });
+    setQuantities({ parwa: 0, high: 0 });
   };
 
   const handleQuantityChange = (vid: VariantId, qty: number) => {
@@ -126,7 +121,7 @@ export default function ModelsPage() {
             </div>
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4">Meet the <span className="bg-gradient-to-r from-orange-300 via-orange-400 to-orange-200 bg-clip-text text-transparent">PARWA</span> AI Family</h1>
             <p className="text-base sm:text-lg max-w-2xl mx-auto text-gray-400">
-              {activeIndustry ? activeIndustry.heroText : 'Three intelligent AI agents designed for different stages of business growth.'}
+              {activeIndustry ? activeIndustry.heroText : 'Two intelligent AI agents designed for different stages of business growth.'}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
               {trustIndicators.map((item) => {
@@ -171,7 +166,7 @@ export default function ModelsPage() {
                 <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2"><span className="bg-gradient-to-r from-orange-300 to-orange-400 bg-clip-text text-transparent">{activeIndustry!.label}</span> Pricing & Plans</h2>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {currentVariants.map((variant) => {
                   const isRecommended = variant.badge === 'Recommended';
                   const price = isAnnual ? variant.annualPrice : variant.monthlyPrice;

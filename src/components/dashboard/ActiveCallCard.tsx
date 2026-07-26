@@ -33,7 +33,6 @@ const statusConfig: Record<string, { color: string; dot: string; label: string; 
 };
 
 const variantColors: Record<string, string> = {
-  mini: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
   parwa: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   high: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
 };
@@ -120,9 +119,9 @@ export function ActiveCallCard({ call, onEnd, onTransfer, onClick }: ActiveCallC
       <div className="flex items-center gap-2 mb-3">
         <span className={cn(
           'text-[10px] px-2 py-0.5 rounded-full border',
-          variantColors[call.variant_tier] || variantColors.mini
+          variantColors[call.variant_tier] || variantColors.parwa
         )}>
-          {call.variant_tier || 'Mini'}
+          {call.variant_tier || 'PARWA'}
         </span>
         {call.intent_detected && (
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20">

@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 export interface VariantInstanceData {
   id: string;
   name: string;
-  tier: 'mini' | 'parwa' | 'high';
+  tier: 'parwa' | 'high';
   status: 'active' | 'idle' | 'error' | 'paused';
   capacity: number;
   activeTickets: number;
@@ -27,13 +27,11 @@ export interface VariantInstanceCardProps {
 }
 
 const tierColors: Record<string, string> = {
-  mini: 'text-zinc-400 bg-zinc-500/10',
   parwa: 'text-orange-400 bg-orange-500/10',
   high: 'text-purple-400 bg-purple-500/10',
 };
 
 const tierLabels: Record<string, string> = {
-  mini: 'Mini',
   parwa: 'Parwa',
   high: 'High',
 };

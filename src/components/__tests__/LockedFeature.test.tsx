@@ -3,10 +3,14 @@
  *
  * Tests tier gating, upgrade CTA, custom fallback,
  * TierBadge, and InlineLock sub-components.
+ *
+ * Tier model: parwa ($2,499/mo) | high ($3,999/mo)
+ * Mini PARWA was removed — legacy 'mini' values auto-upgrade to 'parwa'.
  */
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import { LockedFeature, TierBadge, InlineLock } from '@/components/LockedFeature';
 import { useVariantStore } from '@/lib/variant-store';
 
@@ -18,24 +22,24 @@ describe('LockedFeature', () => {
   });
 
   describe('when tier meets or exceeds requiredTier', () => {
-    it('renders children when mini user accesses mini feature', () => {
-      useVariantStore.getState().setTier('mini');
+    it('renders children when parwa user accesses parwa feature', () => {
+      useVariantStore.getState().setTier('parwa');
 
       render(
-        <LockedFeature requiredTier="mini">
-          <div data-testid="child-content">Mini Feature</div>
+        <LockedFeature requiredTier="parwa">
+          <div data-testid="child-content">Parwa Feature</div>
         </LockedFeature>
       );
 
       expect(screen.getByTestId('child-content')).toBeInTheDocument();
-      expect(screen.getByText('Mini Feature')).toBeInTheDocument();
+      expect(screen.getByText('Parwa Feature')).toBeInTheDocument();
     });
 
-    it('renders children when pro user accesses mini feature', () => {
-      useVariantStore.getState().setTier('parwa');
+    it('renders children when high user accesses parwa feature', () => {
+      useVariantStore.getState().setTier('high');
 
       render(
-        <LockedFeature requiredTier="mini">
+        <LockedFeature requiredTier="parwa">
           <div data-testid="child-content">Basic Feature</div>
         </LockedFeature>
       );
@@ -43,19 +47,7 @@ describe('LockedFeature', () => {
       expect(screen.getByTestId('child-content')).toBeInTheDocument();
     });
 
-    it('renders children when pro user accesses pro feature', () => {
-      useVariantStore.getState().setTier('parwa');
-
-      render(
-        <LockedFeature requiredTier="pro">
-          <div data-testid="child-content">Pro Feature</div>
-        </LockedFeature>
-      );
-
-      expect(screen.getByTestId('child-content')).toBeInTheDocument();
-    });
-
-    it('renders children when high user accesses any feature', () => {
+    it('renders children when high user accesses high feature', () => {
       useVariantStore.getState().setTier('high');
 
       render(
@@ -69,12 +61,12 @@ describe('LockedFeature', () => {
   });
 
   describe('when tier is below requiredTier', () => {
-    it('shows upgrade CTA for mini user accessing pro feature', () => {
-      useVariantStore.getState().setTier('mini');
+    it('shows upgrade CTA for parwa user accessing high feature', () => {
+      useVariantStore.getState().setTier('parwa');
 
       render(
-        <LockedFeature requiredTier="pro" featureName="SMS Channel">
-          <div data-testid="child-content">SMS Channel Toggle</div>
+        <LockedFeature requiredTier="high" featureName="Video Channel">
+          <div data-testid="child-content">Video Channel Toggle</div>
         </LockedFeature>
       );
 
@@ -82,16 +74,16 @@ describe('LockedFeature', () => {
       expect(screen.getByTestId('child-content')).toBeInTheDocument();
 
       // Upgrade CTA should be shown
-      expect(screen.getByText('SMS Channel')).toBeInTheDocument();
+      expect(screen.getByText('Video Channel')).toBeInTheDocument();
       expect(screen.getByText(/Available on/)).toBeInTheDocument();
       expect(screen.getByText('Upgrade Now')).toBeInTheDocument();
     });
 
     it('shows "Premium Feature" when no featureName provided', () => {
-      useVariantStore.getState().setTier('mini');
+      useVariantStore.getState().setTier('parwa');
 
       render(
-        <LockedFeature requiredTier="pro">
+        <LockedFeature requiredTier="high">
           <div>Content</div>
         </LockedFeature>
       );
@@ -100,7 +92,7 @@ describe('LockedFeature', () => {
     });
 
     it('shows correct tier label in upgrade CTA', () => {
-      useVariantStore.getState().setTier('mini');
+      useVariantStore.getState().setTier('parwa');
 
       render(
         <LockedFeature requiredTier="high">
@@ -112,20 +104,8 @@ describe('LockedFeature', () => {
       expect(screen.getByText(/\$3,999\/mo/)).toBeInTheDocument();
     });
 
-    it('shows mini-to-pro upsell message for mini users', () => {
-      useVariantStore.getState().setTier('mini');
-
-      render(
-        <LockedFeature requiredTier="pro">
-          <div>Content</div>
-        </LockedFeature>
-      );
-
-      expect(screen.getByText(/Pro unlocks SMS & Voice channels/)).toBeInTheDocument();
-    });
-
-    it('shows high upsell message for high-tier features', () => {
-      useVariantStore.getState().setTier('mini');
+    it('shows parwa-to-high upsell message for parwa users accessing high features', () => {
+      useVariantStore.getState().setTier('parwa');
 
       render(
         <LockedFeature requiredTier="high">
@@ -133,14 +113,26 @@ describe('LockedFeature', () => {
         </LockedFeature>
       );
 
-      expect(screen.getByText(/High unlocks Video channel/)).toBeInTheDocument();
+      expect(screen.getByText(/Upgrade for 5 AI agents and 2,499 tickets\/month/)).toBeInTheDocument();
+    });
+
+    it('shows high upsell message for high-tier features', () => {
+      useVariantStore.getState().setTier('parwa');
+
+      render(
+        <LockedFeature requiredTier="high">
+          <div>Content</div>
+        </LockedFeature>
+      );
+
+      expect(screen.getByText(/Upgrade for 8 AI agents/)).toBeInTheDocument();
     });
 
     it('links upgrade button to /dashboard/billing', () => {
-      useVariantStore.getState().setTier('mini');
+      useVariantStore.getState().setTier('parwa');
 
       render(
-        <LockedFeature requiredTier="pro">
+        <LockedFeature requiredTier="high">
           <div>Content</div>
         </LockedFeature>
       );
@@ -152,11 +144,11 @@ describe('LockedFeature', () => {
 
   describe('custom fallback', () => {
     it('renders custom fallback when feature is locked', () => {
-      useVariantStore.getState().setTier('mini');
+      useVariantStore.getState().setTier('parwa');
 
       render(
-        <LockedFeature requiredTier="pro" fallback={<div data-testid="custom-fallback">Not available</div>}>
-          <div data-testid="child-content">Pro Feature</div>
+        <LockedFeature requiredTier="high" fallback={<div data-testid="custom-fallback">Not available</div>}>
+          <div data-testid="child-content">High Feature</div>
         </LockedFeature>
       );
 
@@ -166,11 +158,11 @@ describe('LockedFeature', () => {
     });
 
     it('ignores fallback when tier is sufficient', () => {
-      useVariantStore.getState().setTier('parwa');
+      useVariantStore.getState().setTier('high');
 
       render(
-        <LockedFeature requiredTier="pro" fallback={<div data-testid="custom-fallback">Fallback</div>}>
-          <div data-testid="child-content">Pro Feature</div>
+        <LockedFeature requiredTier="parwa" fallback={<div data-testid="custom-fallback">Fallback</div>}>
+          <div data-testid="child-content">Parwa Feature</div>
         </LockedFeature>
       );
 
@@ -181,11 +173,11 @@ describe('LockedFeature', () => {
 
   describe('showUpgrade=false', () => {
     it('renders nothing when locked and showUpgrade is false', () => {
-      useVariantStore.getState().setTier('mini');
+      useVariantStore.getState().setTier('parwa');
 
       const { container } = render(
-        <LockedFeature requiredTier="pro" showUpgrade={false}>
-          <div data-testid="child-content">Pro Feature</div>
+        <LockedFeature requiredTier="high" showUpgrade={false}>
+          <div data-testid="child-content">High Feature</div>
         </LockedFeature>
       );
 
@@ -194,11 +186,11 @@ describe('LockedFeature', () => {
     });
 
     it('still renders children when tier is sufficient', () => {
-      useVariantStore.getState().setTier('parwa');
+      useVariantStore.getState().setTier('high');
 
       render(
-        <LockedFeature requiredTier="pro" showUpgrade={false}>
-          <div data-testid="child-content">Pro Feature</div>
+        <LockedFeature requiredTier="parwa" showUpgrade={false}>
+          <div data-testid="child-content">Parwa Feature</div>
         </LockedFeature>
       );
 
@@ -215,24 +207,24 @@ describe('TierBadge', () => {
   });
 
   it('renders nothing when tier meets requirement', () => {
-    useVariantStore.getState().setTier('parwa');
+    useVariantStore.getState().setTier('high');
 
-    const { container } = render(<TierBadge requiredTier="pro" />);
+    const { container } = render(<TierBadge requiredTier="parwa" />);
     expect(container.innerHTML).toBe('');
   });
 
   it('renders lock icon and tier label when tier is below requirement', () => {
-    useVariantStore.getState().setTier('mini');
+    useVariantStore.getState().setTier('parwa');
 
-    render(<TierBadge requiredTier="pro" />);
+    const { container } = render(<TierBadge requiredTier="high" />);
 
-    expect(screen.getByTestId('icon-lock')).toBeInTheDocument();
-    // getTierLabel('parwa').split(' ')[0] = 'PARWA'
+    expect(container.querySelector('svg.lucide-lock')).toBeInTheDocument();
+    // getTierLabel('high').split(' ')[0] = 'PARWA'
     expect(screen.getByText('PARWA')).toBeInTheDocument();
   });
 
-  it('shows "High" label for high-tier badge', () => {
-    useVariantStore.getState().setTier('mini');
+  it('shows "PARWA" label for high-tier badge', () => {
+    useVariantStore.getState().setTier('parwa');
 
     render(<TierBadge requiredTier="high" />);
 
@@ -249,26 +241,26 @@ describe('InlineLock', () => {
   });
 
   it('renders nothing when tier meets requirement', () => {
-    useVariantStore.getState().setTier('parwa');
+    useVariantStore.getState().setTier('high');
 
-    const { container } = render(<InlineLock requiredTier="pro" />);
+    const { container } = render(<InlineLock requiredTier="parwa" />);
     expect(container.innerHTML).toBe('');
   });
 
   it('renders lock icon when tier is below requirement', () => {
-    useVariantStore.getState().setTier('mini');
+    useVariantStore.getState().setTier('parwa');
 
-    render(<InlineLock requiredTier="pro" />);
+    const { container } = render(<InlineLock requiredTier="high" />);
 
-    expect(screen.getByTestId('icon-lock')).toBeInTheDocument();
+    expect(container.querySelector('svg.lucide-lock')).toBeInTheDocument();
   });
 
   it('has title tooltip showing upgrade info', () => {
-    useVariantStore.getState().setTier('mini');
+    useVariantStore.getState().setTier('parwa');
 
-    render(<InlineLock requiredTier="pro" />);
+    const { container } = render(<InlineLock requiredTier="high" />);
 
-    const lockElement = screen.getByTestId('icon-lock').closest('span');
-    expect(lockElement).toHaveAttribute('title', 'Requires PARWA Pro ($2,499/mo)');
+    const lockElement = container.querySelector('svg.lucide-lock')?.closest('span');
+    expect(lockElement).toHaveAttribute('title', 'Requires PARWA High ($3,999/mo)');
   });
 });
