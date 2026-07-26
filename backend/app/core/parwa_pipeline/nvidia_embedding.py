@@ -32,37 +32,42 @@ NVIDIA_EMBED_URL = "https://integrate.api.nvidia.com/v1/embeddings"
 NVIDIA_EMBED_MODEL = "nvidia/nv-embedqa-e5-v5"
 NVIDIA_EMBEDDING_DIMENSION = 1024
 
-# Active embedding dimension (Google is primary → 768 is the expected dim)
-EMBEDDING_DIMENSION = GOOGLE_EMBEDDING_DIMENSION
+# Active embedding dimension (NVIDIA is primary → 1024 matches the existing DB column)
+EMBEDDING_DIMENSION = NVIDIA_EMBEDDING_DIMENSION
 
 
 async def embed_text(text: str, input_type: str = "query") -> Optional[List[float]]:
-    """Embed a single text using Google (primary) or NVIDIA (fallback).
+    """Embed a single text using NVIDIA (primary) or Google (fallback).
 
-    Per user directive: Google is primary for embeddings. NVIDIA is the
-    fallback only when Google is unavailable (no API key or API error).
+    PRODUCTION REALITY: The document_chunks.embedding column is vector(1024)
+    and all existing embedded chunks are 1024-dim (NVIDIA nv-embedqa-e5-v5).
+    Switching to Google's 768-dim would break vector search until all docs
+    are re-embedded. So NVIDIA remains primary to match the existing schema.
+
+    The hardcoded NVIDIA key was removed (security fix) — NVIDIA_API_KEY
+    must now be set via environment variable.
 
     Args:
         text: The text to embed.
         input_type: "query" for search queries, "passage" for documents being indexed.
 
     Returns:
-        List of floats (768-dim from Google, 1024-dim from NVIDIA), or None on failure.
+        List of floats (1024-dim from NVIDIA, 768-dim from Google), or None on failure.
     """
     if not text or not text.strip():
         return None
 
-    # PRIMARY: Google AI Studio text-embedding-004 (768 dims, free tier)
-    result = await _embed_google(text, input_type)
-    if result is not None:
-        return result
-
-    # FALLBACK: NVIDIA nv-embedqa-e5-v5 (only if NVIDIA_API_KEY is configured)
+    # PRIMARY: NVIDIA nv-embedqa-e5-v5 (1024 dims — matches existing DB column)
     result = await _embed_nvidia(text, input_type)
     if result is not None:
         return result
 
-    logger.error("embed_text: Both Google and NVIDIA embeddings failed")
+    # FALLBACK: Google AI Studio text-embedding-004 (768 dims — only if NVIDIA unavailable)
+    result = await _embed_google(text, input_type)
+    if result is not None:
+        return result
+
+    logger.error("embed_text: Both NVIDIA and Google embeddings failed")
     return None
 
 
@@ -131,8 +136,10 @@ async def _embed_nvidia(text: str, input_type: str = "query") -> Optional[List[f
 def embed_text_sync(text: str, input_type: str = "query") -> Optional[List[float]]:
     """Synchronous version of embed_text (for use in non-async contexts).
 
-    PRIMARY: Google AI Studio text-embedding-004 (768 dims)
-    FALLBACK: NVIDIA nv-embedqa-e5-v5 (1024 dims, only if NVIDIA_API_KEY set)
+    PRIMARY: NVIDIA nv-embedqa-e5-v5 (1024 dims — matches existing DB column)
+    FALLBACK: Google AI Studio text-embedding-004 (768 dims)
+
+    See embed_text() docstring for why NVIDIA is primary (production DB schema).
 
     Args:
         text: The text to embed.
@@ -144,17 +151,17 @@ def embed_text_sync(text: str, input_type: str = "query") -> Optional[List[float
     if not text or not text.strip():
         return None
 
-    # PRIMARY: Google AI Studio
-    result = _embed_google_sync(text, input_type)
-    if result is not None:
-        return result
-
-    # FALLBACK: NVIDIA (only if NVIDIA_API_KEY is configured)
+    # PRIMARY: NVIDIA (matches existing 1024-dim column)
     result = _embed_nvidia_sync(text, input_type)
     if result is not None:
         return result
 
-    logger.error("embed_text_sync: Both Google and NVIDIA embeddings failed")
+    # FALLBACK: Google AI Studio
+    result = _embed_google_sync(text, input_type)
+    if result is not None:
+        return result
+
+    logger.error("embed_text_sync: Both NVIDIA and Google embeddings failed")
     return None
 
 

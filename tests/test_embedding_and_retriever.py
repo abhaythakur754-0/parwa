@@ -56,54 +56,60 @@ def test_no_hardcoded_google_key():
 # ── 2. Google is primary ───────────────────────────────────────────────────
 
 def test_google_is_primary_embedding_dimension():
-    """EMBEDDING_DIMENSION must be 768 (Google), not 1024 (NVIDIA)."""
+    """EMBEDDING_DIMENSION must be 1024 (NVIDIA, matching the existing DB column).
+
+    The production document_chunks.embedding column is vector(1024) and all
+    existing embedded chunks are 1024-dim (NVIDIA). Switching to Google's
+    768-dim would break vector search until all docs are re-embedded.
+    NVIDIA stays primary to match the schema; the key just can't be hardcoded.
+    """
     from app.core.parwa_pipeline.nvidia_embedding import (
         EMBEDDING_DIMENSION,
-        GOOGLE_EMBEDDING_DIMENSION,
+        NVIDIA_EMBEDDING_DIMENSION,
     )
 
-    assert GOOGLE_EMBEDDING_DIMENSION == 768
-    assert EMBEDDING_DIMENSION == 768, (
-        f"Expected Google's 768-dim as primary, got {EMBEDDING_DIMENSION}"
+    assert NVIDIA_EMBEDDING_DIMENSION == 1024
+    assert EMBEDDING_DIMENSION == 1024, (
+        f"Expected NVIDIA's 1024-dim as primary (matches DB schema), got {EMBEDDING_DIMENSION}"
     )
 
 
-def test_embed_text_sync_tries_google_first(monkeypatch):
-    """embed_text_sync must call Google before NVIDIA."""
+def test_embed_text_sync_tries_nvidia_first(monkeypatch):
+    """embed_text_sync must call NVIDIA before Google (matches DB schema)."""
     from app.core.parwa_pipeline import nvidia_embedding as emb
 
     call_order = []
-
-    def fake_google(text, input_type):
-        call_order.append("google")
-        return [0.1] * 768  # success → NVIDIA should never be called
 
     def fake_nvidia(text, input_type):
         call_order.append("nvidia")
-        return [0.2] * 1024
+        return [0.1] * 1024  # success → Google should never be called
 
-    monkeypatch.setattr(emb, "_embed_google_sync", fake_google)
+    def fake_google(text, input_type):
+        call_order.append("google")
+        return [0.2] * 768
+
     monkeypatch.setattr(emb, "_embed_nvidia_sync", fake_nvidia)
+    monkeypatch.setattr(emb, "_embed_google_sync", fake_google)
 
     result = emb.embed_text_sync("test query")
-    assert result == [0.1] * 768
-    assert call_order == ["google"], (
-        f"Google must be tried first; got order: {call_order}"
+    assert result == [0.1] * 1024
+    assert call_order == ["nvidia"], (
+        f"NVIDIA must be tried first; got order: {call_order}"
     )
 
 
-def test_embed_text_sync_falls_back_to_nvidia(monkeypatch):
-    """If Google fails, NVIDIA is tried."""
+def test_embed_text_sync_falls_back_to_google(monkeypatch):
+    """If NVIDIA fails, Google is tried."""
     from app.core.parwa_pipeline import nvidia_embedding as emb
 
     call_order = []
 
-    monkeypatch.setattr(emb, "_embed_google_sync", lambda t, i: (call_order.append("google") or None))
-    monkeypatch.setattr(emb, "_embed_nvidia_sync", lambda t, i: (call_order.append("nvidia") or [0.3] * 1024))
+    monkeypatch.setattr(emb, "_embed_nvidia_sync", lambda t, i: (call_order.append("nvidia") or None))
+    monkeypatch.setattr(emb, "_embed_google_sync", lambda t, i: (call_order.append("google") or [0.3] * 768))
 
     result = emb.embed_text_sync("test query")
-    assert result == [0.3] * 1024
-    assert call_order == ["google", "nvidia"]
+    assert result == [0.3] * 768
+    assert call_order == ["nvidia", "google"]
 
 
 # ── 3. Empty input handling (BC-008) ───────────────────────────────────────
