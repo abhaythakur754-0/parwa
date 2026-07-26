@@ -10,16 +10,27 @@ import {
   Headphones, MessageSquare, Phone, Video, Globe, ArrowDownRight,
   ThumbsUp,
 } from 'lucide-react';
+import {
+  VARIANT_PRICES,
+  VARIANT_LIMITS,
+  VARIANT_DISPLAY_NAMES,
+  VARIANT_TAGLINES,
+  OVERAGE_PRICE_PER_TICKET,
+  type VariantTier,
+} from '@/lib/pricing-config';
+
+// ── Model data sourced from pricing-config.ts (SINGLE SOURCE OF TRUTH) ──
+// $1 = 1 ticket. All tiers have the SAME AI capabilities (88% resolution).
+// The only difference is ticket volume + financial action limits.
 
 interface ParwaModel {
-  id: string;
+  tier: VariantTier;
   name: string;
   tagline: string;
-  tier: string;
   price: number;
+  ticketLimit: number;
   aiResolution: number;
-  agents: number;
-  ticketCapacity: string;
+  aiAgents: number;
   channels: string[];
   description: string;
   bestFor: string;
@@ -29,9 +40,42 @@ interface ParwaModel {
   tierBg: string;
 }
 
+const AI_RESOLUTION = 0.88; // Same for all tiers per user directive
+const HUMAN_HANDOFF_FACTOR = 0.25; // Human handles 25% of effort on tickets AI couldn't fully resolve
+
 const PARWA_MODELS: ParwaModel[] = [
-  { id: 'parwa-parwa', name: 'PARWA', tagline: 'The Junior Agent', tier: 'Parwa', price: 2499, aiResolution: 0.78, agents: 5, ticketCapacity: '2,499 tickets/mo', channels: ['Email', 'Chat', 'SMS', 'Voice'], description: 'Your smartest junior agent. Resolves ~78% of tickets autonomously with multi-channel support.', bestFor: 'Growing businesses needing multi-channel support', tierLabel: 'Most Popular', tierColor: 'text-orange-400', tierBorder: 'border-orange-500/30', tierBg: 'bg-orange-500/5' },
-  { id: 'parwa-high', name: 'PARWA High', tagline: 'The Senior Agent', tier: 'Enterprise', price: 3999, aiResolution: 0.88, agents: 8, ticketCapacity: '3,999 tickets/mo', channels: ['Email', 'Chat', 'SMS', 'Voice', 'Social', 'Video'], description: 'Your most experienced senior agent. Handles complex cases and provides strategic insights with unlimited AI agents.', bestFor: 'Enterprise teams with complex cases', tierLabel: 'Enterprise', tierColor: 'text-purple-400', tierBorder: 'border-purple-500/30', tierBg: 'bg-purple-500/5' },
+  {
+    tier: 'parwa',
+    name: VARIANT_DISPLAY_NAMES.parwa,
+    tagline: VARIANT_TAGLINES.parwa,
+    price: VARIANT_PRICES.parwa,
+    ticketLimit: VARIANT_LIMITS.parwa.monthlyTickets,
+    aiResolution: AI_RESOLUTION,
+    aiAgents: VARIANT_LIMITS.parwa.aiAgents,
+    channels: ['Email', 'Chat', 'SMS', 'Voice'],
+    description: 'Your smartest junior agent. Resolves ~88% of tickets autonomously with multi-channel support.',
+    bestFor: 'Growing businesses needing multi-channel support',
+    tierLabel: 'Most Popular',
+    tierColor: 'text-orange-400',
+    tierBorder: 'border-orange-500/30',
+    tierBg: 'bg-orange-500/5',
+  },
+  {
+    tier: 'high',
+    name: VARIANT_DISPLAY_NAMES.high,
+    tagline: VARIANT_TAGLINES.high,
+    price: VARIANT_PRICES.high,
+    ticketLimit: VARIANT_LIMITS.high.monthlyTickets,
+    aiResolution: AI_RESOLUTION,
+    aiAgents: VARIANT_LIMITS.high.aiAgents,
+    channels: ['Email', 'Chat', 'SMS', 'Voice', 'Social', 'Video'],
+    description: 'Your most experienced senior agent. Handles complex cases with unlimited financial actions.',
+    bestFor: 'Enterprise teams with complex cases',
+    tierLabel: 'Enterprise',
+    tierColor: 'text-purple-400',
+    tierBorder: 'border-purple-500/30',
+    tierBg: 'bg-purple-500/5',
+  },
 ];
 
 const INDUSTRIES = [
@@ -81,20 +125,19 @@ function getChannelIcon(channel: string) {
   }
 }
 
-function getRecommendedModel(tickets: number, agentCount: number, industry: string) {
+function getRecommendedModel(tickets: number, agentCount: number) {
   let recommended: ParwaModel;
   const reasons: string[] = [];
-  const industryLabel = INDUSTRIES.find((i) => i.id === industry)?.label || 'your industry';
 
-  if (tickets <= 2499 && agentCount <= 15) {
+  if (tickets <= VARIANT_LIMITS.parwa.monthlyTickets && agentCount <= 15) {
     recommended = PARWA_MODELS[0];
-    reasons.push(`Your volume of ${fmtNum(tickets)} tickets/month fits within the PARWA tier.`);
+    reasons.push(`Your volume of ${fmtNum(tickets)} tickets/month fits within the PARWA plan (${fmtNum(VARIANT_LIMITS.parwa.monthlyTickets)} tickets included).`);
   } else {
     recommended = PARWA_MODELS[1];
-    reasons.push(`Your ${fmtNum(tickets)} tickets/month exceeds PARWA capacity — PARWA High gives you room to scale.`);
-    reasons.push(`Your volume requires High's 3,999 ticket capacity.`);
+    reasons.push(`Your ${fmtNum(tickets)} tickets/month exceeds PARWA's ${fmtNum(VARIANT_LIMITS.parwa.monthlyTickets)} ticket limit — PARWA High gives you ${fmtNum(VARIANT_LIMITS.high.monthlyTickets)} tickets with no overage.`);
+    reasons.push(`Your volume needs High's ${fmtNum(VARIANT_LIMITS.high.monthlyTickets)} ticket capacity.`);
   }
-  reasons.push(`Parwa resolves ~${Math.round(recommended.aiResolution * 100)}% of tickets autonomously.`);
+  reasons.push(`PARWA resolves ~${Math.round(recommended.aiResolution * 100)}% of tickets autonomously — the rest need human attention.`);
   return { model: recommended, reasons };
 }
 
@@ -102,6 +145,10 @@ interface ModelComparison {
   model: ParwaModel;
   aiTicketsPerMonth: number;
   humanTicketsPerMonth: number;
+  overageTickets: number;
+  overageCost: number;
+  baseSubscription: number;
+  humanHandoffCost: number;
   parwaMonthlyCost: number;
   parwaAnnualCost: number;
   currentMonthlyCost: number;
@@ -114,19 +161,63 @@ interface ModelComparison {
   isRecommended: boolean;
 }
 
-function calculateComparisons(tickets: number, agentCount: number, cpt: number, currentMonthly: number, currentAnnual: number, recommendedId: string): ModelComparison[] {
+function calculateComparisons(
+  tickets: number,
+  agentCount: number,
+  cpt: number,
+  currentMonthly: number,
+  currentAnnual: number,
+  recommendedTier: VariantTier,
+): ModelComparison[] {
   return PARWA_MODELS.map((model) => {
+    // ── AI resolution: 88% of tickets handled autonomously ──
     const aiTickets = Math.round(tickets * model.aiResolution);
     const humanTickets = tickets - aiTickets;
-    const humanCost = humanTickets * cpt * 0.25;
-    const parwaMonthly = model.price + humanCost;
+
+    // ── Overage: $1 per ticket over the plan limit ──
+    // $1 = 1 ticket pricing model. If you exceed your plan's ticket capacity,
+    // you pay $1 for each additional ticket.
+    const overageTickets = Math.max(0, tickets - model.ticketLimit);
+    const overageCost = overageTickets * OVERAGE_PRICE_PER_TICKET;
+
+    // ── Human handoff cost: for the 12% of tickets AI couldn't resolve,
+    // a human agent handles them at 25% of the normal per-ticket cost
+    // (because AI already did the triage + research). ──
+    const humanHandoffCost = humanTickets * cpt * HUMAN_HANDOFF_FACTOR;
+
+    // ── Total PARWA monthly cost = subscription + overage + human handoff ──
+    const baseSubscription = model.price;
+    const parwaMonthly = baseSubscription + overageCost + humanHandoffCost;
     const parwaAnnual = parwaMonthly * 12;
+
+    // ── Savings vs current cost ──
     const monthlySavings = Math.max(0, currentMonthly - parwaMonthly);
     const annualSavings = Math.max(0, currentAnnual - parwaAnnual);
     const savingsPercent = currentAnnual > 0 ? (annualSavings / currentAnnual) * 100 : 0;
-    const hoursSavedPerMonth = aiTickets * 0.25;
-    const paybackMonths = monthlySavings > 0 ? parwaMonthly / monthlySavings : 999;
-    return { model, aiTicketsPerMonth: aiTickets, humanTicketsPerMonth: humanTickets, parwaMonthlyCost: parwaMonthly, parwaAnnualCost: parwaAnnual, currentMonthlyCost: currentMonthly, currentAnnualCost: currentAnnual, monthlySavings, annualSavings, savingsPercent, hoursSavedPerMonth, paybackMonths: Math.min(12, Math.max(1, paybackMonths)), isRecommended: model.id === recommendedId };
+
+    // ── Hours saved: AI handles 88% of tickets at ~15 min each ──
+    const hoursSavedPerMonth = aiTickets * 0.25; // 15 min per AI-resolved ticket
+    const paybackMonths = monthlySavings > 0 ? baseSubscription / monthlySavings : 999;
+
+    return {
+      model,
+      aiTicketsPerMonth: aiTickets,
+      humanTicketsPerMonth: humanTickets,
+      overageTickets,
+      overageCost,
+      baseSubscription,
+      humanHandoffCost,
+      parwaMonthlyCost: parwaMonthly,
+      parwaAnnualCost: parwaAnnual,
+      currentMonthlyCost: currentMonthly,
+      currentAnnualCost: currentAnnual,
+      monthlySavings,
+      annualSavings,
+      savingsPercent,
+      hoursSavedPerMonth,
+      paybackMonths: Math.min(12, Math.max(1, paybackMonths)),
+      isRecommended: model.tier === recommendedTier,
+    };
   });
 }
 
@@ -150,13 +241,13 @@ export default function ROICalculatorPage() {
   const currentTotalAnnual = currentTotalMonthly * 12;
 
   const { model: recommendedModel, reasons: recommendationReasons } = useMemo(
-    () => getRecommendedModel(tickets, agentCount, industry),
-    [tickets, agentCount, industry]
+    () => getRecommendedModel(tickets, agentCount),
+    [tickets, agentCount]
   );
 
   const comparisons = useMemo(
-    () => calculateComparisons(tickets, agentCount, cpt, currentTotalMonthly, currentTotalAnnual, recommendedModel.id),
-    [tickets, agentCount, cpt, currentTotalMonthly, currentTotalAnnual, recommendedModel.id]
+    () => calculateComparisons(tickets, agentCount, cpt, currentTotalMonthly, currentTotalAnnual, recommendedModel.tier),
+    [tickets, agentCount, cpt, currentTotalMonthly, currentTotalAnnual, recommendedModel.tier]
   );
   const recommendedComparison = comparisons.find((c) => c.isRecommended)!;
 
@@ -279,13 +370,43 @@ export default function ROICalculatorPage() {
                   <p className="text-sm text-gray-400 leading-relaxed mb-5">{recommendedModel.description}</p>
                   <div className="flex flex-wrap gap-2 mb-5">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300"><Brain className="w-3 h-3 text-orange-400" />{Math.round(recommendedModel.aiResolution * 100)}% AI Resolution</span>
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300"><Users className="w-3 h-3 text-orange-400" />{recommendedModel.agents === -1 ? 'Unlimited' : recommendedModel.agents} AI Agents</span>
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300"><TicketCheck className="w-3 h-3 text-orange-400" />{recommendedModel.ticketCapacity}</span>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300"><Users className="w-3 h-3 text-orange-400" />{recommendedModel.aiAgents} AI Agents</span>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300"><TicketCheck className="w-3 h-3 text-orange-400" />{recommendedModel.ticketLimit.toLocaleString()} tickets included</span>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300"><DollarSign className="w-3 h-3 text-orange-400" />${OVERAGE_PRICE_PER_TICKET.toFixed(2)}/ticket overage</span>
                     {recommendedModel.channels.map((ch) => (<span key={ch} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300">{getChannelIcon(ch)}{ch}</span>))}
                   </div>
                   <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
                     <div className="flex items-center gap-2 mb-3"><Brain className="w-4 h-4 text-orange-400" /><span className="text-sm font-bold text-orange-200">Why this model for {companyName}?</span></div>
                     <ul className="space-y-2">{recommendationReasons.map((reason, i) => (<li key={i} className="flex items-start gap-2.5"><div className="w-5 h-5 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0 mt-0.5"><Check className="w-3 h-3 text-orange-400" /></div><span className="text-sm text-gray-300 leading-relaxed">{reason}</span></li>))}</ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cost Breakdown */}
+              <div className="rounded-2xl border border-white/10 p-5 sm:p-6" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-orange-400" />Monthly Cost Breakdown</h3>
+                <div className="space-y-2.5">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">PARWA {recommendedModel.name} subscription</span>
+                    <span className="text-white font-medium tabular-nums">{fmtMoney(recommendedComparison.baseSubscription)}</span>
+                  </div>
+                  {recommendedComparison.overageCost > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Overage ({fmtNum(recommendedComparison.overageTickets)} tickets × ${OVERAGE_PRICE_PER_TICKET.toFixed(2)})</span>
+                      <span className="text-amber-400 font-medium tabular-nums">{fmtMoney(recommendedComparison.overageCost)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Human handoff ({fmtNum(recommendedComparison.humanTicketsPerMonth)} tickets × {fmtMoney(cpt)} × 25%)</span>
+                    <span className="text-white font-medium tabular-nums">{fmtMoney(recommendedComparison.humanHandoffCost)}</span>
+                  </div>
+                  <div className="border-t border-white/10 pt-2.5 flex justify-between">
+                    <span className="text-sm font-bold text-white">Total PARWA monthly cost</span>
+                    <span className="text-orange-400 font-black tabular-nums">{fmtMoney(recommendedComparison.parwaMonthlyCost)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Your current monthly cost</span>
+                    <span className="text-gray-300 font-medium tabular-nums">{fmtMoney(recommendedComparison.currentMonthlyCost)}</span>
                   </div>
                 </div>
               </div>
@@ -315,7 +436,7 @@ export default function ROICalculatorPage() {
             {step < 3 ? (
               <button onClick={() => canGoNext && setStep(step + 1)} disabled={!canGoNext} className="px-6 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] shadow-lg shadow-orange-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all">Continue</button>
             ) : (
-              <button onClick={() => navigate('landing')} className="px-6 py-3 rounded-xl text-sm font-semibold bg-white/5 text-zinc-300 border border-white/10 hover:border-white/20 transition-all">Back to Home</button>
+              <button onClick={() => navigate('landing')} className="px-6 py-3 rounded-xl text-sm font-semibold bg-white/5 text-zinc-300 border border-white/10 hover:border-white/20 hover:bg-white/10 transition-all">Back to Home</button>
             )}
           </div>
         </div>
