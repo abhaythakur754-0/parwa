@@ -135,9 +135,9 @@ class DocumentChunk(Base):
         nullable=False, index=True,
     )
     content = Column(Text, nullable=False)
-    # PostgreSQL: VECTOR(1536) via pgvector extension
-    # SQLite tests: Text (base64-encoded)
-    # Runtime type selected by database/base.py engine
+    # Embedding stored as a text literal "[0.1,0.2,...]" — cast to ::vector at query time.
+    # Dimension: 768 (Google text-embedding-004, primary) or 1024 (NVIDIA fallback).
+    # The pgvector extension (migration 033_enable_pgvector) provides the cast + cosine index.
     embedding = Column(Text, nullable=True)
     chunk_index = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

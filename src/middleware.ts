@@ -40,7 +40,6 @@ const PUBLIC_PATHS = [
   "/api/chat",
   "/api/book-demo",
   "/api/onboarding",
-  "/api/onboarding-jarvis",
   "/api/user",
   "/api/integrations",
   "/api/public",

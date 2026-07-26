@@ -18,7 +18,8 @@ CURRENCY_MULTIPLIER = 100
 PLAN_CACHE_COMPANY_ID = "system_plan_cache"
 
 VARIANT_PLAN_META = {
-    VariantType.MINI: {"name": "PARWA Mini Monthly", "description": "PARWA Mini — 24/7 trainee AI agent. Replaces intern/fresher support rep."},
+    # NOTE: Mini was removed 2026-07-26. Only 2 tiers remain.
+    # Legacy Mini subscribers are auto-upgraded to Parwa via normalize_variant_name().
     VariantType.PARWA: {"name": "PARWA Monthly", "description": "PARWA — junior agent with full technique suite. Replaces 1-3 yr experience rep."},
     VariantType.HIGH: {"name": "PARWA High Monthly", "description": "PARWA High — senior agent with advanced reasoning. Replaces 3+ yr experience rep."},
 }

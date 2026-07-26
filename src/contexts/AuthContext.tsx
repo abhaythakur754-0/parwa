@@ -188,8 +188,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // - 401/403 = refresh token is actually invalid → log out
             // - 503/500/timeout = backend cold start or down → stay logged in
             if (refreshRes.status === 401 || refreshRes.status === 403) {
-              // Refresh token is genuinely invalid — session is truly over
-              console.warn('[AuthContext] Refresh token invalid — logging out');
+              // Refresh token is genuinely invalid — session is truly over.
+              // STALE-SESSION FIX: Clear the httpOnly cookies by calling the
+              // logout endpoint. Without this, the stale `parwa_at` cookie
+              // survives in the browser → middleware lets the user through to
+              // /dashboard on next nav → me-proxy 401s again → infinite loop.
+              // (httpOnly cookies can only be cleared server-side via Set-Cookie.)
+              console.warn('[AuthContext] Refresh token invalid — clearing stale session cookies + logging out');
+              try {
+                await fetch('/api/auth/logout', {
+                  method: 'POST',
+                  credentials: 'include',
+                  signal: AbortSignal.timeout(5000),
+                });
+              } catch {
+                // Best-effort — cookie clear happens server-side in the route.
+              }
               localStorage.removeItem(USER_KEY);
             } else {
               // Backend returned non-401 error (503, 500, etc.) — likely cold start

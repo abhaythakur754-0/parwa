@@ -15,12 +15,15 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Build Rust parwa_core (falls back to Python if build fails)
+# Build Rust parwa_core (MANDATORY — fail the image build if Rust compilation breaks,
+# so production never silently runs the slow pure-Python fallback)
 COPY parwa_core/ /app/parwa_core/
 RUN . "$HOME/.cargo/env" \
     && cd /app/parwa_core \
     && pip install --no-cache-dir maturin \
-    && maturin develop --release --skip-install 2>/dev/null || echo "Rust build skipped, using Python fallbacks"
+    && maturin develop --release \
+    && python -c "import parwa_core; assert hasattr(parwa_core, 'RateLimiter'), 'Rust .so missing RateLimiter'" \
+    && echo "Rust parwa_core built and verified successfully"
 
 COPY . .
 

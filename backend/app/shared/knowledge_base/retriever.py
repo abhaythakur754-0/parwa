@@ -1,12 +1,19 @@
 """
 PARWA Knowledge Retriever
 
-Retrieves relevant document chunks from the knowledge base.
-Tenant-scoped (BC-001).
+Retrieves relevant document chunks from the knowledge base using pgvector
+cosine similarity (primary) with SQL ILIKE keyword search as a fallback
+(BC-008 — never crash, always return best-effort results).
 
-Currently uses SQL LIKE search on DocumentChunk.content as a
-placeholder.  Will be upgraded to pgvector cosine similarity in
-Week 9 Day 7-8.
+Tenant-scoped (BC-001): every query is filtered by ``company_id``.
+
+Vector search requires:
+  1. The pgvector extension (migration 033_enable_pgvector).
+  2. Google AI Studio API key (GOOGLE_AI_API_KEY / GEMINI_API_KEY) for
+     text-embedding-004 (768 dims). NVIDIA nv-embedqa-e5-v5 (1024 dims)
+     is the fallback provider.
+  3. Document chunks to have been embedded at ingest time
+     (``DocumentChunk.embedding`` populated as a ``[0.1,0.2,...]`` text literal).
 """
 
 from __future__ import annotations

@@ -43,13 +43,13 @@ logger = logging.getLogger("parwa.pipeline.node_5")
 
 # Import execution limits from config
 # (defined in node_2 but referenced here for action verification)
+# NOTE: Must match node_2_smart_route.EXECUTION_LIMITS exactly.
+# Mini was removed 2026-07-26 — only parwa + high remain.
 _CAPABILITY_MATRIX = {
-    "mini": {"execute_refund": False, "execute_credit": False, "account_change": False},
     "parwa": {"execute_refund": True, "execute_credit": True, "account_change": True},
     "high": {"execute_refund": True, "execute_credit": True, "account_change": True},
 }
 _EXEC_LIMITS = {
-    "mini": {"max_refund": 0, "max_credit": 0},
     "parwa": {"max_refund": 500, "max_credit": 200},
     "high": {"max_refund": float("inf"), "max_credit": float("inf")},
 }
@@ -62,8 +62,8 @@ def _rule_based_check(
     action: str, amount: float, tier: str
 ) -> Dict[str, Any]:
     """Check if action can be executed based on variant rules."""
-    caps = _CAPABILITY_MATRIX.get(tier, _CAPABILITY_MATRIX["mini"])
-    limits = _EXEC_LIMITS.get(tier, _EXEC_LIMITS["mini"])
+    caps = _CAPABILITY_MATRIX.get(tier, _CAPABILITY_MATRIX["parwa"])
+    limits = _EXEC_LIMITS.get(tier, _EXEC_LIMITS["parwa"])
 
     can_execute = True
     reason = ""

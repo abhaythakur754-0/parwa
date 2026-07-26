@@ -64,7 +64,6 @@ export interface BillingState {
 
 // Prices sourced from pricing-config.ts (matches backend SSOT)
 const TIER_PRICES: Record<VariantTier, number> = {
-  mini: VARIANT_PRICES.mini,
   parwa: VARIANT_PRICES.parwa,
   high: VARIANT_PRICES.high,
 };
@@ -76,8 +75,8 @@ const API_BASE = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_A
 // ── Store ───────────────────────────────────────────────────────────
 
 export const useBillingStore = create<BillingState>((set, get) => ({
-  currentTier: 'mini',
-  currentPrice: 999,
+  currentTier: 'parwa',
+  currentPrice: 2499,
   renewalDate: null,
   invoices: [],
   paymentMethods: [],
@@ -103,11 +102,11 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       });
 
       if (!res.ok) {
-        // Default to mini on 404/5xx
+        // Default to parwa on 404/5xx (Mini removed; parwa is the entry tier)
         if (res.status >= 400) {
           set({
-            currentTier: 'mini',
-            currentPrice: 999,
+            currentTier: 'parwa',
+            currentPrice: 2499,
             isLoading: false,
           });
           return;
@@ -115,18 +114,20 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       }
 
       const data = await res.json();
-      // Normalize any old names from backend (starter→mini, growth→parwa)
-      const raw = (data.variant_tier || data.tier || 'mini') as string;
+      // Normalize old names: Mini was removed 2026-07-26.
+      // Legacy mini/starter/mini_parwa auto-upgrade to parwa.
+      const raw = (data.variant_tier || data.tier || 'parwa') as string;
       const nameMap: Record<string, VariantTier> = {
-        mini: 'mini', parwa: 'parwa', high: 'high',
-        starter: 'mini', growth: 'parwa',
-        mini_parwa: 'mini', parwa_high: 'high',
+        parwa: 'parwa', high: 'high',
+        // Legacy aliases → auto-upgraded to parwa
+        mini: 'parwa', starter: 'parwa', growth: 'parwa',
+        mini_parwa: 'parwa', parwa_high: 'high',
       };
-      const tier = nameMap[raw.toLowerCase()] || 'mini';
+      const tier = nameMap[raw.toLowerCase()] || 'parwa';
 
       set({
         currentTier: tier,
-        currentPrice: TIER_PRICES[tier] || 999,
+        currentPrice: TIER_PRICES[tier] || 2499,
         renewalDate: data.renewal_date || data.current_period_end || null,
         isLoading: false,
       });
@@ -236,8 +237,8 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       }
 
       set({
-        currentTier: 'mini',
-        currentPrice: 999,
+        currentTier: 'parwa',
+        currentPrice: 2499,
         isLoading: false,
         renewalDate: null,
       });

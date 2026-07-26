@@ -70,7 +70,6 @@ async def get_pricing():
     return {
         "currency": "USD",
         "variants": [
-            {"key": "mini", "name": "PARWA Mini", "monthly_price": float(VARIANT_PRICES[VariantType.MINI]), "description": "24/7 trainee AI agent. Replaces intern/fresher support rep.", "replaces": "Intern / Fresher"},
             {"key": "parwa", "name": "PARWA", "monthly_price": float(VARIANT_PRICES[VariantType.PARWA]), "description": "Junior agent with full technique suite. Replaces 1-3 yr experience rep.", "replaces": "Junior (1-3 yrs)"},
             {"key": "high", "name": "PARWA High", "monthly_price": float(VARIANT_PRICES[VariantType.HIGH]), "description": "Senior agent with advanced reasoning. Replaces 3+ yr experience rep.", "replaces": "Senior (3+ yrs)"},
         ],

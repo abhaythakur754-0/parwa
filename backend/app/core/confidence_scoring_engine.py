@@ -308,13 +308,15 @@ DEFAULT_SIGNAL_WEIGHTS: Dict[str, float] = {
 }
 
 # Default confidence thresholds per variant:
-# Mini PARWA = 95 (high confidence required for limited AI)
+# Mini PARWA was removed 2026-07-26. Legacy DB values "mini_parwa" are
+# auto-upgraded to parwa, but we keep the threshold entry for backward compat.
 # PARWA = 85 (standard balanced threshold)
 # PARWA High = 75 (more autonomous, enterprise trust)
 DEFAULT_THRESHOLDS: Dict[str, float] = {
-    VariantType.MINI_PARWA.value: 95.0,
-    VariantType.PARWA.value: 85.0,
-    VariantType.PARWA_HIGH.value: 75.0,
+    "mini_parwa": 95.0,  # legacy — auto-upgraded to parwa at runtime
+    "parwa": 85.0,
+    "parwa_high": 75.0,
+    "high": 75.0,
 }
 
 # All signal names (canonical ordering)

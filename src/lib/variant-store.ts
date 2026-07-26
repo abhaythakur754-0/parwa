@@ -5,9 +5,10 @@
  * Tracks the company's current subscription tier, feature availability,
  * and usage limits. Server-verified — never trusts localStorage for tier data.
  *
- * Tiers: mini ($999/mo) | parwa ($2,499/mo) | high ($3,999/mo)
+ * Tiers: parwa ($2,499/mo) | high ($3,999/mo)
  * Pricing model: $1 = 1 ticket
  * All variants have the SAME AI capabilities — only ticket volume differs.
+ * Mini PARWA was removed 2026-07-26. Legacy mini values auto-upgrade to parwa.
  * Prices sourced from: /src/lib/pricing-config.ts (matches backend SSOT)
  */
 
@@ -21,7 +22,7 @@ import {
 
 // ── Types ────────────────────────────────────────────────────────────
 
-export type VariantTier = 'mini' | 'parwa' | 'high';
+export type VariantTier = 'parwa' | 'high';
 
 export interface FeatureMap {
   // Channels
@@ -94,22 +95,16 @@ const ALL_FEATURES: FeatureMap = {
   qualityCoach: true,
   churnPrediction: true,
 
-  // Limits — differ by tier (defaults for mini; overridden by TIER_LIMITS)
-  maxAgents: 0,
-  maxKnowledgeDocs: 100,
-  maxApiKeys: 1,
-  maxTeamMembers: 3,
+  // Limits — differ by tier (defaults for parwa; overridden by TIER_LIMITS)
+  maxAgents: 5,
+  maxKnowledgeDocs: 500,
+  maxApiKeys: 5,
+  maxTeamMembers: 10,
 };
 
 // ── Tier Limits (only these differ between tiers) ──────────────────
 
 const TIER_LIMITS: Record<VariantTier, Omit<FeatureMap, keyof typeof ALL_FEATURES>> = {
-  mini: {
-    maxAgents: 0,
-    maxKnowledgeDocs: 100,
-    maxApiKeys: 1,
-    maxTeamMembers: 3,
-  },
   parwa: {
     maxAgents: 5,
     maxKnowledgeDocs: 500,
@@ -131,9 +126,8 @@ function getFeatureMapForTier(tier: VariantTier): FeatureMap {
 // ── Tier ordering for comparison ──────────────────────────────────
 
 const TIER_ORDER: Record<VariantTier, number> = {
-  mini: 1,
-  parwa: 2,
-  high: 3,
+  parwa: 1,
+  high: 2,
 };
 
 export function isTierAtLeast(current: VariantTier, required: VariantTier): boolean {
@@ -142,7 +136,6 @@ export function isTierAtLeast(current: VariantTier, required: VariantTier): bool
 
 export function getTierLabel(tier: VariantTier): string {
   const labels: Record<VariantTier, string> = {
-    mini: 'Mini PARWA',
     parwa: 'PARWA',
     high: 'PARWA High',
   };
@@ -155,7 +148,6 @@ export function getTierPrice(tier: VariantTier): string {
 
 export function getTierColor(tier: VariantTier): string {
   const colors: Record<VariantTier, string> = {
-    mini: 'from-blue-500 to-blue-400',
     parwa: 'from-purple-500 to-purple-400',
     high: 'from-orange-500 to-amber-400',
   };
@@ -176,7 +168,7 @@ const DEFAULT_USAGE: UsageMetrics = {
 // ── Store ───────────────────────────────────────────────────────────
 
 export const useVariantStore = create<VariantState>((set, get) => ({
-  tier: 'mini',
+  tier: 'parwa',
   isLoading: false,
   error: null,
   lastFetched: null,
@@ -208,10 +200,10 @@ export const useVariantStore = create<VariantState>((set, get) => ({
     try {
       // Lazy import to avoid circular dependency with billing-store
       const { useBillingStore } = await import('./billing-store');
-      const billingState = useBillingStore.getState();
-      await billingState.fetchUsage();
-
-      const usage = billingState.usage;
+      await useBillingStore.getState().fetchUsage();
+      // Re-read state AFTER fetchUsage resolves — capturing the snapshot before
+      // the await would yield stale usage values (zustand replaces state on set).
+      const usage = useBillingStore.getState().usage;
       set({
         usage: {
           agentsUsed: 0,
@@ -258,7 +250,7 @@ export const useVariantStore = create<VariantState>((set, get) => ({
   },
 
   reset: () => {
-    set({ tier: 'mini', isLoading: false, error: null, lastFetched: null, usage: DEFAULT_USAGE });
+    set({ tier: 'parwa', isLoading: false, error: null, lastFetched: null, usage: DEFAULT_USAGE });
   },
 }));
 

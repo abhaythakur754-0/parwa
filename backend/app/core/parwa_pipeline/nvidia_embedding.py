@@ -4,12 +4,15 @@ Embedding Helper — uses Google AI Studio text-embedding-004 for semantic searc
 Primary: Google AI Studio text-embedding-004 (768 dims) — free tier, reliable.
 Fallback: NVIDIA nv-embedqa-e5-v5 (1024 dims) — backup if Google fails.
 
-The embedding model powers vector search in Node 3 (Knowledge Fetch).
+The embedding model powers vector search in Node 3 (Knowledge Fetch) and
+the shared knowledge-base retriever (`app/shared/knowledge_base/retriever.py`).
 User directive: ignore NVIDIA for LLM; use Google for embeddings too.
 
 API: https://generativelanguage.googleapis.com/v1beta/models
 Model: text-embedding-004 (768 dimensions)
 Cost: Free tier on Google AI Studio
+
+Security: NVIDIA_API_KEY is read from the environment ONLY — never hardcoded.
 """
 import os
 import logging
@@ -19,54 +22,47 @@ from typing import Optional, List
 logger = logging.getLogger("parwa.embedding")
 
 # ── Google AI Studio Embedding (PRIMARY) ──
-GOOGLE_AI_API_KEY = os.environ.get(
-    "GOOGLE_AI_API_KEY",
-    os.environ.get("GEMINI_API_KEY", ""),
-)
 GOOGLE_EMBED_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 GOOGLE_EMBED_MODEL = "text-embedding-004"
 GOOGLE_EMBEDDING_DIMENSION = 768
 
-# ── NVIDIA Embedding (FALLBACK) ──
-NVIDIA_API_KEY = os.environ.get(
-    "NVIDIA_API_KEY",
-    "REDACTED_NVIDIA_KEY_REMOVED",
-)
+# ── NVIDIA Embedding (FALLBACK — env var only, never hardcoded) ──
+NVIDIA_API_KEY = os.environ.get("NVIDIA_API_KEY", "")
 NVIDIA_EMBED_URL = "https://integrate.api.nvidia.com/v1/embeddings"
 NVIDIA_EMBED_MODEL = "nvidia/nv-embedqa-e5-v5"
 NVIDIA_EMBEDDING_DIMENSION = 1024
 
-# Active embedding dimension (depends on which provider succeeds)
+# Active embedding dimension (Google is primary → 768 is the expected dim)
 EMBEDDING_DIMENSION = GOOGLE_EMBEDDING_DIMENSION
 
 
 async def embed_text(text: str, input_type: str = "query") -> Optional[List[float]]:
-    """Embed a single text using NVIDIA (primary) or Google (fallback).
+    """Embed a single text using Google (primary) or NVIDIA (fallback).
 
-    NVIDIA is primary because the Google AI API key is invalid.
-    Google is kept as fallback for when a valid key is configured.
+    Per user directive: Google is primary for embeddings. NVIDIA is the
+    fallback only when Google is unavailable (no API key or API error).
 
     Args:
         text: The text to embed.
         input_type: "query" for search queries, "passage" for documents being indexed.
 
     Returns:
-        List of floats, or None on failure.
+        List of floats (768-dim from Google, 1024-dim from NVIDIA), or None on failure.
     """
     if not text or not text.strip():
         return None
 
-    # PRIMARY: NVIDIA (Google key is invalid)
-    result = await _embed_nvidia(text, input_type)
-    if result is not None:
-        return result
-
-    # FALLBACK: Google AI Studio (only works if valid key is configured)
+    # PRIMARY: Google AI Studio text-embedding-004 (768 dims, free tier)
     result = await _embed_google(text, input_type)
     if result is not None:
         return result
 
-    logger.error("embed_text: Both NVIDIA and Google embeddings failed")
+    # FALLBACK: NVIDIA nv-embedqa-e5-v5 (only if NVIDIA_API_KEY is configured)
+    result = await _embed_nvidia(text, input_type)
+    if result is not None:
+        return result
+
+    logger.error("embed_text: Both Google and NVIDIA embeddings failed")
     return None
 
 
@@ -135,8 +131,8 @@ async def _embed_nvidia(text: str, input_type: str = "query") -> Optional[List[f
 def embed_text_sync(text: str, input_type: str = "query") -> Optional[List[float]]:
     """Synchronous version of embed_text (for use in non-async contexts).
 
-    PRIMARY: NVIDIA nv-embedqa-e5-v5 (Google key is invalid)
-    FALLBACK: Google AI Studio text-embedding-004
+    PRIMARY: Google AI Studio text-embedding-004 (768 dims)
+    FALLBACK: NVIDIA nv-embedqa-e5-v5 (1024 dims, only if NVIDIA_API_KEY set)
 
     Args:
         text: The text to embed.
@@ -148,17 +144,17 @@ def embed_text_sync(text: str, input_type: str = "query") -> Optional[List[float
     if not text or not text.strip():
         return None
 
-    # PRIMARY: NVIDIA (Google key is invalid)
-    result = _embed_nvidia_sync(text, input_type)
-    if result is not None:
-        return result
-
-    # FALLBACK: Google AI Studio
+    # PRIMARY: Google AI Studio
     result = _embed_google_sync(text, input_type)
     if result is not None:
         return result
 
-    logger.error("embed_text_sync: Both NVIDIA and Google embeddings failed")
+    # FALLBACK: NVIDIA (only if NVIDIA_API_KEY is configured)
+    result = _embed_nvidia_sync(text, input_type)
+    if result is not None:
+        return result
+
+    logger.error("embed_text_sync: Both Google and NVIDIA embeddings failed")
     return None
 
 

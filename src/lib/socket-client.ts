@@ -152,6 +152,12 @@ class SocketClient {
       reconnection: false, // We handle reconnection ourselves with exponential backoff
       timeout: 10_000,
       forceNew: true,
+      // SECURITY: Send httpOnly cookies (parwa_at) on the WebSocket handshake.
+      // This is the SECURE auth path — httpOnly cookies can't be stolen by XSS.
+      // The localStorage token (auth.token above) is a legacy fallback; if it's
+      // missing, the backend authenticates via the cookie instead.
+      // This de-risks the C-03 security finding (tokens in localStorage).
+      withCredentials: true,
     });
 
     this.setupEventHandlers();

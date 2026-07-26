@@ -94,7 +94,6 @@ class TenantMiddleware(BaseHTTPMiddleware):
         "/api/jarvis",
         "/api/pricing/",
         "/api/onboarding",
-        "/api/onboarding-jarvis",
         "/api/user/",
         "/api/integrations",
         "/api/verification",

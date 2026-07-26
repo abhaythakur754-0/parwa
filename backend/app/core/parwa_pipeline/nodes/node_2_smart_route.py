@@ -45,11 +45,13 @@ TIER_SHORT_TO_DB: Dict[str, str] = {
 TIER_DB_TO_SHORT: Dict[str, str] = {v: k for k, v in TIER_SHORT_TO_DB.items()}
 
 # Priority order for routing (lowest first to preserve higher tier quota)
-TIER_ORDER = ["mini", "parwa", "high"]
+# NOTE: Mini was removed 2026-07-26. Only 2 tiers remain.
+TIER_ORDER = ["parwa", "high"]
 
 # ── Capability Matrix ───────────────────────────────────────────
 # All variants have IDENTICAL AI capabilities.
-# The ONLY difference between tiers is ticket volume and agent limits.
+# The ONLY difference between tiers is ticket volume, agent limits,
+# and financial action limits (see EXECUTION_LIMITS below).
 
 _FULL_CAPABILITIES: Dict[str, Any] = {
     "simple_info": True,
@@ -66,15 +68,16 @@ _FULL_CAPABILITIES: Dict[str, Any] = {
 }
 
 CAPABILITY_MATRIX: Dict[str, Dict[str, Any]] = {
-    "mini": dict(_FULL_CAPABILITIES),
     "parwa": dict(_FULL_CAPABILITIES),
     "high": dict(_FULL_CAPABILITIES),
 }
 
-# Execution limits — identical for all tiers (no restrictions)
+# Execution limits — financial guardrails per tier.
+# parwa: limited refunds/credits (safety guardrail for the lower tier)
+# high:  unlimited (full trust for the premium tier)
+# NOTE: Must match node_5_act_verify._EXEC_LIMITS exactly.
 EXECUTION_LIMITS: Dict[str, Dict[str, float]] = {
-    "mini": {"max_refund": float("inf"), "max_credit": float("inf")},
-    "parwa": {"max_refund": float("inf"), "max_credit": float("inf")},
+    "parwa": {"max_refund": 500, "max_credit": 200},
     "high": {"max_refund": float("inf"), "max_credit": float("inf")},
 }
 
@@ -301,7 +304,6 @@ def _build_quota_from_limits(
                 for t in owned_short}
 
     SHORT_TO_VARIANT_TYPE = {
-        "mini": VariantType.MINI,
         "parwa": VariantType.PARWA,
         "high": VariantType.HIGH,
     }

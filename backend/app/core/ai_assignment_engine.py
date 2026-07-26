@@ -621,7 +621,7 @@ class AIAssignmentEngine:
 
         # parwa_high: incorporate historical reassignment patterns
         variant = await self._detect_variant(company_id)
-        if variant == VariantType.PARWA_HIGH.value:
+        if variant in ("parwa_high", "high"):
             scores = await self._apply_reassignment_optimization(scores, ticket_id)
 
         best = scores[0] if scores else None
@@ -911,7 +911,7 @@ class AIAssignmentEngine:
         tier_boost = CUSTOMER_TIER_BOOST.get(request.customer_tier, 0.0)
 
         # parwa_high: apply trained model weight adjustments
-        if variant == VariantType.PARWA_HIGH.value:
+        if variant in ("parwa_high", "high"):
             weights = self._apply_trained_weights(weights)
 
         # Filter agents by variant max pool (-1 = unlimited)
@@ -938,8 +938,8 @@ class AIAssignmentEngine:
                 WORKLOAD_MAX,
             )
 
-            # ── 3. Accuracy Score (0–20) — skipped for mini_parwa ──
-            if variant == VariantType.MINI_PARWA.value:
+            # ── 3. Accuracy Score (0–20) — skipped for legacy mini_parwa ──
+            if variant == "mini_parwa":
                 accuracy_score = 0.0
             else:
                 accuracy_raw = self._score_accuracy(
@@ -950,8 +950,8 @@ class AIAssignmentEngine:
                     ACCURACY_MAX,
                 )
 
-            # ── 4. Jitter (0–10) — skipped for mini_parwa ──
-            if variant == VariantType.MINI_PARWA.value:
+            # ── 4. Jitter (0–10) — skipped for legacy mini_parwa ──
+            if variant == "mini_parwa":
                 jitter_score = 0.0
             else:
                 jitter_score = self._deterministic_jitter(
@@ -960,7 +960,7 @@ class AIAssignmentEngine:
 
             # Language match bonus (parwa_high)
             language_bonus = 0.0
-            if variant == VariantType.PARWA_HIGH.value:
+            if variant in ("parwa_high", "high"):
                 if request.language in agent.languages:
                     language_bonus = 1.5
 

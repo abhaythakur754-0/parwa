@@ -116,6 +116,27 @@ def _extract_token_from_qs(query_string: str) -> str:
     return ""
 
 
+def _extract_token_from_cookie(cookie_header: str) -> str:
+    """Extract the parwa_at JWT from the Cookie HTTP header.
+
+    This is the SECURE auth path — httpOnly cookies can't be stolen by XSS,
+    unlike localStorage tokens (security audit finding C-03).
+
+    Args:
+        cookie_header: The raw HTTP_COOKIE string from environ.
+
+    Returns:
+        Token string or empty string if not found.
+    """
+    if not cookie_header:
+        return ""
+    for part in cookie_header.split(";"):
+        part = part.strip()
+        if part.startswith("parwa_at="):
+            return part[len("parwa_at="):]
+    return ""
+
+
 # Create Async Socket.io server (attached to FastAPI in main.py)
 if _socketio_pkg is not None:
     sio = _socketio_pkg.AsyncServer(
@@ -158,14 +179,23 @@ def _register_handlers() -> None:
 
         BC-011: Authentication is required. No anonymous connections.
         S02: JWT token from query params is verified.
+        SECURITY (C-03 fix): JWT from httpOnly cookie is also accepted —
+        this is the SECURE path because httpOnly cookies can't be stolen by XSS.
         Backward compat: socketio_auth dict still supported for tests.
         """
         company_id = None
         user_id = None
 
-        # S02: Try JWT from query params first
+        # S02: Try JWT from query params first (legacy localStorage path)
         query_string = environ.get("QUERY_STRING", "")
         token = _extract_token_from_qs(query_string)
+
+        # SECURITY (C-03): Fall back to httpOnly cookie — XSS-safe auth path.
+        # The frontend sets withCredentials: true so the browser sends the
+        # parwa_at cookie on the WebSocket handshake automatically.
+        if not token:
+            cookie_header = environ.get("HTTP_COOKIE", "")
+            token = _extract_token_from_cookie(cookie_header)
 
         if token:
             try:

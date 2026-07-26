@@ -81,9 +81,12 @@ Before writing or modifying any code in this project:
 - These are SEPARATE graphs. Do not mix them.
 
 **P-002: Variant Tiers Are Real Product Lines**
-- Mini PARWA ($1K/mo), PARWA Growth ($2.5K/mo), PARWA High ($4K/mo).
+- PARWA Growth ($2,499/mo) and PARWA High ($3,999/mo).
+- Mini PARWA was removed on 2026-07-26 — only 2 tiers remain.
 - All tiers use the SAME 8-node pipeline. Node 2 (Smart Route) handles tier-based routing internally.
 - Never create separate pipeline files per tier — the V2 unified pipeline replaced the old 3-pipeline system.
+- Legacy "mini"/"starter"/"mini_parwa" strings auto-upgrade to "parwa" via normalize_variant_name() — existing Mini subscribers get Parwa features for free at runtime.
+- Financial guardrails differ by tier: parwa has $500 refund / $200 credit limits; high has unlimited.
 
 **P-003: Simple Language**
 - The CEO is non-technical. Explain everything in plain business language.

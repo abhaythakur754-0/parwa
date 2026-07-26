@@ -19,14 +19,8 @@ logger = logging.getLogger("parwa.webhooks")
 _HANDLER_REGISTRY: Dict[str, Callable] = {}
 
 # Supported event types per provider
+# NOTE: Paddle was removed on 2026-06-24. Razorpay webhooks are handled in api/billing_razorpay.py.
 PROVIDER_EVENT_TYPES = {
-    "paddle": [
-        "subscription.created",
-        "subscription.updated",
-        "subscription.cancelled",
-        "payment.succeeded",
-        "payment.failed",
-    ],
     "brevo": [
         "inbound_email",
         "bounce",
@@ -49,8 +43,8 @@ def register_handler(provider: str):
     """Decorator to register a webhook handler for a provider.
 
     Usage:
-        @register_handler("paddle")
-        def handle_paddle(event: dict) -> dict:
+        @register_handler("shopify")
+        def handle_shopify(event: dict) -> dict:
             ...
     """
     def decorator(func: Callable) -> Callable:
@@ -68,7 +62,7 @@ def get_handler(provider: str) -> Optional[Callable]:
     """Get the registered handler for a provider.
 
     Args:
-        provider: Provider name (e.g. 'paddle', 'twilio').
+        provider: Provider name (e.g. 'shopify', 'twilio').
 
     Returns:
         Handler function or None if not registered.

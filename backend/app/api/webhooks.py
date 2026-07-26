@@ -51,7 +51,9 @@ logger = logging.getLogger("parwa.webhook_api")
 router = APIRouter(prefix="/api/webhooks", tags=["Webhooks"])
 
 # Supported webhook providers
-SUPPORTED_PROVIDERS = {"paddle", "twilio", "shopify", "brevo"}
+# NOTE: Paddle was removed on 2026-06-24. Razorpay is the sole billing provider.
+# Razorpay webhooks are handled separately in api/billing_razorpay.py.
+SUPPORTED_PROVIDERS = {"twilio", "shopify", "brevo"}
 
 # R-07 FIX: Max webhook payload size now configurable via WEBHOOK_MAX_PAYLOAD_SIZE setting
 def _get_max_webhook_payload_size() -> int:
@@ -72,10 +74,6 @@ def _get_company_id_from_payload(
     Each provider has a different field name for the
     tenant/company identifier.
     """
-    if provider == "paddle":
-        return payload.get(
-            "custom_data", {},
-        ).get("company_id") or payload.get("company_id")
     if provider == "shopify":
         return payload.get(
             "x_company_id",
@@ -93,8 +91,6 @@ def _get_event_id_from_payload(
     provider: str, payload: dict,
 ) -> Optional[str]:
     """Extract provider-specific event ID."""
-    if provider == "paddle":
-        return payload.get("event_id")
     if provider == "shopify":
         return payload.get("id") or str(
             payload.get("id", ""),
@@ -142,9 +138,6 @@ def _check_provider_secret_configured(
     H-07: Fail-closed — secrets are required in ALL environments.
     """
     secret_map = {
-        "paddle": getattr(
-            settings, "PADDLE_WEBHOOK_SECRET", "",
-        ),
         "shopify": getattr(
             settings, "SHOPIFY_WEBHOOK_SECRET", "",
         ),
@@ -155,7 +148,6 @@ def _check_provider_secret_configured(
     secret = secret_map.get(provider)
     if not secret:
         env_var = {
-            "paddle": "PADDLE_WEBHOOK_SECRET",
             "shopify": "SHOPIFY_WEBHOOK_SECRET",
             "twilio": "TWILIO_AUTH_TOKEN",
         }.get(provider, f"{provider.upper()}_SECRET")
@@ -185,7 +177,6 @@ def _verify_provider_signature(
     - HMAC verification is ALWAYS enforced in all environments.
     - Tests that need to bypass it should mock this function.
     - Each provider has its own verification method:
-        * Paddle: HMAC-SHA256 with PADDLE_WEBHOOK_SECRET
         * Shopify: HMAC-SHA256 with SHOPIFY_WEBHOOK_SECRET
         * Twilio: URL+params signed with TWILIO_AUTH_TOKEN
         * Brevo: IP allowlist verification
@@ -193,24 +184,6 @@ def _verify_provider_signature(
     try:
         from app.config import get_settings
         settings = get_settings()
-
-        if provider == "paddle":
-            # H-07 FIX: Secret check moved to caller (500).
-            from app.security.hmac_verification import (
-                verify_paddle_signature,
-            )
-            signature = request.headers.get(
-                "paddle-signature", "",
-            )
-            result = verify_paddle_signature(
-                body, signature,
-                settings.PADDLE_WEBHOOK_SECRET,
-            )
-            if not result:
-                logger.warning(
-                    "webhook_paddle_signature_invalid",
-                )
-            return result
 
         if provider == "shopify":
             # H-07 FIX: Secret check moved to caller (500).

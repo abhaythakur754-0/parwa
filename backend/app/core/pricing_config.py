@@ -19,10 +19,12 @@ Correct prices (as of this writing):
   ┌──────────┬──────────────────┬───────────────────┬──────────────┐
   │ Variant  │ Monthly (USD)    │ Annual (USD)      │ Tickets/mo   │
   ├──────────┼──────────────────┼───────────────────┼──────────────┤
-  │ Mini     │ $999.00          │ $11,988.00        │ 999          │
   │ Parwa    │ $2,499.00        │ $29,988.00        │ 2,499        │
   │ High     │ $3,999.00        │ $47,988.00        │ 3,999        │
   └──────────┴──────────────────┴───────────────────┴──────────────┘
+
+Mini PARWA was removed on 2026-07-26. Existing Mini subscribers are
+auto-upgraded to Parwa via normalize_variant_name().
 
 Annual = 12 × monthly.  NO discounts.  NO free months.
 
@@ -43,12 +45,13 @@ class VariantType(str, Enum):
     """
     PARWA subscription variant types.
 
-    Values are the canonical lowercase names: "mini", "parwa", "high".
+    Values are the canonical lowercase names: "parwa", "high".
 
-    Old names (starter, growth, mini_parwa, parwa, parwa_high) are
-    deprecated but still accepted via normalize_variant_name().
+    Mini PARWA was removed on 2026-07-26 — only 2 tiers remain.
+    Old names (mini, starter, mini_parwa) are accepted via
+    normalize_variant_name() and auto-upgraded to "parwa" (existing
+    Mini customers get Parwa features for free — the humane choice).
     """
-    MINI = "mini"
     PARWA = "parwa"
     HIGH = "high"
 
@@ -59,15 +62,17 @@ class VariantType(str, Enum):
 
 _VARIANT_NAME_ALIASES: Dict[str, str] = {
     # Old name              → Canonical name
-    "mini_parwa":           "mini",
+    # NOTE: Mini was removed 2026-07-26. Existing Mini subscribers are
+    # auto-upgraded to Parwa (more features, same moral commitment).
+    "mini_parwa":           "parwa",
     "parwa":                "parwa",
     "parwa_high":           "high",
     # Also accept common variations
-    "mini-parwa":           "mini",
+    "mini-parwa":           "parwa",
     "parwa-high":           "high",
-    "starter":              "mini",
+    "starter":              "parwa",
     "growth":               "parwa",
-    "mini":                 "mini",
+    "mini":                 "parwa",
     "high":                 "high",
 }
 
@@ -77,7 +82,6 @@ _VARIANT_NAME_ALIASES: Dict[str, str] = {
 # ══════════════════════════════════════════════════════════════════════════
 
 VARIANT_PRICES: Dict[VariantType, Decimal] = {
-    VariantType.MINI:  Decimal("999.00"),
     VariantType.PARWA: Decimal("2499.00"),
     VariantType.HIGH:  Decimal("3999.00"),
 }
@@ -103,7 +107,6 @@ Annual = 12 × monthly.  NO discounts.  NO free months.
 # ══════════════════════════════════════════════════════════════════════════
 
 VARIANT_DISPLAY_NAMES: Dict[VariantType, str] = {
-    VariantType.MINI:  "Mini PARWA",
     VariantType.PARWA: "PARWA",
     VariantType.HIGH:  "PARWA High",
 }
@@ -119,13 +122,6 @@ VARIANT_DISPLAY_NAMES: Dict[VariantType, str] = {
 # Other limits (agents, team members, etc.) also differ by tier.
 
 VARIANT_LIMITS: Dict[VariantType, Dict[str, Any]] = {
-    VariantType.MINI: {
-        "monthly_tickets": 999,
-        "ai_agents":       0,
-        "team_members":    3,
-        "voice_slots":     0,
-        "kb_docs":         100,
-    },
     VariantType.PARWA: {
         "monthly_tickets": 2499,
         "ai_agents":       5,
@@ -158,9 +154,8 @@ This separation prevents accidental use of limits when prices are needed
 
 # Tier ordering for upgrade/downgrade logic
 VARIANT_TIER_ORDER: Dict[VariantType, int] = {
-    VariantType.MINI:  1,
-    VariantType.PARWA: 2,
-    VariantType.HIGH:  3,
+    VariantType.PARWA: 1,
+    VariantType.HIGH:  2,
 }
 
 
@@ -186,12 +181,12 @@ def get_variant_price(
         ValueError: If variant or billing_cycle is invalid.
 
     Examples:
-        >>> get_variant_price("mini")
-        Decimal('999.00')
+        >>> get_variant_price("parwa")
+        Decimal('2499.00')
         >>> get_variant_price(VariantType.PARWA, "annual")
         Decimal('29988.00')
-        >>> get_variant_price("starter")            # old name
-        Decimal('999.00')
+        >>> get_variant_price("mini")            # legacy → auto-upgraded to parwa
+        Decimal('2499.00')
         >>> get_variant_price("parwa_high", "annual")
         Decimal('47988.00')
     """
@@ -217,10 +212,11 @@ def normalize_variant_name(name: str) -> str:
     Normalize a variant name to its canonical form.
 
     Maps old names to new:
-      starter     → mini
+      starter     → parwa  (Mini removed; auto-upgraded to Parwa)
       growth      → parwa
-      mini_parwa  → mini
+      mini_parwa  → parwa  (Mini removed; auto-upgraded to Parwa)
       parwa_high  → high
+      mini        → parwa  (Mini removed; auto-upgraded to Parwa)
 
     Also handles common variations (hyphens, case differences).
 
@@ -235,13 +231,13 @@ def normalize_variant_name(name: str) -> str:
 
     Examples:
         >>> normalize_variant_name("starter")
-        'mini'
+        'parwa'
         >>> normalize_variant_name("parwa_high")
         'high'
         >>> normalize_variant_name("parwa")
         'parwa'
         >>> normalize_variant_name("MINI")
-        'mini'
+        'parwa'
     """
     if not name or not isinstance(name, str):
         raise ValueError("Variant name must be a non-empty string.")
@@ -252,8 +248,8 @@ def normalize_variant_name(name: str) -> str:
     if canonical is None:
         raise ValueError(
             f"Unknown variant name '{name}'. "
-            f"Valid names: mini, parwa, high. "
-            f"Legacy aliases: starter, growth, mini_parwa, parwa, parwa_high."
+            f"Valid names: parwa, high. "
+            f"Legacy aliases (auto-mapped): starter, growth, mini, mini_parwa, parwa_high."
         )
 
     return canonical
@@ -274,8 +270,8 @@ def get_variant_limits(variant: VariantType | str) -> Dict[str, Any]:
         ValueError: If the variant is invalid.
 
     Examples:
-        >>> get_variant_limits("mini")
-        {'monthly_tickets': 999, 'ai_agents': 5, 'team_members': 3, 'voice_slots': 0, 'kb_docs': 100}
+        >>> get_variant_limits("parwa")
+        {'monthly_tickets': 2499, 'ai_agents': 5, 'team_members': 10, 'voice_slots': 2, 'kb_docs': 500}
         >>> get_variant_limits("parwa_high")["voice_slots"]
         5
     """

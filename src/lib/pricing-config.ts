@@ -14,12 +14,14 @@
  * ╚══════════════════════════════════════════════════════════════════╝
  *
  * Pricing model: $1 = 1 ticket. What you pay is how many tickets you get.
- *   Mini:   $999/mo  =   999 tickets/mo  | $11,988/yr
  *   Parwa:  $2,499/mo = 2,499 tickets/mo  | $29,988/yr
  *   High:   $3,999/mo = 3,999 tickets/mo  | $47,988/yr
  *
  * All variants have the SAME AI capabilities. The only difference
  * is the ticket volume restriction.
+ *
+ * Mini PARWA was removed on 2026-07-26. Existing Mini subscribers are
+ * auto-upgraded to Parwa via normalizeTier().
  *
  * Annual = 12 × monthly. NO discounts. NO free months.
  *
@@ -30,18 +32,16 @@
 
 // ── Variant Types ──────────────────────────────────────────────────
 
-export type VariantTier = 'mini' | 'parwa' | 'high';
+export type VariantTier = 'parwa' | 'high';
 
 // ── Prices (Monthly USD) ───────────────────────────────────────────
 
 export const VARIANT_PRICES: Record<VariantTier, number> = {
-  mini: 999,
   parwa: 2499,
   high: 3999,
 };
 
 export const VARIANT_ANNUAL_PRICES: Record<VariantTier, number> = {
-  mini: 999 * 12,     // 11,988
   parwa: 2499 * 12,   // 29,988
   high: 3999 * 12,    // 47,988
 };
@@ -49,13 +49,11 @@ export const VARIANT_ANNUAL_PRICES: Record<VariantTier, number> = {
 // ── Display Names ──────────────────────────────────────────────────
 
 export const VARIANT_DISPLAY_NAMES: Record<VariantTier, string> = {
-  mini: 'Mini PARWA',
   parwa: 'PARWA',
   high: 'PARWA High',
 };
 
 export const VARIANT_TAGLINES: Record<VariantTier, string> = {
-  mini: 'The 24/7 Trainee',
   parwa: 'The Junior Agent',
   high: 'The Senior Agent',
 };
@@ -76,13 +74,6 @@ export interface VariantLimits {
  * All variants have the SAME AI capabilities — only ticket volume differs.
  */
 export const VARIANT_LIMITS: Record<VariantTier, VariantLimits> = {
-  mini: {
-    monthlyTickets: 999,
-    aiAgents: 0,
-    teamMembers: 3,
-    voiceSlots: 0,
-    kbDocs: 100,
-  },
   parwa: {
     monthlyTickets: 2499,
     aiAgents: 5,
@@ -108,12 +99,6 @@ export const VARIANT_AI_INFO: Record<VariantTier, {
   techniques: string;
   concurrentCalls: number;
 }> = {
-  mini: {
-    pipelineSteps: 9,
-    aiResolution: 0.88,
-    techniques: 'All 14 techniques (Tier 1+2+3)',
-    concurrentCalls: 5,
-  },
   parwa: {
     pipelineSteps: 9,
     aiResolution: 0.88,
@@ -131,30 +116,30 @@ export const VARIANT_AI_INFO: Record<VariantTier, {
 // ── Tier Ordering ──────────────────────────────────────────────────
 
 export const VARIANT_TIER_ORDER: Record<VariantTier, number> = {
-  mini: 1,
-  parwa: 2,
-  high: 3,
+  parwa: 1,
+  high: 2,
 };
 
 /**
  * Normalize any variant string (including legacy names) to a canonical VariantTier.
- * Handles: 'mini' | 'parwa' | 'high' (canonical), plus legacy 'starter', 'growth',
- * 'mini_parwa', 'parwa_high', 'pro'.
+ * Mini PARWA was removed 2026-07-26 — legacy 'mini'/'starter'/'mini_parwa' are
+ * auto-upgraded to 'parwa' (existing Mini customers get Parwa features for free).
  */
 const LEGACY_TIER_MAP: Record<string, VariantTier> = {
-  mini: 'mini',
   parwa: 'parwa',
   high: 'high',
-  starter: 'mini',
+  // Legacy aliases → auto-upgraded to parwa
+  mini: 'parwa',
+  starter: 'parwa',
   growth: 'parwa',
   pro: 'parwa',
-  mini_parwa: 'mini',
+  mini_parwa: 'parwa',
   parwa_high: 'high',
 };
 
 export function normalizeTier(variant: string): VariantTier {
   const lower = variant.toLowerCase().trim();
-  return LEGACY_TIER_MAP[lower] || 'mini';
+  return LEGACY_TIER_MAP[lower] || 'parwa';
 }
 
 export function isUpgrade(oldTier: VariantTier, newTier: VariantTier): boolean {

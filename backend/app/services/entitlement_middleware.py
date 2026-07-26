@@ -44,10 +44,10 @@ from app.core.pricing_config import (
 # PLAN DISPLAY NAMES & PRICING FOR UPGRADE NUDGES — from pricing_config
 # ══════════════════════════════════════════════════════════════════
 
-# Build display names and pricing from pricing_config, supporting both
-# old (mini_parwa, parwa, parwa_high) and new (mini, parwa, high) names.
+# Build display names and pricing from pricing_config.
+# Mini was removed 2026-07-26 — only parwa + high remain.
+# Legacy DB values (mini_parwa, parwa_high) are handled by normalize_variant_name().
 _old_name_map = {
-    VariantType.MINI: "mini_parwa",
     VariantType.PARWA: "parwa",
     VariantType.HIGH: "parwa_high",
 }

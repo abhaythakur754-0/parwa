@@ -64,7 +64,6 @@ from app.api.ai_agent import router as ai_agent_router
 from app.api.builder_agent import router as builder_agent_router  # Builder Agent: 4-stage agent creation pipeline
 from app.api.jarvis import router as jarvis_router
 from app.api.jarvis_cc import router as jarvis_cc_router
-from app.api.onboarding_jarvis import router as onboarding_jarvis_router  # Onboarding Jarvis AI chat (LangGraph + orchestrator)
 from app.api.onboarding import router as onboarding_router
 from app.api.integrations import router as integrations_router
 from app.api.crm_actions import router as crm_actions_router  # CRM action endpoints (called by MCP crm_server)
@@ -686,7 +685,6 @@ app.include_router(ai_agent_router)  # SG-21/SG-22: AI agent assignments
 app.include_router(builder_agent_router)  # Builder Agent: 4-stage agent creation + custom categories
 app.include_router(jarvis_router)  # Week 6: Jarvis onboarding chat
 app.include_router(jarvis_cc_router)  # Phase 2+: Jarvis Customer Care (awareness + commands)
-app.include_router(onboarding_jarvis_router)  # Onboarding Jarvis AI chat (LangGraph + orchestrator)
 app.include_router(onboarding_router)  # Week 6: Onboarding wizard (F-028 to F-035)
 app.include_router(integrations_router)  # Week 6: Integration management (F-030/F-031)
 app.include_router(crm_actions_router)  # CRM action endpoints (called by MCP crm_server)
