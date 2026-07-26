@@ -205,21 +205,38 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
       <div className="h-16 flex items-center justify-between px-4 border-b border-white/[0.06]">
         {!collapsed && (
           <Link href="/dashboard/tickets" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center shadow-lg shadow-orange-500/20">
-              <span className="text-white font-bold text-sm">P</span>
+            <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-lg shadow-orange-500/20">
+              <img
+                src="/parwa-logo.png"
+                alt="PARWA logo"
+                className="w-full h-full object-cover"
+              />
             </div>
             <span className="text-white font-semibold text-[15px] tracking-tight">
               PARWA
             </span>
           </Link>
         )}
-        <button
-          onClick={onToggle}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.05] transition-colors"
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          {collapsed ? Icons.expand : Icons.collapse}
-        </button>
+        {collapsed && (
+          <Link href="/dashboard/tickets" className="flex items-center group mx-auto">
+            <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-lg shadow-orange-500/20">
+              <img
+                src="/parwa-logo.png"
+                alt="PARWA logo"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </Link>
+        )}
+        {!collapsed && (
+          <button
+            onClick={onToggle}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.05] transition-colors"
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {Icons.collapse}
+          </button>
+        )}
       </div>
 
       {/* ── Navigation ───────────────────────────────────────────── */}

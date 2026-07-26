@@ -11,6 +11,10 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'PARWA - AI Customer Support',
   description: 'AI-powered customer support platform',
+  icons: {
+    icon: '/favicon.png',
+    apple: '/favicon.png',
+  },
 };
 
 export default function RootLayout({
