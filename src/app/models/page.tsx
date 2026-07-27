@@ -10,7 +10,7 @@ import { useAppStore } from '@/lib/store';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Star, Check, Phone, Mail, MessageSquare,
-  Video, Zap, Shield, Sparkles,
+  Zap, Shield, Sparkles,
 } from 'lucide-react';
 
 // Only 2 tiers — Mini removed
@@ -35,8 +35,42 @@ interface VariantData {
 }
 
 const commonFeatures: Record<VariantId, string[]> = {
-  parwa: ['Up to 5 AI agents', '2,499 tickets/month', 'Email, Chat, SMS & Voice', 'AI decision recommendations', 'Smart Router — 3-tier LLM routing', 'Agent Lightning — continuous learning', 'Batch approval system', 'Advanced analytics & ROI tracking'],
-  high: ['Up to 8 AI agents (+$3/each extra)', '3,999 tickets/month', 'Email, Chat, SMS & Voice channels', 'Quality coaching system', 'Churn prediction & proactive retention', 'Video support & screen sharing', 'Up to 5 concurrent voice calls', 'Strategic insights & revenue analytics', 'Custom integrations & API access', 'Peer review system', 'Priority support', 'Full autonomous operations'],
+  parwa: [
+    '2,499 tickets per month',
+    '5 AI agents working 24/7',
+    'Resolves 88% of tickets without human help',
+    'Replaces ~6 human agents (saves ~$26,000/month)',
+    'Email, Chat, SMS & Voice support',
+    'Handles refunds up to $500 automatically',
+    'Learns from your documents — becomes an expert in hours',
+    'Asks you before making uncertain decisions',
+    'Up to 10 team members',
+    '2 concurrent voice calls',
+    '500 knowledge base documents',
+    'Real-time dashboard with savings tracking',
+    'Your data is encrypted and protected',
+    '24/7/365 — never takes a day off',
+  ],
+  high: [
+    '3,999 tickets per month',
+    '8 AI agents (+$3 for each extra)',
+    'Replaces ~10 human agents (saves ~$41,000/month)',
+    'Unlimited refunds & credits — full autonomy',
+    'Creates custom AI agents on request ($5/agent/month)',
+    'Detects customer emotions & adjusts tone',
+    'Predicts which customers might leave — helps retain them',
+    'Proactively reaches out to at-risk customers',
+    'Understands images & screenshots customers send',
+    'Fact-checks its own answers before sending',
+    'Auto-scales during busy periods — no downtime',
+    'Tests different responses to find what works best',
+    'Forecasts ticket volume so you can plan ahead',
+    '25 team members',
+    '5 concurrent voice calls',
+    '2,000 knowledge base documents',
+    'Push notifications + Webhooks',
+    'Priority support',
+  ],
 };
 
 const variantData: VariantData[] = [
@@ -50,12 +84,17 @@ const variantData: VariantData[] = [
     badge: 'Recommended',
     channels: [{ label: 'Email, Chat, SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }],
     commonFeatures: commonFeatures.parwa,
-    uniqueFeatures: ['Multi-department routing', 'Custom workflow automation', 'Intelligent routing', 'Adaptive learning'],
-    keyAdvantage: 'Cuts review time by 80%',
-    smartDecisions: 'Recommends refunds based on policy',
-    roi: 'Replaces ~$18k/month in junior agent salaries',
-    bestFor: 'SMBs with 200–500 daily tickets',
-    coreCapability: 'Intelligent Recommendations + AI Decision Engine.',
+    uniqueFeatures: [
+      'Pre-built AI agents — ready to use from Day 1',
+      'Handles refunds up to $500 without asking',
+      'Routes tickets to the right agent automatically',
+      'Learns from every conversation',
+    ],
+    keyAdvantage: 'Replaces ~6 human agents for 91% less cost',
+    smartDecisions: 'Handles refunds up to $500 automatically',
+    roi: 'Saves ~$26,000/month vs hiring 6 human agents',
+    bestFor: 'Growing businesses with 200+ tickets per day',
+    coreCapability: 'Your smartest junior agent — works 24/7, never calls in sick.',
   },
   {
     id: 'high',
@@ -64,13 +103,18 @@ const variantData: VariantData[] = [
     monthlyPrice: 3999,
     annualPrice: 3199,
     ticketsPerMonth: 3999,
-    channels: [{ label: 'All Parwa + Video', icon: <Video className="w-3.5 h-3.5" /> }],
+    channels: [{ label: 'Email, Chat, SMS, Voice, Push & Webhooks', icon: <Zap className="w-3.5 h-3.5" /> }],
     commonFeatures: commonFeatures.high,
-    uniqueFeatures: ['Full custom workflow engine', 'Advanced pattern recognition', 'Cross-department coordination', 'VIP handling'],
-    keyAdvantage: 'Unlimited financial actions',
-    roi: 'Replaces ~$28k/month in senior agent salaries',
-    bestFor: 'SMBs with 500+ daily tickets',
-    coreCapability: 'VIP Handling, Strategic Intelligence, Video Support.',
+    uniqueFeatures: [
+      'Creates custom AI agents on request ($5/agent/month)',
+      'Unlimited refunds & credits — no approval needed',
+      'Detects customer emotions & adjusts tone',
+      'Predicts which customers might leave',
+    ],
+    keyAdvantage: 'Replaces ~10 human agents for 91% less cost',
+    roi: 'Saves ~$41,000/month vs hiring 10 human agents',
+    bestFor: 'Busy teams with 500+ tickets per day',
+    coreCapability: 'Your most experienced senior agent — makes decisions, not just recommendations.',
   },
 ];
 
