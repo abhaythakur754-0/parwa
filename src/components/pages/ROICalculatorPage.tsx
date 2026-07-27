@@ -254,7 +254,7 @@ export default function ROICalculatorPage() {
   const canGoNext = step === 1 ? companyName.trim().length > 0 && industry.length > 0 : step === 2 ? tickets > 0 && teamSizeLabel.length > 0 : true;
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(180deg, #0D0D0D 0%, #1A1A1A 50%, #0D0D0D 100%)' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 30%, #2D1F0E 60%, #3D2A10 80%, #1A1A1A 100%)' }}>
       <NavigationBar />
 
       <main className="flex-grow flex items-start justify-center px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
