@@ -109,7 +109,6 @@ export default function JarvisDemo() {
       className="relative overflow-hidden"
       style={{
         minHeight: '720px',
-        background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 30%, #2D1F0E 60%, #3D2A10 80%, #1A1A1A 100%)'
       }}
     >
       {/* ── Animated Background Layers ── */}
