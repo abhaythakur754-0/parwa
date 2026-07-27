@@ -147,7 +147,7 @@ const INTENT_PATTERNS: Record<string, RegExp[]> = {
   pricing: [
     /(?:how much|price|pricing|cost|plan|package|subscription|monthly|annual|per month|per year|fee|rate|afford|budget|cheap|expensive)/i,
     /(?:\$?\d{2,4}(?:\/mo|\/month| per month))/i,
-    /(?:mini|parwa high|parwa|tier)/i,
+    /(?:parwa high|parwa|tier)/i,
   ],
   demo: [
     /(?:demo|try it|see it in action|show me|roleplay|experience|example|walk me through|how does.*work for)/i,
@@ -205,7 +205,7 @@ const ENTITY_PATTERNS: { pattern: RegExp; label: string }[] = [
   { pattern: /\b(?:healthcare|hospital|clinic|medical)\b/i, label: 'healthcare' },
   { pattern: /\b(?:zendesk|intercom|freshdesk|helpscout)\b/i, label: 'competitor' },
   { pattern: /\b(?:shopify|woo?commerce|magento|bigcommerce)\b/i, label: 'ecommerce_platform' },
-  { pattern: /\b(?:mini|parwa high|tier)\b/i, label: 'plan_name' },
+  { pattern: /\b(?:parwa high|tier)\b/i, label: 'plan_name' },
   { pattern: /\b(?:order management|returns|refund|shipment tracking|appointment)\b/i, label: 'variant' },
   { pattern: /\$\d[\d,.]*/g, label: 'price_mention' },
 ];
@@ -346,7 +346,7 @@ const KNOWLEDGE_INDEX: KnowledgeIndex[] = [
   {
     keywords: ['price', 'pricing', 'cost', 'plan', 'monthly', 'subscription', 'afford', 'cheap', 'expensive', '$999', '$2499', '$3999'],
     source: '01_pricing_tiers',
-    content: `PARWA Plans: Mini PARWA $999/mo (1 agent, 1000 tickets), PARWA $2,499/mo (3 agents, 5000 tickets, 70-80% autonomous), PARWA High $3,999/mo (5 agents, 15000 tickets, all channels). Annual billing saves 15%. Overage $0.10-$0.50/ticket. $1 Demo Pack: 500 messages + 3-min voice call.`,
+    content: `PARWA Plans: PARWA $2,499/mo (5 agents, 2,499 tickets, 88% autonomous, email/chat/SMS/voice), PARWA High $3,999/mo (8 agents, 3,999 tickets, all channels + video). Annual billing available. Overage $1/ticket. $1 = 1 ticket pricing model.`,
     relevance: 1.0,
   },
   // Industry

@@ -87,7 +87,7 @@ export interface IntegrationDefinition {
   /** Industries where this integration is SUGGESTED (not restricted to) */
   suggestedIndustries: ParwaIndustry[];
   /** Which variants can use this (empty = all) */
-  availableForVariants?: ('mini' | 'parwa' | 'high')[];
+  availableForVariants?: ('parwa' | 'high')[];
   /** Icon identifier for frontend rendering */
   iconId: string;
   /** Icon color gradient for frontend */
@@ -955,7 +955,7 @@ export function getIntegrationByKey(key: string): IntegrationDefinition | undefi
  */
 export function isIntegrationAvailableForVariant(
   integration: IntegrationDefinition,
-  _variant: 'mini' | 'parwa' | 'high'
+  _variant: 'parwa' | 'high'
 ): boolean {
   // Per D2: All variants get UNLIMITED integrations.
   // availableForVariants is only used for feature gating, not count limits.

@@ -14,7 +14,6 @@
  * - Handles unlimited parallel customers simultaneously
  *
  * Pricing Tiers:
- *   Mini PARWA:    $999/mo  → ~10 days collection
  *   PARWA:        $2,499/mo → ~25 days collection  
  *   PARWA High:   $3,999/mo → 30 days collection (full schedule)
  *
@@ -25,7 +24,7 @@
 
 // ── Types ──────────────────────────────────────────────────────────
 
-export type VariantTier = 'mini' | 'parwa' | 'high';
+export type VariantTier = 'parwa' | 'high';
 
 export interface InstallmentSchedule {
   /** Day number (1-30) */
@@ -139,7 +138,6 @@ export const DOUBLE_CHARGE_HOUR_GAP = 2;
 // ── Tier Configuration ─────────────────────────────────────────────
 
 export const TIER_PRICES: Record<VariantTier, number> = {
-  mini: 999,
   parwa: 2499,
   high: 3999,
 };
