@@ -6,7 +6,6 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   NavigationBar,
   HeroSection,
-  FeatureCarousel,
   WhyChooseUs,
   HowItWorks,
   JarvisDemo,
@@ -57,7 +56,6 @@ export default function HomePage() {
       <HeroSection />
       <WhyChooseUs />
       <HowItWorks />
-      <FeatureCarousel />
       <JarvisDemo />
       <Footer />
     </main>
