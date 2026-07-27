@@ -11,8 +11,8 @@ const features = [
   {
     icon: <Shield className="w-6 h-6 sm:w-7 sm:h-7" />,
     title: 'Bank-Grade Security',
-    description: 'Your data is encrypted end-to-end. GDPR compliant. SOC 2 certified.',
-    details: ['End-to-end encryption', 'GDPR compliant', 'SOC 2 Type II certified', 'Regular security audits'],
+    description: 'Your data is encrypted end-to-end. GDPR-ready. SOC 2 ready.'
+    details: ['End-to-end encryption', 'GDPR-ready', 'SOC 2 ready', 'Regular security audits'],
     color: 'orange' as const,
   },
   {
@@ -39,15 +39,15 @@ const features = [
   {
     icon: <Languages className="w-6 h-6 sm:w-7 sm:h-7" />,
     title: 'Multi-Language Support',
-    description: 'Speak to customers in 50+ languages with native-level accuracy.',
-    details: ['50+ languages supported', 'Automatic detection', 'Cultural context awareness', 'Translation quality scoring'],
+    description: 'Speak to customers in 10+ languages with native-level accuracy.'
+    details: ['10+ languages supported', 'Automatic detection', 'Cultural context awareness', 'Translation quality scoring'],
     color: 'orange' as const,
   },
   {
     icon: <TrendingUp className="w-6 h-6 sm:w-7 sm:h-7" />,
     title: 'Scales With You',
     description: '10 or 10,000 tickets — Jarvis handles it all without breaking a sweat.',
-    details: ['Unlimited ticket capacity', 'Auto-scaling infrastructure', 'Peak load management', 'Zero downtime SLA'],
+    details: ['Scales to 4,000+ tickets/month', 'Auto-scaling infrastructure', 'Peak load management', '99.9% uptime SLA'],
     color: 'orange' as const,
   },
 ];
