@@ -54,9 +54,9 @@ export default function HomePage() {
     <main className="min-h-screen bg-[#0a0a0a]">
       <NavigationBar />
       <HeroSection />
-      <WhyChooseUs />
       <HowItWorks />
       <JarvisDemo />
+      <WhyChooseUs />
       <Footer />
     </main>
   );
