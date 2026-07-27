@@ -11,7 +11,7 @@ const features = [
   {
     icon: <Shield className="w-6 h-6 sm:w-7 sm:h-7" />,
     title: 'Bank-Grade Security',
-    description: 'Your data is encrypted end-to-end. GDPR-ready. SOC 2 ready.'
+    description: 'Your data is encrypted end-to-end. GDPR-ready. SOC 2 ready.',
     details: ['End-to-end encryption', 'GDPR-ready', 'SOC 2 ready', 'Regular security audits'],
     color: 'orange' as const,
   },
@@ -39,7 +39,7 @@ const features = [
   {
     icon: <Languages className="w-6 h-6 sm:w-7 sm:h-7" />,
     title: 'Multi-Language Support',
-    description: 'Speak to customers in 10+ languages with native-level accuracy.'
+    description: 'Speak to customers in 10+ languages with native-level accuracy.',
     details: ['10+ languages supported', 'Automatic detection', 'Cultural context awareness', 'Translation quality scoring'],
     color: 'orange' as const,
   },
