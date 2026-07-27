@@ -16,7 +16,7 @@
  *   email: string,
  *   name: string,
  *   contact?: string,
- *   tier: 'mini' | 'parwa' | 'high',
+ *   tier: 'parwa' | 'high',
  *   planId: string,
  *   totalAmount: number,
  *   razorpayPaymentId?: string,  // After successful checkout
@@ -74,8 +74,8 @@ function validateTokenizeRequest(body: Partial<TokenizeRequest>): { valid: boole
     errors.push('name is required');
   }
 
-  if (!body.tier || !['mini', 'parwa', 'high'].includes(body.tier)) {
-    errors.push('tier must be one of: mini, parwa, high');
+  if (!body.tier || !['parwa', 'high'].includes(body.tier)) {
+    errors.push('tier must be one of: parwa, high');
   }
 
   if (!body.planId || body.planId.trim().length === 0) {

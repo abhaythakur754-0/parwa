@@ -55,8 +55,8 @@ export async function GET(request: NextRequest) {
     console.error('[/api/billing/status] Backend unreachable:', err);
     // Return a safe default so the billing page can still render
     return NextResponse.json({
-      tier: 'mini',
-      plan_name: 'Starter',
+      tier: 'parwa',
+      plan_name: 'PARWA',
       billing_cycle: 'monthly',
       status: 'inactive',
       seats_used: 0,

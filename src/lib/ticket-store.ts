@@ -790,12 +790,13 @@ function normalizeBackendTicket(raw: BackendTicketResponse): Ticket {
     : 'email';
 
   // Map backend variant names → frontend variant names
-  // Backend uses 'mini' / 'parwa' / 'high'; frontend uses 'light' / 'medium' / 'heavy'
+  // Backend uses 'parwa' / 'high'; frontend uses 'light' / 'medium' / 'heavy'
+  // Legacy 'mini' maps to 'light' for backward compat
   let assigned_variant: TicketVariant | null = null;
   if (raw.assigned_variant) {
     const v = raw.assigned_variant.toLowerCase();
-    if (v === 'mini' || v === 'light') assigned_variant = 'light';
-    else if (v === 'parwa' || v === 'medium') assigned_variant = 'medium';
+    if (v === 'mini' || v === 'parwa' || v === 'light') assigned_variant = 'light';
+    else if (v === 'medium') assigned_variant = 'medium';
     else if (v === 'high' || v === 'heavy') assigned_variant = 'heavy';
     else if ((validVariants as string[]).includes(raw.assigned_variant)) {
       assigned_variant = raw.assigned_variant as TicketVariant;

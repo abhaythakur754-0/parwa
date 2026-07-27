@@ -43,7 +43,7 @@ export type CommandStatus = 'received' | 'parsing' | 'parsed' | 'executing' | 'c
 
 export type PipelineStatus = 'idle' | 'running' | 'paused' | 'error';
 
-export type VariantTier = 'mini' | 'parwa' | 'high';
+export type VariantTier = 'parwa' | 'high';
 
 // ── CC Session ──────────────────────────────────────────────────────
 

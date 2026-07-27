@@ -192,7 +192,7 @@ export function calculateInstallmentSchedule(
 
   // Generate schedule until amount is fully allocated or we hit 30 days
   // NOTE: Double-charge days only apply to PARWA High tier
-  // Mini PARWA and PARWA use simple $100/day charging
+  // PARWA uses simple $100/day charging
   const useDoubleCharge = tier === 'high';
   
   while (remainingAmount > 0 && day <= COLLECTION_WINDOW_DAYS) {

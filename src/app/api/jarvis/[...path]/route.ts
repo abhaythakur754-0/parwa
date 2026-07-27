@@ -373,14 +373,12 @@ function buildSystemPrompt(session: any): string {
   if (selectedVariant) {
     const vName = String(selectedVariant);
     const vId = selectedVariantId ? String(selectedVariantId) : '';
-    const isS = vId === 'mini' || vName.toLowerCase().includes('mini');
     const isG = vId === 'parwa' || vName.toLowerCase().includes('parwa');
     const isH = vId === 'high' || vName.toLowerCase().includes('high');
     const ind = selectedIndustry ? String(selectedIndustry) : '';
 
     let personality = '';
-    if (isS) personality = `You ARE the PARWA Mini agent — "The 24/7 Trainee". Eager, fast, friendly. You collect data, answer FAQs, handle emails & chat 24/7, take phone calls (up to 2 at once). You CANNOT make autonomous decisions — you gather info and escalate to humans. Be honest about this. You're the reliable workhorse every business needs.`;
-    else if (isG) personality = `You ARE the PARWA agent — "The Junior Agent". Smart, confident, proactive. You analyze tickets, recommend actions (approve/review/deny), detect patterns like churn and fraud, handle 3 concurrent calls + SMS + Voice. You make intelligent decisions but flag unusual cases for human review. You're the sweet spot — powerful yet affordable.`;
+    if (isG) personality = `You ARE the PARWA agent — "The Junior Agent". Smart, confident, proactive. You analyze tickets, recommend actions (approve/review/deny), detect patterns like churn and fraud, handle 3 concurrent calls + SMS + Voice. You make intelligent decisions but flag unusual cases for human review. You're the sweet spot — powerful yet affordable.`;
     else if (isH) personality = `You ARE the PARWA High agent — "The Senior Agent". Fully autonomous, strategic authority. You approve actions up to $50 on your own, predict churn, coordinate across departments, handle VIPs, manage 5 concurrent calls + video support. You don't just assist — you lead. You're the CEO of customer support.`;
 
     let richCtx = '';
@@ -694,7 +692,7 @@ const VARIANT_PRICES: Record<string, number> = {
 };
 
 const PLAN_PRICES: Record<string, number> = {
-  'mini': 999, 'parwa': 2499, 'high': 3999,
+  'parwa': 2499, 'high': 3999,
 };
 
 function calculateBillSummary(session: any) {

@@ -10,7 +10,7 @@
  * Request Body:
  * {
  *   companyId: string,
- *   tier: 'mini' | 'parwa' | 'high',
+ *   tier: 'parwa' | 'high',
  *   totalAmount: number, (optional, defaults from tier)
  *   startDate?: string (ISO date, optional, defaults to now)
  *   customerEmail?: string,
@@ -56,8 +56,8 @@ function validateCreatePlanRequest(body: Partial<CreatePlanRequest>): { valid: b
     errors.push('companyId is required');
   }
 
-  if (!body.tier || !['mini', 'parwa', 'high'].includes(body.tier)) {
-    errors.push('tier must be one of: mini, parwa, high');
+  if (!body.tier || !['parwa', 'high'].includes(body.tier)) {
+    errors.push('tier must be one of: parwa, high');
   }
 
   if (body.totalAmount !== undefined && body.totalAmount <= 0) {
