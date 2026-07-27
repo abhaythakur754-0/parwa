@@ -72,9 +72,14 @@ export default function NavigationBar() {
     <nav
       className={`sticky top-0 z-50 transition-all duration-500 ${
         isScrolled
-          ? 'bg-[#0D0D0D]/95 backdrop-blur-2xl shadow-lg shadow-black/30 border-b border-white/[0.06]'
-          : 'bg-[#0D0D0D]/70 backdrop-blur-xl border-b border-transparent'
+          ? 'backdrop-blur-2xl shadow-lg shadow-black/30 border-b border-white/[0.06]'
+          : 'backdrop-blur-xl border-b border-transparent'
       }`}
+      style={{
+        background: isScrolled
+          ? 'linear-gradient(165deg, rgba(26,26,26,0.95) 0%, rgba(42,26,10,0.95) 30%, rgba(45,31,14,0.95) 60%, rgba(61,42,16,0.95) 80%, rgba(26,26,26,0.95) 100%)'
+          : 'linear-gradient(165deg, rgba(26,26,26,0.7) 0%, rgba(42,26,10,0.7) 30%, rgba(45,31,14,0.7) 60%, rgba(61,42,16,0.7) 80%, rgba(26,26,26,0.7) 100%)',
+      }}
       role="navigation"
       aria-label="Main navigation"
     >
