@@ -83,7 +83,7 @@ export default function WhyChooseUs() {
     <section
       ref={sectionRef}
       className="relative overflow-hidden"
-      style={{ background: '#1A1A1A' }}
+      style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 30%, #2D1F0E 60%, #3D2A10 80%, #1A1A1A 100%)' }}
     >
       {/* Ambient glow orbs */}
       <div className="absolute inset-0 pointer-events-none">
