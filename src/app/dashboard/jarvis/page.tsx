@@ -609,7 +609,7 @@ export default function JarvisCCPage() {
   const handleShadowQuickAction = useCallback(async (action: string) => {
     switch (action) {
       case 'enable_shadow':
-        try { const success = await enableShadowMode({ live_variant: 'mini', shadow_variant: 'parwa', sample_rate: 1.0 }); if (success) toast.success('Shadow Mode enabled via Jarvis'); } catch { toast.error('Failed to enable Shadow Mode'); }
+        try { const success = await enableShadowMode({ live_variant: 'parwa', shadow_variant: 'high', sample_rate: 1.0 }); if (success) toast.success('Shadow Mode enabled via Jarvis'); } catch { toast.error('Failed to enable Shadow Mode'); }
         break;
       case 'promote_shadow':
         try { const success = await promoteShadowMode(); if (success) toast.success('Shadow Mode promoted via Jarvis'); } catch { toast.error('Failed to promote Shadow Mode'); }

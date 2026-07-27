@@ -128,11 +128,11 @@ interface IntegrationHealthData {
 
 const INTEGRATION_CATALOG = [
   // Mini tier
-  { type: 'gmail', name: 'Gmail', category: 'email', tier: 'mini' as const, icon: '📧', fields: [{ key: 'client_id', label: 'Client ID', type: 'text' }, { key: 'client_secret', label: 'Client Secret', type: 'password' }] },
-  { type: 'outlook', name: 'Outlook', category: 'email', tier: 'mini' as const, icon: '📧', fields: [{ key: 'client_id', label: 'Application ID', type: 'text' }, { key: 'client_secret', label: 'Application Secret', type: 'password' }] },
-  { type: 'slack', name: 'Slack', category: 'communication', tier: 'mini' as const, icon: '💬', fields: [{ key: 'bot_token', label: 'Bot Token (xoxb-)', type: 'password' }, { key: 'channel_id', label: 'Channel ID', type: 'text' }] },
-  { type: 'shopify', name: 'Shopify', category: 'ecommerce', tier: 'mini' as const, icon: '🛍️', fields: [{ key: 'shop_domain', label: 'Shop Domain', type: 'text' }, { key: 'access_token', label: 'Access Token', type: 'password' }] },
-  { type: 'zendesk', name: 'Zendesk', category: 'helpdesk', tier: 'mini' as const, icon: '🎧', fields: [{ key: 'subdomain', label: 'Subdomain', type: 'text' }, { key: 'api_token', label: 'API Token', type: 'password' }] },
+  { type: 'gmail', name: 'Gmail', category: 'email', tier: 'parwa' as const, icon: '📧', fields: [{ key: 'client_id', label: 'Client ID', type: 'text' }, { key: 'client_secret', label: 'Client Secret', type: 'password' }] },
+  { type: 'outlook', name: 'Outlook', category: 'email', tier: 'parwa' as const, icon: '📧', fields: [{ key: 'client_id', label: 'Application ID', type: 'text' }, { key: 'client_secret', label: 'Application Secret', type: 'password' }] },
+  { type: 'slack', name: 'Slack', category: 'communication', tier: 'parwa' as const, icon: '💬', fields: [{ key: 'bot_token', label: 'Bot Token (xoxb-)', type: 'password' }, { key: 'channel_id', label: 'Channel ID', type: 'text' }] },
+  { type: 'shopify', name: 'Shopify', category: 'ecommerce', tier: 'parwa' as const, icon: '🛍️', fields: [{ key: 'shop_domain', label: 'Shop Domain', type: 'text' }, { key: 'access_token', label: 'Access Token', type: 'password' }] },
+  { type: 'zendesk', name: 'Zendesk', category: 'helpdesk', tier: 'parwa' as const, icon: '🎧', fields: [{ key: 'subdomain', label: 'Subdomain', type: 'text' }, { key: 'api_token', label: 'API Token', type: 'password' }] },
   // Pro tier
   { type: 'salesforce', name: 'Salesforce', category: 'crm', tier: 'pro' as const, icon: '☁️', fields: [{ key: 'instance_url', label: 'Instance URL', type: 'text' }, { key: 'access_token', label: 'Access Token', type: 'password' }] },
   { type: 'hubspot', name: 'HubSpot', category: 'crm', tier: 'pro' as const, icon: '🎯', fields: [{ key: 'access_token', label: 'Access Token', type: 'password' }] },

@@ -478,7 +478,6 @@ WHAT IS PARWA:
 AI-powered customer support platform. Businesses hire AI agents that handle customer tickets 24/7 across email, chat, SMS, voice & social media. 700+ features. 4 industries. Think of it as hiring an AI employee who never sleeps.
 
 THREE PLANS:
-- PARWA Mini — $999/mo — 3 agents, 1K tickets/mo — Email, Chat — "The 24/7 Trainee"
 - PARWA — $2,499/mo — 8 agents, 5K tickets/mo — +SMS, Voice — "The Junior Agent"
 - PARWA High — $3,999/mo — 15 agents, 15K tickets/mo — +Social, Video — "The Senior Agent"
 - Annual: 15% off. Cancel anytime. $0.10 overage/ticket.
@@ -506,7 +505,7 @@ vs COMPETITORS:
 - vs Hiring: $999-$3,999/mo vs $14K-$28K/mo for humans
 
 OBJECTIONS (handle naturally):
-- "A single agent costs → "A single agent costs $4-6K/mo. PARWA Mini at $999 does the work of 3 — 85% savings from day one."
+- "A single agent costs → "A single agent costs $4-6K/mo. PARWA at $2,499 does the work of 5 — 80% savings from day one."
 - "mini and High use" → "Parwa and High use smart routing — simple auto-resolves, complex gets flagged with recommendations. You stay in control."
 - "Data security?" → "GDPR, SOC 2, HIPAA. AES-256, TLS 1.3. Your data never trains other models."
 - "Setup time?" → "Under an hour. Connect channels, upload KB, configure. Day 1 live."
@@ -977,7 +976,7 @@ function getKeywordResponse(message: string, session: any): string {
       `Hi! 👋 I'm Jarvis, ready to help.\n\n🎯 I recommend the perfect plan for your needs\n🚀 Show you a live demo in 30 seconds\n💰 Prove ROI with real numbers\n\nWhat's your industry?`,
     ],
     ecommerce: [
-      `🛒 E-commerce is one of our strongest areas!\n\n- Order tracking, returns, FAQ, shipping & payments — all automated\n- Integrates with Shopify, WooCommerce, Magento & BigCommerce\n\nMost e-com stores start with PARWA Mini ($999/mo). Want pricing details?`,
+      `🛒 E-commerce is one of our strongest areas!\n\n- Order tracking, returns, FAQ, shipping & payments — all automated\n- Integrates with Shopify, WooCommerce, Magento & BigCommerce\n\nMost e-com stores start with PARWA ($2,499/mo). Want pricing details?`,
       `🛍️ E-commerce support is where PARWA shines!\n\n⚡ Top 5 ticket types automated from Day 1\n🔗 Shopify / WooCommerce / Magento integration\n⏱️ Setup takes under an hour\n\nWant to see how order tracking works?`,
     ],
     saas: [
