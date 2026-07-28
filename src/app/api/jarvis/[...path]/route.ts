@@ -691,7 +691,7 @@ const VARIANT_PRICES: Record<string, number> = {
 };
 
 const PLAN_PRICES: Record<string, number> = {
-  'parwa': 2499, 'high': 3999,
+  'parwa': 2999, 'high': 3999,
 };
 
 function calculateBillSummary(session: any) {

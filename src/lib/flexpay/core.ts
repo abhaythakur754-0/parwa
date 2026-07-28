@@ -138,7 +138,7 @@ export const DOUBLE_CHARGE_HOUR_GAP = 2;
 // ── Tier Configuration ─────────────────────────────────────────────
 
 export const TIER_PRICES: Record<VariantTier, number> = {
-  parwa: 2499,
+  parwa: 2999,
   high: 3999,
 };
 
