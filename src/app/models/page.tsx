@@ -175,37 +175,6 @@ export default function ModelsPage() {
           </div>
         </section>
 
-        {/* ── BIG Resolution Rate Comparison Banner ── */}
-        <section className="relative pb-8">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="rounded-2xl border-2 border-purple-500/40 p-6 sm:p-8 text-center" style={{ background: 'linear-gradient(135deg, rgba(147,51,234,0.15) 0%, rgba(26,26,26,0.9) 60%, rgba(147,51,234,0.05) 100%)' }}>
-              <p className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-2">Why choose PARWA High?</p>
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white mb-3">
-                PARWA High resolves <span className="text-purple-400">92%</span> of tickets
-              </h2>
-              <p className="text-xl sm:text-2xl text-gray-400 mb-4">
-                vs PARWA at <span className="text-orange-400">80%</span>
-              </p>
-              <p className="text-sm text-gray-500 max-w-xl mx-auto">
-                PARWA has a $500 refund limit — tickets needing bigger refunds get escalated to humans.
-                PARWA High has <strong className="text-purple-400">unlimited financial authority</strong> — it handles everything autonomously.
-              </p>
-              <div className="flex items-center justify-center gap-6 mt-5">
-                <div className="text-center">
-                  <div className="text-3xl font-black text-orange-400">80%</div>
-                  <div className="text-xs text-gray-500">PARWA</div>
-                </div>
-                <div className="text-2xl text-gray-600">→</div>
-                <div className="text-center">
-                  <div className="text-3xl font-black text-purple-400">92%</div>
-                  <div className="text-xs text-gray-500">PARWA High</div>
-                </div>
-                <div className="text-2xl text-emerald-400">+12%</div>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* Pricing Cards — shown directly, no industry selector */}
         <section className="relative pb-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -263,6 +232,19 @@ export default function ModelsPage() {
                         <span className="text-sm text-gray-500">/month</span>
                       </div>
                       <p className="text-xs text-gray-500 mt-1">{variant.ticketsPerMonth.toLocaleString()} tickets/month included</p>
+                    </div>
+
+                    {/* Resolution Rate — big and prominent inside the card */}
+                    <div className={`mb-5 p-4 rounded-xl text-center ${variant.id === 'high' ? 'bg-purple-500/10 border border-purple-500/20' : 'bg-orange-500/10 border border-orange-500/20'}`}>
+                      <p className="text-xs text-gray-400 mb-1">AI Resolution Rate</p>
+                      <p className={`text-4xl font-black ${variant.id === 'high' ? 'text-purple-400' : 'text-orange-400'}`}>
+                        {variant.id === 'high' ? '92%' : '80%'}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {variant.id === 'high'
+                          ? 'Unlimited refunds & credits — handles everything autonomously'
+                          : 'Refunds capped at $500 — bigger refunds need human approval'}
+                      </p>
                     </div>
 
                     {/* Features */}
