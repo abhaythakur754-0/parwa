@@ -8,13 +8,12 @@ Implements the "FlexPay" payment model:
 - Stays under Razorpay's $100/transaction limit
 - Handles multiple customers simultaneously
 
-Business Rules (from CLAUDE.md P-002):
-- Mini PARWA ($999): ~10 days normal $100/day charges
-- PARWA ($2,499): ~25 days normal $100/day charges  
-- PARWA High ($3,999): ~30 days with accelerated every-3rd-day double charge
+Business Rules (2 tiers only — Mini removed):
+- PARWA ($2,999): 30 days, $100/day, last day = $99
+- PARWA High ($3,999): 30 days with accelerated every-3rd-day double charge, last day = $99
 
 IMPORTANT: The extra charge (every 3rd day: $100 + $100) ONLY applies to PARWA HIGH.
-Mini and PARWA tiers use standard daily $100 charges only.
+PARWA tier uses standard daily $100 charges only.
 
 CLAUDE.md Compliance:
 - P-003: Simple language in docstrings/comments
@@ -74,8 +73,8 @@ def calculate_installment_schedule(
     - Final day: Adjust to hit exact total_amount
     
     Args:
-        total_amount: Full subscription price ($999, $2499, or $3999)
-        variant_tier: Which plan tier (mini, parwa, high)
+        total_amount: Full subscription price ($2999 or $3999)
+        variant_tier: Which plan tier (parwa or high)
         period_start: When billing period starts
         period_end: When billing period ends (should be ~30 days later)
     
@@ -176,7 +175,7 @@ async def create_flexpay_plan(
         db: Database session
         company_id: Company ID from auth
         user_id: User who is purchasing
-        variant_tier: Which plan they're buying (mini/parwa/high)
+        variant_tier: Which plan they're buying (parwa/high)
         razorpay_customer_id: Pre-created Razorpay customer (if available)
         period_days: Billing period length (default 30 days)
     

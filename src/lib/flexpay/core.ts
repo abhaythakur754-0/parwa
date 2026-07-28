@@ -14,8 +14,8 @@
  * - Handles unlimited parallel customers simultaneously
  *
  * Pricing Tiers:
- *   PARWA:        $2,499/mo → ~25 days collection  
- *   PARWA High:   $3,999/mo → 30 days collection (full schedule)
+ *   PARWA:        $2,999/mo → 30 days, $100/day, last day = $99
+ *   PARWA High:   $3,999/mo → 30 days collection (full schedule with double charges)
  *
  * CLAUDE.md Compliance:
  * - P-002: All tiers use same algorithm, amounts differ by tier

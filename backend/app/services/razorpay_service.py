@@ -197,7 +197,7 @@ def _end_company_trial(db, company_id: str, paid_variant: str = None) -> None:
     so the frontend can show "your trial ended on X" if needed.
 
     Args:
-        paid_variant: The variant the user just paid for (mini/parwa/high).
+        paid_variant: The variant the user just paid for (parwa/high).
                       If provided, updates the company's subscription_tier
                       from the trial default ("high") to the paid tier.
     """

@@ -34,7 +34,7 @@ router = APIRouter(prefix="/api/billing/razorpay", tags=["billing-razorpay"])
 
 
 class SubscribeRequest(BaseModel):
-    variant: str = Field(..., description="mini, parwa, or high")
+    variant: str = Field(..., description="parwa or high")
     quantity: int = Field(1, ge=1, le=100)
 
 
@@ -62,7 +62,7 @@ def _normalize_variant(variant_str: str) -> VariantType:
     try:
         return VariantType(normalize_variant_name(variant_str))
     except Exception:
-        raise HTTPException(status_code=400, detail=f"Invalid variant '{variant_str}'. Must be: mini, parwa, or high.")
+        raise HTTPException(status_code=400, detail=f"Invalid variant '{variant_str}'. Must be: parwa or high.")
 
 
 @router.get("/pricing")
@@ -201,9 +201,9 @@ async def tickets_by_variant(
     result = {}
     for variant_value, count in rows:
         try:
-            canonical = normalize_variant_name(variant_value or "mini")
+            canonical = normalize_variant_name(variant_value or "parwa")
         except Exception:
-            canonical = "mini"
+            canonical = "parwa"
         result[canonical] = result.get(canonical, 0) + int(count or 0)
     return {"tickets_by_variant": result, "total_resolved": sum(result.values())}
 
