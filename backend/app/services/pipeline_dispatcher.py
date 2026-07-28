@@ -53,10 +53,14 @@ EMERGENCY_PRIORITIES = {CRITICAL_PRIORITY}
 #
 # This is the same pattern used by Celery, RQ, Sidekiq — a durable queue
 # backed by a database. No in-memory state, no lost tickets, no OOM.
+import os
 import threading as _threading_mod
 import time as _time_mod
 
-MAX_CONCURRENT_PIPELINES = 7
+# Configurable via env var so it can be tuned without code changes.
+# Default 10: safe on 512MB Render Starter (7→10 = +43% throughput).
+# On 2GB Render Standard, set MAX_CONCURRENT_PIPELINES=40.
+MAX_CONCURRENT_PIPELINES = int(os.environ.get("MAX_CONCURRENT_PIPELINES", "10"))
 _workers_started = False
 _workers_lock = _threading_mod.Lock()
 
