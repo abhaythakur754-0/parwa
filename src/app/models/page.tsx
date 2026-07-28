@@ -36,12 +36,13 @@ interface VariantData {
 
 const commonFeatures: Record<VariantId, string[]> = {
   parwa: [
-    '2,499 tickets per month',
+    '2,999 tickets per month',
     '5 AI agents working 24/7',
-    'Resolves 88% of tickets without human help',
-    'Replaces ~6 human agents (saves ~$26,000/month)',
+    'Resolves 80% of tickets without human help',
+    'Replaces ~6 human agents (saves ~$25,000/month)',
     'Email, Chat, SMS & Voice support',
     'Handles refunds up to $500 automatically',
+    'Credits up to $200 automatically',
     'Learns from your documents — becomes an expert in hours',
     'Asks you before making uncertain decisions',
     'Up to 10 team members',
@@ -54,6 +55,7 @@ const commonFeatures: Record<VariantId, string[]> = {
   high: [
     '3,999 tickets per month',
     '8 AI agents (+$3 for each extra)',
+    'Resolves 92% of tickets without human help',
     'Replaces ~10 human agents (saves ~$41,000/month)',
     'Unlimited refunds & credits — full autonomy',
     'Creates custom AI agents on request ($5/agent/month)',
@@ -78,21 +80,21 @@ const variantData: VariantData[] = [
     id: 'parwa',
     name: 'PARWA',
     tagline: '"The Junior Agent"',
-    monthlyPrice: 2499,
-    annualPrice: 1999,
-    ticketsPerMonth: 2499,
-    badge: 'Recommended',
+    monthlyPrice: 2999,
+    annualPrice: 2399,
+    ticketsPerMonth: 2999,
     channels: [{ label: 'Email, Chat, SMS & Voice', icon: <Zap className="w-3.5 h-3.5" /> }],
     commonFeatures: commonFeatures.parwa,
     uniqueFeatures: [
       'Pre-built AI agents — ready to use from Day 1',
       'Handles refunds up to $500 without asking',
+      'Credits up to $200 automatically',
       'Routes tickets to the right agent automatically',
       'Learns from every conversation',
     ],
-    keyAdvantage: 'Replaces ~6 human agents for 91% less cost',
+    keyAdvantage: '80% AI resolution rate (limited by $500 refund cap)',
     smartDecisions: 'Handles refunds up to $500 automatically',
-    roi: 'Saves ~$26,000/month vs hiring 6 human agents',
+    roi: 'Saves ~$25,000/month vs hiring 6 human agents',
     bestFor: 'Growing businesses with 200+ tickets per day',
     coreCapability: 'Your smartest junior agent — works 24/7, never calls in sick.',
   },
@@ -103,6 +105,7 @@ const variantData: VariantData[] = [
     monthlyPrice: 3999,
     annualPrice: 3199,
     ticketsPerMonth: 3999,
+    badge: 'Recommended',
     channels: [{ label: 'Email, Chat, SMS, Voice, Push & Webhooks', icon: <Zap className="w-3.5 h-3.5" /> }],
     commonFeatures: commonFeatures.high,
     uniqueFeatures: [
@@ -111,7 +114,7 @@ const variantData: VariantData[] = [
       'Detects customer emotions & adjusts tone',
       'Predicts which customers might leave',
     ],
-    keyAdvantage: 'Replaces ~10 human agents for 91% less cost',
+    keyAdvantage: '92% AI resolution rate (unlimited financial actions)',
     roi: 'Saves ~$41,000/month vs hiring 10 human agents',
     bestFor: 'Busy teams with 500+ tickets per day',
     coreCapability: 'Your most experienced senior agent — makes decisions, not just recommendations.',
@@ -168,6 +171,37 @@ export default function ModelsPage() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </section>
+
+        {/* ── BIG Resolution Rate Comparison Banner ── */}
+        <section className="relative pb-8">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="rounded-2xl border-2 border-purple-500/40 p-6 sm:p-8 text-center" style={{ background: 'linear-gradient(135deg, rgba(147,51,234,0.15) 0%, rgba(26,26,26,0.9) 60%, rgba(147,51,234,0.05) 100%)' }}>
+              <p className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-2">Why choose PARWA High?</p>
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white mb-3">
+                PARWA High resolves <span className="text-purple-400">92%</span> of tickets
+              </h2>
+              <p className="text-xl sm:text-2xl text-gray-400 mb-4">
+                vs PARWA at <span className="text-orange-400">80%</span>
+              </p>
+              <p className="text-sm text-gray-500 max-w-xl mx-auto">
+                PARWA has a $500 refund limit — tickets needing bigger refunds get escalated to humans.
+                PARWA High has <strong className="text-purple-400">unlimited financial authority</strong> — it handles everything autonomously.
+              </p>
+              <div className="flex items-center justify-center gap-6 mt-5">
+                <div className="text-center">
+                  <div className="text-3xl font-black text-orange-400">80%</div>
+                  <div className="text-xs text-gray-500">PARWA</div>
+                </div>
+                <div className="text-2xl text-gray-600">→</div>
+                <div className="text-center">
+                  <div className="text-3xl font-black text-purple-400">92%</div>
+                  <div className="text-xs text-gray-500">PARWA High</div>
+                </div>
+                <div className="text-2xl text-emerald-400">+12%</div>
+              </div>
             </div>
           </div>
         </section>

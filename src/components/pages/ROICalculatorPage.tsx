@@ -38,7 +38,8 @@ interface ParwaModel {
   tierBg: string;
 }
 
-const AI_RESOLUTION = 0.88; // 88% of tickets resolved by AI without human
+const AI_RESOLUTION_PARWA = 0.80;  // 80% — limited by $500 refund cap
+const AI_RESOLUTION_HIGH = 0.92;   // 92% — unlimited financial actions
 const HUMAN_HANDOFF_FACTOR = 0.25; // Human handles 25% effort on AI-unresolved tickets
 
 const PARWA_MODELS: ParwaModel[] = [
@@ -48,10 +49,9 @@ const PARWA_MODELS: ParwaModel[] = [
     tagline: VARIANT_TAGLINES.parwa,
     price: VARIANT_PRICES.parwa,
     ticketLimit: VARIANT_LIMITS.parwa.monthlyTickets,
-    aiResolution: AI_RESOLUTION,
-    aiAgents: VARIANT_LIMITS.parwa.aiAgents,
+    aiResolution: AI_RESOLUTION_PARWA,
     channels: ['Email', 'Chat', 'SMS', 'Voice'],
-    description: 'Your smartest junior agent. Resolves ~88% of tickets autonomously with multi-channel support.',
+    description: 'Your smartest junior agent. Resolves 80% of tickets autonomously — refunds limited to $500.',
     bestFor: 'Growing businesses needing multi-channel support',
     tierLabel: 'Most Popular',
     tierColor: 'text-orange-400',
@@ -64,7 +64,7 @@ const PARWA_MODELS: ParwaModel[] = [
     tagline: VARIANT_TAGLINES.high,
     price: VARIANT_PRICES.high,
     ticketLimit: VARIANT_LIMITS.high.monthlyTickets,
-    aiResolution: AI_RESOLUTION,
+    aiResolution: AI_RESOLUTION_HIGH,
     aiAgents: VARIANT_LIMITS.high.aiAgents,
     channels: ['Email', 'Chat', 'SMS', 'Voice', 'Social', 'Video'],
     description: 'Your most experienced senior agent. Handles complex cases with unlimited financial actions.',

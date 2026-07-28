@@ -82,7 +82,7 @@ _VARIANT_NAME_ALIASES: Dict[str, str] = {
 # ══════════════════════════════════════════════════════════════════════════
 
 VARIANT_PRICES: Dict[VariantType, Decimal] = {
-    VariantType.PARWA: Decimal("2499.00"),
+    VariantType.PARWA: Decimal("2999.00"),
     VariantType.HIGH:  Decimal("3999.00"),
 }
 """
@@ -123,7 +123,7 @@ VARIANT_DISPLAY_NAMES: Dict[VariantType, str] = {
 
 VARIANT_LIMITS: Dict[VariantType, Dict[str, Any]] = {
     VariantType.PARWA: {
-        "monthly_tickets": 2499,
+        "monthly_tickets": 2999,
         "ai_agents":       5,
         "team_members":    10,
         "voice_slots":     2,

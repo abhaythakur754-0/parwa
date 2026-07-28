@@ -37,12 +37,12 @@ export type VariantTier = 'parwa' | 'high';
 // ── Prices (Monthly USD) ───────────────────────────────────────────
 
 export const VARIANT_PRICES: Record<VariantTier, number> = {
-  parwa: 2499,
+  parwa: 2999,
   high: 3999,
 };
 
 export const VARIANT_ANNUAL_PRICES: Record<VariantTier, number> = {
-  parwa: 2499 * 12,   // 29,988
+  parwa: 2999 * 12,   // 35,988
   high: 3999 * 12,    // 47,988
 };
 
@@ -75,7 +75,7 @@ export interface VariantLimits {
  */
 export const VARIANT_LIMITS: Record<VariantTier, VariantLimits> = {
   parwa: {
-    monthlyTickets: 2499,
+    monthlyTickets: 2999,
     aiAgents: 5,
     teamMembers: 10,
     voiceSlots: 2,

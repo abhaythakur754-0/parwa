@@ -19,7 +19,7 @@ const humanSupportItems = [
 ];
 
 const parwaItems = [
-  { value: 'Starting at $2,499/month', note: '80% cost reduction', highlight: true },
+  { value: 'Starting at $2,999/month', note: '80% cost reduction', highlight: true },
   { value: '24/7/365 — while you sleep', highlight: true },
   { value: 'Instant from Day 1 — zero training', highlight: true },
   { value: 'Never takes a day off', highlight: true },

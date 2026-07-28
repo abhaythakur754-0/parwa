@@ -76,7 +76,7 @@ const API_BASE = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_A
 
 export const useBillingStore = create<BillingState>((set, get) => ({
   currentTier: 'parwa',
-  currentPrice: 2499,
+  currentPrice: 2999,
   renewalDate: null,
   invoices: [],
   paymentMethods: [],
@@ -106,7 +106,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         if (res.status >= 400) {
           set({
             currentTier: 'parwa',
-            currentPrice: 2499,
+            currentPrice: 2999,
             isLoading: false,
           });
           return;
@@ -127,7 +127,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
       set({
         currentTier: tier,
-        currentPrice: TIER_PRICES[tier] || 2499,
+        currentPrice: TIER_PRICES[tier] || 2999,
         renewalDate: data.renewal_date || data.current_period_end || null,
         isLoading: false,
       });
@@ -238,7 +238,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
       set({
         currentTier: 'parwa',
-        currentPrice: 2499,
+        currentPrice: 2999,
         isLoading: false,
         renewalDate: null,
       });
