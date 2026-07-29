@@ -553,6 +553,35 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(_stuck_ticket_recovery_loop())
     logger.info("stuck_ticket_recovery_loop_started (checks every 3 min, cutoff 15 min)")
 
+    # ── FlexPay daily installment scheduler ─────────────────────────
+    # Runs every hour to find due installments and charge the customer's
+    # stored card token via Razorpay. This is how days 2-30 of the
+    # $100/day FlexPay plan get charged automatically.
+    async def _flexpay_scheduler_loop():
+        while True:
+            try:
+                from app.services.flexpay_scheduler import FlexPayScheduler
+                scheduler = FlexPayScheduler()
+                result = await scheduler.run_once()
+                if result.get("processed", 0) > 0:
+                    logger.info(
+                        "flexpay_scheduler_loop: processed=%d successes=%d failures=%d",
+                        result.get("processed", 0),
+                        result.get("successes", 0),
+                        result.get("failures", 0),
+                    )
+            except Exception as flexpay_exc:
+                logger.warning(
+                    "flexpay_scheduler_loop_error: %s",
+                    str(flexpay_exc)[:200],
+                )
+            # Check every hour (installments are scheduled daily, so
+            # hourly check ensures we don't miss any)
+            await asyncio.sleep(3600)
+
+    asyncio.create_task(_flexpay_scheduler_loop())
+    logger.info("flexpay_scheduler_loop_started (runs every 1 hour)")
+
     yield
 
     # Shutdown: flush Sentry events

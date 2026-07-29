@@ -410,18 +410,18 @@ export default function BillingPage() {
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-[#1A1A1A] border border-white/10 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl"
+            className="bg-[#1A1A1A] border border-white/10 rounded-2xl max-w-md w-full overflow-hidden shadow-2xl max-h-[85vh] flex flex-col"
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="bg-gradient-to-r from-emerald-500/20 to-teal-500/10 px-6 py-4 border-b border-white/5">
+            <div className="bg-gradient-to-r from-emerald-500/20 to-teal-500/10 px-5 py-4 border-b border-white/5 shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                    <Zap className="w-5 h-5 text-emerald-400" />
+                  <div className="w-9 h-9 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                    <Zap className="w-4 h-4 text-emerald-400" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white">FlexPay Activation</h3>
+                    <h3 className="text-base font-bold text-white">FlexPay — Daily $100</h3>
                     <p className="text-xs text-zinc-400">{showFlexPayConfirm.variant.name} Plan</p>
                   </div>
                 </div>
@@ -434,45 +434,43 @@ export default function BillingPage() {
               </div>
             </div>
 
-            {/* Content */}
-            <div className="px-6 py-5 space-y-4">
-              {/* Info Banner */}
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
-                <div className="flex gap-3">
-                  <Info className="w-5 h-5 text-blue-400 mt-0.5 shrink-0" />
-                  <div className="text-sm text-blue-200">
-                    <p className="font-medium mb-1">How FlexPay Works</p>
-                    <p className="text-xs text-blue-300/80 leading-relaxed">
-                      Instead of one large payment, your card will be charged in small daily installments. 
-                      Each charge is under $100 for easier approval.
+            {/* Content — scrollable */}
+            <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4 scrollbar-premium">
+              {/* How it works */}
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
+                <div className="flex gap-2">
+                  <Info className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />
+                  <div className="text-xs text-blue-200">
+                    <p className="font-medium mb-0.5">How it works</p>
+                    <p className="text-blue-300/70">
+                      Your card is charged <strong className="text-white">$100/day</strong> for 30 days. No large upfront payment.
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Price Breakdown */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">Payment Schedule (USD)</h4>
-                
-                <div className="bg-white/[0.03] rounded-xl divide-y divide-white/5">
+              {/* Schedule — compact + scrollable */}
+              <div>
+                <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">Payment Schedule</h4>
+                <div className="bg-white/[0.03] rounded-xl divide-y divide-white/5 max-h-48 overflow-y-auto scrollbar-premium">
                   {Array.from({ length: Math.ceil(showFlexPayConfirm.variant.monthly_price / 100) }, (_, i) => {
                     const dayNum = i + 1;
-                    const amount = dayNum === Math.ceil(showFlexPayConfirm.variant.monthly_price / 100) 
+                    const amount = dayNum === Math.ceil(showFlexPayConfirm.variant.monthly_price / 100)
                       ? showFlexPayConfirm.variant.monthly_price - ((dayNum - 1) * 100)
                       : 100;
                     const isToday = dayNum === 1;
                     return (
-                      <div key={i} className={`flex items-center justify-between px-4 py-3 ${isToday ? 'bg-orange-500/10' : ''}`}>
-                        <div className="flex items-center gap-3">
+                      <div key={i} className={`flex items-center justify-between px-3 py-2 ${isToday ? 'bg-orange-500/10' : ''}`}>
+                        <div className="flex items-center gap-2">
                           {isToday && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 font-medium">TODAY</span>
                           )}
-                          <span className={`text-sm ${isToday ? 'text-white font-medium' : 'text-zinc-400'}`}>
-                            Day {dayNum}{isToday ? ' • First Installment' : ''}
+                          <span className={`text-xs ${isToday ? 'text-white font-medium' : 'text-zinc-400'}`}>
+                            Day {dayNum}
                           </span>
                         </div>
-                        <span className={`text-sm font-semibold tabular-nums ${isToday ? 'text-orange-400' : 'text-zinc-300'}`}>
-                          ${amount.toLocaleString()}
+                        <span className={`text-xs font-semibold tabular-nums ${isToday ? 'text-orange-400' : 'text-zinc-300'}`}>
+                          ${amount}
                         </span>
                       </div>
                     );
@@ -480,36 +478,28 @@ export default function BillingPage() {
                 </div>
 
                 {/* Total */}
-                <div className="flex items-center justify-between pt-3 border-t border-white/10">
-                  <span className="text-sm font-bold text-white">Total You'll Pay</span>
-                  <span className="text-lg font-bold text-emerald-400 tabular-nums">
+                <div className="flex items-center justify-between pt-2 mt-2 border-t border-white/10">
+                  <span className="text-sm font-bold text-white">Total</span>
+                  <span className="text-base font-bold text-emerald-400 tabular-nums">
                     ${showFlexPayConfirm.variant.monthly_price.toLocaleString()} USD
                   </span>
                 </div>
               </div>
 
-              {/* Currency Note - Clear USD Explanation */}
-              <div className="bg-blue-500/10 rounded-lg px-4 py-3 border border-blue-500/20">
+              {/* Note */}
+              <div className="bg-orange-500/5 border border-orange-500/10 rounded-lg px-3 py-2.5">
                 <div className="flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                  <div className="text-xs text-zinc-300 leading-relaxed">
-                    <p className="font-medium text-blue-300 mb-1">About the Payment Display</p>
-                    <p>
-                      You will be charged <strong className="text-white">${showFlexPayConfirm.variant.monthly_price.toLocaleString()} USD total</strong> in daily ~$100 installments. 
-                      Your bank statement may show the local currency equivalent, but the charge is <strong className="text-emerald-400">exactly $100/day in USD</strong>.
-                    </p>
-                    <p className="mt-1.5 text-zinc-500">
-                      📅 <strong>Day 1:</strong> Full ticket features active immediately<br/>
-                      📱 <strong>Day 11:</strong> SMS & Calling features unlock<br/>
-                      🔄 <strong>Month 2+:</strong> All features active from Day 1
-                    </p>
-                  </div>
+                  <AlertCircle className="w-3.5 h-3.5 text-orange-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    <strong className="text-orange-400">Day 1:</strong> Full features active immediately.
+                    Charges continue daily until the total is collected (~30 days).
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="px-6 pb-6 flex gap-3">
+            {/* Actions — sticky bottom */}
+            <div className="px-5 py-4 border-t border-white/5 flex gap-3 shrink-0">
               <button
                 onClick={() => setShowFlexPayConfirm(null)}
                 className="flex-1 px-4 py-3 rounded-xl text-sm font-medium bg-white/5 text-zinc-300 hover:bg-white/10 transition-colors"
@@ -528,7 +518,7 @@ export default function BillingPage() {
                 customerName={user.name || 'Customer'}
                 name={`PARWA — ${showFlexPayConfirm.variant.name}`}
                 description={`${showFlexPayConfirm.variant.name}: $${showFlexPayConfirm.variant.monthly_price}/mo via FlexPay`}
-                buttonText={`Pay $100 • Start FlexPay`}
+                buttonText={`Pay $100 Today`}
                 onSuccess={() => {
                   setShowFlexPayConfirm(null);
                   toast.success(`${showFlexPayConfirm.variant.name} activated! Daily charges begin.`);

@@ -79,6 +79,7 @@ class FlexPayPlan(Base):
     # Razorpay integration
     razorpay_customer_id = Column(String(255))  # Tokenized customer
     razorpay_order_id = Column(String(255))  # Initial order if any
+    razorpay_token = Column(String(255))  # Card token for recurring charges (days 2-30)
     
     # Failure tracking
     consecutive_failures = Column(Integer, default=0, nullable=False)
