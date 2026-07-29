@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
             plan_name: plan_name || plan_id.toUpperCase(),
             billing_cycle: 'monthly',
             amount: Math.round(amount),
-            currency: 'INR',
+            currency: 'USD',
           });
           
           console.log(`[Razorpay] 📋 Subscription created: ${plan_id}`);
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
 
         // Send payment receipt email (async - don't block response)
         sendReceiptEmail(userId, {
-          amount: Math.round((amount || 0) / 100), // Convert back to rupees
+          amount: Math.round((amount || 0) / 100), // Convert back to dollars
           plan_name: plan_name || 'Subscription',
           order_id: razorpay_order_id,
           status: 'completed',

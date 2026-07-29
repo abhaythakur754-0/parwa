@@ -12,8 +12,8 @@
  * Business Context:
  * - Foreign companies pay via credit cards (not UPI)
  * - Cards must be tokenized for automatic daily charging
- * - Each charge stays under ₹10,000 limit (~$100 USD)
- * - Exchange rate: ~₹96.38 per $1 USD
+ * - Each charge stays under $100 USD (Razorpay transaction limit)
+ * - All transactions in USD (US customers)
  *
  * CLAUDE.md Compliance:
  * - P-002: All amounts validated against limits
@@ -21,10 +21,7 @@
  */
 
 import {
-  usdToInr,
   validateTransactionAmount,
-  EXCHANGE_RATE_USD_TO_INR,
-  RAZORPAY_MAX_INR_LIMIT,
 } from './core';
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -195,7 +192,7 @@ export async function saveTokenizedCard(params: {
 
 /**
  * Create a payment order for an installment.
- * Uses USD amount and converts to INR for Razorpay.
+ * Uses USD amount directly (US customers).
  */
 export async function createInstallmentOrder(params: {
   planId: string;
@@ -216,8 +213,8 @@ export async function createInstallmentOrder(params: {
       };
     }
     
-    // Convert to INR paise
-    const amountInrPaise = usdToInr(params.amountUsd);
+    // Convert USD to cents (Razorpay uses smallest currency unit)
+    const amountCents = Math.round(params.amountUsd * 100);
     
     // Generate order ID
     const orderId = `order_flexpay_${params.planId}_day${params.dayNumber}${params.isSecondaryCharge ? '_sec' : ''}_${Date.now()}`;
@@ -227,7 +224,7 @@ export async function createInstallmentOrder(params: {
       planId: params.planId,
       dayNumber: params.dayNumber,
       amountUsd: params.amountUsd,
-      amountInrPaise,
+      amountCents,
       isSecondaryCharge: params.isSecondaryCharge,
     });
     
@@ -239,8 +236,8 @@ export async function createInstallmentOrder(params: {
     //     'Content-Type': 'application/json',
     //   },
     //   body: JSON.stringify({
-    //     amount: amountInrPaise,
-    //     currency: 'INR',
+    //     amount: amountCents,
+    //     currency: 'USD',
     //     receipt: `flexpay_${params.planId}_day${params.dayNumber}`,
     //     notes: {
     //       flexpay_plan_id: params.planId,
@@ -254,8 +251,8 @@ export async function createInstallmentOrder(params: {
     return {
       success: true,
       orderId,
-      amount: amountInrPaise,
-      currency: 'INR',
+      amount: amountCents,
+      currency: 'USD',
     };
   } catch (error) {
     console.error('[FlexPay/Razorpay] Order creation failed:', error);
@@ -290,8 +287,8 @@ export async function processTokenCharge(params: {
       };
     }
     
-    // Convert to INR paise
-    const amountInrPaise = usdToInr(params.amountUsd);
+    // Convert USD to cents
+    const amountCents = Math.round(params.amountUsd * 100);
     
     // Generate payment ID (in production, comes from Razorpay)
     const paymentId = `pay_flexpay_${params.planId}_day${params.dayNumber}${params.isSecondaryCharge ? '_sec' : ''}_${Date.now()}`;
@@ -300,7 +297,7 @@ export async function processTokenCharge(params: {
       planId: params.planId,
       dayNumber: params.dayNumber,
       amountUsd: params.amountUsd,
-      amountInrPaise,
+      amountCents,
       paymentToken: `${params.paymentToken.substring(0, 12)}...`,
     });
     
@@ -312,8 +309,8 @@ export async function processTokenCharge(params: {
     //     'Content-Type': 'application/json',
     //   },
     //   body: JSON.stringify({
-    //     amount: amountInrPaise,
-    //     currency: 'INR',
+    //     amount: amountCents,
+    //     currency: 'USD',
     //     customer_id: params.customerId,
     //     token: params.paymentToken,
     //     description: `FlexPay Day ${params.dayNumber}${params.isSecondaryCharge ? ' (secondary)' : ''}`,
@@ -468,14 +465,14 @@ export function formatUsdAmount(amount: number): string {
 }
 
 /**
- * Format amount for display (INR).
+ * Format amount for display (USD).
  */
-export function formatInrAmount(paise: number): string {
-  const rupees = paise / 100;
-  return new Intl.NumberFormat('en-IN', {
+export function formatUsdAmount(cents: number): string {
+  const dollars = cents / 100;
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'INR',
-  }).format(rupees);
+    currency: 'USD',
+  }).format(dollars);
 }
 
 /**
@@ -492,15 +489,15 @@ export function generateCheckoutOptions(params: {
   
   // First charge amount (will be $100 or less)
   const firstChargeUsd = 100;
-  const firstChargeInrPaise = usdToInr(firstChargeUsd);
+  const firstChargeCents = Math.round(firstChargeUsd * 100);
   
   // Calculate number of installments
   const totalInstallments = Math.ceil(params.totalAmount / firstChargeUsd);
   
   return {
     key: keyId,
-    amount: firstChargeInrPaise,
-    currency: 'INR',
+    amount: firstChargeCents,
+    currency: 'USD',
     name: 'PARWA - FlexPay',
     description: `USD $${firstChargeUsd} • Day 1 of ${totalInstallments} • Total: $${params.totalAmount.toLocaleString()} USD`,
     prefill: {

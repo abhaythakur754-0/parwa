@@ -518,7 +518,7 @@ export default function BillingPage() {
               </button>
               <RazorpayCheckout
                 amount={100}
-                currency="INR"
+                currency="USD"
                 isFlexPayMode={true}
                 companyId={user.company_id || user.id || ''}
                 tier={showFlexPayConfirm.variant.key as 'parwa' | 'high'}

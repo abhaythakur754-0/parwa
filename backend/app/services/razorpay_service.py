@@ -272,8 +272,13 @@ async def _handle_payment_captured(db, payload: Dict[str, Any]) -> Dict[str, Any
     """
     payment = _extract_payment_entity(payload)
     payment_id = payment.get("id", "")
-    amount_raw = payment.get("amount", 0) or 0  # in paise
-    currency = (payment.get("currency") or "INR").upper()
+    amount_raw = payment.get("amount", 0) or 0  # in cents (USD) or paise (INR)
+    # Default to USD — PARWA's customers are US-based.
+    # Razorpay webhooks sometimes omit currency; INR would confuse US users.
+    currency = (payment.get("currency") or "USD").upper()
+    # Amount is always in the smallest currency unit:
+    #   USD: cents (amount / 100 = dollars)
+    #   INR: paise (amount / 100 = rupees)
     amount = Decimal(amount_raw) / Decimal(100)
 
     # Try to find company via subscription link, fall back to notes
@@ -347,7 +352,7 @@ async def _handle_refund_processed(db, payload: Dict[str, Any]) -> Dict[str, Any
     refund_id = refund.get("id", "")
     payment_id = refund.get("payment_id", "")
     amount_raw = refund.get("amount", 0) or 0
-    currency = (refund.get("currency") or "INR").upper()
+    currency = (refund.get("currency") or "USD").upper()
     amount = Decimal(amount_raw) / Decimal(100)
 
     # Find invoice by payment_id and mark as refunded

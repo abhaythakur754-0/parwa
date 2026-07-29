@@ -32,8 +32,8 @@ RAZORPAY_API_BASE = "https://api.razorpay.com/v1"
 # ── Schemas ────────────────────────────────────────────────────────
 
 class CreateOrderRequest(BaseModel):
-    amount: int = Field(..., ge=100, description="Amount in paise (min 100)")
-    currency: str = Field("INR", max_length=3)
+    amount: int = Field(..., ge=100, description="Amount in cents (min 100)")
+    currency: str = Field("USD", max_length=3)
     receipt: str = Field("", max_length=40)
 
 
@@ -76,7 +76,7 @@ async def create_order(
     Returns order_id, amount, currency.
     """
     if body.amount < 100:
-        raise HTTPException(status_code=400, detail="Amount must be at least 100 paise")
+        raise HTTPException(status_code=400, detail="Amount must be at least 100 cents")
 
     s = get_settings()
     if not s.RAZORPAY_KEY_ID or not s.RAZORPAY_KEY_SECRET:
