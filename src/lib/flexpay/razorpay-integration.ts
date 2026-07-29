@@ -450,16 +450,7 @@ export function isRetriableError(errorCode?: string): boolean {
 
 /**
  * Format amount for display (USD).
- */
-export function formatUsdAmount(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(amount);
-}
-
-/**
- * Format amount for display (USD).
+ * Accepts cents (Razorpay format) and converts to dollars.
  */
 export function formatUsdAmount(cents: number): string {
   const dollars = cents / 100;
