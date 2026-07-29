@@ -347,23 +347,17 @@ export default function BillingPage() {
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       Setting up FlexPay...
                     </button>
-                  ) : flexPayPlans[variant.key] ? (
-                    // Plan created - show confirmation modal before checkout
-                    <button
-                      onClick={() => setShowFlexPayConfirm({ variant, planId: flexPayPlans[variant.key] })}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-400 text-white shadow-emerald-500/20 hover:shadow-emerald-500/30 hover:-translate-y-0.5 transition-all"
-                    >
-                      <Zap className="w-3.5 h-3.5" />
-                      Activate · ${variant.monthly_price.toLocaleString()}/mo
-                    </button>
                   ) : (
-                    // Initial subscribe button - creates plan first
+                    // Single click: create plan + open FlexPay confirmation immediately
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         setSubscribing(variant.key);
-                        createFlexPayPlan(variant.key, variant.monthly_price).then((planId) => {
-                          if (!planId) setSubscribing(null);
-                        });
+                        const planId = await createFlexPayPlan(variant.key, variant.monthly_price);
+                        setSubscribing(null);
+                        if (planId) {
+                          // Open FlexPay confirmation popup directly
+                          setShowFlexPayConfirm({ variant, planId });
+                        }
                       }}
                       className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-400 text-white shadow-emerald-500/20 hover:shadow-emerald-500/30 hover:-translate-y-0.5 transition-all"
                     >
