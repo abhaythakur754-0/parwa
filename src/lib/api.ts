@@ -34,7 +34,7 @@ const API_BASE_URL = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBL
  */
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
+  timeout: 90000,  // 90s — Jarvis LLM calls can take 30-60s on Render cold start
   headers: {
     'Content-Type': 'application/json',
   },

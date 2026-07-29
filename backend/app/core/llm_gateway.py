@@ -100,9 +100,9 @@ class LLMGateway:
       - All errors are logged but never raised to callers
     """
 
-    # Default timeouts
+    # Default timeouts — 60s read for Render cold starts (was 30s)
     CONNECT_TIMEOUT_SECONDS = 10.0
-    READ_TIMEOUT_SECONDS = 30.0
+    READ_TIMEOUT_SECONDS = 60.0
 
     def __init__(
         self,

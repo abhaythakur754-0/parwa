@@ -470,7 +470,7 @@ def send_message(
                     # Already inside an event loop — run in a separate thread
                     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as _pool:
                         _future = _pool.submit(asyncio.run, _orchestrator_coro)
-                        result = _future.result(timeout=30)
+                        result = _future.result(timeout=60)  # 60s — Render cold start can take 30-60s
 
                 # Map orchestrator result to jarvis_service format
                 ai_content = result.get("content", "")
