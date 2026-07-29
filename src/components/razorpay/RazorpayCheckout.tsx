@@ -102,6 +102,13 @@ export function RazorpayCheckout({
               order_id: orderData.id,
               name,
               description,
+              method: {
+                card: true,        // Credit/Debit cards only
+                upi: false,        // No UPI (US customers)
+                wallet: false,     // No wallets
+                netbanking: false,  // No netbanking
+                bank_transfer: false,
+              },
               prefill: {
                 email: customerEmail,
                 name: customerName,
@@ -197,6 +204,13 @@ export function RazorpayCheckout({
       order_id: order.order_id,
       name,
       description,
+      method: {
+        card: true,        // Credit/Debit cards only
+        upi: false,        // No UPI (US customers)
+        wallet: false,     // No wallets
+        netbanking: false,  // No netbanking
+        bank_transfer: false,
+      },
       handler: async function (response: any) {
         // Step 4: Verify payment signature
         try {

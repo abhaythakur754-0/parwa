@@ -443,40 +443,34 @@ export default function BillingPage() {
                 </div>
               </div>
 
-              {/* Schedule — compact + scrollable */}
+              {/* Schedule — simple summary, not 40 rows */}
               <div>
                 <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">Payment Schedule</h4>
-                <div className="bg-white/[0.03] rounded-xl divide-y divide-white/5 max-h-48 overflow-y-auto scrollbar-premium">
-                  {Array.from({ length: Math.ceil(showFlexPayConfirm.variant.monthly_price / 100) }, (_, i) => {
-                    const dayNum = i + 1;
-                    const amount = dayNum === Math.ceil(showFlexPayConfirm.variant.monthly_price / 100)
-                      ? showFlexPayConfirm.variant.monthly_price - ((dayNum - 1) * 100)
-                      : 100;
-                    const isToday = dayNum === 1;
-                    return (
-                      <div key={i} className={`flex items-center justify-between px-3 py-2 ${isToday ? 'bg-orange-500/10' : ''}`}>
-                        <div className="flex items-center gap-2">
-                          {isToday && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 font-medium">TODAY</span>
-                          )}
-                          <span className={`text-xs ${isToday ? 'text-white font-medium' : 'text-zinc-400'}`}>
-                            Day {dayNum}
-                          </span>
-                        </div>
-                        <span className={`text-xs font-semibold tabular-nums ${isToday ? 'text-orange-400' : 'text-zinc-300'}`}>
-                          ${amount}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Total */}
-                <div className="flex items-center justify-between pt-2 mt-2 border-t border-white/10">
-                  <span className="text-sm font-bold text-white">Total</span>
-                  <span className="text-base font-bold text-emerald-400 tabular-nums">
-                    ${showFlexPayConfirm.variant.monthly_price.toLocaleString()} USD
-                  </span>
+                <div className="bg-white/[0.03] rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-zinc-400">Daily charge</span>
+                    <span className="text-xs font-semibold text-zinc-200 tabular-nums">$100/day</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-zinc-400">Duration</span>
+                    <span className="text-xs font-semibold text-zinc-200">~30 days</span>
+                  </div>
+                  {showFlexPayConfirm.variant.key === 'high' && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-zinc-400">Every 3rd day</span>
+                      <span className="text-xs font-semibold text-emerald-400">2× $100 ($200)</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-zinc-400">Last day</span>
+                    <span className="text-xs font-semibold text-orange-400">$99 (adjusted)</span>
+                  </div>
+                  <div className="border-t border-white/10 pt-2 flex items-center justify-between">
+                    <span className="text-sm font-bold text-white">Total</span>
+                    <span className="text-base font-bold text-emerald-400 tabular-nums">
+                      ${showFlexPayConfirm.variant.monthly_price.toLocaleString()} USD
+                    </span>
+                  </div>
                 </div>
               </div>
 
