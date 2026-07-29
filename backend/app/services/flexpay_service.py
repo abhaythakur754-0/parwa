@@ -343,22 +343,49 @@ async def process_next_installment(
         next_installment.status = InstallmentStatus.PROCESSING.value
         db.commit()
         
-        # ACTUAL CHARGING WOULD HAPPEN HERE
-        # For now, simulate success (will integrate with Razorpay client later)
-        if razorpay_client:
-            # TODO: Implement actual Razorpay charging
-            # result = await razorpay_client.charge_tokenized_card(
-            #     customer_id=plan.razorpay_customer_id,
-            #     amount=int(next_installment.amount * 100),  # Convert to cents
-            #     currency="USD",
-            #     description=f"FlexPay #{next_installment.installment_number}"
-            # )
-            payment_id = f"pay_simulated_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-            payment_success = True
+        # ACTUAL RAZORPAY CHARGING — charge the customer's tokenized card
+        if razorpay_client and plan.razorpay_customer_id:
+            amount_cents = int(next_installment.amount * 100)  # USD → cents
+            try:
+                result = await razorpay_client.create_payment(
+                    amount=amount_cents,
+                    currency="USD",
+                    customer_id=plan.razorpay_customer_id,
+                    token=plan.razorpay_token or "",
+                    description=f"FlexPay #{next_installment.installment_number} — {plan.variant_tier}",
+                    notes={
+                        "flexpay_plan_id": plan_id,
+                        "installment_number": str(next_installment.installment_number),
+                        "company_id": plan.company_id,
+                    },
+                )
+                payment_id = result.get("id", "")
+                payment_status = result.get("status", "")
+                # Razorpay returns "captured" for successful auto-capture payments
+                payment_success = payment_status == "captured"
+                if not payment_success and payment_status == "authorized":
+                    # Payment authorized but not captured — capture it now
+                    try:
+                        capture_result = await razorpay_client.capture_payment(
+                            payment_id, amount_cents, "USD"
+                        )
+                        payment_success = capture_result.get("status") == "captured"
+                    except Exception as capture_exc:
+                        logger.error(f"Capture failed for payment {payment_id}: {capture_exc}")
+                        payment_success = False
+            except Exception as charge_exc:
+                logger.error(f"Razorpay charge failed: {charge_exc}")
+                payment_id = ""
+                payment_success = False
         else:
-            # Simulate success for testing
-            payment_id = f"pay_simulated_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-            payment_success = True
+            # No Razorpay client or customer ID — cannot charge
+            logger.warning(
+                f"Cannot charge plan {plan_id[:8]}: "
+                f"client={'yes' if razorpay_client else 'no'}, "
+                f"customer_id={'yes' if plan.razorpay_customer_id else 'no'}"
+            )
+            payment_id = ""
+            payment_success = False
         
         if payment_success:
             # Mark as paid

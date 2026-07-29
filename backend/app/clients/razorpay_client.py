@@ -96,6 +96,100 @@ class RazorpayClient:
         expected = hmac.new(secret.encode(), webhook_body.encode(), hashlib.sha256).hexdigest()
         return hmac.compare_digest(expected, razorpay_signature)
 
+    # ── Tokenized Card Charging (FlexPay daily installments) ──────────────
+    # These methods charge a customer's stored card token without
+    # requiring them to re-enter card details.
+
+    async def create_payment(self, amount: int, currency: str, customer_id: str,
+                              token: str, description: str = "",
+                              notes: Optional[Dict] = None) -> Dict[str, Any]:
+        """Create a payment using a stored card token.
+
+        Razorpay API: POST /v1/payments
+        Charges the customer's tokenized card immediately (auto-capture).
+
+        Args:
+            amount: Amount in smallest currency unit (cents for USD).
+            currency: "USD" or "INR".
+            customer_id: Razorpay customer ID (from create_customer).
+            token: Card token (from checkout tokenization).
+            description: Payment description.
+            notes: Optional metadata.
+
+        Returns:
+            Razorpay payment object with id, status, amount, etc.
+
+        Raises:
+            RazorpayError on failure.
+        """
+        body = {
+            "amount": amount,
+            "currency": currency,
+            "customer_id": customer_id,
+            "token": token,
+            "description": description,
+            "method": "card",
+        }
+        if notes:
+            body["notes"] = notes
+        return await self._request("POST", "/payments", json_body=body)
+
+    async def capture_payment(self, payment_id: str, amount: int,
+                               currency: str) -> Dict[str, Any]:
+        """Capture an authorized payment.
+
+        Razorpay API: POST /v1/payments/{id}/capture
+        Used when a payment was created with auto-capture=false.
+
+        Args:
+            payment_id: Payment ID from create_payment response.
+            amount: Amount to capture (cents for USD).
+            currency: "USD" or "INR".
+
+        Returns:
+            Updated payment object with status="captured".
+        """
+        return await self._request(
+            "POST", f"/payments/{payment_id}/capture",
+            json_body={"amount": amount, "currency": currency}
+        )
+
+    async def get_payment(self, payment_id: str) -> Dict[str, Any]:
+        """Get payment status from Razorpay.
+
+        Args:
+            payment_id: Payment ID to check.
+
+        Returns:
+            Payment object with status, amount, error_code, etc.
+        """
+        return await self._request("GET", f"/payments/{payment_id}")
+
+    async def create_order(self, amount: int, currency: str,
+                           receipt: str = "", notes: Optional[Dict] = None) -> Dict[str, Any]:
+        """Create a Razorpay order (for checkout flow).
+
+        Razorpay API: POST /v1/orders
+
+        Args:
+            amount: Amount in smallest currency unit (cents for USD).
+            currency: "USD" or "INR".
+            receipt: Optional receipt ID.
+            notes: Optional metadata.
+
+        Returns:
+            Order object with id, amount, currency, status.
+        """
+        body = {
+            "amount": amount,
+            "currency": currency,
+        }
+        if receipt:
+            body["receipt"] = receipt
+        if notes:
+            body["notes"] = notes
+        return await self._request("POST", "/orders", json_body=body)
+
 _client_instance = None
 def get_razorpay_client() -> RazorpayClient:
     global _client_instance

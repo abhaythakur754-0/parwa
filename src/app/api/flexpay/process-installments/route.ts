@@ -4,61 +4,65 @@
  *
  * POST /api/flexpay/process-installments
  *
- * Triggers processing of all due installments for active plans.
- * Can be called by cron job or manually for testing.
+ * Proxies to the backend FastAPI endpoint which uses the real
+ * Razorpay client to charge tokenized cards.
  *
- * Query Parameters:
- * - dryRun: boolean (optional) - If true, simulates without actual charges
- *
- * Response:
- * {
- *   success: true,
- *   result: SchedulerResult,
- *   processedAt: ISO date string
- * }
+ * The backend has the Razorpay API keys — the frontend does not.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { processAllPlans, getSchedulerStats } from '@/lib/flexpay/scheduler';
+import { getAccessTokenFromCookies } from '@/lib/auth-cookies';
+import { getBackendUrl } from '@/lib/backend-url';
 
 export async function POST(req: NextRequest) {
   try {
-    // Check for dry run mode
-    const { searchParams } = new URL(req.url);
-    const dryRun = searchParams.get('dryRun') === 'true';
+    const body = await req.json();
+    const token = getAccessTokenFromCookies(req as unknown as Request);
+    const backendUrl = getBackendUrl();
 
-    console.log(`[FlexPay/API] Processing installments${dryRun ? ' (dry run)' : ''}...`);
+    console.log('[FlexPay/API] Forwarding charge request to backend...');
 
-    // Process all plans
-    const result = await processAllPlans({
-      enabled: true,
+    const response = await fetch(`${backendUrl}/api/flexpay/process-installments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        Cookie: req.headers.get('cookie') || '',
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(30000),
     });
 
-    // Return results
+    const data = await response.json();
+
+    if (!response.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: data.error || data.detail || 'Charge failed',
+          errorCode: data.error_code || 'UNKNOWN',
+        },
+        { status: response.status }
+      );
+    }
+
     return NextResponse.json({
       success: true,
-      result: {
-        ...result,
-        runAt: result.runAt.toISOString(),
-        details: result.details.map(d => ({
-          ...d,
-          // Don't expose internal errors in detail to clients
-          errors: dryRun ? d.errors : undefined,
-        })),
-      },
+      status: data.status || 'success',
+      payment_id: data.payment_id || data.id,
+      amount: data.amount,
+      installment_number: data.installment_number,
+      remaining: data.remaining,
       processedAt: new Date().toISOString(),
-      dryRun,
-      message: `Processed ${result.totalPlans} plans: ${result.successfulPlans} successful, ${result.failedPlans} failed`,
     });
-
   } catch (error) {
     console.error('[FlexPay/API] Error processing installments:', error);
-    
+
     return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Failed to process installments',
-        details: error instanceof Error ? error.message : 'Unknown error'
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to process installment',
+        errorCode: 'NETWORK_ERROR',
       },
       { status: 500 }
     );
@@ -68,13 +72,22 @@ export async function POST(req: NextRequest) {
 // GET endpoint for checking scheduler status
 export async function GET() {
   try {
-    const stats = getSchedulerStats();
-    
+    const backendUrl = getBackendUrl();
+    const response = await fetch(`${backendUrl}/api/flexpay/scheduler-status`, {
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return NextResponse.json({ success: true, ...data });
+    }
+
     return NextResponse.json({
       success: true,
-      stats,
+      stats: { totalProcessed: 0, successfulCharges: 0, failedCharges: 0 },
       timestamp: new Date().toISOString(),
-      message: 'Scheduler is running',
+      message: 'Scheduler status unavailable (backend not reachable)',
     });
   } catch (error) {
     console.error('[FlexPay/API] Error getting scheduler status:', error);

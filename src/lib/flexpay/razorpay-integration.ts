@@ -300,49 +300,43 @@ export async function processTokenCharge(params: {
       amountCents,
       paymentToken: `${params.paymentToken.substring(0, 12)}...`,
     });
-    
-    // In production, call Razorpay Payments API with token:
-    // const response = await fetch(`https://api.razorpay.com/v1/payments/create/url`, {
-    //   method: 'POST',
-    //   headers: {
-    //     'Authorization': `Basic ${Buffer.from(`${getRazorpayKeyId()}:${getRazorpayKeySecret()}`).toString('base64')}`,
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({
-    //     amount: amountCents,
-    //     currency: 'USD',
-    //     customer_id: params.customerId,
-    //     token: params.paymentToken,
-    //     description: `FlexPay Day ${params.dayNumber}${params.isSecondaryCharge ? ' (secondary)' : ''}`,
-    //     notes: {
-    //       flexpay_plan_id: params.planId,
-    //       day_number: params.dayNumber.toString(),
-    //     },
-    //   }),
-    // });
-    
-    // Simulate success (in production, check actual response)
-    const isSuccess = Math.random() > 0.15; // 85% success rate for simulation
-    
-    if (isSuccess) {
-      return {
-        success: true,
-        paymentId,
-        status: 'captured',
-        retriable: false,
-      };
-    } else {
-      // Map common Razorpay errors
-      const errorCodes = ['INSUFFICIENT_FUNDS', 'CARD_DECLINED', 'EXPIRED_CARD', 'INVALID_CARD'];
-      const randomError = errorCodes[Math.floor(Math.random() * errorCodes.length)];
-      
+
+    // Call the backend API to process the charge (backend has the Razorpay keys)
+    const response = await fetch('/api/flexpay/process-installments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        planId: params.planId,
+        companyId: params.companyId,
+        amount: amountCents,
+        currency: 'USD',
+        customerId: params.customerId,
+        token: params.paymentToken,
+        dayNumber: params.dayNumber,
+        isSecondaryCharge: params.isSecondaryCharge || false,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMsg = errorData.error || errorData.message || 'Charge failed';
+      // Determine if retriable based on error
+      const isRetriable = !['INVALID_CARD', 'EXPIRED_CARD'].includes(errorData.errorCode);
       return {
         success: false,
-        error: `Payment failed: ${randomError.replace(/_/g, ' ')}`,
-        errorCode: randomError,
-        retriable: randomError !== 'INVALID_CARD', // Invalid card is not retriable
+        error: errorMsg,
+        errorCode: errorData.errorCode || 'UNKNOWN',
+        retriable: isRetriable,
       };
     }
+
+    const result = await response.json();
+    return {
+      success: result.status === 'success' || result.status === 'captured',
+      paymentId: result.payment_id || result.id || paymentId,
+      status: result.status || 'captured',
+      retriable: false,
+    };
   } catch (error) {
     console.error('[FlexPay/Razorpay] Token charge failed:', error);
     return {
