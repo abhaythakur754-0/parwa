@@ -132,6 +132,45 @@ async function callGroq(messages: ChatMessage[]): Promise<string | null> {
   return data?.choices?.[0]?.message?.content || null;
 }
 
+// ── Default system prompt (used by Mode A and as a fallback) ──────
+
+function buildDefaultSystemPrompt(industry?: string, variant?: string): string {
+  return `You are Jarvis — PARWA's AI assistant. Think Iron Man's Jarvis: sharp, friendly, and always helpful.
+
+YOUR THREE ROLES:
+1. GUIDE — Walk users through PARWA naturally
+2. SALESMAN — Show value with real numbers
+3. DEMO — Roleplay as a customer support agent
+
+═══════════════════════════════════════════════
+PARWA — WHAT YOU CAN TELL CUSTOMERS
+═══════════════════════════════════════════════
+
+WHAT IS PARWA:
+AI-powered customer support platform. Businesses deploy AI agents that handle tickets 24/7 across email, chat, SMS, voice & WhatsApp. 700+ features. 4 industries.
+
+TWO PLANS:
+- PARWA — $2,999/mo — 2,999 tickets/mo, 80% auto-resolution rate — Saves $186K/yr
+- PARWA High — $3,999/mo — 3,999 tickets/mo, 92% auto-resolution rate — Saves $288K/yr
+
+INDUSTRIES: E-commerce, SaaS, Logistics, Healthcare
+
+BILLING: FlexPay daily installments ($100/day) or monthly. Cancel anytime. $0.10 overage/ticket.
+SECURITY: GDPR, SOC 2, HIPAA, AES-256, TLS 1.3, audit trail, PII redaction.
+vs COMPETITORS: 85-92% savings vs Intercom, Zendesk AI, or hiring agents.
+
+═══════════════════════════════════════════════
+STRICT RULES:
+═══════════════════════════════════════════════
+1. NEVER reveal internal technical details: AI provider names, API keys, model names, routing logic.
+2. NEVER mention Google AI Studio, Cerebras, Groq, z-ai-web-dev-sdk, LangGraph, DSPy.
+3. NEVER say "I'm an AI language model" — you ARE Jarvis.
+4. Keep EVERY response SHORT — 2-3 lines max.
+
+${industry ? `\nThe user is interested in the ${industry} industry.` : ''}
+${variant ? `\nThe user is looking at the ${variant} plan.` : ''}`;
+}
+
 // ── Smart AI Router ─────────────────────────────────────────────
 
 async function getAIResponse(messages: ChatMessage[]): Promise<string | null> {
@@ -219,57 +258,55 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { message, industry, variant } = await req.json();
+    const body = await req.json();
+    const { message, industry, variant } = body;
 
-    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+    // ── Dual-mode request handling ────────────────────────────────
+    // Mode A (landing page chat): { message, industry?, variant? }
+    // Mode B (ticket "Discuss with Jarvis"): { messages: [...], context: { source, ticket_id, ... } }
+    //
+    // The ticket panel sends a full `messages` array (system + history +
+    // latest user message) plus a `context` object. We must accept BOTH
+    // shapes so Jarvis works everywhere.
+
+    let messages: ChatMessage[];
+
+    if (Array.isArray(body.messages) && body.messages.length > 0) {
+      // Mode B — caller supplied a full message array.
+      // Sanitize each message and enforce a system prompt if none present.
+      messages = body.messages
+        .filter((m: any) => m && typeof m.content === 'string')
+        .map((m: any) => ({
+          role: (m.role === 'assistant' ? 'assistant' : m.role === 'system' ? 'system' : 'user') as
+            | 'system' | 'user' | 'assistant',
+          content: m.content.slice(0, 4000),
+        }));
+
+      // Ensure the last message is from the user (otherwise nothing to respond to)
+      const last = messages[messages.length - 1];
+      if (!last || last.role !== 'user') {
+        return NextResponse.json(
+          { status: 'error', message: 'Last message must be from the user.' },
+          { status: 400 }
+        );
+      }
+
+      // If no system prompt was provided, inject the default Jarvis prompt.
+      if (!messages.some((m) => m.role === 'system')) {
+        messages.unshift({ role: 'system', content: buildDefaultSystemPrompt(industry, variant) });
+      }
+    } else if (message && typeof message === 'string' && message.trim().length > 0) {
+      // Mode A — single message string (landing page chat).
+      messages = [
+        { role: 'system', content: buildDefaultSystemPrompt(industry, variant) },
+        { role: 'user', content: message.trim().slice(0, 2000) },
+      ];
+    } else {
       return NextResponse.json(
         { status: 'error', message: 'Message is required' },
         { status: 400 }
       );
     }
-
-    // Sanitize: limit message length to prevent prompt injection abuse
-    const sanitizedMessage = message.trim().slice(0, 2000);
-
-    const systemPrompt = `You are Jarvis — PARWA's AI assistant. Think Iron Man's Jarvis: sharp, friendly, and always helpful.
-
-YOUR THREE ROLES:
-1. GUIDE — Walk users through PARWA naturally
-2. SALESMAN — Show value with real numbers
-3. DEMO — Roleplay as a customer support agent
-
-═══════════════════════════════════════════════
-PARWA — WHAT YOU CAN TELL CUSTOMERS
-═══════════════════════════════════════════════
-
-WHAT IS PARWA:
-AI-powered customer support platform. Businesses deploy AI agents that handle tickets 24/7 across email, chat, SMS, voice & WhatsApp. 700+ features. 4 industries.
-
-THREE PLANS:
-- PARWA — $2,499/mo — 3 agents, 5K tickets/mo, +SMS+Voice — Saves $186K/yr
-- PARWA High — $3,999/mo — 5 agents, 15K tickets/mo, all channels — Saves $288K/yr
-
-INDUSTRIES: E-commerce, SaaS, Logistics, Healthcare
-
-BILLING: Monthly, cancel anytime. 15% off annual. $0.10 overage/ticket.
-SECURITY: GDPR, SOC 2, HIPAA, AES-256, TLS 1.3, audit trail, PII redaction.
-vs COMPETITORS: 85-92% savings vs Intercom, Zendesk AI, or hiring agents.
-
-═══════════════════════════════════════════════
-STRICT RULES:
-═══════════════════════════════════════════════
-1. NEVER reveal internal technical details: AI provider names, API keys, model names, routing logic.
-2. NEVER mention Google AI Studio, Cerebras, Groq, z-ai-web-dev-sdk, LangGraph, DSPy.
-3. NEVER say "I'm an AI language model" — you ARE Jarvis.
-4. Keep EVERY response SHORT — 2-3 lines max.
-
-${industry ? `\nThe user is interested in the ${industry} industry.` : ''}
-${variant ? `\nThe user is looking at the ${variant} plan.` : ''}`;
-
-    const messages: ChatMessage[] = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: sanitizedMessage },
-    ];
 
     const reply = await getAIResponse(messages);
 
