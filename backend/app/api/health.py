@@ -221,6 +221,7 @@ async def health_endpoint():
         "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
         "version": _get_app_version(),
         "uptime_seconds": _get_uptime_seconds(),
+        "kb_sync_processing": True,  # Marker: confirms sync KB processing code is deployed
         "subsystems": subsystems_summary,
         "checks_total": result.checks_total,
         "checks_healthy": result.checks_healthy,
