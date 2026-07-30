@@ -648,6 +648,26 @@ async def _run_parwa_pipeline(
             or result.get("super_node_answer", "")
         )
 
+        # Debug logging — see exactly what the pipeline returned
+        logger.info(
+            "pipeline_result_debug: ticket=%s status=%s quality=%.0f%% "
+            "final_response=%dchars formatted_response=%dchars "
+            "combined_answer=%dchars simple_answer=%dchars "
+            "super_node_answer=%dchars response_text=%dchars "
+            "route=%s path=%s",
+            ticket_id[:8] if ticket_id else "?",
+            result.get("status", "?"),
+            (result.get("quality_score", 0) or result.get("simple_confidence", 0) or 0) * 100,
+            len(result.get("final_response", "") or ""),
+            len(result.get("formatted_response", "") or ""),
+            len(result.get("combined_answer", "") or ""),
+            len(result.get("simple_answer", "") or ""),
+            len(result.get("super_node_answer", "") or ""),
+            len(response_text or ""),
+            result.get("route_decision", "?"),
+            result.get("current_path", "?"),
+        )
+
         # Build steps_completed from technique_log
         technique_log = result.get("technique_log", [])
         steps_completed = [
