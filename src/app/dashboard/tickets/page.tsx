@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Inbox, Sparkles, Clock, CheckCircle2, SkipForward } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   useTicketStore,
@@ -165,16 +165,25 @@ function StatPill({
   label,
   count,
   dotColor,
+  icon,
 }: {
   label: string;
   count: number;
   dotColor: string;
+  icon?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2 bg-[#1A1A1A] border border-white/[0.06] rounded-lg px-3 py-2">
-      <span className={`w-2 h-2 rounded-full ${dotColor}`} />
-      <span className="text-xs text-zinc-400">{label}</span>
-      <span className="text-sm font-semibold text-white tabular-nums">{count}</span>
+    <div className="group relative flex items-center gap-2.5 bg-[#1A1A1A] border border-white/[0.06] rounded-lg px-3.5 py-2.5 hover:border-white/[0.12] hover:bg-white/[0.02] transition-all duration-200">
+      {/* Status dot with glow */}
+      <span className={`relative w-2 h-2 rounded-full ${dotColor}`}>
+        <span className={`absolute inset-0 rounded-full ${dotColor} opacity-60 group-hover:animate-ping`} style={{ animationDuration: '2s' }} />
+      </span>
+      {/* Optional icon */}
+      {icon && <span className="text-zinc-500 group-hover:text-zinc-400 transition-colors">{icon}</span>}
+      <div className="flex flex-col leading-none">
+        <span className="text-[10px] text-zinc-500 uppercase tracking-wide font-medium">{label}</span>
+        <span className="text-base font-bold text-white tabular-nums mt-0.5">{count}</span>
+      </div>
     </div>
   );
 }
@@ -1025,23 +1034,33 @@ function EmptyState({ onCreate }: { onCreate?: () => void }) {
       transition={{ duration: 0.4 }}
       className="flex flex-col items-center justify-center py-20 text-center"
     >
-      <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-5">
-        <svg className="w-8 h-8 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 0 1 0 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 0 1 0-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z" />
-        </svg>
+      {/* Animated icon cluster */}
+      <div className="relative mb-6">
+        <div className="absolute inset-0 blur-2xl bg-orange-500/10 rounded-full" />
+        <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-orange-500/15 to-orange-600/5 border border-orange-500/20 flex items-center justify-center">
+          <Inbox className="w-10 h-10 text-orange-400" />
+          {/* Floating sparkle */}
+          <motion.div
+            animate={{ y: [0, -4, 0], opacity: [0.6, 1, 0.6] }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-orange-500/20 border border-orange-500/30 flex items-center justify-center"
+          >
+            <Sparkles className="w-3 h-3 text-orange-300" />
+          </motion.div>
+        </div>
       </div>
-      <h3 className="text-base font-semibold text-zinc-300 mb-1.5">No tickets yet</h3>
-      <p className="text-sm text-zinc-500 max-w-sm mb-5">
+      <h3 className="text-lg font-semibold text-white mb-2">No tickets yet</h3>
+      <p className="text-sm text-zinc-500 max-w-sm mb-6 leading-relaxed">
         Your ticket inbox is empty. Create a ticket manually or wait for
-        customers to email / chat / call — inbound tickets will appear here
+        customers to email, chat, or call — inbound tickets will appear here
         automatically.
       </p>
       {onCreate && (
         <button
           onClick={onCreate}
-          className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium transition-colors flex items-center gap-2"
+          className="group px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium transition-all flex items-center gap-2 shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 hover:scale-[1.02] active:scale-[0.98]"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className="w-4 h-4 transition-transform group-hover:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
           Create First Ticket
@@ -1538,11 +1557,11 @@ export default function TicketsPage() {
         transition={{ duration: 0.35, delay: 0.05 }}
         className="flex flex-wrap gap-2"
       >
-        <StatPill label="Total" count={stats.total} dotColor="bg-zinc-400" />
-        <StatPill label="Auto-Solvable" count={autoSolvableTickets.length} dotColor="bg-emerald-400" />
-        <StatPill label="In Queue" count={queueTickets.length} dotColor="bg-blue-400" />
-        <StatPill label="Solved" count={stats.byStatus.resolved + stats.byStatus.closed} dotColor="bg-green-400" />
-        <StatPill label="Skipped" count={useTicketStore.getState().getSkippedTickets().length} dotColor="bg-yellow-400" />
+        <StatPill label="Total" count={stats.total} dotColor="bg-zinc-400" icon={<Inbox className="w-3.5 h-3.5" />} />
+        <StatPill label="Auto-Solvable" count={autoSolvableTickets.length} dotColor="bg-emerald-400" icon={<Sparkles className="w-3.5 h-3.5" />} />
+        <StatPill label="In Queue" count={queueTickets.length} dotColor="bg-blue-400" icon={<Clock className="w-3.5 h-3.5" />} />
+        <StatPill label="Solved" count={stats.byStatus.resolved + stats.byStatus.closed} dotColor="bg-green-400" icon={<CheckCircle2 className="w-3.5 h-3.5" />} />
+        <StatPill label="Skipped" count={useTicketStore.getState().getSkippedTickets().length} dotColor="bg-yellow-400" icon={<SkipForward className="w-3.5 h-3.5" />} />
       </motion.div>
 
       {/* Filter Row */}
