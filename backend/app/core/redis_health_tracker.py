@@ -76,13 +76,29 @@ def _create_redis_client() -> Any:
         logger.debug("REDIS_URL not set — using in-memory health tracker")
         return None
     try:
-        client = _redis_module.Redis.from_url(
-            url,
+        # For rediss:// URLs, pass ssl_cert_reqs as a kwarg (not in URL)
+        redis_url = url
+        conn_kwargs = dict(
             decode_responses=True,
             socket_timeout=5,
             socket_connect_timeout=5,
             retry_on_timeout=True,
             health_check_interval=30,
+        )
+        if redis_url.startswith("rediss://"):
+            import ssl
+            conn_kwargs["ssl_cert_reqs"] = ssl.CERT_NONE
+            # Strip query params (ssl_cert_reqs in URL causes errors)
+            if "?" in redis_url or "&" in redis_url:
+                from urllib.parse import urlparse, urlunparse
+                parsed = urlparse(redis_url)
+                redis_url = urlunparse((
+                    parsed.scheme, parsed.netloc, parsed.path,
+                    parsed.params, "", parsed.fragment
+                ))
+        client = _redis_module.Redis.from_url(
+            redis_url,
+            **conn_kwargs,
         )
         # Verify connectivity with a quick ping
         client.ping()

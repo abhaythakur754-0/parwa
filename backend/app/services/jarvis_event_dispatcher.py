@@ -288,7 +288,15 @@ def _redis_publish(channel: str, message: str) -> bool:
         settings = get_settings()
 
         redis_url = getattr(settings, "CELERY_BROKER_URL", "redis://localhost:6379/0")
-        r = redis.from_url(redis_url)
+        # For rediss:// URLs, pass ssl_cert_reqs as kwarg (not in URL)
+        conn_kwargs = {}
+        if redis_url.startswith("rediss://"):
+            import ssl as _ssl
+            conn_kwargs["ssl_cert_reqs"] = _ssl.CERT_NONE
+            from urllib.parse import urlparse, urlunparse
+            parsed = urlparse(redis_url)
+            redis_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, "", parsed.fragment))
+        r = redis.from_url(redis_url, **conn_kwargs)
         r.publish(channel, message)
         return True
     except ImportError:

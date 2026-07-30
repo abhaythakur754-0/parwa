@@ -475,7 +475,7 @@ class IncidentService:
         
         redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
         try:
-            r = redis.from_url(redis_url)
+            r = redis.from_url(redis_url, **({'ssl_cert_reqs': __import__('ssl').CERT_NONE} if redis_url.startswith('rediss://') else {}))
             key = f"parwa:incidents:{self.company_id}:{incident['id']}"
             r.set(key, json.dumps(incident))
             # Add to company's incident index
@@ -493,7 +493,7 @@ class IncidentService:
         
         redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
         try:
-            r = redis.from_url(redis_url)
+            r = redis.from_url(redis_url, **({'ssl_cert_reqs': __import__('ssl').CERT_NONE} if redis_url.startswith('rediss://') else {}))
             key = f"parwa:incidents:{self.company_id}:{incident_id}"
             data = r.get(key)
             if data:
@@ -514,7 +514,7 @@ class IncidentService:
         
         redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
         try:
-            r = redis.from_url(redis_url)
+            r = redis.from_url(redis_url, **({'ssl_cert_reqs': __import__('ssl').CERT_NONE} if redis_url.startswith('rediss://') else {}))
             index_key = f"parwa:incidents:{self.company_id}:index"
             incident_ids = r.smembers(index_key)
             

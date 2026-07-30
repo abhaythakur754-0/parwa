@@ -116,26 +116,12 @@ class Settings(BaseSettings):
 
         return v
 
-    @field_validator("REDIS_URL", "CELERY_BROKER_URL", "CELERY_RESULT_BACKEND", mode="before")
-    @classmethod
-    def normalize_redis_ssl_url(cls, v: str) -> str:
-        """Auto-append ssl_cert_reqs=CERT_NONE to rediss:// URLs.
-
-        On Render/Upstash, Redis uses SSL (rediss://). The Python redis
-        library requires an explicit ssl_cert_reqs parameter for SSL URLs.
-        Without it, ALL Celery connections fail with:
-          "A rediss:// URL must have parameter ssl_cert_reqs"
-
-        This validator automatically appends ?ssl_cert_reqs=CERT_NONE
-        to any rediss:// URL that doesn't already have it, so the user
-        doesn't need to manually update environment variables.
-        """
-        if not v or not isinstance(v, str):
-            return v
-        if v.startswith("rediss://") and "ssl_cert_reqs" not in v:
-            separator = "&" if "?" in v else "?"
-            v = f"{v}{separator}ssl_cert_reqs=CERT_NONE"
-        return v
+    # ── Redis SSL handling ──
+    # NOTE: We do NOT append ssl_cert_reqs to the URL here. The redis-py
+    # library doesn't parse ssl_cert_reqs from the URL query string — it
+    # needs it as a Python keyword argument (ssl.CERT_NONE constant).
+    # The SSL handling is done in redis.py, redis_health_tracker.py, etc.
+    # where the connection is created.
 
     # ── JWT (BC-011) ─────────────────────────────────────────────
     JWT_SECRET_KEY: Optional[str] = None

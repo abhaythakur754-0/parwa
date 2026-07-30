@@ -317,10 +317,26 @@ async def get_redis() -> aioredis.Redis:
                         retry_on_timeout=True,
                         health_check_interval=30,
                     )
-                    # IMPORTANT: do NOT pass ssl= as a kwarg — redis-py 5.x
-                    # handles TLS automatically when the URL scheme is rediss://
+                    # IMPORTANT: For rediss:// URLs, pass ssl_cert_reqs as a kwarg
+                    # (not in the URL query string). redis-py 5.x doesn't parse
+                    # ssl_cert_reqs from the URL — it needs the actual ssl constant.
+                    # CERT_NONE skips certificate verification (safe for Upstash/Render).
+                    redis_url = settings.REDIS_URL
+                    if redis_url.startswith("rediss://"):
+                        import ssl
+                        conn_kwargs["ssl_cert_reqs"] = ssl.CERT_NONE
+                        # Strip any query params we added to the URL (they cause errors)
+                        if "?" in redis_url or "&" in redis_url:
+                            # Remove ssl_cert_reqs from URL if present (handled by kwarg above)
+                            from urllib.parse import urlparse, urlunparse
+                            parsed = urlparse(redis_url)
+                            # Rebuild URL without query string
+                            redis_url = urlunparse((
+                                parsed.scheme, parsed.netloc, parsed.path,
+                                parsed.params, "", parsed.fragment
+                            ))
                     client = aioredis.from_url(
-                        settings.REDIS_URL,
+                        redis_url,
                         **conn_kwargs,
                     )
                     # Test connection
