@@ -3,32 +3,39 @@ FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
-# Install build dependencies (including Rust for parwa_core PyO3 module)
+# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Rust toolchain for parwa_core build
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
-    && . "$HOME/.cargo/env" && rustc --version
-
 # Copy requirements and install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-# ── Stage 1b: Rust extension builder ──
+# ── Stage 1b: Rust extension builder (optional, can be skipped) ──
+# Set SKIP_RUST_BUILD=true to skip Rust compilation and use pure-Python fallback.
+# This makes deploys 5x faster (2-3 min instead of 10-15 min).
 FROM builder AS rust_builder
+ARG SKIP_RUST_BUILD=false
 COPY parwa_core/ /app/parwa_core/
-RUN . "$HOME/.cargo/env" \
-    && cd /app/parwa_core \
-    && python -m venv /tmp/buildvenv \
-    && . /tmp/buildvenv/bin/activate \
-    && pip install --no-cache-dir maturin \
-    && maturin develop --release \
-    && mkdir -p /app/rust_artifacts \
-    && cp /tmp/buildvenv/lib/python3.12/site-packages/parwa_core/parwa_core*.so /app/rust_artifacts/
+RUN if [ "$SKIP_RUST_BUILD" = "true" ]; then \
+        echo "Skipping Rust build — using pure-Python fallback" \
+        && mkdir -p /app/rust_artifacts \
+        && touch /app/rust_artifacts/.skip; \
+    else \
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+        && . "$HOME/.cargo/env" && rustc --version \
+        && . "$HOME/.cargo/env" \
+        && cd /app/parwa_core \
+        && python -m venv /tmp/buildvenv \
+        && . /tmp/buildvenv/bin/activate \
+        && pip install --no-cache-dir maturin \
+        && maturin develop --release \
+        && mkdir -p /app/rust_artifacts \
+        && cp /tmp/buildvenv/lib/python3.12/site-packages/parwa_core/parwa_core*.so /app/rust_artifacts/; \
+    fi
 
 # ── Stage 2: Runtime ──
 FROM python:3.12-slim AS runtime
@@ -47,11 +54,15 @@ COPY --from=builder /install /usr/local
 # Copy application code (from backend/ context)
 COPY . .
 
-# Copy Rust .so and set up proper Python package structure
-# The __init__.py lives at parwa_core/python/parwa_core/__init__.py (maturin layout)
-# but Python needs it at parwa_core/__init__.py since PYTHONPATH=/app
-COPY --from=rust_builder /app/rust_artifacts/ /app/parwa_core/
-RUN cp /app/parwa_core/python/parwa_core/__init__.py /app/parwa_core/__init__.py
+# Copy Rust .so if it was built (skip if .skip marker exists)
+COPY --from=rust_builder /app/rust_artifacts/ /tmp/rust_artifacts/
+RUN if [ -f /tmp/rust_artifacts/.skip ]; then \
+        echo "No Rust .so — pure-Python fallback will be used"; \
+    else \
+        cp /tmp/rust_artifacts/parwa_core*.so /app/parwa_core/ 2>/dev/null || true; \
+    fi \
+    && cp /app/parwa_core/python/parwa_core/__init__.py /app/parwa_core/__init__.py \
+    && rm -rf /tmp/rust_artifacts
 
 # Create non-root user
 RUN groupadd -r parwa && useradd -r -g parwa parwa
