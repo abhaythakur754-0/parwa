@@ -330,12 +330,36 @@ export default function BillingPage() {
           {pricing.map((variant) => {
             const meta = VARIANT_META[variant.key] || { name: variant.name, color: 'text-zinc-400', bg: 'bg-zinc-500/10', border: 'border-zinc-500/20', dot: 'bg-zinc-400' };
             const alreadySubscribed = activeSubs.some(s => s.variant === variant.key);
+            const isRecommended = variant.key === 'high';
             return (
-              <div key={variant.key} className={cn('rounded-xl border p-5 flex flex-col', alreadySubscribed ? 'border-white/[0.04] bg-white/[0.01] opacity-60' : cn(meta.border, 'bg-[#1A1A1A]'))}>
-                <div className="flex items-center gap-2 mb-2"><span className={cn('w-2 h-2 rounded-full', meta.dot)} /><span className={cn('text-sm font-semibold', meta.color)}>{variant.name}</span>{alreadySubscribed && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 ml-auto">Active</span>}</div>
+              <div
+                key={variant.key}
+                className={cn(
+                  'relative rounded-xl border p-5 flex flex-col transition-all duration-200',
+                  alreadySubscribed
+                    ? 'border-white/[0.04] bg-white/[0.01] opacity-60'
+                    : isRecommended
+                      ? cn(meta.border, 'bg-[#1A1A1A] md:scale-[1.03] shadow-lg shadow-amber-500/10')
+                      : cn(meta.border, 'bg-[#1A1A1A] hover:border-white/[0.12] hover:-translate-y-0.5')
+                )}
+              >
+                {/* Recommended badge */}
+                {isRecommended && !alreadySubscribed && (
+                  <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9px] font-bold uppercase tracking-wider shadow-md">
+                    Recommended
+                  </div>
+                )}
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={cn('w-2 h-2 rounded-full', meta.dot)} />
+                  <span className={cn('text-sm font-semibold', meta.color)}>{variant.name}</span>
+                  {alreadySubscribed && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 ml-auto">Active</span>}
+                </div>
                 <p className="text-xs text-zinc-500 mb-3 flex-1">{variant.description}</p>
                 <p className="text-[10px] text-zinc-600 mb-3">Replaces: <span className="text-zinc-400">{variant.replaces}</span></p>
-                <div className="mb-4"><span className="text-2xl font-bold text-white tabular-nums">{formatCurrency(variant.monthly_price)}</span><span className="text-xs text-zinc-600">/mo</span></div>
+                <div className="mb-4 flex items-baseline gap-1">
+                  <span className="text-3xl font-bold text-white tabular-nums">{formatCurrency(variant.monthly_price)}</span>
+                  <span className="text-xs text-zinc-600">/mo</span>
+                </div>
                 {alreadySubscribed ? (
                   <button disabled className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-white/[0.04] text-zinc-600 cursor-default">
                     <Check className="w-3.5 h-3.5" /> Subscribed
@@ -359,7 +383,12 @@ export default function BillingPage() {
                           setShowFlexPayConfirm({ variant, planId });
                         }
                       }}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-400 text-white shadow-emerald-500/20 hover:shadow-emerald-500/30 hover:-translate-y-0.5 transition-all"
+                      className={cn(
+                        'w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all',
+                        isRecommended
+                          ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:-translate-y-0.5'
+                          : 'bg-gradient-to-r from-emerald-500 to-teal-400 text-white shadow-emerald-500/20 hover:shadow-emerald-500/30 hover:-translate-y-0.5'
+                      )}
                     >
                       <Zap className="w-3.5 h-3.5" />
                       Subscribe · ${variant.monthly_price.toLocaleString()}/mo
