@@ -646,8 +646,10 @@ async def lifespan(app: FastAPI):
 
                 def _recover_stuck_docs():
                     from database.base import SessionLocal
-                    from database.models.onboarding import KnowledgeDocument
+                    from database.models.onboarding import KnowledgeDocument, DocumentChunk
+                    from app.shared.knowledge_base.chunker import chunk_text
                     from datetime import datetime, timezone, timedelta
+                    import uuid
 
                     db = SessionLocal()
                     try:
@@ -656,6 +658,7 @@ async def lifespan(app: FastAPI):
                             KnowledgeDocument.status.in_(["pending", "processing"]),
                         ).all()
                         recovered = 0
+                        failed = 0
                         for doc in stuck:
                             updated = doc.updated_at or doc.created_at
                             if updated.tzinfo is None:
@@ -666,23 +669,75 @@ async def lifespan(app: FastAPI):
                                     doc.id, doc.status, int((datetime.now(timezone.utc) - updated).total_seconds()),
                                 )
                                 try:
-                                    from app.tasks.knowledge_tasks import process_knowledge_document
-                                    # .apply() runs synchronously in THIS thread (blocking).
-                                    # We're in a worker thread so this won't block the event loop.
-                                    process_knowledge_document.apply(args=[str(doc.id), str(doc.company_id)])
-                                    recovered += 1
+                                    # ── INLINE chunking (NO Celery/Redis dependency) ──
+                                    # The previous approach used process_knowledge_document.apply()
+                                    # which triggered a Celery broker connection to Redis. On Render,
+                                    # the rediss:// URL is missing ssl_cert_reqs, so ALL recovery
+                                    # attempts failed. This bypasses Celery entirely.
+                                    content = ""
+                                    file_path_val = getattr(doc, 'file_path', None) or ""
+                                    if file_path_val.startswith("inline:"):
+                                        content = file_path_val[len("inline:"):]
+                                    else:
+                                        logger.warning(
+                                            "stuck_kb_recovery: doc %s has no inline content (file_path=%s)",
+                                            doc.id, str(file_path_val)[:80],
+                                        )
+                                        # Mark as failed — can't recover without content
+                                        doc.status = "failed"
+                                        doc.error_message = "No content available (created before inline storage fix)"
+                                        doc.failed_at = datetime.now(timezone.utc)
+                                        db.commit()
+                                        failed += 1
+                                        continue
+
+                                    if content and len(content) > 10:
+                                        chunks = chunk_text(content, chunk_size=500, overlap=50)
+                                        # Delete any existing chunks for this doc (idempotent)
+                                        db.query(DocumentChunk).filter(
+                                            DocumentChunk.document_id == str(doc.id)
+                                        ).delete()
+                                        # Save chunks without embeddings (instant)
+                                        for i, chunk_content in enumerate(chunks):
+                                            chunk = DocumentChunk(
+                                                id=str(uuid.uuid4()),
+                                                document_id=str(doc.id),
+                                                company_id=str(doc.company_id),
+                                                content=chunk_content,
+                                                chunk_index=i,
+                                                embedding=None,
+                                            )
+                                            db.add(chunk)
+                                        doc.status = "completed"
+                                        doc.chunk_count = len(chunks)
+                                        doc.error_message = None
+                                        doc.updated_at = datetime.now(timezone.utc)
+                                        db.commit()
+                                        recovered += 1
+                                        logger.info(
+                                            "stuck_kb_recovery: doc %s completed with %d chunks",
+                                            doc.id, len(chunks),
+                                        )
+                                    else:
+                                        doc.status = "failed"
+                                        doc.error_message = "Content too short to process"
+                                        db.commit()
+                                        failed += 1
                                 except Exception as inner:
                                     logger.warning(
                                         "stuck_kb_recovery: failed for doc %s: %s",
                                         doc.id, str(inner)[:200],
                                     )
-                        if recovered > 0:
-                            logger.info("stuck_kb_recovery: reprocessed %d documents", recovered)
+                                    failed += 1
+                        if recovered > 0 or failed > 0:
+                            logger.info(
+                                "stuck_kb_recovery: recovered=%d failed=%d", recovered, failed,
+                            )
                     finally:
                         db.close()
 
                 # Run the blocking recovery in a thread pool so we don't
-                # block the async event loop (embedding calls take 5-20s).
+                # block the async event loop.
                 loop = asyncio.get_event_loop()
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                     await loop.run_in_executor(pool, _recover_stuck_docs)
