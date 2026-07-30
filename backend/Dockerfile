@@ -14,11 +14,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-# ── Stage 1b: Rust extension builder (optional, can be skipped) ──
-# Set SKIP_RUST_BUILD=true to skip Rust compilation and use pure-Python fallback.
-# This makes deploys 5x faster (2-3 min instead of 10-15 min).
+# ── Stage 1b: Rust extension builder (SKIPPED by default) ──
+# Rust compilation needs 1GB+ RAM but Render free tier has 512MB.
+# The build fails silently (OOM) and old code keeps running.
+# Default: SKIP_RUST_BUILD=true (pure-Python fallback used).
+# To ENABLE Rust: set build arg SKIP_RUST_BUILD=false
 FROM builder AS rust_builder
-ARG SKIP_RUST_BUILD=false
+ARG SKIP_RUST_BUILD=true
 COPY parwa_core/ /app/parwa_core/
 RUN if [ "$SKIP_RUST_BUILD" = "true" ]; then \
         echo "Skipping Rust build — using pure-Python fallback" \
