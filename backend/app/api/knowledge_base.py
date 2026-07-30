@@ -204,20 +204,20 @@ async def api_upload_document(
         except Exception as inline_err:
             logger.warning("kb_inline_store_failed", document_id=str(document.id), error=str(inline_err)[:200])
 
-    # Trigger async processing via Celery — if Celery is down (common on
-    # Render free tier), fall back to SYNC processing so the doc still gets
-    # chunked + embedded. Without this fallback, uploaded docs stay "pending"
-    # forever and never become searchable.
-    celery_dispatched = False
-    try:
-        from app.tasks.knowledge_tasks import process_knowledge_document
-        process_knowledge_document.delay(str(document.id), user.company_id)
-        celery_dispatched = True
-    except Exception:
-        pass
+    # ── Process the document ──────────────────────────────────────
+    # For SMALL documents (< 100 KB), process SYNCHRONOUSLY right here in
+    # the request. This bypasses Celery entirely, which is critical on
+    # Render free tier where the Celery worker is often sleeping/crashed.
+    # The sync path chunks the text + tries embeddings (with graceful
+    # fallback to text-only if the embedding API is down).
+    #
+    # For LARGE documents (≥ 100 KB), dispatch to Celery (may take longer
+    # but avoids blocking the request for 30+ seconds).
+    SYNC_PROCESSING_THRESHOLD = 100 * 1024  # 100 KB
+    should_process_sync = len(content) < SYNC_PROCESSING_THRESHOLD
 
-    if not celery_dispatched:
-        # Sync fallback: chunk + embed inline using NVIDIA embeddings
+    if should_process_sync:
+        # ── SYNC processing (small docs) ────────────────────────────
         try:
             from app.shared.knowledge_base.chunker import chunk_text
             from app.core.parwa_pipeline.nvidia_embedding import embed_text_sync
@@ -303,6 +303,43 @@ async def api_upload_document(
             document.error_message = str(e)[:500]
             db.commit()
             logger.error("kb_sync_process_failed", document_id=str(document.id), error=str(e)[:200])
+    else:
+        # ── ASYNC processing (large docs ≥ 100 KB) ─────────────────
+        # Dispatch to Celery for background processing. The recovery loop
+        # will catch it if the Celery worker is down.
+        try:
+            from app.tasks.knowledge_tasks import process_knowledge_document
+            process_knowledge_document.delay(str(document.id), user.company_id)
+            logger.info("kb_celery_dispatched", document_id=str(document.id), size=len(content))
+        except Exception:
+            # Celery import failed — fall back to sync processing
+            logger.warning("kb_celery_dispatch_failed_using_sync", document_id=str(document.id))
+            try:
+                from app.shared.knowledge_base.chunker import chunk_text
+                from database.models.onboarding import DocumentChunk
+
+                text = content.decode('utf-8') if isinstance(content, bytes) else str(content)
+                if text and len(text) > 10:
+                    chunks = chunk_text(text, chunk_size=500, overlap=50)
+                    document.status = "processing"
+                    db.commit()
+                    for i, chunk_content in enumerate(chunks):
+                        chunk = DocumentChunk(
+                            id=str(uuid.uuid4()),
+                            document_id=str(document.id),
+                            company_id=user.company_id,
+                            content=chunk_content,
+                            chunk_index=i,
+                            embedding=None,
+                        )
+                        db.add(chunk)
+                    document.status = "completed"
+                    document.chunk_count = len(chunks)
+                    db.commit()
+            except Exception as sync_err:
+                document.status = "failed"
+                document.error_message = str(sync_err)[:500]
+                db.commit()
 
     return UploadResponse(
         id=str(document.id),
