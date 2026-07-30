@@ -346,7 +346,7 @@ const KNOWLEDGE_INDEX: KnowledgeIndex[] = [
   {
     keywords: ['price', 'pricing', 'cost', 'plan', 'monthly', 'subscription', 'afford', 'cheap', 'expensive', '$999', '$2999', '$3999'],
     source: '01_pricing_tiers',
-    content: `PARWA Plans: PARWA $2,499/mo (5 agents, 2,499 tickets, 88% autonomous, email/chat/SMS/voice), PARWA High $3,999/mo (8 agents, 3,999 tickets, all channels + video). Annual billing available. Overage $1/ticket. $1 = 1 ticket pricing model.`,
+    content: `PARWA Plans: PARWA $2,999/mo (5 AI agents, 2,999 tickets/mo, 80% auto-resolution, email/chat/SMS/voice), PARWA High $3,999/mo (8 AI agents, 3,999 tickets/mo, 92% auto-resolution, all channels + video). FlexPay: $100/day installments. Annual = 12× monthly (no discount). $0.10 overage/ticket. $1 = 1 ticket pricing model.`,
     relevance: 1.0,
   },
   // Industry

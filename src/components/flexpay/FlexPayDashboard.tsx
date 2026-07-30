@@ -10,7 +10,7 @@
  * - Financial summary (collected, remaining, next charge)
  *
  * Business Rules (from CLAUDE.md P-002):
- * - PARWA ($2,499): ~25 days
+ * - PARWA ($2,999): ~25 days
  * - PARWA High ($3,999): 30 days ($100 base + extra $100 every 3rd day)
  *
  * CLAUDE.md Compliance:

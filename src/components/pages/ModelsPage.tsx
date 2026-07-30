@@ -47,7 +47,7 @@ const industries: IndustryConfig[] = [
 ];
 
 const commonFeatures: Record<VariantId, string[]> = {
-  parwa: ['Up to 5 AI agents', '2,499 tickets/month', 'Email, Chat, SMS & Voice', 'AI decision recommendations', 'Smart Router — 3-tier LLM routing', 'Agent Lightning — continuous learning', 'Batch approval system', 'Advanced analytics & ROI tracking'],
+  parwa: ['Up to 5 AI agents', '2,999 tickets/month', 'Email, Chat, SMS & Voice', 'AI decision recommendations', 'Smart Router — 3-tier LLM routing', 'Agent Lightning — continuous learning', 'Batch approval system', 'Advanced analytics & ROI tracking'],
   high: ['Up to 8 AI agents (+$3/each extra)', '3,999 tickets/month', 'Email, Chat, SMS & Voice channels', 'Quality coaching system', 'Churn prediction & proactive retention', 'Video support & screen sharing', 'Up to 5 concurrent voice calls', 'Strategic insights & revenue analytics', 'Custom integrations & API access', 'Peer review system', 'Priority support', 'Full autonomous operations'],
 };
 

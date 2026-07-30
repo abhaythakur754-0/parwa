@@ -5,7 +5,7 @@
  * Tracks the company's current subscription tier, feature availability,
  * and usage limits. Server-verified — never trusts localStorage for tier data.
  *
- * Tiers: parwa ($2,499/mo) | high ($3,999/mo)
+ * Tiers: parwa ($2,999/mo) | high ($3,999/mo)
  * Pricing model: $1 = 1 ticket
  * All variants have the SAME AI capabilities — only ticket volume differs.
  * Mini PARWA was removed 2026-07-26. Legacy mini values auto-upgrade to parwa.

@@ -475,19 +475,19 @@ export class JarvisAIEngine {
       return `Thanks for chatting! Quick recap: you were looking at ${ctx.selected_variants.length} variant(s) for your ${ctx.industry ? this.formatIndustry(ctx.industry) : 'business'}.\n\nFeel free to come back anytime — I'll remember our conversation. You can also:\n- Ask me more questions about features or pricing\n- Try a demo scenario to see PARWA in action\n- Get started with a plan when you're ready\n\nHave a great day!`;
     }
 
-    return `Thanks for chatting with me! Here's a quick summary:\n\n- **3 plans**: Starter ($999/mo), Growth ($2,499/mo), High ($3,999/mo)\n- **4 industries**: E-commerce, SaaS, Logistics, Healthcare\n- **20 AI agent variants** to choose from\n- **85-92% cost savings** vs hiring human agents\n\nCome back anytime — I'll be here! Have a great day!`;
+    return `Thanks for chatting with me! Here's a quick summary:\n\n- **2 plans**: PARWA ($2,999/mo — 2,999 tickets, 5 AI agents, 80% auto-resolution), PARWA High ($3,999/mo — 3,999 tickets, 8 AI agents, 92% auto-resolution)\n- **4 industries**: E-commerce, SaaS, Logistics, Healthcare\n- **$1 = 1 ticket** — what you pay is what you get\n- **85-92% cost savings** vs hiring human agents\n\nCome back anytime — I'll be here! Have a great day!`;
   }
 
   private buildPricingResponse(session: SessionLike): string {
     const tiers = this.kb.pricing?.tiers;
     if (!tiers || tiers.length === 0) {
-      return "PARWA offers three plans: **Starter** ($999/mo), **Growth** ($2,499/mo), and **High** ($3,999/mo). Each comes with different features and ticket limits. Would you like me to compare them in detail for your industry?";
+      return "PARWA offers two plans: **PARWA** ($2,999/mo — 2,999 tickets, 5 AI agents, 80% auto-resolution) and **PARWA High** ($3,999/mo — 3,999 tickets, 8 AI agents, 92% auto-resolution). Both have the same AI — only ticket volume differs. FlexPay available ($100/day). Would you like me to compare them in detail for your industry?";
     }
 
     const ctx = session.context || {};
     const variants = ctx.selected_variants || [];
 
-    let response = "Here are PARWA's three plans:\n\n";
+    let response = "Here are PARWA's two plans:\n\n";
 
     for (const tier of tiers) {
       response += `**${tier.name} — $${tier.monthly_price.toLocaleString()}/mo**\n`;
@@ -669,12 +669,11 @@ export class JarvisAIEngine {
 
     response += "**Cost Comparison:**\n";
     response += "- Human support agent: **$8-12 per ticket** (salary + benefits + training)\n";
-    response += "- PARWA AI: **under $1 per ticket** (Starter tier)\n\n";
+    response += "- PARWA AI: **under $1 per ticket** (PARWA tier)\n\n";
 
     response += "**Plan-specific savings:**\n";
-    response += "- **Starter ($999/mo)** vs 3 agents ($14K/mo) = **$156K/year saved**\n";
-    response += "- **Growth ($2,499/mo)** vs 4 juniors ($18K/mo) = **$186K/year saved**\n";
-    response += "- **High ($3,999/mo)** vs 5 seniors ($28K/mo) = **$288K/year saved**\n\n";
+    response += "- **PARWA ($2,999/mo)** vs 4 juniors ($18K/mo) = **$186K/year saved**\n";
+    response += "- **PARWA High ($3,999/mo)** vs 5 seniors ($28K/mo) = **$288K/year saved**\n\n";
 
     response += "**Key metrics:**\n";
     response += "- **70% cost reduction** in support operations\n";
@@ -756,7 +755,7 @@ export class JarvisAIEngine {
   }
 
   private buildBuyResponse(session: SessionLike): string {
-    return "Getting started is easy!\n\n**Three steps:**\n1. **Choose your plan** — Starter ($999), Growth ($2,499), or High ($3,999)\n2. **Add industry variants** — Pick the AI agents for your support needs\n3. **Go live** — Upload your KB, connect channels, and start!\n\n**No long-term contracts** — monthly billing, cancel anytime with 30 days notice.\n**15% discount** on annual billing.\n\nReady to pick a plan? I can show you the best fit for your business. Just tell me your industry and daily ticket volume!";
+    return "Getting started is easy!\n\n**Three steps:**\n1. **Choose your plan** — PARWA ($2,999/mo) or PARWA High ($3,999/mo)\n2. **Add industry variants** — Pick the AI agents for your support needs\n3. **Go live** — Upload your KB, connect channels, and start!\n\n**No long-term contracts** — monthly billing or FlexPay ($100/day), cancel anytime.\n\nReady to pick a plan? I can show you the best fit for your business. Just tell me your industry and daily ticket volume!";
   }
 
   private buildEdgeCaseResponse(type: string): string {
@@ -777,7 +776,7 @@ export class JarvisAIEngine {
     if (industry && intent.entities.length === 0) {
       const industryName = this.formatIndustry(industry);
       const responses = [
-        `Good question! Since you're in the **${industryName}** space, let me share what's most relevant.\n\nPARWA has 5 specialized AI agents for ${industryName} that handle the most common support tickets automatically — everything from ${industry === 'ecommerce' ? 'order tracking to returns and refunds' : industry === 'saas' ? 'technical support to billing questions' : industry === 'logistics' ? 'shipment tracking to delivery issues' : 'appointment scheduling to insurance verification'}.\n\nMost ${industryName} businesses start with our **Growth plan ($2,499/mo)** for the best value. Want specifics?`,
+        `Good question! Since you're in the **${industryName}** space, let me share what's most relevant.\n\nPARWA has 5 specialized AI agents for ${industryName} that handle the most common support tickets automatically — everything from ${industry === 'ecommerce' ? 'order tracking to returns and refunds' : industry === 'saas' ? 'technical support to billing questions' : industry === 'logistics' ? 'shipment tracking to delivery issues' : 'appointment scheduling to insurance verification'}.\n\nMost ${industryName} businesses start with our **PARWA plan ($2,999/mo)** for the best value. Want specifics?`,
         `That's a great point. In the **${industryName}** industry, PARWA's AI agents typically resolve **${industry === 'ecommerce' ? '88-94%' : '85-95%'}** of support tickets automatically, saving your team ${industry === 'ecommerce' ? '30-40 hours per week' : '25-35 hours per week'}.\n\nWhat specific challenge are you facing with your current support setup?`,
         `Interesting! For **${industryName}** businesses like yours, here's what I'd recommend:\n\n1. Start with the most painful ticket type (what takes the most time?)\n2. Deploy 1-2 AI agents for that specific area\n3. Expand as you see results — most clients add more agents within 30 days\n\nWhat's the #1 support issue you want to solve?`,
       ];
@@ -792,7 +791,7 @@ export class JarvisAIEngine {
     }
 
     if (stage === 'pricing') {
-      return `Good question! PARWA's plans range from **$999/mo** to **$3,999/mo**, with the sweet spot for most businesses being **Growth at $2,499/mo**.\n\nWant a detailed plan comparison, or should I calculate the ROI for your specific situation?`;
+      return `Good question! PARWA's plans range from **$2,999/mo** to **$3,999/mo**, with the sweet spot for most businesses being **PARWA at $2,999/mo**.\n\nWant a detailed plan comparison, or should I calculate the ROI for your specific situation?`;
     }
 
     if (stage === 'demo') {

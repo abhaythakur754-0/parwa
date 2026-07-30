@@ -102,7 +102,7 @@ export function LockedFeature({
 
           {tier === 'parwa' && requiredTier === 'high' && (
             <p className="text-xs text-zinc-500 mt-3">
-              Upgrade for 5 AI agents and 2,499 tickets/month
+              Upgrade for 5 AI agents and 2,999 tickets/month
             </p>
           )}
           {requiredTier === 'high' && (

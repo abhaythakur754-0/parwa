@@ -284,7 +284,7 @@ export default function ROICalculatorPage() {
                 <div className="rounded-xl bg-orange-500/5 border border-orange-500/10 p-4">
                   <p className="text-xs text-orange-300/70 leading-relaxed">
                     <strong className="text-orange-400">Why we ask:</strong> A human support rep handles ~400 tickets/month and costs ~$4,500/month (salary + benefits).
-                    PARWA resolves 88% of tickets automatically for $2,499–$3,999/month. We&apos;ll show you exactly how much you save.
+                    PARWA resolves 80-92% of tickets automatically for $2,999–$3,999/month. We&apos;ll show you exactly how much you save.
                   </p>
                 </div>
               </div>

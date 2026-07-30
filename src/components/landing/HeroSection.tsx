@@ -178,7 +178,7 @@ export default function HeroSection() {
               <svg className="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
-              <span className="text-sm text-orange-300 font-semibold">$999/mo</span>
+              <span className="text-sm text-orange-300 font-semibold">$2,999/mo</span>
             </div>
           </div>
           

@@ -477,11 +477,11 @@ ${variantBlock}
 WHAT IS PARWA:
 AI-powered customer support platform. Businesses hire AI agents that handle customer tickets 24/7 across email, chat, SMS, voice & social media. 700+ features. 4 industries. Think of it as hiring an AI employee who never sleeps.
 
-THREE PLANS:
-- PARWA — $2,499/mo — 8 agents, 5K tickets/mo — +SMS, Voice — "The Junior Agent"
-- PARWA High — $3,999/mo — 15 agents, 15K tickets/mo — +Social, Video — "The Senior Agent"
-- Annual: 15% off. Cancel anytime. $0.10 overage/ticket.
-- $1 Demo Pack: 500 messages + 3-min AI voice call.
+TWO PLANS ($1 = 1 ticket — what you pay = how many tickets you get):
+- PARWA — $2,999/mo — 2,999 tickets/mo, 5 AI agents, 80% auto-resolution — +SMS, Voice — "The Junior Agent"
+- PARWA High — $3,999/mo — 3,999 tickets/mo, 8 AI agents, 92% auto-resolution — +Social, Video — "The Senior Agent"
+- FlexPay: $100/day daily installments (30-day cycle). Cancel anytime. $0.10 overage/ticket.
+- Annual = 12 × monthly (no discounts).
 
 INDUSTRY DETAILS:
 - E-commerce: Shopify, WooCommerce, Magento, BigCommerce. Orders, returns, FAQ, shipping, payments, cart abandonment.
@@ -489,12 +489,11 @@ INDUSTRY DETAILS:
 - Logistics: TMS, WMS, GPS, Carrier APIs. Shipment tracking, delivery issues, driver coordination, fleet management, hazmat.
 - Others: Custom integrations, CRM, Helpdesk. General inquiries, billing, multi-department routing.
 
-PLAN CAPABILITIES:
-- Mini: FAQ handling, data collection, basic escalation, 2 concurrent phone calls. CANNOT make autonomous decisions.
-- Parwa: + Smart recommendations (approve/review/deny), churn detection, 3 concurrent calls, analytics, Smart Router, Agent Lightning.
-- High: + Full autonomy (decisions up to $50), video, 5 concurrent calls, VIP handling, peer review, cross-department coordination.
+PLAN CAPABILITIES (both tiers have the SAME AI — only ticket volume differs):
+- PARWA: FAQ handling, data collection, smart recommendations (approve/review/deny), churn detection, 2 concurrent calls, analytics, Smart Router, Agent Lightning.
+- PARWA High: Everything in PARWA + full autonomy (decisions up to $50), video, 5 concurrent calls, VIP handling, peer review, cross-department coordination. Higher 92% resolution rate.
 
-ROI: Mini saves ~$168K/yr. Parwa saves ~$216K/yr. High saves ~$336K/yr. 85-92% vs hiring.
+ROI: PARWA saves ~$186K/yr. PARWA High saves ~$288K/yr. 85-92% savings vs hiring human agents.
 
 SECURITY: GDPR, SOC 2, HIPAA. AES-256, TLS 1.3, audit trail, PII redaction, client data isolation.
 
@@ -502,11 +501,11 @@ vs COMPETITORS:
 - vs Intercom: PARWA fully resolves, Intercom only triages
 - vs Zendesk AI: PARWA auto-resolves, Zendesk routes to humans
 - vs Custom bots: PARWA is full platform (700+ features), not a widget
-- vs Hiring: $999-$3,999/mo vs $14K-$28K/mo for humans
+- vs Hiring: $2,999-$3,999/mo vs $14K-$28K/mo for humans
 
 OBJECTIONS (handle naturally):
-- "A single agent costs → "A single agent costs $4-6K/mo. PARWA at $2,499 does the work of 5 — 80% savings from day one."
-- "mini and High use" → "Parwa and High use smart routing — simple auto-resolves, complex gets flagged with recommendations. You stay in control."
+- "A single agent costs → "A single agent costs $4-6K/mo. PARWA at $2,999 does the work of 5 — 80% savings from day one."
+- "Parwa and High use" → "Parwa and High use smart routing — simple auto-resolves, complex gets flagged with recommendations. You stay in control."
 - "Data security?" → "GDPR, SOC 2, HIPAA. AES-256, TLS 1.3. Your data never trains other models."
 - "Setup time?" → "Under an hour. Connect channels, upload KB, configure. Day 1 live."
 - "Wrong answers?" → "High has peer review — Junior asks Senior before escalating. You set confidence thresholds."
@@ -537,8 +536,8 @@ TALK LIKE A HUMAN:
 - Have opinions — "I'd suggest Parwa because..." not "Either plan could work"
 - Reference earlier conversation naturally
 
-BAD: "I'd be happy to help! PARWA is an AI platform. Plans start at $999."
-GOOD: "So you handle 300 tickets/day with 5 people? PARWA covers that for $2,499/mo — saves ~$18K/mo. What integrations do you use?"
+BAD: "I'd be happy to help! PARWA is an AI platform. Plans start at $2,999."
+GOOD: "So you handle 300 tickets/day with 5 people? PARWA covers that for $2,999/mo — saves ~$18K/mo. What integrations do you use?"
 
 ═══════ LIVE CONTEXT ═══════
 ${contextLines}
@@ -972,15 +971,15 @@ function getKeywordResponse(message: string, session: any): string {
   const responses: Record<string, string[]> = {
     greeting: [
       `Hey there! 👋 Welcome to PARWA — I'm Jarvis.\n\n🏢 I find the right plan for your business\n💰 Calculate your exact ROI savings\n🎥 Run a live demo right here\n\nWhat industry are you in?`,
-      `Hello! 👋 Great to have you — I'm Jarvis from PARWA.\n\n🤖 AI agents that handle 24/7 support\n💡 Smart routing across all your channels\n📊 Plans from $999/mo — save 85-92%\n\nTell me about your business!`,
+      `Hello! 👋 Great to have you — I'm Jarvis from PARWA.\n\n🤖 AI agents that handle 24/7 support\n💡 Smart routing across all your channels\n📊 Plans from $2,999/mo — save 85-92%\n\nTell me about your business!`,
       `Hi! 👋 I'm Jarvis, ready to help.\n\n🎯 I recommend the perfect plan for your needs\n🚀 Show you a live demo in 30 seconds\n💰 Prove ROI with real numbers\n\nWhat's your industry?`,
     ],
     ecommerce: [
-      `🛒 E-commerce is one of our strongest areas!\n\n- Order tracking, returns, FAQ, shipping & payments — all automated\n- Integrates with Shopify, WooCommerce, Magento & BigCommerce\n\nMost e-com stores start with PARWA ($2,499/mo). Want pricing details?`,
+      `🛒 E-commerce is one of our strongest areas!\n\n- Order tracking, returns, FAQ, shipping & payments — all automated\n- Integrates with Shopify, WooCommerce, Magento & BigCommerce\n\nMost e-com stores start with PARWA ($2,999/mo). Want pricing details?`,
       `🛍️ E-commerce support is where PARWA shines!\n\n⚡ Top 5 ticket types automated from Day 1\n🔗 Shopify / WooCommerce / Magento integration\n⏱️ Setup takes under an hour\n\nWant to see how order tracking works?`,
     ],
     saas: [
-      `💻 SaaS support with PARWA automates the heavy lifting!\n\n- Tech support, churn prediction, billing & API help\n- Integrates with GitHub, Jira, Slack & Intercom\n\nMost SaaS teams go with PARWA ($2,499/mo). Want a quick ROI calc?`,
+      `💻 SaaS support with PARWA automates the heavy lifting!\n\n- Tech support, churn prediction, billing & API help\n- Integrates with GitHub, Jira, Slack & Intercom\n\nMost SaaS teams go with PARWA ($2,999/mo). Want a quick ROI calc?`,
       `🚀 For SaaS, PARWA transforms your support stack.\n\n🔑 API questions resolved in seconds\n📉 Churn prediction catches at-risk users\n💳 Subscription changes & in-app help — automated\n\nWant to see a demo of a tech support ticket?`,
     ],
     logistics: [
@@ -988,14 +987,14 @@ function getKeywordResponse(message: string, session: any): string {
       `📦 PARWA is built for logistics complexity.\n\n⚡ Real-time tracking across all carriers\n📡 Automated updates to customers\n🚚 Fleet coordination connected to your systems\n\nWant to see a delivery delay scenario?`,
     ],
     healthcare: [
-      `🏥 Healthcare support with PARWA is HIPAA-compliant by design.\n\n- Appointments, insurance verification, records & clinical escalation\n- Integrates with Epic EHR & FHIR\n\nMost healthcare orgs start with PARWA ($2,499/mo). Want to discuss compliance?`,
+      `🏥 Healthcare support with PARWA is HIPAA-compliant by design.\n\n- Appointments, insurance verification, records & clinical escalation\n- Integrates with Epic EHR & FHIR\n\nMost healthcare orgs start with PARWA ($2,999/mo). Want to discuss compliance?`,
       `✅ PARWA meets healthcare's strictest requirements.\n\n🛡️ HIPAA compliant with full audit trails\n🔐 AES-256 encryption at rest & in transit\n🩺 Smart clinical escalation built in\n\nWant to see a patient scheduling scenario?`,
     ],
     pricing: [
-      `💰 Here's the lineup:\n\n• 🟠 PARWA Mini — $999/mo — 1 agent, 1K tickets/mo\n• 🟠 PARWA — $2,499/mo — 3 agents, 5K tickets/mo\n• 🟠 PARWA High — $3,999/mo — 5 agents, 15K tickets/mo\n\nAll with zero AI markup, cancel anytime. Which one fits your needs?`,
+      `💰 Here's the lineup ($1 = 1 ticket):\n\n• 🟠 PARWA — $2,999/mo — 5 AI agents, 2,999 tickets/mo, 80% auto-resolution\n• 🟠 PARWA High — $3,999/mo — 8 AI agents, 3,999 tickets/mo, 92% auto-resolution\n\nFlexPay available ($100/day). Cancel anytime. Which one fits your needs?`,
     ],
     roi: [
-      `📊 Here's the math:\n\n• PARWA Mini → saves ~$156K/yr (vs 3 agents)\n• PARWA → saves ~$186K/yr (vs 4 juniors)\n• PARWA High → saves ~$288K/yr (vs 5 seniors)\n\nThat's 85-92% savings with 24/7 coverage. Want me to calculate yours?`,
+      `📊 Here's the math:\n\n• PARWA → saves ~$186K/yr (vs 4 juniors)\n• PARWA High → saves ~$288K/yr (vs 5 seniors)\n\nThat's 85-92% savings with 24/7 coverage. Want me to calculate yours?`,
       `💡 Bottom line — PARWA saves 85-92% vs hiring agents.\n\n⏰ 24/7 coverage from Day 1\n📈 Zero training time needed\n⚡ Instant scaling during peak periods\n\nWant the exact number for your business?`,
     ],
     demo: [
@@ -1011,11 +1010,11 @@ function getKeywordResponse(message: string, session: any): string {
       `✅ PARWA's got 700+ features across 4 industries.\n\n⚡ Automation of the full ticket lifecycle\n📊 Analytics & quality coaching built in\n🔄 Escalation workflows that learn & improve\n\nWhat are you most curious about?`,
     ],
     buy: [
-      `🚀 Getting started is easy:\n\n1. Pick your plan (Mini, Parwa, or High)\n2. Connect your AI keys\n3. Configure your channels\n4. Go live — PARWA starts immediately\n\nNo contracts, cancel anytime. Want to pick a plan?`,
+      `🚀 Getting started is easy:\n\n1. Pick your plan (PARWA or PARWA High)\n2. Connect your AI keys\n3. Configure your channels\n4. Go live — PARWA starts immediately\n\nNo contracts, cancel anytime. Want to pick a plan?`,
       `✨ Ready to get started?\n\n🎯 Choose your plan\n🔑 Connect your AI keys\n⏱️ Go live in under an hour\n\nWhich plan are you leaning toward?`,
     ],
     thanks: [
-      `You're welcome! 🙌 Quick recap:\n\n• 3 plans: Mini ($999), Parwa ($2,499), High ($3,999)\n• Zero AI markup, 24/7 from Day 1\n• 85-92% cost savings\n\nCome back anytime! Have a great day! 😊`,
+      `You're welcome! 🙌 Quick recap:\n\n• 2 plans: PARWA ($2,999), PARWA High ($3,999)\n• Zero AI markup, 24/7 from Day 1\n• 85-92% cost savings\n\nCome back anytime! Have a great day! 😊`,
       `Anytime! 😊 When you're ready, I'm here to help.\n\n🏢 Come back and we'll pick up where we left off\n📊 Your session context is saved\n🎉 Have an awesome day!`,
     ],
     competitors: [
@@ -1031,8 +1030,8 @@ function getKeywordResponse(message: string, session: any): string {
       `✅ We integrate with 20+ tools out of the box.\n\n⚙️ OAuth or API key setup\n⏱️ Usually under 5 minutes each\n🔌 Custom APIs & webhooks also supported\n\nWhich integrations matter most to you?`,
     ],
     models_variants: [
-      `🤖 PARWA offers 3 plans tailored to different needs:\n\n• 🟠 PARWA Mini — $999/mo (SMBs, "The Trainee")\n• 🟠 PARWA — $2,499/mo (growth teams, "The Junior Agent")\n• 🟠 PARWA High — $3,999/mo (enterprise, "The Senior Agent")\n\nEach scales with your business. Which sounds like the right fit?`,
-      `✨ PARWA comes in 3 tiers — Mini, Parwa & High.\n\n🤖 Different agent capabilities per tier\n📈 Scales ticket volumes & channel support\n💰 All use cutting-edge AI with zero markup\n\nWant me to recommend one based on your business?`,
+      `🤖 PARWA offers 2 plans tailored to different needs:\n\n• 🟠 PARWA — $2,999/mo — 2,999 tickets, 5 AI agents, 80% auto-resolution (growth teams, "The Junior Agent")\n• 🟠 PARWA High — $3,999/mo — 3,999 tickets, 8 AI agents, 92% auto-resolution (enterprise, "The Senior Agent")\n\nBoth have the same AI — only ticket volume differs. Which sounds like the right fit?`,
+      `✨ PARWA comes in 2 tiers — PARWA & PARWA High.\n\n🤖 Same AI capabilities, different ticket volumes\n📈 $1 = 1 ticket — what you pay is what you get\n💰 Cutting-edge AI with zero markup\n\nWant me to recommend one based on your business?`,
     ],
   };
 
@@ -1083,7 +1082,7 @@ function getKeywordResponse(message: string, session: any): string {
     return pick('demo') || responses.demo[0];
   }
 
-  // Model/variant questions — redirect to 3 plans, never reveal internals
+  // Model/variant questions — redirect to 2 plans, never reveal internals
   if (lower.includes('model') || lower.includes('variant') || lower.includes('how many') || (lower.includes('which') && (lower.includes('plan') || lower.includes('option')))) {
     return pick('models_variants') || responses.models_variants[0];
   }

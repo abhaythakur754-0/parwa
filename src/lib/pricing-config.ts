@@ -14,7 +14,7 @@
  * ╚══════════════════════════════════════════════════════════════════╝
  *
  * Pricing model: $1 = 1 ticket. What you pay is how many tickets you get.
- *   Parwa:  $2,499/mo = 2,499 tickets/mo  | $29,988/yr
+ *   Parwa:  $2,999/mo = 2,999 tickets/mo  | $35,988/yr
  *   High:   $3,999/mo = 3,999 tickets/mo  | $47,988/yr
  *
  * All variants have the SAME AI capabilities. The only difference

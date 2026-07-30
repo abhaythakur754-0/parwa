@@ -17,7 +17,7 @@ interface MatrixRow {
 const MATRIX_ROWS: MatrixRow[] = [
   {
     feature: 'Monthly Cost',
-    parwaValue: '$2,499',
+    parwaValue: '$2,999',
     highValue: '$3,999',
     parwaGood: true,
     highGood: false,
@@ -39,7 +39,7 @@ const MATRIX_ROWS: MatrixRow[] = [
   },
   {
     feature: 'Ticket Capacity',
-    parwaValue: '2,499 tickets/mo',
+    parwaValue: '2,999 tickets/mo',
     highValue: '3,999 tickets/mo',
     highGood: true,
     icon: Zap,
@@ -96,7 +96,7 @@ export function AntiArbitrageMatrix() {
                   <X className="w-3.5 h-3.5" />
                   PARWA
                 </div>
-                <span className="block text-xs font-normal text-amber-200/30 mt-0.5 normal-case">$2,499/mo</span>
+                <span className="block text-xs font-normal text-amber-200/30 mt-0.5 normal-case">$2,999/mo</span>
               </th>
               <th className="text-left py-3 px-4 text-xs font-semibold text-purple-400/60 uppercase tracking-wider">
                 <div className="flex items-center gap-1.5">
