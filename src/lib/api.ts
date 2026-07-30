@@ -421,7 +421,7 @@ export const knowledgeApi = {
   upload: async (file: File, onProgress?: (progress: number) => void) => {
     const formData = new FormData();
     formData.append('file', file);
-    
+
     const response = await apiClient.post('/api/kb/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -433,7 +433,20 @@ export const knowledgeApi = {
         }
       },
     });
-    
+
+    return response.data;
+  },
+
+  /**
+   * Create a KB article from plain text (no file needed).
+   * Faster alternative to upload() for FAQs, policies, and quick notes.
+   */
+  createText: async (title: string, content: string, category?: string) => {
+    const response = await apiClient.post('/api/kb/create-text', {
+      title,
+      content,
+      category: category || 'general',
+    });
     return response.data;
   },
   

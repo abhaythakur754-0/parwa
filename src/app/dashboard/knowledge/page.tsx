@@ -4,9 +4,19 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { knowledgeApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +35,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { toast } from 'sonner';
 import {
   Upload,
   FileText,
@@ -42,6 +53,9 @@ import {
   FileUp,
   X,
   CloudUpload,
+  PenLine,
+  Sparkles,
+  FilePlus2,
 } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────────────
@@ -226,7 +240,7 @@ function PageSkeleton() {
 
 // ── Empty State ──────────────────────────────────────────────────────────
 
-function EmptyState({ onUploadClick }: { onUploadClick: () => void }) {
+function EmptyState({ onUploadClick, onCreateClick }: { onUploadClick: () => void; onCreateClick: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 bg-[#1A1A1A] rounded-xl border border-white/[0.06]">
       <div className="w-20 h-20 rounded-2xl bg-orange-500/10 flex items-center justify-center mb-5">
@@ -239,14 +253,235 @@ function EmptyState({ onUploadClick }: { onUploadClick: () => void }) {
         Add PDFs, documents, or data files to build your knowledge base. Your AI
         assistant will use these to provide accurate responses.
       </p>
-      <Button
-        onClick={onUploadClick}
-        className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
-      >
-        <Upload className="w-4 h-4" />
-        Upload Document
-      </Button>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Button
+          onClick={onUploadClick}
+          className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
+        >
+          <Upload className="w-4 h-4" />
+          Upload Document
+        </Button>
+        <Button
+          onClick={onCreateClick}
+          variant="outline"
+          className="border-white/10 bg-white/[0.02] hover:bg-white/[0.06] text-zinc-200 gap-2"
+        >
+          <PenLine className="w-4 h-4" />
+          Write an Article
+        </Button>
+      </div>
     </div>
+  );
+}
+
+// ── Create Article Dialog ───────────────────────────────────────────────
+
+const ARTICLE_CATEGORIES = [
+  { value: 'general', label: 'General' },
+  { value: 'faq', label: 'FAQ' },
+  { value: 'policy', label: 'Policy' },
+  { value: 'shipping', label: 'Shipping' },
+  { value: 'returns', label: 'Returns & Refunds' },
+  { value: 'billing', label: 'Billing' },
+  { value: 'technical', label: 'Technical Support' },
+  { value: 'product', label: 'Product Info' },
+];
+
+const TEMPLATE_CONTENT: Record<string, { title: string; content: string }> = {
+  '': { title: '', content: '' },
+  faq: {
+    title: 'Frequently Asked Questions',
+    content: 'Q: What are your business hours?\nA: We are available 24/7 via our AI support. Human agents are available Monday-Friday, 9 AM to 6 PM EST.\n\nQ: How do I track my order?\nA: Once your order ships, you will receive a tracking number via email. Click the tracking link to see real-time updates.\n\nQ: What is your return policy?\nA: Items can be returned within 30 days of delivery in original condition for a full refund.',
+  },
+  policy: {
+    title: 'Company Policy',
+    content: 'ORDER PROCESSING:\nAll orders are processed within 1-2 business days.\n\nPAYMENT:\nWe accept all major credit cards, PayPal, and Apple Pay.\n\nPRIVACY:\nWe never share customer data with third parties. All information is encrypted and stored securely.\n\nCONTACT:\nFor policy questions, email support@company.com.',
+  },
+  shipping: {
+    title: 'Shipping Information',
+    content: 'SHIPPING TIMEFRAMES:\n- Standard Shipping: 5-7 business days\n- Express Shipping: 2-3 business days\n- Same-Day Delivery: Available in select cities (order before 12 PM)\n\nLOST PACKAGES:\nIf your package has not arrived within 7 days of the expected delivery date and tracking shows no updates, contact us for a replacement or full refund.\n\nINTERNATIONAL SHIPPING:\nAvailable to 40+ countries. Customs fees may apply.',
+  },
+  returns: {
+    title: 'Returns & Refund Policy',
+    content: 'RETURN WINDOW:\nItems can be returned within 30 days of delivery.\n\nCONDITION:\nItems must be in original condition with tags attached.\n\nREFUND PROCESS:\nRefunds are processed within 3-5 business days of receiving the returned item. The refund will be issued to the original payment method.\n\nEXCHANGES:\nFree exchanges for size/color changes within 30 days.',
+  },
+};
+
+function CreateArticleDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+}) {
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [category, setCategory] = useState('general');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleCategoryChange = (newCat: string) => {
+    setCategory(newCat);
+    // Auto-fill template if content is empty or matches a template
+    const template = TEMPLATE_CONTENT[newCat === 'general' ? '' : newCat];
+    if (template && (content.trim() === '' || Object.values(TEMPLATE_CONTENT).some(t => t.content === content))) {
+      setTitle(template.title || title);
+      setContent(template.content);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!title.trim()) {
+      toast.error('Please enter a title for your article.');
+      return;
+    }
+    if (content.trim().length < 10) {
+      toast.error('Content must be at least 10 characters.');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const result = await knowledgeApi.createText(title, content, category);
+      toast.success(`Article "${title.trim()}" created successfully!`);
+      setTitle('');
+      setContent('');
+      setCategory('general');
+      onOpenChange(false);
+      onSuccess();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to create article';
+      // Extract detail from axios error
+      const detail = (err as { response?: { data?: { message?: string; detail?: string } } })?.response?.data?.message
+        || (err as { response?: { data?: { message?: string; detail?: string } } })?.response?.data?.detail
+        || msg;
+      toast.error(typeof detail === 'string' ? detail : 'Failed to create article. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
+  const charCount = content.length;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl bg-[#1A1A1A] border-white/10 text-white p-0 gap-0 max-h-[90vh] flex flex-col">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-white/[0.06]">
+          <DialogTitle className="flex items-center gap-2 text-lg">
+            <div className="w-8 h-8 rounded-lg bg-orange-500/15 flex items-center justify-center">
+              <PenLine className="w-4 h-4 text-orange-400" />
+            </div>
+            Create Knowledge Article
+          </DialogTitle>
+          <DialogDescription className="text-zinc-500 text-sm">
+            Write an article directly — no file needed. Your AI will use this to answer customer questions.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
+          {/* Title */}
+          <div className="space-y-1.5">
+            <Label htmlFor="article-title" className="text-xs font-medium text-zinc-400 uppercase tracking-wide">
+              Title <span className="text-orange-400">*</span>
+            </Label>
+            <Input
+              id="article-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Order Tracking & Shipping Policy"
+              className="bg-white/[0.03] border-white/10 text-white placeholder:text-zinc-600 focus:border-orange-500/50 focus:ring-orange-500/20"
+              maxLength={200}
+            />
+          </div>
+
+          {/* Category */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-zinc-400 uppercase tracking-wide">
+              Category
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {ARTICLE_CATEGORIES.map((cat) => (
+                <button
+                  key={cat.value}
+                  type="button"
+                  onClick={() => handleCategoryChange(cat.value)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                    category === cat.value
+                      ? 'bg-orange-500/20 border-orange-500/40 text-orange-300'
+                      : 'bg-white/[0.02] border-white/8 text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-200'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="article-content" className="text-xs font-medium text-zinc-400 uppercase tracking-wide">
+                Content <span className="text-orange-400">*</span>
+              </Label>
+              <div className="flex items-center gap-2 text-[10px] text-zinc-600">
+                {category !== 'general' && (
+                  <span className="inline-flex items-center gap-1 text-violet-400">
+                    <Sparkles className="w-3 h-3" />
+                    Template loaded
+                  </span>
+                )}
+                <span>{wordCount} words · {charCount} chars</span>
+              </div>
+            </div>
+            <Textarea
+              id="article-content"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="Write your article content here...&#10;&#10;Example:&#10;ORDER TRACKING:&#10;All orders ship within 1-2 business days. You'll receive a tracking number via email.&#10;&#10;REFUND POLICY:&#10;Full refunds within 30 days of delivery."
+              className="bg-white/[0.03] border-white/10 text-white placeholder:text-zinc-600 focus:border-orange-500/50 focus:ring-orange-500/20 min-h-[260px] font-mono text-[13px] leading-relaxed resize-y"
+              maxLength={50000}
+            />
+            <p className="text-[10px] text-zinc-600">
+              Tip: Use clear headings (ALL CAPS) and short paragraphs. The AI reads this to answer customer tickets.
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter className="px-6 py-4 border-t border-white/[0.06] flex items-center justify-between gap-3">
+          <div className="text-[10px] text-zinc-600">
+            {isSaving ? 'Saving to knowledge base...' : 'Article is processed instantly and available to the AI pipeline.'}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+              disabled={isSaving}
+              className="text-zinc-400 hover:text-white hover:bg-white/5"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={isSaving || !title.trim() || content.trim().length < 10}
+              className="bg-orange-500 hover:bg-orange-600 text-white gap-2 min-w-[120px]"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <FilePlus2 className="w-4 h-4" />
+                  Create Article
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -264,48 +499,42 @@ export default function KnowledgePage() {
     null
   );
   const [isDeleting, setIsDeleting] = useState(false);
+  const [createArticleOpen, setCreateArticleOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Load documents ────────────────────────────────────────────────────
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadDocuments() {
-      try {
-        const data = await knowledgeApi.list();
-        if (!cancelled && Array.isArray(data) && data.length > 0) {
-          // Map API data to our format
-          setDocuments(
-            data.map(
-              (doc: Record<string, unknown>) =>
-                ({
-                  id: doc.id as string,
-                  name: (doc.filename as string) || (doc.name as string) || 'Unknown',
-                  type: getFileExtension(
-                    (doc.filename as string) || (doc.name as string) || ''
-                  ).replace('.', ''),
-                  size: (doc.file_size as number) || 0,
-                  status: mapApiStatus(doc.status as string),
-                  uploadedAt: (doc.created_at as string) || new Date().toISOString(),
-                  chunks: (doc.chunk_count as number) || undefined,
-                }) as KnowledgeDocument
-            )
-          );
-        }
-      } catch {
-        // API not available
-      } finally {
-        if (!cancelled) setIsLoading(false);
+  const reloadDocuments = useCallback(async () => {
+    try {
+      const data = await knowledgeApi.list();
+      if (Array.isArray(data) && data.length > 0) {
+        setDocuments(
+          data.map(
+            (doc: Record<string, unknown>) =>
+              ({
+                id: doc.id as string,
+                name: (doc.filename as string) || (doc.name as string) || 'Unknown',
+                type: getFileExtension(
+                  (doc.filename as string) || (doc.name as string) || ''
+                ).replace('.', ''),
+                size: (doc.file_size as number) || 0,
+                status: mapApiStatus(doc.status as string),
+                uploadedAt: (doc.created_at as string) || new Date().toISOString(),
+                chunks: (doc.chunk_count as number) || undefined,
+              }) as KnowledgeDocument
+          )
+        );
       }
+    } catch {
+      // API not available
+    } finally {
+      setIsLoading(false);
     }
-
-    // Simulate a brief loading state for the skeleton
-    const timer = setTimeout(loadDocuments, 600);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => { reloadDocuments(); }, 600);
+    return () => clearTimeout(timer);
+  }, [reloadDocuments]);
 
   function mapApiStatus(status: string): DocStatus {
     switch (status) {
@@ -511,7 +740,18 @@ export default function KnowledgePage() {
 
       {/* Upload Section */}
       <div className="bg-[#1A1A1A] rounded-xl border border-white/[0.06] p-6">
-        <h2 className="text-sm font-medium text-white mb-4">Upload Documents</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-medium text-white">Upload Documents</h2>
+          <Button
+            onClick={() => setCreateArticleOpen(true)}
+            variant="outline"
+            size="sm"
+            className="border-white/10 bg-white/[0.02] hover:bg-white/[0.06] text-zinc-200 gap-1.5 h-8 text-xs"
+          >
+            <PenLine className="w-3.5 h-3.5" />
+            Write Article
+          </Button>
+        </div>
 
         {/* Drag & Drop Zone */}
         <div
@@ -619,6 +859,7 @@ export default function KnowledgePage() {
       {documents.length === 0 ? (
         <EmptyState
           onUploadClick={() => fileInputRef.current?.click()}
+          onCreateClick={() => setCreateArticleOpen(true)}
         />
       ) : (
         <div className="bg-[#1A1A1A] rounded-xl border border-white/[0.06] overflow-hidden">
@@ -877,6 +1118,13 @@ export default function KnowledgePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Create Article Dialog */}
+      <CreateArticleDialog
+        open={createArticleOpen}
+        onOpenChange={setCreateArticleOpen}
+        onSuccess={reloadDocuments}
+      />
     </div>
   );
 }
