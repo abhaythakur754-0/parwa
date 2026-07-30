@@ -186,6 +186,24 @@ async def api_upload_document(
         logger.warning("kb_file_storage_skipped", document_id=str(document.id), error=str(e)[:200])
         # Don't return error — process content directly below
 
+    # ── Fallback: store content inline when external storage fails ──
+    # On Render free tier (no S3), FileStorageService fails. To prevent
+    # the document from being stuck "processing" forever (Celery worker
+    # can't download content), store the raw text directly in file_path.
+    # The knowledge_tasks.py download logic checks for this prefix and
+    # returns the inline content instead of calling storage.
+    if not storage_ok:
+        try:
+            inline_text = content.decode('utf-8') if isinstance(content, bytes) else str(content)
+            # Truncate to 500KB to avoid bloating the DB
+            if len(inline_text) > 500_000:
+                inline_text = inline_text[:500_000]
+            document.file_path = "inline:" + inline_text
+            db.flush()
+            logger.info("kb_content_stored_inline", document_id=str(document.id), size=len(inline_text))
+        except Exception as inline_err:
+            logger.warning("kb_inline_store_failed", document_id=str(document.id), error=str(inline_err)[:200])
+
     # Trigger async processing via Celery — if Celery is down (common on
     # Render free tier), fall back to SYNC processing so the doc still gets
     # chunked + embedded. Without this fallback, uploaded docs stay "pending"

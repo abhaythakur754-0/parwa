@@ -631,6 +631,69 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(_stuck_ticket_recovery_loop())
     logger.info("stuck_ticket_recovery_loop_started (checks every 3 min, cutoff 15 min)")
 
+    # ── Stuck KB document recovery loop ────────────────────────────
+    # On Render free tier, the Celery worker may be sleeping or crashed.
+    # When a user uploads a KB document, Celery's .delay() returns success
+    # even if no worker is listening, so the document stays "processing"
+    # forever. This loop checks every 2 minutes for KB documents stuck in
+    # "pending" or "processing" for more than 2 minutes and re-processes
+    # them synchronously (chunk + embed inline).
+    async def _stuck_kb_recovery_loop():
+        await asyncio.sleep(120)  # Wait 2 min after startup
+        while True:
+            try:
+                import concurrent.futures
+
+                def _recover_stuck_docs():
+                    from database.base import SessionLocal
+                    from database.models.onboarding import KnowledgeDocument
+                    from datetime import datetime, timezone, timedelta
+
+                    db = SessionLocal()
+                    try:
+                        cutoff = datetime.now(timezone.utc) - timedelta(minutes=2)
+                        stuck = db.query(KnowledgeDocument).filter(
+                            KnowledgeDocument.status.in_(["pending", "processing"]),
+                        ).all()
+                        recovered = 0
+                        for doc in stuck:
+                            updated = doc.updated_at or doc.created_at
+                            if updated.tzinfo is None:
+                                updated = updated.replace(tzinfo=timezone.utc)
+                            if updated < cutoff:
+                                logger.info(
+                                    "stuck_kb_recovery: reprocessing doc %s (status=%s, age=%ss)",
+                                    doc.id, doc.status, int((datetime.now(timezone.utc) - updated).total_seconds()),
+                                )
+                                try:
+                                    from app.tasks.knowledge_tasks import process_knowledge_document
+                                    # .apply() runs synchronously in THIS thread (blocking).
+                                    # We're in a worker thread so this won't block the event loop.
+                                    process_knowledge_document.apply(args=[str(doc.id), str(doc.company_id)])
+                                    recovered += 1
+                                except Exception as inner:
+                                    logger.warning(
+                                        "stuck_kb_recovery: failed for doc %s: %s",
+                                        doc.id, str(inner)[:200],
+                                    )
+                        if recovered > 0:
+                            logger.info("stuck_kb_recovery: reprocessed %d documents", recovered)
+                    finally:
+                        db.close()
+
+                # Run the blocking recovery in a thread pool so we don't
+                # block the async event loop (embedding calls take 5-20s).
+                loop = asyncio.get_event_loop()
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    await loop.run_in_executor(pool, _recover_stuck_docs)
+            except Exception as exc:
+                logger.warning("stuck_kb_recovery_loop_error: %s", str(exc)[:200])
+
+            await asyncio.sleep(120)  # Check every 2 min
+
+    asyncio.create_task(_stuck_kb_recovery_loop())
+    logger.info("stuck_kb_recovery_loop_started (checks every 2 min, cutoff 2 min)")
+
     # ── FlexPay daily installment scheduler ─────────────────────────
     # Runs every hour to find due installments and charge the customer's
     # stored card token via Razorpay. This is how days 2-30 of the

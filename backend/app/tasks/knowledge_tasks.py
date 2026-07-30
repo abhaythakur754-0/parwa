@@ -102,33 +102,48 @@ def process_knowledge_document(
             doc.updated_at = datetime.now(timezone.utc)
             db.commit()
 
-            # Fetch document content from storage
+            # Fetch document content — check for inline storage first, then
+            # fall back to external FileStorageService.
             content = ""
-            try:
-                from app.services.file_storage_service import FileStorageService
-                storage_svc = FileStorageService()
-                file_id = getattr(doc, 'storage_file_id', None) or getattr(doc, 'file_path', None)
-                if file_id:
-                    storage_result = storage_svc.download_file(
-                        company_id=company_id,
-                        file_id=file_id,
-                    )
-                    content = storage_result.get("content", b"")
-                    if isinstance(content, bytes):
-                        # Decode bytes to text
-                        for encoding in ['utf-8', 'latin-1', 'ascii']:
-                            try:
-                                content = content.decode(encoding)
-                                break
-                            except (UnicodeDecodeError, AttributeError):
-                                continue
-            except Exception as e:
-                logger.warning(
-                    "kb_content_download_failed",
+            file_path_val = getattr(doc, 'file_path', None) or ""
+
+            # ── Inline content (Render free tier fallback) ─────────────
+            # When external storage fails, the upload API stores the raw text
+            # directly in file_path with an "inline:" prefix. This lets the
+            # Celery worker recover the content without calling storage.
+            if file_path_val.startswith("inline:"):
+                content = file_path_val[len("inline:"):]
+                logger.info(
+                    "kb_content_loaded_inline",
                     document_id=document_id,
-                    company_id=company_id,
-                    error=str(e),
+                    size=len(content),
                 )
+            else:
+                try:
+                    from app.services.file_storage_service import FileStorageService
+                    storage_svc = FileStorageService()
+                    file_id = getattr(doc, 'storage_file_id', None) or file_path_val
+                    if file_id:
+                        storage_result = storage_svc.download_file(
+                            company_id=company_id,
+                            file_id=file_id,
+                        )
+                        content = storage_result.get("content", b"")
+                        if isinstance(content, bytes):
+                            # Decode bytes to text
+                            for encoding in ['utf-8', 'latin-1', 'ascii']:
+                                try:
+                                    content = content.decode(encoding)
+                                    break
+                                except (UnicodeDecodeError, AttributeError):
+                                    continue
+                except Exception as e:
+                    logger.warning(
+                        "kb_content_download_failed",
+                        document_id=document_id,
+                        company_id=company_id,
+                        error=str(e),
+                    )
 
             # Extract text chunks from document content
             chunks = _extract_chunks(content or "", doc.filename)
