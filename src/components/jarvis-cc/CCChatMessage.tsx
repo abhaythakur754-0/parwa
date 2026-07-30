@@ -10,6 +10,18 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import type { JarvisCCMessage, CCMessageType, PipelineMetadata } from '@/types/jarvis-cc';
 
+/**
+ * Map backend variant tier identifiers to user-facing display labels.
+ * Legacy "mini_parwa" / "mini" values auto-upgrade to "PARWA" display
+ * (Mini PARWA was removed on 2026-07-26 — only 2 tiers remain).
+ */
+function formatTierLabel(tier: string): string {
+  const t = (tier || '').toLowerCase().trim();
+  if (t === 'parwa_high' || t === 'high' || t === 'high-parwa') return 'PARWA High';
+  if (t === 'parwa' || t === 'mini_parwa' || t === 'mini' || t === 'starter' || t === 'growth') return 'PARWA';
+  return tier.replace('_', ' ');
+}
+
 export interface CCChatMessageProps {
   message: JarvisCCMessage;
   onUndoCommand?: (commandId: string) => void;
@@ -88,20 +100,57 @@ function MessageTypeBadge({ type }: { type: CCMessageType }) {
 }
 
 function PipelineInfo({ metadata }: { metadata: PipelineMetadata }) {
+  const qualityPct = metadata.quality_score !== undefined && metadata.quality_score !== null
+    ? Math.round(metadata.quality_score * 100)
+    : null;
+  const qualityColor = qualityPct !== null
+    ? (qualityPct >= 80 ? 'text-emerald-400' : qualityPct >= 60 ? 'text-amber-400' : 'text-rose-400')
+    : '';
+  const qualityBarColor = qualityPct !== null
+    ? (qualityPct >= 80 ? 'bg-emerald-500' : qualityPct >= 60 ? 'bg-amber-500' : 'bg-rose-500')
+    : '';
+
   return (
-    <div className="mt-2 pt-2 border-t border-white/[0.04] grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
-      {metadata.technique_used && (
-        <div><span className="text-zinc-600">Technique:</span> <span className="text-zinc-400">{metadata.technique_used}</span></div>
-      )}
-      {metadata.quality_score !== undefined && metadata.quality_score !== null && (
-        <div><span className="text-zinc-600">Quality:</span> <span className={metadata.quality_score >= 0.7 ? 'text-emerald-400' : 'text-amber-400'}>{Math.round(metadata.quality_score * 100)}%</span></div>
-      )}
-      {metadata.latency_ms !== undefined && metadata.latency_ms !== null && (
-        <div><span className="text-zinc-600">Latency:</span> <span className="text-zinc-400">{metadata.latency_ms}ms</span></div>
-      )}
-      {metadata.variant_tier && (
-        <div><span className="text-zinc-600">Tier:</span> <span className="text-zinc-400 capitalize">{metadata.variant_tier.replace('_', ' ')}</span></div>
-      )}
+    <div className="mt-2.5 pt-2.5 border-t border-white/[0.06]">
+      <div className="flex items-center gap-1.5 mb-2">
+        <svg className="w-3 h-3 text-violet-400/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.659 1.591L5 14.5M9.75 3.104c.251.023.501.05.75.082m.75-.082a24.301 24.301 0 0 1 4.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0 1 12 15a9.065 9.065 0 0 0-6.23-.693L5 14.5m14.8.8 1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0 1 12 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
+        </svg>
+        <span className="text-[9px] font-semibold uppercase tracking-wider text-zinc-500">Pipeline Metrics</span>
+      </div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px]">
+        {metadata.technique_used && (
+          <div className="flex items-center gap-1">
+            <span className="text-zinc-600">Technique:</span>
+            <span className="text-zinc-300 font-medium">{metadata.technique_used}</span>
+          </div>
+        )}
+        {qualityPct !== null && (
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1">
+              <span className="text-zinc-600">Quality:</span>
+              <span className={cn('font-semibold', qualityColor)}>{qualityPct}%</span>
+            </div>
+            <div className="h-1 rounded-full bg-white/[0.06] overflow-hidden">
+              <div className={cn('h-full rounded-full transition-all', qualityBarColor)} style={{ width: `${qualityPct}%` }} />
+            </div>
+          </div>
+        )}
+        {metadata.latency_ms !== undefined && metadata.latency_ms !== null && (
+          <div className="flex items-center gap-1">
+            <span className="text-zinc-600">Latency:</span>
+            <span className="text-zinc-300 font-medium">{metadata.latency_ms}ms</span>
+          </div>
+        )}
+        {metadata.variant_tier && (
+          <div className="flex items-center gap-1">
+            <span className="text-zinc-600">Tier:</span>
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-violet-500/10 border border-violet-500/20 text-violet-300 font-semibold text-[9px]">
+              {formatTierLabel(metadata.variant_tier)}
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

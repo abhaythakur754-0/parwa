@@ -487,8 +487,8 @@ class VariantTransitionHandler:
             fallback = InFlightTicket(
                 ticket_id=ticket_id,
                 company_id=company_id,
-                current_variant=variant_type or "mini_parwa",
-                effective_variant=variant_type or "mini_parwa",
+                current_variant=variant_type or "parwa",
+                effective_variant=variant_type or "parwa",
                 turn_count=0,
                 created_at=now,
                 last_turn_at=now,
@@ -777,18 +777,18 @@ class VariantTransitionHandler:
                 if ticket is None:
                     logger.warning(
                         "on_turn_start: ticket_id=%s not found "
-                        "for company_id=%s — returning mini_parwa fallback",
+                        "for company_id=%s — returning parwa fallback",
                         ticket_id, company_id,
                     )
-                    return "mini_parwa"
+                    return "parwa"
 
                 if ticket.company_id != company_id:
                     logger.warning(
                         "on_turn_start: ticket_id=%s belongs to %s, "
-                        "not %s — returning mini_parwa fallback",
+                        "not %s — returning parwa fallback",
                         ticket_id, ticket.company_id, company_id,
                     )
-                    return "mini_parwa"
+                    return "parwa"
 
                 # Increment turn count
                 ticket.turn_count += 1
