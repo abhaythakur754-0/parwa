@@ -76,7 +76,7 @@ def _create_redis_client() -> Any:
         logger.debug("REDIS_URL not set — using in-memory health tracker")
         return None
     try:
-        # For rediss:// URLs, pass ssl_cert_reqs as a kwarg (not in URL)
+        # For rediss:// URLs, pass a custom SSL context (redis-py 5.2.1 bug workaround)
         redis_url = url
         conn_kwargs = dict(
             decode_responses=True,
@@ -87,8 +87,11 @@ def _create_redis_client() -> Any:
         )
         if redis_url.startswith("rediss://"):
             import ssl
-            conn_kwargs["ssl_cert_reqs"] = ssl.CERT_NONE
-            # Strip query params (ssl_cert_reqs in URL causes errors)
+            ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            ssl_ctx.check_hostname = False
+            ssl_ctx.verify_mode = ssl.CERT_NONE
+            conn_kwargs["ssl_context"] = ssl_ctx
+            # Strip query params from URL
             if "?" in redis_url or "&" in redis_url:
                 from urllib.parse import urlparse, urlunparse
                 parsed = urlparse(redis_url)

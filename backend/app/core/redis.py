@@ -317,20 +317,22 @@ async def get_redis() -> aioredis.Redis:
                         retry_on_timeout=True,
                         health_check_interval=30,
                     )
-                    # IMPORTANT: For rediss:// URLs, pass ssl_cert_reqs as a kwarg
-                    # (not in the URL query string). redis-py 5.x doesn't parse
-                    # ssl_cert_reqs from the URL — it needs the actual ssl constant.
-                    # CERT_NONE skips certificate verification (safe for Upstash/Render).
+                    # IMPORTANT: For rediss:// URLs, create a custom SSL context
+                    # that skips certificate verification. redis-py 5.2.1 has a
+                    # bug where ssl_cert_reqs kwarg causes
+                    # "'RedisSSLContext' object has no attribute 'cert_reqs'".
+                    # The workaround is to pass a pre-built ssl.SSLContext.
                     redis_url = settings.REDIS_URL
                     if redis_url.startswith("rediss://"):
                         import ssl
-                        conn_kwargs["ssl_cert_reqs"] = ssl.CERT_NONE
-                        # Strip any query params we added to the URL (they cause errors)
+                        ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                        ssl_ctx.check_hostname = False
+                        ssl_ctx.verify_mode = ssl.CERT_NONE
+                        conn_kwargs["ssl_context"] = ssl_ctx
+                        # Strip query params from URL (they cause parse errors)
                         if "?" in redis_url or "&" in redis_url:
-                            # Remove ssl_cert_reqs from URL if present (handled by kwarg above)
                             from urllib.parse import urlparse, urlunparse
                             parsed = urlparse(redis_url)
-                            # Rebuild URL without query string
                             redis_url = urlunparse((
                                 parsed.scheme, parsed.netloc, parsed.path,
                                 parsed.params, "", parsed.fragment
