@@ -500,6 +500,7 @@ export default function KnowledgePage() {
   );
   const [isDeleting, setIsDeleting] = useState(false);
   const [createArticleOpen, setCreateArticleOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Load documents ────────────────────────────────────────────────────
@@ -535,6 +536,22 @@ export default function KnowledgePage() {
     const timer = setTimeout(() => { reloadDocuments(); }, 600);
     return () => clearTimeout(timer);
   }, [reloadDocuments]);
+
+  // ── Manual refresh (shows spinner + toast) ───────────────────────────
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await reloadDocuments();
+    setIsRefreshing(false);
+    toast.success('Knowledge base refreshed');
+  }, [reloadDocuments]);
+
+  // ── Auto-poll while any document is still processing ─────────────────
+  const hasProcessing = documents.some((d) => d.status === 'processing' || d.status === 'indexing');
+  useEffect(() => {
+    if (!hasProcessing) return;
+    const interval = setInterval(() => { reloadDocuments(); }, 10000); // poll every 10s
+    return () => clearInterval(interval);
+  }, [hasProcessing, reloadDocuments]);
 
   function mapApiStatus(status: string): DocStatus {
     switch (status) {
@@ -703,12 +720,49 @@ export default function KnowledgePage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="pb-6 border-b border-white/[0.06]">
-        <h1 className="text-xl font-bold text-white">Knowledge Base</h1>
-        <p className="text-sm text-zinc-500 mt-0.5">
-          Manage your knowledge sources and AI training data
-        </p>
+      <div className="pb-6 border-b border-white/[0.06] flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-white">Knowledge Base</h1>
+          <p className="text-sm text-zinc-500 mt-0.5">
+            Manage your knowledge sources and AI training data
+          </p>
+        </div>
+        <Button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          variant="outline"
+          size="sm"
+          className="border-white/10 bg-white/[0.02] hover:bg-white/[0.06] text-zinc-200 gap-1.5 h-9 shrink-0"
+        >
+          {isRefreshing ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="w-3.5 h-3.5" />
+          )}
+          <span className="hidden sm:inline">Refresh</span>
+        </Button>
       </div>
+
+      {/* Processing banner — shows when any document is still processing */}
+      {hasProcessing && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/[0.06] border border-amber-500/15">
+          <div className="relative w-5 h-5 shrink-0">
+            <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-200">
+              Processing documents…
+            </p>
+            <p className="text-xs text-amber-200/60 mt-0.5">
+              The AI is reading and indexing your content. This usually takes 1-3 minutes. The page updates automatically.
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] font-medium text-amber-300/80 px-2 py-1 rounded-md bg-amber-500/10">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            LIVE
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
