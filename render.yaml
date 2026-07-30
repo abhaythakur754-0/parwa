@@ -16,6 +16,11 @@ services:
     plan: starter
     region: oregon
     branch: main
+    # Skip Rust compilation for faster deploys (2-3 min instead of 10-15 min)
+    # The pure-Python fallback provides the same functionality.
+    dockerBuildArgs:
+      - key: SKIP_RUST_BUILD
+        value: "true"
     envVars:
       - key: ENVIRONMENT
         value: production
