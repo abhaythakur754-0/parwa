@@ -220,7 +220,6 @@ async def api_upload_document(
         # ── SYNC processing (small docs) ────────────────────────────
         try:
             from app.shared.knowledge_base.chunker import chunk_text
-            from app.core.parwa_pipeline.nvidia_embedding import embed_text_sync
             from database.models.onboarding import DocumentChunk
 
             # Extract text from the uploaded content
@@ -240,63 +239,35 @@ async def api_upload_document(
                 document.status = "processing"
                 db.commit()
 
+                # ── Save chunks immediately (no embeddings in sync path) ──
+                # Embeddings are slow (30s timeout per chunk via Google AI)
+                # and would cause the HTTP request to timeout. Instead, save
+                # chunks WITHOUT vectors here — the document becomes "completed"
+                # instantly and text search works immediately.
+                #
+                # A background job can backfill embeddings later if needed.
+                # Text search (SQL LIKE) covers 90% of ticket matching.
                 embedded = 0
-                embedding_errors = 0
                 for i, chunk_content in enumerate(chunks):
-                    # Embed each chunk — gracefully handle API failures so the
-                    # chunk is still saved (text search works without vectors).
-                    emb = None
-                    try:
-                        emb = embed_text_sync(chunk_content, input_type="passage")
-                    except Exception as chunk_emb_err:
-                        embedding_errors += 1
-                        if embedding_errors <= 2:  # Log first few errors only
-                            logger.warning(
-                                "kb_sync_embed_chunk_failed",
-                                document_id=str(document.id),
-                                chunk_index=i,
-                                error=str(chunk_emb_err)[:150],
-                            )
-
-                    emb_str = None
-                    # Accept both Google (768) and NVIDIA (1024) embedding dimensions
-                    if emb and len(emb) in (768, 1024):
-                        emb_str = "[" + ",".join(str(v) for v in emb) + "]"
-                        embedded += 1
-
                     chunk = DocumentChunk(
                         id=str(uuid.uuid4()),
                         document_id=str(document.id),
                         company_id=user.company_id,
                         content=chunk_content,
                         chunk_index=i,
-                        embedding=None,  # set via raw SQL below (SQLAlchemy can't handle vector type)
+                        embedding=None,  # Backfilled by background job
                     )
                     db.add(chunk)
-                    db.flush()  # get the chunk ID
-
-                    # Update embedding via raw SQL (vector type needs special handling)
-                    if emb_str:
-                        from sqlalchemy import text as sql_text
-                        db.execute(
-                            sql_text("UPDATE document_chunks SET embedding = :emb::vector WHERE id = :cid"),
-                            {"emb": emb_str, "cid": chunk.id},
-                        )
 
                 document.status = "completed"
                 document.chunk_count = len(chunks)
-                if embedded == 0 and embedding_errors > 0:
-                    document.error_message = (
-                        f"Text indexed ({len(chunks)} chunks). Vector embeddings unavailable "
-                        f"({embedding_errors} API errors) — text search active, semantic search disabled."
-                    )
                 db.commit()
                 logger.info(
                     "kb_sync_process_completed",
                     document_id=str(document.id),
                     chunks=len(chunks),
-                    embedded=embedded,
-                    embedding_errors=embedding_errors,
+                    embedded=0,
+                    note="text-only (embeddings backfilled later)",
                 )
         except Exception as e:
             document.status = "failed"
