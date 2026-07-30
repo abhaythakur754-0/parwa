@@ -241,9 +241,23 @@ async def api_upload_document(
                 db.commit()
 
                 embedded = 0
+                embedding_errors = 0
                 for i, chunk_content in enumerate(chunks):
-                    # Embed each chunk with Google AI Studio (primary) or NVIDIA (fallback)
-                    emb = embed_text_sync(chunk_content, input_type="passage")
+                    # Embed each chunk — gracefully handle API failures so the
+                    # chunk is still saved (text search works without vectors).
+                    emb = None
+                    try:
+                        emb = embed_text_sync(chunk_content, input_type="passage")
+                    except Exception as chunk_emb_err:
+                        embedding_errors += 1
+                        if embedding_errors <= 2:  # Log first few errors only
+                            logger.warning(
+                                "kb_sync_embed_chunk_failed",
+                                document_id=str(document.id),
+                                chunk_index=i,
+                                error=str(chunk_emb_err)[:150],
+                            )
+
                     emb_str = None
                     # Accept both Google (768) and NVIDIA (1024) embedding dimensions
                     if emb and len(emb) in (768, 1024):
@@ -271,12 +285,18 @@ async def api_upload_document(
 
                 document.status = "completed"
                 document.chunk_count = len(chunks)
+                if embedded == 0 and embedding_errors > 0:
+                    document.error_message = (
+                        f"Text indexed ({len(chunks)} chunks). Vector embeddings unavailable "
+                        f"({embedding_errors} API errors) — text search active, semantic search disabled."
+                    )
                 db.commit()
                 logger.info(
                     "kb_sync_process_completed",
                     document_id=str(document.id),
                     chunks=len(chunks),
                     embedded=embedded,
+                    embedding_errors=embedding_errors,
                 )
         except Exception as e:
             document.status = "failed"

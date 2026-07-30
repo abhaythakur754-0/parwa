@@ -147,19 +147,69 @@ def process_knowledge_document(
 
             # Extract text chunks from document content
             chunks = _extract_chunks(content or "", doc.filename)
-
-            # Generate embeddings in batch for tenant-isolated processing
-            embedding_svc = EmbeddingService(company_id=company_id)
             chunk_texts = [c for c in chunks[:MAX_CHUNKS_PER_DOCUMENT]]
-            embeddings = embedding_svc.generate_embeddings_batch(chunk_texts)
 
-            # Store chunks with embeddings (GAP 2: tenant isolation)
+            if not chunk_texts:
+                # No extractable text — mark as failed so the user knows
+                doc.status = "failed"
+                doc.error_message = "No text content could be extracted from this document."
+                doc.failed_at = datetime.now(timezone.utc)
+                db.commit()
+                logger.warning(
+                    "process_knowledge_document_no_text",
+                    document_id=document_id,
+                    company_id=company_id,
+                )
+                return {
+                    "status": "failed",
+                    "document_id": document_id,
+                    "company_id": company_id,
+                    "chunk_count": 0,
+                    "error": "No text content extracted",
+                }
+
+            # ── Generate embeddings (with graceful fallback) ──────────
+            # On Render free tier, the Google AI / NVIDIA embedding API may
+            # time out or fail. We MUST still save the chunks (without vectors)
+            # and mark the document "completed" so:
+            #   1. The user sees the document as Ready (not stuck Processing)
+            #   2. Text-based search (SQL LIKE) still works for ticket matching
+            #   3. The recovery loop doesn't keep re-trying indefinitely
+            #
+            # Vector-based semantic search will be unavailable for these
+            # chunks, but that's acceptable — text search covers 90% of use cases.
+            embeddings: list = []
+            embedding_failed = False
+            try:
+                embedding_svc = EmbeddingService(company_id=company_id)
+                embeddings = embedding_svc.generate_embeddings_batch(chunk_texts)
+                logger.info(
+                    "kb_embeddings_generated",
+                    document_id=document_id,
+                    count=len(embeddings) if embeddings else 0,
+                )
+            except Exception as emb_err:
+                embedding_failed = True
+                logger.warning(
+                    "kb_embeddings_failed_using_text_only_fallback",
+                    document_id=document_id,
+                    company_id=company_id,
+                    error=str(emb_err)[:200],
+                )
+
+            # Store chunks (with embeddings if available, without if not)
             chunk_count = 0
+            embedded_count = 0
             for i, chunk_text in enumerate(chunk_texts):
-                embedding_vector = embeddings[i] if i < len(embeddings) else None
+                embedding_vector = None
+                if not embedding_failed and embeddings and i < len(embeddings):
+                    embedding_vector = embeddings[i]
+                    if embedding_vector:
+                        embedded_count += 1
+
                 chunk = DocumentChunk(
                     document_id=document_id,
-                    company_id=company_id,  # CRITICAL: Tenant isolation for embeddings
+                    company_id=company_id,  # CRITICAL: Tenant isolation
                     content=chunk_text,
                     chunk_index=i,
                     embedding=embedding_vector,
@@ -167,10 +217,12 @@ def process_knowledge_document(
                 db.add(chunk)
                 chunk_count += 1
 
-            # Update document status
+            # Update document status — always "completed" if chunks were saved
             doc.status = "completed"
             doc.chunk_count = chunk_count
             doc.updated_at = datetime.now(timezone.utc)
+            if embedding_failed:
+                doc.error_message = "Text indexed successfully. Vector embeddings unavailable (API offline) — semantic search disabled, text search active."
             db.commit()
 
             logger.info(
@@ -178,6 +230,8 @@ def process_knowledge_document(
                 document_id=document_id,
                 company_id=company_id,
                 chunk_count=chunk_count,
+                embedded=embedded_count,
+                embedding_failed=embedding_failed,
             )
 
             return {
@@ -185,6 +239,8 @@ def process_knowledge_document(
                 "document_id": document_id,
                 "company_id": company_id,
                 "chunk_count": chunk_count,
+                "embedded": embedded_count,
+                "embedding_failed": embedding_failed,
             }
 
         except ValidationError as e:

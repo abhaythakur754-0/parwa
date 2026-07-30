@@ -639,7 +639,7 @@ async def lifespan(app: FastAPI):
     # "pending" or "processing" for more than 2 minutes and re-processes
     # them synchronously (chunk + embed inline).
     async def _stuck_kb_recovery_loop():
-        await asyncio.sleep(120)  # Wait 2 min after startup
+        await asyncio.sleep(60)  # Wait 1 min after startup
         while True:
             try:
                 import concurrent.futures
@@ -651,7 +651,7 @@ async def lifespan(app: FastAPI):
 
                     db = SessionLocal()
                     try:
-                        cutoff = datetime.now(timezone.utc) - timedelta(minutes=2)
+                        cutoff = datetime.now(timezone.utc) - timedelta(seconds=60)
                         stuck = db.query(KnowledgeDocument).filter(
                             KnowledgeDocument.status.in_(["pending", "processing"]),
                         ).all()
@@ -689,10 +689,10 @@ async def lifespan(app: FastAPI):
             except Exception as exc:
                 logger.warning("stuck_kb_recovery_loop_error: %s", str(exc)[:200])
 
-            await asyncio.sleep(120)  # Check every 2 min
+            await asyncio.sleep(90)  # Check every 90s
 
     asyncio.create_task(_stuck_kb_recovery_loop())
-    logger.info("stuck_kb_recovery_loop_started (checks every 2 min, cutoff 2 min)")
+    logger.info("stuck_kb_recovery_loop_started (checks every 90s, cutoff 60s)")
 
     # ── FlexPay daily installment scheduler ─────────────────────────
     # Runs every hour to find due installments and charge the customer's
