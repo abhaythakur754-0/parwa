@@ -381,8 +381,8 @@ class Settings(BaseSettings):
     STORAGE_LOCAL_PATH: str = "./storage"
 
     # ── Celery (Week 3: BC-004) ────────────────────────────────
-    CELERY_BROKER_URL: str = "redis://localhost:6379/1"
-    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
+    CELERY_BROKER_URL: str = "redis://localhost:6379/0"  # Render Redis only supports DB 0
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
     CELERY_TASK_ALWAYS_EAGER: bool = False  # testing: sync execution
     CELERY_TASK_EAGER_PROPAGATES: bool = True
     CELERY_WORKER_PREFETCH_MULTIPLIER: int = 1

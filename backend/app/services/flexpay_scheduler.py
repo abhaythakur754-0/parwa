@@ -78,7 +78,7 @@ class FlexPayScheduler:
             "errors": []
         }
     
-    async def get_db_session(self):
+    def get_db_session(self):
         """
         Get a real database session from SQLAlchemy.
         
