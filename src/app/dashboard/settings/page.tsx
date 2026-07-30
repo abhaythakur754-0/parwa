@@ -898,14 +898,26 @@ export default function SettingsPage() {
             <h3 className="text-sm font-semibold text-white mb-6">Profile Information</h3>
 
             <div className="flex flex-col sm:flex-row gap-6">
-              {/* Avatar */}
+              {/* Avatar with glow + plan badge */}
               <div className="flex flex-col items-center gap-3 shrink-0">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center text-2xl font-bold text-[#1A1A1A]">
-                  {getInitials(fullName || user?.full_name)}
+                <div className="relative">
+                  {/* Glow ring */}
+                  <div className="absolute inset-0 blur-xl bg-orange-500/20 rounded-full" />
+                  {/* Avatar */}
+                  <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center text-2xl font-bold text-[#1A1A1A] ring-2 ring-orange-500/30 ring-offset-2 ring-offset-[#1A1A1A]">
+                    {getInitials(fullName || user?.full_name)}
+                  </div>
+                  {/* Online indicator */}
+                  <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-400 border-2 border-[#1A1A1A]" />
                 </div>
-                <span className="text-xs text-zinc-500">
-                  {tier.charAt(0).toUpperCase() + tier.slice(1)} Plan
-                </span>
+                {/* Plan badge */}
+                <div className="flex flex-col items-center gap-1">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-300 text-[10px] font-bold uppercase tracking-wider">
+                    <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                    {(tier || 'parwa').charAt(0).toUpperCase() + (tier || 'parwa').slice(1)} Plan
+                  </span>
+                  <span className="text-[10px] text-zinc-600">Active subscription</span>
+                </div>
               </div>
 
               {/* Form Fields */}
