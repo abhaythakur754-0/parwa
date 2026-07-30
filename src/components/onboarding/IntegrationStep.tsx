@@ -356,21 +356,21 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
                   <div
                     key={integration.key}
                     className={cn(
-                      'rounded-xl border overflow-hidden transition-all',
+                      'rounded-xl border overflow-hidden transition-all duration-200',
                       existing?.status === 'active' && verifyResult?.verified
-                        ? 'border-emerald-500/20 bg-emerald-500/[0.02]'
+                        ? 'border-emerald-500/20 bg-emerald-500/[0.02] hover:border-emerald-500/30'
                         : existing?.status === 'active'
-                        ? 'border-amber-500/20 bg-amber-500/[0.02]'
-                        : 'border-white/[0.06] bg-white/[0.02]'
+                        ? 'border-amber-500/20 bg-amber-500/[0.02] hover:border-amber-500/30'
+                        : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12] hover:bg-white/[0.03]'
                     )}
                   >
                     {/* Header row */}
                     <button
                       onClick={() => setExpandedIntegration(isExpanded ? null : integration.key)}
-                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.02] transition-colors"
+                      className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-white/[0.02] transition-colors group"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <span className="text-xl">{CATEGORY_ICONS[integration.category]}</span>
+                        <span className="text-xl transition-transform group-hover:scale-110">{CATEGORY_ICONS[integration.category]}</span>
                         <div className="min-w-0 text-left">
                           <p className="text-sm font-medium text-white truncate">{integration.name}</p>
                           <p className="text-[10px] text-zinc-600 truncate">{integration.description}</p>
@@ -388,7 +388,7 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
                             <AlertTriangle className="w-3 h-3" /> Not Verified
                           </span>
                         )}
-                        {isExpanded ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
+                        {isExpanded ? <ChevronUp className="w-4 h-4 text-zinc-500 transition-transform" /> : <ChevronDown className="w-4 h-4 text-zinc-500 transition-transform group-hover:text-zinc-400" />}
                       </div>
                     </button>
 
