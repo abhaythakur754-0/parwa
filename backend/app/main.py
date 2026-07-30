@@ -267,6 +267,84 @@ async def lifespan(app: FastAPI):
         _lg = get_logger("lifespan")
         _lg.warning("trial_columns_sql_fallback_failed", error=str(exc))
 
+    # ── Direct SQL fallback for FlexPay tables ──
+    # If alembic failed (connection error in subprocess), create the
+    # flexpay_plans + flexpay_installments tables directly via SQL.
+    # Also adds razorpay_token column (added after initial migration).
+    try:
+        from sqlalchemy import text as _sql_text
+        from database.base import SessionLocal as _SL
+        _db = _SL()
+        try:
+            # Create flexpay_plans table if not exists
+            _db.execute(_sql_text("""
+                CREATE TABLE IF NOT EXISTS flexpay_plans (
+                    id VARCHAR(36) PRIMARY KEY,
+                    company_id VARCHAR(36) NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+                    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    variant_tier VARCHAR(50) NOT NULL,
+                    total_amount NUMERIC(10,2) NOT NULL,
+                    installment_amount NUMERIC(10,2) NOT NULL,
+                    extra_installment_amount NUMERIC(10,2),
+                    total_installments INTEGER NOT NULL,
+                    completed_installments INTEGER DEFAULT 0 NOT NULL,
+                    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                    current_period_start TIMESTAMP,
+                    current_period_end TIMESTAMP,
+                    razorpay_customer_id VARCHAR(255),
+                    razorpay_order_id VARCHAR(255),
+                    razorpay_token VARCHAR(255),
+                    consecutive_failures INTEGER DEFAULT 0 NOT NULL,
+                    last_failure_reason TEXT,
+                    last_failure_at TIMESTAMP,
+                    max_retries INTEGER DEFAULT 3 NOT NULL,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW(),
+                    completed_at TIMESTAMP,
+                    cancelled_at TIMESTAMP,
+                    notes TEXT
+                )
+            """))
+            _db.execute(_sql_text("CREATE INDEX IF NOT EXISTS ix_flexpay_plans_company_id ON flexpay_plans (company_id)"))
+            _db.execute(_sql_text("CREATE INDEX IF NOT EXISTS ix_flexpay_plans_status ON flexpay_plans (status)"))
+
+            # Create flexpay_installments table if not exists
+            _db.execute(_sql_text("""
+                CREATE TABLE IF NOT EXISTS flexpay_installments (
+                    id VARCHAR(36) PRIMARY KEY,
+                    plan_id VARCHAR(36) NOT NULL REFERENCES flexpay_plans(id) ON DELETE CASCADE,
+                    company_id VARCHAR(36) NOT NULL,
+                    installment_number INTEGER NOT NULL,
+                    amount NUMERIC(10,2) NOT NULL,
+                    is_extra BOOLEAN DEFAULT false,
+                    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                    razorpay_payment_id VARCHAR(255),
+                    razorpay_order_id VARCHAR(255),
+                    razorpay_status VARCHAR(50),
+                    scheduled_at TIMESTAMP,
+                    processed_at TIMESTAMP,
+                    failure_reason TEXT,
+                    retry_count INTEGER DEFAULT 0,
+                    retry_after TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            """))
+            _db.execute(_sql_text("CREATE INDEX IF NOT EXISTS ix_flexpay_installments_plan_id ON flexpay_installments (plan_id)"))
+            _db.execute(_sql_text("CREATE INDEX IF NOT EXISTS ix_flexpay_installments_status ON flexpay_installments (status)"))
+
+            # Add razorpay_token column to flexpay_plans if not exists
+            _db.execute(_sql_text("ALTER TABLE flexpay_plans ADD COLUMN IF NOT EXISTS razorpay_token VARCHAR(255)"))
+
+            _db.commit()
+            _lg = get_logger("lifespan")
+            _lg.info("flexpay_tables_ensured_via_sql_fallback")
+        finally:
+            _db.close()
+    except Exception as exc:
+        _lg = get_logger("lifespan")
+        _lg.warning("flexpay_tables_sql_fallback_failed", error=str(exc))
+
     # Hide OpenAPI schema when not in debug mode (BC-011)
     if settings.DEBUG:
         app.docs_url = "/docs"
