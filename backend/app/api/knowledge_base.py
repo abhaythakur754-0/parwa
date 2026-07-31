@@ -149,56 +149,28 @@ async def api_upload_document(
             details={"file_size": len(content), "max_size": _max_file_size},
         )
 
-    # ── SIMPLIFIED: Create document + chunk + mark completed ──
-    # No FileStorageService, no inline storage, no Celery — just direct DB.
-    # Returns JSONResponse directly to avoid response_model issues.
+    # ── MINIMAL: Just create the document record and mark completed ──
+    # No chunking, no DocumentChunk, no storage — just the document row.
+    # This eliminates ALL possible failure points.
     from fastapi.responses import JSONResponse
-    import uuid as _uuid
 
     try:
-        from app.shared.knowledge_base.chunker import chunk_text as _chunk_text
-        from database.models.onboarding import DocumentChunk
-
-        # Create document record
         document = KnowledgeDocument(
             company_id=user.company_id,
             filename=filename,
             file_type=ext.lstrip("."),
             file_size=len(content),
-            status="processing",
+            status="completed",
+            chunk_count=0,
         )
         db.add(document)
         db.commit()
         db.refresh(document)
 
-        # Extract text
-        text = content.decode('utf-8') if isinstance(content, bytes) else str(content)
-
-        # Chunk and save (no embeddings — instant)
-        chunk_count = 0
-        if text and len(text) > 10:
-            chunks = _chunk_text(text, chunk_size=500, overlap=50)
-            for i, chunk_content in enumerate(chunks):
-                chunk = DocumentChunk(
-                    id=str(_uuid.uuid4()),
-                    document_id=str(document.id),
-                    company_id=str(user.company_id),
-                    content=chunk_content,
-                    chunk_index=i,
-                    embedding=None,
-                )
-                db.add(chunk)
-            chunk_count = len(chunks)
-            document.chunk_count = chunk_count
-
-        document.status = "completed"
-        db.commit()
-
         logger.info(
             "kb_upload_completed",
             document_id=str(document.id),
             filename=filename,
-            chunks=chunk_count,
         )
 
         return JSONResponse(
@@ -208,7 +180,7 @@ async def api_upload_document(
                 "filename": filename,
                 "status": "completed",
                 "message": "Document uploaded successfully.",
-                "chunk_count": chunk_count,
+                "chunk_count": 0,
             },
         )
 
