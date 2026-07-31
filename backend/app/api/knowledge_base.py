@@ -112,14 +112,12 @@ class MessageResponse(BaseModel):
 
 @router.post(
     "/upload",
-    response_model=UploadResponse,
-    status_code=201,
 )
 async def api_upload_document(
     file: UploadFile = File(...),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> UploadResponse:
+):
     """Upload a document for knowledge base processing.
 
     F-032: Accepts PDF, DOCX, DOC, TXT, CSV, MD, JSON files.
@@ -151,13 +149,15 @@ async def api_upload_document(
             details={"file_size": len(content), "max_size": _max_file_size},
         )
 
-    # ── SIMPLIFIED: Create document + chunk + mark completed in ONE try/except ──
-    # This replaces all the complex storage/processing code that was failing.
-    # No FileStorageService, no inline storage, no Celery — just direct DB operations.
+    # ── SIMPLIFIED: Create document + chunk + mark completed ──
+    # No FileStorageService, no inline storage, no Celery — just direct DB.
+    # Returns JSONResponse directly to avoid response_model issues.
+    from fastapi.responses import JSONResponse
+    import uuid as _uuid
+
     try:
-        from app.shared.knowledge_base.chunker import chunk_text
+        from app.shared.knowledge_base.chunker import chunk_text as _chunk_text
         from database.models.onboarding import DocumentChunk
-        import uuid
 
         # Create document record
         document = KnowledgeDocument(
@@ -175,11 +175,12 @@ async def api_upload_document(
         text = content.decode('utf-8') if isinstance(content, bytes) else str(content)
 
         # Chunk and save (no embeddings — instant)
+        chunk_count = 0
         if text and len(text) > 10:
-            chunks = chunk_text(text, chunk_size=500, overlap=50)
+            chunks = _chunk_text(text, chunk_size=500, overlap=50)
             for i, chunk_content in enumerate(chunks):
                 chunk = DocumentChunk(
-                    id=str(uuid.uuid4()),
+                    id=str(_uuid.uuid4()),
                     document_id=str(document.id),
                     company_id=str(user.company_id),
                     content=chunk_content,
@@ -187,33 +188,45 @@ async def api_upload_document(
                     embedding=None,
                 )
                 db.add(chunk)
-            document.chunk_count = len(chunks)
+            chunk_count = len(chunks)
+            document.chunk_count = chunk_count
 
         document.status = "completed"
         db.commit()
-        db.refresh(document)
 
         logger.info(
             "kb_upload_completed",
             document_id=str(document.id),
             filename=filename,
-            chunks=document.chunk_count,
+            chunks=chunk_count,
+        )
+
+        return JSONResponse(
+            status_code=201,
+            content={
+                "id": str(document.id),
+                "filename": filename,
+                "status": "completed",
+                "message": "Document uploaded successfully.",
+                "chunk_count": chunk_count,
+            },
         )
 
     except Exception as e:
         db.rollback()
-        logger.error("kb_upload_failed", error=str(e)[:500], exc_info=True)
-        raise ValidationError(
-            message=f"Failed to process document: {str(e)[:200]}",
-            details={"error": str(e)[:500]},
+        import traceback
+        tb = traceback.format_exc()
+        logger.error("kb_upload_failed", error=str(e)[:500], traceback=tb[:1000])
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": {
+                    "code": "KB_UPLOAD_ERROR",
+                    "message": str(e)[:200],
+                    "traceback": tb[:500],
+                }
+            },
         )
-
-    return UploadResponse(
-        id=str(document.id),
-        filename=filename,
-        status=document.status,
-        message="Document uploaded successfully. Processing will begin shortly.",
-    )
 
 
 @router.get(
