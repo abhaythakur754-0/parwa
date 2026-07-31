@@ -167,11 +167,7 @@ async def api_upload_document(
         db.commit()
         db.refresh(document)
 
-        logger.info(
-            "kb_upload_completed",
-            document_id=str(document.id),
-            filename=filename,
-        )
+        logger.info("kb_upload_completed document_id=%s filename=%s", str(document.id), filename)
 
         return JSONResponse(
             status_code=201,
@@ -375,12 +371,7 @@ def api_reindex_document(
         )
     except Exception as exc:
         # M-17 FIX: Do NOT leak internal error details to the client.
-        logger.error(
-            "kb_reindex_failed",
-            document_id=document_id,
-            company_id=user.company_id,
-            error=str(exc),
-        )
+        logger.error("kb_reindex_failed document_id=%s error=%s", document_id, str(exc)[:200])
         raise HTTPException(
             status_code=500,
             detail="Document re-indexing failed. Please try again or contact support.",
