@@ -309,8 +309,8 @@ async def lifespan(app: FastAPI):
             _db.execute(_sql_text("""
                 CREATE TABLE IF NOT EXISTS document_chunks (
                     id VARCHAR(36) PRIMARY KEY,
-                    document_id VARCHAR(36) REFERENCES knowledge_documents(id) ON DELETE CASCADE,
-                    company_id VARCHAR(36) REFERENCES companies(id) ON DELETE CASCADE,
+                    document_id VARCHAR(36),
+                    company_id VARCHAR(36),
                     content TEXT NOT NULL,
                     embedding TEXT,
                     chunk_index INTEGER NOT NULL,
