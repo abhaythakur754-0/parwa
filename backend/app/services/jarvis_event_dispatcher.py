@@ -288,18 +288,8 @@ def _redis_publish(channel: str, message: str) -> bool:
         settings = get_settings()
 
         redis_url = getattr(settings, "CELERY_BROKER_URL", "redis://localhost:6379/0")
-        # For rediss:// URLs, pass custom SSL context (redis-py 5.2.1 bug workaround)
-        conn_kwargs = {}
-        if redis_url.startswith("rediss://"):
-            import ssl as _ssl
-            ssl_ctx = _ssl.SSLContext(_ssl.PROTOCOL_TLS_CLIENT)
-            ssl_ctx.check_hostname = False
-            ssl_ctx.verify_mode = _ssl.CERT_NONE
-            conn_kwargs["ssl_context"] = ssl_ctx
-            from urllib.parse import urlparse, urlunparse
-            parsed = urlparse(redis_url)
-            redis_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, "", parsed.fragment))
-        r = redis.from_url(redis_url, **conn_kwargs)
+        # REDIS_URL is normalized to redis:// (not rediss://) in config.py
+        r = redis.from_url(redis_url)
         r.publish(channel, message)
         return True
     except ImportError:

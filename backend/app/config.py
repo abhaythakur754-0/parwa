@@ -116,12 +116,21 @@ class Settings(BaseSettings):
 
         return v
 
-    # ── Redis SSL handling ──
-    # NOTE: We do NOT append ssl_cert_reqs to the URL here. The redis-py
-    # library doesn't parse ssl_cert_reqs from the URL query string — it
-    # needs it as a Python keyword argument (ssl.CERT_NONE constant).
-    # The SSL handling is done in redis.py, redis_health_tracker.py, etc.
-    # where the connection is created.
+    @field_validator("REDIS_URL", "CELERY_BROKER_URL", "CELERY_RESULT_BACKEND", mode="before")
+    @classmethod
+    def normalize_redis_ssl_url(cls, v: str) -> str:
+        """Convert rediss:// to redis:// for Render internal services.
+
+        Render's internal Redis service communicates over a private network —
+        SSL is NOT needed and causes connection failures due to redis-py 5.2.1
+        SSL bugs. This validator strips SSL by converting rediss:// to redis://.
+        Safe because Render private services don't need encryption.
+        """
+        if not v or not isinstance(v, str):
+            return v
+        if v.startswith("rediss://"):
+            v = "redis://" + v[len("rediss://"):]
+        return v
 
     # ── JWT (BC-011) ─────────────────────────────────────────────
     JWT_SECRET_KEY: Optional[str] = None

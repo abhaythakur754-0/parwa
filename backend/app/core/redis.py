@@ -317,28 +317,10 @@ async def get_redis() -> aioredis.Redis:
                         retry_on_timeout=True,
                         health_check_interval=30,
                     )
-                    # IMPORTANT: For rediss:// URLs, create a custom SSL context
-                    # that skips certificate verification. redis-py 5.2.1 has a
-                    # bug where ssl_cert_reqs kwarg causes
-                    # "'RedisSSLContext' object has no attribute 'cert_reqs'".
-                    # The workaround is to pass a pre-built ssl.SSLContext.
-                    redis_url = settings.REDIS_URL
-                    if redis_url.startswith("rediss://"):
-                        import ssl
-                        ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-                        ssl_ctx.check_hostname = False
-                        ssl_ctx.verify_mode = ssl.CERT_NONE
-                        conn_kwargs["ssl_context"] = ssl_ctx
-                        # Strip query params from URL (they cause parse errors)
-                        if "?" in redis_url or "&" in redis_url:
-                            from urllib.parse import urlparse, urlunparse
-                            parsed = urlparse(redis_url)
-                            redis_url = urlunparse((
-                                parsed.scheme, parsed.netloc, parsed.path,
-                                parsed.params, "", parsed.fragment
-                            ))
+                    # REDIS_URL is normalized to redis:// (not rediss://) in
+                    # config.py, so no SSL handling needed here.
                     client = aioredis.from_url(
-                        redis_url,
+                        settings.REDIS_URL,
                         **conn_kwargs,
                     )
                     # Test connection

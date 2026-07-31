@@ -22,20 +22,8 @@ from database.models.tickets import Ticket, TicketStatus
 from database.models.core import User
 
 
-def _ssl_kwargs(redis_url: str) -> dict:
-    """Build SSL kwargs for Redis connections (redis-py 5.2.1 bug workaround).
-
-    redis-py 5.2.1 has a bug where ssl_cert_reqs kwarg causes
-    "'RedisSSLContext' object has no attribute 'cert_reqs'".
-    The workaround is to pass a pre-built ssl.SSLContext.
-    """
-    if not redis_url or not redis_url.startswith("rediss://"):
-        return {}
-    import ssl
-    ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    ssl_ctx.check_hostname = False
-    ssl_ctx.verify_mode = ssl.CERT_NONE
-    return {"ssl_context": ssl_ctx}
+# REDIS_URL is normalized to redis:// (not rediss://) in config.py,
+# so no SSL kwargs are needed for Redis connections.
 
 
 class Incident:
@@ -490,7 +478,7 @@ class IncidentService:
         import os
         redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
         try:
-            r = redis.from_url(redis_url, **_ssl_kwargs(redis_url))
+            r = redis.from_url(redis_url)
             key = f"parwa:incidents:{self.company_id}:{incident['id']}"
             r.set(key, json.dumps(incident))
             # Add to company's incident index
@@ -508,7 +496,7 @@ class IncidentService:
         
         redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
         try:
-            r = redis.from_url(redis_url, **_ssl_kwargs(redis_url))
+            r = redis.from_url(redis_url)
             key = f"parwa:incidents:{self.company_id}:{incident_id}"
             data = r.get(key)
             if data:
@@ -529,7 +517,7 @@ class IncidentService:
         
         redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
         try:
-            r = redis.from_url(redis_url, **_ssl_kwargs(redis_url))
+            r = redis.from_url(redis_url)
             index_key = f"parwa:incidents:{self.company_id}:index"
             incident_ids = r.smembers(index_key)
             
