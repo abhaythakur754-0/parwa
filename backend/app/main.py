@@ -275,21 +275,18 @@ async def lifespan(app: FastAPI):
         from database.base import SessionLocal as _SL
         _db = _SL()
         try:
-            _db.execute(_sql_text(
-                "ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS file_path TEXT"
-            ))
-            _db.execute(_sql_text(
-                "ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS storage_file_id VARCHAR(36)"
-            ))
-            _db.execute(_sql_text(
-                "ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS error_message TEXT"
-            ))
-            _db.execute(_sql_text(
-                "ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS retry_count INTEGER NOT NULL DEFAULT 0"
-            ))
-            _db.execute(_sql_text(
-                "ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS failed_at TIMESTAMP WITH TIME ZONE"
-            ))
+            # Ensure ALL columns from the KnowledgeDocument model exist
+            for col_def in [
+                "ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS file_path TEXT",
+                "ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS storage_file_id VARCHAR(36)",
+                "ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS category VARCHAR(100)",
+                "ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS chunk_count INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS error_message TEXT",
+                "ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS retry_count INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS failed_at TIMESTAMP WITH TIME ZONE",
+                "ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP",
+            ]:
+                _db.execute(_sql_text(col_def))
             _db.commit()
             _lg.info("kb_columns_ensured_via_sql_fallback")
         finally:
