@@ -119,12 +119,15 @@ class Settings(BaseSettings):
     @field_validator("REDIS_URL", "CELERY_BROKER_URL", "CELERY_RESULT_BACKEND", mode="before")
     @classmethod
     def normalize_redis_ssl_url(cls, v: str) -> str:
-        """Convert rediss:// to redis:// for Render internal services.
+        """Normalize Redis URLs for Render.
 
-        Render's internal Redis service communicates over a private network —
-        SSL is NOT needed and causes connection failures due to redis-py 5.2.1
-        SSL bugs. This validator strips SSL by converting rediss:// to redis://.
-        Safe because Render private services don't need encryption.
+        Render's private service connection string uses rediss:// scheme.
+        The Redis container itself (redis:7-alpine) does NOT have TLS enabled
+        — it's plain Redis on port 6379. So we convert rediss:// to redis://
+        to connect without SSL.
+
+        This avoids all redis-py 5.2.1 SSL bugs (cert_reqs, ssl_context, etc.)
+        and connects directly to the plain Redis instance.
         """
         if not v or not isinstance(v, str):
             return v
