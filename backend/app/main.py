@@ -298,6 +298,39 @@ async def lifespan(app: FastAPI):
         _lg = get_logger("lifespan")
         _lg.warning("kb_columns_sql_fallback_failed", error=str(exc))
 
+    # ── Direct SQL fallback for document_chunks table ──
+    # The sync KB processing saves chunks to this table. If it doesn't exist
+    # (Alembic failed), the upload endpoint crashes with 500 INTERNAL_ERROR.
+    try:
+        from sqlalchemy import text as _sql_text
+        from database.base import SessionLocal as _SL
+        _db = _SL()
+        try:
+            _db.execute(_sql_text("""
+                CREATE TABLE IF NOT EXISTS document_chunks (
+                    id VARCHAR(36) PRIMARY KEY,
+                    document_id VARCHAR(36) REFERENCES knowledge_documents(id) ON DELETE CASCADE,
+                    company_id VARCHAR(36) REFERENCES companies(id) ON DELETE CASCADE,
+                    content TEXT NOT NULL,
+                    embedding TEXT,
+                    chunk_index INTEGER NOT NULL,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            _db.execute(_sql_text(
+                "CREATE INDEX IF NOT EXISTS ix_document_chunks_document_id ON document_chunks (document_id)"
+            ))
+            _db.execute(_sql_text(
+                "CREATE INDEX IF NOT EXISTS ix_document_chunks_company_id ON document_chunks (company_id)"
+            ))
+            _db.commit()
+            _lg.info("document_chunks_table_ensured_via_sql_fallback")
+        finally:
+            _db.close()
+    except Exception as exc:
+        _lg = get_logger("lifespan")
+        _lg.warning("document_chunks_table_sql_fallback_failed", error=str(exc))
+
     # ── Direct SQL fallback for FlexPay tables ──
     # If alembic failed (connection error in subprocess), create the
     # flexpay_plans + flexpay_installments tables directly via SQL.

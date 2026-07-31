@@ -187,26 +187,21 @@ async def api_upload_document(
         # Don't return error — process content directly below
 
     # ── Fallback: store content inline when external storage fails ──
-    # On Render free tier (no S3), FileStorageService fails. To prevent
-    # the document from being stuck "processing" forever, store the raw
-    # text directly in file_path with an "inline:" prefix.
+    # On Render free tier (no S3), FileStorageService fails. We store the
+    # raw text in file_path for the recovery loop. But if file_path column
+    # doesn't exist (Alembic failed), we skip this — the sync processing
+    # below uses the `content` variable directly, not file_path.
     if not storage_ok:
         try:
             inline_text = content.decode('utf-8') if isinstance(content, bytes) else str(content)
             if len(inline_text) > 500_000:
                 inline_text = inline_text[:500_000]
             document.file_path = "inline:" + inline_text
-            db.flush()
+            db.commit()  # Use commit instead of flush to avoid session issues
             logger.info("kb_content_stored_inline", document_id=str(document.id), size=len(inline_text))
         except Exception as inline_err:
             logger.warning("kb_inline_store_failed", document_id=str(document.id), error=str(inline_err)[:200])
-            # CRITICAL: rollback to clean up the session after a failed flush.
-            # Without this, the session is in a bad state and ALL subsequent
-            # DB operations (including the sync processing below) will fail
-            # with "current transaction is aborted" → 500 INTERNAL_ERROR.
             db.rollback()
-            # Re-fetch the document since rollback invalidated the object
-            db.refresh(document)
 
     # ── Process the document ──────────────────────────────────────
     # For SMALL documents (< 100 KB), process SYNCHRONOUSLY right here.
