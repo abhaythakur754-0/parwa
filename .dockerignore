@@ -104,7 +104,8 @@ ehthumbs.db
 docker-compose.override.yml
 
 # Parwa specific
-backend/
+# NOTE: backend/ is NOT excluded — it's the Docker build context!
+# Excluding it means COPY . . in the Dockerfile copies nothing.
 parwa/
 skills/
 download/
