@@ -151,17 +151,25 @@ async def api_upload_document(
             details={"file_size": len(content), "max_size": _max_file_size},
         )
 
-    # Create document record
-    document = KnowledgeDocument(
-        company_id=user.company_id,
-        filename=filename,
-        file_type=ext.lstrip("."),
-        file_size=len(content),
-        status="pending",
-    )
-    db.add(document)
-    db.commit()
-    db.refresh(document)
+    # Create document record — wrap in try/except to get detailed error
+    try:
+        document = KnowledgeDocument(
+            company_id=user.company_id,
+            filename=filename,
+            file_type=ext.lstrip("."),
+            file_size=len(content),
+            status="pending",
+        )
+        db.add(document)
+        db.commit()
+        db.refresh(document)
+    except Exception as db_err:
+        db.rollback()
+        logger.error("kb_document_create_failed", error=str(db_err)[:500], exc_info=True)
+        raise ValidationError(
+            message=f"Failed to create document: {str(db_err)[:200]}",
+            details={"error": str(db_err)[:500]},
+        )
 
     # Store raw file to object storage for async processing
     # NOTE: If FileStorageService fails (common on Render free tier — no S3),
