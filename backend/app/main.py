@@ -267,6 +267,37 @@ async def lifespan(app: FastAPI):
         _lg = get_logger("lifespan")
         _lg.warning("trial_columns_sql_fallback_failed", error=str(exc))
 
+    # ── Direct SQL fallback for knowledge_documents columns ──
+    # Ensure file_path + storage_file_id columns exist (used for inline
+    # content storage when S3/FileStorageService is unavailable).
+    try:
+        from sqlalchemy import text as _sql_text
+        from database.base import SessionLocal as _SL
+        _db = _SL()
+        try:
+            _db.execute(_sql_text(
+                "ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS file_path TEXT"
+            ))
+            _db.execute(_sql_text(
+                "ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS storage_file_id VARCHAR(36)"
+            ))
+            _db.execute(_sql_text(
+                "ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS error_message TEXT"
+            ))
+            _db.execute(_sql_text(
+                "ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS retry_count INTEGER NOT NULL DEFAULT 0"
+            ))
+            _db.execute(_sql_text(
+                "ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS failed_at TIMESTAMP WITH TIME ZONE"
+            ))
+            _db.commit()
+            _lg.info("kb_columns_ensured_via_sql_fallback")
+        finally:
+            _db.close()
+    except Exception as exc:
+        _lg = get_logger("lifespan")
+        _lg.warning("kb_columns_sql_fallback_failed", error=str(exc))
+
     # ── Direct SQL fallback for FlexPay tables ──
     # If alembic failed (connection error in subprocess), create the
     # flexpay_plans + flexpay_installments tables directly via SQL.

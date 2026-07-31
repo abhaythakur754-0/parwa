@@ -188,14 +188,11 @@ async def api_upload_document(
 
     # ── Fallback: store content inline when external storage fails ──
     # On Render free tier (no S3), FileStorageService fails. To prevent
-    # the document from being stuck "processing" forever (Celery worker
-    # can't download content), store the raw text directly in file_path.
-    # The knowledge_tasks.py download logic checks for this prefix and
-    # returns the inline content instead of calling storage.
+    # the document from being stuck "processing" forever, store the raw
+    # text directly in file_path with an "inline:" prefix.
     if not storage_ok:
         try:
             inline_text = content.decode('utf-8') if isinstance(content, bytes) else str(content)
-            # Truncate to 500KB to avoid bloating the DB
             if len(inline_text) > 500_000:
                 inline_text = inline_text[:500_000]
             document.file_path = "inline:" + inline_text
@@ -203,14 +200,17 @@ async def api_upload_document(
             logger.info("kb_content_stored_inline", document_id=str(document.id), size=len(inline_text))
         except Exception as inline_err:
             logger.warning("kb_inline_store_failed", document_id=str(document.id), error=str(inline_err)[:200])
+            # CRITICAL: rollback to clean up the session after a failed flush.
+            # Without this, the session is in a bad state and ALL subsequent
+            # DB operations (including the sync processing below) will fail
+            # with "current transaction is aborted" → 500 INTERNAL_ERROR.
+            db.rollback()
+            # Re-fetch the document since rollback invalidated the object
+            db.refresh(document)
 
     # ── Process the document ──────────────────────────────────────
-    # For SMALL documents (< 100 KB), process SYNCHRONOUSLY right here in
-    # the request. This bypasses Celery entirely, which is critical on
-    # Render free tier where the Celery worker is often sleeping/crashed.
-    # The sync path chunks the text + tries embeddings (with graceful
-    # fallback to text-only if the embedding API is down).
-    #
+    # For SMALL documents (< 100 KB), process SYNCHRONOUSLY right here.
+    # This bypasses Celery entirely (critical on Render free tier).
     # For LARGE documents (≥ 100 KB), dispatch to Celery (may take longer
     # but avoids blocking the request for 30+ seconds).
     SYNC_PROCESSING_THRESHOLD = 100 * 1024  # 100 KB
