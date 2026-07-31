@@ -434,3 +434,19 @@ async def metrics_endpoint(
         content=content,
         media_type="text/plain; version=0.0.4; charset=utf-8",
     )
+
+
+@router.get("/version")
+async def version_endpoint():
+    """Returns the BUILD_VERSION to verify which code is deployed."""
+    import os
+    try:
+        with open("/tmp/BUILD_VERSION") as f:
+            version = f.read().strip()
+    except Exception:
+        version = "BUILD_VERSION file not found"
+    return {
+        "version": version,
+        "kb_sync_processing": True,
+        "deploy_time": os.environ.get("RENDER_SERVICE_ID", "unknown"),
+    }
