@@ -157,6 +157,7 @@ class HealthResponse(BaseModel):
     timestamp: str
     version: str
     uptime_seconds: float
+    kb_sync_processing: bool = True  # Marker: confirms sync KB processing code is deployed
     subsystems: dict
     checks_total: int
     checks_healthy: int
