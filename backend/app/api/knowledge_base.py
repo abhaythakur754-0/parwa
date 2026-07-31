@@ -151,169 +151,62 @@ async def api_upload_document(
             details={"file_size": len(content), "max_size": _max_file_size},
         )
 
-    # Create document record — wrap in try/except to get detailed error
+    # ── SIMPLIFIED: Create document + chunk + mark completed in ONE try/except ──
+    # This replaces all the complex storage/processing code that was failing.
+    # No FileStorageService, no inline storage, no Celery — just direct DB operations.
     try:
+        from app.shared.knowledge_base.chunker import chunk_text
+        from database.models.onboarding import DocumentChunk
+        import uuid
+
+        # Create document record
         document = KnowledgeDocument(
             company_id=user.company_id,
             filename=filename,
             file_type=ext.lstrip("."),
             file_size=len(content),
-            status="pending",
+            status="processing",
         )
         db.add(document)
         db.commit()
         db.refresh(document)
-    except Exception as db_err:
-        db.rollback()
-        logger.error("kb_document_create_failed", error=str(db_err)[:500], exc_info=True)
-        raise ValidationError(
-            message=f"Failed to create document: {str(db_err)[:200]}",
-            details={"error": str(db_err)[:500]},
-        )
 
-    # Store raw file to object storage for async processing
-    # NOTE: If FileStorageService fails (common on Render free tier — no S3),
-    # skip storage and process the content directly. The chunks are what
-    # matter for search, not the raw file.
-    storage_ok = False
-    try:
-        storage_svc = FileStorageService()
-        storage_result = storage_svc.upload_file(
-            company_id=user.company_id,
-            content=content,
-            file_name=file.filename,
-            content_type=file.content_type or "application/octet-stream",
-            uploaded_by=str(user.id),
-            metadata={"document_id": str(document.id), "source": "knowledge_base"},
-        )
-        document.file_path = storage_result.get("file_path", storage_result.get("id"))
-        document.storage_file_id = storage_result.get("id")
-        db.flush()
-        storage_ok = True
-    except Exception as e:
-        logger.warning("kb_file_storage_skipped", document_id=str(document.id), error=str(e)[:200])
-        # Don't return error — process content directly below
+        # Extract text
+        text = content.decode('utf-8') if isinstance(content, bytes) else str(content)
 
-    # ── Fallback: store content inline when external storage fails ──
-    # On Render free tier (no S3), FileStorageService fails. We store the
-    # raw text in file_path for the recovery loop. But if file_path column
-    # doesn't exist (Alembic failed), we skip this — the sync processing
-    # below uses the `content` variable directly, not file_path.
-    if not storage_ok:
-        try:
-            inline_text = content.decode('utf-8') if isinstance(content, bytes) else str(content)
-            if len(inline_text) > 500_000:
-                inline_text = inline_text[:500_000]
-            document.file_path = "inline:" + inline_text
-            db.commit()  # Use commit instead of flush to avoid session issues
-            logger.info("kb_content_stored_inline", document_id=str(document.id), size=len(inline_text))
-        except Exception as inline_err:
-            logger.warning("kb_inline_store_failed", document_id=str(document.id), error=str(inline_err)[:200])
-            db.rollback()
-
-    # ── Process the document ──────────────────────────────────────
-    # For SMALL documents (< 100 KB), process SYNCHRONOUSLY right here.
-    # This bypasses Celery entirely (critical on Render free tier).
-    # For LARGE documents (≥ 100 KB), dispatch to Celery (may take longer
-    # but avoids blocking the request for 30+ seconds).
-    SYNC_PROCESSING_THRESHOLD = 100 * 1024  # 100 KB
-    should_process_sync = len(content) < SYNC_PROCESSING_THRESHOLD
-
-    if should_process_sync:
-        # ── SYNC processing (small docs) ────────────────────────────
-        try:
-            from app.shared.knowledge_base.chunker import chunk_text
-            from database.models.onboarding import DocumentChunk
-
-            # Extract text from the uploaded content
-            text = ""
-            if isinstance(content, bytes):
-                for enc in ['utf-8', 'latin-1', 'ascii']:
-                    try:
-                        text = content.decode(enc)
-                        break
-                    except (UnicodeDecodeError, AttributeError):
-                        continue
-            else:
-                text = str(content)
-
-            if text and len(text) > 10:
-                chunks = chunk_text(text, chunk_size=500, overlap=50)
-                document.status = "processing"
-                db.commit()
-
-                # ── Save chunks immediately (no embeddings in sync path) ──
-                # Embeddings are slow (30s timeout per chunk via Google AI)
-                # and would cause the HTTP request to timeout. Instead, save
-                # chunks WITHOUT vectors here — the document becomes "completed"
-                # instantly and text search works immediately.
-                #
-                # A background job can backfill embeddings later if needed.
-                # Text search (SQL LIKE) covers 90% of ticket matching.
-                embedded = 0
-                for i, chunk_content in enumerate(chunks):
-                    chunk = DocumentChunk(
-                        id=str(uuid.uuid4()),
-                        document_id=str(document.id),
-                        company_id=user.company_id,
-                        content=chunk_content,
-                        chunk_index=i,
-                        embedding=None,  # Backfilled by background job
-                    )
-                    db.add(chunk)
-
-                document.status = "completed"
-                document.chunk_count = len(chunks)
-                db.commit()
-                logger.info(
-                    "kb_sync_process_completed",
+        # Chunk and save (no embeddings — instant)
+        if text and len(text) > 10:
+            chunks = chunk_text(text, chunk_size=500, overlap=50)
+            for i, chunk_content in enumerate(chunks):
+                chunk = DocumentChunk(
+                    id=str(uuid.uuid4()),
                     document_id=str(document.id),
-                    chunks=len(chunks),
-                    embedded=0,
-                    note="text-only (embeddings backfilled later)",
+                    company_id=str(user.company_id),
+                    content=chunk_content,
+                    chunk_index=i,
+                    embedding=None,
                 )
-        except Exception as e:
-            document.status = "failed"
-            document.error_message = str(e)[:500]
-            db.commit()
-            logger.error("kb_sync_process_failed", document_id=str(document.id), error=str(e)[:200])
-    else:
-        # ── ASYNC processing (large docs ≥ 100 KB) ─────────────────
-        # Dispatch to Celery for background processing. The recovery loop
-        # will catch it if the Celery worker is down.
-        try:
-            from app.tasks.knowledge_tasks import process_knowledge_document
-            process_knowledge_document.delay(str(document.id), user.company_id)
-            logger.info("kb_celery_dispatched", document_id=str(document.id), size=len(content))
-        except Exception:
-            # Celery import failed — fall back to sync processing
-            logger.warning("kb_celery_dispatch_failed_using_sync", document_id=str(document.id))
-            try:
-                from app.shared.knowledge_base.chunker import chunk_text
-                from database.models.onboarding import DocumentChunk
+                db.add(chunk)
+            document.chunk_count = len(chunks)
 
-                text = content.decode('utf-8') if isinstance(content, bytes) else str(content)
-                if text and len(text) > 10:
-                    chunks = chunk_text(text, chunk_size=500, overlap=50)
-                    document.status = "processing"
-                    db.commit()
-                    for i, chunk_content in enumerate(chunks):
-                        chunk = DocumentChunk(
-                            id=str(uuid.uuid4()),
-                            document_id=str(document.id),
-                            company_id=user.company_id,
-                            content=chunk_content,
-                            chunk_index=i,
-                            embedding=None,
-                        )
-                        db.add(chunk)
-                    document.status = "completed"
-                    document.chunk_count = len(chunks)
-                    db.commit()
-            except Exception as sync_err:
-                document.status = "failed"
-                document.error_message = str(sync_err)[:500]
-                db.commit()
+        document.status = "completed"
+        db.commit()
+        db.refresh(document)
+
+        logger.info(
+            "kb_upload_completed",
+            document_id=str(document.id),
+            filename=filename,
+            chunks=document.chunk_count,
+        )
+
+    except Exception as e:
+        db.rollback()
+        logger.error("kb_upload_failed", error=str(e)[:500], exc_info=True)
+        raise ValidationError(
+            message=f"Failed to process document: {str(e)[:200]}",
+            details={"error": str(e)[:500]},
+        )
 
     return UploadResponse(
         id=str(document.id),
