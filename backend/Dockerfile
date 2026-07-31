@@ -53,9 +53,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy installed packages from builder
 COPY --from=builder /install /usr/local
 
-# Cache bust: `date` produces different output every second, so Docker
-# can NEVER cache this layer. This forces COPY . . to always copy fresh code.
-RUN date && echo "Forcing fresh code copy"
+# Cache bust: COPY BUILD_VERSION before COPY . . 
+# This file changes every commit, so Docker invalidates the cache.
+COPY BUILD_VERSION /tmp/BUILD_VERSION
+RUN cat /tmp/BUILD_VERSION
 
 # Copy application code (from backend/ context)
 COPY . .
