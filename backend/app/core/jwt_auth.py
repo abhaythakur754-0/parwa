@@ -348,28 +348,22 @@ async def is_token_revoked(jti: str) -> bool:
             )
         return bool(result)
     except Exception as exc:
-        # C-02 FIX: Fail-closed in production, fail-open in dev
-        environment = os.environ.get("ENVIRONMENT", "development")
-        if environment == "production":
-            # FAIL CLOSED: If we can't check the blacklist in production,
-            # assume the token IS revoked. This prevents an attacker from
-            # bypassing token revocation by causing Redis failures.
-            logger.critical(
-                "is_token_revoked_redis_failed_FAIL_CLOSED jti=%s error=%s "
-                "— token rejected because Redis is unavailable in production",
-                jti,
-                str(exc)[:200],
-            )
-            return True
-        else:
-            # Fail-open in non-production for developer convenience
-            logger.error(
-                "is_token_revoked_redis_failed_fail_open jti=%s error=%s "
-                "— token allowed because Redis unavailable (non-production)",
-                jti,
-                str(exc)[:200],
-            )
-            return False
+        # FAIL OPEN: When Redis is unavailable, allow the token through.
+        # The blacklist is only used for logging out users early (before
+        # the JWT expires). If Redis is down, tokens still expire normally
+        # via the JWT exp claim (1 hour), so the security impact is minimal.
+        #
+        # Previously this failed CLOSED in production (rejecting ALL tokens
+        # when Redis was down), which made the entire app unusable whenever
+        # Redis had connectivity issues. That was worse than the small
+        # security risk of allowing a few revoked tokens through temporarily.
+        logger.warning(
+            "is_token_revoked_redis_failed_FAIL_OPEN jti=%s error=%s "
+            "— token allowed because Redis is unavailable (fail-open for availability)",
+            jti,
+            str(exc)[:200],
+        )
+        return False
 
 
 def get_token_jti(token: str) -> str | None:
