@@ -188,7 +188,8 @@ async def api_upload_document(
         db.rollback()
         import traceback
         tb = traceback.format_exc()
-        logger.error("kb_upload_failed", error=str(e)[:500], traceback=tb[:1000])
+        logger.error("kb_upload_failed: %s", str(e)[:500])
+        logger.error("kb_upload_traceback: %s", tb[:1000])
         return JSONResponse(
             status_code=500,
             content={
