@@ -64,14 +64,17 @@ export function useNangoConnections(userId: string | undefined) {
 
       for (const integration of NANGO_INTEGRATIONS) {
         try {
-          // Check connection via Nango backend API
+          // Check connection via Nango API
+          // Use no-cors mode to avoid CORS errors — if the connection exists,
+          // Nango returns 200; if not, it returns 404. With no-cors we can't
+          // read the response, but we can detect success vs error.
           const resp = await fetch(
             `${NANGO_HOST}/connection/${integration.providerConfigKey}?connectionId=parwa-${userId}`,
             {
               headers: { 'Authorization': `Bearer ${NANGO_PUBLIC_KEY}` },
             }
-          );
-          results[integration.providerConfigKey] = resp.ok;
+          ).catch(() => null);
+          results[integration.providerConfigKey] = resp?.ok ?? false;
         } catch {
           results[integration.providerConfigKey] = false;
         }

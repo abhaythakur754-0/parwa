@@ -17,6 +17,8 @@ import {
   type AuthField,
 } from '@/lib/integration-catalog';
 import { CustomIntegrationForm } from './CustomIntegrationForm';
+import { NangoIntegrationsSection } from '@/components/integrations/NangoConnectButton';
+import { useAuth } from '@/hooks/useAuth';
 
 // ── Props ────────────────────────────────────────────────────────────
 
@@ -52,6 +54,8 @@ const CATEGORY_ICONS: Record<IntegrationCategory, string> = {
 // ── Component ────────────────────────────────────────────────────────
 
 export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
+  const { user } = useAuth();
+  const userId = user?.id;
   const [existingIntegrations, setExistingIntegrations] = useState<ConnectedIntegration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<IntegrationCategory | 'all'>('all');
@@ -293,6 +297,29 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
         <p className="text-sm text-zinc-500 mt-1">
           Choose the tools your team uses. Enter credentials and verify to connect.
         </p>
+      </div>
+
+      {/* OAuth Integrations (Nango) */}
+      <div className="mb-6 rounded-xl border border-violet-500/10 bg-white/[0.01] p-4">
+        <h3 className="text-xs font-medium text-violet-300 mb-3 flex items-center gap-2">
+          <span className="text-violet-400">⚡</span>
+          Secure OAuth Integrations
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-300 border border-violet-500/20">
+            One-click connect
+          </span>
+        </h3>
+        <NangoIntegrationsSection userId={userId} />
+      </div>
+
+      {/* API Key Integrations Header */}
+      <div className="mb-3">
+        <h3 className="text-xs font-medium text-orange-300 flex items-center gap-2">
+          <span className="text-orange-400">🔑</span>
+          API Key Integrations
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-300 border border-orange-500/20">
+            Manual setup
+          </span>
+        </h3>
       </div>
 
       {/* Search */}
