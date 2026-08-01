@@ -157,6 +157,16 @@ class CSRFSecurityMiddleware:
             or bool(api_key_header)
         )
 
+        # ── Bearer-token requests are EXEMPT from CSRF ──
+        # CSRF protection exists to prevent cookie-based cross-origin attacks.
+        # Bearer tokens (Authorization header) CANNOT be sent cross-origin by
+        # browsers without explicit CORS configuration, so they are immune to
+        # CSRF. Skipping CSRF for Bearer requests fixes integration saves,
+        # ticket creation, and all other JWT-authenticated POST requests.
+        if has_bearer:
+            await self.app(scope, receive, wrapped_send)
+            return
+
         # ── Validate Origin / Referer ──
         try:
             origin = request_headers.get(
