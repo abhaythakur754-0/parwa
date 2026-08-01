@@ -150,8 +150,8 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
           body: JSON.stringify({
             integration_type: integration.key,
             name: integration.name,
-            credentials: values,
-            settings: {},
+            config: values,
+            validate_credentials: true,
           }),
         });
 
@@ -169,7 +169,7 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            credentials: values,
+            config: values,
           }),
         });
 
