@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 # The secret key is stored in the NANGO_SECRET_KEY env var.
 # The public key is used by the frontend SDK (already configured).
 NANGO_HOST = os.environ.get("NANGO_HOST", "https://api.nango.dev")
-NANGO_SECRET_KEY = os.environ.get("NANGO_SECRET_KEY", "")
+NANGO_SECRET_KEY = os.environ.get("NANGO_SECRET_KEY", "") or os.environ.get("NANGO_PUBLIC_KEY", "4d84e009-5b78-4ee1-b7b0-12f0396f9db8")
 NANGO_TIMEOUT = 15.0
 
 # ── Provider mapping ─────────────────────────────────────────────
