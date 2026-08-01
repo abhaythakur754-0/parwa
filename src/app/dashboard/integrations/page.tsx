@@ -15,7 +15,7 @@ import { IntegrationStep } from '@/components/onboarding/IntegrationStep';
 import { CRMAnalyzerCard } from '@/components/integrations/CRMAnalyzerCard';
 import { StoredAnalysisCard } from '@/components/integrations/StoredAnalysisCard';
 import { NangoIntegrationsSection } from '@/components/integrations/NangoConnectButton';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function IntegrationsPage() {
   const { user } = useAuth();
