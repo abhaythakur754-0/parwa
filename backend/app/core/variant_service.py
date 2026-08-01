@@ -383,7 +383,7 @@ class VariantService:
         service = VariantService()
 
         # Resolve by tier + industry
-        config = service.resolve("mini_parwa", "ecommerce")
+        config = service.resolve("parwa", "ecommerce")
 
         # Resolve by instance (looks up tier + industry from DB)
         config = service.resolve_by_instance("inst_abc123")
@@ -672,7 +672,7 @@ class VariantService:
                 "instance_id=%s — returning safe fallback",
                 company_id, instance_id,
             )
-            return self.resolve("mini_parwa", "general")
+            return self.resolve("parwa", "general")
 
     def resolve_for_shadow(
         self,
@@ -714,7 +714,7 @@ class VariantService:
                 "returning safe fallback configs",
                 company_id,
             )
-            return (self.resolve("mini_parwa", "general"),
+            return (self.resolve("parwa", "general"),
                     self.resolve("parwa", "general"))
 
     def get_all_configs(self) -> Dict[str, Dict[str, VariantConfig]]:

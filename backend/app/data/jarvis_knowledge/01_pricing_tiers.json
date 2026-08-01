@@ -485,8 +485,8 @@
   },
   "sales_talking_points": {
     "roi_pitch": "PARWA typically delivers ROI within 60 days. Customers report a 70% reduction in support costs, 50% faster resolution times, and 95%+ customer satisfaction rates.",
-    "starter_pitch": "At just $999/month, PARWA Starter handles 1,000 tickets automatically. That is less than $1 per resolved ticket. Compare that to the $6-12 industry average for human-agent resolution.",
-    "growth_pitch": "Growth at $2,499/month gives you multi-channel support and auto-learning AI. Our customers typically save $15,000-25,000/month by deflecting tickets that would otherwise require 5-8 full-time agents.",
+    "starter_pitch": "At just REMOVED_MINI/month, PARWA Starter handles 1,000 tickets automatically. That is less than $1 per resolved ticket. Compare that to the $6-12 industry average for human-agent resolution.",
+    "growth_pitch": "Growth at $2,999/month gives you multi-channel support and auto-learning AI. Our customers typically save $15,000-25,000/month by deflecting tickets that would otherwise require 5-8 full-time agents.",
     "high_pitch": "Our High tier at $3,999/month is for serious scale. With unlimited agents and voice support, you get the equivalent of a 30+ agent team for under $4,000. That is a 90% cost reduction compared to traditional support operations.",
     "upgrade_path": "Most customers start with Starter and upgrade to Growth within 3 months as they see immediate results. Upgrades are seamless with no data migration or configuration changes needed.",
     "annual_savings": "Switching to annual billing saves 15% — that is $1,800/year on Growth and $6,000/year on High tier."

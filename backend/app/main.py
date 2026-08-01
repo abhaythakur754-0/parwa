@@ -467,7 +467,7 @@ async def lifespan(app: FastAPI):
         logger.info(
             "parwa_pipeline_v2_initialized",
             node_count=8,
-            pipeline_type="unified_8node",
+            pipeline_type="unified_11node",
         )
     except Exception as exc:
         logger = get_logger("lifespan")

@@ -102,13 +102,12 @@ RE_ARITHMETIC_TEMPORAL = re.compile(
 
 # PARWA-specific known entities
 KNOWN_PLANS: Dict[str, float] = {
-    "mini parwa": 999.0,
-    "parwa": 2499.0,
+    "parwa": 2999.0,
     "parwa high": 3999.0,
 }
 
 KNOWN_PLAN_NAMES: Set[str] = {
-    "mini parwa", "parwa", "parwa high",
+    "parwa", "parwa high",
 }
 
 # Policy fabrication phrases
@@ -867,7 +866,7 @@ class HallucinationDetector:
         # Check for plan names with wrong casing / spacing used
         # to refer to different plans
         plan_variants: Dict[str, str] = {
-            "mini parwa": "Mini PARWA ($999)",
+            
             "parwa": "PARWA ($2,499)",
             "parwa high": "PARWA High ($3,999)",
         }

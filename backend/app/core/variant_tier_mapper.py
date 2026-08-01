@@ -31,24 +31,24 @@ logger = get_logger("variant_tier_mapper")
 
 # Frontend variant_id → Backend pipeline tier
 VARIANT_ID_TO_TIER: Dict[str, str] = {
-    "starter": "mini_parwa",
+    "starter": "parwa",
     "growth": "parwa",
     "high": "parwa_high",
 }
 
 # Backend pipeline tier → Frontend variant_id (reverse map)
 TIER_TO_VARIANT_ID: Dict[str, str] = {
-    "mini_parwa": "starter",
+    "parwa": "starter",
     "parwa": "growth",
     "parwa_high": "high",
 }
 
 # Frontend variant name → Backend pipeline tier
 VARIANT_NAME_TO_TIER: Dict[str, str] = {
-    "parwa starter": "mini_parwa",
+    "parwa starter": "parwa",
     "parwa growth": "parwa",
     "parwa high": "parwa_high",
-    "starter": "mini_parwa",
+    "starter": "parwa",
     "growth": "parwa",
     "high": "parwa_high",
 }
@@ -67,7 +67,7 @@ INDUSTRY_LABEL_TO_ENUM: Dict[str, str] = {
 
 # Pipeline tier metadata for display/context
 TIER_METADATA: Dict[str, Dict[str, str]] = {
-    "mini_parwa": {
+    "parwa": {
         "display_name": "PARWA Starter",
         "tagline": "The 24/7 Trainee",
         "pipeline_nodes": "8",
@@ -113,7 +113,7 @@ def variant_id_to_tier(variant_id: str) -> str:
         Defaults to 'mini_parwa' if unknown.
     """
     try:
-        tier = VARIANT_ID_TO_TIER.get(variant_id.lower().strip(), "mini_parwa")
+        tier = VARIANT_ID_TO_TIER.get(variant_id.lower().strip(), "parwa")
         logger.debug(
             "variant_id_to_tier: %s → %s",
             variant_id, tier,
@@ -124,7 +124,7 @@ def variant_id_to_tier(variant_id: str) -> str:
             "variant_id_to_tier failed for '%s' — defaulting to mini_parwa",
             variant_id,
         )
-        return "mini_parwa"
+        return "parwa"
 
 
 def variant_name_to_tier(variant_name: str) -> str:
@@ -141,14 +141,14 @@ def variant_name_to_tier(variant_name: str) -> str:
     """
     try:
         key = variant_name.lower().strip()
-        tier = VARIANT_NAME_TO_TIER.get(key, "mini_parwa")
+        tier = VARIANT_NAME_TO_TIER.get(key, "parwa")
         logger.debug(
             "variant_name_to_tier: %s → %s",
             variant_name, tier,
         )
         return tier
     except Exception:
-        return "mini_parwa"
+        return "parwa"
 
 
 def industry_label_to_enum(industry_label: str) -> str:
@@ -239,8 +239,8 @@ def resolve_tier_from_context(
 
         # Priority 3: Highest from selected_variants list
         if selected_variants and isinstance(selected_variants, list):
-            highest_tier = "mini_parwa"
-            tier_priority = {"mini_parwa": 1, "parwa": 2, "parwa_high": 3}
+            highest_tier = "parwa"
+            tier_priority = {"parwa": 1, "parwa": 2, "parwa_high": 3}
 
             for sel in selected_variants:
                 if not isinstance(sel, dict):
@@ -252,7 +252,7 @@ def resolve_tier_from_context(
                     if tier_priority.get(t, 0) > tier_priority.get(highest_tier, 0):
                         highest_tier = t
 
-            if highest_tier != "mini_parwa" or len(selected_variants) > 0:
+            if highest_tier != "parwa" or len(selected_variants) > 0:
                 logger.info(
                     "resolve_tier_from_context: selected_variants → tier=%s",
                     highest_tier,
@@ -263,13 +263,13 @@ def resolve_tier_from_context(
         logger.info(
             "resolve_tier_from_context: no context found → default=mini_parwa",
         )
-        return "mini_parwa"
+        return "parwa"
 
     except Exception:
         logger.exception(
             "resolve_tier_from_context failed — defaulting to mini_parwa",
         )
-        return "mini_parwa"
+        return "parwa"
 
 
 def resolve_industry_from_context(
@@ -323,6 +323,6 @@ def get_tier_metadata(tier: str) -> Dict[str, str]:
         Dict with display_name, tagline, pipeline_nodes, techniques, cost.
     """
     try:
-        return TIER_METADATA.get(tier, TIER_METADATA["mini_parwa"])
+        return TIER_METADATA.get(tier, TIER_METADATA["parwa"])
     except Exception:
-        return TIER_METADATA["mini_parwa"]
+        return TIER_METADATA["parwa"]

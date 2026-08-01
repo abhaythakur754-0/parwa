@@ -61,7 +61,7 @@ _DOWNGRADE_FALLBACK: Dict[str, str] = {
 }
 
 # Known variant types
-VALID_VARIANTS = ("mini_parwa", "parwa", "parwa_high")
+VALID_VARIANTS = ("parwa", "parwa", "parwa_high")
 
 # Technique → tier mapping
 _TECHNIQUE_TO_TIER: Dict[str, str] = {
@@ -204,7 +204,7 @@ class TechniqueTierAccessChecker:
             + _TIER_3_TECHNIQUES
         )
 
-        for variant_name in ("mini_parwa", "parwa", "parwa_high"):
+        for variant_name in ("parwa", "parwa", "parwa_high"):
             self._configs[variant_name] = VariantTierConfig(
                 variant_type=variant_name,
                 max_tier=3,

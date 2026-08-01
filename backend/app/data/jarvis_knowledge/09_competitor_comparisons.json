@@ -30,7 +30,7 @@
         }
       ],
       "pricing_comparison": {
-        "parwa": "Starter $999/mo (unlimited conversations), Growth $2,499/mo, High $3,999/mo",
+        "parwa": "Starter $999/mo (unlimited conversations), Growth $2,999/mo, High $3,999/mo",
         "competitor": "Essential $39/seat/mo + Fin $0.99/resolution. At 5,000 resolutions/mo: ~$5,340/mo total"
       },
       "feature_comparison_table": [
@@ -104,7 +104,7 @@
         }
       ],
       "pricing_comparison": {
-        "parwa": "Starter $999/mo, Growth $2,499/mo, High $3,999/mo — all inclusive",
+        "parwa": "Starter $999/mo, Growth $2,999/mo, High $3,999/mo — all inclusive",
         "competitor": "Suite Team $55/agent/mo + AI add-on $50/agent/mo. For 10 agents with AI: ~$1,050/mo base, scaling with agents"
       },
       "feature_comparison_table": [
@@ -400,7 +400,7 @@
         }
       ],
       "pricing_comparison": {
-        "parwa": "Starter $999/mo, Growth $2,499/mo, High $3,999/mo — unlimited conversations",
+        "parwa": "Starter $999/mo, Growth $2,999/mo, High $3,999/mo — unlimited conversations",
         "competitor": "Premium $2,500/mo (entry point for meaningful features), Advanced and Enterprise custom pricing ($5,000-$15,000+/mo)"
       },
       "feature_comparison_table": [
@@ -474,7 +474,7 @@
         }
       ],
       "pricing_comparison": {
-        "parwa": "Starter $999/mo, Growth $2,499/mo, High $3,999/mo — unlimited conversations included",
+        "parwa": "Starter $999/mo, Growth $2,999/mo, High $3,999/mo — unlimited conversations included",
         "competitor": "Custom enterprise pricing, typically $5,000-$50,000+/month depending on conversation volume"
       },
       "feature_comparison_table": [

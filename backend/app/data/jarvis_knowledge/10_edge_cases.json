@@ -221,7 +221,7 @@
         {
           "turn": 2,
           "user": "The High plan is too expensive. Can we get by with Growth?",
-          "jarvis_action": "Acknowledge budget concern. Explain that 15K tickets exceeds Growth's 10K limit, resulting in 5K overage at $0.10 each ($500/mo extra). Calculate total: $2,499 + $500 = $2,999/mo on Growth vs $3,999/mo on High. Present the trade-off: Growth saves $1,000/mo but lacks custom AI training, dedicated infrastructure, and 99.99% SLA."
+          "jarvis_action": "Acknowledge budget concern. Explain that 15K tickets exceeds Growth's 10K limit, resulting in 5K overage at $0.10 each ($500/mo extra). Calculate total: $2,999 + $500 = $2,999/mo on Growth vs $3,999/mo on High. Present the trade-off: Growth saves $1,000/mo but lacks custom AI training, dedicated infrastructure, and 99.99% SLA."
         },
         {
           "turn": 3,
@@ -302,7 +302,7 @@
         {
           "turn": 4,
           "user": "Intercom charges per resolution. What about PARWA?",
-          "jarvis_action": "Explain PARWA's unlimited conversation model. Calculate a comparison: if they handle 10,000 monthly resolutions, Intercom Fin would cost approximately $9,900/mo on top of their platform fee, while PARWA Growth at $2,499/mo includes all resolutions."
+          "jarvis_action": "Explain PARWA's unlimited conversation model. Calculate a comparison: if they handle 10,000 monthly resolutions, Intercom Fin would cost approximately $9,900/mo on top of their platform fee, while PARWA Growth at $2,999/mo includes all resolutions."
         },
         {
           "turn": 5,

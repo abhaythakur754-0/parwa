@@ -44,13 +44,12 @@ logger = get_logger(__name__)
 # ── Constants ──────────────────────────────────────────────────────
 
 VALID_VARIANT_TYPES: List[str] = [
-    "mini_parwa",
+    
     "parwa",
     "parwa_high",
 ]
 
 VARIANT_RANKING: Dict[str, int] = {
-    "mini_parwa": 1,
     "parwa": 2,
     "parwa_high": 3,
 }
@@ -378,16 +377,6 @@ class VariantTransitionHandler:
             "priority_queue_access",
             "dedicated_ai_agents",
         ]
-
-        self._capabilities["mini_parwa"] = VariantCapabilities(
-            variant_type="mini_parwa",
-            max_tier=3,
-            allowed_techniques=all_techniques,
-            smart_router_tiers=["light", "medium", "heavy"],
-            confidence_threshold=0.75,
-            max_agents=0,
-            features=list(all_features),
-        )
 
         self._capabilities["parwa"] = VariantCapabilities(
             variant_type="parwa",
@@ -833,7 +822,7 @@ class VariantTransitionHandler:
                 "returning mini_parwa fallback",
                 company_id, ticket_id,
             )
-            return "mini_parwa"
+            return "parwa"
 
     def on_turn_complete(
         self,

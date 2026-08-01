@@ -84,20 +84,20 @@
     {
       "id": "faq-price-001",
       "q": "How much does PARWA cost?",
-      "a": "PARWA offers three pricing tiers: Starter at $999/month, Growth at $2,499/month, and High at $3,999/month. All plans include unlimited conversations — there are no per-message or per-resolution fees. The Starter plan supports up to 2,000 automated resolutions per month, 5 channels, and 3 AI agent variants. The Growth plan supports up to 10,000 automated resolutions, 15 channels, 10 AI agent variants, and includes advanced analytics and priority support. The High plan offers unlimited resolutions, all 20 AI agent variants, custom AI training, dedicated infrastructure, and a 99.99% uptime SLA. Annual billing is available with a 20% discount (Starter: $799/mo, Growth: $1,999/mo, High: $3,199/mo). Custom Enterprise plans are available for organizations with specialized requirements.",
+      "a": "PARWA offers three pricing tiers: Starter at REMOVED_MINI/month, Growth at $2,999/month, and High at $3,999/month. All plans include unlimited conversations — there are no per-message or per-resolution fees. The Starter plan supports up to 2,000 automated resolutions per month, 5 channels, and 3 AI agent variants. The Growth plan supports up to 10,000 automated resolutions, 15 channels, 10 AI agent variants, and includes advanced analytics and priority support. The High plan offers unlimited resolutions, all 20 AI agent variants, custom AI training, dedicated infrastructure, and a 99.99% uptime SLA. Annual billing is available with a 20% discount (Starter: $799/mo, Growth: $1,999/mo, High: $3,199/mo). Custom Enterprise plans are available for organizations with specialized requirements.",
       "category": "pricing",
       "tags": ["pricing", "cost", "plans", "tiers"]
     },
     {
       "id": "faq-price-002",
-      "q": "What's included in the Starter plan ($999/month)?",
+      "q": "What's included in the Starter plan (REMOVED_MINI/month)?",
       "a": "The Starter plan includes: up to 2,000 automated resolutions per month, 5 communication channels (web chat, email, WhatsApp, Messenger, and one additional channel), 3 AI agent variants (e.g., one for general support, one for sales, one for billing), knowledge base integration (up to 500 articles), standard analytics dashboard, email support with 24-hour response time, core integrations (Zendesk, Intercom, Shopify, Salesforce, Stripe), multi-language support (all 50+ languages), and basic customization (brand colors, welcome messages, response tone). The Starter plan is ideal for businesses handling up to 5,000 total monthly conversations and looking to automate routine inquiries.",
       "category": "pricing",
-      "tags": ["starter plan", "features", "basic plan", "$999"]
+      "tags": ["starter plan", "features", "basic plan", "REMOVED_MINI"]
     },
     {
       "id": "faq-price-003",
-      "q": "What's included in the Growth plan ($2,499/month)?",
+      "q": "What's included in the Growth plan ($2,999/month)?",
       "a": "The Growth plan builds on everything in Starter with these additional capabilities: up to 10,000 automated resolutions per month, 15 communication channels (all standard channels plus SMS, Instagram, Twitter/X, Slack, and custom), 10 AI agent variants across all four industries, knowledge base integration (up to 5,000 articles), advanced analytics with custom reports, conversation AI insights, and trend analysis, priority support with 4-hour response time and dedicated Slack channel, advanced integrations including custom API access, webhooks, and Zapier, A/B testing for responses, custom escalation workflows, team management with role-based access control, and CSAT/NPS survey integration. The Growth plan is our most popular tier and is designed for scaling businesses handling 5,000-30,000 monthly conversations.",
       "category": "pricing",
       "tags": ["growth plan", "features", "popular plan", "$2499"]
@@ -196,7 +196,7 @@
     {
       "id": "faq-ind-008",
       "q": "Does PARWA work for small businesses or is it only for enterprises?",
-      "a": "PARWA serves businesses of all sizes. Our Starter plan at $999/month is specifically designed for small and growing businesses handling up to 5,000 monthly conversations. Many of our most enthusiastic customers are teams of 5-20 people who use PARWA to punch above their weight in customer support quality. Small businesses benefit enormously from PARWA because it effectively gives them 24/7 support coverage without needing to hire night or weekend staff. The time savings are also proportionally larger — a 3-person support team that automates 60% of their workload effectively gains the capacity of nearly 2 additional full-time employees. We also offer a Pay-Per-Resolution model for businesses with very low or unpredictable volumes.",
+      "a": "PARWA serves businesses of all sizes. Our Starter plan at REMOVED_MINI/month is specifically designed for small and growing businesses handling up to 5,000 monthly conversations. Many of our most enthusiastic customers are teams of 5-20 people who use PARWA to punch above their weight in customer support quality. Small businesses benefit enormously from PARWA because it effectively gives them 24/7 support coverage without needing to hire night or weekend staff. The time savings are also proportionally larger — a 3-person support team that automates 60% of their workload effectively gains the capacity of nearly 2 additional full-time employees. We also offer a Pay-Per-Resolution model for businesses with very low or unpredictable volumes.",
       "category": "industries",
       "tags": ["small business", "smb", "startup", "enterprise"]
     },

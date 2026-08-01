@@ -59,7 +59,7 @@ PATH_FEATURE_MAP = {
 }
 
 # Default variant_type if none can be determined from DB
-DEFAULT_VARIANT_TYPE = "mini_parwa"
+DEFAULT_VARIANT_TYPE = "parwa"
 
 # HTTP methods that require entitlement checks
 MUTATING_METHODS = {"POST", "PUT", "DELETE", "PATCH"}

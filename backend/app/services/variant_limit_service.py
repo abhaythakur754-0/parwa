@@ -72,9 +72,7 @@ for _vt in _VT:
     # Canonical name
     _HARDCODED_LIMITS[_vt.value] = _entry
     # Old name aliases
-    if _vt == _VT.MINI:
-        _HARDCODED_LIMITS["mini_parwa"] = _entry
-    elif _vt == _VT.PARWA:
+    if _vt == _VT.PARWA:
         _HARDCODED_LIMITS["parwa"] = _entry
     elif _vt == _VT.HIGH:
         _HARDCODED_LIMITS["parwa_high"] = _entry

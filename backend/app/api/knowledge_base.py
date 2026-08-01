@@ -26,7 +26,6 @@ from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 
-from app.services.file_storage_service import FileStorageService
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -446,10 +445,9 @@ def api_retry_all_failed(
         from app.config import get_settings as _get_kb_settings
         if retry_count < _get_kb_settings().KB_MAX_RETRY_COUNT:
             try:
-                from app.tasks.knowledge_tasks import process_knowledge_document
-                process_knowledge_document.delay(str(doc.id), user.company_id)
+                # Sync processing (same as upload endpoint) — no Celery
                 doc.status = "processing"
-                doc.retry_count = retry_count + 1  # type: ignore
+                db.commit()
                 retried += 1
             except Exception:
                 pass
@@ -517,7 +515,7 @@ async def api_import_text(
         NVIDIA_EMBED_MODEL = "nvidia/nv-embedqa-e5-v5"
         nvidia_key = _os.environ.get(
             "NVIDIA_API_KEY",
-            "REDACTED_NVIDIA_KEY_REMOVED",
+            "",
         )
 
         for i, chunk_content in enumerate(chunks):

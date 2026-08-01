@@ -38,7 +38,6 @@ logger = logging.getLogger("parwa.services.flexpay")
 BASE_INSTALLMENT_AMOUNT = Decimal("100.00")  # $100 base charge
 EXTRA_INSTALLMENT_AMOUNT = Decimal("100.00")  # $100 extra on every 3rd day
 EXTRA_DAY_INTERVAL = 3  # Add extra charge every 3rd day
-EXTRA_CHARGE_DELAY_HOURS = 2  # Extra charge happens 2 hours after base
 MAX_CONSECUTIVE_FAILURES = 3  # Pause plan after this many failures
 RETRY_DELAY_HOURS = 24  # Retry failed payment after 24 hours
 

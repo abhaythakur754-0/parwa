@@ -193,7 +193,7 @@ AGENT_SYSTEM_PROMPTS = {
         "Pricing Tiers:\n"
         "  - Starter: $999/month — 3 AI agents, 1,000 tickets/month, email support, "
         "basic analytics. Perfect for small teams getting started with AI support.\n"
-        "  - Growth: $2,499/month — 7 AI agents, 5,000 tickets/month, priority "
+        "  - PARWA: $2,999/month — 5 AI agents, 2,999 tickets/month, 80% auto-resolution, priority "
         "support, advanced analytics, custom knowledge base. For growing businesses "
         "that need more firepower.\n"
         "  - High: $3,999/month — Unlimited AI agents, 20,000 tickets/month, 24/7 "
@@ -795,7 +795,7 @@ class ZAIClient:
                     "system_health": ctx.get("system_health", "unknown"),
                     "quality_score": ctx.get("quality_score"),
                     "drift_status": ctx.get("drift_status", "none"),
-                    "variant_tier": ctx.get("variant_tier", "mini_parwa"),
+                    "variant_tier": ctx.get("variant_tier", "parwa"),
                 },
             }
 

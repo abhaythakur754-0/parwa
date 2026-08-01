@@ -218,7 +218,7 @@ class ReActToolRegistry:
 
         Args:
             variant_tier: Which variant tier to initialize tools for.
-                - 'mini_parwa': Core tools only
+                - 
                 - 'parwa': Core + Day 3 diagnostic tools
                 - 'parwa_high': All tools including High-tier diagnostics
         """
@@ -305,6 +305,8 @@ __all__ = [
     "KnownIssueDetectorTool",
     "ConfigValidatorTool",
     "DiagnosticChainTool",
+    # OAuth integration tool
+    "NangoTool",
     # Singleton
     "default_registry",
 ]
