@@ -1,77 +1,53 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Nango from '@nangohq/frontend';
-import { Loader2, CheckCircle2, XCircle, Link2 } from 'lucide-react';
+import { Loader2, CheckCircle2, Link2, ExternalLink } from 'lucide-react';
 
 // ── Nango configuration ──
 const NANGO_PUBLIC_KEY = '4d84e009-5b78-4ee1-b7b0-12f0396f9db8';
 const NANGO_HOST = 'https://api.nango.dev';
 
-// Lazy-initialize Nango client
-let nangoClient: Nango | null = null;
-function getNango(): Nango {
-  if (!nangoClient) {
-    nangoClient = new Nango({ publicKey: NANGO_PUBLIC_KEY, host: NANGO_HOST });
-  }
-  return nangoClient;
-}
-
 // ── Integration definitions (OAuth-based) ──
-// These are the integrations that use OAuth (not API keys).
-// API key integrations (Brevo, Shopify, etc.) stay on the existing system.
 export const NANGO_INTEGRATIONS = [
   {
     providerConfigKey: 'google-mail',
     name: 'Gmail',
     description: 'Sync email conversations and auto-respond via AI.',
     icon: '📧',
-    category: 'communication',
   },
   {
     providerConfigKey: 'google-analytics',
     name: 'Google Analytics',
     description: 'Access website traffic, user behavior, and conversion data.',
     icon: '📊',
-    category: 'analytics',
   },
   {
     providerConfigKey: 'hubspot',
     name: 'HubSpot (OAuth)',
     description: 'Look up customers, deals, and contact info via OAuth.',
     icon: '🎯',
-    category: 'crm',
   },
   {
     providerConfigKey: 'slack',
     name: 'Slack (OAuth)',
     description: 'Send notifications and sync conversations from Slack.',
     icon: '💬',
-    category: 'communication',
   },
   {
     providerConfigKey: 'github',
     name: 'GitHub (OAuth)',
     description: 'Access repos, issues, and pull requests via OAuth.',
     icon: '🔧',
-    category: 'dev-tools',
   },
   {
     providerConfigKey: 'notion',
     name: 'Notion (OAuth)',
     description: 'Access pages, databases, and docs from Notion.',
     icon: '📝',
-    category: 'productivity',
   },
 ];
 
-export interface NangoConnection {
-  providerConfigKey: string;
-  connectionId: string;
-  connected: boolean;
-}
-
-// ── Hook: Check connection status ──
+// ── Hook: Check connection status via Nango backend API ──
 export function useNangoConnections(userId: string | undefined) {
   const [connections, setConnections] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
@@ -84,17 +60,18 @@ export function useNangoConnections(userId: string | undefined) {
 
     async function checkConnections() {
       setLoading(true);
-      const nango = getNango();
       const results: Record<string, boolean> = {};
 
       for (const integration of NANGO_INTEGRATIONS) {
         try {
-          // Check if a connection exists for this provider + user
-          const connected = await nango.getConnections(userId);
-          const exists = connected?.some(
-            (c: any) => c.provider === integration.providerConfigKey
+          // Check connection via Nango backend API
+          const resp = await fetch(
+            `${NANGO_HOST}/connection/${integration.providerConfigKey}?connectionId=parwa-${userId}`,
+            {
+              headers: { 'Authorization': `Bearer ${NANGO_PUBLIC_KEY}` },
+            }
           );
-          results[integration.providerConfigKey] = !!exists;
+          results[integration.providerConfigKey] = resp.ok;
         } catch {
           results[integration.providerConfigKey] = false;
         }
@@ -111,6 +88,7 @@ export function useNangoConnections(userId: string | undefined) {
 }
 
 // ── NangoConnectButton Component ──
+// Uses redirect-based OAuth (more reliable than popup)
 export function NangoConnectButton({
   providerConfigKey,
   connectionId,
@@ -126,35 +104,26 @@ export function NangoConnectButton({
 }) {
   const [loading, setLoading] = useState(false);
 
-  const handleConnect = async () => {
-    setLoading(true);
-    try {
-      const nango = getNango();
-      await nango.auth(providerConfigKey, connectionId, {
-        onSuccess: () => {
-          setLoading(false);
-          onConnected?.();
-        },
-        onError: (err: any) => {
-          console.error('Nango auth error:', err);
-          setLoading(false);
-        },
-      });
-    } catch (err) {
-      console.error('Nango connect failed:', err);
-      setLoading(false);
-    }
+  const handleConnect = () => {
+    // Use redirect-based OAuth instead of popup
+    // This opens the Nango auth URL in the same tab
+    const authUrl = `${NANGO_HOST}/oauth/connect?providerConfigKey=${providerConfigKey}&connectionId=parwa-${connectionId}&publicKey=${NANGO_PUBLIC_KEY}&redirectUri=${encodeURIComponent(window.location.href)}`;
+    window.location.href = authUrl;
   };
 
   const handleDisconnect = async () => {
     setLoading(true);
     try {
-      const nango = getNango();
-      await nango.deleteConnection(providerConfigKey, connectionId);
+      await fetch(
+        `${NANGO_HOST}/connection/${providerConfigKey}?connectionId=parwa-${connectionId}`,
+        {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${NANGO_PUBLIC_KEY}` },
+        }
+      );
       setLoading(false);
       onDisconnected?.();
-    } catch (err) {
-      console.error('Nango disconnect failed:', err);
+    } catch {
       setLoading(false);
     }
   };
@@ -193,8 +162,6 @@ export function NangoConnectButton({
 }
 
 // ── Nango Integrations Section ──
-// This section shows OAuth-based integrations powered by Nango.
-// It appears ABOVE the existing API-key-based integration catalog.
 export function NangoIntegrationsSection({ userId }: { userId: string | undefined }) {
   const { connections, loading } = useNangoConnections(userId);
 
