@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Nango } from '@nangohq/frontend';
+import Nango from '@nangohq/frontend';
 import { Loader2, CheckCircle2, XCircle, Link2 } from 'lucide-react';
 
 // ── Nango configuration ──
