@@ -625,7 +625,7 @@ export function useRealtimeEvents(): void {
     if (!data?.tier) return;
 
     // Validate tier
-    const validTiers: VariantTier[] = ['mini', 'parwa', 'high'];
+    const validTiers: VariantTier[] = ['parwa', 'high'];
     if (!validTiers.includes(data.tier)) return;
 
     // Update variant store

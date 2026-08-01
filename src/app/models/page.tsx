@@ -5,7 +5,6 @@ import NavigationBar from '@/components/landing/NavigationBar';
 import Footer from '@/components/landing/Footer';
 import { AntiArbitrageMatrix } from '@/components/models/AntiArbitrageMatrix';
 import { ChatWidget } from '@/components/chat/ChatWidget';
-import { BookDemoModal } from '@/components/demo/BookDemoModal';
 import { useAppStore } from '@/lib/store';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -132,7 +131,6 @@ export default function ModelsPage() {
   const { isAuthenticated } = useAuth();
   const [isAnnual, setIsAnnual] = useState(false);
   const [quantities, setQuantities] = useState<Record<VariantId, number>>({ parwa: 0, high: 0 });
-  const [showDemoModal, setShowDemoModal] = useState(false);
 
   const handleQuantityChange = (vid: VariantId, qty: number) => {
     setQuantities((prev) => ({ ...prev, [vid]: Math.max(0, Math.min(qty, 10)) }));
@@ -309,8 +307,7 @@ export default function ModelsPage() {
         </section>
       </main>
       <Footer />
-      <ChatWidget onBookDemo={() => setShowDemoModal(true)} />
-      {showDemoModal && <BookDemoModal onClose={() => setShowDemoModal(false)} />}
+      <ChatWidget />
     </div>
   );
 }

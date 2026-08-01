@@ -15,7 +15,7 @@ describe('Integration: Billing + Variant Sync', () => {
   beforeEach(() => {
     useVariantStore.getState().reset();
     useBillingStore.setState({
-      currentTier: 'mini',
+      currentTier: 'parwa',
       currentPrice: 999,
       renewalDate: null,
       invoices: [],
@@ -38,8 +38,8 @@ describe('Integration: Billing + Variant Sync', () => {
   describe('Plan upgrade flow', () => {
     it('upgrading plan in billing store should be reflected in variant store', async () => {
       // Both start at mini
-      expect(useVariantStore.getState().tier).toBe('mini');
-      expect(useBillingStore.getState().currentTier).toBe('mini');
+      expect(useVariantStore.getState().tier).toBe('parwa');
+      expect(useBillingStore.getState().currentTier).toBe('parwa');
 
       // Simulate plan upgrade via billing API
       (global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -94,12 +94,12 @@ describe('Integration: Billing + Variant Sync', () => {
 
       await useBillingStore.getState().cancelSubscription();
 
-      expect(useBillingStore.getState().currentTier).toBe('mini');
+      expect(useBillingStore.getState().currentTier).toBe('parwa');
       expect(useBillingStore.getState().currentPrice).toBe(999);
       expect(useBillingStore.getState().renewalDate).toBeNull();
 
       // Sync variant store
-      useVariantStore.getState().setTier('mini');
+      useVariantStore.getState().setTier('parwa');
 
       expect(useVariantStore.getState().isFeatureAvailable('smsChannel')).toBe(false);
       expect(useVariantStore.getState().isFeatureAvailable('voiceChannel')).toBe(false);
@@ -109,7 +109,7 @@ describe('Integration: Billing + Variant Sync', () => {
   describe('Usage limits across tiers', () => {
     it('usage that exceeds mini limits is fine on pro', () => {
       // Set usage that exceeds mini but not pro limits
-      useVariantStore.getState().setTier('mini');
+      useVariantStore.getState().setTier('parwa');
       useVariantStore.setState({
         usage: {
           agentsUsed: 10, // mini limit is 5
@@ -201,7 +201,7 @@ describe('Integration: Billing + Variant Sync', () => {
     it('billing says pro but variant says mini — variant wins for feature gating', () => {
       // Simulate API returning different tiers (race condition)
       useBillingStore.setState({ currentTier: 'parwa', currentPrice: 2499 });
-      useVariantStore.getState().setTier('mini');
+      useVariantStore.getState().setTier('parwa');
 
       // Feature gating should follow variant store
       expect(useVariantStore.getState().isFeatureAvailable('smsChannel')).toBe(false);

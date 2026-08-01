@@ -142,7 +142,7 @@ describe('FlexPay Integration Tests', () => {
     });
 
     it('should handle mini tier full collection (~10 days)', async () => {
-      const plan = createFullPlan(TEST_COMPANIES[1], 'mini');
+      const plan = createFullPlan(TEST_COMPANIES[1], 'parwa');
       
       expect(plan.totalAmount).toBe(TIER_PRICES.mini);
       expect(plan.schedule.length).toBeLessThanOrEqual(12); // Should be ~10 days
@@ -222,7 +222,7 @@ describe('FlexPay Integration Tests', () => {
     });
 
     it('should maintain progress state across pause/resume', () => {
-      const plan = createFullPlan('progress_state_test', 'mini');
+      const plan = createFullPlan('progress_state_test', 'parwa');
       
       // Complete some installments
       recordInstallmentStatus({
@@ -301,7 +301,7 @@ describe('FlexPay Integration Tests', () => {
     });
 
     it('should handle permanent failure and allow manual intervention', async () => {
-      const plan = createFullPlan('permanent_failure_test', 'mini');
+      const plan = createFullPlan('permanent_failure_test', 'parwa');
       
       setPaymentProcessor(createMockFailingProcessor());
       
@@ -359,7 +359,7 @@ describe('FlexPay Integration Tests', () => {
   describe('Multi-Tier Validation', () => {
 
     it('should correctly handle all three tiers simultaneously', async () => {
-      const miniPlan = createFullPlan('multi_tier_mini', 'mini');
+      const miniPlan = createFullPlan('multi_tier_mini', 'parwa');
       const parwaPlan = createFullPlan('multi_tier_parwa', 'parwa');
       const highPlan = createFullPlan('multi_tier_high', 'high');
       
@@ -382,7 +382,7 @@ describe('FlexPay Integration Tests', () => {
     });
 
     it('should maintain tier-specific pricing throughout lifecycle', () => {
-      const tiers: VariantTier[] = ['mini', 'parwa', 'high'];
+      const tiers: VariantTier[] = ['parwa', 'parwa', 'high'];
       
       for (const tier of tiers) {
         const plan = createFullPlan(`tier_validation_${tier}`, tier);
@@ -449,7 +449,7 @@ describe('FlexPay Integration Tests', () => {
 
     it.skip('should provide accurate real-time statistics (fix pending)', () => {
       // Create various states
-      const activePlan = createFullPlan('stats_active', 'mini');
+      const activePlan = createFullPlan('stats_active', 'parwa');
       const pausedPlan = createFullPlan('stats_paused', 'parwa');
       pausedPlan.status = 'paused';
       
@@ -521,7 +521,7 @@ describe('FlexPay Integration Tests', () => {
   describe('Cancellation & Cleanup', () => {
 
     it('should properly clean up cancelled plans', () => {
-      const plan = createFullPlan('cleanup_test', 'mini');
+      const plan = createFullPlan('cleanup_test', 'parwa');
       
       // Verify plan exists
       expect(getPlan(plan.id)).toBeDefined();
@@ -577,7 +577,7 @@ describe('FlexPay Integration Tests', () => {
       const plans: FlexPayPlan[] = [];
       
       for (let i = 0; i < numPlans; i++) {
-        plans.push(createFullPlan(`stress_test_${i}`, 'mini'));
+        plans.push(createFullPlan(`stress_test_${i}`, 'parwa'));
       }
       
       setPaymentProcessor(createMockSuccessProcessor());

@@ -53,6 +53,7 @@ logger = get_logger("redis")
 
 # Module-level redis client singleton
 _redis_client: Optional[aioredis.Redis] = None
+_redis_error_logged: bool = False  # Only log Redis errors once
 
 # H1 fix: Thread-safety for sync contexts.
 # _redis_init_lock protects the async path (get_redis).
@@ -333,10 +334,13 @@ async def get_redis() -> aioredis.Redis:
                     )
                 except Exception as conn_err:
                     # BC-012: Fall back to fakeredis for development
-                    logger.warning(
-                        "redis_fallback_to_fakeredis",
-                        error=str(conn_err)[:200],
-                    )
+                    global _redis_error_logged
+                    if not _redis_error_logged:
+                        logger.warning(
+                            "redis_fallback_to_fakeredis (will not log again)",
+                            error=str(conn_err)[:200],
+                        )
+                        _redis_error_logged = True
                     try:
                         import fakeredis.aioredis
                         _redis_client = fakeredis.aioredis.FakeRedis(
@@ -344,7 +348,9 @@ async def get_redis() -> aioredis.Redis:
                         )
                         logger.info("redis_fakeredis_connected")
                     except ImportError:
-                        logger.error("redis_fakeredis_not_available")
+                        if not _redis_error_logged:
+                            logger.error("redis_fakeredis_not_available")
+                            _redis_error_logged = True
                         raise conn_err
     return _redis_client
 

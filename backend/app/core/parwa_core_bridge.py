@@ -71,6 +71,14 @@ try:
         AsyncLogger as _RustAsyncLogger,
     )
     _RUST_AVAILABLE = True
+    # Verify the imported classes are actually callable (not None).
+    # When SKIP_RUST_BUILD=true, the __init__.py sets all classes to None.
+    if any(v is None for v in [_RustRateLimiter, _RustCircuitBreakerManager,
+                                _RustPIIRedactor, _RustJWTDecoder,
+                                _RustSecurityHeaders, _RustCSRFValidator,
+                                _RustHMACVerifier, _RustCryptoEngine]):
+        _RUST_AVAILABLE = False
+        logger.info("PARWA Core Bridge: Rust classes are None (SKIP_RUST_BUILD) — using pure-Python fallbacks.")
     # Module-level aliases so __all__ exports work for direct Rust access
     HMACVerifier = _RustHMACVerifier
     CryptoEngine = _RustCryptoEngine

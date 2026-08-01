@@ -50,6 +50,7 @@ const PARWA_MODELS: ParwaModel[] = [
     price: VARIANT_PRICES.parwa,
     ticketLimit: VARIANT_LIMITS.parwa.monthlyTickets,
     aiResolution: AI_RESOLUTION_PARWA,
+    aiAgents: VARIANT_LIMITS.parwa.aiAgents,
     channels: ['Email', 'Chat', 'SMS', 'Voice'],
     description: 'Your smartest junior agent. Resolves 80% of tickets autonomously — refunds limited to $500.',
     bestFor: 'Growing businesses needing multi-channel support',
@@ -111,6 +112,7 @@ interface ComparisonResult {
   humanTickets: number;
   overageTickets: number;
   overageCost: number;
+  humanHandoffCost: number;
   parwaMonthly: number;
   parwaAnnual: number;
   currentMonthly: number;
@@ -154,6 +156,7 @@ function calculateResults(tickets: number, employeeCost: number, cpt: number, re
       humanTickets,
       overageTickets,
       overageCost,
+      humanHandoffCost,
       parwaMonthly,
       parwaAnnual,
       currentMonthly,

@@ -34,6 +34,11 @@ from app.exceptions import AuthenticationError
 # context is available.
 _BLACKLIST_PREFIX = "parwa:blacklist"
 
+# Flag to only log Redis fail-open once (avoids log spam on every request)
+class _FailOpenFlag:
+    val = False
+_redis_fail_open_logged = _FailOpenFlag()
+
 
 # L-02: JWT key rotation support.
 # When rotating keys, set JWT_PREVIOUS_KEYS to a JSON array of old keys.
@@ -349,20 +354,16 @@ async def is_token_revoked(jti: str) -> bool:
         return bool(result)
     except Exception as exc:
         # FAIL OPEN: When Redis is unavailable, allow the token through.
-        # The blacklist is only used for logging out users early (before
-        # the JWT expires). If Redis is down, tokens still expire normally
-        # via the JWT exp claim (1 hour), so the security impact is minimal.
-        #
-        # Previously this failed CLOSED in production (rejecting ALL tokens
-        # when Redis was down), which made the entire app unusable whenever
-        # Redis had connectivity issues. That was worse than the small
-        # security risk of allowing a few revoked tokens through temporarily.
-        logger.warning(
-            "is_token_revoked_redis_failed_FAIL_OPEN jti=%s error=%s "
-            "— token allowed because Redis is unavailable (fail-open for availability)",
-            jti,
-            str(exc)[:200],
-        )
+        # Only log once to avoid spamming logs on every request.
+        
+        if not _redis_fail_open_logged.val:
+            logger.warning(
+                "is_token_revoked_redis_failed_FAIL_OPEN "
+                "— token allowed because Redis is unavailable (fail-open for availability). "
+                "This message will not repeat.",
+                error=str(exc)[:200],
+            )
+            _redis_fail_open_logged.val = True
         return False
 
 
