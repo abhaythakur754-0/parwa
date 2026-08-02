@@ -99,6 +99,31 @@ class IntegrationService:
             updated_at=datetime.now(timezone.utc),
         )
 
+        # Ensure table exists (Alembic may have failed on Render)
+        try:
+            from sqlalchemy import text as _ensure_text
+            self.db.execute(_ensure_text("""
+                CREATE TABLE IF NOT EXISTS integrations (
+                    id VARCHAR(36) PRIMARY KEY,
+                    company_id VARCHAR(36) NOT NULL,
+                    integration_type VARCHAR(100) NOT NULL,
+                    name VARCHAR(255),
+                    status VARCHAR(50) DEFAULT 'disconnected',
+                    credentials_encrypted TEXT,
+                    settings TEXT DEFAULT '{}',
+                    last_sync TIMESTAMP WITH TIME ZONE,
+                    error_message TEXT,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            self.db.execute(_ensure_text(
+                "CREATE INDEX IF NOT EXISTS ix_integrations_company_id ON integrations (company_id)"
+            ))
+            self.db.commit()
+        except Exception:
+            pass  # Table may already exist
+
         self.db.add(integration)
         self.db.flush()
 
