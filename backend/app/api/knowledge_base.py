@@ -148,25 +148,73 @@ async def api_upload_document(
             details={"file_size": len(content), "max_size": _max_file_size},
         )
 
-    # ── MINIMAL: Just create the document record and mark completed ──
-    # No chunking, no DocumentChunk, no storage — just the document row.
-    # This eliminates ALL possible failure points.
+    # ── Create document + chunks inline (no Celery, no embeddings) ──
+    # Parse file content into text, split into chunks, store in document_chunks.
+    # The pipeline's Node 3 (knowledge_fetch) queries document_chunks by keyword
+    # overlap — no vector embeddings needed for basic retrieval.
     from fastapi.responses import JSONResponse
 
     try:
+        # Decode file content to text
+        try:
+            file_text = content.decode("utf-8", errors="replace")
+        except Exception:
+            file_text = ""
+
+        # Simple chunking: split by double-newline (paragraphs), then merge
+        # short paragraphs to get ~500-char chunks.
+        raw_paras = [p.strip() for p in file_text.split("\n\n") if p.strip()]
+        chunks_text = []
+        current = ""
+        for para in raw_paras:
+            if len(current) + len(para) + 2 < 500:
+                current = (current + "\n\n" + para).strip() if current else para
+            else:
+                if current:
+                    chunks_text.append(current)
+                current = para
+        if current:
+            chunks_text.append(current)
+
+        # If no paragraph breaks, split by single newlines or by 500-char windows
+        if not chunks_text and file_text.strip():
+            for i in range(0, len(file_text), 500):
+                chunk = file_text[i:i+500].strip()
+                if chunk:
+                    chunks_text.append(chunk)
+
         document = KnowledgeDocument(
             company_id=user.company_id,
             filename=filename,
             file_type=ext.lstrip("."),
             file_size=len(content),
             status="completed",
-            chunk_count=0,
+            chunk_count=len(chunks_text),
         )
         db.add(document)
         db.commit()
         db.refresh(document)
 
-        logger.info("kb_upload_completed document_id=%s filename=%s", str(document.id), filename)
+        # Insert chunks into document_chunks table
+        try:
+            from database.models.knowledge import DocumentChunk
+            import uuid
+            for idx, chunk_text in enumerate(chunks_text):
+                chunk = DocumentChunk(
+                    id=str(uuid.uuid4()),
+                    document_id=document.id,
+                    company_id=user.company_id,
+                    chunk_index=idx,
+                    content=chunk_text,
+                    chunk_metadata={},
+                )
+                db.add(chunk)
+            db.commit()
+        except Exception as chunk_exc:
+            logger.warning("kb_chunk_insert_partial_error: %s", str(chunk_exc)[:200])
+            db.rollback()
+
+        logger.info("kb_upload_completed document_id=%s filename=%s chunks=%d", str(document.id), filename, len(chunks_text))
 
         return JSONResponse(
             status_code=201,
@@ -175,7 +223,7 @@ async def api_upload_document(
                 "filename": filename,
                 "status": "completed",
                 "message": "Document uploaded successfully.",
-                "chunk_count": 0,
+                "chunk_count": len(chunks_text),
             },
         )
 
