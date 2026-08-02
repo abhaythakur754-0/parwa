@@ -70,14 +70,9 @@ class RequestLoggerMiddleware(BaseHTTPMiddleware):
             logger.warning if response.status_code >= 500 else logger.info
         )
         log_method(
-            "request_completed",
-            method=request.method,
-            path=request.url.path,
-            status_code=response.status_code,
-            duration_ms=round(duration_ms, 2),
-            duration_human=format_duration(duration_ms / 1000),
-            correlation_id=correlation_id,
-            client_ip=get_client_ip(request),
+            "request_completed method=%s path=%s status=%s duration=%sms corr=%s ip=%s",
+            request.method, request.url.path, response.status_code,
+            round(duration_ms, 2), correlation_id, get_client_ip(request),
         )
 
         # ── Record to Activity Store for Jarvis dashboard awareness ──

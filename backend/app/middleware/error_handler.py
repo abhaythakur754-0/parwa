@@ -104,13 +104,8 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
 
         # Log the error with full context (internal only)
         logger.error(
-            "parwa_error",
-            correlation_id=correlation_id,
-            error_code=exc.error_code,
-            status_code=exc.status_code,
-            path=request.url.path,
-            method=request.method,
-            message=exc.message,
+            "parwa_error corr=%s code=%s status=%s path=%s method=%s msg=%s",
+            correlation_id, exc.error_code, exc.status_code, request.url.path, request.method, exc.message,
         )
 
         response = JSONResponse(
@@ -132,12 +127,8 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
         while preserving the original status code.
         """
         logger.warning(
-            "http_exception",
-            correlation_id=correlation_id,
-            status_code=exc.status_code,
-            detail=str(exc.detail),
-            path=request.url.path,
-            method=request.method,
+            "http_exception corr=%s status=%s detail=%s path=%s method=%s",
+            correlation_id, exc.status_code, str(exc.detail), request.url.path, request.method,
         )
 
         error_response = {
@@ -167,12 +158,8 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
         """
         # Log full error with stack trace (internal only)
         logger.exception(
-            "unexpected_error",
-            correlation_id=correlation_id,
-            error_type=type(exc).__name__,
-            error_message=str(exc),
-            path=request.url.path,
-            method=request.method,
+            "unexpected_error corr=%s type=%s msg=%s path=%s method=%s",
+            correlation_id, type(exc).__name__, str(exc), request.url.path, request.method,
         )
 
         # Return generic error to user — no stack trace, no internal details
