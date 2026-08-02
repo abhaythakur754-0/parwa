@@ -58,9 +58,11 @@ import threading as _threading_mod
 import time as _time_mod
 
 # Configurable via env var so it can be tuned without code changes.
-# Default 10: safe on 512MB Render Starter (7→10 = +43% throughput).
-# On 2GB Render Standard, set MAX_CONCURRENT_PIPELINES=40.
-MAX_CONCURRENT_PIPELINES = int(os.environ.get("MAX_CONCURRENT_PIPELINES", "10"))
+# Default 3: only 3 tickets processed at once — rest queue in DB.
+# This prevents LLM rate-limit collisions (3 tickets × 4 calls = 12 calls,
+# well under the 30 RPM provider limit). Workers poll DB for 'open' tickets.
+# On 2GB Render Standard, set MAX_CONCURRENT_PIPELINES=10.
+MAX_CONCURRENT_PIPELINES = int(os.environ.get("MAX_CONCURRENT_PIPELINES", "3"))
 _workers_started = False
 _workers_lock = _threading_mod.Lock()
 

@@ -228,16 +228,15 @@ async def llm_call(
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
 
-    # ── PRIMARY: Provider Pool with round-robin + cooldown ──
-    # Rotates across Groq, Google, Cerebras, NVIDIA. When a provider returns
-    # 429 (rate limited), it's cooled down for 60s and subsequent calls skip it.
-    # This spreads load across all configured providers instead of hammering one.
+    # ── PRIMARY: Provider Pool — Groq first, Cerebras second (light tier) ──
+    # Light tier uses ONLY Groq + Cerebras (NO Google/NVIDIA).
+    # Groq llama-3.1-8b-instant is fastest for light tasks.
+    # Cerebras gpt-oss-120b is the fallback when Groq is rate-limited.
+    # When a provider returns 429, it's cooled down for 60s and skipped.
     pool = get_provider_pool()
     all_providers = [
         ("groq", _call_groq_direct),
-        ("google", _call_google_direct),
         ("cerebras", _call_cerebras_direct),
-        ("nvidia", _call_nvidia_direct),
     ]
 
     # Try each available provider via round-robin
