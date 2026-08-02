@@ -25,14 +25,110 @@ import logging
 import os
 import re
 import time
+from collections import defaultdict
+from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger("parwa.pipeline.llm")
+
+# ── Provider Pool with Cooldown + Round-Robin ──────────────────────
+
+class ProviderPool:
+    """Smart routing pool — rotates across providers, cools down on 429.
+
+    When a provider returns 429 (rate limited) or 5xx, it's marked as
+    "cooling down" for COOLDOWN_SECONDS. Subsequent calls skip cooling-down
+    providers and use the next available one. This lets us spread load
+    across Groq, Cerebras, Google, NVIDIA instead of hammering one provider.
+
+    Usage:
+        pool = get_provider_pool()
+        provider_name, fn = pool.next_available()
+        result = await fn(messages, temp, max_tokens, call_id)
+        pool.record_result(provider_name, success=True)
+    """
+
+    COOLDOWN_SECONDS: float = 60.0  # Cool down for 60s after a 429
+    MAX_CALLS_PER_PROVIDER: int = 25  # Reset counter after this many success
+
+    def __init__(self):
+        self._cooldown_until: Dict[str, float] = {}  # provider → expiry timestamp
+        self._call_counts: Dict[str, int] = defaultdict(int)
+        self._success_counts: Dict[str, int] = defaultdict(int)
+        self._fail_counts: Dict[str, int] = defaultdict(int)
+        self._rr_index: int = 0  # round-robin counter
+        self._lock = asyncio.Lock()
+
+    def _is_available(self, provider_name: str, providers: List[str]) -> bool:
+        """Check if a provider is available (not cooling down)."""
+        expiry = self._cooldown_until.get(provider_name, 0)
+        if time.time() < expiry:
+            return False
+        return True
+
+    def next_available(self, providers: List[Tuple[str, callable]]) -> Optional[Tuple[str, callable]]:
+        """Get the next available provider via round-robin (skips cooling-down)."""
+        if not providers:
+            return None
+        n = len(providers)
+        for i in range(n):
+            idx = (self._rr_index + i) % n
+            name, fn = providers[idx]
+            if self._is_available(name, providers):
+                self._rr_index = (idx + 1) % n  # advance for next call
+                return name, fn
+        # All cooling down — return the one with earliest cooldown expiry
+        return providers[0]  # fallback: try first anyway
+
+    def record_success(self, provider_name: str):
+        """Record a successful call."""
+        self._call_counts[provider_name] += 1
+        self._success_counts[provider_name] += 1
+        # Clear any cooldown on success
+        self._cooldown_until.pop(provider_name, None)
+
+    def record_failure(self, provider_name: str, status_code: int = 0):
+        """Record a failed call. If 429/5xx, cool down the provider."""
+        self._call_counts[provider_name] += 1
+        self._fail_counts[provider_name] += 1
+        if status_code == 429 or status_code >= 500:
+            self._cooldown_until[provider_name] = time.time() + self.COOLDOWN_SECONDS
+            logger.warning(
+                "provider_cooldown name=%s status=%d cooldown_until=%.0fs reason=rate_limited_or_server_error",
+                provider_name, status_code, self.COOLDOWN_SECONDS,
+            )
+
+    def get_status(self) -> Dict[str, Dict]:
+        """Get provider health status (for debugging)."""
+        now = time.time()
+        status = {}
+        for name in list(self._cooldown_until.keys()) + list(self._call_counts.keys()):
+            cooldown_left = max(0, self._cooldown_until.get(name, 0) - now)
+            status[name] = {
+                "available": cooldown_left == 0,
+                "cooldown_seconds_left": round(cooldown_left, 1),
+                "total_calls": self._call_counts.get(name, 0),
+                "successes": self._success_counts.get(name, 0),
+                "failures": self._fail_counts.get(name, 0),
+            }
+        return status
+
+
+# Global provider pool singleton
+_provider_pool: Optional[ProviderPool] = None
+
+def get_provider_pool() -> ProviderPool:
+    """Get the global provider pool singleton."""
+    global _provider_pool
+    if _provider_pool is None:
+        _provider_pool = ProviderPool()
+    return _provider_pool
+
 
 # ── Rate Limiter ───────────────────────────────────────────────────
 
 _last_call_time: float = 0.0
 _rate_lock: asyncio.Lock = None
-MIN_CALL_INTERVAL: float = 0.5  # Conservative: 120 RPM across all providers
+MIN_CALL_INTERVAL: float = 0.2  # 300 RPM across all providers (was 0.5/120 RPM)
 MAX_RETRIES: int = 3
 RETRY_BASE_DELAY: float = 2.0
 
@@ -132,22 +228,50 @@ async def llm_call(
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
 
-    # ── PRIMARY: Direct provider calls (fastest, most reliable) ──
-    # Try Groq first (confirmed working via /debug/llm-test), then others.
-    # SmartRouter/LiteLLM has import issues on Render, so direct calls are primary.
-    for provider_name, provider_fn in [
+    # ── PRIMARY: Provider Pool with round-robin + cooldown ──
+    # Rotates across Groq, Google, Cerebras, NVIDIA. When a provider returns
+    # 429 (rate limited), it's cooled down for 60s and subsequent calls skip it.
+    # This spreads load across all configured providers instead of hammering one.
+    pool = get_provider_pool()
+    all_providers = [
         ("groq", _call_groq_direct),
         ("google", _call_google_direct),
         ("cerebras", _call_cerebras_direct),
         ("nvidia", _call_nvidia_direct),
-    ]:
+    ]
+
+    # Try each available provider via round-robin
+    tried_providers = set()
+    for _attempt in range(len(all_providers)):
+        next_provider = pool.next_available(all_providers)
+        if not next_provider:
+            break
+        provider_name, provider_fn = next_provider
+        if provider_name in tried_providers:
+            break  # already tried all available
+        tried_providers.add(provider_name)
+
         try:
             result = await provider_fn(messages, temperature, max_tokens, call_id)
             if result and len(result.strip()) > 0:
-                logger.info("LLM call #%d: %s direct SUCCESS (%d chars)", call_id, provider_name, len(result))
+                pool.record_success(provider_name)
+                logger.info("LLM call #%d: %s SUCCESS (%d chars)", call_id, provider_name, len(result))
                 return result
+            pool.record_failure(provider_name, status_code=0)  # empty response
+            logger.warning("LLM call #%d: %s returned empty response", call_id, provider_name)
+        except RuntimeError as exc:
+            # Extract status code from error message like "Groq API error 429: ..."
+            status_code = 0
+            msg = str(exc)
+            for part in msg.split():
+                if part.isdigit():
+                    status_code = int(part)
+                    break
+            pool.record_failure(provider_name, status_code=status_code)
+            logger.warning("LLM call #%d: %s failed (status=%d): %s", call_id, provider_name, status_code, str(exc)[:100])
         except Exception as exc:
-            logger.warning("LLM call #%d: %s direct failed: %s", call_id, provider_name, str(exc)[:100])
+            pool.record_failure(provider_name, status_code=0)
+            logger.warning("LLM call #%d: %s error: %s", call_id, provider_name, str(exc)[:100])
 
     # ── FALLBACK: Smart Router (LiteLLM — 11 models via 3 API keys) ──
     try:

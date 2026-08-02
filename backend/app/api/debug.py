@@ -724,3 +724,24 @@ async def test_groq_quota(request: Request) -> Dict[str, Any]:
     )
 
     return results
+
+
+@router.get("/provider-pool")
+async def provider_pool_status() -> Dict[str, Any]:
+    """Get the current LLM provider pool status — shows which providers are
+    available, which are cooling down (rate limited), and call statistics.
+
+    Use this to diagnose why tickets show 'Unable to generate a response'.
+    """
+    try:
+        from app.core.parwa_pipeline.llm_client import get_provider_pool
+        pool = get_provider_pool()
+        status = pool.get_status()
+        return {
+            "pool_status": status,
+            "total_providers_configured": 4,
+            "providers_available": sum(1 for v in status.values() if v.get("available")),
+            "providers_cooling_down": sum(1 for v in status.values() if not v.get("available")),
+        }
+    except Exception as exc:
+        return {"error": str(exc)[:200]}
