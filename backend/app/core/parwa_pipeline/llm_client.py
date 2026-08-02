@@ -132,41 +132,41 @@ async def llm_call(
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
 
-    # ── PRIMARY: Smart Router (LiteLLM — 11 models via 3 API keys) ──
-    try:
-        smart_result = await _call_smart_router(messages, temperature, max_tokens, call_id, step_type)
-        if smart_result and len(smart_result) > 5:
-            logger.info("LLM call #%d: Smart Router SUCCESS (%d chars)", call_id, len(smart_result))
-            return smart_result
-        logger.warning("LLM call #%d: Smart Router returned empty/short response, retrying", call_id)
-    except Exception as exc:
-        logger.warning("LLM call #%d: Smart Router error (%s), trying direct LiteLLM", call_id, str(exc)[:150])
-
-    # ── FALLBACK: Direct LiteLLM call with env-configured model ──
-    try:
-        direct_result = await _call_litellm_direct(messages, temperature, max_tokens, call_id)
-        if direct_result and len(direct_result) > 5:
-            logger.info("LLM call #%d: Direct LiteLLM SUCCESS (%d chars)", call_id, len(direct_result))
-            return direct_result
-        logger.warning("LLM call #%d: Direct LiteLLM returned empty, trying per-provider", call_id)
-    except Exception as exc:
-        logger.warning("LLM call #%d: Direct LiteLLM error (%s), trying per-provider", call_id, str(exc)[:150])
-
-    # ── LAST RESORT: Try each provider directly via raw HTTP ──
-    # NVIDIA first (most reliable during testing), then others
+    # ── PRIMARY: Direct provider calls (fastest, most reliable) ──
+    # Try Groq first (confirmed working via /debug/llm-test), then others.
+    # SmartRouter/LiteLLM has import issues on Render, so direct calls are primary.
     for provider_name, provider_fn in [
-        ("nvidia", _call_nvidia_direct),
-        ("cerebras", _call_cerebras_direct),
         ("groq", _call_groq_direct),
         ("google", _call_google_direct),
+        ("cerebras", _call_cerebras_direct),
+        ("nvidia", _call_nvidia_direct),
     ]:
         try:
             result = await provider_fn(messages, temperature, max_tokens, call_id)
-            if result and len(result) > 5:
+            if result and len(result.strip()) > 0:
                 logger.info("LLM call #%d: %s direct SUCCESS (%d chars)", call_id, provider_name, len(result))
                 return result
         except Exception as exc:
             logger.warning("LLM call #%d: %s direct failed: %s", call_id, provider_name, str(exc)[:100])
+
+    # ── FALLBACK: Smart Router (LiteLLM — 11 models via 3 API keys) ──
+    try:
+        smart_result = await _call_smart_router(messages, temperature, max_tokens, call_id, step_type)
+        if smart_result and len(smart_result.strip()) > 0:
+            logger.info("LLM call #%d: Smart Router SUCCESS (%d chars)", call_id, len(smart_result))
+            return smart_result
+        logger.warning("LLM call #%d: Smart Router returned empty/short response", call_id)
+    except Exception as exc:
+        logger.warning("LLM call #%d: Smart Router error (%s)", call_id, str(exc)[:150])
+
+    # ── LAST RESORT: Direct LiteLLM call ──
+    try:
+        direct_result = await _call_litellm_direct(messages, temperature, max_tokens, call_id)
+        if direct_result and len(direct_result.strip()) > 0:
+            logger.info("LLM call #%d: Direct LiteLLM SUCCESS (%d chars)", call_id, len(direct_result))
+            return direct_result
+    except Exception as exc:
+        logger.warning("LLM call #%d: Direct LiteLLM error (%s)", call_id, str(exc)[:150])
 
     _total_errors += 1
     logger.error("LLM call #%d FAILED: All providers exhausted (Smart Router + direct)", call_id)
