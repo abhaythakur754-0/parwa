@@ -329,9 +329,8 @@ async def list_technique_configs(
         }
     except Exception as exc:
         logger.error(
-            "list_technique_configs_error",
-            error=str(exc),
-        )
+            "list_technique_configs_error error=%s",
+            str(exc))
         return ErrorResponse(
             error="Internal error",
             detail=str(exc),
@@ -419,10 +418,8 @@ async def update_technique_config(
 
     except Exception as exc:
         logger.error(
-            "update_technique_config_error",
-            technique_id=technique_id,
-            error=str(exc),
-        )
+            "update_technique_config_error technique_id=%s error=%s",
+            technique_id, str(exc))
         return JSONResponse(
             status_code=500,
             content={
@@ -495,10 +492,8 @@ async def get_technique_config(
 
     except Exception as exc:
         logger.error(
-            "get_technique_config_error",
-            technique_id=technique_id,
-            error=str(exc),
-        )
+            "get_technique_config_error technique_id=%s error=%s",
+            technique_id, str(exc))
         return JSONResponse(
             status_code=500,
             content={

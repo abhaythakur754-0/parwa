@@ -262,9 +262,8 @@ def generate_embedding(
     except Exception:
         # BC-008: never crash
         logger.warning(
-            "embedding_generation_failed",
-            error="unexpected_error",
-        )
+            "embedding_generation_failed error=%s",
+            "unexpected_error")
         try:
             safe_dim = max(1, int(dimension))
         except (TypeError, ValueError):
@@ -390,9 +389,8 @@ class SemanticClusteringEngine:
 
         if not company_id:
             logger.warning(
-                "cluster_tickets_empty_company",
-                reason="empty_company_id",
-            )
+                "cluster_tickets_empty_company reason=%s",
+                "empty_company_id")
             return []
 
         # Normalize tickets to TicketInput objects
@@ -544,13 +542,8 @@ class SemanticClusteringEngine:
 
         elapsed = round((time.monotonic() - start) * 1000, 2)
         logger.info(
-            "cluster_tickets_complete",
-            company_id=company_id,
-            input_count=len(normalized),
-            cluster_count=len(results),
-            threshold=threshold,
-            elapsed_ms=elapsed,
-        )
+            "cluster_tickets_complete company_id=%s input_count=%s cluster_count=%s threshold=%s elapsed_ms=%s",
+            company_id, len(normalized), len(results), threshold, elapsed)
 
         return results
 
@@ -682,9 +675,8 @@ class SemanticClusteringEngine:
         except Exception:
             # BC-008: never crash
             logger.warning(
-                "calculate_cluster_center_failed",
-                error="unexpected_error",
-            )
+                "calculate_cluster_center_failed error=%s",
+                "unexpected_error")
             return []
 
     def get_cluster_summary(

@@ -805,10 +805,8 @@ class FormatterRegistry:
         """
         if name in self._formatters:
             logger.warning(
-                "formatter_already_registered",
-                name=name,
-                existing=type(self._formatters[name]).__name__,
-            )
+                "formatter_already_registered name=%s existing=%s",
+                name, type(self._formatters[name]).__name__)
             return
         self._formatters[name] = formatter
 
@@ -854,7 +852,7 @@ class FormatterRegistry:
             formatter = self._formatters.get(name)
             if formatter is None:
                 errors.append(f"formatter_not_found: {name}")
-                logger.warning("formatter_not_found", name=name)
+                logger.warning("formatter_not_found name=%s", name)
                 continue
 
             try:
@@ -863,10 +861,8 @@ class FormatterRegistry:
             except Exception as exc:
                 errors.append(f"{name}: {str(exc)}")
                 logger.warning(
-                    "formatter_error",
-                    name=name,
-                    error=str(exc),
-                )
+                    "formatter_error name=%s error=%s",
+                    name, str(exc))
 
         elapsed_ms = round((time.monotonic() - start_time) * 1000, 2)
 

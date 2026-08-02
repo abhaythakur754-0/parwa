@@ -85,11 +85,8 @@ def fanout_event_task(
         }
     except Exception as exc:
         logger.error(
-            "fanout_event_failed",
-            company_id=company_id,
-            event_type=event_type,
-            error=str(exc),
-        )
+            "fanout_event_failed company_id=%s event_type=%s error=%s",
+            company_id, event_type, str(exc))
         raise fanout_event_task.retry(exc=exc, countdown=2 ** fanout_event_task.request.retries)
 
 
@@ -133,8 +130,6 @@ def cleanup_event_buffer_task(company_id: str) -> Dict[str, Any]:
         }
     except Exception as exc:
         logger.error(
-            "event_buffer_cleanup_failed",
-            company_id=company_id,
-            error=str(exc),
-        )
+            "event_buffer_cleanup_failed company_id=%s error=%s",
+            company_id, str(exc))
         return {"status": "error", "company_id": company_id, "error": str(exc)}

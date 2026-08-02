@@ -388,10 +388,8 @@ def get_security_alerts(
         }
     except Exception as exc:
         logger.warning(
-            "audit_alerts_error",
-            company_id=str(user.company_id),
-            error=str(exc),
-        )
+            "audit_alerts_error company_id=%s error=%s",
+            str(user.company_id), str(exc))
         return {
             "alerts": [],
             "total": 0,
@@ -576,10 +574,8 @@ def verify_audit_integrity(
     except Exception as exc:
         # BC-012: Never expose stack traces
         logger.warning(
-            "audit_integrity_check_error",
-            company_id=str(user.company_id),
-            error=str(exc),
-        )
+            "audit_integrity_check_error company_id=%s error=%s",
+            str(user.company_id), str(exc))
         return {
             "status": "unknown",
             "total_checked": 0,

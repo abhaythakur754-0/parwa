@@ -284,9 +284,8 @@ class AntiArbitrageService:
                 )
             except Exception as exc:
                 logger.warning(
-                    "lua_script_registration_failed",
-                    error=str(exc),
-                )
+                    "lua_script_registration_failed error=%s",
+                    str(exc))
 
         # In-memory state (fallback when Redis is unavailable)
         self._instances: Dict[str, List[VariantInstance]] = {}
@@ -335,31 +334,24 @@ class AntiArbitrageService:
                         return float(val)
                 except Exception as exc:
                     logger.warning(
-                        "redis_capacity_read_failed_falling_back",
-                        company_id=company_id,
-                        error=str(exc),
-                    )
+                        "redis_capacity_read_failed_falling_back company_id=%s error=%s",
+                        company_id, str(exc))
 
             # In-memory fallback
             instances = self._get_instances(company_id)
             total = sum(inst.capacity_weight for inst in instances)
 
             logger.debug(
-                "weighted_capacity_calculated",
-                company_id=company_id,
-                weighted_capacity=total,
-                instance_count=len(instances),
-            )
+                "weighted_capacity_calculated company_id=%s weighted_capacity=%s instance_count=%s",
+                company_id, total, len(instances))
             return total
 
         except ParwaBaseError:
             raise
         except Exception as exc:
             logger.error(
-                "calculate_weighted_capacity_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "calculate_weighted_capacity_error company_id=%s error=%s",
+                company_id, str(exc))
             return 0.0
 
     # ── Capacity Check ──────────────────────────────────────────
@@ -413,12 +405,8 @@ class AntiArbitrageService:
                 )
 
             logger.info(
-                "capacity_checked",
-                company_id=company_id,
-                weighted_capacity=current_cap,
-                utilisation_pct=utilisation,
-                action=action.value,
-            )
+                "capacity_checked company_id=%s weighted_capacity=%s utilisation_pct=%s action=%s",
+                company_id, current_cap, utilisation, action.value)
 
             return CapacityCheck(
                 company_id=company_id,
@@ -436,10 +424,8 @@ class AntiArbitrageService:
             raise
         except Exception as exc:
             logger.error(
-                "check_capacity_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "check_capacity_error company_id=%s error=%s",
+                company_id, str(exc))
             # FAIL CLOSED — block on error, not allow
             return CapacityCheck(
                 company_id=company_id,
@@ -613,10 +599,8 @@ class AntiArbitrageService:
 
                 except Exception as exc:
                     logger.warning(
-                        "redis_atomic_check_failed_falling_back",
-                        company_id=company_id,
-                        error=str(exc),
-                    )
+                        "redis_atomic_check_failed_falling_back company_id=%s error=%s",
+                        company_id, str(exc))
 
             # ── In-memory fallback (thread-safe) ──
             with self._lock:
@@ -697,11 +681,8 @@ class AntiArbitrageService:
             raise
         except Exception as exc:
             logger.error(
-                "check_instance_creation_error",
-                company_id=company_id,
-                variant_type=variant_type,
-                error=str(exc),
-            )
+                "check_instance_creation_error company_id=%s variant_type=%s error=%s",
+                company_id, variant_type, str(exc))
             # FAIL CLOSED — block on error, not allow
             return CapacityCheck(
                 company_id=company_id,
@@ -750,12 +731,8 @@ class AntiArbitrageService:
 
             if check.action == InstanceAction.BLOCKED:
                 logger.warning(
-                    "instance_creation_blocked",
-                    company_id=company_id,
-                    instance_id=instance_id,
-                    variant_type=variant_type,
-                    reason=check.reason,
-                )
+                    "instance_creation_blocked company_id=%s instance_id=%s variant_type=%s reason=%s",
+                    company_id, instance_id, variant_type, check.reason)
                 return check
 
             # Register in in-memory store (authoritative for lookups)
@@ -776,14 +753,8 @@ class AntiArbitrageService:
                 self._set_instances(company_id, insts)
 
             logger.info(
-                "instance_registered",
-                company_id=company_id,
-                instance_id=instance_id,
-                variant_type=variant_type,
-                weight=weight,
-                total_instances=len(self._get_instances(company_id)),
-                action=check.action.value,
-            )
+                "instance_registered company_id=%s instance_id=%s variant_type=%s weight=%s total_instances=%s action=%s",
+                company_id, instance_id, variant_type, weight, len(self._get_instances(company_id)), check.action.value)
 
             return check
 
@@ -791,12 +762,8 @@ class AntiArbitrageService:
             raise
         except Exception as exc:
             logger.error(
-                "register_instance_error",
-                company_id=company_id,
-                instance_id=instance_id,
-                variant_type=variant_type,
-                error=str(exc),
-            )
+                "register_instance_error company_id=%s instance_id=%s variant_type=%s error=%s",
+                company_id, instance_id, variant_type, str(exc))
             # FAIL CLOSED — block on error, not allow
             return CapacityCheck(
                 company_id=company_id,
@@ -834,10 +801,8 @@ class AntiArbitrageService:
 
                 if target is None:
                     logger.warning(
-                        "instance_not_found_for_removal",
-                        company_id=company_id,
-                        instance_id=instance_id,
-                    )
+                        "instance_not_found_for_removal company_id=%s instance_id=%s",
+                        company_id, instance_id)
                     return False
 
                 weight = target.capacity_weight
@@ -856,30 +821,20 @@ class AntiArbitrageService:
                     )
                 except Exception as exc:
                     logger.warning(
-                        "redis_atomic_remove_failed",
-                        company_id=company_id,
-                        instance_id=instance_id,
-                        error=str(exc),
-                    )
+                        "redis_atomic_remove_failed company_id=%s instance_id=%s error=%s",
+                        company_id, instance_id, str(exc))
 
             logger.info(
-                "instance_removed",
-                company_id=company_id,
-                instance_id=instance_id,
-                variant_type=target.variant_type,
-                weight=weight,
-            )
+                "instance_removed company_id=%s instance_id=%s variant_type=%s weight=%s",
+                company_id, instance_id, target.variant_type, weight)
             return True
 
         except ParwaBaseError:
             raise
         except Exception as exc:
             logger.error(
-                "remove_instance_error",
-                company_id=company_id,
-                instance_id=instance_id,
-                error=str(exc),
-            )
+                "remove_instance_error company_id=%s instance_id=%s error=%s",
+                company_id, instance_id, str(exc))
             return False
 
     # ── Suspicious Pattern Detection ────────────────────────────
@@ -982,12 +937,8 @@ class AntiArbitrageService:
                 self._alerts.append(alert)
 
             logger.info(
-                "suspicious_patterns_checked",
-                company_id=company_id,
-                alerts_found=len(alerts),
-                instance_count=len(instances),
-                weighted_capacity=current_cap,
-            )
+                "suspicious_patterns_checked company_id=%s alerts_found=%s instance_count=%s weighted_capacity=%s",
+                company_id, len(alerts), len(instances), current_cap)
 
             return alerts
 
@@ -995,10 +946,8 @@ class AntiArbitrageService:
             raise
         except Exception as exc:
             logger.error(
-                "detect_patterns_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "detect_patterns_error company_id=%s error=%s",
+                company_id, str(exc))
             return []
 
     # ── Instance Summary ────────────────────────────────────────
@@ -1048,10 +997,8 @@ class AntiArbitrageService:
             raise
         except Exception as exc:
             logger.error(
-                "get_instance_summary_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "get_instance_summary_error company_id=%s error=%s",
+                company_id, str(exc))
             return {
                 "company_id": company_id,
                 "total_instances": 0,
@@ -1087,10 +1034,8 @@ class AntiArbitrageService:
             raise
         except Exception as exc:
             logger.error(
-                "get_alerts_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "get_alerts_error company_id=%s error=%s",
+                company_id, str(exc))
             return []
 
     def resolve_alert(
@@ -1109,28 +1054,21 @@ class AntiArbitrageService:
                 ):
                     alert.resolved = True
                     logger.info(
-                        "alert_resolved",
-                        company_id=company_id,
-                        alert_id=alert_id,
-                    )
+                        "alert_resolved company_id=%s alert_id=%s",
+                        company_id, alert_id)
                     return True
 
             logger.warning(
-                "alert_not_found_for_resolution",
-                company_id=company_id,
-                alert_id=alert_id,
-            )
+                "alert_not_found_for_resolution company_id=%s alert_id=%s",
+                company_id, alert_id)
             return False
 
         except ParwaBaseError:
             raise
         except Exception as exc:
             logger.error(
-                "resolve_alert_error",
-                company_id=company_id,
-                alert_id=alert_id,
-                error=str(exc),
-            )
+                "resolve_alert_error company_id=%s alert_id=%s error=%s",
+                company_id, alert_id, str(exc))
             return False
 
     # ── Config ──────────────────────────────────────────────────
@@ -1147,7 +1085,7 @@ class AntiArbitrageService:
                 "valid_variant_types": sorted(VALID_VARIANT_TYPES),
             }
         except Exception as exc:
-            logger.error("get_variant_config_error", error=str(exc))
+            logger.error("get_variant_config_error error=%s", str(exc))
             return {}
 
     # ── Reset (testing) ─────────────────────────────────────────
@@ -1172,22 +1110,19 @@ class AntiArbitrageService:
                             )
                         except Exception as exc:
                             logger.warning(
-                                "redis_reset_failed",
-                                company_id=company_id,
-                                error=str(exc),
-                            )
+                                "redis_reset_failed company_id=%s error=%s",
+                                company_id, str(exc))
                 else:
                     self._instances.clear()
                     self._rapid_creation_counts.clear()
                     self._alerts.clear()
 
             logger.info(
-                "anti_arbitrage_reset",
-                company_id=company_id or "ALL",
-            )
+                "anti_arbitrage_reset company_id=%s",
+                company_id or "ALL")
 
         except Exception as exc:
-            logger.error("reset_error", error=str(exc))
+            logger.error("reset_error error=%s", str(exc))
 
     # ══════════════════════════════════════════════════════════════
     # PRIVATE HELPERS
@@ -1233,11 +1168,6 @@ class AntiArbitrageService:
         self._alerts.append(alert)
 
         logger.warning(
-            "arbitrage_alert_created",
-            company_id=company_id,
-            alert_id=alert.alert_id,
-            level=level.value,
-            alert_type=alert_type,
-            description=description,
-        )
+            "arbitrage_alert_created company_id=%s alert_id=%s level=%s alert_type=%s description=%s",
+            company_id, alert.alert_id, level.value, alert_type, description)
         return alert

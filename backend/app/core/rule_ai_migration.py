@@ -875,9 +875,8 @@ class RuleAIMigrationEngine:
                 await self._record_ai_call(company_id, "classification", success=False)
 
                 fallback_reason = f"ai_error: {str(exc)[:120]}"
-                logger.warning("classify_ai_failed company_id=%s error=%s", company_id, str(exc),
-                    circuit_state=await cb.get_state(),
-                )
+                logger.warning("classify_ai_failed company_id=%s error=%s circuit_state=%s", company_id, str(exc),
+                    await cb.get_state())
 
                 # Fall through to rule-based below
                 rule_result = await self._rule_classifier.classify(text)
@@ -912,9 +911,8 @@ class RuleAIMigrationEngine:
                 details={"intent": rule_result.get("intent")},
             )
 
-            logger.info("classify_rule_fallback company_id=%s intent=%s", company_id, rule_result.get("intent"),
-                reason=reason,
-            )
+            logger.info("classify_rule_fallback company_id=%s intent=%s reason=%s", company_id, rule_result.get("intent"),
+                reason)
 
         return MigrationClassifyResult(
             intent=rule_result["intent"],
@@ -961,9 +959,8 @@ class RuleAIMigrationEngine:
                 await self._save_circuit_breaker(company_id, "assignment")
                 await self._record_ai_call(company_id, "assignment", success=True)
 
-                logger.info("assign_ai_success company_id=%s agent_id=%s", company_id, getattr(assign_result, "assigned_agent_id", ""),
-                    method="ai",
-                )
+                logger.info("assign_ai_success company_id=%s agent_id=%s method=%s", company_id, getattr(assign_result, "assigned_agent_id", ""),
+                    "ai")
 
                 return MigrationAssignResult(
                     assigned_agent_id=getattr(assign_result, "assigned_agent_id", ""),
@@ -981,9 +978,8 @@ class RuleAIMigrationEngine:
                 await self._record_ai_call(company_id, "assignment", success=False)
 
                 fallback_reason = f"ai_error: {str(exc)[:120]}"
-                logger.warning("assign_ai_failed company_id=%s error=%s", company_id, str(exc),
-                    circuit_state=await cb.get_state(),
-                )
+                logger.warning("assign_ai_failed company_id=%s error=%s circuit_state=%s", company_id, str(exc),
+                    await cb.get_state())
 
                 rule_result = await self._rule_assigner.assign(intent, priority)
 

@@ -569,12 +569,8 @@ async def system_health_endpoint(
 
     duration = round((time.monotonic() - start) * 1000, 2)
     logger.info(
-        "system_health_check_completed",
-        overall_status=overall_status,
-        duration_ms=duration,
-        services_checked=len(services),
-        alerts_count=len(alerts),
-    )
+        "system_health_check_completed overall_status=%s duration_ms=%s services_checked=%s alerts_count=%s",
+        overall_status, duration, len(services), len(alerts))
 
     return {
         "overall_status": overall_status,

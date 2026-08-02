@@ -135,12 +135,8 @@ def track_event(
     _stage_event_for_db(event)
 
     logger.debug(
-        "analytics_event",
-        event_type=event_type,
-        category=event_category,
-        user_id=user_id,
-        session_id=session_id,
-    )
+        "analytics_event event_type=%s category=%s user_id=%s session_id=%s",
+        event_type, event_category, user_id, session_id)
     return event
 
 

@@ -155,12 +155,8 @@ class ContextCompressor:
         self._stats: Dict[str, Dict[str, Any]] = {}
 
         logger.info(
-            "context_compressor_initialized",
-            variant_type=self._config.variant_type,
-            strategy=self._config.strategy.value,
-            level=self._config.level.value,
-            company_id=self._config.company_id,
-        )
+            "context_compressor_initialized variant_type=%s strategy=%s level=%s company_id=%s",
+            self._config.variant_type, self._config.strategy.value, self._config.level.value, self._config.company_id)
 
     # ── Public API ─────────────────────────────────────────────
 
@@ -185,9 +181,8 @@ class ContextCompressor:
             # Validate inputs
             if not input_data.content:
                 logger.info(
-                    "compress_empty_input",
-                    company_id=company_id,
-                )
+                    "compress_empty_input company_id=%s",
+                    company_id)
                 return CompressionOutput(
                     compressed_content=[],
                     original_token_count=0,
@@ -288,25 +283,16 @@ class ContextCompressor:
             )
 
             logger.info(
-                "compress_completed",
-                company_id=company_id,
-                strategy=output.strategy_used,
-                original_tokens=original_tokens,
-                compressed_tokens=compressed_tokens,
-                ratio=output.compression_ratio,
-                chunks_removed=output.chunks_removed,
-                duration_ms=output.processing_time_ms,
-            )
+                "compress_completed company_id=%s strategy=%s original_tokens=%s compressed_tokens=%s ratio=%s chunks_removed=%s duration_ms=%s",
+                company_id, output.strategy_used, original_tokens, compressed_tokens, output.compression_ratio, output.chunks_removed, output.processing_time_ms)
 
             return output
 
         except Exception as exc:
             # BC-008: Graceful degradation — return original
             logger.warning(
-                "compress_failed_fallback",
-                error=str(exc),
-                company_id=company_id,
-            )
+                "compress_failed_fallback error=%s company_id=%s",
+                str(exc), company_id)
             elapsed_ms = (time.monotonic() - start_time) * 1000
             original_tokens = sum(
                 self._estimate_tokens(c)
@@ -709,10 +695,8 @@ class ContextCompressor:
             )
         except Exception as exc:
             logger.warning(
-                "get_compression_stats_failed",
-                error=str(exc),
-                company_id=company_id,
-            )
+                "get_compression_stats_failed error=%s company_id=%s",
+                str(exc), company_id)
             return {
                 "total_compressions": 0,
                 "error": str(exc),
@@ -743,6 +727,5 @@ class ContextCompressor:
             logger.info("context_compressor_reset")
         except Exception as exc:
             logger.warning(
-                "compressor_reset_failed",
-                error=str(exc),
-            )
+                "compressor_reset_failed error=%s",
+                str(exc))

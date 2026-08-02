@@ -208,10 +208,8 @@ class DataFreshnessService:
                 )
         except Exception as exc:
             logger.warning(
-                "batch_check_freshness_error",
-                error=str(exc), key_count=len(keys),
-                company_id=company_id,
-            )
+                "batch_check_freshness_error error=%s key_count=%s company_id=%s",
+                str(exc), len(keys), company_id)
             for ks in keys:
                 eid = ks["entity_id"]
                 et = ks.get("entity_type", "signal")
@@ -241,19 +239,13 @@ class DataFreshnessService:
             res = await pipe.execute()
             deleted = sum(1 for r in res if r)
             logger.info(
-                "cache_invalidated",
-                cache_key=cache_key[:64],
-                company_id=company_id,
-                keys_deleted=deleted,
-            )
+                "cache_invalidated cache_key=%s company_id=%s keys_deleted=%s",
+                cache_key[:64], company_id, deleted)
             return deleted > 0
         except Exception as exc:
             logger.warning(
-                "invalidate_cache_error",
-                error=str(exc),
-                cache_key=cache_key[:64],
-                company_id=company_id,
-            )
+                "invalidate_cache_error error=%s cache_key=%s company_id=%s",
+                str(exc), cache_key[:64], company_id)
             return False
 
     async def invalidate_kb_caches(
@@ -313,18 +305,12 @@ class DataFreshnessService:
                     break
 
             logger.info(
-                "kb_caches_invalidated",
-                document_id=document_id,
-                company_id=company_id,
-                keys_invalidated=total,
-            )
+                "kb_caches_invalidated document_id=%s company_id=%s keys_invalidated=%s",
+                document_id, company_id, total)
         except Exception as exc:
             logger.warning(
-                "invalidate_kb_caches_error",
-                error=str(exc),
-                document_id=document_id,
-                company_id=company_id,
-            )
+                "invalidate_kb_caches_error error=%s document_id=%s company_id=%s",
+                str(exc), document_id, company_id)
 
         await self._notify_kb_listeners(document_id, company_id)
         return total
@@ -344,11 +330,8 @@ class DataFreshnessService:
         """
         if entity_type not in ENTITY_TYPES:
             logger.warning(
-                "record_update_invalid_type",
-                entity_type=entity_type,
-                entity_id=entity_id[:64],
-                company_id=company_id,
-            )
+                "record_update_invalid_type entity_type=%s entity_id=%s company_id=%s",
+                entity_type, entity_id[:64], company_id)
             return
 
         rk = self._fkey(company_id, entity_type, entity_id)
@@ -370,20 +353,12 @@ class DataFreshnessService:
             pipe.expire(dk, ttl)
             await pipe.execute()
             logger.debug(
-                "recorded_update",
-                entity_type=entity_type,
-                entity_id=entity_id[:64],
-                company_id=company_id,
-                ttl=ttl,
-            )
+                "recorded_update entity_type=%s entity_id=%s company_id=%s ttl=%s",
+                entity_type, entity_id[:64], company_id, ttl)
         except Exception as exc:
             logger.warning(
-                "record_update_error",
-                error=str(exc),
-                entity_type=entity_type,
-                entity_id=entity_id[:64],
-                company_id=company_id,
-            )
+                "record_update_error error=%s entity_type=%s entity_id=%s company_id=%s",
+                str(exc), entity_type, entity_id[:64], company_id)
 
     # ── Freshness Report ───────────────────────────────────────────
 
@@ -456,9 +431,8 @@ class DataFreshnessService:
                     break
         except Exception as exc:
             logger.warning(
-                "get_freshness_report_error",
-                error=str(exc), company_id=company_id,
-            )
+                "get_freshness_report_error error=%s company_id=%s",
+                str(exc), company_id)
         return report
 
     # ── Convenience Predicates ─────────────────────────────────────
@@ -491,9 +465,8 @@ class DataFreshnessService:
         """Register callback for KB document updates."""
         self._kb_listeners.append(callback)
         logger.info(
-            "kb_update_listener_registered",
-            listener_count=len(self._kb_listeners),
-        )
+            "kb_update_listener_registered listener_count=%s",
+            len(self._kb_listeners))
 
     async def _notify_kb_listeners(
         self, document_id: str, company_id: str,
@@ -506,14 +479,10 @@ class DataFreshnessService:
                     await result
             except Exception as exc:
                 logger.warning(
-                    "kb_listener_error",
-                    error=str(exc),
-                    document_id=document_id,
-                    company_id=company_id,
-                    callback=getattr(
+                    "kb_listener_error error=%s document_id=%s company_id=%s callback=%s",
+                    str(exc), document_id, company_id, getattr(
                         cb, "__name__", str(cb),
-                    ),
-                )
+                    ))
 
     # ── Internal: Redis Interaction ────────────────────────────────
 
@@ -547,10 +516,7 @@ class DataFreshnessService:
             )
         except Exception as exc:
             logger.warning(
-                log_label, error=str(exc),
-                entity_id=log_key[:64],
-                company_id=company_id,
-            )
+                log_label + " error=%s entity_id=%s company_id=%s", str(exc), log_key[:64], company_id)
             meta: Dict[str, Any] = {"error": str(exc)}
             if extra_meta:
                 meta.update(extra_meta)

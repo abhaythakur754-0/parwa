@@ -97,11 +97,8 @@ def create_conversation(
         updated_at=now,
     )
     logger.info(
-        "conversation_created",
-        conversation_id=conversation_id,
-        user_id=user_id,
-        type=session_type,
-    )
+        "conversation_created conversation_id=%s user_id=%s type=%s",
+        conversation_id, user_id, session_type)
     return ctx
 
 
@@ -261,7 +258,7 @@ def get_conversation_history(
         )
         return [{"role": m.role, "content": m.content} for m in messages]
     except Exception as exc:
-        logger.warning("conversation_history_error", error=str(exc))
+        logger.warning("conversation_history_error error=%s", str(exc))
         return []
 
 

@@ -193,10 +193,10 @@ async def lifespan(app: FastAPI):
         from app.core.sentry import init_sentry
         sentry_initialized = init_sentry()
         logger = get_logger("lifespan")
-        logger.info("sentry_initialized", status=sentry_initialized)
+        logger.info("sentry_initialized status=%s", sentry_initialized)
     except Exception as exc:
         logger = get_logger("lifespan")
-        logger.warning("sentry_init_failed", error=str(exc))
+        logger.warning("sentry_init_failed: %s", str(exc))
 
     # ── Run Alembic migrations on startup ──
     try:
@@ -232,17 +232,14 @@ async def lifespan(app: FastAPI):
             else:
                 logger = get_logger("lifespan")
                 logger.warning(
-                    "alembic_migrations_failed",
-                    returncode=result.returncode,
-                    stdout=result.stdout[:500] if result.stdout else "",
-                    stderr=result.stderr[:500] if result.stderr else "",
-                )
+                    "alembic_migrations_failed returncode=%s stdout=%s stderr=%s",
+                    result.returncode, result.stdout[:500] if result.stdout else "", result.stderr[:500] if result.stderr else "")
         else:
             logger = get_logger("lifespan")
             logger.warning("alembic_skipped_database_dir_not_found")
     except Exception as exc:
         logger = get_logger("lifespan")
-        logger.warning("alembic_migrations_error", error=str(exc))
+        logger.warning("alembic_migrations_error: %s", str(exc))
 
     # ── Direct SQL fallback for trial columns ──
     # If alembic failed to run migration 032 (e.g., due to PATH issues
@@ -265,7 +262,7 @@ async def lifespan(app: FastAPI):
             _db.close()
     except Exception as exc:
         _lg = get_logger("lifespan")
-        _lg.warning("trial_columns_sql_fallback_failed", error=str(exc))
+        _lg.warning("trial_columns_sql_fallback_failed: %s", str(exc))
 
     # ── Direct SQL fallback for knowledge_documents columns ──
     # Ensure file_path + storage_file_id columns exist (used for inline
@@ -293,7 +290,7 @@ async def lifespan(app: FastAPI):
             _db.close()
     except Exception as exc:
         _lg = get_logger("lifespan")
-        _lg.warning("kb_columns_sql_fallback_failed", error=str(exc))
+        _lg.warning("kb_columns_sql_fallback_failed: %s", str(exc))
 
     # ── Direct SQL fallback for document_chunks table ──
     # The sync KB processing saves chunks to this table. If it doesn't exist
@@ -326,7 +323,7 @@ async def lifespan(app: FastAPI):
             _db.close()
     except Exception as exc:
         _lg = get_logger("lifespan")
-        _lg.warning("document_chunks_table_sql_fallback_failed", error=str(exc))
+        _lg.warning("document_chunks_table_sql_fallback_failed: %s", str(exc))
 
     # ── Direct SQL fallback for FlexPay tables ──
     # If alembic failed (connection error in subprocess), create the
@@ -404,7 +401,7 @@ async def lifespan(app: FastAPI):
             _db.close()
     except Exception as exc:
         _lg = get_logger("lifespan")
-        _lg.warning("flexpay_tables_sql_fallback_failed", error=str(exc))
+        _lg.warning("flexpay_tables_sql_fallback_failed: %s", str(exc))
 
     # ── Direct SQL fallback for provider_configurations table ──
     # Used by integrations API to store Brevo, Twilio, etc. credentials.
@@ -462,22 +459,20 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger = get_logger("lifespan")
         logger.warning(
-            "redis_init_failed_fail_open",
-            error=str(exc),
-        )
+            "redis_init_failed_fail_open error=%s",
+            str(exc))
 
     # Register Socket.io ASGI app on /ws path
     try:
         from app.core.socketio import create_socketio_app
         socketio_app = create_socketio_app()
         app.mount("/ws", socketio_app)
-        logger.info("socketio_mounted", path="/ws")
+        logger.info("socketio_mounted path=/ws")
     except Exception as exc:
         logger = get_logger("lifespan")
         logger.warning(
-            "socketio_mount_failed",
-            error=str(exc),
-        )
+            "socketio_mount_failed error=%s",
+            str(exc))
 
     # Phase 7: Pre-load Jarvis knowledge base at startup
     try:
@@ -488,9 +483,8 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger = get_logger("lifespan")
         logger.warning(
-            "jarvis_knowledge_load_failed",
-            error=str(exc),
-        )
+            "jarvis_knowledge_load_failed error=%s",
+            str(exc))
 
     # Phase 4: Pre-build unified 8-node PARWA pipeline at startup
     try:
@@ -501,17 +495,13 @@ async def lifespan(app: FastAPI):
         app.state.parwa_graph = _compiled
         logger = get_logger("lifespan")
         logger.info(
-            "parwa_pipeline_v2_initialized",
-            node_count=8,
-            pipeline_type="unified_11node",
-        )
+            "parwa_pipeline_v2_initialized node_count=%s pipeline_type=%s",
+            8, "unified_11node")
     except Exception as exc:
         logger = get_logger("lifespan")
         logger.warning(
-            "parwa_pipeline_init_failed_fail_open",
-            error=str(exc),
-            message="PARWA pipeline will be built on first request",
-        )
+            "parwa_pipeline_init_failed_fail_open error=%s message=%s",
+            str(exc), "PARWA pipeline will be built on first request")
         app.state.parwa_graph = None
 
     # Phase 2: Initialize Rust parwa_core bridge (Tier-1 hot-path replacement)
@@ -532,29 +522,23 @@ async def lifespan(app: FastAPI):
             diagnostics = get_bridge_diagnostics()
             logger = get_logger("lifespan")
             logger.info(
-                "parwa_core_initialized",
-                rust_available=True,
-                diagnostics=diagnostics,
-            )
+                "parwa_core_initialized rust_available=%s diagnostics=%s",
+                True, diagnostics)
         else:
             logger = get_logger("lifespan")
             logger.warning(
-                "parwa_core_not_available_fallback_to_python",
-                rust_available=False,
-            )
+                "parwa_core_not_available_fallback_to_python rust_available=%s",
+                False)
     except Exception as exc:
         logger = get_logger("lifespan")
         logger.warning(
-            "parwa_core_init_failed_fallback_to_python",
-            error=str(exc),
-        )
+            "parwa_core_init_failed_fallback_to_python error=%s",
+            str(exc))
 
     logger = get_logger("lifespan")
     logger.info(
-        "parwa_startup",
-        environment=settings.ENVIRONMENT,
-        version=settings.APP_VERSION,
-    )
+        "parwa_startup environment=%s version=%s",
+        settings.ENVIRONMENT, settings.APP_VERSION)
 
     # ── Gap 6: Auto-resume pending escalations every 5 minutes ──
     # Celery beat is configured but the worker isn't running on Render free
@@ -882,7 +866,7 @@ async def lifespan(app: FastAPI):
         from app.core.sentry import flush as sentry_flush
         sentry_flush(timeout=2.0)
     except Exception as exc:
-        logger.warning("sentry_flush_error", error=str(exc))
+        logger.warning("sentry_flush_error: %s", str(exc))
 
     # Shutdown: close Redis pool
     try:
@@ -890,7 +874,7 @@ async def lifespan(app: FastAPI):
         await close_redis()
         logger.info("redis_closed")
     except Exception as exc:
-        logger.warning("redis_close_error", error=str(exc))
+        logger.warning("redis_close_error: %s", str(exc))
 
     logger.info("parwa_shutdown")
 
@@ -1166,12 +1150,8 @@ async def internal_error_handler(
     _ensure_logging()
     logger = get_logger("error_handler")
     logger.error(
-        "internal_error",
-        path=request.url.path,
-        method=request.method,
-        error_type=type(exc).__name__,
-        error_message=str(exc),
-    )
+        "internal_error path=%s method=%s error_type=%s error_message=%s",
+        request.url.path, request.method, type(exc).__name__, str(exc))
     return JSONResponse(
         status_code=500,
         content={
@@ -1278,6 +1258,7 @@ if _CURRENT_ENV == "test":
 
     # ── Direct SQL fallback for integrations table ──
     # Used by IntegrationService to store Brevo, Twilio, etc.
+    _lg = get_logger("lifespan")
     try:
         from sqlalchemy import text as _sql_text
         from database.base import SessionLocal as _SL
@@ -1306,5 +1287,4 @@ if _CURRENT_ENV == "test":
         finally:
             _db.close()
     except Exception as exc:
-        _lg = get_logger("lifespan")
         _lg.warning("integrations_table_sql_fallback_failed: %s", str(exc)[:200])

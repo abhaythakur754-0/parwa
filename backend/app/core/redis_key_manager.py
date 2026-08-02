@@ -403,20 +403,14 @@ async def cleanup_namespace(
 
         deleted = await redis_client.delete(*keys)
         logger.info(
-            "cleanup_namespace",
-            namespace=namespace.value,
-            company_id=company_id,
-            keys_deleted=deleted,
-        )
+            "cleanup_namespace namespace=%s company_id=%s keys_deleted=%s",
+            namespace.value, company_id, deleted)
         return deleted
 
     except Exception as exc:
         logger.warning(
-            "cleanup_namespace_failed",
-            namespace=namespace.value,
-            company_id=company_id,
-            error=str(exc)[:200],
-        )
+            "cleanup_namespace_failed namespace=%s company_id=%s error=%s",
+            namespace.value, company_id, str(exc)[:200])
         return 0
 
 
@@ -506,11 +500,8 @@ async def get_namespace_metrics(
 
     except Exception as exc:
         logger.warning(
-            "get_namespace_metrics_failed",
-            namespace=namespace.value,
-            company_id=company_id,
-            error=str(exc)[:200],
-        )
+            "get_namespace_metrics_failed namespace=%s company_id=%s error=%s",
+            namespace.value, company_id, str(exc)[:200])
         return {
             "namespace": namespace.value,
             "company_id": company_id,
@@ -612,21 +603,15 @@ async def audit_all_keys(redis_client: Any) -> Dict[str, Any]:
         }
 
         logger.info(
-            "redis_key_audit_complete",
-            total_keys=total_key_count,
-            scanned_keys=scanned,
-            keys_without_ttl=keys_without_ttl,
-            orphaned_keys=len(orphaned_keys),
-            namespaces_found=len(keys_by_namespace),
-        )
+            "redis_key_audit_complete total_keys=%s scanned_keys=%s keys_without_ttl=%s orphaned_keys=%s namespaces_found=%s",
+            total_key_count, scanned, keys_without_ttl, len(orphaned_keys), len(keys_by_namespace))
 
         return audit_result
 
     except Exception as exc:
         logger.warning(
-            "redis_key_audit_failed",
-            error=str(exc)[:200],
-        )
+            "redis_key_audit_failed error=%s",
+            str(exc)[:200])
         return {
             "total_key_count": 0,
             "scanned_key_count": 0,
@@ -708,20 +693,15 @@ async def fix_missing_ttls(
         }
 
         logger.info(
-            "fix_missing_ttls_complete",
-            dry_run=dry_run,
-            keys_scanned=keys_scanned,
-            keys_fixed=keys_fixed,
-        )
+            "fix_missing_ttls_complete dry_run=%s keys_scanned=%s keys_fixed=%s",
+            dry_run, keys_scanned, keys_fixed)
 
         return result
 
     except Exception as exc:
         logger.warning(
-            "fix_missing_ttls_failed",
-            dry_run=dry_run,
-            error=str(exc)[:200],
-        )
+            "fix_missing_ttls_failed dry_run=%s error=%s",
+            dry_run, str(exc)[:200])
         return {
             "dry_run": dry_run,
             "keys_scanned": 0,
@@ -748,37 +728,28 @@ async def startup_audit(redis_client: Any) -> None:
         audit = await audit_all_keys(redis_client)
 
         logger.info(
-            "redis_startup_audit_results",
-            total_keys=audit.get("total_key_count", 0),
-            keys_without_ttl=audit.get("keys_without_ttl", 0),
-            orphaned_keys=audit.get("orphaned_key_count", 0),
-            namespaces=audit.get("keys_by_namespace", {}),
-        )
+            "redis_startup_audit_results total_keys=%s keys_without_ttl=%s orphaned_keys=%s namespaces=%s",
+            audit.get("total_key_count", 0), audit.get("keys_without_ttl", 0), audit.get("orphaned_key_count", 0), audit.get("keys_by_namespace", {}))
 
         # Alert on orphans
         orphaned = audit.get("orphaned_keys", [])
         if orphaned:
             logger.warning(
-                "redis_orphaned_keys_detected",
-                count=len(orphaned),
-                sample=orphaned[:10],
-            )
+                "redis_orphaned_keys_detected count=%s sample=%s",
+                len(orphaned), orphaned[:10])
 
         # Alert on missing TTLs
         keys_no_ttl = audit.get("keys_without_ttl", 0)
         if keys_no_ttl > 0:
             logger.warning(
-                "redis_keys_missing_ttl",
-                count=keys_no_ttl,
-                recommendation="Run fix_missing_ttls(dry_run=False) to apply defaults",
-            )
+                "redis_keys_missing_ttl count=%s recommendation=%s",
+                keys_no_ttl, "Run fix_missing_ttls(dry_run=False) to apply defaults")
 
     except Exception as exc:
         # BC-008: Startup audit failure must not crash the app
         logger.warning(
-            "redis_startup_audit_failed",
-            error=str(exc)[:200],
-        )
+            "redis_startup_audit_failed error=%s",
+            str(exc)[:200])
 
 
 # ═══════════════════════════════════════════════════════════════════════

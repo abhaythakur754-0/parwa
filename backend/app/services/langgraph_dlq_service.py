@@ -138,20 +138,12 @@ class LanggraphDLQService:
             await redis.lpush(key, serialized)
 
             logger.info(
-                "langgraph_dlq_recorded",
-                company_id=company_id,
-                dlq_id=dlq_id,
-                thread_id=thread_id,
-                error_type=entry["error_type"],
-                graph_id=graph_id,
-            )
+                "langgraph_dlq_recorded company_id=%s dlq_id=%s thread_id=%s error_type=%s graph_id=%s",
+                company_id, dlq_id, thread_id, entry["error_type"], graph_id)
         except Exception as redis_exc:
             logger.error(
-                "langgraph_dlq_record_failed",
-                company_id=company_id,
-                dlq_id=dlq_id,
-                error=str(redis_exc)[:200],
-            )
+                "langgraph_dlq_record_failed company_id=%s dlq_id=%s error=%s",
+                company_id, dlq_id, str(redis_exc)[:200])
             # Return the entry even if Redis write failed so the caller
             # can still log / emit it via an alternative channel.
             entry["_redis_persist_failed"] = True
@@ -197,17 +189,13 @@ class LanggraphDLQService:
                     entries.append(entry)
                 except (json.JSONDecodeError, TypeError):
                     logger.warning(
-                        "langgraph_dlq_malformed_entry",
-                        company_id=company_id,
-                        raw_preview=str(raw)[:100],
-                    )
+                        "langgraph_dlq_malformed_entry company_id=%s raw_preview=%s",
+                        company_id, str(raw)[:100])
 
         except Exception as redis_exc:
             logger.error(
-                "langgraph_dlq_list_failed",
-                company_id=company_id,
-                error=str(redis_exc)[:200],
-            )
+                "langgraph_dlq_list_failed company_id=%s error=%s",
+                company_id, str(redis_exc)[:200])
 
         # ── DB fallback: query SQL if Redis returned nothing ──────
         if not entries:
@@ -253,11 +241,8 @@ class LanggraphDLQService:
 
         except Exception as redis_exc:
             logger.error(
-                "langgraph_dlq_get_failed",
-                company_id=company_id,
-                dlq_id=dlq_id,
-                error=str(redis_exc)[:200],
-            )
+                "langgraph_dlq_get_failed company_id=%s dlq_id=%s error=%s",
+                company_id, dlq_id, str(redis_exc)[:200])
 
         # ── DB fallback: try SQL if not in Redis ────────────────────
         return self._get_failure_from_db(company_id, dlq_id)
@@ -299,29 +284,20 @@ class LanggraphDLQService:
                         if removed > 0:
                             entry = parsed
                             logger.info(
-                                "langgraph_dlq_retry",
-                                company_id=company_id,
-                                dlq_id=dlq_id,
-                                thread_id=parsed.get("thread_id", ""),
-                                graph_id=parsed.get("graph_id", ""),
-                            )
+                                "langgraph_dlq_retry company_id=%s dlq_id=%s thread_id=%s graph_id=%s",
+                                company_id, dlq_id, parsed.get("thread_id", ""), parsed.get("graph_id", ""))
                         else:
                             logger.warning(
-                                "langgraph_dlq_retry_lrem_failed",
-                                company_id=company_id,
-                                dlq_id=dlq_id,
-                            )
+                                "langgraph_dlq_retry_lrem_failed company_id=%s dlq_id=%s",
+                                company_id, dlq_id)
                         break
                 except (json.JSONDecodeError, TypeError):
                     continue
 
         except Exception as redis_exc:
             logger.error(
-                "langgraph_dlq_retry_error",
-                company_id=company_id,
-                dlq_id=dlq_id,
-                error=str(redis_exc)[:200],
-            )
+                "langgraph_dlq_retry_error company_id=%s dlq_id=%s error=%s",
+                company_id, dlq_id, str(redis_exc)[:200])
 
         # ── DB: mark as retried ─────────────────────────────────
         if entry is not None:
@@ -334,10 +310,8 @@ class LanggraphDLQService:
 
         if entry is None:
             logger.info(
-                "langgraph_dlq_retry_not_found",
-                company_id=company_id,
-                dlq_id=dlq_id,
-            )
+                "langgraph_dlq_retry_not_found company_id=%s dlq_id=%s",
+                company_id, dlq_id)
 
         return entry
 
@@ -374,10 +348,8 @@ class LanggraphDLQService:
                         removed = await redis.lrem(key, 1, raw)
                         if removed > 0:
                             logger.info(
-                                "langgraph_dlq_cleared",
-                                company_id=company_id,
-                                dlq_id=dlq_id,
-                            )
+                                "langgraph_dlq_cleared company_id=%s dlq_id=%s",
+                                company_id, dlq_id)
                             found = True
                         break
                 except (json.JSONDecodeError, TypeError):
@@ -385,11 +357,8 @@ class LanggraphDLQService:
 
         except Exception as redis_exc:
             logger.error(
-                "langgraph_dlq_clear_error",
-                company_id=company_id,
-                dlq_id=dlq_id,
-                error=str(redis_exc)[:200],
-            )
+                "langgraph_dlq_clear_error company_id=%s dlq_id=%s error=%s",
+                company_id, dlq_id, str(redis_exc)[:200])
 
         # ── DB: mark as cleared ─────────────────────────────────
         if found:
@@ -425,10 +394,8 @@ class LanggraphDLQService:
                 return count
         except Exception as redis_exc:
             logger.error(
-                "langgraph_dlq_count_error",
-                company_id=company_id,
-                error=str(redis_exc)[:200],
-            )
+                "langgraph_dlq_count_error company_id=%s error=%s",
+                company_id, str(redis_exc)[:200])
 
         # ── DB fallback ───────────────────────────────────────────
         return self._count_failures_from_db(company_id)
@@ -455,16 +422,12 @@ class LanggraphDLQService:
             if count > 0:
                 await redis.delete(key)
             logger.info(
-                "langgraph_dlq_cleared_all",
-                company_id=company_id,
-                count=count,
-            )
+                "langgraph_dlq_cleared_all company_id=%s count=%s",
+                company_id, count)
         except Exception as redis_exc:
             logger.error(
-                "langgraph_dlq_clear_all_error",
-                company_id=company_id,
-                error=str(redis_exc)[:200],
-            )
+                "langgraph_dlq_clear_all_error company_id=%s error=%s",
+                company_id, str(redis_exc)[:200])
 
         # ── DB: mark all pending entries as cleared ───────────────
         self._clear_all_db_entries(company_id)

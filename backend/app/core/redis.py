@@ -328,18 +328,16 @@ async def get_redis() -> aioredis.Redis:
                     await asyncio.wait_for(client.ping(), timeout=3)
                     _redis_client = client
                     logger.info(
-                        "redis_connected",
-                        url=settings.REDIS_URL.split("@")[-1]
-                        if "@" in settings.REDIS_URL else "localhost",
-                    )
+                        "redis_connected url=%s",
+                        settings.REDIS_URL.split("@")[-1]
+                        if "@" in settings.REDIS_URL else "localhost")
                 except Exception as conn_err:
                     # BC-012: Fall back to fakeredis for development
                     global _redis_error_logged
                     if not _redis_error_logged:
                         logger.warning(
-                            "redis_fallback_to_fakeredis (will not log again)",
-                            error=str(conn_err)[:200],
-                        )
+                            "redis_fallback_to_fakeredis (will not log again) error=%s",
+                            str(conn_err)[:200])
                         _redis_error_logged = True
                     try:
                         import fakeredis.aioredis
@@ -367,7 +365,7 @@ async def close_redis() -> None:
             await _redis_client.aclose()
             logger.info("redis_disconnected")
         except Exception as exc:
-            logger.warning("redis_disconnect_error", error=str(exc))
+            logger.warning("redis_disconnect_error error=%s", str(exc))
         finally:
             _redis_client = None
 
@@ -389,7 +387,7 @@ async def redis_health_check() -> dict:
         return {"status": "healthy", "latency_ms": latency}
     except Exception as exc:
         latency = round((time.monotonic() - start) * 1000, 2)
-        logger.warning("redis_health_check_failed", error=str(exc))
+        logger.warning("redis_health_check_failed error=%s", str(exc))
         return {
             "status": "unhealthy",
             "latency_ms": latency,
@@ -614,6 +612,5 @@ async def run_startup_audit() -> None:
     except Exception as exc:
         # BC-008: Startup audit failure must not prevent app startup
         logger.warning(
-            "redis_startup_audit_skipped",
-            error=str(exc)[:200],
-        )
+            "redis_startup_audit_skipped error=%s",
+            str(exc)[:200])

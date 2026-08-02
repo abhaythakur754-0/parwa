@@ -162,10 +162,8 @@ class CLARAQualityGate:
         except asyncio.TimeoutError:
             pipeline_timed_out = True
             logger.warning(
-                "clara_pipeline_timeout",
-                company_id=company_id,
-                timeout=self.pipeline_timeout,
-            )
+                "clara_pipeline_timeout company_id=%s timeout=%s",
+                company_id, self.pipeline_timeout)
             # Add missing stages as timeout_pass
             completed_stages = {s.stage for s in stages}
             for stage_enum, _ in stage_funcs:
@@ -255,10 +253,8 @@ class CLARAQualityGate:
             return output
         except asyncio.TimeoutError:
             logger.warning(
-                "clara_stage_timeout",
-                stage=stage.value,
-                timeout=self.stage_timeout,
-            )
+                "clara_stage_timeout stage=%s timeout=%s",
+                stage.value, self.stage_timeout)
             return StageOutput(
                 stage=stage,
                 result=StageResult.TIMEOUT_PASS,
@@ -270,10 +266,8 @@ class CLARAQualityGate:
             )
         except Exception as exc:
             logger.error(
-                "clara_stage_error",
-                stage=stage.value,
-                error=str(exc),
-            )
+                "clara_stage_error stage=%s error=%s",
+                stage.value, str(exc))
             return StageOutput(
                 stage=stage,
                 result=StageResult.ERROR,

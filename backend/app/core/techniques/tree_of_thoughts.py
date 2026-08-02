@@ -1751,12 +1751,8 @@ class ToTProcessor:
                 best_domain = domain
 
         logger.debug(
-            "tot_domain_classified",
-            domain=best_domain.value,
-            match_count=best_count,
-            query_length=len(query),
-            company_id=self.config.company_id,
-        )
+            "tot_domain_classified domain=%s match_count=%s query_length=%s company_id=%s",
+            best_domain.value, best_count, len(query), self.config.company_id)
 
         return best_domain
 
@@ -1786,10 +1782,8 @@ class ToTProcessor:
         templates = _TREE_TEMPLATES.get(domain, [])
         if not templates:
             logger.warning(
-                "tot_no_templates_for_domain",
-                domain=domain.value,
-                company_id=self.config.company_id,
-            )
+                "tot_no_templates_for_domain domain=%s company_id=%s",
+                domain.value, self.config.company_id)
             return self._build_fallback_tree(query)
 
         # Select template based on query keywords
@@ -1800,11 +1794,8 @@ class ToTProcessor:
         template_name = template.get("name", "unknown")
 
         logger.debug(
-            "tot_tree_generating",
-            template=template_name,
-            domain=domain.value,
-            company_id=self.config.company_id,
-        )
+            "tot_tree_generating template=%s domain=%s company_id=%s",
+            template_name, domain.value, self.config.company_id)
 
         # Build root node
         root = TreeNode(
@@ -1824,11 +1815,8 @@ class ToTProcessor:
             self._build_branch_node(root.id, branch_def, depth=1)
 
         logger.debug(
-            "tot_tree_generated",
-            template=template_name,
-            total_nodes=len(self._nodes),
-            company_id=self.config.company_id,
-        )
+            "tot_tree_generated template=%s total_nodes=%s company_id=%s",
+            template_name, len(self._nodes), self.config.company_id)
 
         return root
 
@@ -1967,9 +1955,8 @@ class ToTProcessor:
         branch.children.append(resolve.id)
 
         logger.debug(
-            "tot_fallback_tree_built",
-            company_id=self.config.company_id,
-        )
+            "tot_fallback_tree_built company_id=%s",
+            self.config.company_id)
 
         return root
 
@@ -2023,16 +2010,12 @@ class ToTProcessor:
                             clamped = max(0.0, min(1.0, float(new_score)))
                             self._nodes[nid].score = round(clamped, 4)
                     logger.info(
-                        "tot_llm_branch_scores_applied",
-                        company_id=self.config.company_id,
-                        branches_updated=len(llm_scores),
-                    )
+                        "tot_llm_branch_scores_applied company_id=%s branches_updated=%s",
+                        self.config.company_id, len(llm_scores))
         except Exception as llm_err:
             logger.warning(
-                "tot_llm_branch_evaluation_fallback",
-                error=str(llm_err),
-                company_id=self.config.company_id,
-            )
+                "tot_llm_branch_evaluation_fallback error=%s company_id=%s",
+                str(llm_err), self.config.company_id)
         # --- Fallback: use deterministic scores ---
 
         # Iterate in reverse depth order (leaves first)
@@ -2059,10 +2042,8 @@ class ToTProcessor:
             evaluated += 1
 
         logger.debug(
-            "tot_branches_evaluated",
-            evaluated_count=evaluated,
-            company_id=self.config.company_id,
-        )
+            "tot_branches_evaluated evaluated_count=%s company_id=%s",
+            evaluated, self.config.company_id)
 
         return evaluated
 
@@ -2113,15 +2094,11 @@ class ToTProcessor:
                 node.status = BranchStatus.DEAD_END
 
         logger.debug(
-            "tot_tree_pruned",
-            pruned_count=pruned,
-            threshold=threshold,
-            remaining_active=sum(
+            "tot_tree_pruned pruned_count=%s threshold=%s remaining_active=%s company_id=%s",
+            pruned, threshold, sum(
                 1 for n in self._nodes.values()
                 if n.status == BranchStatus.ACTIVE
-            ),
-            company_id=self.config.company_id,
-        )
+            ), self.config.company_id)
 
         return pruned
 
@@ -2161,11 +2138,8 @@ class ToTProcessor:
                 node.status = BranchStatus.EXPLORED
 
         logger.debug(
-            "tot_tree_searched",
-            strategy=strategy.value,
-            explored_count=len(explored),
-            company_id=self.config.company_id,
-        )
+            "tot_tree_searched strategy=%s explored_count=%s company_id=%s",
+            strategy.value, len(explored), self.config.company_id)
 
         return explored
 
@@ -2325,11 +2299,8 @@ class ToTProcessor:
         path.reverse()
 
         logger.debug(
-            "tot_path_selected",
-            path_length=len(path),
-            best_score=round(best_leaf.score, 4),
-            company_id=self.config.company_id,
-        )
+            "tot_path_selected path_length=%s best_score=%s company_id=%s",
+            len(path), round(best_leaf.score, 4), self.config.company_id)
 
         return path
 
@@ -2413,11 +2384,8 @@ class ToTProcessor:
             })
 
         logger.debug(
-            "tot_reasoning_trace_built",
-            trace_entries=len(trace),
-            path_length=len(path),
-            company_id=self.config.company_id,
-        )
+            "tot_reasoning_trace_built trace_entries=%s path_length=%s company_id=%s",
+            len(trace), len(path), self.config.company_id)
 
         return trace
 
@@ -2506,23 +2474,14 @@ class ToTProcessor:
                 confidence_boost = base_boost * 0.3  # reduced for no path
 
             logger.info(
-                "tot_executed",
-                domain=domain.value,
-                total_nodes=len(self._nodes),
-                pruned_count=pruned_count,
-                path_length=len(selected_path),
-                confidence_boost=round(confidence_boost, 4),
-                steps_applied=steps_applied,
-                company_id=self.config.company_id,
-            )
+                "tot_executed domain=%s total_nodes=%s pruned_count=%s path_length=%s confidence_boost=%s steps_applied=%s company_id=%s",
+                domain.value, len(self._nodes), pruned_count, len(selected_path), round(confidence_boost, 4), steps_applied, self.config.company_id)
 
         except Exception as exc:
             # BC-008: Never crash — return graceful fallback
             logger.warning(
-                "tot_processing_error",
-                error=str(exc),
-                company_id=self.config.company_id,
-            )
+                "tot_processing_error error=%s company_id=%s",
+                str(exc), self.config.company_id)
             return ToTResult(
                 domain=domain.value,
                 template_name=template_name,
@@ -2641,25 +2600,16 @@ class TreeOfThoughtsNode(BaseTechniqueNode):
                     )
 
             logger.info(
-                "tot_node_executed",
-                domain=result.domain,
-                total_nodes=result.total_nodes,
-                pruned_count=result.pruned_count,
-                path_length=len(result.selected_path),
-                confidence_boost=result.confidence_boost,
-                steps_applied=result.steps_applied,
-                company_id=self._config.company_id,
-            )
+                "tot_node_executed domain=%s total_nodes=%s pruned_count=%s path_length=%s confidence_boost=%s steps_applied=%s company_id=%s",
+                result.domain, result.total_nodes, result.pruned_count, len(result.selected_path), result.confidence_boost, result.steps_applied, self._config.company_id)
 
             return state
 
         except Exception as exc:
             # BC-008: Never crash — return original state
             logger.warning(
-                "tot_execute_error",
-                error=str(exc),
-                company_id=self._config.company_id,
-            )
+                "tot_execute_error error=%s company_id=%s",
+                str(exc), self._config.company_id)
             return original_state
 
     # ── Response Formatting ────────────────────────────────────────

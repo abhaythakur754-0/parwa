@@ -283,9 +283,8 @@ class ProviderManagementService:
                 self._health_tracker = ProviderHealthTracker()
             except Exception as exc:
                 logger.error(
-                    "failed_to_load_health_tracker",
-                    error=str(exc),
-                )
+                    "failed_to_load_health_tracker error=%s",
+                    str(exc))
                 return None
         return self._health_tracker
 
@@ -298,9 +297,8 @@ class ProviderManagementService:
                 self._model_registry = MODEL_REGISTRY
             except Exception as exc:
                 logger.error(
-                    "failed_to_load_model_registry",
-                    error=str(exc),
-                )
+                    "failed_to_load_model_registry error=%s",
+                    str(exc))
                 return {}
         return self._model_registry
 
@@ -313,9 +311,8 @@ class ProviderManagementService:
                 self._smart_router = SmartRouter()
             except Exception as exc:
                 logger.error(
-                    "failed_to_load_smart_router",
-                    error=str(exc),
-                )
+                    "failed_to_load_smart_router error=%s",
+                    str(exc))
                 return None
         return self._smart_router
 

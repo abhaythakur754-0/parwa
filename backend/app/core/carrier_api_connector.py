@@ -238,7 +238,7 @@ class CarrierAPIConnector:
             return standardized
 
         except Exception:
-            logger.exception("track_shipment_failed", company_id=company_id)
+            logger.exception("track_shipment_failed company_id=%s", company_id)
             return self._no_tracking_result(company_id)
 
     async def track_multiple(
@@ -294,7 +294,7 @@ class CarrierAPIConnector:
             }
 
         except Exception:
-            logger.exception("track_multiple_failed", company_id=company_id)
+            logger.exception("track_multiple_failed company_id=%s", company_id)
             return {
                 "company_id": company_id,
                 "total": 0,
@@ -385,7 +385,7 @@ class CarrierAPIConnector:
             }
 
         except Exception:
-            logger.exception("delay_detection_failed", company_id=company_id)
+            logger.exception("delay_detection_failed company_id=%s", company_id)
             return self._no_delay_result()
 
     # ── Compensation Calculator ─────────────────────────────────────
@@ -482,7 +482,7 @@ class CarrierAPIConnector:
             }
 
         except Exception:
-            logger.exception("compensation_calculation_failed", company_id=company_id)
+            logger.exception("compensation_calculation_failed company_id=%s", company_id)
             return self._no_compensation(company_id)
 
     # ── Carrier API Query ───────────────────────────────────────────

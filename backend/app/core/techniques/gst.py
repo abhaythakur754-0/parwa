@@ -768,10 +768,8 @@ class GSTProcessor:
                 return json.loads(llm_response.text)
         except Exception as llm_err:
             logger.warning(
-                "gst_llm_recommendation_fallback",
-                error=str(llm_err),
-                company_id=self.config.company_id,
-            )
+                "gst_llm_recommendation_fallback error=%s company_id=%s",
+                str(llm_err), self.config.company_id)
         # --- Fallback ---
 
         # Build risk score lookup
@@ -917,10 +915,8 @@ class GSTProcessor:
         except Exception as exc:
             # BC-008: Never crash — return graceful fallback
             logger.warning(
-                "gst_processing_error",
-                error=str(exc),
-                company_id=self.config.company_id,
-            )
+                "gst_processing_error error=%s company_id=%s",
+                str(exc), self.config.company_id)
             return GSTResult(
                 problem_definition=problem_definition if 'problem_definition' in dir() else {},
                 options=options if 'options' in dir() else [],
@@ -1025,8 +1021,6 @@ class GSTNode(BaseTechniqueNode):
         except Exception as exc:
             # BC-008: Never crash — return original state
             logger.warning(
-                "gst_execute_error",
-                error=str(exc),
-                company_id=self._config.company_id,
-            )
+                "gst_execute_error error=%s company_id=%s",
+                str(exc), self._config.company_id)
             return original_state

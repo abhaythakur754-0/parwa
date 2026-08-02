@@ -263,11 +263,8 @@ def create_or_update_user_details(
     db.refresh(details)
 
     logger.info(
-        "user_details_saved",
-        user_id=user_id,
-        company_id=company_id,
-        has_work_email=bool(work_email),
-    )
+        "user_details_saved user_id=%s company_id=%s has_work_email=%s",
+        user_id, company_id, bool(work_email))
 
     return UserDetailsResponse(
         id=details.id,
@@ -376,17 +373,12 @@ def send_work_email_verification(
         )
     except Exception as e:
         logger.error(
-            "work_email_verification_failed",
-            user_id=user_id,
-            error=str(e),
-        )
+            "work_email_verification_failed user_id=%s error=%s",
+            user_id, str(e))
 
     logger.info(
-        "work_email_verification_sent",
-        user_id=user_id,
-        company_id=company_id,
-        work_email=work_email,
-    )
+        "work_email_verification_sent user_id=%s company_id=%s work_email=%s",
+        user_id, company_id, work_email)
 
     return f"Verification email sent to {work_email}"
 
@@ -449,11 +441,8 @@ def verify_work_email(
     db.commit()
 
     logger.info(
-        "work_email_verified",
-        user_id=details.user_id,
-        company_id=details.company_id,
-        work_email=details.work_email,
-    )
+        "work_email_verified user_id=%s company_id=%s work_email=%s",
+        details.user_id, details.company_id, details.work_email)
 
     return True
 

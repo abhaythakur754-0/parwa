@@ -463,11 +463,8 @@ class PartialFailureHandler:
         self._register_default_templates()
 
         logger.info(
-            "partial_failure_handler_initialized",
-            default_templates=len(_DEFAULT_FALLBACK_TEMPLATES),
-            enhanced_templates=len(_PARWA_HIGH_ENHANCED_TEMPLATES),
-            variants_configured=list(_VARIANT_DEGRADATION_CONFIGS.keys()),
-        )
+            "partial_failure_handler_initialized default_templates=%s enhanced_templates=%s variants_configured=%s",
+            len(_DEFAULT_FALLBACK_TEMPLATES), len(_PARWA_HIGH_ENHANCED_TEMPLATES), list(_VARIANT_DEGRADATION_CONFIGS.keys()))
 
     # ── Template Registration ───────────────────────────────────
 
@@ -543,25 +540,15 @@ class PartialFailureHandler:
                 )
 
             logger.warning(
-                "pipeline_stage_failed",
-                company_id=company_id,
-                ticket_id=ticket_id,
-                stage_id=stage_id,
-                status=status.value,
-                error=error[:200],
-                retry_count=retry_count,
-                total_failures=len(pipeline_context.failures),
-            )
+                "pipeline_stage_failed company_id=%s ticket_id=%s stage_id=%s status=%s error=%s retry_count=%s total_failures=%s",
+                company_id, ticket_id, stage_id, status.value, error[:200], retry_count, len(pipeline_context.failures))
 
             return pipeline_context
 
         except Exception:
             logger.exception(
-                "register_stage_failure_crashed",
-                company_id=company_id,
-                ticket_id=ticket_id,
-                stage_id=stage_id,
-            )
+                "register_stage_failure_crashed company_id=%s ticket_id=%s stage_id=%s",
+                company_id, ticket_id, stage_id)
             # BC-008: Return context even on error
             return pipeline_context
 
@@ -712,10 +699,8 @@ class PartialFailureHandler:
 
         except Exception:
             logger.exception(
-                "get_degradation_level_crashed",
-                company_id=pipeline_context.company_id,
-                ticket_id=pipeline_context.ticket_id,
-            )
+                "get_degradation_level_crashed company_id=%s ticket_id=%s",
+                pipeline_context.company_id, pipeline_context.ticket_id)
             # BC-008: Return safe default
             return DegradationLevel.DEGRADED.value
 
@@ -758,13 +743,8 @@ class PartialFailureHandler:
                     template, signals, pipeline_context,
                 )
                 logger.info(
-                    "degraded_response_generated_from_template",
-                    company_id=pipeline_context.company_id,
-                    ticket_id=pipeline_context.ticket_id,
-                    intent=intent,
-                    variant=variant,
-                    available_signals=len(available),
-                )
+                    "degraded_response_generated_from_template company_id=%s ticket_id=%s intent=%s variant=%s available_signals=%s",
+                    pipeline_context.company_id, pipeline_context.ticket_id, intent, variant, len(available))
                 return enriched
 
             # No template found — generate from available signals
@@ -773,21 +753,14 @@ class PartialFailureHandler:
             )
             if response:
                 logger.info(
-                    "degraded_response_generated_from_signals",
-                    company_id=pipeline_context.company_id,
-                    ticket_id=pipeline_context.ticket_id,
-                    intent=intent,
-                    signal_count=len(signals),
-                )
+                    "degraded_response_generated_from_signals company_id=%s ticket_id=%s intent=%s signal_count=%s",
+                    pipeline_context.company_id, pipeline_context.ticket_id, intent, len(signals))
                 return response
 
             # Last resort: generic degraded response
             logger.warning(
-                "degraded_response_fallback_generic",
-                company_id=pipeline_context.company_id,
-                ticket_id=pipeline_context.ticket_id,
-                intent=intent,
-            )
+                "degraded_response_fallback_generic company_id=%s ticket_id=%s intent=%s",
+                pipeline_context.company_id, pipeline_context.ticket_id, intent)
             return (
                 "Thank you for your patience. We're currently "
                 "experiencing some processing difficulties. "
@@ -797,10 +770,8 @@ class PartialFailureHandler:
 
         except Exception:
             logger.exception(
-                "generate_degraded_response_crashed",
-                company_id=pipeline_context.company_id,
-                ticket_id=pipeline_context.ticket_id,
-            )
+                "generate_degraded_response_crashed company_id=%s ticket_id=%s",
+                pipeline_context.company_id, pipeline_context.ticket_id)
             # BC-008: Always return something usable
             return (
                 "Thank you for contacting us. We're processing "
@@ -977,23 +948,15 @@ class PartialFailureHandler:
                 pipeline_context.metadata["reduced_pipeline"] = reduced
 
                 logger.info(
-                    "reduced_pipeline_built",
-                    company_id=pipeline_context.company_id,
-                    ticket_id=pipeline_context.ticket_id,
-                    original_steps=len(full_step_ids),
-                    reduced_steps=len(reduced),
-                    skipped_steps=len(skipped),
-                    skipped_ids=skipped,
-                )
+                    "reduced_pipeline_built company_id=%s ticket_id=%s original_steps=%s reduced_steps=%s skipped_steps=%s skipped_ids=%s",
+                    pipeline_context.company_id, pipeline_context.ticket_id, len(full_step_ids), len(reduced), len(skipped), skipped)
 
                 return reduced
 
         except Exception:
             logger.exception(
-                "build_reduced_pipeline_crashed",
-                company_id=pipeline_context.company_id,
-                ticket_id=pipeline_context.ticket_id,
-            )
+                "build_reduced_pipeline_crashed company_id=%s ticket_id=%s",
+                pipeline_context.company_id, pipeline_context.ticket_id)
             # BC-008: Return original pipeline as safe fallback
             return list(full_step_ids)
 
@@ -1029,26 +992,18 @@ class PartialFailureHandler:
 
                 if should_handoff:
                     logger.warning(
-                        "human_handoff_triggered",
-                        company_id=pipeline_context.company_id,
-                        ticket_id=pipeline_context.ticket_id,
-                        variant=variant,
-                        failed_count=failed_count,
-                        threshold=config.max_failed_stages,
-                        failed_stages=[
+                        "human_handoff_triggered company_id=%s ticket_id=%s variant=%s failed_count=%s threshold=%s failed_stages=%s",
+                        pipeline_context.company_id, pipeline_context.ticket_id, variant, failed_count, config.max_failed_stages, [
                             f.stage_id
                             for f in pipeline_context.failures
-                        ],
-                    )
+                        ])
 
                 return should_handoff
 
         except Exception:
             logger.exception(
-                "should_trigger_human_handoff_crashed",
-                company_id=pipeline_context.company_id,
-                ticket_id=pipeline_context.ticket_id,
-            )
+                "should_trigger_human_handoff_crashed company_id=%s ticket_id=%s",
+                pipeline_context.company_id, pipeline_context.ticket_id)
             # BC-008: Err on the side of caution — escalate
             return True
 
@@ -1148,21 +1103,15 @@ class PartialFailureHandler:
                         error_context[key] = value
 
                 logger.debug(
-                    "error_context_propagated",
-                    company_id=pipeline_context.company_id,
-                    ticket_id=pipeline_context.ticket_id,
-                    failure_count=len(failures),
-                    degradation_level=error_context["degradation_level"],
-                )
+                    "error_context_propagated company_id=%s ticket_id=%s failure_count=%s degradation_level=%s",
+                    pipeline_context.company_id, pipeline_context.ticket_id, len(failures), error_context["degradation_level"])
 
                 return error_context
 
         except Exception:
             logger.exception(
-                "propagate_error_context_crashed",
-                company_id=pipeline_context.company_id,
-                ticket_id=pipeline_context.ticket_id,
-            )
+                "propagate_error_context_crashed company_id=%s ticket_id=%s",
+                pipeline_context.company_id, pipeline_context.ticket_id)
             # BC-008: Return minimal safe context
             return {
                 "has_failures": True,
@@ -1226,10 +1175,8 @@ class PartialFailureHandler:
 
         except Exception:
             logger.exception(
-                "get_fallback_template_crashed",
-                intent=intent,
-                variant=variant,
-            )
+                "get_fallback_template_crashed intent=%s variant=%s",
+                intent, variant)
             return None
 
     def _score_template(
@@ -1353,24 +1300,15 @@ class PartialFailureHandler:
                     )
 
             logger.info(
-                "pipeline_result_recorded",
-                company_id=company_id,
-                ticket_id=ticket_id,
-                variant=record.variant,
-                final_status=final_status,
-                degradation_level=degradation,
-                failed_stages=failed_stages,
-                response_source=response_source,
-            )
+                "pipeline_result_recorded company_id=%s ticket_id=%s variant=%s final_status=%s degradation_level=%s failed_stages=%s response_source=%s",
+                company_id, ticket_id, record.variant, final_status, degradation, failed_stages, response_source)
 
             return record
 
         except Exception:
             logger.exception(
-                "record_pipeline_result_crashed",
-                company_id=company_id,
-                ticket_id=ticket_id,
-            )
+                "record_pipeline_result_crashed company_id=%s ticket_id=%s",
+                company_id, ticket_id)
             # BC-008: Return a minimal record
             return PipelineResultRecord(
                 company_id=company_id,
@@ -1483,9 +1421,8 @@ class PartialFailureHandler:
 
         except Exception:
             logger.exception(
-                "get_failure_stats_crashed",
-                company_id=company_id,
-            )
+                "get_failure_stats_crashed company_id=%s",
+                company_id)
             # BC-008: Return minimal safe stats
             return {
                 "company_id": company_id,
@@ -1560,11 +1497,8 @@ class PartialFailureHandler:
                 self._custom_configs[company_id][variant] = updated
 
                 logger.info(
-                    "variant_config_updated",
-                    company_id=company_id,
-                    variant=variant,
-                    overrides=config_overrides,
-                    new_config={
+                    "variant_config_updated company_id=%s variant=%s overrides=%s new_config=%s",
+                    company_id, variant, config_overrides, {
                         "max_failed_stages": updated.max_failed_stages,
                         "retry_enabled": updated.retry_enabled,
                         "max_retries": updated.max_retries,
@@ -1572,18 +1506,14 @@ class PartialFailureHandler:
                             updated.degraded_response_enabled
                         ),
                         "skip_failed_stages": updated.skip_failed_stages,
-                    },
-                )
+                    })
 
                 return True
 
         except Exception:
             logger.exception(
-                "configure_variant_crashed",
-                company_id=company_id,
-                variant=variant,
-                overrides=config_overrides,
-            )
+                "configure_variant_crashed company_id=%s variant=%s overrides=%s",
+                company_id, variant, config_overrides)
             return False
 
     def _get_effective_config(
@@ -1646,10 +1576,8 @@ class PartialFailureHandler:
             }
         except Exception:
             logger.exception(
-                "get_variant_config_crashed",
-                company_id=company_id,
-                variant=variant,
-            )
+                "get_variant_config_crashed company_id=%s variant=%s",
+                company_id, variant)
             return {
                 "company_id": company_id,
                 "variant": variant,
@@ -1700,19 +1628,14 @@ class PartialFailureHandler:
                 )
 
             logger.info(
-                "custom_template_registered",
-                company_id=company_id,
-                intent=intent,
-                priority=priority,
-            )
+                "custom_template_registered company_id=%s intent=%s priority=%s",
+                company_id, intent, priority)
             return True
 
         except Exception:
             logger.exception(
-                "register_custom_template_crashed",
-                company_id=company_id,
-                intent=intent,
-            )
+                "register_custom_template_crashed company_id=%s intent=%s",
+                company_id, intent)
             return False
 
     def get_pipeline_summary(
@@ -1783,10 +1706,8 @@ class PartialFailureHandler:
 
         except Exception:
             logger.exception(
-                "get_pipeline_summary_crashed",
-                company_id=company_id,
-                ticket_id=ticket_id,
-            )
+                "get_pipeline_summary_crashed company_id=%s ticket_id=%s",
+                company_id, ticket_id)
             return {
                 "company_id": company_id,
                 "ticket_id": ticket_id,
@@ -1916,11 +1837,9 @@ class PartialFailureHandler:
                     del self._fallback_templates[key]
 
             logger.info(
-                "partial_failure_handler_company_reset",
-                company_id=company_id,
-            )
+                "partial_failure_handler_company_reset company_id=%s",
+                company_id)
         except Exception:
             logger.exception(
-                "reset_company_crashed",
-                company_id=company_id,
-            )
+                "reset_company_crashed company_id=%s",
+                company_id)

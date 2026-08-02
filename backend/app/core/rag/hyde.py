@@ -66,9 +66,8 @@ def _get_smart_router() -> Any:
         return _smart_router
     except Exception as exc:
         logger.warning(
-            "hyde_smart_router_import_failed",
-            error=str(exc),
-        )
+            "hyde_smart_router_import_failed error=%s",
+            str(exc))
         return None
 
 
@@ -118,16 +117,13 @@ async def _cache_get(
         cached = await cache_get(company_id, cache_key)
         if cached and isinstance(cached, str):
             logger.debug(
-                "hyde_cache_hit",
-                company_id=company_id,
-                cache_key=cache_key[:40],
-            )
+                "hyde_cache_hit company_id=%s cache_key=%s",
+                company_id, cache_key[:40])
             return cached
     except Exception as exc:
         logger.debug(
-            "hyde_cache_read_failed",
-            error=str(exc),
-        )
+            "hyde_cache_read_failed error=%s",
+            str(exc))
     return None
 
 
@@ -150,17 +146,13 @@ async def _cache_set(
         )
         if success:
             logger.debug(
-                "hyde_cache_stored",
-                company_id=company_id,
-                cache_key=cache_key[:40],
-                ttl_seconds=_HYDE_CACHE_TTL_SECONDS,
-            )
+                "hyde_cache_stored company_id=%s cache_key=%s ttl_seconds=%s",
+                company_id, cache_key[:40], _HYDE_CACHE_TTL_SECONDS)
         return success
     except Exception as exc:
         logger.debug(
-            "hyde_cache_write_failed",
-            error=str(exc),
-        )
+            "hyde_cache_write_failed error=%s",
+            str(exc))
         return False
 
 
@@ -185,9 +177,8 @@ async def _generate_embedding(text: str) -> Optional[List[float]]:
             return embedding
     except Exception as exc:
         logger.debug(
-            "hyde_embedding_service_unavailable",
-            error=str(exc),
-        )
+            "hyde_embedding_service_unavailable error=%s",
+            str(exc))
 
     # BC-008: Fallback to vector store's embedding generator
     try:
@@ -199,9 +190,8 @@ async def _generate_embedding(text: str) -> Optional[List[float]]:
                 return embedding
     except Exception as exc:
         logger.warning(
-            "hyde_store_embedding_failed",
-            error=str(exc),
-        )
+            "hyde_store_embedding_failed error=%s",
+            str(exc))
 
     return None
 
@@ -250,9 +240,8 @@ class HyDEGenerator:
         """
         if not query or not query.strip():
             logger.warning(
-                "hyde_empty_query_returning_as_is",
-                company_id=company_id,
-            )
+                "hyde_empty_query_returning_as_is company_id=%s",
+                company_id)
             return query
 
         # ── Step 1: Check cache ────────────────────────────────
@@ -271,11 +260,8 @@ class HyDEGenerator:
 
         # BC-008: LLM unavailable — return the original query
         logger.warning(
-            "hyde_generation_failed_returning_original_query",
-            company_id=company_id,
-            variant_type=variant_type,
-            query_preview=query[:80],
-        )
+            "hyde_generation_failed_returning_original_query company_id=%s variant_type=%s query_preview=%s",
+            company_id, variant_type, query[:80])
         return query
 
     async def get_hyde_embedding(
@@ -320,29 +306,20 @@ class HyDEGenerator:
             if embedding:
                 elapsed_ms = round((time.monotonic() - start_time) * 1000, 2)
                 logger.info(
-                    "hyde_embedding_generated",
-                    company_id=company_id,
-                    variant_type=variant_type,
-                    embedding_dim=len(embedding),
-                    hypothesis_length=len(hypothesis),
-                    elapsed_ms=elapsed_ms,
-                )
+                    "hyde_embedding_generated company_id=%s variant_type=%s embedding_dim=%s hypothesis_length=%s elapsed_ms=%s",
+                    company_id, variant_type, len(embedding), len(hypothesis), elapsed_ms)
                 return embedding
 
         # BC-008: Fallback — embed the original query directly
         logger.warning(
-            "hyde_embedding_failed_fallback_to_query_embedding",
-            company_id=company_id,
-            variant_type=variant_type,
-        )
+            "hyde_embedding_failed_fallback_to_query_embedding company_id=%s variant_type=%s",
+            company_id, variant_type)
         query_embedding = await _generate_embedding(query)
         if query_embedding:
             elapsed_ms = round((time.monotonic() - start_time) * 1000, 2)
             logger.info(
-                "hyde_fallback_query_embedding_generated",
-                company_id=company_id,
-                elapsed_ms=elapsed_ms,
-            )
+                "hyde_fallback_query_embedding_generated company_id=%s elapsed_ms=%s",
+                company_id, elapsed_ms)
         return query_embedding
 
     # ── Internal: LLM Generation ───────────────────────────────
@@ -363,9 +340,8 @@ class HyDEGenerator:
         router = self._router or _get_smart_router()
         if router is None:
             logger.warning(
-                "hyde_router_unavailable_cannot_generate",
-                company_id=company_id,
-            )
+                "hyde_router_unavailable_cannot_generate company_id=%s",
+                company_id)
             return None
 
         try:
@@ -397,29 +373,19 @@ class HyDEGenerator:
             content = result.get("content", "")
             if content and content.strip():
                 logger.debug(
-                    "hyde_llm_generation_success",
-                    company_id=company_id,
-                    variant_type=variant_type,
-                    model=result.get("model", "unknown"),
-                    hypothesis_length=len(content.strip()),
-                    fallback_used=result.get("fallback_used", False),
-                )
+                    "hyde_llm_generation_success company_id=%s variant_type=%s model=%s hypothesis_length=%s fallback_used=%s",
+                    company_id, variant_type, result.get("model", "unknown"), len(content.strip()), result.get("fallback_used", False))
                 return content.strip()
 
             if result.get("fallback_used"):
                 logger.warning(
-                    "hyde_llm_fallback_response_empty",
-                    company_id=company_id,
-                    error=result.get("error", "unknown"),
-                )
+                    "hyde_llm_fallback_response_empty company_id=%s error=%s",
+                    company_id, result.get("error", "unknown"))
 
         except Exception as exc:
             # BC-008: Never crash — log and return None
             logger.warning(
-                "hyde_llm_generation_error",
-                company_id=company_id,
-                variant_type=variant_type,
-                error=str(exc),
-            )
+                "hyde_llm_generation_error company_id=%s variant_type=%s error=%s",
+                company_id, variant_type, str(exc))
 
         return None

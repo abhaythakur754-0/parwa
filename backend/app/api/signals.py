@@ -90,9 +90,8 @@ def _get_extractor():
             _extractor = SignalExtractor()
         except Exception as exc:
             logger.error(
-                "signal_extractor_init_failed",
-                error=str(exc),
-            )
+                "signal_extractor_init_failed error=%s",
+                str(exc))
             _extractor = None
     return _extractor
 
@@ -127,9 +126,8 @@ async def extract_signals(
     # BC-008: If extractor failed to initialize, return safe default
     if extractor is None:
         logger.error(
-            "extract_signals_failed_no_extractor",
-            company_id=company_id,
-        )
+            "extract_signals_failed_no_extractor company_id=%s",
+            company_id)
         return _safe_default_signals("extractor_unavailable")
 
     try:
@@ -154,11 +152,8 @@ async def extract_signals(
     except Exception as exc:
         # BC-008: Never crash — log and return safe default
         logger.error(
-            "extract_signals_failed",
-            company_id=company_id,
-            variant_type=req.variant_type,
-            error=str(exc),
-        )
+            "extract_signals_failed company_id=%s variant_type=%s error=%s",
+            company_id, req.variant_type, str(exc))
         return _safe_default_signals("internal_error")
 
 

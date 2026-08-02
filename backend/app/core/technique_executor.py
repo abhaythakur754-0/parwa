@@ -123,10 +123,8 @@ class TechniqueExecutor:
             router_result = self.router.route(state.signals)
         except Exception as exc:
             logger.error(
-                "executor_routing_error",
-                error=str(exc),
-                company_id=self.company_id,
-            )
+                "executor_routing_error error=%s company_id=%s",
+                str(exc), self.company_id)
             return state, pipeline_result
 
         # 2. Filter by variant tier access
@@ -159,16 +157,8 @@ class TechniqueExecutor:
                 pipeline_result.fallback_count += 1
 
         logger.info(
-            "executor_pipeline_complete",
-            company_id=self.company_id,
-            variant=self.variant_type,
-            executed=pipeline_result.techniques_executed,
-            cached=pipeline_result.techniques_cached,
-            skipped=pipeline_result.techniques_skipped,
-            failed=pipeline_result.techniques_failed,
-            total_tokens=pipeline_result.total_tokens_used,
-            total_ms=round(pipeline_result.total_exec_time_ms, 2),
-        )
+            "executor_pipeline_complete company_id=%s variant=%s executed=%s cached=%s skipped=%s failed=%s total_tokens=%s total_ms=%s",
+            self.company_id, self.variant_type, pipeline_result.techniques_executed, pipeline_result.techniques_cached, pipeline_result.techniques_skipped, pipeline_result.techniques_failed, pipeline_result.total_tokens_used, round(pipeline_result.total_exec_time_ms, 2))
 
         return state, pipeline_result
 
@@ -226,10 +216,8 @@ class TechniqueExecutor:
             detail.status = "skipped_budget"
             node.record_skip(state, reason="budget_exceeded")
             logger.info(
-                "executor_budget_skip",
-                technique=tid_str,
-                company_id=self.company_id,
-            )
+                "executor_budget_skip technique=%s company_id=%s",
+                tid_str, self.company_id)
             return detail
 
         # Check cache
@@ -277,10 +265,8 @@ class TechniqueExecutor:
                 exec_time_ms=detail.exec_time_ms,
             )
             logger.debug(
-                "executor_cache_hit",
-                technique=tid_str,
-                company_id=self.company_id,
-            )
+                "executor_cache_hit technique=%s company_id=%s",
+                tid_str, self.company_id)
             return detail
 
         # Execute technique
@@ -307,10 +293,8 @@ class TechniqueExecutor:
                 )
             except Exception as cache_err:
                 logger.warning(
-                    "executor_cache_store_error",
-                    technique=tid_str,
-                    error=str(cache_err),
-                )
+                    "executor_cache_store_error technique=%s error=%s",
+                    tid_str, str(cache_err))
 
             self.metrics.record_execution(
                 technique_id=tid_str,
@@ -329,11 +313,8 @@ class TechniqueExecutor:
             )
 
             logger.warning(
-                "executor_technique_error",
-                technique=tid_str,
-                error=str(exc),
-                company_id=self.company_id,
-            )
+                "executor_technique_error technique=%s error=%s company_id=%s",
+                tid_str, str(exc), self.company_id)
 
             self.metrics.record_execution(
                 technique_id=tid_str,
@@ -384,11 +365,8 @@ class TechniqueExecutor:
                 )
 
                 logger.info(
-                    "executor_fallback_applied",
-                    original=technique_id.value,
-                    fallback=fb_id.value,
-                    company_id=self.company_id,
-                )
+                    "executor_fallback_applied original=%s fallback=%s company_id=%s",
+                    technique_id.value, fb_id.value, self.company_id)
 
                 self.metrics.record_execution(
                     technique_id=fb_id.value,
@@ -402,11 +380,8 @@ class TechniqueExecutor:
 
             except Exception as fb_err:
                 logger.warning(
-                    "executor_fallback_error",
-                    original=technique_id.value,
-                    fallback=fb_id.value,
-                    error=str(fb_err),
-                )
+                    "executor_fallback_error original=%s fallback=%s error=%s",
+                    technique_id.value, fb_id.value, str(fb_err))
 
     # ── Variant Filtering ──────────────────────────────────────────
 

@@ -84,9 +84,8 @@ def _get_smart_router() -> Any:
         return _smart_router
     except Exception as exc:
         logger.warning(
-            "llm_reranker_smart_router_import_failed",
-            error=str(exc),
-        )
+            "llm_reranker_smart_router_import_failed error=%s",
+            str(exc))
         return None
 
 
@@ -321,18 +320,13 @@ class LLMReranker:
         router = self._router or _get_smart_router()
         if router is None:
             logger.warning(
-                "llm_reranker_unavailable_fallback_to_bm25",
-                company_id=company_id,
-            )
+                "llm_reranker_unavailable_fallback_to_bm25 company_id=%s",
+                company_id)
             bm25_result = _bm25_rerank(query, chunks)
             elapsed_ms = round((time.monotonic() - start_time) * 1000, 2)
             logger.info(
-                "llm_reranker_bm25_fallback_complete",
-                company_id=company_id,
-                variant_type=variant_type,
-                chunks_reranked=len(bm25_result),
-                elapsed_ms=elapsed_ms,
-            )
+                "llm_reranker_bm25_fallback_complete company_id=%s variant_type=%s chunks_reranked=%s elapsed_ms=%s",
+                company_id, variant_type, len(bm25_result), elapsed_ms)
             return bm25_result[:top_k]
 
         # Process chunks in batches
@@ -353,9 +347,8 @@ class LLMReranker:
         # If LLM scoring produced no results, fall back to BM25
         if not all_scored_chunks:
             logger.warning(
-                "llm_reranker_no_scores_produced_fallback_to_bm25",
-                company_id=company_id,
-            )
+                "llm_reranker_no_scores_produced_fallback_to_bm25 company_id=%s",
+                company_id)
             bm25_result = _bm25_rerank(query, chunks)
             return bm25_result[:top_k]
 
@@ -365,16 +358,8 @@ class LLMReranker:
 
         elapsed_ms = round((time.monotonic() - start_time) * 1000, 2)
         logger.info(
-            "llm_reranker_complete",
-            company_id=company_id,
-            variant_type=variant_type,
-            chunks_input=len(chunks),
-            chunks_output=len(final_chunks),
-            top_k=top_k,
-            batches_processed=(len(chunks) + _BATCH_SIZE - 1) // _BATCH_SIZE,
-            elapsed_ms=elapsed_ms,
-            top_score=final_chunks[0].score if final_chunks else 0.0,
-        )
+            "llm_reranker_complete company_id=%s variant_type=%s chunks_input=%s chunks_output=%s top_k=%s batches_processed=%s elapsed_ms=%s top_score=%s",
+            company_id, variant_type, len(chunks), len(final_chunks), top_k, (len(chunks) + _BATCH_SIZE - 1) // _BATCH_SIZE, elapsed_ms, final_chunks[0].score if final_chunks else 0.0)
 
         return final_chunks
 
@@ -453,11 +438,8 @@ class LLMReranker:
             if not content or not content.strip():
                 if result.get("fallback_used"):
                     logger.warning(
-                        "llm_reranker_batch_fallback_response_empty",
-                        company_id=company_id,
-                        batch_offset=batch_offset,
-                        error=result.get("error", "unknown"),
-                    )
+                        "llm_reranker_batch_fallback_response_empty company_id=%s batch_offset=%s error=%s",
+                        company_id, batch_offset, result.get("error", "unknown"))
                 return _bm25_rerank(query, chunks)
 
             # Extract scores from response
@@ -468,11 +450,8 @@ class LLMReranker:
 
             if scores is None:
                 logger.warning(
-                    "llm_reranker_batch_score_parse_failed",
-                    company_id=company_id,
-                    batch_offset=batch_offset,
-                    response_preview=content[:200],
-                )
+                    "llm_reranker_batch_score_parse_failed company_id=%s batch_offset=%s response_preview=%s",
+                    company_id, batch_offset, content[:200])
                 return _bm25_rerank(query, chunks)
 
             # Apply scores to chunks and normalise to [0, 1]
@@ -501,23 +480,14 @@ class LLMReranker:
                     ))
 
             logger.debug(
-                "llm_reranker_batch_scored",
-                company_id=company_id,
-                batch_offset=batch_offset,
-                batch_size=len(chunks),
-                scores_found=len(scores),
-                model=result.get("model", "unknown"),
-                fallback_used=result.get("fallback_used", False),
-            )
+                "llm_reranker_batch_scored company_id=%s batch_offset=%s batch_size=%s scores_found=%s model=%s fallback_used=%s",
+                company_id, batch_offset, len(chunks), len(scores), result.get("model", "unknown"), result.get("fallback_used", False))
 
             return scored_chunks
 
         except Exception as exc:
             # BC-008: Fall back to BM25 on any error
             logger.warning(
-                "llm_reranker_batch_scoring_error_fallback_to_bm25",
-                company_id=company_id,
-                batch_offset=batch_offset,
-                error=str(exc),
-            )
+                "llm_reranker_batch_scoring_error_fallback_to_bm25 company_id=%s batch_offset=%s error=%s",
+                company_id, batch_offset, str(exc))
             return _bm25_rerank(query, chunks)

@@ -74,11 +74,8 @@ class RuleMigrationService:
             raise ValidationError("Percentage must be between 0 and 100")
 
         logger.info(
-            "migration_mode_enabled",
-            company_id=self.company_id,
-            mode=mode,
-            percentage=percentage,
-        )
+            "migration_mode_enabled company_id=%s mode=%s percentage=%s",
+            self.company_id, mode, percentage)
 
         return {
             "mode": mode,
@@ -153,9 +150,8 @@ class RuleMigrationService:
     def rollback(self) -> Dict[str, Any]:
         """Immediately revert to static rules for this tenant."""
         logger.warning(
-            "migration_rollback",
-            company_id=self.company_id,
-        )
+            "migration_rollback company_id=%s",
+            self.company_id)
         return {
             "mode": self.MODE_STATIC,
             "ai_rule_percentage": 0.0,

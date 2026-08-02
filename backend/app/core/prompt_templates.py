@@ -274,10 +274,8 @@ def _render_variables(
 
     if missing:
         logger.warning(
-            "prompt_template_missing_variables",
-            missing_variables=missing,
-            provided_variables=list(variables.keys()),
-        )
+            "prompt_template_missing_variables missing_variables=%s provided_variables=%s",
+            missing, list(variables.keys()))
 
     return result
 
@@ -318,9 +316,8 @@ class PromptTemplateManager:
             self._versions[intent] = 1
 
         logger.info(
-            "prompt_templates_loaded",
-            intent_count=len(self._templates),
-        )
+            "prompt_templates_loaded intent_count=%s",
+            len(self._templates))
 
     def get_template(self, intent: str) -> PromptTemplate:
         """Get the template for a given intent.
@@ -340,9 +337,8 @@ class PromptTemplateManager:
 
         # BC-008: Return default template for unknown intents
         logger.info(
-            "prompt_template_unknown_intent_using_default",
-            intent=intent,
-        )
+            "prompt_template_unknown_intent_using_default intent=%s",
+            intent)
         variables = _extract_variables(_DEFAULT_TEMPLATE)
         return PromptTemplate(
             template_id="default_v1",
@@ -379,10 +375,8 @@ class PromptTemplateManager:
         except Exception as exc:
             # BC-008: Never crash
             logger.error(
-                "render_template_failed",
-                intent=intent,
-                error=str(exc),
-            )
+                "render_template_failed intent=%s error=%s",
+                intent, str(exc))
             safe_variables = variables if variables else {}
             safe_variables = {k: str(v) for k, v in safe_variables.items()}
             return _render_variables(_DEFAULT_TEMPLATE, safe_variables)
@@ -411,18 +405,13 @@ class PromptTemplateManager:
             self._versions[template.intent] = new_version
 
             logger.info(
-                "prompt_template_added",
-                intent=template.intent,
-                version=new_version,
-                variable_count=len(template.variables),
-            )
+                "prompt_template_added intent=%s version=%s variable_count=%s",
+                template.intent, new_version, len(template.variables))
         except Exception as exc:
             # BC-008: Never crash
             logger.error(
-                "add_template_failed",
-                intent=template.intent,
-                error=str(exc),
-            )
+                "add_template_failed intent=%s error=%s",
+                template.intent, str(exc))
 
     def list_intents(self) -> List[str]:
         """List all intents with registered templates.

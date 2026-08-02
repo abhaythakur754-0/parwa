@@ -176,11 +176,8 @@ class MockVectorStore(VectorStore):
             "metadata": metadata or {},
         }
         logger.debug(
-            "mock_vector_store_add",
-            company_id=company_id,
-            document_id=document_id,
-            chunk_count=len(chunks),
-        )
+            "mock_vector_store_add company_id=%s document_id=%s chunk_count=%s",
+            company_id, document_id, len(chunks))
         return True
 
     def search(

@@ -225,13 +225,8 @@ class IntentTechniqueMapper:
         )
 
         logger.info(
-            "intent_technique_mapping",
-            intent=intent,
-            variant=variant_type,
-            selected=[t.value for t in selected],
-            blocked_count=len(blocked),
-            company_id=company_id,
-        )
+            "intent_technique_mapping intent=%s variant=%s selected=%s blocked_count=%s company_id=%s",
+            intent, variant_type, [t.value for t in selected], len(blocked), company_id)
 
         return MappingResult(
             intent=intent,

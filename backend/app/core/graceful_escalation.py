@@ -421,9 +421,8 @@ class GracefulEscalationManager:
         self._register_default_rules()
 
         logger.info(
-            "graceful_escalation_manager_initialized",
-            default_rules=len(self._rules),
-        )
+            "graceful_escalation_manager_initialized default_rules=%s",
+            len(self._rules))
 
     # ── Default Rule Registration ───────────────────────────────
 
@@ -553,17 +552,12 @@ class GracefulEscalationManager:
             with self._lock:
                 self._configs[company_id] = config
             logger.info(
-                "escalation_config_updated",
-                company_id=company_id,
-                default_severity=config.default_severity,
-                max_per_hour=config.max_escalations_per_hour,
-                auto_resolve_after=config.auto_resolve_after_seconds,
-            )
+                "escalation_config_updated company_id=%s default_severity=%s max_per_hour=%s auto_resolve_after=%s",
+                company_id, config.default_severity, config.max_escalations_per_hour, config.auto_resolve_after_seconds)
         except Exception:
             logger.exception(
-                "configure_crashed",
-                company_id=company_id,
-            )
+                "configure_crashed company_id=%s",
+                company_id)
 
     def get_config(self, company_id: str) -> EscalationConfig:
         """Get escalation configuration for a company.
@@ -584,9 +578,8 @@ class GracefulEscalationManager:
                 return EscalationConfig(company_id=company_id or "")
         except Exception:
             logger.exception(
-                "get_config_crashed",
-                company_id=company_id,
-            )
+                "get_config_crashed company_id=%s",
+                company_id)
             return EscalationConfig(company_id=company_id or "")
 
     # ── Rule Management ─────────────────────────────────────────
@@ -604,18 +597,12 @@ class GracefulEscalationManager:
             with self._lock:
                 self._rules[rule.name] = rule
             logger.info(
-                "escalation_rule_added",
-                rule_name=rule.name,
-                trigger=rule.trigger,
-                severity=rule.severity,
-                priority=rule.priority,
-                enabled=rule.enabled,
-            )
+                "escalation_rule_added rule_name=%s trigger=%s severity=%s priority=%s enabled=%s",
+                rule.name, rule.trigger, rule.severity, rule.priority, rule.enabled)
         except Exception:
             logger.exception(
-                "add_rule_crashed",
-                rule_name=getattr(rule, "name", "unknown"),
-            )
+                "add_rule_crashed rule_name=%s",
+                getattr(rule, "name", "unknown"))
 
     def remove_rule(self, rule_name: str) -> None:
         """Remove an escalation rule by name.
@@ -628,19 +615,16 @@ class GracefulEscalationManager:
                 removed = self._rules.pop(rule_name, None)
             if removed:
                 logger.info(
-                    "escalation_rule_removed",
-                    rule_name=rule_name,
-                )
+                    "escalation_rule_removed rule_name=%s",
+                    rule_name)
             else:
                 logger.warning(
-                    "escalation_rule_not_found_for_removal",
-                    rule_name=rule_name,
-                )
+                    "escalation_rule_not_found_for_removal rule_name=%s",
+                    rule_name)
         except Exception:
             logger.exception(
-                "remove_rule_crashed",
-                rule_name=rule_name,
-            )
+                "remove_rule_crashed rule_name=%s",
+                rule_name)
 
     def get_rules(self, company_id: str) -> List[EscalationRule]:
         """Get all active (enabled) escalation rules sorted by priority.
@@ -661,9 +645,8 @@ class GracefulEscalationManager:
                 return active
         except Exception:
             logger.exception(
-                "get_rules_crashed",
-                company_id=company_id,
-            )
+                "get_rules_crashed company_id=%s",
+                company_id)
             return []
 
     # ── Escalation Evaluation ───────────────────────────────────
@@ -732,38 +715,24 @@ class GracefulEscalationManager:
                     rate_limited = self.check_rate_limit(company_id)
                     if rate_limited:
                         logger.warning(
-                            "escalation_blocked_rate_limit",
-                            company_id=company_id,
-                            ticket_id=context.ticket_id,
-                            trigger=context.trigger,
-                        )
+                            "escalation_blocked_rate_limit company_id=%s ticket_id=%s trigger=%s",
+                            company_id, context.ticket_id, context.trigger)
                         return False, matched_rules, result_severity
 
                 logger.info(
-                    "escalation_evaluated_should_escalate",
-                    company_id=company_id,
-                    ticket_id=context.ticket_id,
-                    trigger=context.trigger,
-                    severity=result_severity,
-                    matched_rules=len(matched_rules),
-                    is_vip=_is_vip(context.customer_tier),
-                )
+                    "escalation_evaluated_should_escalate company_id=%s ticket_id=%s trigger=%s severity=%s matched_rules=%s is_vip=%s",
+                    company_id, context.ticket_id, context.trigger, result_severity, len(matched_rules), _is_vip(context.customer_tier))
             else:
                 logger.debug(
-                    "escalation_evaluated_no_trigger",
-                    company_id=company_id,
-                    ticket_id=context.ticket_id,
-                    trigger=context.trigger,
-                )
+                    "escalation_evaluated_no_trigger company_id=%s ticket_id=%s trigger=%s",
+                    company_id, context.ticket_id, context.trigger)
 
             return should_escalate, matched_rules, result_severity
 
         except Exception:
             logger.exception(
-                "evaluate_escalation_crashed",
-                company_id=company_id,
-                ticket_id=getattr(context, "ticket_id", ""),
-            )
+                "evaluate_escalation_crashed company_id=%s ticket_id=%s",
+                company_id, getattr(context, "ticket_id", ""))
             # BC-008: Return safe defaults — do not escalate on error
             return False, [], "low"
 
@@ -886,12 +855,8 @@ class GracefulEscalationManager:
             active = self.get_active_escalations(company_id)
             if len(active) >= config.max_active_escalations:
                 logger.warning(
-                    "escalation_blocked_max_active",
-                    company_id=company_id,
-                    ticket_id=context.ticket_id,
-                    active_count=len(active),
-                    max_active=config.max_active_escalations,
-                )
+                    "escalation_blocked_max_active company_id=%s ticket_id=%s active_count=%s max_active=%s",
+                    company_id, context.ticket_id, len(active), config.max_active_escalations)
                 return None
 
             # Determine channel
@@ -966,25 +931,15 @@ class GracefulEscalationManager:
             })
 
             logger.warning(
-                "escalation_created",
-                escalation_id=escalation_id,
-                company_id=company_id,
-                ticket_id=context.ticket_id,
-                trigger=context.trigger,
-                severity=context.severity,
-                channel=channel,
-                is_vip=is_vip_customer,
-                cooldown_seconds=cooldown_seconds,
-            )
+                "escalation_created escalation_id=%s company_id=%s ticket_id=%s trigger=%s severity=%s channel=%s is_vip=%s cooldown_seconds=%s",
+                escalation_id, company_id, context.ticket_id, context.trigger, context.severity, channel, is_vip_customer, cooldown_seconds)
 
             return record
 
         except Exception:
             logger.exception(
-                "create_escalation_crashed",
-                company_id=company_id,
-                ticket_id=getattr(context, "ticket_id", ""),
-            )
+                "create_escalation_crashed company_id=%s ticket_id=%s",
+                company_id, getattr(context, "ticket_id", ""))
             return None
 
     def acknowledge_escalation(
@@ -1011,17 +966,14 @@ class GracefulEscalationManager:
                 record = self._escalations.get(escalation_id)
                 if not record or record.company_id != company_id:
                     logger.warning(
-                        "acknowledge_escalation_not_found",
-                        company_id=company_id,
-                        escalation_id=escalation_id,
-                    )
+                        "acknowledge_escalation_not_found company_id=%s escalation_id=%s",
+                        company_id, escalation_id)
                     return None
 
                 if record.status == "resolved":
                     logger.warning(
-                        "acknowledge_escalation_already_resolved",
-                        escalation_id=escalation_id,
-                    )
+                        "acknowledge_escalation_already_resolved escalation_id=%s",
+                        escalation_id)
                     return record
 
                 record.status = "acknowledged"
@@ -1035,20 +987,15 @@ class GracefulEscalationManager:
             })
 
             logger.info(
-                "escalation_acknowledged",
-                escalation_id=escalation_id,
-                company_id=company_id,
-                acknowledged_by=acknowledged_by,
-            )
+                "escalation_acknowledged escalation_id=%s company_id=%s acknowledged_by=%s",
+                escalation_id, company_id, acknowledged_by)
 
             return record
 
         except Exception:
             logger.exception(
-                "acknowledge_escalation_crashed",
-                company_id=company_id,
-                escalation_id=escalation_id,
-            )
+                "acknowledge_escalation_crashed company_id=%s escalation_id=%s",
+                company_id, escalation_id)
             return None
 
     def resolve_escalation(
@@ -1080,17 +1027,14 @@ class GracefulEscalationManager:
                 record = self._escalations.get(escalation_id)
                 if not record or record.company_id != company_id:
                     logger.warning(
-                        "resolve_escalation_not_found",
-                        company_id=company_id,
-                        escalation_id=escalation_id,
-                    )
+                        "resolve_escalation_not_found company_id=%s escalation_id=%s",
+                        company_id, escalation_id)
                     return None
 
                 if record.status == "resolved":
                     logger.warning(
-                        "resolve_escalation_already_resolved",
-                        escalation_id=escalation_id,
-                    )
+                        "resolve_escalation_already_resolved escalation_id=%s",
+                        escalation_id)
                     return record
 
                 record.status = "resolved"
@@ -1108,22 +1052,15 @@ class GracefulEscalationManager:
             })
 
             logger.info(
-                "escalation_resolved",
-                escalation_id=escalation_id,
-                company_id=company_id,
-                ticket_id=record.ticket_id,
-                outcome=outcome,
-                resolved_by=resolved_by,
-            )
+                "escalation_resolved escalation_id=%s company_id=%s ticket_id=%s outcome=%s resolved_by=%s",
+                escalation_id, company_id, record.ticket_id, outcome, resolved_by)
 
             return record
 
         except Exception:
             logger.exception(
-                "resolve_escalation_crashed",
-                company_id=company_id,
-                escalation_id=escalation_id,
-            )
+                "resolve_escalation_crashed company_id=%s escalation_id=%s",
+                company_id, escalation_id)
             return None
 
     def dismiss_escalation(
@@ -1154,10 +1091,8 @@ class GracefulEscalationManager:
             )
         except Exception:
             logger.exception(
-                "dismiss_escalation_crashed",
-                company_id=company_id,
-                escalation_id=escalation_id,
-            )
+                "dismiss_escalation_crashed company_id=%s escalation_id=%s",
+                company_id, escalation_id)
             return None
 
     def reassign_escalation(
@@ -1181,10 +1116,8 @@ class GracefulEscalationManager:
                 record = self._escalations.get(escalation_id)
                 if not record or record.company_id != company_id:
                     logger.warning(
-                        "reassign_escalation_not_found",
-                        company_id=company_id,
-                        escalation_id=escalation_id,
-                    )
+                        "reassign_escalation_not_found company_id=%s escalation_id=%s",
+                        company_id, escalation_id)
                     return None
 
                 previous_assignee = record.assigned_to
@@ -1201,21 +1134,15 @@ class GracefulEscalationManager:
             })
 
             logger.info(
-                "escalation_reassigned",
-                escalation_id=escalation_id,
-                company_id=company_id,
-                from_assignee=previous_assignee,
-                to_assignee=assigned_to,
-            )
+                "escalation_reassigned escalation_id=%s company_id=%s from_assignee=%s to_assignee=%s",
+                escalation_id, company_id, previous_assignee, assigned_to)
 
             return record
 
         except Exception:
             logger.exception(
-                "reassign_escalation_crashed",
-                company_id=company_id,
-                escalation_id=escalation_id,
-            )
+                "reassign_escalation_crashed company_id=%s escalation_id=%s",
+                company_id, escalation_id)
             return None
 
     # ── Query Methods ───────────────────────────────────────────
@@ -1242,10 +1169,8 @@ class GracefulEscalationManager:
                 return None
         except Exception:
             logger.exception(
-                "get_escalation_crashed",
-                company_id=company_id,
-                escalation_id=escalation_id,
-            )
+                "get_escalation_crashed company_id=%s escalation_id=%s",
+                company_id, escalation_id)
             return None
 
     def get_active_escalations(
@@ -1280,9 +1205,8 @@ class GracefulEscalationManager:
                 return active
         except Exception:
             logger.exception(
-                "get_active_escalations_crashed",
-                company_id=company_id,
-            )
+                "get_active_escalations_crashed company_id=%s",
+                company_id)
             return []
 
     def get_ticket_escalations(
@@ -1318,10 +1242,8 @@ class GracefulEscalationManager:
                 return records
         except Exception:
             logger.exception(
-                "get_ticket_escalations_crashed",
-                company_id=company_id,
-                ticket_id=ticket_id,
-            )
+                "get_ticket_escalations_crashed company_id=%s ticket_id=%s",
+                company_id, ticket_id)
             return []
 
     def get_escalations_by_severity(
@@ -1348,10 +1270,8 @@ class GracefulEscalationManager:
             ]
         except Exception:
             logger.exception(
-                "get_escalations_by_severity_crashed",
-                company_id=company_id,
-                severity=severity,
-            )
+                "get_escalations_by_severity_crashed company_id=%s severity=%s",
+                company_id, severity)
             return []
 
     # ── Cooldown Management ─────────────────────────────────────
@@ -1397,21 +1317,14 @@ class GracefulEscalationManager:
                 # Cooldown is still active
                 remaining = (expires_at - now).total_seconds()
                 logger.debug(
-                    "escalation_cooldown_active",
-                    company_id=company_id,
-                    ticket_id=ticket_id,
-                    trigger=trigger,
-                    remaining_seconds=remaining,
-                )
+                    "escalation_cooldown_active company_id=%s ticket_id=%s trigger=%s remaining_seconds=%s",
+                    company_id, ticket_id, trigger, remaining)
                 return True
 
         except Exception:
             logger.exception(
-                "check_cooldown_crashed",
-                company_id=company_id,
-                ticket_id=ticket_id,
-                trigger=trigger,
-            )
+                "check_cooldown_crashed company_id=%s ticket_id=%s trigger=%s",
+                company_id, ticket_id, trigger)
             return False
 
     def set_cooldown(
@@ -1439,19 +1352,12 @@ class GracefulEscalationManager:
                 self._cooldowns[cooldown_key] = expires_dt.isoformat()
 
             logger.info(
-                "escalation_cooldown_set",
-                company_id=company_id,
-                ticket_id=ticket_id,
-                trigger=trigger,
-                cooldown_seconds=seconds,
-            )
+                "escalation_cooldown_set company_id=%s ticket_id=%s trigger=%s cooldown_seconds=%s",
+                company_id, ticket_id, trigger, seconds)
         except Exception:
             logger.exception(
-                "set_cooldown_crashed",
-                company_id=company_id,
-                ticket_id=ticket_id,
-                trigger=trigger,
-            )
+                "set_cooldown_crashed company_id=%s ticket_id=%s trigger=%s",
+                company_id, ticket_id, trigger)
 
     # ── Rate Limiting ───────────────────────────────────────────
 
@@ -1485,9 +1391,8 @@ class GracefulEscalationManager:
 
         except Exception:
             logger.exception(
-                "check_rate_limit_crashed",
-                company_id=company_id,
-            )
+                "check_rate_limit_crashed company_id=%s",
+                company_id)
             return False  # Allow on error
 
     # ── Auto-Resolution ─────────────────────────────────────────
@@ -1537,19 +1442,15 @@ class GracefulEscalationManager:
 
             if resolved_count > 0:
                 logger.info(
-                    "auto_resolved_stale_escalations",
-                    company_id=company_id,
-                    resolved_count=resolved_count,
-                    checked_count=len(active),
-                )
+                    "auto_resolved_stale_escalations company_id=%s resolved_count=%s checked_count=%s",
+                    company_id, resolved_count, len(active))
 
             return resolved_count
 
         except Exception:
             logger.exception(
-                "auto_resolve_stale_crashed",
-                company_id=company_id,
-            )
+                "auto_resolve_stale_crashed company_id=%s",
+                company_id)
             return 0
 
     # ── Statistics ──────────────────────────────────────────────
@@ -1658,9 +1559,8 @@ class GracefulEscalationManager:
 
         except Exception:
             logger.exception(
-                "get_statistics_crashed",
-                company_id=company_id,
-            )
+                "get_statistics_crashed company_id=%s",
+                company_id)
             return {
                 "company_id": company_id,
                 "total_escalations": 0,
@@ -1700,9 +1600,8 @@ class GracefulEscalationManager:
                 return list(reversed(entries[-limit:]))
         except Exception:
             logger.exception(
-                "get_notification_log_crashed",
-                company_id=company_id,
-            )
+                "get_notification_log_crashed company_id=%s",
+                company_id)
             return []
 
     def build_escalation_message(
@@ -1791,10 +1690,8 @@ class GracefulEscalationManager:
 
         except Exception:
             logger.exception(
-                "build_escalation_message_crashed",
-                company_id=company_id,
-                escalation_id=getattr(record, "escalation_id", ""),
-            )
+                "build_escalation_message_crashed company_id=%s escalation_id=%s",
+                company_id, getattr(record, "escalation_id", ""))
             return (
                 f"Escalation Alert: {getattr(record, 'escalation_id', 'unknown')} "
                 f"| Severity: {getattr(record, 'severity', 'unknown')} "
@@ -1838,10 +1735,8 @@ class GracefulEscalationManager:
                     ]
         except Exception:
             logger.exception(
-                "log_notification_crashed",
-                company_id=company_id,
-                escalation_id=escalation_id,
-            )
+                "log_notification_crashed company_id=%s escalation_id=%s",
+                company_id, escalation_id)
 
     # ── Event Listeners ─────────────────────────────────────────
 
@@ -1860,9 +1755,8 @@ class GracefulEscalationManager:
                 if callback not in self._listeners:
                     self._listeners.append(callback)
             logger.info(
-                "escalation_event_listener_added",
-                listener_count=len(self._listeners),
-            )
+                "escalation_event_listener_added listener_count=%s",
+                len(self._listeners))
         except Exception:
             logger.exception("add_event_listener_crashed")
 
@@ -1877,9 +1771,8 @@ class GracefulEscalationManager:
                 if callback in self._listeners:
                     self._listeners.remove(callback)
             logger.info(
-                "escalation_event_listener_removed",
-                listener_count=len(self._listeners),
-            )
+                "escalation_event_listener_removed listener_count=%s",
+                len(self._listeners))
         except Exception:
             logger.exception("remove_event_listener_crashed")
 
@@ -1905,9 +1798,8 @@ class GracefulEscalationManager:
                     callback(event_name, event_data)
                 except Exception:
                     logger.exception(
-                        "escalation_event_listener_error",
-                        event_name=event_name,
-                    )
+                        "escalation_event_listener_error event_name=%s",
+                        event_name)
         except Exception:
             logger.exception("emit_event_crashed")
 
@@ -1959,12 +1851,9 @@ class GracefulEscalationManager:
                 self._configs.pop(company_id, None)
 
             logger.info(
-                "escalation_company_data_cleared",
-                company_id=company_id,
-                escalations_removed=len(escalation_ids),
-            )
+                "escalation_company_data_cleared company_id=%s escalations_removed=%s",
+                company_id, len(escalation_ids))
         except Exception:
             logger.exception(
-                "clear_company_data_crashed",
-                company_id=company_id,
-            )
+                "clear_company_data_crashed company_id=%s",
+                company_id)

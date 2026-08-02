@@ -649,11 +649,8 @@ class SelfConsistencyProcessor:
             answers.append(answer)
 
         logger.debug(
-            "self_consistency_answers_generated",
-            category=category.value,
-            num_answers=len(answers),
-            company_id=self.config.company_id,
-        )
+            "self_consistency_answers_generated category=%s num_answers=%s company_id=%s",
+            category.value, len(answers), self.config.company_id)
         return answers
 
     # ── Step 2: Consistency Check ────────────────────────────────
@@ -701,13 +698,8 @@ class SelfConsistencyProcessor:
         ]
 
         logger.debug(
-            "self_consistency_check_completed",
-            consensus_level=consensus_level.value,
-            agreement_ratio=round(agreement_ratio, 4),
-            majority_value=majority_value,
-            num_dissenting=len(dissenting),
-            company_id=self.config.company_id,
-        )
+            "self_consistency_check_completed consensus_level=%s agreement_ratio=%s majority_value=%s num_dissenting=%s company_id=%s",
+            consensus_level.value, round(agreement_ratio, 4), majority_value, len(dissenting), self.config.company_id)
 
         return ConsistencyResult(
             consensus_level=consensus_level.value,
@@ -807,12 +799,8 @@ class SelfConsistencyProcessor:
         analysis = " ".join(parts)
 
         logger.debug(
-            "self_consistency_disagreement_analyzed",
-            consensus_level=consensus.value,
-            num_dissenting=len(dissenting),
-            analysis_length=len(analysis),
-            company_id=self.config.company_id,
-        )
+            "self_consistency_disagreement_analyzed consensus_level=%s num_dissenting=%s analysis_length=%s company_id=%s",
+            consensus.value, len(dissenting), len(analysis), self.config.company_id)
 
         return analysis
 
@@ -873,12 +861,8 @@ class SelfConsistencyProcessor:
         )
 
         logger.debug(
-            "self_consistency_final_answer_selected",
-            consensus_level=consensus.value,
-            majority_value=majority_value,
-            final_confidence=round(final_confidence, 4),
-            company_id=self.config.company_id,
-        )
+            "self_consistency_final_answer_selected consensus_level=%s majority_value=%s final_confidence=%s company_id=%s",
+            consensus.value, majority_value, round(final_confidence, 4), self.config.company_id)
 
         return best_majority.answer_text, final_confidence
 
@@ -932,10 +916,8 @@ class SelfConsistencyProcessor:
                     )
             except Exception as llm_err:
                 logger.debug(
-                    "self_consistency_llm_fallback",
-                    error=str(llm_err),
-                    company_id=self.config.company_id,
-                )
+                    "self_consistency_llm_fallback error=%s company_id=%s",
+                    str(llm_err), self.config.company_id)
             # --- Fallback: deterministic pipeline ---
 
             # Step 1: Multi-Answer Generation
@@ -976,21 +958,14 @@ class SelfConsistencyProcessor:
             )
 
             logger.info(
-                "self_consistency_pipeline_completed",
-                steps=",".join(steps_applied),
-                consensus_level=consistency.consensus_level,
-                final_confidence=round(final_confidence, 4),
-                confidence_boost=round(confidence_boost, 4),
-                company_id=self.config.company_id,
-            )
+                "self_consistency_pipeline_completed steps=%s consensus_level=%s final_confidence=%s confidence_boost=%s company_id=%s",
+                ",".join(steps_applied), consistency.consensus_level, round(final_confidence, 4), round(confidence_boost, 4), self.config.company_id)
 
         except Exception as exc:
             # BC-008: Never crash — return graceful fallback
             logger.warning(
-                "self_consistency_processing_error",
-                error=str(exc),
-                company_id=self.config.company_id,
-            )
+                "self_consistency_processing_error error=%s company_id=%s",
+                str(exc), self.config.company_id)
             return SelfConsistencyResult(
                 answers=answers,
                 consistency=consistency,
@@ -1289,8 +1264,6 @@ class SelfConsistencyNode(BaseTechniqueNode):
         except Exception as exc:
             # BC-008: Never crash — return original state
             logger.warning(
-                "self_consistency_execute_error",
-                error=str(exc),
-                company_id=self._config.company_id,
-            )
+                "self_consistency_execute_error error=%s company_id=%s",
+                str(exc), self._config.company_id)
             return original_state

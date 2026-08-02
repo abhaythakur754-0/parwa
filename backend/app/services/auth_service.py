@@ -176,17 +176,12 @@ def register_user(
         db.commit()
     except Exception:
         logger.warning(
-            "verification_email_failed_on_register",
-            user_id=user.id,
-            email=user.email,
-        )
+            "verification_email_failed_on_register user_id=%s email=%s",
+            user.id, user.email)
 
     logger.info(
-        "user_registered",
-        user_id=user.id,
-        company_id=company.id,
-        email=user.email,
-    )
+        "user_registered user_id=%s company_id=%s email=%s",
+        user.id, company.id, user.email)
 
     return _build_auth_response(
         user, company, tokens, is_new_user=True
@@ -264,11 +259,8 @@ async def authenticate_user(
             user.locked_until = lock_until
             db.commit()
             logger.warning(
-                "account_locked",
-                user_id=user.id,
-                email=user.email,
-                failed_count=user.failed_login_count,
-            )
+                "account_locked user_id=%s email=%s failed_count=%s",
+                user.id, user.email, user.failed_login_count)
             # Send lockout notification email
             try:
                 from app.services.email_service import send_email
@@ -285,7 +277,7 @@ async def authenticate_user(
                     html_content=lockout_email_html,
                 )
             except Exception as e:
-                logger.warning("lockout_email_failed", error=str(e))
+                logger.warning("lockout_email_failed error=%s", str(e))
             raise AuthenticationError(
                 message=(
                     "Account temporarily locked due to too many failed attempts. Please try again later."
@@ -323,10 +315,8 @@ async def authenticate_user(
     db.refresh(user)
 
     logger.info(
-        "user_authenticated",
-        user_id=user.id,
-        company_id=user.company_id,
-    )
+        "user_authenticated user_id=%s company_id=%s",
+        user.id, user.company_id)
 
     return _build_auth_response(
         user, company, tokens, is_new_user=False
@@ -399,10 +389,8 @@ def refresh_tokens(
     db.commit()
 
     logger.info(
-        "token_refreshed",
-        user_id=user.id,
-        company_id=user.company_id,
-    )
+        "token_refreshed user_id=%s company_id=%s",
+        user.id, user.company_id)
 
     return tokens
 
@@ -426,9 +414,8 @@ def logout_user(
         db.delete(stored)
         db.commit()
         logger.info(
-            "user_logged_out",
-            user_id=stored.user_id,
-        )
+            "user_logged_out user_id=%s",
+            stored.user_id)
 
 
 def google_auth(
@@ -487,10 +474,8 @@ def google_auth(
             db.commit()
             db.refresh(user)
             logger.info(
-                "google_login",
-                user_id=user.id,
-                company_id=user.company_id,
-            )
+                "google_login user_id=%s company_id=%s",
+                user.id, user.company_id)
             return _build_auth_response(
                 user, company, tokens, is_new_user=False
             )
@@ -515,10 +500,8 @@ def google_auth(
         db.commit()
         db.refresh(user)
         logger.info(
-            "google_linked",
-            user_id=user.id,
-            company_id=user.company_id,
-        )
+            "google_linked user_id=%s company_id=%s",
+            user.id, user.company_id)
         return _build_auth_response(
             user, company, tokens, is_new_user=False
         )
@@ -567,11 +550,8 @@ def google_auth(
     db.refresh(company)
 
     logger.info(
-        "google_registered",
-        user_id=user.id,
-        company_id=company.id,
-        email=google_email,
-    )
+        "google_registered user_id=%s company_id=%s email=%s",
+        user.id, company.id, google_email)
 
     return _build_auth_response(
         user, company, tokens, is_new_user=True
@@ -743,10 +723,8 @@ def _invalidate_all_tokens(
     for t in tokens:
         db.delete(t)
     logger.warning(
-        "all_tokens_invalidated",
-        user_id=user_id,
-        reason="reuse_or_expiry",
-    )
+        "all_tokens_invalidated user_id=%s reason=%s",
+        user_id, "reuse_or_expiry")
 
 
 def _verify_google_token(id_token: str) -> dict:
@@ -820,10 +798,8 @@ def _verify_google_token(id_token: str) -> dict:
         # SSL errors) so we always return a structured JSON error
         # instead of letting FastAPI convert it to plain text.
         logger.exception(
-            "google_token_verify_unexpected_error",
-            error_type=type(exc).__name__,
-            error_message=str(exc),
-        )
+            "google_token_verify_unexpected_error error_type=%s error_message=%s",
+            type(exc).__name__, str(exc))
         raise AuthenticationError(
             message="Google verification failed. Please try again.",
             details={"error": str(exc)},

@@ -209,10 +209,8 @@ def _register_handlers() -> None:
                 user_id = payload.get("sub")
             except Exception:
                 logger.warning(
-                    "socketio_reject_invalid_jwt",
-                    sid=sid,
-                    reason="invalid_or_expired_jwt",
-                )
+                    "socketio_reject_invalid_jwt sid=%s reason=%s",
+                    sid, "invalid_or_expired_jwt")
                 return False
         else:
             # Backward compat: check socketio_auth dict
@@ -221,10 +219,8 @@ def _register_handlers() -> None:
 
         if not company_id or not _validate_company_id(company_id):
             logger.warning(
-                "socketio_reject_unauthenticated",
-                sid=sid,
-                reason="missing_or_invalid_company_id",
-            )
+                "socketio_reject_unauthenticated sid=%s reason=%s",
+                sid, "missing_or_invalid_company_id")
             return False  # Reject connection
 
         # Join the tenant room
@@ -238,12 +234,8 @@ def _register_handlers() -> None:
         await sio.save_session(sid, session_data)
 
         logger.info(
-            "socketio_connected",
-            sid=sid,
-            company_id=company_id,
-            user_id=user_id,
-            room=room,
-        )
+            "socketio_connected sid=%s company_id=%s user_id=%s room=%s",
+            sid, company_id, user_id, room)
 
     @sio.event
     async def disconnect(sid):
@@ -254,16 +246,12 @@ def _register_handlers() -> None:
             room = get_tenant_room(company_id)
             await sio.leave_room(sid, room)
             logger.info(
-                "socketio_disconnected",
-                sid=sid,
-                company_id=company_id,
-            )
+                "socketio_disconnected sid=%s company_id=%s",
+                sid, company_id)
         except Exception as exc:
             logger.warning(
-                "socketio_disconnect_error",
-                sid=sid,
-                error=str(exc),
-            )
+                "socketio_disconnect_error sid=%s error=%s",
+                sid, str(exc))
 
 
 async def emit_to_tenant(
@@ -313,11 +301,8 @@ async def emit_to_tenant(
     except Exception as exc:
         # Event buffer failure should not break the emit
         logger.warning(
-            "event_buffer_store_failed",
-            company_id=company_id,
-            event_type=event_type,
-            error=str(exc),
-        )
+            "event_buffer_store_failed company_id=%s event_type=%s error=%s",
+            company_id, event_type, str(exc))
 
     # Persist pipeline events to the notifications DB table so humans see them
     # even when offline. Only pipeline event types (ai:*, ticket:delivered, etc.)
@@ -329,11 +314,8 @@ async def emit_to_tenant(
     except Exception as exc:
         # BC-012: Persister failure must not break the emit.
         logger.warning(
-            "pipeline_persist_failed",
-            company_id=company_id,
-            event_type=event_type,
-            error=str(exc)[:200],
-        )
+            "pipeline_persist_failed company_id=%s event_type=%s error=%s",
+            company_id, event_type, str(exc)[:200])
 
     # Get room participant count for return value.
     # NOTE: sio.rooms(sid) returns the rooms a SID belongs to,
@@ -442,16 +424,12 @@ def register_business_handlers() -> None:
             await sio.save_session(sid, session)
 
             logger.info(
-                "event_subscribed",
-                sid=sid,
-                company_id=company_id,
-                subscriptions=valid_types,
-            )
+                "event_subscribed sid=%s company_id=%s subscriptions=%s",
+                sid, company_id, valid_types)
             return {"subscribed": valid_types}
         except Exception as exc:
             logger.warning(
-                "event_subscribe_error", sid=sid, error=str(exc)
-            )
+                "event_subscribe_error sid=%s error=%s", sid, str(exc))
             return {"error": "subscription_failed"}
 
     @sio.on("event:unsubscribe")
@@ -471,15 +449,12 @@ def register_business_handlers() -> None:
             await sio.save_session(sid, session)
 
             logger.info(
-                "event_unsubscribed",
-                sid=sid,
-                event_types=event_types,
-            )
+                "event_unsubscribed sid=%s event_types=%s",
+                sid, event_types)
             return {"unsubscribed": event_types}
         except Exception as exc:
             logger.warning(
-                "event_unsubscribe_error", sid=sid, error=str(exc)
-            )
+                "event_unsubscribe_error sid=%s error=%s", sid, str(exc))
             return {"error": "unsubscription_failed"}
 
     @sio.on("ping")
@@ -492,7 +467,7 @@ def register_business_handlers() -> None:
         try:
             session = await sio.get_session(sid)
             if not session.get("company_id"):
-                logger.warning("ping_rejected_unauthenticated", sid=sid)
+                logger.warning("ping_rejected_unauthenticated sid=%s", sid)
                 return {"error": "unauthenticated"}
         except Exception:
             return {"error": "unauthenticated"}

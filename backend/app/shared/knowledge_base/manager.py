@@ -98,10 +98,8 @@ class KnowledgeBaseManager:
                 doc.updated_at = datetime.now(timezone.utc)
                 self.db.commit()
                 logger.info(
-                    "ingest_empty_document",
-                    document_id=document_id,
-                    company_id=self.company_id,
-                )
+                    "ingest_empty_document document_id=%s company_id=%s",
+                    document_id, self.company_id)
                 return {
                     "chunk_count": 0,
                     "document_id": document_id,
@@ -121,11 +119,8 @@ class KnowledgeBaseManager:
                     embedding = self._generate_embedding(chunk_data["content"])
                 except Exception as exc:
                     logger.warning(
-                        "embedding_generation_failed",
-                        document_id=document_id,
-                        chunk_index=chunk_data["chunk_index"],
-                        error=str(exc),
-                    )
+                        "embedding_generation_failed document_id=%s chunk_index=%s error=%s",
+                        document_id, chunk_data["chunk_index"], str(exc))
                     embedding_failures += 1
 
                 chunk = DocumentChunk(
@@ -148,12 +143,8 @@ class KnowledgeBaseManager:
             self.db.commit()
 
             logger.info(
-                "ingest_document_completed",
-                document_id=document_id,
-                company_id=self.company_id,
-                chunk_count=stored_count,
-                embedding_failures=embedding_failures,
-            )
+                "ingest_document_completed document_id=%s company_id=%s chunk_count=%s embedding_failures=%s",
+                document_id, self.company_id, stored_count, embedding_failures)
 
             return {
                 "chunk_count": stored_count,
@@ -171,11 +162,8 @@ class KnowledgeBaseManager:
             self.db.commit()
 
             logger.error(
-                "ingest_document_failed",
-                document_id=document_id,
-                company_id=self.company_id,
-                error=str(exc),
-            )
+                "ingest_document_failed document_id=%s company_id=%s error=%s",
+                document_id, self.company_id, str(exc))
             raise
 
     def reindex_document(self, document_id: str) -> Dict[str, Any]:
@@ -214,11 +202,8 @@ class KnowledgeBaseManager:
         deleted_count = self.delete_document_chunks(document_id)
 
         logger.info(
-            "reindex_document_started",
-            document_id=document_id,
-            company_id=self.company_id,
-            chunks_deleted=deleted_count,
-        )
+            "reindex_document_started document_id=%s company_id=%s chunks_deleted=%s",
+            document_id, self.company_id, deleted_count)
 
         # Re-ingest
         result = self.ingest_document(
@@ -281,11 +266,8 @@ class KnowledgeBaseManager:
         self.db.commit()
 
         logger.info(
-            "delete_document_chunks",
-            document_id=document_id,
-            company_id=self.company_id,
-            deleted_count=count,
-        )
+            "delete_document_chunks document_id=%s company_id=%s deleted_count=%s",
+            document_id, self.company_id, count)
 
         return count
 
@@ -379,9 +361,8 @@ class KnowledgeBaseManager:
 
             if not embedding or not isinstance(embedding, list):
                 logger.warning(
-                    "embedding_response_missing_values",
-                    response_keys=list(data.keys()) if isinstance(data, dict) else "non-dict",
-                )
+                    "embedding_response_missing_values response_keys=%s",
+                    list(data.keys()) if isinstance(data, dict) else "non-dict")
                 # Fall through to NVIDIA fallback
                 pass
             else:
@@ -414,9 +395,8 @@ class KnowledgeBaseManager:
                             logger.info("embedding_used_nvidia_fallback")
                             return nvidia_emb
                     logger.warning(
-                        "nvidia_embedding_failed",
-                        status=nvidia_resp.status_code,
-                    )
+                        "nvidia_embedding_failed status=%s",
+                        nvidia_resp.status_code)
                 except Exception as nvidia_exc:
                     logger.warning("nvidia_embedding_error: %s", str(nvidia_exc)[:150])
             return None
@@ -426,10 +406,8 @@ class KnowledgeBaseManager:
             return None
         except httpx.HTTPStatusError as exc:
             logger.warning(
-                "embedding_http_error",
-                status_code=exc.response.status_code,
-                detail=exc.response.text[:200] if exc.response.text else "",
-            )
+                "embedding_http_error status_code=%s detail=%s",
+                exc.response.status_code, exc.response.text[:200] if exc.response.text else "")
             # ── NVIDIA fallback on Google HTTP error (e.g. invalid key) ──
             nvidia_key = os.environ.get(
                 "NVIDIA_API_KEY",
@@ -461,7 +439,6 @@ class KnowledgeBaseManager:
             return None
         except Exception as exc:
             logger.warning(
-                "embedding_generation_error",
-                error=str(exc),
-            )
+                "embedding_generation_error error=%s",
+                str(exc))
             return None

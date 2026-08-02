@@ -707,10 +707,8 @@ class ThoTProcessor:
         except Exception as exc:
             # BC-008: Never crash — return graceful fallback
             logger.warning(
-                "thot_processing_error",
-                error=str(exc),
-                company_id=self.config.company_id,
-            )
+                "thot_processing_error error=%s company_id=%s",
+                str(exc), self.config.company_id)
             return ThoTResult(
                 enhanced_response=current_query,
                 steps_applied=["error_fallback"],
@@ -803,9 +801,7 @@ class ThreadOfThoughtNode(BaseTechniqueNode):
         except Exception as exc:
             # BC-008: Never crash — return original state on error
             logger.warning(
-                "thot_execute_error",
-                error=str(exc),
-                company_id=self._config.company_id,
-            )
+                "thot_execute_error error=%s company_id=%s",
+                str(exc), self._config.company_id)
             self.record_skip(state, reason="execution_error")
             return state

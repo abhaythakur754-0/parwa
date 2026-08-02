@@ -228,11 +228,8 @@ class MetadataFilter:
                 passed.append(chunk)
 
         logger.debug(
-            "metadata_filter_applied",
-            input_count=len(chunks),
-            output_count=len(passed),
-            filter_keys=list(active_filters.keys()),
-        )
+            "metadata_filter_applied input_count=%s output_count=%s filter_keys=%s",
+            len(chunks), len(passed), list(active_filters.keys()))
         return passed
 
     @classmethod
@@ -395,22 +392,16 @@ class QueryRewriter:
             rewritten = f"{query} {' '.join(added_terms)}"
 
             logger.debug(
-                "query_rewritten",
-                company_id=company_id,
-                original_query=query[:80],
-                added_terms=added_terms,
-                rewritten_length=len(rewritten),
-            )
+                "query_rewritten company_id=%s original_query=%s added_terms=%s rewritten_length=%s",
+                company_id, query[:80], added_terms, len(rewritten))
 
             return rewritten
 
         except Exception as exc:
             # BC-008: Never crash — return the original query
             logger.warning(
-                "query_rewrite_failed_fallback_to_original",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "query_rewrite_failed_fallback_to_original company_id=%s error=%s",
+                company_id, str(exc))
             return query
 
     # ── Internal helpers ───────────────────────────────────────
@@ -588,14 +579,8 @@ class ContextWindowAssembler:
         result.citations = citations
 
         logger.debug(
-            "context_assembled",
-            chunks_input=len(chunks),
-            chunks_used=len(used_chunks),
-            total_tokens=total_tokens,
-            max_tokens=max_tokens,
-            truncated=result.truncated,
-            query_length=len(query),
-        )
+            "context_assembled chunks_input=%s chunks_used=%s total_tokens=%s max_tokens=%s truncated=%s query_length=%s",
+            len(chunks), len(used_chunks), total_tokens, max_tokens, result.truncated, len(query))
 
         return result
 
@@ -707,10 +692,8 @@ class CitationTracker:
             enriched.append(enriched_citation)
 
         logger.debug(
-            "citations_tracked",
-            citation_count=len(enriched),
-            context_length=len(assembled_context.context_string),
-        )
+            "citations_tracked citation_count=%s context_length=%s",
+            len(enriched), len(assembled_context.context_string))
 
         return enriched
 
@@ -786,10 +769,8 @@ class CrossEncoderReranker:
         # Resolve config with fallback
         if variant_type not in VARIANT_RERANK_CONFIG:
             logger.warning(
-                "rerank_unknown_variant_type_defaulting",
-                variant_type=variant_type,
-                company_id=company_id,
-            )
+                "rerank_unknown_variant_type_defaulting variant_type=%s company_id=%s",
+                variant_type, company_id)
             variant_type = "parwa"
 
         config = VARIANT_RERANK_CONFIG[variant_type]
@@ -815,11 +796,8 @@ class CrossEncoderReranker:
         except Exception as exc:
             # BC-008: On complete failure, return chunks sorted by original score
             logger.warning(
-                "rerank_execution_failed_fallback_to_original_order",
-                company_id=company_id,
-                variant_type=variant_type,
-                error=str(exc),
-            )
+                "rerank_execution_failed_fallback_to_original_order company_id=%s variant_type=%s error=%s",
+                company_id, variant_type, str(exc))
             sorted_chunks = sorted(chunks, key=lambda c: c.score, reverse=True)
             retrieval_time_ms = round((time.monotonic() - start_time) * 1000, 2)
             result = RAGResult(
@@ -876,15 +854,8 @@ class CrossEncoderReranker:
         retrieval_time_ms = round((time.monotonic() - start_time) * 1000, 2)
 
         logger.info(
-            "rerank_rewrite_rerank_complete",
-            company_id=company_id,
-            variant_type="parwa_high",
-            original_query=query[:80],
-            rewritten_query=rewritten_query[:80],
-            chunks_input=len(chunks),
-            chunks_output=len(final_chunks),
-            retrieval_time_ms=retrieval_time_ms,
-        )
+            "rerank_rewrite_rerank_complete company_id=%s variant_type=%s original_query=%s rewritten_query=%s chunks_input=%s chunks_output=%s retrieval_time_ms=%s",
+            company_id, "parwa_high", query[:80], rewritten_query[:80], len(chunks), len(final_chunks), retrieval_time_ms)
 
         return RAGResult(
             chunks=final_chunks,
@@ -999,11 +970,8 @@ class CrossEncoderReranker:
         reranked.sort(key=lambda c: c.score, reverse=True)
 
         logger.debug(
-            "cross_encoder_scoring_complete",
-            company_id=company_id,
-            chunks_scored=len(reranked),
-            top_score=reranked[0].score if reranked else 0.0,
-        )
+            "cross_encoder_scoring_complete company_id=%s chunks_scored=%s top_score=%s",
+            company_id, len(reranked), reranked[0].score if reranked else 0.0)
 
         return reranked
 
@@ -1130,23 +1098,14 @@ class CrossEncoderReranker:
                     f"(attempt {attempt + 1}/{_MAX_RETRIES + 1})"
                 )
                 logger.warning(
-                    "rerank_timeout_retrying",
-                    company_id=company_id,
-                    variant_type=variant_type,
-                    attempt=attempt + 1,
-                    max_retries=_MAX_RETRIES,
-                    timeout_seconds=timeout_seconds,
-                )
+                    "rerank_timeout_retrying company_id=%s variant_type=%s attempt=%s max_retries=%s timeout_seconds=%s",
+                    company_id, variant_type, attempt + 1, _MAX_RETRIES, timeout_seconds)
 
             except Exception as exc:
                 last_error = exc
                 logger.warning(
-                    "rerank_execution_error_retrying",
-                    company_id=company_id,
-                    variant_type=variant_type,
-                    attempt=attempt + 1,
-                    error=str(exc),
-                )
+                    "rerank_execution_error_retrying company_id=%s variant_type=%s attempt=%s error=%s",
+                    company_id, variant_type, attempt + 1, str(exc))
                 break  # Non-timeout errors are not retried
 
         # All retries exhausted — raise so the caller's BC-008 guard
@@ -1179,10 +1138,8 @@ class CrossEncoderReranker:
         else:
             # Unknown strategy — fall back to skip
             logger.warning(
-                "rerank_unknown_strategy_fallback_to_skip",
-                strategy=str(strategy),
-                company_id=company_id,
-            )
+                "rerank_unknown_strategy_fallback_to_skip strategy=%s company_id=%s",
+                str(strategy), company_id)
             result = self._strategy_skip(chunks, variant_type, top_k)
 
         # Record retrieval time
@@ -1207,11 +1164,8 @@ class CrossEncoderReranker:
         final_chunks = sorted_chunks[:top_k]
 
         logger.debug(
-            "rerank_strategy_skip",
-            variant_type=variant_type,
-            chunks_input=len(chunks),
-            chunks_output=len(final_chunks),
-        )
+            "rerank_strategy_skip variant_type=%s chunks_input=%s chunks_output=%s",
+            variant_type, len(chunks), len(final_chunks))
 
         return RAGResult(
             chunks=final_chunks,
@@ -1247,13 +1201,8 @@ class CrossEncoderReranker:
         final_chunks = reranked[:top_k]
 
         logger.debug(
-            "rerank_strategy_cross_encoder",
-            company_id=company_id,
-            variant_type=variant_type,
-            chunks_input=len(chunks),
-            chunks_after_filter=len(filtered),
-            chunks_output=len(final_chunks),
-        )
+            "rerank_strategy_cross_encoder company_id=%s variant_type=%s chunks_input=%s chunks_after_filter=%s chunks_output=%s",
+            company_id, variant_type, len(chunks), len(filtered), len(final_chunks))
 
         return RAGResult(
             chunks=final_chunks,
@@ -1317,13 +1266,8 @@ class CrossEncoderReranker:
         )
 
         logger.debug(
-            "context_assembly_complete",
-            company_id=company_id,
-            variant_type=variant_type,
-            total_tokens=assembled.total_tokens,
-            max_tokens=max_tokens,
-            truncated=assembled.truncated,
-        )
+            "context_assembly_complete company_id=%s variant_type=%s total_tokens=%s max_tokens=%s truncated=%s",
+            company_id, variant_type, assembled.total_tokens, max_tokens, assembled.truncated)
 
         return assembled
 
@@ -1476,10 +1420,8 @@ async def get_cached_rerank(
     except Exception as exc:
         # BC-008 / BC-012: Fail open
         logger.debug(
-            "rerank_cache_get_failed",
-            company_id=company_id,
-            error=str(exc),
-        )
+            "rerank_cache_get_failed company_id=%s error=%s",
+            company_id, str(exc))
     return None
 
 
@@ -1523,10 +1465,8 @@ async def set_cached_rerank(
     except Exception as exc:
         # BC-008 / BC-012: Fail open
         logger.debug(
-            "rerank_cache_set_failed",
-            company_id=company_id,
-            error=str(exc),
-        )
+            "rerank_cache_set_failed company_id=%s error=%s",
+            company_id, str(exc))
     return False
 
 

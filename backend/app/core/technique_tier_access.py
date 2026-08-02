@@ -302,11 +302,8 @@ class TechniqueTierAccessChecker:
         # Unknown variant — treat as most restrictive (BC-008)
         if config is None:
             logger.warning(
-                "tier_access_unknown_variant",
-                company_id=company_id,
-                technique=technique_id,
-                variant=variant_type,
-            )
+                "tier_access_unknown_variant company_id=%s technique=%s variant=%s",
+                company_id, technique_id, variant_type)
             return TierAccessResult(
                 technique=technique_id,
                 requested_tier=_TECHNIQUE_TO_TIER.get(
@@ -328,11 +325,8 @@ class TechniqueTierAccessChecker:
         # Unknown technique — allow Tier 1 fallback (BC-008)
         if not technique_tier:
             logger.warning(
-                "tier_access_unknown_technique",
-                company_id=company_id,
-                technique=technique_id,
-                variant=variant_type,
-            )
+                "tier_access_unknown_technique company_id=%s technique=%s variant=%s",
+                company_id, technique_id, variant_type)
             fallback = _DOWNGRADE_FALLBACK.get(technique_id)
             return TierAccessResult(
                 technique=technique_id,
@@ -535,14 +529,8 @@ class TechniqueTierAccessChecker:
             and target.decision == TierAccessDecision.ALLOWED
         ):
             logger.info(
-                "tier_access_upgraded",
-                company_id=company_id,
-                technique=technique_id,
-                from_variant=from_variant,
-                to_variant=to_variant,
-                previous_decision=original.decision.value,
-                new_decision=target.decision.value,
-            )
+                "tier_access_upgraded company_id=%s technique=%s from_variant=%s to_variant=%s previous_decision=%s new_decision=%s",
+                company_id, technique_id, from_variant, to_variant, original.decision.value, target.decision.value)
 
         return upgraded
 

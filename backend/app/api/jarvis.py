@@ -588,7 +588,7 @@ def _session_to_response(
     try:
         ctx = json.loads(session.context_json) if session.context_json else {}
     except (json.JSONDecodeError, TypeError) as e:
-        logger.warning("session_context_json_parse_error", error=str(e))
+        logger.warning("session_context_json_parse_error error=%s", str(e))
 
     return JarvisSessionResponse(
         id=session.id,
@@ -622,7 +622,7 @@ def _message_to_response(msg: object) -> JarvisMessageResponse:
     try:
         metadata = json.loads(msg.metadata_json) if msg.metadata_json else {}
     except (json.JSONDecodeError, TypeError) as e:
-        logger.warning("message_metadata_json_parse_error", error=str(e))
+        logger.warning("message_metadata_json_parse_error error=%s", str(e))
 
     return JarvisMessageResponse(
         id=msg.id,
@@ -646,7 +646,7 @@ def _ticket_to_response(
     try:
         result = json.loads(ticket.result_json) if ticket.result_json else {}
     except (json.JSONDecodeError, TypeError) as e:
-        logger.warning("ticket_result_json_parse_error", error=str(e))
+        logger.warning("ticket_result_json_parse_error error=%s", str(e))
 
     metadata = {}
     try:
@@ -654,7 +654,7 @@ def _ticket_to_response(
             json.loads(ticket.metadata_json) if ticket.metadata_json else {}
         )
     except (json.JSONDecodeError, TypeError) as e:
-        logger.warning("ticket_metadata_json_parse_error", error=str(e))
+        logger.warning("ticket_metadata_json_parse_error error=%s", str(e))
 
     return JarvisActionTicketResponse(
         id=ticket.id,

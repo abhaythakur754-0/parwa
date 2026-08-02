@@ -171,10 +171,8 @@ def verify_email(
     db.commit()
 
     logger.info(
-        "email_verified",
-        user_id=stored.user_id,
-        token_id=stored.id,
-    )
+        "email_verified user_id=%s token_id=%s",
+        stored.user_id, stored.id)
 
     return {
         "status": "success",
@@ -274,10 +272,8 @@ def resend_verification_email(
 
     if not sent:
         logger.error(
-            "verification_email_failed",
-            user_id=user.id,
-            email=user.email,
-        )
+            "verification_email_failed user_id=%s email=%s",
+            user.id, user.email)
 
     return {
         "status": "success",
@@ -314,7 +310,5 @@ def send_verification_on_register(
 
     if not sent:
         logger.error(
-            "registration_email_failed",
-            user_id=user.id,
-            email=user.email,
-        )
+            "registration_email_failed user_id=%s email=%s",
+            user.id, user.email)

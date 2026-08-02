@@ -284,7 +284,7 @@ def _analyze_sentiment(request: AIProcessRequest) -> Optional[Dict[str, Any]]:
         return result.to_dict() if result else None
 
     except Exception as exc:
-        logger.warning("sentiment_analysis_failed", error=str(exc))
+        logger.warning("sentiment_analysis_failed error=%s", str(exc))
         return None
 
 
@@ -310,7 +310,7 @@ def _search_knowledge(request: AIProcessRequest) -> List[Dict[str, Any]]:
         return knowledge
 
     except Exception as exc:
-        logger.warning("knowledge_search_failed", error=str(exc))
+        logger.warning("knowledge_search_failed error=%s", str(exc))
         return []
 
 
@@ -423,6 +423,6 @@ def _evaluate_escalation(
                 }
 
     except Exception as exc:
-        logger.warning("escalation_evaluation_failed", error=str(exc))
+        logger.warning("escalation_evaluation_failed error=%s", str(exc))
 
     return None

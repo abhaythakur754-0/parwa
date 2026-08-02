@@ -177,11 +177,10 @@ class SessionContinuityManager:
                 return {"success": False, "error": "company_id is required"}
             config.company_id = company_id
             self._configs[company_id] = config
-            logger.info("session_continuity_configured", company_id=company_id,
-                        strategy=config.collision_strategy)
+            logger.info("session_continuity_configured company_id=%s strategy=%s", company_id, config.collision_strategy)
             return {"success": True}
         except Exception as exc:
-            logger.error("configure_failed", company_id=company_id, error=str(exc))
+            logger.error("configure_failed company_id=%s error=%s", company_id, str(exc))
             return {"success": False, "error": str(exc)}
 
     def get_config(self, company_id: str) -> ContinuityConfig:
@@ -189,7 +188,7 @@ class SessionContinuityManager:
         try:
             return self._configs.get(company_id, ContinuityConfig(company_id=company_id))
         except Exception as exc:
-            logger.error("get_config_failed", company_id=company_id, error=str(exc))
+            logger.error("get_config_failed company_id=%s error=%s", company_id, str(exc))
             return ContinuityConfig(company_id=company_id)
 
     # ── Lock Operations ───────────────────────────────────────────
@@ -217,8 +216,7 @@ class SessionContinuityManager:
                                             agent_id, config, now, metadata or {})
                 # Check expiry — release stale lock
                 if _parse_utc(existing.expires_at) < datetime.now(timezone.utc):
-                    logger.info("lock_expired_auto_release", company_id=company_id,
-                                ticket_id=ticket_id, expired_owner=existing.owner_id)
+                    logger.info("lock_expired_auto_release company_id=%s ticket_id=%s expired_owner=%s", company_id, ticket_id, existing.owner_id)
                     self._remove_lock(key)
                     self._emit_event("lock_expired", {"company_id": company_id,
                                     "ticket_id": ticket_id, "new_owner": agent_id})
@@ -239,8 +237,7 @@ class SessionContinuityManager:
                                               ticket_id, config, key, now,
                                               metadata or {})
         except Exception as exc:
-            logger.error("acquire_lock_failed", company_id=company_id,
-                         ticket_id=ticket_id, error=str(exc))
+            logger.error("acquire_lock_failed company_id=%s ticket_id=%s error=%s", company_id, ticket_id, str(exc))
             return {"success": False, "lock_status": "error", "action": "error",
                     "error": str(exc)}
 
@@ -258,13 +255,12 @@ class SessionContinuityManager:
                             "error": "only the lock owner may release"}
                 self._remove_lock(key)
                 self._total_locks_released += 1
-                logger.info("lock_released", company_id=company_id,
-                            ticket_id=ticket_id, agent_id=agent_id)
+                logger.info("lock_released company_id=%s ticket_id=%s agent_id=%s", company_id, ticket_id, agent_id)
                 self._emit_event("lock_released", {"company_id": company_id,
                                 "ticket_id": ticket_id, "agent_id": agent_id})
                 return {"success": True, "lock_status": LockStatus.RELEASED.value}
         except Exception as exc:
-            logger.error("release_lock_failed", company_id=company_id, error=str(exc))
+            logger.error("release_lock_failed company_id=%s error=%s", company_id, str(exc))
             return {"success": False, "lock_status": "error", "error": str(exc)}
 
     def renew_lock(self, company_id: str, ticket_id: str,
@@ -289,7 +285,7 @@ class SessionContinuityManager:
                 return {"success": True, "lock_status": LockStatus.ACQUIRED.value,
                         "new_expires_at": renewed.expires_at}
         except Exception as exc:
-            logger.error("renew_lock_failed", company_id=company_id, error=str(exc))
+            logger.error("renew_lock_failed company_id=%s error=%s", company_id, str(exc))
             return {"success": False, "lock_status": "error", "error": str(exc)}
 
     def check_lock(self, company_id: str, ticket_id: str) -> Dict[str, Any]:
@@ -307,7 +303,7 @@ class SessionContinuityManager:
                 return {"locked": True, "owner_id": existing.owner_id,
                         "status": existing.status}
         except Exception as exc:
-            logger.error("check_lock_failed", company_id=company_id, error=str(exc))
+            logger.error("check_lock_failed company_id=%s error=%s", company_id, str(exc))
             return {"locked": False, "owner_id": None, "status": "error", "error": str(exc)}
 
     def get_lock_info(self, company_id: str,
@@ -324,7 +320,7 @@ class SessionContinuityManager:
                         "expires_at": existing.expires_at, "status": existing.status,
                         "metadata": existing.metadata}
         except Exception as exc:
-            logger.error("get_lock_info_failed", company_id=company_id, error=str(exc))
+            logger.error("get_lock_info_failed company_id=%s error=%s", company_id, str(exc))
             return None
 
     def is_ticket_locked(self, company_id: str, ticket_id: str) -> bool:
@@ -332,7 +328,7 @@ class SessionContinuityManager:
         try:
             return self.check_lock(company_id, ticket_id).get("locked", False)
         except Exception as exc:
-            logger.error("is_ticket_locked_failed", company_id=company_id, error=str(exc))
+            logger.error("is_ticket_locked_failed company_id=%s error=%s", company_id, str(exc))
             return False
 
     def get_ticket_owner(self, company_id: str,
@@ -341,7 +337,7 @@ class SessionContinuityManager:
         try:
             return self.check_lock(company_id, ticket_id).get("owner_id")
         except Exception as exc:
-            logger.error("get_ticket_owner_failed", company_id=company_id, error=str(exc))
+            logger.error("get_ticket_owner_failed company_id=%s error=%s", company_id, str(exc))
             return None
 
     # ── Session Operations ────────────────────────────────────────
@@ -372,13 +368,12 @@ class SessionContinuityManager:
                     started_at=now, last_heartbeat_at=now, metadata=metadata or {})
                 self._ticket_sessions[key].append(session_id)
                 self._agent_session_counts[agent_id] += 1
-                logger.info("session_registered", session_id=session_id,
-                            company_id=company_id, agent_id=agent_id)
+                logger.info("session_registered session_id=%s company_id=%s agent_id=%s", session_id, company_id, agent_id)
                 self._emit_event("session_registered", {"session_id": session_id,
                                 "company_id": company_id, "agent_id": agent_id})
                 return {"success": True, "session_id": session_id}
         except Exception as exc:
-            logger.error("register_session_failed", company_id=company_id, error=str(exc))
+            logger.error("register_session_failed company_id=%s error=%s", company_id, str(exc))
             return {"success": False, "error": str(exc)}
 
     def update_session(self, company_id: str, session_id: str,
@@ -402,7 +397,7 @@ class SessionContinuityManager:
                         setattr(session, k, v)
                 return {"success": True}
         except Exception as exc:
-            logger.error("update_session_failed", company_id=company_id, error=str(exc))
+            logger.error("update_session_failed company_id=%s error=%s", company_id, str(exc))
             return {"success": False, "error": str(exc)}
 
     def heartbeat(self, company_id: str, session_id: str) -> Dict[str, Any]:
@@ -419,7 +414,7 @@ class SessionContinuityManager:
                 session.last_heartbeat_at = _utcnow()
                 return {"success": True}
         except Exception as exc:
-            logger.error("heartbeat_failed", company_id=company_id, error=str(exc))
+            logger.error("heartbeat_failed company_id=%s error=%s", company_id, str(exc))
             return {"success": False, "error": str(exc)}
 
     def complete_session(self, company_id: str,
@@ -437,13 +432,12 @@ class SessionContinuityManager:
                 self._agent_session_counts[session.agent_id] = max(
                     0, self._agent_session_counts.get(session.agent_id, 0) - 1)
                 self.release_lock(session.company_id, session.ticket_id, session.agent_id)
-                logger.info("session_completed", session_id=session_id,
-                            company_id=company_id)
+                logger.info("session_completed session_id=%s company_id=%s", session_id, company_id)
                 self._emit_event("session_completed", {"session_id": session_id,
                                 "company_id": company_id, "agent_id": session.agent_id})
                 return {"success": True}
         except Exception as exc:
-            logger.error("complete_session_failed", company_id=company_id, error=str(exc))
+            logger.error("complete_session_failed company_id=%s error=%s", company_id, str(exc))
             return {"success": False, "error": str(exc)}
 
     def fail_session(self, company_id: str, session_id: str,
@@ -463,13 +457,12 @@ class SessionContinuityManager:
                 self._agent_session_counts[session.agent_id] = max(
                     0, self._agent_session_counts.get(session.agent_id, 0) - 1)
                 self.release_lock(session.company_id, session.ticket_id, session.agent_id)
-                logger.error("session_failed", session_id=session_id,
-                             company_id=company_id, error=error)
+                logger.error("session_failed session_id=%s company_id=%s error=%s", session_id, company_id, error)
                 self._emit_event("session_failed", {"session_id": session_id,
                                 "company_id": company_id, "error": error})
                 return {"success": True}
         except Exception as exc:
-            logger.error("fail_session_failed", company_id=company_id, error=str(exc))
+            logger.error("fail_session_failed company_id=%s error=%s", company_id, str(exc))
             return {"success": False, "error": str(exc)}
 
     # ── Stale Session Detection ───────────────────────────────────
@@ -499,11 +492,10 @@ class SessionContinuityManager:
                                           "last_heartbeat_at": s.last_heartbeat_at,
                                           "elapsed_seconds": round(elapsed, 2),
                                           "threshold_seconds": threshold})
-            logger.info("stale_sessions_detected", company_id=company_id,
-                        count=len(stale))
+            logger.info("stale_sessions_detected company_id=%s count=%s", company_id, len(stale))
             return {"stale_sessions": stale, "monitoring_enabled": True}
         except Exception as exc:
-            logger.error("detect_stale_failed", company_id=company_id, error=str(exc))
+            logger.error("detect_stale_failed company_id=%s error=%s", company_id, str(exc))
             return {"stale_sessions": [], "error": str(exc)}
 
     def force_release_stale(self, company_id: str,
@@ -529,14 +521,12 @@ class SessionContinuityManager:
                         expired += 1
                 self._remove_lock(key)
                 self._stale_sessions_recovered += expired
-                logger.info("stale_lock_released", company_id=company_id,
-                            ticket_id=ticket_id, sessions_expired=expired)
+                logger.info("stale_lock_released company_id=%s ticket_id=%s sessions_expired=%s", company_id, ticket_id, expired)
                 self._emit_event("stale_lock_released", {"company_id": company_id,
                                 "ticket_id": ticket_id, "sessions_expired": expired})
                 return {"success": True, "sessions_expired": expired}
         except Exception as exc:
-            logger.error("force_release_stale_failed", company_id=company_id,
-                         error=str(exc))
+            logger.error("force_release_stale_failed company_id=%s error=%s", company_id, str(exc))
             return {"success": False, "error": str(exc), "sessions_expired": 0}
 
     # ── Handoff ───────────────────────────────────────────────────
@@ -581,16 +571,14 @@ class SessionContinuityManager:
                 if len(self._handoff_records[company_id]) > self._max_handoff_records:
                     self._handoff_records[company_id] = (
                         self._handoff_records[company_id][-self._max_handoff_records:])
-                logger.info("handoff_completed", company_id=company_id,
-                            from_agent=from_agent, to_agent=to_agent)
+                logger.info("handoff_completed company_id=%s from_agent=%s to_agent=%s", company_id, from_agent, to_agent)
                 self._emit_event("session_handoff", {"company_id": company_id,
                                 "ticket_id": ticket_id, "from_agent": from_agent,
                                 "to_agent": to_agent})
                 return {"success": True, "handoff_id": str(uuid.uuid4()),
                         "sessions_handled": handled}
         except Exception as exc:
-            logger.error("initiate_handoff_failed", company_id=company_id,
-                         error=str(exc))
+            logger.error("initiate_handoff_failed company_id=%s error=%s", company_id, str(exc))
             return {"success": False, "error": str(exc)}
 
     # ── Query Operations ──────────────────────────────────────────
@@ -609,8 +597,7 @@ class SessionContinuityManager:
                      "resolution": e.resolution, "metadata": e.metadata}
                     for e in reversed(events[-limit:])]
         except Exception as exc:
-            logger.error("get_collision_events_failed", company_id=company_id,
-                         error=str(exc))
+            logger.error("get_collision_events_failed company_id=%s error=%s", company_id, str(exc))
             return []
 
     def get_session(self, company_id: str,
@@ -627,7 +614,7 @@ class SessionContinuityManager:
                     "completed_at": s.completed_at, "stage_reached": s.stage_reached,
                     "processing_steps": s.processing_steps, "metadata": s.metadata}
         except Exception as exc:
-            logger.error("get_session_failed", company_id=company_id, error=str(exc))
+            logger.error("get_session_failed company_id=%s error=%s", company_id, str(exc))
             return None
 
     def get_active_sessions(self, company_id: str) -> List[Dict[str, Any]]:
@@ -647,8 +634,7 @@ class SessionContinuityManager:
                                        "processing_steps": s.processing_steps})
             return result
         except Exception as exc:
-            logger.error("get_active_sessions_failed", company_id=company_id,
-                         error=str(exc))
+            logger.error("get_active_sessions_failed company_id=%s error=%s", company_id, str(exc))
             return []
 
     def get_agent_sessions(self, company_id: str,
@@ -668,8 +654,7 @@ class SessionContinuityManager:
                                        "processing_steps": s.processing_steps})
             return result
         except Exception as exc:
-            logger.error("get_agent_sessions_failed", company_id=company_id,
-                         error=str(exc))
+            logger.error("get_agent_sessions_failed company_id=%s error=%s", company_id, str(exc))
             return []
 
     def get_handoff_history(self, company_id: str,
@@ -687,8 +672,7 @@ class SessionContinuityManager:
                      "success": r.success}
                     for r in reversed(records[-limit:])]
         except Exception as exc:
-            logger.error("get_handoff_history_failed", company_id=company_id,
-                         error=str(exc))
+            logger.error("get_handoff_history_failed company_id=%s error=%s", company_id, str(exc))
             return []
 
     # ── Event Listeners ───────────────────────────────────────────
@@ -699,7 +683,7 @@ class SessionContinuityManager:
             if callback not in self._listeners:
                 self._listeners.append(callback)
         except Exception as exc:
-            logger.error("add_event_listener_failed", error=str(exc))
+            logger.error("add_event_listener_failed error=%s", str(exc))
 
     def remove_event_listener(self, callback: Callable) -> None:
         """Remove a previously registered event listener."""
@@ -707,7 +691,7 @@ class SessionContinuityManager:
             if callback in self._listeners:
                 self._listeners.remove(callback)
         except Exception as exc:
-            logger.error("remove_event_listener_failed", error=str(exc))
+            logger.error("remove_event_listener_failed error=%s", str(exc))
 
     # ── Statistics ────────────────────────────────────────────────
 
@@ -761,7 +745,7 @@ class SessionContinuityManager:
                     "agent_counts": dict(agent_counts),
                 }
         except Exception as exc:
-            logger.error("get_statistics_failed", company_id=company_id, error=str(exc))
+            logger.error("get_statistics_failed company_id=%s error=%s", company_id, str(exc))
             return {"company_id": company_id, "error": str(exc)}
 
     # ── Data Management ───────────────────────────────────────────
@@ -789,14 +773,12 @@ class SessionContinuityManager:
                 self._collision_events.pop(company_id, None)
                 self._handoff_records.pop(company_id, None)
                 self._configs.pop(company_id, None)
-                logger.info("company_data_cleared", company_id=company_id,
-                            locks=len(lock_keys), sessions=len(sid_remove))
+                logger.info("company_data_cleared company_id=%s locks=%s sessions=%s", company_id, len(lock_keys), len(sid_remove))
                 return {"success": True, "cleared_counts": {
                     "locks": len(lock_keys), "sessions": len(sid_remove),
                     "collision_events": col_n, "handoff_records": hnd_n}}
         except Exception as exc:
-            logger.error("clear_company_data_failed", company_id=company_id,
-                         error=str(exc))
+            logger.error("clear_company_data_failed company_id=%s error=%s", company_id, str(exc))
             return {"success": False, "error": str(exc)}
 
     # ── Private Helpers ───────────────────────────────────────────
@@ -810,8 +792,7 @@ class SessionContinuityManager:
             acquired_at=now, expires_at=_seconds_from_now(config.lock_timeout_seconds),
             status=LockStatus.ACQUIRED.value, metadata=metadata)
         self._total_locks_acquired += 1
-        logger.info("lock_acquired", company_id=company_id, ticket_id=ticket_id,
-                    agent_id=agent_id)
+        logger.info("lock_acquired company_id=%s ticket_id=%s agent_id=%s", company_id, ticket_id, agent_id)
         self._emit_event("lock_acquired", {"company_id": company_id,
                         "ticket_id": ticket_id, "agent_id": agent_id})
         return {"success": True, "lock_status": LockStatus.ACQUIRED.value,
@@ -902,8 +883,7 @@ class SessionContinuityManager:
         if len(self._collision_events[company_id]) > self._max_collision_events:
             self._collision_events[company_id] = (
                 self._collision_events[company_id][-self._max_collision_events:])
-        logger.warning("collision_detected", company_id=company_id,
-                       ticket_id=ticket_id, action_taken=action_taken)
+        logger.warning("collision_detected company_id=%s ticket_id=%s action_taken=%s", company_id, ticket_id, action_taken)
         return {"event_id": str(uuid.uuid4()), "action_taken": action_taken,
                 "resolution": resolution}
 
@@ -918,9 +898,9 @@ class SessionContinuityManager:
                 try:
                     listener(event_type, payload)
                 except Exception as exc:
-                    logger.debug("session_continuity_listener_failed", event_type=event_type, error=str(exc))
+                    logger.debug("session_continuity_listener_failed event_type=%s error=%s", event_type, str(exc))
         except Exception as exc:
-            logger.debug("session_continuity_emit_failed", event_type=event_type, error=str(exc))
+            logger.debug("session_continuity_emit_failed event_type=%s error=%s", event_type, str(exc))
 
 
 # ── Module-level singleton ────────────────────────────────────────────

@@ -75,9 +75,8 @@ def _get_smart_router() -> Any:
         return _smart_router
     except Exception as exc:
         logger.warning(
-            "multi_query_smart_router_import_failed",
-            error=str(exc),
-        )
+            "multi_query_smart_router_import_failed error=%s",
+            str(exc))
         return None
 
 
@@ -110,17 +109,13 @@ async def _cache_get_alternatives(
             # Validate all items are strings
             if all(isinstance(q, str) for q in cached):
                 logger.debug(
-                    "multi_query_cache_hit",
-                    company_id=company_id,
-                    cache_key=cache_key[:40],
-                    alternatives_count=len(cached),
-                )
+                    "multi_query_cache_hit company_id=%s cache_key=%s alternatives_count=%s",
+                    company_id, cache_key[:40], len(cached))
                 return cached
     except Exception as exc:
         logger.debug(
-            "multi_query_cache_read_failed",
-            error=str(exc),
-        )
+            "multi_query_cache_read_failed error=%s",
+            str(exc))
     return None
 
 
@@ -141,17 +136,13 @@ async def _cache_set_alternatives(
         )
         if success:
             logger.debug(
-                "multi_query_cache_stored",
-                company_id=company_id,
-                cache_key=cache_key[:40],
-                alternatives_count=len(alternatives),
-            )
+                "multi_query_cache_stored company_id=%s cache_key=%s alternatives_count=%s",
+                company_id, cache_key[:40], len(alternatives))
         return success
     except Exception as exc:
         logger.debug(
-            "multi_query_cache_write_failed",
-            error=str(exc),
-        )
+            "multi_query_cache_write_failed error=%s",
+            str(exc))
         return False
 
 
@@ -309,11 +300,8 @@ class MultiQueryRetriever:
 
         # BC-008: LLM unavailable — return empty list (caller uses original)
         logger.warning(
-            "multi_query_generation_failed_returning_empty",
-            company_id=company_id,
-            variant_type=variant_type,
-            query_preview=query[:80],
-        )
+            "multi_query_generation_failed_returning_empty company_id=%s variant_type=%s query_preview=%s",
+            company_id, variant_type, query[:80])
         return []
 
     async def retrieve_with_multi_query(
@@ -359,12 +347,8 @@ class MultiQueryRetriever:
             all_queries.extend(alternatives)
 
         logger.debug(
-            "multi_query_retrieval_starting",
-            company_id=company_id,
-            variant_type=variant_type,
-            total_queries=len(all_queries),
-            has_alternatives=bool(alternatives),
-        )
+            "multi_query_retrieval_starting company_id=%s variant_type=%s total_queries=%s has_alternatives=%s",
+            company_id, variant_type, len(all_queries), bool(alternatives))
 
         # Step 3: Execute retrieval for all queries concurrently
         retriever = self._get_retriever()
@@ -386,20 +370,14 @@ class MultiQueryRetriever:
                 if isinstance(result, Exception):
                     # BC-008: Log but continue with other results
                     logger.warning(
-                        "multi_query_retrieval_error_for_query",
-                        company_id=company_id,
-                        query_index=i,
-                        query_preview=all_queries[i][:60],
-                        error=str(result),
-                    )
+                        "multi_query_retrieval_error_for_query company_id=%s query_index=%s query_preview=%s error=%s",
+                        company_id, i, all_queries[i][:60], str(result))
                 elif isinstance(result, RAGResult):
                     results.append(result)
         except Exception as exc:
             logger.warning(
-                "multi_query_gather_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "multi_query_gather_error company_id=%s error=%s",
+                company_id, str(exc))
 
         # Step 4: If we have results, merge and rank
         if results:
@@ -410,15 +388,8 @@ class MultiQueryRetriever:
                 )
 
                 logger.info(
-                    "multi_query_retrieval_complete",
-                    company_id=company_id,
-                    variant_type=variant_type,
-                    queries_executed=len(results),
-                    chunks_before_dedupe=sum(len(r.chunks) for r in results),
-                    chunks_after_dedupe=len(merged_chunks),
-                    top_k_requested=top_k,
-                    retrieval_time_ms=retrieval_time_ms,
-                )
+                    "multi_query_retrieval_complete company_id=%s variant_type=%s queries_executed=%s chunks_before_dedupe=%s chunks_after_dedupe=%s top_k_requested=%s retrieval_time_ms=%s",
+                    company_id, variant_type, len(results), sum(len(r.chunks) for r in results), len(merged_chunks), top_k, retrieval_time_ms)
 
                 return RAGResult(
                     chunks=merged_chunks[:top_k],
@@ -429,10 +400,8 @@ class MultiQueryRetriever:
 
         # BC-008: Fallback — retrieve with just the original query
         logger.warning(
-            "multi_query_retrieval_fallback_to_single_query",
-            company_id=company_id,
-            variant_type=variant_type,
-        )
+            "multi_query_retrieval_fallback_to_single_query company_id=%s variant_type=%s",
+            company_id, variant_type)
         fallback_result = await retriever.retrieve(
             query=query,
             company_id=company_id,
@@ -547,11 +516,8 @@ class MultiQueryRetriever:
         ranked.sort(key=lambda x: x[1], reverse=True)
 
         logger.debug(
-            "multi_query_ranking_complete",
-            unique_chunks=len(ranked),
-            max_appearances=max_appearances,
-            top_score=ranked[0][1] if ranked else 0.0,
-        )
+            "multi_query_ranking_complete unique_chunks=%s max_appearances=%s top_score=%s",
+            len(ranked), max_appearances, ranked[0][1] if ranked else 0.0)
 
         return ranked
 
@@ -574,9 +540,8 @@ class MultiQueryRetriever:
         router = self._router or _get_smart_router()
         if router is None:
             logger.warning(
-                "multi_query_router_unavailable_cannot_generate",
-                company_id=company_id,
-            )
+                "multi_query_router_unavailable_cannot_generate company_id=%s",
+                company_id)
             return None
 
         try:
@@ -616,10 +581,8 @@ class MultiQueryRetriever:
             if not content or not content.strip():
                 if result.get("fallback_used"):
                     logger.warning(
-                        "multi_query_llm_fallback_response_empty",
-                        company_id=company_id,
-                        error=result.get("error", "unknown"),
-                    )
+                        "multi_query_llm_fallback_response_empty company_id=%s error=%s",
+                        company_id, result.get("error", "unknown"))
                 return None
 
             # Parse the JSON array from the response
@@ -628,27 +591,17 @@ class MultiQueryRetriever:
                 # Clamp to requested number
                 alternatives = alternatives[:num_alternatives]
                 logger.debug(
-                    "multi_query_llm_generation_success",
-                    company_id=company_id,
-                    variant_type=variant_type,
-                    model=result.get("model", "unknown"),
-                    alternatives_generated=len(alternatives),
-                    fallback_used=result.get("fallback_used", False),
-                )
+                    "multi_query_llm_generation_success company_id=%s variant_type=%s model=%s alternatives_generated=%s fallback_used=%s",
+                    company_id, variant_type, result.get("model", "unknown"), len(alternatives), result.get("fallback_used", False))
                 return alternatives
 
             logger.warning(
-                "multi_query_llm_response_parse_failed",
-                company_id=company_id,
-                response_preview=content[:200],
-            )
+                "multi_query_llm_response_parse_failed company_id=%s response_preview=%s",
+                company_id, content[:200])
 
         except Exception as exc:
             logger.warning(
-                "multi_query_llm_generation_error",
-                company_id=company_id,
-                variant_type=variant_type,
-                error=str(exc),
-            )
+                "multi_query_llm_generation_error company_id=%s variant_type=%s error=%s",
+                company_id, variant_type, str(exc))
 
         return None

@@ -119,10 +119,8 @@ def get_or_create_session(
         db.commit()
         db.refresh(session)
         logger.info(
-            "onboarding_session_created",
-            user_id=user_id,
-            company_id=company_id,
-        )
+            "onboarding_session_created user_id=%s company_id=%s",
+            user_id, company_id)
 
     return session
 
@@ -206,12 +204,8 @@ def complete_step(
     db.refresh(session)
 
     logger.info(
-        "onboarding_step_completed",
-        user_id=user_id,
-        company_id=company_id,
-        step=step,
-        current_step=session.current_step,
-    )
+        "onboarding_step_completed user_id=%s company_id=%s step=%s current_step=%s",
+        user_id, company_id, step, session.current_step)
 
     # Sync wizard progress to Jarvis session
     try:
@@ -380,11 +374,8 @@ def accept_legal_consents(
     db.refresh(session)
 
     logger.info(
-        "legal_consents_accepted",
-        user_id=user_id,
-        company_id=company_id,
-        ip_address=ip_address,
-    )
+        "legal_consents_accepted user_id=%s company_id=%s ip_address=%s",
+        user_id, company_id, ip_address)
 
     return {
         "message": "Legal consents accepted successfully.",
@@ -484,10 +475,8 @@ def remove_failed_document(
     db.commit()
 
     logger.info(
-        "failed_document_removed",
-        document_id=document_id,
-        company_id=company_id,
-    )
+        "failed_document_removed document_id=%s company_id=%s",
+        document_id, company_id)
 
     return True
 
@@ -553,18 +542,12 @@ def retry_document_processing(
         process_knowledge_document.delay(str(document_id), str(company_id))
     except Exception as e:
         logger.error(
-            "retry_celery_trigger_failed",
-            document_id=document_id,
-            company_id=company_id,
-            error=str(e),
-        )
+            "retry_celery_trigger_failed document_id=%s company_id=%s error=%s",
+            document_id, company_id, str(e))
 
     logger.info(
-        "document_processing_retried",
-        document_id=document_id,
-        company_id=company_id,
-        retry_count=retry_count + 1,
-    )
+        "document_processing_retried document_id=%s company_id=%s retry_count=%s",
+        document_id, company_id, retry_count + 1)
 
     return {
         "id": doc.id,
@@ -640,11 +623,8 @@ def activate_ai(
     db.refresh(session)
 
     logger.info(
-        "ai_activated",
-        user_id=user_id,
-        company_id=company_id,
-        ai_name=ai_name,
-    )
+        "ai_activated user_id=%s company_id=%s ai_name=%s",
+        user_id, company_id, ai_name)
 
     return {
         "message": "AI assistant activated successfully.",
@@ -721,10 +701,8 @@ def complete_first_victory(
     db.commit()
 
     logger.info(
-        "first_victory_completed",
-        user_id=user_id,
-        company_id=company_id,
-    )
+        "first_victory_completed user_id=%s company_id=%s",
+        user_id, company_id)
 
     return {
         "completed": True,

@@ -189,17 +189,12 @@ def _persist_to_redis(
         redis.setex(key, 7 * 24 * 3600, _json.dumps(dlq_entry))
 
         logger.info(
-            "langgraph_dlq_redis_persisted",
-            company_id=company_id,
-            conversation_id=conversation_id,
-            entry_id=entry_id,
-        )
+            "langgraph_dlq_redis_persisted company_id=%s conversation_id=%s entry_id=%s",
+            company_id, conversation_id, entry_id)
     except Exception as exc:
         logger.warning(
-            "langgraph_dlq_redis_persist_failed",
-            company_id=company_id,
-            error=str(exc)[:200],
-        )
+            "langgraph_dlq_redis_persist_failed company_id=%s error=%s",
+            company_id, str(exc)[:200])
 
 
 # ── PostgreSQL write (internal) ─────────────────────────────────
@@ -241,19 +236,13 @@ def _persist_to_db(
             db.commit()
 
         logger.info(
-            "langgraph_dlq_db_persisted",
-            company_id=company_id,
-            conversation_id=conversation_id,
-            entry_id=entry_id,
-            error_type=error_type,
-        )
+            "langgraph_dlq_db_persisted company_id=%s conversation_id=%s entry_id=%s error_type=%s",
+            company_id, conversation_id, entry_id, error_type)
         return entry_id
     except Exception as exc:
         logger.warning(
-            "langgraph_dlq_db_persist_failed",
-            company_id=company_id,
-            error=str(exc)[:200],
-        )
+            "langgraph_dlq_db_persist_failed company_id=%s error=%s",
+            company_id, str(exc)[:200])
         return None
 
 
@@ -324,10 +313,8 @@ def get_dlq_entries(
             ]
     except Exception as exc:
         logger.error(
-            "langgraph_dlq_get_entries_failed",
-            company_id=company_id,
-            error=str(exc)[:200],
-        )
+            "langgraph_dlq_get_entries_failed company_id=%s error=%s",
+            company_id, str(exc)[:200])
         return []
 
 
@@ -352,7 +339,7 @@ def retry_dlq_entry(entry_id: str) -> Optional[Dict[str, Any]]:
             ).first()
 
             if entry is None:
-                logger.warning("langgraph_dlq_retry_entry_not_found", entry_id=entry_id)
+                logger.warning("langgraph_dlq_retry_entry_not_found entry_id=%s", entry_id)
                 return None
 
             entry.retried = True
@@ -361,10 +348,8 @@ def retry_dlq_entry(entry_id: str) -> Optional[Dict[str, Any]]:
             db.commit()
 
             logger.info(
-                "langgraph_dlq_entry_retried",
-                entry_id=entry_id,
-                retry_count=entry.retry_count,
-            )
+                "langgraph_dlq_entry_retried entry_id=%s retry_count=%s",
+                entry_id, entry.retry_count)
 
             return {
                 "id": entry.id,
@@ -374,10 +359,8 @@ def retry_dlq_entry(entry_id: str) -> Optional[Dict[str, Any]]:
             }
     except Exception as exc:
         logger.error(
-            "langgraph_dlq_retry_failed",
-            entry_id=entry_id,
-            error=str(exc)[:200],
-        )
+            "langgraph_dlq_retry_failed entry_id=%s error=%s",
+            entry_id, str(exc)[:200])
         return None
 
 
@@ -402,7 +385,7 @@ def resolve_dlq_entry(entry_id: str, *, retry_succeeded: bool = True) -> Optiona
             ).first()
 
             if entry is None:
-                logger.warning("langgraph_dlq_resolve_entry_not_found", entry_id=entry_id)
+                logger.warning("langgraph_dlq_resolve_entry_not_found entry_id=%s", entry_id)
                 return None
 
             entry.resolved_at = datetime.now(timezone.utc)
@@ -410,10 +393,8 @@ def resolve_dlq_entry(entry_id: str, *, retry_succeeded: bool = True) -> Optiona
             db.commit()
 
             logger.info(
-                "langgraph_dlq_entry_resolved",
-                entry_id=entry_id,
-                retry_succeeded=retry_succeeded,
-            )
+                "langgraph_dlq_entry_resolved entry_id=%s retry_succeeded=%s",
+                entry_id, retry_succeeded)
 
             return {
                 "id": entry.id,
@@ -422,10 +403,8 @@ def resolve_dlq_entry(entry_id: str, *, retry_succeeded: bool = True) -> Optiona
             }
     except Exception as exc:
         logger.error(
-            "langgraph_dlq_resolve_failed",
-            entry_id=entry_id,
-            error=str(exc)[:200],
-        )
+            "langgraph_dlq_resolve_failed entry_id=%s error=%s",
+            entry_id, str(exc)[:200])
         return None
 
 
@@ -496,10 +475,8 @@ def get_dlq_stats(company_id: str) -> Dict[str, Any]:
             }
     except Exception as exc:
         logger.error(
-            "langgraph_dlq_stats_failed",
-            company_id=company_id,
-            error=str(exc)[:200],
-        )
+            "langgraph_dlq_stats_failed company_id=%s error=%s",
+            company_id, str(exc)[:200])
         return {
             "by_error_type": {},
             "total_unresolved": 0,

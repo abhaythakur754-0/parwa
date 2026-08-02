@@ -625,10 +625,8 @@ class AuditLogService:
                 callback(event_payload)
             except Exception as exc:
                 logger.warning(
-                    "audit_stream_callback_error",
-                    entry_id=entry.entry_id,
-                    error=str(exc),
-                )
+                    "audit_stream_callback_error entry_id=%s error=%s",
+                    entry.entry_id, str(exc))
 
     def _create_security_alert(
         self,
@@ -669,11 +667,8 @@ class AuditLogService:
                 company_alerts.pop(0)
 
         logger.info(
-            "security_alert_created",
-            company_id=company_id,
-            alert_type=alert_type,
-            alert_id=alert["alert_id"],
-        )
+            "security_alert_created company_id=%s alert_type=%s alert_id=%s",
+            company_id, alert_type, alert["alert_id"])
         return alert
 
     def _entry_to_dict(
@@ -891,14 +886,8 @@ class AuditLogService:
                 )
 
             logger.info(
-                "audit_event_logged",
-                company_id=company_id,
-                entry_id=entry_id,
-                category=validated_category.value,
-                severity=validated_severity.value,
-                action=str(action).strip(),
-                actor_id=actor_id,
-            )
+                "audit_event_logged company_id=%s entry_id=%s category=%s severity=%s action=%s actor_id=%s",
+                company_id, entry_id, validated_category.value, validated_severity.value, str(action).strip(), actor_id)
 
             return entry
 
@@ -906,10 +895,8 @@ class AuditLogService:
             raise
         except Exception as exc:
             logger.error(
-                "log_event_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "log_event_error company_id=%s error=%s",
+                company_id, str(exc))
             # Return a minimal entry so callers never crash (BC-008)
             return AuditLogEntry(
                 entry_id=str(uuid.uuid4()),
@@ -1008,19 +995,13 @@ class AuditLogService:
             page = filtered[offset: offset + limit]
 
             logger.debug(
-                "audit_events_queried",
-                company_id=company_id,
-                filters_applied={
+                "audit_events_queried company_id=%s filters_applied=%s total=%s returned=%s offset=%s limit=%s",
+                company_id, {
                     "category": validated_category.value if validated_category else None,
                     "severity": validated_severity.value if validated_severity else None,
                     "actor_id": actor_id,
                     "resource_type": resource_type,
-                },
-                total=total,
-                returned=len(page),
-                offset=offset,
-                limit=limit,
-            )
+                }, total, len(page), offset, limit)
 
             return page, total
 
@@ -1028,10 +1009,8 @@ class AuditLogService:
             raise
         except Exception as exc:
             logger.error(
-                "query_events_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "query_events_error company_id=%s error=%s",
+                company_id, str(exc))
             return [], 0
 
     def get_statistics(
@@ -1136,11 +1115,8 @@ class AuditLogService:
             )
 
             logger.info(
-                "audit_statistics_computed",
-                company_id=company_id,
-                total_entries=total_entries,
-                period_days=days,
-            )
+                "audit_statistics_computed company_id=%s total_entries=%s period_days=%s",
+                company_id, total_entries, days)
 
             return stats
 
@@ -1148,10 +1124,8 @@ class AuditLogService:
             raise
         except Exception as exc:
             logger.error(
-                "get_statistics_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "get_statistics_error company_id=%s error=%s",
+                company_id, str(exc))
             return AuditStats(
                 company_id=company_id,
                 period_start=datetime.now(timezone.utc) - timedelta(days=max(1, days)),
@@ -1266,14 +1240,8 @@ class AuditLogService:
             )
 
             logger.info(
-                "integrity_verification_completed",
-                company_id=company_id,
-                status=status.value,
-                total_checked=total_checked,
-                valid_count=valid_count,
-                tampered_count=tampered_count,
-                missing_count=missing_count,
-            )
+                "integrity_verification_completed company_id=%s status=%s total_checked=%s valid_count=%s tampered_count=%s missing_count=%s",
+                company_id, status.value, total_checked, valid_count, tampered_count, missing_count)
 
             # If tampering is detected, create a security alert
             if status == IntegrityStatus.TAMPERED:
@@ -1305,10 +1273,8 @@ class AuditLogService:
             raise
         except Exception as exc:
             logger.error(
-                "verify_integrity_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "verify_integrity_error company_id=%s error=%s",
+                company_id, str(exc))
             return AuditIntegrityReport(
                 company_id=company_id,
                 status=IntegrityStatus.UNKNOWN,
@@ -1466,14 +1432,10 @@ class AuditLogService:
             )
 
             logger.info(
-                "audit_events_exported",
-                company_id=company_id,
-                format=format.value,
-                total_entries=result.total_entries,
-                duration_ms=(
+                "audit_events_exported company_id=%s format=%s total_entries=%s duration_ms=%s",
+                company_id, format.value, result.total_entries, (
                     (export_completed_at - export_started_at).total_seconds() * 1000
-                ),
-            )
+                ))
 
             return result
 
@@ -1481,10 +1443,8 @@ class AuditLogService:
             raise
         except Exception as exc:
             logger.error(
-                "export_events_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "export_events_error company_id=%s error=%s",
+                company_id, str(exc))
             return AuditExportResult(
                 company_id=company_id,
                 format=format,
@@ -1539,12 +1499,8 @@ class AuditLogService:
                 self._set_entries(company_id, retained)
 
             logger.info(
-                "retention_cleanup_completed",
-                company_id=company_id,
-                removed_count=removed_count,
-                retained_count=len(retained),
-                policy_auto_cleanup=effective_policy.enable_auto_cleanup,
-            )
+                "retention_cleanup_completed company_id=%s removed_count=%s retained_count=%s policy_auto_cleanup=%s",
+                company_id, removed_count, len(retained), effective_policy.enable_auto_cleanup)
 
             return removed_count
 
@@ -1552,10 +1508,8 @@ class AuditLogService:
             raise
         except Exception as exc:
             logger.error(
-                "retention_cleanup_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "retention_cleanup_error company_id=%s error=%s",
+                company_id, str(exc))
             return 0
 
     def get_retention_policy(self, company_id: str) -> AuditRetentionPolicy:
@@ -1596,10 +1550,8 @@ class AuditLogService:
             raise
         except Exception as exc:
             logger.error(
-                "get_retention_policy_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "get_retention_policy_error company_id=%s error=%s",
+                company_id, str(exc))
             return AuditRetentionPolicy(
                 company_id=company_id,
                 category_retention_days=dict(_DEFAULT_CATEGORY_RETENTION_DAYS),
@@ -1662,12 +1614,8 @@ class AuditLogService:
                 self._retention_policies[company_id] = policy
 
             logger.info(
-                "retention_policy_updated",
-                company_id=company_id,
-                category_count=len(policy.category_retention_days),
-                auto_cleanup=policy.enable_auto_cleanup,
-                cleanup_frequency_hours=policy.cleanup_frequency_hours,
-            )
+                "retention_policy_updated company_id=%s category_count=%s auto_cleanup=%s cleanup_frequency_hours=%s",
+                company_id, len(policy.category_retention_days), policy.enable_auto_cleanup, policy.cleanup_frequency_hours)
 
             return policy
 
@@ -1675,10 +1623,8 @@ class AuditLogService:
             raise
         except Exception as exc:
             logger.error(
-                "set_retention_policy_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "set_retention_policy_error company_id=%s error=%s",
+                company_id, str(exc))
             # Return the existing policy as a safe fallback
             return self.get_retention_policy(company_id)
 
@@ -1718,10 +1664,8 @@ class AuditLogService:
 
                 if entry is None:
                     logger.warning(
-                        "redact_sensitive_data_entry_not_found",
-                        company_id=company_id,
-                        entry_id=entry_id,
-                    )
+                        "redact_sensitive_data_entry_not_found company_id=%s entry_id=%s",
+                        company_id, entry_id)
                     return False
 
                 # Redact old_value
@@ -1766,11 +1710,8 @@ class AuditLogService:
                 entry.checksum = self._compute_checksum(entry_data)
 
             logger.info(
-                "sensitive_data_redacted",
-                company_id=company_id,
-                entry_id=entry_id,
-                sensitive_fields=list(self.config.sensitive_fields),
-            )
+                "sensitive_data_redacted company_id=%s entry_id=%s sensitive_fields=%s",
+                company_id, entry_id, list(self.config.sensitive_fields))
 
             return True
 
@@ -1778,11 +1719,8 @@ class AuditLogService:
             raise
         except Exception as exc:
             logger.error(
-                "redact_sensitive_data_error",
-                company_id=company_id,
-                entry_id=entry_id,
-                error=str(exc),
-            )
+                "redact_sensitive_data_error company_id=%s entry_id=%s error=%s",
+                company_id, entry_id, str(exc))
             return False
 
     def get_alerts(self, company_id: str) -> List[Dict[str, Any]]:
@@ -1814,10 +1752,8 @@ class AuditLogService:
             )
 
             logger.debug(
-                "audit_alerts_retrieved",
-                company_id=company_id,
-                alert_count=len(alerts),
-            )
+                "audit_alerts_retrieved company_id=%s alert_count=%s",
+                company_id, len(alerts))
 
             return alerts
 
@@ -1825,10 +1761,8 @@ class AuditLogService:
             raise
         except Exception as exc:
             logger.error(
-                "get_alerts_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "get_alerts_error company_id=%s error=%s",
+                company_id, str(exc))
             return []
 
     def reset(self, company_id: str = "") -> None:
@@ -1852,16 +1786,13 @@ class AuditLogService:
                     self._alerts.clear()
 
             logger.info(
-                "audit_log_service_reset",
-                company_id=company_id or "all",
-            )
+                "audit_log_service_reset company_id=%s",
+                company_id or "all")
 
         except Exception as exc:
             logger.error(
-                "reset_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "reset_error company_id=%s error=%s",
+                company_id, str(exc))
 
     def is_healthy(self) -> bool:
         """Quick health check for the audit log service.
@@ -1884,7 +1815,6 @@ class AuditLogService:
             return True
         except Exception as exc:
             logger.error(
-                "audit_log_health_check_failed",
-                error=str(exc),
-            )
+                "audit_log_health_check_failed error=%s",
+                str(exc))
             return False

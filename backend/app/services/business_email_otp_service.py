@@ -168,19 +168,14 @@ def send_business_email_otp(
     
     if not sent:
         logger.warning(
-            "business_email_otp_send_failed",
-            email=email,
-            user_id=user_id,
-        )
+            "business_email_otp_send_failed email=%s user_id=%s",
+            email, user_id)
         # Still return success - don't reveal email sending status
         # User will see "check your email" message
     
     logger.info(
-        "business_email_otp_sent",
-        email=email,
-        user_id=user_id,
-        company_id=company_id,
-    )
+        "business_email_otp_sent email=%s user_id=%s company_id=%s",
+        email, user_id, company_id)
     
     return {
         "message": f"Verification code sent to {email}",
@@ -281,11 +276,8 @@ def verify_business_email_otp(
     db.commit()
     
     logger.info(
-        "business_email_otp_verified",
-        email=email,
-        company_id=company_id,
-        user_id=otp_record.user_id,
-    )
+        "business_email_otp_verified email=%s company_id=%s user_id=%s",
+        email, company_id, otp_record.user_id)
     
     return {
         "status": "verified",

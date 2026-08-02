@@ -304,18 +304,8 @@ class SentimentTechniqueMapper:
                         reasons[fallback.value] = f"Fallback for blocked {tech.value}"
 
         logger.info(
-            "sentiment_technique_mapping",
-            company_id=company_id,
-            frustration=frustration_score,
-            sentiment=sentiment_score,
-            urgency=urgency_level,
-            vip=is_vip,
-            variant=variant_type,
-            selected=[t.value for t in filtered],
-            blocked_count=len(blocked),
-            escalation=escalation_recommended,
-            priority_override=priority_override,
-        )
+            "sentiment_technique_mapping company_id=%s frustration=%s sentiment=%s urgency=%s vip=%s variant=%s selected=%s blocked_count=%s escalation=%s priority_override=%s",
+            company_id, frustration_score, sentiment_score, urgency_level, is_vip, variant_type, [t.value for t in filtered], len(blocked), escalation_recommended, priority_override)
 
         return SentimentMappingResult(
             recommended_techniques=filtered,

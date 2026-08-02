@@ -454,23 +454,15 @@ class BlockedResponseManager:
             self._queue[company_id][response_id] = blocked
 
             logger.info(
-                "Blocked response queued",
-                company_id=company_id,
-                response_id=response_id,
-                ticket_id=ticket_id,
-                block_reason=block_reason,
-                priority=priority,
-                confidence_score=confidence_score,
-            )
+                "Blocked response queued company_id=%s response_id=%s ticket_id=%s block_reason=%s priority=%s confidence_score=%s",
+                company_id, response_id, ticket_id, block_reason, priority, confidence_score)
 
             return blocked
 
         except Exception:
             logger.error(
-                "block_response failed (BC-008)",
-                company_id=company_id,
-                ticket_id=ticket_id,
-                exc_info=True,
+                "block_response failed (BC-008) company_id=%s ticket_id=%s",
+                company_id, ticket_id, exc_info=True,
             )
             # Return a minimal fallback record so callers never crash.
             return BlockedResponse(
@@ -533,9 +525,8 @@ class BlockedResponseManager:
 
         except Exception:
             logger.error(
-                "get_review_queue failed (BC-008)",
-                company_id=company_id,
-                exc_info=True,
+                "get_review_queue failed (BC-008) company_id=%s",
+                company_id, exc_info=True,
             )
             return []
 
@@ -596,9 +587,8 @@ class BlockedResponseManager:
 
         except Exception:
             logger.error(
-                "get_review_queue_stats failed (BC-008)",
-                company_id=company_id,
-                exc_info=True,
+                "get_review_queue_stats failed (BC-008) company_id=%s",
+                company_id, exc_info=True,
             )
             return ReviewQueueStats(company_id=company_id)
 
@@ -623,10 +613,8 @@ class BlockedResponseManager:
             return company_items.get(response_id)
         except Exception:
             logger.error(
-                "get_response_detail failed (BC-008)",
-                company_id=company_id,
-                response_id=response_id,
-                exc_info=True,
+                "get_response_detail failed (BC-008) company_id=%s response_id=%s",
+                company_id, response_id, exc_info=True,
             )
             return None
 
@@ -659,10 +647,8 @@ class BlockedResponseManager:
             item = self._get_item_safe(company_id, response_id)
             if item is None:
                 logger.warning(
-                    "review_response: item not found",
-                    company_id=company_id,
-                    response_id=response_id,
-                )
+                    "review_response: item not found company_id=%s response_id=%s",
+                    company_id, response_id)
                 return None
 
             # Validate the action.
@@ -683,11 +669,9 @@ class BlockedResponseManager:
                 QueueStatus.EXPIRED.value,
             ):
                 logger.warning(
-                    "review_response: item already finalised (status=%s)",
+                    "review_response: item already finalised (status=%s) company_id=%s response_id=%s",
                     item.status,
-                    company_id=company_id,
-                    response_id=response_id,
-                )
+                    company_id, response_id)
                 return item
 
             now = _now_utc()
@@ -725,22 +709,15 @@ class BlockedResponseManager:
                 item.auto_reject_at = ""
 
             logger.info(
-                "Response reviewed",
-                company_id=company_id,
-                response_id=response_id,
-                reviewer_id=reviewer_id,
-                action=action,
-                status=item.status,
-            )
+                "Response reviewed company_id=%s response_id=%s reviewer_id=%s action=%s status=%s",
+                company_id, response_id, reviewer_id, action, item.status)
 
             return item
 
         except Exception:
             logger.error(
-                "review_response failed (BC-008)",
-                company_id=company_id,
-                response_id=response_id,
-                exc_info=True,
+                "review_response failed (BC-008) company_id=%s response_id=%s",
+                company_id, response_id, exc_info=True,
             )
             return None
 
@@ -770,20 +747,16 @@ class BlockedResponseManager:
             item = self._get_item_safe(company_id, response_id)
             if item is None:
                 logger.warning(
-                    "assign_reviewer: item not found",
-                    company_id=company_id,
-                    response_id=response_id,
-                )
+                    "assign_reviewer: item not found company_id=%s response_id=%s",
+                    company_id, response_id)
                 return None
 
             # Only pending items can be assigned.
             if item.status != QueueStatus.PENDING.value:
                 logger.warning(
-                    "assign_reviewer: item not in pending state (status=%s)",
+                    "assign_reviewer: item not in pending state (status=%s) company_id=%s response_id=%s",
                     item.status,
-                    company_id=company_id,
-                    response_id=response_id,
-                )
+                    company_id, response_id)
                 return item
 
             now = _now_utc()
@@ -807,20 +780,15 @@ class BlockedResponseManager:
                 )
 
             logger.info(
-                "Reviewer assigned",
-                company_id=company_id,
-                response_id=response_id,
-                reviewer_id=reviewer_id,
-            )
+                "Reviewer assigned company_id=%s response_id=%s reviewer_id=%s",
+                company_id, response_id, reviewer_id)
 
             return item
 
         except Exception:
             logger.error(
-                "assign_reviewer failed (BC-008)",
-                company_id=company_id,
-                response_id=response_id,
-                exc_info=True,
+                "assign_reviewer failed (BC-008) company_id=%s response_id=%s",
+                company_id, response_id, exc_info=True,
             )
             return None
 
@@ -884,9 +852,8 @@ class BlockedResponseManager:
 
         except Exception:
             logger.error(
-                "get_reviewer_workload failed (BC-008)",
-                company_id=company_id,
-                exc_info=True,
+                "get_reviewer_workload failed (BC-008) company_id=%s",
+                company_id, exc_info=True,
             )
             return []
 
@@ -916,10 +883,8 @@ class BlockedResponseManager:
             item = self._get_item_safe(company_id, response_id)
             if item is None:
                 logger.warning(
-                    "escalate_response: item not found",
-                    company_id=company_id,
-                    response_id=response_id,
-                )
+                    "escalate_response: item not found company_id=%s response_id=%s",
+                    company_id, response_id)
                 return None
 
             now = _now_utc()
@@ -943,21 +908,15 @@ class BlockedResponseManager:
                 )]
 
             logger.info(
-                "Response escalated",
-                company_id=company_id,
-                response_id=response_id,
-                reason=reason[:200],
-                new_priority=item.priority,
-            )
+                "Response escalated company_id=%s response_id=%s reason=%s new_priority=%s",
+                company_id, response_id, reason[:200], item.priority)
 
             return item
 
         except Exception:
             logger.error(
-                "escalate_response failed (BC-008)",
-                company_id=company_id,
-                response_id=response_id,
-                exc_info=True,
+                "escalate_response failed (BC-008) company_id=%s response_id=%s",
+                company_id, response_id, exc_info=True,
             )
             return None
 
@@ -997,20 +956,14 @@ class BlockedResponseManager:
                     results.append(reviewed)
             except Exception:
                 logger.error(
-                    "batch_review: failed for response_id=%s (BC-008)",
+                    "batch_review: failed for response_id=%s (BC-008) company_id=%s",
                     rid,
-                    company_id=company_id,
-                    exc_info=True,
+                    company_id, exc_info=True,
                 )
 
         logger.info(
-            "Batch review completed",
-            company_id=company_id,
-            reviewer_id=reviewer_id,
-            action=action,
-            requested_count=len(response_ids),
-            processed_count=len(results),
-        )
+            "Batch review completed company_id=%s reviewer_id=%s action=%s requested_count=%s processed_count=%s",
+            company_id, reviewer_id, action, len(response_ids), len(results))
 
         return results
 
@@ -1063,18 +1016,15 @@ class BlockedResponseManager:
 
             if rejected_count > 0:
                 logger.info(
-                    "Auto-rejected expired items",
-                    company_id=company_id,
-                    rejected_count=rejected_count,
-                )
+                    "Auto-rejected expired items company_id=%s rejected_count=%s",
+                    company_id, rejected_count)
 
             return rejected_count
 
         except Exception:
             logger.error(
-                "process_auto_rejects failed (BC-008)",
-                company_id=company_id,
-                exc_info=True,
+                "process_auto_rejects failed (BC-008) company_id=%s",
+                company_id, exc_info=True,
             )
             return 0
 
@@ -1134,19 +1084,15 @@ class BlockedResponseManager:
 
             if deleted_count > 0:
                 logger.info(
-                    "Cleaned up old records",
-                    company_id=company_id,
-                    deleted_count=deleted_count,
-                    retention_days=days,
-                )
+                    "Cleaned up old records company_id=%s deleted_count=%s retention_days=%s",
+                    company_id, deleted_count, days)
 
             return deleted_count
 
         except Exception:
             logger.error(
-                "cleanup_old_records failed (BC-008)",
-                company_id=company_id,
-                exc_info=True,
+                "cleanup_old_records failed (BC-008) company_id=%s",
+                company_id, exc_info=True,
             )
             return 0
 

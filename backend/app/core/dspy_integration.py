@@ -257,9 +257,8 @@ class DSPyIntegration:
 
         if not _DSPY_AVAILABLE:
             logger.debug(
-                "dspy_stub_signature",
-                task_type=task_type,
-            )
+                "dspy_stub_signature task_type=%s",
+                task_type)
             return type(
                 f"StubSignature_{task_type}",
                 (),
@@ -273,10 +272,8 @@ class DSPyIntegration:
             return sig
         except Exception as exc:
             logger.warning(
-                "dspy_signature_error",
-                task_type=task_type,
-                error=str(exc),
-            )
+                "dspy_signature_error task_type=%s error=%s",
+                task_type, str(exc))
             return type(
                 f"StubSignature_{task_type}",
                 (),
@@ -325,10 +322,8 @@ class DSPyIntegration:
             return module
         except Exception as exc:
             logger.warning(
-                "dspy_module_create_error",
-                task_type=task_type,
-                error=str(exc),
-            )
+                "dspy_module_create_error task_type=%s error=%s",
+                task_type, str(exc))
             return StubModule(task_type=task_type)
 
     # ── Optimization ───────────────────────────────────────────
@@ -353,9 +348,8 @@ class DSPyIntegration:
         """
         if not _DSPY_AVAILABLE:
             logger.info(
-                "dspy_stub_optimize",
-                optimizer=optimizer_name,
-            )
+                "dspy_stub_optimize optimizer=%s",
+                optimizer_name)
             return module
 
         try:
@@ -378,10 +372,8 @@ class DSPyIntegration:
             return optimized
         except Exception as exc:
             logger.warning(
-                "dspy_optimize_error",
-                optimizer=optimizer_name,
-                error=str(exc),
-            )
+                "dspy_optimize_error optimizer=%s error=%s",
+                optimizer_name, str(exc))
             return module
 
     @staticmethod
@@ -529,9 +521,8 @@ class DSPyIntegration:
             return round(min(max(score, 0.0), 1.0), 4)
         except Exception as exc:
             logger.warning(
-                "dspy_metric_error",
-                error=str(exc),
-            )
+                "dspy_metric_error error=%s",
+                str(exc))
             return 0.5
 
     # ── Execution ──────────────────────────────────────────────
@@ -582,10 +573,8 @@ class DSPyIntegration:
             success = False
             error = str(exc)
             logger.warning(
-                "dspy_execute_error",
-                error=error,
-                fallback=True,
-            )
+                "dspy_execute_error error=%s fallback=%s",
+                error, True)
             # Fallback to stub — if stub succeeds, mark as recovered
             fallback_used = True
             stub_result = self._stub_execute(StubModule(), inputs)
@@ -882,11 +871,8 @@ class DSPyIntegration:
         )
         self._tenant_configs[company_id] = config
         logger.info(
-            "dspy_configured",
-            company_id=company_id,
-            model=config.model_name,
-            enabled=config.enabled,
-        )
+            "dspy_configured company_id=%s model=%s enabled=%s",
+            company_id, config.model_name, config.enabled)
         return config
 
     def get_config(self, company_id: str) -> DSPyConfig:
@@ -944,9 +930,8 @@ class DSPyIntegration:
 
             if registry is None:
                 logger.warning(
-                    "dspy_no_template_registry",
-                    available=_TEMPLATES_AVAILABLE,
-                )
+                    "dspy_no_template_registry available=%s",
+                    _TEMPLATES_AVAILABLE)
                 return examples
 
             # Walk all templates and build training examples
@@ -991,15 +976,12 @@ class DSPyIntegration:
                         examples.append(example_data)
 
             logger.info(
-                "dspy_training_data_built",
-                total_templates=len(all_templates),
-                examples_created=len(examples),
-            )
+                "dspy_training_data_built total_templates=%s examples_created=%s",
+                len(all_templates), len(examples))
         except Exception as exc:
             logger.warning(
-                "dspy_build_training_error",
-                error=str(exc),
-            )
+                "dspy_build_training_error error=%s",
+                str(exc))
 
         return examples
 
@@ -1013,10 +995,8 @@ class DSPyIntegration:
         """
         if not value or not _SAFE_PATH_PATTERN.match(value):
             logger.warning(
-                "dspy_invalid_path_component",
-                name=name,
-                value=str(value)[:100],
-            )
+                "dspy_invalid_path_component name=%s value=%s",
+                name, str(value)[:100])
             raise ValueError(
                 f"Invalid {name}: must be alphanumeric (1-64 chars)"
             )
@@ -1054,29 +1034,21 @@ class DSPyIntegration:
             cache_path = cache_path.resolve()
             if not str(cache_path).startswith(str(_DSPY_CACHE_DIR.resolve())):
                 logger.warning(
-                    "dspy_path_traversal_blocked",
-                    company_id=company_id,
-                    task_type=task_type,
-                )
+                    "dspy_path_traversal_blocked company_id=%s task_type=%s",
+                    company_id, task_type)
                 return False
 
             with open(cache_path, "wb") as f:
                 pickle.dump(module, f, protocol=pickle.HIGHEST_PROTOCOL)
 
             logger.info(
-                "dspy_module_saved",
-                company_id=company_id,
-                task_type=task_type,
-                path=str(cache_path),
-            )
+                "dspy_module_saved company_id=%s task_type=%s path=%s",
+                company_id, task_type, str(cache_path))
             return True
         except Exception as exc:
             logger.warning(
-                "dspy_save_module_error",
-                company_id=company_id,
-                task_type=task_type,
-                error=str(exc),
-            )
+                "dspy_save_module_error company_id=%s task_type=%s error=%s",
+                company_id, task_type, str(exc))
             return False
 
     def load_compiled_module(
@@ -1108,37 +1080,27 @@ class DSPyIntegration:
             # Verify resolved path is within cache directory
             if not str(cache_path).startswith(str(_DSPY_CACHE_DIR.resolve())):
                 logger.warning(
-                    "dspy_path_traversal_blocked",
-                    company_id=company_id,
-                    task_type=task_type,
-                )
+                    "dspy_path_traversal_blocked company_id=%s task_type=%s",
+                    company_id, task_type)
                 return None
 
             if not cache_path.exists():
                 logger.debug(
-                    "dspy_no_cached_module",
-                    company_id=company_id,
-                    task_type=task_type,
-                )
+                    "dspy_no_cached_module company_id=%s task_type=%s",
+                    company_id, task_type)
                 return None
 
             with open(cache_path, "rb") as f:
                 module = pickle.load(f)
 
             logger.info(
-                "dspy_module_loaded",
-                company_id=company_id,
-                task_type=task_type,
-                path=str(cache_path),
-            )
+                "dspy_module_loaded company_id=%s task_type=%s path=%s",
+                company_id, task_type, str(cache_path))
             return module
         except Exception as exc:
             logger.warning(
-                "dspy_load_module_error",
-                company_id=company_id,
-                task_type=task_type,
-                error=str(exc),
-            )
+                "dspy_load_module_error company_id=%s task_type=%s error=%s",
+                company_id, task_type, str(exc))
             return None
 
     # ── Pipeline Integration ───────────────────────────────────
@@ -1175,9 +1137,8 @@ class DSPyIntegration:
 
             if not config.enabled:
                 logger.info(
-                    "dspy_disabled_for_tenant",
-                    company_id=company_id,
-                )
+                    "dspy_disabled_for_tenant company_id=%s",
+                    company_id)
                 return self._stub_execute(
                     StubModule(task_type=task_type),
                     {"customer_query": query, "input": query},
@@ -1225,18 +1186,14 @@ class DSPyIntegration:
                 dspy_output, context
             )
             logger.info(
-                "dspy_optimize_response_ok",
-                company_id=company_id,
-                task_type=task_type,
-            )
+                "dspy_optimize_response_ok company_id=%s task_type=%s",
+                company_id, task_type)
             return result
 
         except Exception as exc:
             logger.warning(
-                "dspy_optimize_response_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "dspy_optimize_response_error company_id=%s error=%s",
+                company_id, str(exc))
             # BC-008 graceful degradation
             return self._stub_execute(
                 StubModule(task_type="respond"),
@@ -1333,10 +1290,8 @@ class DSPyIntegration:
                     })
                 except Exception as inner_exc:
                     logger.warning(
-                        "dspy_eval_example_error",
-                        index=idx,
-                        error=str(inner_exc),
-                    )
+                        "dspy_eval_example_error index=%s error=%s",
+                        idx, str(inner_exc))
                     scores.append(0.0)
                     per_example.append({
                         "index": idx,
@@ -1374,17 +1329,14 @@ class DSPyIntegration:
             }
 
             logger.info(
-                "dspy_evaluate_done",
-                mean_score=agg["mean"],
-                total=len(scores),
-            )
+                "dspy_evaluate_done mean_score=%s total=%s",
+                agg["mean"], len(scores))
             return agg
 
         except Exception as exc:
             logger.warning(
-                "dspy_evaluate_error",
-                error=str(exc),
-            )
+                "dspy_evaluate_error error=%s",
+                str(exc))
             return {
                 "mean": 0.0,
                 "min": 0.0,

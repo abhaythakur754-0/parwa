@@ -170,9 +170,8 @@ def initiate_mfa_setup(
     db.commit()
 
     logger.info(
-        "mfa_setup_initiated",
-        user_id=user.id,
-    )
+        "mfa_setup_initiated user_id=%s",
+        user.id)
 
     return {
         "qr_code_data_url": qr_data_url,
@@ -241,9 +240,8 @@ def verify_mfa_setup(
     db.commit()
 
     logger.info(
-        "mfa_enabled",
-        user_id=user.id,
-    )
+        "mfa_enabled user_id=%s",
+        user.id)
 
     return {
         "status": "enabled",
@@ -310,9 +308,8 @@ async def verify_mfa_login(
     decrypted_secret = decrypt_token(mfa_record.secret_key)
     if not decrypted_secret:
         logger.error(
-            "mfa_secret_decryption_failed",
-            user_id=user.id,
-        )
+            "mfa_secret_decryption_failed user_id=%s",
+            user.id)
         raise AuthenticationError(
             message="MFA configuration error. Please re-setup MFA."
         )
@@ -422,10 +419,8 @@ def use_backup_code(
     db.commit()
 
     logger.warning(
-        "backup_code_used",
-        user_id=user.id,
-        remaining=remaining,
-    )
+        "backup_code_used user_id=%s remaining=%s",
+        user.id, remaining)
 
     return {
         "status": "verified",
@@ -501,9 +496,8 @@ def regenerate_backup_codes(
     db.commit()
 
     logger.info(
-        "backup_codes_regenerated",
-        user_id=user.id,
-    )
+        "backup_codes_regenerated user_id=%s",
+        user.id)
 
     return {
         "backup_codes": new_codes,

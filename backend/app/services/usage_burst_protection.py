@@ -315,10 +315,8 @@ class UsageBurstProtectionService:
                 return []
             except Exception as exc:
                 logger.warning(
-                    "redis_history_read_failed_falling_back",
-                    company_id=company_id,
-                    error=str(exc),
-                )
+                    "redis_history_read_failed_falling_back company_id=%s error=%s",
+                    company_id, str(exc))
 
         # ── In-memory fallback ──
         history = self._request_history.get(company_id, [])
@@ -358,18 +356,14 @@ class UsageBurstProtectionService:
                         )
                     except Exception as exc:
                         logger.warning(
-                            "redis_peak_write_failed",
-                            company_id=company_id,
-                            error=str(exc),
-                        )
+                            "redis_peak_write_failed company_id=%s error=%s",
+                            company_id, str(exc))
 
             return rpm
         except Exception as exc:
             logger.error(
-                "calculate_rpm_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "calculate_rpm_error company_id=%s error=%s",
+                company_id, str(exc))
             return 0.0
 
     # ── Internal: burst pattern detection ───────────────────────
@@ -519,11 +513,8 @@ class UsageBurstProtectionService:
 
         except Exception as exc:
             logger.error(
-                "detect_burst_pattern_error",
-                company_id=company_id,
-                variant_type=variant_type,
-                error=str(exc),
-            )
+                "detect_burst_pattern_error company_id=%s variant_type=%s error=%s",
+                company_id, variant_type, str(exc))
             return None
 
     @staticmethod
@@ -594,12 +585,8 @@ class UsageBurstProtectionService:
             self._last_alert_at[company_id] = now
 
         logger.warning(
-            "burst_alert_created",
-            company_id=company_id,
-            severity=severity.value,
-            action=action.value,
-            reason=reason,
-        )
+            "burst_alert_created company_id=%s severity=%s action=%s reason=%s",
+            company_id, severity.value, action.value, reason)
         return alert
 
     # ── Internal: throttle state ────────────────────────────────
@@ -634,10 +621,8 @@ class UsageBurstProtectionService:
                         self._redis.delete(key)
             except Exception as exc:
                 logger.warning(
-                    "redis_throttle_state_read_failed",
-                    company_id=company_id,
-                    error=str(exc),
-                )
+                    "redis_throttle_state_read_failed company_id=%s error=%s",
+                    company_id, str(exc))
 
         # ── In-memory fallback ──
         state = self._throttle_state.get(company_id)
@@ -677,22 +662,16 @@ class UsageBurstProtectionService:
                 self._redis.expireat(key, int(expires_at))
             except Exception as exc:
                 logger.warning(
-                    "redis_throttle_state_write_failed",
-                    company_id=company_id,
-                    error=str(exc),
-                )
+                    "redis_throttle_state_write_failed company_id=%s error=%s",
+                    company_id, str(exc))
 
         # ── In-memory fallback ──
         with self._lock:
             self._throttle_state[company_id] = state
 
         logger.info(
-            "throttle_state_set",
-            company_id=company_id,
-            action=action,
-            duration_seconds=duration_seconds,
-            expires_at=expires_at,
-        )
+            "throttle_state_set company_id=%s action=%s duration_seconds=%s expires_at=%s",
+            company_id, action, duration_seconds, expires_at)
 
     # ── Internal: helper to compute usage metrics ───────────────
 
@@ -805,10 +784,8 @@ class UsageBurstProtectionService:
                     )
                 except Exception as exc:
                     logger.warning(
-                        "redis_request_record_failed_falling_back",
-                        company_id=company_id,
-                        error=str(exc),
-                    )
+                        "redis_request_record_failed_falling_back company_id=%s error=%s",
+                        company_id, str(exc))
 
             # ── In-memory fallback ──
             with self._lock:
@@ -857,21 +834,14 @@ class UsageBurstProtectionService:
                         )
             except Exception as exc:
                 logger.warning(
-                    "background_burst_check_failed",
-                    company_id=company_id,
-                    error=str(exc),
-                )
+                    "background_burst_check_failed company_id=%s error=%s",
+                    company_id, str(exc))
 
             metrics = self._compute_metrics(company_id)
 
             logger.debug(
-                "request_recorded",
-                company_id=company_id,
-                variant_type=variant_type,
-                current_rpm=metrics.requests_per_minute,
-                success=success,
-                response_time_ms=response_time_ms,
-            )
+                "request_recorded company_id=%s variant_type=%s current_rpm=%s success=%s response_time_ms=%s",
+                company_id, variant_type, metrics.requests_per_minute, success, response_time_ms)
 
             return metrics
 
@@ -879,11 +849,8 @@ class UsageBurstProtectionService:
             raise
         except Exception as exc:
             logger.error(
-                "record_request_error",
-                company_id=company_id,
-                variant_type=variant_type,
-                error=str(exc),
-            )
+                "record_request_error company_id=%s variant_type=%s error=%s",
+                company_id, variant_type, str(exc))
             return UsageMetrics(
                 company_id=company_id,
                 reason=f"Record error (graceful degradation): {exc}",
@@ -907,10 +874,8 @@ class UsageBurstProtectionService:
             raise
         except Exception as exc:
             logger.error(
-                "decrement_concurrent_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "decrement_concurrent_error company_id=%s error=%s",
+                company_id, str(exc))
 
     def check_burst(
         self,
@@ -952,13 +917,8 @@ class UsageBurstProtectionService:
                         details=detection.details,
                     )
                 logger.info(
-                    "burst_detected",
-                    company_id=company_id,
-                    severity=detection.severity.value,
-                    action=detection.action.value,
-                    current_rpm=detection.current_rpm,
-                    threshold_rpm=detection.threshold_rpm,
-                )
+                    "burst_detected company_id=%s severity=%s action=%s current_rpm=%s threshold_rpm=%s",
+                    company_id, detection.severity.value, detection.action.value, detection.current_rpm, detection.threshold_rpm)
                 return detection
 
             # No burst — return a benign detection
@@ -977,10 +937,8 @@ class UsageBurstProtectionService:
             raise
         except Exception as exc:
             logger.error(
-                "check_burst_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "check_burst_error company_id=%s error=%s",
+                company_id, str(exc))
             return BurstDetection(
                 company_id=company_id,
                 severity=BurstSeverity.LOW,
@@ -1130,11 +1088,8 @@ class UsageBurstProtectionService:
             raise
         except Exception as exc:
             logger.error(
-                "get_throttle_decision_error",
-                company_id=company_id,
-                variant_type=variant_type,
-                error=str(exc),
-            )
+                "get_throttle_decision_error company_id=%s variant_type=%s error=%s",
+                company_id, variant_type, str(exc))
             # On error, allow the request (fail-open) for resilience
             return ThrottleDecision(
                 company_id=company_id,
@@ -1157,10 +1112,8 @@ class UsageBurstProtectionService:
             raise
         except Exception as exc:
             logger.error(
-                "get_usage_metrics_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "get_usage_metrics_error company_id=%s error=%s",
+                company_id, str(exc))
             return UsageMetrics(
                 company_id=company_id,
                 reason=f"Metrics error (graceful degradation): {exc}",
@@ -1181,10 +1134,8 @@ class UsageBurstProtectionService:
             raise
         except Exception as exc:
             logger.error(
-                "get_alerts_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "get_alerts_error company_id=%s error=%s",
+                company_id, str(exc))
             return []
 
     def reset(self, company_id: str = "") -> None:
@@ -1217,12 +1168,10 @@ class UsageBurstProtectionService:
                             self._redis.delete(*keys_to_delete)
                         except Exception as exc:
                             logger.warning(
-                                "redis_reset_failed",
-                                company_id=company_id,
-                                error=str(exc),
-                            )
+                                "redis_reset_failed company_id=%s error=%s",
+                                company_id, str(exc))
 
-                    logger.info("state_reset_for_company", company_id=company_id)
+                    logger.info("state_reset_for_company company_id=%s", company_id)
                 else:
                     self._request_history.clear()
                     self._peak_rpm.clear()
@@ -1235,10 +1184,8 @@ class UsageBurstProtectionService:
 
         except Exception as exc:
             logger.error(
-                "reset_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "reset_error company_id=%s error=%s",
+                company_id, str(exc))
 
     def is_healthy(self, company_id: str) -> bool:
         """Quick health check — returns ``True`` if the service can
@@ -1261,10 +1208,8 @@ class UsageBurstProtectionService:
                     self._redis.ping()
                 except Exception as exc:
                     logger.warning(
-                        "health_check_redis_unhealthy",
-                        company_id=company_id,
-                        error=str(exc),
-                    )
+                        "health_check_redis_unhealthy company_id=%s error=%s",
+                        company_id, str(exc))
                     # Redis down is not a hard failure — we have fallback
                     return True
 
@@ -1274,10 +1219,8 @@ class UsageBurstProtectionService:
             raise
         except Exception as exc:
             logger.error(
-                "is_healthy_error",
-                company_id=company_id,
-                error=str(exc),
-            )
+                "is_healthy_error company_id=%s error=%s",
+                company_id, str(exc))
             return False
 
     def get_variant_config(
@@ -1327,11 +1270,8 @@ class UsageBurstProtectionService:
             raise
         except Exception as exc:
             logger.error(
-                "get_variant_config_error",
-                company_id=company_id,
-                variant_type=variant_type,
-                error=str(exc),
-            )
+                "get_variant_config_error company_id=%s variant_type=%s error=%s",
+                company_id, variant_type, str(exc))
             return {
                 "variant_type": variant_type,
                 "error": f"Config retrieval failed: {exc}",

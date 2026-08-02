@@ -89,11 +89,8 @@ class ReindexingManager:
         )
         self._jobs[job_id] = job
         logger.info(
-            "reindex_job_created",
-            job_id=job_id,
-            company_id=company_id,
-            document_count=len(document_ids),
-        )
+            "reindex_job_created job_id=%s company_id=%s document_count=%s",
+            job_id, company_id, len(document_ids))
         return job
 
     def get_job(self, job_id: str) -> Optional[ReindexJob]:
@@ -107,10 +104,8 @@ class ReindexingManager:
             return False
         if job.company_id != company_id:
             logger.warning(
-                "reindex_cancel_unauthorized",
-                job_id=job_id,
-                company_id=company_id,
-            )
+                "reindex_cancel_unauthorized job_id=%s company_id=%s",
+                job_id, company_id)
             return False
         if job.status in (ReindexStatus.PENDING.value, ReindexStatus.RUNNING.value):
             job.status = ReindexStatus.CANCELLED.value
@@ -153,11 +148,8 @@ class ReindexingManager:
                 job.progress = job.processed_chunks / max(job.total_chunks, 1)
                 # In production: regenerate embeddings + upsert to vector store
                 logger.debug(
-                    "reindex_document",
-                    job_id=job_id,
-                    document_id=doc_id,
-                    progress=round(job.progress, 2),
-                )
+                    "reindex_document job_id=%s document_id=%s progress=%s",
+                    job_id, doc_id, round(job.progress, 2))
 
             job.status = ReindexStatus.COMPLETED.value
             job.progress = 1.0
@@ -165,10 +157,8 @@ class ReindexingManager:
             job.status = ReindexStatus.FAILED.value
             job.error_message = str(exc)
             logger.error(
-                "reindex_job_failed",
-                job_id=job_id,
-                error=str(exc),
-            )
+                "reindex_job_failed job_id=%s error=%s",
+                job_id, str(exc))
         finally:
             job.completed_at = time.time()
 

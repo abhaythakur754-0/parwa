@@ -251,10 +251,8 @@ class LangGraphWorkflow:
         self._langgraph_available: Optional[bool] = None
 
         logger.info(
-            "workflow_engine_initialized",
-            variant_type=self._config.variant_type,
-            company_id=self._config.company_id,
-        )
+            "workflow_engine_initialized variant_type=%s company_id=%s",
+            self._config.variant_type, self._config.company_id)
 
     # ── Graph Construction ─────────────────────────────────────
 
@@ -269,21 +267,16 @@ class LangGraphWorkflow:
         self._steps = self._build_steps_for_variant(variant)
 
         logger.info(
-            "workflow_graph_built",
-            variant_type=variant,
-            step_count=len(self._steps),
-            company_id=self._config.company_id,
-        )
+            "workflow_graph_built variant_type=%s step_count=%s company_id=%s",
+            variant, len(self._steps), self._config.company_id)
 
         # Try to build actual LangGraph StateGraph
         try:
             self._build_langgraph_stategraph()
         except Exception as exc:
             logger.warning(
-                "langgraph_build_fallback",
-                error=str(exc),
-                company_id=self._config.company_id,
-            )
+                "langgraph_build_fallback error=%s company_id=%s",
+                str(exc), self._config.company_id)
             self._langgraph_available = False
 
     def _build_langgraph_stategraph(self) -> None:
@@ -377,10 +370,8 @@ class LangGraphWorkflow:
                         }
                     except Exception as exc:
                         logger.warning(
-                            "langgraph_node_error",
-                            step_id=_sid,
-                            error=str(exc),
-                        )
+                            "langgraph_node_error step_id=%s error=%s",
+                            _sid, str(exc))
                         return {
                             "step_outputs": {
                                 _sid: {"status": "error", "error": str(exc)},
@@ -400,24 +391,18 @@ class LangGraphWorkflow:
             self._graph = builder.compile()
             self._langgraph_available = True
             logger.info(
-                "langgraph_stategraph_built",
-                company_id=self._config.company_id,
-                variant_type=self._config.variant_type,
-                node_count=len(step_ids),
-            )
+                "langgraph_stategraph_built company_id=%s variant_type=%s node_count=%s",
+                self._config.company_id, self._config.variant_type, len(step_ids))
         except ImportError:
             self._langgraph_available = False
             logger.info(
-                "langgraph_not_available_using_simulation",
-                company_id=self._config.company_id,
-            )
+                "langgraph_not_available_using_simulation company_id=%s",
+                self._config.company_id)
         except Exception as exc:
             self._langgraph_available = False
             logger.warning(
-                "langgraph_stategraph_build_error",
-                error=str(exc),
-                company_id=self._config.company_id,
-            )
+                "langgraph_stategraph_build_error error=%s company_id=%s",
+                str(exc), self._config.company_id)
 
     def _build_steps_for_variant(
         self, variant_type: str,
@@ -526,13 +511,8 @@ class LangGraphWorkflow:
                 self.build_graph()
 
             logger.info(
-                "workflow_execution_started",
-                workflow_id=workflow_id,
-                company_id=company_id,
-                variant_type=variant,
-                step_count=len(self._steps),
-                query_length=len(query),
-            )
+                "workflow_execution_started workflow_id=%s company_id=%s variant_type=%s step_count=%s query_length=%s",
+                workflow_id, company_id, variant, len(self._steps), len(query))
 
             step_results: Dict[str, WorkflowStepResult] = {}
             steps_completed: List[str] = []
@@ -566,10 +546,8 @@ class LangGraphWorkflow:
                     return graph_result
                 # Fall through to sequential execution if graph failed
                 logger.warning(
-                    "langgraph_fallback_to_sequential",
-                    workflow_id=workflow_id,
-                    company_id=company_id,
-                )
+                    "langgraph_fallback_to_sequential workflow_id=%s company_id=%s",
+                    workflow_id, company_id)
 
             for wf_step in self._steps:
                 if not wf_step.enabled:
@@ -591,12 +569,8 @@ class LangGraphWorkflow:
                     )
                     overall_status = "timeout"
                     logger.warning(
-                        "workflow_pipeline_timeout",
-                        workflow_id=workflow_id,
-                        company_id=company_id,
-                        elapsed_ms=round(elapsed * 1000, 2),
-                        max_ms=round(max_time * 1000, 2),
-                    )
+                        "workflow_pipeline_timeout workflow_id=%s company_id=%s elapsed_ms=%s max_ms=%s",
+                        workflow_id, company_id, round(elapsed * 1000, 2), round(max_time * 1000, 2))
                     break
 
                 # Execute single step
@@ -637,12 +611,8 @@ class LangGraphWorkflow:
                     # BC-008: Continue pipeline on step error
                     overall_status = "partial"
                     logger.warning(
-                        "workflow_step_error_continuing",
-                        workflow_id=workflow_id,
-                        step_id=wf_step.step_id,
-                        error=step_result.error,
-                        company_id=company_id,
-                    )
+                        "workflow_step_error_continuing workflow_id=%s step_id=%s error=%s company_id=%s",
+                        workflow_id, wf_step.step_id, step_result.error, company_id)
 
             total_duration_ms = (
                 (time.monotonic() - pipeline_start) * 1000
@@ -662,25 +632,16 @@ class LangGraphWorkflow:
             )
 
             logger.info(
-                "workflow_execution_completed",
-                workflow_id=workflow_id,
-                company_id=company_id,
-                status=overall_status,
-                steps_completed=len(steps_completed),
-                total_tokens=total_tokens,
-                duration_ms=round(total_duration_ms, 2),
-            )
+                "workflow_execution_completed workflow_id=%s company_id=%s status=%s steps_completed=%s total_tokens=%s duration_ms=%s",
+                workflow_id, company_id, overall_status, len(steps_completed), total_tokens, round(total_duration_ms, 2))
 
             return result
 
         except Exception as exc:
             # BC-008: Graceful degradation — never crash
             logger.warning(
-                "workflow_execution_failed",
-                error=str(exc),
-                workflow_id=workflow_id,
-                company_id=company_id,
-            )
+                "workflow_execution_failed error=%s workflow_id=%s company_id=%s",
+                str(exc), workflow_id, company_id)
             total_duration_ms = (
                 (time.monotonic() - pipeline_start) * 1000
             )
@@ -729,11 +690,8 @@ class LangGraphWorkflow:
                 except Exception as real_exc:
                     # BC-008: Fall back to simulation on real-step failure
                     logger.warning(
-                        "real_step_failed_falling_back_to_simulation",
-                        step_id=step_id,
-                        error=str(real_exc),
-                        company_id=company_id,
-                    )
+                        "real_step_failed_falling_back_to_simulation step_id=%s error=%s company_id=%s",
+                        step_id, str(real_exc), company_id)
 
             # ── Simulation fallback path ─────────────────────
             if wf_step.step_type == "preprocessing":
@@ -757,11 +715,8 @@ class LangGraphWorkflow:
             )
         except Exception as exc:
             logger.warning(
-                "workflow_step_execution_error",
-                step_id=step_id,
-                error=str(exc),
-                company_id=company_id,
-            )
+                "workflow_step_execution_error step_id=%s error=%s company_id=%s",
+                step_id, str(exc), company_id)
             return WorkflowStepResult(
                 step_id=step_id,
                 status="error",
@@ -830,14 +785,8 @@ class LangGraphWorkflow:
             total_duration_ms = round((time.monotonic() - pipeline_start) * 1000, 2)
 
             logger.info(
-                "langgraph_execution_completed",
-                workflow_id=workflow_id,
-                company_id=company_id,
-                status=overall_status,
-                steps_completed=len(steps_completed),
-                total_tokens=total_tokens,
-                duration_ms=total_duration_ms,
-            )
+                "langgraph_execution_completed workflow_id=%s company_id=%s status=%s steps_completed=%s total_tokens=%s duration_ms=%s",
+                workflow_id, company_id, overall_status, len(steps_completed), total_tokens, total_duration_ms)
 
             return WorkflowResult(
                 workflow_id=workflow_id,
@@ -852,11 +801,8 @@ class LangGraphWorkflow:
 
         except Exception as exc:
             logger.warning(
-                "langgraph_execution_failed_falling_back_to_sequential",
-                error=str(exc),
-                workflow_id=workflow_id,
-                company_id=company_id,
-            )
+                "langgraph_execution_failed_falling_back_to_sequential error=%s workflow_id=%s company_id=%s",
+                str(exc), workflow_id, company_id)
             return None  # Signals caller to fall back to sequential execution
 
     # ── Real AI Step Execution ──────────────────────────────
@@ -1518,11 +1464,8 @@ class LangGraphWorkflow:
             return None
         except Exception as exc:
             logger.warning(
-                "workflow_get_step_failed",
-                step_id=step_id,
-                error=str(exc),
-                company_id=self._config.company_id,
-            )
+                "workflow_get_step_failed step_id=%s error=%s company_id=%s",
+                step_id, str(exc), self._config.company_id)
             return None
 
     def get_pipeline_topology(
@@ -1570,10 +1513,8 @@ class LangGraphWorkflow:
             }
         except Exception as exc:
             logger.warning(
-                "workflow_get_topology_failed",
-                error=str(exc),
-                company_id=company_id,
-            )
+                "workflow_get_topology_failed error=%s company_id=%s",
+                str(exc), company_id)
             return {
                 "variant_type": self._config.variant_type,
                 "total_steps": 0,
@@ -1594,6 +1535,5 @@ class LangGraphWorkflow:
             logger.info("workflow_engine_reset")
         except Exception as exc:
             logger.warning(
-                "workflow_reset_failed",
-                error=str(exc),
-            )
+                "workflow_reset_failed error=%s",
+                str(exc))

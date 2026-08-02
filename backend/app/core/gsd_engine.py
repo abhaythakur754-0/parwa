@@ -414,12 +414,8 @@ class GSDEngine:
         config.company_id = company_id
         self._tenant_configs[company_id] = config
         logger.info(
-            "gsd_config_updated",
-            company_id=company_id,
-            variant=config.variant,
-            frustration_threshold=config.frustration_threshold,
-            confidence_threshold=config.confidence_threshold,
-        )
+            "gsd_config_updated company_id=%s variant=%s frustration_threshold=%s confidence_threshold=%s",
+            company_id, config.variant, config.frustration_threshold, config.confidence_threshold)
 
     def get_config(self, company_id: str) -> GSDConfig:
         """Get the GSD configuration for a tenant.
@@ -548,12 +544,8 @@ class GSDEngine:
         if target_str != "escalate" and await self._should_auto_escalate(state):
             escalation_trigger = await self._get_escalation_reason(state)
             logger.warning(
-                "auto_escalation_override",
-                ticket_id=state.ticket_id,
-                company_id=state.company_id,
-                original_target=target_str,
-                escalation_reason=escalation_trigger,
-            )
+                "auto_escalation_override ticket_id=%s company_id=%s original_target=%s escalation_reason=%s",
+                state.ticket_id, state.company_id, target_str, escalation_trigger)
             # Override target to escalate
             return await self.transition(
                 state,
@@ -586,13 +578,8 @@ class GSDEngine:
         )
 
         logger.info(
-            "gsd_state_transition",
-            ticket_id=state.ticket_id,
-            company_id=state.company_id,
-            from_state=previous_state,
-            to_state=target_str,
-            trigger=trigger_reason or record.trigger,
-        )
+            "gsd_state_transition ticket_id=%s company_id=%s from_state=%s to_state=%s trigger=%s",
+            state.ticket_id, state.company_id, previous_state, target_str, trigger_reason or record.trigger)
 
         # Post-transition hooks
         if target_str == "escalate":
@@ -653,11 +640,8 @@ class GSDEngine:
 
         # Fallback: stay in current state
         logger.warning(
-            "gsd_unknown_state_staying",
-            current_state=current,
-            ticket_id=state.ticket_id,
-            company_id=state.company_id,
-        )
+            "gsd_unknown_state_staying current_state=%s ticket_id=%s company_id=%s",
+            current, state.ticket_id, state.company_id)
         return state.gsd_state
 
     async def is_terminal(self, state: ConversationState) -> bool:
@@ -763,12 +747,8 @@ class GSDEngine:
         
         if not is_allowed:
             logger.debug(
-                "transition_validation_failed",
-                current_state=current_str,
-                target_state=target_str,
-                variant=variant,
-                allowed_transitions=list(allowed),
-            )
+                "transition_validation_failed current_state=%s target_state=%s variant=%s allowed_transitions=%s",
+                current_str, target_str, variant, list(allowed))
         
         return is_allowed
 
@@ -952,11 +932,8 @@ class GSDEngine:
         # Check if escalation is warranted
         if not await self._should_auto_escalate(state):
             logger.debug(
-                "escalation_not_triggered",
-                ticket_id=state.ticket_id,
-                company_id=state.company_id,
-                current_state=str(state.gsd_state),
-            )
+                "escalation_not_triggered ticket_id=%s company_id=%s current_state=%s",
+                state.ticket_id, state.company_id, str(state.gsd_state))
             return state
 
         # Build escalation metadata
@@ -975,12 +952,8 @@ class GSDEngine:
         }
 
         logger.warning(
-            "gsd_escalation_triggered",
-            ticket_id=state.ticket_id,
-            company_id=state.company_id,
-            reason=escalation_reason,
-            **escalation_metadata,
-        )
+            "gsd_escalation_triggered ticket_id=%s company_id=%s reason=%s",
+            state.ticket_id, state.company_id, escalation_reason, extra=escalation_metadata)
 
         return await self.transition(
             state,
@@ -1033,11 +1006,8 @@ class GSDEngine:
             pass  # BC-008: Redis failure is non-fatal
 
         logger.info(
-            "gsd_conversation_reset",
-            ticket_id=state.ticket_id,
-            company_id=state.company_id,
-            previous_state=record.metadata.get("previous_state"),
-        )
+            "gsd_conversation_reset ticket_id=%s company_id=%s previous_state=%s",
+            state.ticket_id, state.company_id, record.metadata.get("previous_state"))
 
         return state
 
@@ -2006,15 +1976,8 @@ class GSDEngine:
         )
 
         logger.info(
-            "gsd_transition_event",
-            ticket_id=event.ticket_id,
-            from_state=event.from_state,
-            to_state=event.to_state,
-            trigger_reason=event.trigger_reason,
-            timestamp=event.timestamp,
-            company_id=event.company_id,
-            **event.metadata,
-        )
+            "gsd_transition_event ticket_id=%s from_state=%s to_state=%s trigger_reason=%s timestamp=%s company_id=%s",
+            event.ticket_id, event.from_state, event.to_state, event.trigger_reason, event.timestamp, event.company_id, extra=event.metadata)
 
 
 # ══════════════════════════════════════════════════════════════════

@@ -667,10 +667,8 @@ class ReverseThinkingProcessor:
         except Exception as exc:
             # BC-008: Never crash — return graceful fallback
             logger.warning(
-                "reverse_thinking_processing_error",
-                error=str(exc),
-                company_id=self.config.company_id,
-            )
+                "reverse_thinking_processing_error error=%s company_id=%s",
+                str(exc), self.config.company_id)
             return ReverseThinkingResult(
                 problem_statement=problem_statement if 'problem_statement' in dir() else "",
                 wrong_hypotheses=hypotheses if 'hypotheses' in dir() else [],
@@ -907,8 +905,6 @@ class ReverseThinkingNode(BaseTechniqueNode):
         except Exception as exc:
             # BC-008: Never crash — return original state
             logger.warning(
-                "reverse_thinking_execute_error",
-                error=str(exc),
-                company_id=self._config.company_id,
-            )
+                "reverse_thinking_execute_error error=%s company_id=%s",
+                str(exc), self._config.company_id)
             return original_state

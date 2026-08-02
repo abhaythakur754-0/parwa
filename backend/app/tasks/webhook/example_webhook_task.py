@@ -32,10 +32,8 @@ def process_paddle_webhook(
         event_db_id: Webhook event database record ID.
     """
     logger.info(
-        "paddle_webhook_processing",
-        company_id=company_id,
-        event_db_id=event_db_id,
-    )
+        "paddle_webhook_processing company_id=%s event_db_id=%s",
+        company_id, event_db_id)
 
     try:
         from app.services.webhook_service import (
@@ -45,11 +43,8 @@ def process_paddle_webhook(
 
         event = get_webhook_event(event_db_id)
         logger.info(
-            "paddle_webhook_event_loaded",
-            event_type=event["event_type"],
-            provider=event["provider"],
-            company_id=company_id,
-        )
+            "paddle_webhook_event_loaded event_type=%s provider=%s company_id=%s",
+            event["event_type"], event["provider"], company_id)
 
         # Placeholder: mark as processed
         mark_webhook_processed(
@@ -57,17 +52,12 @@ def process_paddle_webhook(
         )
 
         logger.info(
-            "paddle_webhook_processed",
-            event_db_id=event_db_id,
-            company_id=company_id,
-        )
+            "paddle_webhook_processed event_db_id=%s company_id=%s",
+            event_db_id, company_id)
     except Exception as exc:
         logger.error(
-            "paddle_webhook_failed",
-            event_db_id=event_db_id,
-            company_id=company_id,
-            error=str(exc),
-        )
+            "paddle_webhook_failed event_db_id=%s company_id=%s error=%s",
+            event_db_id, company_id, str(exc))
         try:
             from app.services.webhook_service import (
                 mark_webhook_processed,
@@ -78,7 +68,6 @@ def process_paddle_webhook(
             )
         except Exception:
             logger.error(
-                "paddle_webhook_mark_failed_error",
-                event_db_id=event_db_id,
-            )
+                "paddle_webhook_mark_failed_error event_db_id=%s",
+                event_db_id)
         raise

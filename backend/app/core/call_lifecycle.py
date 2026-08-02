@@ -419,18 +419,12 @@ class CallLifecycleManager:
                 config.company_id = company_id
                 self._configs[company_id] = config
             logger.info(
-                "lifecycle_configured",
-                company_id=company_id,
-                variant=config.variant,
-                timeout_seconds=config.timeout_seconds,
-                max_retries=config.max_retries_per_stage,
-                on_failure_action=config.on_failure_action,
-            )
+                "lifecycle_configured company_id=%s variant=%s timeout_seconds=%s max_retries=%s on_failure_action=%s",
+                company_id, config.variant, config.timeout_seconds, config.max_retries_per_stage, config.on_failure_action)
         except Exception:
             logger.exception(
-                "lifecycle_configure_failed",
-                company_id=company_id,
-            )
+                "lifecycle_configure_failed company_id=%s",
+                company_id)
 
     def get_config(self, company_id: str) -> LifecycleConfig:
         """Get lifecycle configuration for a company with defaults.
@@ -453,9 +447,8 @@ class CallLifecycleManager:
                 return default
         except Exception:
             logger.exception(
-                "lifecycle_get_config_failed",
-                company_id=company_id,
-            )
+                "lifecycle_get_config_failed company_id=%s",
+                company_id)
             return LifecycleConfig(company_id=company_id)
 
     # ══════════════════════════════════════════════════════════
@@ -525,22 +518,14 @@ class CallLifecycleManager:
             )
 
             logger.info(
-                "lifecycle_started",
-                company_id=company_id,
-                ticket_id=ticket_id,
-                lifecycle_id=lifecycle_id,
-                variant=variant,
-                stage_count=len(stages),
-            )
+                "lifecycle_started company_id=%s ticket_id=%s lifecycle_id=%s variant=%s stage_count=%s",
+                company_id, ticket_id, lifecycle_id, variant, len(stages))
             return lifecycle_id
 
         except Exception:
             logger.exception(
-                "lifecycle_start_failed",
-                company_id=company_id,
-                ticket_id=ticket_id,
-                variant=variant,
-            )
+                "lifecycle_start_failed company_id=%s ticket_id=%s variant=%s",
+                company_id, ticket_id, variant)
             return None
 
     # ══════════════════════════════════════════════════════════
@@ -575,12 +560,8 @@ class CallLifecycleManager:
                 status = lc["status"]
                 if _is_terminal_status(status):
                     logger.warning(
-                        "start_stage_on_terminal_lifecycle",
-                        company_id=company_id,
-                        lifecycle_id=lifecycle_id,
-                        stage=stage,
-                        status=status,
-                    )
+                        "start_stage_on_terminal_lifecycle company_id=%s lifecycle_id=%s stage=%s status=%s",
+                        company_id, lifecycle_id, stage, status)
                     return False
 
                 # Check timeout before proceeding
@@ -594,23 +575,15 @@ class CallLifecycleManager:
                         timeout_info,
                     )
                     logger.warning(
-                        "lifecycle_timed_out_on_stage_start",
-                        company_id=company_id,
-                        lifecycle_id=lifecycle_id,
-                        stage=stage,
-                        elapsed_ms=timeout_info["elapsed_ms"],
-                    )
+                        "lifecycle_timed_out_on_stage_start company_id=%s lifecycle_id=%s stage=%s elapsed_ms=%s",
+                        company_id, lifecycle_id, stage, timeout_info["elapsed_ms"])
                     return False
 
                 variant = lc["variant"]
                 if not _is_valid_stage(stage, variant):
                     logger.warning(
-                        "start_stage_invalid_for_variant",
-                        company_id=company_id,
-                        lifecycle_id=lifecycle_id,
-                        stage=stage,
-                        variant=variant,
-                    )
+                        "start_stage_invalid_for_variant company_id=%s lifecycle_id=%s stage=%s variant=%s",
+                        company_id, lifecycle_id, stage, variant)
                     return False
 
                 # Create stage execution record
@@ -637,21 +610,14 @@ class CallLifecycleManager:
             )
 
             logger.info(
-                "stage_started",
-                company_id=company_id,
-                lifecycle_id=lifecycle_id,
-                stage=stage,
-                variant=variant,
-            )
+                "stage_started company_id=%s lifecycle_id=%s stage=%s variant=%s",
+                company_id, lifecycle_id, stage, variant)
             return True
 
         except Exception:
             logger.exception(
-                "start_stage_failed",
-                company_id=company_id,
-                lifecycle_id=lifecycle_id,
-                stage=stage,
-            )
+                "start_stage_failed company_id=%s lifecycle_id=%s stage=%s",
+                company_id, lifecycle_id, stage)
             return False
 
     def complete_stage(
@@ -685,11 +651,8 @@ class CallLifecycleManager:
                 stage_exec = self._find_stage_execution(lc, stage)
                 if stage_exec is None:
                     logger.warning(
-                        "complete_stage_not_found",
-                        company_id=company_id,
-                        lifecycle_id=lifecycle_id,
-                        stage=stage,
-                    )
+                        "complete_stage_not_found company_id=%s lifecycle_id=%s stage=%s",
+                        company_id, lifecycle_id, stage)
                     return False
 
                 now = _now_utc()
@@ -713,21 +676,14 @@ class CallLifecycleManager:
             )
 
             logger.info(
-                "stage_completed",
-                company_id=company_id,
-                lifecycle_id=lifecycle_id,
-                stage=stage,
-                duration_ms=stage_exec.duration_ms,
-            )
+                "stage_completed company_id=%s lifecycle_id=%s stage=%s duration_ms=%s",
+                company_id, lifecycle_id, stage, stage_exec.duration_ms)
             return True
 
         except Exception:
             logger.exception(
-                "complete_stage_failed",
-                company_id=company_id,
-                lifecycle_id=lifecycle_id,
-                stage=stage,
-            )
+                "complete_stage_failed company_id=%s lifecycle_id=%s stage=%s",
+                company_id, lifecycle_id, stage)
             return False
 
     def fail_stage(
@@ -766,11 +722,8 @@ class CallLifecycleManager:
                 stage_exec = self._find_stage_execution(lc, stage)
                 if stage_exec is None:
                     logger.warning(
-                        "fail_stage_not_found",
-                        company_id=company_id,
-                        lifecycle_id=lifecycle_id,
-                        stage=stage,
-                    )
+                        "fail_stage_not_found company_id=%s lifecycle_id=%s stage=%s",
+                        company_id, lifecycle_id, stage)
                     return False
 
                 now = _now_utc()
@@ -803,14 +756,8 @@ class CallLifecycleManager:
                         },
                     )
                     logger.warning(
-                        "stage_failed_retry_eligible",
-                        company_id=company_id,
-                        lifecycle_id=lifecycle_id,
-                        stage=stage,
-                        error=error[:200],
-                        retry_count=retry_count,
-                        max_retries=config.max_retries_per_stage,
-                    )
+                        "stage_failed_retry_eligible company_id=%s lifecycle_id=%s stage=%s error=%s retry_count=%s max_retries=%s",
+                        company_id, lifecycle_id, stage, error[:200], retry_count, config.max_retries_per_stage)
                 else:
                     # Retries exhausted — apply failure action
                     self._emit_event(
@@ -841,38 +788,23 @@ class CallLifecycleManager:
                             },
                         )
                         logger.error(
-                            "lifecycle_failed_fast",
-                            company_id=company_id,
-                            lifecycle_id=lifecycle_id,
-                            stage=stage,
-                            error=error[:200],
-                        )
+                            "lifecycle_failed_fast company_id=%s lifecycle_id=%s stage=%s error=%s",
+                            company_id, lifecycle_id, stage, error[:200])
                     elif config.on_failure_action == "degrade":
                         logger.warning(
-                            "stage_failed_degraded",
-                            company_id=company_id,
-                            lifecycle_id=lifecycle_id,
-                            stage=stage,
-                            error=error[:200],
-                        )
+                            "stage_failed_degraded company_id=%s lifecycle_id=%s stage=%s error=%s",
+                            company_id, lifecycle_id, stage, error[:200])
                     else:
                         logger.warning(
-                            "stage_failed_retry_all",
-                            company_id=company_id,
-                            lifecycle_id=lifecycle_id,
-                            stage=stage,
-                            error=error[:200],
-                        )
+                            "stage_failed_retry_all company_id=%s lifecycle_id=%s stage=%s error=%s",
+                            company_id, lifecycle_id, stage, error[:200])
 
             return True
 
         except Exception:
             logger.exception(
-                "fail_stage_crashed",
-                company_id=company_id,
-                lifecycle_id=lifecycle_id,
-                stage=stage,
-            )
+                "fail_stage_crashed company_id=%s lifecycle_id=%s stage=%s",
+                company_id, lifecycle_id, stage)
             return False
 
     def skip_stage(
@@ -930,21 +862,14 @@ class CallLifecycleManager:
             )
 
             logger.info(
-                "stage_skipped",
-                company_id=company_id,
-                lifecycle_id=lifecycle_id,
-                stage=stage,
-                reason=reason,
-            )
+                "stage_skipped company_id=%s lifecycle_id=%s stage=%s reason=%s",
+                company_id, lifecycle_id, stage, reason)
             return True
 
         except Exception:
             logger.exception(
-                "skip_stage_failed",
-                company_id=company_id,
-                lifecycle_id=lifecycle_id,
-                stage=stage,
-            )
+                "skip_stage_failed company_id=%s lifecycle_id=%s stage=%s",
+                company_id, lifecycle_id, stage)
             return False
 
     # ══════════════════════════════════════════════════════════
@@ -980,11 +905,8 @@ class CallLifecycleManager:
                 status = lc["status"]
                 if _is_terminal_status(status):
                     logger.warning(
-                        "cancel_lifecycle_already_terminal",
-                        company_id=company_id,
-                        lifecycle_id=lifecycle_id,
-                        status=status,
-                    )
+                        "cancel_lifecycle_already_terminal company_id=%s lifecycle_id=%s status=%s",
+                        company_id, lifecycle_id, status)
                     return False
 
                 now = _now_utc()
@@ -1011,19 +933,14 @@ class CallLifecycleManager:
             )
 
             logger.info(
-                "lifecycle_cancelled",
-                company_id=company_id,
-                lifecycle_id=lifecycle_id,
-                reason=reason,
-            )
+                "lifecycle_cancelled company_id=%s lifecycle_id=%s reason=%s",
+                company_id, lifecycle_id, reason)
             return True
 
         except Exception:
             logger.exception(
-                "cancel_lifecycle_failed",
-                company_id=company_id,
-                lifecycle_id=lifecycle_id,
-            )
+                "cancel_lifecycle_failed company_id=%s lifecycle_id=%s",
+                company_id, lifecycle_id)
             return False
 
     def complete_lifecycle(
@@ -1053,11 +970,8 @@ class CallLifecycleManager:
                 status = lc["status"]
                 if _is_terminal_status(status):
                     logger.warning(
-                        "complete_lifecycle_already_terminal",
-                        company_id=company_id,
-                        lifecycle_id=lifecycle_id,
-                        status=status,
-                    )
+                        "complete_lifecycle_already_terminal company_id=%s lifecycle_id=%s status=%s",
+                        company_id, lifecycle_id, status)
                     return False
 
                 now = _now_utc()
@@ -1085,21 +999,14 @@ class CallLifecycleManager:
             )
 
             logger.info(
-                "lifecycle_completed",
-                company_id=company_id,
-                lifecycle_id=lifecycle_id,
-                ticket_id=lc["ticket_id"],
-                variant=lc["variant"],
-                duration_ms=snapshot.total_duration_ms,
-            )
+                "lifecycle_completed company_id=%s lifecycle_id=%s ticket_id=%s variant=%s duration_ms=%s",
+                company_id, lifecycle_id, lc["ticket_id"], lc["variant"], snapshot.total_duration_ms)
             return True
 
         except Exception:
             logger.exception(
-                "complete_lifecycle_failed",
-                company_id=company_id,
-                lifecycle_id=lifecycle_id,
-            )
+                "complete_lifecycle_failed company_id=%s lifecycle_id=%s",
+                company_id, lifecycle_id)
             return False
 
     def fail_lifecycle(
@@ -1130,11 +1037,8 @@ class CallLifecycleManager:
                 status = lc["status"]
                 if _is_terminal_status(status):
                     logger.warning(
-                        "fail_lifecycle_already_terminal",
-                        company_id=company_id,
-                        lifecycle_id=lifecycle_id,
-                        status=status,
-                    )
+                        "fail_lifecycle_already_terminal company_id=%s lifecycle_id=%s status=%s",
+                        company_id, lifecycle_id, status)
                     return False
 
                 now = _now_utc()
@@ -1162,21 +1066,14 @@ class CallLifecycleManager:
             )
 
             logger.error(
-                "lifecycle_failed",
-                company_id=company_id,
-                lifecycle_id=lifecycle_id,
-                ticket_id=lc["ticket_id"],
-                error=error[:300],
-                duration_ms=snapshot.total_duration_ms,
-            )
+                "lifecycle_failed company_id=%s lifecycle_id=%s ticket_id=%s error=%s duration_ms=%s",
+                company_id, lifecycle_id, lc["ticket_id"], error[:300], snapshot.total_duration_ms)
             return True
 
         except Exception:
             logger.exception(
-                "fail_lifecycle_crashed",
-                company_id=company_id,
-                lifecycle_id=lifecycle_id,
-            )
+                "fail_lifecycle_crashed company_id=%s lifecycle_id=%s",
+                company_id, lifecycle_id)
             return False
 
     # ══════════════════════════════════════════════════════════
@@ -1212,10 +1109,8 @@ class CallLifecycleManager:
 
         except Exception:
             logger.exception(
-                "get_lifecycle_failed",
-                company_id=company_id,
-                lifecycle_id=lifecycle_id,
-            )
+                "get_lifecycle_failed company_id=%s lifecycle_id=%s",
+                company_id, lifecycle_id)
             return None
 
     def get_active_lifecycles(
@@ -1242,9 +1137,8 @@ class CallLifecycleManager:
 
         except Exception:
             logger.exception(
-                "get_active_lifecycles_failed",
-                company_id=company_id,
-            )
+                "get_active_lifecycles_failed company_id=%s",
+                company_id)
             return []
 
     def get_lifecycle_history(
@@ -1284,10 +1178,8 @@ class CallLifecycleManager:
 
         except Exception:
             logger.exception(
-                "get_lifecycle_history_failed",
-                company_id=company_id,
-                ticket_id=ticket_id,
-            )
+                "get_lifecycle_history_failed company_id=%s ticket_id=%s",
+                company_id, ticket_id)
             return []
 
     def get_stage_duration(
@@ -1329,11 +1221,8 @@ class CallLifecycleManager:
 
         except Exception:
             logger.exception(
-                "get_stage_duration_failed",
-                company_id=company_id,
-                lifecycle_id=lifecycle_id,
-                stage=stage,
-            )
+                "get_stage_duration_failed company_id=%s lifecycle_id=%s stage=%s",
+                company_id, lifecycle_id, stage)
             return 0
 
     def get_total_duration(
@@ -1365,10 +1254,8 @@ class CallLifecycleManager:
 
         except Exception:
             logger.exception(
-                "get_total_duration_failed",
-                company_id=company_id,
-                lifecycle_id=lifecycle_id,
-            )
+                "get_total_duration_failed company_id=%s lifecycle_id=%s",
+                company_id, lifecycle_id)
             return 0
 
     def is_lifecycle_active(
@@ -1396,10 +1283,8 @@ class CallLifecycleManager:
 
         except Exception:
             logger.exception(
-                "is_lifecycle_active_failed",
-                company_id=company_id,
-                lifecycle_id=lifecycle_id,
-            )
+                "is_lifecycle_active_failed company_id=%s lifecycle_id=%s",
+                company_id, lifecycle_id)
             return False
 
     def get_timeout_status(
@@ -1442,10 +1327,8 @@ class CallLifecycleManager:
 
         except Exception:
             logger.exception(
-                "get_timeout_status_failed",
-                company_id=company_id,
-                lifecycle_id=lifecycle_id,
-            )
+                "get_timeout_status_failed company_id=%s lifecycle_id=%s",
+                company_id, lifecycle_id)
             return default_result
 
     # ══════════════════════════════════════════════════════════
@@ -1466,7 +1349,7 @@ class CallLifecycleManager:
                 _PIPELINE_STAGES.get(variant, _PIPELINE_STAGES["parwa"]),
             )
         except Exception:
-            logger.exception("get_pipeline_stages_failed", variant=variant)
+            logger.exception("get_pipeline_stages_failed variant=%s", variant)
             return list(_PIPELINE_STAGES["parwa"])
 
     # ══════════════════════════════════════════════════════════
@@ -1554,10 +1437,8 @@ class CallLifecycleManager:
 
         except Exception:
             logger.exception(
-                "get_lifecycle_summary_failed",
-                company_id=company_id,
-                lifecycle_id=lifecycle_id,
-            )
+                "get_lifecycle_summary_failed company_id=%s lifecycle_id=%s",
+                company_id, lifecycle_id)
             return empty
 
     def get_statistics(self, company_id: str) -> Dict[str, Any]:
@@ -1696,9 +1577,8 @@ class CallLifecycleManager:
 
         except Exception:
             logger.exception(
-                "get_statistics_failed",
-                company_id=company_id,
-            )
+                "get_statistics_failed company_id=%s",
+                company_id)
             return default_stats
 
     # ══════════════════════════════════════════════════════════
@@ -1722,9 +1602,8 @@ class CallLifecycleManager:
                 if callback not in self._listeners:
                     self._listeners.append(callback)
             logger.info(
-                "lifecycle_listener_added",
-                listener=getattr(callback, "__name__", repr(callback)),
-            )
+                "lifecycle_listener_added listener=%s",
+                getattr(callback, "__name__", repr(callback)))
         except Exception:
             logger.exception("add_event_listener_failed")
 
@@ -1739,9 +1618,8 @@ class CallLifecycleManager:
                 if callback in self._listeners:
                     self._listeners.remove(callback)
             logger.info(
-                "lifecycle_listener_removed",
-                listener=getattr(callback, "__name__", repr(callback)),
-            )
+                "lifecycle_listener_removed listener=%s",
+                getattr(callback, "__name__", repr(callback)))
         except Exception:
             logger.exception("remove_event_listener_failed")
 
@@ -1778,17 +1656,14 @@ class CallLifecycleManager:
                 self._history.pop(company_id, None)
 
             logger.info(
-                "lifecycle_company_data_cleared",
-                company_id=company_id,
-                removed_lifecycles=len(to_remove),
-            )
+                "lifecycle_company_data_cleared company_id=%s removed_lifecycles=%s",
+                company_id, len(to_remove))
             return True
 
         except Exception:
             logger.exception(
-                "clear_company_data_failed",
-                company_id=company_id,
-            )
+                "clear_company_data_failed company_id=%s",
+                company_id)
             return False
 
     # ══════════════════════════════════════════════════════════
@@ -1817,12 +1692,8 @@ class CallLifecycleManager:
                 listener(event_type, lifecycle_id, data)
             except Exception as exc:
                 logger.error(
-                    "lifecycle_event_listener_error",
-                    event_type=event_type,
-                    lifecycle_id=lifecycle_id,
-                    listener=getattr(listener, "__name__", "unknown"),
-                    error=str(exc),
-                )
+                    "lifecycle_event_listener_error event_type=%s lifecycle_id=%s listener=%s error=%s",
+                    event_type, lifecycle_id, getattr(listener, "__name__", "unknown"), str(exc))
 
     def _get_lifecycle_or_error(
         self,
@@ -1842,18 +1713,13 @@ class CallLifecycleManager:
         lc = self._lifecycles.get(lifecycle_id)
         if lc is None:
             logger.warning(
-                "lifecycle_not_found",
-                company_id=company_id,
-                lifecycle_id=lifecycle_id,
-            )
+                "lifecycle_not_found company_id=%s lifecycle_id=%s",
+                company_id, lifecycle_id)
             return None
         if lc.get("company_id") != company_id:
             logger.warning(
-                "lifecycle_company_mismatch",
-                expected_company=company_id,
-                actual_company=lc.get("company_id"),
-                lifecycle_id=lifecycle_id,
-            )
+                "lifecycle_company_mismatch expected_company=%s actual_company=%s lifecycle_id=%s",
+                company_id, lc.get("company_id"), lifecycle_id)
             return None
         return lc
 
@@ -2038,9 +1904,7 @@ class CallLifecycleManager:
 
         if evicted > 0:
             logger.info(
-                "lifecycle_evicted_stale",
-                evicted_count=evicted,
-                remaining_active=len(self._lifecycles),
-            )
+                "lifecycle_evicted_stale evicted_count=%s remaining_active=%s",
+                evicted, len(self._lifecycles))
 
         return evicted

@@ -70,20 +70,10 @@ class StdoutLogSink(LogSink):
         """Log the metrics record via app.logger."""
         try:
             logger.info(
-                "technique_execution_recorded",
-                technique_id=data.technique_id,
-                trigger_signal=data.trigger_signal,
-                input_hash=data.input_hash,
-                token_cost=data.token_cost,
-                latency_ms=data.latency_ms,
-                output_quality_score=data.output_quality_score,
-                variant_id=data.variant_id,
-                tenant_id=data.tenant_id,
-                timestamp=data.timestamp,
-                status=data.status,
-            )
+                "technique_execution_recorded technique_id=%s trigger_signal=%s input_hash=%s token_cost=%s latency_ms=%s output_quality_score=%s variant_id=%s tenant_id=%s timestamp=%s status=%s",
+                data.technique_id, data.trigger_signal, data.input_hash, data.token_cost, data.latency_ms, data.output_quality_score, data.variant_id, data.tenant_id, data.timestamp, data.status)
         except Exception as exc:
-            logger.debug("metrics_sink_emit_failed", error=str(exc))
+            logger.debug("metrics_sink_emit_failed error=%s", str(exc))
 
 
 class InMemoryLogSink(LogSink):
@@ -99,7 +89,7 @@ class InMemoryLogSink(LogSink):
             with self._lock:
                 self._records.append(data)
         except Exception as exc:
-            logger.debug("in_memory_sink_emit_failed", error=str(exc))
+            logger.debug("in_memory_sink_emit_failed error=%s", str(exc))
 
     def get_records(self) -> List[MetricsRecord]:
         """Return a copy of all stored records."""
@@ -176,7 +166,7 @@ class MetricsPipeline:
             with self._lock:
                 self._sinks.append(sink)
         except Exception as exc:
-            logger.debug("metrics_add_sink_failed", error=str(exc))
+            logger.debug("metrics_add_sink_failed error=%s", str(exc))
 
     def record_technique_execution(
         self,
@@ -247,12 +237,12 @@ class MetricsPipeline:
                 try:
                     sink.emit(record)
                 except Exception as exc:
-                    logger.debug("metrics_individual_sink_failed", sink=str(type(sink).__name__), error=str(exc))
+                    logger.debug("metrics_individual_sink_failed sink=%s error=%s", str(type(sink).__name__), str(exc))
 
             return record
 
         except Exception as exc:
-            logger.debug("metrics_record_failed", error=str(exc))
+            logger.debug("metrics_record_failed error=%s", str(exc))
             return None
 
     def get_metrics_summary(
@@ -366,7 +356,7 @@ class MetricsPipeline:
 
         except Exception as exc:
             # BC-008: never crash
-            logger.debug("metrics_summary_failed", company_id=company_id, error=str(exc))
+            logger.debug("metrics_summary_failed company_id=%s error=%s", company_id, str(exc))
             return {
                 "company_id": company_id,
                 "total_executions": 0,
@@ -421,7 +411,7 @@ class MetricsPipeline:
                     self._company_records.get(company_id, [])
                 )
         except Exception as exc:
-            logger.debug("metrics_count_failed", company_id=company_id, error=str(exc))
+            logger.debug("metrics_count_failed company_id=%s error=%s", company_id, str(exc))
             return 0
 
     def reset_company_metrics(self, company_id: str) -> int:
@@ -443,5 +433,5 @@ class MetricsPipeline:
                 )
                 return len(records)
         except Exception as exc:
-            logger.debug("metrics_reset_failed", company_id=company_id, error=str(exc))
+            logger.debug("metrics_reset_failed company_id=%s error=%s", company_id, str(exc))
             return 0

@@ -264,12 +264,8 @@ def provision_company(
         }
 
         logger.info(
-            "company_provisioned",
-            company_id=company_id,
-            name=name,
-            tier=tier_lower,
-            owner_email=owner_email,
-        )
+            "company_provisioned company_id=%s name=%s tier=%s owner_email=%s",
+            company_id, name, tier_lower, owner_email)
 
         return result
 

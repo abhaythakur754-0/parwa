@@ -721,10 +721,8 @@ class AIPipeline:
                         # E3: Apply rewritten query
                         ctx.query = registry_result["rewritten_query"]
                         logger.info(
-                            "edge_case_rewrite",
-                            original=ctx.query[:80],
-                            company_id=ctx.company_id,
-                        )
+                            "edge_case_rewrite original=%s company_id=%s",
+                            ctx.query[:80], ctx.company_id)
 
                     elif action == "redirect" and registry_result.get("redirect_target"):
                         # E3: Handle redirect (e.g., FAQ match)

@@ -184,10 +184,8 @@ class RAGRetriever:
         # G9-GAP-12 FIX: Log warning for unknown variant_type
         if variant_type not in VARIANT_CONFIG:
             logger.warning(
-                "rag_unknown_variant_type_defaulting_to_parwa",
-                variant_type=variant_type,
-                company_id=company_id,
-            )
+                "rag_unknown_variant_type_defaulting_to_parwa variant_type=%s company_id=%s",
+                variant_type, company_id)
         config = VARIANT_CONFIG.get(variant_type, VARIANT_CONFIG["parwa"])
         if top_k is None:
             top_k = config["default_top_k"]
@@ -201,7 +199,7 @@ class RAGRetriever:
             cached_result.retrieval_time_ms = round(
                 (time.monotonic() - start_time) * 1000, 2
             )
-            logger.debug("rag_cache_hit", key=cache_key)
+            logger.debug("rag_cache_hit key=%s", cache_key)
             return cached_result
 
         # ── Step 2: Generate query embedding ─────────────────────
@@ -212,10 +210,8 @@ class RAGRetriever:
         if query_embedding is None:
             # BC-008: Fallback to keyword search
             logger.warning(
-                "rag_embedding_failed_keyword_fallback",
-                company_id=company_id,
-                variant_type=variant_type,
-            )
+                "rag_embedding_failed_keyword_fallback company_id=%s variant_type=%s",
+                company_id, variant_type)
             return await self._keyword_search(
                 query=query,
                 company_id=company_id,
@@ -236,9 +232,8 @@ class RAGRetriever:
         # BC-008: Check store health before searching
         if hasattr(self._store, "health_check") and not self._store.health_check():
             logger.warning(
-                "rag_vector_store_unhealthy_keyword_fallback",
-                company_id=company_id,
-            )
+                "rag_vector_store_unhealthy_keyword_fallback company_id=%s",
+                company_id)
             return await self._keyword_search(
                 query=query,
                 company_id=company_id,
@@ -263,10 +258,8 @@ class RAGRetriever:
             except Exception as exc:
                 # BC-008: Fallback to keyword search
                 logger.warning(
-                    "rag_vector_search_failed_keyword_fallback",
-                    company_id=company_id,
-                    error=str(exc),
-                )
+                    "rag_vector_search_failed_keyword_fallback company_id=%s error=%s",
+                    company_id, str(exc))
                 return await self._keyword_search(
                     query=query,
                     company_id=company_id,
@@ -321,13 +314,8 @@ class RAGRetriever:
         await self._store_cache(company_id, cache_key, result)
 
         logger.info(
-            "rag_retrieval_complete",
-            company_id=company_id,
-            variant_type=variant_type,
-            chunks_found=result.total_found,
-            chunks_returned=len(result.chunks),
-            retrieval_time_ms=retrieval_time_ms,
-        )
+            "rag_retrieval_complete company_id=%s variant_type=%s chunks_found=%s chunks_returned=%s retrieval_time_ms=%s",
+            company_id, variant_type, result.total_found, len(result.chunks), retrieval_time_ms)
 
         return result
 
@@ -353,9 +341,8 @@ class RAGRetriever:
                 return embedding
         except Exception as exc:
             logger.debug(
-                "rag_embedding_service_unavailable",
-                error=str(exc),
-            )
+                "rag_embedding_service_unavailable error=%s",
+                str(exc))
 
         # BC-008: Fallback to store's own generator (e.g. MockVectorStore)
         if hasattr(self._store, '_generate_embedding'):
@@ -363,9 +350,8 @@ class RAGRetriever:
                 return self._store._generate_embedding(text)
             except Exception as exc:
                 logger.warning(
-                    "rag_store_embedding_failed",
-                    error=str(exc),
-                )
+                    "rag_store_embedding_failed error=%s",
+                    str(exc))
 
         return None
 
@@ -391,10 +377,8 @@ class RAGRetriever:
         # G9-GAP-12 FIX: Log warning for unknown variant_type in keyword fallback
         if variant_type not in VARIANT_CONFIG:
             logger.warning(
-                "rag_unknown_variant_type_keyword_fallback",
-                variant_type=variant_type,
-                company_id=company_id,
-            )
+                "rag_unknown_variant_type_keyword_fallback variant_type=%s company_id=%s",
+                variant_type, company_id)
         chunks: List[RAGChunk] = []
 
         try:
@@ -434,9 +418,8 @@ class RAGRetriever:
                         )
         except Exception as exc:
             logger.warning(
-                "rag_keyword_search_failed",
-                error=str(exc),
-            )
+                "rag_keyword_search_failed error=%s",
+                str(exc))
 
         # Sort by score descending
         chunks.sort(key=lambda c: c.score, reverse=True)
@@ -595,7 +578,7 @@ class RAGRetriever:
                     cached=True,
                 )
         except Exception as exc:
-            logger.warning("rag_cache_read_failed", error=str(exc), cache_key=cache_key)
+            logger.warning("rag_cache_read_failed error=%s cache_key=%s", str(exc), cache_key)
         return None
 
     async def _store_cache(
@@ -612,4 +595,4 @@ class RAGRetriever:
                 ttl_seconds=CACHE_TTL_SECONDS,
             )
         except Exception as exc:
-            logger.debug("rag_cache_write_failed", error=str(exc), cache_key=cache_key)
+            logger.debug("rag_cache_write_failed error=%s cache_key=%s", str(exc), cache_key)

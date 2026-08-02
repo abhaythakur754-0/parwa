@@ -227,12 +227,8 @@ class SharedGSDManager:
         }
 
         logger.info(
-            "gsd_transition_recorded",
-            company_id=company_id,
-            ticket_id=ticket_id,
-            from_state=from_state,
-            to_state=to_state,
-        )
+            "gsd_transition_recorded company_id=%s ticket_id=%s from_state=%s to_state=%s",
+            company_id, ticket_id, from_state, to_state)
 
         # Emit to event listeners
         self._emit_transition_event(entry)
@@ -550,10 +546,8 @@ class SharedGSDManager:
                 listener(entry)
             except Exception as exc:
                 logger.error(
-                    "gsd_event_listener_error",
-                    error=str(exc),
-                    listener=getattr(listener, "__name__", "unknown"),
-                )
+                    "gsd_event_listener_error error=%s listener=%s",
+                    str(exc), getattr(listener, "__name__", "unknown"))
 
     # ── Lifecycle Helpers ──────────────────────────────────────
 

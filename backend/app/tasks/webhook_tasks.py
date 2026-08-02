@@ -68,11 +68,8 @@ def process_webhook_event(
         )
     except Exception as exc:
         logger.error(
-            "webhook_task_failed",
-            event_db_id=event_db_id,
-            error=str(exc),
-            company_id=company_id,
-        )
+            "webhook_task_failed event_db_id=%s error=%s company_id=%s",
+            event_db_id, str(exc), company_id)
         try:
             from app.services.webhook_service import (
                 mark_webhook_processed,
@@ -82,7 +79,7 @@ def process_webhook_event(
                 error=str(exc)[:500],
             )
         except Exception as e:
-            logger.error("webhook_mark_failed_error", event_db_id=event_db_id, error=str(e))
+            logger.error("webhook_mark_failed_error event_db_id=%s error=%s", event_db_id, str(e))
 
 
 @app.task(
@@ -116,9 +113,8 @@ def process_paddle_webhook(
         )
     except Exception as e:
         logger.error(
-            "webhook_paddle_mark_skipped_error",
-            event_db_id=event_db_id, error=str(e),
-        )
+            "webhook_paddle_mark_skipped_error event_db_id=%s error=%s",
+            event_db_id, str(e))
 
 
 @app.task(
@@ -151,11 +147,8 @@ def process_twilio_webhook(
         )
     except Exception as exc:
         logger.error(
-            "webhook_twilio_failed",
-            event_db_id=event_db_id,
-            error=str(exc),
-            company_id=company_id,
-        )
+            "webhook_twilio_failed event_db_id=%s error=%s company_id=%s",
+            event_db_id, str(exc), company_id)
         try:
             from app.services.webhook_service import (
                 mark_webhook_processed,
@@ -165,7 +158,7 @@ def process_twilio_webhook(
                 error=str(exc)[:500],
             )
         except Exception as e:
-            logger.error("webhook_twilio_mark_failed_error", event_db_id=event_db_id, error=str(e))
+            logger.error("webhook_twilio_mark_failed_error event_db_id=%s error=%s", event_db_id, str(e))
 
 
 @app.task(
@@ -198,11 +191,8 @@ def process_brevo_webhook(
         )
     except Exception as exc:
         logger.error(
-            "webhook_brevo_failed",
-            event_db_id=event_db_id,
-            error=str(exc),
-            company_id=company_id,
-        )
+            "webhook_brevo_failed event_db_id=%s error=%s company_id=%s",
+            event_db_id, str(exc), company_id)
         try:
             from app.services.webhook_service import (
                 mark_webhook_processed,
@@ -212,7 +202,7 @@ def process_brevo_webhook(
                 error=str(exc)[:500],
             )
         except Exception as e:
-            logger.error("webhook_brevo_mark_failed_error", event_db_id=event_db_id, error=str(e))
+            logger.error("webhook_brevo_mark_failed_error event_db_id=%s error=%s", event_db_id, str(e))
 
 
 @app.task(
@@ -245,11 +235,8 @@ def process_shopify_webhook(
         )
     except Exception as exc:
         logger.error(
-            "webhook_shopify_failed",
-            event_db_id=event_db_id,
-            error=str(exc),
-            company_id=company_id,
-        )
+            "webhook_shopify_failed event_db_id=%s error=%s company_id=%s",
+            event_db_id, str(exc), company_id)
         try:
             from app.services.webhook_service import (
                 mark_webhook_processed,
@@ -259,7 +246,7 @@ def process_shopify_webhook(
                 error=str(exc)[:500],
             )
         except Exception as e:
-            logger.error("webhook_shopify_mark_failed_error", event_db_id=event_db_id, error=str(e))
+            logger.error("webhook_shopify_mark_failed_error event_db_id=%s error=%s", event_db_id, str(e))
 
 
 # ── Provider handlers now use registry (Day 23) ──────────

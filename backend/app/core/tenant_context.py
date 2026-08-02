@@ -206,9 +206,8 @@ def set_tenant_bypass(enabled: bool = True, reason: str = "") -> None:
             )
         else:
             logger.info(
-                "tenant_bypass_enabled",
-                reason=reason,
-            )
+                "tenant_bypass_enabled reason=%s",
+                reason)
     else:
         _bypass_reason_ctx_var.set(None)
 

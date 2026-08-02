@@ -232,20 +232,16 @@ class ResponseGenerator:
                 )
                 if draft_active:
                     logger.info(
-                        "response_gen_skipped_draft_in_progress",
-                        company_id=request.company_id,
-                        ticket_id=request.ticket_id,
-                    )
+                        "response_gen_skipped_draft_in_progress company_id=%s ticket_id=%s",
+                        request.company_id, request.ticket_id)
                     return self._empty_response_result(
                         pipeline_start=pipeline_start,
                         reason="draft_in_progress",
                     )
             except Exception as exc:
                 logger.warning(
-                    "draft_check_failed_continuing",
-                    error=str(exc),
-                    company_id=request.company_id,
-                )
+                    "draft_check_failed_continuing error=%s company_id=%s",
+                    str(exc), request.company_id)
 
         # ── GAP-020: Rate-limit check ─────────────────────────────
         if request.customer_id:
@@ -256,12 +252,8 @@ class ResponseGenerator:
                 )
                 if not rate_check.allowed:
                     logger.info(
-                        "response_gen_rate_limited",
-                        company_id=request.company_id,
-                        customer_id=request.customer_id,
-                        hourly=rate_check.hourly_count,
-                        daily=rate_check.daily_count,
-                    )
+                        "response_gen_rate_limited company_id=%s customer_id=%s hourly=%s daily=%s",
+                        request.company_id, request.customer_id, rate_check.hourly_count, rate_check.daily_count)
                     # Fall back to template when rate limited
                     template_result = await self._fallback_to_template(
                         request=request,
@@ -273,10 +265,8 @@ class ResponseGenerator:
                         return template_result
             except Exception as exc:
                 logger.warning(
-                    "rate_limit_check_failed_continuing",
-                    error=str(exc),
-                    company_id=request.company_id,
-                )
+                    "rate_limit_check_failed_continuing error=%s company_id=%s",
+                    str(exc), request.company_id)
 
         # ── Step 1: Sentiment Analysis ────────────────────────────
         sentiment_result: Optional[Any] = None
@@ -305,18 +295,12 @@ class ResponseGenerator:
             sentiment_dict = sentiment_result.to_dict()
 
             logger.info(
-                "response_gen_sentiment_complete",
-                company_id=request.company_id,
-                frustration=sentiment_result.frustration_score,
-                emotion=sentiment_result.emotion,
-                sentiment_score=sentiment_score,
-            )
+                "response_gen_sentiment_complete company_id=%s frustration=%s emotion=%s sentiment_score=%s",
+                request.company_id, sentiment_result.frustration_score, sentiment_result.emotion, sentiment_score)
         except Exception as exc:
             logger.warning(
-                "response_gen_sentiment_failed_using_defaults",
-                error=str(exc),
-                company_id=request.company_id,
-            )
+                "response_gen_sentiment_failed_using_defaults error=%s company_id=%s",
+                str(exc), request.company_id)
             sentiment_score = 0.5
             sentiment_dict = {
                 "frustration_score": 0.0,
@@ -364,10 +348,8 @@ class ResponseGenerator:
                         rag_result = reranked
                 except Exception as exc:
                     logger.warning(
-                        "response_gen_rerank_failed_using_original",
-                        error=str(exc),
-                        company_id=request.company_id,
-                    )
+                        "response_gen_rerank_failed_using_original error=%s company_id=%s",
+                        str(exc), request.company_id)
 
                 # ── Step 4: Context Assembly ────────────────────────
                 context_tokens = _VARIANT_CONTEXT_TOKENS.get(
@@ -385,27 +367,20 @@ class ResponseGenerator:
                     ]
                 except Exception as exc:
                     logger.warning(
-                        "response_gen_context_assembly_failed",
-                        error=str(exc),
-                        company_id=request.company_id,
-                    )
+                        "response_gen_context_assembly_failed error=%s company_id=%s",
+                        str(exc), request.company_id)
                     # Build a simple context from raw chunks
                     rag_context_string = "\n\n".join(
                         chunk.content for chunk in rag_result.chunks[:3]
                     )
 
                 logger.info(
-                    "response_gen_rag_complete",
-                    company_id=request.company_id,
-                    chunks_found=rag_result.total_found,
-                    context_tokens=len(rag_context_string) // _CHARS_PER_TOKEN,
-                )
+                    "response_gen_rag_complete company_id=%s chunks_found=%s context_tokens=%s",
+                    request.company_id, rag_result.total_found, len(rag_context_string) // _CHARS_PER_TOKEN)
         except Exception as exc:
             logger.warning(
-                "response_gen_rag_failed_generating_without_context",
-                error=str(exc),
-                company_id=request.company_id,
-            )
+                "response_gen_rag_failed_generating_without_context error=%s company_id=%s",
+                str(exc), request.company_id)
             rag_context_string = ""
 
         # ── Step 5: Token Budget Check (GAP-006) ──────────────────
@@ -436,11 +411,8 @@ class ResponseGenerator:
             )
             if not overflow.can_fit:
                 logger.warning(
-                    "response_gen_token_budget_overflow",
-                    company_id=request.company_id,
-                    overflow_amount=overflow.overflow_amount,
-                    conversation_id=request.conversation_id,
-                )
+                    "response_gen_token_budget_overflow company_id=%s overflow_amount=%s conversation_id=%s",
+                    request.company_id, overflow.overflow_amount, request.conversation_id)
                 budget_exhausted = True
 
             # Try to reserve tokens
@@ -450,17 +422,13 @@ class ResponseGenerator:
             )
             if not reserve_result.success:
                 logger.warning(
-                    "response_gen_token_reserve_failed",
-                    company_id=request.company_id,
-                    remaining=reserve_result.remaining_after_reserve,
-                )
+                    "response_gen_token_reserve_failed company_id=%s remaining=%s",
+                    request.company_id, reserve_result.remaining_after_reserve)
                 budget_exhausted = True
         except Exception as exc:
             logger.warning(
-                "response_gen_token_budget_check_failed",
-                error=str(exc),
-                company_id=request.company_id,
-            )
+                "response_gen_token_budget_check_failed error=%s company_id=%s",
+                str(exc), request.company_id)
 
         # ── If budget exhausted or force_template, use template ──
         if budget_exhausted or request.force_template_response:
@@ -487,10 +455,8 @@ class ResponseGenerator:
             )
         except Exception as exc:
             logger.warning(
-                "response_gen_brand_voice_failed_using_defaults",
-                error=str(exc),
-                company_id=request.company_id,
-            )
+                "response_gen_brand_voice_failed_using_defaults error=%s company_id=%s",
+                str(exc), request.company_id)
 
         # ── Step 7: LLM Response Generation ────────────────────────
         generated_response: str = ""
@@ -568,36 +534,24 @@ class ResponseGenerator:
             )
 
             logger.info(
-                "response_gen_llm_complete",
-                company_id=request.company_id,
-                model=llm_result.get("model", "unknown"),
-                provider=llm_result.get("provider", "unknown"),
-                tier=llm_result.get("tier", "unknown"),
-                response_length=len(generated_response),
-                tokens_used=tokens_used,
-            )
+                "response_gen_llm_complete company_id=%s model=%s provider=%s tier=%s response_length=%s tokens_used=%s",
+                request.company_id, llm_result.get("model", "unknown"), llm_result.get("provider", "unknown"), llm_result.get("tier", "unknown"), len(generated_response), tokens_used)
         except asyncio.TimeoutError:
             logger.warning(
-                "response_gen_llm_timeout",
-                company_id=request.company_id,
-                timeout=_GENERATION_TIMEOUT_SECONDS,
-            )
+                "response_gen_llm_timeout company_id=%s timeout=%s",
+                request.company_id, _GENERATION_TIMEOUT_SECONDS)
             llm_error = True
         except Exception as exc:
             logger.warning(
-                "response_gen_llm_failed",
-                error=str(exc),
-                company_id=request.company_id,
-            )
+                "response_gen_llm_failed error=%s company_id=%s",
+                str(exc), request.company_id)
             llm_error = True
 
         # ── If LLM failed, fall back to template ──────────────────
         if llm_error or not generated_response.strip():
             logger.info(
-                "response_gen_falling_back_to_template",
-                reason="llm_failure" if llm_error else "empty_response",
-                company_id=request.company_id,
-            )
+                "response_gen_falling_back_to_template reason=%s company_id=%s",
+                "llm_failure" if llm_error else "empty_response", request.company_id)
             template_result = await self._fallback_to_template(
                 request=request,
                 sentiment_score=sentiment_score,
@@ -649,28 +603,19 @@ class ResponseGenerator:
                 final_response = clara_result.final_response
 
             logger.info(
-                "response_gen_clara_complete",
-                company_id=request.company_id,
-                clara_passed=clara_passed,
-                clara_score=clara_score,
-                pipeline_timed_out=clara_result.pipeline_timed_out,
-            )
+                "response_gen_clara_complete company_id=%s clara_passed=%s clara_score=%s pipeline_timed_out=%s",
+                request.company_id, clara_passed, clara_score, clara_result.pipeline_timed_out)
         except Exception as exc:
             logger.warning(
-                "response_gen_clara_failed_using_raw_response",
-                error=str(exc),
-                company_id=request.company_id,
-            )
+                "response_gen_clara_failed_using_raw_response error=%s company_id=%s",
+                str(exc), request.company_id)
             quality_issues.append(f"CLARA evaluation error: {str(exc)}")
 
         # ── Step 9: Template Fallback if CLARA failed ──────────────
         if not clara_passed and not request.force_template_response:
             logger.info(
-                "response_gen_clara_failed_falling_back_to_template",
-                company_id=request.company_id,
-                clara_score=clara_score,
-                quality_issues=quality_issues[:5],
-            )
+                "response_gen_clara_failed_falling_back_to_template company_id=%s clara_score=%s quality_issues=%s",
+                request.company_id, clara_score, quality_issues[:5])
             template_result = await self._fallback_to_template(
                 request=request,
                 sentiment_score=sentiment_score,
@@ -724,16 +669,12 @@ class ResponseGenerator:
 
             if format_result.errors:
                 logger.warning(
-                    "response_gen_formatting_errors",
-                    errors=format_result.errors,
-                    company_id=request.company_id,
-                )
+                    "response_gen_formatting_errors errors=%s company_id=%s",
+                    format_result.errors, request.company_id)
         except Exception as exc:
             logger.warning(
-                "response_gen_formatting_failed_using_unformatted",
-                error=str(exc),
-                company_id=request.company_id,
-            )
+                "response_gen_formatting_failed_using_unformatted error=%s company_id=%s",
+                str(exc), request.company_id)
 
         # ── Step 11: Final Brand Voice Validation ──────────────────
         try:
@@ -746,21 +687,16 @@ class ResponseGenerator:
                     # Apply suggested fixes if available
                     if validation.suggested_fixes:
                         logger.info(
-                            "response_gen_brand_validation_issues",
-                            issues=validation.violations,
-                            fixes=validation.suggested_fixes[:3],
-                            company_id=request.company_id,
-                        )
+                            "response_gen_brand_validation_issues issues=%s fixes=%s company_id=%s",
+                            validation.violations, validation.suggested_fixes[:3], request.company_id)
                     quality_issues.extend(validation.violations)
                     quality_issues.extend(
                         [f"Brand warning: {w}" for w in validation.warnings],
                     )
         except Exception as exc:
             logger.warning(
-                "response_gen_final_brand_validation_failed",
-                error=str(exc),
-                company_id=request.company_id,
-            )
+                "response_gen_final_brand_validation_failed error=%s company_id=%s",
+                str(exc), request.company_id)
 
         # ── Step 12: Brand Voice Merge (final polish) ─────────────
         try:
@@ -770,10 +706,8 @@ class ResponseGenerator:
             )
         except Exception as exc:
             logger.warning(
-                "response_gen_brand_merge_failed",
-                error=str(exc),
-                company_id=request.company_id,
-            )
+                "response_gen_brand_merge_failed error=%s company_id=%s",
+                str(exc), request.company_id)
 
         # ── Build final result ─────────────────────────────────────
         generation_time_ms = round(
@@ -781,16 +715,8 @@ class ResponseGenerator:
         )
 
         logger.info(
-            "response_generation_complete",
-            company_id=request.company_id,
-            variant_type=request.variant_type,
-            clara_passed=clara_passed,
-            clara_score=clara_score,
-            template_used=False,
-            generation_time_ms=generation_time_ms,
-            formatters_applied=formatters_applied,
-            quality_issues_count=len(quality_issues),
-        )
+            "response_generation_complete company_id=%s variant_type=%s clara_passed=%s clara_score=%s template_used=%s generation_time_ms=%s formatters_applied=%s quality_issues_count=%s",
+            request.company_id, request.variant_type, clara_passed, clara_score, False, generation_time_ms, formatters_applied, len(quality_issues))
 
         return ResponseGenerationResult(
             response_text=final_response,
@@ -878,13 +804,8 @@ class ResponseGenerator:
 
             if not allowed:
                 logger.info(
-                    "rate_limit_exceeded",
-                    company_id=company_id,
-                    customer_id=customer_id,
-                    hourly_count=hourly_count,
-                    daily_count=daily_count,
-                    reason=reason,
-                )
+                    "rate_limit_exceeded company_id=%s customer_id=%s hourly_count=%s daily_count=%s reason=%s",
+                    company_id, customer_id, hourly_count, daily_count, reason)
 
             return RateLimitCheck(
                 allowed=allowed,
@@ -897,11 +818,8 @@ class ResponseGenerator:
 
         except Exception as exc:
             logger.warning(
-                "rate_limit_check_error_fail_open",
-                error=str(exc),
-                company_id=company_id,
-                customer_id=customer_id,
-            )
+                "rate_limit_check_error_fail_open error=%s company_id=%s customer_id=%s",
+                str(exc), company_id, customer_id)
             # BC-008 / BC-012: Fail open on Redis errors
             return RateLimitCheck(
                 allowed=True,
@@ -945,22 +863,16 @@ class ResponseGenerator:
 
             if value is not None:
                 logger.debug(
-                    "draft_in_progress_detected",
-                    company_id=company_id,
-                    ticket_id=ticket_id,
-                    agent_id=value,
-                )
+                    "draft_in_progress_detected company_id=%s ticket_id=%s agent_id=%s",
+                    company_id, ticket_id, value)
                 return True
 
             return False
 
         except Exception as exc:
             logger.warning(
-                "draft_in_progress_check_error",
-                error=str(exc),
-                company_id=company_id,
-                ticket_id=ticket_id,
-            )
+                "draft_in_progress_check_error error=%s company_id=%s ticket_id=%s",
+                str(exc), company_id, ticket_id)
             # BC-008: Assume no draft on error
             return False
 
@@ -1235,11 +1147,8 @@ class ResponseGenerator:
 
             if template is None:
                 logger.info(
-                    "response_gen_no_template_found",
-                    company_id=request.company_id,
-                    intent_type=request.intent_type,
-                    reason=reason,
-                )
+                    "response_gen_no_template_found company_id=%s intent_type=%s reason=%s",
+                    request.company_id, request.intent_type, reason)
                 return None
 
             # Build template variables
@@ -1261,7 +1170,7 @@ class ResponseGenerator:
                     brand_config, "brand_name", company_name,
                 )
             except Exception as exc:
-                logger.debug("brand_config_fetch_failed", error=str(exc), company_id=request.company_id)
+                logger.debug("brand_config_fetch_failed error=%s company_id=%s", str(exc), request.company_id)
 
             variables = {
                 "customer_name": customer_name,
@@ -1280,10 +1189,8 @@ class ResponseGenerator:
 
             if not rendered or not rendered.strip():
                 logger.warning(
-                    "response_gen_template_rendered_empty",
-                    template_id=template.id,
-                    company_id=request.company_id,
-                )
+                    "response_gen_template_rendered_empty template_id=%s company_id=%s",
+                    template.id, request.company_id)
                 return None
 
             # Apply basic formatting even to templates
@@ -1307,22 +1214,16 @@ class ResponseGenerator:
                 formatters_applied = fmt_result.formatters_applied
             except Exception as exc:
                 logger.warning(
-                    "response_gen_template_formatting_failed",
-                    error=str(exc),
-                )
+                    "response_gen_template_formatting_failed error=%s",
+                    str(exc))
 
             generation_time_ms = round(
                 (time.monotonic() - pipeline_start) * 1000, 2,
             )
 
             logger.info(
-                "response_gen_template_fallback_success",
-                company_id=request.company_id,
-                template_id=template.id,
-                template_name=template.name,
-                reason=reason,
-                generation_time_ms=generation_time_ms,
-            )
+                "response_gen_template_fallback_success company_id=%s template_id=%s template_name=%s reason=%s generation_time_ms=%s",
+                request.company_id, template.id, template.name, reason, generation_time_ms)
 
             # Build minimal sentiment dict for template results
             sentiment_dict = {
@@ -1354,11 +1255,8 @@ class ResponseGenerator:
 
         except Exception as exc:
             logger.warning(
-                "response_gen_template_fallback_failed",
-                error=str(exc),
-                company_id=request.company_id,
-                reason=reason,
-            )
+                "response_gen_template_fallback_failed error=%s company_id=%s reason=%s",
+                str(exc), request.company_id, reason)
             return None
 
     # ──────────────────────────────────────────────────────────────
@@ -1447,11 +1345,8 @@ class ResponseGenerator:
                     return await self.generate(req)
                 except Exception as exc:
                     logger.exception(
-                        "batch_generation_item_failed",
-                        company_id=req.company_id,
-                        conversation_id=req.conversation_id,
-                        error=str(exc),
-                    )
+                        "batch_generation_item_failed company_id=%s conversation_id=%s error=%s",
+                        req.company_id, req.conversation_id, str(exc))
                     return ResponseGenerationResult(
                         response_text="",
                         confidence_score=0.0,
@@ -1504,11 +1399,8 @@ class ResponseGenerator:
             }
         except Exception as exc:
             logger.warning(
-                "generation_status_failed",
-                error=str(exc),
-                conversation_id=conversation_id,
-                company_id=company_id,
-            )
+                "generation_status_failed error=%s conversation_id=%s company_id=%s",
+                str(exc), conversation_id, company_id)
             return {
                 "conversation_id": conversation_id,
                 "company_id": company_id,
@@ -1551,21 +1443,14 @@ class ResponseGenerator:
             await self.redis_client.set(key, agent_id, ex=ttl_seconds)
 
             logger.info(
-                "draft_in_progress_set",
-                company_id=company_id,
-                ticket_id=ticket_id,
-                agent_id=agent_id,
-                ttl=ttl_seconds,
-            )
+                "draft_in_progress_set company_id=%s ticket_id=%s agent_id=%s ttl=%s",
+                company_id, ticket_id, agent_id, ttl_seconds)
             return True
 
         except Exception as exc:
             logger.warning(
-                "draft_in_progress_set_failed",
-                error=str(exc),
-                company_id=company_id,
-                ticket_id=ticket_id,
-            )
+                "draft_in_progress_set_failed error=%s company_id=%s ticket_id=%s",
+                str(exc), company_id, ticket_id)
             return False
 
     async def clear_draft_in_progress(
@@ -1599,19 +1484,14 @@ class ResponseGenerator:
             await self.redis_client.delete(key)
 
             logger.info(
-                "draft_in_progress_cleared",
-                company_id=company_id,
-                ticket_id=ticket_id,
-            )
+                "draft_in_progress_cleared company_id=%s ticket_id=%s",
+                company_id, ticket_id)
             return True
 
         except Exception as exc:
             logger.warning(
-                "draft_in_progress_clear_failed",
-                error=str(exc),
-                company_id=company_id,
-                ticket_id=ticket_id,
-            )
+                "draft_in_progress_clear_failed error=%s company_id=%s ticket_id=%s",
+                str(exc), company_id, ticket_id)
             return False
 
     async def get_customer_rate_limit_status(
@@ -1669,11 +1549,8 @@ class ResponseGenerator:
 
         except Exception as exc:
             logger.warning(
-                "rate_limit_status_failed",
-                error=str(exc),
-                company_id=company_id,
-                customer_id=customer_id,
-            )
+                "rate_limit_status_failed error=%s company_id=%s customer_id=%s",
+                str(exc), company_id, customer_id)
             return {
                 "company_id": company_id,
                 "customer_id": customer_id,
@@ -1720,19 +1597,14 @@ class ResponseGenerator:
                 await self.redis_client.delete(day_key)
 
                 logger.info(
-                    "rate_limit_reset",
-                    company_id=company_id,
-                    customer_id=customer_id,
-                )
+                    "rate_limit_reset company_id=%s customer_id=%s",
+                    company_id, customer_id)
                 return True
 
             return False
 
         except Exception as exc:
             logger.warning(
-                "rate_limit_reset_failed",
-                error=str(exc),
-                company_id=company_id,
-                customer_id=customer_id,
-            )
+                "rate_limit_reset_failed error=%s company_id=%s customer_id=%s",
+                str(exc), company_id, customer_id)
             return False

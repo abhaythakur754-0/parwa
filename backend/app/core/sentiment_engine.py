@@ -710,10 +710,8 @@ class SentimentAnalyzer:
         # ── BC-008: Input validation ────────────────────────────
         if not query or not isinstance(query, str):
             logger.info(
-                "sentiment_empty_input",
-                company_id=company_id,
-                reason="empty_or_invalid_query",
-            )
+                "sentiment_empty_input company_id=%s reason=%s",
+                company_id, "empty_or_invalid_query")
             return self._default_result("empty_input")
 
         cleaned = query.strip()
@@ -731,7 +729,7 @@ class SentimentAnalyzer:
             from app.core.redis import cache_get, cache_set
             cached = await cache_get(company_id, cache_key)
             if cached is not None and isinstance(cached, dict):
-                logger.debug("sentiment_cache_hit", key=cache_key)
+                logger.debug("sentiment_cache_hit key=%s", cache_key)
                 result = SentimentResult(
                     frustration_score=cached["frustration_score"],
                     emotion=cached["emotion"],
@@ -746,7 +744,7 @@ class SentimentAnalyzer:
                 )
                 return result
         except Exception as exc:
-            logger.warning("sentiment_cache_read_error", error=str(exc))
+            logger.warning("sentiment_cache_read_error error=%s", str(exc))
 
         # ── Full analysis ───────────────────────────────────────
         start_time = time.monotonic()
@@ -793,16 +791,8 @@ class SentimentAnalyzer:
         )
 
         logger.info(
-            "sentiment_analysis_complete",
-            company_id=company_id,
-            variant_type=variant_type,
-            frustration=frustration_score,
-            emotion=emotion,
-            urgency=urgency_level,
-            tone=tone_recommendation,
-            empathy_signals=empathy_signals,
-            elapsed_ms=elapsed_ms,
-        )
+            "sentiment_analysis_complete company_id=%s variant_type=%s frustration=%s emotion=%s urgency=%s tone=%s empathy_signals=%s elapsed_ms=%s",
+            company_id, variant_type, frustration_score, emotion, urgency_level, tone_recommendation, empathy_signals, elapsed_ms)
 
         # ── Cache store ─────────────────────────────────────────
         try:
@@ -812,7 +802,7 @@ class SentimentAnalyzer:
                 result.to_dict(), ttl_seconds=self.CACHE_TTL_SECONDS,
             )
         except Exception as exc:
-            logger.warning("sentiment_cache_write_error", error=str(exc))
+            logger.warning("sentiment_cache_write_error error=%s", str(exc))
 
         return result
 

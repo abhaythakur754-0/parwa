@@ -138,10 +138,8 @@ def update_company_profile(
     db.refresh(company)
 
     logger.info(
-        "company_profile_updated",
-        company_id=company_id,
-        fields=list(data.keys()),
-    )
+        "company_profile_updated company_id=%s fields=%s",
+        company_id, list(data.keys()))
 
     return company
 
@@ -174,9 +172,8 @@ def get_company_settings(
             db.commit()
             db.refresh(settings)
             logger.info(
-                "company_settings_auto_created",
-                company_id=company_id,
-            )
+                "company_settings_auto_created company_id=%s",
+                company_id)
         except Exception:
             db.rollback()
             settings = db.query(CompanySetting).filter(
@@ -265,10 +262,8 @@ def update_company_settings(
     db.refresh(settings)
 
     logger.info(
-        "company_settings_updated",
-        company_id=company_id,
-        fields=list(data.keys()),
-    )
+        "company_settings_updated company_id=%s fields=%s",
+        company_id, list(data.keys()))
 
     return settings
 
@@ -306,10 +301,8 @@ def change_password(
     db.commit()
 
     logger.info(
-        "password_changed",
-        user_id=user.id,
-        company_id=user.company_id,
-    )
+        "password_changed user_id=%s company_id=%s",
+        user.id, user.company_id)
 
 
 def get_team_members(
@@ -470,12 +463,8 @@ def update_team_member(
     db.refresh(target)
 
     logger.info(
-        "team_member_updated",
-        company_id=company_id,
-        target_user_id=user_id,
-        actor_user_id=actor.id,
-        changes=list(data.keys()),
-    )
+        "team_member_updated company_id=%s target_user_id=%s actor_user_id=%s changes=%s",
+        company_id, user_id, actor.id, list(data.keys()))
 
     return target
 
@@ -551,8 +540,5 @@ def remove_team_member(
     db.commit()
 
     logger.info(
-        "team_member_removed",
-        company_id=company_id,
-        target_user_id=user_id,
-        actor_user_id=actor.id,
-    )
+        "team_member_removed company_id=%s target_user_id=%s actor_user_id=%s",
+        company_id, user_id, actor.id)

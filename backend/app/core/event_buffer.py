@@ -108,11 +108,8 @@ async def store_event(
     except Exception as exc:
         # BC-005: Event buffer failure should NOT break the emit
         logger.warning(
-            "event_buffer_store_failed",
-            company_id=company_id,
-            event_type=event_type,
-            error=str(exc),
-        )
+            "event_buffer_store_failed company_id=%s event_type=%s error=%s",
+            company_id, event_type, str(exc))
         return False
 
 
@@ -167,19 +164,15 @@ async def get_events_since(
                 events.append(event)
             except (json.JSONDecodeError, TypeError):
                 logger.warning(
-                    "event_buffer_parse_error",
-                    company_id=company_id,
-                    raw_preview=raw[:100] if raw else "empty",
-                )
+                    "event_buffer_parse_error company_id=%s raw_preview=%s",
+                    company_id, raw[:100] if raw else "empty")
                 continue
 
         return events
     except Exception as exc:
         logger.warning(
-            "event_buffer_fetch_failed",
-            company_id=company_id,
-            error=str(exc),
-        )
+            "event_buffer_fetch_failed company_id=%s error=%s",
+            company_id, str(exc))
         return []
 
 
@@ -206,10 +199,8 @@ async def cleanup_old_events(company_id: str) -> int:
         return removed
     except Exception as exc:
         logger.warning(
-            "event_buffer_cleanup_failed",
-            company_id=company_id,
-            error=str(exc),
-        )
+            "event_buffer_cleanup_failed company_id=%s error=%s",
+            company_id, str(exc))
         return 0
 
 
@@ -268,10 +259,8 @@ async def get_buffer_stats(company_id: str) -> Dict[str, Any]:
         }
     except Exception as exc:
         logger.warning(
-            "event_buffer_stats_failed",
-            company_id=company_id,
-            error=str(exc),
-        )
+            "event_buffer_stats_failed company_id=%s error=%s",
+            company_id, str(exc))
         return {
             "total_events": 0,
             "oldest_event_age_hours": None,

@@ -180,11 +180,8 @@ class LoopholeDetectionEngine:
                     compiled.append(re.compile(pattern, re.IGNORECASE | re.DOTALL))
                 except re.error as exc:
                     logger.warning(
-                        "loophole_registry_invalid_regex",
-                        loophole_id=category.id,
-                        pattern=pattern,
-                        error=str(exc),
-                    )
+                        "loophole_registry_invalid_regex loophole_id=%s pattern=%s error=%s",
+                        category.id, pattern, str(exc))
             if compiled:
                 self._compiled_patterns[category.id] = compiled
 
@@ -197,10 +194,8 @@ class LoopholeDetectionEngine:
         ]
 
         logger.info(
-            "loophole_engine_initialized",
-            categories_loaded=len(self._compiled_patterns),
-            specialized_checks=len(self._specialized_ids),
-        )
+            "loophole_engine_initialized categories_loaded=%s specialized_checks=%s",
+            len(self._compiled_patterns), len(self._specialized_ids))
 
     # ──────────────────────────────────────────────────────────────
     # Main Detection Entry Point
@@ -271,10 +266,8 @@ class LoopholeDetectionEngine:
 
         except Exception as exc:
             logger.error(
-                "loophole_engine_detection_error",
-                tenant_id=tenant_id,
-                error=str(exc),
-            )
+                "loophole_engine_detection_error tenant_id=%s error=%s",
+                tenant_id, str(exc))
             # BC-008: Return a safe report — don't crash the pipeline
             return LoopholeReport(
                 matches=[],
@@ -288,13 +281,8 @@ class LoopholeDetectionEngine:
         report = self._aggregate_report(matches, tenant_id=tenant_id)
 
         logger.info(
-            "loophole_detection_complete",
-            tenant_id=tenant_id,
-            total_matches=len(matches),
-            overall_risk=report.overall_risk,
-            requires_block=report.requires_block,
-            requires_review=report.requires_review,
-        )
+            "loophole_detection_complete tenant_id=%s total_matches=%s overall_risk=%s requires_block=%s requires_review=%s",
+            tenant_id, len(matches), report.overall_risk, report.requires_block, report.requires_review)
 
         return report
 

@@ -90,18 +90,15 @@ def retry_eligible_dlq_entries() -> List[Dict[str, Any]]:
             eligible.append(entry)
         
         logger.info(
-            "dlq_retry_scan_complete",
-            total_entries=len(entries),
-            eligible_count=len(eligible),
-        )
+            "dlq_retry_scan_complete total_entries=%s eligible_count=%s",
+            len(entries), len(eligible))
         
         return eligible
         
     except Exception as exc:
         logger.error(
-            "dlq_retry_scan_failed",
-            error=str(exc)[:200],
-        )
+            "dlq_retry_scan_failed error=%s",
+            str(exc)[:200])
         return []
 
 
@@ -126,7 +123,7 @@ def process_dlq_retry(entry_id: str, state_snapshot: Dict[str, Any]) -> bool:
         # Mark as retried (increment retry_count)
         retry_result = retry_dlq_entry(entry_id)
         if retry_result is None:
-            logger.warning("dlq_retry_entry_not_found", entry_id=entry_id)
+            logger.warning("dlq_retry_entry_not_found entry_id=%s", entry_id)
             return False
         
         # Attempt graph re-invocation with stored state
@@ -141,19 +138,15 @@ def process_dlq_retry(entry_id: str, state_snapshot: Dict[str, Any]) -> bool:
         # the DLQ API to trigger manual retries.
         
         logger.info(
-            "dlq_retry_processed",
-            entry_id=entry_id,
-            retry_count=retry_result.get("retry_count", 0),
-        )
+            "dlq_retry_processed entry_id=%s retry_count=%s",
+            entry_id, retry_result.get("retry_count", 0))
         
         return True
         
     except Exception as exc:
         logger.error(
-            "dlq_retry_process_failed",
-            entry_id=entry_id,
-            error=str(exc)[:200],
-        )
+            "dlq_retry_process_failed entry_id=%s error=%s",
+            entry_id, str(exc)[:200])
         return False
 
 
@@ -193,6 +186,6 @@ def run_dlq_retry_scan() -> Dict[str, Any]:
         "failed": failed,
     }
     
-    logger.info("dlq_retry_scan_results", **result)
+    logger.info("dlq_retry_scan_results", extra=result)
     
     return result

@@ -2118,17 +2118,13 @@ class LeastToMostProcessor:
                         sub_queries.append(sq)
                     if sub_queries:
                         logger.debug(
-                            "least_to_most_llm_decomposition",
-                            num_sub_queries=len(sub_queries),
-                            company_id=self.config.company_id,
-                        )
+                            "least_to_most_llm_decomposition num_sub_queries=%s company_id=%s",
+                            len(sub_queries), self.config.company_id)
                         return sub_queries
         except Exception as llm_err:
             logger.debug(
-                "least_to_most_llm_fallback",
-                error=str(llm_err),
-                company_id=self.config.company_id,
-            )
+                "least_to_most_llm_fallback error=%s company_id=%s",
+                str(llm_err), self.config.company_id)
         # --- Fallback: deterministic decomposition ---
 
         domain = self._detect_domain(query)
@@ -2230,10 +2226,8 @@ class LeastToMostProcessor:
                 sq_id for sq_id, degree in in_degree.items() if degree > 0
             ]
             logger.warning(
-                "least_to_most_cycle_detected",
-                cycle_nodes=str(unprocessed),
-                company_id=self.config.company_id,
-            )
+                "least_to_most_cycle_detected cycle_nodes=%s company_id=%s",
+                str(unprocessed), self.config.company_id)
             # Mark blocked sub-queries
             for sq_id in unprocessed:
                 if sq_id in sq_map:
@@ -2300,11 +2294,8 @@ class LeastToMostProcessor:
                 results.append({"id": sq_id, "result": result})
 
             logger.debug(
-                "least_to_most_group_solved",
-                group_index=group_idx,
-                group_size=len(group),
-                company_id=self.config.company_id,
-            )
+                "least_to_most_group_solved group_index=%s group_size=%s company_id=%s",
+                group_idx, len(group), self.config.company_id)
 
         return results
 
@@ -2469,16 +2460,13 @@ class LeastToMostProcessor:
             if sub_queries:
                 steps_applied.append("decomposition")
                 logger.info(
-                    "least_to_most_decomposition_complete",
-                    sub_query_count=len(sub_queries),
-                    company_id=self.config.company_id,
-                )
+                    "least_to_most_decomposition_complete sub_query_count=%s company_id=%s",
+                    len(sub_queries), self.config.company_id)
             else:
                 steps_applied.append("decomposition_fallback")
                 logger.warning(
-                    "least_to_most_decomposition_empty",
-                    company_id=self.config.company_id,
-                )
+                    "least_to_most_decomposition_empty company_id=%s",
+                    self.config.company_id)
             confidence_boost += 0.1
 
             # Step 2: Dependency Ordering
@@ -2488,15 +2476,12 @@ class LeastToMostProcessor:
                 if graph.has_cycles:
                     steps_applied.append("cycle_detected")
                     logger.warning(
-                        "least_to_most_cycle_in_graph",
-                        company_id=self.config.company_id,
-                    )
+                        "least_to_most_cycle_in_graph company_id=%s",
+                        self.config.company_id)
                 else:
                     logger.info(
-                        "least_to_most_dependency_order",
-                        parallel_groups=len(graph.execution_order),
-                        company_id=self.config.company_id,
-                    )
+                        "least_to_most_dependency_order parallel_groups=%s company_id=%s",
+                        len(graph.execution_order), self.config.company_id)
             confidence_boost += 0.05
 
             # Step 3: Sequential Solving
@@ -2505,10 +2490,8 @@ class LeastToMostProcessor:
                 if results:
                     steps_applied.append("sequential_solving")
                     logger.info(
-                        "least_to_most_solving_complete",
-                        solved_count=len(results),
-                        company_id=self.config.company_id,
-                    )
+                        "least_to_most_solving_complete solved_count=%s company_id=%s",
+                        len(results), self.config.company_id)
             confidence_boost += 0.1
 
             # Step 4: Result Combination
@@ -2530,10 +2513,8 @@ class LeastToMostProcessor:
         except Exception as exc:
             # BC-008: Never crash — return graceful fallback
             logger.warning(
-                "least_to_most_processing_error",
-                error=str(exc),
-                company_id=self.config.company_id,
-            )
+                "least_to_most_processing_error error=%s company_id=%s",
+                str(exc), self.config.company_id)
             return LeastToMostResult(
                 sub_queries=sub_queries,
                 dependency_graph={
@@ -2867,27 +2848,18 @@ class LeastToMostNode(BaseTechniqueNode):
             completeness = result.completeness_check
             if completeness.get("has_gaps"):
                 logger.info(
-                    "least_to_most_completeness_gaps",
-                    score=completeness.get("score", 0),
-                    missing=completeness.get("missing", 0),
-                    blocked=completeness.get("blocked", 0),
-                    company_id=self._config.company_id,
-                )
+                    "least_to_most_completeness_gaps score=%s missing=%s blocked=%s company_id=%s",
+                    completeness.get("score", 0), completeness.get("missing", 0), completeness.get("blocked", 0), self._config.company_id)
             else:
                 logger.info(
-                    "least_to_most_complete",
-                    score=completeness.get("score", 0),
-                    sub_queries=completeness.get("total", 0),
-                    company_id=self._config.company_id,
-                )
+                    "least_to_most_complete score=%s sub_queries=%s company_id=%s",
+                    completeness.get("score", 0), completeness.get("total", 0), self._config.company_id)
 
             return state
 
         except Exception as exc:
             # BC-008: Never crash — return original state
             logger.warning(
-                "least_to_most_execute_error",
-                error=str(exc),
-                company_id=self._config.company_id,
-            )
+                "least_to_most_execute_error error=%s company_id=%s",
+                str(exc), self._config.company_id)
             return original_state

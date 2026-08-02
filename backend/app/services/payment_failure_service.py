@@ -211,10 +211,8 @@ class PaymentFailureService:
                             db.commit()
                         except Exception as email_err:
                             logger.error(
-                                "payment_failure_email_failed",
-                                company_id=str(company_id),
-                                error=str(email_err),
-                            )
+                                "payment_failure_email_failed company_id=%s error=%s",
+                                str(company_id), str(email_err))
 
                     # Notify via notification service
                     try:
@@ -230,17 +228,13 @@ class PaymentFailureService:
                         )
                     except Exception as notif_err:
                         logger.error(
-                            "payment_failure_notification_failed",
-                            company_id=str(company_id),
-                            error=str(notif_err),
-                        )
+                            "payment_failure_notification_failed company_id=%s error=%s",
+                            str(company_id), str(notif_err))
 
                 except Exception as e:
                     logger.error(
-                        "payment_failure_side_effects_failed",
-                        company_id=str(company_id),
-                        error=str(e),
-                    )
+                        "payment_failure_side_effects_failed company_id=%s error=%s",
+                        str(company_id), str(e))
 
                 return {
                     "status": "stopped",

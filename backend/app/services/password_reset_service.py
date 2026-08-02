@@ -164,10 +164,8 @@ def initiate_password_reset(
 
     if not sent:
         logger.error(
-            "reset_email_failed",
-            user_id=user.id,
-            email=user.email,
-        )
+            "reset_email_failed user_id=%s email=%s",
+            user.id, user.email)
 
     return {
         "status": "success",
@@ -253,10 +251,8 @@ def reset_password(
     db.commit()
 
     logger.info(
-        "password_reset",
-        user_id=user.id,
-        token_id=stored.id,
-    )
+        "password_reset user_id=%s token_id=%s",
+        user.id, stored.id)
 
     return {
         "status": "success",
@@ -278,7 +274,5 @@ def _invalidate_all_sessions(
         RefreshToken.user_id == user_id
     ).delete()
     logger.info(
-        "sessions_invalidated",
-        user_id=user_id,
-        count=count,
-    )
+        "sessions_invalidated user_id=%s count=%s",
+        user_id, count)

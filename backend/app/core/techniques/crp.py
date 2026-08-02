@@ -194,7 +194,7 @@ class CRPProcessor:
             try:
                 patterns.append(re.compile(pattern_str, re.I))
             except re.error:
-                logger.warning("crp_invalid_filler_pattern", pattern=pattern_str)
+                logger.warning("crp_invalid_filler_pattern pattern=%s", pattern_str)
 
         # keep_empathy: when True, exclude empathy fillers so upset
         # customers still receive empathetic language.
@@ -211,10 +211,8 @@ class CRPProcessor:
                 patterns.append(re.compile(pattern_str, re.I))
             except re.error:
                 logger.warning(
-                    "crp_invalid_custom_filler",
-                    company_id=self.config.company_id,
-                    pattern=pattern_str,
-                )
+                    "crp_invalid_custom_filler company_id=%s pattern=%s",
+                    self.config.company_id, pattern_str)
         return patterns
 
     def _compile_compressions(self) -> List[Tuple[re.Pattern, str]]:
@@ -225,10 +223,8 @@ class CRPProcessor:
                 rules.append((re.compile(src, re.I), dst))
             except re.error:
                 logger.warning(
-                    "crp_invalid_compression",
-                    company_id=self.config.company_id,
-                    pattern=src,
-                )
+                    "crp_invalid_compression company_id=%s pattern=%s",
+                    self.config.company_id, src)
         return rules
 
     # ── Core Methods ───────────────────────────────────────────────
@@ -370,10 +366,8 @@ class CRPProcessor:
         except Exception as exc:
             # BC-008: Never crash — return original on error
             logger.warning(
-                "crp_processing_error",
-                error=str(exc),
-                company_id=self.config.company_id,
-            )
+                "crp_processing_error error=%s company_id=%s",
+                str(exc), self.config.company_id)
             return CRPResult(
                 processed_text=text,
                 original_tokens=original_tokens,

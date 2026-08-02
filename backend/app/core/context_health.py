@@ -209,10 +209,8 @@ class ContextHealthMeter:
         self._last_alerts: Dict[str, Dict[str, str]] = {}
 
         logger.info(
-            "context_health_meter_initialized",
-            variant_type=self._config.variant_type,
-            company_id=self._config.company_id,
-        )
+            "context_health_meter_initialized variant_type=%s company_id=%s",
+            self._config.variant_type, self._config.company_id)
 
     # ── Public API ─────────────────────────────────────────────
 
@@ -284,25 +282,16 @@ class ContextHealthMeter:
                 )
 
             logger.info(
-                "health_check_completed",
-                company_id=company_id,
-                conversation_id=conversation_id,
-                turn_number=turn_number,
-                score=round(overall_score, 4),
-                status=status.value,
-                alert_count=len(alerts),
-            )
+                "health_check_completed company_id=%s conversation_id=%s turn_number=%s score=%s status=%s alert_count=%s",
+                company_id, conversation_id, turn_number, round(overall_score, 4), status.value, len(alerts))
 
             return report
 
         except Exception as exc:
             # BC-008: Graceful degradation
             logger.warning(
-                "health_check_failed",
-                error=str(exc),
-                company_id=company_id,
-                conversation_id=conversation_id,
-            )
+                "health_check_failed error=%s company_id=%s conversation_id=%s",
+                str(exc), company_id, conversation_id)
             return HealthReport(
                 company_id=company_id,
                 conversation_id=conversation_id,
@@ -618,11 +607,8 @@ class ContextHealthMeter:
             )
         except Exception as exc:
             logger.warning(
-                "get_history_failed",
-                error=str(exc),
-                company_id=company_id,
-                conversation_id=conversation_id,
-            )
+                "get_history_failed error=%s company_id=%s conversation_id=%s",
+                str(exc), company_id, conversation_id)
             return []
 
     def get_latest_report(
@@ -639,11 +625,8 @@ class ContextHealthMeter:
             return history[-1] if history else None
         except Exception as exc:
             logger.warning(
-                "get_latest_report_failed",
-                error=str(exc),
-                company_id=company_id,
-                conversation_id=conversation_id,
-            )
+                "get_latest_report_failed error=%s company_id=%s conversation_id=%s",
+                str(exc), company_id, conversation_id)
             return None
 
     def reset(
@@ -660,17 +643,12 @@ class ContextHealthMeter:
             self._last_alerts.pop(conv_key, None)
 
             logger.info(
-                "health_meter_reset",
-                company_id=company_id,
-                conversation_id=conversation_id,
-            )
+                "health_meter_reset company_id=%s conversation_id=%s",
+                company_id, conversation_id)
         except Exception as exc:
             logger.warning(
-                "health_meter_reset_failed",
-                error=str(exc),
-                company_id=company_id,
-                conversation_id=conversation_id,
-            )
+                "health_meter_reset_failed error=%s company_id=%s conversation_id=%s",
+                str(exc), company_id, conversation_id)
 
     def reset_all(self) -> None:
         """Clear all health history. For testing."""
@@ -680,9 +658,8 @@ class ContextHealthMeter:
             logger.info("health_meter_reset_all")
         except Exception as exc:
             logger.warning(
-                "health_meter_reset_all_failed",
-                error=str(exc),
-            )
+                "health_meter_reset_all_failed error=%s",
+                str(exc))
 
     # ── Config Helpers ─────────────────────────────────────────
 

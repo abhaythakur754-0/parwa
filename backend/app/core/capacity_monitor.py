@@ -189,19 +189,12 @@ class CapacityMonitor:
                 )
                 self._alerts[company_id].append(alert)
                 logger.warning(
-                    "capacity_limit_exceeded_by_active",
-                    company_id=company_id,
-                    variant=variant,
-                    max_concurrent=max_concurrent,
-                    active_count=active_count,
-                )
+                    "capacity_limit_exceeded_by_active company_id=%s variant=%s max_concurrent=%s active_count=%s",
+                    company_id, variant, max_concurrent, active_count)
 
             logger.info(
-                "capacity_limit_configured",
-                company_id=company_id,
-                variant=variant,
-                max_concurrent=max_concurrent,
-            )
+                "capacity_limit_configured company_id=%s variant=%s max_concurrent=%s",
+                company_id, variant, max_concurrent)
 
     # ── Slot Acquisition ───────────────────────────────────────
 
@@ -247,13 +240,8 @@ class CapacityMonitor:
                     company_id, variant, current_used + 1, max_c
                 )
                 logger.info(
-                    "slot_acquired",
-                    company_id=company_id,
-                    variant=variant,
-                    ticket_id=ticket_id,
-                    used=current_used + 1,
-                    max=max_c,
-                )
+                    "slot_acquired company_id=%s variant=%s ticket_id=%s used=%s max=%s",
+                    company_id, variant, ticket_id, current_used + 1, max_c)
                 return True
             else:
                 # Queue the request
@@ -261,11 +249,8 @@ class CapacityMonitor:
                 q = self._queues[company_id][variant]
                 if any(item.ticket_id == ticket_id for item in q):
                     logger.info(
-                        "slot_already_queued",
-                        company_id=company_id,
-                        variant=variant,
-                        ticket_id=ticket_id,
-                    )
+                        "slot_already_queued company_id=%s variant=%s ticket_id=%s",
+                        company_id, variant, ticket_id)
                     return False
 
                 item = QueueItem(
@@ -280,14 +265,10 @@ class CapacityMonitor:
                     company_id, variant, current_used, max_c
                 )
                 logger.info(
-                    "slot_queued",
-                    company_id=company_id,
-                    variant=variant,
-                    ticket_id=ticket_id,
-                    queue_size=len(
+                    "slot_queued company_id=%s variant=%s ticket_id=%s queue_size=%s",
+                    company_id, variant, ticket_id, len(
                         self._queues[company_id][variant]
-                    ),
-                )
+                    ))
                 return False
 
     # ── Slot Release ───────────────────────────────────────────
@@ -324,13 +305,8 @@ class CapacityMonitor:
             self._clear_alerts_for_variant(company_id, variant)
 
             logger.info(
-                "slot_released",
-                company_id=company_id,
-                variant=variant,
-                ticket_id=ticket_id,
-                remaining=current_used,
-                max=max_c,
-            )
+                "slot_released company_id=%s variant=%s ticket_id=%s remaining=%s max=%s",
+                company_id, variant, ticket_id, current_used, max_c)
 
             # Process queue
             self._process_queue_locked(company_id, variant)
@@ -460,12 +436,8 @@ class CapacityMonitor:
                 company_id, variant, len(active), max_c
             )
             logger.info(
-                "queue_item_activated",
-                company_id=company_id,
-                variant=variant,
-                ticket_id=item.ticket_id,
-                priority=item.priority,
-            )
+                "queue_item_activated company_id=%s variant=%s ticket_id=%s priority=%s",
+                company_id, variant, item.ticket_id, item.priority)
 
         return activated
 
@@ -530,12 +502,8 @@ class CapacityMonitor:
             if not existing:
                 self._alerts[company_id].append(alert)
                 logger.warning(
-                    "capacity_alert",
-                    level=alert.level,
-                    company_id=company_id,
-                    variant=variant,
-                    percentage=alert.percentage,
-                )
+                    "capacity_alert level=%s company_id=%s variant=%s percentage=%s",
+                    alert.level, company_id, variant, alert.percentage)
 
     def _clear_alerts_for_variant(
         self,

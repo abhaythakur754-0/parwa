@@ -131,7 +131,7 @@ def get_fake_voting_config(variant_type: str) -> FakeVotingConfig:
         },
     }
     if variant_type not in _PRESETS:
-        logger.warning("fake_voting_unknown_variant", variant_type=variant_type, fallback="mini_parwa")
+        logger.warning("fake_voting_unknown_variant variant_type=%s fallback=%s", variant_type, "mini_parwa")
         variant_type = "mini_parwa"
     return FakeVotingConfig(**_PRESETS[variant_type])
 
@@ -163,7 +163,7 @@ class RedFlagEngine:
                 result["company_id"] = company_id
                 flags.append(result)
         if flags:
-            logger.info("red_flags_raised", company_id=company_id, count=len(flags), types=[f["type"] for f in flags])
+            logger.info("red_flags_raised company_id=%s count=%s types=%s", company_id, len(flags), [f["type"] for f in flags])
         return flags
 
     def _check_hallucination_risk(self, candidate: str) -> Optional[Dict[str, Any]]:
@@ -235,9 +235,7 @@ class FakeVotingEngine:
         self._config = config or FakeVotingConfig()
         self._red_flags = RedFlagEngine()
         logger.info(
-            "fake_voting_init", candidates=self._config.num_candidates,
-            evaluators=self._config.evaluators, threshold=self._config.consensus_threshold,
-        )
+            "fake_voting_init candidates=%s evaluators=%s threshold=%s", self._config.num_candidates, self._config.evaluators, self._config.consensus_threshold)
 
     async def vote(
         self, candidates: List[Dict[str, Any]], query: str,
@@ -247,7 +245,7 @@ class FakeVotingEngine:
         try:
             return await self._vote_impl(candidates, query, company_id, variant_type)
         except Exception as exc:
-            logger.error("fake_voting_fatal", company_id=company_id, error=str(exc))
+            logger.error("fake_voting_fatal company_id=%s error=%s", company_id, str(exc))
             fb = candidates[0] if candidates else {"solution": "", "confidence": 0.0, "reasoning": "BC-008 fallback", "source": "bc008"}
             return {
                 "winner": {**fb, "consensus_score": 0.0}, "consensus_score": 0.0,
@@ -284,12 +282,12 @@ class FakeVotingEngine:
                 results = await asyncio.gather(*tasks, return_exceptions=True)
                 for ev, score in zip(evaluators, results):
                     if isinstance(score, Exception):
-                        logger.warning("evaluator_error", company_id=company_id, evaluator=ev, error=str(score))
+                        logger.warning("evaluator_error company_id=%s evaluator=%s error=%s", company_id, ev, str(score))
                         breakdown[ev] = 0.5
                     else:
                         breakdown[ev] = max(0.0, min(1.0, float(score)))
             except Exception as exc:
-                logger.warning("gather_error", company_id=company_id, error=str(exc))
+                logger.warning("gather_error company_id=%s error=%s", company_id, str(exc))
                 for ev in evaluators:
                     if ev not in breakdown:
                         breakdown[ev] = 0.5
@@ -303,7 +301,7 @@ class FakeVotingEngine:
                 flags = await self._red_flags.check_red_flags(text, query, company_id, weighted)
                 all_flags.extend(flags)
             except Exception as exc:
-                logger.warning("red_flag_error", company_id=company_id, error=str(exc))
+                logger.warning("red_flag_error company_id=%s error=%s", company_id, str(exc))
 
         # Select winner
         winner_idx = max(range(len(candidates)), key=lambda i: (all_scores.get(i, {}).get("weighted_score", 0), all_scores.get(i, {}).get("evaluators_agree", 0)))
@@ -315,9 +313,7 @@ class FakeVotingEngine:
         winner["score_breakdown"] = ws.get("breakdown", {})
 
         logger.info(
-            "fake_voting_done", company_id=company_id, variant=variant_type,
-            candidates=len(candidates), winner=winner_idx, score=winner["consensus_score"],
-        )
+            "fake_voting_done company_id=%s variant=%s candidates=%s winner=%s score=%s", company_id, variant_type, len(candidates), winner_idx, winner["consensus_score"])
         return {
             "winner": winner, "consensus_score": winner["consensus_score"],
             "all_scores": all_scores, "red_flags": all_flags,
@@ -436,7 +432,7 @@ class FakeVotingEngine:
             content = result.get("content", "").strip()
             return self._parse_score(content)
         except Exception as exc:
-            logger.debug("llm_score_error", company_id=company_id, error=str(exc))
+            logger.debug("llm_score_error company_id=%s error=%s", company_id, str(exc))
             return None
 
     @staticmethod

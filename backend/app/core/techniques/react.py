@@ -875,10 +875,8 @@ class ReActProcessor:
         except Exception as exc:
             # BC-008: Never crash — return graceful fallback
             logger.warning(
-                "react_processing_error",
-                error=str(exc),
-                company_id=self.config.company_id,
-            )
+                "react_processing_error error=%s company_id=%s",
+                str(exc), self.config.company_id)
             return ReActResult(
                 thought_chain=thought_chain,
                 actions_taken=actions_taken,
@@ -983,9 +981,7 @@ class ReActNode(BaseTechniqueNode):
         except Exception as exc:
             # BC-008: Never crash — return original state
             logger.warning(
-                "react_execute_error",
-                error=str(exc),
-                company_id=self._config.company_id,
-            )
+                "react_execute_error error=%s company_id=%s",
+                str(exc), self._config.company_id)
             self.record_skip(state, reason="execution_error")
             return original_state

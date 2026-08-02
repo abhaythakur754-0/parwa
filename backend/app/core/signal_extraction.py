@@ -230,7 +230,7 @@ class SignalExtractor:
             from app.core.redis import cache_get, cache_set
             cached = await cache_get(request.company_id, cache_key)
             if cached is not None and isinstance(cached, dict):
-                logger.debug("signal_cache_hit", key=cache_key)
+                logger.debug("signal_cache_hit key=%s", cache_key)
                 result = ExtractedSignals(
                     intent=cached["intent"],
                     sentiment=cached["sentiment"],
@@ -247,7 +247,7 @@ class SignalExtractor:
                 )
                 return result
         except Exception as exc:
-            logger.warning("signal_cache_read_error", error=str(exc))
+            logger.warning("signal_cache_read_error error=%s", str(exc))
 
         # Extract all signals
         start_time = time.monotonic()
@@ -280,15 +280,8 @@ class SignalExtractor:
 
         elapsed_ms = round((time.monotonic() - start_time) * 1000, 2)
         logger.info(
-            "signal_extraction_complete",
-            company_id=request.company_id,
-            variant_type=request.variant_type,
-            intent=intent,
-            sentiment=round(sentiment, 2),
-            complexity=round(complexity, 2),
-            monetary_value=monetary_value,
-            elapsed_ms=elapsed_ms,
-        )
+            "signal_extraction_complete company_id=%s variant_type=%s intent=%s sentiment=%s complexity=%s monetary_value=%s elapsed_ms=%s",
+            request.company_id, request.variant_type, intent, round(sentiment, 2), round(complexity, 2), monetary_value, elapsed_ms)
 
         # Store in cache (GAP-007: key already includes variant_type)
         try:
@@ -298,7 +291,7 @@ class SignalExtractor:
                 result.to_dict(), ttl_seconds=self.CACHE_TTL_SECONDS,
             )
         except Exception as exc:
-            logger.warning("signal_cache_write_error", error=str(exc))
+            logger.warning("signal_cache_write_error error=%s", str(exc))
 
         return result
 

@@ -284,20 +284,15 @@ class ClassificationEngine:
         # ── GAP-008: Input validation ────────────────────────────
         if not text or not isinstance(text, str):
             logger.info(
-                "low_confidence_classification",
-                reason="empty_input",
-                company_id=company_id,
-            )
+                "low_confidence_classification reason=%s company_id=%s",
+                "empty_input", company_id)
             return self._default_result("empty_input")
 
         cleaned = text.strip()
         if len(cleaned) < self._keyword_classifier.MIN_TEXT_LENGTH:
             logger.info(
-                "low_confidence_classification",
-                reason="too_short",
-                text_length=len(cleaned),
-                company_id=company_id,
-            )
+                "low_confidence_classification reason=%s text_length=%s company_id=%s",
+                "too_short", len(cleaned), company_id)
             return self._default_result("too_short")
 
         # ── AI classification (parwa/parwa_high only) ────────────
@@ -308,10 +303,8 @@ class ClassificationEngine:
                 )
             except Exception as exc:
                 logger.warning(
-                    "ai_classification_failed",
-                    error=str(exc),
-                    company_id=company_id,
-                )
+                    "ai_classification_failed error=%s company_id=%s",
+                    str(exc), company_id)
 
         # ── Fallback to keyword classification ────────────────────
         return self._keyword_classifier.classify(cleaned)

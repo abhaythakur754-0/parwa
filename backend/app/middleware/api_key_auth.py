@@ -229,9 +229,8 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
                 }
         except Exception as _exc:
             logger.warning(
-                "api_key_db_validation_failed",
-                error=str(_exc),
-            )
+                "api_key_db_validation_failed error=%s",
+                str(_exc))
             return None
 
     def _lookup_key_memory(self, raw_key: str):

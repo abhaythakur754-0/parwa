@@ -363,9 +363,8 @@ class DraftComposer:
         # ── Validate request ──────────────────────────────────────
         if not request.query or not request.query.strip():
             logger.info(
-                "draft_composer_empty_query",
-                company_id=request.company_id,
-            )
+                "draft_composer_empty_query company_id=%s",
+                request.company_id)
             return self._empty_response(
                 request_id=request_id,
                 variant_type=request.variant_type,
@@ -386,10 +385,8 @@ class DraftComposer:
         )
         if cached_response is not None:
             logger.info(
-                "draft_composer_cache_hit",
-                company_id=request.company_id,
-                variant_type=request.variant_type,
-            )
+                "draft_composer_cache_hit company_id=%s variant_type=%s",
+                request.company_id, request.variant_type)
             cached_response.cached = True
             return cached_response
 
@@ -407,11 +404,8 @@ class DraftComposer:
             )
         except asyncio.TimeoutError:
             logger.warning(
-                "draft_composer_total_timeout",
-                company_id=request.company_id,
-                variant_type=request.variant_type,
-                timeout=_TOTAL_COMPOSE_TIMEOUT_SECONDS,
-            )
+                "draft_composer_total_timeout company_id=%s variant_type=%s timeout=%s",
+                request.company_id, request.variant_type, _TOTAL_COMPOSE_TIMEOUT_SECONDS)
             return self._empty_response(
                 request_id=request_id,
                 variant_type=request.variant_type,
@@ -483,23 +477,18 @@ class DraftComposer:
                     drafts.append(result)
                 elif isinstance(result, Exception):
                     logger.warning(
-                        "draft_generation_exception_skipping",
-                        error=str(result),
-                        company_id=request.company_id,
-                    )
+                        "draft_generation_exception_skipping error=%s company_id=%s",
+                        str(result), request.company_id)
         except Exception as exc:
             logger.warning(
-                "draft_generation_gather_failed",
-                error=str(exc),
-                company_id=request.company_id,
-            )
+                "draft_generation_gather_failed error=%s company_id=%s",
+                str(exc), request.company_id)
 
         # If all drafts failed, return empty
         if not drafts:
             logger.warning(
-                "draft_composer_all_drafts_failed",
-                company_id=request.company_id,
-            )
+                "draft_composer_all_drafts_failed company_id=%s",
+                request.company_id)
             return self._empty_response(
                 request_id=request_id,
                 variant_type=request.variant_type,
@@ -557,15 +546,9 @@ class DraftComposer:
         )
 
         logger.info(
-            "draft_composer_complete",
-            company_id=request.company_id,
-            variant_type=request.variant_type,
-            drafts_generated=len(drafts),
-            drafts_after_dedup=len(unique_drafts),
-            best_score=unique_drafts[0].quality_score
-            if unique_drafts else 0.0,
-            total_time_ms=total_time,
-        )
+            "draft_composer_complete company_id=%s variant_type=%s drafts_generated=%s drafts_after_dedup=%s best_score=%s total_time_ms=%s",
+            request.company_id, request.variant_type, len(drafts), len(unique_drafts), unique_drafts[0].quality_score
+            if unique_drafts else 0.0, total_time)
 
         return response
 
@@ -599,10 +582,8 @@ class DraftComposer:
             return result.to_dict()
         except Exception as exc:
             logger.warning(
-                "draft_composer_signal_extraction_failed",
-                error=str(exc),
-                company_id=request.company_id,
-            )
+                "draft_composer_signal_extraction_failed error=%s company_id=%s",
+                str(exc), request.company_id)
             return {
                 "intent": "general",
                 "sentiment": request.customer_sentiment,
@@ -645,10 +626,8 @@ class DraftComposer:
             }
         except Exception as exc:
             logger.warning(
-                "draft_composer_intent_classification_failed",
-                error=str(exc),
-                company_id=request.company_id,
-            )
+                "draft_composer_intent_classification_failed error=%s company_id=%s",
+                str(exc), request.company_id)
             return {
                 "primary_intent": "general",
                 "primary_confidence": 0.3,
@@ -703,10 +682,8 @@ class DraftComposer:
             }
         except Exception as exc:
             logger.warning(
-                "draft_composer_brand_voice_failed",
-                error=str(exc),
-                company_id=request.company_id,
-            )
+                "draft_composer_brand_voice_failed error=%s company_id=%s",
+                str(exc), request.company_id)
             return {
                 "tone": "professional",
                 "formality_level": 0.5,
@@ -853,12 +830,8 @@ class DraftComposer:
             )
         except asyncio.TimeoutError:
             logger.warning(
-                "draft_generation_timeout",
-                draft_id=draft_id,
-                draft_index=draft_index,
-                company_id=company_id,
-                timeout=_DRAFT_GENERATION_TIMEOUT_SECONDS,
-            )
+                "draft_generation_timeout draft_id=%s draft_index=%s company_id=%s timeout=%s",
+                draft_id, draft_index, company_id, _DRAFT_GENERATION_TIMEOUT_SECONDS)
             generation_time = round(
                 (time.monotonic() - draft_start) * 1000, 2,
             )
@@ -875,11 +848,8 @@ class DraftComposer:
             )
         except Exception as exc:
             logger.warning(
-                "draft_generation_error",
-                draft_id=draft_id,
-                error=str(exc),
-                company_id=company_id,
-            )
+                "draft_generation_error draft_id=%s error=%s company_id=%s",
+                draft_id, str(exc), company_id)
             generation_time = round(
                 (time.monotonic() - draft_start) * 1000, 2,
             )
@@ -1371,11 +1341,8 @@ class DraftComposer:
 
             except Exception as exc:
                 logger.warning(
-                    "draft_clara_validation_failed",
-                    draft_id=draft.draft_id,
-                    error=str(exc),
-                    company_id=company_id,
-                )
+                    "draft_clara_validation_failed draft_id=%s error=%s company_id=%s",
+                    draft.draft_id, str(exc), company_id)
                 draft.quality_score = 0.3  # Low but not zero
                 draft.metadata["clara_error"] = str(exc)
 
@@ -1424,11 +1391,8 @@ class DraftComposer:
                 if similarity >= _DEDUP_SIMILARITY_THRESHOLD:
                     is_duplicate = True
                     logger.info(
-                        "draft_deduplicated",
-                        draft_id=draft.draft_id,
-                        similarity=round(similarity, 4),
-                        threshold=_DEDUP_SIMILARITY_THRESHOLD,
-                    )
+                        "draft_deduplicated draft_id=%s similarity=%s threshold=%s",
+                        draft.draft_id, round(similarity, 4), _DEDUP_SIMILARITY_THRESHOLD)
                     break
 
             if not is_duplicate:
@@ -1531,11 +1495,8 @@ class DraftComposer:
 
         except asyncio.TimeoutError:
             logger.warning(
-                "draft_regenerate_timeout",
-                draft_id=draft_id,
-                new_draft_id=new_draft_id,
-                company_id=company_id,
-            )
+                "draft_regenerate_timeout draft_id=%s new_draft_id=%s company_id=%s",
+                draft_id, new_draft_id, company_id)
             generation_time = round(
                 (time.monotonic() - draft_start) * 1000, 2,
             )
@@ -1552,11 +1513,8 @@ class DraftComposer:
             )
         except Exception as exc:
             logger.warning(
-                "draft_regenerate_error",
-                draft_id=draft_id,
-                error=str(exc),
-                company_id=company_id,
-            )
+                "draft_regenerate_error draft_id=%s error=%s company_id=%s",
+                draft_id, str(exc), company_id)
             generation_time = round(
                 (time.monotonic() - draft_start) * 1000, 2,
             )
@@ -1613,11 +1571,8 @@ class DraftComposer:
             return []
         except Exception as exc:
             logger.warning(
-                "draft_history_retrieval_failed",
-                error=str(exc),
-                company_id=company_id,
-                ticket_id=ticket_id,
-            )
+                "draft_history_retrieval_failed error=%s company_id=%s ticket_id=%s",
+                str(exc), company_id, ticket_id)
             # BC-008: Return empty on failure
             return []
 
@@ -1669,11 +1624,8 @@ class DraftComposer:
 
         except Exception as exc:
             logger.warning(
-                "draft_history_store_failed",
-                error=str(exc),
-                company_id=company_id,
-                ticket_id=ticket_id,
-            )
+                "draft_history_store_failed error=%s company_id=%s ticket_id=%s",
+                str(exc), company_id, ticket_id)
 
     # ──────────────────────────────────────────────────────────────
     # FEEDBACK STORAGE (GAP-020)
@@ -1714,18 +1666,13 @@ class DraftComposer:
             )
 
             logger.info(
-                "draft_feedback_stored",
-                draft_id=draft_id,
-                company_id=company_id,
-            )
+                "draft_feedback_stored draft_id=%s company_id=%s",
+                draft_id, company_id)
 
         except Exception as exc:
             logger.warning(
-                "draft_feedback_store_failed",
-                error=str(exc),
-                draft_id=draft_id,
-                company_id=company_id,
-            )
+                "draft_feedback_store_failed error=%s draft_id=%s company_id=%s",
+                str(exc), draft_id, company_id)
 
     async def get_feedback_history(
         self,
@@ -1749,10 +1696,8 @@ class DraftComposer:
         # For now, return empty — the per-draft feedback storage
         # above enables future batch analysis.
         logger.debug(
-            "draft_feedback_history_requested",
-            company_id=company_id,
-            limit=limit,
-        )
+            "draft_feedback_history_requested company_id=%s limit=%s",
+            company_id, limit)
         return []
 
     # ──────────────────────────────────────────────────────────────
@@ -1806,10 +1751,8 @@ class DraftComposer:
                 )
         except Exception as exc:
             logger.warning(
-                "draft_cache_read_error",
-                error=str(exc),
-                company_id=company_id,
-            )
+                "draft_cache_read_error error=%s company_id=%s",
+                str(exc), company_id)
         return None
 
     async def _store_cache(
@@ -1836,10 +1779,8 @@ class DraftComposer:
             )
         except Exception as exc:
             logger.warning(
-                "draft_cache_write_error",
-                error=str(exc),
-                company_id=company_id,
-            )
+                "draft_cache_write_error error=%s company_id=%s",
+                str(exc), company_id)
 
     # ──────────────────────────────────────────────────────────────
     # SOCKET.IO EMISSION
@@ -1887,19 +1828,13 @@ class DraftComposer:
             )
 
             logger.info(
-                "draft_suggestions_emitted",
-                company_id=request.company_id,
-                agent_id=request.agent_id,
-                ticket_id=request.ticket_id,
-                draft_count=len(response.drafts),
-            )
+                "draft_suggestions_emitted company_id=%s agent_id=%s ticket_id=%s draft_count=%s",
+                request.company_id, request.agent_id, request.ticket_id, len(response.drafts))
 
         except Exception as exc:
             logger.warning(
-                "draft_socketio_emit_failed",
-                error=str(exc),
-                company_id=request.company_id,
-            )
+                "draft_socketio_emit_failed error=%s company_id=%s",
+                str(exc), request.company_id)
             # BC-008: Socket.io failure doesn't affect the response
 
     # ──────────────────────────────────────────────────────────────
@@ -1951,11 +1886,8 @@ class DraftComposer:
             (time.monotonic() - compose_start) * 1000, 2,
         )
         logger.info(
-            "draft_composer_empty_response",
-            request_id=request_id,
-            reason=reason,
-            total_time_ms=total_time,
-        )
+            "draft_composer_empty_response request_id=%s reason=%s total_time_ms=%s",
+            request_id, reason, total_time)
         return DraftComposerResponse(
             request_id=request_id,
             drafts=[],

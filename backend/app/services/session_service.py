@@ -130,10 +130,8 @@ def revoke_session(
     db.commit()
 
     logger.info(
-        "session_revoked",
-        user_id=user_id,
-        session_id=session_id,
-    )
+        "session_revoked user_id=%s session_id=%s",
+        user_id, session_id)
 
     return {
         "status": "revoked",
@@ -170,10 +168,8 @@ def revoke_other_sessions(
     db.commit()
 
     logger.info(
-        "other_sessions_revoked",
-        user_id=user_id,
-        count=count,
-    )
+        "other_sessions_revoked user_id=%s count=%s",
+        user_id, count)
 
     return {
         "status": "all_other_sessions_revoked",

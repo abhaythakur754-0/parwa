@@ -945,10 +945,8 @@ class ChainOfThoughtProcessor:
         except Exception as exc:
             # BC-008: Never crash — return graceful fallback
             logger.warning(
-                "chain_of_thought_processing_error",
-                error=str(exc),
-                company_id=self.config.company_id,
-            )
+                "chain_of_thought_processing_error error=%s company_id=%s",
+                str(exc), self.config.company_id)
             return CoTResult(
                 reasoning_chain=reasoning_chain if "reasoning_chain" in dir() else "",
                 steps_applied=steps_applied + ["error_fallback"]
@@ -1071,8 +1069,6 @@ class ChainOfThoughtNode(BaseTechniqueNode):
         except Exception as exc:
             # BC-008: Never crash — return original state
             logger.warning(
-                "chain_of_thought_execute_error",
-                error=str(exc),
-                company_id=self._config.company_id,
-            )
+                "chain_of_thought_execute_error error=%s company_id=%s",
+                str(exc), self._config.company_id)
             return original_state

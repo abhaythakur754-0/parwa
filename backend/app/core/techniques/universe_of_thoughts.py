@@ -911,11 +911,8 @@ class UoTProcessor:
             candidates.append(candidate)
 
         logger.info(
-            "uot_solution_space_generated",
-            category=category.value,
-            company_id=self.config.company_id,
-            solution_count=len(candidates),
-        )
+            "uot_solution_space_generated category=%s company_id=%s solution_count=%s",
+            category.value, self.config.company_id, len(candidates))
 
         return candidates
 
@@ -1038,16 +1035,12 @@ class UoTProcessor:
                         solution.rationale = justification
                         break
                 logger.info(
-                    "uot_llm_evaluation_applied",
-                    company_id=self.config.company_id,
-                    llm_selected=selected_name,
-                )
+                    "uot_llm_evaluation_applied company_id=%s llm_selected=%s",
+                    self.config.company_id, selected_name)
         except Exception as llm_err:
             logger.warning(
-                "uot_llm_evaluation_fallback",
-                error=str(llm_err),
-                company_id=self.config.company_id,
-            )
+                "uot_llm_evaluation_fallback error=%s company_id=%s",
+                str(llm_err), self.config.company_id)
         # --- Fallback: use deterministic scores ---
 
         # Sort solutions by total_score descending
@@ -1057,12 +1050,8 @@ class UoTProcessor:
         matrix_rows.sort(key=lambda r: r["total"], reverse=True)
 
         logger.info(
-            "uot_evaluation_complete",
-            company_id=self.config.company_id,
-            solution_count=len(solutions),
-            top_solution=solutions[0].name if solutions else "none",
-            top_score=solutions[0].total_score if solutions else 0.0,
-        )
+            "uot_evaluation_complete company_id=%s solution_count=%s top_solution=%s top_score=%s",
+            self.config.company_id, len(solutions), solutions[0].name if solutions else "none", solutions[0].total_score if solutions else 0.0)
 
         return solutions, matrix_rows
 
@@ -1094,19 +1083,12 @@ class UoTProcessor:
         # no solution is genuinely good — still return it but log)
         if best.total_score < 3.0:
             logger.warning(
-                "uot_low_confidence_selection",
-                company_id=self.config.company_id,
-                selected_solution=best.name,
-                score=best.total_score,
-            )
+                "uot_low_confidence_selection company_id=%s selected_solution=%s score=%s",
+                self.config.company_id, best.name, best.total_score)
 
         logger.info(
-            "uot_optimal_selected",
-            company_id=self.config.company_id,
-            solution=best.name,
-            score=best.total_score,
-            rationale=best.rationale[:80],
-        )
+            "uot_optimal_selected company_id=%s solution=%s score=%s rationale=%s",
+            self.config.company_id, best.name, best.total_score, best.rationale[:80])
 
         return best
 
@@ -1213,10 +1195,8 @@ class UoTProcessor:
                 steps_applied.append("solution_space_generation")
                 confidence_boost += 0.05
                 logger.info(
-                    "uot_step1_complete",
-                    company_id=self.config.company_id,
-                    solutions_generated=len(solutions),
-                )
+                    "uot_step1_complete company_id=%s solutions_generated=%s",
+                    self.config.company_id, len(solutions))
 
             # Step 2: Evaluation Matrix
             solutions, evaluation_matrix = await self.evaluate_solutions(
@@ -1226,10 +1206,8 @@ class UoTProcessor:
                 steps_applied.append("evaluation_matrix")
                 confidence_boost += 0.10
                 logger.info(
-                    "uot_step2_complete",
-                    company_id=self.config.company_id,
-                    matrix_rows=len(evaluation_matrix),
-                )
+                    "uot_step2_complete company_id=%s matrix_rows=%s",
+                    self.config.company_id, len(evaluation_matrix))
 
             # Step 3: Optimal Selection
             selected = await self.select_optimal(solutions)
@@ -1252,10 +1230,8 @@ class UoTProcessor:
         except Exception as exc:
             # BC-008: Never crash — return graceful fallback
             logger.warning(
-                "uot_processing_error",
-                error=str(exc),
-                company_id=self.config.company_id,
-            )
+                "uot_processing_error error=%s company_id=%s",
+                str(exc), self.config.company_id)
             return UoTResult(
                 solutions=solutions,
                 selected_solution=selected,
@@ -1491,25 +1467,18 @@ class UniverseOfThoughtsNode(BaseTechniqueNode):
                     state.response_parts.append(presentation)
 
             logger.info(
-                "uot_execution_complete",
-                company_id=self._config.company_id,
-                solutions_evaluated=len(result.solutions),
-                selected=(
+                "uot_execution_complete company_id=%s solutions_evaluated=%s selected=%s confidence_boost=%s steps_applied=%s",
+                self._config.company_id, len(result.solutions), (
                     result.selected_solution.name
                     if result.selected_solution
                     else "none"
-                ),
-                confidence_boost=result.confidence_boost,
-                steps_applied=", ".join(result.steps_applied),
-            )
+                ), result.confidence_boost, ", ".join(result.steps_applied))
 
             return state
 
         except Exception as exc:
             # BC-008: Never crash — return original state
             logger.warning(
-                "uot_execute_error",
-                error=str(exc),
-                company_id=self._config.company_id,
-            )
+                "uot_execute_error error=%s company_id=%s",
+                str(exc), self._config.company_id)
             return original_state

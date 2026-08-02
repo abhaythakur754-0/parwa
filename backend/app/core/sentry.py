@@ -295,20 +295,15 @@ def init_sentry() -> bool:
         _sentry_initialized = True
 
         logger.info(
-            "sentry_initialized",
-            environment=environment,
-            traces_sample_rate=traces_sample_rate,
-            profiles_sample_rate=profiles_sample_rate,
-            send_default_pii=False,
-        )
+            "sentry_initialized environment=%s traces_sample_rate=%s profiles_sample_rate=%s send_default_pii=%s",
+            environment, traces_sample_rate, profiles_sample_rate, False)
         return True
 
     except Exception as exc:
         # BC-008: Never crash — log warning and continue
         logger.warning(
-            "sentry_init_failed",
-            error=str(exc),
-        )
+            "sentry_init_failed error=%s",
+            str(exc))
         return False
 
 
@@ -356,9 +351,8 @@ def capture_exception(exc: Exception, **kwargs: Any) -> Optional[str]:
     except Exception as capture_exc:
         # BC-008: Never crash
         logger.warning(
-            "sentry_capture_exception_failed",
-            error=str(capture_exc),
-        )
+            "sentry_capture_exception_failed error=%s",
+            str(capture_exc))
         return None
 
 
@@ -398,9 +392,8 @@ def capture_message(message: str, level: str = "info", **kwargs: Any) -> Optiona
     except Exception as capture_exc:
         # BC-008: Never crash
         logger.warning(
-            "sentry_capture_message_failed",
-            error=str(capture_exc),
-        )
+            "sentry_capture_message_failed error=%s",
+            str(capture_exc))
         return None
 
 
@@ -471,4 +464,4 @@ def flush(timeout: float = 2.0) -> None:
                 client.flush(timeout=timeout)
                 logger.info("sentry_flushed")
     except Exception as exc:
-        logger.warning("sentry_flush_failed", error=str(exc))
+        logger.warning("sentry_flush_failed error=%s", str(exc))

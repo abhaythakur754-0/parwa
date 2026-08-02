@@ -72,9 +72,8 @@ def _get_engine():
             _engine = ClassificationEngine()
         except Exception as exc:
             logger.error(
-                "classification_engine_init_failed",
-                error=str(exc),
-            )
+                "classification_engine_init_failed error=%s",
+                str(exc))
             _engine = None
     return _engine
 
@@ -108,9 +107,8 @@ async def classify_text(
     # BC-008: If engine failed to initialize, return safe default
     if engine is None:
         logger.error(
-            "classify_failed_no_engine",
-            company_id=company_id,
-        )
+            "classify_failed_no_engine company_id=%s",
+            company_id)
         return _safe_default_result("engine_unavailable")
 
     try:
@@ -138,11 +136,8 @@ async def classify_text(
     except Exception as exc:
         # BC-008: Never crash — log and return safe default
         logger.error(
-            "classify_failed",
-            company_id=company_id,
-            variant_type=req.variant_type,
-            error=str(exc),
-        )
+            "classify_failed company_id=%s variant_type=%s error=%s",
+            company_id, req.variant_type, str(exc))
         return _safe_default_result("internal_error")
 
 

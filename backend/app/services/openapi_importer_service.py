@@ -264,9 +264,8 @@ class OpenAPIImporterService:
                 # Enforce max endpoints
                 if endpoint_count >= MAX_ENDPOINTS_PER_SPEC:
                     logger.warning(
-                        "openapi_import_max_endpoints_reached",
-                        max=MAX_ENDPOINTS_PER_SPEC,
-                    )
+                        "openapi_import_max_endpoints_reached max=%s",
+                        MAX_ENDPOINTS_PER_SPEC)
                     return actions
 
                 # Skip deprecated (GAP 5)

@@ -87,10 +87,8 @@ def send_otp(
                     }
         except Exception as exc:
             logger.warning(
-                "twilio_send_failed",
-                phone=phone_number,
-                error=str(exc),
-            )
+                "twilio_send_failed phone=%s error=%s",
+                phone_number, str(exc))
             # L22: Return error instead of silently failing
             db.rollback()
             return {
@@ -100,10 +98,8 @@ def send_otp(
             }
 
     logger.info(
-        "otp_sent",
-        phone=phone_number,
-        company_id=company_id,
-    )
+        "otp_sent phone=%s company_id=%s",
+        phone_number, company_id)
 
     return {
         "message": "OTP sent",
@@ -225,8 +221,6 @@ def _send_via_twilio(
         return True
     except Exception as exc:
         logger.warning(
-            "twilio_sms_send_failed",
-            phone=phone_number,
-            error=str(exc),
-        )
+            "twilio_sms_send_failed phone=%s error=%s",
+            phone_number, str(exc))
         return False

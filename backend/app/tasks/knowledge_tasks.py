@@ -74,11 +74,8 @@ def process_knowledge_document(
         ValidationError: If document not found or company_id mismatch.
     """
     logger.info(
-        "process_knowledge_document_started",
-        document_id=document_id,
-        company_id=company_id,
-        task_id=self.request.id,
-    )
+        "process_knowledge_document_started document_id=%s company_id=%s task_id=%s",
+        document_id, company_id, self.request.id)
 
     with get_db_context() as db:
         try:
@@ -114,10 +111,8 @@ def process_knowledge_document(
             if file_path_val.startswith("inline:"):
                 content = file_path_val[len("inline:"):]
                 logger.info(
-                    "kb_content_loaded_inline",
-                    document_id=document_id,
-                    size=len(content),
-                )
+                    "kb_content_loaded_inline document_id=%s size=%s",
+                    document_id, len(content))
             else:
                 try:
                     from app.services.file_storage_service import FileStorageService
@@ -139,11 +134,8 @@ def process_knowledge_document(
                                     continue
                 except Exception as e:
                     logger.warning(
-                        "kb_content_download_failed",
-                        document_id=document_id,
-                        company_id=company_id,
-                        error=str(e),
-                    )
+                        "kb_content_download_failed document_id=%s company_id=%s error=%s",
+                        document_id, company_id, str(e))
 
             # Extract text chunks from document content
             chunks = _extract_chunks(content or "", doc.filename)
@@ -156,10 +148,8 @@ def process_knowledge_document(
                 doc.failed_at = datetime.now(timezone.utc)
                 db.commit()
                 logger.warning(
-                    "process_knowledge_document_no_text",
-                    document_id=document_id,
-                    company_id=company_id,
-                )
+                    "process_knowledge_document_no_text document_id=%s company_id=%s",
+                    document_id, company_id)
                 return {
                     "status": "failed",
                     "document_id": document_id,
@@ -184,18 +174,13 @@ def process_knowledge_document(
                 embedding_svc = EmbeddingService(company_id=company_id)
                 embeddings = embedding_svc.generate_embeddings_batch(chunk_texts)
                 logger.info(
-                    "kb_embeddings_generated",
-                    document_id=document_id,
-                    count=len(embeddings) if embeddings else 0,
-                )
+                    "kb_embeddings_generated document_id=%s count=%s",
+                    document_id, len(embeddings) if embeddings else 0)
             except Exception as emb_err:
                 embedding_failed = True
                 logger.warning(
-                    "kb_embeddings_failed_using_text_only_fallback",
-                    document_id=document_id,
-                    company_id=company_id,
-                    error=str(emb_err)[:200],
-                )
+                    "kb_embeddings_failed_using_text_only_fallback document_id=%s company_id=%s error=%s",
+                    document_id, company_id, str(emb_err)[:200])
 
             # Store chunks (with embeddings if available, without if not)
             chunk_count = 0
@@ -226,13 +211,8 @@ def process_knowledge_document(
             db.commit()
 
             logger.info(
-                "process_knowledge_document_completed",
-                document_id=document_id,
-                company_id=company_id,
-                chunk_count=chunk_count,
-                embedded=embedded_count,
-                embedding_failed=embedding_failed,
-            )
+                "process_knowledge_document_completed document_id=%s company_id=%s chunk_count=%s embedded=%s embedding_failed=%s",
+                document_id, company_id, chunk_count, embedded_count, embedding_failed)
 
             return {
                 "status": "completed",
@@ -246,21 +226,15 @@ def process_knowledge_document(
         except ValidationError as e:
             # Re-raise validation errors
             logger.error(
-                "process_knowledge_document_validation_error",
-                document_id=document_id,
-                company_id=company_id,
-                error=str(e),
-            )
+                "process_knowledge_document_validation_error document_id=%s company_id=%s error=%s",
+                document_id, company_id, str(e))
             raise
 
         except Exception as e:
             # GAP 6: Handle processing failure
             logger.error(
-                "process_knowledge_document_failed",
-                document_id=document_id,
-                company_id=company_id,
-                error=str(e),
-            )
+                "process_knowledge_document_failed document_id=%s company_id=%s error=%s",
+                document_id, company_id, str(e))
 
             # Update document status to failed
             try:
@@ -276,10 +250,8 @@ def process_knowledge_document(
                     db.commit()
             except Exception as inner_e:
                 logger.error(
-                    "failed_to_update_document_status",
-                    document_id=document_id,
-                    error=str(inner_e),
-                )
+                    "failed_to_update_document_status document_id=%s error=%s",
+                    document_id, str(inner_e))
 
             # Retry if under max retries
             if self.request.retries < self.max_retries:
@@ -323,10 +295,8 @@ def reprocess_failed_documents(company_id: str) -> dict:
                 retry_count += 1
 
         logger.info(
-            "reprocess_failed_documents_triggered",
-            company_id=company_id,
-            retry_count=retry_count,
-        )
+            "reprocess_failed_documents_triggered company_id=%s retry_count=%s",
+            company_id, retry_count)
 
         return {
             "company_id": company_id,
@@ -358,9 +328,8 @@ def _extract_chunks(content: str, filename: str) -> list:
 
     if not content:
         logger.warning(
-            "kb_empty_content_no_chunks",
-            filename=filename,
-        )
+            "kb_empty_content_no_chunks filename=%s",
+            filename)
         return []
 
     # Split content into chunks with overlap

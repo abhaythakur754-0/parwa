@@ -95,10 +95,8 @@ class CustomConnectorService:
 
         if len(actions) > MAX_ACTIONS_PER_CONNECTOR:
             logger.warning(
-                "custom_connector_actions_capped",
-                original=len(actions),
-                max=MAX_ACTIONS_PER_CONNECTOR,
-            )
+                "custom_connector_actions_capped original=%s max=%s",
+                len(actions), MAX_ACTIONS_PER_CONNECTOR)
             actions = actions[:MAX_ACTIONS_PER_CONNECTOR]
 
         # Validate each action
@@ -175,14 +173,8 @@ class CustomConnectorService:
         self.db.flush()
 
         logger.info(
-            "custom_connector_created",
-            connector_id=connector.id,
-            integration_id=integration.id,
-            company_id=company_id,
-            name=name,
-            action_count=len(actions),
-            status=status,
-        )
+            "custom_connector_created connector_id=%s integration_id=%s company_id=%s name=%s action_count=%s status=%s",
+            connector.id, integration.id, company_id, name, len(actions), status)
 
         return self._to_dict(integration, connector, actions)
 
@@ -331,10 +323,8 @@ class CustomConnectorService:
         self.db.flush()
 
         logger.info(
-            "custom_connector_deleted",
-            connector_id=connector_id,
-            company_id=company_id,
-        )
+            "custom_connector_deleted connector_id=%s company_id=%s",
+            connector_id, company_id)
         return True
 
     def test_connector(self, connector_id: str, company_id: str) -> Dict[str, Any]:

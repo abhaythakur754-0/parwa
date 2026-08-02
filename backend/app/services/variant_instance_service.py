@@ -104,10 +104,8 @@ def _validate_json_serializable(value, field_name: str) -> None:
         json.dumps(value)
     except (TypeError, ValueError, OverflowError) as exc:
         logger.warning(
-            "json_serialization_failed",
-            field=field_name,
-            error=str(exc),
-        )
+            "json_serialization_failed field=%s error=%s",
+            field_name, str(exc))
         raise ParwaBaseError(
             error_code="INVALID_JSON",
             message=(
@@ -470,10 +468,8 @@ def update_channel_assignment(
             parsed = json.loads(channels)
         except (json.JSONDecodeError, TypeError) as exc:
             logger.warning(
-                "channel_assignment_json_parse_failed",
-                instance_id=instance_id,
-                error=str(exc),
-            )
+                "channel_assignment_json_parse_failed instance_id=%s error=%s",
+                instance_id, str(exc))
             raise ParwaBaseError(
                 error_code="INVALID_JSON",
                 message=(
@@ -649,11 +645,8 @@ def increment_active_tickets(
     # exceeded between our read-check and the write.
     if result.rowcount == 0:
         logger.warning(
-            "capacity_overflow_race_condition",
-            instance_id=instance_id,
-            company_id=company_id,
-            max_capacity=max_conc,
-        )
+            "capacity_overflow_race_condition instance_id=%s company_id=%s max_capacity=%s",
+            instance_id, company_id, max_conc)
         raise ParwaBaseError(
             error_code="CAPACITY_EXCEEDED",
             message=(

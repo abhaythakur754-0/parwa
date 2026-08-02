@@ -750,7 +750,7 @@ class LanguagePipeline:
                 metadata={"language": detected_language, "confidence": confidence},
             ))
         except Exception as exc:
-            logger.warning("pipeline_detection_failed", error=str(exc))
+            logger.warning("pipeline_detection_failed error=%s", str(exc))
             steps.append(PipelineStepResult(
                 step_name="detection",
                 status=StepStatus.FAILED,
@@ -776,7 +776,7 @@ class LanguagePipeline:
                 },
             ))
         except Exception as exc:
-            logger.warning("pipeline_confidence_failed", error=str(exc))
+            logger.warning("pipeline_confidence_failed error=%s", str(exc))
             steps.append(PipelineStepResult(
                 step_name="confidence",
                 status=StepStatus.FAILED,
@@ -804,7 +804,7 @@ class LanguagePipeline:
                 },
             ))
         except Exception as exc:
-            logger.warning("pipeline_tenant_language_failed", error=str(exc))
+            logger.warning("pipeline_tenant_language_failed error=%s", str(exc))
             needs_translation = detected_language != Language.ENGLISH
             steps.append(PipelineStepResult(
                 step_name="tenant_language",
@@ -841,7 +841,7 @@ class LanguagePipeline:
                     ))
                     translated_text = original_text
             except Exception as exc:
-                logger.warning("pipeline_translate_failed", error=str(exc))
+                logger.warning("pipeline_translate_failed error=%s", str(exc))
                 steps.append(PipelineStepResult(
                     step_name="translate",
                     status=StepStatus.FAILED,
@@ -871,7 +871,7 @@ class LanguagePipeline:
                 },
             ))
         except Exception as exc:
-            logger.warning("pipeline_ai_process_failed", error=str(exc))
+            logger.warning("pipeline_ai_process_failed error=%s", str(exc))
             steps.append(PipelineStepResult(
                 step_name="ai_process",
                 status=StepStatus.FAILED,
@@ -906,7 +906,7 @@ class LanguagePipeline:
                         metadata={"target": detected_language, "success": False},
                     ))
             except Exception as exc:
-                logger.warning("pipeline_translate_back_failed", error=str(exc))
+                logger.warning("pipeline_translate_back_failed error=%s", str(exc))
                 steps.append(PipelineStepResult(
                     step_name="translate_back",
                     status=StepStatus.FAILED,
@@ -939,7 +939,7 @@ class LanguagePipeline:
                     },
                 ))
             except Exception as exc:
-                logger.warning("pipeline_quality_check_failed", error=str(exc))
+                logger.warning("pipeline_quality_check_failed error=%s", str(exc))
                 quality_score = 0.5
                 quality_issues = ["quality_check_error"]
                 steps.append(PipelineStepResult(
@@ -1006,17 +1006,11 @@ class LanguagePipeline:
                 )
         except Exception as exc:
             # BC-008: Cache failure must not affect pipeline
-            logger.warning("pipeline_cache_error", error=str(exc))
+            logger.warning("pipeline_cache_error error=%s", str(exc))
 
         logger.info(
-            "language_pipeline_complete",
-            company_id=company_id,
-            detected_language=detected_language,
-            confidence=round(confidence, 2),
-            translation_performed=translation_performed,
-            quality_score=round(quality_score, 2),
-            elapsed_ms=total_ms,
-        )
+            "language_pipeline_complete company_id=%s detected_language=%s confidence=%s translation_performed=%s quality_score=%s elapsed_ms=%s",
+            company_id, detected_language, round(confidence, 2), translation_performed, round(quality_score, 2), total_ms)
 
         return PipelineResult(
             original_text=original_text,

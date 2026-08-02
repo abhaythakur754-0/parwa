@@ -76,10 +76,8 @@ def send_business_otp(
         )
     except Exception as e:
         logger.error(
-            "business_otp_email_failed",
-            session_id=session_id,
-            error=str(e),
-        )
+            "business_otp_email_failed session_id=%s error=%s",
+            session_id, str(e))
 
     return {
         "message": f"OTP sent to {email}",
@@ -276,12 +274,12 @@ def handle_payment_webhook(
     with any Jarvis call site that still references it; it delegates to the
     Razorpay handler.
     """
-    logger.info("jarvis_payment_webhook_delegated_to_razorpay", event_type=event_type)
+    logger.info("jarvis_payment_webhook_delegated_to_razorpay event_type=%s", event_type)
     try:
         from app.services.razorpay_service import handle_webhook_event as rzp_handler
         return asyncio.run(rzp_handler(db, event_data))
     except Exception as e:
-        logger.error("jarvis_payment_webhook_delegate_failed", error=str(e))
+        logger.error("jarvis_payment_webhook_delegate_failed error=%s", str(e))
         return {"status": "skipped", "reason": str(e)}
 
 def get_payment_status(
@@ -435,32 +433,23 @@ def initiate_demo_call(
             call_status = "in_progress"
 
             logger.info(
-                "demo_call_initiated",
-                session_id=session_id,
-                call_sid=call_sid,
-                phone_number=cleaned_phone,
-            )
+                "demo_call_initiated session_id=%s call_sid=%s phone_number=%s",
+                session_id, call_sid, cleaned_phone)
         else:
             logger.warning(
-                "demo_call_twilio_not_configured",
-                session_id=session_id,
-                message="Twilio credentials not configured. Call marked as simulated.",
-            )
+                "demo_call_twilio_not_configured session_id=%s message=%s",
+                session_id, "Twilio credentials not configured. Call marked as simulated.")
             call_status = "simulated"
 
     except ImportError:
         logger.warning(
-            "demo_call_twilio_not_installed",
-            session_id=session_id,
-            message="twilio package not installed. Call marked as simulated.",
-        )
+            "demo_call_twilio_not_installed session_id=%s message=%s",
+            session_id, "twilio package not installed. Call marked as simulated.")
         call_status = "simulated"
     except Exception as e:
         logger.error(
-            "demo_call_initiation_failed",
-            session_id=session_id,
-            error=str(e),
-        )
+            "demo_call_initiation_failed session_id=%s error=%s",
+            session_id, str(e))
         call_status = "failed"
 
     # Update ticket with result

@@ -864,32 +864,24 @@ class ReflexionProcessor:
         for pattern, mode in _FAILURE_MODE_PATTERNS:
             if pattern.search(query_lower):
                 logger.debug(
-                    "reflexion_failure_mode_detected",
-                    failure_mode=mode.value,
-                    query_length=len(query),
-                    company_id=self.config.company_id,
-                )
+                    "reflexion_failure_mode_detected failure_mode=%s query_length=%s company_id=%s",
+                    mode.value, len(query), self.config.company_id)
                 return mode
 
         # Check general dissatisfaction patterns as fallback
         for pattern, mode in _DISSATISFACTION_PATTERNS:
             if pattern.search(query_lower):
                 logger.debug(
-                    "reflexion_dissatisfaction_detected",
-                    fallback_mode=mode.value,
-                    query_length=len(query),
-                    company_id=self.config.company_id,
-                )
+                    "reflexion_dissatisfaction_detected fallback_mode=%s query_length=%s company_id=%s",
+                    mode.value, len(query), self.config.company_id)
                 return mode
 
         # If previous response exists and the query signals rejection,
         # default to MISUNDERSTOOD_QUERY as the safest assumption
         if previous_response and _has_rejection_signal(query_lower):
             logger.debug(
-                "reflexion_default_failure_mode",
-                default_mode=FailureMode.MISUNDERSTOOD_QUERY.value,
-                company_id=self.config.company_id,
-            )
+                "reflexion_default_failure_mode default_mode=%s company_id=%s",
+                FailureMode.MISUNDERSTOOD_QUERY.value, self.config.company_id)
             return FailureMode.MISUNDERSTOOD_QUERY
 
         return FailureMode.MISUNDERSTOOD_QUERY
@@ -941,12 +933,8 @@ class ReflexionProcessor:
         confidence_impact = impacts["penalty"] + impacts["recovery"]
 
         logger.debug(
-            "reflexion_self_reflection_complete",
-            failure_mode=failure_mode.value,
-            strategies=strategy_names,
-            confidence_impact=round(confidence_impact, 4),
-            company_id=self.config.company_id,
-        )
+            "reflexion_self_reflection_complete failure_mode=%s strategies=%s confidence_impact=%s company_id=%s",
+            failure_mode.value, strategy_names, round(confidence_impact, 4), self.config.company_id)
 
         return ReflectionAnalysis(
             failure_mode=failure_mode.value,
@@ -985,10 +973,8 @@ class ReflexionProcessor:
             failure_mode = FailureMode(reflection.failure_mode)
         except ValueError:
             logger.warning(
-                "reflexion_invalid_failure_mode",
-                failure_mode=reflection.failure_mode,
-                company_id=self.config.company_id,
-            )
+                "reflexion_invalid_failure_mode failure_mode=%s company_id=%s",
+                reflection.failure_mode, self.config.company_id)
             return ""
 
         # Get the primary strategy
@@ -1000,10 +986,8 @@ class ReflexionProcessor:
             primary_strategy = StrategyAdjustment(strategy_names[0])
         except ValueError:
             logger.warning(
-                "reflexion_invalid_strategy",
-                strategy=strategy_names[0],
-                company_id=self.config.company_id,
-            )
+                "reflexion_invalid_strategy strategy=%s company_id=%s",
+                strategy_names[0], self.config.company_id)
             return ""
 
         # Look up templates for this (failure_mode, strategy) pair
@@ -1012,11 +996,8 @@ class ReflexionProcessor:
 
         if not templates:
             logger.warning(
-                "reflexion_no_templates_found",
-                failure_mode=failure_mode.value,
-                strategy=primary_strategy.value,
-                company_id=self.config.company_id,
-            )
+                "reflexion_no_templates_found failure_mode=%s strategy=%s company_id=%s",
+                failure_mode.value, primary_strategy.value, self.config.company_id)
             return ""
 
         # Select the best template (use first as primary)
@@ -1071,12 +1052,8 @@ class ReflexionProcessor:
         improved_response = f"{prefix} {body}".strip()
 
         logger.debug(
-            "reflexion_improved_response_generated",
-            response_length=len(improved_response),
-            failure_mode=failure_mode.value,
-            strategy=primary_strategy.value,
-            company_id=self.config.company_id,
-        )
+            "reflexion_improved_response_generated response_length=%s failure_mode=%s strategy=%s company_id=%s",
+            len(improved_response), failure_mode.value, primary_strategy.value, self.config.company_id)
 
         return improved_response
 
@@ -1158,10 +1135,8 @@ class ReflexionProcessor:
         })
 
         logger.debug(
-            "reflexion_meta_trace_built",
-            trace_entries=len(trace),
-            company_id=self.config.company_id,
-        )
+            "reflexion_meta_trace_built trace_entries=%s company_id=%s",
+            len(trace), self.config.company_id)
 
         return trace
 
@@ -1236,10 +1211,8 @@ class ReflexionProcessor:
                     )
             except Exception as llm_err:
                 logger.debug(
-                    "reflexion_llm_fallback",
-                    error=str(llm_err),
-                    company_id=self.config.company_id,
-                )
+                    "reflexion_llm_fallback error=%s company_id=%s",
+                    str(llm_err), self.config.company_id)
             # --- Fallback: deterministic pipeline ---
 
             # Step 1: Failure Detection
@@ -1283,10 +1256,8 @@ class ReflexionProcessor:
             ):
                 self._reflection_depth += 1
                 logger.debug(
-                    "reflexion_recursive_reflection",
-                    depth=self._reflection_depth,
-                    company_id=self.config.company_id,
-                )
+                    "reflexion_recursive_reflection depth=%s company_id=%s",
+                    self._reflection_depth, self.config.company_id)
 
                 inner_result = await self.process(
                     query=query,
@@ -1307,10 +1278,8 @@ class ReflexionProcessor:
         except Exception as exc:
             # BC-008: Never crash — return graceful fallback
             logger.warning(
-                "reflexion_processing_error",
-                error=str(exc),
-                company_id=self.config.company_id,
-            )
+                "reflexion_processing_error error=%s company_id=%s",
+                str(exc), self.config.company_id)
             return ReflexionResult(
                 reflection=reflection,
                 improved_response=improved_response,
@@ -1643,23 +1612,16 @@ class ReflexionNode(BaseTechniqueNode):
                 }
 
             logger.info(
-                "reflexion_executed",
-                failure_mode=result.reflection.failure_mode,
-                steps_applied=result.steps_applied,
-                confidence_boost=result.confidence_boost,
-                meta_trace_entries=len(result.meta_trace),
-                company_id=self._config.company_id,
-            )
+                "reflexion_executed failure_mode=%s steps_applied=%s confidence_boost=%s meta_trace_entries=%s company_id=%s",
+                result.reflection.failure_mode, result.steps_applied, result.confidence_boost, len(result.meta_trace), self._config.company_id)
 
             return state
 
         except Exception as exc:
             # BC-008: Never crash — return original state
             logger.warning(
-                "reflexion_execute_error",
-                error=str(exc),
-                company_id=self._config.company_id,
-            )
+                "reflexion_execute_error error=%s company_id=%s",
+                str(exc), self._config.company_id)
             return original_state
 
 

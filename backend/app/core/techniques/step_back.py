@@ -191,7 +191,7 @@ class StepBackProcessor:
             try:
                 patterns.append(re.compile(pattern_str, re.I))
             except re.error:
-                logger.warning("step_back_invalid_entity_pattern", pattern=pattern_str)
+                logger.warning("step_back_invalid_entity_pattern pattern=%s", pattern_str)
         return patterns
 
     # ── Step 1: Detection ──────────────────────────────────────────
@@ -636,10 +636,8 @@ class StepBackProcessor:
         except Exception as exc:
             # BC-008: Never crash — return original on error
             logger.warning(
-                "step_back_processing_error",
-                error=str(exc),
-                company_id=self.config.company_id,
-            )
+                "step_back_processing_error error=%s company_id=%s",
+                str(exc), self.config.company_id)
             return StepBackResult(
                 refined_response=query,
                 steps_applied=["error_fallback"],
@@ -719,9 +717,7 @@ class StepBackNode(BaseTechniqueNode):
         except Exception as exc:
             # BC-008: Never crash — return original state on error
             logger.warning(
-                "step_back_execute_error",
-                error=str(exc),
-                company_id=self._config.company_id,
-            )
+                "step_back_execute_error error=%s company_id=%s",
+                str(exc), self._config.company_id)
             self.record_skip(state, reason="execution_error")
             return state

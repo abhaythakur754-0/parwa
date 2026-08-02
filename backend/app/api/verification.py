@@ -137,10 +137,8 @@ def send_otp(
         raise
     except Exception as exc:
         logger.error(
-            "send_otp_unexpected_error",
-            email=body.email,
-            error=str(exc),
-        )
+            "send_otp_unexpected_error email=%s error=%s",
+            body.email, str(exc))
         raise ValidationError(
             message="Failed to send verification code. Please try again.",
             details={"error": "unexpected_error"},
@@ -185,10 +183,8 @@ def verify_otp(
         raise
     except Exception as exc:
         logger.error(
-            "verify_otp_unexpected_error",
-            email=body.email,
-            error=str(exc),
-        )
+            "verify_otp_unexpected_error email=%s error=%s",
+            body.email, str(exc))
         raise ValidationError(
             message="Verification failed. Please try again.",
             details={"error": "unexpected_error"},

@@ -172,7 +172,7 @@ def _load_knowledge_base() -> Dict[str, Any]:
             with open(kb_path, "r", encoding="utf-8") as f:
                 return json.load(f)
     except Exception as exc:
-        logger.warning("knowledge_base_load_failed", error=str(exc))
+        logger.warning("knowledge_base_load_failed error=%s", str(exc))
     return {}
 
 
@@ -465,12 +465,8 @@ async def test_provider_connection(
         }
 
         logger.info(
-            "provider_connection_tested",
-            provider_type=provider_type,
-            category=category,
-            success=result.success,
-            company_id=str(user.company_id),
-        )
+            "provider_connection_tested provider_type=%s category=%s success=%s company_id=%s",
+            provider_type, category, result.success, str(user.company_id))
 
         return TestConnectionResponse(
             success=result.success,
@@ -480,12 +476,8 @@ async def test_provider_connection(
 
     except Exception as exc:
         logger.error(
-            "provider_connection_test_failed",
-            provider_type=provider_type,
-            category=category,
-            error=str(exc),
-            company_id=str(user.company_id),
-        )
+            "provider_connection_test_failed provider_type=%s category=%s error=%s company_id=%s",
+            provider_type, category, str(exc), str(user.company_id))
         return TestConnectionResponse(
             success=False,
             message=f"Connection test failed: {str(exc)}",
@@ -555,23 +547,15 @@ async def connect_provider(
 
             if not connection_ok:
                 logger.warning(
-                    "provider_connection_test_failed_on_connect",
-                    provider_type=provider_type,
-                    category=category,
-                    message=test_message,
-                    company_id=company_id,
-                )
+                    "provider_connection_test_failed_on_connect provider_type=%s category=%s message=%s company_id=%s",
+                    provider_type, category, test_message, company_id)
                 # Still save, but with 'error' status
         except Exception as exc:
             connection_ok = False
             test_message = f"Connection test error: {str(exc)}"
             logger.warning(
-                "provider_connection_test_error_on_connect",
-                provider_type=provider_type,
-                category=category,
-                error=str(exc),
-                company_id=company_id,
-            )
+                "provider_connection_test_error_on_connect provider_type=%s category=%s error=%s company_id=%s",
+                provider_type, category, str(exc), company_id)
 
     # Determine status
     status = "active" if connection_ok else "error"
@@ -596,13 +580,8 @@ async def connect_provider(
         db.flush()
         connection_id = existing.id
         logger.info(
-            "provider_integration_updated",
-            connection_id=connection_id,
-            provider_type=provider_type,
-            category=category,
-            company_id=company_id,
-            status=status,
-        )
+            "provider_integration_updated connection_id=%s provider_type=%s category=%s company_id=%s status=%s",
+            connection_id, provider_type, category, company_id, status)
     else:
         # Create new integration
         integration = Integration(
@@ -620,13 +599,8 @@ async def connect_provider(
         db.flush()
         connection_id = integration.id
         logger.info(
-            "provider_integration_created",
-            connection_id=connection_id,
-            provider_type=provider_type,
-            category=category,
-            company_id=company_id,
-            status=status,
-        )
+            "provider_integration_created connection_id=%s provider_type=%s category=%s company_id=%s status=%s",
+            connection_id, provider_type, category, company_id, status)
 
     return ConnectProviderResponse(
         success=True,
@@ -744,11 +718,8 @@ async def disconnect_provider(
     db.flush()
 
     logger.info(
-        "provider_integration_disconnected",
-        connection_id=connection_id,
-        provider_type=provider_type,
-        company_id=company_id,
-    )
+        "provider_integration_disconnected connection_id=%s provider_type=%s company_id=%s",
+        connection_id, provider_type, company_id)
 
     return DisconnectResponse(
         success=True,

@@ -105,7 +105,7 @@ class TenantCircuitBreaker:
             if elapsed >= state["reset_seconds"]:
                 state["is_open"] = False
                 state["failures"] = 0
-                logger.info("circuit_breaker_half_open", company_id=company_id)
+                logger.info("circuit_breaker_half_open company_id=%s", company_id)
                 return False
             return True
 
@@ -126,10 +126,8 @@ class TenantCircuitBreaker:
             if state["failures"] >= state["threshold"]:
                 state["is_open"] = True
                 logger.warning(
-                    "circuit_breaker_open",
-                    company_id=company_id,
-                    failures=state["failures"],
-                )
+                    "circuit_breaker_open company_id=%s failures=%s",
+                    company_id, state["failures"])
 
     def reset(self, company_id: str = None) -> None:
         """Reset circuit breaker state (for testing).
@@ -191,7 +189,7 @@ def _get_brevo_client():
         _brevo_api_client = TransactionalEmailsApi(api_client)
         return _brevo_api_client
     except Exception as exc:  # pragma: no cover — defensive (BC-008)
-        logger.warning("brevo_sdk_init_failed", error=str(exc))
+        logger.warning("brevo_sdk_init_failed error=%s", str(exc))
         return None
 
 
@@ -327,18 +325,15 @@ def _do_send_email(
 
     if _is_circuit_open(_tenant):
         logger.error(
-            "email_send_skipped",
-            reason="circuit_breaker_open",
-            to=to,
-        )
+            "email_send_skipped reason=%s to=%s",
+            "circuit_breaker_open", to)
         _result["error"] = "circuit_breaker_open"
         return _result
 
     settings = get_settings()
     if not settings.BREVO_API_KEY:
         logger.error(
-            "email_send_skipped", reason="no_api_key"
-        )
+            "email_send_skipped reason=%s", "no_api_key")
         _result["error"] = "no_api_key"
         return _result
 
@@ -388,11 +383,8 @@ def _do_send_email(
                 if result and hasattr(result, 'message_id'):
                     _record_success(_tenant)
                     logger.info(
-                        "email_sent_sdk",
-                        to=to,
-                        message_id=result.message_id,
-                        reply_to=reply_to_message_id,
-                    )
+                        "email_sent_sdk to=%s message_id=%s reply_to=%s",
+                        to, result.message_id, reply_to_message_id)
                     return {
                         "success": True,
                         "message_id": result.message_id,
@@ -400,10 +392,8 @@ def _do_send_email(
                     }
         except Exception as exc:  # BC-008
             logger.warning(
-                "email_sdk_failed",
-                error=str(exc),
-                to=to,
-            )
+                "email_sdk_failed error=%s to=%s",
+                str(exc), to)
             # Fall through to httpx fallback
 
     # --- httpx fallback ---
@@ -448,38 +438,29 @@ def _do_send_email(
             except Exception:
                 pass
             logger.info(
-                "email_sent",
-                to=to,
-                template=subject,
-                brevo_message_id=brevo_msg_id,
-            )
+                "email_sent to=%s template=%s brevo_message_id=%s",
+                to, subject, brevo_msg_id)
             return {
                 "success": True,
                 "message_id": brevo_msg_id,
                 "error": None,
             }
         logger.error(
-            "email_send_failed",
-            status=resp.status_code,
-            to=to,
-            body=resp.text[:200],
-        )
+            "email_send_failed status=%s to=%s body=%s",
+            resp.status_code, to, resp.text[:200])
         _record_failure(_tenant)
         _result["error"] = f"brevo_{resp.status_code}"
         return _result
     except TimeoutException:
         logger.error(
-            "email_send_timeout", to=to
-        )
+            "email_send_timeout to=%s", to)
         _record_failure(_tenant)
         _result["error"] = "timeout"
         return _result
     except HTTPError as exc:
         logger.error(
-            "email_send_error",
-            to=to,
-            error=str(exc),
-        )
+            "email_send_error to=%s error=%s",
+            to, str(exc))
         _record_failure(_tenant)
         _result["error"] = str(exc)[:200]
         return _result

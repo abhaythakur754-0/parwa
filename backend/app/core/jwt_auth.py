@@ -360,9 +360,8 @@ async def is_token_revoked(jti: str) -> bool:
             logger.warning(
                 "is_token_revoked_redis_failed_FAIL_OPEN "
                 "— token allowed because Redis is unavailable (fail-open for availability). "
-                "This message will not repeat.",
-                error=str(exc)[:200],
-            )
+                "This message will not repeat. error=%s",
+                str(exc)[:200])
             _redis_fail_open_logged.val = True
         return False
 

@@ -118,11 +118,8 @@ def capture_lead(
         _update_lead_from_context(lead, ctx, sentiment_data)
         lead.updated_at = now.isoformat()
         logger.info(
-            "lead_updated",
-            lead_id=lead.lead_id,
-            user_id=user_id,
-            status=lead.lead_status,
-        )
+            "lead_updated lead_id=%s user_id=%s status=%s",
+            lead.lead_id, user_id, lead.lead_status)
         return lead
 
     # Create new lead
@@ -157,14 +154,8 @@ def capture_lead(
     _user_to_lead[user_id] = lead_id
 
     logger.info(
-        "lead_captured",
-        lead_id=lead_id,
-        user_id=user_id,
-        email=lead.business_email,
-        industry=lead.industry,
-        status=lead.lead_status,
-        source=lead.lead_source,
-    )
+        "lead_captured lead_id=%s user_id=%s email=%s industry=%s status=%s source=%s",
+        lead_id, user_id, lead.business_email, lead.industry, lead.lead_status, lead.lead_source)
 
     return lead
 

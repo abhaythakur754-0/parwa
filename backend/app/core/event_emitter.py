@@ -43,12 +43,8 @@ def _check_rate_limit(company_id: str, event_type: str, limit: int) -> bool:
 
     if len(_rate_tracker[key]) >= limit:
         logger.warning(
-            "emit_rate_limited",
-            company_id=company_id,
-            event_type=event_type,
-            limit=limit,
-            window=RATE_WINDOW_SECONDS,
-        )
+            "emit_rate_limited company_id=%s event_type=%s limit=%s window=%s",
+            company_id, event_type, limit, RATE_WINDOW_SECONDS)
         return False
 
     _rate_tracker[key].append(now)
@@ -111,22 +107,16 @@ async def emit_event(
     et = reg.get(event_type)
     if et is None:
         logger.warning(
-            "emit_unknown_event_type",
-            event_type=event_type,
-            company_id=company_id,
-        )
+            "emit_unknown_event_type event_type=%s company_id=%s",
+            event_type, company_id)
         return False
 
     # Check payload size
     payload_bytes = _estimate_bytes(payload)
     if payload_bytes > et.max_payload_bytes:
         logger.warning(
-            "emit_payload_too_large",
-            event_type=event_type,
-            company_id=company_id,
-            payload_bytes=payload_bytes,
-            max_bytes=et.max_payload_bytes,
-        )
+            "emit_payload_too_large event_type=%s company_id=%s payload_bytes=%s max_bytes=%s",
+            event_type, company_id, payload_bytes, et.max_payload_bytes)
         return False
 
     # Validate payload against schema
@@ -134,11 +124,8 @@ async def emit_event(
         cleaned = reg.validate(event_type, payload)
     except (ValueError, Exception) as exc:
         logger.warning(
-            "emit_payload_validation_failed",
-            event_type=event_type,
-            company_id=company_id,
-            error=str(exc),
-        )
+            "emit_payload_validation_failed event_type=%s company_id=%s error=%s",
+            event_type, company_id, str(exc))
         return False
 
     # Check rate limit (BC-005: max 100 events/sec per tenant per type)
@@ -158,19 +145,13 @@ async def emit_event(
             payload=enriched,
         )
         logger.info(
-            "event_emitted",
-            event_type=event_type,
-            company_id=company_id,
-            category=et.category.value,
-        )
+            "event_emitted event_type=%s company_id=%s category=%s",
+            event_type, company_id, et.category.value)
         return True
     except Exception as exc:
         logger.error(
-            "emit_failed",
-            event_type=event_type,
-            company_id=company_id,
-            error=str(exc),
-        )
+            "emit_failed event_type=%s company_id=%s error=%s",
+            event_type, company_id, str(exc))
         return False
 
 
@@ -185,7 +166,7 @@ async def emit_ticket_event(
 ) -> bool:
     """Emit a ticket-scoped event (must start with 'ticket:')."""
     if not event_type.startswith("ticket:"):
-        logger.warning("emit_ticket_mismatch", event_type=event_type)
+        logger.warning("emit_ticket_mismatch event_type=%s", event_type)
         return False
     return await emit_event(company_id, event_type, payload, correlation_id)
 
@@ -198,7 +179,7 @@ async def emit_ai_event(
 ) -> bool:
     """Emit an AI-scoped event (must start with 'ai:')."""
     if not event_type.startswith("ai:"):
-        logger.warning("emit_ai_mismatch", event_type=event_type)
+        logger.warning("emit_ai_mismatch event_type=%s", event_type)
         return False
     return await emit_event(company_id, event_type, payload, correlation_id)
 
@@ -211,7 +192,7 @@ async def emit_approval_event(
 ) -> bool:
     """Emit an approval-scoped event (must start with 'approval:')."""
     if not event_type.startswith("approval:"):
-        logger.warning("emit_approval_mismatch", event_type=event_type)
+        logger.warning("emit_approval_mismatch event_type=%s", event_type)
         return False
     return await emit_event(company_id, event_type, payload, correlation_id)
 
@@ -224,7 +205,7 @@ async def emit_notification_event(
 ) -> bool:
     """Emit a notification-scoped event (must start with 'notification:')."""
     if not event_type.startswith("notification:"):
-        logger.warning("emit_notification_mismatch", event_type=event_type)
+        logger.warning("emit_notification_mismatch event_type=%s", event_type)
         return False
     return await emit_event(company_id, event_type, payload, correlation_id)
 
@@ -237,7 +218,7 @@ async def emit_system_event(
 ) -> bool:
     """Emit a system event (can be global or tenant-scoped)."""
     if not event_type.startswith("system:"):
-        logger.warning("emit_system_mismatch", event_type=event_type)
+        logger.warning("emit_system_mismatch event_type=%s", event_type)
         return False
     cid = company_id or payload.get("company_id") or "system"
     return await emit_event(cid, event_type, payload, correlation_id)
