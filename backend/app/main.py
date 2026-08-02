@@ -1275,3 +1275,36 @@ if _CURRENT_ENV == "test":
     @app.get("/test/raise/internal")
     async def _test_raise_internal():
         raise ValueError("This simulates an unexpected 500 error")
+
+    # ── Direct SQL fallback for integrations table ──
+    # Used by IntegrationService to store Brevo, Twilio, etc.
+    try:
+        from sqlalchemy import text as _sql_text
+        from database.base import SessionLocal as _SL
+        _db = _SL()
+        try:
+            _db.execute(_sql_text("""
+                CREATE TABLE IF NOT EXISTS integrations (
+                    id VARCHAR(36) PRIMARY KEY,
+                    company_id VARCHAR(36) NOT NULL,
+                    integration_type VARCHAR(100) NOT NULL,
+                    name VARCHAR(255),
+                    status VARCHAR(50) DEFAULT 'disconnected',
+                    credentials_encrypted TEXT,
+                    settings TEXT DEFAULT '{}',
+                    last_sync TIMESTAMP WITH TIME ZONE,
+                    error_message TEXT,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            _db.execute(_sql_text(
+                "CREATE INDEX IF NOT EXISTS ix_integrations_company_id ON integrations (company_id)"
+            ))
+            _db.commit()
+            _lg.info("integrations_table_ensured_via_sql_fallback")
+        finally:
+            _db.close()
+    except Exception as exc:
+        _lg = get_logger("lifespan")
+        _lg.warning("integrations_table_sql_fallback_failed: %s", str(exc)[:200])
