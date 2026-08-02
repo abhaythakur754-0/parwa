@@ -406,6 +406,42 @@ async def lifespan(app: FastAPI):
         _lg = get_logger("lifespan")
         _lg.warning("flexpay_tables_sql_fallback_failed", error=str(exc))
 
+    # ── Direct SQL fallback for provider_configurations table ──
+    # Used by integrations API to store Brevo, Twilio, etc. credentials.
+    try:
+        from sqlalchemy import text as _sql_text
+        from database.base import SessionLocal as _SL
+        _db = _SL()
+        try:
+            _db.execute(_sql_text("""
+                CREATE TABLE IF NOT EXISTS provider_configurations (
+                    id VARCHAR(36) PRIMARY KEY,
+                    company_id VARCHAR(36) NOT NULL,
+                    provider_type VARCHAR(50) NOT NULL,
+                    provider_name VARCHAR(100),
+                    display_name VARCHAR(100),
+                    category VARCHAR(50),
+                    auth_type VARCHAR(50),
+                    credentials JSON,
+                    config JSON,
+                    status VARCHAR(20) DEFAULT 'active',
+                    last_tested_at TIMESTAMP WITH TIME ZONE,
+                    last_test_result TEXT,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            _db.execute(_sql_text(
+                "CREATE INDEX IF NOT EXISTS ix_provider_configs_company_id ON provider_configurations (company_id)"
+            ))
+            _db.commit()
+            _lg.info("provider_configurations_table_ensured_via_sql_fallback")
+        finally:
+            _db.close()
+    except Exception as exc:
+        _lg = get_logger("lifespan")
+        _lg.warning("provider_configs_table_sql_fallback_failed: %s", str(exc)[:200])
+
     # Hide OpenAPI schema when not in debug mode (BC-011)
     if settings.DEBUG:
         app.docs_url = "/docs"
