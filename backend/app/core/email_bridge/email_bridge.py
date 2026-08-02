@@ -356,7 +356,7 @@ class GenericEmailAdapter(EmailAdapter):
             mime_msg = MIMEMultipart("alternative")
             mime_msg["to"] = to_email
             mime_msg["subject"] = subject
-            mime_msg["from"] = config.get("username", "")
+            mime_msg["from"] = config.get("from_email") or config.get("from") or config.get("username", "")
             if reply_to_message_id:
                 mime_msg["In-Reply-To"] = reply_to_message_id
                 mime_msg["References"] = reply_to_message_id
