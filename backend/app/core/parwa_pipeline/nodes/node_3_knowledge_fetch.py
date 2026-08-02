@@ -2755,6 +2755,23 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
         except Exception as _exc:
             logger.warning("custom_connector_check_failed: %s", str(_exc)[:200])
 
+    # ── If tenant uploaded KB docs, ALWAYS proceed — don't interrupt. ──
+    # The tenant uploaded real policy docs, so the AI has relevant context.
+    # Let Node 4 (reasoning) generate a response using whatever KB we have.
+    # Only interrupt if we have ZERO tenant KB docs (truly no knowledge).
+    has_tenant_kb = any(
+        d.get("source", "").startswith("tenant_kb:")
+        for d in filtered
+    )
+    if has_tenant_kb and filtered:
+        sufficiency["knowledge_sufficient"] = True
+        clara_result["knowledge_sufficient"] = True
+        logs.append({
+            "node": 3, "technique": "TenantKBOverride",
+            "duration_ms": 0,
+            "result_summary": f"tenant_kb_docs={len(filtered)} → proceeding to Node 4 (no interrupt)",
+        })
+
     if not sufficiency["knowledge_sufficient"]:
         # ── APPROACH A: Pause + ask for guidance ───────────────────
         # Node 3 has doubt (KB insufficient). Instead of continuing blind,
