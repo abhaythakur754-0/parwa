@@ -127,13 +127,8 @@ class IntegrationService:
         self.db.add(integration)
         self.db.flush()
 
-        logger.info(
-            "integration_created",
-            integration_id=integration.id,
-            company_id=company_id,
-            type=integration_type,
-            status=status,
-        )
+        logger.info("integration_created id=%s company=%s type=%s status=%s",
+                     integration.id, company_id, integration_type, status)
 
         return self._to_dict(integration, mask_credentials=True)
 
@@ -205,12 +200,8 @@ class IntegrationService:
         integration.updated_at = datetime.now(timezone.utc)
         self.db.flush()
 
-        logger.info(
-            "integration_tested",
-            integration_id=integration_id,
-            company_id=company_id,
-            success=result.get("success"),
-        )
+        logger.info("integration_tested id=%s company=%s success=%s",
+                     integration_id, company_id, result.get("success"))
 
         return {
             "integration_id": integration_id,
@@ -276,11 +267,7 @@ class IntegrationService:
         self.db.delete(integration)
         self.db.flush()
 
-        logger.info(
-            "integration_deleted",
-            integration_id=integration_id,
-            company_id=company_id,
-        )
+        logger.info("integration_deleted id=%s company=%s", integration_id, company_id)
 
         return True
 
