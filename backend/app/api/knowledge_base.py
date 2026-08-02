@@ -197,7 +197,7 @@ async def api_upload_document(
 
         # Insert chunks into document_chunks table
         try:
-            from database.models.knowledge import DocumentChunk
+            from database.models.onboarding import DocumentChunk
             import uuid
             for idx, chunk_text in enumerate(chunks_text):
                 chunk = DocumentChunk(
@@ -206,7 +206,6 @@ async def api_upload_document(
                     company_id=user.company_id,
                     chunk_index=idx,
                     content=chunk_text,
-                    chunk_metadata={},
                 )
                 db.add(chunk)
             db.commit()
