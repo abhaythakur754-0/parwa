@@ -680,6 +680,12 @@ class TicketService:
 
         now = datetime.now(timezone.utc)
 
+        # TEMPORARY: disabled for production testing. Re-enable by setting
+        # TRIAL_LIMIT_DISABLED env var to "false" or removing this early return.
+        import os as _os
+        if _os.environ.get("TRIAL_LIMIT_DISABLED", "true").lower() in ("true", "1", "yes"):
+            return  # Skip ALL trial checks (time + count) — DEFAULT: disabled for testing
+
         # Time check: 24 hours since signup (always enforced)
         if company.trial_ends_at and now >= company.trial_ends_at:
             raise AuthorizationError(
@@ -689,11 +695,6 @@ class TicketService:
             )
 
         # Ticket count check: 15 tickets used
-        # TEMPORARY: disabled for production testing. Re-enable by setting
-        # TRIAL_LIMIT_DISABLED env var to "false" or removing this early return.
-        import os as _os
-        if _os.environ.get("TRIAL_LIMIT_DISABLED", "true").lower() in ("true", "1", "yes"):
-            return  # Skip ticket count check (DEFAULT: disabled for production testing)
 
         used = int(company.trial_tickets_used or 0)
         if used >= self.TRIAL_TICKET_LIMIT:
