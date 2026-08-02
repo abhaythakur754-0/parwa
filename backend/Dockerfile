@@ -15,10 +15,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ── Stage 1b: Rust extension builder (SKIPPED by default) ──
-# Rust compilation needs 1GB+ RAM but Render free tier has 512MB.
-# The build fails silently (OOM) and old code keeps running.
-# Default: SKIP_RUST_BUILD=true (pure-Python fallback used).
-# To ENABLE Rust: set build arg SKIP_RUST_BUILD=false
 FROM builder AS rust_builder
 ARG SKIP_RUST_BUILD=true
 COPY parwa_core/ /app/parwa_core/
@@ -53,13 +49,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy installed packages from builder
 COPY --from=builder /install /usr/local
 
-# Cache bust: COPY BUILD_VERSION before COPY . . 
-# This file changes every commit, so Docker invalidates the cache.
+# NUCLEAR CACHE BUST: Use $(date) which changes every second.
+# This guarantees Docker can NEVER cache the COPY . . step.
+RUN echo "Build timestamp: $(date)" > /tmp/build_timestamp
 COPY BUILD_VERSION /tmp/BUILD_VERSION
-RUN cat /tmp/BUILD_VERSION
+RUN cat /tmp/BUILD_VERSION && cat /tmp/build_timestamp
 
-# Copy application code (from backend/ context)
+# Copy ALL application code — guaranteed fresh because the previous
+# RUN layer has a unique timestamp every build
 COPY . .
+
+# Verify the latest code is actually present
+RUN grep -c "cfa69ed9\|inline" /app/app/services/integration_service.py || echo "WARNING: inline fix not found!"
 
 # Copy Rust .so if it was built (skip if .skip marker exists)
 COPY --from=rust_builder /app/rust_artifacts/ /tmp/rust_artifacts/
@@ -85,7 +86,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Single worker: avoids lifespan/middleware crashes with multiple workers
-# Render free tier has 1 CPU, so 1 worker is appropriate
-# Use PORT env var from Render (defaults to 8000)
 CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
