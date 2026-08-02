@@ -90,9 +90,10 @@ class OutboundEmailService:
             # Try each provider in priority order.
             provider = None
             creds = None
-            for candidate in ("brevo", "sendgrid", "mailgun", "ses", "postmark"):
+            for candidate in ("brevo", "sendgrid", "mailgun", "ses", "postmark", "smtp"):
                 cfg = svc.get_credential_config(company_id, candidate)
-                if cfg and cfg.get("api_key"):
+                if cfg and (cfg.get("api_key") or cfg.get("server_token")
+                            or cfg.get("access_key_id") or cfg.get("smtp_host")):
                     provider = candidate
                     creds = cfg
                     break

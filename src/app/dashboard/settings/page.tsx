@@ -127,19 +127,33 @@ interface IntegrationHealthData {
 }
 
 const INTEGRATION_CATALOG = [
-  // Mini tier
-  { type: 'gmail', name: 'Gmail', category: 'email', tier: 'parwa' as const, icon: '📧', fields: [{ key: 'client_id', label: 'Client ID', type: 'text' }, { key: 'client_secret', label: 'Client Secret', type: 'password' }] },
-  { type: 'outlook', name: 'Outlook', category: 'email', tier: 'parwa' as const, icon: '📧', fields: [{ key: 'client_id', label: 'Application ID', type: 'text' }, { key: 'client_secret', label: 'Application Secret', type: 'password' }] },
+  // ── Email providers (ANY provider — global) ──
+  { type: 'brevo', name: 'Brevo', category: 'email', tier: 'parwa' as const, icon: '📧', fields: [{ key: 'api_key', label: 'API Key', type: 'password', placeholder: 'xkeysib-xxx' }] },
+  { type: 'sendgrid', name: 'SendGrid', category: 'email', tier: 'parwa' as const, icon: '📧', fields: [{ key: 'api_key', label: 'API Key', type: 'password', placeholder: 'SG.xxx' }] },
+  { type: 'mailgun', name: 'Mailgun', category: 'email', tier: 'parwa' as const, icon: '📧', fields: [{ key: 'api_key', label: 'API Key', type: 'password', placeholder: 'key-xxx' }, { key: 'domain', label: 'Sending Domain', type: 'text', placeholder: 'mg.yourdomain.com' }, { key: 'region', label: 'Region (US/EU)', type: 'text', placeholder: 'US' }] },
+  { type: 'ses', name: 'Amazon SES', category: 'email', tier: 'parwa' as const, icon: '📧', fields: [{ key: 'access_key_id', label: 'AWS Access Key ID', type: 'text', placeholder: 'AKIAxxx' }, { key: 'secret_access_key', label: 'AWS Secret Access Key', type: 'password' }, { key: 'region', label: 'AWS Region', type: 'text', placeholder: 'us-east-1' }, { key: 'from_email', label: 'Verified Sender Email', type: 'text', placeholder: 'noreply@yourdomain.com' }] },
+  { type: 'postmark', name: 'Postmark', category: 'email', tier: 'parwa' as const, icon: '📧', fields: [{ key: 'server_token', label: 'Server API Token', type: 'password', placeholder: 'xxx-xxx-xxx-xxx-xxx' }] },
+  { type: 'smtp', name: 'Custom SMTP', category: 'email', tier: 'parwa' as const, icon: '📧', fields: [{ key: 'smtp_host', label: 'SMTP Host', type: 'text', placeholder: 'smtp.gmail.com' }, { key: 'smtp_port', label: 'SMTP Port', type: 'text', placeholder: '587' }, { key: 'username', label: 'Username / Email', type: 'text', placeholder: 'you@gmail.com' }, { key: 'password', label: 'Password / App Password', type: 'password' }, { key: 'from_email', label: 'From Email', type: 'text', placeholder: 'you@gmail.com' }, { key: 'use_tls', label: 'Use TLS (true/false)', type: 'text', placeholder: 'true' }] },
+  { type: 'gmail', name: 'Gmail (OAuth)', category: 'email', tier: 'parwa' as const, icon: '📧', fields: [{ key: 'client_id', label: 'Client ID', type: 'text' }, { key: 'client_secret', label: 'Client Secret', type: 'password' }] },
+  { type: 'outlook', name: 'Outlook (OAuth)', category: 'email', tier: 'parwa' as const, icon: '📧', fields: [{ key: 'client_id', label: 'Application ID', type: 'text' }, { key: 'client_secret', label: 'Application Secret', type: 'password' }] },
+  // ── SMS providers (ANY provider — global) ──
+  { type: 'twilio', name: 'Twilio', category: 'communication', tier: 'parwa' as const, icon: '📞', fields: [{ key: 'account_sid', label: 'Account SID', type: 'text', placeholder: 'ACxxx' }, { key: 'auth_token', label: 'Auth Token', type: 'password' }, { key: 'from_phone', label: 'From Phone Number', type: 'text', placeholder: '+1234567890' }] },
+  { type: 'messagebird', name: 'MessageBird', category: 'communication', tier: 'parwa' as const, icon: '📱', fields: [{ key: 'api_key', label: 'API Key', type: 'password', placeholder: 'live_xxx' }, { key: 'from_phone', label: 'From Phone / Sender', type: 'text', placeholder: '+1234567890' }] },
+  { type: 'vonage', name: 'Vonage (Nexmo)', category: 'communication', tier: 'parwa' as const, icon: '📱', fields: [{ key: 'api_key', label: 'API Key', type: 'text', placeholder: 'xxx' }, { key: 'api_secret', label: 'API Secret', type: 'password' }, { key: 'from_phone', label: 'From Phone', type: 'text', placeholder: '+1234567890' }] },
+  { type: 'plivo', name: 'Plivo', category: 'communication', tier: 'parwa' as const, icon: '📱', fields: [{ key: 'auth_id', label: 'Auth ID', type: 'text', placeholder: 'MAxxx' }, { key: 'auth_token', label: 'Auth Token', type: 'password' }, { key: 'from_phone', label: 'From Phone', type: 'text', placeholder: '+1234567890' }] },
+  { type: 'telnyx', name: 'Telnyx', category: 'communication', tier: 'parwa' as const, icon: '📱', fields: [{ key: 'api_key', label: 'API Key', type: 'password', placeholder: 'KEYxxx' }, { key: 'from_phone', label: 'From Phone', type: 'text', placeholder: '+1234567890' }] },
+  // ── Chat / Communication ──
   { type: 'slack', name: 'Slack', category: 'communication', tier: 'parwa' as const, icon: '💬', fields: [{ key: 'bot_token', label: 'Bot Token (xoxb-)', type: 'password' }, { key: 'channel_id', label: 'Channel ID', type: 'text' }] },
+  { type: 'whatsapp', name: 'WhatsApp Business', category: 'communication', tier: 'parwa' as const, icon: '📱', fields: [{ key: 'phone_number_id', label: 'Phone Number ID', type: 'text' }, { key: 'access_token', label: 'Access Token', type: 'password' }] },
+  // ── E-commerce ──
   { type: 'shopify', name: 'Shopify', category: 'ecommerce', tier: 'parwa' as const, icon: '🛍️', fields: [{ key: 'shop_domain', label: 'Shop Domain', type: 'text' }, { key: 'access_token', label: 'Access Token', type: 'password' }] },
+  // ── Helpdesk ──
   { type: 'zendesk', name: 'Zendesk', category: 'helpdesk', tier: 'parwa' as const, icon: '🎧', fields: [{ key: 'subdomain', label: 'Subdomain', type: 'text' }, { key: 'api_token', label: 'API Token', type: 'password' }] },
-  // Pro tier
+  // ── CRM (Pro tier) ──
   { type: 'salesforce', name: 'Salesforce', category: 'crm', tier: 'pro' as const, icon: '☁️', fields: [{ key: 'instance_url', label: 'Instance URL', type: 'text' }, { key: 'access_token', label: 'Access Token', type: 'password' }] },
   { type: 'hubspot', name: 'HubSpot', category: 'crm', tier: 'pro' as const, icon: '🎯', fields: [{ key: 'access_token', label: 'Access Token', type: 'password' }] },
   { type: 'intercom', name: 'Intercom', category: 'helpdesk', tier: 'pro' as const, icon: '💬', fields: [{ key: 'access_token', label: 'Access Token', type: 'password' }] },
-  { type: 'whatsapp', name: 'WhatsApp Business', category: 'communication', tier: 'pro' as const, icon: '📱', fields: [{ key: 'phone_number_id', label: 'Phone Number ID', type: 'text' }, { key: 'access_token', label: 'Access Token', type: 'password' }] },
-  { type: 'twilio', name: 'Twilio', category: 'communication', tier: 'pro' as const, icon: '📞', fields: [{ key: 'account_sid', label: 'Account SID', type: 'text' }, { key: 'auth_token', label: 'Auth Token', type: 'password' }] },
-  // High tier
+  // ── Enterprise (High tier) ──
   { type: 'sap', name: 'SAP', category: 'crm', tier: 'high' as const, icon: '📦', fields: [{ key: 'endpoint', label: 'API Endpoint', type: 'text' }, { key: 'api_key', label: 'API Key', type: 'password' }] },
   { type: 'custom_api', name: 'Custom API', category: 'custom', tier: 'high' as const, icon: '🔗', fields: [{ key: 'endpoint', label: 'Endpoint URL', type: 'text' }, { key: 'api_key', label: 'API Key', type: 'password' }, { key: 'headers', label: 'Custom Headers (JSON)', type: 'text' }] },
 ] as const;
@@ -1675,7 +1689,7 @@ export default function SettingsPage() {
                                 <div key={field.key}>
                                   <label className="block text-xs font-medium text-zinc-400 mb-1">{field.label}</label>
                                   <div className="relative">
-                                    <input type={field.type === 'password' && !showPasswords[`${item.type}-${field.key}`] ? 'password' : 'text'} value={integrationForm[field.key] || ''} onChange={(e) => setIntegrationForm((prev) => ({ ...prev, [field.key]: e.target.value }))} placeholder={field.label} className="w-full bg-white/[0.04] border border-white/[0.08] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 transition-all placeholder:text-zinc-600" />
+                                    <input type={field.type === 'password' && !showPasswords[`${item.type}-${field.key}`] ? 'password' : 'text'} value={integrationForm[field.key] || ''} onChange={(e) => setIntegrationForm((prev) => ({ ...prev, [field.key]: e.target.value }))} placeholder={(field as { placeholder?: string }).placeholder || field.label} className="w-full bg-white/[0.04] border border-white/[0.08] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 transition-all placeholder:text-zinc-600" />
                                     {field.type === 'password' && (
                                       <button type="button" onClick={() => setShowPasswords((prev) => ({ ...prev, [`${item.type}-${field.key}`]: !prev[`${item.type}-${field.key}`] }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
                                         {showPasswords[`${item.type}-${field.key}`] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}

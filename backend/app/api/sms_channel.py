@@ -96,6 +96,92 @@ async def send_sms(
 
     try:
         db = _get_db(request)
+
+        # ────────────────────────────────────────────────────────────
+        # Resolve SMS provider via IntegrationService (global catalog,
+        # supports any provider — twilio/messagebird/vonage/plivo/telnyx).
+        # Falls back to the legacy env-var / DB-config Twilio path below
+        # if no IntegrationService-resolved credentials are found.
+        # ────────────────────────────────────────────────────────────
+        from app.services.integration_service import IntegrationService
+        sms_service = IntegrationService(db)
+        sms_provider = None
+        sms_creds = None
+        for candidate in ("twilio", "messagebird", "vonage", "plivo", "telnyx"):
+            creds = sms_service.get_credential_config(
+                str(company_id), candidate,
+            )
+            if creds and (
+                creds.get("account_sid")
+                or creds.get("api_key")
+                or creds.get("auth_id")
+            ):
+                sms_provider = candidate
+                sms_creds = creds
+                break
+
+        if sms_provider == "twilio" and sms_creds:
+            # Twilio resolved via IntegrationService — send directly with
+            # these credentials (account_sid + auth_token + from_phone).
+            account_sid = sms_creds.get("account_sid") or ""
+            auth_token = sms_creds.get("auth_token") or ""
+            from_phone = sms_creds.get("from_phone") or ""
+            to_number = body["to_number"]
+            sms_body_text = body["body"]
+            if not account_sid or not auth_token or not from_phone:
+                return JSONResponse(
+                    status_code=422,
+                    content={
+                        "error": {
+                            "code": "VALIDATION_ERROR",
+                            "message": "Twilio integration is missing account_sid/auth_token/from_phone. Reconnect it in Settings → Integrations.",
+                            "details": None,
+                        }
+                    },
+                )
+            try:
+                from twilio.rest import Client
+
+                client = Client(account_sid, auth_token)
+                twilio_msg = client.messages.create(
+                    body=sms_body_text,
+                    from_=from_phone,
+                    to=to_number,
+                )
+                logger.info(
+                    "sms_outbound_sent provider=twilio source=integration_service to=%s sid=%s",
+                    to_number, twilio_msg.sid,
+                )
+                return {
+                    "status": "sent",
+                    "message_id": twilio_msg.sid,
+                    "twilio_message_sid": twilio_msg.sid,
+                    "provider": "twilio",
+                    "source": "integration_service",
+                }
+            except Exception as exc:
+                logger.error(
+                    "sms_send_error provider=twilio source=integration_service company_id=%s error=%s",
+                    company_id, str(exc)[:200],
+                )
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "error": {
+                            "code": "INTERNAL_ERROR",
+                            "message": f"Failed to send SMS via Twilio (IntegrationService): {str(exc)[:200]}",
+                            "details": None,
+                        }
+                    },
+                )
+
+        # TODO: implement messagebird send (sms_provider == "messagebird")
+        # TODO: implement vonage send       (sms_provider == "vonage")
+        # TODO: implement plivo send        (sms_provider == "plivo")
+        # TODO: implement telnyx send       (sms_provider == "telnyx")
+        # For now, fall through to the legacy SMSChannelService path below,
+        # which uses the per-tenant SMSChannelConfig + env vars (Twilio only).
+
         from app.services.sms_channel_service import SMSChannelService
         service = SMSChannelService(db)
         result = service.send_sms(

@@ -90,19 +90,21 @@ async def send_email(
     provider = body.provider
     if not provider:
         # Try the common email providers in priority order.
-        for candidate in ("brevo", "sendgrid", "mailgun", "ses", "postmark"):
+        for candidate in ("brevo", "sendgrid", "mailgun", "ses", "postmark", "smtp"):
             creds = service.get_credential_config(company_id, candidate)
-            if creds and creds.get("api_key"):
+            if creds and (creds.get("api_key") or creds.get("server_token")
+                          or creds.get("access_key_id") or creds.get("smtp_host")):
                 provider = candidate
                 break
     if not provider:
         return SendEmailResponse(
             success=False,
-            error="No email integration is connected. Connect Brevo/SendGrid/Mailgun/SES/Postmark in Settings → Integrations.",
+            error="No email integration is connected. Connect Brevo/SendGrid/Mailgun/SES/Postmark/SMTP in Settings → Integrations.",
         )
 
     creds = service.get_credential_config(company_id, provider)
-    if not creds or not creds.get("api_key"):
+    if not creds or not (creds.get("api_key") or creds.get("server_token")
+                         or creds.get("access_key_id") or creds.get("smtp_host")):
         return SendEmailResponse(
             success=False,
             error=f"Email provider '{provider}' is connected but credentials are missing. Reconnect it in Settings → Integrations.",
