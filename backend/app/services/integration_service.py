@@ -365,6 +365,26 @@ class IntegrationService:
         Per D6: Pre-written HTTP test calls — NO AI tokens spent.
         1-2 second response. Clear error messages.
         """
+        # ── SMTP: special-case — test via real SMTP login, not HTTP ──
+        if integration_type == "smtp":
+            try:
+                import smtplib
+                smtp_host = config.get("smtp_host", "")
+                smtp_port = int(config.get("smtp_port", 587))
+                username = config.get("username", "")
+                password = config.get("password", "")
+                use_tls = str(config.get("use_tls", "true")).lower() in ("true", "1", "yes")
+                with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+                    server.ehlo()
+                    if use_tls:
+                        server.starttls()
+                        server.ehlo()
+                    if username and password:
+                        server.login(username, password)
+                return {"success": True, "message": "SMTP login successful — credentials verified."}
+            except Exception as exc:
+                return {"success": False, "message": f"SMTP login failed: {str(exc)[:200]}"}
+
         catalog_entry = get_integration_by_key(integration_type)
         if not catalog_entry:
             return {"success": False, "message": f"Unknown integration type: {integration_type}"}
