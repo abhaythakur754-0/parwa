@@ -6,7 +6,7 @@
  * the free tier from sleeping after 15 min of inactivity.
  *
  * Free: Vercel cron jobs are free (included in Hobby plan).
- * Schedule: */10 * * * * (every 10 minutes)
+ * Schedule: every 10 minutes (see vercel.json crons config)
  */
 
 import { NextResponse } from 'next/server';
