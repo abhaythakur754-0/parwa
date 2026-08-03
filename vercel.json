@@ -25,5 +25,11 @@
     "src/app/api/jarvis/**/route.ts": {
       "maxDuration": 90
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/keep-alive",
+      "schedule": "*/10 * * * *"
+    }
+  ]
 }
