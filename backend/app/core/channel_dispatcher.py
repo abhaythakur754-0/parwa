@@ -379,8 +379,10 @@ class ChannelDispatcher:
             svc = IntegrationService(self.db)
             sms_provider = None
             sms_config = None
-            for p in ("twilio", "vonage", "generic"):
-                cfg = svc.get_credential_config(company_id, f"sms_{p}")
+            # Catalog keys are "twilio", "vonage", "plivo", "telnyx", "messagebird"
+            # (NOT "sms_twilio" — that was a bug that prevented finding credentials)
+            for p in ("twilio", "vonage", "plivo", "telnyx", "messagebird"):
+                cfg = svc.get_credential_config(company_id, p)
                 if cfg:
                     sms_provider = p
                     sms_config = cfg
