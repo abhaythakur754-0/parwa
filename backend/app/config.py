@@ -119,18 +119,18 @@ class Settings(BaseSettings):
     @field_validator("REDIS_URL", "CELERY_BROKER_URL", "CELERY_RESULT_BACKEND", mode="before")
     @classmethod
     def normalize_redis_ssl_url(cls, v: str) -> str:
-        """Normalize Redis URLs for Render.
+        """Normalize Redis URLs.
 
-        Render's private service connection string uses rediss:// scheme.
-        The Redis container itself (redis:7-alpine) does NOT have TLS enabled
-        — it's plain Redis on port 6379. So we convert rediss:// to redis://
-        to connect without SSL.
-
-        This avoids all redis-py 5.2.1 SSL bugs (cert_reqs, ssl_context, etc.)
-        and connects directly to the plain Redis instance.
+        - Upstash URLs (contain 'upstash.io') REQUIRE rediss:// (TLS) — keep as-is.
+        - Render internal Redis uses rediss:// but doesn't have TLS → convert to redis://.
+        - Plain redis:// URLs pass through unchanged.
         """
         if not v or not isinstance(v, str):
             return v
+        # Upstash requires TLS — don't strip rediss://
+        if "upstash" in v.lower():
+            return v
+        # Render internal Redis — convert rediss:// to redis://
         if v.startswith("rediss://"):
             v = "redis://" + v[len("rediss://"):]
         return v
