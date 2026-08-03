@@ -119,7 +119,10 @@ async function proxyRequest(
     // POST requests trigger the sync pipeline (3-5s per ticket); when
     // multiple tickets are created in quick succession they queue on the
     // single uvicorn worker and need more than 15s to complete.
-    const requestTimeout = method === 'POST' ? 45000 : 15000;
+    // GET requests for ticket lists (page_size=50+) can be slow when the
+    // DB is under load from pipeline workers — give them more time too.
+    const isTicketList = method === 'GET' && fullPath.startsWith('tickets');
+    const requestTimeout = method === 'POST' ? 45000 : (isTicketList ? 30000 : 15000);
 
     // ── First attempt ───────────────────────────────────────
     let backendRes = await fetch(`${backendUrl}${backendPath}`, {
@@ -172,7 +175,32 @@ async function proxyRequest(
         { status: backendRes.status },
       );
     }
-  } catch {
+  } catch (error) {
+    // ── Retry once on timeout — backend may be busy processing tickets ──
+    // The queue stores all tickets, but the list endpoint can be slow when
+    // workers are processing. Wait 2s and try again before giving up.
+    if (method === 'GET') {
+      try {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const retryRes = await fetch(`${backendUrl}${backendPath}`, {
+          method,
+          headers: buildHeaders(currentCookie, origin, accessToken),
+          signal: AbortSignal.timeout(requestTimeout),
+        });
+        const retryText = await retryRes.text();
+        try {
+          const retryData = JSON.parse(retryText);
+          return NextResponse.json(retryData, { status: retryRes.status });
+        } catch {
+          return NextResponse.json(
+            { error: { message: retryText || 'Backend returned non-JSON response' } },
+            { status: retryRes.status },
+          );
+        }
+      } catch {
+        // Retry also failed — fall through to 503
+      }
+    }
     return NextResponse.json(
       { error: { message: 'V1 API service unavailable. Please try again later.' } },
       { status: 503 },
