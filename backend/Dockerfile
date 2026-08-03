@@ -78,6 +78,11 @@ RUN mkdir -p /app/storage && chown -R parwa:parwa /app/storage
 
 # Set PYTHONPATH so `app.main` resolves correctly
 ENV PYTHONPATH=/app
+# Memory optimization for Render free tier (512MB RAM)
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONMALLOC=malloc
+ENV MALLOC_ARENA_MAX=2
 
 USER parwa
 
@@ -86,4 +91,7 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+# --workers 1: single worker to minimize memory (Render free 512MB)
+# --no-access-log: disable access logging (saves ~10MB)
+# --limit-max-requests 1000: recycle worker after 1000 requests (prevents memory leaks)
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --no-access-log
