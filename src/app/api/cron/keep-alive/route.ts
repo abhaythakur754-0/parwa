@@ -1,12 +1,17 @@
 /**
  * Vercel Cron — Keep Render Backend Awake
  *
- * Runs every 10 minutes via vercel.json cron config.
- * Pings the Render backend /health endpoint to prevent
- * the free tier from sleeping after 15 min of inactivity.
+ * Runs once per day at 9 AM UTC via vercel.json cron config.
+ * (Vercel Hobby plan limits cron to once-per-day execution.)
+ * Pings the Render backend /health endpoint.
+ *
+ * NOTE: This only keeps Render awake ONCE per day. For continuous
+ * keep-alive (every 10 min), use a free external service like
+ * cron-job.org or UptimeRobot — they can ping /api/cron/keep-alive
+ * at any interval without Vercel restrictions.
  *
  * Free: Vercel cron jobs are free (included in Hobby plan).
- * Schedule: every 10 minutes (see vercel.json crons config)
+ * Schedule: daily at 9 AM UTC
  */
 
 import { NextResponse } from 'next/server';
