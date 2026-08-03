@@ -114,7 +114,18 @@ def _start_pipeline_workers():
         _workers_started = True
 
         def _worker(worker_id: int):
-            """Persistent worker — polls DB for open tickets and processes them."""
+            """Persistent worker — polls DB for open tickets and processes them.
+
+            RETRY LOGIC for rate-limited LLM calls:
+            - When pipeline fails with "all providers exhausted" (rate limited),
+              the ticket is put BACK in the queue (status='open') with a retry count.
+            - After 3 failed retries, it's escalated to awaiting_human (so it's not lost).
+            - Between retries, the worker sleeps 60s to let rate limits renew.
+            - This means: tickets WAIT for credits to renew instead of being escalated.
+            """
+            MAX_RETRIES = 3  # Max retries before escalating to human
+            RATE_LIMIT_WAIT = 60  # Seconds to wait for rate limit to renew (Groq 30 RPM = 60s cycle)
+
             while True:
                 try:
                     claim = _claim_next_ticket()
@@ -127,23 +138,71 @@ def _start_pipeline_workers():
                             )
                             _run_pipeline_sync(ticket_id, company_id, channel)
                         except Exception as exc:
+                            err_msg = str(exc)[:300]
                             logger.error(
                                 "worker_%d pipeline_error ticket=%s err=%s",
-                                worker_id, ticket_id[:8], str(exc)[:200],
+                                worker_id, ticket_id[:8], err_msg[:200],
                             )
-                            # Mark ticket as awaiting_human so it's not lost
+
+                            # ── Check if this is a rate-limit failure (retryable) ──
+                            is_rate_limit = (
+                                "all providers exhausted" in err_msg.lower()
+                                or "rate limit" in err_msg.lower()
+                                or "429" in err_msg
+                            )
+
                             try:
                                 from database.base import SessionLocal
                                 from database.models.tickets import Ticket
+                                import json as _json
                                 db = SessionLocal()
                                 try:
                                     ticket = db.query(Ticket).filter(
                                         Ticket.id == ticket_id
                                     ).first()
                                     if ticket and ticket.status == "processing":
-                                        ticket.status = "awaiting_human"
-                                        ticket.awaiting_human = True
-                                        db.commit()
+                                        # Get current retry count from metadata
+                                        meta = {}
+                                        try:
+                                            meta = _json.loads(ticket.metadata_json or "{}")
+                                        except Exception:
+                                            meta = {}
+                                        retry_count = meta.get("pipeline_retry_count", 0)
+
+                                        if is_rate_limit and retry_count < MAX_RETRIES:
+                                            # ── RETRY: put ticket back in queue ──
+                                            # Rate limit will renew in ~60s, then
+                                            # a worker will pick this ticket up again
+                                            meta["pipeline_retry_count"] = retry_count + 1
+                                            meta["last_retry_reason"] = "rate_limited"
+                                            meta["next_retry_after"] = RATE_LIMIT_WAIT
+                                            ticket.status = "open"  # back in queue
+                                            ticket.awaiting_human = False
+                                            ticket.metadata_json = _json.dumps(meta)
+                                            db.commit()
+                                            logger.info(
+                                                "worker_%d ticket=%s RETRY %d/%d (rate limited, waiting %ds)",
+                                                worker_id, ticket_id[:8],
+                                                retry_count + 1, MAX_RETRIES, RATE_LIMIT_WAIT,
+                                            )
+                                            # Wait for rate limit to renew before claiming next ticket
+                                            _time_mod.sleep(RATE_LIMIT_WAIT)
+                                        else:
+                                            # ── ESCALATE: max retries reached or non-retryable error ──
+                                            ticket.status = "awaiting_human"
+                                            ticket.awaiting_human = True
+                                            meta["escalation_reason"] = (
+                                                "max_retries_exceeded" if is_rate_limit
+                                                else "pipeline_error"
+                                            )
+                                            meta["pipeline_error"] = err_msg[:200]
+                                            ticket.metadata_json = _json.dumps(meta)
+                                            db.commit()
+                                            logger.info(
+                                                "worker_%d ticket=%s ESCALATED to human (retries=%d, rate_limited=%s)",
+                                                worker_id, ticket_id[:8],
+                                                retry_count, is_rate_limit,
+                                            )
                                 finally:
                                     db.close()
                             except:
