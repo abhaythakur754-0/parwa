@@ -52,50 +52,14 @@ class ScanAndBuildResponse(BaseModel):
     errors: List[str]
 
 
-# ── Tool Mapping: capability → integration + action ──────────────
-
-CAPABILITY_TO_TOOL_MAP = {
-    "refund_processing": {
-        "integrations": ["stripe", "razorpay", "paypal"],
-        "tool": "billing_system",
-        "action": "process_refund",
-    },
-    "order_cancellation": {
-        "integrations": ["shopify", "woocommerce", "bigcommerce"],
-        "tool": "order_management",
-        "action": "cancel_order",
-    },
-    "credit_adjustment": {
-        "integrations": ["stripe", "razorpay"],
-        "tool": "billing_system",
-        "action": "apply_credit",
-    },
-    "shipping_delivery": {
-        "integrations": ["shopify", "woocommerce"],
-        "tool": "order_management",
-        "action": "update_shipping",
-    },
-    "account_management": {
-        "integrations": ["custom"],
-        "tool": "custom_connector",
-        "action": "unlock_account",
-    },
-    "subscription_management": {
-        "integrations": ["stripe", "razorpay"],
-        "tool": "billing_system",
-        "action": "cancel_subscription",
-    },
-    "invoice_request": {
-        "integrations": ["stripe", "razorpay"],
-        "tool": "billing_system",
-        "action": "get_invoice",
-    },
-    "billing_inquiry": {
-        "integrations": ["stripe", "razorpay"],
-        "tool": "billing_system",
-        "action": "get_payment_history",
-    },
-}
+# ── Tool Mapping is done DYNAMICALLY by NVIDIA GLM-5.2 ──────────
+# We do NOT hardcode capability→tool mappings (that's what competitors do).
+# Instead, we tell GLM-5.2:
+#   "Here are the tenant's connected integrations + available tools.
+#    For this capability, which tool + action should the agent use?"
+#
+# GLM-5.2 has the reasoning capability to map any capability to any
+# integration dynamically — no hardcoded rules needed.
 
 
 @router.post("/scan-and-build")
@@ -304,33 +268,74 @@ Return ONLY a JSON array of unique capability strings."""
                         agent_id = builder_result.get("agent_id")
                         config = builder_result.get("config", {})
 
-                        # ── Add tool mapping to the agent ──────
-                        tool_map = CAPABILITY_TO_TOOL_MAP.get(capability, {})
+                        # ── DYNAMIC tool mapping via NVIDIA GLM-5.2 ──
+                        # Instead of hardcoded CAPABILITY_TO_TOOL_MAP,
+                        # we ask GLM-5.2 to decide which tool to use
+                        # based on what integrations the tenant has connected.
+                        tool_mapping = {}
+                        has_integration = False
 
-                        # Check if tenant has the required integration
-                        required_integrations = tool_map.get("integrations", [])
-                        has_integration = any(
-                            integ in connected_integrations
-                            for integ in required_integrations
-                        )
+                        if os.environ.get("NVIDIA_API_KEY") and connected_integrations:
+                            from app.core.parwa_pipeline.llm_client import _call_nvidia_direct
+                            import re
 
-                        # Update agent with tool mapping info
+                            tool_prompt = f"""You are designing a customer support agent for: {capability}
+
+The tenant has these integrations connected: {connected_integrations}
+
+Available tools in the system:
+- order_management: get_order, cancel_order, refund_order, update_shipping, get_order_status
+- billing_system: get_invoice, apply_credit, process_payment, get_subscription_status, get_payment_history
+- crm_integration: get_customer, update_customer
+- ticket_system: get_ticket
+- custom_connector: [tenant-defined custom API actions]
+
+For the capability "{capability}", which tool + action should this agent use?
+Consider what the tenant has connected. If no matching integration is connected,
+say "no_tool" and the agent will recommend instead of execute.
+
+Return JSON:
+{{
+  "tool": "tool_name",
+  "action": "action_name",
+  "integration": "integration_name",
+  "can_execute": true_or_false,
+  "reasoning": "why this tool"
+}}"""
+
+                            try:
+                                tool_result = await _call_nvidia_direct(
+                                    messages=[{"role": "user", "content": tool_prompt}],
+                                    temperature=0.1,
+                                    max_tokens=200,
+                                    call_id=0,
+                                )
+                                json_match = re.search(r'\{.*\}', tool_result, re.DOTALL)
+                                if json_match:
+                                    tool_mapping = json.loads(json_match.group())
+                                    has_integration = tool_mapping.get("can_execute", False)
+                            except Exception as exc:
+                                logger.warning("NVIDIA tool mapping failed for %s: %s", capability, str(exc)[:200])
+
+                        # Update agent with dynamic tool mapping
                         if agent_id:
                             agent = db.query(AIAgentAssignment).filter(
                                 AIAgentAssignment.id == agent_id,
                             ).first()
                             if agent:
-                                # Add tool mapping to instructions
                                 tool_info = ""
-                                if tool_map and has_integration:
+                                if tool_mapping and has_integration:
                                     tool_info = (
-                                        f"\n\nTOOL MAPPING: Use {tool_map['tool']}.{tool_map['action']} "
-                                        f"via {required_integrations[0]} integration."
+                                        f"\n\nTOOL MAPPING (determined by AI): "
+                                        f"Use {tool_mapping.get('tool', '?')}.{tool_mapping.get('action', '?')} "
+                                        f"via {tool_mapping.get('integration', '?')} integration. "
+                                        f"Reason: {tool_mapping.get('reasoning', '')}"
                                     )
-                                elif tool_map and not has_integration:
+                                elif tool_mapping and not has_integration:
                                     tool_info = (
-                                        f"\n\nTOOL MAPPING: This capability needs {required_integrations} "
-                                        f"but none are connected. Escalate to human if action needed."
+                                        f"\n\nTOOL MAPPING (determined by AI): No matching integration "
+                                        f"connected for this capability. Escalate to human if action needed. "
+                                        f"Reason: {tool_mapping.get('reasoning', '')}"
                                     )
 
                                 agent.instructions = (config.get("instructions", "") + tool_info)[:5000]
@@ -341,7 +346,7 @@ Return ONLY a JSON array of unique capability strings."""
                             "agent_id": str(agent_id),
                             "agent_name": config.get("agent_name", capability),
                             "capability": capability,
-                            "tool_mapping": tool_map,
+                            "tool_mapping": tool_mapping,
                             "has_integration": has_integration,
                             "builder_stages": builder_result.get("stage_iterations", {}),
                         })

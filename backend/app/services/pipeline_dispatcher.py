@@ -82,12 +82,25 @@ def _claim_next_ticket():
         
         db = SessionLocal()
         try:
+            # ── Priority-based queue: process HIGH priority first ──
+            # Priority order: critical > high > medium > low
+            # Within same priority: oldest first (updated_at ASC)
+            # This ensures urgent tickets (refunds, account locked) are
+            # processed before low-priority ones (invoice requests, FAQs)
             result = db.execute(text(
                 "UPDATE tickets SET status = 'processing', updated_at = NOW() "
                 "WHERE id = ("
                 "  SELECT id FROM tickets "
                 "  WHERE status = 'open' "
-                "  ORDER BY updated_at ASC "
+                "  ORDER BY "
+                "    CASE priority "
+                "      WHEN 'critical' THEN 1 "
+                "      WHEN 'high' THEN 2 "
+                "      WHEN 'medium' THEN 3 "
+                "      WHEN 'low' THEN 4 "
+                "      ELSE 5 "
+                "    END, "
+                "    updated_at ASC "
                 "  FOR UPDATE SKIP LOCKED "
                 "  LIMIT 1"
                 ") "
