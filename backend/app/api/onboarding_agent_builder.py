@@ -67,16 +67,40 @@ async def scan_and_build(
     request: ScanAndBuildRequest,
     current_user=Depends(get_current_user),
 ) -> Any:
-    """Scan tickets + build agents using the REAL 4-stage Builder pipeline.
+    """Scan tickets + build agents AS A BACKGROUND TASK.
 
-    Steps:
-    1. Scan recent tickets (last 30 days)
-    2. NVIDIA GLM-5 classifies capabilities needed
-    3. For each capability → run full Builder (EXPLORE/DESIGN/VERIFY/REFINE)
-    4. Map agent to connected integrations (tool mapping)
-    5. Test agent against historical tickets
-    6. Store only TESTED agents in DB
+    Returns immediately with "building_started" status.
+    The actual building runs in a background thread (NVIDIA 4-stage pipeline).
+    Check /api/ai/agents to see agents as they're created.
+
+    This prevents browser timeouts — the Builder takes 5-10 minutes.
     """
+    import threading
+
+    company_id = str(current_user.company_id)
+
+    # ── Return immediately — building runs in background ──
+    def _build_in_background():
+        """Run the full Builder pipeline in a background thread."""
+        try:
+            import asyncio
+            asyncio.run(_do_build(company_id, request.max_tickets_to_scan, request.force_rebuild))
+        except Exception as exc:
+            logger.error("background_build_failed company=%s err=%s", company_id, str(exc)[:300])
+
+    # Start background thread
+    t = threading.Thread(target=_build_in_background, daemon=True, name=f"builder-{company_id[:8]}")
+    t.start()
+
+    return {
+        "status": "building_started",
+        "message": "Agent building started in background. Check /api/ai/agents in 2-5 minutes.",
+        "company_id": company_id,
+    }
+
+
+async def _do_build(company_id: str, max_scan: int, force_rebuild: bool):
+    """Actual building logic — runs in background thread."""
     try:
         from database.base import SessionLocal
         from database.models.tickets import Ticket, TicketMessage
@@ -84,7 +108,6 @@ async def scan_and_build(
         from database.models.core import Company
 
         db = SessionLocal()
-        company_id = str(current_user.company_id)
 
         try:
             # ── Get tenant tier ──────────────────────────────────
