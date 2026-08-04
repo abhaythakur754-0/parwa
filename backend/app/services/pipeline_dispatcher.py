@@ -87,7 +87,7 @@ def _claim_next_ticket():
                 "WHERE id = ("
                 "  SELECT id FROM tickets "
                 "  WHERE status = 'open' "
-                "  ORDER BY created_at ASC "
+                "  ORDER BY updated_at ASC "
                 "  FOR UPDATE SKIP LOCKED "
                 "  LIMIT 1"
                 ") "
@@ -178,6 +178,13 @@ def _start_pipeline_workers():
                                             meta["next_retry_after"] = RATE_LIMIT_WAIT
                                             ticket.status = "open"  # back in queue
                                             ticket.awaiting_human = False
+                                            # Update updated_at so this ticket goes to the END of the
+                                            # queue (not the front). The claim query uses
+                                            # ORDER BY created_at ASC, but we want rate-limited
+                                            # tickets to be retried AFTER other tickets, not
+                                            # immediately reclaimed by the same worker.
+                                            from datetime import datetime, timezone
+                                            ticket.updated_at = datetime.now(timezone.utc)
                                             ticket.metadata_json = _json.dumps(meta)
                                             db.commit()
                                             logger.info(
@@ -185,8 +192,14 @@ def _start_pipeline_workers():
                                                 worker_id, ticket_id[:8],
                                                 retry_count + 1, MAX_RETRIES, RATE_LIMIT_WAIT,
                                             )
-                                            # Wait for rate limit to renew before claiming next ticket
-                                            _time_mod.sleep(RATE_LIMIT_WAIT)
+                                            # NOTE: Do NOT sleep here — just put the ticket back in
+                                            # the queue and let the worker claim the NEXT available
+                                            # ticket immediately. The rate-limited ticket will be
+                                            # retried when a worker picks it up again (by then the
+                                            # rate limit will have renewed naturally).
+                                            #
+                                            # The old code slept 60s here, which blocked the worker
+                                            # from processing other tickets → queue got stuck.
                                         else:
                                             # ── ESCALATE: max retries reached or non-retryable error ──
                                             ticket.status = "awaiting_human"
