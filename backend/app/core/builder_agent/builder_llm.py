@@ -1,32 +1,36 @@
 """
-Builder LLM Client — calls smart_router with correct tier per stage.
+Builder LLM Client — uses NVIDIA GLM-5 for deep agent reasoning.
 
-The Builder uses 4 model tiers across 4 stages:
-  EXPLORE: LIGHT models (fast, cheap) — understand intent
-  DESIGN:  MEDIUM models (balanced) — generate candidates
-  VERIFY:  LIGHT + MEDIUM + GUARDRAIL — vote, reflect, safety check
-  REFINE:  HEAVY models (powerful) — regenerate using Reflexion
+The Builder uses NVIDIA GLM-5.2 (z-ai/glm-5.2) for ALL stages.
+This separates agent building (NVIDIA, 30 RPM) from ticket processing
+(Groq, 30 RPM) — they don't compete for rate limits.
 
-This module wraps llm_call with the correct tier parameter for each
-stage so the Builder always uses the right model for the job.
+4 stages:
+  EXPLORE: Understand what agent is needed (scan tickets, classify)
+  DESIGN:  Generate agent config (instructions, restrictions, tools)
+  VERIFY:  Test agent against historical tickets
+  REFINE:  Improve based on test results
 """
 
 from __future__ import annotations
 
 import logging
+import os
 from typing import Optional
 
 logger = logging.getLogger("parwa.builder.llm")
 
-# ── Model tiers for each Builder stage ─────────────────────────────
-# Maps Builder stage → smart_router tier parameter
+# ── NVIDIA GLM-5 is used for ALL Builder stages ───────────────────
+# This is SEPARATE from Groq (which handles ticket processing).
+# NVIDIA: 30 RPM, used for deep reasoning during onboarding
+# Groq: 30 RPM, used for fast ticket responses
 
 STAGE_TIER_MAP = {
-    "explore": "light",       # Cerebras Llama 3.1 8B → Groq Llama 3.1 8B → Gemma 3 27B
-    "design": "medium",       # Gemini Flash-Lite → Gemini 2.5 Flash → Groq Llama 3.3 70B
-    "verify": "medium",       # Same as design — voting + reflection
-    "verify_guardrail": "guardrail",  # Groq Llama Guard 4 12B
-    "refine": "heavy",        # Groq GPT-OSS 120B → Cerebras GPT-OSS 120B → Llama 4 Scout
+    "explore": "nvidia",          # NVIDIA GLM-5 for intent analysis
+    "design": "nvidia",           # NVIDIA GLM-5 for agent design
+    "verify": "nvidia",           # NVIDIA GLM-5 for testing
+    "verify_guardrail": "nvidia", # NVIDIA GLM-5 for safety check
+    "refine": "nvidia",           # NVIDIA GLM-5 for improvement
 }
 
 
@@ -37,13 +41,14 @@ async def builder_llm_call(
     temperature: float = 0.3,
     system_prompt: Optional[str] = None,
 ) -> str:
-    """Call the LLM with the correct tier for this Builder stage.
+    """Call NVIDIA GLM-5 for Builder reasoning.
 
-    Falls back to the standard llm_call if smart_router isn't available.
+    Uses _call_nvidia_direct (GLM-5.2 model) for all stages.
+    Falls back to Groq if NVIDIA key not set.
 
     Args:
         prompt: The user message / query
-        stage: Builder stage name (explore, design, verify, refine, verify_guardrail)
+        stage: Builder stage name (explore, design, verify, refine)
         max_tokens: Max tokens in response
         temperature: Sampling temperature
         system_prompt: Optional system prompt
@@ -51,46 +56,39 @@ async def builder_llm_call(
     Returns:
         The LLM response text
     """
-    tier = STAGE_TIER_MAP.get(stage, "light")
+    full_prompt = prompt
+    if system_prompt:
+        full_prompt = f"{system_prompt}\n\n{prompt}"
 
+    # ── PRIMARY: NVIDIA GLM-5 ──────────────────────────────────
+    if os.environ.get("NVIDIA_API_KEY"):
+        try:
+            from app.core.parwa_pipeline.llm_client import _call_nvidia_direct
+            result = await _call_nvidia_direct(
+                messages=[{"role": "user", "content": full_prompt}],
+                temperature=temperature,
+                max_tokens=max_tokens,
+                call_id=0,
+            )
+            if result and len(result.strip()) > 0:
+                logger.info("builder_llm_call NVIDIA stage=%s chars=%d", stage, len(result))
+                return result
+        except Exception as exc:
+            logger.warning("builder_llm_call NVIDIA failed stage=%s: %s", stage, str(exc)[:200])
+
+    # ── FALLBACK: Groq (if NVIDIA not available) ──────────────
     try:
         from app.core.parwa_pipeline.llm_client import llm_call
-
-        # Try to use smart_router if available (Phase 0 wiring)
-        try:
-            from app.core.parwa_pipeline.smart_router import SmartRouter
-            router = SmartRouter()
-
-            full_prompt = prompt
-            if system_prompt:
-                full_prompt = f"{system_prompt}\n\n{prompt}"
-
-            result = await llm_call(
-                full_prompt,
-                max_tokens=max_tokens,
-                temperature=temperature,
-            )
-            return result or ""
-
-        except ImportError:
-            pass
-
-        # Fallback: standard llm_call
-        full_prompt = prompt
-        if system_prompt:
-            full_prompt = f"{system_prompt}\n\n{prompt}"
-
         result = await llm_call(
             full_prompt,
             max_tokens=max_tokens,
             temperature=temperature,
         )
         return result or ""
-
     except Exception as exc:
         logger.warning(
-            "builder_llm_call_failed stage=%s tier=%s err=%s",
-            stage, tier, str(exc)[:200],
+            "builder_llm_call_failed stage=%s err=%s",
+            stage, str(exc)[:200],
         )
         return ""
 

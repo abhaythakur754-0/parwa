@@ -238,12 +238,15 @@ async def _llm_match_capability(query: str, tenant_id: str) -> str | None:
     """
     # Fetch tenant's custom capabilities (if any) to extend the vocabulary
     tenant_capabilities: list[str] = []
+    tenant_connected_integrations: list[str] = []
     try:
         from database.base import SessionLocal
         from database.models.variant_engine import AIAgentAssignment
         import json as _json
         db = SessionLocal()
         try:
+            # ── Look up TESTED agents (role=onboarding_built or auto_created) ──
+            # Only use agents built during onboarding, not during ticket processing
             rows = db.query(AIAgentAssignment).filter(
                 AIAgentAssignment.company_id == tenant_id,
                 AIAgentAssignment.status == "active",
@@ -257,6 +260,17 @@ async def _llm_match_capability(query: str, tenant_id: str) -> str | None:
                                 tenant_capabilities.append(c)
                 except (_json.JSONDecodeError, TypeError):
                     pass
+
+            # ── Check connected integrations for this tenant ──
+            from app.services.integration_service import IntegrationService
+            integ_service = IntegrationService(db)
+            for integ_type in ["stripe", "razorpay", "shopify", "woocommerce",
+                               "bigcommerce", "twilio", "brevo", "sendgrid",
+                               "mailgun", "ses", "postmark", "smtp"]:
+                creds = integ_service.get_credential_config(tenant_id, integ_type)
+                if creds:
+                    tenant_connected_integrations.append(integ_type)
+
         finally:
             db.close()
     except Exception as exc:
