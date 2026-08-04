@@ -113,6 +113,35 @@ async def llm_test() -> Dict[str, Any]:
     except Exception as exc:
         results["smart_router"] = {"ok": False, "error": str(exc)[:300]}
 
+    # ── 3.5. Test NVIDIA GLM-5 directly ──
+    nvidia_key = os.environ.get("NVIDIA_API_KEY", "")
+    if not nvidia_key:
+        results["nvidia"] = {"ok": False, "error": "NVIDIA_API_KEY not set"}
+    else:
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                r = await client.post(
+                    "https://integrate.api.nvidia.com/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {nvidia_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": "z-ai/glm-5.2",
+                        "messages": messages,
+                        "max_tokens": 10,
+                        "temperature": 0,
+                    },
+                )
+            if r.status_code == 200:
+                content = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                results["nvidia"] = {"ok": True, "response": content[:50], "model": "z-ai/glm-5.2"}
+            else:
+                results["nvidia"] = {"ok": False, "status": r.status_code, "error": r.text[:300]}
+        except Exception as exc:
+            results["nvidia"] = {"ok": False, "error": str(exc)[:300]}
+
     # ── 4. Check litellm ──
     try:
         import litellm

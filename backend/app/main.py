@@ -125,6 +125,7 @@ from app.api.escalation import router as escalation_router  # Escalation dashboa
 from app.api.dlq import router as dlq_router  # BC-018: DLQ ops dashboard + CRM-DLQ tile
 from app.api.shadow_mode import router as shadow_mode_router  # Shadow Mode variant deployment dashboard
 from app.api.debug import router as debug_router  # Debug endpoints for LLM testing
+from app.api.onboarding_agent_builder import router as onboarding_agent_builder_router  # Onboarding agent scanner + builder
 
 from app.api.deps import get_current_user
 from database.models.core import User
@@ -1088,6 +1089,7 @@ app.include_router(escalation_router, tags=["escalation"])  # prefix: /api/escal
 # Used by frontend /dashboard/crm-dlq page + main dashboard CRM DLQ count tile.
 app.include_router(dlq_router, tags=["dlq"])
 app.include_router(shadow_mode_router, tags=["shadow-mode"])  # prefix: /api/shadow-mode
+app.include_router(onboarding_agent_builder_router)  # Onboarding: scan tickets + build agents
 app.include_router(debug_router, prefix="/api/v1", tags=["debug"])  # prefix: /api/v1/debug
 
 
