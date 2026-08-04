@@ -114,7 +114,7 @@ async def llm_test() -> Dict[str, Any]:
         results["smart_router"] = {"ok": False, "error": str(exc)[:300]}
 
     # ── 3.5. Test NVIDIA GLM-5 directly ──
-    nvidia_key = os.environ.get("NVIDIA_API_KEY", "")
+    nvidia_key = os.environ.get("NVIDIA_API_KEY", "").strip()
     if not nvidia_key:
         results["nvidia"] = {"ok": False, "error": "NVIDIA_API_KEY not set"}
     else:

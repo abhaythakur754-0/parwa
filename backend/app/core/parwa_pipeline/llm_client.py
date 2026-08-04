@@ -383,7 +383,7 @@ async def _call_nvidia_direct(messages: list, temperature: float, max_tokens: in
     """
     import httpx
 
-    api_key = os.environ.get("NVIDIA_API_KEY", "")
+    api_key = os.environ.get("NVIDIA_API_KEY", "").strip()
     if not api_key:
         return ""
 
