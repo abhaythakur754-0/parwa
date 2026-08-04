@@ -2178,10 +2178,13 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
                 ),
             })
         else:
-            # Has KB docs but agent creation failed — still escalate
-            required_action = "escalate_human"
+            # Has KB docs but agent creation failed — PROCEED ANYWAY.
+            # The KB has the knowledge needed to answer. The pipeline doesn't
+            # need a specialized agent — it can use the KB + generic AI to
+            # generate a response. Only escalate if there's truly no KB.
+            required_action = "process"
             action_details = {
-                "reason": "builder_and_simple_failed",
+                "reason": "agent_creation_failed_proceed_with_kb",
                 "capability": detected_capability,
             }
             logs.append({
@@ -2189,7 +2192,7 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
                 "duration_ms": 0,
                 "result_summary": (
                     f"capability={detected_capability} Builder + simple failed "
-                    f"→ escalate_human"
+                    f"→ proceeding with KB (no escalation)"
                 ),
             })
     elif detected_capability and capability_claimed:

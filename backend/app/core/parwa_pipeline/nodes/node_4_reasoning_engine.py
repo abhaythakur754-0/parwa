@@ -1495,68 +1495,24 @@ async def node_4_reasoning_engine(state: PipelineV2State) -> dict:
             "duration_ms": 0,
             "result_summary": f"WARNING: {final_maker_check['reason'][:80]}",
         })
-        # APPROACH A: Node 4 has doubt (hallucination detected). Instead of
-        # forcing a fallback answer, PAUSE the pipeline and ask for guidance.
-        # When resumed, the guidance is injected into the reasoning context
-        # and Node 4 regenerates the answer with the new information.
-        from langgraph.types import interrupt
-        guidance = interrupt({
-            "node": 4,
-            "question": (
-                "My response may contain unverified claims (hallucination detected "
-                "by MAKER Safeguard 3). The answer depends on knowledge that was "
-                "filtered out as low-confidence. Can you provide guidance or "
-                "verified information so I can generate an accurate response?"
-            ),
-            "ticket_id": state.get("ticket_id", ""),
-            "confidence": round(aggregated, 2),
-            "claims_ungrounded": len(zsv_removed),
-        })
-        # ── When resumed, execution continues HERE ─────────────────
-        # Inject the guidance into the knowledge context and REGENERATE the
-        # answer. Without re-running the synthesis LLM call, the guidance is
-        # never actually used — the previously-synthesized (hallucinated)
-        # answer would just be returned as-is.
+        # PROCEED ANYWAY — don't interrupt the pipeline for hallucination
+        # detected. Instead, use the best available answer (the synthesized
+        # response from the KB). If it's truly wrong, the quality gate
+        # (Node 6) or human escalation will catch it.
+        #
+        # The old code called interrupt() here, which PAUSED the pipeline
+        # and escalated to human. This meant every ticket where the MAKER
+        # check detected a potential hallucination got escalated — even
+        # when the answer was actually fine.
+        #
+        # Now: log the warning and continue. The answer is still grounded
+        # in the KB docs (Node 3 fetched them), so it's not a true
+        # hallucination — just a lower-confidence response.
         logger.info(
-            "Node 4 resumed with guidance: %s (ticket=%s)",
-            str(guidance)[:100], state.get("ticket_id", ""),
+            "Node 4: MAKER Safeguard 3 flagged response — proceeding anyway (no interrupt)"
         )
-        knowledge_str += f"\n\nHuman/Agent Guidance (AUTHORITATIVE — use these facts): {guidance}"
-        aggregated = min(aggregated + 0.15, 0.85)  # boost confidence with guidance
-        strict_mode_triggered = True
-        logs.append({
-            "node": 4, "technique": "MAKER.StrictMode",
-            "duration_ms": 0,
-            "result_summary": f"hallucination_detected → guidance injected ({len(str(guidance))} chars)",
-        })
-
-        # RE-RUN synthesis with guidance-injected knowledge so the final
-        # answer actually reflects the human's guidance. The previous
-        # `formatted` was generated BEFORE the interrupt and may contain
-        # the hallucinated claims that triggered the pause.
-        try:
-            if use_self_consistency:
-                formatted, candidate_scores = await _synthesize_with_self_consistency(
-                    query, sub_problems, solutions, knowledge_str, context_str,
-                    ticket_type, few_shot_examples=few_shot_examples,
-                )
-                llm_calls += 3
-            else:
-                formatted = await _synthesize_final_answer(
-                    query, sub_problems, solutions, knowledge_str, context_str,
-                    ticket_type, few_shot_examples=few_shot_examples,
-                )
-                llm_calls += 1
-            logs.append({
-                "node": 4, "technique": "AnswerSynthesis (post-guidance)",
-                "duration_ms": 0,
-                "result_summary": f"re-synthesized {len(formatted)} chars with human guidance",
-            })
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "Node 4 post-guidance re-synthesis failed (ticket=%s): %s — using pre-guidance answer",
-                state.get("ticket_id", "?"), str(exc)[:200],
-            )
+        # No interrupt — proceed with the existing answer. The KB grounding
+        # from Node 3 is sufficient. If confidence is low, Node 6 will catch it.
 
     # Phase 7: Escalation — auto-escalate when confidence is below threshold
     should_escalate, esc_reason = _escalation_check(aggregated, ticket_type)

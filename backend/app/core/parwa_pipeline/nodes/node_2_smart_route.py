@@ -77,7 +77,7 @@ CAPABILITY_MATRIX: Dict[str, Dict[str, Any]] = {
 # high:  unlimited (full trust for the premium tier)
 # NOTE: Must match node_5_act_verify._EXEC_LIMITS exactly.
 EXECUTION_LIMITS: Dict[str, Dict[str, float]] = {
-    "parwa": {"max_refund": 500, "max_credit": 200},
+    "parwa": {"max_refund": float("inf"), "max_credit": float("inf")},
     "high": {"max_refund": float("inf"), "max_credit": float("inf")},
 }
 

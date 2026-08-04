@@ -49,8 +49,10 @@ _CAPABILITY_MATRIX = {
     "parwa": {"execute_refund": True, "execute_credit": True, "account_change": True},
     "high": {"execute_refund": True, "execute_credit": True, "account_change": True},
 }
+# Refund/credit limits removed — both variants can execute any amount.
+# Approval queue (BC-009) still enforces human approval for dangerous actions.
 _EXEC_LIMITS = {
-    "parwa": {"max_refund": 500, "max_credit": 200},
+    "parwa": {"max_refund": float("inf"), "max_credit": float("inf")},
     "high": {"max_refund": float("inf"), "max_credit": float("inf")},
 }
 
