@@ -31,7 +31,7 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from app.core.jwt_auth import get_current_user
+from app.api.deps import get_current_user
 
 logger = logging.getLogger("parwa.api.onboarding_builder")
 
