@@ -288,13 +288,52 @@ THOUGHT:"""
     except Exception as e:
         thought = f"Action execution failed: {e}"
 
-    # ── Dispatch to real tools via ReActToolRegistry ──────────────
-    # Map common action keywords to tool calls. The ReActToolRegistry tools
-    # I rewrote earlier call real external APIs (HubSpot, Shopify, etc.).
+    # ── PRIMARY: LLM-Driven Action Executor ──────────────────────
+    # The LLM sees what integrations are connected + what endpoints are
+    # available, then DECIDES what API to call. No hardcoded if/else.
+    # This is the n8n-type behavior — LLM-driven, not code-driven.
     observation = None
     tool_executed = None
 
     try:
+        from app.core.llm_action_executor import execute_action_llm
+
+        llm_action_result = await execute_action_llm(
+            tenant_id=tenant_id,
+            action=action,
+            details=details,
+            ticket_text=knowledge[:500] if knowledge else str(details),
+            knowledge=knowledge[:1000] if knowledge else "",
+        )
+
+        if llm_action_result.get("success"):
+            observation = (
+                f"ACTION EXECUTED: {llm_action_result.get('result', 'Action completed')}. "
+                f"Steps: {len(llm_action_result.get('steps_executed', []))}"
+            )
+            tool_executed = "llm_driven_executor"
+        elif llm_action_result.get("escalate"):
+            observation = (
+                f"Could not execute action: {llm_action_result.get('error', 'unknown')}. "
+                f"Escalating to human."
+            )
+            tool_executed = "llm_driven_executor (escalated)"
+        else:
+            # LLM executor failed — fall back to hardcoded tools
+            observation = f"LLM executor: {llm_action_result.get('error', 'failed')}. Trying fallback tools."
+            tool_executed = None
+
+    except ImportError:
+        # llm_action_executor not available — use fallback
+        pass
+    except Exception as exc:
+        logger.warning("llm_action_executor failed: %s", str(exc)[:200])
+        observation = f"LLM executor error: {str(exc)[:100]}. Trying fallback."
+        tool_executed = None
+
+    # ── FALLBACK: Hardcoded ReActToolRegistry (if LLM executor failed) ──
+    if observation is None:
+      try:
         from app.core.react_tools import ReActToolRegistry
         registry = ReActToolRegistry()
         # initialize_defaults registers all 7 tools.
@@ -394,7 +433,7 @@ THOUGHT:"""
                     observation = f"Ticket lookup failed: {result.error}"
                     tool_executed = "ticket_system.get_ticket (failed)"
 
-    except Exception as exc:
+      except Exception as exc:
         observation = f"Tool dispatch failed: {str(exc)[:200]}"
         tool_executed = None
 
