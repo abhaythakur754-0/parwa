@@ -78,13 +78,15 @@ async def scan_and_build(
     import threading
 
     company_id = str(current_user.company_id)
+    max_scan = request.max_tickets_to_scan
+    force_rebuild = request.force_rebuild
 
     # ── Return immediately — building runs in background ──
     def _build_in_background():
         """Run the full Builder pipeline in a background thread."""
         try:
             import asyncio
-            asyncio.run(_do_build(company_id, request.max_tickets_to_scan, request.force_rebuild))
+            asyncio.run(_do_build(company_id, max_scan, force_rebuild))
         except Exception as exc:
             logger.error("background_build_failed company=%s err=%s", company_id, str(exc)[:300])
 
