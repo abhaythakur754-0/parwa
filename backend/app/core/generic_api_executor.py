@@ -188,13 +188,6 @@ def _build_request(
         headers["Authorization"] = f"Basic {encoded}"
         return url, headers, request_body
 
-    # ── Paddle ──
-    if integration == "paddle":
-        api_key = creds.get("api_key", "")
-        url = f"https://api.paddle.com{endpoint}"
-        headers["Authorization"] = f"Bearer {api_key}"
-        return url, headers, request_body
-
     # ── Shopify ──
     if integration == "shopify":
         shop_domain = creds.get("shop_domain", "")
@@ -294,18 +287,6 @@ async def list_available_actions(tenant_id: str) -> Dict[str, Any]:
                         "GET /v1/invoices — List invoices",
                         "POST /v1/customers — Create customer",
                         "DELETE /v1/subscriptions/{id} — Cancel subscription",
-                    ],
-                },
-                "paddle": {
-                    "endpoints": [
-                        "POST /transactions/{id}/refund — Process a refund",
-                        "GET /transactions — List transactions",
-                        "GET /transactions/{id} — Get transaction details",
-                        "GET /subscriptions — List subscriptions",
-                        "POST /subscriptions/{id}/cancel — Cancel subscription",
-                        "GET /customers — List customers",
-                        "GET /customers/{id} — Get customer details",
-                        "POST /adjustments — Apply credit to customer",
                     ],
                 },
                 "shopify": {

@@ -160,7 +160,7 @@ async def _do_build(company_id: str, max_scan: int, force_rebuild: bool):
             integration_service = IntegrationService(db)
 
             connected_integrations = []
-            for integration_type in ["stripe", "razorpay", "paddle", "shopify", "woocommerce",
+            for integration_type in ["stripe", "razorpay", "shopify", "woocommerce",
                                      "bigcommerce", "twilio", "brevo", "sendgrid",
                                      "mailgun", "ses", "postmark", "smtp"]:
                 creds = integration_service.get_credential_config(company_id, integration_type)
