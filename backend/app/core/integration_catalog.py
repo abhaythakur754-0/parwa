@@ -538,6 +538,15 @@ CATALOG: List[IntegrationDefinition] = [
         suggested_industries=[ParwaIndustry.ECOMMERCE, ParwaIndustry.OTHER],
         icon_id="paypal", color_gradient="from-blue-600 to-blue-500",
     ),
+    IntegrationDefinition(
+        key="paddle", name="Paddle",
+        description="Process payments, refunds, and manage subscriptions via Paddle.",
+        category=IntegrationCategory.PAYMENTS, tier=IntegrationTier.TIER1_PREBUILT,
+        auth_schema=AuthSchema(AuthType.BEARER, [AuthField("api_key", "API Key", "password", True, "pdl_live_apikey_xxx")]),
+        test_connection=TestConnectionConfig("GET", "https://api.paddle.com/transactions", {"Authorization": "Bearer {api_key}"}, "status_200", "Connected to Paddle"),
+        suggested_industries=[ParwaIndustry.SAAS, ParwaIndustry.ECOMMERCE, ParwaIndustry.OTHER],
+        icon_id="paddle", color_gradient="from-emerald-500 to-teal-400",
+    ),
     # SHIPPING
     IntegrationDefinition(
         key="shipstation", name="ShipStation",

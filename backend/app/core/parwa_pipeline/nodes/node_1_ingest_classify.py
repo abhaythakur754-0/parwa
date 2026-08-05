@@ -264,7 +264,7 @@ async def _llm_match_capability(query: str, tenant_id: str) -> str | None:
             # ── Check connected integrations for this tenant ──
             from app.services.integration_service import IntegrationService
             integ_service = IntegrationService(db)
-            for integ_type in ["stripe", "razorpay", "shopify", "woocommerce",
+            for integ_type in ["stripe", "razorpay", "paddle", "shopify", "woocommerce",
                                "bigcommerce", "twilio", "brevo", "sendgrid",
                                "mailgun", "ses", "postmark", "smtp"]:
                 creds = integ_service.get_credential_config(tenant_id, integ_type)
