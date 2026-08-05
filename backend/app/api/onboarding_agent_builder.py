@@ -123,7 +123,7 @@ async def _do_build(company_id: str, max_scan: int, force_rebuild: bool):
             tickets = db.query(Ticket).filter(
                 Ticket.company_id == company_id,
                 Ticket.created_at >= cutoff,
-            ).limit(request.max_tickets_to_scan).all()
+            ).limit(max_scan).all()
 
             if not tickets:
                 return ScanAndBuildResponse(
@@ -258,7 +258,7 @@ Return ONLY a JSON array of unique capability strings."""
             agents_skipped = []
 
             for capability in capabilities_detected:
-                if capability in existing_caps and not request.force_rebuild:
+                if capability in existing_caps and not force_rebuild:
                     agents_skipped.append(capability)
                     continue
 
