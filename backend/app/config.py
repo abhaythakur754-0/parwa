@@ -162,6 +162,12 @@ class Settings(BaseSettings):
     GOOGLE_AI_API_KEY: str = ""
     CEREBRAS_API_KEY: str = ""
     GROQ_API_KEY: str = ""
+    NVIDIA_API_KEY: str = ""
+
+    # ── Superglue (universal integration layer) ──────────────────
+    SUPERGLUE_API_URL: str = ""
+    SUPERGLUE_AUTH_TOKEN: str = ""
+
     LLM_PRIMARY_PROVIDER: str = "google"
     LLM_FALLBACK_PROVIDER: str = "groq"
     AI_LIGHT_MODEL: str = "groq/llama-3.1-8b"

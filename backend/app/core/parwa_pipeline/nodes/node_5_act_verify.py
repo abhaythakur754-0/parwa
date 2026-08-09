@@ -288,14 +288,81 @@ THOUGHT:"""
     except Exception as e:
         thought = f"Action execution failed: {e}"
 
-    # ── PRIMARY: LLM-Driven Action Executor ──────────────────────
-    # The LLM sees what integrations are connected + what endpoints are
-    # available, then DECIDES what API to call. No hardcoded if/else.
-    # This is the n8n-type behavior — LLM-driven, not code-driven.
+    # ── PRIMARY: Superglue (handles ALL API connections) ──────────
+    # Superglue is the universal integration layer. It handles:
+    #   - Public APIs (Stripe, Razorpay, Shopify)
+    #   - Private APIs (banking, medical, internal)
+    #   - Custom APIs (user-defined)
+    # PARWA's LLM decides which tool to call → Superglue executes it.
     observation = None
     tool_executed = None
 
     try:
+        from app.core.superglue_client import is_configured as sg_configured
+
+        if sg_configured():
+            from app.core.superglue_client import get_available_tools_description, execute_tool
+            from app.core.parwa_pipeline.llm_client import llm_call
+
+            # Step 1: Get available tools from Superglue
+            tools_desc = await get_available_tools_description()
+
+            # Step 2: Ask LLM which tool to call
+            tool_prompt = f"""You are deciding which tool to call for a customer support action.
+
+Action needed: {action}
+Details: {details}
+Ticket context: {knowledge[:500] if knowledge else str(details)}
+
+{tools_desc}
+
+Based on the ticket and available tools, which tool should you call?
+Respond with ONLY JSON:
+{{"tool_id": "the-tool-id", "input": {{}}, "reasoning": "why"}}
+
+If no tool matches, respond with:
+{{"tool_id": "none", "reasoning": "no matching tool"}}"""
+
+            llm_response = await llm_call(tool_prompt, max_tokens=300, temperature=0.1)
+
+            # Parse LLM decision
+            import json as _json
+            import re as _re
+            match = _re.search(r'\{.*\}', llm_response or "", _re.DOTALL)
+            if match:
+                decision = _json.loads(match.group())
+                tool_id = decision.get("tool_id", "none")
+
+                if tool_id and tool_id != "none":
+                    # Step 3: Execute the tool via Superglue
+                    tool_input = decision.get("input", {})
+                    result = await execute_tool(tool_id, tool_input)
+
+                    if result.get("success"):
+                        observation = f"ACTION EXECUTED via Superglue tool '{tool_id}': {str(result.get('data', ''))[:300]}"
+                        tool_executed = f"superglue:{tool_id}"
+                    else:
+                        observation = f"Superglue tool '{tool_id}' failed: {result.get('error', 'unknown')}"
+                        tool_executed = f"superglue:{tool_id} (failed)"
+                else:
+                    observation = f"No matching Superglue tool for action '{action}'. LLM said: {decision.get('reasoning', '')}"
+                    tool_executed = None
+            else:
+                observation = "Could not parse LLM tool selection response."
+                tool_executed = None
+        else:
+            observation = None  # Superglue not configured → fall through to LLM executor
+
+    except ImportError:
+        pass  # Superglue client not available → fall through
+    except Exception as exc:
+        logger.warning("superglue_executor failed: %s", str(exc)[:200])
+        observation = f"Superglue error: {str(exc)[:100]}. Trying fallback."
+        tool_executed = None
+
+    # ── FALLBACK: LLM-Driven Action Executor (if Superglue not configured/failed) ──
+    if observation is None:
+      try:
         from app.core.llm_action_executor import execute_action_llm
 
         llm_action_result = await execute_action_llm(
@@ -323,10 +390,9 @@ THOUGHT:"""
             observation = f"LLM executor: {llm_action_result.get('error', 'failed')}. Trying fallback tools."
             tool_executed = None
 
-    except ImportError:
-        # llm_action_executor not available — use fallback
+      except ImportError:
         pass
-    except Exception as exc:
+      except Exception as exc:
         logger.warning("llm_action_executor failed: %s", str(exc)[:200])
         observation = f"LLM executor error: {str(exc)[:100]}. Trying fallback."
         tool_executed = None
