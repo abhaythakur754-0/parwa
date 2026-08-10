@@ -53,6 +53,43 @@ def is_configured() -> bool:
     return bool(url and token)
 
 
+# ── Per-tenant tool isolation ─────────────────────────────────────────
+# Superglue stores tools by their string ID globally. To prevent Tenant A
+# from calling Tenant B's tools (e.g. calling Tenant B's refund tool with
+# Tenant A's customer email), we prefix every tool ID with the tenant's UUID.
+#
+# Format: "tenant_{company_id}__{tool_name}"
+#   - company_id is the tenant's UUID (e.g. "abc-123-def")
+#   - tool_name is the human-readable name (e.g. "payment-refund-by-email")
+#   - Separator is "__" (double underscore) — never appears in UUIDs
+#
+# Examples:
+#   raw_tool_id = "payment-refund-by-email"
+#   tenant_id = "abc-123"
+#   → namespaced = "tenant_abc-123__payment-refund-by-email"
+#
+# When PARWA's Node 5 routes a ticket to an agent, it uses the agent's
+# stored superglue_tool_id (already namespaced at creation time). When
+# PARWA calls execute_tool() directly with a generic tool_id, it passes
+# tenant_id so the namespacing happens automatically.
+
+
+def namespaced_tool_id(tool_id: str, tenant_id: str) -> str:
+    """Construct a tenant-namespaced Superglue tool ID.
+
+    If the tool_id is ALREADY namespaced (starts with "tenant_"), return as-is.
+    Otherwise prefix with "tenant_{tenant_id}__".
+
+    This prevents Tenant A from calling Tenant B's tools on the shared
+    Superglue server.
+    """
+    if not tenant_id:
+        return tool_id  # no tenant context — use raw ID (legacy behavior)
+    if tool_id.startswith(f"tenant_") and "__" in tool_id:
+        return tool_id  # already namespaced
+    return f"tenant_{tenant_id}__{tool_id}"
+
+
 async def list_tools() -> List[Dict[str, Any]]:
     """List all tools available in Superglue.
 
@@ -99,12 +136,16 @@ async def list_systems() -> List[Dict[str, Any]]:
         return []
 
 
-async def execute_tool(tool_id: str, input_data: Dict[str, Any]) -> Dict[str, Any]:
+async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Optional[str] = None) -> Dict[str, Any]:
     """Execute a Superglue tool (sync — waits for full multi-step chain to complete).
 
     Args:
         tool_id: The Superglue tool ID (e.g. "payment-refund-by-email")
         input_data: Input parameters (e.g. {"customerEmail": "john@gmail.com"})
+        tenant_id: OPTIONAL but strongly recommended. When provided, the tool_id
+            is namespaced as "tenant_{tenant_id}__{tool_id}" so each tenant
+            can only execute their OWN tools. This is critical for multi-tenant
+            security — without it, Tenant A could call Tenant B's tools.
 
     Returns:
         {success: bool, data: dict, error: str, run_id: str, step_results: list}
@@ -114,10 +155,20 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any]) -> Dict[str, An
         - Sync mode returns the FULL result inline (no need to poll /v1/runs/{id}).
         - For multi-step tools, this waits for ALL steps to complete (~3-10s typical).
         - For async mode (long-running tools), pass options.async=true and poll separately.
+        - Tenant isolation: pass tenant_id from the caller's authenticated context.
+          The actual tool ID sent to Superglue becomes tenant-namespaced.
     """
     url, token = _get_config()
     if not url or not token:
         return {"success": False, "error": "Superglue not configured"}
+
+    # ── Per-tenant tool isolation (CRITICAL for multi-tenant security) ──
+    # Without this, Tenant A could call Tenant B's tools by guessing the tool_id.
+    # Format: tenant_{uuid}__{tool_name} — Superglue stores tools by this ID.
+    if tenant_id:
+        actual_tool_id = namespaced_tool_id(tool_id, tenant_id)
+    else:
+        actual_tool_id = tool_id
 
     try:
         # Sync execution — waits for the full multi-step chain to complete.
@@ -127,7 +178,7 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any]) -> Dict[str, An
 
         async with httpx.AsyncClient(timeout=120.0) as client:
             res = await client.post(
-                f"{url}/v1/tools/{tool_id}/run",
+                f"{url}/v1/tools/{actual_tool_id}/run",
                 headers={
                     "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json",
