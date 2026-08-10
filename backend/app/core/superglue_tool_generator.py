@@ -82,23 +82,24 @@ async def generate_tool_for_agent(
     # Build the request to Superglue's Agent API.
     # Superglue's Agent endpoint accepts a natural-language description of the tool
     # and returns a saved tool_id. The LLM call happens INSIDE Superglue.
+    # /api/agent/chat expects: agentId + messages array + userMessage
+    # The Agent will use Superglue's OWN NVIDIA GLM-5.2 LLM to generate the tool.
+    instruction = _build_tool_instruction(
+        agent_name, agent_instructions, agent_capabilities, sample_ticket, tenant_integrations
+    )
     payload = {
-        "name": f"PARWA: {agent_name}",
-        "instruction": _build_tool_instruction(
-            agent_name, agent_instructions, agent_capabilities, sample_ticket, tenant_integrations
-        ),
-        # Superglue uses its OWN credentials store for the actual API keys.
-        # We just tell it which integrations are connected.
-        "availableSystems": _format_integrations(tenant_integrations or {}),
-        # Optional: a sample ticket for context
-        "sampleTicket": sample_ticket,
+        "agentId": "main",
+        "userMessage": instruction,
+        "messages": [
+            {"role": "user", "content": instruction}
+        ],
     }
 
     try:
         async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
             # Try Superglue's Agent generate-tool endpoint (if it exists)
             res = await client.post(
-                f"{url}/v1/agent/generate-tool",
+                f"{url}/api/agent/chat",
                 headers={
                     "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json",
@@ -107,9 +108,36 @@ async def generate_tool_for_agent(
             )
 
         if res.status_code in (200, 201):
-            result = res.json()
-            tool_id = result.get("toolId") or result.get("id")
-            tool_definition = result.get("tool") or result.get("definition") or result
+            # /api/agent/chat returns Server-Sent Events (SSE stream)
+            # Each line: data: {"type":"...", ...}
+            # We need to parse the stream to find the tool_id
+            # For now: if response has toolId in any line, extract it
+            response_text = res.text
+            import re as _re
+            tool_id_match = _re.search(r'"toolId":\s*"([^"]+)"', response_text)
+            if tool_id_match:
+                tool_id = tool_id_match.group(1)
+                logger.info("superglue_agent_generated_tool: agent=%s tool_id=%s", agent_name, tool_id)
+                return {
+                    "success": True,
+                    "tool_id": tool_id,
+                    "tool_definition": {"id": tool_id},
+                    "error": None,
+                    "generated_by": "superglue_agent",
+                }
+            # No toolId in response — agent might have asked a clarifying question
+            # or hit an error. Fall back to PARWA LLM.
+            logger.warning(
+                "superglue_agent_no_tool_id: agent=%s — falling back to PARWA LLM. Response: %s",
+                agent_name, response_text[:200],
+            )
+            return await _generate_tool_via_parwa_llm(
+                agent_name=agent_name,
+                agent_instructions=agent_instructions,
+                agent_capabilities=agent_capabilities,
+                sample_ticket=sample_ticket,
+                tenant_integrations=tenant_integrations,
+            )
 
             logger.info(
                 "superglue_generate_tool: agent=%s tool_id=%s",
@@ -278,7 +306,7 @@ async def disable_tool(tool_id: str) -> bool:
 # ════════════════════════════════════════════════════════════════════════════
 #
 # When the user's self-hosted Superglue doesn't have the Agent API (404 on
-# /v1/agent/generate-tool), we fall back to using PARWA's NVIDIA GLM-5.2 to
+# /api/agent/chat), we fall back to using PARWA's NVIDIA GLM-5.2 to
 # generate the tool JSON. This is a ONE-TIME cost per agent creation (not per
 # ticket), so it doesn't impact the 512MB RAM constraint during normal operation.
 #
@@ -301,7 +329,7 @@ async def _generate_tool_via_parwa_llm(
     """Generate a Superglue tool using PARWA's NVIDIA LLM (fallback when Superglue Agent API is unavailable).
 
     This is the FALLBACK path. The primary path is Superglue's own Agent API.
-    Use this only when /v1/agent/generate-tool returns 404 (self-hosted Superglue
+    Use this only when /api/agent/chat returns 404 (self-hosted Superglue
     without Agent feature).
 
     Cost: 1 LLM call to PARWA's NVIDIA (~5s, ~500 tokens) — one-time per agent,
