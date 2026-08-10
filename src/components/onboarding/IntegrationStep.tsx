@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Loader2, CheckCircle2, XCircle, ChevronDown, ChevronUp,
   Plug, Search, AlertTriangle, ShieldCheck, Plus,
@@ -113,20 +113,10 @@ export function IntegrationStep({ onNext, industry, hideNextButton = false }: In
     });
   }, [filteredIntegrations]);
 
-  // ── Auto-trigger CRM analysis when integrations get connected ──
-  // Runs once when the first integration is connected, then again when more are added
-  // (but only if it hasn't been analyzed in the last 30 seconds — prevents spam)
-  const lastAnalyzedAtRef = useRef<number>(0);
-  useEffect(() => {
-    if (existingIntegrations.length === 0) return;
-    const now = Date.now();
-    const cooldownMs = 30000; // 30s cooldown
-    if (now - lastAnalyzedAtRef.current < cooldownMs) return;
-    if (isAnalyzing) return;
-    // Auto-run analysis (debounced)
-    lastAnalyzedAtRef.current = now;
-    runCRMAnalysis();
-  }, [existingIntegrations.length]);
+  // NOTE: CRM analysis is triggered EXPLICITLY by the user clicking "Start Analysis"
+  // (not auto-triggered). This is the user's vision: 'when crm and kb added
+  // there we add the button start'. The button appears in the AI Analysis card
+  // below when integrations are connected but analysis hasn't been run yet.
 
   // Check if an integration is already connected
   const getExistingStatus = (key: string): ConnectedIntegration | null => {

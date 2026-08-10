@@ -376,11 +376,20 @@ async def _call_litellm_direct(messages: list, temperature: float, max_tokens: i
 
 
 async def _call_nvidia_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
-    """Direct NVIDIA API call (raw HTTP, no LiteLLM dependency).
+    """Direct NVIDIA API call — WITH 429 RATE LIMIT RETRY (user's queue vision).
 
-    Uses NVIDIA's OpenAI-compatible endpoint with GLM 5.2 model.
-    This is the most reliable provider during testing.
+    NVIDIA free tier = 40 RPM. When we hit 429:
+      1. WAIT 60 seconds (lets rate limit renew)
+      2. RETRY the same call (not terminate)
+      3. Other requests stay in their own queue — they'll wait their turn
+      4. Max 3 retries per call (3 min total worst case)
+
+    User's exact words: 'as nvidia is time out we wait for one min then once
+    continue we wont be like terminate there and all other request stay in queue'
+
+    This wrapper makes NVIDIA calls resilient — no more lost work on rate limits.
     """
+    import asyncio
     import httpx
 
     api_key = os.environ.get("NVIDIA_API_KEY", "").strip()
@@ -398,21 +407,49 @@ async def _call_nvidia_direct(messages: list, temperature: float, max_tokens: in
         "Content-Type": "application/json",
     }
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        r = await client.post(
-            "https://integrate.api.nvidia.com/v1/chat/completions",
-            json=payload,
-            headers=headers,
-        )
+    MAX_RETRIES = 3
+    RATE_LIMIT_WAIT = 60  # seconds — NVIDIA rate limit renews every 60s
 
-    if r.status_code == 200:
-        data = r.json()
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-        global _total_tokens
-        _total_tokens += data.get("usage", {}).get("total_tokens", 0)
-        return content.strip()
-    else:
-        raise RuntimeError(f"NVIDIA API error {r.status_code}: {r.text[:200]}")
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                r = await client.post(
+                    "https://integrate.api.nvidia.com/v1/chat/completions",
+                    json=payload,
+                    headers=headers,
+                )
+
+            if r.status_code == 200:
+                data = r.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                global _total_tokens
+                _total_tokens += data.get("usage", {}).get("total_tokens", 0)
+                return content.strip()
+
+            if r.status_code == 429 and attempt < MAX_RETRIES:
+                # ── RATE LIMIT: wait 60s, then retry (don't terminate) ──
+                logger.warning(
+                    "NVIDIA 429 rate limit on call #%d (attempt %d/%d) — waiting %ds, then retrying",
+                    call_id, attempt + 1, MAX_RETRIES, RATE_LIMIT_WAIT,
+                )
+                await asyncio.sleep(RATE_LIMIT_WAIT)
+                continue  # retry the same call
+
+            # Non-429 error OR out of retries → raise
+            raise RuntimeError(f"NVIDIA API error {r.status_code}: {r.text[:200]}")
+
+        except httpx.TimeoutException:
+            if attempt < MAX_RETRIES:
+                logger.warning(
+                    "NVIDIA timeout on call #%d (attempt %d/%d) — waiting %ds, then retrying",
+                    call_id, attempt + 1, MAX_RETRIES, RATE_LIMIT_WAIT,
+                )
+                await asyncio.sleep(RATE_LIMIT_WAIT)
+                continue
+            raise
+
+    # Shouldn't reach here, but just in case
+    raise RuntimeError(f"NVIDIA API: exhausted {MAX_RETRIES} retries on rate limit")
 
 
 async def _call_cerebras_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
