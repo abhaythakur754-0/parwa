@@ -477,14 +477,22 @@ def create_or_update_tool(tool_def: dict) -> dict:
     # Try to get the existing tool first
     existing = api_request("GET", f"/v1/tools/{tool_id}")
 
-    if "error" not in existing or "Not Found" not in str(existing.get("error", "")):
+    # Tool EXISTS if there's no error in the response
+    # Tool DOESN'T exist if we got a 404/error mentioning "not found"
+    has_error = "error" in existing
+    is_not_found = "not found" in str(existing.get("error", "")).lower()
+
+    if not has_error:
         # Tool exists — update it
         result = api_request("PUT", f"/v1/tools/{tool_id}", tool_def)
         return {"action": "updated", "id": tool_id, "result": result}
-    else:
+    elif is_not_found:
         # Tool doesn't exist — create it
         result = api_request("POST", "/v1/tools", tool_def)
         return {"action": "created", "id": tool_id, "result": result}
+    else:
+        # Some other error (auth, server, etc.)
+        return {"action": "failed", "id": tool_id, "result": existing}
 
 
 def test_tool(tool_id: str, inputs: dict) -> dict:
