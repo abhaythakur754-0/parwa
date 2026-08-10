@@ -115,6 +115,44 @@ async def list_tools() -> List[Dict[str, Any]]:
         return []
 
 
+async def verify_tool_exists(tool_id: str, tenant_id: Optional[str] = None) -> bool:
+    """Check if a tool actually exists on the Superglue server before calling it.
+
+    This prevents broken calls when Superglue server is reset (all tools disappear).
+    Without this check, Node 5 would call execute_tool() on a non-existent tool
+    → fail → fall back to LLM → wasted time + potential wrong answer.
+
+    Uses tenant-namespaced tool_id (same as execute_tool).
+
+    Returns True if tool exists + is not archived. False otherwise.
+    """
+    if not is_configured():
+        return False
+
+    url, token = _get_config()
+    actual_tool_id = namespaced_tool_id(tool_id, tenant_id) if tenant_id else tool_id
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            res = await client.get(
+                f"{url}/v1/tools/{actual_tool_id}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        if res.status_code == 200:
+            tool = res.json()
+            archived = tool.get("archived", False)
+            if archived:
+                logger.warning("verify_tool_exists: tool %s is archived", actual_tool_id[:50])
+                return False
+            return True
+        # 404 or other → tool doesn't exist
+        return False
+    except Exception as exc:
+        # If we can't reach Superglue, assume tool exists (don't block tickets)
+        logger.warning("verify_tool_exists_error: %s — assuming exists", str(exc)[:100])
+        return True
+
+
 async def list_systems() -> List[Dict[str, Any]]:
     """List all connected systems in Superglue."""
     url, token = _get_config()
@@ -170,6 +208,33 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
     else:
         actual_tool_id = tool_id
 
+    # ── DB-BACKED QUEUE: persist before HTTP call (survives Render restart) ──
+    # User vision: 'and other data also' — same pattern as LLM queue
+    import uuid as _uuid
+    import json as _json
+    _call_id = str(_uuid.uuid4())
+    _call_persisted = False
+    try:
+        from database.base import SessionLocal
+        from database.models.core import SuperglueCallQueue
+        _qdb = SessionLocal()
+        try:
+            _qrow = SuperglueCallQueue(
+                id=_call_id,
+                company_id=tenant_id,
+                tool_id=actual_tool_id,
+                input_data=_json.dumps(input_data),
+                status="in_progress",
+                max_retries=2,
+            )
+            _qdb.add(_qrow)
+            _qdb.commit()
+            _call_persisted = True
+        finally:
+            _qdb.close()
+    except Exception as persist_exc:
+        logger.warning("superglue_call_persist_failed: %s", str(persist_exc)[:200])
+
     try:
         # Sync execution — waits for the full multi-step chain to complete.
         # Body MUST use "inputs" (plural) — confirmed in Superglue source code:
@@ -194,6 +259,9 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
 
             # Sync success — result.data is the final output (after outputTransform)
             if status == "success":
+                # ── SUCCESS: delete from queue (user's 'delete that' vision) ──
+                if _call_persisted:
+                    _delete_superglue_call_row(_call_id)
                 return {
                     "success": True,
                     "data": result.get("data"),
@@ -232,6 +300,9 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
                 "tool_id": tool_id,
             }
 
+        # ── FAILURE: mark in DB for audit (don't delete — keep for recovery) ──
+        if _call_persisted:
+            _mark_superglue_call_failed(_call_id, f"HTTP {res.status_code}: {res.text[:200]}")
         return {
             "success": False,
             "error": f"Superglue returned {res.status_code}: {res.text[:200]}",
@@ -240,7 +311,155 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
 
     except Exception as exc:
         logger.error("superglue_execute_tool error: %s", str(exc)[:200])
+        # Mark failed in DB (Render might have restarted mid-call)
+        if _call_persisted:
+            _mark_superglue_call_failed(_call_id, str(exc)[:200])
         return {"success": False, "error": str(exc)[:200], "tool_id": tool_id}
+
+
+# ── DB queue helpers for Superglue calls (small + surgical) ────────────
+
+def _delete_superglue_call_row(call_id: str) -> None:
+    """Delete a completed Superglue call from the queue."""
+    try:
+        from database.base import SessionLocal
+        from database.models.core import SuperglueCallQueue
+        _db = SessionLocal()
+        try:
+            _db.query(SuperglueCallQueue).filter(SuperglueCallQueue.id == call_id).delete()
+            _db.commit()
+        finally:
+            _db.close()
+    except Exception as exc:
+        logger.warning("superglue_call_delete_failed: %s", str(exc)[:200])
+
+
+def _mark_superglue_call_failed(call_id: str, error: str) -> None:
+    """Mark a Superglue call as failed (kept in DB for audit + recovery)."""
+    try:
+        from database.base import SessionLocal
+        from database.models.core import SuperglueCallQueue
+        from datetime import datetime, timezone
+        _db = SessionLocal()
+        try:
+            row = _db.query(SuperglueCallQueue).filter(SuperglueCallQueue.id == call_id).first()
+            if row:
+                row.status = "failed"
+                row.error_message = error[:500]
+                row.completed_at = datetime.now(timezone.utc)
+                _db.commit()
+        finally:
+            _db.close()
+    except Exception as exc:
+        logger.warning("superglue_call_mark_failed_error: %s", str(exc)[:200])
+
+
+async def recover_stuck_superglue_calls() -> None:
+    """Recovery worker: retry stuck Superglue calls after Render restart.
+
+    Called by background loop in main.py (same as LLM recovery worker).
+    Finds calls with status='in_progress' (Render died mid-call) and
+    retries them.
+    """
+    try:
+        from database.base import SessionLocal
+        from database.models.core import SuperglueCallQueue
+        import json as _json
+
+        _db = SessionLocal()
+        try:
+            stuck_rows = _db.query(SuperglueCallQueue).filter(
+                SuperglueCallQueue.status == "in_progress"
+            ).limit(5).all()  # cap at 5 per cycle
+
+            if not stuck_rows:
+                return
+
+            logger.info("superglue_call_recovery: found %d stuck calls", len(stuck_rows))
+
+            for row in stuck_rows:
+                if row.retry_count >= row.max_retries:
+                    # Max retries exceeded — mark failed
+                    row.status = "failed"
+                    row.error_message = "max retries exceeded during recovery"
+                    row.completed_at = datetime.now(timezone.utc)
+                    _db.commit()
+                    continue
+
+                # Retry the call
+                try:
+                    input_data = _json.loads(row.input_data)
+                    # Increment retry count
+                    row.retry_count = (row.retry_count or 0) + 1
+                    _db.commit()
+
+                    # Make the actual call (without re-persisting to avoid loops)
+                    result = await _execute_tool_raw(
+                        row.tool_id, input_data, tenant_id=row.company_id
+                    )
+
+                    if result.get("success"):
+                        # Success — delete the row
+                        _db.query(SuperglueCallQueue).filter(
+                            SuperglueCallQueue.id == row.id
+                        ).delete()
+                        _db.commit()
+                        logger.info("superglue_call_recovery: call %s retried successfully", row.id[:8])
+                    else:
+                        row.status = "failed"
+                        row.error_message = result.get("error", "unknown")[:500]
+                        row.completed_at = datetime.now(timezone.utc)
+                        _db.commit()
+                except Exception as retry_exc:
+                    logger.warning(
+                        "superglue_call_recovery_retry_failed: call=%s err=%s",
+                        row.id[:8], str(retry_exc)[:200],
+                    )
+        finally:
+            _db.close()
+    except Exception as exc:
+        logger.warning("recover_stuck_superglue_calls_error: %s", str(exc)[:200])
+
+
+async def _execute_tool_raw(tool_id: str, input_data: dict, tenant_id: str = None) -> dict:
+    """Internal: execute tool WITHOUT DB persistence (used by recovery worker).
+
+    The recovery worker calls this to avoid creating a new queue row
+    (which would cause an infinite loop).
+    """
+    if not is_configured():
+        return {"success": False, "error": "Superglue not configured"}
+
+    url, token = _get_config()
+    actual_tool_id = namespaced_tool_id(tool_id, tenant_id) if tenant_id else tool_id
+
+    try:
+        payload = {"inputs": input_data}
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            res = await client.post(
+                f"{url}/v1/tools/{actual_tool_id}/run",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+
+        if res.status_code in (200, 202):
+            result = res.json()
+            if result.get("status") == "success":
+                return {
+                    "success": True,
+                    "data": result.get("data"),
+                    "error": None,
+                }
+            return {
+                "success": False,
+                "error": result.get("error", "unknown"),
+            }
+        return {"success": False, "error": f"HTTP {res.status_code}"}
+    except Exception as exc:
+        return {"success": False, "error": str(exc)[:200]}
 
 
 async def _poll_run_status(run_id: str, tool_id: str = "", max_polls: int = 30, interval: float = 2.0) -> Dict[str, Any]:

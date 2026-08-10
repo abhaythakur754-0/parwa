@@ -480,3 +480,35 @@ class LLMRequestQueue(Base):
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime, nullable=True)
+
+
+# ── Superglue Call Queue (DB-backed — survives Render restarts) ─────────
+# User vision: 'and other data also' — same pattern as LLM queue, for HTTP calls
+# to Superglue execute_tool(). Prevents lost refunds/cancellations when
+# Render restarts mid-call.
+
+class SuperglueCallQueue(Base):
+    """DB-backed queue for Superglue execute_tool() calls.
+
+    Same pattern as LLMRequestQueue — persists before HTTP call, deletes on
+    success, recovery worker retries on Render restart.
+    """
+    __tablename__ = "superglue_call_queue"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(String(36), nullable=True, index=True)
+    tool_id = Column(String(100), nullable=False)
+    input_data = Column(Text, nullable=False)  # JSON of inputs
+    ticket_id = Column(String(36), nullable=True, index=True)
+    agent_id = Column(String(36), nullable=True)
+
+    status = Column(String(20), nullable=False, default="pending", index=True)
+    retry_count = Column(Integer, default=0)
+    max_retries = Column(Integer, default=2)
+    error_message = Column(Text, nullable=True)
+    result_data = Column(Text, nullable=True)  # cached result for recovery
+
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
+                       onupdate=lambda: datetime.now(timezone.utc))
+    completed_at = Column(DateTime, nullable=True)

@@ -890,6 +890,24 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning("llm_queue_recovery_setup_failed: %s", str(exc)[:200])
 
+    # ── Superglue Call Recovery Worker (survives Render restarts) ──
+    # Same pattern as LLM recovery. When Render restarts mid-Superglue-call,
+    # the row stays in DB with status='in_progress'. This worker retries them.
+    try:
+        async def _superglue_call_recovery_loop():
+            from app.core.superglue_client import recover_stuck_superglue_calls
+            while True:
+                try:
+                    await recover_stuck_superglue_calls()
+                except Exception as exc:
+                    logger.warning("superglue_call_recovery_error: %s", str(exc)[:200])
+                await asyncio.sleep(60)  # check every 60s (less frequent than LLM)
+
+        asyncio.create_task(_superglue_call_recovery_loop())
+        logger.info("superglue_call_recovery_loop_started (checks every 60s for stuck calls)")
+    except Exception as exc:
+        logger.warning("superglue_call_recovery_setup_failed: %s", str(exc)[:200])
+
     yield
 
     # Shutdown: flush Sentry events

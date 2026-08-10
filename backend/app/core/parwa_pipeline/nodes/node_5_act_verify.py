@@ -428,7 +428,28 @@ THOUGHT:"""
                                 # No approval required → execute immediately (read-only tools, lookups, etc.)
                                 _tool_id = _agent.superglue_tool_id
                                 _tool_input = _extract_tool_inputs(details, action, knowledge)
-                                result = await execute_tool(_tool_id, _tool_input)
+
+                                # ── VERIFY TOOL EXISTS before calling (Gap #1 fix) ──
+                                # If Superglue server was reset, the tool won't exist.
+                                # Mark the agent's tool status as 'failed' + fall through to LLM.
+                                from app.core.superglue_client import verify_tool_exists
+                                _tool_ok = await verify_tool_exists(_tool_id, tenant_id=tenant_id)
+                                if not _tool_ok:
+                                    logger.warning(
+                                        "node5: tool %s not found on Superglue — marking agent tool as failed, falling through to LLM",
+                                        _tool_id[:50],
+                                    )
+                                    # Update agent's tool status to failed (so admin sees it)
+                                    try:
+                                        _agent.superglue_tool_status = "failed"
+                                        _db.commit()
+                                    except Exception:
+                                        pass
+                                    # Fall through to LLM-based tool selection
+                                    observation = None
+                                    tool_executed = None
+                                else:
+                                    result = await execute_tool(_tool_id, _tool_input, tenant_id=tenant_id)
 
                             # If approval was required, result is undefined — skip the success check
                             # (observation is already set above, tool_executed = pending_approval:...)
