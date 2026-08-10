@@ -15,7 +15,7 @@ import type { OnboardingState } from '@/types/onboarding';
 import type { ParwaVariant } from './IndustryVariantStep';
 import { mapIndustryToParwaIndustry, type ParwaIndustry } from '@/lib/integration-catalog';
 
-const TOTAL_STEPS = 5; // Step 4 = Agent Building, Step 5 = First Victory
+const TOTAL_STEPS = 3; // Step 1 = Details, Step 2 = CRM+KB+Recommendations, Step 3 = Build & Launch
 
 interface OnboardingWizardProps {
   initialState?: OnboardingState;
@@ -78,9 +78,9 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   const completeStep = useCallback(async (step: number) => {
     setCompletedSteps((prev) => [...prev.filter((s) => s !== step), step]);
 
-    // Step 3 (Knowledge Base) → Step 4 (Agent Building)
-    // Step 4 (Agent Building) → Step 5 (First Victory)
-    if (step === 3) {
+    // Step 1 (Details) → Step 2 (CRM + KB + Recommendations)
+    // Step 2 (CRM + KB) → Step 3 (Build & Launch — creates agents + tools + MCP)
+    if (step === 2) {
       // Mark onboarding as completed — send variant + industry so backend can create instance
       try {
         const pricingContext = localStorage.getItem('parwa_pricing_context');
@@ -96,11 +96,8 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
       } catch {
         // Continue locally even if API fails
       }
-      // Go to Step 4 (Agent Building) — not FirstVictory anymore
-      setCurrentStep(4);
-    } else if (step === 4) {
-      // Step 4 (Agent Building) → Step 5 (First Victory)
-      setCurrentStep(5);
+      // Go to Step 3 (Build & Launch)
+      setCurrentStep(3);
     } else {
       setCurrentStep(step + 1);
     }
@@ -201,7 +198,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   }
 
   // Step 4: Show FirstVictory directly (outside the card wrapper)
-  if (currentStep === 5 || (onboardingState?.status === 'completed' && !onboardingState.first_victory_completed)) {
+  if (currentStep === 3 || (onboardingState?.status === 'completed' && !onboardingState.first_victory_completed)) {
     return <FirstVictory aiName={aiName} aiGreeting={aiGreeting} />;
   }
 
@@ -320,22 +317,33 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
             />
           )}
 
-          {/* Step 2: Integration Setup */}
+          {/* Step 2: CRM + Knowledge Base + Smart Recommendations (merged) */}
           {currentStep === 2 && (
-            <IntegrationStep onNext={() => completeStep(2)} industry={resolvedIndustry} />
-          )}
+            <div className="space-y-6">
+              {/* 2A: Connect CRM */}
+              <IntegrationStep onNext={() => {}} industry={resolvedIndustry} hideNextButton={true} />
 
-          {/* Step 3: Knowledge Upload */}
-          {currentStep === 3 && (
-            <KnowledgeUpload onComplete={() => completeStep(3)} />
+              {/* 2B: Upload KB */}
+              <KnowledgeUpload onComplete={() => {}} hideNextButton={true} />
+
+              {/* 2C: Continue to Build & Launch */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-800">
+                <button
+                  onClick={() => completeStep(2)}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200"
+                >
+                  Continue to Build & Launch →
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Step 4: Agent Building — full-screen (not inside the rounded card) */}
-      {currentStep === 4 && (
+      {/* Step 3: Build & Launch — full-screen (creates agents + tools + MCP) */}
+      {currentStep === 3 && (
         <AgentBuildingStep onComplete={() => {
-          completeStep(4);
+          completeStep(3);
           // Redirect to dashboard after agents are built
           setTimeout(() => router.push('/dashboard'), 1500);
         }} />

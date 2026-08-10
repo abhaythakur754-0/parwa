@@ -203,26 +203,14 @@ export const ONBOARDING_STEPS: Omit<OnboardingStep, 'isCompleted' | 'isActive'>[
   },
   {
     id: 2,
-    title: 'Integration',
-    description: 'Connect your channels & CRM',
+    title: 'CRM + Knowledge Base',
+    description: 'Connect CRM + upload KB → see recommended integrations',
     isOptional: false,
   },
   {
     id: 3,
-    title: 'Knowledge Base',
-    description: 'Upload or connect your KB',
-    isOptional: true,
-  },
-  {
-    id: 4,
-    title: 'Agent Building',
-    description: 'PARWA creates your AI agents',
-    isOptional: false,
-  },
-  {
-    id: 5,
-    title: 'First Victory',
-    description: 'Launch & celebrate! 🎉',
+    title: 'Build & Launch',
+    description: 'PARWA creates agents + tools + MCP connections',
     isOptional: false,
   },
 ];

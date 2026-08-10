@@ -26,6 +26,7 @@ import { useAuth } from '@/hooks/useAuth';
 interface IntegrationStepProps {
   onNext: () => void;
   industry?: string;
+  hideNextButton?: boolean; // when true, the "Next" button is hidden (used in merged Step 2)
 }
 
 interface ConnectedIntegration {
@@ -54,7 +55,7 @@ const CATEGORY_ICONS: Record<IntegrationCategory, string> = {
 
 // ── Component ────────────────────────────────────────────────────────
 
-export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
+export function IntegrationStep({ onNext, industry, hideNextButton = false }: IntegrationStepProps) {
   const { user } = useAuth();
   const userId = user?.id;
   const [existingIntegrations, setExistingIntegrations] = useState<ConnectedIntegration[]>([]);
@@ -708,15 +709,17 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
         </div>
       )}
 
-      {/* Continue button */}
-      <div className="flex justify-end">
-        <button
-          onClick={handleContinue}
-          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] text-sm font-bold shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 hover:-translate-y-0.5 transition-all"
-        >
-          Continue
-        </button>
-      </div>
+      {/* Continue button — hidden when part of merged Step 2 (CRM + KB) */}
+      {!hideNextButton && (
+        <div className="flex justify-end">
+          <button
+            onClick={handleContinue}
+            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] text-sm font-bold shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 hover:-translate-y-0.5 transition-all"
+          >
+            Continue
+          </button>
+        </div>
+      )}
     </div>
   );
 }

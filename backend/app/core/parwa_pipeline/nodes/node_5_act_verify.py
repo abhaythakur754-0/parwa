@@ -383,12 +383,56 @@ THOUGHT:"""
                             AIAgentAssignment.id == routed_agent_id,
                         ).first()
                         if _agent and _agent.superglue_tool_id and _agent.superglue_tool_status == "active":
-                            # Fast path — call the agent's pre-assigned tool
-                            _tool_id = _agent.superglue_tool_id
-                            _tool_input = _extract_tool_inputs(details, action, knowledge)
-                            result = await execute_tool(_tool_id, _tool_input)
+                            # ── APPROVAL GATE (eliminates the risky part) ──
+                            # If this agent's tool does dangerous actions (refund, cancel),
+                            # check if approval is required BEFORE executing.
+                            # If approval needed → ticket moves to "Pending Approval" queue,
+                            # tool execution is PAUSED until admin approves.
+                            if _agent.approval_required:
+                                _amount = _tool_input.get("amount", 0) if isinstance(_tool_input, dict) else 0
+                                _threshold = _agent.approval_threshold_cents or 0
+                                # threshold=0 means "always require approval" (e.g. cancel sub)
+                                # threshold>0 means "require approval above this amount"
+                                _needs_approval = (_threshold == 0) or (_amount > _threshold)
+                                if _needs_approval:
+                                    observation = (
+                                        f"APPROVAL_REQUIRED: Agent '{_agent.agent_name}' wants to execute "
+                                        f"tool '{_agent.superglue_tool_id}' with input={_tool_input}. "
+                                        f"Approval threshold={_threshold} cents, requested amount={_amount} cents. "
+                                        f"Ticket moved to Pending Approval queue."
+                                    )
+                                    tool_executed = f"pending_approval:agent:{routed_agent_id}:superglue:{_agent.superglue_tool_id}"
+                                    logs.append(
+                                        f"node5: approval gate triggered (agent={_agent.agent_name}, "
+                                        f"amount={_amount}c, threshold={_threshold}c)"
+                                    )
+                                    # Mark state for Node 6 to route to Pending Approval queue
+                                    state["pending_approval"] = True
+                                    state["pending_approval_reason"] = (
+                                        f"Agent '{_agent.agent_name}' wants to execute "
+                                        f"{_agent.superglue_tool_id} (amount={_amount}c, threshold={_threshold}c)"
+                                    )
+                                    # SKIP execute_tool — ticket goes to approval queue instead
+                                    import json as _json_approval
+                                    state["pending_approval_tool_input"] = _json_approval.dumps(_tool_input) if isinstance(_tool_input, dict) else str(_tool_input)
+                                    state["pending_approval_agent_id"] = routed_agent_id
+                                    state["pending_approval_tool_id"] = _agent.superglue_tool_id
+                                    # Break out of the try block — observation is set, tool_executed is set
+                                    # The rest of Node 5 will route this to the approval queue
+                                else:
+                                    # Amount below threshold → execute immediately
+                                    _tool_id = _agent.superglue_tool_id
+                                    _tool_input = _extract_tool_inputs(details, action, knowledge)
+                                    result = await execute_tool(_tool_id, _tool_input)
+                            else:
+                                # No approval required → execute immediately (read-only tools, lookups, etc.)
+                                _tool_id = _agent.superglue_tool_id
+                                _tool_input = _extract_tool_inputs(details, action, knowledge)
+                                result = await execute_tool(_tool_id, _tool_input)
 
-                            if result.get("success"):
+                            # If approval was required, result is undefined — skip the success check
+                            # (observation is already set above, tool_executed = pending_approval:...)
+                            if not state.get("pending_approval") and result.get("success"):
                                 observation = (
                                     f"ACTION EXECUTED via agent '{_agent.agent_name}' "
                                     f"Superglue tool '{_tool_id}': "

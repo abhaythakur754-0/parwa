@@ -21,9 +21,10 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
 interface KnowledgeUploadProps {
   onComplete: () => void;
+  hideNextButton?: boolean; // when true, the "Continue" button is hidden (used in merged Step 2)
 }
 
-export function KnowledgeUpload({ onComplete }: KnowledgeUploadProps) {
+export function KnowledgeUpload({ onComplete, hideNextButton = false }: KnowledgeUploadProps) {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -569,12 +570,14 @@ export function KnowledgeUpload({ onComplete }: KnowledgeUploadProps) {
         <p className="text-xs text-orange-200/30">
           {documents.length} document(s) uploaded
         </p>
-        <button onClick={onComplete} className="px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-400 hover:to-amber-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-orange-500/25 text-sm">
-          Continue
-          {documents.length === 0 && (
-            <span className="ml-2 text-[10px] opacity-60">(optional)</span>
-          )}
-        </button>
+        {!hideNextButton && (
+          <button onClick={onComplete} className="px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-400 hover:to-amber-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-orange-500/25 text-sm">
+            Continue
+            {documents.length === 0 && (
+              <span className="ml-2 text-[10px] opacity-60">(optional)</span>
+            )}
+          </button>
+        )}
       </div>
     </div>
   );

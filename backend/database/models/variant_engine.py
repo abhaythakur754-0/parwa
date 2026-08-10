@@ -306,6 +306,24 @@ class AIAgentAssignment(Base):
     superglue_tool_definition = Column(Text, nullable=True)  # cached JSON for audit
     superglue_tool_created_at = Column(DateTime, nullable=True)
 
+    # ── Approval gates (eliminate the risky part of tool execution) ──
+    # When a customer requests a risky action (refund > $1000, cancel sub,
+    # delete account), the tool execution is PAUSED and the ticket moves to
+    # the "Pending Approval" queue. Admin reviews + clicks Approve/Reject.
+    #
+    # approval_required: TRUE if this agent's tool does dangerous actions
+    # approval_threshold: numeric limit above which approval is required
+    #   (e.g. 1000 = $10.00 in cents = $10 — adjust per capability)
+    #
+    # Default thresholds by capability (set by Builder Agent):
+    #   refund_processing → approval_required=True, threshold=100000 ($1000)
+    #   subscription_management → approval_required=True, threshold=0 (always)
+    #   account_management → approval_required=True, threshold=0 (always)
+    #   customer_lookup → approval_required=False (read-only)
+    #   faq_general → approval_required=False (no tool)
+    approval_required = Column(Boolean, default=False)
+    approval_threshold_cents = Column(Integer, default=0)  # in cents, 0 = always require approval if required
+
     status = Column(String(50), default="active")
     created_at = Column(
         DateTime, default=lambda: datetime.now(timezone.utc),
