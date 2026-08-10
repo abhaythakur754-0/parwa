@@ -57,6 +57,8 @@ class TicketStatus(str, enum.Enum):
     frozen = "frozen"
     queued = "queued"
     stale = "stale"
+    processing = "processing"  # worker has claimed it
+    review_needed = "review_needed"  # tenant lacks agents/tools to solve - admin review
 
 
 class TicketPriority(str, enum.Enum):

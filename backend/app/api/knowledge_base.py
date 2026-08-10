@@ -215,13 +215,45 @@ async def api_upload_document(
 
         logger.info("kb_upload_completed document_id=%s filename=%s chunks=%d", str(document.id), filename, len(chunks_text))
 
+        # KB UPDATE HOOK: trigger agent rebuild (5-min cooldown per tenant)
+        try:
+            import threading
+            import time as _time
+
+            _cooldown_key = "company_" + str(user.company_id)
+            _last = _kb_rebuild_cooldowns.get(_cooldown_key, 0)
+            _now = _time.time()
+            if _now - _last > 300:  # 5 min cooldown
+                _kb_rebuild_cooldowns[_cooldown_key] = _now
+
+                def _trigger_rebuild_in_background(company_id_arg, document_id_arg):
+                    try:
+                        import asyncio
+                        from app.api.onboarding_builder_from_kb import _do_build_from_onboarding
+                        asyncio.run(_do_build_from_onboarding(company_id_arg, force_rebuild=True))
+                    except Exception as exc:
+                        logger.warning("kb_rebuild_failed: company=%s err=%s", company_id_arg, str(exc)[:200])
+
+                t = threading.Thread(
+                    target=_trigger_rebuild_in_background,
+                    args=(str(user.company_id), str(document.id)),
+                    daemon=True,
+                    name="kb-rebuild-" + str(user.company_id)[:8],
+                )
+                t.start()
+                logger.info("kb_rebuild_triggered: company=%s (5-min cooldown)", str(user.company_id))
+            else:
+                logger.info("kb_rebuild_skipped_cooldown: company=%s", str(user.company_id))
+        except Exception as hook_exc:
+            logger.warning("kb_rebuild_hook_error: %s", str(hook_exc)[:200])
+
         return JSONResponse(
             status_code=201,
             content={
                 "id": str(document.id),
                 "filename": filename,
                 "status": "completed",
-                "message": "Document uploaded successfully.",
+                "message": "Document uploaded successfully. Agent rebuild triggered in background.",
                 "chunk_count": len(chunks_text),
             },
         )
