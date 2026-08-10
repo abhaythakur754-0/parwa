@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 import uuid
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Integer, Numeric, String, Text, ForeignKey, text
+    Boolean, Column, DateTime, Float, Integer, Numeric, String, Text, ForeignKey, text
 )
 from sqlalchemy.orm import relationship
 
@@ -433,3 +433,50 @@ class CompanySetting(Base):
     assignment_rules = Column(Text, default="[]")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
+# ── LLM Request Queue (DB-backed — survives Render restarts) ────────────
+# User vision: 'dont keep that in ram ad here as that request get solved
+# delete that ok because here free render can erase the ram'
+#
+# Every LLM call (NVIDIA, Groq, etc.) gets a row here BEFORE the HTTP call.
+# On success → row is DELETED.
+# On 429 rate limit → row stays with status='rate_limited' + next_retry_at.
+# On Render restart → recovery worker finds stuck rows + retries them.
+
+class LLMRequestQueue(Base):
+    """DB-backed queue for LLM API calls.
+
+    Survives Render free-tier restarts (which wipe RAM). If a call is in
+    the middle of a 60-second rate-limit wait when Render restarts, the
+    row stays in DB with status='rate_limited'. On startup, a recovery
+    worker finds these rows and retries them.
+    """
+    __tablename__ = "llm_request_queue"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(__import__("uuid").uuid4()))
+    company_id = Column(String(36), nullable=True, index=True)  # tenant scoping (nullable for system calls)
+    provider = Column(String(50), nullable=False)  # nvidia, groq, cerebras
+    model = Column(String(100), nullable=False)
+    messages = Column(Text, nullable=False)  # JSON array of messages
+    temperature = Column(Float, default=0.1)
+    max_tokens = Column(Integer, default=1000)
+    call_id = Column(Integer, nullable=True)  # for log tracing
+    ticket_id = Column(String(36), nullable=True, index=True)  # for tracing
+
+    status = Column(String(20), nullable=False, default="pending", index=True)
+    # pending: queued, not yet called
+    # in_progress: worker is calling provider
+    # rate_limited: 429 received, waiting for next_retry_at
+    # completed: success (will be deleted by caller)
+    # failed: max retries exceeded (kept for audit)
+
+    retry_count = Column(Integer, default=0)
+    max_retries = Column(Integer, default=3)
+    next_retry_at = Column(DateTime, nullable=True, index=True)
+    error_message = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
+    completed_at = Column(DateTime, nullable=True)

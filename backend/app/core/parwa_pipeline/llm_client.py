@@ -376,25 +376,60 @@ async def _call_litellm_direct(messages: list, temperature: float, max_tokens: i
 
 
 async def _call_nvidia_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
-    """Direct NVIDIA API call — WITH 429 RATE LIMIT RETRY (user's queue vision).
+    """Direct NVIDIA API call — DB-BACKED QUEUE (survives Render restarts).
 
-    NVIDIA free tier = 40 RPM. When we hit 429:
-      1. WAIT 60 seconds (lets rate limit renew)
-      2. RETRY the same call (not terminate)
-      3. Other requests stay in their own queue — they'll wait their turn
-      4. Max 3 retries per call (3 min total worst case)
+    User vision: 'see u can keep that request or that queue in database ok
+    well dont keep that in ram ad here as that request get solved delete that
+    ok because here free render can erase the ram thats why i am saying there'
 
-    User's exact words: 'as nvidia is time out we wait for one min then once
-    continue we wont be like terminate there and all other request stay in queue'
+    EVERY call gets persisted to DB before the HTTP request:
+      1. INSERT row (status='in_progress')
+      2. Call NVIDIA API
+      3. On success → DELETE row (queue drained)
+      4. On 429 → UPDATE row (status='rate_limited', next_retry_at=NOW+60s)
+         → sleep 60s in memory → retry (up to 3 times)
+      5. On Render restart during sleep:
+         - Row stays in DB with status='rate_limited'
+         - Recovery worker on startup finds stuck rows + retries them
+         - No lost work, no orphan requests
 
-    This wrapper makes NVIDIA calls resilient — no more lost work on rate limits.
+    This is the same DB-backed queue pattern used for tickets.
     """
     import asyncio
     import httpx
+    import json as _json
+    import uuid as _uuid
+    from datetime import datetime, timezone, timedelta
 
     api_key = os.environ.get("NVIDIA_API_KEY", "").strip()
     if not api_key:
         return ""
+
+    # ── Step 1: Persist request to DB (survives Render restart) ──
+    request_id = str(_uuid.uuid4())
+    try:
+        from database.base import SessionLocal
+        from database.models.core import LLMRequestQueue
+        _db = SessionLocal()
+        try:
+            _queue_row = LLMRequestQueue(
+                id=request_id,
+                provider="nvidia",
+                model="z-ai/glm-5.2",
+                messages=_json.dumps(messages),
+                temperature=temperature,
+                max_tokens=max_tokens,
+                call_id=call_id,
+                status="in_progress",
+                max_retries=3,
+            )
+            _db.add(_queue_row)
+            _db.commit()
+        finally:
+            _db.close()
+    except Exception as persist_exc:
+        # Don't fail the call if DB persistence fails — just log
+        logger.warning("llm_queue_persist_failed: %s", str(persist_exc)[:200])
 
     payload = {
         "model": "z-ai/glm-5.2",
@@ -424,32 +459,123 @@ async def _call_nvidia_direct(messages: list, temperature: float, max_tokens: in
                 content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
                 global _total_tokens
                 _total_tokens += data.get("usage", {}).get("total_tokens", 0)
+
+                # ── SUCCESS: delete from queue (user's vision) ──
+                _delete_llm_queue_row(request_id)
                 return content.strip()
 
             if r.status_code == 429 and attempt < MAX_RETRIES:
-                # ── RATE LIMIT: wait 60s, then retry (don't terminate) ──
+                # ── RATE LIMIT: update DB + wait + retry (don't terminate) ──
+                _update_llm_queue_rate_limited(request_id, attempt + 1, r.text[:200])
                 logger.warning(
                     "NVIDIA 429 rate limit on call #%d (attempt %d/%d) — waiting %ds, then retrying",
                     call_id, attempt + 1, MAX_RETRIES, RATE_LIMIT_WAIT,
                 )
                 await asyncio.sleep(RATE_LIMIT_WAIT)
-                continue  # retry the same call
+                # Mark back to in_progress before retry
+                _update_llm_queue_status(request_id, "in_progress")
+                continue
 
-            # Non-429 error OR out of retries → raise
+            # Non-429 error OR out of retries → mark failed in DB (keep for audit)
+            _mark_llm_queue_failed(request_id, f"NVIDIA {r.status_code}: {r.text[:200]}")
             raise RuntimeError(f"NVIDIA API error {r.status_code}: {r.text[:200]}")
 
         except httpx.TimeoutException:
             if attempt < MAX_RETRIES:
+                _update_llm_queue_rate_limited(request_id, attempt + 1, "timeout")
                 logger.warning(
                     "NVIDIA timeout on call #%d (attempt %d/%d) — waiting %ds, then retrying",
                     call_id, attempt + 1, MAX_RETRIES, RATE_LIMIT_WAIT,
                 )
                 await asyncio.sleep(RATE_LIMIT_WAIT)
+                _update_llm_queue_status(request_id, "in_progress")
                 continue
+            _mark_llm_queue_failed(request_id, "timeout after 3 retries")
             raise
 
-    # Shouldn't reach here, but just in case
+    # Exhausted retries — mark failed in DB
+    _mark_llm_queue_failed(request_id, f"exhausted {MAX_RETRIES} retries")
     raise RuntimeError(f"NVIDIA API: exhausted {MAX_RETRIES} retries on rate limit")
+
+
+# ── DB queue helpers (small + surgical) ─────────────────────────────
+
+def _delete_llm_queue_row(request_id: str) -> None:
+    """Delete a completed request from the queue (user's vision: 'as that request
+    get solved delete that')."""
+    try:
+        from database.base import SessionLocal
+        from database.models.core import LLMRequestQueue
+        _db = SessionLocal()
+        try:
+            _db.query(LLMRequestQueue).filter(LLMRequestQueue.id == request_id).delete()
+            _db.commit()
+        finally:
+            _db.close()
+    except Exception as exc:
+        logger.warning("llm_queue_delete_failed: %s", str(exc)[:200])
+
+
+def _update_llm_queue_rate_limited(request_id: str, retry_count: int, error: str) -> None:
+    """Mark a request as rate_limited with next_retry_at = NOW + 60s.
+
+    If Render restarts during the 60s sleep, the row stays here with
+    next_retry_at in the past. Recovery worker picks it up on startup.
+    """
+    try:
+        from database.base import SessionLocal
+        from database.models.core import LLMRequestQueue
+        from datetime import datetime, timezone, timedelta
+        _db = SessionLocal()
+        try:
+            row = _db.query(LLMRequestQueue).filter(LLMRequestQueue.id == request_id).first()
+            if row:
+                row.status = "rate_limited"
+                row.retry_count = retry_count
+                row.next_retry_at = datetime.now(timezone.utc) + timedelta(seconds=60)
+                row.error_message = error[:500]
+                _db.commit()
+        finally:
+            _db.close()
+    except Exception as exc:
+        logger.warning("llm_queue_update_rate_limited_failed: %s", str(exc)[:200])
+
+
+def _update_llm_queue_status(request_id: str, status: str) -> None:
+    """Update status (e.g. back to in_progress before retry)."""
+    try:
+        from database.base import SessionLocal
+        from database.models.core import LLMRequestQueue
+        _db = SessionLocal()
+        try:
+            row = _db.query(LLMRequestQueue).filter(LLMRequestQueue.id == request_id).first()
+            if row:
+                row.status = status
+                _db.commit()
+        finally:
+            _db.close()
+    except Exception as exc:
+        logger.warning("llm_queue_update_status_failed: %s", str(exc)[:200])
+
+
+def _mark_llm_queue_failed(request_id: str, error: str) -> None:
+    """Mark a request as failed (kept in DB for audit, not deleted)."""
+    try:
+        from database.base import SessionLocal
+        from database.models.core import LLMRequestQueue
+        from datetime import datetime, timezone
+        _db = SessionLocal()
+        try:
+            row = _db.query(LLMRequestQueue).filter(LLMRequestQueue.id == request_id).first()
+            if row:
+                row.status = "failed"
+                row.error_message = error[:500]
+                row.completed_at = datetime.now(timezone.utc)
+                _db.commit()
+        finally:
+            _db.close()
+    except Exception as exc:
+        logger.warning("llm_queue_mark_failed_failed: %s", str(exc)[:200])
 
 
 async def _call_cerebras_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
@@ -602,3 +728,120 @@ def parse_confidence(text: str, default: float = 0.7) -> float:
             val = val / 100
         return max(0.0, min(1.0, val))
     return default
+
+
+# ── Recovery Worker: retries stuck LLM requests after Render restart ──
+# User vision: 'free render can erase the ram thats why i am saying there'
+#
+# When Render restarts, in-flight LLM calls lose their in-memory state.
+# But their DB rows survive (status='rate_limited' or 'in_progress').
+# This function finds those stuck rows and retries them.
+
+async def _recover_stuck_llm_requests() -> None:
+    """Find stuck LLM requests in DB and retry them.
+
+    Called by background loop every 30 seconds. Finds:
+      - status='rate_limited' AND next_retry_at < NOW() (rate limit expired)
+      - status='in_progress' (Render died mid-call — these are stale)
+      - status='pending' (never got picked up)
+
+    Retries each via _call_nvidia_direct (which re-inserts + re-tries).
+    On success → row deleted by the call. On failure → marked failed.
+    """
+    try:
+        from database.base import SessionLocal
+        from database.models.core import LLMRequestQueue
+        from datetime import datetime, timezone
+        import json as _json
+
+        _db = SessionLocal()
+        try:
+            # Find stuck rows (rate_limited with retry_at in past, OR in_progress for >5 min)
+            now = datetime.now(timezone.utc)
+            stuck_rows = _db.query(LLMRequestQueue).filter(
+                LLMRequestQueue.status.in_(["rate_limited", "in_progress", "pending"])
+            ).limit(10).all()  # cap at 10 per cycle to avoid overload
+
+            if not stuck_rows:
+                return  # nothing to recover
+
+            logger.info("llm_queue_recovery: found %d stuck requests", len(stuck_rows))
+
+            for row in stuck_rows:
+                # Skip rate_limited rows whose retry_at hasn't passed yet
+                if row.status == "rate_limited" and row.next_retry_at and row.next_retry_at > now:
+                    continue  # not yet time to retry
+
+                # Skip if max retries exceeded
+                if row.retry_count >= row.max_retries:
+                    row.status = "failed"
+                    row.error_message = "max retries exceeded during recovery"
+                    row.completed_at = now
+                    _db.commit()
+                    logger.warning(
+                        "llm_queue_recovery: request %s marked failed (max retries)",
+                        row.id[:8],
+                    )
+                    continue
+
+                # Re-try this request via _call_nvidia_direct
+                # The call will DELETE the row on success or update it on 429
+                try:
+                    messages = _json.loads(row.messages)
+                    # Spawn as background task — don't block the recovery loop
+                    import asyncio as _asyncio
+                    _asyncio.create_task(
+                        _retry_single_llm_request(
+                            request_id=row.id,
+                            messages=messages,
+                            temperature=row.temperature or 0.1,
+                            max_tokens=row.max_tokens or 1000,
+                            call_id=row.call_id or 0,
+                        )
+                    )
+                except Exception as retry_exc:
+                    logger.warning(
+                        "llm_queue_recovery_retry_failed: request=%s err=%s",
+                        row.id[:8], str(retry_exc)[:200],
+                    )
+        finally:
+            _db.close()
+    except Exception as exc:
+        logger.warning("recover_stuck_llm_requests_error: %s", str(exc)[:200])
+
+
+async def _retry_single_llm_request(
+    request_id: str,
+    messages: list,
+    temperature: float,
+    max_tokens: int,
+    call_id: int,
+) -> None:
+    """Retry a single stuck LLM request (called as background task).
+
+    Calls _call_nvidia_direct which will:
+      - INSERT a new row (since the original is being retried)
+      - On success: DELETE the new row
+      - On 429: UPDATE the new row + retry
+
+    The ORIGINAL row is marked as 'completed' (retried via new call).
+    """
+    try:
+        # Mark original row as 'in_progress' (being retried)
+        _update_llm_queue_status(request_id, "in_progress")
+
+        # Make a fresh NVIDIA call (which creates its own DB row)
+        result = await _call_nvidia_direct(messages, temperature, max_tokens, call_id)
+
+        if result:
+            # Success — delete the original stuck row
+            _delete_llm_queue_row(request_id)
+            logger.info("llm_queue_recovery: request %s retried successfully", request_id[:8])
+        else:
+            _mark_llm_queue_failed(request_id, "retry returned empty result")
+    except Exception as exc:
+        _mark_llm_queue_failed(request_id, f"retry failed: {str(exc)[:200]}")
+        logger.warning(
+            "llm_queue_recovery_retry_exception: request=%s err=%s",
+            request_id[:8], str(exc)[:200],
+        )

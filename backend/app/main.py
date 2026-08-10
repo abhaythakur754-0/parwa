@@ -861,6 +861,35 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(_flexpay_scheduler_loop())
     logger.info("flexpay_scheduler_loop_started (runs every 1 hour)")
 
+    # ── LLM Queue Recovery Worker (survives Render restarts) ──
+    # User vision: 'dont keep that in ram ad here as that request get solved
+    # delete that ok because here free render can erase the ram'
+    #
+    # When Render restarts, in-flight LLM calls are lost from RAM. But their
+    # DB rows survive (status='rate_limited' or 'in_progress'). This worker:
+    #   1. Runs on startup (immediately after boot)
+    #   2. Finds all 'rate_limited' rows where next_retry_at < NOW()
+    #   3. Finds all 'in_progress' rows (Render died mid-call)
+    #   4. Retries them via NVIDIA
+    #   5. On success → deletes the row
+    #   6. On 429 → updates next_retry_at + sleeps 60s + retries
+    #   7. Loops every 30s to catch newly-rate-limited rows
+    try:
+        async def _llm_queue_recovery_loop():
+            """Background loop: retry stuck LLM requests after Render restart."""
+            from app.core.parwa_pipeline.llm_client import _recover_stuck_llm_requests
+            while True:
+                try:
+                    await _recover_stuck_llm_requests()
+                except Exception as exc:
+                    logger.warning("llm_queue_recovery_error: %s", str(exc)[:200])
+                await asyncio.sleep(30)  # check every 30s
+
+        asyncio.create_task(_llm_queue_recovery_loop())
+        logger.info("llm_queue_recovery_loop_started (checks every 30s for stuck requests)")
+    except Exception as exc:
+        logger.warning("llm_queue_recovery_setup_failed: %s", str(exc)[:200])
+
     yield
 
     # Shutdown: flush Sentry events
