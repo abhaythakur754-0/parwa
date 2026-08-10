@@ -215,6 +215,12 @@ export const ONBOARDING_STEPS: Omit<OnboardingStep, 'isCompleted' | 'isActive'>[
   },
   {
     id: 4,
+    title: 'Agent Building',
+    description: 'PARWA creates your AI agents',
+    isOptional: false,
+  },
+  {
+    id: 5,
     title: 'First Victory',
     description: 'Launch & celebrate! 🎉',
     isOptional: false,
