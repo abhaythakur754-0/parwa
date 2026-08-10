@@ -22,6 +22,7 @@ import json
 import logging
 import time
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from app.core.builder_agent.builder_state import (
@@ -1040,6 +1041,9 @@ async def _finalize_agent(state: BuilderState) -> BuilderState:
                 instructions=config.get("instructions", "")[:5000],
                 restrictions=config.get("restrictions", "")[:5000],
                 status="active",
+                # Superglue tool linkage — initially pending until Superglue Agent
+                # generates the multi-step tool (done asynchronously after commit).
+                superglue_tool_status="pending",
             )
             db.add(agent)
 
@@ -1062,6 +1066,26 @@ async def _finalize_agent(state: BuilderState) -> BuilderState:
                 tenant_id, config.get("agent_name"), agent_id,
                 len(config.get("capabilities", [])),
             )
+
+            # ── Request Superglue to generate the multi-step tool ────
+            # This calls Superglue's Agent API (uses Superglue's OWN LLM key,
+            # NOT PARWA's NVIDIA key). Keeps Render's 512MB RAM free.
+            # Failure here is non-fatal — the agent still works via KB fallback.
+            try:
+                await _request_superglue_tool_for_agent(
+                    db=db,
+                    agent_id=agent_id,
+                    agent_name=config.get("agent_name", capability),
+                    agent_instructions=config.get("instructions", ""),
+                    agent_capabilities=", ".join(config.get("capabilities", [capability])),
+                    sample_ticket=config.get("sample_ticket"),
+                )
+            except Exception as sg_exc:
+                # Don't fail agent creation just because Superglue tool generation failed
+                logger.warning(
+                    "superglue_tool_generation_failed: agent=%s err=%s",
+                    agent_id, str(sg_exc)[:200],
+                )
 
         finally:
             db.close()
@@ -1476,3 +1500,145 @@ def _get_past_builder_results(tenant_id: str, capability: str) -> List[Dict[str,
             db.close()
     except Exception:
         return []
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# SUPERGLUE TOOL GENERATION (Post-Agent-Creation Hook)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# After Builder Agent creates an AI agent config (instructions, restrictions,
+# capabilities), it asks Superglue to GENERATE a multi-step tool for that agent.
+#
+# Why Superglue (not PARWA's LLM):
+#   - Render's 512MB RAM can't handle heavy LLM workloads reliably
+#   - Superglue runs on a separate server with its OWN LLM key
+#   - Different IP → different rate limit pool → no rate blocking
+#   - PARWA just makes an HTTP call, Superglue does the heavy lifting
+#
+# Failure handling:
+#   - Superglue unconfigured → agent works without tool (KB fallback)
+#   - Superglue down → status="pending", retry on next ticket
+#   - Superglue refuses → status="failed", admin can manually retry
+#   - Success → tool_id saved, agent has full multi-step capability
+# ════════════════════════════════════════════════════════════════════════════
+
+async def _request_superglue_tool_for_agent(
+    db,
+    agent_id: str,
+    agent_name: str,
+    agent_instructions: str,
+    agent_capabilities: str,
+    sample_ticket: Optional[str] = None,
+) -> None:
+    """Ask Superglue to generate a multi-step tool for this AI agent.
+
+    Updates AIAgentAssignment.superglue_tool_id + status fields in place.
+    Non-fatal: if Superglue fails, the agent still works via KB fallback.
+
+    Args:
+        db: SQLAlchemy session (already opened by caller)
+        agent_id: The AIAgentAssignment.id we just created
+        agent_name: Human name (e.g. "Refund Specialist")
+        agent_instructions: System prompt for the agent
+        agent_capabilities: Comma-separated capability keys (e.g. "refund_processing")
+        sample_ticket: Optional real ticket text for context
+    """
+    from database.models.variant_engine import AIAgentAssignment
+    from app.core.superglue_tool_generator import generate_tool_for_agent, is_configured
+
+    # If Superglue isn't configured, leave the agent in "none" status
+    # (agent can still respond via KB — no tool needed)
+    if not is_configured():
+        db.query(AIAgentAssignment).filter(
+            AIAgentAssignment.id == agent_id,
+        ).update({
+            "superglue_tool_status": "none",
+        }, synchronize_session=False)
+        db.commit()
+        logger.info(
+            "superglue_tool_skipped: agent=%s reason=not_configured",
+            agent_id,
+        )
+        return
+
+    # Get tenant's connected integrations so Superglue knows what's available
+    tenant_id_record = db.query(AIAgentAssignment).filter(
+        AIAgentAssignment.id == agent_id,
+    ).first()
+    if not tenant_id_record:
+        return
+    tenant_id = tenant_id_record.company_id
+
+    tenant_integrations = _get_tenant_integrations_dict(tenant_id)
+
+    # Ask Superglue to generate the tool (uses Superglue's OWN LLM)
+    result = await generate_tool_for_agent(
+        agent_name=agent_name,
+        agent_instructions=agent_instructions,
+        agent_capabilities=agent_capabilities,
+        sample_ticket=sample_ticket,
+        tenant_integrations=tenant_integrations,
+    )
+
+    if result.get("success"):
+        # Success — save tool_id and mark as active
+        tool_id = result.get("tool_id")
+        tool_definition = result.get("tool_definition")
+        tool_def_str = json.dumps(tool_definition) if tool_definition else None
+
+        db.query(AIAgentAssignment).filter(
+            AIAgentAssignment.id == agent_id,
+        ).update({
+            "superglue_tool_id": tool_id,
+            "superglue_tool_status": "active",
+            "superglue_tool_definition": tool_def_str,
+            "superglue_tool_created_at": datetime.now(timezone.utc),
+        }, synchronize_session=False)
+        db.commit()
+
+        logger.info(
+            "superglue_tool_created: agent=%s tool_id=%s name=%s",
+            agent_id, tool_id, agent_name,
+        )
+    else:
+        # Failure — mark as failed, agent falls back to KB
+        db.query(AIAgentAssignment).filter(
+            AIAgentAssignment.id == agent_id,
+        ).update({
+            "superglue_tool_status": "failed",
+        }, synchronize_session=False)
+        db.commit()
+
+        logger.warning(
+            "superglue_tool_failed: agent=%s name=%s err=%s",
+            agent_id, agent_name, result.get("error", "unknown")[:200],
+        )
+
+
+def _get_tenant_integrations_dict(tenant_id: str) -> Dict[str, Any]:
+    """Get tenant's connected integrations as a dict (for Superglue Agent API).
+
+    Returns:
+        {"paddle": {...}, "brevo": {...}, "stripe": {...}}
+    """
+    try:
+        from database.base import SessionLocal
+        from database.models.core import Integration
+        db = SessionLocal()
+        try:
+            rows = db.query(Integration).filter(
+                Integration.company_id == tenant_id,
+            ).all()
+            result = {}
+            for i in rows:
+                integ_type = getattr(i, "integration_type", getattr(i, "provider", "unknown"))
+                # Pull credential config (IntegrationService-style)
+                # We pass the integration type only — Superglue looks up its own
+                # stored credentials for that system. We don't expose keys to PARWA.
+                result[integ_type] = {"connected": True}
+            return result
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning("get_tenant_integrations_dict err: %s", str(exc)[:200])
+        return {}

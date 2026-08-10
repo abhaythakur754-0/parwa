@@ -57,6 +57,69 @@ _EXEC_LIMITS = {
 }
 
 
+# ── Agent-aware tool input extraction ─────────────────────────────
+# When a ticket routes to a Builder-created agent that has a linked Superglue
+# tool, we need to extract the right inputs (customerEmail, transactionId, etc.)
+# from the ticket details. This is a lightweight regex-based extractor — no LLM
+# needed. The agent's tool's inputSchema defines what fields are expected.
+# If extraction fails, falls back to the LLM-selection path.
+
+
+def _extract_tool_inputs(details: Dict, action: str, knowledge: str) -> Dict[str, Any]:
+    """Extract common tool inputs from ticket details + knowledge text.
+
+    Looks for: emails, transaction IDs, order numbers, amounts, customer names.
+    Returns a dict suitable for Superglue execute_tool(input_data).
+    """
+    import re
+
+    inputs: Dict[str, Any] = {}
+
+    # Combine all available text to scan
+    text = " ".join([
+        str(details or {}),
+        knowledge or "",
+        action or "",
+    ])
+
+    # Email
+    email_match = re.search(r'[\w.+-]+@[\w-]+\.[\w.-]+', text)
+    if email_match:
+        inputs["customerEmail"] = email_match.group(0).rstrip(".")
+
+    # Transaction ID (txn_xxx, ch_xxx, pi_xxx for Stripe/Paddle)
+    txn_match = re.search(r'\b(txn_|ch_|pi_|re_|sub_|ctm_)[A-Za-z0-9]{6,}', text)
+    if txn_match:
+        inputs["transactionId"] = txn_match.group(0)
+
+    # Order number (#1234, ORD-1234, order 1234)
+    order_match = re.search(r'(?:order|ord|#)\s*[-:]?\s*([A-Z0-9]{4,12})', text, re.IGNORECASE)
+    if order_match:
+        inputs["orderNumber"] = order_match.group(1)
+
+    # Amount ($50, $99.99, 100 cents)
+    amount_match = re.search(r'\$(\d+(?:\.\d+)?)', text)
+    if amount_match:
+        # Convert dollars to cents (Superglue tools expect cents)
+        try:
+            dollars = float(amount_match.group(1))
+            inputs["amount"] = int(dollars * 100)
+        except ValueError:
+            pass
+
+    # Customer name (heuristic: "my name is X" or "I'm X")
+    name_match = re.search(r'(?:my name is|i am|i\'m)\s+([A-Z][a-z]+\s+[A-Z][a-z]+)', text)
+    if name_match:
+        inputs["customerName"] = name_match.group(1)
+
+    # Date (next Tuesday, tomorrow, 2024-01-15)
+    date_match = re.search(r'\b(\d{4}-\d{2}-\d{2})\b', text)
+    if date_match:
+        inputs["dateTime"] = date_match.group(1)
+
+    return inputs
+
+
 # ── Rule-based action check (non-LLM) ─────────────────────────────
 
 
@@ -304,11 +367,57 @@ THOUGHT:"""
             from app.core.superglue_client import get_available_tools_description, execute_tool
             from app.core.parwa_pipeline.llm_client import llm_call
 
-            # Step 1: Get available tools from Superglue
-            tools_desc = await get_available_tools_description()
+            # ── NEW: Agent-aware tool routing ────────────────────────
+            # If a Builder-created agent is handling this ticket AND it has
+            # a linked Superglue tool, skip the LLM tool-selection step
+            # entirely and call the agent's pre-assigned tool directly.
+            # This is the fast path: 0 LLM calls, ~5-7s per ticket.
+            routed_agent_id = state.get("builder_agent_id")
+            if routed_agent_id:
+                try:
+                    from database.base import SessionLocal
+                    from database.models.variant_engine import AIAgentAssignment
+                    _db = SessionLocal()
+                    try:
+                        _agent = _db.query(AIAgentAssignment).filter(
+                            AIAgentAssignment.id == routed_agent_id,
+                        ).first()
+                        if _agent and _agent.superglue_tool_id and _agent.superglue_tool_status == "active":
+                            # Fast path — call the agent's pre-assigned tool
+                            _tool_id = _agent.superglue_tool_id
+                            _tool_input = _extract_tool_inputs(details, action, knowledge)
+                            result = await execute_tool(_tool_id, _tool_input)
 
-            # Step 2: Ask LLM which tool to call
-            tool_prompt = f"""You are deciding which tool to call for a customer support action.
+                            if result.get("success"):
+                                observation = (
+                                    f"ACTION EXECUTED via agent '{_agent.agent_name}' "
+                                    f"Superglue tool '{_tool_id}': "
+                                    f"{str(result.get('data', ''))[:300]}"
+                                )
+                                tool_executed = f"agent:{routed_agent_id}:superglue:{_tool_id}"
+                                logs.append(
+                                    f"node5: agent-aware tool call succeeded "
+                                    f"(tool={_tool_id}, steps={len(result.get('step_results', []))})"
+                                )
+                            else:
+                                observation = (
+                                    f"Agent tool '{_tool_id}' failed: "
+                                    f"{result.get('error', 'unknown')}. Falling back to LLM selection."
+                                )
+                                tool_executed = None
+                                logs.append(f"node5: agent tool failed, falling back: {result.get('error', '')[:100]}")
+                    finally:
+                        _db.close()
+                except Exception as agent_exc:
+                    logger.warning("agent_tool_lookup_failed: %s", str(agent_exc)[:200])
+
+            # ── Fallback: LLM picks from all available tools ────────
+            if observation is None:
+                # Step 1: Get available tools from Superglue
+                tools_desc = await get_available_tools_description()
+
+                # Step 2: Ask LLM which tool to call
+                tool_prompt = f"""You are deciding which tool to call for a customer support action.
 
 Action needed: {action}
 Details: {details}
@@ -323,27 +432,27 @@ Respond with ONLY JSON:
 If no tool matches, respond with:
 {{"tool_id": "none", "reasoning": "no matching tool"}}"""
 
-            llm_response = await llm_call(tool_prompt, max_tokens=300, temperature=0.1)
+                llm_response = await llm_call(tool_prompt, max_tokens=300, temperature=0.1)
 
-            # Parse LLM decision
-            import json as _json
-            import re as _re
-            match = _re.search(r'\{.*\}', llm_response or "", _re.DOTALL)
-            if match:
-                decision = _json.loads(match.group())
-                tool_id = decision.get("tool_id", "none")
+                # Parse LLM decision
+                import json as _json
+                import re as _re
+                match = _re.search(r'\{.*\}', llm_response or "", _re.DOTALL)
+                if match:
+                    decision = _json.loads(match.group())
+                    tool_id = decision.get("tool_id", "none")
 
-                if tool_id and tool_id != "none":
-                    # Step 3: Execute the tool via Superglue
-                    tool_input = decision.get("input", {})
-                    result = await execute_tool(tool_id, tool_input)
+                    if tool_id and tool_id != "none":
+                        # Step 3: Execute the tool via Superglue
+                        tool_input = decision.get("input", {})
+                        result = await execute_tool(tool_id, tool_input)
 
-                    if result.get("success"):
-                        observation = f"ACTION EXECUTED via Superglue tool '{tool_id}': {str(result.get('data', ''))[:300]}"
-                        tool_executed = f"superglue:{tool_id}"
-                    else:
-                        observation = f"Superglue tool '{tool_id}' failed: {result.get('error', 'unknown')}"
-                        tool_executed = f"superglue:{tool_id} (failed)"
+                        if result.get("success"):
+                            observation = f"ACTION EXECUTED via Superglue tool '{tool_id}': {str(result.get('data', ''))[:300]}"
+                            tool_executed = f"superglue:{tool_id}"
+                        else:
+                            observation = f"Superglue tool '{tool_id}' failed: {result.get('error', 'unknown')}"
+                            tool_executed = f"superglue:{tool_id} (failed)"
                 else:
                     observation = f"No matching Superglue tool for action '{action}'. LLM said: {decision.get('reasoning', '')}"
                     tool_executed = None

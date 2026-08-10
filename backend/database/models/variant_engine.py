@@ -289,6 +289,23 @@ class AIAgentAssignment(Base):
     instructions = Column(Text, nullable=True)
     restrictions = Column(Text, nullable=True)
 
+    # ── Superglue tool linkage ───────────────────────────────────────
+    # When the Builder Agent creates an AI agent, it ALSO requests Superglue
+    # to generate a multi-step tool for it (via Superglue's own Agent API).
+    # The returned tool_id is stored here. When a ticket routes to this agent,
+    # Node 5 calls execute_tool(superglue_tool_id, inputs) to run the chain.
+    #
+    # Status flow:
+    #   none      → no tool linked yet (agent can still respond via KB)
+    #   pending   → Superglue Agent is generating the tool (async)
+    #   active    → tool exists on Superglue, ready to execute
+    #   failed    → Superglue Agent couldn't generate a tool (admin can retry)
+    #   disabled  → admin paused the tool (still linked but not executed)
+    superglue_tool_id = Column(String(100), nullable=True, index=True)
+    superglue_tool_status = Column(String(20), default="none")  # none|pending|active|failed|disabled
+    superglue_tool_definition = Column(Text, nullable=True)  # cached JSON for audit
+    superglue_tool_created_at = Column(DateTime, nullable=True)
+
     status = Column(String(50), default="active")
     created_at = Column(
         DateTime, default=lambda: datetime.now(timezone.utc),
