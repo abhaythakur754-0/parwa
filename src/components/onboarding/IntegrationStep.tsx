@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Loader2, CheckCircle2, XCircle, ChevronDown, ChevronUp,
   Plug, Search, AlertTriangle, ShieldCheck, Plus,
@@ -16,7 +16,6 @@ import {
   type IntegrationCategory,
   type AuthField,
 } from '@/lib/integration-catalog';
-import { getRecommendations, type IntegrationRecommendation } from '@/lib/integration-recommendations';
 import { CustomIntegrationForm } from './CustomIntegrationForm';
 import { NangoIntegrationsSection } from '@/components/integrations/NangoConnectButton';
 import { useAuth } from '@/hooks/useAuth';
@@ -113,6 +112,21 @@ export function IntegrationStep({ onNext, industry, hideNextButton = false }: In
       return orderA - orderB;
     });
   }, [filteredIntegrations]);
+
+  // ── Auto-trigger CRM analysis when integrations get connected ──
+  // Runs once when the first integration is connected, then again when more are added
+  // (but only if it hasn't been analyzed in the last 30 seconds — prevents spam)
+  const lastAnalyzedAtRef = useRef<number>(0);
+  useEffect(() => {
+    if (existingIntegrations.length === 0) return;
+    const now = Date.now();
+    const cooldownMs = 30000; // 30s cooldown
+    if (now - lastAnalyzedAtRef.current < cooldownMs) return;
+    if (isAnalyzing) return;
+    // Auto-run analysis (debounced)
+    lastAnalyzedAtRef.current = now;
+    runCRMAnalysis();
+  }, [existingIntegrations.length]);
 
   // Check if an integration is already connected
   const getExistingStatus = (key: string): ConnectedIntegration | null => {
@@ -302,20 +316,24 @@ export function IntegrationStep({ onNext, industry, hideNextButton = false }: In
         </p>
       </div>
 
-      {/* ── Smart Recommendations (from static mapping — no LLM needed) ── */}
+      {/* ── Smart Recommendations (powered by CRMAnalyzerService — uses NVIDIA GLM-5.2 LLM) ── */}
       {(() => {
         const connectedTypes = existingIntegrations.map(i => i.integration_type);
-        const recs = getRecommendations(connectedTypes, industry);
-        if (recs.length === 0 || !showRecommendations) return null;
+        if (connectedTypes.length === 0 || !showRecommendations) return null;
         return (
           <div className="mb-6 rounded-xl border border-orange-500/20 bg-orange-500/[0.04] p-4">
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-start gap-2.5">
                 <Sparkles className="w-4 h-4 text-orange-400 mt-0.5 flex-shrink-0" />
                 <div>
-                  <div className="text-sm font-medium text-orange-300">Recommended for you</div>
+                  <div className="text-sm font-medium text-orange-300 flex items-center gap-2">
+                    AI Analysis
+                    {isAnalyzing && <Loader2 className="w-3 h-3 animate-spin" />}
+                  </div>
                   <div className="text-[11px] text-zinc-500 mt-0.5">
-                    Based on {connectedTypes.length > 0 ? `what you've connected (${connectedTypes.join(', ')})` : `your industry (${industry || 'general'})`}
+                    {isAnalyzing
+                      ? 'Scanning your connected integrations + data profile...'
+                      : `${crmAnalysis?.recommendations?.length || 0} recommendations based on your data`}
                   </div>
                 </div>
               </div>
@@ -326,42 +344,69 @@ export function IntegrationStep({ onNext, industry, hideNextButton = false }: In
                 Dismiss
               </button>
             </div>
-            <div className="space-y-2">
-              {recs.slice(0, 4).map((rec: IntegrationRecommendation) => {
-                const integ = INTEGRATION_CATALOG.find(i => i.key === rec.type);
-                if (!integ) return null;
-                const alreadyConnected = connectedTypes.includes(rec.type);
-                return (
-                  <div
-                    key={rec.type}
-                    className="flex items-center gap-3 p-2.5 rounded-lg bg-white/[0.02] border border-white/[0.05]"
-                  >
+
+            {isAnalyzing && (
+              <div className="space-y-2">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="h-12 rounded-lg bg-white/[0.02] animate-pulse" />
+                ))}
+              </div>
+            )}
+
+            {!isAnalyzing && crmAnalysis?.recommendations && (
+              <div className="space-y-2">
+                {crmAnalysis.recommendations.slice(0, 4).map((rec: any) => {
+                  const integ = INTEGRATION_CATALOG.find(i => i.key === rec.integration_key);
+                  const alreadyConnected = connectedTypes.includes(rec.integration_key);
+                  const priorityColors: Record<string, string> = {
+                    high: 'bg-red-500/15 text-red-300',
+                    medium: 'bg-orange-500/15 text-orange-300',
+                    low: 'bg-zinc-500/15 text-zinc-400',
+                  };
+                  return (
                     <div
-                      className="w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0"
-                      style={{ background: integ.gradient || 'linear-gradient(135deg, #f97316, #f59e0b)' }}
+                      key={rec.integration_key}
+                      className="flex items-center gap-3 p-2.5 rounded-lg bg-white/[0.02] border border-white/[0.05]"
                     >
-                      <Plug className="w-4 h-4 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-white">{integ.name}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-300">
-                          {rec.popularity}% match
-                        </span>
+                      <div
+                        className="w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0"
+                        style={{ background: integ?.gradient || 'linear-gradient(135deg, #f97316, #f59e0b)' }}
+                      >
+                        <Plug className="w-4 h-4 text-white" />
                       </div>
-                      <div className="text-[11px] text-zinc-500 truncate">{rec.reason}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-white">{rec.name}</span>
+                          <span className={cn('text-[10px] px-1.5 py-0.5 rounded', priorityColors[rec.priority] || priorityColors.low)}>
+                            {rec.priority} priority
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-zinc-500 truncate">{rec.reason}</div>
+                        {rec.business_impact && (
+                          <div className="text-[10px] text-orange-300/60 truncate mt-0.5">✨ {rec.business_impact}</div>
+                        )}
+                      </div>
+                      {alreadyConnected ? (
+                        <span className="text-[11px] text-emerald-400 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Connected
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-zinc-500">↓ Find below</span>
+                      )}
                     </div>
-                    {alreadyConnected ? (
-                      <span className="text-[11px] text-emerald-400 flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" /> Connected
-                      </span>
-                    ) : (
-                      <span className="text-[11px] text-zinc-500">↓ Find below</span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {!isAnalyzing && !crmAnalysis && (
+              <button
+                onClick={runCRMAnalysis}
+                className="w-full px-3 py-2 rounded-lg text-xs font-medium bg-orange-500/10 text-orange-300 hover:bg-orange-500/20 border border-orange-500/20 transition-colors"
+              >
+                ✨ Run AI analysis on my integrations
+              </button>
+            )}
           </div>
         );
       })()}
