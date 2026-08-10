@@ -16,6 +16,7 @@ import {
   type IntegrationCategory,
   type AuthField,
 } from '@/lib/integration-catalog';
+import { getRecommendations, type IntegrationRecommendation } from '@/lib/integration-recommendations';
 import { CustomIntegrationForm } from './CustomIntegrationForm';
 import { NangoIntegrationsSection } from '@/components/integrations/NangoConnectButton';
 import { useAuth } from '@/hooks/useAuth';
@@ -57,6 +58,7 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
   const { user } = useAuth();
   const userId = user?.id;
   const [existingIntegrations, setExistingIntegrations] = useState<ConnectedIntegration[]>([]);
+  const [showRecommendations, setShowRecommendations] = useState(true); // default: show recommendations
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<IntegrationCategory | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -298,6 +300,70 @@ export function IntegrationStep({ onNext, industry }: IntegrationStepProps) {
           Choose the tools your team uses. Enter credentials and verify to connect.
         </p>
       </div>
+
+      {/* ── Smart Recommendations (from static mapping — no LLM needed) ── */}
+      {(() => {
+        const connectedTypes = existingIntegrations.map(i => i.integration_type);
+        const recs = getRecommendations(connectedTypes, industry);
+        if (recs.length === 0 || !showRecommendations) return null;
+        return (
+          <div className="mb-6 rounded-xl border border-orange-500/20 bg-orange-500/[0.04] p-4">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-start gap-2.5">
+                <Sparkles className="w-4 h-4 text-orange-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <div className="text-sm font-medium text-orange-300">Recommended for you</div>
+                  <div className="text-[11px] text-zinc-500 mt-0.5">
+                    Based on {connectedTypes.length > 0 ? `what you've connected (${connectedTypes.join(', ')})` : `your industry (${industry || 'general'})`}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRecommendations(false)}
+                className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
+            <div className="space-y-2">
+              {recs.slice(0, 4).map((rec: IntegrationRecommendation) => {
+                const integ = INTEGRATION_CATALOG.find(i => i.key === rec.type);
+                if (!integ) return null;
+                const alreadyConnected = connectedTypes.includes(rec.type);
+                return (
+                  <div
+                    key={rec.type}
+                    className="flex items-center gap-3 p-2.5 rounded-lg bg-white/[0.02] border border-white/[0.05]"
+                  >
+                    <div
+                      className="w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0"
+                      style={{ background: integ.gradient || 'linear-gradient(135deg, #f97316, #f59e0b)' }}
+                    >
+                      <Plug className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-white">{integ.name}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-300">
+                          {rec.popularity}% match
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-zinc-500 truncate">{rec.reason}</div>
+                    </div>
+                    {alreadyConnected ? (
+                      <span className="text-[11px] text-emerald-400 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Connected
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-zinc-500">↓ Find below</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* OAuth Integrations (Nango) */}
       <div className="mb-6 rounded-xl border border-violet-500/10 bg-white/[0.01] p-4">

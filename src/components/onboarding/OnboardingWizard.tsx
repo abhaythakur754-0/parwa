@@ -6,6 +6,7 @@ import { ProgressIndicator } from './ProgressIndicator';
 import { DetailsVerificationStep } from './DetailsVerificationStep';
 import { IntegrationStep } from './IntegrationStep';
 import { KnowledgeUpload } from './KnowledgeUpload';
+import { AgentBuildingStep } from './AgentBuildingStep';
 import { FirstVictory } from './FirstVictory';
 import { Loader2, ArrowLeft, LogOut } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -14,7 +15,7 @@ import type { OnboardingState } from '@/types/onboarding';
 import type { ParwaVariant } from './IndustryVariantStep';
 import { mapIndustryToParwaIndustry, type ParwaIndustry } from '@/lib/integration-catalog';
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5; // Step 4 = Agent Building, Step 5 = First Victory
 
 interface OnboardingWizardProps {
   initialState?: OnboardingState;
@@ -77,7 +78,8 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   const completeStep = useCallback(async (step: number) => {
     setCompletedSteps((prev) => [...prev.filter((s) => s !== step), step]);
 
-    // Step 3 (Knowledge Base) completes the onboarding and goes to FirstVictory (Step 4)
+    // Step 3 (Knowledge Base) → Step 4 (Agent Building)
+    // Step 4 (Agent Building) → Step 5 (First Victory)
     if (step === 3) {
       // Mark onboarding as completed — send variant + industry so backend can create instance
       try {
@@ -94,7 +96,11 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
       } catch {
         // Continue locally even if API fails
       }
+      // Go to Step 4 (Agent Building) — not FirstVictory anymore
       setCurrentStep(4);
+    } else if (step === 4) {
+      // Step 4 (Agent Building) → Step 5 (First Victory)
+      setCurrentStep(5);
     } else {
       setCurrentStep(step + 1);
     }
@@ -195,7 +201,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   }
 
   // Step 4: Show FirstVictory directly (outside the card wrapper)
-  if (currentStep === 4 || (onboardingState?.status === 'completed' && !onboardingState.first_victory_completed)) {
+  if (currentStep === 5 || (onboardingState?.status === 'completed' && !onboardingState.first_victory_completed)) {
     return <FirstVictory aiName={aiName} aiGreeting={aiGreeting} />;
   }
 
@@ -325,6 +331,15 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
           )}
         </div>
       </div>
+
+      {/* Step 4: Agent Building — full-screen (not inside the rounded card) */}
+      {currentStep === 4 && (
+        <AgentBuildingStep onComplete={() => {
+          completeStep(4);
+          // Redirect to dashboard after agents are built
+          setTimeout(() => router.push('/dashboard'), 1500);
+        }} />
+      )}
     </div>
   );
 }

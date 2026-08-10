@@ -128,6 +128,27 @@ async def generate_tool_for_agent(
             "superglue_generate_tool failed: status=%d body=%s",
             res.status_code, res.text[:300],
         )
+
+        # ── FALLBACK: Use PARWA's NVIDIA LLM to generate the tool ──
+        # Superglue self-hosted version doesn't have the Agent API
+        # (it's a cloud-only feature). When that's the case, we fall back
+        # to using PARWA's NVIDIA GLM-5.2 to generate the tool JSON, then
+        # POST it directly to Superglue /v1/tools (which works).
+        # This costs PARWA 1 LLM call (~5s, ~500 tokens) but only happens
+        # ONCE per agent creation — not per ticket.
+        if res.status_code == 404:
+            logger.info(
+                "superglue_agent_api_unavailable: falling back to PARWA NVIDIA LLM "
+                "for agent=%s (one-time cost, not per-ticket)",
+                agent_name,
+            )
+            return await _generate_tool_via_parwa_llm(
+                agent_name=agent_name,
+                agent_instructions=agent_instructions,
+                agent_capabilities=agent_capabilities,
+                sample_ticket=sample_ticket,
+                tenant_integrations=tenant_integrations,
+            )
         return {
             "success": False,
             "error": f"Superglue returned {res.status_code}: {res.text[:200]}",
@@ -250,3 +271,195 @@ async def disable_tool(tool_id: str) -> bool:
     except Exception as exc:
         logger.warning("disable_tool error: %s", str(exc)[:200])
         return False
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# FALLBACK: Generate tool via PARWA's NVIDIA LLM (when Superglue Agent API is unavailable)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# When the user's self-hosted Superglue doesn't have the Agent API (404 on
+# /v1/agent/generate-tool), we fall back to using PARWA's NVIDIA GLM-5.2 to
+# generate the tool JSON. This is a ONE-TIME cost per agent creation (not per
+# ticket), so it doesn't impact the 512MB RAM constraint during normal operation.
+#
+# Flow:
+#   1. PARWA's NVIDIA LLM generates tool JSON (URL, steps, transforms)
+#   2. PARWA POSTs the JSON to Superglue /v1/tools (creates the tool)
+#   3. Superglue returns the tool_id
+#   4. PARWA saves tool_id to AIAgentAssignment
+#
+# This is a fallback, not the primary path. The primary path is Superglue Agent API.
+
+
+async def _generate_tool_via_parwa_llm(
+    agent_name: str,
+    agent_instructions: str,
+    agent_capabilities: str,
+    sample_ticket: Optional[str] = None,
+    tenant_integrations: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Generate a Superglue tool using PARWA's NVIDIA LLM (fallback when Superglue Agent API is unavailable).
+
+    This is the FALLBACK path. The primary path is Superglue's own Agent API.
+    Use this only when /v1/agent/generate-tool returns 404 (self-hosted Superglue
+    without Agent feature).
+
+    Cost: 1 LLM call to PARWA's NVIDIA (~5s, ~500 tokens) — one-time per agent,
+    not per ticket. Acceptable for 512MB Render constraint.
+    """
+    import json as _json
+    import re as _re
+    from app.core.parwa_pipeline.llm_client import llm_call
+
+    # Build prompt for NVIDIA to generate tool JSON
+    integ_text = ""
+    if tenant_integrations:
+        integ_text = "\nConnected integrations: " + ", ".join(tenant_integrations.keys())
+
+    prompt = f"""You are designing a Superglue multi-step tool for an AI agent.
+
+AGENT DETAILS:
+  Name: {agent_name}
+  Capabilities: {agent_capabilities}
+  Instructions: {agent_instructions[:500] if agent_instructions else "(none)"}
+{integ_text}
+
+SAMPLE TICKET (optional context):
+{sample_ticket[:300] if sample_ticket else "(none)"}
+
+Generate a Superglue multi-step tool JSON that this agent can call to execute
+real API actions. The tool should:
+1. Take a customer identifier (email, order ID, transaction ID) as input
+2. Make the necessary HTTP API calls to complete the action
+3. Return a clean summary
+
+Respond with ONLY valid JSON (no markdown, no explanation) in this format:
+{{
+  "id": "tool-id-kebab-case",
+  "name": "Human Readable Name",
+  "instruction": "What this tool does",
+  "inputSchema": {{
+    "type": "object",
+    "properties": {{
+      "customerEmail": {{"type": "string", "description": "Customer email"}}
+    }},
+    "required": ["customerEmail"]
+  }},
+  "steps": [
+    {{
+      "id": "step1",
+      "instruction": "What this step does",
+      "config": {{
+        "type": "request",
+        "method": "GET",
+        "url": "https://api.example.com/endpoint",
+        "headers": {{}}
+      }}
+    }}
+  ],
+  "outputTransform": "(sourceData) => ({{ result: sourceData.step1.data }})"
+}}
+
+Template syntax for URLs:
+  - Tool input ref: <<customerEmail>>
+  - Step result ref: <<(sourceData) => 'https://api.x.com/' + sourceData.stepId.data.path>>
+  - For Paddle (wraps items in data[]): sourceData.stepId.data.data[0].id
+  - ALWAYS end with >> (double chevron)
+
+Generate ONLY the JSON. No markdown fences, no explanation."""
+
+    try:
+        # Call PARWA's NVIDIA LLM
+        response = await llm_call(prompt, max_tokens=1500, temperature=0.2)
+
+        if not response:
+            return {
+                "success": False,
+                "error": "PARWA LLM returned empty response",
+                "tool_id": None,
+                "tool_definition": None,
+            }
+
+        # Extract JSON from response (handle markdown fences if present)
+        # Strip markdown fences if present
+        cleaned = response.strip()
+        if cleaned.startswith("```"):
+            # Remove first line (```json or ```) and last line (```)
+            lines = cleaned.split("\n")
+            cleaned = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+
+        # Find the JSON object
+        match = _re.search(r'\{[\s\S]*\}', cleaned)
+        if not match:
+            return {
+                "success": False,
+                "error": "PARWA LLM response did not contain valid JSON",
+                "tool_id": None,
+                "tool_definition": None,
+            }
+
+        tool_def = _json.loads(match.group())
+
+        # Validate minimal structure
+        if not tool_def.get("id") or not tool_def.get("steps"):
+            return {
+                "success": False,
+                "error": "PARWA LLM generated invalid tool structure (missing id or steps)",
+                "tool_id": None,
+                "tool_definition": tool_def,
+            }
+
+        # POST the generated tool to Superglue /v1/tools (creates the tool)
+        url, token = _get_config()
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+            res = await client.post(
+                f"{url}/v1/tools",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                json=tool_def,
+            )
+
+        if res.status_code in (200, 201):
+            result = res.json()
+            tool_id = result.get("id") or tool_def.get("id")
+            logger.info(
+                "parwa_llm_generated_tool: agent=%s tool_id=%s",
+                agent_name, tool_id,
+            )
+            return {
+                "success": True,
+                "tool_id": tool_id,
+                "tool_definition": tool_def,
+                "error": None,
+                "generated_by": "parwa_nvidia_llm",  # for audit
+            }
+
+        # Superglue rejected the tool
+        logger.warning(
+            "superglue_rejected_parwa_tool: status=%d body=%s",
+            res.status_code, res.text[:300],
+        )
+        return {
+            "success": False,
+            "error": f"Superglue rejected the generated tool: {res.status_code}",
+            "tool_id": None,
+            "tool_definition": tool_def,
+        }
+
+    except _json.JSONDecodeError as exc:
+        return {
+            "success": False,
+            "error": f"PARWA LLM generated invalid JSON: {str(exc)[:100]}",
+            "tool_id": None,
+            "tool_definition": None,
+        }
+    except Exception as exc:
+        logger.error("parwa_llm_tool_generation_failed: %s", str(exc)[:200])
+        return {
+            "success": False,
+            "error": str(exc)[:200],
+            "tool_id": None,
+            "tool_definition": None,
+        }
