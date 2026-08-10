@@ -266,6 +266,37 @@ async def lifespan(app: FastAPI):
         _lg = get_logger("lifespan")
         _lg.warning("trial_columns_sql_fallback_failed: %s", str(exc))
 
+    # ── Direct SQL fallback for ai_agent_assignments superglue + approval columns ──
+    # If alembic migration 034/035 failed (happens on Render sometimes),
+    # add the columns directly via SQL. Without these, agent creation crashes
+    # with INTERNAL_ERROR (the columns don't exist).
+    try:
+        from sqlalchemy import text as _sql_text
+        from database.base import SessionLocal as _SL
+        _db = _SL()
+        try:
+            for col_def in [
+                "ALTER TABLE ai_agent_assignments ADD COLUMN IF NOT EXISTS superglue_tool_id VARCHAR(100)",
+                "ALTER TABLE ai_agent_assignments ADD COLUMN IF NOT EXISTS superglue_tool_status VARCHAR(20) DEFAULT 'none'",
+                "ALTER TABLE ai_agent_assignments ADD COLUMN IF NOT EXISTS superglue_tool_definition TEXT",
+                "ALTER TABLE ai_agent_assignments ADD COLUMN IF NOT EXISTS superglue_tool_created_at TIMESTAMP WITH TIME ZONE",
+                "ALTER TABLE ai_agent_assignments ADD COLUMN IF NOT EXISTS approval_required BOOLEAN DEFAULT false",
+                "ALTER TABLE ai_agent_assignments ADD COLUMN IF NOT EXISTS approval_threshold_cents INTEGER DEFAULT 0",
+            ]:
+                _db.execute(_sql_text(col_def))
+            _db.execute(_sql_text(
+                "CREATE INDEX IF NOT EXISTS ix_ai_agent_assignments_superglue_tool_id "
+                "ON ai_agent_assignments (superglue_tool_id)"
+            ))
+            _db.commit()
+            _lg = get_logger("lifespan")
+            _lg.info("superglue_agent_columns_ensured_via_sql_fallback")
+        finally:
+            _db.close()
+    except Exception as exc:
+        _lg = get_logger("lifespan")
+        _lg.warning("superglue_columns_sql_fallback_failed: %s", str(exc))
+
     # ── Direct SQL fallback for knowledge_documents columns ──
     # Ensure file_path + storage_file_id columns exist (used for inline
     # content storage when S3/FileStorageService is unavailable).
