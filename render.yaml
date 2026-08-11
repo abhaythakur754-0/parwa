@@ -72,6 +72,13 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
+      # ── LOCAL OLLAMA Phi-3.5 (TESTING MODE — only LLM provider) ──
+      - key: OLLAMA_URL
+        value: "https://preview-chat-7b55f072-c784-48d4-a035-61603e469594.space-z.ai/api/v1"
+      - key: OLLAMA_API_KEY
+        value: "sk-local-6f61600a3b6b60e91274750655cf15fdabe21b8790e7c0af"
+      - key: OLLAMA_MODEL
+        value: "parwa-phi3.5"
       # LLM Models (user-validated: llama-3.1-8b for all tasks, gpt-oss-120b for guardrail)
       - key: AI_LIGHT_MODEL
         value: "groq/llama-3.1-8b"

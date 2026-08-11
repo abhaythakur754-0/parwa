@@ -188,34 +188,18 @@ async def llm_call(
     system_prompt: str = "",
     step_type: str = "",
 ) -> str:
-    """Single LLM call — uses Smart Router (11 models) with automatic failover.
-
-    Production path: Smart Router → LiteLLM → Google/Groq/Cerebras.
-    The Smart Router selects the best model per atomic step type and
-    handles priority-based failover within tiers automatically.
-
-    Args:
-        prompt: The user prompt to send to the LLM.
-        max_tokens: Maximum tokens in the response.
-        temperature: Sampling temperature.
-        system_prompt: Optional system prompt.
-        step_type: Atomic step type for Smart Router tier selection.
-            Maps to AtomicStepType enum. Common values:
-            - "intent_classification", "pii_redaction", "sentiment_analysis" → LIGHT
-            - "draft_response_moderate", "draft_response_complex" → MEDIUM
-            - "draft_response_complex", "reflexion_cycle" → HEAVY
-            - "guardrail_check" → GUARDRAIL
-            If empty, defaults to draft_response_moderate.
-
-    Returns:
-        The LLM response text string.
-
-    Raises:
-        RuntimeError: If all models in the Smart Router fail.
+    """Single LLM call — uses LOCAL Phi-3.5 Ollama ONLY (testing mode).
+    
+    All cloud providers (Groq, Cerebras, NVIDIA, Smart Router) are DISABLED.
+    This routes ALL calls to the local Phi-3.5 model to test how it performs
+    on ALL tasks (simple + complex).
+    
+    Config (env vars on Render):
+      OLLAMA_URL=https://preview-chat-xxx.space-z.ai/api/v1
+      OLLAMA_API_KEY=sk-local-xxx
+      OLLAMA_MODEL=parwa-phi3.5
     """
     global _call_count, _total_errors
-
-    await _wait_for_rate_limit()
 
     _call_count += 1
     call_id = _call_count
@@ -224,76 +208,83 @@ async def llm_call(
 
     # Build messages
     messages = []
+    
+    # Always use a system prompt that instructs the model to be concise
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
+    else:
+        # Default system prompt for all tasks
+        messages.append({"role": "system", "content": "You are a helpful customer support AI assistant. Be concise and direct. Answer the question accurately."})
     messages.append({"role": "user", "content": prompt})
 
-    # ── PRIMARY: Provider Pool — Groq first, Cerebras second (light tier) ──
-    # Light tier uses ONLY Groq + Cerebras (NO Google/NVIDIA).
-    # Groq llama-3.1-8b-instant is fastest for light tasks.
-    # Cerebras gpt-oss-120b is the fallback when Groq is rate-limited.
-    # When a provider returns 429, it's cooled down for 60s and skipped.
-    pool = get_provider_pool()
-    all_providers = [
-        ("groq", _call_groq_direct),
-        ("cerebras", _call_cerebras_direct),
-    ]
-
-    # Try each available provider via round-robin
-    tried_providers = set()
-    for _attempt in range(len(all_providers)):
-        next_provider = pool.next_available(all_providers)
-        if not next_provider:
-            break
-        provider_name, provider_fn = next_provider
-        if provider_name in tried_providers:
-            break  # already tried all available
-        tried_providers.add(provider_name)
-
-        try:
-            result = await provider_fn(messages, temperature, max_tokens, call_id)
-            if result and len(result.strip()) > 0:
-                pool.record_success(provider_name)
-                logger.info("LLM call #%d: %s SUCCESS (%d chars)", call_id, provider_name, len(result))
-                return result
-            pool.record_failure(provider_name, status_code=0)  # empty response
-            logger.warning("LLM call #%d: %s returned empty response", call_id, provider_name)
-        except RuntimeError as exc:
-            # Extract status code from error message like "Groq API error 429: ..."
-            status_code = 0
-            msg = str(exc)
-            for part in msg.split():
-                if part.isdigit():
-                    status_code = int(part)
-                    break
-            pool.record_failure(provider_name, status_code=status_code)
-            logger.warning("LLM call #%d: %s failed (status=%d): %s", call_id, provider_name, status_code, str(exc)[:100])
-        except Exception as exc:
-            pool.record_failure(provider_name, status_code=0)
-            logger.warning("LLM call #%d: %s error: %s", call_id, provider_name, str(exc)[:100])
-
-    # ── FALLBACK: Smart Router (LiteLLM — 11 models via 3 API keys) ──
+    # ── ONLY: Local Ollama Phi-3.5 ──
     try:
-        smart_result = await _call_smart_router(messages, temperature, max_tokens, call_id, step_type)
-        if smart_result and len(smart_result.strip()) > 0:
-            logger.info("LLM call #%d: Smart Router SUCCESS (%d chars)", call_id, len(smart_result))
-            return smart_result
-        logger.warning("LLM call #%d: Smart Router returned empty/short response", call_id)
+        result = await _call_ollama_phi(messages, temperature, max_tokens, call_id)
+        if result and len(result.strip()) > 0:
+            logger.info("LLM call #%d: LOCAL Phi-3.5 SUCCESS (%d chars)", call_id, len(result))
+            return result
+        logger.warning("LLM call #%d: LOCAL Phi-3.5 returned empty response", call_id)
+        _total_errors += 1
+        raise RuntimeError("LLM call failed: local Phi-3.5 returned empty response")
     except Exception as exc:
-        logger.warning("LLM call #%d: Smart Router error (%s)", call_id, str(exc)[:150])
+        logger.error("LLM call #%d: LOCAL Phi-3.5 FAILED: %s", call_id, str(exc)[:200])
+        _total_errors += 1
+        raise RuntimeError(f"LLM call failed: local Phi-3.5 error: {str(exc)[:200]}")
 
-    # ── LAST RESORT: Direct LiteLLM call ──
+
+async def _call_ollama_phi(
+    messages: list,
+    temperature: float,
+    max_tokens: int,
+    call_id: int,
+) -> str:
+    """Call local Ollama Phi-3.5 via the sandbox OpenAI-compatible API.
+    
+    URL: https://preview-chat-xxx.space-z.ai/api/v1/chat/completions
+    Key: sk-local-xxx
+    
+    This is the ONLY LLM provider in testing mode.
+    """
+    import os
+    import httpx
+
+    ollama_url = os.environ.get("OLLAMA_URL", "").rstrip("/")
+    ollama_key = os.environ.get("OLLAMA_API_KEY", "")
+    ollama_model = os.environ.get("OLLAMA_MODEL", "parwa-phi3.5")
+
+    if not ollama_url or not ollama_key:
+        raise RuntimeError("OLLAMA_URL or OLLAMA_API_KEY not configured")
+
+    payload = {
+        "model": ollama_model,
+        "messages": messages,
+        "temperature": min(temperature, 0.3),  # cap temperature for consistency
+        "max_tokens": min(max_tokens, 400),    # cap at 400 (sandbox limit)
+    }
+
+    headers = {
+        "Authorization": f"Bearer {ollama_key}",
+        "Content-Type": "application/json",
+    }
+
     try:
-        direct_result = await _call_litellm_direct(messages, temperature, max_tokens, call_id)
-        if direct_result and len(direct_result.strip()) > 0:
-            logger.info("LLM call #%d: Direct LiteLLM SUCCESS (%d chars)", call_id, len(direct_result))
-            return direct_result
-    except Exception as exc:
-        logger.warning("LLM call #%d: Direct LiteLLM error (%s)", call_id, str(exc)[:150])
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            res = await client.post(
+                f"{ollama_url}/chat/completions",
+                json=payload,
+                headers=headers,
+            )
 
-    _total_errors += 1
-    logger.error("LLM call #%d FAILED: All providers exhausted (Smart Router + direct)", call_id)
-    raise RuntimeError("LLM call failed: all providers (Smart Router + direct) exhausted")
+        if res.status_code == 200:
+            data = res.json()
+            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            return content.strip()
+        else:
+            raise RuntimeError(f"Ollama API error {res.status_code}: {res.text[:200]}")
+    except httpx.TimeoutException:
+        raise RuntimeError(f"Ollama timeout after 120s (call #{call_id})")
+    except Exception as exc:
+        raise RuntimeError(f"Ollama call failed: {str(exc)[:200]}")
 
 
 async def _call_smart_router(messages: list, temperature: float, max_tokens: int, call_id: int, step_type: str = "") -> str:
