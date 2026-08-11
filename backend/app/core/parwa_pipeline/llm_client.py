@@ -188,18 +188,22 @@ async def llm_call(
     system_prompt: str = "",
     step_type: str = "",
 ) -> str:
-    """Single LLM call — uses LOCAL Phi-3.5 Ollama ONLY (testing mode).
-    
-    All cloud providers (Groq, Cerebras, NVIDIA, Smart Router) are DISABLED.
-    This routes ALL calls to the local Phi-3.5 model to test how it performs
-    on ALL tasks (simple + complex).
-    
-    Config (env vars on Render):
-      OLLAMA_URL=https://preview-chat-xxx.space-z.ai/api/v1
-      OLLAMA_API_KEY=sk-local-xxx
-      OLLAMA_MODEL=parwa-phi3.5
+    """Single LLM call — HYBRID routing.
+
+    LIGHT tasks → Local Gemma 3 (free, fast, unlimited)
+    MEDIUM/HARD tasks → Cloud (Groq + Cerebras, with Mistral fallback)
+
+    Routing is based on step_type:
+      LIGHT: intent_classification, pii_redaction, sentiment_analysis,
+             guardrail_check, confidence_rating, verification
+      MEDIUM/HARD: everything else (reasoning, response writing, etc.)
+
+    Also routes to local if max_tokens <= 50 (simple outputs).
+    Falls back to cloud if local fails (sandbox down, timeout, etc.).
     """
     global _call_count, _total_errors
+
+    await _wait_for_rate_limit()
 
     _call_count += 1
     call_id = _call_count
@@ -208,83 +212,179 @@ async def llm_call(
 
     # Build messages
     messages = []
-    
-    # Always use a system prompt that instructs the model to be concise
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
-    else:
-        # Default system prompt for all tasks
-        messages.append({"role": "system", "content": "You are a helpful customer support AI assistant. Be concise and direct. Answer the question accurately."})
     messages.append({"role": "user", "content": prompt})
 
-    # ── ONLY: Local Ollama Phi-3.5 ──
+    # ── Determine if this is a LIGHT task ──
+    LIGHT_STEP_TYPES = {
+        "intent_classification",
+        "pii_redaction",
+        "sentiment_analysis",
+        "guardrail_check",
+        "confidence_rating",
+        "verification",
+    }
+
+    is_light_task = (
+        step_type in LIGHT_STEP_TYPES
+        or max_tokens <= 50
+    )
+
+    # ── LIGHT: Try local Gemma first ──
+    if is_light_task:
+        try:
+            result = await _call_gemma_local(messages, temperature, max_tokens, call_id)
+            if result and len(result.strip()) > 0:
+                logger.info("LLM call #%d: LOCAL Gemma SUCCESS (%d chars, step=%s)", call_id, len(result), step_type)
+                return result
+            logger.warning("LLM call #%d: LOCAL Gemma empty response, falling back to cloud", call_id)
+        except Exception as exc:
+            logger.warning("LLM call #%d: LOCAL Gemma failed (%s), falling back to cloud", call_id, str(exc)[:100])
+
+    # ── MEDIUM/HARD: Cloud providers (Groq + Cerebras) ──
+    pool = get_provider_pool()
+    all_providers = [
+        ("groq", _call_groq_direct),
+        ("cerebras", _call_cerebras_direct),
+    ]
+
+    tried_providers = set()
+    for _attempt in range(len(all_providers)):
+        next_provider = pool.next_available(all_providers)
+        if not next_provider:
+            break
+        provider_name, provider_fn = next_provider
+        if provider_name in tried_providers:
+            break
+        tried_providers.add(provider_name)
+
+        try:
+            result = await provider_fn(messages, temperature, max_tokens, call_id)
+            if result and len(result.strip()) > 0:
+                pool.record_success(provider_name)
+                logger.info("LLM call #%d: %s SUCCESS (%d chars, step=%s)", call_id, provider_name, len(result), step_type)
+                return result
+            pool.record_failure(provider_name, status_code=0)
+            logger.warning("LLM call #%d: %s returned empty response", call_id, provider_name)
+        except RuntimeError as exc:
+            status_code = 0
+            msg = str(exc)
+            for part in msg.split():
+                if part.isdigit():
+                    status_code = int(part)
+                    break
+            pool.record_failure(provider_name, status_code=status_code)
+            logger.warning("LLM call #%d: %s failed (status=%d): %s", call_id, provider_name, status_code, str(exc)[:100])
+        except Exception as exc:
+            pool.record_failure(provider_name, status_code=0)
+            logger.warning("LLM call #%d: %s error: %s", call_id, provider_name, str(exc)[:100])
+
+    # ── FALLBACK: Smart Router (LiteLLM — 11 models) ──
     try:
-        result = await _call_ollama_phi(messages, temperature, max_tokens, call_id)
-        if result and len(result.strip()) > 0:
-            logger.info("LLM call #%d: LOCAL Phi-3.5 SUCCESS (%d chars)", call_id, len(result))
-            return result
-        logger.warning("LLM call #%d: LOCAL Phi-3.5 returned empty response", call_id)
-        _total_errors += 1
-        raise RuntimeError("LLM call failed: local Phi-3.5 returned empty response")
+        smart_result = await _call_smart_router(messages, temperature, max_tokens, call_id, step_type)
+        if smart_result and len(smart_result.strip()) > 0:
+            logger.info("LLM call #%d: Smart Router SUCCESS (%d chars)", call_id, len(smart_result))
+            return smart_result
     except Exception as exc:
-        logger.error("LLM call #%d: LOCAL Phi-3.5 FAILED: %s", call_id, str(exc)[:200])
-        _total_errors += 1
-        raise RuntimeError(f"LLM call failed: local Phi-3.5 error: {str(exc)[:200]}")
+        logger.warning("LLM call #%d: Smart Router error (%s)", call_id, str(exc)[:150])
+
+    # ── LAST RESORT: Try local Gemma again (for medium/hard tasks when all cloud fails) ──
+    try:
+        result = await _call_gemma_local(messages, temperature, max_tokens, call_id)
+        if result and len(result.strip()) > 0:
+            logger.info("LLM call #%d: LOCAL Gemma FALLBACK SUCCESS (%d chars)", call_id, len(result))
+            return result
+    except Exception as exc:
+        logger.warning("LLM call #%d: Local Gemma fallback failed: %s", call_id, str(exc)[:100])
+
+    _total_errors += 1
+    logger.error("LLM call #%d FAILED: All providers exhausted", call_id)
+    raise RuntimeError("LLM call failed: all providers exhausted")
 
 
-async def _call_ollama_phi(
+async def _call_gemma_local(
     messages: list,
     temperature: float,
     max_tokens: int,
     call_id: int,
 ) -> str:
-    """Call local Ollama Phi-3.5 via the sandbox OpenAI-compatible API.
+    """Call local Gemma 3 1B via sandbox API — WITH STREAMING to avoid timeout.
     
-    URL: https://preview-chat-xxx.space-z.ai/api/v1/chat/completions
-    Key: sk-local-xxx
+    Uses streaming mode so long responses (400+ tokens) don't timeout.
+    The sandbox API has a non-streaming timeout, but streaming keeps
+    the connection open until all tokens are generated.
     
-    This is the ONLY LLM provider in testing mode.
+    Config (env vars):
+      GEMMA_URL=https://preview-chat-xxx.space-z.ai/api/v1
+      GEMMA_API_KEY=parwa_xxx
+      GEMMA_MODEL=parwa-gemma3:1b
     """
     import os
+    import json as _json
     import httpx
 
-    ollama_url = os.environ.get("OLLAMA_URL", "").rstrip("/")
-    ollama_key = os.environ.get("OLLAMA_API_KEY", "")
-    ollama_model = os.environ.get("OLLAMA_MODEL", "parwa-phi3.5")
+    gemma_url = os.environ.get("GEMMA_URL", "").rstrip("/")
+    gemma_key = os.environ.get("GEMMA_API_KEY", "")
+    gemma_model = os.environ.get("GEMMA_MODEL", "parwa-gemma3:1b")
 
-    if not ollama_url or not ollama_key:
-        raise RuntimeError("OLLAMA_URL or OLLAMA_API_KEY not configured")
+    if not gemma_url or not gemma_key:
+        raise RuntimeError("GEMMA_URL or GEMMA_API_KEY not configured")
 
     payload = {
-        "model": ollama_model,
+        "model": gemma_model,
         "messages": messages,
-        "temperature": min(temperature, 0.3),  # cap temperature for consistency
-        "max_tokens": min(max_tokens, 400),    # cap at 400 (sandbox limit)
+        "temperature": min(temperature, 0.3),
+        "max_tokens": min(max_tokens, 400),
+        "stream": True,  # ← STREAMING = no timeout on long responses
     }
 
     headers = {
-        "Authorization": f"Bearer {ollama_key}",
+        "Authorization": f"Bearer {gemma_key}",
         "Content-Type": "application/json",
     }
 
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            res = await client.post(
-                f"{ollama_url}/chat/completions",
+        full_text = ""
+        
+        # Use streaming to read SSE response
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            async with client.stream(
+                "POST",
+                f"{gemma_url}/chat/completions",
                 json=payload,
                 headers=headers,
-            )
-
-        if res.status_code == 200:
-            data = res.json()
-            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-            return content.strip()
-        else:
-            raise RuntimeError(f"Ollama API error {res.status_code}: {res.text[:200]}")
+            ) as response:
+                if response.status_code != 200:
+                    body = await response.aread()
+                    raise RuntimeError(f"Gemma API error {response.status_code}: {body.decode()[:200]}")
+                
+                async for line in response.aiter_lines():
+                    if not line:
+                        continue
+                    if line.startswith("data: "):
+                        data_str = line[6:]  # strip "data: " prefix
+                        if data_str.strip() == "[DONE]":
+                            break
+                        try:
+                            chunk = _json.loads(data_str)
+                            delta = chunk.get("choices", [{}])[0].get("delta", {})
+                            content_piece = delta.get("content", "")
+                            if content_piece:
+                                full_text += content_piece
+                        except _json.JSONDecodeError:
+                            continue
+        
+        if full_text.strip():
+            return full_text.strip()
+        raise RuntimeError("Gemma returned empty response")
+        
     except httpx.TimeoutException:
-        raise RuntimeError(f"Ollama timeout after 120s (call #{call_id})")
+        raise RuntimeError(f"Gemma timeout after 300s (call #{call_id})")
+    except RuntimeError:
+        raise
     except Exception as exc:
-        raise RuntimeError(f"Ollama call failed: {str(exc)[:200]}")
+        raise RuntimeError(f"Gemma call failed: {str(exc)[:200]}")
 
 
 async def _call_smart_router(messages: list, temperature: float, max_tokens: int, call_id: int, step_type: str = "") -> str:
