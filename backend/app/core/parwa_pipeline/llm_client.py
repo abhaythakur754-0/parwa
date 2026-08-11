@@ -188,22 +188,14 @@ async def llm_call(
     system_prompt: str = "",
     step_type: str = "",
 ) -> str:
-    """Single LLM call — HYBRID routing.
+    """Single LLM call — ALL tasks go to local Gemma 3 (streaming mode).
 
-    LIGHT tasks → Local Gemma 3 (free, fast, unlimited)
-    MEDIUM/HARD tasks → Cloud (Groq + Cerebras, with Mistral fallback)
+    With streaming enabled, Gemma handles ALL token counts (up to 650).
+    No timeout issues — streaming keeps the connection alive.
 
-    Routing is based on step_type:
-      LIGHT: intent_classification, pii_redaction, sentiment_analysis,
-             guardrail_check, confidence_rating, verification
-      MEDIUM/HARD: everything else (reasoning, response writing, etc.)
-
-    Also routes to local if max_tokens <= 50 (simple outputs).
-    Falls back to cloud if local fails (sandbox down, timeout, etc.).
+    If Gemma fails (sandbox down, timeout) → falls back to cloud (Groq + Cerebras).
     """
     global _call_count, _total_errors
-
-    await _wait_for_rate_limit()
 
     _call_count += 1
     call_id = _call_count
@@ -216,33 +208,19 @@ async def llm_call(
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
 
-    # ── Determine if this is a LIGHT task ──
-    LIGHT_STEP_TYPES = {
-        "intent_classification",
-        "pii_redaction",
-        "sentiment_analysis",
-        "guardrail_check",
-        "confidence_rating",
-        "verification",
-    }
+    # ── PRIMARY: Local Gemma 3 (streaming, handles ALL tasks) ──
+    try:
+        result = await _call_gemma_local(messages, temperature, max_tokens, call_id)
+        if result and len(result.strip()) > 0:
+            logger.info("LLM call #%d: GEMMA SUCCESS (%d chars, step=%s, tokens=%d)", call_id, len(result), step_type, max_tokens)
+            return result
+        logger.warning("LLM call #%d: GEMMA empty response, trying cloud", call_id)
+    except Exception as exc:
+        logger.warning("LLM call #%d: GEMMA failed (%s), trying cloud", call_id, str(exc)[:100])
 
-    is_light_task = (
-        step_type in LIGHT_STEP_TYPES
-        or max_tokens <= 50
-    )
-
-    # ── LIGHT: Try local Gemma first ──
-    if is_light_task:
-        try:
-            result = await _call_gemma_local(messages, temperature, max_tokens, call_id)
-            if result and len(result.strip()) > 0:
-                logger.info("LLM call #%d: LOCAL Gemma SUCCESS (%d chars, step=%s)", call_id, len(result), step_type)
-                return result
-            logger.warning("LLM call #%d: LOCAL Gemma empty response, falling back to cloud", call_id)
-        except Exception as exc:
-            logger.warning("LLM call #%d: LOCAL Gemma failed (%s), falling back to cloud", call_id, str(exc)[:100])
-
-    # ── MEDIUM/HARD: Cloud providers (Groq + Cerebras) ──
+    # ── FALLBACK: Cloud providers (Groq + Cerebras) ──
+    await _wait_for_rate_limit()
+    
     pool = get_provider_pool()
     all_providers = [
         ("groq", _call_groq_direct),
@@ -263,10 +241,9 @@ async def llm_call(
             result = await provider_fn(messages, temperature, max_tokens, call_id)
             if result and len(result.strip()) > 0:
                 pool.record_success(provider_name)
-                logger.info("LLM call #%d: %s SUCCESS (%d chars, step=%s)", call_id, provider_name, len(result), step_type)
+                logger.info("LLM call #%d: %s FALLBACK SUCCESS (%d chars)", call_id, provider_name, len(result))
                 return result
             pool.record_failure(provider_name, status_code=0)
-            logger.warning("LLM call #%d: %s returned empty response", call_id, provider_name)
         except RuntimeError as exc:
             status_code = 0
             msg = str(exc)
@@ -275,31 +252,22 @@ async def llm_call(
                     status_code = int(part)
                     break
             pool.record_failure(provider_name, status_code=status_code)
-            logger.warning("LLM call #%d: %s failed (status=%d): %s", call_id, provider_name, status_code, str(exc)[:100])
+            logger.warning("LLM call #%d: %s failed (status=%d)", call_id, provider_name, status_code)
         except Exception as exc:
             pool.record_failure(provider_name, status_code=0)
             logger.warning("LLM call #%d: %s error: %s", call_id, provider_name, str(exc)[:100])
 
-    # ── FALLBACK: Smart Router (LiteLLM — 11 models) ──
+    # ── LAST RESORT: Smart Router ──
     try:
         smart_result = await _call_smart_router(messages, temperature, max_tokens, call_id, step_type)
         if smart_result and len(smart_result.strip()) > 0:
-            logger.info("LLM call #%d: Smart Router SUCCESS (%d chars)", call_id, len(smart_result))
+            logger.info("LLM call #%d: Smart Router FALLBACK SUCCESS", call_id)
             return smart_result
     except Exception as exc:
-        logger.warning("LLM call #%d: Smart Router error (%s)", call_id, str(exc)[:150])
-
-    # ── LAST RESORT: Try local Gemma again (for medium/hard tasks when all cloud fails) ──
-    try:
-        result = await _call_gemma_local(messages, temperature, max_tokens, call_id)
-        if result and len(result.strip()) > 0:
-            logger.info("LLM call #%d: LOCAL Gemma FALLBACK SUCCESS (%d chars)", call_id, len(result))
-            return result
-    except Exception as exc:
-        logger.warning("LLM call #%d: Local Gemma fallback failed: %s", call_id, str(exc)[:100])
+        logger.warning("LLM call #%d: Smart Router error: %s", call_id, str(exc)[:150])
 
     _total_errors += 1
-    logger.error("LLM call #%d FAILED: All providers exhausted", call_id)
+    logger.error("LLM call #%d FAILED: All providers (Gemma + cloud) exhausted", call_id)
     raise RuntimeError("LLM call failed: all providers exhausted")
 
 
