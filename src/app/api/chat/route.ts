@@ -329,7 +329,7 @@ async function createActionTicket(
       body: JSON.stringify({
         subject: `Chat request: ${message.slice(0, 80)}`,
         description: message,
-        priority: 'medium',
+        priority: 'high',  // Chat requests get HIGH priority (customer is waiting)
         channel: 'chat',
         customer_email: customerEmail || 'chat@parwa.dev',
         customer_name: 'Chat Customer',
