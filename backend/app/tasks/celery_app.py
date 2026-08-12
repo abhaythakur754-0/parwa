@@ -455,41 +455,60 @@ app.config_from_object(_build_config())
 
 # ── FORCE DB 0 (Upstash free tier only supports DB 0) ─────────────
 #
-# CRITICAL FIX (2026-08-12): Celery's app.conf.broker_url reads the
-# CELERY_BROKER_URL env var DIRECTLY, bypassing our pydantic validator
-# in config.py. Even though `settings.CELERY_BROKER_URL` (validated)
-# has /1 stripped, celery's app.conf.broker_url still has /1 because
-# it reads the raw env var.
+# CRITICAL FIX (2026-08-12): Upstash free Redis only supports DB 0,
+# but Render's fromService.connectionstring includes /1 and /2 for
+# broker and result_backend respectively.
 #
-# This causes: "Only 0th database is supported! Selected DB: 1"
+# Previous attempts (config.py validator + app.conf.update) were
+# insufficient because kombu (celery's connection library) reads
+# the broker URL from the OS env var at CONNECTION TIME, not from
+# app.conf at config time.
 #
-# Fix: use app.conf.update() which FORCES the value and overrides
-# any env-var-based lazy reading. We use the validated settings value
-# (which already has /N stripped by config.py's validator).
+# NUCLEAR FIX: Override the OS env vars THEMSELVES before celery
+# has a chance to read them. This ensures every code path (app.conf,
+# kombu connection, health check) all see the DB-0 URL.
 import re as _re
+import os as _os
+import logging as _logging
+_logger = _logging.getLogger("parwa.celery_app")
+
+def _strip_redis_db(url: str) -> str:
+    """Strip /N suffix from a Redis URL (Upstash only supports DB 0)."""
+    if not url:
+        return url
+    if "upstash" in url.lower():
+        # Upstash: strip /N entirely (uses default DB 0)
+        return _re.sub(r"/\d+$", "", url)
+    # Other Redis: force /0
+    url = _re.sub(r"/\d+$", "/0", url)
+    if not _re.search(r"/\d+$", url):
+        url = url.rstrip("/") + "/0"
+    return url
+
+# Override the OS env vars (this is what kombu actually reads)
+for _var in ("CELERY_BROKER_URL", "CELERY_RESULT_BACKEND", "REDIS_URL"):
+    _raw = _os.environ.get(_var, "")
+    if _raw:
+        _clean = _strip_redis_db(_raw)
+        if _clean != _raw:
+            _os.environ[_var] = _clean
+            _logger.warning(
+                "celery_env_override %s: stripped DB suffix (was=%d chars, now=%d chars)",
+                _var, len(_raw), len(_clean),
+            )
+
+# Now also force app.conf (belt and suspenders)
 from app.config import get_settings as _get_settings
 _settings = _get_settings()
-_forced_broker = _settings.CELERY_BROKER_URL
-_forced_backend = _settings.CELERY_RESULT_BACKEND
-
-# Extra safety: strip any /N that might have leaked through
-if _forced_broker and "upstash" in _forced_broker.lower():
-    _forced_broker = _re.sub(r"/\d+$", "", _forced_broker)
-if _forced_backend and "upstash" in _forced_backend.lower():
-    _forced_backend = _re.sub(r"/\d+$", "", _forced_backend)
-
-# Force the values into celery's config (overrides env var)
 app.conf.update(
-    broker_url=_forced_broker,
-    result_backend=_forced_backend,
+    broker_url=_strip_redis_db(_settings.CELERY_BROKER_URL),
+    result_backend=_strip_redis_db(_settings.CELERY_RESULT_BACKEND),
     broker_connection_retry_on_startup=False,
     broker_connection_max_retries=1,
 )
-
-logger.info(
-    "celery_broker_forced url=%s db_stripped=%s",
-    _forced_broker[:60] + ("..." if len(_forced_broker) > 60 else ""),
-    _forced_broker != (app.conf.broker_url or ""),
+_logger.info(
+    "celery_broker_final url=%s",
+    (app.conf.broker_url or "")[:80],
 )
 
 # ── Autodiscover tasks ────────────────────────────────────────────
