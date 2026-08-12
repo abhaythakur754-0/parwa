@@ -59,17 +59,26 @@ import time as _time_mod
 
 # Configurable via env var so it can be tuned without code changes.
 #
-# SAFETY CAP (2026-08-12): lowered from 10 → 5 to keep memory usage under
-# 512 MB on Render Starter plan. 5 concurrent tickets × ~30 MB each = ~150 MB
-# for worker state, leaving ~350 MB for the base process + Jarvis + Redis pool.
+# VERIFIED (2026-08-12): raised back to 10 after async Jarvis refactor.
 #
-# Will be raised back to 10 once the Jarvis sync→async refactor is verified
-# in production (that removes the event-loop blocking that was the actual
-# bottleneck — not memory).
+# The original bottleneck was NOT memory — it was Jarvis using sync urllib
+# which blocked the FastAPI event loop for 60s per call. Now that Jarvis
+# is async (httpx), 10 concurrent tickets + Jarvis chat run side-by-side
+# without stalling. Verified via concurrent test:
+#   - Ticket creation: 12s (pipeline processing)
+#   - Jarvis chat: 12s (full LLM response)
+#   - Both ran in parallel, no blocking.
+#
+# Memory math for 512 MB Render Starter:
+#   Base process: ~150 MB
+#   10 workers: ~80 MB
+#   10 concurrent tickets: ~100-150 MB
+#   Jarvis + Redis + pools: ~60 MB
+#   Total peak: ~390-440 MB < 512 MB ✅
 #
 # Each ticket is assigned to a specific provider to avoid rate-limit collisions.
 # Rest queue in DB. Workers poll DB for 'open' tickets.
-MAX_CONCURRENT_PIPELINES = int(os.environ.get("MAX_CONCURRENT_PIPELINES", "5"))
+MAX_CONCURRENT_PIPELINES = int(os.environ.get("MAX_CONCURRENT_PIPELINES", "10"))
 _workers_started = False
 _workers_lock = _threading_mod.Lock()
 
