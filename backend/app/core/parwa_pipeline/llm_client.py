@@ -677,3 +677,324 @@ async def _retry_single_llm_request(
             "llm_queue_recovery_retry_exception: request=%s err=%s",
             request_id[:8], str(exc)[:200],
         )
+
+
+
+async def _call_smart_router(messages: list, temperature: float, max_tokens: int, call_id: int, step_type: str = "") -> str:
+    """Call Smart Router (LiteLLM with 11 models via 3 API keys).
+
+    Args:
+        step_type: Atomic step type string for tier selection.
+            If empty or unknown, defaults to DRAFT_RESPONSE_MODERATE.
+    """
+    try:
+        from app.core.smart_router import SmartRouter, AtomicStepType
+        router = SmartRouter()
+
+        # Resolve step type — map string to AtomicStepType enum
+        step_type_map = {e.value: e for e in AtomicStepType}
+        atomic_step = step_type_map.get(step_type, AtomicStepType.DRAFT_RESPONSE_MODERATE)
+
+        routing = router.route(
+            company_id="pipeline",
+            variant_type="parwa",
+            atomic_step=atomic_step,
+        )
+        result = await router.async_execute_llm_call(
+            company_id="pipeline",
+            routing_decision=routing,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        content = result.get("content", "")
+        model_used = result.get("model", "?")
+        provider = result.get("provider", "?")
+        fallback = result.get("fallback_used", False)
+        if content and len(content) > 0:
+            logger.info(
+                "LLM call #%d: SmartRouter %s/%s (%d chars, fallback=%s)",
+                call_id, provider, model_used, len(content), fallback,
+            )
+            return content.strip()
+        return ""
+    except ImportError:
+        logger.warning("Smart Router not available (import error) — falling back to direct LiteLLM")
+        return ""
+    except Exception as exc:
+        logger.warning("LLM call #%d: Smart Router error: %s", call_id, str(exc)[:200])
+        return ""
+
+
+async def _call_litellm_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
+    """Direct LiteLLM call using env-configured model (bypass Smart Router)."""
+    try:
+        import litellm
+
+        if not os.environ.get("GEMINI_API_KEY") and os.environ.get("GOOGLE_AI_API_KEY"):
+            os.environ["GEMINI_API_KEY"] = os.environ["GOOGLE_AI_API_KEY"]
+
+        model = os.environ.get("AI_LIGHT_MODEL", "nvidia/z-ai/glm-5.2")
+
+        response = await litellm.acompletion(
+            model=model,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            timeout=30,
+        )
+
+        if response and response.choices:
+            content = response.choices[0].message.content or ""
+            if response.usage:
+                global _total_tokens
+                _total_tokens += response.usage.total_tokens or 0
+            return content.strip()
+        return ""
+    except ImportError:
+        logger.warning("LiteLLM not installed — cannot use direct LiteLLM path")
+        return ""
+    except Exception as exc:
+        logger.warning("LLM call #%d: Direct LiteLLM failed: %s", call_id, str(exc)[:200])
+        return ""
+
+
+async def _call_nvidia_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
+    """Direct NVIDIA API call — DB-BACKED QUEUE (survives Render restarts).
+
+    User vision: 'see u can keep that request or that queue in database ok
+    well dont keep that in ram ad here as that request get solved delete that
+    ok because here free render can erase the ram thats why i am saying there'
+
+    EVERY call gets persisted to DB before the HTTP request:
+      1. INSERT row (status='in_progress')
+      2. Call NVIDIA API
+      3. On success → DELETE row (queue drained)
+      4. On 429 → UPDATE row (status='rate_limited', next_retry_at=NOW+60s)
+         → sleep 60s in memory → retry (up to 3 times)
+      5. On Render restart during sleep:
+         - Row stays in DB with status='rate_limited'
+         - Recovery worker on startup finds stuck rows + retries them
+         - No lost work, no orphan requests
+
+    This is the same DB-backed queue pattern used for tickets.
+    """
+    import asyncio
+    import httpx
+    import json as _json
+    import uuid as _uuid
+    from datetime import datetime, timezone, timedelta
+
+    api_key = os.environ.get("NVIDIA_API_KEY", "").strip()
+    if not api_key:
+        return ""
+
+    # ── Step 1: Persist request to DB (survives Render restart) ──
+    request_id = str(_uuid.uuid4())
+    try:
+        from database.base import SessionLocal
+        from database.models.core import LLMRequestQueue
+        _db = SessionLocal()
+        try:
+            _queue_row = LLMRequestQueue(
+                id=request_id,
+                provider="nvidia",
+                model="z-ai/glm-5.2",
+                messages=_json.dumps(messages),
+                temperature=temperature,
+                max_tokens=max_tokens,
+                call_id=call_id,
+                status="in_progress",
+                max_retries=3,
+            )
+            _db.add(_queue_row)
+            _db.commit()
+        finally:
+            _db.close()
+    except Exception as persist_exc:
+        # Don't fail the call if DB persistence fails — just log
+        logger.warning("llm_queue_persist_failed: %s", str(persist_exc)[:200])
+
+    payload = {
+        "model": "z-ai/glm-5.2",
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    MAX_RETRIES = 3
+    RATE_LIMIT_WAIT = 60  # seconds — NVIDIA rate limit renews every 60s
+
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                r = await client.post(
+                    "https://integrate.api.nvidia.com/v1/chat/completions",
+                    json=payload,
+                    headers=headers,
+                )
+
+            if r.status_code == 200:
+                data = r.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                global _total_tokens
+                _total_tokens += data.get("usage", {}).get("total_tokens", 0)
+
+                # ── SUCCESS: delete from queue (user's vision) ──
+                _delete_llm_queue_row(request_id)
+                return content.strip()
+
+            if r.status_code == 429 and attempt < MAX_RETRIES:
+                # ── RATE LIMIT: update DB + wait + retry (don't terminate) ──
+                _update_llm_queue_rate_limited(request_id, attempt + 1, r.text[:200])
+                logger.warning(
+                    "NVIDIA 429 rate limit on call #%d (attempt %d/%d) — waiting %ds, then retrying",
+                    call_id, attempt + 1, MAX_RETRIES, RATE_LIMIT_WAIT,
+                )
+                await asyncio.sleep(RATE_LIMIT_WAIT)
+                # Mark back to in_progress before retry
+                _update_llm_queue_status(request_id, "in_progress")
+                continue
+
+            # Non-429 error OR out of retries → mark failed in DB (keep for audit)
+            _mark_llm_queue_failed(request_id, f"NVIDIA {r.status_code}: {r.text[:200]}")
+            raise RuntimeError(f"NVIDIA API error {r.status_code}: {r.text[:200]}")
+
+        except httpx.TimeoutException:
+            if attempt < MAX_RETRIES:
+                _update_llm_queue_rate_limited(request_id, attempt + 1, "timeout")
+                logger.warning(
+                    "NVIDIA timeout on call #%d (attempt %d/%d) — waiting %ds, then retrying",
+                    call_id, attempt + 1, MAX_RETRIES, RATE_LIMIT_WAIT,
+                )
+                await asyncio.sleep(RATE_LIMIT_WAIT)
+                _update_llm_queue_status(request_id, "in_progress")
+                continue
+            _mark_llm_queue_failed(request_id, "timeout after 3 retries")
+            raise
+
+    # Exhausted retries — mark failed in DB
+    _mark_llm_queue_failed(request_id, f"exhausted {MAX_RETRIES} retries")
+    raise RuntimeError(f"NVIDIA API: exhausted {MAX_RETRIES} retries on rate limit")
+
+
+# ── DB queue helpers (small + surgical) ─────────────────────────────
+
+def _delete_llm_queue_row(request_id: str) -> None:
+    """Delete a completed request from the queue (user's vision: 'as that request
+    get solved delete that')."""
+    try:
+        from database.base import SessionLocal
+        from database.models.core import LLMRequestQueue
+        _db = SessionLocal()
+        try:
+            _db.query(LLMRequestQueue).filter(LLMRequestQueue.id == request_id).delete()
+            _db.commit()
+        finally:
+            _db.close()
+    except Exception as exc:
+        logger.warning("llm_queue_delete_failed: %s", str(exc)[:200])
+
+
+def _update_llm_queue_rate_limited(request_id: str, retry_count: int, error: str) -> None:
+    """Mark a request as rate_limited with next_retry_at = NOW + 60s.
+
+    If Render restarts during the 60s sleep, the row stays here with
+    next_retry_at in the past. Recovery worker picks it up on startup.
+    """
+    try:
+        from database.base import SessionLocal
+        from database.models.core import LLMRequestQueue
+        from datetime import datetime, timezone, timedelta
+        _db = SessionLocal()
+        try:
+            row = _db.query(LLMRequestQueue).filter(LLMRequestQueue.id == request_id).first()
+            if row:
+                row.status = "rate_limited"
+                row.retry_count = retry_count
+                row.next_retry_at = datetime.now(timezone.utc) + timedelta(seconds=60)
+                row.error_message = error[:500]
+                _db.commit()
+        finally:
+            _db.close()
+    except Exception as exc:
+        logger.warning("llm_queue_update_rate_limited_failed: %s", str(exc)[:200])
+
+
+def _update_llm_queue_status(request_id: str, status: str) -> None:
+    """Update status (e.g. back to in_progress before retry)."""
+    try:
+        from database.base import SessionLocal
+        from database.models.core import LLMRequestQueue
+        _db = SessionLocal()
+        try:
+            row = _db.query(LLMRequestQueue).filter(LLMRequestQueue.id == request_id).first()
+            if row:
+                row.status = status
+                _db.commit()
+        finally:
+            _db.close()
+    except Exception as exc:
+        logger.warning("llm_queue_update_status_failed: %s", str(exc)[:200])
+
+
+def _mark_llm_queue_failed(request_id: str, error: str) -> None:
+    """Mark a request as failed (kept in DB for audit, not deleted)."""
+    try:
+        from database.base import SessionLocal
+        from database.models.core import LLMRequestQueue
+        from datetime import datetime, timezone
+        _db = SessionLocal()
+        try:
+            row = _db.query(LLMRequestQueue).filter(LLMRequestQueue.id == request_id).first()
+            if row:
+                row.status = "failed"
+                row.error_message = error[:500]
+                row.completed_at = datetime.now(timezone.utc)
+                _db.commit()
+        finally:
+            _db.close()
+    except Exception as exc:
+        logger.warning("llm_queue_mark_failed_failed: %s", str(exc)[:200])
+
+
+async def _call_cerebras_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
+    """Direct Cerebras API call (raw HTTP, no LiteLLM dependency)."""
+    import httpx
+
+    api_key = os.environ.get("CEREBRAS_API_KEY", "")
+    if not api_key:
+        return ""
+
+    payload = {
+        "model": "gpt-oss-120b",
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.post(
+            "https://api.cerebras.ai/v1/chat/completions",
+            json=payload,
+            headers=headers,
+        )
+
+    if r.status_code == 200:
+        data = r.json()
+        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        global _total_tokens
+        _total_tokens += data.get("usage", {}).get("total_tokens", 0)
+        return content.strip()
+    else:
+        raise RuntimeError(f"Cerebras API error {r.status_code}: {r.text[:200]}")
+
+
