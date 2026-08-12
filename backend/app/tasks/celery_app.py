@@ -453,5 +453,39 @@ def _enforce_max_payload_size(sender=None, headers=None, body=None, **kwargs):
 # Apply configuration
 app.config_from_object(_build_config())
 
+# ── FORCE DB 0 (Upstash free tier only supports DB 0) ─────────────
+# Even though config.py's validator strips /N from Redis URLs, some
+# Render service connection strings include /1 which can bypass the
+# validator in edge cases. This is a belt-and-suspenders fix that
+# forces the celery broker_url and result_backend to use DB 0.
+# Fixes: "Only 0th database is supported! Selected DB: 1"
+import re as _re
+_broker_url = app.conf.broker_url or ""
+_result_backend = app.conf.result_backend or ""
+if _broker_url and not "upstash" in _broker_url.lower():
+    # Strip any /N suffix and force /0
+    _broker_url = _re.sub(r"/\d+$", "/0", _broker_url)
+    if not _re.search(r"/\d+$", _broker_url):
+        _broker_url = _broker_url.rstrip("/") + "/0"
+    # Convert rediss:// to redis:// for Render internal Redis
+    if _broker_url.startswith("rediss://"):
+        _broker_url = "redis://" + _broker_url[len("rediss://"):]
+    app.conf.broker_url = _broker_url
+elif _broker_url and "upstash" in _broker_url.lower():
+    # Upstash: strip /N entirely (Upstash uses default DB 0)
+    _broker_url = _re.sub(r"/\d+$", "", _broker_url)
+    app.conf.broker_url = _broker_url
+
+if _result_backend and not "upstash" in _result_backend.lower():
+    _result_backend = _re.sub(r"/\d+$", "/0", _result_backend)
+    if not _re.search(r"/\d+$", _result_backend):
+        _result_backend = _result_backend.rstrip("/") + "/0"
+    if _result_backend.startswith("rediss://"):
+        _result_backend = "redis://" + _result_backend[len("rediss://"):]
+    app.conf.result_backend = _result_backend
+elif _result_backend and "upstash" in _result_backend.lower():
+    _result_backend = _re.sub(r"/\d+$", "", _result_backend)
+    app.conf.result_backend = _result_backend
+
 # ── Autodiscover tasks ────────────────────────────────────────────
 app.autodiscover_tasks(["app.tasks"])
