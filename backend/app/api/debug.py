@@ -113,14 +113,24 @@ async def llm_test() -> Dict[str, Any]:
     except Exception as exc:
         results["smart_router"] = {"ok": False, "error": str(exc)[:300]}
 
-    # ── 3.5. Test NVIDIA GLM-5 directly ──
+    # ── 3.5. Test NVIDIA GLM-5.2 directly ──
+    # Captures exception type + duration so we can distinguish:
+    #   - 401/403  → bad key
+    #   - 404      → wrong model name
+    #   - 429      → rate limit
+    #   - 5xx      → NVIDIA outage
+    #   - TimeoutException (≥90s) → cold start OR network firewall
+    #   - ConnectError → DNS / network unreachable from Render
+    import time as _nv_time
     nvidia_key = os.environ.get("NVIDIA_API_KEY", "").strip()
     if not nvidia_key:
         results["nvidia"] = {"ok": False, "error": "NVIDIA_API_KEY not set"}
     else:
+        _nv_t0 = _nv_time.time()
         try:
             import httpx
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            # 90s timeout — GLM-5.2 has a ~60s cold-start on first call after idle.
+            async with httpx.AsyncClient(timeout=90.0) as client:
                 r = await client.post(
                     "https://integrate.api.nvidia.com/v1/chat/completions",
                     headers={
@@ -134,13 +144,27 @@ async def llm_test() -> Dict[str, Any]:
                         "temperature": 0,
                     },
                 )
+            _nv_latency = int((_nv_time.time() - _nv_t0) * 1000)
             if r.status_code == 200:
                 content = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-                results["nvidia"] = {"ok": True, "response": content[:50], "model": "z-ai/glm-5.2"}
+                results["nvidia"] = {
+                    "ok": True, "response": content[:50],
+                    "model": "z-ai/glm-5.2", "latency_ms": _nv_latency,
+                }
             else:
-                results["nvidia"] = {"ok": False, "status": r.status_code, "error": r.text[:300]}
+                results["nvidia"] = {
+                    "ok": False, "status": r.status_code,
+                    "error": r.text[:300], "latency_ms": _nv_latency,
+                }
         except Exception as exc:
-            results["nvidia"] = {"ok": False, "error": str(exc)[:300]}
+            _nv_latency = int((_nv_time.time() - _nv_t0) * 1000)
+            # str(exc) is empty for httpx.TimeoutException — include type name.
+            results["nvidia"] = {
+                "ok": False,
+                "error": str(exc)[:300] or "(no message)",
+                "exception_type": type(exc).__name__,
+                "latency_ms": _nv_latency,
+            }
 
     # ── 4. Check litellm ──
     try:
