@@ -798,3 +798,72 @@ async def provider_pool_status() -> Dict[str, Any]:
         }
     except Exception as exc:
         return {"error": str(exc)[:200]}
+
+
+@router.get("/celery-config")
+async def celery_config_debug() -> Dict[str, Any]:
+    """Debug endpoint to inspect actual Celery broker configuration.
+
+    Shows:
+      - The broker_url + result_backend the celery app is ACTUALLY using
+      - Whether the DB 0 force-fix ran
+      - Raw env vars (CELERY_BROKER_URL, REDIS_URL) before validation
+      - Test connection attempt to the broker
+
+    Use this to diagnose 'Only 0th database is supported' errors.
+    """
+    import os
+    result: Dict[str, Any] = {}
+
+    # 1. Raw env vars (unvalidated)
+    result["env"] = {
+        "CELERY_BROKER_URL_raw": os.environ.get("CELERY_BROKER_URL", "(not set)")[:120],
+        "CELERY_RESULT_BACKEND_raw": os.environ.get("CELERY_RESULT_BACKEND", "(not set)")[:120],
+        "REDIS_URL_raw": os.environ.get("REDIS_URL", "(not set)")[:120],
+    }
+
+    # 2. Validated settings (after pydantic validator)
+    try:
+        from app.config import get_settings
+        s = get_settings()
+        result["validated_settings"] = {
+            "CELERY_BROKER_URL": s.CELERY_BROKER_URL[:120],
+            "CELERY_RESULT_BACKEND": s.CELERY_RESULT_BACKEND[:120],
+            "REDIS_URL": s.REDIS_URL[:120],
+        }
+    except Exception as exc:
+        result["validated_settings_error"] = str(exc)[:300]
+
+    # 3. What the celery app is actually using
+    try:
+        from app.tasks.celery_app import app
+        result["celery_app_conf"] = {
+            "broker_url": (app.conf.broker_url or "")[:120],
+            "result_backend": (app.conf.result_backend or "")[:120],
+        }
+    except Exception as exc:
+        result["celery_app_error"] = str(exc)[:300]
+
+    # 4. Test direct Redis connection (bypass Celery)
+    try:
+        import redis
+        url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+        r = redis.from_url(url, socket_connect_timeout=5, socket_timeout=5)
+        r.ping()
+        result["redis_direct_test"] = {"ok": True, "url": url[:80]}
+        # Try SELECT 0
+        r.select(0)
+        result["redis_direct_test"]["select_0"] = "ok"
+    except Exception as exc:
+        result["redis_direct_test"] = {"ok": False, "error": str(exc)[:200]}
+
+    # 5. Test Celery broker connection (the actual failing path)
+    try:
+        from app.tasks.celery_app import app
+        with app.connection_or_acquire() as conn:
+            conn.ensure_connection(max_retries=1, timeout=3)
+            result["celery_connection_test"] = {"ok": True}
+    except Exception as exc:
+        result["celery_connection_test"] = {"ok": False, "error": str(exc)[:300]}
+
+    return result
