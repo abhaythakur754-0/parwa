@@ -126,18 +126,22 @@ def get_history(
 
 
 @router.post("/message", response_model=JarvisMessageResponse)
-def send_message(
+async def send_message(
     body: JarvisMessageSend,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Send a message to Jarvis and get AI response.
+    """Send a message to Jarvis and get AI response (ASYNC).
+
+    ASYNC FIX (2026-08-12): Was sync — blocked the FastAPI event loop for
+    up to 60s per LLM call (sync urllib). Now async so concurrent ticket
+    processing and Jarvis chat can run side-by-side without stalling.
 
     Flow:
     1. Validates message content
     2. Saves user message
     3. Checks daily message limit
-    4. Calls AI provider with context
+    4. Calls AI provider with context (async)
     5. Saves AI response
     6. Returns AI response message
 
@@ -155,7 +159,7 @@ def send_message(
         session_id = session.id
 
     try:
-        user_msg, ai_msg, knowledge = jarvis_service.send_message(
+        user_msg, ai_msg, knowledge = await jarvis_service.send_message(
             db=db,
             session_id=session_id,
             user_id=user.id,

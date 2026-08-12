@@ -182,25 +182,29 @@ def get_cc_session_health(
 
 
 @router.post("/message", response_model=JarvisCCMessageResponse)
-def send_cc_message(
+async def send_cc_message(
     body: JarvisCCMessageSend,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Send a message to Jarvis in customer care mode.
+    """Send a message to Jarvis in customer care mode (ASYNC).
+
+    ASYNC FIX (2026-08-12): Was sync — blocked the FastAPI event loop for
+    up to 60s per LLM call (sync urllib). Now async so concurrent ticket
+    processing and Jarvis CC chat can run side-by-side without stalling.
 
     This is the main interaction endpoint. The message is routed
     through the variant pipeline bridge with a 3-level fallback:
 
     1. variant_pipeline_bridge (primary)
     2. Legacy AI pipeline (fallback 1)
-    3. Direct AI provider (fallback 2)
+    3. Direct AI provider (fallback 2, async)
 
     Response includes pipeline metadata for dashboard display:
     quality_score, technique_used, latency, billing_tokens, etc.
     """
     try:
-        user_msg, ai_msg, pipeline_metadata = jarvis_cc_service.send_cc_message(
+        user_msg, ai_msg, pipeline_metadata = await jarvis_cc_service.send_cc_message(
             db=db,
             session_id=body.session_id,
             user_id=str(user.id),

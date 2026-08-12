@@ -58,10 +58,18 @@ import threading as _threading_mod
 import time as _time_mod
 
 # Configurable via env var so it can be tuned without code changes.
-# Default 4: one ticket per major LLM provider (NVIDIA, Groq, Mistral, Gemini).
+#
+# SAFETY CAP (2026-08-12): lowered from 10 → 5 to keep memory usage under
+# 512 MB on Render Starter plan. 5 concurrent tickets × ~30 MB each = ~150 MB
+# for worker state, leaving ~350 MB for the base process + Jarvis + Redis pool.
+#
+# Will be raised back to 10 once the Jarvis sync→async refactor is verified
+# in production (that removes the event-loop blocking that was the actual
+# bottleneck — not memory).
+#
 # Each ticket is assigned to a specific provider to avoid rate-limit collisions.
 # Rest queue in DB. Workers poll DB for 'open' tickets.
-MAX_CONCURRENT_PIPELINES = int(os.environ.get("MAX_CONCURRENT_PIPELINES", "10"))
+MAX_CONCURRENT_PIPELINES = int(os.environ.get("MAX_CONCURRENT_PIPELINES", "5"))
 _workers_started = False
 _workers_lock = _threading_mod.Lock()
 

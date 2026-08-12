@@ -419,7 +419,7 @@ def update_cc_context(
 # ══════════════════════════════════════════════════════════════════
 
 
-def send_cc_message(
+async def send_cc_message(
     db: Session,
     session_id: str,
     user_id: str,
@@ -428,7 +428,11 @@ def send_cc_message(
     ticket_id: Optional[str] = None,
     channel: str = "chat",
 ) -> Tuple[JarvisMessage, JarvisMessage, Dict[str, Any]]:
-    """Process a customer care message and generate AI response.
+    """Process a customer care message and generate AI response (ASYNC).
+
+    ASYNC FIX (2026-08-12): Was sync — blocked the FastAPI event loop for
+    up to 60s per LLM call (sync urllib). Now async so concurrent ticket
+    processing and Jarvis CC chat can run side-by-side without stalling.
 
     This is the main entry point for Jarvis in customer care mode.
 
@@ -789,7 +793,7 @@ def send_cc_message(
             try:
                 system_prompt = build_cc_system_prompt(db, session_id, company_id, ctx)
                 history = _get_recent_history(db, session_id)
-                ai_content, _, metadata, _ = _call_ai_provider_fallback(
+                ai_content, _, metadata, _ = await _call_ai_provider_fallback(
                     system_prompt, history, user_message, ctx,
                 )
                 ai_message_type = "direct_ai"
@@ -1300,15 +1304,15 @@ def _get_friendly_error_message() -> str:
     )
 
 
-def _call_ai_provider_fallback(
+async def _call_ai_provider_fallback(
     system_prompt: str,
     history: List[Dict[str, str]],
     user_message: str,
     context: Dict[str, Any],
 ) -> Tuple[str, str, Dict[str, Any], List[Dict[str, Any]]]:
-    """Direct AI provider call as last-resort fallback.
+    """Direct AI provider call as last-resort fallback (ASYNC).
 
-    Tries Cerebras → Groq → Google AI in order.
+    Tries Groq → Cerebras → Google AI in order (Groq first — user-validated).
 
     Args:
         system_prompt: System prompt for the AI.
@@ -1327,11 +1331,11 @@ def _call_ai_provider_fallback(
         messages.append({"role": role, "content": msg.get("content", "")})
     messages.append({"role": "user", "content": user_message})
 
-    # Try providers in order
+    # Try providers in order (async)
     content = None
     try:
         from app.services.jarvis_service import _try_ai_providers
-        content = _try_ai_providers(messages)
+        content = await _try_ai_providers(messages)
     except Exception:
         pass
 

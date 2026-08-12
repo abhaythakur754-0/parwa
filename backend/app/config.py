@@ -8,6 +8,7 @@ Validators warn (not crash) if dev defaults are used in production.
 
 import logging
 import os
+import re
 import warnings
 from enum import Enum
 from functools import lru_cache
@@ -122,17 +123,44 @@ class Settings(BaseSettings):
         """Normalize Redis URLs.
 
         - Upstash URLs (contain 'upstash.io') REQUIRE rediss:// (TLS) — keep as-is.
+          Upstash free tier ONLY supports DB 0 → strip /1, /2 etc. from path.
+          (Fixes the "Only 0th database is supported! Selected DB: 1" error
+           that was making Celery unhealthy and breaking Jarvis awareness ticks.)
         - Render internal Redis uses rediss:// but doesn't have TLS → convert to redis://.
         - Plain redis:// URLs pass through unchanged.
         """
         if not v or not isinstance(v, str):
             return v
-        # Upstash requires TLS — don't strip rediss://
+
+        # Upstash free tier: only DB 0 is supported. Strip any /N suffix.
+        # This is the root cause of the Celery "Selected DB: 1" error.
         if "upstash" in v.lower():
+            # Strip path component (e.g. /1, /2) — Upstash only allows DB 0
+            # URL format: rediss://user:pass@host.upstash.io:6379/1
+            if "?" in v:
+                base, _, query = v.partition("?")
+                base = re.sub(r"/\d+$", "", base)  # strip trailing /N
+                v = base + "?" + query if query else base
+            else:
+                v = re.sub(r"/\d+$", "", v)  # strip trailing /N
             return v
+
         # Render internal Redis — convert rediss:// to redis://
         if v.startswith("rediss://"):
             v = "redis://" + v[len("rediss://"):]
+
+        # Force DB 0 for all other Redis providers too (safety net)
+        if "?" in v:
+            base, _, query = v.partition("?")
+            base = re.sub(r"/\d+$", "/0", base)
+            if not base.endswith("/0"):
+                base = base + "/0"
+            v = base + "?" + query if query else base
+        else:
+            v = re.sub(r"/\d+$", "/0", v)
+            if not re.search(r"/\d+$", v):
+                v = v.rstrip("/") + "/0"
+
         return v
 
     # ── JWT (BC-011) ─────────────────────────────────────────────

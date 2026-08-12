@@ -179,19 +179,23 @@ def set_entry_context(
     return session
 
 
-def send_message(
+async def send_message(
     db: Session,
     session_id: str,
     user_id: str,
     user_message: str,
 ) -> Tuple[JarvisMessage, JarvisMessage, List[Dict[str, Any]]]:
-    """Process a user message and generate AI response.
+    """Process a user message and generate AI response (ASYNC).
+
+    ASYNC FIX (2026-08-12): Was sync — blocked the FastAPI event loop for
+    up to 60s per LLM call. Now async so concurrent ticket processing
+    and Jarvis chat can run side-by-side without stalling.
 
     Flow:
     1. Save user message
     2. Check message limits
     3. Build system prompt with context
-    4. Call AI provider
+    4. Call AI provider (async)
     5. Save AI response + knowledge used
     6. Detect conversation stage
     7. Return both messages
@@ -435,7 +439,7 @@ def send_message(
                 try:
                     system_prompt = build_system_prompt(db, session_id, user_message)
                     ai_content, ai_message_type, metadata, knowledge = (
-                        _call_ai_provider(system_prompt, history, user_message, ctx)
+                        await _call_ai_provider(system_prompt, history, user_message, ctx)
                     )
                 except Exception as inner_exc:
                     logger.error("Direct AI also failed: %s", inner_exc)
@@ -455,8 +459,9 @@ def send_message(
                     process_onboarding_message,
                 )
 
-                # Bridge async orchestrator from sync context
-                _orchestrator_coro = process_onboarding_message(
+                # Direct await — send_message is now async so no need for
+                # the asyncio.run + ThreadPoolExecutor bridge hack.
+                result = await process_onboarding_message(
                     db=db,
                     session_id=session_id,
                     user_id=user_id,
@@ -464,13 +469,6 @@ def send_message(
                     user_message=user_message,
                     channel="chat",
                 )
-                try:
-                    result = asyncio.run(_orchestrator_coro)
-                except RuntimeError:
-                    # Already inside an event loop — run in a separate thread
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as _pool:
-                        _future = _pool.submit(asyncio.run, _orchestrator_coro)
-                        result = _future.result(timeout=60)  # 60s — Render cold start can take 30-60s
 
                 # Map orchestrator result to jarvis_service format
                 ai_content = result.get("content", "")
@@ -500,7 +498,7 @@ def send_message(
                 try:
                     system_prompt = build_system_prompt(db, session_id, user_message)
                     ai_content, ai_message_type, metadata, knowledge = (
-                        _call_ai_provider(system_prompt, history, user_message, ctx)
+                        await _call_ai_provider(system_prompt, history, user_message, ctx)
                     )
                     metadata["fallback_reason"] = "orchestrator_import_error"
                 except Exception as inner_exc:
@@ -519,7 +517,7 @@ def send_message(
                 try:
                     system_prompt = build_system_prompt(db, session_id, user_message)
                     ai_content, ai_message_type, metadata, knowledge = (
-                        _call_ai_provider(system_prompt, history, user_message, ctx)
+                        await _call_ai_provider(system_prompt, history, user_message, ctx)
                     )
                     metadata["fallback_reason"] = "orchestrator_error"
                 except Exception as inner_exc:
@@ -616,15 +614,8 @@ def send_message(
                 except Exception:
                     logger.debug("build_system_prompt failed, pipeline will use default context")
 
-                # Handle async call from sync context
-                try:
-                    pipeline_result = asyncio.run(process_ai_message(**pipeline_args))
-                except RuntimeError:
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                        future = pool.submit(
-                            asyncio.run, process_ai_message(**pipeline_args),
-                        )
-                        pipeline_result = future.result(timeout=60)
+                # Direct await — send_message is now async
+                pipeline_result = await process_ai_message(**pipeline_args)
 
                 ai_content = pipeline_result.response
                 ai_message_type = "ai_generated"
@@ -651,7 +642,7 @@ def send_message(
                 try:
                     system_prompt = build_system_prompt(db, session_id, user_message)
                     ai_content, ai_message_type, metadata, knowledge = (
-                        _call_ai_provider(system_prompt, history, user_message, ctx)
+                        await _call_ai_provider(system_prompt, history, user_message, ctx)
                     )
                 except Exception:
                     ai_content = _get_friendly_error_message()
@@ -1516,16 +1507,21 @@ def _track_pages_visited(
     ctx["pages_visited"] = pages
 
 
-def _call_ai_provider(
+async def _call_ai_provider(
     system_prompt: str,
     history: List[Dict[str, str]],
     user_message: str,
     context: Dict[str, Any],
 ) -> Tuple[str, str, Dict[str, Any], List[Dict[str, Any]]]:
-    """Call AI provider for response generation.
+    """Call AI provider for response generation (ASYNC).
 
     Routes to Cerebras, Groq, or Google AI Studio based on availability.
     Falls back to context-aware placeholder if all providers fail.
+
+    ASYNC FIX (2026-08-12): Was sync `urllib` which blocked the FastAPI
+    event loop for up to 60s per call. When Jarvis chat ran concurrently
+    with the 10-worker ticket pipeline, the whole server stalled.
+    Now uses async httpx so the event loop stays free during LLM calls.
 
     Returns:
         Tuple of (content, message_type, metadata, knowledge_used)
@@ -1555,8 +1551,8 @@ def _call_ai_provider(
     except Exception:
         pass
 
-    # Try real AI providers (Cerebras → Groq → Google)
-    content = _try_ai_providers(messages)
+    # Try real AI providers (Cerebras → Groq → Google) — ASYNC
+    content = await _try_ai_providers(messages)
     if content is None:
         # Fallback to context-aware placeholder
         content = _get_stage_fallback(context)
@@ -1568,30 +1564,51 @@ def _call_ai_provider(
     return content, message_type, metadata, knowledge
 
 
-def _try_ai_providers(messages: List[Dict[str, str]]) -> Optional[str]:
-    """Try AI providers in order: Cerebras → Groq → Google. Returns content or None."""
+async def _try_ai_providers(messages: List[Dict[str, str]]) -> Optional[str]:
+    """Try AI providers in order: Cerebras → Groq → Google. Returns content or None.
+
+    ASYNC: Uses httpx.AsyncClient so the event loop stays free during HTTP calls.
+    Groq is tried first (user-validated best model, ~1s/call). Cerebras and Google
+    are fallbacks. Each call has a 30s timeout — if one provider hangs, the next
+    is tried immediately.
+    """
     providers = [
-        ("cerebras", "https://api.cerebras.ai/v1/chat/completions"),
         ("groq", "https://api.groq.com/openai/v1/chat/completions"),
+        ("cerebras", "https://api.cerebras.ai/v1/chat/completions"),
         ("google", "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent"),
     ]
 
-    for provider_name, endpoint in providers:
-        try:
-            content = _call_single_provider(provider_name, endpoint, messages)
-            if content:
-                return content
-        except Exception:
-            continue
+    import httpx
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        for provider_name, endpoint in providers:
+            try:
+                content = await _call_single_provider_async(
+                    client, provider_name, endpoint, messages,
+                )
+                if content:
+                    return content
+            except Exception:
+                continue
     return None
 
 
-def _call_single_provider(
+async def _call_single_provider_async(
+    client: "httpx.AsyncClient",
     provider_name: str,
     endpoint: str,
     messages: List[Dict[str, str]],
 ) -> Optional[str]:
-    """Call a single AI provider and return the response content."""
+    """Call a single AI provider (ASYNC) using a shared httpx client.
+
+    Args:
+        client: An open httpx.AsyncClient (caller manages lifecycle).
+        provider_name: 'groq' | 'cerebras' | 'google'
+        endpoint: Full API endpoint URL.
+        messages: OpenAI-format messages list.
+
+    Returns:
+        Response content string, or None if provider returned empty/failed.
+    """
     from app.config import get_settings
 
     settings = get_settings()
@@ -1609,11 +1626,14 @@ def _call_single_provider(
         return None
 
     if provider_name == "google":
-        return _call_google_api(endpoint, api_key, messages)
+        return await _call_google_api_async(client, endpoint, api_key, messages)
 
     # OpenAI-compatible: Cerebras and Groq
+    # Groq uses llama-3.1-8b-instant (user-validated best model)
+    # Cerebras uses llama-3.1-8b
+    model = "llama-3.1-8b-instant" if provider_name == "groq" else "llama-3.1-8b"
     payload = {
-        "model": "llama-3.1-8b" if provider_name == "cerebras" else "llama-3.1-8b",
+        "model": model,
         "messages": messages,
         "temperature": 0.7,
         "max_tokens": 1024,
@@ -1624,31 +1644,54 @@ def _call_single_provider(
         "Content-Type": "application/json",
     }
 
-    import urllib.request
-    req = urllib.request.Request(
-        endpoint,
-        data=json.dumps(payload).encode("utf-8"),
-        headers=headers,
-        method="POST",
-    )
-    req.add_header("Content-Type", "application/json")
-
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-        choices = data.get("choices", [])
-        if choices:
-            return choices[0].get("message", {}).get("content", "")
+    r = await client.post(endpoint, json=payload, headers=headers)
+    if r.status_code != 200:
+        return None
+    data = r.json()
+    choices = data.get("choices", [])
+    if choices:
+        return choices[0].get("message", {}).get("content", "")
     return None
 
 
-def _call_google_api(
+def _call_single_provider(
+    provider_name: str,
+    endpoint: str,
+    messages: List[Dict[str, str]],
+) -> Optional[str]:
+    """DEPRECATED sync wrapper — kept for backward compat.
+
+    New code should call `_call_single_provider_async` instead.
+    This runs the async version in a fresh event loop. Only safe to call
+    from sync code that is NOT inside an async context.
+    """
+    import asyncio
+    import httpx
+
+    async def _run():
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            return await _call_single_provider_async(
+                client, provider_name, endpoint, messages,
+            )
+
+    try:
+        return asyncio.run(_run())
+    except RuntimeError:
+        # Already in an event loop — can't use asyncio.run()
+        # Fall back to thread-based execution
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(asyncio.run, _run())
+            return future.result()
+
+
+async def _call_google_api_async(
+    client: "httpx.AsyncClient",
     endpoint: str,
     api_key: str,
     messages: List[Dict[str, str]],
 ) -> Optional[str]:
-    """Call Google AI Studio API (non-OpenAI format)."""
-    import urllib.request
-
+    """Call Google AI Studio API (non-OpenAI format) — ASYNC."""
     # Convert messages to Google's format
     system_text = ""
     contents = []
@@ -1663,21 +1706,45 @@ def _call_google_api(
         payload["systemInstruction"] = {"parts": [{"text": system_text}]}
 
     url = f"{endpoint}?key={api_key}"
-    req = urllib.request.Request(
+    r = await client.post(
         url,
-        data=json.dumps(payload).encode("utf-8"),
+        json=payload,
         headers={"Content-Type": "application/json"},
-        method="POST",
     )
-
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-        candidates = data.get("candidates", [])
-        if candidates:
-            parts = candidates[0].get("content", {}).get("parts", [])
-            if parts:
-                return parts[0].get("text", "")
+    if r.status_code != 200:
+        return None
+    data = r.json()
+    candidates = data.get("candidates", [])
+    if candidates:
+        parts = candidates[0].get("content", {}).get("parts", [])
+        if parts:
+            return parts[0].get("text", "")
     return None
+
+
+def _call_google_api(
+    endpoint: str,
+    api_key: str,
+    messages: List[Dict[str, str]],
+) -> Optional[str]:
+    """DEPRECATED sync wrapper — kept for backward compat.
+
+    New code should call `_call_google_api_async` instead.
+    """
+    import asyncio
+    import httpx
+
+    async def _run():
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            return await _call_google_api_async(client, endpoint, api_key, messages)
+
+    try:
+        return asyncio.run(_run())
+    except RuntimeError:
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(asyncio.run, _run())
+            return future.result()
 
 
 def _get_stage_fallback(context: Dict[str, Any]) -> str:
