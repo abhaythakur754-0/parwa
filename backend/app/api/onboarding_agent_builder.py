@@ -2,21 +2,23 @@
 Onboarding Agent Builder — PRODUCTION version.
 
 Uses the REAL 4-stage Builder pipeline (EXPLORE → DESIGN → VERIFY → REFINE)
-with NVIDIA GLM-5 for deep reasoning.
+with Groq llama-3.1-8b-instant for reasoning.
+
+User validation (2026-08-12): "llama-3.1-8b gives best results for ALL
+pipeline tasks." Was NVIDIA GLM-5.2 but it took ~58s/call → onboarding
+took 4+ min per agent. Now uses Groq: ~1s/call, 60x faster.
 
 Flow:
   1. User connects CRM → POST /api/builder-agent/scan-and-build
   2. Scans recent tickets (last 30 days)
-  3. NVIDIA GLM-5 classifies what capabilities are needed
-  4. For each capability → runs full Builder pipeline (4 stages, NVIDIA)
+  3. Groq llama-3.1-8b classifies what capabilities are needed
+  4. For each capability → runs full Builder pipeline (4 stages, Groq)
   5. Each agent gets tool mapping (checks connected integrations)
   6. Tests each agent against historical tickets
   7. Only stores TESTED agents in DB
   8. Node 1 looks up tested agents (instant, no building)
 
-NVIDIA vs Groq separation:
-  → NVIDIA GLM-5: Builder stages (deep reasoning, 30 RPM)
-  → Groq: Ticket processing (fast responses, 30 RPM)
+Builder uses Groq llama-3.1-8b-instant for ALL stages (user-validated).
 """
 
 from __future__ import annotations
@@ -52,13 +54,13 @@ class ScanAndBuildResponse(BaseModel):
     errors: List[str]
 
 
-# ── Tool Mapping is done DYNAMICALLY by NVIDIA GLM-5.2 ──────────
+# ── Tool Mapping is done DYNAMICALLY by Groq llama-3.1-8b ───────
 # We do NOT hardcode capability→tool mappings (that's what competitors do).
-# Instead, we tell GLM-5.2:
+# Instead, we tell llama-3.1-8b:
 #   "Here are the tenant's connected integrations + available tools.
 #    For this capability, which tool + action should the agent use?"
 #
-# GLM-5.2 has the reasoning capability to map any capability to any
+# llama-3.1-8b has the reasoning capability to map any capability to any
 # integration dynamically — no hardcoded rules needed.
 
 
@@ -175,8 +177,8 @@ async def _do_build(company_id: str, max_scan: int, force_rebuild: bool):
             # ── Step 4: NVIDIA classifies capabilities ───────────
             capabilities_detected = []
 
-            if os.environ.get("NVIDIA_API_KEY"):
-                from app.core.parwa_pipeline.llm_client import _call_nvidia_direct
+            if os.environ.get("GROQ_API_KEY"):
+                from app.core.parwa_pipeline.llm_client import _call_groq_direct
                 import re
 
                 classify_prompt = f"""Analyze these {len(ticket_texts)} customer support tickets.
@@ -202,7 +204,7 @@ Connected integrations: {connected_integrations}
 Return ONLY a JSON array of unique capability strings."""
 
                 try:
-                    result = await _call_nvidia_direct(
+                    result = await _call_groq_direct(
                         messages=[{"role": "user", "content": classify_prompt}],
                         temperature=0.1,
                         max_tokens=200,
@@ -212,7 +214,7 @@ Return ONLY a JSON array of unique capability strings."""
                     if json_match:
                         capabilities_detected = json.loads(json_match.group())
                 except Exception as exc:
-                    logger.warning("NVIDIA classification failed: %s", str(exc)[:200])
+                    logger.warning("Groq classification failed: %s", str(exc)[:200])
 
             # Fallback: keyword detection
             if not capabilities_detected:
@@ -263,7 +265,7 @@ Return ONLY a JSON array of unique capability strings."""
                     continue
 
                 logger.info(
-                    "onboarding_builder: building agent for capability=%s (NVIDIA 4-stage)",
+                    "onboarding_builder: building agent for capability=%s (Groq 4-stage)",
                     capability,
                 )
 
@@ -300,8 +302,8 @@ Return ONLY a JSON array of unique capability strings."""
                         tool_mapping = {}
                         has_integration = False
 
-                        if os.environ.get("NVIDIA_API_KEY") and connected_integrations:
-                            from app.core.parwa_pipeline.llm_client import _call_nvidia_direct
+                        if os.environ.get("GROQ_API_KEY") and connected_integrations:
+                            from app.core.parwa_pipeline.llm_client import _call_groq_direct
                             import re
 
                             tool_prompt = f"""You are designing a customer support agent for: {capability}
@@ -329,7 +331,7 @@ Return JSON:
 }}"""
 
                             try:
-                                tool_result = await _call_nvidia_direct(
+                                tool_result = await _call_groq_direct(
                                     messages=[{"role": "user", "content": tool_prompt}],
                                     temperature=0.1,
                                     max_tokens=200,
@@ -340,7 +342,7 @@ Return JSON:
                                     tool_mapping = json.loads(json_match.group())
                                     has_integration = tool_mapping.get("can_execute", False)
                             except Exception as exc:
-                                logger.warning("NVIDIA tool mapping failed for %s: %s", capability, str(exc)[:200])
+                                logger.warning("Groq tool mapping failed for %s: %s", capability, str(exc)[:200])
 
                         # Update agent with dynamic tool mapping
                         if agent_id:

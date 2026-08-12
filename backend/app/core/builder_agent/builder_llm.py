@@ -1,9 +1,10 @@
 """
-Builder LLM Client — uses NVIDIA GLM-5 for deep agent reasoning.
+Builder LLM Client — uses Groq llama-3.1-8b-instant for agent reasoning.
 
-The Builder uses NVIDIA GLM-5.2 (z-ai/glm-5.2) for ALL stages.
-This separates agent building (NVIDIA, 30 RPM) from ticket processing
-(Groq, 30 RPM) — they don't compete for rate limits.
+The Builder uses Groq llama-3.1-8b-instant for ALL stages.
+User validation (2026-08-12): "llama-3.1-8b gives best results for ALL
+pipeline tasks" — this includes agent building. Groq: ~1s/call vs
+NVIDIA GLM-5.2's ~58s/call (which made onboarding take 4+ min per agent).
 
 4 stages:
   EXPLORE: Understand what agent is needed (scan tickets, classify)
@@ -20,17 +21,18 @@ from typing import Optional
 
 logger = logging.getLogger("parwa.builder.llm")
 
-# ── NVIDIA GLM-5 is used for ALL Builder stages ───────────────────
-# This is SEPARATE from Groq (which handles ticket processing).
-# NVIDIA: 30 RPM, used for deep reasoning during onboarding
-# Groq: 30 RPM, used for fast ticket responses
+# ── Groq llama-3.1-8b-instant is used for ALL Builder stages ───────
+# User validation: llama-3.1-8b is the best model for ALL pipeline tasks.
+# ~1s/call vs NVIDIA GLM-5.2's ~58s/call.
+# Groq 30 RPM is shared with the main pipeline — if rate-limited,
+# builder falls back to other providers via llm_call().
 
 STAGE_TIER_MAP = {
-    "explore": "nvidia",          # NVIDIA GLM-5 for intent analysis
-    "design": "nvidia",           # NVIDIA GLM-5 for agent design
-    "verify": "nvidia",           # NVIDIA GLM-5 for testing
-    "verify_guardrail": "nvidia", # NVIDIA GLM-5 for safety check
-    "refine": "nvidia",           # NVIDIA GLM-5 for improvement
+    "explore": "groq",          # Groq llama-3.1-8b for intent analysis
+    "design": "groq",           # Groq llama-3.1-8b for agent design
+    "verify": "groq",           # Groq llama-3.1-8b for testing
+    "verify_guardrail": "groq", # Groq llama-3.1-8b for safety check
+    "refine": "groq",           # Groq llama-3.1-8b for improvement
 }
 
 
@@ -41,10 +43,11 @@ async def builder_llm_call(
     temperature: float = 0.3,
     system_prompt: Optional[str] = None,
 ) -> str:
-    """Call NVIDIA GLM-5 for Builder reasoning.
+    """Call Groq llama-3.1-8b-instant for Builder reasoning.
 
-    Uses _call_nvidia_direct (GLM-5.2 model) for all stages.
-    Falls back to Groq if NVIDIA key not set.
+    Uses _call_groq_direct (llama-3.1-8b-instant) for all stages.
+    Falls back to generic llm_call() (which picks any available provider)
+    if Groq key not set or Groq is rate-limited.
 
     Args:
         prompt: The user message / query
@@ -60,23 +63,23 @@ async def builder_llm_call(
     if system_prompt:
         full_prompt = f"{system_prompt}\n\n{prompt}"
 
-    # ── PRIMARY: NVIDIA GLM-5 ──────────────────────────────────
-    if os.environ.get("NVIDIA_API_KEY"):
+    # ── PRIMARY: Groq llama-3.1-8b-instant ───────────────────
+    if os.environ.get("GROQ_API_KEY"):
         try:
-            from app.core.parwa_pipeline.llm_client import _call_nvidia_direct
-            result = await _call_nvidia_direct(
+            from app.core.parwa_pipeline.llm_client import _call_groq_direct
+            result = await _call_groq_direct(
                 messages=[{"role": "user", "content": full_prompt}],
                 temperature=temperature,
                 max_tokens=max_tokens,
                 call_id=0,
             )
             if result and len(result.strip()) > 0:
-                logger.info("builder_llm_call NVIDIA stage=%s chars=%d", stage, len(result))
+                logger.info("builder_llm_call Groq stage=%s chars=%d", stage, len(result))
                 return result
         except Exception as exc:
-            logger.warning("builder_llm_call NVIDIA failed stage=%s: %s", stage, str(exc)[:200])
+            logger.warning("builder_llm_call Groq failed stage=%s: %s", stage, str(exc)[:200])
 
-    # ── FALLBACK: Groq (if NVIDIA not available) ──────────────
+    # ── FALLBACK: generic llm_call (picks any available provider) ──
     try:
         from app.core.parwa_pipeline.llm_client import llm_call
         result = await llm_call(

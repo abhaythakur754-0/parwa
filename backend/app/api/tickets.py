@@ -1028,25 +1028,28 @@ def resume_pipeline(
 
     logger.info("resume_pipeline ticket=%s guidance_len=%d", ticket_id, len(body.guidance))
 
-    # ── DIRECT NVIDIA CALL (the ONLY path — no checkpoint resume) ──
+    # ── DIRECT GROQ CALL (the ONLY path — no checkpoint resume) ──
     # The LangGraph checkpoint is unreliable: if the initial pipeline run
     # had a transient LLM failure, the checkpoint caches that failure
     # forever. Resuming it returns the same garbage response.
     #
     # Instead: fetch the customer's original question, combine it with
-    # the human's guidance, and call NVIDIA directly. Simple, reliable.
+    # the human's guidance, and call Groq llama-3.1-8b-instant directly.
+    # User validation (2026-08-12): llama-3.1-8b is the best model for ALL
+    # pipeline tasks, including guided resume. Groq: ~1s/call vs NVIDIA
+    # GLM-5.2's ~58s/call.
     import os as _os
     import httpx as _httpx
     from database.models.tickets import TicketMessage as _TM
     import json as _json_fast
 
-    nvidia_key = _os.environ.get("NVIDIA_API_KEY", "").strip()
-    if not nvidia_key:
+    groq_key = _os.environ.get("GROQ_API_KEY", "").strip()
+    if not groq_key:
         return {
             "status": "error",
             "ticket_id": ticket_id,
             "ai_response": "",
-            "message": "NVIDIA_API_KEY not set on server.",
+            "message": "GROQ_API_KEY not set on server.",
         }
 
     # Get the original customer message
@@ -1067,13 +1070,13 @@ def resume_pipeline(
         f"Be empathetic and specific. Do not mention that a supervisor was involved."
     )
 
-    logger.info("resume_nvidia ticket=%s", ticket_id)
+    logger.info("resume_groq ticket=%s", ticket_id)
 
     try:
         r = _httpx.post(
-            "https://integrate.api.nvidia.com/v1/chat/completions",
+            "https://api.groq.com/openai/v1/chat/completions",
             json={
-                "model": "z-ai/glm-5.2",
+                "model": "llama-3.1-8b-instant",
                 "messages": [
                     {"role": "system", "content": "You are a professional customer support agent. Write a helpful, empathetic response based on the guidance provided."},
                     {"role": "user", "content": direct_prompt},
@@ -1082,28 +1085,28 @@ def resume_pipeline(
                 "max_tokens": 500,
             },
             headers={
-                "Authorization": f"Bearer {nvidia_key}",
+                "Authorization": f"Bearer {groq_key}",
                 "Content-Type": "application/json",
             },
-            timeout=90.0,
+            timeout=30.0,
         )
     except Exception as http_exc:
-        logger.error("resume_nvidia_http_exception ticket=%s error=%s", ticket_id, str(http_exc)[:300])
+        logger.error("resume_groq_http_exception ticket=%s error=%s", ticket_id, str(http_exc)[:300])
         return {
             "status": "error",
             "ticket_id": ticket_id,
             "ai_response": "",
-            "message": f"HTTP call to NVIDIA failed: {str(http_exc)[:200]}",
+            "message": f"HTTP call to Groq failed: {str(http_exc)[:200]}",
         }
 
     if r.status_code != 200:
-        logger.error("resume_nvidia_error ticket=%s status=%s body=%s",
+        logger.error("resume_groq_error ticket=%s status=%s body=%s",
                      ticket_id, r.status_code, r.text[:200])
         return {
             "status": "error",
             "ticket_id": ticket_id,
             "ai_response": "",
-            "message": f"NVIDIA API returned {r.status_code}: {r.text[:200]}",
+            "message": f"Groq API returned {r.status_code}: {r.text[:200]}",
         }
 
     ai_response = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
@@ -1113,7 +1116,7 @@ def resume_pipeline(
             "status": "error",
             "ticket_id": ticket_id,
             "ai_response": "",
-            "message": "NVIDIA returned empty response.",
+            "message": "Groq returned empty response.",
         }
 
     # Save the AI response
@@ -1124,9 +1127,9 @@ def resume_pipeline(
         role="ai",
         content=ai_response[:6000],
         channel=ticket.channel,
-        variant_version="nvidia_direct",
+        variant_version="groq_direct",
         metadata_json=_json_fast.dumps({
-            "source": "resume_direct_nvidia",
+            "source": "resume_direct_groq",
             "guidance_used": body.guidance[:500],
         }),
     )
@@ -1138,13 +1141,13 @@ def resume_pipeline(
         ticket.closed_at = datetime.now(timezone.utc)
     db.commit()
 
-    logger.info("resume_nvidia_success ticket=%s len=%d", ticket_id, len(ai_response))
+    logger.info("resume_groq_success ticket=%s len=%d", ticket_id, len(ai_response))
 
     return {
         "status": "resolved",
         "ticket_id": ticket_id,
         "ai_response": ai_response[:500],
         "quality_score": 0,
-        "message": "Ticket resolved with NVIDIA direct response.",
+        "message": "Ticket resolved with Groq direct response.",
     }
 

@@ -246,12 +246,16 @@ Respond with ONLY the JSON, no other text."""
 
 
 async def _call_llm(prompt: str) -> str:
-    """Call the LLM (NVIDIA GLM-5.2 preferred, Groq fallback)."""
-    # Try NVIDIA first (for deep reasoning)
-    if os.environ.get("NVIDIA_API_KEY"):
+    """Call the LLM (Groq llama-3.1-8b-instant preferred).
+
+    User validation (2026-08-12): llama-3.1-8b is best for ALL pipeline tasks.
+    Was NVIDIA GLM-5.2 but it took ~58s/call → action executor timed out.
+    """
+    # Try Groq first (fastest, user-validated best model)
+    if os.environ.get("GROQ_API_KEY"):
         try:
-            from app.core.parwa_pipeline.llm_client import _call_nvidia_direct
-            result = await _call_nvidia_direct(
+            from app.core.parwa_pipeline.llm_client import _call_groq_direct
+            result = await _call_groq_direct(
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
                 max_tokens=800,
@@ -260,9 +264,9 @@ async def _call_llm(prompt: str) -> str:
             if result and len(result.strip()) > 10:
                 return result
         except Exception as exc:
-            logger.warning("NVIDIA call failed for action executor: %s", str(exc)[:200])
+            logger.warning("Groq call failed for action executor: %s", str(exc)[:200])
 
-    # Fallback to Groq
+    # Fallback: any other provider (Cerebras, Mistral, etc.)
     try:
         from app.core.parwa_pipeline.llm_client import llm_call
         result = await llm_call(prompt, max_tokens=800, temperature=0.1)

@@ -242,14 +242,26 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
     ),
 
     # ═══════════════════════════════════════════════════════════════════
-    # BUILDER TIER — agent creation only (NVIDIA dedicated)
+    # BUILDER TIER — agent creation only
+    # (was NVIDIA GLM-5.2 dedicated, but NVIDIA takes ~58s/call → onboarding
+    #  took 4+ min per agent. Now uses Groq llama-3.1-8b-instant — ~1s/call,
+    #  user-validated as best model for ALL pipeline tasks.)
     # ═══════════════════════════════════════════════════════════════════
 
+    "groq-llama-3.1-8b-builder": ModelConfig(
+        provider=ModelProvider.GROQ, model_id="llama-3.1-8b-instant",
+        display_name="Llama 3.1 8B Instant (Groq) — Builder", tier=ModelTier.BUILDER, priority=1,
+        max_requests_per_day=10000, max_tokens_per_minute=12000, context_window=131072,
+        api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
+    ),
+
+    # Kept for backward compat — alias to the new Groq builder.
+    # (Old code that looked up "nvidia-glm-5.2-builder" still resolves.)
     "nvidia-glm-5.2-builder": ModelConfig(
-        provider=ModelProvider.NVIDIA, model_id="z-ai/glm-5.2",
-        display_name="GLM 5.2 (NVIDIA) — Builder", tier=ModelTier.BUILDER, priority=1,
-        max_requests_per_day=999999, max_tokens_per_minute=999999, context_window=1048576,
-        api_endpoint_base="https://integrate.api.nvidia.com/v1/chat/completions", is_openai_compatible=True,
+        provider=ModelProvider.GROQ, model_id="llama-3.1-8b-instant",
+        display_name="Llama 3.1 8B Instant (Groq) — Builder [alias]", tier=ModelTier.BUILDER, priority=2,
+        max_requests_per_day=10000, max_tokens_per_minute=12000, context_window=131072,
+        api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
     ),
 
     # ═══════════════════════════════════════════════════════════════════

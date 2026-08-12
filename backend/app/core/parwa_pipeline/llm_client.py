@@ -1,17 +1,22 @@
 """
 PARWA Pipeline V2 — Shared LLM Client
 
-Production LLM routing via Smart Router (11 models across 4 tiers via 3 API keys).
+Production LLM routing via node-based assembly line + Smart Router fallback.
 
-Tier configuration:
-  LIGHT  (ALL tasks): Cerebras Llama 3.1 8B → Groq Llama 3.1 8B → Google Gemma 3 27B
-  MEDIUM (reserved):  Google Gemini Flash-Lite → Google Gemini Flash → Groq Llama 3.3 70B → Groq Qwen3 32B
-  HEAVY  (reserved):  Groq GPT-OSS 120B → Cerebras GPT-OSS 120B → Groq Llama 4 Scout
-  GUARDRAIL:          Groq GPT-OSS 120B (user-tested best for safety checks)
+User-validated (2026-08-12): "llama-3.1-8b gives best results for ALL pipeline
+tasks." Groq llama-3.1-8b-instant is now PRIMARY for all runtime tiers.
 
-User-validated: llama-3.1-8b gives best results for ALL pipeline tasks.
-Only guardrail/checking uses gpt-oss-120b.
-All variants get ALL model tiers; only restrictions differ.
+Node-based routing (assembly line — no ticket waits for another):
+  LIGHT  (≤150 tok): Groq → Cerebras → Mistral → Gemini → Aion → NVIDIA
+  MEDIUM (≤300 tok): Groq → Cerebras → Mistral → Gemini → Aion → NVIDIA
+  HEAVY  (300+ tok): Cerebras → Groq → Mistral → Gemini → Aion → NVIDIA
+  BUILDER:           Groq llama-3.1-8b-instant (onboarding agent creation)
+  GUARDRAIL:         Groq GPT-OSS Safeguard 20B
+
+NVIDIA GLM-5.2 is LAST in runtime fallback chains because it takes ~58s/call
+(warm) / 90s+ (cold) — using it as primary caused the 11-node pipeline to
+take 5-10 MINUTES per ticket → Render HTTP timeout → ticket escalated.
+NVIDIA is still used for embeddings (different endpoint, fast).
 
 LiteLLM auto-routes cerebras/, groq/, gemini/ prefixes to the correct API key.
 The Smart Router handles priority-based failover — if the primary model in a
@@ -748,7 +753,7 @@ async def _call_litellm_direct(messages: list, temperature: float, max_tokens: i
         if not os.environ.get("GEMINI_API_KEY") and os.environ.get("GOOGLE_AI_API_KEY"):
             os.environ["GEMINI_API_KEY"] = os.environ["GOOGLE_AI_API_KEY"]
 
-        model = os.environ.get("AI_LIGHT_MODEL", "nvidia/z-ai/glm-5.2")
+        model = os.environ.get("AI_LIGHT_MODEL", "groq/llama-3.1-8b-instant")
 
         response = await litellm.acompletion(
             model=model,

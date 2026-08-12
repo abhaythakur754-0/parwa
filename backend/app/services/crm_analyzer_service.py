@@ -10,7 +10,7 @@ Business Value:
 - Personalized recommendations based on actual data patterns
 
 BC-001: All operations scoped to company_id.
-LLM: NVIDIA z-ai/glm-5.2 (user's preferred model)
+LLM: Groq llama-3.1-8b-instant (user-validated best model, ~1s/call)
 """
 
 import json
@@ -465,34 +465,35 @@ class CRMAnalyzerService:
         return gaps
 
     async def _call_nvidia_glm(self, prompt: str, max_tokens: int = 800, temperature: float = 0.3) -> str:
-        """Call NVIDIA GLM 5.2 directly for CRM analysis.
-        
-        Uses the same NVIDIA API key and endpoint as the main pipeline.
-        Model: z-ai/glm-5.2 (your preferred LLM)
-        
-        This bypasses the generic llm_call to ensure we use NVIDIA GLM specifically
-        for integration recommendations - giving more consistent results.
+        """Call Groq llama-3.1-8b-instant for CRM analysis.
+
+        Previously called NVIDIA GLM-5.2 but that took ~58s/call (vs Groq's ~1s).
+        User validation (2026-08-12): llama-3.1-8b gives best results for ALL
+        pipeline tasks, including CRM analysis.
+
+        Method name kept as _call_nvidia_glm for backward compat (callers
+        unchanged). Only the underlying provider changed.
         """
         import httpx
-        
-        api_key = os.environ.get("NVIDIA_API_KEY", "")
+
+        api_key = os.environ.get("GROQ_API_KEY", "")
         if not api_key:
-            logger.warning("NVIDIA_API_KEY not set for CRM analysis")
+            logger.warning("GROQ_API_KEY not set for CRM analysis")
             return ""
-        
+
         messages = [
             {
                 "role": "system",
                 "content": "You are Parwa's intelligent integration advisor. You analyze business data and recommend specific third-party integrations that would improve their workflow. Always respond in valid JSON format."
             },
             {
-                "role": "user", 
+                "role": "user",
                 "content": prompt
             }
         ]
-        
+
         payload = {
-            "model": "z-ai/glm-5.2",  # Your preferred NVIDIA GLM model
+            "model": "llama-3.1-8b-instant",  # Groq — user-validated best model
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
@@ -501,32 +502,32 @@ class CRMAnalyzerService:
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
-        
+
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with httpx.AsyncClient(timeout=30.0) as client:
                 r = await client.post(
-                    "https://integrate.api.nvidia.com/v1/chat/completions",
+                    "https://api.groq.com/openai/v1/chat/completions",
                     json=payload,
                     headers=headers,
                 )
-            
+
             if r.status_code == 200:
                 data = r.json()
                 content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
                 usage = data.get("usage", {})
                 logger.info(
-                    "NVIDIA GLM CRM analysis complete: tokens=%s (prompt=%s, completion=%s)",
+                    "Groq CRM analysis complete: tokens=%s (prompt=%s, completion=%s)",
                     usage.get("total_tokens", "?"),
                     usage.get("prompt_tokens", "?"),
                     usage.get("completion_tokens", "?"),
                 )
                 return content.strip()
             else:
-                logger.error("NVIDIA GLM API error %d: %s", r.status_code, r.text[:200])
+                logger.error("Groq API error %d: %s", r.status_code, r.text[:200])
                 return ""
-                
+
         except Exception as e:
-            logger.error("NVIDIA GLM call failed: %s", str(e)[:200])
+            logger.error("Groq call failed: %s", str(e)[:200])
             return ""
 
     async def _generate_recommendations(
@@ -536,7 +537,7 @@ class CRMAnalyzerService:
         connected: List[Dict[str, Any]],
         gaps: List[Dict[str, Any]],
     ) -> List[Dict[str, Any]]:
-        """Use NVIDIA GLM 5.2 to generate personalized integration recommendations."""
+        """Use Groq llama-3.1-8b to generate personalized integration recommendations."""
 
         # Build context for LLM
         connected_names = [c["name"] for c in connected]
@@ -717,7 +718,7 @@ Respond in EXACTLY this JSON format (no markdown, no extra text):
                 detected_gaps=result.get("detected_gaps", []),
                 recommendations=result.get("recommendations", []),
                 analysis_summary=result.get("analysis_summary", ""),
-                llm_model_used="z-ai/glm-5.2",
+                llm_model_used="llama-3.1-8b-instant",
             )
             
             self.db.add(db_result)
