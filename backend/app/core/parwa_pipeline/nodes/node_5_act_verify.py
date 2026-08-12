@@ -322,7 +322,7 @@ async def _execute_real_refund(
 
 async def _react_execute(
     action: str, details: Dict, knowledge: str, crm_data: Dict,
-    tenant_id: str = "",
+    tenant_id: str = "", state: Dict = None, logs: list = None,
 ) -> Dict[str, Any]:
     """Think-Act-Observe loop for complex action execution.
 
@@ -1558,7 +1558,7 @@ async def node_5_act_verify(state: PipelineV2State) -> dict:
 
         else:
             # Amount looks good — proceed with ReAct execution
-            react_result = await _react_execute(action, details, knowledge_str, crm_data, tenant_id=tenant_id)
+            react_result = await _react_execute(action, details, knowledge_str, crm_data, tenant_id=tenant_id, state=state, logs=logs)
 
             # L2-2. SafetyNet: scrub PII from observation AFTER execution
             if react_result.get("observation"):
