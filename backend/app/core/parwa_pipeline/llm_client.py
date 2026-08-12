@@ -188,14 +188,14 @@ async def llm_call(
     system_prompt: str = "",
     step_type: str = "",
 ) -> str:
-    """Single LLM call — ALL tasks go to local Gemma 3 (streaming mode).
+    """Single LLM call — Provider Pool (Groq + Cerebras + Mistral).
 
-    With streaming enabled, Gemma handles ALL token counts (up to 650).
-    No timeout issues — streaming keeps the connection alive.
-
-    If Gemma fails (sandbox down, timeout) → falls back to cloud (Groq + Cerebras).
+    Uses round-robin across 3 cloud providers with automatic failover.
+    When a provider returns 429, it's cooled down for 60s and skipped.
     """
     global _call_count, _total_errors
+
+    await _wait_for_rate_limit()
 
     _call_count += 1
     call_id = _call_count
@@ -208,22 +208,11 @@ async def llm_call(
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
 
-    # ── PRIMARY: Local Gemma 3 (streaming, handles ALL tasks) ──
-    try:
-        result = await _call_gemma_local(messages, temperature, max_tokens, call_id)
-        if result and len(result.strip()) > 0:
-            logger.info("LLM call #%d: GEMMA SUCCESS (%d chars, step=%s, tokens=%d)", call_id, len(result), step_type, max_tokens)
-            return result
-        logger.warning("LLM call #%d: GEMMA empty response, trying cloud", call_id)
-    except Exception as exc:
-        logger.warning("LLM call #%d: GEMMA failed (%s), trying cloud", call_id, str(exc)[:100])
-
-    # ── FALLBACK: Cloud providers (Groq + Cerebras) ──
-    await _wait_for_rate_limit()
-    
+    # ── Provider Pool: Groq + Mistral + Cerebras ──
     pool = get_provider_pool()
     all_providers = [
         ("groq", _call_groq_direct),
+        ("mistral", _call_mistral_direct),
         ("cerebras", _call_cerebras_direct),
     ]
 
@@ -241,9 +230,10 @@ async def llm_call(
             result = await provider_fn(messages, temperature, max_tokens, call_id)
             if result and len(result.strip()) > 0:
                 pool.record_success(provider_name)
-                logger.info("LLM call #%d: %s FALLBACK SUCCESS (%d chars)", call_id, provider_name, len(result))
+                logger.info("LLM call #%d: %s SUCCESS (%d chars, step=%s)", call_id, provider_name, len(result), step_type)
                 return result
             pool.record_failure(provider_name, status_code=0)
+            logger.warning("LLM call #%d: %s returned empty response", call_id, provider_name)
         except RuntimeError as exc:
             status_code = 0
             msg = str(exc)
@@ -252,22 +242,31 @@ async def llm_call(
                     status_code = int(part)
                     break
             pool.record_failure(provider_name, status_code=status_code)
-            logger.warning("LLM call #%d: %s failed (status=%d)", call_id, provider_name, status_code)
+            logger.warning("LLM call #%d: %s failed (status=%d): %s", call_id, provider_name, status_code, str(exc)[:100])
         except Exception as exc:
             pool.record_failure(provider_name, status_code=0)
             logger.warning("LLM call #%d: %s error: %s", call_id, provider_name, str(exc)[:100])
 
-    # ── LAST RESORT: Smart Router ──
+    # ── FALLBACK: Smart Router (LiteLLM — 11 models) ──
     try:
         smart_result = await _call_smart_router(messages, temperature, max_tokens, call_id, step_type)
         if smart_result and len(smart_result.strip()) > 0:
-            logger.info("LLM call #%d: Smart Router FALLBACK SUCCESS", call_id)
+            logger.info("LLM call #%d: Smart Router SUCCESS (%d chars)", call_id, len(smart_result))
             return smart_result
     except Exception as exc:
-        logger.warning("LLM call #%d: Smart Router error: %s", call_id, str(exc)[:150])
+        logger.warning("LLM call #%d: Smart Router error (%s)", call_id, str(exc)[:150])
+
+    # ── LAST RESORT: Direct LiteLLM call ──
+    try:
+        direct_result = await _call_litellm_direct(messages, temperature, max_tokens, call_id)
+        if direct_result and len(direct_result.strip()) > 0:
+            logger.info("LLM call #%d: Direct LiteLLM SUCCESS (%d chars)", call_id, len(direct_result))
+            return direct_result
+    except Exception as exc:
+        logger.warning("LLM call #%d: Direct LiteLLM error (%s)", call_id, str(exc)[:150])
 
     _total_errors += 1
-    logger.error("LLM call #%d FAILED: All providers (Gemma + cloud) exhausted", call_id)
+    logger.error("LLM call #%d FAILED: All providers exhausted", call_id)
     raise RuntimeError("LLM call failed: all providers exhausted")
 
 
@@ -671,6 +670,45 @@ async def _call_cerebras_direct(messages: list, temperature: float, max_tokens: 
         return content.strip()
     else:
         raise RuntimeError(f"Cerebras API error {r.status_code}: {r.text[:200]}")
+
+
+
+
+async def _call_mistral_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
+    """Direct Mistral API call — 60 RPM free tier, 500K TPM."""
+    import os
+    import httpx
+
+    api_key = os.environ.get("MISTRAL_API_KEY", "").strip()
+    if not api_key:
+        return ""
+
+    payload = {
+        "model": "mistral-small-latest",
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        r = await client.post(
+            "https://api.mistral.ai/v1/chat/completions",
+            json=payload,
+            headers=headers,
+        )
+
+    if r.status_code == 200:
+        data = r.json()
+        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        global _total_tokens
+        _total_tokens += data.get("usage", {}).get("total_tokens", 0)
+        return content.strip()
+    else:
+        raise RuntimeError(f"Mistral API error {r.status_code}: {r.text[:200]}")
 
 
 async def _call_groq_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:

@@ -147,7 +147,7 @@ async def generate_tool_for_agent(
             return {
                 "success": True,
                 "tool_id": tool_id,
-                "tool_definition": tool_definition,
+                "tool_definition": result,  # the full Superglue response
                 "error": None,
             }
 

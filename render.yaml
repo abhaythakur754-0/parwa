@@ -72,13 +72,9 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
-      # ── LOCAL GEMMA 3 (light tasks — free, unlimited) ──
-      - key: GEMMA_URL
-        value: "https://preview-chat-552c3dd3-0aac-41e4-baab-1d73401fc393.space-z.ai/api/v1"
-      - key: GEMMA_API_KEY
-        value: "parwa_1c20d153d090baf2153c3e9cdcd9a34bc75744fa24f572ca"
-      - key: GEMMA_MODEL
-        value: "parwa-gemma3:1b"
+      # ── Mistral AI (60 RPM, free, permanent) ──
+      - key: MISTRAL_API_KEY
+        sync: false
       # LLM Models (user-validated: llama-3.1-8b for all tasks, gpt-oss-120b for guardrail)
       - key: AI_LIGHT_MODEL
         value: "groq/llama-3.1-8b"

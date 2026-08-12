@@ -383,6 +383,10 @@ THOUGHT:"""
                             AIAgentAssignment.id == routed_agent_id,
                         ).first()
                         if _agent and _agent.superglue_tool_id and _agent.superglue_tool_status == "active":
+                            # Initialize variables that might be used in approval gate
+                            _tool_id = _agent.superglue_tool_id
+                            _tool_input = _extract_tool_inputs(details, action, knowledge)
+                            result = {"success": False, "error": "not executed"}
                             # ── APPROVAL GATE (eliminates the risky part) ──
                             # If this agent's tool does dangerous actions (refund, cancel),
                             # check if approval is required BEFORE executing.
@@ -421,13 +425,10 @@ THOUGHT:"""
                                     # The rest of Node 5 will route this to the approval queue
                                 else:
                                     # Amount below threshold → execute immediately
-                                    _tool_id = _agent.superglue_tool_id
-                                    _tool_input = _extract_tool_inputs(details, action, knowledge)
                                     result = await execute_tool(_tool_id, _tool_input)
                             else:
                                 # No approval required → execute immediately (read-only tools, lookups, etc.)
-                                _tool_id = _agent.superglue_tool_id
-                                _tool_input = _extract_tool_inputs(details, action, knowledge)
+                                # _tool_id and _tool_input already initialized above
 
                                 # ── VERIFY TOOL EXISTS before calling (Gap #1 fix) ──
                                 # If Superglue server was reset, the tool won't exist.

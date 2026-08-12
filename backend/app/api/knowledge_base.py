@@ -44,6 +44,9 @@ router = APIRouter(prefix="/api/kb", tags=["Knowledge Base"])
 
 logger = logging.getLogger("parwa.knowledge_base")
 
+# In-memory cooldown tracker for KB-triggered rebuilds
+_kb_rebuild_cooldowns: dict = {}
+
 
 # ── Allowed File Types ─────────────────────────────────────────────
 
