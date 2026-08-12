@@ -454,38 +454,43 @@ def _enforce_max_payload_size(sender=None, headers=None, body=None, **kwargs):
 app.config_from_object(_build_config())
 
 # ── FORCE DB 0 (Upstash free tier only supports DB 0) ─────────────
-# Even though config.py's validator strips /N from Redis URLs, some
-# Render service connection strings include /1 which can bypass the
-# validator in edge cases. This is a belt-and-suspenders fix that
-# forces the celery broker_url and result_backend to use DB 0.
-# Fixes: "Only 0th database is supported! Selected DB: 1"
+#
+# CRITICAL FIX (2026-08-12): Celery's app.conf.broker_url reads the
+# CELERY_BROKER_URL env var DIRECTLY, bypassing our pydantic validator
+# in config.py. Even though `settings.CELERY_BROKER_URL` (validated)
+# has /1 stripped, celery's app.conf.broker_url still has /1 because
+# it reads the raw env var.
+#
+# This causes: "Only 0th database is supported! Selected DB: 1"
+#
+# Fix: use app.conf.update() which FORCES the value and overrides
+# any env-var-based lazy reading. We use the validated settings value
+# (which already has /N stripped by config.py's validator).
 import re as _re
-_broker_url = app.conf.broker_url or ""
-_result_backend = app.conf.result_backend or ""
-if _broker_url and not "upstash" in _broker_url.lower():
-    # Strip any /N suffix and force /0
-    _broker_url = _re.sub(r"/\d+$", "/0", _broker_url)
-    if not _re.search(r"/\d+$", _broker_url):
-        _broker_url = _broker_url.rstrip("/") + "/0"
-    # Convert rediss:// to redis:// for Render internal Redis
-    if _broker_url.startswith("rediss://"):
-        _broker_url = "redis://" + _broker_url[len("rediss://"):]
-    app.conf.broker_url = _broker_url
-elif _broker_url and "upstash" in _broker_url.lower():
-    # Upstash: strip /N entirely (Upstash uses default DB 0)
-    _broker_url = _re.sub(r"/\d+$", "", _broker_url)
-    app.conf.broker_url = _broker_url
+from app.config import get_settings as _get_settings
+_settings = _get_settings()
+_forced_broker = _settings.CELERY_BROKER_URL
+_forced_backend = _settings.CELERY_RESULT_BACKEND
 
-if _result_backend and not "upstash" in _result_backend.lower():
-    _result_backend = _re.sub(r"/\d+$", "/0", _result_backend)
-    if not _re.search(r"/\d+$", _result_backend):
-        _result_backend = _result_backend.rstrip("/") + "/0"
-    if _result_backend.startswith("rediss://"):
-        _result_backend = "redis://" + _result_backend[len("rediss://"):]
-    app.conf.result_backend = _result_backend
-elif _result_backend and "upstash" in _result_backend.lower():
-    _result_backend = _re.sub(r"/\d+$", "", _result_backend)
-    app.conf.result_backend = _result_backend
+# Extra safety: strip any /N that might have leaked through
+if _forced_broker and "upstash" in _forced_broker.lower():
+    _forced_broker = _re.sub(r"/\d+$", "", _forced_broker)
+if _forced_backend and "upstash" in _forced_backend.lower():
+    _forced_backend = _re.sub(r"/\d+$", "", _forced_backend)
+
+# Force the values into celery's config (overrides env var)
+app.conf.update(
+    broker_url=_forced_broker,
+    result_backend=_forced_backend,
+    broker_connection_retry_on_startup=False,
+    broker_connection_max_retries=1,
+)
+
+logger.info(
+    "celery_broker_forced url=%s db_stripped=%s",
+    _forced_broker[:60] + ("..." if len(_forced_broker) > 60 else ""),
+    _forced_broker != (app.conf.broker_url or ""),
+)
 
 # ── Autodiscover tasks ────────────────────────────────────────────
 app.autodiscover_tasks(["app.tasks"])
