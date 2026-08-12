@@ -214,6 +214,7 @@ async def llm_call(
         ("groq", _call_groq_direct),
         ("mistral", _call_mistral_direct),
         ("cerebras", _call_cerebras_direct),
+        ("aion", _call_aion_direct),
     ]
 
     tried_providers = set()
@@ -684,7 +685,7 @@ async def _call_mistral_direct(messages: list, temperature: float, max_tokens: i
         return ""
 
     payload = {
-        "model": "mistral-small-latest",
+        "model": "mistral-small-latest",  # Mistral Small 4 (free tier)
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
@@ -709,6 +710,57 @@ async def _call_mistral_direct(messages: list, temperature: float, max_tokens: i
         return content.strip()
     else:
         raise RuntimeError(f"Mistral API error {r.status_code}: {r.text[:200]}")
+
+
+
+
+async def _call_aion_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
+    """Direct Aion Labs API call — 15 RPM, 20K TPD.
+    
+    Uses Aion 3.0 Mini (reasoning model).
+    Best for: medium tasks when Groq/Mistral are rate-limited.
+    Cuts off after 20K tokens/day (falls back to other providers).
+    """
+    import os
+    import httpx
+
+    api_key = os.environ.get("AION_API_KEY", "").strip()
+    if not api_key:
+        return ""
+
+    payload = {
+        "model": "aion-3.0-mini",
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            r = await client.post(
+                "https://api.aionlabs.ai/v1/chat/completions",
+                json=payload,
+                headers=headers,
+            )
+
+        if r.status_code == 200:
+            data = r.json()
+            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            global _total_tokens
+            _total_tokens += data.get("usage", {}).get("total_tokens", 0)
+            return content.strip()
+        else:
+            raise RuntimeError(f"Aion API error {r.status_code}: {r.text[:200]}")
+    except httpx.TimeoutException:
+        raise RuntimeError(f"Aion timeout (call #{call_id})")
+    except RuntimeError:
+        raise
+    except Exception as exc:
+        raise RuntimeError(f"Aion call failed: {str(exc)[:200]}")
 
 
 async def _call_groq_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:

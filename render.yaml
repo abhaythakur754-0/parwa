@@ -75,6 +75,9 @@ services:
       # ── Mistral AI (60 RPM, free, permanent) ──
       - key: MISTRAL_API_KEY
         sync: false
+      # ── Aion Labs (15 RPM, free) ──
+      - key: AION_API_KEY
+        sync: false
       # LLM Models (user-validated: llama-3.1-8b for all tasks, gpt-oss-120b for guardrail)
       - key: AI_LIGHT_MODEL
         value: "groq/llama-3.1-8b"
